@@ -102,7 +102,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'Where PRD n lives today: its state, inbox or shipped, its folder, the files in it, its ' +
       'outbox folder and the open items waiting there. The folder is the status, so this is the ' +
-      'one lookup the skills run before following any delivery path. Exit 1 when the PRD is in ' +
+      'one lookup the skills run before following any delivery path. Where dossiers are on, its last ' +
+      'line is the product its dossier on the Omni page names, product: <name> or product: none, or ' +
+      'product: unknown with why when the page cannot tell. Exit 1 when the PRD is in ' +
       'neither {inbox} nor {shipped}.',
   },
   {
@@ -292,7 +294,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
       'instead: its visual update or bug fix page, filled from its folder. With --kind concept, they ' +
       'work on concept n, its issue\'s number: its page under Work › Concepts, filled from its ' +
-      'concept.md, vision tour, boards and debate. It never holds up the ' +
+      'concept.md, vision tour, boards and debate. With --product <name>, a PRD\'s push names the product ' +
+      'the brainstorm asked for, for a repository in several products: the first push makes it the ' +
+      'PRD\'s product, and a repository in one product or none decides alone. It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
@@ -517,6 +521,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the repository has; unreachable when gh cannot read it. It reads GitHub through gh, clones ' +
       'nothing and refreshes nothing. --json prints the same rows as one document. Exit 0 when ' +
       'every row is ok, 1 otherwise, or 1 with not a plan repository.',
+  },
+  {
+    name: 'product',
+    kind: 'command',
+    who: 'you',
+    label: 'omni product …',
+    usage: ['omni product import --product <name>', 'omni product which'],
+    summary: "plan targets into a product; this repo's products",
+    detail:
+      'omni product import --product <name> copies the targets of this plan repository, its ' +
+      'plan.targets, into the product of that name on the Omni page, with your sign-in: each ' +
+      'target becomes a repository link with its role, knowledge, read-at commit, read-only flag ' +
+      'and what it consumes, an existing link is changed to match, and it prints what it added and ' +
+      'changed. A second run changes nothing. It never edits the config: swap targets for ' +
+      'product: <name> in the plan section yourself, and omni targets then reads the links from ' +
+      'the product. Only an owner of the workspace changes its links. omni product which prints ' +
+      'the products this repository is in, one per line, or none. Either exits 1, with one line ' +
+      'saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses.',
   },
   {
     name: 'whoami',

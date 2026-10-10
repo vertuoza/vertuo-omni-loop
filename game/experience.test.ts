@@ -218,6 +218,13 @@ describe('unlockedFor', () => {
     expect(unlockedFor(2, ['invaders', 'platformer'], later)).toEqual(['invaders', 'platformer']);
   });
 
+  it('opens OMNI KART at LV 3 under the rulebook, and keeps it after a rule change moves it later (PRD 1359)', () => {
+    expect(unlockedFor(2, [])).toEqual(['invaders', 'platformer']);
+    expect(unlockedFor(3, [])).toEqual(['invaders', 'kart', 'platformer']);
+    const later = rules({ unlocks: { invaders: 1, platformer: 2, kart: 9 } });
+    expect(unlockedFor(3, ['invaders', 'kart', 'platformer'], later)).toEqual(['invaders', 'kart', 'platformer']);
+  });
+
   it('adds to the games already stored, and never takes one away', () => {
     const later = rules({ unlocks: { invaders: 5 } });
     expect(unlockedFor(3, ['invaders'], later)).toEqual(['invaders']);

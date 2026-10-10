@@ -1,0 +1,12 @@
+/* The product filter (PRD 1364 s12), above /prd, /ideas, /bugs and /visual: a row of pills as the
+   lists' Mine and All are drawn (src/dossier/page/dossier.css), wrapping on a phone. */
+.product-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 12px; min-width: 0; }
+.product-filter-label { font: 700 13px/1 var(--ask-body); color: var(--ask-muted); margin-right: 6px; }
+.ask a.product-filter-pick {
+  font: 700 14px/1 var(--ask-body); color: var(--ask-ink); text-decoration: none; padding: 8px 14px;
+  border: 1.5px solid var(--ask-line-strong); border-radius: 999px; background: var(--ask-surface);
+}
+.ask a.product-filter-pick:hover { background: var(--ask-sunk); }
+.ask a.product-filter-pick[aria-current="page"] { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.ask a.product-filter-pick:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.product-filter-unreadable { margin: 0 0 12px; }

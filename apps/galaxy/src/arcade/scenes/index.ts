@@ -8,6 +8,7 @@ import { drawChart, drawSystem } from './chart.ts';
 import { drawFleets } from './fleets.ts';
 import { drawGames, drawPlatformer } from './games.ts';
 import { drawInvaders } from './invaders.ts';
+import { drawKart } from './kart.ts';
 import { drawLevelUp } from './levelup.ts';
 import { drawAway, drawCoin, drawGate, drawIntro, drawReady, drawWelcome } from './join.ts';
 import { drawMap } from './map.ts';
@@ -25,16 +26,13 @@ export {
   chartKey, chartStep, layoutChart, layoutSystem, orbitStep, sunAt, worldAt, type ChartLayout, type ChartSource, type SystemLayout,
 } from './chart-layout.ts';
 
+const TITLE_PHASES = { title: drawTitle, story: drawStory, hiscore: drawHeroes } as const;
+
 export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePhase: 'title' | 'story' | 'hiscore') {
   ctx.imageSmoothingEnabled = false;
   switch (s.scene) {
     case 'boot': { drawBoot(ctx, s); return; }
-    case 'title': {
-      if (titlePhase === 'story') drawStory(ctx, s);
-      else if (titlePhase === 'hiscore') drawHeroes(ctx, s);
-      else drawTitle(ctx, s);
-      return;
-    }
+    case 'title': { TITLE_PHASES[titlePhase](ctx, s); return; }
     case 'menu': { drawMenu(ctx, s); return; }
     case 'map': { drawMap(ctx, s); return; }
     case 'planet': { drawPlanetScene(ctx, s); return; }
@@ -55,6 +53,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'games': { drawGames(ctx, s); return; }
     case 'invaders': { drawInvaders(ctx, s); return; }
     case 'platformer': { drawPlatformer(ctx, s); return; }
+    case 'kart': { drawKart(ctx, s); return; }
     case 'levelup': { drawLevelUp(ctx, s); return; }
   }
 }

@@ -7,8 +7,8 @@ import { memberWorkspace } from '../data/workspace';
 import { githubStore } from '../dossier/github/server';
 import { installationSettingsUrl, reachedRepositories } from '../signup/github-app';
 import type { Installation } from '../signup/installation';
-import type { Product } from '../business/model';
-import { rowOf, type RepositoryRow, type StoredRepository } from './model';
+import { repositoryRowOf, type RepositoryProduct, type RepositoryRow } from './model';
+import { repositoriesRepository, type GithubOf, type StoredProductLink } from './repositories.repository';
 import type { Access } from './RepositoriesView';
 
 // Settings → Repositories's read (PRD 612 s1). As the signed-in person, so row-level security decides
@@ -17,9 +17,10 @@ import type { Access } from './RepositoriesView';
 // App client: the installation (the one the workspace stored, else the App's installation on its
 // GitHub account, as the knowledge map finds it), and the repositories it can see. A role that cannot
 // be read reads as a member's; an installation or a listing that cannot be read leaves the page
-// without Add repository's offer and without the no-access marks, never without its list. PRD 748 s4
-// adds each repository's product and the business's products, as the signed-in person too; products
-// that cannot be read leave the page without its product selects, never without its list. PRD 902 s6:
+// without Add repository's offer and without the no-access marks, never without its list. PRD 1364 s11
+// reads the products that link each repository (product_repositories), as the signed-in person too;
+// products that cannot be read leave the page without its chips, never without its list. The reads
+// themselves are repositories.repository.ts's (ADR-0095). PRD 902 s6:
 // the repositories the installation reaches are read with its token through the shared, budget-aware
 // client, `interactive` (the person waits on the page), on the budget the whole server shares; a paused
 // budget reads as a listing that cannot be read. PRD 1246 s4 reads whether each repository's ideas
@@ -45,17 +46,8 @@ export type RepositoriesLoad =
     workspace: { id: string; name: string };
     owner: boolean;
     repositories: RepositoryRow[];
-    /** The business's products, first first (PRD 748 s4); a select shows from the second on. */
-    products: Product[];
     access: Access;
   };
-
-async function ownerOf(db: SupabaseClient<Database>, workspace: string): Promise<boolean> {
-  // `data` is widened to unknown: is_owner's answer is read here unparsed, so only a true is an owner.
-  const { data, error }: { data: unknown; error: Error | null } = await db.rpc('is_owner', { workspace });
-  if (error) throw error;
-  return data === true;
-}
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
@@ -65,38 +57,25 @@ function asMember(err: unknown): boolean {
   return false;
 }
 
-async function rowsOf(db: SupabaseClient<Database>, workspace: string): Promise<RepositoryRow[]> {
-  // `data` is widened to null: the rows are read here unparsed.
-  const { data, error }: { data: StoredRepository[] | null; error: Error | null } = await db
-    .from('repositories')
-    .select('full_name, tracked, collected_at, collect_error, product_id, public_ideas, phase0')
-    .eq('workspace_id', workspace);
-  if (error) throw new Error(`Supabase: could not read the repositories (${error.message})`);
-  return (data ?? []).map(rowOf);
+/** Each repository's products, by `owner/name`, first first (PRD 1364 s11). A link to a product the
+ * workspace does not list is left out. */
+function productsByRepository(products: readonly RepositoryProduct[], links: readonly StoredProductLink[]): Map<string, RepositoryProduct[]> {
+  const linked = new Map<string, Set<string>>();
+  for (const l of links) linked.set(l.repository.toLowerCase(), (linked.get(l.repository.toLowerCase()) ?? new Set()).add(l.product_id));
+  const byRepository = new Map<string, RepositoryProduct[]>();
+  for (const [repository, ids] of linked) byRepository.set(repository, products.filter((p) => ids.has(p.id)));
+  return byRepository;
 }
 
-type GithubOf = { github_org: string | null; github_installation_id: number | string | null };
-
-async function githubOf(db: SupabaseClient<Database>, workspace: string): Promise<GithubOf> {
-  // `data` is widened to null: the row is read here unparsed.
-  const { data, error }: { data: GithubOf | null; error: Error | null } =
-    await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
-  if (error) throw new Error(`Supabase: could not read the workspace's GitHub installation (${error.message})`);
-  return data ?? { github_org: null, github_installation_id: null };
-}
-
-/** The business's products, first first (PRD 748 s4). None when there is no business yet. */
-async function productsOf(db: SupabaseClient<Database>, workspace: string): Promise<Product[]> {
-  // `data` is widened to null: the rows are read here unparsed.
-  const { data, error }: { data: Product[] | null; error: Error | null } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
-  if (error) throw error;
-  return (data ?? []).map(({ id, name }) => ({ id, name }));
-}
-
-/** Products that cannot be read: the page then shows no product select, never no list. */
-function noProducts(err: unknown): Product[] {
-  console.error(`repositories: the products could not be read (${why(err)})`);
-  return [];
+/** Products or links that cannot be read: the page then shows no chip, never no list. */
+async function productsOf(store: ReturnType<typeof repositoriesRepository>, workspace: string): Promise<Map<string, RepositoryProduct[]>> {
+  try {
+    const [products, links] = await Promise.all([store.products(workspace), store.links(workspace)]);
+    return productsByRepository(products, links);
+  } catch (err) {
+    console.error(`repositories: the products could not be read (${why(err)})`);
+    return new Map();
+  }
 }
 
 /** The workspace's installation: its stored id's, else its org's or the person's own. */
@@ -144,17 +123,20 @@ export async function loadRepositoriesPage(
   let repositories: RepositoryRow[];
   let owner: boolean;
   let github: GithubOf;
-  let products: Product[];
+  const store = repositoriesRepository(db);
   try {
     workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
-    [repositories, owner, github, products] = await Promise.all([
-      rowsOf(db, workspace.id), ownerOf(db, workspace.id).catch(asMember), githubOf(db, workspace.id), productsOf(db, workspace.id).catch(noProducts),
+    const [rows, isOwner, githubRow, products] = await Promise.all([
+      store.rows(workspace.id), store.owner(workspace.id).catch(asMember), store.github(workspace.id), productsOf(store, workspace.id),
     ]);
+    repositories = rows.map((r) => repositoryRowOf(r, products.get(r.full_name.toLowerCase()) ?? []));
+    owner = isOwner;
+    github = githubRow;
   } catch (err) {
     console.error(`repositories: the page could not be read (${why(err)})`);
     return { kind: 'unreadable' };
   }
   const access = await accessOf(github, app, installUrl, client);
-  return { kind: 'repositories', workspace: { id: workspace.id, name: workspace.name }, owner, repositories, access, products };
+  return { kind: 'repositories', workspace: { id: workspace.id, name: workspace.name }, owner, repositories, access };
 }

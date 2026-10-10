@@ -44,6 +44,12 @@
 // a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
+//
+// A PRD's product (PRD 1364): each workspace's products and their repositories, seeded by a test
+// (seedProduct), and dossier_push()'s birth rule of supabase/migrations/20261129100000_prd_product.sql:
+// a PRD dossier with no product, in a repository of one product, takes it; in several, the one of them
+// its first push names (any case); in none, none. A later push never changes it, and the answer carries
+// the dossier's product, {id, name} or null. A member reads the workspace's products.
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
@@ -65,7 +71,11 @@ export { FAKE_WORKSPACE, type FakeAccount };
 export type FakeDossier = {
   id: string; workspace_id: string; home_repo: string; prd: PrdNumber | null; kind: PushKind; title: string;
   opened_by: string | null; claude_session_id: string | null; created_at: string; numbered_at: string | null;
+  /** PRD 1364: its product, or none. */
+  product_id?: string | null;
 };
+/** A product of a workspace (PRD 1364), and the repositories linked to it, lower-cased. */
+type FakeProduct = { id: string; workspace_id: string; name: string; repos: string[] };
 export type FakeVersion = {
   id: string; dossier_id: string; kind: string; content: string; sha256: string; bytes: number;
   source: 'kit' | 'github'; uploaded_by: string | null; commit_sha: string | null; git_blob: string | null; created_at: string;
@@ -110,7 +120,7 @@ const sessionFits = (session: unknown): session is string | null => session === 
 
 type SentArtifact = { kind: PushedArtifactKind; content: string };
 /** dossier_push()'s arguments, checked. */
-type PushArgs = { repo: string; prd: PrdNumber; title: string; draftId: unknown; kind: PushKind; sent: SentArtifact[] };
+type PushArgs = { repo: string; prd: PrdNumber; title: string; draftId: unknown; kind: PushKind; sent: SentArtifact[]; product: string };
 
 /** The artifacts a push sends to a `kind` dossier, each checked, or the refusal of the first that fails. */
 function sentArtifacts(artifacts: unknown, kind: PushKind): Checked<SentArtifact[]> {
@@ -157,6 +167,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     /** Each member's GitHub login, avatar, fleet and hero (PRD 652), by workspace id then account id. */
     players: Record<string, Record<string, FakePlayer>>;
     teams: FakeFleet[];
+    products: FakeProduct[];
   } = {
     dossiers: [], dossier_versions: [],
     ask_sessions: [], ask_rounds: [], ask_shares: [],
@@ -164,6 +175,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     plan_repos: {},
     players: {},
     teams: [],
+    products: [],
   };
   /** `fail`: every read fails so. `rosterDown` (PRD 652): only the faces' reads (roster and fleets) fail. */
   const state: { fail: Failure | null; calls: number; rosterDown: boolean } = { fail: null, calls: 0, rosterDown: false };
@@ -231,7 +243,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     if (!titleFits(title)) return refused('22023', 'A dossier needs a title of 1 to 200 characters.');
     const sent = sentArtifacts(args.p_artifacts, kind);
     if (!sent.ok) return sent;
-    return { ok: true, value: { repo, prd, title, draftId: args.p_draft ?? null, kind, sent: sent.value } };
+    const product = trimmed(args.p_product).toLowerCase();
+    return { ok: true, value: { repo, prd, title, draftId: args.p_draft ?? null, kind, sent: sent.value, product } };
   }
 
   /** The draft named, numbered `prd`: merged into the dossier already keyed so, if there is one. */
@@ -284,6 +297,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     if (!found.ok) return found.refusal;
     const dossier = found.value;
     dossier.title = pushed.title;
+    if (pushed.kind === 'prd') bear(dossier, pushed.product);
 
     const added: Array<{ kind: string; version: number }> = [];
     const unchanged: string[] = [];
@@ -292,7 +306,19 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       if (version === null) unchanged.push(kind);
       else added.push({ kind, version });
     }
-    return { data: { id: dossier.id, added, unchanged }, error: null };
+    const product = tables.products.find((p) => p.id === dossier.product_id);
+    return { data: { id: dossier.id, added, unchanged, product: product ? { id: product.id, name: product.name } : null }, error: null };
+  }
+
+  /** The birth rule (PRD 1364): a PRD dossier with no product takes its repository's only one, or, on its
+   * first push in a repository of several, the one of them `named` (lower-cased) names. */
+  function bear(dossier: FakeDossier, named: string): void {
+    if (dossier.product_id) return;
+    const first = !tables.dossier_versions.some((v) => v.dossier_id === dossier.id);
+    const ofRepo = tables.products.filter((p) => p.workspace_id === dossier.workspace_id && p.repos.includes(dossier.home_repo));
+    const [only] = ofRepo;
+    if (ofRepo.length === 1 && only) dossier.product_id = only.id;
+    else if (first && named !== '') dossier.product_id = ofRepo.find((p) => p.name.toLowerCase() === named)?.id ?? null;
   }
 
   /**
@@ -301,7 +327,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
    * their own draft (its versions go with it), and no other delete removes a row. Only the steps the
    * page's reads and the lookup take: select, eq, order (nulls where Postgres puts them, or where `nullsFirst` says), limit, maybeSingle, delete.
    */
-  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams') {
+  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams' | 'products') {
     let columns: string[] | null = null;
     let removing = false;
     const filters: Array<(row: Row) => boolean> = [];
@@ -310,7 +336,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
     const readable = (row: Row): boolean => {
       if (!me) return false;
-      if (table === 'teams') return typeof row.workspace_id === 'string' && isMember(me, row.workspace_id);
+      if (table === 'teams' || table === 'products') return typeof row.workspace_id === 'string' && isMember(me, row.workspace_id);
       if (table === 'ask_shares') {
         // "a member reads the shares of their workspace's rounds" (20260927120000_ask_shares.sql).
         const round = tables.ask_rounds.find((r) => r.id === row.round_id);
@@ -464,7 +490,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   function client(token: string) {
     const me = accounts[token] ?? null;
     return {
-      from: (table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams') => query(me, table),
+      from: (table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams' | 'products') => query(me, table),
       rpc: (name: string, args: Row) => Promise.resolve().then((): Result => {
         state.calls += 1;
         if (state.fail) return { data: null, error: state.fail };
@@ -530,5 +556,12 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     if (fleet) tables.teams.push({ workspace_id: workspace, ...fleet });
   }
 
-  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, sha256 };
+  /** A product of `workspace` named `name` (PRD 1364), its repositories linked to it; its id. */
+  function seedProduct(name: string, repos: string[], { workspace = FAKE_WORKSPACE }: { workspace?: string } = {}): string {
+    const id = newId();
+    tables.products.push({ id, workspace_id: workspace, name, repos: repos.map((r) => r.toLowerCase()) });
+    return id;
+  }
+
+  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, seedProduct, sha256 };
 }

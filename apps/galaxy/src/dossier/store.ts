@@ -9,7 +9,7 @@
 // Since PRD 1272 a concept is a kind too (supabase/migrations/20261119090000_concept_dossiers.sql),
 // numbered by its issue, with its record, its vision tour, a board per round and its debate.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { type Outcome, StoreError } from '../data/store-error';
 
@@ -82,10 +82,25 @@ export type DossierPush = {
   draftId: string | null;
   /** Each kind once, but variations and boards: a round each, oldest first. */
   artifacts: DossierArtifact[];
+  /** PRD 1364: the product a PRD's first push names, by name, for a repository in several products; the
+   * database applies the birth rule (supabase/migrations/20261129100000_prd_product.sql). */
+  product?: string | null;
 };
 
-/** What a push did: every kind it received is either added (with its new version) or unchanged. */
-export type DossierPushed = { id: string; added: Array<{ kind: PushedArtifactKind; version: number }>; unchanged: PushedArtifactKind[] };
+/** A dossier's product, as the database names it (PRD 1364), or null when it has none. */
+export type DossierProduct = { id: string; name: string } | null;
+
+/** What a push did: every kind it received is either added (with its new version) or unchanged, and the
+ * dossier's product after it (PRD 1364). */
+export type DossierPushed = {
+  id: string; added: Array<{ kind: PushedArtifactKind; version: number }>; unchanged: PushedArtifactKind[]; product: DossierProduct;
+};
+
+/** A product as an answer carries it, `{id, name}`, or null when it is not one. */
+function productOf(value: unknown): DossierProduct {
+  const id = propertyOf(value, 'id'), name = propertyOf(value, 'name');
+  return typeof id === 'string' && typeof name === 'string' ? { id, name } : null;
+}
 
 /**
  * The database refused or failed; `code` is Postgres's: 42501 the caller belongs to no workspace,
@@ -111,13 +126,15 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
     },
 
     /** Sends a PRD folder's artifacts; the dossier they went to and which versions were added. */
-    async push({ repo, prd, kind = 'prd', title, draftId, artifacts }: DossierPush): Promise<DossierPushed> {
-      // A PRD's push names no kind, as before PRD 627: the function reads a missing one as prd.
-      const pushed = settle<Partial<DossierPushed>>('push the dossier', await db.rpc('dossier_push', {
+    async push({ repo, prd, kind = 'prd', title, draftId, artifacts, product = null }: DossierPush): Promise<DossierPushed> {
+      // A PRD's push names no kind, as before PRD 627: the function reads a missing one as prd. It names
+      // a product only when one was sent (PRD 1364): the function reads a missing one as none.
+      const pushed = settle<Partial<Omit<DossierPushed, 'product'>> & { product?: unknown }>('push the dossier', await db.rpc('dossier_push', {
         p_repo: repo, p_prd: prd, p_title: title, p_draft: draftId, p_artifacts: artifacts, ...(kind === 'prd' ? {} : { p_kind: kind }),
+        ...(product === null ? {} : { p_product: product }),
       }));
       if (!pushed || typeof pushed.id !== 'string') throw new DossierStoreError('push the dossier', undefined, 'no dossier came back');
-      return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [] };
+      return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [], product: productOf(pushed.product) };
     },
   };
 }
@@ -196,6 +213,15 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
         .eq('home_repo', repo.toLowerCase()).eq('kind', kind).eq('prd', prd)
         .order('numbered_at', { ascending: false, nullsFirst: false }).order('id', { ascending: true }).limit(1));
       return rows?.[0]?.id ?? null;
+    },
+
+    /** The product of dossier `id` (PRD 1364), `{id, name}`, or null when it has none or the caller may
+     * read neither it nor its product. */
+    async product(id: string): Promise<DossierProduct> {
+      const row = settle<{ product_id: string | null }>('read the dossier\'s product', await db.from('dossiers').select('product_id').eq('id', id).maybeSingle());
+      if (!row?.product_id) return null;
+      const named = settle<{ id: string; name: string }>('read the product', await db.from('products').select('id, name').eq('id', row.product_id).maybeSingle());
+      return productOf(named);
     },
 
     /** Deletes a draft: true when it went, false when the caller is not its opener, it is numbered, or

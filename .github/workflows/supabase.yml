@@ -149,6 +149,21 @@ jobs:
         # are refused. Members read the repositories, pull requests and reviews; a stranger reads
         # nothing; nobody writes the three tables directly. vertuoza alone is seeded with six.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/repositories.sql
+      - name: A repository in several products
+        # PRD 1364: a repository links to any number of products, each link with its own role,
+        # knowledge, read-at, read-only and consumes. Only an owner links and unlinks; a self-consume,
+        # a consumes outside the product and an imported link without read-at are refused.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_repositories.sql
+      - name: A PRD's product
+        # PRD 1364: a PRD and an idea carry an optional product, taken at birth from a repository in one
+        # product, none in no product, the named one in several; changing it is locked while an approval
+        # is in force, and a PRD's product links its repositories.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_product.sql
+      - name: Which product a lookup finds
+        # PRD 1364: every product lookup reads the PRD's own product, then the repository's only
+        # product, then none: approvers, claims, personas, constituents and pitch follow it, and a
+        # token in a workspace of several products answers with no product instead of failing.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_lookups.sql
       - name: Who may read and write the business
         # Any member of a workspace opens its business, picks, suggests, confirms and rejects claims,
         # adds and renames products, points repositories at them and cites claims, through the business
