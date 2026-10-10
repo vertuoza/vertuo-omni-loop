@@ -584,6 +584,21 @@ with the service role, reads a sealed key, to call Jev (`src/jev/client.ts`: the
 floor live in `public.jev_decisions`, every call in `public.jev_calls`
 (`supabase/migrations/20261022090000_jev_decisions.sql`, proven by `supabase/checks/jev.sql`).
 
+**`law-worth` (PRD 1342)** is the seventh decision, Off by default like the others
+(`src/jev/decisions/law-worth.ts`, `supabase/migrations/20261128140000_law_worth.sql`): whether a rule
+or an invariant the knowledge harvest found, with no test proving it yet, is worth a law, an
+executable test that fails when it is broken. It reads the statement, its `Why`, the principle it
+serves, its domain and its PRD's title, and today's answer is the classifier's own `worthALaw`. At or
+above the threshold, the knowledge PR writes the law `Enforced by: pending #<issue>` and its law issue
+opens; under it, the decision stays in its PRD's `settled.md`. Asked two ways: from a terminal by
+`omni decide law-worth` (the harvest and the `omni knowledge judge` sweep), and by omni-app's harvest
+through **`POST /api/laws/judge`** (`app/api/laws/judge/route.ts`, `src/jev/decisions/law-judge-route.ts`),
+`{repo, state, old, ref?}` answered `200 {answer, confidence, decidedBy}`. The route is signed as the
+constituent judge's is, an HMAC-SHA256 over the exact body in `x-omni-signature-256`, under its own
+`LAW_JUDGE_SECRET`, the same value in omni-app's project; it caps the body at 64 KiB and refuses a
+state with a field it does not know. Without the secret it refuses every call, and the harvest takes
+the classifier's answer.
+
 Without `SECRETS_MASTER_KEY` (32 random bytes, base64: `openssl rand -base64 32`), the page says *Jev
 is not available on this deployment* and nothing can be saved. Losing it makes every stored key
 unreadable: each call then fails, today's path decides, and the owner pastes the key again.
@@ -1121,7 +1136,10 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    For Jev (PRD 812), one more, server only: `SECRETS_MASTER_KEY`, 32 random bytes in base64
    (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
    Settings › Jev says Jev is not available on this deployment and every decision is made as before
-   ([Settings › Jev](#settings--jev-prd-812)).
+   ([Settings › Jev](#settings--jev-prd-812)). For the law judge (PRD 1342), `LAW_JUDGE_SECRET`, a
+   long random string (`openssl rand -hex 32`), the same value as on omni-app, which signs the
+   harvest's calls to `/api/laws/judge`. Without it, the route refuses every call and the classifier
+   says whether a law is worth one.
 
    Every variable the arcade reads, each optional and read once at startup (`src/env.ts`,
    `src/env.client.ts`, ADR-0057); [`.env.example`](.env.example) says what each one does:
