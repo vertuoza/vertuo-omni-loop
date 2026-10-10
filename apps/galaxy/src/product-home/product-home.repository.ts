@@ -9,7 +9,9 @@ import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts
 // (prd_stages) and topics (prd_topics), their outbox questions waiting on a person (prd_outbox.waiting),
 // their approvals and the voids of those (PRD 1299, PRD 1322), the approval requests waiting on the caller
 // (approval_requests_waiting()), and the workspace's open pull requests on a feature branch
-// (pull_requests). A failed read throws, and an answer out of shape too. No rule lives here: which lane a
+// (pull_requests). Since s10, its other tabs': the product's ideas still on a board (ideas.product_id),
+// its roadmaps (roadmaps.product_id), and its bug and visual fixes (dossiers of kind `bug` or `visual`).
+// A failed read throws, and an answer out of shape too. No rule lives here: which lane a
 // PRD is on is product-home.service.ts's.
 
 /** What the product home's reads need: the tables and the database's functions. */
@@ -61,6 +63,45 @@ const PULL_COLUMNS = 'repo, number, head';
 export const StoredPull = z.object({ repo: z.string(), number: PrNumberSchema, head: z.string() });
 export type StoredPull = z.infer<typeof StoredPull>;
 
+const IDEA_COLUMNS = 'id, repo, title, pitch, lane, prd, created_at';
+/** An idea of the product still on its board (PRD 1364 s10). */
+export const StoredIdea = z.object({
+  id: z.string(),
+  repo: z.string(),
+  title: z.string(),
+  pitch: z.string(),
+  lane: z.string(),
+  prd: PrdNumberSchema.nullable(),
+  created_at: z.string(),
+});
+export type StoredIdea = z.infer<typeof StoredIdea>;
+
+const ROADMAP_COLUMNS = 'id, number, repo, title, milestone, target_date, created_at';
+/** A roadmap of the product (PRD 1364 s10). */
+export const StoredRoadmap = z.object({
+  id: z.string(),
+  number: z.number().int(),
+  repo: z.string(),
+  title: z.string(),
+  milestone: z.string(),
+  target_date: z.string().nullable(),
+  created_at: z.string(),
+});
+export type StoredRoadmap = z.infer<typeof StoredRoadmap>;
+
+/** The dossier kinds a fix is: a bug fix's and a visual fix's (PRD 627). */
+const FIX_KINDS = ['bug', 'visual'] as const;
+const FIX_COLUMNS = 'id, kind, home_repo, title, created_at';
+/** A bug or visual fix of the product (PRD 1364 s10). */
+export const StoredFix = z.object({
+  id: z.string(),
+  kind: z.enum(FIX_KINDS),
+  home_repo: z.string(),
+  title: z.string(),
+  created_at: z.string(),
+});
+export type StoredFix = z.infer<typeof StoredFix>;
+
 /** One request waiting on the caller, as approval_requests_waiting() lists it: only its dossier is read. */
 const WaitingRequest = z.object({ dossier: z.string() });
 
@@ -73,6 +114,29 @@ export const productOf = (db: From, workspace?: string) => {
 /** The numbered PRDs of every product, or of the workspace's product given, newest first. */
 export const productPrdsOf = (db: From, scope?: { workspace: string; product: string }) => {
   const read = db.from('dossiers').select(PRD_COLUMNS).eq('kind', 'prd').not('prd', 'is', null).not('product_id', 'is', null);
+  return (scope === undefined ? read : read.eq('workspace_id', scope.workspace).eq('product_id', scope.product))
+    .order('created_at', { ascending: false });
+};
+
+type ProductScope = { workspace: string; product: string };
+
+/** The ideas on a board of every product, or of the workspace's product given, newest first. */
+export const productIdeasOf = (db: From, scope?: ProductScope) => {
+  const read = db.from('ideas').select(IDEA_COLUMNS).eq('archived', false).not('product_id', 'is', null);
+  return (scope === undefined ? read : read.eq('workspace_id', scope.workspace).eq('product_id', scope.product))
+    .order('created_at', { ascending: false });
+};
+
+/** The roadmaps of every product, or of the workspace's product given, newest first. */
+export const productRoadmapsOf = (db: From, scope?: ProductScope) => {
+  const read = db.from('roadmaps').select(ROADMAP_COLUMNS).not('product_id', 'is', null);
+  return (scope === undefined ? read : read.eq('workspace_id', scope.workspace).eq('product_id', scope.product))
+    .order('created_at', { ascending: false });
+};
+
+/** The bug and visual fixes of every product, or of the workspace's product given, newest first. */
+export const productFixesOf = (db: From, scope?: ProductScope) => {
+  const read = db.from('dossiers').select(FIX_COLUMNS).in('kind', [...FIX_KINDS]).not('product_id', 'is', null);
   return (scope === undefined ? read : read.eq('workspace_id', scope.workspace).eq('product_id', scope.product))
     .order('created_at', { ascending: false });
 };
@@ -133,6 +197,27 @@ export function productHomeRepository(db: ProductHomeDb) {
       const { data, error } = await productPrdsOf(db, { workspace, product });
       if (error) throw new Error(`Supabase: could not read the product's PRDs (${why(error)})`);
       return orThrow(parseRows(StoredHomePrd, data, `${WHERE}: dossiers`));
+    },
+
+    /** The product's ideas still on a board, newest first. */
+    async ideas(workspace: string, product: string): Promise<StoredIdea[]> {
+      const { data, error } = await productIdeasOf(db, { workspace, product });
+      if (error) throw new Error(`Supabase: could not read the product's ideas (${why(error)})`);
+      return orThrow(parseRows(StoredIdea, data, `${WHERE}: ideas`));
+    },
+
+    /** The product's roadmaps, newest first. */
+    async roadmaps(workspace: string, product: string): Promise<StoredRoadmap[]> {
+      const { data, error } = await productRoadmapsOf(db, { workspace, product });
+      if (error) throw new Error(`Supabase: could not read the product's roadmaps (${why(error)})`);
+      return orThrow(parseRows(StoredRoadmap, data, `${WHERE}: roadmaps`));
+    },
+
+    /** The product's bug and visual fixes, newest first. */
+    async fixes(workspace: string, product: string): Promise<StoredFix[]> {
+      const { data, error } = await productFixesOf(db, { workspace, product });
+      if (error) throw new Error(`Supabase: could not read the product's fixes (${why(error)})`);
+      return orThrow(parseRows(StoredFix, data, `${WHERE}: fix dossiers`));
     },
 
     /** The stages of the workspace's PRDs in `repos`. */

@@ -16,7 +16,8 @@ const stage = (n: number, s: 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped'
 
 const base = (over: Partial<ProductHomeRows> = {}): ProductHomeRows => ({
   product: { id: 'p-mobile', name: 'Mobile' },
-  prds: [], stages: [], outbox: [], approvals: [], voids: [], waitingOnMe: [], topics: [], pulls: [], me: ME, ...over,
+  prds: [], stages: [], outbox: [], approvals: [], voids: [], waitingOnMe: [], topics: [], pulls: [], ideas: [], roadmaps: [], fixes: [], me: ME,
+  ...over,
 });
 
 const lane = (rows: ProductHomeRows, id: 'on-you' | 'on-review' | 'on-agent') =>
@@ -130,6 +131,59 @@ describe('the PRDs tab', () => {
   });
 });
 
+describe('the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs (s10)', () => {
+  it('lists the product\'s ideas in the order read, each with its board\'s lane and PRD', () => {
+    const rows = base({
+      ideas: [
+        { id: 'i-2', repo: 'vertuo/api', title: 'Calmer gate', pitch: 'Fewer pings.', lane: 'next', prd: parsePrd(12), created_at: '2026-10-02T00:00:00Z' },
+        { id: 'i-1', repo: 'vertuo/web', title: 'Dark mode', pitch: 'Easier at night.', lane: 'now', prd: null, created_at: '2026-10-01T00:00:00Z' },
+      ],
+    });
+    expect(productHomeOf(rows).ideas).toEqual([
+      { id: 'i-2', repo: 'vertuo/api', title: 'Calmer gate', pitch: 'Fewer pings.', lane: 'next', prd: 12 },
+      { id: 'i-1', repo: 'vertuo/web', title: 'Dark mode', pitch: 'Easier at night.', lane: 'now', prd: null },
+    ]);
+  });
+
+  it('lists the product\'s roadmaps, each with its milestone and target date', () => {
+    const rows = base({ roadmaps: [{ id: 'r-1', number: 3, repo: 'vertuo/api', title: 'Spring', milestone: 'Beta', target_date: null, created_at: '2026-10-01T00:00:00Z' }] });
+    expect(productHomeOf(rows).roadmaps).toEqual([{ id: 'r-1', number: 3, repo: 'vertuo/api', title: 'Spring', milestone: 'Beta', targetDate: null }]);
+  });
+
+  it('splits the product\'s fixes into bug fixes and visual fixes, each in the order read', () => {
+    const fix = (id: string, kind: 'bug' | 'visual', title: string) => ({ id, kind, home_repo: 'vertuo/api', title, created_at: '2026-10-01T00:00:00Z' });
+    const home = productHomeOf(base({ fixes: [fix('d-b2', 'bug', 'Crash'), fix('d-v1', 'visual', 'Darker'), fix('d-b1', 'bug', 'Typo')] }));
+    expect(home.bugs).toEqual([
+      { dossier: 'd-b2', repo: 'vertuo/api', title: 'Crash', created: '2026-10-01T00:00:00Z' },
+      { dossier: 'd-b1', repo: 'vertuo/api', title: 'Typo', created: '2026-10-01T00:00:00Z' },
+    ]);
+    expect(home.visuals).toEqual([{ dossier: 'd-v1', repo: 'vertuo/api', title: 'Darker', created: '2026-10-01T00:00:00Z' }]);
+  });
+
+  it('lists every question waiting on a person of the product\'s PRDs, newest PRD first, none of a shipped one or of another PRD', () => {
+    const rows = base({
+      prds: [prd('d-2', 913, { title: 'Quotes' }), prd('d-1', 912, { title: 'Search' }), prd('d-0', 900)],
+      stages: [stage(913, 'building'), stage(912, 'outbox'), stage(900, 'shipped')],
+      outbox: [
+        { repository: 'vertuo/api', prd: parsePrd(912), waiting: [{ id: 's2-01', rank: 'high', question: 'Round per line?' }] },
+        { repository: 'vertuo/api', prd: parsePrd(913), waiting: [{ id: 's1-01', rank: 'human-action', question: 'Add the secret?' }, { id: 's1-02', rank: 'high', question: 'Keep the cache?' }] },
+        { repository: 'vertuo/api', prd: parsePrd(900), waiting: [{ id: 's1-01', rank: 'high', question: 'Stale?' }] },
+        { repository: 'vertuo/api', prd: parsePrd(999), waiting: [{ id: 's1-01', rank: 'high', question: 'Not ours?' }] },
+      ],
+    });
+    expect(productHomeOf(rows).questions).toEqual([
+      { dossier: 'd-2', repo: 'vertuo/api', prd: 913, title: 'Quotes', id: 's1-01', rank: 'human-action', question: 'Add the secret?' },
+      { dossier: 'd-2', repo: 'vertuo/api', prd: 913, title: 'Quotes', id: 's1-02', rank: 'high', question: 'Keep the cache?' },
+      { dossier: 'd-1', repo: 'vertuo/api', prd: 912, title: 'Search', id: 's2-01', rank: 'high', question: 'Round per line?' },
+    ]);
+  });
+
+  it('is empty on every tab for a product with nothing', () => {
+    const home = productHomeOf(base());
+    expect([home.ideas, home.roadmaps, home.bugs, home.visuals, home.questions]).toEqual([[], [], [], [], []]);
+  });
+});
+
 describe('the product home\'s service', () => {
   function store(over: Partial<ProductHomeRepository> = {}) {
     const calls: string[] = [];
@@ -143,6 +197,9 @@ describe('the product home\'s service', () => {
       voids: (ids) => { calls.push(`voids ${ids.join()}`); return Promise.resolve([]); },
       waitingOnMe: () => { calls.push('waiting'); return Promise.resolve([]); },
       featurePulls: (ws) => { calls.push(`pulls ${ws}`); return Promise.resolve([]); },
+      ideas: (ws, id) => { calls.push(`ideas ${ws} ${id}`); return Promise.resolve([]); },
+      roadmaps: (ws, id) => { calls.push(`roadmaps ${ws} ${id}`); return Promise.resolve([]); },
+      fixes: (ws, id) => { calls.push(`fixes ${ws} ${id}`); return Promise.resolve([{ id: 'd-v', kind: 'visual', home_repo: 'vertuo/web', title: 'Darker', created_at: '2026-10-01T00:00:00Z' }]); },
       ...over,
     };
     return { calls, s };
@@ -153,7 +210,11 @@ describe('the product home\'s service', () => {
     const home = await productHomeService(s).home({ product: 'p-1', workspace: 'ws-1', me: ME });
     expect(home?.product).toEqual({ id: 'p-1', name: 'Mobile' });
     expect(home?.ledger.lanes['on-agent'].map((r) => r.prd)).toEqual([7]);
-    expect(calls).toEqual(['product ws-1 p-1', 'prds ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting', 'pulls ws-1']);
+    expect(home?.visuals.map((f) => f.dossier)).toEqual(['d-v']);
+    expect(calls).toEqual([
+      'product ws-1 p-1', 'prds ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting',
+      'pulls ws-1', 'ideas ws-1 p-1', 'roadmaps ws-1 p-1', 'fixes ws-1 p-1',
+    ]);
   });
 
   it('answers null for a product the workspace does not hold, and reads nothing more', async () => {

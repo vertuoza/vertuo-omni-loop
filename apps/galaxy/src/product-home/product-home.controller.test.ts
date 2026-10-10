@@ -16,6 +16,11 @@ const HOME: ProductHome = {
   product: { id: 'p-1', name: 'Mobile' },
   ledger: { lanes: { 'on-you': [], 'on-review': [], 'on-agent': [] }, summary: { building: 0, waitingOnPerson: 0, drifted: 0 } },
   prds: [],
+  ideas: [],
+  roadmaps: [],
+  bugs: [],
+  visuals: [],
+  questions: [],
 };
 
 function deps(over: Partial<ProductHomeDeps> = {}) {
