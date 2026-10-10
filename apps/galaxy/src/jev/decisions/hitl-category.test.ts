@@ -50,10 +50,10 @@ describe('hitl-category', () => {
     expect(hitlCategory.value(0.7, TUNING)).toBeNull();
   });
 
-  it('is registered, made in Galaxy only, and listed last on Settings › Jev', () => {
+  it('is registered, made in Galaxy only, and listed sixth on Settings › Jev', () => {
     expect(jevEntry('hitl-category')).toBe(hitlCategory);
     expect(hitlCategory.terminal).toBeUndefined();
-    const row = JEV_DECISIONS.at(-1);
+    const row = JEV_DECISIONS[5];
     expect(row?.name).toBe('hitl-category');
     expect(row?.sends).toMatch(/source, text, act and repository/);
   });

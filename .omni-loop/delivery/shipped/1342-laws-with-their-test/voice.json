@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-10",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each rule's test has to fail when the rule breaks before it counts. That is proof I can read, not a promise.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The rule caught its own pull request twice and asked a person each time. It is a gate that bites, not a pile of fluff tests.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "My features only wait when they touch a rule, but this delivery still stopped three times for answers.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Rules that carry their test, and no agent able to weaken one alone, is the cohesion I asked for.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My quick fixes pass as before unless they touch a rule, and then the question says which one in plain words.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✓"
     }
   ]
 }

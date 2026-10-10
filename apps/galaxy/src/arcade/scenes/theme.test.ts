@@ -50,7 +50,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .sort((a, b) => a.sort - b.sort);
 const SCENES: SceneName[] = [
   'boot', 'title', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'coin', 'away', 'gate', 'intro',
-  'select', 'name', 'hero', 'ready', 'welcome', 'outsider',
+  'select', 'name', 'hero', 'ready', 'welcome', 'outsider', 'kart',
 ];
 
 /** A theme that overrides every token, each with a colour no default has: #1000xx. */

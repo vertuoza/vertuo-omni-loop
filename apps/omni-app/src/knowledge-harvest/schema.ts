@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { ClassificationSchema } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/schema/config.ts';
-import { CommentIdSchema, PrNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** `omni-loop/knowledge.harvest.requested`: where a pull request merged. */
 export const HarvestEventSchema = z.looseObject({
@@ -142,6 +142,18 @@ const PlacedSchema = z.object({
   reason: z.string(),
   enforcedBy: z.array(z.string()).exactOptional(),
   dropped: z.array(z.object({ path: z.string(), reason: z.string() })).exactOptional(),
+  law: z.object({ worth: z.boolean(), decidedBy: z.string(), confidence: z.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional(),
+});
+
+/** A law issue the harvest opens before writing its law `Enforced by: pending #<n>` (PRD 1342). */
+const LawIssueSchema = z.object({
+  id: z.string(),
+  entry: z.string(),
+  register: z.string(),
+  statement: z.string(),
+  source: z.string(),
+  title: z.string(),
+  body: z.string(),
 });
 
 /** The step "write": the knowledge written, both checks, and the commit that carries it. */
@@ -156,7 +168,32 @@ export const WrittenSchema = z.object({
     deletes: z.array(z.string()),
   }),
   taken: z.array(z.string()),
+  lawIssues: z.array(LawIssueSchema),
 });
+
+/** The state `law-worth` reads: exactly the five fields galaxy's law judge accepts. */
+const LawWorthStateSchema = z.object({
+  statement: z.string(),
+  why: z.string().nullable(),
+  principle: z.string().nullable(),
+  domain: z.string().nullable(),
+  prdTitle: z.string().nullable(),
+});
+
+/** The step "law-questions": each rule or invariant no changed test proves, with the classifier's answer. */
+export const LawQuestionsSchema = z.array(z.object({ id: z.string(), state: LawWorthStateSchema, old: z.boolean() }));
+
+/** A step "law-worth:<id>": Jev's answer when it counted, else null and why. */
+export const LawJudgementSchema = z.object({
+  worth: z.object({ worth: z.boolean(), decidedBy: z.string(), confidence: z.number().nullable() }).nullable(),
+  reason: z.string().nullable(),
+});
+
+/** A step "law-issue:<id>": the law issue's number. */
+export const LawIssueOpenedSchema = z.object({ number: IssueNumberSchema, created: z.boolean() });
+
+/** One issue of `GET /repos/{owner}/{repo}/issues`: its number and title, and whether it is a pull request. */
+export const ListedIssueSchema = z.looseObject({ number: IssueNumberSchema, title: z.string().nullish(), pull_request: z.unknown().optional() });
 
 /** The step "publish": the knowledge branch, its commit and its pull request; `null` with nothing to publish. */
 export const PublishedSchema = z

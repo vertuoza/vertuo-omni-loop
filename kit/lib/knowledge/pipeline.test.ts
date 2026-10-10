@@ -5,9 +5,14 @@ import { makeMarkers } from '../markers.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { renderAdoptedEntry, settledHeader } from '../outbox/settle.ts';
 import type { ClassificationReply } from './classify.ts';
-import { PullFilesSchema, finishHarvest, keptPaths, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
+import { PullFilesSchema, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
+import type { LawWorth } from './write.ts';
 import { assertDefined } from '../../test/assert.ts';
-import { parsePr, parsePrd } from '../ids.ts';
+import { parseIssue, parsePr, parsePrd } from '../ids.ts';
+
+/** Law issue numbers, by candidate id, as the writer takes them. */
+const issueNumbers = (numbers?: Record<string, number>) =>
+  numbers && Object.fromEntries(Object.entries(numbers).map(([id, n]) => [id, parseIssue(n)]));
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -185,6 +190,122 @@ describe('the files the feature pull request changed (PRD 1171)', () => {
     const { finished } = harvest(SHIPPED, { 's1-02-button-colour': RULE });
     const rules = finished.edits.writes.find((w) => w.path === `${K}/product/rules.md`);
     expect(rules?.text).toContain('Enforced by: unenforced\n');
+  });
+});
+
+describe('worth a law? The harvest\'s three paths, as data (PRD 1342)', () => {
+  const INVARIANT: ClassificationReply = { kind: 'invariant', place: 'product', statement: 'A widget always has a name.', reason: 'must always hold' };
+  const RULE: ClassificationReply = {
+    kind: 'rule',
+    place: 'product',
+    statement: 'A widget is built the simple way.',
+    serves: 'new',
+    principle: { statement: 'Widgets stay simple.', why: 'simple widgets are easy to change.' },
+    reason: 'a provable rule',
+  };
+  const CHANGED = [{ path: 'kit/lib/foo.test.ts', status: 'added' }];
+
+  function run(replies: Record<string, ClassificationReply>, options: { worth?: Record<string, LawWorth>; lawIssues?: Record<string, number> } = {}) {
+    const r = makeRepo({ files: { ...files(SHIPPED), 'kit/lib/foo.test.ts': 'test\n' }, git: true });
+    repos.push(r);
+    const prepared = prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE, changed: CHANGED }) as Extract<Prepared, { ok: true }>;
+    const classified = prepared.candidates.map((c) => {
+      const reply = replies[c.id];
+      return reply ? { id: c.id, reply, worth: options.worth?.[c.id] ?? null } : { id: c.id, reply: null, reason: 'not asked' };
+    });
+    const finish = (lawIssues?: Record<string, number>) => finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27', lawIssues: issueNumbers(lawIssues) });
+    return { r, prepared, classified, finish };
+  }
+  const ledgerOf = (finished: ReturnType<typeof finishHarvest>) => finished.edits.writes.find((w) => w.path === `${SHIPPED}/outbox/settled.md`)?.text ?? '';
+  const rulesOf = (finished: ReturnType<typeof finishHarvest>) => finished.edits.writes.find((w) => w.path === `${K}/product/rules.md`)?.text ?? '';
+
+  it('lawQuestions asks law-worth of every rule and invariant no changed test proves, with its state and the classifier\'s answer', () => {
+    const { r, prepared, classified } = run({
+      's1-01-local-name': STAYS,
+      's1-02-button-colour': { ...RULE, worthALaw: true },
+      's1-03-covered': { ...INVARIANT, worthALaw: false, enforcedBy: ['kit/lib/foo.test.ts'] },
+      's1-04-unasked': { ...INVARIANT, worthALaw: false },
+    });
+    expect(lawQuestions({ ctx: r.ctx, prepared, classified, prdTitle: 'Widgets' })).toEqual([
+      {
+        id: 's1-02-button-colour',
+        old: true,
+        state: {
+          statement: 'A widget is built the simple way.',
+          why: 'a provable rule',
+          principle: 'new: Widgets stay simple.',
+          domain: 'product',
+          prdTitle: 'Widgets',
+        },
+      },
+      {
+        id: 's1-04-unasked',
+        old: false,
+        state: { statement: 'A widget always has a name.', why: 'must always hold', principle: null, domain: 'product', prdTitle: 'Widgets' },
+      },
+    ]);
+  });
+
+  it('lawQuestions names an existing principle with its statement, and skips a reply with no worthALaw', () => {
+    const r = makeRepo({
+      files: {
+        ...files(SHIPPED),
+        [`${K}/product/principles.md`]: '# Product principles\n\n## P-PRODUCT-1\n\nKeep it small.\n\nWhy: small is cheap.\nDecided: @ada, 2026-09-01\nSource: PRD #3\n',
+      },
+      git: true,
+    });
+    repos.push(r);
+    const prepared = prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }) as Extract<Prepared, { ok: true }>;
+    const serving: ClassificationReply = { kind: 'rule', place: 'product', statement: 'Widgets are small.', serves: 'P-PRODUCT-1', worthALaw: true, reason: 'a rule' };
+    const classified = [
+      { id: 's1-01-local-name', reply: serving },
+      { id: 's1-02-button-colour', reply: { ...INVARIANT } },
+      { id: 's1-03-covered', reply: null },
+    ];
+    expect(lawQuestions({ ctx: r.ctx, prepared, classified, prdTitle: null })).toEqual([
+      {
+        id: 's1-01-local-name',
+        old: true,
+        state: { statement: 'Widgets are small.', why: 'a rule', principle: 'P-PRODUCT-1: Keep it small.', domain: 'product', prdTitle: null },
+      },
+    ]);
+  });
+
+  it('a "no" stays in the ledger as not worth a law, even with nothing else promoted', () => {
+    const { finish } = run({ 's1-02-button-colour': { ...RULE, worthALaw: false } });
+    const finished = finish();
+    expect(finished.lawIssues).toEqual([]);
+    expect(rulesOf(finished)).toBe('');
+    expect(ledgerOf(finished)).toContain('- Stays here: not worth a law (classifier)');
+    expect(finished.placed).toEqual([expect.objectContaining({ id: 's1-02-button-colour', kind: 'stays-here' })]);
+  });
+
+  it('a "yes" first names its law issue and writes no entry; given the issue, writes it pending, green', () => {
+    const { finish } = run(
+      { 's1-01-local-name': ADR, 's1-02-button-colour': { ...RULE, worthALaw: false } },
+      { worth: { 's1-02-button-colour': { worth: true, decidedBy: 'Jev', confidence: 0.9 } } },
+    );
+    const first = finish();
+    expect(first.lawIssues.map((issue) => [issue.id, issue.entry, issue.title])).toEqual([
+      ['s1-02-button-colour', 'BR-PRODUCT-1', 'Law: A widget is built the simple way.'],
+    ]);
+    expect(rulesOf(first)).toBe('');
+    expect(first.notPlaced).toContainEqual({ id: 's1-02-button-colour', reason: 'its law issue opens first' });
+
+    const second = finish({ 's1-02-button-colour': 51 });
+    expect(second.lawIssues).toEqual([]);
+    expect(rulesOf(second)).toContain('## BR-PRODUCT-1');
+    expect(rulesOf(second)).toContain('Enforced by: pending #51\n');
+    expect(ledgerOf(second)).toContain('- Became: BR-PRODUCT-1, P-PRODUCT-1');
+    expect(second.checks.knowledge).toEqual([]);
+    expect(second.placed.find((p) => p.id === 's1-02-button-colour')?.law).toEqual({ worth: true, decidedBy: 'Jev', confidence: 0.9, issue: 51 });
+  });
+
+  it('a law whose test the pull request changed is written with it, and asks nothing', () => {
+    const { finish } = run({ 's1-02-button-colour': { ...RULE, enforcedBy: ['kit/lib/foo.test.ts'], worthALaw: false } });
+    const finished = finish();
+    expect(finished.lawIssues).toEqual([]);
+    expect(rulesOf(finished)).toContain('Enforced by: kit/lib/foo.test.ts\n');
   });
 });
 

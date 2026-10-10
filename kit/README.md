@@ -183,3 +183,33 @@ names) or `cites` (an entry to another whose id its statement or `Why:` names). 
 same parser every other command reads the registers with, so an agent can ask what serves a
 principle, or what a domain holds, in one call. A repository without a knowledge folder prints an
 empty graph.
+
+**Laws and their tests** (PRD 1342) apply only where `laws.source` is `knowledge`. A rule or an
+invariant's `Enforced by:` names a test path, `unenforced`, or `pending #<n>`: a law judged worth a
+test before it had one, whose **law issue** `#<n>` is labelled `labels.law` (default `omni:law`,
+which `omni init` creates). The classifier's reply carries `worthALaw` for every rule and invariant,
+and the harvest (`omni harvest`, and the app's) takes one of three paths for each: a test the feature
+changed becomes its `Enforced by:`; no test and not worth a law keeps it out of the registers, in its
+PRD's `settled.md` as `stays-here` with the note `not worth a law (<decided by> <score>)`; no test and
+worth a law writes it `pending #<n>` and opens its law issue. `omni decide law-worth` asks Jev's
+`law-worth` decision with the terminal's sign-in, and its answer replaces the classifier's when the
+workspace has put the decision On and Jev answers above its floor. **`omni knowledge judge`** is the
+sweep a repository runs once (it needs `OPENROUTER_API_KEY`, and exits `2` without it, writing
+nothing): every `unenforced` rule and invariant is asked "worth a law?", the model first, then
+`omni decide law-worth`; a yes opens its law issue through `gh` and becomes `pending #<n>`, a no
+leaves its register for its PRD's `settled.md` and the report names every entry that cited it; once
+every one is judged it sets `laws.requireProof: true` in the config. It writes the working tree and
+commits nothing: a person opens the knowledge PR. With **`laws.requireProof: true`** (default
+`false`), `omni check knowledge` refuses a confirmed rule or invariant whose `Enforced by:` is
+`unenforced`; proposed entries and a plan repository's imported copies are not held to it.
+**`/omni:enforce <issue>`** writes a law's test, proves it (red with the law broken by the smallest
+change, green with the code restored, the break never committed), rewrites `pending #<n>` to the
+test's path on `branches.law` (default `test/law-{id}`) and opens one signed PR into the default
+branch that closes the issue; a test that cannot go red stops it with a comment on the issue and the
+law left `pending`. **The four law rules** of the outbox gate, `law-proof`, `law-text`,
+`test-removed` and `law-demoted` (a law's test path turned back to `pending` or `unenforced`, or a
+law gone from the registers, read against the knowledge folder at the range's base), are accounted
+only by `item <id>` naming an item ranked `high` or above: `spec <where>` is refused for them, and
+a `medium` item leaves the change unaccounted. `/omni:bug-fix` and `/omni:visual-fix` raise those
+items in a small `outbox/` of the fix's folder when their range touches a law, and `omni bug` and
+`omni visual` name what it needs.

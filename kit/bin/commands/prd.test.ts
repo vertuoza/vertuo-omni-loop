@@ -4,7 +4,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { makeRepo } from '../../test/fixture.ts';
-import type { FetchInit } from '../../test/fixture.ts';
 import { main } from '../omni.ts';
 
 const BASE = 'https://omni.example';
@@ -25,7 +24,7 @@ const json = (status: number, body = {}) => new Response(JSON.stringify(body), {
 /** A fetch that answers every call with `reply()` and keeps each URL. */
 function stubFetch(reply: () => Response) {
   const urls: string[] = [];
-  const fetch = (url: string, _init: FetchInit) => {
+  const fetch = (url: string) => {
     urls.push(url);
     return new Promise<Response>((resolve) => {
       resolve(reply());

@@ -4,8 +4,8 @@ repository's knowledge base. Reply with one JSON object and nothing else.
 ## The kinds you may answer
 
 - `adr`: a decision record — how something is built, and why. Fields: `title`, `statement`, `reason`.
-- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `reason`.
-- `rule`: a precise, provable business rule. Fields: `place`, `statement`, `serves` (an existing principle's id, of `product` or of the rule's own place, or `new`), `principle` (`{ statement, why }`, only when `serves` is `new`), `enforcedBy` (optional), `reason`.
+- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `worthALaw` (true or false), `reason`.
+- `rule`: a precise, provable business rule. Fields: `place`, `statement`, `serves` (an existing principle's id, of `product` or of the rule's own place, or `new`), `principle` (`{ statement, why }`, only when `serves` is `new`), `enforcedBy` (optional), `worthALaw` (true or false), `reason`.
 - `covered`: an existing entry or decision record already says this. Fields: `covers` (its id, or `ADR-NNNN`), `reason`.
 - `stays-here`: a local choice with nothing lasting to keep; it stays in the ledger. Fields: `statement`, `reason`.
 
@@ -14,6 +14,7 @@ repository's knowledge base. Reply with one JSON object and nothing else.
 `reason` says why this kind and this place, at most 200 characters.
 Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.
 `enforcedBy`, on a `rule` or an `invariant` only, names one to 3 of the files listed under "The files the feature pull request changed": the ones whose tests or constraints prove the statement. Omit `enforcedBy` when none of them proves the statement.
+`worthALaw`, on every `rule` and `invariant`, says whether it is worth a law: an executable test that fails when it is broken. `true` when breaking it would hurt the product or the people who rely on it, it holds for a long time and code can check it; `false` for a one-off choice, a taste, or a fact no test can see.
 An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.
 
 ## The decision: s1-01-two-snapshots

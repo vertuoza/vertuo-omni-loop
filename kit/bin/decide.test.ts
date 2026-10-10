@@ -170,6 +170,37 @@ describe('omni decide', () => {
   });
 });
 
+describe('omni decide law-worth (PRD 1342 s3)', () => {
+  const LAW = { statement: 'A sub-PR is never merged into the default branch.', why: 'A person merges into main.', principle: 'principle#3', domain: 'delivery', prdTitle: 'Laws are born with their test' };
+  const LAW_ARGS = ['law-worth', '--state-file', 'law.json', '--old', 'false', '--ref', 'PRD 1342'];
+  const lawCheckout = () => {
+    const c = checkout();
+    writeFileSync(join(c.root, 'law.json'), JSON.stringify(LAW));
+    return c;
+  };
+
+  it('sends the law\'s state and the classifier\'s answer to the decision, and prints Jev\'s answer when it counted', async () => {
+    const c = lawCheckout();
+    const stub = stubFetch(() => ({ body: { answer: 'true', confidence: 0.91, decidedBy: 'jev' } }));
+    expect(await decide(LAW_ARGS, { ...c, fetch: stub.fetch })).toEqual({ code: 0, out: 'true 0.91\n', err: '' });
+    expect(stub.calls).toEqual([{
+      url: `${URL_}/api/decide/law-worth`, method: 'POST', authorization: 'Bearer access-1',
+      body: { repo: 'acme/widgets', state: LAW, old: 'false', ref: 'PRD 1342' },
+    }]);
+  });
+
+  it('prints unset, exiting 0, whenever Jev did not decide: Off or Shadow, a refusal, no sign-in', async () => {
+    const c = lawCheckout();
+    for (const fetch of [stubFetch(() => ({ body: OLD })).fetch, stubFetch(() => ({ status: 404, body: { error: 'no' } })).fetch]) {
+      const run = await decide(LAW_ARGS, { ...c, fetch });
+      expect(run).toMatchObject({ code: 0, out: 'unset\n' });
+      expect(run.err).toMatch(/omni decide law-worth: .* your own answer counts/);
+    }
+    const signedOut = { ...c, tokens: memoryTokens() };
+    expect(await decide(LAW_ARGS, signedOut)).toMatchObject({ code: 0, out: 'unset\n' });
+  });
+});
+
 describe('/omni:do-work\'s "Record it" step', () => {
   const skill = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../plugin/skills/do-work/SKILL.md'), 'utf8');
   const step = skill.slice(skill.indexOf('2. **Record it**'), skill.indexOf('3. **Read the JSON on stdout.**'));
