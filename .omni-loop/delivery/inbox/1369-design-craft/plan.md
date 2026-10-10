@@ -9,7 +9,7 @@ feature branch.
 | id | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- |
 | s1 | The `design` form: six slots, the product-first opener, the kit's floor and refuse defaults adapted from impeccable and credited | `kit/lib/playbook/` `kit/templates/playbook/design.md` `kit/templates/README.md` `kit/NOTICE.md` `kit/bin/kb.test.ts` `kit/bin/init.test.ts` `kit/bin/omni.test.ts` `kit/test/profiles.test.ts` `kit/test/bundle-playbook.test.ts` `kit/bin/__snapshots__/` | — | 1 |
-| s2 | `design.paths`, `commands.design` and `omni design touched` (ui: yes / no / unknown, always exit 0), with `omni help design` | `kit/lib/config.ts` `kit/lib/config.test.ts` `kit/lib/design/` `kit/bin/commands/design.ts` `kit/bin/commands/index.ts` `kit/bin/design.test.ts` `kit/bin/omni.test.ts` `kit/bin/__snapshots__/` `kit/lib/help/` | — | 2 |
+| s2 | The `design.enabled` flag (default off), `design.paths`, `commands.design` and `omni design touched` (design: off / ui: yes / no / unknown, always exit 0), with `omni help design` | `kit/lib/config.ts` `kit/lib/config.test.ts` `kit/lib/design/` `kit/bin/commands/design.ts` `kit/bin/commands/index.ts` `kit/bin/design.test.ts` `kit/bin/omni.test.ts` `kit/bin/__snapshots__/` `kit/lib/help/` | — | 2 |
 | s3 | `/omni:do-work` spots UI work and runs the bounded, never-blocking auto-review with a Design review section; `/omni:visual-fix` runs it at its real check; `/omni:plan` marks UI slices | `kit/plugin/skills/do-work/` `kit/plugin/skills/visual-fix/` `kit/plugin/skills/plan/` `kit/porting/plugin--do-work.md` `kit/porting/plugin--plan.md` `kit/test/plugin.test.ts` | s1, s2 | 3 |
 | s4 | `/omni:invade` fills the form from evidence and proposes `design.paths` and `commands.design`; think-big's Craft critic and brainstorm's before/after read the form | `kit/plugin/skills/invade/` `kit/plugin/skills/think-big/` `kit/plugin/skills/brainstorm/` `kit/porting/plugin--brainstorm.md` `kit/test/plugin.test.ts` `kit/test/brainstorm-concept.test.ts` | s1, s2 | 4 |
 | s5 | The guide's design page and the loop pages that mention the review | `docs/guide/` | s3, s4 | 5 |
@@ -37,13 +37,17 @@ the wave rebuilds it.
 - Every test that lists or counts forms says 15.
 
 **s2**
-- `design.paths` defaults to `[]` and `commands.design` to `null`; both read through `omni config`.
+- `design.enabled` defaults to `false`, `design.paths` to `[]` and `commands.design` to `null`; all
+  read through `omni config`.
+- While `design.enabled` is off, `omni design touched` prints `design: off` and exits 0.
 - `omni design touched [<base>]` prints `ui: yes` and the matching paths, `ui: no`, or
   `ui: unknown` when `design.paths` is empty; it exits 0 in all three (tested on a temporary git
   repository).
 - `omni help design` explains the form, the precedence, the check and that nothing blocks.
 
 **s3** (`ui: yes`: the skills that drive screen work)
+- Each skill reads `omni config design.enabled` first; off, it runs no auto-review and the
+  sub-PR has no Design review section.
 - `/omni:do-work`'s review step runs `omni design touched`, and runs the auto-review when the
   slice is marked `ui: yes` in its plan or the check prints `ui: yes`; on `ui: unknown` it judges
   from the diff and says so.
@@ -57,6 +61,9 @@ the wave rebuilds it.
 - `kit/test/plugin.test.ts` holds each of these lines.
 
 **s4**
+- Each skill reads `omni config design.enabled` first; off, invade leaves the form blank and
+  proposes no `design.paths` (it may propose turning the flag on when the repository has
+  screens), and think-big and brainstorm do not read the form.
 - `/omni:invade`'s per-form table has a `design` row (tokens, CSS custom properties, theme or
   Tailwind config, components and stories, fonts, global styles, `DESIGN.md`, screens and copy);
   it fills the form with `path@hash`, leaves `TODO(human)` where evidence is missing, and proposes

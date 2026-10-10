@@ -11,7 +11,7 @@ phase0: server
 **Date:** 2026-10-09 · **PRD:** #1369
 **Touches:**
 - `kit/lib/playbook/forms.ts` (a 15th form, `design`) and `kit/templates/playbook/design.md` (new)
-- `kit/lib/config.ts` (`design.paths`, `commands.design`)
+- `kit/lib/config.ts` (`design.enabled`, `design.paths`, `commands.design`)
 - `kit/bin/` (new: `omni design touched`, the UI check)
 - `kit/plugin/skills/do-work/SKILL.md`, `visual-fix/SKILL.md`, `plan/SKILL.md`, `invade/SKILL.md`,
   `think-big/SKILL.md`, `brainstorm/SKILL.md`
@@ -36,6 +36,21 @@ screenshot passes. But a generic taste list applied to a product that chose othe
 the product's own design has to come first.
 
 ## Solution
+
+### 0. One switch: `design.enabled`
+
+The whole feature sits behind one config flag, **`design.enabled`**, default `false`, so it rolls
+out one repository at a time and rolls back with one line.
+
+- **Off** (the default): nothing in the loop changes. `omni design touched` prints `design: off`
+  and exits 0; `/omni:do-work` and `/omni:visual-fix` run no auto-review; `/omni:invade` leaves the
+  `design` form blank and proposes no `design.paths`; think-big and brainstorm do not read the
+  form. The form still exists, so `omni kb show design` works and a person may fill it ahead.
+- **On:** everything below runs. `/omni:invade` proposes turning it on, as it proposes any config,
+  when the repository has screens; a person turns it on by merging that config.
+
+Every skill that reads the form or runs the review checks the flag first, through
+`omni config design.enabled`.
 
 ### 1. The `design` form
 
@@ -64,7 +79,7 @@ template and in `kit/NOTICE.md`.
 
 ### 2. Knowing a change touches a screen
 
-- **`design.paths`**, a new config list of globs (default `[]`): where the screens, styles, tokens
+- **`design.paths`**, a config list of globs (default `[]`): where the screens, styles, tokens
   and components live.
 - **`omni design touched [<base>]`** prints `ui: yes` with the matching paths, or `ui: no`, for the
   diff from `<base>` (default: the merge base with the branch's base). With `design.paths` empty it
@@ -118,6 +133,9 @@ keeps the form blank.
 
 ## Decisions
 
+- **Behind a flag, off by default** (the person, 2026-10-10): `design.enabled` lets each
+  repository opt in, and turning it off restores today's loop.
+
 - **Product first** (the person, 2026-10-09): the craft rules are defaults that never override what
   the repository deliberately does.
 - **Auto-review starts on its own** for UI work (the person): no one has to ask for it.
@@ -154,7 +172,11 @@ impeccable's 20+ refinement commands (bolder, quieter, delight…); any blocking
   `profiles.test.ts`: the 15th form, its slots, and the counts that list forms.
 - A `design.test.ts` beside the form: a repository's `refuse` section replaces the kit default; a
   `See: DESIGN.md` pointer resolves.
-- `kit/lib/config.test.ts`: `design.paths` defaults to `[]`; `commands.design` to null.
+- `kit/lib/config.test.ts`: `design.enabled` defaults to `false`, `design.paths` to `[]`,
+  `commands.design` to null.
+- `omni design touched` prints `design: off` and exits 0 while the flag is off.
+- `kit/test/plugin.test.ts`: every skill that runs the review or reads the form checks
+  `design.enabled` first.
 - `omni design touched`: `ui: yes` with the matching paths, `ui: no`, `ui: unknown` on empty paths,
   exit 0 in every case; on a temporary git repository.
 - `kit/test/plugin.test.ts`: do-work, visual-fix, plan, invade and think-big name
@@ -163,24 +185,26 @@ impeccable's 20+ refinement commands (bolder, quieter, delight…); any blocking
 ## Risks
 
 Merging publishes a new kit release: target repositories get the blank `design` form on
-`omni update`, and their agents start the auto-review once `design.paths` is set or a slice is
-judged UI. A review that misjudges costs a screenshot round, never a red check. Rollback: revert
+`omni update`, and nothing else until a person sets `design.enabled: true`; from then their agents
+start the auto-review once `design.paths` is set or a slice is judged UI. A review that misjudges costs a screenshot round, never a red check. Rollback for one repository: `design.enabled: false`. For the kit: revert
 the feature PR; the form left blank in a repository is harmless.
 
 ## Acceptance criteria
 
-1. `omni kb show design` in a repository that never filled it prints the six sections, `floor` and
+1. `design.enabled` defaults to `false`; while it is off, `omni design touched` prints
+   `design: off`, and no skill runs the auto-review, fills the form or reads it.
+2. `omni kb show design` in a repository that never filled it prints the six sections, `floor` and
    `refuse` with the kit default, the others as `[hole]`.
-2. A repository section `refuse` replaces the kit default when shown.
-3. `omni design touched` prints `ui: yes` and the matching paths for a diff that touches
+3. A repository section `refuse` replaces the kit default when shown.
+4. `omni design touched` prints `ui: yes` and the matching paths for a diff that touches
    `design.paths`, `ui: no` for one that does not, and `ui: unknown` when the list is empty; it
    exits 0 in all three.
-4. `/omni:do-work`'s review step runs the auto-review when the slice is `ui: yes` or the check says
+5. `/omni:do-work`'s review step runs the auto-review when the slice is `ui: yes` or the check says
    `ui: yes`, and writes a **Design review** section on the sub-PR.
-5. No step of the auto-review can fail the slice, the wave or the gate: its findings are fixed,
+6. No step of the auto-review can fail the slice, the wave or the gate: its findings are fixed,
    listed or sent to the outbox.
-6. `/omni:visual-fix`'s real check runs the same review against the picked variation.
-7. `/omni:invade` fills the `design` form from evidence with `path@hash`, and proposes
+7. `/omni:visual-fix`'s real check runs the same review against the picked variation.
+8. `/omni:invade` fills the `design` form from evidence with `path@hash`, and proposes
    `design.paths`.
-8. `omni help design` explains the form, the precedence and the review; the guide has a page.
-9. The kit credits impeccable (Apache-2.0) for the adapted floor and refuse list.
+9. `omni help design` explains the form, the precedence and the review; the guide has a page.
+10. The kit credits impeccable (Apache-2.0) for the adapted floor and refuse list.
