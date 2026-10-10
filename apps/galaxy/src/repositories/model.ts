@@ -61,7 +61,7 @@ export const SavedRepository = z.strictObject({
 });
 
 /** A stored row as the page draws it, with the products that link it (none unless given). */
-export const rowOf = (r: StoredRepository, products: RepositoryProduct[] = []): RepositoryRow => ({
+export const repositoryRowOf = (r: StoredRepository, products: RepositoryProduct[] = []): RepositoryRow => ({
   fullName: r.full_name,
   tracked: r.tracked,
   collectedAt: r.collected_at ?? null,

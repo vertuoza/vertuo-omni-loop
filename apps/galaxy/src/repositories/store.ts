@@ -1,6 +1,6 @@
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { parseRow } from '../data/parse-rows';
-import { rowOf, SavedRepository, type Phase0, type RepositoryRow } from './model';
+import { repositoryRowOf, SavedRepository, type Phase0, type RepositoryRow } from './model';
 
 // Settings → Repositories's two calls (PRD 612 s1). In production, the owner-only functions of
 // supabase/migrations/20261008090000_repositories.sql, add_repository() and set_repository_tracked(),
@@ -48,7 +48,7 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: refusal(error) };
       const saved = parseRow(SavedRepository, data, `repositories/store: ${fn}`);
-      return saved.ok ? { ok: true, repository: rowOf(saved.value) } : { ok: false, message: COULD_NOT_SAVE };
+      return saved.ok ? { ok: true, repository: repositoryRowOf(saved.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return { ok: false, message: refusal(err) };
     }

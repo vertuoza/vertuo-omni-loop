@@ -2,7 +2,8 @@ import { currentStage, STAGE_LABELS, type StoredStage } from '../stages/stage';
 import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
   productHomeRepository, type ProductHomeDb, type ProductHomeRepository, type StoredApproval, type StoredHomePrd,
-  type StoredOutbox, type StoredPull, type StoredStageRow, type StoredTopic, type StoredVoid,
+  type StoredFix, type StoredIdea, type StoredOutbox, type StoredPull, type StoredRoadmap, type StoredStageRow, type StoredTopic,
+  type StoredVoid,
 } from './product-home.repository';
 
 // The product home's rules (PRD 1364 s9; ADR-0095): /app/products/<id> opens on the Ledger, what waits
@@ -25,6 +26,11 @@ import {
 // approval a push voided (drifted). A row's PR chips are the open pull requests of the PRD's feature
 // branch, in any repository: its head `feat/<topic>` (the kit's default shape) or one of its landings,
 // `feat/<topic>-<k>of<n>-<name>`, the topic the stages sync learnt (prd_topics).
+//
+// Its other tabs (s10) list only the product's own: its ideas still on a board (ideas.product_id), its
+// roadmaps (roadmaps.product_id), its bug fixes and visual fixes (dossiers of kind `bug` and `visual`),
+// each newest first, and its Questions: every outbox item waiting on a person (prd_outbox.waiting) of a
+// PRD of the product not yet shipped, newest PRD first, in the order its outbox lists them.
 
 /** Where a PRD was born: `server` (◆, approved on its page) or `repo` (◇, by its phase-0 pull request). */
 export type Birthplace = 'server' | 'repo';
@@ -78,11 +84,55 @@ export interface PrdsTabRow extends HomePrd {
   state: string;
 }
 
+/** An idea of the product on its board (s10): its lane there, and the PRD it became, if any. */
+export interface HomeIdea {
+  id: string;
+  repo: string;
+  title: string;
+  pitch: string;
+  lane: string;
+  prd: PrdNumber | null;
+}
+
+/** A roadmap of the product (s10). */
+export interface HomeRoadmap {
+  id: string;
+  number: number;
+  repo: string;
+  title: string;
+  milestone: string;
+  targetDate: string | null;
+}
+
+/** A bug or visual fix of the product (s10), each on its own tab. */
+export interface HomeFix {
+  dossier: string;
+  repo: string;
+  title: string;
+  created: string;
+}
+
+/** An outbox question of one of the product's PRDs that waits on a person (s10). */
+export interface HomeQuestion {
+  dossier: string;
+  repo: string;
+  prd: PrdNumber;
+  title: string;
+  id: string;
+  rank: string;
+  question: string;
+}
+
 /** Everything the product home draws. */
 export interface ProductHome {
   product: { id: string; name: string };
   ledger: Ledger;
   prds: PrdsTabRow[];
+  ideas: HomeIdea[];
+  roadmaps: HomeRoadmap[];
+  bugs: HomeFix[];
+  visuals: HomeFix[];
+  questions: HomeQuestion[];
 }
 
 /** What the product home is drawn from, as the repository reads it. */
@@ -99,6 +149,10 @@ export interface ProductHomeRows {
   topics: readonly StoredTopic[];
   /** Open pull requests whose head is a feature branch. */
   pulls: readonly StoredPull[];
+  /** The product's ideas on a board, its roadmaps and its fixes, each newest first. */
+  ideas: readonly StoredIdea[];
+  roadmaps: readonly StoredRoadmap[];
+  fixes: readonly StoredFix[];
   /** Who reads: their user id. */
   me: string;
 }
@@ -215,8 +269,20 @@ function readPrd(stored: StoredHomePrd, index: Index, rows: ProductHomeRows) {
     questions: waiting.length,
     prs: chipsOf(index.topic(key), rows.pulls),
   });
-  return { tab, stage, place, row };
+  return { tab, stage, place, row, waiting };
 }
+
+const ideaOf = (i: StoredIdea): HomeIdea => ({ id: i.id, repo: i.repo, title: i.title, pitch: i.pitch, lane: i.lane, prd: i.prd });
+
+const roadmapOf = (r: StoredRoadmap): HomeRoadmap =>
+  ({ id: r.id, number: r.number, repo: r.repo, title: r.title, milestone: r.milestone, targetDate: r.target_date });
+
+const fixesOf = (fixes: readonly StoredFix[], kind: StoredFix['kind']): HomeFix[] =>
+  fixes.filter((f) => f.kind === kind).map((f) => ({ dossier: f.id, repo: f.home_repo, title: f.title, created: f.created_at }));
+
+/** The questions of one PRD still open: each item its outbox holds waiting on a person. */
+const questionsOf = (prd: HomePrd, waiting: StoredOutbox['waiting']): HomeQuestion[] =>
+  waiting.map((w) => ({ dossier: prd.dossier, repo: prd.repo, prd: prd.prd, title: prd.title, id: w.id, rank: w.rank, question: w.question }));
 
 /** The product home from the rows read. */
 export function productHomeOf(rows: ProductHomeRows): ProductHome {
@@ -224,14 +290,25 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
   const lanes: Record<LaneId, LedgerRow[]> = { 'on-you': [], 'on-review': [], 'on-agent': [] };
   const summary: LedgerSummary = { building: 0, waitingOnPerson: 0, drifted: 0 };
   const prds: PrdsTabRow[] = [];
+  const questions: HomeQuestion[] = [];
   for (const stored of rows.prds) {
-    const { tab, stage, place, row } = readPrd(stored, index, rows);
+    const { tab, stage, place, row, waiting } = readPrd(stored, index, rows);
     prds.push(tab);
     if (place === null) continue;
+    questions.push(...questionsOf(tab, waiting));
     count(summary, stage, place);
     if (place.lane !== null) lanes[place.lane].push(row(place.state));
   }
-  return { product: rows.product, ledger: { lanes, summary }, prds };
+  return {
+    product: rows.product,
+    ledger: { lanes, summary },
+    prds,
+    ideas: rows.ideas.map(ideaOf),
+    roadmaps: rows.roadmaps.map(roadmapOf),
+    bugs: fixesOf(rows.fixes, 'bug'),
+    visuals: fixesOf(rows.fixes, 'visual'),
+    questions,
+  };
 }
 
 /** What the reads need: the product's id, its workspace, and who reads. */
@@ -251,7 +328,7 @@ export function productHomeService(store: ProductHomeRepository) {
       const prds = await store.prds(workspace, id);
       const repos = [...new Set(prds.map((p) => p.home_repo))];
       const dossiers = prds.map((p) => p.id);
-      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls] = await Promise.all([
+      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes] = await Promise.all([
         store.stages(workspace, repos),
         store.outbox(workspace, repos),
         store.topics(workspace, repos),
@@ -259,8 +336,11 @@ export function productHomeService(store: ProductHomeRepository) {
         store.voids(dossiers),
         store.waitingOnMe(),
         prds.length === 0 ? Promise.resolve([]) : store.featurePulls(workspace),
+        store.ideas(workspace, id),
+        store.roadmaps(workspace, id),
+        store.fixes(workspace, id),
       ]);
-      return productHomeOf({ product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, me });
+      return productHomeOf({ product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, me });
     },
   };
 }

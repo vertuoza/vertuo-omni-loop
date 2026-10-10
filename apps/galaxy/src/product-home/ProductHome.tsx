@@ -1,26 +1,30 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { Notice } from '../ask/page/Notice';
 import { workPath } from '../dossier/page/work';
 import { SectionTabs } from '../nav/SectionTabs';
-import type { SectionTab } from '../nav/section-tabs';
-import { productHomeHref } from '../products/model';
 import { SituationNotice, type Situation } from '../products/ProductsScreen';
+import { DEMO_ROADMAP_ONE_REPO } from '../roadmap/page/demo';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { BugsTab, IdeasTab, QuestionsTab, RoadmapTab, VisualTab } from './HomeTabs';
 import type { Birthplace, HomePrd, LaneId, LedgerRow, ProductHome as Home, PrChip } from './product-home.service';
+import { ledeOf, productHomeTabHref, productHomeTabs, type ProductHomeTab } from './tabs';
 
 // The product home, drawn (PRD 1364 s9): /app/products/<id>, the product's name, then its tabs. It opens on
 // the Ledger: a summary (building, waiting on a person, drifted), then what waits on whom in three lanes,
 // on you, on GitHub review and on the agent, each row its number (sealed once an approval is in force),
 // ◆ or ◇ with its repository, its title linking to its PRD page, its PR chips and one state word. The PRDs
 // tab (/app/products/<id>/prds) lists every PRD of the product, newest first, with its birthplace and its
-// state word. The Repositories & approvers tab (/app/products/<id>/repositories, PRD 1364 s11) draws itself
-// (src/product-repositories/RepositoriesTab.tsx) under these same tabs. Before the home, every situation
-// of /app/products.
+// state word. Ideas, Roadmap, Bug fixes, Visual fixes and Questions (s10) are drawn by HomeTabs.tsx, each
+// at its own address (tabs.ts). The Repositories & approvers tab (/app/products/<id>/repositories, s11) draws
+// itself (src/product-repositories/RepositoriesTab.tsx) under these same tabs. Before the home, every
+// situation of /app/products.
 
 /** Products in the sidebar: where the home goes back to. */
 const PRODUCTS_HOME_HREF = '/app/products';
 
-export type ProductHomeTab = 'ledger' | 'prds';
+export type { ProductHomeTab };
+export { productHomeTabs };
 
 export type ProductHomeView = Situation | { kind: 'not-found' } | { kind: 'home'; home: Home };
 
@@ -37,15 +41,6 @@ const BIRTH: Readonly<Record<Birthplace, { mark: string; words: string }>> = {
   repo: { mark: '◇', words: 'born in the repository' },
 };
 
-/** The product home's tabs, the Ledger counting what waits on you. */
-export function productHomeTabs(home: Home): SectionTab[] {
-  const href = productHomeHref(home.product.id);
-  return [
-    { href, label: 'Ledger', count: home.ledger.lanes['on-you'].length },
-    { href: `${href}/prds`, label: 'PRDs' },
-    { href: `${href}/repositories`, label: 'Repositories & approvers' },
-  ];
-}
 
 /** The demo's product home: one PRD on each lane, a shipped one on none. */
 export function demoProductHome(id: string): Home | null {
@@ -75,6 +70,16 @@ export function demoProductHome(id: string): Home | null {
       { ...approval, state: 'PRD' }, { ...question, state: 'building' }, { ...review, state: 'outbox' },
       { ...building, state: 'building' }, { ...shipped, state: 'shipped' },
     ],
+    ideas: [
+      { id: 'demo-i-2', repo: 'acme/widgets', title: 'Offline mode', pitch: 'Work on site without a signal.', lane: 'next', prd: null },
+      { id: 'demo-i-1', repo: 'acme/widgets', title: 'Photo upload', pitch: 'Attach site photos to a quote.', lane: 'now', prd: parsePrd(918) },
+    ],
+    roadmaps: [
+      { id: DEMO_ROADMAP_ONE_REPO, number: 880, repo: 'acme/widgets', title: 'Invoices that pay themselves', milestone: 'A customer pays an invoice from its email in one click.', targetDate: '2027-01-31' },
+    ],
+    bugs: [{ dossier: 'demo-bug-1', repo: 'acme/widgets', title: 'Totals round twice', created: '2026-10-03T09:00:00Z' }],
+    visuals: [],
+    questions: [{ ...question, id: 's2-01', rank: 'high', question: 'Round per line or on the total?' }],
   };
 }
 
@@ -148,18 +153,21 @@ function Prds({ home }: { home: Home }) {
   );
 }
 
+const PANELS: Readonly<Record<ProductHomeTab, (props: { home: Home }) => ReactNode>> = {
+  ledger: Ledger, prds: Prds, ideas: IdeasTab, roadmap: RoadmapTab, bugs: BugsTab, visual: VisualTab, questions: QuestionsTab,
+};
+
 function HomeScreen({ home, tab }: { home: Home; tab: ProductHomeTab }) {
-  const tabs = productHomeTabs(home);
-  const current = tab === 'ledger' ? tabs[0]?.href : tabs[1]?.href;
+  const Panel = PANELS[tab];
   return (
     <div className="ask-col products product-home">
       <section className="ask-card products-head" aria-labelledby="product-home-title">
         <Link className="products-back" href={PRODUCTS_HOME_HREF}>← Products</Link>
         <h1 id="product-home-title">{home.product.name}</h1>
-        <p className="ask-muted">{tab === 'ledger' ? 'What waits on whom, across the product’s PRDs.' : 'Every PRD of the product, newest first.'}</p>
+        <p className="ask-muted">{ledeOf(tab)}</p>
       </section>
-      <SectionTabs label={home.product.name} tabs={tabs} current={current ?? ''} />
-      {tab === 'ledger' ? <Ledger home={home} /> : <Prds home={home} />}
+      <SectionTabs label={home.product.name} tabs={productHomeTabs(home)} current={productHomeTabHref(home, tab)} />
+      <Panel home={home} />
     </div>
   );
 }

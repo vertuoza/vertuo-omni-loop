@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addable, collectionLabel, hasNoAccess, initialState, phase0Of, repositoriesReducer, rowOf, SavedRepository, type RepositoryRow,
+  addable, collectionLabel, hasNoAccess, initialState, phase0Of, repositoriesReducer, repositoryRowOf, SavedRepository, type RepositoryRow,
 } from './model';
 
 // Settings → Repositories as pure data (PRD 612 s1): a stored row as the page reads it, the
@@ -14,18 +14,18 @@ const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow
 
 describe('a stored repository row', () => {
   it('reads as the page draws it', () => {
-    expect(rowOf({ full_name: 'vertuoza/vertuo-apps', tracked: false, collected_at: '2026-10-08T11:57:00Z', collect_error: null }))
+    expect(repositoryRowOf({ full_name: 'vertuoza/vertuo-apps', tracked: false, collected_at: '2026-10-08T11:57:00Z', collect_error: null }))
       .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr' });
   });
 
   it('carries the products that link it, read beside the row (PRD 1364 s11)', () => {
-    expect(rowOf({ full_name: 'a/b', tracked: true }, [{ id: 'p-2', name: 'Omni Loop' }]).products).toEqual([{ id: 'p-2', name: 'Omni Loop' }]);
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true }, [{ id: 'p-2', name: 'Omni Loop' }]).products).toEqual([{ id: 'p-2', name: 'Omni Loop' }]);
   });
 
   it('reads where its phase 0 is approved, pr when the row does not say (PRD 1299 s1)', () => {
-    expect(rowOf({ full_name: 'a/b', tracked: true, phase0: 'server' }).phase0).toBe('server');
-    expect(rowOf({ full_name: 'a/b', tracked: true, phase0: 'pr' }).phase0).toBe('pr');
-    expect(rowOf({ full_name: 'a/b', tracked: true }).phase0).toBe('pr');
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true, phase0: 'server' }).phase0).toBe('server');
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true, phase0: 'pr' }).phase0).toBe('pr');
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true }).phase0).toBe('pr');
     expect(phase0Of(row('a/b'))).toBe('pr');
     expect(phase0Of(row('a/b', { phase0: 'server' }))).toBe('server');
   });

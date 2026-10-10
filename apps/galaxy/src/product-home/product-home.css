@@ -45,3 +45,6 @@
 .product-home-row[data-state='question'] .product-home-state { color: var(--ask-yellow); }
 .product-home-row[data-state='drifted'] .product-home-state { color: var(--ask-red); }
 .product-home-row[data-state='building'] .product-home-state { color: var(--ask-green); }
+
+/* Its other tabs (s10) draw the same rows: an idea's /omni:brainstorm line wraps under its pitch. */
+.product-home-line { font: 12px/1.4 var(--ask-mono); color: var(--ask-ink); overflow-wrap: anywhere; }

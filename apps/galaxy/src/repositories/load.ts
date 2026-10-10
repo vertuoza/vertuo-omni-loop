@@ -7,7 +7,7 @@ import { memberWorkspace } from '../data/workspace';
 import { githubStore } from '../dossier/github/server';
 import { installationSettingsUrl, reachedRepositories } from '../signup/github-app';
 import type { Installation } from '../signup/installation';
-import { rowOf, type RepositoryProduct, type RepositoryRow } from './model';
+import { repositoryRowOf, type RepositoryProduct, type RepositoryRow } from './model';
 import { repositoriesRepository, type GithubOf, type StoredProductLink } from './repositories.repository';
 import type { Access } from './RepositoriesView';
 
@@ -130,7 +130,7 @@ export async function loadRepositoriesPage(
     const [rows, isOwner, githubRow, products] = await Promise.all([
       store.rows(workspace.id), store.owner(workspace.id).catch(asMember), store.github(workspace.id), productsOf(store, workspace.id),
     ]);
-    repositories = rows.map((r) => rowOf(r, products.get(r.full_name.toLowerCase()) ?? []));
+    repositories = rows.map((r) => repositoryRowOf(r, products.get(r.full_name.toLowerCase()) ?? []));
     owner = isOwner;
     github = githubRow;
   } catch (err) {
