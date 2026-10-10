@@ -1,0 +1,45 @@
+/* The kart group: OMNI KART's loading and failure lines and its ready screen (PRD 1359), over the
+   arcade's canvas. Laid out on the wide grid (640×360) first; the rules at the end rearrange it for
+   the tall grid (320×288). A screen's title is Entropy Invaders' own (`.inv-title`, invaders.css). */
+
+.kt { position: absolute; inset: 0; }
+.kt-notice {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0;
+  font-size: 8px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; white-space: nowrap;
+}
+.kt-back { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+.kt-panel { left: 50%; bottom: 14%; transform: translateX(-50%); gap: 6px; justify-items: center; text-align: center; white-space: nowrap; line-height: 1.2; }
+.kt-panel .hint { font-size: 8px; }
+.kt-panel.kt-mid { bottom: auto; top: 50%; transform: translate(-50%, -50%); }
+/* The countdown's number and the GO after it, over the middle of the road. */
+.kt-beat {
+  position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); margin: 0;
+  font-size: 40px; letter-spacing: 2px; color: var(--yellow); text-shadow: 3px 3px 0 var(--red), 6px 6px 0 #0b0a26;
+}
+.kt-foot { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+
+/* The race's line: the place, the lap and the time, over the top of the road; FINAL LAP under it. */
+.kt-run {
+  position: absolute; top: 8px; left: 8px; right: 8px; margin: 0; display: flex; gap: 14px;
+  font-size: 10px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26;
+}
+.kt-place { color: var(--yellow); }
+.kt-item { margin-left: auto; color: var(--cyan); }
+.kt-final {
+  position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap;
+  font-size: 18px; letter-spacing: 2px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
+}
+
+/* The results: six places, each driver and their time, then the score and where sending it stands. */
+.kt-results { min-width: 220px; }
+.kt-table { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 8px; letter-spacing: 1px; color: var(--white); text-align: left; }
+.kt-table li { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; }
+.kt-table .kt-you { color: var(--yellow); }
+.kt-score { margin: 0; font-size: 10px; letter-spacing: 1px; color: var(--yellow); }
+
+/* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .kt-panel { padding: 8px 10px; white-space: normal; max-width: 280px; }
+.grid-tall .kt-results { min-width: 0; width: 260px; }
+.grid-tall .kt-beat { font-size: 28px; }
+.grid-tall .kt-run { font-size: 8px; }
+.grid-tall .kt-final { font-size: 14px; }
