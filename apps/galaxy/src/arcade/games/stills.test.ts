@@ -116,29 +116,35 @@ function race({ w, h }: { w: number; h: number }): Canvas {
   const sky = v.horizon;
   const c = blank(w, h, theme.void);
 
-  // The sky: its bands, its stars, two planets and the station, and the haze where it meets the floor.
+  // The space the circuit floats in, all round it: its bands brightening towards the horizon from above and
+  // from below, its stars, two planets standing across the horizon and the station, and the galaxy's glow on it.
+  const under = h - sky;
   const bands = [theme.void, '#0a0824', '#0d0a2c', '#110c34'];
   bands.forEach((colour, i) => { fill(c, 0, Math.floor((sky / bands.length) * i), w, Math.ceil(sky / bands.length), colour); });
+  [...bands].reverse().forEach((colour, i) => { fill(c, 0, sky + Math.floor((under / bands.length) * i), w, Math.ceil(under / bands.length), colour); });
   const sink = {
     fillStyle: '' as CanvasRenderingContext2D['fillStyle'],
     fillRect(x: number, y: number, fw: number, fh: number) {
       if (typeof sink.fillStyle !== 'string') throw new Error('a star painted with a gradient');
-      fill(c, x, y, fw, fh, sink.fillStyle, { clip: Math.floor(sky) });
+      fill(c, x, y, fw, fh, sink.fillStyle);
     },
   };
-  drawStarfield(sink, makeStarfield(SEED, w, sky - 2, Math.round((w * sky) / 120)), 0, { w, h: sky });
+  drawStarfield(sink, makeStarfield(SEED, w, h - 2, Math.round((w * h) / 120)), 0, { w, h });
   planet(c, w * 0.76, sky - 6, Math.round(sky * 0.4), '#3a6fd8', theme.cyan);
   planet(c, w * 0.19, sky * 0.33, Math.round(sky * 0.15), '#c9a24a', theme.gold);
   blit(c, kartArt('sky-station'), Math.round(w * 0.45), 3, 0.35);
-  fill(c, 0, sky - HAZE, w, HAZE, theme['plasma-dark'], { alpha: 0.45 });
+  for (let i = 0; i < HAZE; i++) {
+    fill(c, 0, sky - 1 - i, w, 1, theme['plasma-dark'], { alpha: 0.5 * (1 - i / HAZE) });
+    fill(c, 0, sky + i, w, 1, theme['plasma-dark'], { alpha: 0.5 * (1 - i / HAZE) });
+  }
 
-  // The floor, by the race's own Mode 7.
+  // The floor, by the race's own Mode 7: see-through over the void, so the space shows there.
   const floor = new Uint32Array(w * h);
   renderFloor(v, texture, floor, BEYOND);
   for (let y = Math.floor(sky) + 1; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const p = sure(floor[y * w + x], 'a floor pixel');
-      c.px[y * w + x] = hexOf([p & 0xff, (p >> 8) & 0xff, (p >> 16) & 0xff]);
+      if (p >>> 24) c.px[y * w + x] = hexOf([p & 0xff, (p >> 8) & 0xff, (p >> 16) & 0xff]);
     }
   }
 

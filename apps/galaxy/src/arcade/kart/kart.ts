@@ -1,5 +1,5 @@
 // A kart on the circuit (PRD 1359): its speed along the way it faces, steering that falls off with
-// speed, and the void that takes it when its centre goes over. Pure: one
+// speed, and the void that takes it once all of it has tipped over the edge. Pure: one
 // step of a kart is one call, and the race plays `dt` as several short ones (race.ts).
 import type { Action } from '../keys';
 import type { KartItem as Item } from '../scenes/kart.ts';
@@ -69,18 +69,32 @@ export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0,
 
 const HANDS_OFF: Pad = { left: false, right: false, accel: false, brake: false };
 
-/** Whether the tile under a kart's centre is the void: its body may hang over the edge without falling. */
-const isOverVoid = (map: readonly string[], k: { x: number; y: number }): boolean => tileAt(map, Math.floor(k.x / TILE), Math.floor(k.y / TILE)) === '~';
+/**
+ * Whether a kart has tipped over the edge: no tile but the void within `RULES.overhang` of its centre. Its centre may go
+ * over the void, and most of its body with it, without falling while any of it is still over the road.
+ */
+export function tippedOver(map: readonly string[], k: { x: number; y: number }): boolean {
+  const reach = RULES.overhang;
+  for (let ty = Math.floor((k.y - reach) / TILE); ty <= Math.floor((k.y + reach) / TILE); ty++) {
+    for (let tx = Math.floor((k.x - reach) / TILE); tx <= Math.floor((k.x + reach) / TILE); tx++) {
+      if (tileAt(map, tx, ty) === '~') continue;
+      const dx = k.x - Math.max(tx * TILE, Math.min(k.x, (tx + 1) * TILE));
+      const dy = k.y - Math.max(ty * TILE, Math.min(k.y, (ty + 1) * TILE));
+      if (dx * dx + dy * dy < reach * reach) return false;
+    }
+  }
+  return true;
+}
 
-/** A kart whose centre is over the void and is not already falling starts to fall: at rest, its BOOST and any spin-out ended, the item it holds kept. Anything else is the same objects back. */
+/** A kart that has tipped over the edge and is not already falling starts to fall: at rest, its BOOST and any spin-out ended, the item it holds kept. Anything else is the same objects back. */
 export function fallIfOver<T extends { x: number; y: number; speed: number; steer: number }>(map: readonly string[], k: T, fx: Fx): { kart: T; fx: Fx } {
-  if (fx.fall > 0 || !isOverVoid(map, k)) return { kart: k, fx };
+  if (fx.fall > 0 || !tippedOver(map, k)) return { kart: k, fx };
   return { kart: { ...k, speed: 0, steer: 0 }, fx: { ...fx, boost: 0, spin: 0, fall: RULES.fallTime } };
 }
 
 /**
  * One short step of a kart with what is on it: a fall takes the input and holds the kart where it is, a spin-out takes the input and turns the kart on itself
- * (the speed it dropped to wears off like any other), a BOOST drives faster, and the timers run down. A kart whose centre goes over the void starts to fall.
+ * (the speed it dropped to wears off like any other), a BOOST drives faster, and the timers run down. A kart that tips over the edge starts to fall.
  * The kart's `fx` after the step is returned with it, and whether its fall ended in this step (`landed`):
  * the way back is the race's to place (rivals.ts), never this step's.
  */

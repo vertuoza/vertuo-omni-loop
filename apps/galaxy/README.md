@@ -902,18 +902,21 @@ off, no row exists, and every player sees NO XP YET.
   or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
   **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
   in space, all in code, no image file. **The void** (PRD 1447): everything off the road is the void,
-  written `~` in the map, a starfield under the road with a neon edge on its side of the road's edge
-  (cyan outside the circuit, magenta inside); the map holds road and void only, and past its edge is
-  void too. The kerbs alternate the two neons, the road has panel seams and three chevrons before
+  written `~` in the map: the floor has nothing there, and the space the circuit floats in shows all round
+  it, under the horizon as above it, its stars, nebulae and planets with the galaxy's glow along the
+  horizon. A neon edge sits on the void's side of the road's edge (cyan outside the circuit, magenta
+  inside); the map holds road and void only, and past its edge is void too. The kerbs alternate the two neons, the road has panel seams and three chevrons before
   each corner. Nothing off the road slows or bounces a kart: **the fall** is the only cost. A kart
-  whose centre goes over the void falls for 1 second, takes no input, stays where it went over,
+  falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width;
+  it may hang over until then), and for 1 second takes no input, stays where it went over,
   shrinks as it sinks and keeps its item, and a BOOST or a spin-out ends. **The way back:** it
   returns at rest on the racing line, at the point nearest where it fell on the segment it was on
   (never past the next waypoint, never across the start line), facing the race, and blinks for half
   a second while it drives; its laps and waypoints are kept, the race clock never stops, and rivals
   fall and return by the same rule. The player's fall plays the `fall` sound; a rival's is silent.
   Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
-  line. The sky has two planets, a distant station and comets. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
+  line. The sky has two planets, a distant station and comets. The camera sits so the player's kart is
+  drawn where it stands. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
   (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
   that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
   still and no particle is drawn; the shadows stay.

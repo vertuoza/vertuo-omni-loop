@@ -51,6 +51,8 @@ export const RULES = Object.freeze({
   /** The fall into the void (PRD 1447): how long a kart falls, and how long it blinks once it is back on the road. */
   fallTime: 1,
   blinkTime: 0.5,
+  /** How far from the road a kart's centre goes before it falls: half its width as drawn (art.ts `KART_WORLD`), so it falls once all of it has tipped over the edge. */
+  overhang: 7,
   spinSpeed: 0.3,
   spinRate: Math.PI * 2,
   /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */

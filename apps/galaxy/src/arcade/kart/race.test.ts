@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
+import { tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import { LAPS, parseTrack, TILE, tileAt } from './track';
@@ -110,12 +111,11 @@ describe('a step', () => {
     expect(step(r, GAS, -1).race).toEqual(r);
   });
 
-  it('never leaves a kart standing over the void, a slow frame included: it is falling, or back on the road', () => {
+  it('never leaves a kart tipped over the edge, a slow frame included: it is falling, or back on the road', () => {
     let r = racing();
     for (let i = 0; i < 400; i++) {
       r = step(r, new Set<Action>(['a', i % 90 < 45 ? 'left' : 'right']), i % 7 === 0 ? 1 : 0.05).race;
-      const over = tileAt(track.map, Math.floor(r.player.x / TILE), Math.floor(r.player.y / TILE)) === '~';
-      expect(!over || r.fx.fall > 0, `frame ${i}`).toBe(true);
+      expect(!tippedOver(track.map, r.player) || r.fx.fall > 0, `frame ${i}`).toBe(true);
     }
   });
 
@@ -369,7 +369,7 @@ describe('a fall into the void', () => {
   const falling = (r: Race, held: ReadonlySet<Action> = NONE): Race => { let x = r; while (x.fx.fall <= 0) x = step(x, held, FRAME).race; return x; };
   const landed = (r: Race, held: ReadonlySet<Action> = NONE): Race => { let x = r; while (x.fx.fall > 0) x = step(x, held, FRAME).race; return x; };
 
-  it('starts when the centre is over the void, tells fell once and plays the fall cue; the clock runs through it', () => {
+  it('starts once the kart has tipped over the edge, tells fell once and plays the fall cue; the clock runs through it', () => {
     let r = edge();
     const events: RaceEvent[] = [];
     const clock = r.clock;
@@ -386,11 +386,11 @@ describe('a fall into the void', () => {
     expect(r.fx.boost).toBe(0);
   });
 
-  it('does not fall while only the body hangs over the edge', () => {
-    let r = edge();
-    r = { ...r, player: { ...r.player, y: 6 * TILE + 1, speed: 0 } };
-    r = step(r, NONE, FRAME).race;
-    expect(r.fx.fall).toBe(0);
+  it('does not fall while any of it is still over the road, its centre over the void included', () => {
+    for (const y of [6 * TILE + 1, 6 * TILE - 1, 6 * TILE - RULES.overhang + 0.5]) {
+      const r = edge();
+      expect(step({ ...r, player: { ...r.player, y, speed: 0 } }, NONE, FRAME).race.fx.fall, `y ${y}`).toBe(0);
+    }
   });
 
   it('holds the kart still for a second, then stands it at rest on the road, blinking, its laps kept', () => {
@@ -438,8 +438,10 @@ describe('a fall into the void', () => {
 
   it('falls when another kart pushes it over the edge', () => {
     const r = racing();
-    const rival = { ...first(r.rivals), kart: { ...first(r.rivals).kart, x: 20 * TILE + 8, y: 6 * TILE + 7, speed: 0 } };
-    const player = { ...r.player, x: 20 * TILE + 8, y: 6 * TILE + 1, speed: 0 };
+    // The player hangs over the edge, its centre 5.5 past it; the rival overlapping it from the road pushes it 2 further.
+    const rival = { ...first(r.rivals), kart: { ...first(r.rivals).kart, x: 20 * TILE + 8, y: 6 * TILE + 0.5, speed: 0 } };
+    const player = { ...r.player, x: 20 * TILE + 8, y: 6 * TILE - 5.5, speed: 0 };
+    expect(step({ ...r, player }, NONE, 1 / 120).race.fx.fall).toBe(0);
     const s = step({ ...r, player, rivals: [rival, ...r.rivals.slice(1)] }, NONE, 1 / 120);
     expect(s.race.fx.fall).toBeGreaterThan(0);
     expect(s.events).toContainEqual({ kind: 'fell', racer: 0 });

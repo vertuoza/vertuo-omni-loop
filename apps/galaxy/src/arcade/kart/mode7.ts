@@ -39,9 +39,15 @@ export function viewOf(screen: { w: number; h: number }, cam: { x: number; y: nu
   return { w: screen.w, h: screen.h, horizon: horizonOf(screen.h), focal: screen.w * 0.866, height: EYE_HEIGHT, ...cam };
 }
 
-/** The camera's place behind a kart standing at `x`, `y` and heading `angle`: `EYE_BACK` behind it, looking where it does. */
-export function chaseCamera(kart: { x: number; y: number; angle: number }): { x: number; y: number; angle: number } {
-  return { x: kart.x - Math.cos(kart.angle) * EYE_BACK, y: kart.y - Math.sin(kart.angle) * EYE_BACK, angle: kart.angle };
+/** The camera's place behind a kart standing at `x`, `y` and heading `angle`: `back` behind it (`EYE_BACK` unless told), looking where it does. */
+export function chaseCamera(kart: { x: number; y: number; angle: number }, back = EYE_BACK): { x: number; y: number; angle: number } {
+  return { x: kart.x - Math.cos(kart.angle) * back, y: kart.y - Math.sin(kart.angle) * back, angle: kart.angle };
+}
+
+/** How far ahead of the camera a floor point lands on screen row `row` of a screen `w`×`h`: the camera that far behind a kart sees it on that row. */
+export function depthAt(screen: { w: number; h: number }, row: number): number {
+  const v = viewOf(screen, { x: 0, y: 0, angle: 0 });
+  return (v.height * v.focal) / (row - v.horizon);
 }
 
 /** The floor point under screen point `sx`, `sy`; null on or above the horizon, where there is none. */
