@@ -29,7 +29,7 @@ const SLUG = /^[\w.-]+\/[\w.-]+$/;
 const COMMIT = /^[0-9a-f]{40}$/;
 
 /** One link of the reply: `consumes` names whole `owner/name` slugs. */
-const ProductLinkSchema = z.object({
+export const ProductLinkSchema = z.object({
   repo: z.string().regex(SLUG),
   role: z.string().min(1).nullable(),
   knowledge: z.enum(TARGET_KNOWLEDGE),

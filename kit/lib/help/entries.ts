@@ -513,6 +513,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'every row is ok, 1 otherwise, or 1 with not a plan repository.',
   },
   {
+    name: 'product',
+    kind: 'command',
+    who: 'you',
+    label: 'omni product …',
+    usage: ['omni product import --product <name>', 'omni product which'],
+    summary: "plan targets into a product; this repo's products",
+    detail:
+      'omni product import --product <name> copies the targets of this plan repository, its ' +
+      'plan.targets, into the product of that name on the Omni page, with your sign-in: each ' +
+      'target becomes a repository link with its role, knowledge, read-at commit, read-only flag ' +
+      'and what it consumes, an existing link is changed to match, and it prints what it added and ' +
+      'changed. A second run changes nothing. It never edits the config: swap targets for ' +
+      'product: <name> in the plan section yourself, and omni targets then reads the links from ' +
+      'the product. Only an owner of the workspace changes its links. omni product which prints ' +
+      'the products this repository is in, one per line, or none. Either exits 1, with one line ' +
+      'saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses.',
+  },
+  {
     name: 'whoami',
     kind: 'command',
     who: 'you',
