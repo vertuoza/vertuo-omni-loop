@@ -87,7 +87,7 @@ describe('BOOST', () => {
   it('works on grass too: faster than the road\'s top speed where the grass would halve it', () => {
     const open = ['................', '................', '................', '................'];
     const run = (fx: Fx) => {
-      let k = { kart: { ...kartAt(32, 32, 0), speed: RULES.topSpeed }, fx };
+      let k: Racer = { kart: { ...kartAt(32, 32, 0), speed: RULES.topSpeed }, fx };
       for (let i = 0; i < 90; i++) {
         const s = stepFx(open, k.kart, { ...HANDS, accel: true }, 0.01, 1, k.fx);
         k = { kart: { ...s.kart, x: 32, y: 32 }, fx: s.fx };
