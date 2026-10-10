@@ -12,6 +12,7 @@ import type { FleetRow } from '../types';
 import { kartCast, kartPress, loadKart, NOT_LOADED, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, TALL_SCENES, type KartGame, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
+import { sending, type ScoreSend } from './invaders-score';
 
 // OMNI KART's text layer and scene (PRD 1359, slice 1): the loading and failure lines, the ready
 // screen, the loader and what a press does before the race.
@@ -21,7 +22,7 @@ const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' =
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A game that does nothing, as the loader hands it over. */
-const stubGame = (): KartGame => ({ draw: () => {}, step: () => {}, press: () => ({ quit: false }), pause: () => {}, hud: () => ({ phase: 'ready', beat: null }) });
+const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, hud: () => ({ phase: 'ready', beat: null }) });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
@@ -233,5 +234,42 @@ describe('the cast of the race', () => {
     const cast = [{ sprite: 'beaver', tint: null, color: '#ff0000' }];
     await loadKart(() => Promise.resolve({ createKart }), 7, cast);
     expect(createKart).toHaveBeenCalledWith({ seed: 7, cast });
+  });
+});
+
+describe('the results and the score (slice 4)', () => {
+  const rows = ['YOU', 'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO'].map((name, i) => ({ place: i + 1, name, tenths: i < 3 ? 1000 + i * 25 : null, you: i === 0 }));
+  const results = (): KartHud => ({ phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1000, score: 1500 } });
+  const sendOf = (s: ScoreSend | null) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: results(), send: s })))
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('lists the six places, each driver and their time, with -- for a kart still racing, on both grids', () => {
+    const t = text('ready', WIDE, 'full', results());
+    expect(t).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:42.5 3RD BRAVO 1:45.0 4TH CHARLIE -- 5TH DELTA -- 6TH ECHO --');
+    expect(text('ready', TALL, 'handheld', results())).toContain('6TH ECHO --');
+    expect(t).toContain('SCORE 1500');
+  });
+
+  it('shows A to race again and B to the room when nothing is being retried', () => {
+    expect(text('ready', WIDE, 'full', results())).toContain('A RACE AGAIN');
+    expect(text('ready', WIDE, 'full', results())).toContain('GAME ROOM');
+  });
+
+  it('shows every state of the send: saving, NEW BEST, your best, not saved with a retry', () => {
+    expect(sendOf(sending(1500))).toContain('SAVING SCORE…');
+    expect(sendOf({ state: 'saved', score: 1500, best: 1500, newBest: true })).toContain('NEW BEST');
+    expect(sendOf({ state: 'saved', score: 1500, best: 1800, newBest: false })).toContain('YOUR BEST 1 800');
+    const lost = sendOf({ state: 'failed', score: 1500, tries: 1 });
+    expect(lost).toContain('SCORE NOT SAVED');
+    expect(lost).toContain('RETRY');
+    expect(sendOf({ state: 'failed', score: 1500, tries: 2 })).toContain('RACE AGAIN');
+  });
+
+  it('goes back to the room on B from the results, and tells two results apart', () => {
+    expect(kartPress('ready', 'b', 'finish')).toBe('back');
+    expect(kartPress('ready', 'a', 'finish')).toBeNull();
+    expect(sameKartHud(results(), results())).toBe(false);
+    const r = results();
+    expect(sameKartHud(r, r)).toBe(true);
   });
 });

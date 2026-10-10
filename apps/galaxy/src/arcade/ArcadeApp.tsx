@@ -73,6 +73,8 @@ const GAME_GRID = { wide: WIDE, tall: TALL } as const;
 const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
 // Super Omni World's key in the registry: its scores are sent under it (PRD 817).
 const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platformer';
+// OMNI KART's key in the registry: its scores are sent under it (PRD 1359).
+const KART = GAMES.find((g) => g.scene === 'kart')?.id ?? 'kart';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
 const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart']);
 
@@ -80,11 +82,12 @@ const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', '
 const kartDrawOf = (scene: SceneName, kart: ArcadeKart | null): KartGame | null => (scene === 'kart' ? kart?.game ?? null : null);
 
 /** The race plays the time since the last frame, with the buttons held now, and the text layer follows it. */
-function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySet<Action>, dt: number, show: (game: KartGame) => void) {
+function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySet<Action>, dt: number, show: (game: KartGame) => void, finished: (score: number) => void) {
   const game = kartDrawOf(scene, kart);
   if (!game) return;
-  game.step(buttons, dt);
+  const score = game.step(buttons, dt);
   show(game);
+  if (score !== null) finished(score); // the step that crossed the line says so once: the score is sent once
 }
 
 /** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
@@ -798,12 +801,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         // The race reads ◀ ▶, A and ▼ held; a press answers START, SELECT, B and the screens. Silent, as Super Omni World is.
         const k = kartRef.current;
         if (!k) { if (action === 'b') go({ scene: 'games' }, 'back'); return; }
+        // At the finish, A retries a score that was not saved, once; otherwise A races again and B goes back.
+        const s = sendRef.current;
+        if (k.hud?.phase === 'finish' && s && overPress(s, action) === 'retry' && s.state === 'failed') { sendScore(KART, s.score, s.tries + 1); return; }
         const press = kartPress(k.status, action, k.hud?.phase);
         if (press === 'back') { setKart(null); go({ scene: 'games' }, 'back'); return; }
         if (press === 'retry') { setKart({ ...k, status: 'loading', retry: k.retry + 1 }); return; }
         if (k.status === 'ready' && k.game) {
           // START starts the countdown and pauses; SELECT on the pause leaves, and sends nothing.
-          if (k.game.press(action).quit) { setKart(null); go({ scene: 'games' }, 'back'); return; }
+          const pressed = k.game.press(action);
+          if (pressed.quit) { setKart(null); go({ scene: 'games' }, 'back'); return; }
+          if (pressed.again) { held.clear(); runRef.current += 1; showSend(null); setKart({ ...k, status: 'loading', retry: k.retry + 1, game: null, hud: null }); return; }
           showKartHud(k.game);
         }
         return;
@@ -830,7 +838,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, showHud, showKartHud, sendScore, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -917,7 +925,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         showHud(game);
         if (game.over && !sendRef.current) sendScoreRef.current(INVADERS, game.score); // once a game: sendRef is set at once
       }
-      stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud);
+      stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud, (score) => { sendScoreRef.current(KART, score); });
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
         scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, logo: f.logo, theme: f.theme,
@@ -1016,7 +1024,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
-      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

@@ -127,11 +127,16 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
   };
 
   return {
-    step(held: ReadonlySet<Action>, dt: number) { race = step(race, held, dt).race; },
+    step(held: ReadonlySet<Action>, dt: number): number | null {
+      const r = step(race, held, dt);
+      race = r.race;
+      const done = r.events.find((e) => e.kind === 'finish');
+      return done?.kind === 'finish' ? done.score : null;
+    },
     press(action: Action): KartQuit {
       const r = press(race, action);
       race = r.race;
-      return { quit: r.events.some((e) => e.kind === 'quit') };
+      return { quit: r.events.some((e) => e.kind === 'quit'), again: r.events.some((e) => e.kind === 'again') };
     },
     pause() { race = pause(race); },
     hud: () => hudOf(race),
