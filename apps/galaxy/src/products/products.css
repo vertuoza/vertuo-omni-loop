@@ -137,10 +137,12 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 /* Products in the sidebar (PRD 1364 s8): /app/products, one card per product, linking to its product
    home: its name, its repositories as chips (a shared one marked), its PRD count and what waits on the
    reader; then the repositories in no product, each with Add to a product. At 393 px a card's chips and
-   counts wrap under its name. */
+   counts wrap under its name. A card stretches to its row's height: the chips row takes the
+   spare room and keeps its chips their own height, so a lone chip never stretches into a circle. */
 .products-cards { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .products-card {
   display: grid;
+  grid-template-rows: auto 1fr auto;
   gap: 10px;
   height: 100%;
   padding: 14px 16px;
@@ -154,7 +156,7 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 .products-card:hover { border-color: var(--ask-plasma); }
 .products-card:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
 .products-card-name { font-size: 18px; overflow-wrap: anywhere; }
-.products-card-repos { display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+.products-card-repos { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 6px; font-size: 14px; }
 .products-chip { padding: 2px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; overflow-wrap: anywhere; }
 .products-shared { font-style: normal; color: var(--ask-muted); }
 .products-card-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ask-muted); }
