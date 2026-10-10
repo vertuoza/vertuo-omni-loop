@@ -110,7 +110,6 @@
     "apps/galaxy/src/products/ProductPage.tsx database-call",
     "apps/galaxy/src/products/approvers-load.ts database-call",
     "apps/galaxy/src/products/approvers.ts database-call",
-    "apps/galaxy/src/products/load.ts database-call",
     "apps/galaxy/src/products/pitch-settings-api.ts database-call",
     "apps/galaxy/src/products/products.boundary.ts database-call",
     "apps/galaxy/src/products/store.ts database-call",
