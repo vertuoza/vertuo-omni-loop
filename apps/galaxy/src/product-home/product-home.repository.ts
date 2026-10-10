@@ -177,7 +177,8 @@ export function productHomeRepository(db: ProductHomeDb) {
 
     /** The dossiers whose latest approval request asks the caller, with no approval since. */
     async waitingOnMe(): Promise<string[]> {
-      const { data, error }: RpcAnswer = await db.rpc('approval_requests_waiting');
+      const answered: RpcAnswer = await db.rpc('approval_requests_waiting');
+      const { data, error } = answered;
       if (error) throw new Error(`Supabase: could not read the approvals waiting on you (${why(error)})`);
       return orThrow(parseRows(WaitingRequest, data, `${WHERE}: approval_requests_waiting`)).map((r) => r.dossier);
     },

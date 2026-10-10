@@ -155,7 +155,7 @@ function HomeScreen({ home, tab }: { home: Home; tab: ProductHomeTab }) {
         <h1 id="product-home-title">{home.product.name}</h1>
         <p className="ask-muted">{tab === 'ledger' ? 'What waits on whom, across the product’s PRDs.' : 'Every PRD of the product, newest first.'}</p>
       </section>
-      <SectionTabs label={`${home.product.name}`} tabs={tabs} current={current ?? ''} />
+      <SectionTabs label={home.product.name} tabs={tabs} current={current ?? ''} />
       {tab === 'ledger' ? <Ledger home={home} /> : <Prds home={home} />}
     </div>
   );
