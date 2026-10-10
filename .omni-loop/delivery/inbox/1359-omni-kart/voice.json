@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A hand-rolled Mode 7 engine is a lot of new code in the arcade. Pure modules with a test on every rule is the only way I would trust it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A third arcade game is exactly the fluff that makes this look like a gimmick to me.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "A whole game from one idea, built by the loop: that is the speed I want to show the teams.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "It plugs in like the two games before it: the same registry, the same unlock, the same score path.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "No customer asked for a kart game. Fine as a reward for the team, but it is not a quick win for anyone we sell to.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "I already see omni-loop as a gimmick, fluff. A third game whose whole engine loads for everyone who opens the arcade, even without ever playing it, is exactly the fluff I mean.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · persona:Irisa ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every rule is a pure module with its test, a slow frame cannot push a kart through a wall, and the engine never loads on a page I work on.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Still a game, but it costs nothing to anyone who never opens the cabinet, and it needs no migration.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "One circuit now and more later keeps it shippable in one PRD.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Same registry, unlock and score path as PRD 817, every choice written in Decisions, and a guard on what loads when.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "Nothing here reaches a customer. I would rather the loop's time went to quick wins they feel.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Irisa ✗"
+    }
+  ]
+}
