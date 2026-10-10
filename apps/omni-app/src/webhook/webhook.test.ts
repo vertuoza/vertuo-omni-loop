@@ -35,7 +35,7 @@ const forwarding = () => vi.fn<(event: StageEvent) => Promise<unknown>>(() => Pr
 
 const sign = (body: string, secret = SECRET) => `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 
-const REPOSITORY = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } };
+const REPOSITORY = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' }, default_branch: 'main' };
 const INSTALLATION = { id: 4242 };
 
 const pullRequestPayload = (action: string, over = {}): Record<string, unknown> => ({
@@ -239,6 +239,19 @@ describe('toCheckRequests', () => {
   it('is the filter alone, pure: no signature, no send', () => {
     expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
     expect(toCheckRequests('pull_request', pullRequestPayload('closed'))).toEqual([]);
+  });
+
+  it('turns no event of a sub-PR, a pull request into another branch than the default, into an outbox check (#1413)', () => {
+    const subPr = { number: 28, head: { sha: 'abc123', ref: 'feat/x--s1' }, base: { ref: 'feat/x' } };
+    for (const action of CHECK_ACTIONS.pull_request) {
+      expect(toCheckRequests('pull_request', pullRequestPayload(action, { pull_request: subPr })), action).toEqual([]);
+    }
+    expect(toCheckRequests('check_run', rerequestedPayload([subPr]))).toEqual([]);
+  });
+
+  it('still turns a pull request into the default branch, and its check re-run, into the outbox check (#1413)', () => {
+    expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
+    expect(toCheckRequests('check_run', rerequestedPayload())).toHaveLength(1);
   });
 
   it('never turns a closed pull request into the outbox check, merged or not', () => {

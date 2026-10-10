@@ -1211,7 +1211,8 @@ var HANDLED = Object.freeze({
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
 var PullRefSchema = z13.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z13.looseObject({ sha: z13.string().nullish() }).nullish()
+  head: z13.looseObject({ sha: z13.string().nullish() }).nullish(),
+  base: z13.looseObject({ ref: z13.string().nullish() }).nullish()
 });
 var PayloadSchema = z13.looseObject({
   action: z13.unknown(),
@@ -1220,7 +1221,8 @@ var PayloadSchema = z13.looseObject({
   repository: z13.looseObject({
     name: z13.string(),
     full_name: z13.string().nullish(),
-    owner: z13.looseObject({ login: z13.string().nullish() }).nullish()
+    owner: z13.looseObject({ login: z13.string().nullish() }).nullish(),
+    default_branch: z13.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
     merged: z13.boolean().nullish(),
@@ -1293,11 +1295,14 @@ function toCheckRequests(event, delivery) {
   if (!source) return [];
   const trigger = `${event}.${String(payload.action)}`;
   const name = event === "check_run" && payload.check_run?.external_id === INBOX_EXTERNAL_ID ? INBOX_CHECK_EVENT : OUTBOX_CHECK_EVENT;
-  const pulls = event === "pull_request" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
+  const pulls = event === "pull_request" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
     number: pull.number,
-    sha: pull.head?.sha ?? payload.check_run?.head_sha
+    sha: pull.head?.sha ?? payload.check_run?.head_sha,
+    base: pull.base?.ref
   }));
-  return pulls.filter(isNamed).map((pull) => ({
+  const defaultBranch = payload.repository?.default_branch;
+  const intoDefault = (pull) => !defaultBranch || pull.base === defaultBranch;
+  return pulls.filter(intoDefault).filter(isNamed).map((pull) => ({
     name,
     data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger }
   }));
