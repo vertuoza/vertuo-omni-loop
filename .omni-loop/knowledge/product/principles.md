@@ -710,3 +710,12 @@ Why: A person reading the status line during review or a fix needs links that st
 Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
 Merged: @pierrederval, 2026-10-08, PR #1210
+
+## P-PRODUCT-81
+
+Only a confirmed entry of a repository's own knowledge is held to that repository's law requirements; an unconfirmed entry or another repository's copy is not.
+
+Why: An entry nobody has confirmed is not a law yet, and a copied knowledge base answers to the choices of the repository it came from.
+Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s1-01-require-proof-skips-proposed-and-copies, PRD #1342
+Merged: @pierrederval, 2026-10-10, PR #1343
+Proposed: harvest 2026-10-10

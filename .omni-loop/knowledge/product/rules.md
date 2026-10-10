@@ -1032,3 +1032,15 @@ Source: .omni-loop/delivery/shipped/1318-layered-data-access/outbox/settled.md, 
 Enforced by: apps/galaxy/src/ask/api.test.ts
 Stated: 2026-10-09
 Decided: @pierrederval, 2026-10-09
+
+## BR-PRODUCT-95
+
+With 'every law names its test' switched on, the knowledge check refuses only this repository's confirmed rules and invariants that name no test. Proposed entries and knowledge copied from other repositories may stay untested.
+
+Serves: P-PRODUCT-81
+Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s1-01-require-proof-skips-proposed-and-copies, PRD #1342
+Enforced by: kit/lib/knowledge/check-knowledge.test.ts
+Stated: 2026-10-10
+Decided: nobody — adopted when raised (medium), 2026-10-09
+Merged: @pierrederval, 2026-10-10, PR #1343
+Proposed: harvest 2026-10-10

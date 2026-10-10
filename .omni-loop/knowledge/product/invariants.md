@@ -109,3 +109,14 @@ Enforced by: kit/lib/init/settings.test.ts, kit/bin/init.test.ts
 Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1210
+
+## N-PRODUCT-14
+
+The terminal checks for a bug fix, a visual fix, coverage and the status gate compare the knowledge folder against the base branch's, so a law that loses its test is seen in the terminal just as the server sees it.
+
+Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s7-02-terminal-checks-read-the-base-rules, PRD #1342
+Enforced by: kit/bin/law-demoted.test.ts
+Stated: 2026-10-10
+Decided: nobody — adopted when raised (medium), 2026-10-10
+Merged: @pierrederval, 2026-10-10, PR #1343
+Proposed: harvest 2026-10-10
