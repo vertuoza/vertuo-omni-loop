@@ -17,6 +17,7 @@ import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
 import { PitchPane } from './PitchPane';
+import { ProductPicker } from './ProductPicker';
 import { ProofPane } from './ProofPane';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
@@ -60,6 +61,9 @@ import { VoicePane } from './VoicePane';
 // PRD 1322 s7: Approve moves out of the actions into the approve screen, under the head, shown only to a
 // viewer allowed to approve: after a void (voided · approve again) or a drift, each changed file's diff
 // first, then the spec's Problem and Solution, then the button.
+// PRD 1364 s7: a PRD has a Product cell after Approval, its picker (ProductPicker.tsx): the workspace's
+// products and No product, changed by any member until an approval is in force, then locked, shown once the page
+// has read it. None in the demo, nor on a fix.
 
 type Props = {
   view: DossierView;
@@ -248,6 +252,11 @@ function ApprovalArea({ approval }: { approval: ApprovalView }) {
   return approval.seal ? <SealCard seal={approval.seal} dossier={approval.dossier} /> : null;
 }
 
+/** A PRD's Product cell (PRD 1364 s7), on a deployment with a database: none in the demo, nor on a fix. */
+function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
+  return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
+}
+
 export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
   const { stage, fix, approval } = view;
   return (
@@ -269,6 +278,7 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
             </div>
           )}
           {approval && <ApprovalFact approval={approval} />}
+          <ProductFact view={view} supabase={supabase} />
           <div className="dossier-fact">
             <dt>{view.repos.length > 1 ? 'Repos' : 'Repo'}</dt>
             <dd>
