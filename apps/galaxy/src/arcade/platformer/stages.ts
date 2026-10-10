@@ -2,7 +2,7 @@
 // grid's height), up to 220 tiles long, played left to right. A pit is a column with nothing solid
 // on the bottom row. `stageProblems` holds each stage to the checks that make it playable, and
 // stages.test.ts runs them on every stage here.
-import { longestPit } from './rules';
+import { highestLedge, longestPit } from './rules';
 import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /**
@@ -99,6 +99,53 @@ export function pits(stage: Stage): { col: number; width: number }[] {
   return found;
 }
 
+/**
+ * How far to the side, in tiles, a ledge may stand from a place to jump onto it from: a full jump at
+ * a walk carries the hero over three empty tiles before it comes down on a ledge five tiles up.
+ */
+const LEDGE_REACH = 4;
+
+/** Whether the hero can stand on this tile: solid, with open air on top. */
+const standable = (stage: Stage, row: number, col: number) =>
+  row > 0 && SOLID.has(stage.tiles[row]?.[col] ?? 'empty') && !SOLID.has(stage.tiles[row - 1]?.[col] ?? 'empty');
+
+/** Whether a place to stand lies at most `rise` tiles under this tile, within LEDGE_REACH columns of it. */
+function reachable(stage: Stage, row: number, col: number, rise: number): boolean {
+  for (let r = row + 1; r <= Math.min(row + rise, stage.rows - 1); r += 1) {
+    for (let c = col - LEDGE_REACH; c <= col + LEDGE_REACH; c += 1) if (standable(stage, r, c)) return true;
+  }
+  return false;
+}
+
+/** The ledges along one row: each run of tiles to stand on, from its first column (from 0). */
+function ledgesOn(stage: Stage, row: number): { col: number; width: number }[] {
+  const found: { col: number; width: number }[] = [];
+  for (let col = 0; col < stage.cols; col += 1) {
+    if (!standable(stage, row, col)) continue;
+    const last = found[found.length - 1];
+    if (last && last.col + last.width === col) last.width += 1;
+    else found.push({ col, width: 1 });
+  }
+  return found;
+}
+
+/**
+ * Each ledge above the ground rows that no place to stand reaches, in words: none lies at most a
+ * jump under one of its tiles, within LEDGE_REACH columns of it.
+ */
+function ledgeProblems(stage: Stage): string[] {
+  const rise = highestLedge();
+  const problems: string[] = [];
+  for (let row = 1; row < stage.rows - 2; row += 1) {
+    for (const { col, width } of ledgesOn(stage, row)) {
+      if (Array.from({ length: width }, (_, i) => col + i).some((c) => reachable(stage, row, c, rise))) continue;
+      const cols = width > 1 ? `columns ${col + 1} to ${col + width}` : `column ${col + 1}`;
+      problems.push(`ledge at row ${row + 1}, ${cols} is more than a jump (${rise} tiles) over anything to jump from`);
+    }
+  }
+  return problems;
+}
+
 const count = (n: number, one: string, many: string) => (n === 0 ? `no ${one}` : `${n} ${many}`);
 
 /** What keeps a stage from being played, in words; none for a stage that passes every check. */
@@ -118,6 +165,7 @@ export function stageProblems(stage: Stage): string[] {
   for (const p of pits(stage)) {
     if (p.width > reach) problems.push(`pit at column ${p.col + 1} is ${p.width} tiles wide, more than a run-jump (${reach})`);
   }
+  problems.push(...ledgeProblems(stage));
   return problems;
 }
 

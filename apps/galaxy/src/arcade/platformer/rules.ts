@@ -100,7 +100,7 @@ export const PHYSICS = Object.freeze({
  * The jump: it leaves the ground at `speed`, and keeps that speed while A stays held, up to
  * `holdMax` seconds; then gravity takes over. A tap jumps low, a held A jumps high.
  */
-export const JUMP = Object.freeze({ speed: 330, holdMax: 0.14 });
+export const JUMP = Object.freeze({ speed: 340, holdMax: 0.21 });
 
 /** Where a jump stands: A as it was last frame (a jump takes a fresh press), and the hold. */
 export interface JumpState {
@@ -130,7 +130,8 @@ export function heroSpeed(held: ReadonlySet<Action>): number {
   return dir * (held.has('b') ? PHYSICS.run : PHYSICS.walk);
 }
 
-const STEP = 1 / 240;
+/** Phaser's arcade physics plays in fixed steps, 60 a second. */
+const STEP = 1 / 60;
 
 /**
  * A jump from flat ground with A held for `hold` seconds (a tap is held for a single frame), played
@@ -142,7 +143,8 @@ export function simulateJump(hold: number): { height: number; airtime: number } 
   do {
     const step = jumpStep(s, { a: t < heldFor, onGround: t === 0 }, STEP);
     s = step.state;
-    vy = step.vy ?? Math.min(PHYSICS.maxFall, vy + PHYSICS.gravity * STEP);
+    // As Phaser plays it: gravity pulls on every step, on the speed the jump has just set too.
+    vy = Math.min(PHYSICS.maxFall, (step.vy ?? vy) + PHYSICS.gravity * STEP);
     y += vy * STEP;
     t += STEP;
     top = Math.max(top, -y);
@@ -157,4 +159,12 @@ export function simulateJump(hold: number): { height: number; airtime: number } 
 export function longestPit(): number {
   const { airtime } = simulateJump(JUMP.holdMax);
   return Math.floor((PHYSICS.run * airtime - PHYSICS.heroW) / TILE) - 1;
+}
+
+/**
+ * The highest ledge, in tiles over the ground the hero stands on, that a full jump lands on, with a
+ * tile to spare. The stages put their brick and ? block rows five tiles up.
+ */
+export function highestLedge(): number {
+  return Math.floor(simulateJump(JUMP.holdMax).height / TILE) - 1;
 }
