@@ -9,6 +9,7 @@ import type { Grid } from '../grid';
 import type { FrameState, KartDraw, Pages, SceneName } from './common.ts';
 import { space } from './common.ts';
 import { fleet } from '../fleets';
+import type { Sfx } from '../sound';
 
 /** The race is laid out on the tall grid too: the Game Boy held upright plays it on 320×288. */
 export const TALL_SCENES: readonly SceneName[] = ['kart'];
@@ -65,6 +66,43 @@ export function raceTime(tenths: number): string {
 export interface KartQuit { quit: boolean; /** A on the results: another race, with a new seed. */ again: boolean }
 
 /**
+ * What happened in the race, as the arcade hears it (PRD 1427): the countdown's beeps and GO, an item used
+ * by a racer (`you`: the player; `tiles`: how far the racer is from the player), the player's box, a hit on a
+ * racer, the player's spin-out and wall scrape, and the final lap starting.
+ */
+export type KartCue =
+  | { kind: 'beep'; beat: '3' | '2' | '1' } | { kind: 'go' }
+  | { kind: 'item'; item: KartItem; you: boolean; tiles: number }
+  | { kind: 'box' }
+  | { kind: 'hit'; item: 'blob' | 'orb'; you: boolean; tiles: number }
+  | { kind: 'spin' } | { kind: 'scrape' } | { kind: 'finalLap' };
+
+/** How far a rival's sound carries, in tiles: beyond it nothing is heard. */
+export const HEARD_TILES = 20;
+
+/**
+ * The effect a cue plays and how far away it sounds, 0 (the player's own) to 1 (`HEARD_TILES` away); null
+ * when it is not heard: a rival beyond `HEARD_TILES`. A rival's is never quite 0: it is never as loud as the player's.
+ */
+export function soundOf(cue: KartCue): { sfx: Sfx; far: number } | null {
+  switch (cue.kind) {
+    case 'beep': return { sfx: 'beep', far: 0 };
+    case 'go': return { sfx: 'go', far: 0 };
+    case 'box': return { sfx: 'box', far: 0 };
+    case 'spin': return { sfx: 'spin', far: 0 };
+    case 'scrape': return { sfx: 'scrape', far: 0 };
+    case 'finalLap': return { sfx: 'finalLap', far: 0 };
+    case 'item':
+    case 'hit': {
+      const effect: Sfx = cue.kind === 'hit' ? 'impact' : cue.item;
+      if (cue.you) return { sfx: effect, far: 0 };
+      if (cue.tiles > HEARD_TILES) return null;
+      return { sfx: effect, far: Math.max(0.05, cue.tiles / HEARD_TILES) };
+    }
+  }
+}
+
+/**
  * The race itself, as the arcade drives it (PRD 1359, slice 2): stepped by the canvas loop with the
  * buttons held, answering presses, paused from outside, and read by the text layer through `hud()`.
  */
@@ -74,6 +112,10 @@ export interface KartGame extends KartDraw {
   press(action: Action): KartQuit;
   pause(): void;
   hud(): KartHud;
+  /** The cues since the last call, in order, then forgotten. */
+  cues(): readonly KartCue[];
+  /** The player's speed as a share of its top speed on the road, 0 to 1. */
+  speed(): number;
 }
 
 /** Where the game's import stands: on its way, the game ready, or the import failed. */

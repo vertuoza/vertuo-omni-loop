@@ -287,3 +287,25 @@ describe('in the race', () => {
     expect(later.clock).toBeGreaterThan(r.clock + 1.4);
   });
 });
+
+describe('what the items report (PRD 1427)', () => {
+  it('names the racer that took a box, once', () => {
+    const a = step(track.map, world(), [racer(), onBox()], [2, 3], 0.01);
+    expect(a.events).toEqual([{ kind: 'box', racer: 1 }]);
+    expect(step(track.map, a.world, [racer(), a.racers[1] ?? racer()], [2, 3], 0.01).events).toEqual([]);
+  });
+
+  it('names the racer a BLOB hit, and that it spun out', () => {
+    const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y }] };
+    expect(step(track.map, w, [racer(0, 0), racer()], [1, 2], 0.01).events).toEqual([{ kind: 'hit', racer: 1, item: 'blob', spun: true }]);
+  });
+
+  it('names the racer an ORB hit, and says so when it was already spinning', () => {
+    const at = (fx: Partial<Fx>) => {
+      const w: World = { ...empty(world()), orbs: [{ x: line.x - 1, y: line.y, angle: heading, bounces: 0, age: 0 }] };
+      return step(track.map, w, [racer(line.x + 2, line.y, fx)], [1], 0.001).events;
+    };
+    expect(at({})).toEqual([{ kind: 'hit', racer: 0, item: 'orb', spun: true }]);
+    expect(at({ spin: 0.5 })).toEqual([{ kind: 'hit', racer: 0, item: 'orb', spun: false }]);
+  });
+});

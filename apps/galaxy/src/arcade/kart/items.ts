@@ -19,6 +19,9 @@ export interface Orb { x: number; y: number; angle: number; bounces: number; age
 /** The items on the circuit, and the seeded generator the draws come from. */
 export interface World { boxes: readonly Box[]; blobs: readonly Blob[]; orbs: readonly Orb[]; rng: number }
 
+/** What an item step reports, by racer (0 is the player): a box taken, and a BLOB or an ORB that hit (`spun`: the hit started a spin-out). */
+export type ItemEvent = { kind: 'box'; racer: number } | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean };
+
 /** A kart with what it holds and what is on it. */
 export interface Racer { kart: Kart; fx: Fx }
 
@@ -83,9 +86,10 @@ function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
  * item its place draws, the first kart over a BLOB spins out and the BLOB is gone, and ORBs fly, bouncing
  * off walls, until one hits a kart (which spins out). `places[i]` is racer i's place, 1 to 6.
  */
-export function stepItems(map: readonly string[], world: World, racers: readonly Racer[], places: readonly number[], dt: number): { world: World; racers: Racer[] } {
+export function stepItems(map: readonly string[], world: World, racers: readonly Racer[], places: readonly number[], dt: number): { world: World; racers: Racer[]; events: ItemEvent[] } {
   let rng = world.rng;
   const out = racers.map((r) => r);
+  const events: ItemEvent[] = [];
   const boxes = world.boxes.map((b) => ({ ...b, back: Math.max(0, b.back - dt) }));
   for (const box of boxes) {
     if (box.back > 0) continue;
@@ -96,12 +100,14 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
     rng = next;
     out[i] = { ...taker, fx: { ...taker.fx, item: itemFor(places[i] ?? 6, roll) } };
     box.back = RULES.boxBack;
+    events.push({ kind: 'box', racer: i });
   }
   let blobs = world.blobs;
   for (const blob of world.blobs) {
     const i = out.findIndex((r) => r.fx.spin <= 0 && near(r.kart, blob, RULES.blobReach));
     const hit = out[i];
     if (!hit) continue;
+    events.push({ kind: 'hit', racer: i, item: 'blob', spun: true });
     out[i] = spun(hit);
     blobs = blobs.filter((b) => b !== blob);
   }
@@ -111,10 +117,10 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
     if (!flown) continue;
     const i = out.findIndex((r) => near(r.kart, flown, RULES.orbReach));
     const hit = out[i];
-    if (hit) out[i] = spun(hit); // the orb is gone with the hit
+    if (hit) { events.push({ kind: 'hit', racer: i, item: 'orb', spun: hit.fx.spin <= 0 }); out[i] = spun(hit); } // the orb is gone with the hit
     else orbs.push(flown);
   }
-  return { world: { boxes, blobs, orbs, rng }, racers: out };
+  return { world: { boxes, blobs, orbs, rng }, racers: out, events };
 }
 
 /** Whether rival `i` uses what it holds now, by plain rules: BOOST on a straight, BLOB with a kart close behind, ORB with a kart ahead in range and in line. `straight`: it is facing where it goes. */
