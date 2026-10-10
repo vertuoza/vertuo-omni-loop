@@ -10,6 +10,7 @@ import type { FrameState, KartDraw, Pages, SceneName } from './common.ts';
 import { space } from './common.ts';
 import { fleet } from '../fleets';
 import type { Sfx } from '../sound';
+import type { SongName } from '../score';
 
 /** The race is laid out on the tall grid too: the Game Boy held upright plays it on 320×288. */
 export const TALL_SCENES: readonly SceneName[] = ['kart'];
@@ -101,6 +102,21 @@ export function soundOf(cue: KartCue): { sfx: Sfx; far: number } | null {
     }
   }
 }
+
+/**
+ * The song the race plays (PRD 1427): none on the ready screen and during the countdown, `race` from GO, `lastLap` once
+ * FINAL LAP shows, none while paused (it starts again on resume) and the arcade's `fanfare` on the results.
+ */
+export function kartSong(hud: KartHud | null): SongName | null {
+  switch (hud?.phase) {
+    case 'race': return hud.run?.final ? 'lastLap' : 'race';
+    case 'finish': return 'fanfare';
+    default: return null;
+  }
+}
+
+/** Whether the race's engine hums: during the countdown and the race, not on the ready screen, the pause or the results. */
+export const kartEngineOn = (hud: KartHud | null): boolean => hud?.phase === 'countdown' || hud?.phase === 'race';
 
 /**
  * The race itself, as the arcade drives it (PRD 1359, slice 2): stepped by the canvas loop with the

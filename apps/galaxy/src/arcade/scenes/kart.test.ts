@@ -9,7 +9,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { kartCast, kartPress, loadKart, NOT_LOADED, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartHud, type KartStatus } from './kart.ts';
+import { kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { sending, type ScoreSend } from './invaders-score';
@@ -317,5 +317,31 @@ describe('the sound of a cue', () => {
     expect(soundOf({ kind: 'item', item: 'orb', you: false, tiles: 20.1 })).toBeNull();
     expect(soundOf({ kind: 'hit', item: 'orb', you: false, tiles: 40 })).toBeNull();
     expect(soundOf({ kind: 'hit', item: 'orb', you: true, tiles: 40 })).toEqual({ sfx: 'impact', far: 0 });
+  });
+});
+
+describe('the race\'s music and engine (PRD 1427)', () => {
+  const run = (final: boolean) => ({ place: 1, lap: final ? 3 : 1, laps: 3, tenths: 10, final, item: null });
+  const hud = (phase: KartHud['phase'], extra: Partial<KartHud> = {}): KartHud => ({ phase, beat: null, ...extra });
+
+  it('plays no song on the ready screen and during the countdown', () => {
+    expect(kartSong(hud('ready'))).toBeNull();
+    expect(kartSong(hud('countdown', { beat: '2' }))).toBeNull();
+    expect(kartSong(null)).toBeNull();
+  });
+
+  it('plays race from GO and lastLap once FINAL LAP shows', () => {
+    expect(kartSong(hud('race', { run: run(false) }))).toBe('race');
+    expect(kartSong(hud('race', { run: run(true) }))).toBe('lastLap');
+  });
+
+  it('plays none while paused, and the fanfare on the results', () => {
+    expect(kartSong(hud('paused', { run: run(true) }))).toBeNull();
+    expect(kartSong(hud('finish'))).toBe('fanfare');
+  });
+
+  it('hums during the countdown and the race only', () => {
+    expect(['ready', 'countdown', 'race', 'paused', 'finish'].map((p) => kartEngineOn(hud(p as KartHud['phase'])))).toEqual([false, true, true, false, false]);
+    expect(kartEngineOn(null)).toBe(false);
   });
 });
