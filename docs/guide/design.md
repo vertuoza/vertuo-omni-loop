@@ -12,6 +12,8 @@ It is **off by default**. A repository that does not turn it on sees no change a
 it off again brings the loop back to what it was. When it is on, **nothing it finds ever blocks**:
 no slice stops, no check turns red, no pull request stays draft because of a design finding.
 
+![Where design craft gets your product's look: /omni:invade reads your repository's tokens, components, fonts, screens and DESIGN.md into the design form, which /omni:pixel-perfect and the loop's skills read; with design.enabled false, the default, nothing runs](diagrams/design-craft.svg)
+
 ## Turn it on
 
 A few lines in `.omni-loop/config.yml`, merged like any other change:
@@ -97,6 +99,8 @@ prints one line saying how to turn it on, and does nothing else.
 
 With design craft on, the review starts on its own: nobody asks for it. When `/omni:do-work` builds a
 slice that changes a screen, it runs `/omni:pixel-perfect review` before the sub-PR is marked ready.
+
+![The design review on a slice: omni design touched decides whether a screen changed; when it did, a critique, an audit, the lint, screenshots at 390 and 1440 and one batch of polish, then a Design review section on the sub-PR, and what it left goes to the outbox; it never blocks](diagrams/design-review.svg)
 
 **How it knows a slice changes a screen.** `/omni:plan` marks a slice `ui: yes` when the files it
 may touch meet `design.paths`. While it builds, the agent also asks the change itself:
