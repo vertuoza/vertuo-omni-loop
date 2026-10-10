@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>COMET RING over the void</title>
+<style>
+/* Layout: today beside after, one row per moment; stacks at phone width. Omni app look outside, the circuit inside (its colours are the game's own, in both themes). */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ /* the circuit, the same in both themes (kart/texture.ts SURFACE) */
+ --road:#6d7194;--verge:#b9bdc9;--wall:#2c3040;--cyan:#19e6ff;--magenta:#ff2bd6;
+ --void:#04051a;--star:#e8ecff;--sky:#0b0a2e;--skyHigh:#1d1660;--kart:#ffd23f;--hurt:#ff5c7a;--scrInk:#f1f1f8;--scrDim:#8f8cc4;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--plasma)}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+header{display:grid;gap:10px}
+.moment{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;align-content:start;min-width:0}
+.tag{font:700 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.panel.after{border-color:var(--plasma)}
+.panel.after .tag{color:var(--plasma)}
+.panel p{margin:0;color:var(--muted);max-width:62ch}
+svg{display:block;width:100%;height:auto;border-radius:6px}
+.strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:560px){.strip{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.strip figure{margin:0;display:grid;gap:6px}
+.strip figcaption{font:12px/1.35 var(--mono);color:var(--muted)}
+.strip figcaption b{color:var(--ink);font-weight:700}
+.cost{font:13px/1.4 var(--mono);color:var(--ink);background:var(--plasmaSoft);border-radius:6px;padding:8px 10px}
+.lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px}
+ul{margin:0;padding-left:18px;display:grid;gap:6px}
+li{max-width:62ch}
+code{font:13px var(--mono)}
+.svgtext{font:600 9px var(--mono);letter-spacing:.06em}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <pattern id="stars" width="64" height="64" patternUnits="userSpaceOnUse">
+   <rect width="64" height="64" fill="#04051a"/>
+   <circle cx="6" cy="9" r=".9" fill="#e8ecff"/><circle cx="27" cy="4" r=".6" fill="#e8ecff" opacity=".7"/>
+   <circle cx="45" cy="15" r="1.1" fill="#e8ecff"/><circle cx="58" cy="31" r=".6" fill="#19e6ff" opacity=".8"/>
+   <circle cx="15" cy="34" r=".7" fill="#e8ecff" opacity=".6"/><circle cx="36" cy="40" r=".9" fill="#e8ecff"/>
+   <circle cx="9" cy="55" r=".6" fill="#ff2bd6" opacity=".7"/><circle cx="52" cy="52" r=".8" fill="#e8ecff" opacity=".8"/>
+   <circle cx="28" cy="58" r=".5" fill="#e8ecff" opacity=".6"/><circle cx="22" cy="20" r=".4" fill="#e8ecff" opacity=".5"/>
+  </pattern>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d1660"/><stop offset="1" stop-color="#0b0a2e"/></linearGradient>
+  <symbol id="kartTop" viewBox="-9 -7 18 14">
+   <rect x="-7" y="-6.5" width="4" height="3" rx="1" fill="#111"/><rect x="3" y="-6.5" width="4" height="3" rx="1" fill="#111"/>
+   <rect x="-7" y="3.5" width="4" height="3" rx="1" fill="#111"/><rect x="3" y="3.5" width="4" height="3" rx="1" fill="#111"/>
+   <rect x="-8" y="-4" width="16" height="8" rx="3" fill="#ffd23f"/><circle cx="-1" cy="0" r="2.6" fill="#6a2fd0"/>
+   <path d="M5 -2.5 L8.5 0 L5 2.5 Z" fill="#17153d"/>
+  </symbol>
+  <symbol id="kartBack" viewBox="-18 -12 36 24">
+   <ellipse cx="0" cy="10" rx="15" ry="2.5" fill="#000" opacity=".45"/>
+   <rect x="-16" y="1" width="7" height="8" rx="2" fill="#111"/><rect x="9" y="1" width="7" height="8" rx="2" fill="#111"/>
+   <rect x="-11" y="-2" width="22" height="9" rx="3" fill="#ffd23f"/><rect x="-7" y="3" width="14" height="2" fill="#17153d" opacity=".5"/>
+   <circle cx="0" cy="-5" r="5" fill="#6a2fd0"/><rect x="-3.5" y="-6.5" width="7" height="2.4" rx="1" fill="#19e6ff"/>
+  </symbol>
+  <symbol id="pylon" viewBox="-6 -16 12 18">
+   <path d="M-4 2 L-1.5 -12 L1.5 -12 L4 2 Z" fill="#3a3f58"/><circle cx="0" cy="-13" r="2.4" fill="#19e6ff"/>
+  </symbol>
+  <symbol id="rock" viewBox="-10 -8 20 16">
+   <path d="M-9 1 L-6 -6 L2 -7.5 L8 -3 L9 3 L3 7 L-5 6 Z" fill="#4a4660"/><circle cx="-2" cy="-1" r="2" fill="#2f2c44"/><circle cx="4" cy="2" r="1.3" fill="#2f2c44"/>
+  </symbol>
+  <!-- the chase camera, today: verge and walls -->
+  <symbol id="camToday" viewBox="0 0 200 130">
+   <rect width="200" height="40" fill="url(#sky)"/><circle cx="160" cy="18" r="9" fill="#6a5cff"/>
+   <rect y="40" width="200" height="90" fill="#2c3040"/>
+   <path d="M86 40 L114 40 L196 130 L4 130 Z" fill="#b9bdc9"/>
+   <path d="M86 40 L4 130" stroke="#19e6ff" stroke-width="2"/><path d="M114 40 L196 130" stroke="#ff2bd6" stroke-width="2"/>
+   <path d="M92 40 L108 40 L160 130 L40 130 Z" fill="#6d7194"/>
+   <path d="M97 52 L103 52 M93 70 L107 70 M88 95 L112 95" stroke="#5b5f80" stroke-width="1"/>
+  </symbol>
+  <!-- the chase camera, after: the road over the void -->
+  <symbol id="camAfter" viewBox="0 0 200 130">
+   <rect width="200" height="40" fill="url(#sky)"/><circle cx="160" cy="18" r="9" fill="#6a5cff"/>
+   <rect y="40" width="200" height="90" fill="url(#stars)"/>
+   <path d="M92 40 L108 40 L160 130 L40 130 Z" fill="#6d7194"/>
+   <path d="M92 40 L40 130" stroke="#19e6ff" stroke-width="2"/><path d="M108 40 L160 130" stroke="#ff2bd6" stroke-width="2"/>
+   <path d="M97 52 L103 52 M93 70 L107 70 M88 95 L112 95" stroke="#5b5f80" stroke-width="1"/>
+   <use href="#pylon" x="168" y="52" width="10" height="15"/><use href="#rock" x="14" y="60" width="22" height="18"/>
+  </symbol>
+ </defs>
+</svg>
+
+<main class="wrap">
+ <header>
+  <div class="eyebrow">PRD 1447 · OMNI KART</div>
+  <h1>COMET RING floats in the void</h1>
+  <p class="lead">Everything off the road becomes space. A kart whose centre goes over the edge falls for one second, then comes back at rest in the middle of the road, at the point of the racing line nearest where it fell. The clock keeps running, the lap counter never moves, and the rivals follow the same rule.</p>
+ </header>
+
+ <section class="moment" aria-labelledby="m1">
+  <h2 id="m1">The circuit from above</h2>
+  <div class="pair">
+   <div class="panel">
+    <span class="tag">Today</span>
+    <svg viewBox="0 0 300 220" role="img" aria-label="A corner of COMET RING today: the road, two tiles of pale verge, then metal walls with a neon edge.">
+     <rect width="300" height="220" fill="#2c3040"/>
+     <path d="M0 80 H140 V0 H260 V200 H0 Z" fill="#b9bdc9"/>
+     <path d="M0 80 H140 V0" fill="none" stroke="#ff2bd6" stroke-width="3"/>
+     <path d="M260 0 V200 H0" fill="none" stroke="#19e6ff" stroke-width="3"/>
+     <path d="M0 110 H170 V0 H230 V170 H0 Z" fill="#6d7194"/>
+     <path d="M0 140 H200 V0" fill="none" stroke="#f1f1f8" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>
+     <circle cx="200" cy="140" r="3" fill="#f1f1f8" opacity=".8"/>
+     <use href="#pylon" x="96" y="30" width="14" height="22"/><use href="#rock" x="268" y="40" width="24" height="20"/>
+     <g transform="translate(244 150) rotate(-60)"><use href="#kartTop" x="-9" y="-7" width="18" height="14"/></g>
+     <path d="M258 146 l-6 -5 M259 152 l-7 0 M258 158 l-6 4" stroke="#ffd23f" stroke-width="1.4"/>
+     <text x="8" y="100" class="svgtext" fill="#2c3040">VERGE ½ SPEED</text>
+     <text x="8" y="214" class="svgtext" fill="#f1f1f8">WALL</text>
+    </svg>
+    <p>Wide in the corner, the kart slows on the verge, scrapes the wall and bounces back. In space, going off the road costs little and shows nothing.</p>
+   </div>
+   <div class="panel after">
+    <span class="tag">After</span>
+    <svg viewBox="0 0 300 220" role="img" aria-label="The same corner after: the road hangs over a starfield, its neon edge is the edge of the void, and the props float around it.">
+     <rect width="300" height="220" fill="url(#stars)"/>
+     <path d="M0 110 H170 V0 H230 V170 H0 Z" fill="#6d7194"/>
+     <path d="M0 108.5 H168.5 V0" fill="none" stroke="#ff2bd6" stroke-width="3"/>
+     <path d="M231.5 0 V171.5 H0" fill="none" stroke="#19e6ff" stroke-width="3"/>
+     <path d="M0 140 H200 V0" fill="none" stroke="#f1f1f8" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>
+     <circle cx="200" cy="140" r="3" fill="#f1f1f8" opacity=".8"/>
+     <use href="#pylon" x="96" y="30" width="14" height="22"/><use href="#rock" x="268" y="40" width="24" height="20"/>
+     <use href="#rock" x="40" y="186" width="18" height="14"/>
+     <g transform="translate(120 140)"><use href="#kartTop" x="-9" y="-7" width="18" height="14"/></g>
+     <text x="246" y="208" class="svgtext" fill="#8f8cc4">VOID</text>
+    </svg>
+    <p>No verge, no wall: the road hangs over a starfield, its neon edge is the edge of the void, and the pylons and asteroids stay where they stood, floating. The sky and the horizon do not change.</p>
+   </div>
+  </div>
+ </section>
+
+ <section class="moment" aria-labelledby="m2">
+  <h2 id="m2">Missing the corner</h2>
+  <div class="pair">
+   <div class="panel">
+    <span class="tag">Today</span>
+    <svg viewBox="0 0 200 130" role="img" aria-label="The race seen from behind the kart today: the kart on the pale verge, scraping the wall with sparks.">
+     <use href="#camToday" width="200" height="130"/>
+     <use href="#kartBack" x="150" y="98" width="36" height="24"/>
+     <path d="M184 104 l6 -5 M185 109 l8 -1 M183 114 l6 4" stroke="#ffd23f" stroke-width="1.4"/>
+    </svg>
+    <p>The kart scrapes the wall: a <code>scrape</code> sound, a few sparks, and it drives on at half speed until it is back on the road.</p>
+   </div>
+   <div class="panel after">
+    <span class="tag">After</span>
+    <div class="strip">
+     <figure>
+      <svg viewBox="0 0 200 130" role="img" aria-label="The kart's centre goes over the road's edge.">
+       <use href="#camAfter" width="200" height="130"/>
+       <use href="#kartBack" x="136" y="98" width="36" height="24"/>
+      </svg>
+      <figcaption><b>0.0 s</b> its centre goes over the edge</figcaption>
+     </figure>
+     <figure>
+      <svg viewBox="0 0 200 130" role="img" aria-label="The kart, smaller and lower, sinks under the road.">
+       <use href="#camAfter" width="200" height="130"/>
+       <use href="#kartBack" x="152" y="112" width="20" height="13" opacity=".85"/>
+      </svg>
+      <figcaption><b>0.5 s</b> no input, it shrinks and sinks</figcaption>
+     </figure>
+     <figure>
+      <svg viewBox="0 0 200 130" role="img" aria-label="The kart is gone under the road.">
+       <use href="#camAfter" width="200" height="130"/>
+       <use href="#kartBack" x="160" y="122" width="6" height="4" opacity=".6"/>
+      </svg>
+      <figcaption><b>1.0 s</b> gone; a <code>fall</code> sound</figcaption>
+     </figure>
+     <figure>
+      <svg viewBox="0 0 200 130" role="img" aria-label="The kart back at rest in the middle of the road, blinking.">
+       <use href="#camAfter" width="200" height="130"/>
+       <use href="#kartBack" x="82" y="98" width="36" height="24" opacity=".55"/>
+       <path d="M76 96 l-5 -4 M124 96 l5 -4 M74 106 h-6 M126 106 h6" stroke="#f1f1f8" stroke-width="1.2"/>
+      </svg>
+      <figcaption><b>back</b> at rest on the racing line, facing the race, blinking 0.5 s</figcaption>
+     </figure>
+    </div>
+    <p class="cost">1 s falling + the restart from rest ≈ 1.5 s lost. The clock runs, the lap counter does not move. A BOOST in progress ends; the item held stays.</p>
+   </div>
+  </div>
+ </section>
+
+ <section class="moment" aria-labelledby="m3">
+  <h2 id="m3">Where the kart comes back</h2>
+  <div class="pair">
+   <div class="panel">
+    <span class="tag">Today</span>
+    <svg viewBox="0 0 320 200" role="img" aria-label="Today, from above: a kart heading off the road crosses the verge, hits the wall and bounces back onto the verge.">
+     <rect width="320" height="200" fill="#2c3040"/>
+     <rect y="40" width="320" height="120" fill="#b9bdc9"/>
+     <path d="M0 40 H320" stroke="#ff2bd6" stroke-width="3"/><path d="M0 160 H320" stroke="#19e6ff" stroke-width="3"/>
+     <rect y="70" width="320" height="60" fill="#6d7194"/>
+     <path d="M60 100 Q150 110 196 156" fill="none" stroke="#ffd23f" stroke-width="1.6" stroke-dasharray="3 3"/>
+     <path d="M196 156 L232 138" fill="none" stroke="#ffd23f" stroke-width="1.6" stroke-dasharray="3 3"/>
+     <g transform="translate(232 138) rotate(-25)"><use href="#kartTop" x="-9" y="-7" width="18" height="14"/></g>
+     <text x="204" y="186" class="svgtext" fill="#f1f1f8">BOUNCE</text>
+    </svg>
+    <p>There is no way back to choose: the wall stops the kart, and it drives back from the verge on its own.</p>
+   </div>
+   <div class="panel after">
+    <span class="tag">After</span>
+    <svg viewBox="0 0 320 200" role="img" aria-label="After, from above: waypoints A, passed, and B, next. A kart that fell beside the road comes back at the nearest point of the line from A to B; one that fell past B comes back at B, never further.">
+     <rect width="320" height="200" fill="url(#stars)"/>
+     <path d="M0 120 H200 V0 H250 V170 H0 Z" fill="#6d7194"/>
+     <path d="M0 118.5 H198.5 V0" fill="none" stroke="#ff2bd6" stroke-width="2.5"/>
+     <path d="M251.5 0 V171.5 H0" fill="none" stroke="#19e6ff" stroke-width="2.5"/>
+     <path d="M40 145 H225 V20" fill="none" stroke="#f1f1f8" stroke-width="1.2" stroke-dasharray="4 4" opacity=".7"/>
+     <circle cx="40" cy="145" r="4" fill="#f1f1f8"/><text x="34" y="137" class="svgtext" fill="#f1f1f8">A</text>
+     <circle cx="225" cy="145" r="4" fill="#f1f1f8"/><text x="212" y="137" class="svgtext" fill="#f1f1f8">B</text>
+     <circle cx="225" cy="20" r="4" fill="#f1f1f8" opacity=".6"/><text x="212" y="14" class="svgtext" fill="#f1f1f8" opacity=".7">C</text>
+     <circle cx="120" cy="186" r="5" fill="none" stroke="#ff5c7a" stroke-width="1.6"/>
+     <path d="M120 181 V153" stroke="#ff5c7a" stroke-width="1.2" stroke-dasharray="2 2"/>
+     <g transform="translate(120 145)"><use href="#kartTop" x="-9" y="-7" width="18" height="14" opacity=".9"/></g>
+     <text x="130" y="190" class="svgtext" fill="#ff5c7a">FELL</text>
+     <circle cx="284" cy="112" r="5" fill="none" stroke="#ff5c7a" stroke-width="1.6"/>
+     <path d="M279 115 L234 142" stroke="#ff5c7a" stroke-width="1.2" stroke-dasharray="2 2"/>
+     <text x="262" y="100" class="svgtext" fill="#ff5c7a">FELL</text>
+    </svg>
+    <p>The way back is on the segment the kart is racing, from the last waypoint it passed (A) to the next one (B): the nearest point to where it fell, and never past B, nor across the start line. Its laps and waypoints are kept exactly as they were.</p>
+   </div>
+  </div>
+ </section>
+
+ <section class="moment" aria-labelledby="m4">
+  <h2 id="m4">What changes, what stays</h2>
+  <div class="lists">
+   <div class="panel after">
+    <span class="tag">Changes</span>
+    <ul>
+     <li>The verge and the walls become the void, on the map and on the floor.</li>
+     <li>A kart over the void falls for 1 s, then comes back on the racing line and blinks 0.5 s.</li>
+     <li>Rivals fall and come back by the same rule; a push from another kart can make them fall.</li>
+     <li>A falling kart is not pushed, not hit, takes no box and uses no item.</li>
+     <li>The <code>fall</code> sound replaces <code>scrape</code>; the wall's sparks go.</li>
+     <li>An ORB turns back at the road's edge instead of at a wall.</li>
+    </ul>
+   </div>
+   <div class="panel">
+    <span class="tag">Stays</span>
+    <ul>
+     <li>The road's layout, its kerbs, boxes, start line and racing line.</li>
+     <li>The sky and the horizon; the scenery beyond it is its own PRD.</li>
+     <li>The race time sent at the finish, and every best time already kept.</li>
+     <li>BOOST, BLOB, ORB and the spin-out keep their rules.</li>
+     <li>A whole simulated race proves each rival still finishes its three laps, with at most one fall.</li>
+    </ul>
+   </div>
+  </div>
+ </section>
+</main>
+</body>
+</html>
