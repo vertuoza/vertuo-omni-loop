@@ -1,7 +1,7 @@
 {
   "name": "omni-hud",
   "description": "The Omni Loop's band above the prompt: what this session is on, its stage and its links, from omni now.",
-  "version": "0.0.297",
+  "version": "0.0.298",
   "author": {
     "name": "vertuoza"
   },
