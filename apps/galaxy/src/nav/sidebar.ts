@@ -2,7 +2,7 @@
 // /knowledge). Since PRD 733 it has two groups, then the foot: Dashboard (the boards: Home, your
 // fleet's, since PRD 1139 the workspace's loops beside it, at /app/loop, the workspace's, and since PRD 612
 // Engineering's, at /app/engineering), Work (the workspace's
-// work: since PRD 1162 Roadmaps, the milestones its PRDs deliver, since PRD 1246 Ideas, the workspace's
+// work: since PRD 1364 Products first, the workspace's products, at /app/products, then since PRD 1162 Roadmaps, the milestones its PRDs deliver, since PRD 1246 Ideas, the workspace's
 // ideas board (its public page, /ideas/<owner>/<repo>, read from the viewer; Settings › Repositories while
 // the workspace lists none), since PRD 1272 Concepts, the vast ideas /omni:think-big recorded, then PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
 // the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING), then Omni's
@@ -19,7 +19,7 @@ import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -71,6 +71,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
     id: 'work',
     label: 'Work',
     items: [
+      { id: 'products', label: 'Products', path: '/app/products', sprite: 'coin' },
       { id: 'roadmaps', label: 'Roadmaps', path: '/roadmaps', sprite: 'menu-roadmaps' },
       { id: 'ideas', label: 'Ideas', path: IDEAS_PATH, sprite: 'tile-block' },
       { id: 'concepts', label: 'Concepts', path: '/concepts', sprite: 'menu-concepts' },
