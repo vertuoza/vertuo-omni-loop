@@ -56,13 +56,19 @@ function lineOf(track: Track): Line {
   return made;
 }
 
-/** Progress along the racing line in game pixels: whole laps, then the way along the segment the kart is on. Places follow it. */
-export function progressOf(track: Track, pace: Pace, kart: { x: number; y: number }): number {
-  const { pts, cum, length } = lineOf(track);
+/** The segment of the racing line a kart with this pace is measured along: its index, its first point, its direction (dx, dy) and its length. */
+function segmentOf(track: Track, pace: Pace) {
+  const { pts } = lineOf(track);
   const i = Math.min(pace.passed, pts.length - 2);
   const a = at(pts, i, 'a point'), b = at(pts, i + 1, 'a point');
   const dx = b.x - a.x, dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
+  return { i, a, dx, dy, len: Math.hypot(dx, dy) || 1 };
+}
+
+/** Progress along the racing line in game pixels: whole laps, then the way along the segment the kart is on. Places follow it. */
+export function progressOf(track: Track, pace: Pace, kart: { x: number; y: number }): number {
+  const { cum, length } = lineOf(track);
+  const { i, a, dx, dy, len } = segmentOf(track, pace);
   const back = kart.x * track.forward[0] + kart.y * track.forward[1] - track.line.at;
   if (pace.laps === 0 && pace.passed === 0 && back < 0) return back; // the grid stands behind the line: progress starts below zero
   const along = Math.min(len, Math.max(0, ((kart.x - a.x) * dx + (kart.y - a.y) * dy) / len));
@@ -132,19 +138,36 @@ export function rubber(rivalProgress: number, playerProgress: number): number {
   return 1 + RULES.rubber * gap;
 }
 
-/** One short step of a rival, the player being `playerProgress` along: it drives its kart at its own pace, and its pace follows. */
-export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number): Rival {
-  const band = rubber(progressOf(track, r.pace, r.kart), playerProgress);
-  const { kart, fx } = stepFx(track.map, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX);
-  return { ...r, kart, fx, pace: advance(track, r.pace, r.kart, kart) };
+/**
+ * The kart's way back after its fall (PRD 1447): at rest, on the point of the racing line nearest to where it fell, on the
+ * segment `progressOf()` measures it along and never at that segment's ends (never at the next waypoint, never on the start
+ * line), facing the segment's direction, blinking. Its `Pace` is not touched: the jump is never passed to `advance()`.
+ */
+export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: Kart; fx: Fx } {
+  const { a, dx, dy, len } = segmentOf(track, pace);
+  const along = Math.min(Math.max(0, len - 1), Math.max(0, ((kart.x - a.x) * dx + (kart.y - a.y) * dy) / len));
+  return {
+    kart: { x: a.x + (dx / len) * along, y: a.y + (dy / len) * along, angle: Math.atan2(dy, dx), speed: 0, steer: 0 },
+    fx: { ...fx, fall: 0, blink: RULES.blinkTime },
+  };
 }
 
-/** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap. */
-export function pushApart(karts: readonly Kart[]): Kart[] {
+/** One short step of a rival, the player being `playerProgress` along: it drives its kart at its own pace, and its pace follows. A rival whose fall ends comes back on the line. */
+export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number): Rival {
+  const band = rubber(progressOf(track, r.pace, r.kart), playerProgress);
+  const stepped = stepFx(track.map, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX);
+  const pace = advance(track, r.pace, r.kart, stepped.kart);
+  if (!stepped.landed) return { ...r, kart: stepped.kart, fx: stepped.fx, pace };
+  return { ...r, ...comeBack(track, pace, stepped.kart, stepped.fx), pace };
+}
+
+/** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap; a kart marked in `falling` touches none. */
+export function pushApart(karts: readonly Kart[], falling: readonly boolean[] = []): Kart[] {
   const out = karts.map((k) => ({ ...k }));
   const reach = RULES.radius * 2;
   for (let i = 0; i < out.length; i++) {
     for (let j = i + 1; j < out.length; j++) {
+      if (falling[i] || falling[j]) continue; // a falling kart is out of the contacts
       const a = at(out, i, 'a kart'), b = at(out, j, 'a kart');
       const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.hypot(dx, dy);

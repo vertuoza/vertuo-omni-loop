@@ -287,13 +287,13 @@ describe('the results and the score (slice 4)', () => {
 describe('the sound of a cue', () => {
   const cues: KartCue[] = [
     { kind: 'beep', beat: '3' }, { kind: 'go' }, { kind: 'item', item: 'boost', you: true, tiles: 0 }, { kind: 'item', item: 'blob', you: true, tiles: 0 },
-    { kind: 'item', item: 'orb', you: true, tiles: 0 }, { kind: 'box' }, { kind: 'hit', item: 'orb', you: true, tiles: 0 }, { kind: 'spin' }, { kind: 'scrape' }, { kind: 'finalLap' },
+    { kind: 'item', item: 'orb', you: true, tiles: 0 }, { kind: 'box' }, { kind: 'hit', item: 'orb', you: true, tiles: 0 }, { kind: 'spin' }, { kind: 'scrape' }, { kind: 'fall' }, { kind: 'finalLap' },
   ];
 
   it('maps every cue to an effect beside the player', () => {
     expect(cues.map((c) => soundOf(c))).toEqual([
       { sfx: 'beep', far: 0 }, { sfx: 'go', far: 0 }, { sfx: 'boost', far: 0 }, { sfx: 'blob', far: 0 },
-      { sfx: 'orb', far: 0 }, { sfx: 'box', far: 0 }, { sfx: 'impact', far: 0 }, { sfx: 'spin', far: 0 }, { sfx: 'scrape', far: 0 }, { sfx: 'finalLap', far: 0 },
+      { sfx: 'orb', far: 0 }, { sfx: 'box', far: 0 }, { sfx: 'impact', far: 0 }, { sfx: 'spin', far: 0 }, { sfx: 'scrape', far: 0 }, { sfx: 'fall', far: 0 }, { sfx: 'finalLap', far: 0 },
     ]);
   });
 

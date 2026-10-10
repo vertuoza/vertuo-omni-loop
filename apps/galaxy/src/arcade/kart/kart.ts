@@ -115,23 +115,37 @@ export function driveKart(map: readonly string[], k: Kart, pad: Pad, dt: number,
   return moveKart(map, k, pad, dt, pace, boost).kart;
 }
 
-/** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left. */
-export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number }
+/** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left, the seconds of falling left (PRD 1447) and the seconds it still blinks after the way back. */
+export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number; readonly fall: number; readonly blink: number }
 
 /** A kart with nothing held and nothing on it. */
-export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0 });
+export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0, blink: 0 });
 
 const HANDS_OFF: Pad = { left: false, right: false, accel: false, brake: false };
 
+/** Whether the tile under a kart's centre is the void: its body may hang over the edge without falling. */
+const isOverVoid = (map: readonly string[], k: { x: number; y: number }): boolean => tileAt(map, Math.floor(k.x / TILE), Math.floor(k.y / TILE)) === '~';
+
+/** A kart whose centre is over the void and is not already falling starts to fall: at rest, its BOOST and any spin-out ended, the item it holds kept. Anything else is the same objects back. */
+export function fallIfOver<T extends { x: number; y: number; speed: number; steer: number }>(map: readonly string[], k: T, fx: Fx): { kart: T; fx: Fx } {
+  if (fx.fall > 0 || !isOverVoid(map, k)) return { kart: k, fx };
+  return { kart: { ...k, speed: 0, steer: 0 }, fx: { ...fx, boost: 0, spin: 0, fall: RULES.fallTime } };
+}
+
 /**
- * One short step of a kart with what is on it: a spin-out takes the input and turns the kart on itself
- * (the speed it dropped to wears off like any other), a BOOST drives past the grass, and the timers run down.
- * The kart's `fx` after the step is returned with it, and whether a wall stopped the kart (`touched`).
+ * One short step of a kart with what is on it: a fall takes the input and holds the kart where it is, a spin-out takes the input and turns the kart on itself
+ * (the speed it dropped to wears off like any other), a BOOST drives past the grass, and the timers run down. A kart whose centre goes over the void starts to fall.
+ * The kart's `fx` after the step is returned with it, whether a wall stopped the kart (`touched`), and whether its fall ended in this step (`landed`):
+ * the way back is the race's to place (rivals.ts), never this step's.
  */
-export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pace: number, fx: Fx): { kart: Kart; fx: Fx; touched: boolean } {
+export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pace: number, fx: Fx): { kart: Kart; fx: Fx; touched: boolean; landed: boolean } {
+  if (fx.fall > 0) {
+    const fall = Math.max(0, fx.fall - dt);
+    return { kart: k, touched: false, landed: fall === 0, fx: { ...fx, fall, blink: Math.max(0, fx.blink - dt) } };
+  }
   const spinning = fx.spin > 0;
   const { kart: moved, touched } = moveKart(map, k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0);
   const kart = spinning ? { ...moved, angle: moved.angle + RULES.spinRate * dt, steer: 0 as const } : moved;
-  return { kart, touched, fx: { item: fx.item, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt) } };
+  const ran: Fx = { ...fx, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };
+  return { ...fallIfOver(map, kart, ran), touched, landed: false };
 }
-

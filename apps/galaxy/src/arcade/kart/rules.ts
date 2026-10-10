@@ -51,6 +51,9 @@ export const RULES = Object.freeze({
   orbBounces: 3,
   orbLife: 4,
   spinTime: 1,
+  /** The fall into the void (PRD 1447): how long a kart falls, and how long it blinks once it is back on the road. */
+  fallTime: 1,
+  blinkTime: 0.5,
   spinSpeed: 0.3,
   spinRate: Math.PI * 2,
   /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */

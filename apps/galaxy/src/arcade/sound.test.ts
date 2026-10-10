@@ -159,7 +159,7 @@ describe('the five new mascots\' motifs (PRD 517)', () => {
 
 // OMNI KART's effects (PRD 1427, slice 2): each new name plays, a rival's is quieter and lower the farther it is, and mute silences them.
 describe('the race\'s effects', () => {
-  const NEW: readonly Sfx[] = ['beep', 'go', 'boost', 'blob', 'orb', 'box', 'impact', 'spin', 'scrape', 'finalLap'];
+  const NEW: readonly Sfx[] = ['beep', 'go', 'boost', 'blob', 'orb', 'box', 'impact', 'spin', 'scrape', 'fall', 'finalLap'];
 
   beforeAll(() => {
     vi.useFakeTimers();
