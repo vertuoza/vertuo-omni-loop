@@ -42503,6 +42503,21 @@ var ENTRIES = deepFreeze([
     }
   },
   {
+    name: "enforce",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:enforce <n>"],
+    label: "/omni:enforce <n>",
+    summary: "a law issue, to one PR with its test proven",
+    detail: "Turns one law issue, a rule or an invariant of the knowledge base that reads Enforced by: pending #<n>, into one PR into {defaultBranch}: it writes the law's test where the testing form says tests live, then proves it, red with the law broken in the code and green once the code is restored, the break never committed. It rewrites the entry's pending #<n> to the test's path on a law branch, and the PR closes the issue, its report showing the red and the green. A test that cannot go red stops it, with a comment on the issue, the law left pending and no PR. It runs only where laws live in the knowledge base, and never merges.",
+    group: "everyday",
+    when: "Use it when a law issue waits for its test and you want one PR a person merges, without writing the test yourself.",
+    example: {
+      type: "/omni:enforce 1400",
+      result: "one PR adding the law's test, seen red with the law broken and green restored, closing the issue"
+    }
+  },
+  {
     name: "validate-e2e",
     kind: "skill",
     who: "you",
