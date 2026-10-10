@@ -244,6 +244,19 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(flat).toMatch(/as a comment on the roadmap's issue, with the marker/);
   });
 
+  it('prints /omni:enforce: for you, a law issue to one PR, its test red with the law broken and green restored (PRD 1342)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'enforce'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^\/omni:enforce <n> +for you\n/);
+    const words = out.replace(/\s+/g, ' ');
+    for (const phrase of [/law issue/, /pending #<n>/, /red with the law broken/, /green/, /closes the issue/, /never merges/]) {
+      expect(words, String(phrase)).toMatch(phrase);
+    }
+    const overview = await run(['help'], root);
+    expect(overview.out).toMatch(/\n {2}\/omni:enforce <n> +a law issue, to one PR with its test proven\n/);
+  });
+
   it('--help and -h print exactly what omni help prints', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const help = await run(['help'], root);
