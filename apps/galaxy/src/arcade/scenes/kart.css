@@ -15,17 +15,34 @@
 .kt-beat {
   position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); margin: 0;
   font-size: 40px; letter-spacing: 2px; color: var(--yellow); text-shadow: 3px 3px 0 var(--red), 6px 6px 0 #0b0a26;
+  animation: kt-pop 0.35s ease-out;
 }
+.kt-go { font-size: 56px; color: var(--green, var(--yellow)); }
+@keyframes kt-pop { from { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } 60% { transform: translate(-50%, -50%) scale(0.9); opacity: 1; } to { transform: translate(-50%, -50%) scale(1); } }
+@keyframes kt-flash { 50% { opacity: 0.25; } }
 .kt-foot { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
 
 /* The race's line: the place, the lap and the time, over the top of the road; FINAL LAP under it. */
 .kt-run {
-  position: absolute; top: 8px; left: 8px; right: 8px; margin: 0; display: flex; gap: 14px;
+  position: absolute; top: 8px; left: 8px; right: 8px; margin: 0; display: flex; gap: 6px; align-items: stretch;
   font-size: 10px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26;
 }
-.kt-place { color: var(--yellow); }
-.kt-item { margin-left: auto; color: var(--cyan); }
+/* A framed panel: the place, the lap, the time and the held item each sit in one, like a console racer's HUD. */
+.kt-panelbox {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; white-space: nowrap;
+  background: rgba(11, 10, 38, 0.72); border: 2px solid var(--cyan); box-shadow: 2px 2px 0 #0b0a26, inset 0 0 0 1px #0b0a26;
+}
+.kt-place { color: var(--yellow); border-color: var(--yellow); }
+.kt-item { margin-left: auto; min-width: 26px; min-height: 16px; color: var(--cyan); border-color: var(--magenta, var(--cyan)); }
+.kt-empty { opacity: 0.6; }
+.kt-item-label { font-size: 7px; opacity: 0.8; }
+/* The icon of what is held, drawn in CSS: a chevron for BOOST, a drop for BLOB, a ring for ORB. */
+.kt-icon { display: inline-block; width: 10px; height: 10px; background: currentColor; }
+.kt-item[data-item='boost'] .kt-icon { clip-path: polygon(0 0, 55% 0, 100% 50%, 55% 100%, 0 100%, 45% 50%); color: var(--yellow); }
+.kt-item[data-item='blob'] .kt-icon { border-radius: 50% 50% 50% 0; transform: rotate(-45deg); color: var(--green, var(--cyan)); }
+.kt-item[data-item='orb'] .kt-icon { border-radius: 50%; background: transparent; border: 3px solid var(--red); box-sizing: border-box; }
 .kt-final {
+  animation: kt-flash 0.5s steps(2, jump-none) infinite;
   position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap;
   font-size: 18px; letter-spacing: 2px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
 }
@@ -41,5 +58,12 @@
 .grid-tall .kt-panel { padding: 8px 10px; white-space: normal; max-width: 280px; }
 .grid-tall .kt-results { min-width: 0; width: 260px; }
 .grid-tall .kt-beat { font-size: 28px; }
-.grid-tall .kt-run { font-size: 8px; }
+.grid-tall .kt-run { font-size: 8px; gap: 3px; }
+.grid-tall .kt-panelbox { padding: 2px 4px; }
+.grid-tall .kt-go { font-size: 38px; }
 .grid-tall .kt-final { font-size: 14px; }
+
+/* Reduced motion: the countdown does not pop and FINAL LAP does not flash. */
+@media (prefers-reduced-motion: reduce) {
+  .kt-beat, .kt-final { animation: none; }
+}

@@ -4,11 +4,33 @@
 // pause. Later slices add the race's own screens. Laid out for the grid the game is drawn on (kart.css).
 import { Hint } from '../hint';
 import { ordinal } from '../fleets';
-import { NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, type KartHud, type KartStatus } from './kart.ts';
+import { NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, type KartHud, type KartItem, type KartStatus } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
 import './kart.css';
+
+/** The place, the lap and the time in framed panels, and the held item as its icon in a frame of its own. */
+function RaceLine({ run }: { run: NonNullable<KartHud['run']> }) {
+  return (
+    <div className="kt-run">
+      <span className="kt-panelbox kt-place">{ordinal(run.place)}</span>
+      <span className="kt-panelbox">LAP {run.lap}/{run.laps}</span>
+      <span className="kt-panelbox">{raceTime(run.tenths)}</span>
+      <ItemFrame item={run.item} />
+    </div>
+  );
+}
+
+function ItemFrame({ item }: { item: KartItem | null }) {
+  if (!item) return <span className="kt-panelbox kt-item kt-empty" data-item="none" />;
+  return (
+    <span className="kt-panelbox kt-item" data-item={item}>
+      <span className="kt-icon" aria-hidden="true" />
+      <span className="kt-item-label">ITEM</span> <span className="kt-item-name">{item.toUpperCase()}</span>
+    </span>
+  );
+}
 
 export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM' }: {
   /** Where the game's import stands: the ready screen shows once it has loaded. */
@@ -62,15 +84,8 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   if (hud && hud.phase !== 'ready') {
     return (
       <div className="kt">
-        {hud.beat && <p className="kt-beat" role="status">{hud.beat}</p>}
-        {hud.run && (
-          <p className="kt-run">
-            <span className="kt-place">{ordinal(hud.run.place)}</span>
-            <span>LAP {hud.run.lap}/{hud.run.laps}</span>
-            <span>{raceTime(hud.run.tenths)}</span>
-            {hud.run.item && <span className="kt-item">ITEM {hud.run.item.toUpperCase()}</span>}
-          </p>
-        )}
+        {hud.beat && <p className={`kt-beat${hud.beat === 'GO' ? ' kt-go' : ''}`} key={hud.beat} role="status">{hud.beat}</p>}
+        {hud.run && <RaceLine run={hud.run} />}
         {hud.run?.final && hud.phase === 'race' && <p className="kt-final" role="status">FINAL LAP</p>}
         {hud.phase === 'paused' && (
           <div className="j-panel kt-panel kt-mid">
