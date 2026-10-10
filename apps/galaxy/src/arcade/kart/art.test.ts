@@ -223,14 +223,14 @@ describe('the game the arcade drives', () => {
   it('reads its text layer from the race: ready, the countdown, GO, the pause and back', () => {
     const kart = createKart();
     expect(kart.hud()).toEqual({ phase: 'ready', beat: null });
-    expect(kart.press('start')).toEqual({ quit: false });
+    expect(kart.press('start')).toEqual({ quit: false, again: false });
     expect(kart.hud()).toEqual({ phase: 'countdown', beat: '3' });
     kart.step(held(), 1.05 / 21);
     for (let t = 0; t < 3; t += 0.05) kart.step(held(), 0.05);
     expect(kart.hud().phase).toBe('race');
     kart.press('start');
     expect(kart.hud().phase).toBe('paused');
-    expect(kart.press('select')).toEqual({ quit: true });
+    expect(kart.press('select')).toEqual({ quit: true, again: false });
     kart.press('start');
     expect(kart.hud().phase).toBe('race');
   });

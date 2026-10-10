@@ -17,16 +17,24 @@ export const PAGES: Pages = {};
 
 /** What the text layer shows of the race: its phase, and the countdown's number or the GO that follows it. */
 export interface KartHud {
-  phase: 'ready' | 'countdown' | 'race' | 'paused';
+  phase: 'ready' | 'countdown' | 'race' | 'paused' | 'finish';
   beat: '3' | '2' | '1' | 'GO' | null;
   /** The race's own line, once it has begun: the player's place (1 to 6), the lap (1 to `laps`), the race time in tenths of a second and whether FINAL LAP shows. */
   run?: KartRun;
+  /** The results table, once the player crossed the line at the end of the last lap. */
+  results?: KartResults;
 }
+
+/** One line of the results table: a place, the driver and the time in tenths of a second (none for a kart still racing). */
+export interface KartRow { place: number; name: string; tenths: number | null; you: boolean }
+
+/** The finish: the six places, the player's place and time, and the score that is sent. */
+export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number; score: number }
 
 export interface KartRun { place: number; lap: number; laps: number; tenths: number; final: boolean }
 
 /** A rival's driver: its sprite and tint, as the fleet's look gives them. */
-export interface KartDriver { sprite: string; tint: Tint | null; color: string | null }
+export interface KartDriver { sprite: string; tint: Tint | null; color: string | null; name?: string }
 
 /** The most rivals on the grid: the other five karts. */
 export const RIVALS = 5;
@@ -38,8 +46,8 @@ export const RIVALS = 5;
  */
 export function kartCast(fleets: readonly { name: string }[], team: string | null): KartDriver[] {
   return fleets.filter((f) => f.name !== team).slice(0, RIVALS).map((f) => {
-    const { sprite, tint, color } = fleet(f.name);
-    return { sprite, tint, color };
+    const { sprite, tint, color, label } = fleet(f.name);
+    return { sprite, tint, color, name: label };
   });
 }
 
@@ -51,14 +59,15 @@ export function raceTime(tenths: number): string {
 }
 
 /** The player left the race from its pause. */
-export interface KartQuit { quit: boolean }
+export interface KartQuit { quit: boolean; /** A on the results: another race, with a new seed. */ again: boolean }
 
 /**
  * The race itself, as the arcade drives it (PRD 1359, slice 2): stepped by the canvas loop with the
  * buttons held, answering presses, paused from outside, and read by the text layer through `hud()`.
  */
 export interface KartGame extends KartDraw {
-  step(held: ReadonlySet<Action>, dt: number): void;
+  /** Plays `dt` seconds with the buttons held; answers the score on the step that finishes the race (once), else null. */
+  step(held: ReadonlySet<Action>, dt: number): number | null;
   press(action: Action): KartQuit;
   pause(): void;
   hud(): KartHud;
@@ -98,16 +107,16 @@ export const PAUSED_LINE = 'PAUSED';
 /**
  * What a press does on the screens before the race: A imports again after a failure, B goes back to
  * the room. Once the game has loaded and its race began (`phase` past `ready`), B is the race's own
- * and the room is left from the pause only: the rest of the buttons go to the race.
+ * and the room is left from the pause only (or B on the results): the rest of the buttons go to the race.
  */
 export function kartPress(status: KartStatus, action: Action, phase: KartHud['phase'] = 'ready'): 'retry' | 'back' | null {
-  if (action === 'b') return phase === 'ready' ? 'back' : null;
+  if (action === 'b') return phase === 'ready' || phase === 'finish' ? 'back' : null;
   return status === 'failed' && action === 'a' ? 'retry' : null;
 }
 
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
 export const sameKartHud = (a: KartHud | null, b: KartHud | null): boolean =>
-  a === b || (!!a && !!b && a.phase === b.phase && a.beat === b.beat && sameRun(a.run, b.run));
+  a === b || (!!a && !!b && a.phase === b.phase && a.beat === b.beat && a.results === b.results && sameRun(a.run, b.run));
 
 const sameRun = (a: KartRun | undefined, b: KartRun | undefined): boolean =>
   a === b || (!!a && !!b && a.place === b.place && a.lap === b.lap && a.laps === b.laps && a.tenths === b.tenths && a.final === b.final);

@@ -29,8 +29,16 @@
   font-size: 18px; letter-spacing: 2px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
 }
 
+/* The results: six places, each driver and their time, then the score and where sending it stands. */
+.kt-results { min-width: 220px; }
+.kt-table { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 8px; letter-spacing: 1px; color: var(--white); text-align: left; }
+.kt-table li { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; }
+.kt-table .kt-you { color: var(--yellow); }
+.kt-score { margin: 0; font-size: 10px; letter-spacing: 1px; color: var(--yellow); }
+
 /* ── On the tall grid (320×288) ───────────────────────────────────────────── */
 .grid-tall .kt-panel { padding: 8px 10px; white-space: normal; max-width: 280px; }
+.grid-tall .kt-results { min-width: 0; width: 260px; }
 .grid-tall .kt-beat { font-size: 28px; }
 .grid-tall .kt-run { font-size: 8px; }
 .grid-tall .kt-final { font-size: 14px; }

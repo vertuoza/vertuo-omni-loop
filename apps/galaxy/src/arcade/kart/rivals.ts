@@ -8,13 +8,13 @@ import { RULES } from './rules';
 import { LAPS, type Track } from './track';
 
 /** Who drives a rival's kart: its sprite and its tint, as `fleetSprite` gives them, and its fleet's colour, which the kart takes. */
-export interface Driver { sprite: string; tint: Tint | null; color: string | null }
+export interface Driver { sprite: string; tint: Tint | null; color: string | null; /** Who it is, as the results table names it. */ name?: string }
 
 /** How far a kart is in the race: the laps it has completed, and the waypoints of the lap it is on that it has passed in order. */
 export interface Pace { laps: number; passed: number }
 
 /** A rival: its driver, its kart, where it is in the race, how fast it can go (a share of the player's top speed) and how far it drives off the line. */
-export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number }
+export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number; /** The race clock at which it crossed the line at the end of the last lap; none while it races. */ doneAt?: number | null }
 
 export const START_PACE: Pace = Object.freeze({ laps: 0, passed: 0 });
 

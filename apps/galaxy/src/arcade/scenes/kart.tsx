@@ -5,15 +5,18 @@
 import { Hint } from '../hint';
 import { ordinal } from '../fleets';
 import { NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, type KartHud, type KartStatus } from './kart.ts';
+import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
 import './kart.css';
 
-export function KartOverlay({ status, hud = null, back = 'GAME ROOM' }: {
+export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM' }: {
   /** Where the game's import stands: the ready screen shows once it has loaded. */
   status: KartStatus;
   /** What the race is showing, once it has loaded: nothing yet reads as the ready screen. */
   hud?: KartHud | null;
+  /** Where sending the score stands at the finish; none before it. */
+  send?: ScoreSend | null;
   /** Where leaving goes, as its hint says: the game room in the arcade. */
   back?: string;
 }) {
@@ -31,6 +34,29 @@ export function KartOverlay({ status, hud = null, back = 'GAME ROOM' }: {
         <p className="kt-notice" role="status">LOADING…</p>
         <p className="hint kt-back"><Hint k="B">{back}</Hint></p>
       </>
+    );
+  }
+  if (hud?.results) {
+    const { results } = hud;
+    const line = sendLine(send);
+    return (
+      <div className="kt">
+        <div className="j-panel kt-panel kt-mid kt-results">
+          <p className="inv-title">RESULTS</p>
+          <ol className="kt-table">
+            {results.rows.map((r) => (
+              <li key={r.place} className={r.you ? 'kt-you' : undefined}>
+                <span>{ordinal(r.place)}</span><span>{r.name}</span><span>{r.tenths === null ? '--' : raceTime(r.tenths)}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="kt-score">SCORE {results.score}</p>
+          {line && send && <p className={`inv-send inv-${sendTone(send)}`} role="status">{line}</p>}
+          {canRetry(send)
+            ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">{back}</Hint></p>
+            : <p className="hint"><Hint k="A">RACE AGAIN</Hint> <Hint k="B">{back}</Hint></p>}
+        </div>
+      </div>
     );
   }
   if (hud && hud.phase !== 'ready') {
