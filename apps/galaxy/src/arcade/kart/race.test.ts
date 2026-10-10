@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { cuesOf, hudOf, newRace, pause, press, scoreOf, step, type Race } from './race';
+import { cuesOf, hudOf, newRace, pause, press, step, type Race } from './race';
 import { RULES } from './rules';
-import { LAPS, PAR_SECONDS, parseTrack, TILE, tileAt } from './track';
+import { LAPS, parseTrack, TILE, tileAt } from './track';
 
 // The race's phases and what each one lets the player do (PRD 1359, slice 2).
 
@@ -178,7 +178,7 @@ describe('determinism', () => {
   });
 });
 
-describe('the finish and the score (slice 4)', () => {
+describe('the finish and the race time (slice 4)', () => {
   /** A race one step from the line: the player has done every lap but the last waypoints, just behind the start line. */
   function nearLine(rivals: (r: Race['rivals'][number], i: number) => Race['rivals'][number] = (r) => r): Race {
     const r = racing();
@@ -188,21 +188,14 @@ describe('the finish and the score (slice 4)', () => {
     return { ...r, clock: 100, player, pace: { laps: LAPS - 1, passed: track.waypoints.length }, rivals: r.rivals.map(rivals) };
   }
 
-  it('scores the place points plus a point per tenth of a second under the par time, and none at or over it', () => {
-    expect([1, 2, 3, 4, 5, 6].map((p) => scoreOf(p, PAR_SECONDS))).toEqual([1000, 700, 500, 350, 200, 100]);
-    expect(scoreOf(1, PAR_SECONDS - 12.3)).toBe(1123);
-    expect(scoreOf(3, PAR_SECONDS + 20)).toBe(500);
-    expect(scoreOf(6, 0)).toBe(100 + PAR_SECONDS * 10);
-  });
-
-  it('finishes when the player crosses the line at the end of lap 3, giving the score once', () => {
+  it('finishes when the player crosses the line at the end of lap 3, giving the time once', () => {
     let r = nearLine();
     const events = [];
     for (let i = 0; i < 20 && r.phase === 'race'; i++) { const s = step(r, GAS, 0.05); r = s.race; events.push(...s.events); }
     expect(r.phase).toBe('finish');
     const finishes = events.filter((e) => e.kind === 'finish');
     expect(finishes).toHaveLength(1);
-    expect(finishes[0]).toEqual({ kind: 'finish', score: r.finish?.score });
+    expect(finishes[0]).toEqual({ kind: 'finish', tenths: r.finish?.tenths });
     expect(step(r, GAS, 0.05).events).toEqual([]);
     expect(step(r, GAS, 0.05).race).toBe(r);
   });
@@ -226,11 +219,10 @@ describe('the finish and the score (slice 4)', () => {
     expect(rows.filter((x) => x.you).map((x) => x.tenths)).toEqual([tenths]);
   });
 
-  it('places the rivals still racing by progress, with no time, and scores the player\'s place', () => {
+  it('places the rivals still racing by progress, with no time', () => {
     const r = finished();
     const res = resultsOf(r);
     expect(res.rows.filter((x) => !x.you).every((x) => x.tenths === null)).toBe(true);
-    expect(res.score).toBe(scoreOf(res.place, r.clock));
     expect(hudOf(r)).toEqual({ phase: 'finish', beat: null, results: res });
   });
 
@@ -253,7 +245,7 @@ describe('the finish and the score (slice 4)', () => {
     expect(pause(r).phase).toBe('finish');
   });
 
-  it('gives no score to a player who quits from the pause before the line', () => {
+  it('gives no finish to a player who quits from the pause before the line', () => {
     const p = press(pause(racing()), 'select');
     expect(p.events).toEqual([{ kind: 'quit' }]);
     expect(p.race.finish).toBeNull();
@@ -356,7 +348,7 @@ describe('the cues an event makes', () => {
   it('makes a scrape of the player\'s wall contact, and nothing of a rival\'s, the finish or the player leaving', () => {
     expect(cuesOf({ kind: 'wall', racer: 0 }, 0)).toEqual([{ kind: 'scrape' }]);
     expect(cuesOf({ kind: 'wall', racer: 1 }, 3)).toEqual([]);
-    expect(cuesOf({ kind: 'finish', score: 10 }, 0)).toEqual([]);
+    expect(cuesOf({ kind: 'finish', tenths: 1000 }, 0)).toEqual([]);
     expect(cuesOf({ kind: 'quit' }, 0)).toEqual([]);
     expect(cuesOf({ kind: 'again' }, 0)).toEqual([]);
   });

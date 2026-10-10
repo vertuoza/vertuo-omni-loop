@@ -72,7 +72,7 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
               </li>
             ))}
           </ol>
-          <p className="kt-score">SCORE {results.score}</p>
+          <p className="kt-score">TIME {raceTime(results.tenths)}</p>
           {line && send && <p className={`inv-send inv-${sendTone(send)}`} role="status">{line}</p>}
           {canRetry(send)
             ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">{back}</Hint></p>

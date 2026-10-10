@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
-import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, PAR_SECONDS, parseTrack, TILE, tileAt, trackProblems, type TrackSource } from './track';
+import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, parseTrack, TILE, tileAt, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, waypoints: TrackSource['waypoints'] = COMET_RING.waypoints): TrackSource {
@@ -16,11 +16,10 @@ describe('COMET RING', () => {
     expect(trackProblems(COMET_RING)).toEqual([]);
   });
 
-  it('is a 64×64 map of equal rows, raced over 3 laps with a par time of 150 seconds', () => {
+  it('is a 64×64 map of equal rows, raced over 3 laps', () => {
     expect(COMET_RING.rows).toHaveLength(64);
     for (const row of COMET_RING.rows) expect(row).toHaveLength(64);
     expect(LAPS).toBe(3);
-    expect(PAR_SECONDS).toBe(150);
     expect(TILE).toBe(16);
   });
 
