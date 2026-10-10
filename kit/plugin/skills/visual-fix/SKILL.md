@@ -43,6 +43,10 @@ so in one line: the Omni Loop kit is not installed in this repository. Keep the 
 read `repo.*`, `branches.fix`, `worktrees`, `paths.delivery`, `labels.visual`, `labels.autoCreate`,
 `commands.preflight` and `limits.beforeAfterMaxBytes` from it. `<remote>` below is `repo.remote`.
 
+Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`. Keep what it
+prints. Anything but `true` (or a failure) means design craft is off here: step 7 runs no design
+review, and the PR has no **Design review** section. Nothing else in this skill changes.
+
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
 Its rules bind every step below. Then read `node .omni-loop/bin/omni.mjs kb show verification`: how
 this repository sees a change working, which step 7 follows. Each `omni kb show <form>` prints one
@@ -175,6 +179,21 @@ When that cannot be done here (no way to run the app, no browser, a screen behin
 session lacks), say so plainly: the PR's preview becomes the check. **Nothing is reported as seen
 that was not.**
 
+**Design review,** only when step 0 read the design flag as `true`, and on its own: no one asks
+for it. Follow `/omni:pixel-perfect review`: that skill's step 0, then its `reference/review.md`,
+as written there. Give it the issue, the paths the fix changed as its territory, the base
+`<remote>/<repo.defaultBranch>`, and, as its reference picture, the variation the person picked in
+step 4. Its fixes stay inside **The boundary** as well as the territory, and are part of step 6's
+change: run `commands.preflight` again after them. A fix that would cross **The boundary** is not
+made: the review never crosses it to finish a fix, and it is never **The stop**.
+
+The review never blocks: no finding stops the fix, holds the preflight or keeps the PR from
+opening. A visual fix has no outbox, so what it did not fix is listed in the PR's **Design review**
+section (step 9), one line each, with the fix it would make and why it was left. When the app
+cannot be seen here, the review says so and judges from the source, as its reference says. Its
+screenshots stay in the scratchpad, never in the fix's folder (step 8 allows nothing else there):
+attach them to the PR when the session can.
+
 ## 8. Record
 
 The fix's folder is `<paths.delivery>/visual/<nnnn>-<slug>/`. Write in it:
@@ -242,6 +261,11 @@ by linking to them.
    - <the real check: what was looked at, and how; or the sentence saying it was not done and the
      preview is the check>
 
+   ## Design review
+
+   <step 7's review: one ✓, ✗ or — line per step, then what was fixed and what was left, one line
+   each>
+
    ## Risk and rollback
 
    <what else shares the changed tokens or styles>; roll back by reverting this PR.
@@ -249,6 +273,7 @@ by linking to them.
    <the line `omni sign footer` prints>
    ```
 
+   The **Design review** section is there only when the design flag is on; off, leave it out.
    The pick line is the one in `before-after.html`, copied as it is. The before/after line is a
    repository path, never a URL. `/omni:pr` watches it until it is green or stuck.
 
