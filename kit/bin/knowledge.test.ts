@@ -98,7 +98,7 @@ async function judge(r: Repo, { env = { OPENROUTER_API_KEY: KEY } }: { env?: Rec
   const opened: { args: readonly string[]; input: unknown }[] = [];
   const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd !== 'gh') return realExec(cmd, args, options);
-    opened.push({ args, input: options?.input ? JSON.parse(String(options.input)) : null });
+    opened.push({ args, input: typeof options?.input === 'string' ? JSON.parse(options.input) : null });
     return JSON.stringify({ number: 90 + opened.length });
   };
   const code = await main(['knowledge', 'judge'], { cwd: r.root, exec, env, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
