@@ -59,11 +59,22 @@ describe('draftStore', () => {
     expect((error as DraftStoreError).code).toBe('22023');
   });
 
-  it('reads only the tracked repositories, and the first product', async () => {
-    const { db, reads } = fakeDb({ repositories: { data: [{ full_name: 'acme/app', product_id: 'p-1' }] }, products: { data: [{ id: 'p-1' }] } });
+  it('reads only the tracked repositories, each with its only product, and the first product', async () => {
+    const { db, reads } = fakeDb({
+      repositories: { data: [{ full_name: 'acme/api' }, { full_name: 'acme/app' }, { full_name: 'acme/web' }] },
+      // Its products are its links (PRD 1364): acme/app is in one, acme/web in two, acme/api in none.
+      product_repositories: { data: [
+        { product_id: 'p-1', repository: 'acme/app' }, { product_id: 'p-1', repository: 'acme/web' }, { product_id: 'p-2', repository: 'acme/web' },
+      ] },
+      products: { data: [{ id: 'p-1' }] },
+    });
     const store = draftStore(db);
-    expect(await store.repositories('ws-1')).toEqual([{ full_name: 'acme/app', product_id: 'p-1' }]);
+    expect(await store.repositories('ws-1')).toEqual([
+      { full_name: 'acme/api', product_id: null }, { full_name: 'acme/app', product_id: 'p-1' }, { full_name: 'acme/web', product_id: null },
+    ]);
     expect(await store.firstProduct('ws-1')).toBe('p-1');
+    expect(reads.map((r) => r.table).slice(0, 2)).toEqual(['repositories', 'product_repositories']);
     expect(sure(reads[0], 'reads[0]').filters).toEqual([['workspace_id', 'ws-1'], ['tracked', true]]);
+    expect(sure(reads[1], 'reads[1]').filters).toEqual([['workspace_id', 'ws-1']]);
   });
 });

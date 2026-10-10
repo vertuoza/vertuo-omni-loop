@@ -33,11 +33,20 @@ describe('a stored repository row', () => {
   it('parses a saved row only with a phase 0 it knows (PRD 1299 s1)', () => {
     const saved = {
       workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
-      collected_at: null, collected_until: null, collect_error: null, product_id: null, public_ideas: false, phase0: 'server',
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'server',
     };
     expect(SavedRepository.safeParse(saved).success).toBe(true);
     expect(SavedRepository.safeParse({ ...saved, phase0: 'both' }).success).toBe(false);
     expect(SavedRepository.safeParse({ ...saved, phase0: undefined }).success).toBe(false);
+  });
+
+  it('parses a saved row with no product: its products are its links (PRD 1364)', () => {
+    const saved = {
+      workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr',
+    };
+    expect(SavedRepository.safeParse(saved).success).toBe(true);
+    expect(SavedRepository.safeParse({ ...saved, product_id: null }).success).toBe(false);
   });
 });
 
