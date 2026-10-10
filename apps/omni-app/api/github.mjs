@@ -231,12 +231,13 @@ var SUPABASE = envGroup({
 var OPENROUTER = envGroup({ label: "OpenRouter", schema: z3.object({ key: z3.string(), model: z3.string().optional() }), variables: { key: KEY_VAR, model: MODEL_VAR } });
 var STAGE_EVENTS = secretGroup("the stage events", "STAGE_EVENT_SECRET");
 var CONSTITUENT_JUDGE = secretGroup("the constituent judge", "CONSTITUENT_JUDGE_SECRET");
+var LAW_JUDGE = secretGroup("the law judge", "LAW_JUDGE_SECRET");
 var GALAXY = envGroup({
   label: "galaxy",
   schema: z3.object({ url: z3.url().optional() }),
   variables: { url: "GALAXY_URL" }
 });
-var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, GALAXY]);
+var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, GALAXY]);
 var PLATFORM_VARIABLES = variablesOf([VERCEL]);
 function readEnv(source) {
   const production = envReader(source).group(VERCEL)?.name === "production";
@@ -249,6 +250,7 @@ function readEnv(source) {
     openrouter: reader.group(OPENROUTER),
     stageEvents: reader.group(STAGE_EVENTS),
     constituentJudge: reader.group(CONSTITUENT_JUDGE),
+    lawJudge: reader.group(LAW_JUDGE),
     galaxyUrl: (reader.group(GALAXY)?.url ?? DEFAULT_GALAXY_URL).replace(/\/+$/, "")
   };
   reader.done();
@@ -580,7 +582,9 @@ var ConfigSchema = z7.object({
     // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
     megaInvade: branchTemplate.default("docs/omni-mega-invade"),
     // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-    concept: branchTemplate.default("docs/concept-{topic}")
+    concept: branchTemplate.default("docs/concept-{topic}"),
+    // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
+    law: branchTemplate.default("test/law-{id}")
   }),
   worktrees: text2.default(".claude/worktrees"),
   paths: section({
@@ -614,6 +618,8 @@ var ConfigSchema = z7.object({
     // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
     // display: nothing reads it.
     approved: labelName.default("omni:approved"),
+    // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
+    law: labelName.default("omni:law"),
     autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
@@ -653,7 +659,11 @@ var ConfigSchema = z7.object({
   }).prefault({}),
   laws: section({
     source: z7.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
-    claudeMdHeading: text2.default("## Invariants")
+    claudeMdHeading: text2.default("## Invariants"),
+    // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
+    // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
+    // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
+    requireProof: z7.boolean().default(false)
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),

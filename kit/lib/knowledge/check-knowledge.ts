@@ -16,6 +16,10 @@
  *   a principle that exists, an `Enforced by:` and a `Stated:` date; an invariant the same without
  *   the `Serves:`; a cross-domain entry a `Kind:`, and a `Serves:` that cites a product principle
  *   or one of its own pair's, never a third domain's;
+ * - **proof** (PRD 1342) — `Enforced by: pending #<n>` names a law issue, never a path, so none is
+ *   looked up; with `laws.requireProof: true`, a rule or an invariant may no longer say `unenforced`:
+ *   it names its test, or its law issue. A proposed entry is no law yet, and an imported copy's own
+ *   config is its target's, so neither is asked;
  * - **honesty** — a path-shaped `Enforced by:` or `Source:` that does not exist is refused: a wrong
  *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves.
  *
@@ -39,6 +43,7 @@ import {
   domainsDir,
   idParts,
   idsCitedIn,
+  meansPending,
   productDir,
   readKnowledge,
   servedBy,
@@ -53,7 +58,7 @@ import {
  * path, and — in an imported copy's context — the target it copies.
  */
 export type CheckCtx = KnowledgeCtx & {
-  config: { paths: { glossary: string | null } };
+  config: { paths: { glossary: string | null }; laws?: { requireProof: boolean } };
   copyOf?: string;
 };
 
@@ -371,6 +376,7 @@ function servesViolations(entry: KnowledgeEntry & { serves: string }, principles
 
 /** Every entry's lines, by kind. */
 export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry[]): Violation[] {
+  const requireProof = ctx.config.laws?.requireProof === true && !ctx.copyOf;
   const principles = entries.filter((entry) => entry.kind === 'principle');
   const violations: Violation[] = [];
 
@@ -436,17 +442,30 @@ export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEn
     if (!entry.stated || !STATED_DATE.test(entry.stated)) {
       violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
-    if (entry.enforcedBy === null) {
-      violations.push(violation(entry.file, entry.id, 'is missing an "Enforced by:" line.'));
-    } else if (entry.enforcedBy !== 'unenforced') {
-      violations.push(
-        ...missingPathViolations(ctx, entry, 'Enforced by', entry.enforcedBy, {
-          onlyPathLike: false,
-        }),
-      );
-    }
+    violations.push(...proofViolations(ctx, entry, requireProof));
   }
   return violations;
+}
+
+/**
+ * A rule's or an invariant's `Enforced by:` line: present; a path that exists; `pending #<n>`, which
+ * names a law issue and no path (its shape is the parser's to refuse); or `unenforced`, refused for
+ * a law once `requireProof` is on (PRD 1342).
+ */
+function proofViolations(ctx: CheckCtx, entry: KnowledgeEntry, requireProof: boolean): Violation[] {
+  if (entry.enforcedBy === null) return [violation(entry.file, entry.id, 'is missing an "Enforced by:" line.')];
+  if (entry.enforcedBy === 'unenforced') {
+    if (!requireProof || entry.proposed !== null) return [];
+    return [
+      violation(
+        entry.file,
+        entry.id,
+        `is "Enforced by: unenforced", and laws.requireProof is true — name the test's path, or "pending #<n>", its law issue.`,
+      ),
+    ];
+  }
+  if (meansPending(entry.enforcedBy)) return [];
+  return missingPathViolations(ctx, entry, 'Enforced by', entry.enforcedBy, { onlyPathLike: false });
 }
 
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */

@@ -3,6 +3,9 @@
 // for the verbs that print a bare verdict, their whole `omni <verb> <n> [--base <ref>]` shell.
 import type { Context, ExecText } from '../lib/context.ts';
 import type { Commit } from '../lib/fix-verdict.ts';
+import { baseKnowledge, rangeChanges } from '../lib/git.ts';
+import { parsePrd, type IssueNumber } from '../lib/ids.ts';
+import { fixLawCheck } from '../lib/outbox/status.ts';
 import { parseArgs, println, usageError } from './args.ts';
 import type { Command } from './io.ts';
 import { synchronous } from './synchronous.ts';
@@ -62,6 +65,16 @@ export function branchPaths(root: string, base: string, exec: ExecText): string[
 }
 
 /**
+ * What a fix's range asks of its folder (PRD 1342): each change to a law it has not answered in the
+ * folder's outbox, read from `<base>...HEAD` and the knowledge folder at their merge base. Nothing
+ * unless `laws.source` is `knowledge`.
+ */
+export function fixLaws(ctx: Context, issue: IssueNumber, base: string, exec: ExecText): ((folder: string) => string[]) | undefined {
+  if (ctx.config.laws.source !== 'knowledge') return undefined;
+  return fixLawCheck({ ctx, number: parsePrd(issue), changes: rangeChanges({ ctx, base, exec }), base: baseKnowledge({ ctx, base, exec }) });
+}
+
+/**
  * A verb that grades one numbered record on a branch: `omni <verb> <n> [--base <ref>]`. `paths`, when
  * given, reads the changed paths the grade needs; `grade` returns `{ ok, failures }`. It prints `ok`,
  * or `not ok` then one `- ` line per failure, and exits `0` or `1`.
@@ -76,7 +89,7 @@ export function branchVerdictCommand<N extends number>({
   /** How `<n>` is read: the record's own kind of number (an issue's, a concept's). */
   read: (command: string, what: string, value: string | undefined) => N;
   paths?: (root: string, base: string, exec: ExecText) => string[];
-  grade: (input: { ctx: Context; number: N; changed?: string[] | undefined; commits?: Commit[] | undefined }) => {
+  grade: (input: { ctx: Context; number: N; changed?: string[] | undefined; commits?: Commit[] | undefined; base: string; exec: ExecText }) => {
     ok: boolean;
     failures: string[];
   };
@@ -90,7 +103,7 @@ export function branchVerdictCommand<N extends number>({
       const base = rangeBase(verb, ctx, flags, exec);
       const changed = paths ? paths(ctx.root, base, exec) : undefined;
       const commits = ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec);
-      const verdict = grade({ ctx, number, changed, commits });
+      const verdict = grade({ ctx, number, changed, commits, base, exec });
       println(stdout, verdict.ok ? 'ok' : 'not ok');
       for (const failure of verdict.failures) println(stdout, `- ${failure}`);
       return verdict.ok ? 0 : 1;

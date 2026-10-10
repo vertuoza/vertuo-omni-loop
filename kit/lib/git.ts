@@ -5,6 +5,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-decision-coverage.mjs — changes in kit/porting/outbox--check-decision-coverage.md.
 import { execFileSync } from 'node:child_process';
 import type { ExecText } from './context.ts';
+import type { KnowledgeSource } from './knowledge/registers.ts';
 
 /** One line of `git diff --name-status`: its status letter and the path it names. */
 export type NameStatus = { status: string; path: string };
@@ -46,4 +47,35 @@ export function rangeChanges({ ctx, base, exec = execFileSync }: { ctx: { root: 
     );
   }
   return parseNameStatus(git(['diff', '--name-status', '--no-renames', `${base}...HEAD`], ctx.root, exec));
+}
+
+/**
+ * The knowledge folder as the range's base holds it (PRD 1342): at the merge base of `base` and
+ * HEAD, the same point `rangeChanges` diffs from, read through git and never checked out. Each file
+ * is read when asked for. What grades `law-demoted`; `null` unless `laws.source` is `knowledge`.
+ */
+export function baseKnowledge({
+  ctx,
+  base,
+  exec = execFileSync,
+}: {
+  ctx: { root: string; layout: { knowledgeRoot: string }; config: { laws: { source: string } } };
+  base: string;
+  exec?: ExecText;
+}): KnowledgeSource | null {
+  if (ctx.config.laws.source !== 'knowledge') return null;
+  return knowledgeAt({ ctx, ref: git(['merge-base', base, 'HEAD'], ctx.root, exec).trim(), exec });
+}
+
+/** The knowledge folder at `ref`, each file read through git only when the parser asks for it, or
+ * `null` when no file sits under `paths.knowledge` there. */
+export function knowledgeAt({ ctx, ref, exec }: { ctx: { root: string; layout: { knowledgeRoot: string } }; ref: string; exec: ExecText }): KnowledgeSource | null {
+  const paths = git(['ls-tree', '-r', '-z', '--name-only', ref, '--', `${ctx.layout.knowledgeRoot}/`], ctx.root, exec).split('\0').filter(Boolean);
+  if (paths.length === 0) return null;
+  const under = (dir: string): string[] => paths.filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1));
+  return {
+    files: (dir) => under(dir).filter((rest) => !rest.includes('/')).sort(),
+    dirs: (dir) => [...new Set(under(dir).filter((rest) => rest.includes('/')).map((rest) => rest.split('/')[0] ?? ''))].sort(),
+    read: (file) => git(['show', `${ref}:${file}`], ctx.root, exec),
+  };
 }

@@ -7,7 +7,7 @@
 // not placed as checkboxes, then what the merge settled and shipped and how the checks came out.
 import type { HarvestEdits, Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { Placed } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
-import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** What the knowledge PR names of its PRD. */
 export type HarvestPrd = { number: PrdNumber; title: string };
@@ -52,14 +52,20 @@ export function decidedShort(decided: string | null | undefined): string {
   return text;
 }
 
+/** An `Enforced by:` line's value: a law no test proves yet waits on its law issue (PRD 1342). */
+function enforcedText(paths: readonly string[], issue: IssueNumber | null): string {
+  if (issue !== null) return `pending #${issue}`;
+  return paths.length > 0 ? paths.join(', ') : 'unenforced';
+}
+
 /**
  * What each new rule and invariant is enforced by, as its `Enforced by:` line says it, each proposed
  * proof the harvest dropped under it with its reason: the lines `omni harvest` prints, as a list.
  */
-function proofLines(placed: readonly Pick<Placed, 'landedAs' | 'enforcedBy' | 'dropped'>[]): string[] {
+function proofLines(placed: readonly Pick<Placed, 'landedAs' | 'enforcedBy' | 'dropped' | 'law'>[]): string[] {
   return placed.flatMap((entry) => {
     if (!entry.enforcedBy) return [];
-    const enforced = entry.enforcedBy.length > 0 ? entry.enforcedBy.join(', ') : 'unenforced';
+    const enforced = enforcedText(entry.enforcedBy, entry.law?.issue ?? null);
     return [
       `- ${entry.landedAs[0] ?? ''} — Enforced by: ${enforced}`,
       ...(entry.dropped ?? []).map((drop) => `  - dropped ${drop.path} — ${drop.reason}`),

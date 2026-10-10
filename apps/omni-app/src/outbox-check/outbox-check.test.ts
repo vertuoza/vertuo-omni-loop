@@ -84,6 +84,19 @@ describe('outbox-check — the three steps', () => {
     }
   });
 
+  it('with laws in the knowledge folder, also snapshots it at the base and at the head (PRD 1342)', async () => {
+    const github = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-feature-demoted') } });
+    await engine(github).execute();
+    const blobs = github.state.requests
+      .filter((r) => r.route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}')
+      .map((r) => String(r.file_sha));
+    expect(blobs).toContain('base1:.omni-loop/knowledge/product/invariants.md');
+    expect(blobs).toContain('head1:.omni-loop/knowledge/product/invariants.md');
+    for (const sha of blobs) {
+      expect(/^base1:\.omni-loop\/(config\.yml|knowledge\/)|^head1:\.omni-loop\/(delivery|knowledge)\//.test(sha)).toBe(true);
+    }
+  });
+
   it('hands the changed files from the compare endpoint to the gate', async () => {
     const github = featureGitHub();
     await engine(github).execute();
@@ -314,6 +327,14 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
       const github = featureGitHub({ pull: { ...targetPr, head: { ref: 'feat/widget', sha: 'head1' }, body: 'Closes #42\nPart of acme/plan#8' }, others: planPulls });
       const { result } = await engine(github).execute();
       expect(result).toMatchObject({ conclusion: 'failure' });
+    });
+
+    it('a target\'s fix PR defers to the plan PR too, where its record lives (PRD 1342)', async () => {
+      const fixPr = { ...targetPr, head: { ref: 'fix/77-crash', sha: 'head1' } };
+      const github = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-fix') }, pull: fixPr, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'success' });
+      expect(github.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
     });
 
     it('a GitHub error other than 403 or 404 on the plan repository is not swallowed', async () => {
