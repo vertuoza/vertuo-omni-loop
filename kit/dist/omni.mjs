@@ -17469,11 +17469,11 @@ var error37 = () => {
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
-        const shortName10 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+        const shortName12 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
         if (sizing) {
-          return `Te ${shortName10}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+          return `Te ${shortName12}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
         }
-        return `Te ${shortName10}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+        return `Te ${shortName12}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
       }
       case "invalid_format": {
         const _issue = issue2;
@@ -27591,8 +27591,20 @@ function targetShortName(slug) {
 }
 var planSection = external_exports.object({
   guide: nullableText.default(null),
-  targets: external_exports.array(target).min(1, "at least one target")
-}).strict().superRefine(({ targets: targets2 }, issues) => {
+  targets: external_exports.array(target).min(1, "at least one target").optional(),
+  product: external_exports.string().trim().min(1).optional()
+}).strict().superRefine(({ targets: targets2, product: product2 }, issues) => {
+  if (targets2 !== void 0 && product2 !== void 0) {
+    issues.addIssue({
+      code: "custom",
+      path: [],
+      message: "product and targets cannot both be set \u2014 keep product to read the targets from the server, or targets to keep them here"
+    });
+  }
+  if (targets2 === void 0 && product2 === void 0) issues.addIssue({ code: "custom", path: ["targets"], message: "at least one target, or a product" });
+  checkTargets(targets2 ?? [], issues);
+}).transform(({ targets: targets2, ...plan2 }) => ({ ...plan2, targets: targets2 ?? [] }));
+function checkTargets(targets2, issues) {
   const seen = /* @__PURE__ */ new Set();
   const names = targets2.map(({ repo }) => targetShortName(repo));
   targets2.forEach(({ repo, knowledge: knowledge2, readAt, consumes = [] }, index) => {
@@ -27614,7 +27626,7 @@ var planSection = external_exports.object({
       issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: `only an imported target has one, and this one is ${knowledge2}` });
     }
   });
-});
+}
 var generatedEntry = external_exports.object({
   path: text2,
   from: external_exports.array(text2).min(1, "at least one source prefix"),
@@ -34396,8 +34408,8 @@ function finishHarvest({
       const kept = [];
       for (const entry3 of result.placed) {
         const trial = attempt12([...kept, entry3.id]);
-        const failed3 = failures(trial);
-        if (failed3.length > 0) dropped.set(entry3.id, `the checks refused it: ${failed3.join("; ")}`);
+        const failed4 = failures(trial);
+        if (failed4.length > 0) dropped.set(entry3.id, `the checks refused it: ${failed4.join("; ")}`);
         else kept.push(entry3.id);
       }
       result = attempt12(null);
@@ -34885,13 +34897,14 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
      * PRD 627 a fix's push names its kind (visual or bug), and since PRD 1272 a concept's (concept); a
-     * PRD's names none, as before.
-     * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
-    pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", {
-      body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, artifacts }
+     * PRD's names none, as before. Since PRD 1364 a PRD's push names its product when one was chosen.
+     * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[], product?: string | null }>} */
+    pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, product: product2 = null, artifacts }) => call("POST", "/api/dossiers/push", {
+      body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, ...product2 ? { product: product2 } : {}, artifacts }
     }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
-     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. @returns {Promise<{ id: string, url: string }>} */
+     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. Since PRD 1364 it answers
+     * the dossier's product by its name, or null. @returns {Promise<{ id: string, url: string, product?: string | null }>} */
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }) => call("POST", "/api/ask/heartbeat", { body: { claudeSessionId, repo, work, ...ended ? { ended: true } : {} } }),
@@ -34913,6 +34926,18 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** PRD 1299: where `repo`'s (owner/name) new PRDs are born, `pr` or `server`, as its row on the Omni
      * page says. `../approval/flag.ts` reads the reply. @returns {Promise<{ phase0: 'pr' | 'server' }>} */
     readPhase0Flag: (repo) => call("GET", `/api/repositories/phase0?${new URLSearchParams({ repo })}`),
+    /** PRD 1364: the repository links of the product named `product`, in the workspace that lists the
+     * plan repository `repo` (owner/name); `../product/targets.ts` reads the reply.
+     * @returns {Promise<{ product: { name: string }, targets: Array<{ repo: string, role: string | null, knowledge: string,
+     *   readAt: string | null, readOnly: boolean, consumes: string[] }> }>} */
+    readProductTargets: ({ repo, product: product2 }) => call("GET", `/api/products/targets?${new URLSearchParams({ repo, product: product2 })}`),
+    /** PRD 1364: links each of `targets` to the product named `product`, in the workspace that lists the
+     * plan repository `repo` (owner/name), adding or changing each link; `../product/import.ts` reads
+     * the reply. @returns {Promise<{ product: { name: string }, added: string[], changed: string[], unchanged: string[] }>} */
+    importProductTargets: ({ repo, product: product2, targets: targets2 }) => call("POST", "/api/products/import", { body: { repo, product: product2, targets: targets2 } }),
+    /** PRD 1364: the products `repo` (owner/name) is in; `../product/import.ts` reads the reply.
+     * @returns {Promise<{ products: Array<{ name: string }> }>} */
+    readProductsOf: (repo) => call("GET", `/api/products/which?${new URLSearchParams({ repo })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestProofUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/proofs/uploads", { body: { repo, prd: prd2, files } }),
@@ -37981,27 +38006,27 @@ function failedRun(node3) {
   return FAILED_RUN.has(node3.conclusion ?? "") ? { name: node3.name, url: node3.detailsUrl ?? null } : null;
 }
 function failedContexts(contexts) {
-  const failed3 = [];
+  const failed4 = [];
   for (const node3 of contexts) {
     const check4 = node3 ? node3.__typename === "StatusContext" ? failedStatus(node3) : failedRun(node3) : null;
-    if (check4) failed3.push(check4);
+    if (check4) failed4.push(check4);
   }
-  return failed3;
+  return failed4;
 }
 function rollupOf(pr) {
   return pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
 }
-function isFixable(state, failed3, gateContexts) {
+function isFixable(state, failed4, gateContexts) {
   if (state !== "red") return false;
   const gates = new Set(gateContexts);
-  return failed3.length === 0 || failed3.some((run) => !gates.has(run.name));
+  return failed4.length === 0 || failed4.some((run) => !gates.has(run.name));
 }
 function readChecks(pr, labels2, { needsFixLabel, gateContexts }) {
   const rollup = rollupOf(pr);
   const state = rollup ? ROLLUP[rollup.state ?? ""] ?? "running" : "none";
-  const failed3 = rollup && state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
-  const fixable = isFixable(state, failed3, gateContexts);
-  return { state, failed: failed3, stuck: needsFixLabel ? labels2.includes(needsFixLabel) : false, fixable };
+  const failed4 = rollup && state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
+  const fixable = isFixable(state, failed4, gateContexts);
+  return { state, failed: failed4, stuck: needsFixLabel ? labels2.includes(needsFixLabel) : false, fixable };
 }
 function authorField(node3, key2) {
   const value = propertyOf(node3.author, key2);
@@ -38775,7 +38800,7 @@ function branchVerdictCommand({
       const commits = ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec);
       const verdict2 = grade({ ctx, number: number4, changed, commits, base, exec });
       println(stdout, verdict2.ok ? "ok" : "not ok");
-      for (const failure4 of verdict2.failures) println(stdout, `- ${failure4}`);
+      for (const failure5 of verdict2.failures) println(stdout, `- ${failure5}`);
       return verdict2.ok ? 0 : 1;
     })
   };
@@ -39070,14 +39095,14 @@ function parseRoadmap(text13) {
   const prerequisites = prerequisitesOf(sections.find((section5) => section5.name === "Prerequisites"));
   const errors = [...front.errors, ...prds.faults, ...questions2.faults, ...prerequisites.faults];
   if (errors.length > 0 || front.data === null) return { ok: false, errors };
-  const { roadmap: roadmap2, title, milestone, product, target: target3, source } = front.data;
+  const { roadmap: roadmap2, title, milestone, product: product2, target: target3, source } = front.data;
   return {
     ok: true,
     roadmap: {
       roadmap: roadmap2,
       title,
       milestone,
-      product: product ?? null,
+      product: product2 ?? null,
       target: target3 ?? null,
       source: source ?? null,
       repos: prds.repos,
@@ -40233,9 +40258,9 @@ function kindOf(names, labels2) {
 }
 function sameAccount(author, login2) {
   if (!author || !login2) return false;
-  const said = plainText(author).toLowerCase();
+  const said2 = plainText(author).toLowerCase();
   const wanted = login2.toLowerCase();
-  return said === wanted || wanted.endsWith("[bot]") && said === `app/${wanted.slice(0, -"[bot]".length)}`;
+  return said2 === wanted || wanted.endsWith("[bot]") && said2 === `app/${wanted.slice(0, -"[bot]".length)}`;
 }
 function withSignatures(items, signing) {
   const firstSigned = /* @__PURE__ */ new Map();
@@ -40410,12 +40435,12 @@ function unreadable(caught) {
   if (error62?.code === "ENOENT") {
     return new GitHubUnreadable("missing", "gh is not installed: install the GitHub CLI, then run gh auth login.");
   }
-  const said = `${plainText(error62?.stderr)}
+  const said2 = `${plainText(error62?.stderr)}
 ${plainText(error62?.message)}`;
-  if (error62?.status === 4 || /gh auth login|not logged in|HTTP 401|bad credentials/i.test(said)) {
+  if (error62?.status === 4 || /gh auth login|not logged in|HTTP 401|bad credentials/i.test(said2)) {
     return new GitHubUnreadable("logged-out", "gh is not logged in: run gh auth login.");
   }
-  if (/rate limit|HTTP 429/i.test(said)) {
+  if (/rate limit|HTTP 429/i.test(said2)) {
     return new GitHubUnreadable("rate-limited", "GitHub's rate limit stopped the search: wait a minute and run it again, or narrow it with --since or --repo.");
   }
   return new GitHubUnreadable("failed", `gh failed: ${firstLine4(error62?.stderr) || firstLine4(error62?.message)}`);
@@ -40710,7 +40735,7 @@ function chooseDraft(entries4, { prd: prd2, claudeSessionId }) {
 }
 
 // kit/bin/commands/dossier.ts
-var USAGE13 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
+var USAGE13 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
 var KINDS4 = ["prd", "visual", "bug", "concept"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
@@ -40791,12 +40816,12 @@ async function pushFix(issue2, kind, { ctx, repo, client, exec, stdout, stderr }
   }
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
-async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, stderr }) {
+async function push(prd2, product2, { ctx, repo, client, home, claudeSessionId, stdout, stderr }) {
   const folder = readDossierFolder(ctx, prd2);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd2} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
   const draft = chooseDraft(readDossiers(where), { prd: prd2, claudeSessionId });
-  const body = { repo, prd: prd2, title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
+  const body = { repo, prd: prd2, title: folder.title, product: product2, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
   let result;
   try {
     result = await client.pushDossier({ ...body, draftId: draft?.id ?? null });
@@ -40871,6 +40896,12 @@ function namedBy(verb2, kind, value) {
   const command2 = `dossier ${verb2}`;
   return kind === "prd" ? { kind, prd: prdArg(command2, "<n>", value) } : { kind, issue: issueArg(command2, "<n>", value) };
 }
+function productOf(flag, verb2, kind) {
+  if (flag === void 0) return null;
+  const product2 = flag.trim();
+  if (verb2 !== "push" || kind !== "prd" || product2 === "") throw usageError(USAGE13);
+  return product2;
+}
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
   if (!numbered || !isOneOf(KINDS4, flag)) throw usageError(USAGE13);
@@ -40879,7 +40910,7 @@ function kindOf2(flag, numbered) {
 var dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now: now2 = Date.now }) {
-    const { positional, flags } = parseArgs("dossier", args, { values: ["kind"] });
+    const { positional, flags } = parseArgs("dossier", args, { values: ["kind", "product"] });
     const [verb2 = "", ...rest] = positional;
     const [first = ""] = rest;
     const title = verb2 === "open" && rest.length === 1 ? first.trim().slice(0, TITLE_MAX2) : "";
@@ -40887,6 +40918,7 @@ var dossier = {
     const runnable = verb2 === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
     if (!runnable) throw usageError(USAGE13);
     const kind = kindOf2(flags.kind, numbered);
+    const product2 = productOf(flags.product, verb2, kind);
     if (verb2 === "link" && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE13);
     const named4 = numbered ? namedBy(verb2, kind, rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
@@ -40911,7 +40943,7 @@ var dossier = {
     if (verb2 === "link") return link(named4.kind === "prd" ? named4.prd : named4.issue, named4.kind, options);
     if (named4.kind === "concept") return pushConcept(named4.issue, options);
     if (named4.kind !== "prd") return pushFix(named4.issue, named4.kind, options);
-    return push(named4.prd, options);
+    return push(named4.prd, product2, options);
   }
 };
 
@@ -42137,7 +42169,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni prd <n>"],
     label: "omni prd <n>",
     summary: "where PRD n lives and its files",
-    detail: "Where PRD n lives today: its state, inbox or shipped, its folder, the files in it, its outbox folder and the open items waiting there. The folder is the status, so this is the one lookup the skills run before following any delivery path. Exit 1 when the PRD is in neither {inbox} nor {shipped}."
+    detail: "Where PRD n lives today: its state, inbox or shipped, its folder, the files in it, its outbox folder and the open items waiting there. The folder is the status, so this is the one lookup the skills run before following any delivery path. Where dossiers are on, its last line is the product its dossier on the Omni page names, product: <name> or product: none, or product: unknown with why when the page cannot tell. Exit 1 when the PRD is in neither {inbox} nor {shipped}."
   },
   {
     name: "board",
@@ -42241,7 +42273,7 @@ var ENTRIES = deepFreeze([
     usage: ['omni dossier open "<title>"', "omni dossier push <n> [--kind visual|bug|concept]", "omni dossier link <n> [--kind visual|bug|concept]", "omni dossier status"],
     label: "omni dossier \u2026",
     summary: "a PRD's dossier on the Omni page",
-    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
+    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. With --product <name>, a PRD's push names the product the brainstorm asked for, for a repository in several products: the first push makes it the PRD's product, and a repository in one product or none decides alone. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
   },
   {
     name: "idea",
@@ -42362,6 +42394,15 @@ var ENTRIES = deepFreeze([
     usage: ["omni targets [--json]"],
     summary: "a plan repository's target repositories, and where each stands",
     detail: "In a plan repository, one whose config has a plan section, one row per target repository, in config order: its role, where its knowledge lives (own, imported or none), the kit version its default branch runs, and its state. ok; stale when an imported copy was read before a change to a file it was drawn from; drifted when the config no longer says what the repository has; unreachable when gh cannot read it. It reads GitHub through gh, clones nothing and refreshes nothing. --json prints the same rows as one document. Exit 0 when every row is ok, 1 otherwise, or 1 with not a plan repository."
+  },
+  {
+    name: "product",
+    kind: "command",
+    who: "you",
+    label: "omni product \u2026",
+    usage: ["omni product import --product <name>", "omni product which"],
+    summary: "plan targets into a product; this repo's products",
+    detail: "omni product import --product <name> copies the targets of this plan repository, its plan.targets, into the product of that name on the Omni page, with your sign-in: each target becomes a repository link with its role, knowledge, read-at commit, read-only flag and what it consumes, an existing link is changed to match, and it prints what it added and changed. A second run changes nothing. It never edits the config: swap targets for product: <name> in the plan section yourself, and omni targets then reads the links from the product. Only an owner of the workspace changes its links. omni product which prints the products this repository is in, one per line, or none. Either exits 1, with one line saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses."
   },
   {
     name: "whoami",
@@ -44069,8 +44110,8 @@ async function thisComputer({ root, config: config3, interactive, stdout, stderr
     interactive,
     signIn: signIn ?? (async () => {
       let line;
-      const code = await signin.run([], { cwd: root, stdout, stderr, exec, env, vars, home, onSignedIn: (said) => {
-        line = said;
+      const code = await signin.run([], { cwd: root, stdout, stderr, exec, env, vars, home, onSignedIn: (said2) => {
+        line = said2;
       } });
       return { code, line };
     })
@@ -46198,8 +46239,8 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
     kind: q.kind,
     answer: answers2.get(q.id) ?? null
   }));
-  const { title, milestone, product, target: target3, source } = roadmap2;
-  const body = { repo, roadmap: roadmap2.roadmap, title, milestone, product, target: target3, source, questions: questions2, document, prds, ...prerequisitesOf2(roadmap2, result) };
+  const { title, milestone, product: product2, target: target3, source } = roadmap2;
+  const body = { repo, roadmap: roadmap2.roadmap, title, milestone, product: product2, target: target3, source, questions: questions2, document, prds, ...prerequisitesOf2(roadmap2, result) };
   if (prdWork2 === null) return body;
   const issueUrl2 = `https://github.com/${repo}/issues/${roadmap2.roadmap}`;
   return { ...body, humanWork: [...questionWork(roadmap2, answers2, { repo: shortName7(repo), issueUrl: issueUrl2 }), ...prdWork2] };
@@ -47074,9 +47115,9 @@ function fetchRemote({ ctx, exec = execFileSync12 }) {
     return null;
   } catch (error62) {
     putBack(saved);
-    const said = plainText(fieldOf2(error62, "stderr")).split("\n").map((line) => line.trim()).find(Boolean);
+    const said2 = plainText(fieldOf2(error62, "stderr")).split("\n").map((line) => line.trim()).find(Boolean);
     const message2 = fieldOf2(error62, "message") ?? error62;
-    return said ?? String(message2).split("\n")[0] ?? "";
+    return said2 ?? String(message2).split("\n")[0] ?? "";
   }
 }
 function remoteBranches(ctx, exec) {
@@ -47640,7 +47681,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   const adopted = adoptedEntriesForPrd(prd2, { ctx });
   const plan2 = planFor({ comments: replyComments(comments), items, adopted, markers: ctx.markers });
   const settled = [];
-  const failed3 = [];
+  const failed4 = [];
   for (const { number: number4, item: item2, answer, judgement, adoptedEntry } of plan2.settle) {
     const given = {
       text: answer.recorded,
@@ -47665,7 +47706,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
         objection: Boolean(adoptedEntry)
       });
     } else {
-      failed3.push({ number: number4, id: item2.id, errors: result.errors });
+      failed4.push({ number: number4, id: item2.id, errors: result.errors });
     }
   }
   let round2 = null;
@@ -47680,7 +47721,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   }
   return {
     settled,
-    failed: failed3,
+    failed: failed4,
     held: plan2.held.map(({ number: number4, item: item2, answer, due }) => ({
       number: number4,
       id: item2.id,
@@ -49566,6 +49607,34 @@ var plan = {
 
 // kit/bin/commands/prd.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/dossier/product.ts
+init_define_OMNI_BUNDLE();
+var unknownLine = (why2) => `product: unknown (${why2})`;
+function failed3(error62) {
+  if (!(error62 instanceof AskCallError)) throw error62;
+  if (error62.status === 404) return null;
+  return error62.status === null ? "unreachable" : `refused (${error62.status})`;
+}
+async function productLine(ctx, prd2, { tokens, home, fetch = globalThis.fetch, callMs } = {}) {
+  const toggle = dossierSwitch(ctx.config);
+  if (!toggle.on) return null;
+  const repo = ctx.config.repo.slug;
+  if (!repo) return unknownLine("no repository slug: repo.slug");
+  const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+  if (!client) return unknownLine("no sign-in: omni signin");
+  let found2;
+  try {
+    found2 = await client.findDossier({ repo, prd: prd2 });
+  } catch (error62) {
+    const why2 = failed3(error62);
+    return why2 === null ? "product: none" : unknownLine(why2);
+  }
+  const name2 = propertyOf(found2, "product");
+  return `product: ${typeof name2 === "string" && name2.trim() !== "" ? name2 : "none"}`;
+}
+
+// kit/bin/commands/prd.ts
 var prd = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
@@ -49581,7 +49650,8 @@ var prd = {
     const state = await prdState(ctx, number4, { approval: gateApproval(ctx, { tokens, home, fetch, callMs }) });
     const why2 = heldWhy(state);
     if (why2 !== null) println(stderr, `omni prd: ${why2}`);
-    println(stdout, prdLines(where, state).join("\n"));
+    const product2 = await productLine(ctx, number4, { tokens, home, fetch, callMs });
+    println(stdout, [...prdLines(where, state), ...product2 === null ? [] : [product2]].join("\n"));
     return 0;
   }
 };
@@ -52074,8 +52144,8 @@ var envFiles = async (env) => {
 var copyEnvFiles = async (env) => {
   const missing = await missingEnvFiles(env);
   if (!Array.isArray(missing)) return missing;
-  const failed3 = missing.filter(([example, file2]) => !env.files.copyNew(example, file2)).map(([, file2]) => file2);
-  return failed3.length === 0 ? OK : notOk(`could not write: ${failed3.join(", ")}`);
+  const failed4 = missing.filter(([example, file2]) => !env.files.copyNew(example, file2)).map(([, file2]) => file2);
+  return failed4.length === 0 ? OK : notOk(`could not write: ${failed4.join(", ")}`);
 };
 var signedIn = (env) => Promise.resolve(env.signedIn() ? OK : notOk("not signed in to the Omni app"));
 var entry2 = (name2, check4, fix) => ({ ...BASE_CARDS[name2], check: check4, ...fix ? { fix } : {} });
@@ -52936,8 +53006,8 @@ function formatOverview(overview2, { now: now2 }) {
 var USAGE32 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 async function overview({ ctx, stdout, exec, fetch, gate }) {
   if (fetch) {
-    const failure4 = fetchRemote({ ctx, exec });
-    if (failure4 !== null) println(stdout, `fetch failed: ${failure4}; showing your last fetch`);
+    const failure5 = fetchRemote({ ctx, exec });
+    if (failure5 !== null) println(stdout, `fetch failed: ${failure5}; showing your last fetch`);
   }
   const facts = readFacts({ ctx, exec });
   if (facts === null) {
@@ -52993,21 +53063,245 @@ var status4 = {
 
 // kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/product/targets.ts
+init_define_OMNI_BUNDLE();
+import { readFileSync as readFileSync78, writeFileSync as writeFileSync37 } from "node:fs";
+import { join as join100 } from "node:path";
+var PRODUCT_TARGETS_FILE = join100(LOCAL_DIR, "product-targets.json");
+var SLUG2 = /^[\w.-]+\/[\w.-]+$/;
+var COMMIT4 = /^[0-9a-f]{40}$/;
+var ProductLinkSchema = external_exports.object({
+  repo: external_exports.string().regex(SLUG2),
+  role: external_exports.string().min(1).nullable(),
+  knowledge: external_exports.enum(TARGET_KNOWLEDGE),
+  readAt: external_exports.string().regex(COMMIT4).nullable(),
+  readOnly: external_exports.boolean(),
+  consumes: external_exports.array(external_exports.string().regex(SLUG2))
+});
+var ProductTargetsSchema = external_exports.object({
+  product: external_exports.object({ name: external_exports.string().min(1) }),
+  targets: external_exports.array(ProductLinkSchema)
+});
+var TargetSchema = external_exports.object({
+  repo: external_exports.string().regex(SLUG2),
+  role: external_exports.string().min(1),
+  knowledge: external_exports.enum(TARGET_KNOWLEDGE),
+  readAt: external_exports.string().regex(COMMIT4).nullable(),
+  readOnly: external_exports.boolean(),
+  consumes: external_exports.array(external_exports.string())
+});
+var CopySchema = external_exports.object({
+  product: external_exports.string(),
+  readAt: external_exports.iso.datetime(),
+  targets: external_exports.array(TargetSchema)
+});
+var NOTHING_READ = "no targets: the server is unreachable and nothing was read yet";
+var shortName10 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function targetsOfProduct(reply, product2) {
+  const parsed = ProductTargetsSchema.safeParse(reply);
+  if (!parsed.success) {
+    const issue2 = parsed.error.issues[0];
+    throw new Error(`the server answered no targets for product ${product2}: ${issue2 ? `${issue2.path.join(".")} ${issue2.message}` : "out of shape"}`);
+  }
+  return parsed.data.targets.map(({ repo, role, knowledge: knowledge2, readAt, readOnly, consumes }) => {
+    if (role === null) throw new Error(`${repo} has no role in product ${product2}: set it on the product page`);
+    return { repo, role, knowledge: knowledge2, readAt, readOnly, consumes: consumes.map(shortName10) };
+  });
+}
+function readCopy(root, product2) {
+  let value;
+  try {
+    value = JSON.parse(readFileSync78(join100(root, PRODUCT_TARGETS_FILE), "utf8"));
+  } catch {
+    return null;
+  }
+  const kept = CopySchema.safeParse(value);
+  return kept.success && kept.data.product === product2 ? { readAt: kept.data.readAt, targets: kept.data.targets } : null;
+}
+function writeCopy(root, copy) {
+  ensureLocalDir(root);
+  writeFileSync37(join100(root, PRODUCT_TARGETS_FILE), `${JSON.stringify(copy, null, 2)}
+`);
+}
+var unanswered = (error62) => error62.status === null || error62.status >= 500;
+async function productTargets({ product: product2, root, now: now2, fetchTargets }) {
+  let reply;
+  try {
+    reply = await fetchTargets();
+  } catch (error62) {
+    if (!(error62 instanceof AskCallError)) throw error62;
+    if (unanswered(error62)) {
+      const copy = readCopy(root, product2);
+      if (copy === null) throw new Error(NOTHING_READ);
+      return { from: "copy", ...copy };
+    }
+    throw new Error(`the server refused the targets of product ${product2} (${error62.status}): ${error62.reason ?? error62.message}`);
+  }
+  const targets2 = targetsOfProduct(reply, product2);
+  writeCopy(root, { product: product2, readAt: now2().toISOString(), targets: targets2 });
+  return { from: "server", targets: targets2 };
+}
+function lastReadLine(readAt) {
+  return `targets from the last read, ${readAt.slice(0, 10)} ${readAt.slice(11, 16)} UTC \xB7 server unreachable`;
+}
+
+// kit/bin/commands/targets.ts
 var USAGE33 = "usage: omni targets [--json]";
+async function targetList(ctx, product2, io, note) {
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return "no targets: plan.product reads them from the Omni page, and ask.url is not set";
+  const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (client === null) return `no targets: no sign-in for ${credentialsHost(askUrl2)} (omni signin)`;
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni targets: no repository slug \u2014 set repo.slug in the config.");
+  try {
+    const read2 = await productTargets({
+      product: product2,
+      root: mainCheckout(io.cwd, io.exec) ?? ctx.root,
+      now: io.now ?? (() => /* @__PURE__ */ new Date()),
+      fetchTargets: () => client.readProductTargets({ repo, product: product2 })
+    });
+    if (read2.from === "copy") println(note, lastReadLine(read2.readAt));
+    return read2.targets;
+  } catch (error62) {
+    return messageOf(error62);
+  }
+}
 var targets = {
-  run: synchronous((args, { ctx, stdout, exec, env }) => {
+  withoutContext: true,
+  async run(args, io) {
+    const { stdout, stderr, exec, env } = io;
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
     if (positional.length) throw usageError(USAGE33);
+    const ctx = loadContext(io.cwd, { exec });
     const plan2 = ctx.config.plan;
     if (!plan2) {
       println(stdout, "not a plan repository");
       return 1;
     }
-    const rows2 = readTargets(plan2.targets, { ctx, exec, env: githubEnv(ctx, { exec, env }) });
+    const list4 = plan2.product === void 0 ? plan2.targets : await targetList(ctx, plan2.product, io, flags.json ? stderr : stdout);
+    if (typeof list4 === "string") {
+      println(stdout, list4);
+      return 1;
+    }
+    const rows2 = readTargets(list4, { ctx, exec, env: githubEnv(ctx, { exec, env }) });
     if (flags.json) println(stdout, JSON.stringify(rows2, null, 2));
     else for (const line of targetsTable(rows2)) println(stdout, line);
     return rows2.every((row) => row.state === "ok") ? 0 : 1;
-  })
+  }
+};
+
+// kit/bin/commands/product.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/product/import.ts
+init_define_OMNI_BUNDLE();
+var SLUG3 = /^[\w.-]+\/[\w.-]+$/;
+var ImportLinkSchema = ProductLinkSchema.extend({ role: external_exports.string().trim().min(1).max(40) });
+var ProductImportRequestSchema = external_exports.object({
+  repo: external_exports.string().regex(SLUG3).max(200),
+  product: external_exports.string().trim().min(1).max(200),
+  targets: external_exports.array(ImportLinkSchema).min(1).max(200)
+});
+var ProductImportSchema = external_exports.object({
+  product: external_exports.object({ name: external_exports.string().min(1) }),
+  added: external_exports.array(external_exports.string()),
+  changed: external_exports.array(external_exports.string()),
+  unchanged: external_exports.array(external_exports.string())
+});
+var ProductsWhichSchema = external_exports.object({
+  products: external_exports.array(external_exports.object({ name: external_exports.string().min(1) }))
+});
+var shortName11 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function linksOfTargets(targets2) {
+  const slugOf3 = (name2) => targets2.find((target3) => shortName11(target3.repo) === name2)?.repo ?? name2;
+  return targets2.map(({ repo, role, knowledge: knowledge2, readAt, readOnly = false, consumes = [] }) => ({
+    repo,
+    role,
+    knowledge: knowledge2,
+    readAt,
+    readOnly,
+    consumes: consumes.map(slugOf3)
+  }));
+}
+function importLines(reply, product2) {
+  const parsed = ProductImportSchema.safeParse(reply);
+  if (!parsed.success) throw new Error(`the server answered no import for product ${product2}`);
+  const { product: { name: name2 }, added, changed, unchanged } = parsed.data;
+  if (added.length === 0 && changed.length === 0) {
+    return [`product ${name2}: nothing changed, ${unchanged.length} ${unchanged.length === 1 ? "link" : "links"} already as plan.targets says`];
+  }
+  return [
+    `product ${name2}: ${added.length} added, ${changed.length} changed, ${unchanged.length} unchanged`,
+    ...added.map((repo) => `  added    ${repo}`),
+    ...changed.map((repo) => `  changed  ${repo}`)
+  ];
+}
+function whichLines(reply) {
+  const parsed = ProductsWhichSchema.safeParse(reply);
+  if (!parsed.success) throw new Error("the server answered no products for this repository");
+  const names = parsed.data.products.map((product2) => product2.name);
+  return names.length ? names : ["none"];
+}
+
+// kit/bin/commands/product.ts
+var USAGE34 = "usage: omni product import --product <name> | omni product which";
+function failure4(error62, what) {
+  if (!(error62 instanceof AskCallError)) return { ok: false, lines: [messageOf(error62)] };
+  if (error62.status === null) return { ok: false, lines: [`${what}: the server is unreachable`] };
+  return { ok: false, lines: [`${what}: the server refused (${error62.status}): ${error62.reason ?? error62.message}`] };
+}
+function importCall(ctx, repo, product2) {
+  const plan2 = ctx.config.plan;
+  if (!plan2) return "not a plan repository: omni product import sends plan.targets, and this config has no plan section";
+  if (plan2.targets.length === 0) return "nothing to import: plan.targets is empty";
+  const targets2 = linksOfTargets(plan2.targets);
+  return async (client) => {
+    try {
+      return { ok: true, lines: importLines(await client.importProductTargets({ repo, product: product2, targets: targets2 }), product2) };
+    } catch (error62) {
+      return failure4(error62, `the import into product ${product2} stopped`);
+    }
+  };
+}
+var whichCall = (repo) => async (client) => {
+  try {
+    return { ok: true, lines: whichLines(await client.readProductsOf(repo)) };
+  } catch (error62) {
+    return failure4(error62, `no products read for ${repo}`);
+  }
+};
+function verbOf(args) {
+  const { positional, flags } = parseArgs("product", args, { values: ["product"] });
+  const [verb2, ...rest] = positional;
+  if (rest.length === 0 && verb2 === "import") {
+    if (flags.product === void 0) throw usageError("omni product import: name the product with --product <name>.");
+    return { verb: verb2, product: flags.product };
+  }
+  if (rest.length === 0 && verb2 === "which" && flags.product === void 0) return { verb: verb2 };
+  throw usageError(USAGE34);
+}
+async function said(call, verb2, ctx, io) {
+  if (typeof call === "string") return { ok: false, lines: [call] };
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return { ok: false, lines: [`omni product ${verb2}: products live on the Omni page, and ask.url is not set`] };
+  const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (client === null) return { ok: false, lines: [`omni product ${verb2}: no sign-in for ${credentialsHost(askUrl2)} (omni signin)`] };
+  return call(client);
+}
+var product = {
+  withoutContext: true,
+  async run(args, io) {
+    const asked = verbOf(args);
+    const ctx = loadContext(io.cwd, { exec: io.exec });
+    const repo = ctx.config.repo.slug;
+    if (!repo) throw usageError(`omni product ${asked.verb}: no repository slug \u2014 set repo.slug in the config.`);
+    const call = asked.verb === "import" ? importCall(ctx, repo, asked.product) : whichCall(repo);
+    const { ok, lines } = await said(call, asked.verb, ctx, io);
+    for (const line of lines) println(io.stdout, line);
+    return ok ? 0 : 1;
+  }
 };
 
 // kit/bin/commands/statusline.ts
@@ -53357,7 +53651,7 @@ var statusline = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync3, rmSync as rmSync15 } from "node:fs";
 import { tmpdir as tmpdir3 } from "node:os";
-import { join as join100 } from "node:path";
+import { join as join101 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
@@ -53377,9 +53671,9 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.ts
-var USAGE34 = "usage: omni update [--to <version>]";
+var USAGE35 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync3(join100(tmpdir3(), "omni-update-"));
+  const dir = mkdtempSync3(join101(tmpdir3(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -53429,7 +53723,7 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE34);
+    if (positional.length) throw usageError(USAGE35);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -53480,10 +53774,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.ts
-var COMMAND_TABLE = Object.freeze({ config: config2, prd, approval: approval2, wait: wait2, status: status4, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask4, heartbeat, signin, signout, whoami, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, now, targets });
+var COMMAND_TABLE = Object.freeze({ config: config2, prd, approval: approval2, wait: wait2, status: status4, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask4, heartbeat, signin, signout, whoami, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, now, targets, product });
 
 // kit/bin/omni.ts
-var USAGE35 = `usage: omni <command> [args]
+var USAGE36 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -53591,7 +53885,7 @@ async function main(argv, {
   const name2 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command2 = Object.hasOwn(COMMAND_TABLE, name2) ? COMMAND_TABLE[name2] : void 0;
   if (!command2) {
-    stderr.write(USAGE35);
+    stderr.write(USAGE36);
     return 2;
   }
   try {

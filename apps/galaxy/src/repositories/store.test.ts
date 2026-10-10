@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { brokenRows } from '../data/broken-rows.fake';
 import { SavedRepository } from './model';
-import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_A_BOARD_MEMBER, NOT_MEMBER, NOT_OWNER, PUBLIC_ELSEWHERE, refusalOf } from './store';
+import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_A_BOARD_MEMBER, NOT_OWNER, PUBLIC_ELSEWHERE, refusalOf } from './store';
 
 const containing = (text: string): unknown => expect.stringContaining(text);
 
@@ -30,23 +30,14 @@ describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
     const d = db({ data: STORED });
     expect(await databaseRepositories(d, 'ws-1').add('Vertuoza/vertuo-apps')).toEqual({
-      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, phase0: 'pr' },
+      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr' },
     });
     expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Vertuoza/vertuo-apps' }]]);
   });
 
-  it('points a repository at a product with repository_set_product(), any member\'s to do (PRD 748 s4)', async () => {
-    const d = db({ data: { ...STORED, product_id: 'p-2' } });
-    expect(await databaseRepositories(d, 'ws-1').setProduct('vertuoza/vertuo-apps', 'p-2')).toMatchObject({ ok: true, repository: { product: 'p-2' } });
-    expect(d.calls).toEqual([['repository_set_product', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_product: 'p-2' }]]);
-    expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setProduct('a/b', 'p-2')).toEqual({ ok: false, message: NOT_MEMBER });
-    expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').setProduct('a/b', 'p-2')).toMatchObject({ ok: false, message: containing('Reload') });
-  });
-
-  it('points a repository at a product in the demo', async () => {
-    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: 'p-1', publicIdeas: false }]);
-    expect(await port.setProduct('acme/widgets', 'p-2')).toMatchObject({ ok: true, repository: { product: 'p-2' } });
-    expect(await port.setProduct('acme/nothing', 'p-2')).toMatchObject({ ok: false });
+  it('no longer points a repository at a product: its products are changed on each product\'s home (PRD 1364 s11)', () => {
+    expect(Object.keys(databaseRepositories(db({}), 'ws-1'))).not.toContain('setProduct');
+    expect(Object.keys(demoRepositoriesPort([]))).not.toContain('setProduct');
   });
 
   it('switches tracking with set_repository_tracked()', async () => {
@@ -65,7 +56,7 @@ describe('the database calls', () => {
   });
 
   it('turns a board public and private again in the demo', async () => {
-    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false }]);
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false }]);
     expect(await port.setPublicIdeas('acme/widgets', true)).toMatchObject({ ok: true, repository: { publicIdeas: true } });
     expect(await port.setPublicIdeas('acme/widgets', false)).toMatchObject({ ok: true, repository: { publicIdeas: false } });
   });
@@ -80,7 +71,7 @@ describe('the database calls', () => {
   });
 
   it('switches phase 0 to the server and back in the demo', async () => {
-    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false }]);
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false }]);
     expect(await port.setPhase0('acme/widgets', 'server')).toMatchObject({ ok: true, repository: { phase0: 'server' } });
     expect(await port.setPhase0('acme/widgets', 'pr')).toMatchObject({ ok: true, repository: { phase0: 'pr' } });
     expect(await port.setPhase0('acme/nothing', 'server')).toMatchObject({ ok: false });
@@ -104,7 +95,7 @@ describe('a refusal', () => {
 describe('the demo', () => {
   it('adds a repository tracked, in lower case, and switches it', async () => {
     const port = demoRepositoriesPort([]);
-    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, phase0: 'pr' } });
+    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr' } });
     expect(await port.setTracked('acme/widgets', false)).toMatchObject({ ok: true, repository: { tracked: false } });
   });
 

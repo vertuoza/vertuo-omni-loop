@@ -3,9 +3,9 @@
 // stay one line each:
 //
 //   POST /api/dossiers       {title, repo, claudeSessionId?}                         → 201 {id, url}
-//   GET  /api/dossiers?repo=<owner/name>&prd=<n>[&kind=prd|visual|bug|concept]        → 200 {id, url}
-//   POST /api/dossiers/push  {repo, prd, kind?, title, draftId?, artifacts: [{kind, content}]}
-//                                             → 200 {id, url, added: [{kind, version}], unchanged: [kind]}
+//   GET  /api/dossiers?repo=<owner/name>&prd=<n>[&kind=prd|visual|bug|concept]        → 200 {id, url, product}
+//   POST /api/dossiers/push  {repo, prd, kind?, title, draftId?, product?, artifacts: [{kind, content}]}
+//                                             → 200 {id, url, added: [{kind, version}], unchanged: [kind], product}
 //
 // Since PRD 627 a dossier has a kind: a PRD's (`prd`, the kind of every call that sends none, so an older
 // kit pushes and finds as before), a visual fix's (`visual`) or a bug fix's (`bug`), numbered by its issue.
@@ -33,11 +33,17 @@
 // Since PRD 1322 a PRD push that changed a file an approval in force pinned voids that approval, in the
 // database, in the push's own transaction. Once the versions landed, the push hands the dossier to
 // `tellVoids` (src/approvals/void.service.ts), which tells the approver; telling never fails a push.
+//
+// Since PRD 1364 a PRD has a product, or none. A PRD's push may name one, `product`, by its name: on the
+// dossier's first push, in a repository of several products, the one of them it names becomes its
+// product, and the database applies the rest of the birth rule (one product: that one; none: none;
+// supabase/migrations/20261129100000_prd_product.sql). A fix's or a concept's push naming one is refused
+// 400. A push and a lookup each answer the dossier's product by its name, or null when it has none.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, callerOrigin as origin, withInstallLink, type TokenCheck } from '../ask/auth';
 import {
   ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isPushedArtifactKind, isPushKind, isRoundKind, KIND_ARTIFACTS,
-  PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, type DossierArtifact, type PushKind,
+  PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, type DossierArtifact, type DossierProduct, type PushKind,
 } from './store';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -151,9 +157,10 @@ export function findDossier(request: Request, deps: DossierDeps): Promise<Respon
     if (prd === null) return refuse(400, '`prd` is the PRD\'s number.');
     const kind = query.get('kind') ?? 'prd';
     if (!isPushKind(kind)) return refuse(400, KIND_PROBLEM);
-    const id = await dossierReader(client).numbered(repo, prd, kind);
+    const reader = dossierReader(client);
+    const id = await reader.numbered(repo, prd, kind);
     if (!id) return refuse(404, `No ${kind === 'prd' ? 'dossier for PRD' : `${kind} dossier for`} #${prd} of ${repo.toLowerCase()}.`);
-    return reply(200, { id, url: linkTo(request, id, kind) });
+    return reply(200, { id, url: linkTo(request, id, kind), product: nameOf(await reader.product(id)) });
   });
 }
 
@@ -198,6 +205,23 @@ function artifactsOf(value: unknown, kind: PushKind): { artifacts: DossierArtifa
   return { artifacts };
 }
 
+/** The longest name a product takes (the products table's own check). */
+const PRODUCT_MAX = 80;
+
+/** A product as an answer names it: its name, or null for none. */
+const nameOf = (product: DossierProduct): string | null => product?.name ?? null;
+
+/** The product a push names, trimmed, or null when it names none; or why it is refused: only a PRD's
+ * push names one, as a text of 1 to 80 characters. */
+function productOfPush(sent: Record<string, unknown>, kind: PushKind): { product: string | null } | { problem: string } {
+  const named = sent.product ?? null;
+  if (named === null) return { product: null };
+  const product = typeof named === 'string' ? named.trim() : '';
+  if (product.length < 1 || product.length > PRODUCT_MAX) return { problem: `\`product\`, when sent, is a product's name of 1 to ${PRODUCT_MAX} characters.` };
+  if (kind !== 'prd') return { problem: `A ${kind} dossier has no product to name: only a PRD's push names one.` };
+  return { product };
+}
+
 /** A push's kind (a PRD's when it sends none) and the draft it names, or why they are refused: a fix or
  * a concept never names a draft. */
 function kindAndDraftOf(sent: Record<string, unknown>): { kind: PushKind; draftId: string | null } | { problem: string } {
@@ -209,6 +233,14 @@ function kindAndDraftOf(sent: Record<string, unknown>): { kind: PushKind; draftI
   }
   if (draftId !== null && kind !== 'prd') return { problem: `A ${kind} dossier has no draft: push it by its number alone.` };
   return { kind, draftId };
+}
+
+/** A push's kind, the draft it names and the product it names (PRD 1364), or why one is refused. */
+function namedBy(sent: Record<string, unknown>): { kind: PushKind; draftId: string | null; product: string | null } | { problem: string } {
+  const which = kindAndDraftOf(sent);
+  if ('problem' in which) return which;
+  const named = productOfPush(sent, which.kind);
+  return 'problem' in named ? named : { ...which, product: named.product };
 }
 
 /** Hands a PRD push that added a version to `tellVoids`: only such a push can void an approval. */
@@ -228,13 +260,15 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     if (!isPrdNumber(prd)) return refuse(400, '`prd` is the PRD\'s number.');
     const title = titleOf(sent.title);
     if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
-    const which = kindAndDraftOf(sent);
+    const which = namedBy(sent);
     if ('problem' in which) return refuse(400, which.problem);
-    const { kind, draftId } = which;
+    const { kind, draftId, product } = which;
     const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
-    const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts });
+    const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts, product });
     await tellVoidsOf(deps, client, request, kind, pushed);
-    return reply(200, { id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged });
+    return reply(200, {
+      id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged, product: nameOf(pushed.product),
+    });
   });
 }

@@ -23,6 +23,11 @@
 //   reads the concept's folder (`readConceptFolder`), titles it after concept.md's front matter, and
 //   sends its record, vision tour, boards (a round each) and debate with its kind; no draft, and GitHub
 //   is not asked. A concept.md the parser refuses sends nothing: `invalid concept.md: <errors>`, exit 1.
+// - `--product <name>` (PRD 1364), on a PRD's `push` only: the product the brainstorm asked for, sent
+//   with the push. The server applies the birth rule: on the dossier's first push, in a repository of
+//   several products, the one named is the PRD's product; a repository in one product or none decides
+//   alone, and a later push never changes it. It prints what a push without it prints. On a fix, a
+//   concept or another verb, or blank, it is a usage error, exit 2.
 //
 // It never blocks the skill that runs it: every call has the contract's 5-second limit and one token
 // refresh, and anything that stops it is exit 1 with one line — `off`, `no sign-in (omni signin)`,
@@ -70,7 +75,7 @@ type VerbIo = {
   now: () => number;
 };
 
-const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
+const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
 const KINDS = ['prd', 'visual', 'bug', 'concept'] as const;
 /** What a dossier other than a PRD's is of: a fix of its kind, or a concept (PRD 1272), each keyed by its issue. */
 type IssueKind = FixKind | 'concept';
@@ -170,12 +175,12 @@ async function pushFix(issue: IssueNumber, kind: FixKind, { ctx, repo, client, e
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 
-async function push(prd: PrdNumber, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
+async function push(prd: PrdNumber, product: string | null, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readDossierFolder(ctx, prd);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
   const draft = chooseDraft(readDossiers(where), { prd, claudeSessionId });
-  const body = { repo, prd, title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
+  const body = { repo, prd, title: folder.title, product, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
 
   let result: unknown;
   try {
@@ -267,6 +272,14 @@ function namedBy(verb: string, kind: 'prd' | IssueKind, value: string | undefine
   return kind === 'prd' ? { kind, prd: prdArg(command, '<n>', value) } : { kind, issue: issueArg(command, '<n>', value) };
 }
 
+/** The product `--product` names, trimmed (null when it names none); only a PRD's push takes one. */
+function productOf(flag: string | undefined, verb: string, kind: 'prd' | IssueKind): string | null {
+  if (flag === undefined) return null;
+  const product = flag.trim();
+  if (verb !== 'push' || kind !== 'prd' || product === '') throw usageError(USAGE);
+  return product;
+}
+
 /** The kind `--kind` names (prd when it names none); only push and link take one. */
 function kindOf(flag: string | undefined, numbered: boolean): 'prd' | IssueKind {
   if (flag === undefined) return 'prd';
@@ -280,7 +293,7 @@ export const dossier = {
     args: string[],
     { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
   ) {
-    const { positional, flags } = parseArgs('dossier', args, { values: ['kind'] });
+    const { positional, flags } = parseArgs('dossier', args, { values: ['kind', 'product'] });
     const [verb = '', ...rest] = positional;
     const [first = ''] = rest;
     const title = verb === 'open' && rest.length === 1 ? first.trim().slice(0, TITLE_MAX) : '';
@@ -288,6 +301,7 @@ export const dossier = {
     const runnable = (verb === 'status' && rest.length === 0) || (numbered && rest.length === 1) || title.length > 0;
     if (!runnable) throw usageError(USAGE);
     const kind = kindOf(flags.kind, numbered);
+    const product = productOf(flags.product, verb, kind);
     if (verb === 'link' && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE);
     const named = numbered ? namedBy(verb, kind, rest[0]) : null;
 
@@ -315,6 +329,6 @@ export const dossier = {
     if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);
     if (named.kind === 'concept') return pushConcept(named.issue, options);
     if (named.kind !== 'prd') return pushFix(named.issue, named.kind, options);
-    return push(named.prd, options);
+    return push(named.prd, product, options);
   },
 } satisfies FreeCommand;
