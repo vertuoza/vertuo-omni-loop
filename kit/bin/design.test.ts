@@ -26,6 +26,12 @@ function repoChanging(config: string, changed: readonly string[], branch = 'work
   return { ...repo, git };
 }
 
+async function screens(root: string, args: string[] = []) {
+  const s = io();
+  const code = await main(['design', 'screens', ...args], { cwd: root, ...s });
+  return { code, out: s.out.join(''), err: s.err.join('') };
+}
+
 async function touched(root: string, args: string[] = []) {
   const s = io();
   const code = await main(['design', 'touched', ...args], { cwd: root, ...s });
@@ -86,6 +92,34 @@ describe('omni design touched', () => {
     expect(fallback.out).toMatch(/^ui: unknown\ncannot read origin\/main — fetch it or pass another base\n$/);
   });
 
+  it('prints the screen library: name, status, locker, date and routes, sorted, then each file that does not read, exit 0', async () => {
+    const lib = '.omni-loop/knowledge/design/screens';
+    const files = {
+      [`${lib}/b.md`]: '---\nscreen: quote-editor\nstatus: locked\nlocked-by: "@ana"\nlocked-on: 2026-10-10\nquote: "build it"\nroutes: [/quotes/:id]\n---\n## Purpose\n',
+      [`${lib}/a.md`]: '---\nscreen: quote-list\nstatus: draft\n---\n',
+      [`${lib}/a.html`]: '<main data-screen></main>',
+      [`${lib}/zz.md`]: 'not a screen',
+    };
+    const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON, ...files } });
+    expect(await screens(repo.root)).toEqual({
+      code: 0,
+      out:
+        'quote-editor  locked  @ana 2026-10-10  /quotes/:id\n' +
+        'quote-list    draft   —                —\n' +
+        `does not read: ${lib}/zz.md: no front matter — a screen starts with a --- block\n`,
+      err: '',
+    });
+  });
+
+  it("reads the library from design.screens, says so when it is empty, and prints design: off while the flag is off", async () => {
+    const own = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON + '  screens: docs/screens/\n', 'docs/screens/home.md': '---\nscreen: home\nstatus: draft\nroutes: [/]\n---\n' } });
+    expect((await screens(own.root)).out).toBe('home  draft  —  /\n');
+    const empty = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + 'paths:\n  knowledge: kb\n' + ON } });
+    expect(await screens(empty.root)).toEqual({ code: 0, out: 'screens: none in kb/design/screens/\n', err: '' });
+    const off = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD, '.omni-loop/knowledge/design/screens/home.md': 'x' } });
+    expect(await screens(off.root)).toEqual({ code: 0, out: 'design: off\n', err: '' });
+  });
+
   it('is explained by omni help design: the form, the flag, the check, and that nothing blocks', async () => {
     const { root } = repoChanging(HEAD, []);
     const overview = io();
@@ -96,6 +130,8 @@ describe('omni design touched', () => {
     expect(await main(['help', 'design'], { cwd: root, ...s })).toBe(0);
     const out = s.out.join('').replace(/\s+/g, ' ');
     expect(out).toMatch(/^omni design touched \[<base>\] +run by the skills /);
+    expect(out).toContain('omni design screens');
+    for (const words of ['design.screens', 'screen library', 'draft', 'locked', 'superseded', 'does not read']) expect(out).toContain(words);
     for (const words of ['omni kb show design', 'design.enabled', 'design.paths', 'commands.design', 'design: off', 'ui: yes', 'ui: no', 'ui: unknown', 'the product wins', 'never blocks', 'exits 0']) {
       expect(out).toContain(words);
     }
@@ -108,5 +144,6 @@ describe('omni design touched', () => {
     expect(s.err.join('')).toMatch(/usage: omni design touched \[<base>\]/);
     expect(await main(['design', 'look'], { cwd: root, ...io() })).toBe(2);
     expect((await touched(root, ['main', 'HEAD'])).code).toBe(2);
+    expect((await screens(root, ['extra'])).code).toBe(2);
   });
 });
