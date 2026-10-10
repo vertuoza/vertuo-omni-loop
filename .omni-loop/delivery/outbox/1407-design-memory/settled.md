@@ -549,3 +549,160 @@ One sentence in the help entry and one test line.
 ```
 
 <!-- /omni-outbox-settled: s6-02-help-does-not-name-lock-yet -->
+
+<!-- omni-outbox-settled: s7-01-concept-screens-get-their-own-pr -->
+
+## s7-01-concept-screens-get-their-own-pr — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-concept-screens-get-their-own-pr
+prd: 1407
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 5
+---
+
+## The question, in plain words
+
+When a big idea is explored and one direction is crowned, its screens should be saved as drafts. The concept's own pull request may only hold the concept's folder, so where should those draft screens go?
+
+## The decision, in plain words
+
+They go in a second, documents-only pull request of their own, opened right after the concept's, listing each draft for its owner to read and lock.
+
+## The intro, for fun
+
+The concept arrived with a suitcase, and the suitcase rule says one bag per traveller.
+
+## The punchline, for fun
+
+So the screens travel on the next flight, with their own boarding pass.
+
+## The options, in plain words
+
+A. A. A second docs-only pull request holds the draft screens, beside the concept's (built)
+B. B. Teach the concept check to let the screen library through, and put the drafts in the concept's pull request
+C. C. Write no drafts at the concept stage: each area's brainstorm drafts the screens it draws
+
+## What I had to decide
+
+Whether the crowned concept's draft screens go in a pull request of their own, because the concept check refuses any file outside the concept's folder, or the concept check learns to let the screen library through, or the drafts wait until each area is brainstormed.
+
+## What I did meanwhile
+
+The think-big skill, with design craft on, opens a second docs-only pull request on the knowledge branch shape, topic concept-<n>-screens, holding one draft per screen of the vision tour, after the concept PR opens; the concept PR is unchanged and still passes omni concept.
+
+## What it costs to change later
+
+A paragraph of the think-big skill: moving the drafts into the concept PR needs omni concept to allow the screen library folder (a small change to the concept verdict and its test), and leaving them to brainstorm --concept is deleting the paragraph.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says think-big writes the crowned concept's screens but does not say on which branch, and omni concept (outside this slice) refuses any file changed outside the concept folder
+- (author) Whether a person wants two pull requests for one concept is not settled anywhere
+
+```
+
+<!-- /omni-outbox-settled: s7-01-concept-screens-get-their-own-pr -->
+
+<!-- omni-outbox-settled: s7-02-visual-fix-asks-the-screen-owner -->
+
+## s7-02-visual-fix-asks-the-screen-owner — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-visual-fix-asks-the-screen-owner
+prd: 1407
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 5
+---
+
+## The question, in plain words
+
+A quick visual fix may change a screen someone has locked. Should that fix wait for the person who locked the screen to answer, the way a change to a rule does?
+
+## The decision, in plain words
+
+Yes: the fix is built and its pull request opens, with one question for the screen's owner that keeps it from going green until they answer.
+
+## The intro, for fun
+
+Someone put a padlock on the sidebar, and a paintbrush just showed up.
+
+## The punchline, for fun
+
+The brush waits politely while the padlock's owner reads the note.
+
+## The options, in plain words
+
+A. A. Build the fix and ask the screen's owner through one high question on its pull request (built)
+B. B. Stop the visual fix on a locked screen and hand over to a full design run
+
+## What I had to decide
+
+Whether a visual fix whose pick departs from a locked screen raises one high question in the fix's own folder for the person who locked it, as a change to a rule already does, or simply stops and hands over to a full design run.
+
+## What I did meanwhile
+
+The visual-fix skill applies the pick, leaves the locked screen's file and mockup untouched, and writes one high item per locked screen in the fix folder's outbox, naming the screen and who locked it, with the amendment line left for the owner's words; no account is written, since no check names a locked screen in a visual fix.
+
+## What it costs to change later
+
+A section of the visual-fix skill: switching to a stop is replacing that section with a pointer to its existing stop.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a change to a locked screen raises a high item, but the visual fix had an outbox only for changes to a rule until now
+- (author) omni visual does not read locked screens, so nothing but the outbox check holds the pull request
+
+```
+
+<!-- /omni-outbox-settled: s7-02-visual-fix-asks-the-screen-owner -->
