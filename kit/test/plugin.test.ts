@@ -2265,7 +2265,7 @@ describe('the pixel-perfect skill in this repository', () => {
   const DIR = join(repoRoot, PLUGIN_DIR, 'skills', 'pixel-perfect');
   const SOURCE = 'pbakaus/impeccable@d631a8827f99414d2b6daba4ef08b7f8701751d7';
   const IMPORTED = ['critique', 'audit', 'polish', 'harden', 'typeset', 'layout', 'adapt', 'clarify', 'craft-floor'];
-  const COMMANDS = [...IMPORTED, 'review'];
+  const COMMANDS = [...IMPORTED, 'review', 'lock'];
   const read = (path = 'SKILL.md') => readFileSync(join(DIR, path), 'utf8');
   const ref = (name: string) => read(join('reference', `${name}.md`));
   const allFiles = () => ['SKILL.md', ...readdirSync(join(DIR, 'reference')).map((name: string) => join('reference', name))];
@@ -2276,7 +2276,7 @@ describe('the pixel-perfect skill in this repository', () => {
     expect(description).toMatch(/\bTriggers on\b.*"\/omni:pixel-perfect/);
   });
 
-  it('holds critique, audit, polish, harden, typeset, layout, adapt, clarify, craft-floor and review, each imported one naming the commit', () => {
+  it('holds critique, audit, polish, harden, typeset, layout, adapt, clarify, craft-floor, review and lock, each imported one naming the commit', () => {
     expect(readdirSync(join(DIR, 'reference')).sort()).toEqual(COMMANDS.map((name: string) => `${name}.md`).sort());
     for (const name of IMPORTED) expect(ref(name), name).toContain(`Imported from ${SOURCE}`);
     expect(read()).toContain(`Imported from ${SOURCE}`);
@@ -2295,7 +2295,7 @@ describe('the pixel-perfect skill in this repository', () => {
 
   it('states the precedence itself: the product wins over the craft floor and the refuse list', () => {
     expect(read()).toMatch(/\*\*The product wins\.\*\*/);
-    expect(read()).toMatch(/`product`, `system` and `deliberate`[^.]*override\s+the\s+craft\s+floor\s+and\s+the\s+refuse\s+list/);
+    expect(read()).toMatch(/`product`, `system`, `deliberate` and `language`[^.]*override\s+the\s+craft\s+floor\s+and\s+the\s+refuse\s+list/);
     expect(ref('craft-floor')).toMatch(/The design form wins/);
   });
 
@@ -2339,7 +2339,8 @@ describe('the pixel-perfect skill in this repository', () => {
   it('omni help pixel-perfect lists its commands, and names the craft floor every edit reads', () => {
     const run = spawnSync(process.execPath, [join(repoRoot, '.omni-loop/bin/omni.mjs'), 'help', 'pixel-perfect'], { cwd: repoRoot, encoding: 'utf8' });
     expect(run.status).toBe(0);
-    for (const name of COMMANDS.filter((command: string) => command !== 'craft-floor')) expect(run.stdout, name).toContain(`/omni:pixel-perfect ${name}`);
+    // lock is not in omni help yet: kit/lib/help/ is outside PRD 1407's s6 (its outbox item says so).
+    for (const name of COMMANDS.filter((command: string) => !['craft-floor', 'lock'].includes(command))) expect(run.stdout, name).toContain(`/omni:pixel-perfect ${name}`);
     expect(run.stdout).toContain('craft floor');
     expect(run.stdout).toMatch(/never blocks/);
   });
@@ -2474,6 +2475,121 @@ describe('the design form in invade, think-big and brainstorm (PRD 1369)', () =>
     expect(page).toMatch(/build the "after" from the product's own tokens and components/);
     expect(page).toMatch(/never\s+invented/);
     expect(page).toMatch(/`deliberate` section says the\s+product does on purpose holds/);
+  });
+});
+
+// PRD 1407, s6: the design memory in the skills that look at and build screens. Only a person locks,
+// in their own words, through /omni:pixel-perfect lock, which records the login, the date and the
+// quote and commits it. The review reads the screens omni design touched names, compares a locked
+// one with its mock and runs the word pass; a change to a locked screen or law is the one high item.
+// do-work reads the library before a UI slice and builds a locked screen as written.
+describe('the design memory in pixel-perfect and do-work (PRD 1407)', () => {
+  const DIR = join(repoRoot, PLUGIN_DIR, 'skills', 'pixel-perfect');
+  const skill = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', name, 'SKILL.md'), 'utf8');
+  const ref = (name: string) => readFileSync(join(DIR, 'reference', `${name}.md`), 'utf8');
+
+  it("pixel-perfect's step 0 reads the language slot with the form, and the library with omni design screens", () => {
+    const step0 = skillSection(skill('pixel-perfect'), 'Step 0');
+    expect(step0).toMatch(/`language` \(/);
+    expect(step0).toContain('omni.mjs design screens');
+    expect(step0).toMatch(/locked screen is\s+built\s+as\s+written\s+and\s+never\s+redesigned/);
+    expect(step0).toMatch(/a\s+draft\s+is\s+a\s+starting\s+point/i);
+  });
+
+  it("every reference that lists the form's sections names the language slot", () => {
+    for (const name of ['adapt', 'clarify', 'harden', 'layout', 'typeset']) expect(ref(name), name).toContain('`product`, `system`, `deliberate` and `language` sections');
+    expect(ref('craft-floor')).toContain('(`language`)');
+    expect(ref('critique')).toMatch(/its\s+`language` section/);
+  });
+
+  it('lock is a command a person types, never one a skill follows', () => {
+    const text = skill('pixel-perfect');
+    expect(text).toContain('[reference/lock.md](reference/lock.md)');
+    expect(text).toMatch(/`lock <screen>`/);
+    const lock = ref('lock');
+    expect(lock).toMatch(/\*\*A person's words only\.\*\*/);
+    expect(lock).toMatch(/No skill locks a screen or a law on its own/);
+    expect(lock).toMatch(/never\s+follows\s+it/);
+  });
+
+  it('lock records locked-by, locked-on and the quote, verbatim, from the GitHub login or the one ask mode gives', () => {
+    const lock = ref('lock');
+    for (const field of ['locked-by', 'locked-on', 'quote', 'status: locked']) expect(lock, field).toContain(field);
+    expect(lock).toContain('gh api user --jq .login');
+    expect(lock).toMatch(/ask mode, the GitHub login the Omni page gives with the\s+answer/);
+    expect(lock).toMatch(/never\s+paraphrased/);
+    expect(lock).toContain('🔒 <YYYY-MM-DD> · @<login> · "<their words>"');
+  });
+
+  it('lock checks with omni check design, then commits the one file, signed, and pushes nothing', () => {
+    const lock = ref('lock');
+    const check = lock.indexOf('omni.mjs check design');
+    const commit = lock.indexOf('**Commit**');
+    expect(check).toBeGreaterThan(0);
+    expect(commit).toBeGreaterThan(check);
+    expect(lock).toMatch(/omni(?:\.mjs)? sign trailer/);
+    expect(lock).toMatch(/pushes\s+nothing/);
+  });
+
+  it("the review reads omni design touched's screens line, screenshots their routes and compares a locked screen with its mock", () => {
+    const review = ref('review');
+    const touched = review.indexOf('omni.mjs design touched');
+    const shots = review.indexOf('**Screenshots**');
+    expect(touched).toBeGreaterThan(0);
+    expect(shots).toBeGreaterThan(touched);
+    expect(review).toContain('`screens:`');
+    expect(skillSection(review, 'Steps')).toMatch(/its\s+routes/);
+    expect(review).toMatch(/compare\s+it\s+with\s+its\s+mock/);
+  });
+
+  it("the review's critique runs omni design words, and the word pass never blocks", () => {
+    const review = ref('review');
+    const critique = review.indexOf('**Critique**');
+    const words = review.indexOf('omni.mjs design words');
+    expect(words).toBeGreaterThan(critique);
+    expect(review.indexOf('**Audit**')).toBeGreaterThan(words);
+    expect(review).toMatch(/exits\s+0/);
+  });
+
+  it('a change to a locked screen or law is the one high item, naming the screen, the change and who locked it', () => {
+    const review = ref('review');
+    expect(review).toMatch(/## A change to a locked screen or law/);
+    expect(review).toMatch(/\*\*high\*\*\s+outbox\s+item/);
+    expect(review).toMatch(/naming\s+the\s+screen\s+\(or\s+the\s+law\),\s+the\s+change\s+and\s+who\s+locked\s+it/);
+    expect(review).toMatch(/never edits a locked screen's body or a locked\s+law/);
+    expect(review).toMatch(/Every other finding stays what it was/);
+  });
+
+  it('do-work reads the library before a UI slice and builds a locked screen as written', () => {
+    const read = skillSection(skill('do-work'), '1.');
+    expect(read).toContain('omni.mjs design screens');
+    expect(read).toMatch(/A locked screen is built as\s+written/);
+    expect(read).toMatch(/never\s+redesigned/);
+    expect(read).toContain('`language`');
+  });
+
+  it('do-work records a change to a locked screen or law as a high item, never a stop', () => {
+    const decide = skillSection(skill('do-work'), '3.');
+    expect(decide).toMatch(/\*\*A change to a locked screen or law\.\*\*/);
+    expect(decide).toMatch(/`hardToRevert: true`/);
+    expect(decide).toMatch(/skip the Jev step/);
+    expect(decide).toMatch(/who\s+locked\s+it/);
+    expect(decide).toMatch(/A change to a locked screen or law is never a stop either/);
+  });
+
+  it('no skill but pixel-perfect lock writes a lock', () => {
+    for (const file of skillFiles(repoRoot)) {
+      if (file.includes('/pixel-perfect/')) continue;
+      const text = readFileSync(join(repoRoot, file), 'utf8');
+      expect(text, file).not.toMatch(/status: locked/);
+      expect(text, file).not.toMatch(/^🔒 /m);
+    }
+  });
+
+  it('both porting notes record the slice', () => {
+    for (const note of ['plugin--pixel-perfect.md', 'plugin--do-work.md']) {
+      expect(readFileSync(join(repoRoot, 'kit/porting', note), 'utf8'), note).toContain('PRD #1407, slice s6');
+    }
   });
 });
 

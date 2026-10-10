@@ -2,7 +2,7 @@
 
 # Clarify
 
-Read the design form first (`omni kb show design`): its `product`, `system` and `deliberate` sections win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
+Read the design form first (`omni kb show design`): its `product`, `system`, `deliberate` and `language` sections (the last, its laws) win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
 
 > **Context**: the audience, their knowledge and emotional state, and the product's voice and words, from the design form's `product` section (and the glossary, when the repository has one).
 
