@@ -8,12 +8,15 @@ import { lawJudge, lawJudgeUrl } from './law-judge.ts';
 
 type Recorded = { url: string; method: string | undefined; body: string; headers: Headers };
 
+/** The body the port sent, as these tests read it. */
+const sent = (body: string) => JSON.parse(body) as { state: Record<string, unknown>; old: string };
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 function recordingFetch(answer: () => Response | Promise<Response>) {
   const requests: Recorded[] = [];
   const fetch = async (input: string, init: RequestInit = {}) => {
-    requests.push({ url: input, method: init.method, body: String(init.body), headers: new Headers(init.headers) });
+    requests.push({ url: input, method: init.method, body: typeof init.body === 'string' ? init.body : '', headers: new Headers(init.headers) });
     return answer();
   };
   return { fetch, requests };
@@ -54,14 +57,14 @@ describe('lawJudge — one signed call, Jev\'s answer when it counted', () => {
     await judge(extra, ASKED);
     const request = galaxy.requests[0];
     assertDefined(request, 'the request');
-    expect(Object.keys(JSON.parse(request.body).state).sort()).toEqual(['domain', 'prdTitle', 'principle', 'statement', 'why']);
+    expect(Object.keys(sent(request.body).state).sort()).toEqual(['domain', 'prdTitle', 'principle', 'statement', 'why']);
   });
 
   it("a yes counts as a yes, and old's false is sent as \"false\"", async () => {
     const galaxy = recordingFetch(() => json({ answer: 'true', confidence: 0.75, decidedBy: 'jev' }));
     const judge = lawJudge({ url: JUDGE_URL, secret: 's', fetch: galaxy.fetch });
     expect(await judge({ ...QUESTION, old: false }, ASKED)).toEqual({ worth: { worth: true, decidedBy: 'Jev', confidence: 0.75 }, reason: null });
-    expect(JSON.parse(galaxy.requests[0]?.body ?? '{}').old).toBe('false');
+    expect(sent(galaxy.requests[0]?.body ?? '{}').old).toBe('false');
   });
 
   it("today's answer (decided by old) leaves the classifier's answer to count", async () => {
@@ -103,7 +106,9 @@ describe('lawJudge — one signed call, Jev\'s answer when it counted', () => {
   it('gives up after its timeout', async () => {
     const fetch = (_url: string, init: RequestInit = {}) =>
       new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener('abort', () => reject(new Error('timed out')));
+        init.signal?.addEventListener('abort', () => {
+          reject(new Error('timed out'));
+        });
       });
     expect((await lawJudge({ url: JUDGE_URL, secret: 's', fetch, timeoutMs: 5 })(QUESTION, ASKED)).reason).toBe('galaxy could not be reached: timed out');
   });

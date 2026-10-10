@@ -35,7 +35,7 @@ function run({ worthALaw, judge = null, config = KNOWLEDGE_CONFIG, github = harv
         route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files' ? { data: [] } : github.octokit.request(route, params),
     }),
     openrouter: readEnv({ OPENROUTER_API_KEY: KEY }).openrouter,
-    fetch: fakeFetch(replies(worthALaw) as typeof REPLIES),
+    fetch: fakeFetch(replies(worthALaw)),
     now: () => '2026-09-27',
     lawJudge: judge,
   });
@@ -44,7 +44,7 @@ function run({ worthALaw, judge = null, config = KNOWLEDGE_CONFIG, github = harv
 
 /** A judge answering `judgement` every time, recording what it was asked. */
 function judging(judgement: LawJudgement) {
-  return vi.fn<LawJudge>(async () => judgement);
+  return vi.fn<LawJudge>(() => Promise.resolve(judgement));
 }
 
 const lawIssues = (github: Scenario) => github.state.issues.filter((issue) => issue.labels.some((label) => label.name === 'omni:law'));

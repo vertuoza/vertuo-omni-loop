@@ -110,8 +110,7 @@ function proposedProofs(classified: readonly Pick<Classification, 'reply'>[], ch
 function withoutWorth(classified: readonly Classification[]): Classification[] {
   return classified.map((entry) => {
     if (!entry.reply || !('worthALaw' in entry.reply)) return entry;
-    const { worthALaw: _ignored, ...reply } = entry.reply;
-    return { ...entry, reply };
+    return { ...entry, reply: { ...entry.reply, worthALaw: undefined } };
   });
 }
 
