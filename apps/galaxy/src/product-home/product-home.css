@@ -1,0 +1,47 @@
+/* The product home (PRD 1364 s9): the summary's three counts, then the Ledger's lanes, one row per PRD:
+   its number (a filled disc once sealed by an approval in force), its title and its chips, its state word
+   at the end. The PRDs tab draws the same rows. Every colour is a token of src/ask/theme-tokens.ts. At
+   393 px a row's chips wrap under its title, and nothing is wider than the window. */
+
+.product-home-summary { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--ask-muted); font-size: 14px; }
+.product-home-summary b { font: 700 22px/1 var(--ask-mono); margin-right: 6px; color: var(--ask-ink); }
+.product-home-summary b[data-tone='building'] { color: var(--ask-green); }
+.product-home-summary b[data-tone='waiting'] { color: var(--ask-yellow); }
+.product-home-summary b[data-tone='drifted'] { color: var(--ask-red); }
+
+.product-home-lane { display: grid; gap: 10px; min-width: 0; }
+.product-home-lane h2 { margin: 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ask-muted); }
+
+.product-home-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.product-home-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 999px;
+  font: 700 13px/1 var(--ask-mono);
+}
+.product-home-n[data-sealed] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+.product-home-main { display: grid; gap: 6px; min-width: 0; }
+.product-home-title { font-weight: 700; color: var(--ask-ink); overflow-wrap: anywhere; }
+.product-home-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--ask-muted); min-width: 0; }
+.product-home-pr { color: var(--ask-ink); text-decoration: none; font-family: var(--ask-mono); }
+.product-home-pr:hover { border-color: var(--ask-plasma); }
+.product-home-question { overflow-wrap: anywhere; }
+.product-home-state { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.product-home-row[data-state='approval'] .product-home-state,
+.product-home-row[data-state='question'] .product-home-state { color: var(--ask-yellow); }
+.product-home-row[data-state='drifted'] .product-home-state { color: var(--ask-red); }
+.product-home-row[data-state='building'] .product-home-state { color: var(--ask-green); }
