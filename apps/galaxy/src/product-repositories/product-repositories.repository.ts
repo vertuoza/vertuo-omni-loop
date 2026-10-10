@@ -72,7 +72,7 @@ export function productRepositoriesRepository(db: ProductRepositoriesDb) {
         p_read_only: link.read_only,
         p_consumes: link.consumes,
       });
-      return error ? { ok: false, code: error.code ?? null, message: error.message } : { ok: true };
+      return error ? { ok: false, code: error.code || null, message: error.message } : { ok: true };
     },
   };
 }

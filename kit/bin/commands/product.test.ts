@@ -45,7 +45,7 @@ function answering(status: number, body: unknown) {
 }
 const down = { sent: [], fetch: () => Promise.reject(new TypeError('fetch failed')) };
 
-async function product(args: string[], { config = PLAN, server = answering(200, {}), tokens = signedIn() as unknown } = {}) {
+async function product(args: string[], { config = PLAN, server = answering(200, {}), tokens = signedIn() } = {}) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
   const out: string[] = [];
   const err: string[] = [];
