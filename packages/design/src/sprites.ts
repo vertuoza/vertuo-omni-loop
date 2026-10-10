@@ -759,6 +759,17 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.rect(9, 10, 7, 3, 'R', 2).pxs([[12, 11], [13, 11]], 'O', 0);
     d.pxs([[5, 14], [6, 14], [20, 14], [21, 13]], 'A', 3);
   } },
+  // OMNI KART's item box (PRD 1427, slice 7): a glowing cube, seen face on (frame 0) and turned a quarter (frame 1), a halo round it.
+  'item-box': { w: 16, h: 16, outline: false, draw(d, f) {
+    d.ellipse(8, 8, 7.5, 7.5, 'C', 0);
+    if (f) {
+      d.poly([[5, 3], [11, 3], [13, 6], [13, 13], [10, 14], [4, 14], [3, 5]], 'Y', 1);
+      d.rect(9, 5, 4, 8, 'O', 2).rect(4, 4, 5, 1, 'Y', 0);
+    } else {
+      d.rect(3, 3, 10, 10, 'Y', 1).rect(3, 3, 10, 2, 'Y', 0).rect(3, 11, 10, 2, 'O', 2);
+    }
+    d.px(6, 7, 'W', 0).px(7, 7, 'W', 0).px(7, 8, 'W', 0).px(7, 10, 'W', 0);
+  } },
   // The distant station in OMNI KART's sky (PRD 1427, slice 6): a hub with two wings of panels; its lamp and windows blink (frame 1).
   'sky-station': { w: 28, h: 14, draw(d, f) {
     d.rect(11, 3, 6, 8, 'L', 1).rect(12, 4, 4, 2, 'C', 0).rect(13, 11, 2, 2, 'A', 2);

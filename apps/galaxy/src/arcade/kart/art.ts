@@ -11,6 +11,7 @@ import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/commo
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import type { Kart } from './kart';
+import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
 import { chaseCamera, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
@@ -107,6 +108,17 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: numb
   ctx.globalAlpha = 1;
 }
 
+/** A shadow on the floor: a dark ellipse `w` wide centred at (cx, cy), drawn as three rows. Every kart casts one, drawn before the kart. */
+export const SHADOW = 'rgba(8, 6, 24, 0.45)';
+function shadow(ctx: CanvasRenderingContext2D, cx: number, cy: number, w: number) {
+  const row = Math.max(1, Math.round(w * 0.07));
+  ctx.fillStyle = SHADOW;
+  for (const [i, share] of ([[-1, 0.7], [0, 1], [1, 0.7]] as const)) {
+    const rw = Math.round(w * share);
+    ctx.fillRect(Math.round(cx - rw / 2), Math.round(cy + i * row), rw, row);
+  }
+}
+
 /** The kart's art, in sprite pixels: its sprite's size, where the driver's shoulders meet the seat, and how much of the hero sits above it. */
 const KART_W = 28;
 const SEAT = 8;
@@ -131,6 +143,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
   const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - 6;
   const half = scale / 2;
+  shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05);
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
   ctx.imageSmoothingEnabled = false;
@@ -159,6 +172,7 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
   const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale;
   const half = scale / 2;
+  shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
   ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
@@ -224,24 +238,20 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
 }
 
 /** How wide an item stands in the world, in game pixels. */
-const BOX_WORLD = 12;
+const BOX_WORLD = 16;
 const BLOB_WORLD = 12;
 const ORB_WORLD = 9;
 
-/** An item box on the floor: a lit cube with its question mark, as big as its distance makes it. */
+/** An item box on the floor: a glowing cube that turns and bobs, as big as its distance makes it; still when motion is reduced. */
+const BOX = 'item-box';
+export const boxFrame = (s: FrameState, z: number): number => (s.reduced ? 0 : Math.floor(s.t * 3 + z * 0.01) % 2);
 function itemBox(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected) {
-  const size = BOX_WORLD * at.scale;
-  if (size < 2) return;
-  const x = Math.round(at.sx - size / 2), y = Math.round(at.sy - size);
-  const bob = s.reduced ? 0 : Math.sin(s.t * 4 + at.z * 0.05) * size * 0.06;
-  ctx.fillStyle = s.theme['plasma-dark'];
-  ctx.fillRect(x - 1, Math.round(y + bob) - 1, Math.round(size) + 2, Math.round(size) + 2);
-  ctx.fillStyle = s.theme.yellow;
-  ctx.fillRect(x, Math.round(y + bob), Math.round(size), Math.round(size));
-  ctx.fillStyle = s.theme.void;
-  ctx.font = `${Math.max(6, Math.round(size * 0.8))}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText('?', Math.round(at.sx), Math.round(y + bob + size * 0.82));
+  const { w, h } = spriteSize(BOX);
+  const scale = (BOX_WORLD * at.scale) / w;
+  if (w * scale < 2) return;
+  const bob = s.reduced ? 0 : Math.sin(s.t * 4 + at.z * 0.05) * h * scale * 0.08;
+  ctx.imageSmoothingEnabled = false;
+  sprite(ctx, s, BOX, at.sx - (w * scale) / 2, at.sy - h * scale + bob - h * scale * 0.1, { scale, frame: boxFrame(s, at.z) });
 }
 
 /** A BLOB lying on the road, or an ORB in flight (a little above it): a sprite as wide as its distance makes it. */
@@ -256,6 +266,25 @@ function thrownItem(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected,
   ctx.drawImage(image, Math.round(at.sx - size / 2), Math.round(at.sy - size - lift), Math.round(size), Math.round(size));
 }
 
+/** How a particle looks: its colour (a theme token, so it follows the theme) and its size in world pixels. */
+const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 'cyan' | 'gold'; size: number }>> = {
+  spark: { token: 'yellow', size: 1.6 }, trail: { token: 'cyan', size: 2.4 }, burst: { token: 'gold', size: 2.4 }, flash: { token: 'white', size: 3 },
+};
+
+/** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen spark is noise. */
+function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles) {
+  if (s.reduced) return;
+  const seen = spritesInView(v, particles.list);
+  for (const { sprite: p, at } of seen) {
+    const look = PARTICLE[p.kind];
+    const size = Math.max(1, Math.round(look.size * at.scale));
+    ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);
+    ctx.fillStyle = s.theme[look.token];
+    ctx.fillRect(Math.round(at.sx - size / 2), Math.round(at.sy - p.z * at.scale - size / 2), size, size);
+  }
+  ctx.globalAlpha = 1;
+}
+
 /** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets). */
 export interface KartOptions { seed: number; cast?: readonly Driver[] }
 
@@ -264,6 +293,7 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
   const track: Track = parseTrack();
   let race = newRace({ seed, track, cast });
   let texture: Texture | null = null;
+  let particles = newParticles(seed);
   const floors = new Map<string, Floor>();
   const floorFor = (v: View): Floor => {
     const key = `${v.w}x${v.h}`;
@@ -292,8 +322,10 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
 
   return {
     step(held: ReadonlySet<Action>, dt: number): number | null {
+      const before = race;
       const r = step(race, held, dt);
       race = r.race;
+      if (before.phase === 'race') particles = stepParticles(particles, spawnsOf(before, race, r.events), dt);
       tell(r.events);
       const done = r.events.find((e) => e.kind === 'finish');
       return done?.kind === 'finish' ? done.score : null;
@@ -332,6 +364,7 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
         else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
         else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
       }
+      particlesOn(ctx, s, v, particles);
       playerKart(ctx, s, race);
     },
   };

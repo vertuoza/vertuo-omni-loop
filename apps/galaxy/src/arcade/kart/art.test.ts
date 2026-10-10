@@ -3,7 +3,7 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { cometsOf, createKart, propFrame, viewFacing } from './art';
+import { boxFrame, cometsOf, createKart, propFrame, SHADOW, viewFacing } from './art';
 import type { Action } from '../keys';
 import { horizonOf } from './mode7';
 
@@ -51,13 +51,15 @@ afterEach(() => { vi.unstubAllGlobals(); });
 function recorder() {
   const fills: { style: string; rect: number[] }[] = [];
   const images: number[][] = [];
+  /** Everything drawn, in order: the fills by their colour, the images and the sprites by name. */
+  const order: string[] = [];
   const colours = new Set<string>();
   const state: Record<string | symbol, unknown> = {};
   const ctx = new Proxy(state, {
     get(target, prop) {
       if (prop in target) return target[prop];
-      if (prop === 'fillRect') return (...rect: number[]) => { fills.push({ style: String(state['fillStyle']), rect }); };
-      if (prop === 'drawImage') return (_i: unknown, ...at: number[]) => { images.push(at); };
+      if (prop === 'fillRect') return (...rect: number[]) => { fills.push({ style: String(state['fillStyle']), rect }); order.push(`fill ${String(state['fillStyle'])}`); };
+      if (prop === 'drawImage') return (_i: unknown, ...at: number[]) => { images.push(at); order.push('image'); };
       return () => {};
     },
     set(target, prop, value) {
@@ -66,7 +68,7 @@ function recorder() {
       return true;
     },
   });
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, images, colours };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, images, colours, order };
 }
 
 const frame = (grid: Grid, theme: Theme = DEFAULT_THEME): FrameState => ({
@@ -307,21 +309,52 @@ describe('the view a rival is seen from', () => {
 });
 
 describe('the items on the floor (slice 5)', () => {
-  it('draws the item boxes as lit squares with a question mark, only while they are there', () => {
+  it('draws the item boxes as glowing cube sprites, only while they are there', () => {
     const kart = createKart({ seed: 3 });
     kart.press('start');
     const held = new Set<Action>(['a']);
-    let seen = 0;
+    let seen = 0, empty = 0;
     for (let t = 0; t < 12; t += 0.05) {
       kart.step(held, 0.05);
       if (t < 3.1) continue;
-      const { ctx, fills } = recorder();
+      const { ctx } = recorder();
+      sprites.length = 0;
       kart.draw(ctx, frame(WIDE));
-      seen += fills.filter((f) => f.style === DEFAULT_THEME.yellow).length;
+      const boxes = sprites.filter((x) => x.name === 'item-box').length;
+      seen += boxes;
+      if (boxes === 0) empty++;
     }
     expect(seen).toBeGreaterThan(0);
+    expect(empty).toBeGreaterThan(0);
   });
 
+  it('turns and bobs the boxes, and holds them still when motion is reduced', () => {
+    expect(new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => boxFrame({ ...frame(WIDE), t }, 0))).size).toBe(2);
+    for (const t of [0, 0.3, 0.9, 2.1]) expect(boxFrame({ ...frame(WIDE), t, reduced: true }, 40)).toBe(0);
+    const boxesAt = (t: number, reduced: boolean) => { sprites.length = 0; createKart({ seed: 3 }).draw(recorder().ctx, { ...frame(WIDE), t, sceneT: t, reduced }); return sprites.filter((x) => x.name === 'item-box'); };
+    expect(boxesAt(1, true).length).toBeGreaterThan(0);
+    expect(boxesAt(1, true)).toEqual(boxesAt(1.37, true));
+    expect(boxesAt(1, false)).not.toEqual(boxesAt(1.37, false));
+  });
+
+  it('flashes where a box was taken, and leaves its place empty until it comes back', () => {
+    const kart = createKart({ seed: 3 });
+    kart.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) kart.step(new Set<Action>(), 0.05);
+    const count = () => { sprites.length = 0; kart.draw(recorder().ctx, frame(WIDE)); return sprites.filter((x) => x.name === 'item-box').length; };
+    const before = count();
+    let flashed = false;
+    for (let t = 0; t < 12 && !flashed; t += 0.05) {
+      kart.step(new Set<Action>(['a']), 0.05);
+      if (kart.hud().run?.item) {
+        const r = recorder();
+        kart.draw(r.ctx, frame(WIDE));
+        flashed = r.fills.some((f) => f.style === DEFAULT_THEME.white && (f.rect[2] ?? 0) < 12);
+      }
+    }
+    expect(flashed).toBe(true);
+    expect(before).toBeGreaterThan(0);
+  });
   it('shows no item before one is taken, and draws on both grids', () => {
     const kart = createKart({ seed: 3 });
     kart.press('start');
@@ -331,6 +364,51 @@ describe('the items on the floor (slice 5)', () => {
     expect(kart.hud().run?.item).toBeNull();
     expect(() => { kart.draw(ctx, frame(WIDE)); }).not.toThrow();
     expect(() => { kart.draw(ctx, frame(TALL)); }).not.toThrow();
+  });
+});
+
+// Shadows and particles (PRD 1427, slice 7).
+describe('the shadows and the effects', () => {
+  const shadows = (order: readonly string[]) => order.flatMap((o, i) => (o === `fill ${SHADOW}` ? [i] : []));
+  const drawnOrder = (state: FrameState = frame(WIDE)) => { const r = recorder(); createKart({ seed: 3 }).draw(r.ctx, state); return r.order; };
+
+  it('draws every kart\'s shadow on the floor before the kart, the player\'s too', () => {
+    const order = drawnOrder();
+    const first = shadows(order);
+    // Three rows a shadow: the player's and the rivals' in view.
+    expect(first.length).toBeGreaterThanOrEqual(6);
+    expect(first.length % 3).toBe(0);
+    // The player's shadow is the last one, and the kart's images come after it.
+    const last = sure(first.at(-1), 'a shadow row');
+    expect(order.slice(last + 1).filter((o) => o === 'image').length).toBeGreaterThanOrEqual(1);
+    // Each rival's driver and body are drawn after its shadow: no image sits between two shadows of one kart.
+    for (let i = 0; i < first.length; i += 3) expect(sure(first[i + 2], 'row') - sure(first[i], 'row')).toBe(2);
+  });
+
+  it('keeps the shadows when motion is reduced', () => {
+    expect(shadows(drawnOrder({ ...frame(WIDE), reduced: true })).length).toBe(shadows(drawnOrder()).length);
+  });
+
+  /** A race driven into the wall until the player scrapes it, and the frame drawn then. */
+  function scraping(reduced: boolean) {
+    const kart = createKart({ seed: 3 });
+    kart.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) kart.step(new Set<Action>(), 0.05);
+    for (let t = 0; t < 30; t += 0.05) {
+      kart.step(new Set<Action>(['a', 'left']), 0.05);
+      if (kart.cues().some((c) => c.kind === 'scrape')) {
+        const r = recorder();
+        kart.draw(r.ctx, { ...frame(WIDE), reduced });
+        return r.fills.filter((f) => f.style === DEFAULT_THEME.yellow && f.rect[2] === f.rect[3]);
+      }
+    }
+    throw new Error('the kart never met a wall');
+  }
+
+  it('throws sparks at a wall, and draws no particle when motion is reduced', () => {
+    // Sparks are the only yellow squares in the frame: the boxes are sprites.
+    expect(scraping(false).length).toBeGreaterThan(0);
+    expect(scraping(true)).toHaveLength(0);
   });
 });
 
