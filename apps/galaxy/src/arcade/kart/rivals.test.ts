@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { kartAt, type Kart } from './kart';
+import { kartAt, NO_FX, type Fx, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
-import { advance, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
+import { advance, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
 import { LAPS, parseTrack, TILE, tileAt } from './track';
 
@@ -141,9 +141,8 @@ describe('laps', () => {
     expect(advance(track, START_PACE, here(0, 0), { x: w0.x + RULES.waypointReach + 1, y: w0.y })).toEqual(START_PACE);
   });
 
-  // A person cuts a corner wherever the road lets them: tight on the inside, or over the grass inside.
-  // Each way is a path through every corner, from the pole over the line, walked a pixel at a time; no
-  // step of it is in a wall.
+  // A person cuts a corner wherever the road lets them: tight on the inside, or across the void inside.
+  // Each way is a path through every corner, from the pole over the line, walked a pixel at a time.
   type Point = { x: number; y: number };
   const unit = (a: Point, b: Point): Point => { const l = Math.hypot(b.x - a.x, b.y - a.y); return { x: (b.x - a.x) / l, y: (b.y - a.y) / l }; };
   const corners = track.waypoints.map((w, i) => ({
@@ -157,7 +156,6 @@ describe('laps', () => {
   function lapOn(way: (c: Corner) => Point[]) {
     const path = [nth(track.places, 0), ...corners.flatMap(way), { x: track.line.x + 2 * TILE, y: track.line.y }];
     let pace = START_PACE;
-    const walls: Point[] = [];
     path.slice(1).forEach((b, i) => {
       const a = nth(path, i);
       const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y));
@@ -165,17 +163,16 @@ describe('laps', () => {
         const from = { x: a.x + ((b.x - a.x) * s) / steps, y: a.y + ((b.y - a.y) * s) / steps };
         const to = { x: a.x + ((b.x - a.x) * (s + 1)) / steps, y: a.y + ((b.y - a.y) * (s + 1)) / steps };
         pace = advance(track, pace, from, to);
-        if (tileAt(track.map, Math.floor(to.x / TILE), Math.floor(to.y / TILE)) === 'X') walls.push(to);
       }
     });
-    return { pace, walls };
+    return pace;
   }
 
   it.each([
     ['tight on the inside', (c: Corner) => [off(c, -32, 32)]],
-    ['cut over the grass inside', (c: Corner) => [off(c, -55, 35), off(c, -35, 55)]],
+    ['cut across the void inside', (c: Corner) => [off(c, -55, 35), off(c, -35, 55)]],
   ])('counts a lap when every corner is taken %s', (_, way) => {
-    expect(lapOn(way)).toEqual({ pace: { laps: 1, passed: 0 }, walls: [] });
+    expect(lapOn(way)).toEqual({ laps: 1, passed: 0 });
   });
 
   it('passes a waypoint whose corner\'s diagonal is crossed forwards near it, not backwards nor far from it', () => {
@@ -297,5 +294,81 @@ describe('the race with five rivals', () => {
     expect(hudOf(r).run?.tenths).toBe(Math.floor(r.clock * 10 + 1e-9));
     expect(hudOf(newRace({ seed: 1 })).run).toBeUndefined();
     expect(hudOf(press(newRace({ seed: 1 }), 'start').race).run).toBeUndefined();
+  });
+});
+
+// The way back after a fall into the void (PRD 1447, slice 2).
+describe('the way back', () => {
+  const wp = (i: number) => nth(track.waypoints, i);
+  const fell = (x: number, y: number): Kart => ({ ...kartAt(x, y, 1), speed: 50 });
+  const down: Fx = { ...NO_FX, item: 'blob', fall: 0.001 };
+
+  it('is the nearest point of the segment the kart is measured along, on a straight, facing the way of the segment, at rest', () => {
+    const a = wp(5), b = wp(6); // the straight along the top, heading west
+    const mid = (a.x + b.x) / 2;
+    const back = comeBack(track, { laps: 1, passed: 6 }, fell(mid, a.y - 60), down);
+    expect(back.kart.x).toBeCloseTo(mid, 6);
+    expect(back.kart.y).toBeCloseTo(a.y, 6);
+    expect(back.kart.speed).toBe(0);
+    expect(back.kart.steer).toBe(0);
+    expect(Math.cos(back.kart.angle)).toBeCloseTo(-1, 6);
+    expect(back.fx).toEqual({ item: 'blob', boost: 0, spin: 0, fall: 0, blink: RULES.blinkTime });
+  });
+
+  it('is the nearest point in a corner too: on the segment it is on, not on the next one', () => {
+    const a = wp(4), b = wp(5); // heading north up to the corner at b, which the kart fell off past the inside
+    const back = comeBack(track, { laps: 0, passed: 5 }, fell(b.x - 70, b.y + 40), down);
+    expect(back.kart.x).toBeCloseTo(a.x, 6);
+    expect(back.kart.y).toBeCloseTo(b.y + 40, 6);
+    expect(Math.sin(back.kart.angle)).toBeCloseTo(-1, 6);
+  });
+
+  it('never goes beyond the segment\'s ends: not past the next waypoint, not before the last one', () => {
+    const a = wp(5), b = wp(6);
+    const far = comeBack(track, { laps: 0, passed: 6 }, fell(b.x - 500, a.y), down).kart;
+    expect(far.x).toBeGreaterThan(b.x); // heading west: short of the next waypoint is east of it
+    expect(far.x).toBeLessThan(a.x);
+    expect(Math.abs(far.x - b.x)).toBeLessThan(Math.abs(a.x - b.x));
+    const behind = comeBack(track, { laps: 0, passed: 6 }, fell(a.x + 500, a.y), down).kart;
+    expect(behind.x).toBeCloseTo(a.x, 6);
+  });
+
+  it('never goes across the start line: the last segment ends short of it', () => {
+    const n = track.waypoints.length;
+    const before = (k: { x: number; y: number }) => k.x * track.forward[0] + k.y * track.forward[1] - track.line.at;
+    const back = comeBack(track, { laps: 1, passed: n }, fell(track.line.x + 60 * track.forward[0], track.line.y + 60 * track.forward[1]), down).kart;
+    expect(before(back)).toBeLessThan(0);
+  });
+
+  it('keeps the pace: a rival whose fall ends comes back and its laps and waypoints are the ones it had', () => {
+    const a = wp(5), b = wp(6);
+    const rival: Rival = { driver: driver('beaver'), kart: fell((a.x + b.x) / 2, a.y - 40), pace: { laps: 1, passed: 6 }, skill: 1, offset: 0, fx: { ...NO_FX, fall: 0.001 } };
+    const next = driveRival(track, rival, 0.01, 0);
+    expect(next.pace).toEqual({ laps: 1, passed: 6 });
+    expect(next.kart.speed).toBe(0);
+    expect(next.kart.y).toBeCloseTo(a.y, 6);
+    expect(next.fx?.fall).toBe(0);
+    expect(next.fx?.blink).toBe(RULES.blinkTime);
+  });
+
+  it('is never over the void', () => {
+    for (let i = 0; i < track.waypoints.length; i++) {
+      const w = wp(i);
+      const back = comeBack(track, { laps: 0, passed: i }, fell(w.x + 3, w.y + 3), down).kart;
+      expect(tileAt(track.map, Math.floor(back.x / TILE), Math.floor(back.y / TILE))).not.toBe('~');
+    }
+  });
+});
+
+describe('a falling rival', () => {
+  it('falls when it drives over the void, and is out of the contacts', () => {
+    const rival: Rival = { driver: driver('beaver'), kart: { ...kartAt(45 * TILE + 8, 6 * TILE + 3, -Math.PI / 2), speed: 80 }, pace: { laps: 0, passed: 6 }, skill: 1, offset: 0, fx: NO_FX };
+    let r = rival;
+    for (let i = 0; i < 100 && (r.fx?.fall ?? 0) <= 0; i++) r = driveRival(track, r, 1 / 120, 0);
+    expect(r.fx?.fall).toBe(RULES.fallTime);
+    expect(r.kart.speed).toBe(0);
+    const kept = pushApart([r.kart, { ...r.kart }], [true, false]);
+    expect(kept[0]).toEqual(r.kart);
+    expect(kept[1]).toEqual(r.kart);
   });
 });

@@ -1,11 +1,10 @@
-// The race's particles (PRD 1427, slice 7), pure and seeded like race.ts: sparks where a kart scrapes a wall,
-// a trail behind a kart on BOOST, a burst where an ORB or a BLOB hits, a flash where a box is taken. No DOM and
+// The race's particles (PRD 1427, slice 7), pure and seeded like race.ts: a trail behind a kart on BOOST, a burst where an ORB or a BLOB hits, a flash where a box is taken. No DOM and
 // no canvas: art.ts draws them. The same seed and the same steps give the same particles, and no more than
 // `MAX_PARTICLES` are alive at once: a new one replaces the oldest.
 import type { Race, RaceEvent } from './race';
 import { draw } from './rivals';
 
-export type ParticleKind = 'spark' | 'trail' | 'burst' | 'flash';
+export type ParticleKind = 'trail' | 'burst' | 'flash';
 
 /** A particle: where it is on the floor (x, y) and above it (z), how it moves, and how long it has lived of its life, in seconds. */
 export interface Particle { kind: ParticleKind; x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number }
@@ -20,7 +19,6 @@ export const MAX_PARTICLES = 64;
 
 /** How long each kind lives, how many one spawn makes, how fast they fly (world pixels a second) and how heavy they are. */
 export const LOOK: Readonly<Record<ParticleKind, { life: number; count: number; speed: number; lift: number; gravity: number }>> = {
-  spark: { life: 0.35, count: 5, speed: 60, lift: 40, gravity: 160 },
   trail: { life: 0.4, count: 1, speed: 6, lift: 4, gravity: 0 },
   burst: { life: 0.6, count: 10, speed: 90, lift: 50, gravity: 120 },
   flash: { life: 0.3, count: 6, speed: 30, lift: 30, gravity: 0 },
@@ -52,7 +50,7 @@ export function stepParticles(p: Particles, spawns: readonly Spawn[], dt: number
 const BEHIND = 8;
 
 /**
- * What a step made happen, as spawns: sparks where the player met a wall, a burst where a racer was hit,
+ * What a step made happen, as spawns: a burst where a racer was hit,
  * a flash where a box was taken (a box that was there and now waits to come back), and a trail behind
  * every racer on BOOST.
  */
@@ -61,7 +59,6 @@ export function spawnsOf(before: Race, after: Race, events: readonly RaceEvent[]
   const out: Spawn[] = [];
   for (const e of events) {
     const at = 'racer' in e ? racers[e.racer] : undefined;
-    if (e.kind === 'wall' && at) out.push({ kind: 'spark', x: at.x, y: at.y });
     if (e.kind === 'hit' && at) out.push({ kind: 'burst', x: at.x, y: at.y });
   }
   after.items.boxes.forEach((box, i) => {

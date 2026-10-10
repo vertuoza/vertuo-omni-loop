@@ -10,7 +10,7 @@ import { stripesOf } from '../theme';
 import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/common.ts';
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
-import type { Kart } from './kart';
+import { NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
 import { chaseCamera, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
@@ -128,6 +128,14 @@ export const DRIVER_W = 32;
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
 
+/** How far a kart's fall has gone, 0 (just over the edge) to 1 (gone): it is drawn smaller and lower as it grows. */
+export const fallenOf = (fx: { fall: number }): number => (fx.fall > 0 ? 1 - Math.min(1, fx.fall / RULES.fallTime) : 0);
+
+/** How fast a kart blinks once it is back on the road, in blinks a second: it is drawn on every other frame of the blink. */
+const BLINK_RATE = 12;
+/** Whether a blinking kart is hidden in this frame; a kart that is not blinking never is. */
+export const hiddenBlink = (fx: { blink: number }): boolean => fx.blink > 0 && Math.floor(fx.blink * BLINK_RATE) % 2 === 1;
+
 /** The views a spinning kart turns through: it shows its sides and its back as it goes round. */
 const SPIN_VIEWS = ['kart', 'kart-right', 'kart', 'kart-left'] as const;
 
@@ -137,11 +145,13 @@ const SPIN_VIEWS = ['kart', 'kart-right', 'kart', 'kart-left'] as const;
  * speed.
  */
 function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
-  const scale = s.grid.w >= W ? 4 : 2;
+  const fallen = fallenOf(race.fx);
+  if (fallen >= 1 || hiddenBlink(race.fx)) return;
+  const scale = (s.grid.w >= W ? 4 : 2) * (1 - fallen);
   const look = heroOf(s.join.hero, s.join.team);
   const kart = race.player;
   const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
-  const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - 6;
+  const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - 6 + fallen * 18 * scale;
   const half = scale / 2;
   shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05);
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
@@ -164,13 +174,15 @@ const LEAN = 0.3;
 
 /** A rival's kart on the floor at `at`, its driver in the seat, as big as its distance makes it. */
 function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected) {
-  const scale = (KART_WORLD * at.scale) / KART_W;
+  const fallen = fallenOf(r.fx ?? NO_FX);
+  if (fallen >= 1 || hiddenBlink(r.fx ?? NO_FX)) return;
+  const scale = ((KART_WORLD * at.scale) / KART_W) * (1 - fallen);
   if (scale < 0.15) return;
   const frame = s.reduced ? 0 : Math.floor(s.t * Math.abs(r.kart.speed) * 0.12) % 2;
   const flat = stripesOf(s.theme);
   const body = spriteImage(viewFacing(r.kart.angle, v.angle), { tint: fleetSprite(null, r.driver.color).tint, flat, frame });
   const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
-  const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale;
+  const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale + fallen * 6 * at.scale;
   const half = scale / 2;
   shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05);
   ctx.imageSmoothingEnabled = false;
@@ -202,7 +214,7 @@ export const ARCH_WORLD = 10;
 export const propFrame = (kind: PropKind, s: FrameState): number =>
   s.reduced ? 0 : kind === 'beacon' ? Math.floor(s.t * 2) % 2 : kind === 'satellite' ? Math.floor(s.t * 1.2) % 2 : 0;
 
-/** A prop standing on its wall tile, as big as its distance makes it. */
+/** A prop standing on its void tile, as big as its distance makes it. */
 function propSprite(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected, kind: PropKind) {
   const art = PROP_ART[kind];
   const { w, h } = spriteSize(art.sprite);
@@ -268,10 +280,10 @@ function thrownItem(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected,
 
 /** How a particle looks: its colour (a theme token, so it follows the theme) and its size in world pixels. */
 const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 'cyan' | 'gold'; size: number }>> = {
-  spark: { token: 'yellow', size: 1.6 }, trail: { token: 'cyan', size: 2.4 }, burst: { token: 'gold', size: 2.4 }, flash: { token: 'white', size: 3 },
+  trail: { token: 'cyan', size: 2.4 }, burst: { token: 'gold', size: 2.4 }, flash: { token: 'white', size: 3 },
 };
 
-/** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen spark is noise. */
+/** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen trail is noise. */
 function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles) {
   if (s.reduced) return;
   const seen = spritesInView(v, particles.list);
@@ -285,12 +297,11 @@ function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, part
   ctx.globalAlpha = 1;
 }
 
-/** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets). */
-export interface KartOptions { seed: number; cast?: readonly Driver[] }
+/** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets); the circuit is COMET RING unless a test hands it another. */
+export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): KartGame {
-  const track: Track = parseTrack();
+export function createKart({ seed, cast = [], track = parseTrack() }: KartOptions = { seed: 1359 }): KartGame {
   let race = newRace({ seed, track, cast });
   let texture: Texture | null = null;
   let particles = newParticles(seed);

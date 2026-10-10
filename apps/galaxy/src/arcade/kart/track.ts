@@ -4,10 +4,10 @@
 // waypoints' x and y do.
 //
 // The legend:
-//   #  road          .  grass (halves the top speed)       X  wall (bounces a kart off)
-//   r  kerb (road)   =  the start line (road)               ?  an item box (road)
-//   S  a starting place (road)
-// Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a wall tile.
+//   #  road          ~  the void (PRD 1447: nothing under the road; a kart over it falls)
+//   r  kerb (road)   =  the start line (road)
+//   ?  an item box (road)   S  a starting place (road)
+// Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a void tile.
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A tile's side in game pixels: the circuit's texture is one tile = 16×16 pixels. */
@@ -18,7 +18,7 @@ export const LAPS = 3;
 export const PLACES = 6;
 
 const LEGEND = Object.freeze({
-  '#': 'road', '.': 'grass', X: 'wall', r: 'kerb', '=': 'line', '?': 'box', S: 'start',
+  '#': 'road', '~': 'void', r: 'kerb', '=': 'line', '?': 'box', S: 'start',
 } as const);
 type TileChar = keyof typeof LEGEND;
 
@@ -28,7 +28,7 @@ const isTileChar = (c: string): c is TileChar => Object.hasOwn(LEGEND, c);
 export interface TrackSource {
   readonly rows: readonly string[];
   readonly waypoints: readonly (readonly [number, number])[];
-  /** What stands on the wall tiles around the circuit; none when left out. */
+  /** What stands on the void tiles around the circuit; none when left out. */
   readonly props?: readonly Prop[];
 }
 
@@ -42,70 +42,70 @@ export interface Prop { readonly kind: PropKind; readonly x: number; readonly y:
 // 64×64 tiles. The road is five tiles wide. The racing line starts at the first corner after the line
 // (the long start straight runs along the bottom, east), and its last waypoint is the corner before it.
 const COMET_RING_ROWS = [
-  'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  'XXXX.....................XXXXXXX.............................XXX',
-  'XXXX.....................XXXXXXX.............................XXX',
-  'XXXX..r#r#r#######r#r#r..XXXXXXX..r#r#r###############r#r#r..XXX',
-  'XXXX..#################..XXXXXXX..#########################..XXX',
-  'XXXX..r###############r..XXXXXXX..r#######################r..XXX',
-  'XXXX..#################..XXXXXXX..#########################..XXX',
-  'XXXX..r###############r..XXXXXXX..r#######################r..XXX',
-  'XXXX..#####.......#####..XXXXXXX..#####...............#####..XXX',
-  'XXXX..#####.......#####..XXXXXXX..#####...............#####..XXX',
-  'XXXX..#####..XXX..#####..XXXXXXX..#####..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..#####..XXXXXXX..#####..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..#####..XXXXXXX..#####..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..#####...........#####..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..#####...........#####..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..r###################r..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..#####################..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..r###################r..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..#####################..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX..r#r#r###########r#r#r..XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX.........................XXXXXXXXXXX..#####..XXX',
-  'XXXX..#####..XXX......................................#####..XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..............#####..XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..r#r#r###########r..XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#################..XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..r###############r..XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#################..XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..r###########r#r#r..XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..............XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..............XXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXX',
-  'XXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXX',
-  'XXXX..#####............XXXXXXXXXXXXXXXXX..#####............XXXXX',
-  'XXXX..#####............XXXXXXXXXXXXXXXXX..#####............XXXXX',
-  'XXXX..r#########r#r#r..XXXXXXXXXXXXXXXXX..r#########r#r#r..XXXXX',
-  'XXXX..###############..XXXXXXXXXXXXXXXXX..###############..XXXXX',
-  'XXXX..r#############r..XXXXXXXXXXXXXXXXX..r#############r..XXXXX',
-  'XXXX..###############..XXXXXXXXXXXXXXXXX..###############..XXXXX',
-  'XXXX..r#r#r#########r..XXXXXXXXXXXXXXXXX..r#r#r#########r..XXXXX',
-  'XXXX............#####..XXXXXXXXXXXXXXXXX............#####..XXXXX',
-  'XXXX............#####..XXXXXXXXXXXXXXXXX............#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####..XXXXXXXXXXXXXXXXXXXXXXXXXXX..#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####...............................#####..XXXXX',
-  'XXXXXXXXXXXXXX..#####...............................#####..XXXXX',
-  'XXXXXXXXXXXXXX..r########S##S#=#########?###?###########r..XXXXX',
-  'XXXXXXXXXXXXXX..##############=#########?###?############..XXXXX',
-  'XXXXXXXXXXXXXX..r########S##S#=#########################r..XXXXX',
-  'XXXXXXXXXXXXXX..##############=#########?###?############..XXXXX',
-  'XXXXXXXXXXXXXX..r#r#r####S##S#=#########?###?#######r#r#r..XXXXX',
-  'XXXXXXXXXXXXXX.............................................XXXXX',
-  'XXXXXXXXXXXXXX.............................................XXXXX',
-  'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~r#r#r#######r#r#r~~~~~~~~~~~r#r#r###############r#r#r~~~~~',
+  '~~~~~~#################~~~~~~~~~~~#########################~~~~~',
+  '~~~~~~r###############r~~~~~~~~~~~r#######################r~~~~~',
+  '~~~~~~#################~~~~~~~~~~~#########################~~~~~',
+  '~~~~~~r###############r~~~~~~~~~~~r#######################r~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~r###################r~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####################~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~r###################r~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####################~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~r#r#r###########r#r#r~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r#r#r###########r~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#################~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r###############r~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#################~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r###########r#r#r~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
+  '~~~~~~r#########r#r#r~~~~~~~~~~~~~~~~~~~~~r#########r#r#r~~~~~~~',
+  '~~~~~~###############~~~~~~~~~~~~~~~~~~~~~###############~~~~~~~',
+  '~~~~~~r#############r~~~~~~~~~~~~~~~~~~~~~r#############r~~~~~~~',
+  '~~~~~~###############~~~~~~~~~~~~~~~~~~~~~###############~~~~~~~',
+  '~~~~~~r#r#r#########r~~~~~~~~~~~~~~~~~~~~~r#r#r#########r~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
+  '~~~~~~~~~~~~~~~~r########S##S#=#########?###?###########r~~~~~~~',
+  '~~~~~~~~~~~~~~~~##############=#########?###?############~~~~~~~',
+  '~~~~~~~~~~~~~~~~r########S##S#=#########################r~~~~~~~',
+  '~~~~~~~~~~~~~~~~##############=#########?###?############~~~~~~~',
+  '~~~~~~~~~~~~~~~~r#r#r####S##S#=#########?###?#######r#r#r~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
 ] as const;
 
 export const COMET_RING: TrackSource = {
@@ -114,8 +114,8 @@ export const COMET_RING: TrackSource = {
     [54, 56], [54, 40], [44, 40], [44, 28], [56, 28], [56, 8], [36, 8],
     [36, 20], [20, 20], [20, 8], [8, 8], [8, 40], [18, 40], [18, 56],
   ],
-  // Pylons and beacons alternate along the wall tiles that touch the verge; asteroids, satellites and
-  // wrecks stand on wall tiles with no verge within three tiles. Every one is on a wall tile.
+  // Pylons and beacons alternate along the void near the road's edge; asteroids, satellites and
+  // wrecks float deeper in. Every one is on a void tile.
   props: [
     { kind: 'pylon', x: 4, y: 3 }, { kind: 'beacon', x: 11, y: 3 }, { kind: 'pylon', x: 18, y: 3 },
     { kind: 'beacon', x: 32, y: 3 }, { kind: 'pylon', x: 39, y: 3 }, { kind: 'beacon', x: 46, y: 3 },
@@ -147,9 +147,9 @@ export const COMET_RING: TrackSource = {
 /** A tile that is road under the wheels: the road, a kerb, the line, a box or a starting place. */
 export const isRoad = (c: string): boolean => c === '#' || c === 'r' || c === '=' || c === '?' || c === 'S';
 
-/** The tile at column x, row y; a wall past the map's edge. */
+/** The tile at column x, row y; the void past the map's edge. */
 export function tileAt(rows: readonly string[], x: number, y: number): string {
-  return rows[y]?.[x] ?? 'X';
+  return rows[y]?.[x] ?? '~';
 }
 
 const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -203,7 +203,7 @@ function lineOf(src: TrackSource): StartLine | null {
  * What is wrong with a circuit, each problem with the row and the column it is at: an unknown
  * character, rows of unequal length, a waypoint off the road, two consecutive waypoints (the last and
  * the first too) not joined by road, not exactly six starting places behind the line, a start line
- * that does not cross the road from wall to wall, an item box off the road, a prop off a wall tile.
+ * that does not cross the road from wall to wall, an item box off the road, a prop off a void tile.
  * Empty when it is drivable.
  */
 export function trackProblems(src: TrackSource = COMET_RING): string[] {
@@ -299,14 +299,14 @@ function boxProblems(rows: readonly string[]): string[] {
   return tilesOf(rows, '?').filter(([x, y]) => !onRoad(rows, x, y)).map(([x, y]) => `${where(x, y)}: item box off the road`);
 }
 
-/** A prop that is not on a wall tile: on a road, kerb, line, box, start or verge tile (or off the map), or of a kind that does not exist. */
+/** A prop that is not on a void tile: on a road, kerb, line, box, start tile (or off the map), or of a kind that does not exist. */
 function propProblems({ rows, props = [] }: TrackSource): string[] {
   return props.flatMap(({ kind, x, y }) => {
     if (!PROP_KINDS.includes(kind)) return [`${where(x, y)}: unknown prop kind '${kind}'`];
     const tile = rows[y]?.[x];
-    if (tile === 'X') return [];
-    const what = tile === undefined ? 'off the map' : `on a ${tile === '.' ? 'verge' : isTileChar(tile) ? LEGEND[tile] : 'unknown'} tile`;
-    return [`${where(x, y)}: a ${kind} stands ${what}, props stand on wall tiles only`];
+    if (tile === '~') return [];
+    const what = tile === undefined ? 'off the map' : `on a ${isTileChar(tile) ? LEGEND[tile] : 'unknown'} tile`;
+    return [`${where(x, y)}: a ${kind} stands ${what}, props stand on void tiles only`];
   });
 }
 
@@ -375,12 +375,12 @@ export function cornersOf(track: Pick<Track, 'waypoints'>): Corner[] {
   return out;
 }
 
-/** The tile of the first wall beyond each end of the start line, walking out along it; the line's own end when there is none. */
+/** The tile of the first void beyond each end of the start line, walking out along it. */
 function archLegs(rows: readonly string[], line: StartLine): [[number, number], [number, number]] {
   const { k, first, last } = lineEnds(line);
   const out = (from: [number, number], step: 1 | -1): [number, number] => {
     let [x, y] = from;
-    while (tileAt(rows, x, y) !== 'X') { if (k === 1) y += step; else x += step; }
+    while (tileAt(rows, x, y) !== '~') { if (k === 1) y += step; else x += step; }
     return [x, y];
   };
   return [out(first, -1), out(last, 1)];
