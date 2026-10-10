@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Metadata } from 'next';
 import { cache } from 'react';
+import '../../../../src/product-filter/product-filter.css';
 import { BoardPage } from '../../../../src/ideas/Board';
 import { boardPath } from '../../../../src/ideas/model';
 import { ideasView, type IdeasView } from '../../../../src/ideas/source';
@@ -9,14 +10,18 @@ import { IDEAS } from '../../../../src/ideas/words';
 import { supabaseServer } from '../../../../src/data/supabase-server';
 import { siteUrl } from '../../../../src/seo/seo';
 import { serverEnv } from '../../../../src/env';
+import { productBoardScope } from '../../../../src/product-filter/ProductFilter';
 
 // /ideas/<owner>/<repo> (PRD 1246, s1): a repository's ideas board, for anyone. Rendered on the server
 // per request with the public key, as whoever reads it (their session, when they have one), so
 // ideas_board() decides: a public board for anyone, a private one for its workspace's members only,
 // and for anyone else the same "no public board here" page a missing repository gets. The metadata
 // carries the board's title, so a shared link has its title and preview. Its words: src/ideas/words.ts.
+// PRD 1364 s12: a member of the board's workspace filters it by product, `product=<id>` or `product=none`,
+// read from ideas.product_id as them (src/product-filter/); a visitor sees no filter and the whole board.
 
 type Params = { params: Promise<{ owner: string; repo: string }> };
+type Props = Params & { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
 /** One read per request, shared by the metadata and the page. */
 const view = cache(async (owner: string, repo: string): Promise<IdeasView> =>
@@ -38,7 +43,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-export default async function IdeasRoute({ params }: Params) {
+export default async function IdeasRoute({ params, searchParams }: Props) {
   const { owner, repo } = await params;
-  return <BoardPage view={await view(owner, repo)} />;
+  const shown = await view(owner, repo);
+  if (serverEnv().mode !== 'supabase' || shown.kind !== 'board' || !shown.board.member) return <BoardPage view={shown} />;
+  const scoped = await productBoardScope(await supabaseServer(), shown, (await searchParams) ?? {}, boardPath(shown.board.repo));
+  return <>{scoped.above}<BoardPage view={scoped.view} /></>;
 }

@@ -1,4 +1,5 @@
 import 'server-only';
+import type { ReactNode } from 'react';
 import { Notice } from '../ask/page/Notice';
 import { serverEnv } from '../env';
 import { DEMO_VIEWER, demoHistory } from '../dossier/page/demo';
@@ -31,6 +32,8 @@ import { readLoginIds, rosterReader, whoLogin, type Whom } from '../dossier/page
 // photos, never an error.
 // PRD 698, s4: `who=<login>` keeps that person's fixes: the login's account ids are read from the same
 // workspaces' rosters (workspace_roster, as the signed-in person), only then.
+// PRD 1364 s12: a page may hand a scope that narrows the fixes read before anything else is read for them,
+// and draws what it returns above the list: /bugs and /visual hand the product filter.
 
 type Query = Record<string, string | string[] | undefined>;
 
@@ -51,7 +54,11 @@ export function FixListLoading({ kind }: { kind: FixKind }) {
   );
 }
 
-export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) {
+/** What a page may narrow its list by before it is drawn (PRD 1364 s12: the product filter): the fixes read,
+ * as the signed-in person, narrowed, and what to draw above the list. */
+export type FixListScope = (db: Db, rows: DossierListRow[], query: Query) => Promise<{ rows: DossierListRow[]; above: ReactNode }>;
+
+export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>, scope?: FixListScope) {
   const query = await searchParams;
   const filters = readFixFilters(query);
   const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts, people?: PeopleIn, whom?: Whom) => (
@@ -83,12 +90,13 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
       </Notice>
     );
   }
-  const fixes = ofWork(rows, kind);
+  const scoped = scope ? await scope(db, ofWork(rows, kind), query) : { rows, above: null };
+  const fixes = ofWork(scoped.rows, kind);
   const [facts, people, whom] = await Promise.all([
     storedFacts(db, fixes), peopleOf(db, fixes),
     login ? readLoginIds(fixes, login, rosterReader(db)) : undefined,
   ]);
-  return listing(rows, { id: user.id, login: loginOf(user) }, facts, people, whom);
+  return <>{scoped.above}{listing(fixes, { id: user.id, login: loginOf(user) }, facts, people, whom)}</>;
 }
 
 /** The people directory of every workspace these fixes belong to, each read once. */
