@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { longestPit, WORLD } from './rules';
+import { highestLedge, longestPit, WORLD } from './rules';
 import { LEGEND, MAX_COLS, parseStage, pits, SOLID, STAGE_ROWS, stageProblems, STAGES, StageError } from './stages';
 import { sure } from '../test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
@@ -128,6 +128,25 @@ describe('stageProblems', () => {
     const stage = (gap: number) => parseStage('t', 'grass', map('.'.repeat(cols), { 15: `.S${'.'.repeat(cols - 4)}F.`, 16: floor(gap), 17: floor(gap) }));
     expect(stageProblems(stage(longestPit()))).toEqual([]);
     expect(stageProblems(stage(longestPit() + 1))).toEqual([`pit at column 5 is ${longestPit() + 1} tiles wide, more than a run-jump (${longestPit()})`]);
+  });
+
+  it('names a ledge higher than a jump over anything to jump from, and lets one a jump reaches pass', () => {
+    // The ground's top is row 17 (from 1): a ledge `rise` tiles over it, three bricks wide.
+    const ledge = (rise: number) => parseStage('t', 'grass', good({ [16 - rise]: '...BBB....' }));
+    expect(stageProblems(ledge(highestLedge()))).toEqual([]);
+    expect(stageProblems(ledge(highestLedge() + 1))).toEqual([`ledge at row ${16 - highestLedge()}, columns 4 to 6 is more than a jump (${highestLedge()} tiles) over anything to jump from`]);
+  });
+
+  it('lets a ledge be reached from one end only, and from a ledge under it within four columns', () => {
+    const rise = highestLedge();
+    // A long ledge whose far end is over nothing: its near end is a jump over the ground.
+    const step = `....BB${'.'.repeat(14)}`;
+    const long = `${'.'.repeat(6)}${'B'.repeat(12)}..`;
+    const wide = (over: Record<number, string>) => map('.'.repeat(20), { 15: '.S................F.', 16: '#'.repeat(20), 17: '#'.repeat(20), ...over });
+    expect(stageProblems(parseStage('t', 'grass', wide({ [16 - rise]: step, [16 - 2 * rise]: long })))).toEqual([]);
+    // Five columns off, four empty tiles between, is too far to the side.
+    const far = `${'.'.repeat(10)}${'B'.repeat(8)}..`;
+    expect(stageProblems(parseStage('t', 'grass', wide({ [16 - rise]: step, [16 - 2 * rise]: far })))).toEqual([`ledge at row ${17 - 2 * rise}, columns 11 to 18 is more than a jump (${rise} tiles) over anything to jump from`]);
   });
 
   it('names a stage longer than the cap', () => {
