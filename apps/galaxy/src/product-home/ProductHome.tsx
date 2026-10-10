@@ -13,7 +13,9 @@ import type { Birthplace, HomePrd, LaneId, LedgerRow, ProductHome as Home, PrChi
 // on you, on GitHub review and on the agent, each row its number (sealed once an approval is in force),
 // ◆ or ◇ with its repository, its title linking to its PRD page, its PR chips and one state word. The PRDs
 // tab (/app/products/<id>/prds) lists every PRD of the product, newest first, with its birthplace and its
-// state word. The other tabs come later (s10, s11). Before the home, every situation of /app/products.
+// state word. The Repositories & approvers tab (/app/products/<id>/repositories, PRD 1364 s11) draws itself
+// (src/product-repositories/RepositoriesTab.tsx) under these same tabs. Before the home, every situation
+// of /app/products.
 
 /** Products in the sidebar: where the home goes back to. */
 const PRODUCTS_HOME_HREF = '/app/products';
@@ -36,11 +38,12 @@ const BIRTH: Readonly<Record<Birthplace, { mark: string; words: string }>> = {
 };
 
 /** The product home's tabs, the Ledger counting what waits on you. */
-function productHomeTabs(home: Home): SectionTab[] {
+export function productHomeTabs(home: Home): SectionTab[] {
   const href = productHomeHref(home.product.id);
   return [
     { href, label: 'Ledger', count: home.ledger.lanes['on-you'].length },
     { href: `${href}/prds`, label: 'PRDs' },
+    { href: `${href}/repositories`, label: 'Repositories & approvers' },
   ];
 }
 

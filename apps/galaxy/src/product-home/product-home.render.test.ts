@@ -30,6 +30,7 @@ describe('the Ledger, filled', () => {
     expect(tabs(html)).toEqual([
       { tab: '<a class="section-tab" aria-label="Ledger: 2 waiting" aria-current="page" href="/app/products/demo-product-1">', text: 'Ledger 2' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/prds">', text: 'PRDs' },
+      { tab: '<a class="section-tab" href="/app/products/demo-product-1/repositories">', text: 'Repositories & approvers' },
     ]);
   });
 
@@ -57,6 +58,7 @@ describe('the PRDs tab', () => {
     expect(tabs(html).map((t) => t.tab)).toEqual([
       '<a class="section-tab" aria-label="Ledger: 2 waiting" href="/app/products/demo-product-1">',
       '<a class="section-tab" aria-current="page" href="/app/products/demo-product-1/prds">',
+      '<a class="section-tab" href="/app/products/demo-product-1/repositories">',
     ]);
     expect([...html.matchAll(/<li class="product-home-row"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(group(m, 1)))).toEqual([
       '918 Offline photo upload ◆ acme/widgets PRD',
