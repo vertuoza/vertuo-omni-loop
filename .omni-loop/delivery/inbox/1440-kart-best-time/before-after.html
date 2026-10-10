@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OMNI KART best time</title>
+<style>
+/* Layout: today beside after, one row per moment; stacks at phone width. Omni app look outside, arcade screens inside (their colours are the game's own, in both themes). */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ /* the arcade screen, the same in both themes */
+ --scr:#0b0a2e;--scrPanel:#16144a;--scrEdge:#6a5cff;--scrInk:#f1f1f8;--scrDim:#8f8cc4;--scrYellow:#ffd23f;--scrGreen:#4ade80;--scrRed:#ff5c7a;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side p{margin:0;color:var(--muted);font-size:14px}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+ul{margin:0;padding-left:20px;display:grid;gap:6px}
+li{color:var(--muted);font-size:14px}
+li b{color:var(--ink);font-weight:600}
+
+/* the arcade screen */
+.screen{background:var(--scr);border-radius:8px;padding:18px 14px;display:grid;place-items:center;min-height:250px}
+.panel{background:var(--scrPanel);border:2px solid var(--scrEdge);border-radius:4px;padding:14px 16px;display:grid;gap:9px;width:min(100%,290px);font:12px/1.35 var(--mono);color:var(--scrInk);letter-spacing:.08em;text-transform:uppercase}
+.panel .title{color:var(--scrInk);text-align:center;font-size:14px;letter-spacing:.2em;margin:0}
+.panel ol{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.panel li{display:grid;grid-template-columns:34px 1fr auto;gap:10px;font:inherit;color:var(--scrInk);font-variant-numeric:tabular-nums}
+.panel li.you{color:var(--scrYellow)}
+.panel .big{margin:0;color:var(--scrYellow);font-size:14px;text-align:center}
+.panel .send{margin:0;text-align:center;color:var(--scrGreen)}
+.panel .send.bad{color:var(--scrRed)}
+.panel .send.dim{color:var(--scrDim)}
+.panel .hint{margin:0;text-align:center;color:var(--scrDim);font-size:11px}
+.changed{outline:2px dashed var(--scrYellow);outline-offset:3px;border-radius:2px}
+
+/* the cabinet */
+.cab{background:var(--scr);border-radius:8px;padding:18px 14px;display:grid;justify-items:center}
+.cabinet{width:min(100%,250px);border:2px solid var(--scrEdge);border-radius:6px 6px 2px 2px;background:var(--scrPanel);display:grid;gap:10px;padding:10px 12px 14px;font:11px/1.35 var(--mono);color:var(--scrInk);letter-spacing:.08em;text-transform:uppercase}
+.marquee{text-align:center;font-size:13px;letter-spacing:.18em;color:var(--scrYellow);border-bottom:1px solid var(--scrEdge);padding-bottom:8px}
+.cab-label{color:var(--scrDim);text-align:center;font-size:10px;letter-spacing:.2em}
+.cabinet ol{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.cabinet li{display:flex;justify-content:space-between;gap:8px;font:inherit;color:var(--scrInk);font-variant-numeric:tabular-nums}
+.cabinet li.mine{color:var(--scrYellow)}
+
+/* the end-line states */
+.states{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.states li{display:grid;grid-template-columns:minmax(0,9.5em) minmax(0,1fr);gap:12px;align-items:baseline;color:var(--muted);font-size:14px}
+.states li span:last-child{font:600 13px var(--mono);color:var(--ink);letter-spacing:.06em;overflow-wrap:anywhere}
+
+/* the contract */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:420px;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td{color:var(--ink);font-variant-numeric:tabular-nums}
+td.num{font-family:var(--mono)}
+td.win{color:var(--plasma);font-weight:600}
+pre{margin:0;background:var(--plasmaSoft);border-radius:6px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);overflow-x:auto}
+
+.keep{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.keep{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+<header>
+ <div class="tag">PRD 1440 · before / after</div>
+ <h1>OMNI KART keeps the best race time</h1>
+ <p class="lead">A race ends with the time it took, not a point score. The results screen shows the time, NEW BEST means faster, and the kart cabinet's CREW TOP 5 lists the crew's fastest times. ENTROPY INVADERS and SUPER OMNI WORLD keep their points.</p>
+</header>
+
+<!-- 1. The results screen -->
+<section class="row" aria-labelledby="m1">
+ <h2 id="m1">At the finish</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <div class="screen" role="img" aria-label="Today: the RESULTS table, then SCORE 1177 and NEW BEST">
+    <div class="panel">
+     <p class="title">Results</p>
+     <ol>
+      <li><span>1st</span><span>Nova</span><span>1:39.8</span></li>
+      <li class="you"><span>2nd</span><span>You</span><span>1:42.3</span></li>
+      <li><span>3rd</span><span>Vega</span><span>1:44.0</span></li>
+      <li><span>4th</span><span>Orbit</span><span>1:47.6</span></li>
+      <li><span>5th</span><span>Luna</span><span>--</span></li>
+      <li><span>6th</span><span>Comet</span><span>--</span></li>
+     </ol>
+     <p class="big changed">Score 1177</p>
+     <p class="send">New best</p>
+     <p class="hint">A race again · B back</p>
+    </div>
+   </div>
+   <p>The line under the table is a point score: 700 for second place, plus 477 points for the 47.7 seconds under 150. Nobody can read it as a time.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <div class="screen" role="img" aria-label="After: the same RESULTS table, then TIME 1:42.3 and NEW BEST">
+    <div class="panel">
+     <p class="title">Results</p>
+     <ol>
+      <li><span>1st</span><span>Nova</span><span>1:39.8</span></li>
+      <li class="you"><span>2nd</span><span>You</span><span>1:42.3</span></li>
+      <li><span>3rd</span><span>Vega</span><span>1:44.0</span></li>
+      <li><span>4th</span><span>Orbit</span><span>1:47.6</span></li>
+      <li><span>5th</span><span>Luna</span><span>--</span></li>
+      <li><span>6th</span><span>Comet</span><span>--</span></li>
+     </ol>
+     <p class="big changed">Time 1:42.3</p>
+     <p class="send">New best</p>
+     <p class="hint">A race again · B back</p>
+    </div>
+   </div>
+   <p>The table does not change. The line under it is the player's race time, the three laps, and that time is what the cabinet keeps. NEW BEST means faster than the player's best before.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 2. The cabinet -->
+<section class="row" aria-labelledby="m2">
+ <h2 id="m2">On the kart cabinet</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <div class="cab" role="img" aria-label="Today: OMNI KART's cabinet lists the crew's five highest point scores">
+    <div class="cabinet">
+     <div class="marquee">Omni Kart</div>
+     <div class="cab-label">Crew top 5</div>
+     <ol>
+      <li><span>1 Nova</span><span>1 912</span></li>
+      <li><span>2 Vega</span><span>1 260</span></li>
+      <li class="mine"><span>3 You</span><span>1 177</span></li>
+      <li><span>4 Orbit</span><span>844</span></li>
+      <li><span>5 Luna</span><span>512</span></li>
+     </ol>
+    </div>
+   </div>
+   <p>Points, highest first. A first place at 2:29 and a third place at 1:40 can end up next to each other, so the ranking says little about who drives fastest.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <div class="cab" role="img" aria-label="After: OMNI KART's cabinet lists the crew's five fastest times, fastest first">
+    <div class="cabinet">
+     <div class="marquee">Omni Kart</div>
+     <div class="cab-label">Crew top 5</div>
+     <ol>
+      <li><span>1 Nova</span><span>1:38.6</span></li>
+      <li class="mine"><span>2 You</span><span>1:42.3</span></li>
+      <li><span>3 Vega</span><span>1:44.0</span></li>
+      <li><span>4 Orbit</span><span>1:51.2</span></li>
+      <li><span>5 Luna</span><span>2:03.9</span></li>
+     </ol>
+    </div>
+   </div>
+   <p>Times, fastest first; of two equal times, the one set earlier is ahead. The title stays CREW TOP 5. The old point scores are reset, so the table starts empty and fills with each player's first finish.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 3. The end line -->
+<section class="row" aria-labelledby="m3">
+ <h2 id="m3">The line under the time</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <ul class="states">
+    <li><span>While it saves</span><span>SAVING SCORE…</span></li>
+    <li><span>Faster than before</span><span>NEW BEST</span></li>
+    <li><span>Otherwise</span><span>YOUR BEST 1 912</span></li>
+    <li><span>The send failed</span><span>SCORE NOT SAVED · A RETRY</span></li>
+   </ul>
+   <p>The kart uses the same lines as the other games, and its best is a point score.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <ul class="states">
+    <li><span>While it saves</span><span>SAVING TIME…</span></li>
+    <li><span>First or faster</span><span>NEW BEST</span></li>
+    <li><span>Otherwise</span><span>YOUR BEST 1:38.6</span></li>
+    <li><span>The send failed</span><span>TIME NOT SAVED · A RETRY</span></li>
+   </ul>
+   <p>The kart's lines speak of time. ENTROPY INVADERS and SUPER OMNI WORLD keep theirs word for word.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 4. The contract -->
+<section class="row" aria-labelledby="m4">
+ <h2 id="m4">What the database keeps</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <pre>submit_score(workspace, game, score)
+  best = greatest(stored, sent)   -- every game</pre>
+   <div class="scroll">
+    <table>
+     <thead><tr><th>kart sends</th><th>stored before</th><th>stored after</th></tr></thead>
+     <tbody>
+      <tr><td class="num">1 200</td><td class="num">none</td><td class="num">1 200</td></tr>
+      <tr><td class="num">1 500</td><td class="num">1 200</td><td class="num win">1 500</td></tr>
+      <tr><td class="num">900</td><td class="num">1 500</td><td class="num">1 500</td></tr>
+     </tbody>
+    </table>
+   </div>
+   <p>One rule for every game: the highest wins. Sent as it is, a time would keep the player's slowest race.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <pre>submit_score(workspace, game, score)   -- same signature
+  kart:   best = least(stored, sent)       -- tenths of a second
+  others: best = greatest(stored, sent)</pre>
+   <div class="scroll">
+    <table>
+     <thead><tr><th>kart sends</th><th>stored before</th><th>stored after</th></tr></thead>
+     <tbody>
+      <tr><td class="num">1200 (2:00.0)</td><td class="num">none</td><td class="num">1200</td></tr>
+      <tr><td class="num">1500 (2:30.0)</td><td class="num">1200</td><td class="num">1200</td></tr>
+      <tr><td class="num">900 (1:30.0)</td><td class="num">1200</td><td class="num win">900</td></tr>
+     </tbody>
+    </table>
+   </div>
+   <p>The function decides the direction from the game; the browser never sends it. The same migration deletes the kart's point scores. A test fails the build if the SQL list of lowest-wins games and the registry's <code>time</code> games ever differ.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 5. What stays -->
+<section class="row" aria-labelledby="m5">
+ <h2 id="m5">What changes, what stays</h2>
+ <div class="keep">
+  <div class="side">
+   <div class="tag">Stays the same</div>
+   <ul>
+    <li><b>ENTROPY INVADERS and SUPER OMNI WORLD:</b> their points, their end lines and their tables, highest first.</li>
+    <li><b>The race:</b> driving, items, rivals and COMET RING's layout; the results table of six places and times.</li>
+    <li><b>Quitting</b> from the pause still sends nothing.</li>
+    <li><b>Who may post:</b> a player of the workspace, with the game unlocked, from 0 to 9,999,999.</li>
+    <li><b>Scores still earn no XP</b> and no points in the galaxy.</li>
+    <li><b>The empty horizon</b> is the next PRD; the cabinet's attract art is a separate visual fix.</li>
+   </ul>
+  </div>
+  <div class="side after">
+   <div class="tag now">Changes</div>
+   <ul>
+    <li><b>The kart's measure</b> is a time in tenths of a second, the lowest wins.</li>
+    <li><b>The results screen</b> shows <code>TIME 1:42.3</code> where it showed <code>SCORE 1177</code>.</li>
+    <li><b>The kart cabinet's CREW TOP 5</b> lists times, fastest first.</li>
+    <li><b>The kart's old point scores</b> are deleted; the weekly exports already made keep them.</li>
+    <li><b>The guest's demo</b> keeps the lowest time in the browser.</li>
+    <li><b>The place points and the 150-second par</b> are gone from the kart's rules.</li>
+   </ul>
+  </div>
+ </div>
+</section>
+
+</main>
+</body>
+</html>
