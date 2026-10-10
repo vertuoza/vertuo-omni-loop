@@ -6,7 +6,7 @@
 -- renames products, points a repository at a product, and cites claims, all through the functions of
 -- 20261019090000_business_store.sql; a member of another workspace and anyone signed out are refused
 -- (42501), and a bad kind or value is refused (22023). Opening the business points every repository
--- at its first product. business_for_repo() returns confirmed claims only: the region from the
+-- at its first product; one tracked later is in no product (PRD 1364). business_for_repo() returns confirmed claims only: the region from the
 -- business and the rest from the repository's product, the business's claims only when the repository
 -- has none. Nobody writes the four tables directly, and nobody updates or deletes a citation. Nothing
 -- is seeded.
@@ -277,15 +277,16 @@ begin
 end $$;
 reset role;
 
--- A repository tracked later points at the first product (the owner adds it).
+-- A repository tracked later is in no product (the owner adds it; PRD 1364 dropped the default).
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare r public.repositories;
 begin
   r := public.add_repository(pg_temp.ws('vertuoza'), 'vertuoza/later-one');
-  if r.product_id is distinct from pg_temp.made('erp') then
-    raise exception 'FAIL: a repository tracked later does not point at the first product: %', r;
+  if r.product_id is not null
+     or exists (select 1 from public.product_repositories l where l.repository = 'vertuoza/later-one') then
+    raise exception 'FAIL: a repository tracked later was put in a product: %', r;
   end if;
 end $$;
 

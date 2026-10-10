@@ -18,7 +18,7 @@ export const DEMO_PRODUCTS: ProductRow[] = [
   { id: 'demo-product-2', name: 'Legacy', look: 'keynote' },
 ];
 
-type Situation = { kind: 'closed' } | { kind: 'sign-in' } | { kind: 'no-workspace' } | { kind: 'unreadable' };
+export type Situation = { kind: 'closed' } | { kind: 'sign-in' } | { kind: 'no-workspace' } | { kind: 'unreadable' };
 
 export type ProductsScreenView = Situation | { kind: 'products'; products: ProductRow[] };
 
@@ -28,7 +28,7 @@ function Tabs() {
   return <SectionTabs label="Settings" tabs={SETTINGS_TABS} current={PRODUCTS_HREF} />;
 }
 
-function SituationNotice({ view }: { view: Situation }): ReactNode {
+export function SituationNotice({ view }: { view: Situation }): ReactNode {
   switch (view.kind) {
     case 'closed':
       return (
@@ -75,7 +75,7 @@ function ProductBody({ view }: { view: ProductScreenView }) {
     );
   }
   if (view.kind === 'product') {
-    return <ProductPage source={view.source} editable={view.editable} product={view.product} approvers={view.approvers} />;
+    return <ProductPage source={view.source} editable={view.editable} product={view.product} />;
   }
   return <SituationNotice view={view} />;
 }

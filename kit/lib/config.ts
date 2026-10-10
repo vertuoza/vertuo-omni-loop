@@ -83,35 +83,55 @@ function targetShortName(slug: string): string {
 // A plan repository's own section (PRD 522): the page saying which repository does what, pointed at
 // and never copied, and its target repositories. Optional: a config without it is no plan repository,
 // and parses with no `plan` key at all.
+//
+// PRD 1364, s4: `product` names the product on the Omni page whose repository links are the targets,
+// in place of `targets`; one of the two, never both. With `product`, `targets` parses as `[]`: the
+// targets are the server's, read by `omni targets` (`kit/lib/product/`).
 const planSection = z
   .object({
     guide: nullableText.default(null),
-    targets: z.array(target).min(1, 'at least one target'),
+    targets: z.array(target).min(1, 'at least one target').optional(),
+    product: z.string().trim().min(1).optional(),
   })
   .strict()
-  .superRefine(({ targets }, issues) => {
-    const seen = new Set();
-    const names = targets.map(({ repo }) => targetShortName(repo));
-    targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
-      const own = targetShortName(repo);
-      const others = names.filter((name) => name !== own);
-      consumes.forEach((name, at) => {
-        const path = ['targets', index, 'consumes', at];
-        if (name === own) issues.addIssue({ code: 'custom', path, message: `${name} is this target itself — a target never consumes itself` });
-        else if (!others.includes(name)) {
-          issues.addIssue({ code: 'custom', path, message: `${name} names no other target of plan.targets by its short name (${others.join(', ') || 'none'})` });
-        }
+  .superRefine(({ targets, product }, issues) => {
+    if (targets !== undefined && product !== undefined) {
+      issues.addIssue({
+        code: 'custom',
+        path: [],
+        message: 'product and targets cannot both be set — keep product to read the targets from the server, or targets to keep them here',
       });
-      if (seen.has(repo)) issues.addIssue({ code: 'custom', path: ['targets', index, 'repo'], message: `${repo} is listed twice` });
-      seen.add(repo);
-      if (knowledge === 'imported' && readAt === null) {
-        issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: 'required when knowledge is imported' });
-      }
-      if (knowledge !== 'imported' && readAt !== null) {
-        issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: `only an imported target has one, and this one is ${knowledge}` });
+    }
+    if (targets === undefined && product === undefined) issues.addIssue({ code: 'custom', path: ['targets'], message: 'at least one target, or a product' });
+    checkTargets(targets ?? [], issues);
+  })
+  .transform(({ targets, ...plan }) => ({ ...plan, targets: targets ?? [] }));
+
+/** The rules one list of `plan.targets` keeps: no target consumes itself or a stranger, none is
+ * listed twice, and only an imported one has a `readAt`, which it must. */
+function checkTargets(targets: ReadonlyArray<z.infer<typeof target>>, issues: z.core.$RefinementCtx) {
+  const seen = new Set();
+  const names = targets.map(({ repo }) => targetShortName(repo));
+  targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
+    const own = targetShortName(repo);
+    const others = names.filter((name) => name !== own);
+    consumes.forEach((name, at) => {
+      const path = ['targets', index, 'consumes', at];
+      if (name === own) issues.addIssue({ code: 'custom', path, message: `${name} is this target itself — a target never consumes itself` });
+      else if (!others.includes(name)) {
+        issues.addIssue({ code: 'custom', path, message: `${name} names no other target of plan.targets by its short name (${others.join(', ') || 'none'})` });
       }
     });
+    if (seen.has(repo)) issues.addIssue({ code: 'custom', path: ['targets', index, 'repo'], message: `${repo} is listed twice` });
+    seen.add(repo);
+    if (knowledge === 'imported' && readAt === null) {
+      issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: 'required when knowledge is imported' });
+    }
+    if (knowledge !== 'imported' && readAt !== null) {
+      issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: `only an imported target has one, and this one is ${knowledge}` });
+    }
   });
+}
 
 // PRD 1138: a file the repository builds rather than writes. `path` is a path prefix, written as a
 // territory entry is; `from` the prefixes whose change makes it stale; `build` the command that

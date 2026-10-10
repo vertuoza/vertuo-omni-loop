@@ -27,7 +27,7 @@ describe('SIDEBAR', () => {
     const drawn = [...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
       ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
-      ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
+      ['products', 'coin'], ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
     for (const item of drawn) expect([SPRITE_DEFS[present(item.sprite, item.id)]?.w, SPRITE_DEFS[present(item.sprite, item.id)]?.h], item.id).toEqual([16, 16]);
@@ -49,11 +49,12 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds Roadmaps first (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
+  it('holds Products first (PRD 1364), Roadmaps (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
     const [, work] = SIDEBAR;
     assertDefined(work, 'the Work group');
-    expect(work.items[0]?.id).toBe('roadmaps');
+    expect(work.items[0]?.id).toBe('products');
     expect(rows(work.items)).toEqual([
+      ['products', 'Products', '/app/products', []],
       ['roadmaps', 'Roadmaps', '/roadmaps', []],
       ['ideas', 'Ideas', '/ideas', []],
       ['concepts', 'Concepts', '/concepts', []],
@@ -116,6 +117,9 @@ describe('currentItem and pageTrail', () => {
     ['/app/settings/products/p-1', 'settings', 'Settings › Products'],
     ['/app/settings/jev', 'settings', 'Settings › Jev'],
     ['/app/settingsx', 'home', 'Dashboard › Home'],
+    ['/app/products', 'products', 'Work › Products'],
+    ['/app/products/p-1', 'products', 'Work › Products'],
+    ['/app/productsx', 'home', 'Dashboard › Home'],
     ['/roadmaps', 'roadmaps', 'Work › Roadmaps'],
     ['/roadmaps?product=p-1', 'roadmaps', 'Work › Roadmaps'],
     ['/roadmaps/0b7c6a2e-1f00-4d6a-9c55-2f1f3e4a5b6c', 'roadmaps', 'Work › Roadmaps'],
