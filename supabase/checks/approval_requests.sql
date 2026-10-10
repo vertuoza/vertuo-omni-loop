@@ -39,11 +39,9 @@ insert into public.repositories (workspace_id, full_name) values
   ('00000000-0000-4000-8000-0000000c0000', 'ar-org/solo'),
   ('00000000-0000-4000-8000-0000000c0000', 'ar-org/loose'),
   ('00000000-0000-4000-8000-0000000c0000', 'ar-org/old');
-update public.repositories set product_id = case full_name
-    when 'ar-org/mobile' then '00000000-0000-4000-8000-0000000c0d01'::uuid
-    when 'ar-org/solo' then '00000000-0000-4000-8000-0000000c0d02'::uuid
-  end
- where workspace_id = '00000000-0000-4000-8000-0000000c0000';
+insert into public.product_repositories (product_id, workspace_id, repository, added_by) values
+  ('00000000-0000-4000-8000-0000000c0d01', '00000000-0000-4000-8000-0000000c0000', 'ar-org/mobile', 'person'),
+  ('00000000-0000-4000-8000-0000000c0d02', '00000000-0000-4000-8000-0000000c0000', 'ar-org/solo', 'person');
 insert into public.product_approvers (workspace_id, product_id, user_id, state) values
   ('00000000-0000-4000-8000-0000000c0000', '00000000-0000-4000-8000-0000000c0d01', '00000000-0000-4000-8000-0000000c00a4', 'asked'),
   ('00000000-0000-4000-8000-0000000c0000', '00000000-0000-4000-8000-0000000c0d01', '00000000-0000-4000-8000-0000000c00a2', 'asked'),
