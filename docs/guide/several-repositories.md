@@ -110,6 +110,41 @@ Two checks hold them:
   others, that changes a target it consumes. The rule follows the blockers: two PRDs that do not wait
   on each other may share a wave. [What the check refuses](/docs/roadmaps#what-the-check-refuses).
 
+### Name a product instead
+
+When a [product](/docs/products) on the Omni page holds these repositories, the plan repository can
+name it in place of its list: each link of the product is a target, with its role, knowledge, read
+at, read-only and consumes. First copy the list into the product, once, from the plan repository:
+
+```bash terminal agent
+omni product import --product Mobile
+```
+
+Each target becomes a link of the product, a link that exists is changed to match, and it prints
+what it added and changed; run again, it changes nothing. It stops at the first link the Omni page
+refuses, naming why: fix it and run it again. It never edits your config: swap `targets` for
+`product` yourself.
+
+```yaml file=.omni-loop/config.yml
+plan:
+  guide: docs/repositories.md
+  product: Mobile
+```
+
+A config names `product` or `targets`, never both: with both it is refused, naming the two keys.
+`omni targets` then reads the product's links from the Omni page, signed in as you (`omni signin`),
+and prints the same table. A link with no role is refused by name:
+`vertuoza/vertuo-backend-php has no role in product Mobile: set it on the product page`. Each read
+is kept in `.omni-loop/local/product-targets.json`: when the Omni page does not answer within five
+seconds, `omni targets` reads that copy and says `targets from the last read, <date> · server
+unreachable`; with no copy yet, it stops with `no targets: the server is unreachable and nothing was
+read yet`. When the page refuses you, it stops with its reason.
+
+For now only `omni targets` reads a product. The skills that plan and build across repositories, and
+the commands they run, see no target when the config names a product: keep `plan.targets` in a plan
+repository that builds, and name the product once they read it too. A config that keeps
+`plan.targets` works exactly as before.
+
 ## Plan across them
 
 Once the targets are set, plan a feature across them. In the plan repository, type:

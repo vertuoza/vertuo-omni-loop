@@ -8,9 +8,10 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 
 describe('the registry', () => {
-  it('lists Entropy Invaders then Super Omni World, each keyed as the rulebook unlocks it', () => {
-    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD']]);
-    expect(XP_RULES.unlocks).toMatchObject({ invaders: 1, platformer: 2 });
+  it('lists Entropy Invaders, Super Omni World then OMNI KART, each keyed as the rulebook unlocks it', () => {
+    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART']]);
+    expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart' });
+    expect(XP_RULES.unlocks).toMatchObject({ invaders: 1, platformer: 2, kart: 3 });
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
   });
 });
@@ -90,9 +91,10 @@ describe('the words for each state', () => {
 
 describe('cabinets', () => {
   it('stands a cabinet per registry game, then SOON cabinets up to three', () => {
-    const room = cabinets(xpStatus(true, row(180, 3)));
+    const room = cabinets(xpStatus(true, row(180, 3)), XP_RULES, GAMES.slice(0, 2));
     expect(room).toHaveLength(ROOM_CABINETS);
     expect(room.map((c) => c.kind)).toEqual(['game', 'game', 'soon']);
+    expect(cabinets(xpStatus(true, row(180, 3))).map((c) => c.kind)).toEqual(['game', 'game', 'game']);
     expect(room[0]).toEqual({ kind: 'game', game: GAMES[0], unlocked: true, level: 1 });
     expect(room[1]).toEqual({ kind: 'game', game: GAMES[1], unlocked: false, level: 2 });
   });
@@ -122,7 +124,8 @@ describe('cabinets', () => {
 
 describe('cabinetDoor', () => {
   const status = xpStatus(true, row(180, 3));
-  const [game, , soon] = cabinets(status);
+  const [game] = cabinets(status);
+  const soon = cabinets(status, XP_RULES, GAMES.slice(0, 2))[2];
   assertDefined(game, 'game');
   assertDefined(soon, 'soon');
 
@@ -142,17 +145,32 @@ describe('cabinetDoor', () => {
     expect(cabinetDoor(locked, xpStatus(true, 'unreadable'))).toEqual({ refused: 'XP OUT OF REACH' });
   });
 
-  it('refuses Super Omni World at LV 1 with REACH LV 2 TO PLAY, and opens its scene at LV 2; the third cabinet stays SOON', () => {
+  it('refuses Super Omni World at LV 1 with REACH LV 2 TO PLAY, and opens its scene at LV 2', () => {
     const lv1 = xpStatus(true, row(10, 1, ['invaders']));
-    const [, platformer1, third] = cabinets(lv1);
+    const [, platformer1] = cabinets(lv1);
     assertDefined(platformer1, 'platformer1');
-    assertDefined(third, 'third');
     expect(platformer1).toMatchObject({ kind: 'game', unlocked: false, level: 2 });
     expect(cabinetDoor(platformer1, lv1)).toEqual({ refused: 'REACH LV 2 TO PLAY' });
-    expect(cabinetDoor(third, lv1)).toEqual({ refused: 'THIS CABINET ARRIVES SOON' });
     const lv2 = xpStatus(true, row(60, 2, ['invaders', 'platformer']));
     const [, platformer2] = cabinets(lv2);
     assertDefined(platformer2, 'platformer2');
     expect(cabinetDoor(platformer2, lv2)).toEqual({ scene: 'platformer' });
+  });
+});
+
+describe('OMNI KART\'s cabinet (PRD 1359)', () => {
+  it('is the third cabinet, in place of SOON: refused at LV 2 with REACH LV 3 TO PLAY, and open at LV 3', () => {
+    const lv2 = xpStatus(true, row(60, 2, ['invaders', 'platformer']));
+    const room2 = cabinets(lv2);
+    expect(room2).toHaveLength(ROOM_CABINETS);
+    expect(room2.some((c) => c.kind === 'soon')).toBe(false);
+    const kart2 = room2[2];
+    assertDefined(kart2, 'kart2');
+    expect(kart2).toMatchObject({ kind: 'game', unlocked: false, level: 3 });
+    expect(cabinetDoor(kart2, lv2)).toEqual({ refused: 'REACH LV 3 TO PLAY' });
+    const lv3 = xpStatus(true, row(150, 3, ['invaders', 'platformer', 'kart']));
+    const kart3 = cabinets(lv3)[2];
+    assertDefined(kart3, 'kart3');
+    expect(cabinetDoor(kart3, lv3)).toEqual({ scene: 'kart' });
   });
 });

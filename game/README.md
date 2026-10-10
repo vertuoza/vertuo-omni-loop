@@ -210,11 +210,13 @@ lower weight or a steeper curve can lower XP and levels, never the games already
 changes the rules tells the crew. A new game adds its row to `xp.unlocks` and to the arcade's
 registry (`apps/galaxy/src/arcade/games/index.ts`).
 
-**`pnpm game:xp`** (`game/cli/xp.ts`) is the ledger job's step right after `pnpm game:project`. It
+**`pnpm game:xp`** (`game/cli/xp.ts`) runs in its own job, `xp`, after the ledger job, whatever that
+job ended on: a `game:project` that outlasts the ledger job's 30 minutes no longer holds XP and new
+unlocks back until a poll finishes. It
 reads the workspace's whole ledger and its stored `player_xp` rows, computes every login's XP, level
 and unlocked games, and upserts them all in one request. It never writes the ledger. If a read
-fails, it writes nothing and exits 1: the ledger step has already succeeded, so XP catches up at the
-next poll.
+fails, it writes nothing and exits 1: the ledger job has already ended, so XP catches up at the next
+poll.
 
 **`public.player_xp`** holds one row per login the ledger names, player or not, so a person who
 joins later already has their XP: key `(workspace_id, github_login)`, the login lower-cased, then
@@ -232,7 +234,7 @@ them, so `game:export` backs them up.
 The app's dashboard (`/app`, PRD 328) charts the pull requests each person got into `main` over the
 last 7 days, and counts the PRDs they opened this season. The ledger cannot say either: it records a
 feature PR's merge with no author, and no PRD's author at all. **`pnpm game:contributions`**
-(`game/cli/contributions.ts`) is the ledger job's step right after `pnpm game:xp`. At each poll,
+(`game/cli/contributions.ts`) is the ledger job's step right after `pnpm game:project`. At each poll,
 for each repository of the workspace's sectors, under its `github_org`, it reads through `gh`:
 
 1. the repository's default branch;
@@ -314,10 +316,11 @@ The workflow `.github/workflows/game.yml` does nothing until it is switched on.
 4. **Switch on.** Set the repository variable `GAME_ENABLED=true`. Do it once the crew has joined in
    the arcade: the first poll backfills history with everyone's fleet as it stands then.
 
-Two jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`): `game:project`,
-then `game:xp`, then `game:contributions`, then `game:dossiers`; `rankings` runs on the Monday schedule, or a dispatch with `post_rankings: true`
-(concurrency `game-rankings`): it exports the backup (kept 90 days), then posts. Both time out after
-20 minutes.
+Three jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`): `game:project`,
+then `game:contributions`, then `game:dossiers`; `xp` runs `game:xp` once `ledger` has ended, whatever
+it ended on (concurrency `game-xp`); `rankings` runs on the Monday schedule, or a dispatch with
+`post_rankings: true` (concurrency `game-rankings`): it exports the backup (kept 90 days), then posts.
+`ledger` times out after 30 minutes, `xp` after 10, `rankings` after 20.
 
 ## Known limits
 

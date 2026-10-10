@@ -7,8 +7,14 @@
 // a context exists, like `omni approval`, so that a test can hand it `tokens`, `home`, `fetch` and
 // `callMs`; it loads the context itself. With no sign-in, no Omni page or no slug it holds a ◆ PRD and
 // says why on stderr.
+//
+// PRD 1364, slice s6: where dossiers are on, its last line is the PRD's product as its dossier on the
+// Omni page names it, `product: <name>` or `product: none` (`../../lib/dossier/product.ts`), or
+// `product: unknown (<why>)` when the page cannot tell; it never changes the exit. Where dossiers are
+// off, no line, and nothing more is called.
 import { prdState } from '../../lib/approval/prd-state.ts';
 import { loadContext } from '../../lib/context.ts';
+import { productLine } from '../../lib/dossier/product.ts';
 import { gateApproval, heldWhy, prdLines, whereIs } from '../../lib/delivery/prd.ts';
 import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
@@ -29,7 +35,8 @@ export const prd = {
     const state = await prdState(ctx, number, { approval: gateApproval(ctx, { tokens, home, fetch, callMs }) });
     const why = heldWhy(state);
     if (why !== null) println(stderr, `omni prd: ${why}`);
-    println(stdout, prdLines(where, state).join('\n'));
+    const product = await productLine(ctx, number, { tokens, home, fetch, callMs });
+    println(stdout, [...prdLines(where, state), ...(product === null ? [] : [product])].join('\n'));
     return 0;
   },
 } satisfies FreeCommand;

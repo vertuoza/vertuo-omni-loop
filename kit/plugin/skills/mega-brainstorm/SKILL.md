@@ -79,6 +79,13 @@ you propose it lands in, and why, and have the person confirm it. Never assume i
 name. A design that touches no target is not a mega-brainstorm: say so, and suggest
 `/omni:brainstorm` in the repository it touches.
 
+**The product question,** as `/omni:brainstorm` step 1 asks it (PRD 1364), once the design is
+approved: `node .omni-loop/bin/omni.mjs product which`, run in the plan repository, names the products
+the plan repository is in. Only when it prints more than one, ask *"Which product is this PRD for?"*,
+each product and **No product**; with one, `none` or exit 1, ask nothing. The PRD's product links every
+repository its plan names to that product on the Omni page, so the answer is the product the targets
+build for.
+
 ## 3. Clones: read-only, in the scratch folder
 
 For each target repository the approved design touches, one at a time:
@@ -124,7 +131,8 @@ Acceptance scenarios, when `acceptance.enabled`, as `/omni:brainstorm` step 6.
 
 As `/omni:brainstorm` step 7: commit the folder as `docs(prd): <topic>`, signed, then
 `node .omni-loop/bin/omni.mjs check inbox` until green, `node .omni-loop/bin/omni.mjs prd <n>`,
-push the feature branch, then `/omni:dossier-push <n>`.
+push the feature branch, then `/omni:dossier-push <n>`, its first push carrying the product step 2
+picked, as `node .omni-loop/bin/omni.mjs dossier push <n> --product '<name>'`, exactly as there.
 
 ## 8. Plan it
 

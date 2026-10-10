@@ -32,7 +32,8 @@ function db({
   repositories = { data: STORED },
   workspace = { data: { github_org: 'vertuoza', github_installation_id: 5001 } },
   products = { data: [{ id: 'p-1', name: 'Vertuoza' }] },
-}: { owner?: Answer | Error; repositories?: Answer; workspace?: Answer; products?: Answer } = {}) {
+  links = { data: [] },
+}: { owner?: Answer | Error; repositories?: Answer; workspace?: Answer; products?: Answer; links?: Answer } = {}) {
   const calls: unknown[] = [];
   const query = (answer: Answer) => {
     const q = {
@@ -53,7 +54,8 @@ function db({
     },
     from: (table: string) => {
       calls.push(['from', table]);
-      return query(table === 'repositories' ? repositories : table === 'products' ? products : workspace);
+      const answers: Record<string, Answer> = { repositories, products, product_repositories: links };
+      return query(answers[table] ?? workspace);
     },
   };
 }
@@ -101,10 +103,9 @@ describe('the repositories page\'s read', () => {
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       owner: true,
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null, publicIdeas: false, phase0: 'pr' },
-        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', product: null, publicIdeas: false, phase0: 'pr' },
+        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr' },
+        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', products: [], publicIdeas: false, phase0: 'pr' },
       ],
-      products: [{ id: 'p-1', name: 'Vertuoza' }],
       access: {
         kind: 'installed',
         settingsUrl: 'https://github.com/organizations/vertuoza/settings/installations/5001',
@@ -133,22 +134,31 @@ describe('the repositories page\'s read', () => {
     expect(d.calls).toContainEqual(['select', expect.stringContaining('phase0')]);
   });
 
-  it('reads the business\'s products, first first, and each repository\'s (PRD 748 s4)', async () => {
+  it('reads the products that link each repository, first first, none, one or several (PRD 1364 s11)', async () => {
     const d = db({
-      repositories: { data: [{ ...STORED[0], product_id: 'p-2' }] },
       products: { data: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }] },
+      links: { data: [
+        { product_id: 'p-2', repository: 'vertuoza/vertuo-apps' },
+        { product_id: 'p-1', repository: 'vertuoza/vertuo-apps' },
+        { product_id: 'p-9', repository: 'vertuoza/vertuo-apps' },
+      ] },
     });
     expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
-      repositories: [{ fullName: 'vertuoza/vertuo-apps', product: 'p-2' }],
-      products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }],
+      repositories: [
+        { fullName: 'vertuoza/vertuo-apps', products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }] },
+        { fullName: 'vertuoza/pdf-builder', products: [] },
+      ],
     });
-    expect(d.calls).toContainEqual(['from', 'products']);
+    expect(d.calls).toContainEqual(['from', 'product_repositories']);
     expect(d.calls).toContainEqual(['order', 'ordinal']);
+    expect(d.calls).not.toContainEqual(['select', expect.stringContaining('product_id, public_ideas')]);
   });
 
-  it('keeps the list, with no product, when the products cannot be read', async () => {
-    expect(await loadRepositoriesPage(db({ products: { error: { message: 'down' } } }) as never, USER, app(), INSTALL, github()))
-      .toMatchObject({ kind: 'repositories', products: [], repositories: [{ fullName: 'vertuoza/vertuo-apps' }, { fullName: 'vertuoza/pdf-builder' }] });
+  it('keeps the list, with no chip, when the products or their links cannot be read', async () => {
+    for (const broken of [{ products: { error: { message: 'down' } } }, { links: { error: { message: 'down' } } }]) {
+      expect(await loadRepositoriesPage(db({ links: { data: [{ product_id: 'p-1', repository: 'vertuoza/vertuo-apps' }] }, ...broken }) as never, USER, app(), INSTALL, github()))
+        .toMatchObject({ kind: 'repositories', repositories: [{ fullName: 'vertuoza/vertuo-apps', products: [] }, { fullName: 'vertuoza/pdf-builder', products: [] }] });
+    }
   });
 
   it('reads a member, or anyone whose role cannot be read, as no owner', async () => {
