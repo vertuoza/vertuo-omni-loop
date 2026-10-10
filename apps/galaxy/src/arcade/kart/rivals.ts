@@ -69,7 +69,7 @@ export function progressOf(track: Track, pace: Pace, kart: { x: number; y: numbe
   return pace.laps * length + at(cum, i, 'a length') + along;
 }
 
-/** The pace after a kart moved `from` -> `to`: the next waypoint passed when it comes within reach, a lap when the line is crossed forwards after every waypoint. */
+/** The pace after a kart moved `from` -> `to`: the next waypoint passed when it comes within reach or goes through its corner, a lap when the line is crossed forwards after every waypoint. */
 export function advance(track: Track, pace: Pace, from: { x: number; y: number }, to: { x: number; y: number }): Pace {
   const n = track.waypoints.length;
   const [fx, fy] = track.forward;
@@ -79,7 +79,25 @@ export function advance(track: Track, pace: Pace, from: { x: number; y: number }
     return pace;
   }
   const w = at(track.waypoints, pace.passed, 'a waypoint');
-  return Math.hypot(to.x - w.x, to.y - w.y) < RULES.waypointReach ? { laps: pace.laps, passed: pace.passed + 1 } : pace;
+  const passed = Math.hypot(to.x - w.x, to.y - w.y) < RULES.waypointReach || throughCorner(track, pace.passed, from, to);
+  return passed ? { laps: pace.laps, passed: pace.passed + 1 } : pace;
+}
+
+/**
+ * Whether a kart moving `from` -> `to` went through waypoint `i`'s corner: it crossed the corner's
+ * diagonal forwards (the line through the waypoint halfway between the way in and the way out), within
+ * `RULES.cornerGate` of the waypoint. A kart cutting the corner on the inside, over the grass too, never
+ * comes within reach of the waypoint, but it crosses the diagonal.
+ */
+function throughCorner(track: Track, i: number, from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  const { pts } = lineOf(track);
+  const a = at(pts, i, 'a point'), w = at(pts, i + 1, 'a point'), b = at(pts, i + 2, 'a point');
+  const lin = Math.hypot(w.x - a.x, w.y - a.y) || 1, lout = Math.hypot(b.x - w.x, b.y - w.y) || 1;
+  const gx = (w.x - a.x) / lin + (b.x - w.x) / lout, gy = (w.y - a.y) / lin + (b.y - w.y) / lout;
+  const before = (from.x - w.x) * gx + (from.y - w.y) * gy, after = (to.x - w.x) * gx + (to.y - w.y) * gy;
+  if (!(before < 0 && after >= 0)) return false;
+  const k = before / (before - after);
+  return Math.hypot(from.x + (to.x - from.x) * k - w.x, from.y + (to.y - from.y) * k - w.y) < RULES.cornerGate;
 }
 
 /** The lap a kart is on, 1 to `LAPS`: the one it is racing, and the third one once two are done. */

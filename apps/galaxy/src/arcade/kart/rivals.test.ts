@@ -3,7 +3,7 @@ import { kartAt, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
 import { advance, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
-import { LAPS, PAR_SECONDS, parseTrack, TILE } from './track';
+import { LAPS, PAR_SECONDS, parseTrack, TILE, tileAt } from './track';
 import type { Action } from '../keys';
 
 // The five rivals, the laps and the places (PRD 1359, slice 3).
@@ -136,6 +136,55 @@ describe('laps', () => {
     expect(advance(track, START_PACE, here(0, 0), { x: w1?.x ?? 0, y: w1?.y ?? 0 })).toEqual(START_PACE);
     expect(advance(track, START_PACE, here(0, 0), { x: w0.x + RULES.waypointReach - 1, y: w0.y })).toEqual({ laps: 0, passed: 1 });
     expect(advance(track, START_PACE, here(0, 0), { x: w0.x + RULES.waypointReach + 1, y: w0.y })).toEqual(START_PACE);
+  });
+
+  // A person cuts a corner wherever the road lets them: tight on the inside, or over the grass inside.
+  // Each way is a path through every corner, from the pole over the line, walked a pixel at a time; no
+  // step of it is in a wall.
+  type Point = { x: number; y: number };
+  const unit = (a: Point, b: Point): Point => { const l = Math.hypot(b.x - a.x, b.y - a.y); return { x: (b.x - a.x) / l, y: (b.y - a.y) / l }; };
+  const corners = track.waypoints.map((w, i) => ({
+    w,
+    into: unit(i === 0 ? track.line : nth(track.waypoints, i - 1), w),
+    out: unit(w, i === track.waypoints.length - 1 ? track.line : nth(track.waypoints, i + 1)),
+  }));
+  type Corner = (typeof corners)[number];
+  /** The corner's waypoint moved `k` along the way in and `j` along the way out. */
+  const off = (c: Corner, k: number, j: number): Point => ({ x: c.w.x + c.into.x * k + c.out.x * j, y: c.w.y + c.into.y * k + c.out.y * j });
+  function lapOn(way: (c: Corner) => Point[]) {
+    const path = [nth(track.places, 0), ...corners.flatMap(way), { x: track.line.x + 2 * TILE, y: track.line.y }];
+    let pace = START_PACE;
+    const walls: Point[] = [];
+    path.slice(1).forEach((b, i) => {
+      const a = nth(path, i);
+      const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y));
+      for (let s = 0; s < steps; s++) {
+        const from = { x: a.x + ((b.x - a.x) * s) / steps, y: a.y + ((b.y - a.y) * s) / steps };
+        const to = { x: a.x + ((b.x - a.x) * (s + 1)) / steps, y: a.y + ((b.y - a.y) * (s + 1)) / steps };
+        pace = advance(track, pace, from, to);
+        if (tileAt(track.map, Math.floor(to.x / TILE), Math.floor(to.y / TILE)) === 'X') walls.push(to);
+      }
+    });
+    return { pace, walls };
+  }
+
+  it.each([
+    ['tight on the inside', (c: Corner) => [off(c, -32, 32)]],
+    ['cut over the grass inside', (c: Corner) => [off(c, -55, 35), off(c, -35, 55)]],
+  ])('counts a lap when every corner is taken %s', (_, way) => {
+    expect(lapOn(way)).toEqual({ pace: { laps: 1, passed: 0 }, walls: [] });
+  });
+
+  it('passes a waypoint whose corner\'s diagonal is crossed forwards near it, not backwards nor far from it', () => {
+    const c = first(corners);
+    // The diagonal is where the way in and the way out are as far: off(c, t, -t).
+    const near = (t: number) => [off(c, t - 2, -t - 2), off(c, t + 2, -t + 2)] as const;
+    const [from, to] = near(-60);
+    expect(Math.hypot(to.x - c.w.x, to.y - c.w.y)).toBeGreaterThan(RULES.waypointReach);
+    expect(advance(track, START_PACE, from, to)).toEqual({ laps: 0, passed: 1 });
+    expect(advance(track, START_PACE, to, from)).toEqual(START_PACE);
+    const [farFrom, farTo] = near(-(RULES.cornerGate / Math.SQRT2 + 2));
+    expect(advance(track, START_PACE, farFrom, farTo)).toEqual(START_PACE);
   });
 
   it('counts a lap once, not at every step across the line', () => {
