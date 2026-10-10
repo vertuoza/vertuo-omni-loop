@@ -118,7 +118,7 @@ describe('cabinets', () => {
   it('reads each game\'s level from the rules, and stands no SOON cabinet once the games fill the room', () => {
     const rules: XpRules = { ...XP_RULES, unlocks: { invaders: 4 } };
     expect(cabinets(xpStatus(true, row(180, 3, [])), rules)[0]).toMatchObject({ unlocked: false, level: 4 });
-    const many = ['a', 'b', 'c', 'd'].map((id) => ({ id, title: id.toUpperCase(), scene: null }));
+    const many = ['a', 'b', 'c', 'd'].map((id) => ({ id, title: id.toUpperCase(), scene: null, measure: 'points' as const }));
     expect(cabinets(xpStatus(true, null), XP_RULES, many).map((c) => c.kind)).toEqual(['game', 'game', 'game', 'game']);
   });
 });
