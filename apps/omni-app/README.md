@@ -10,13 +10,30 @@ request carries one check run named **outbox** (shown as **omni-loop · outbox**
 | Situation | Conclusion |
 |---|---|
 | No `.omni-loop/config.yml` on the base branch | no check run and no comment: the app stays silent |
-| Not an Omni Loop feature PR (a sub-PR, a fix PR, a dependabot or hand-written PR, a `feat/` branch with no PRD folder) | `skipped` — omni-loop is not active on this PR, decided before any gate read; never `failure`, even when the run fails (issue 876) |
+| Not an Omni Loop feature PR (a sub-PR, a dependabot or hand-written PR, a `feat/` branch with no PRD folder; a fix PR, knowledge PR or enforce PR unless `laws.source` is `knowledge`, below) | `skipped` — omni-loop is not active on this PR, decided before any gate read; never `failure`, even when the run fails (issue 876) |
 | Outbox clear | `success` |
 | Open items, unreworked drift or unaccounted risky changes | `failure` |
 | Red, but labelled with the override label (`labels.outboxGo`) | `neutral` |
 | Broken base config, or, on a feature PR, a snapshot over its bound or any failure after retries | `failure` |
 
 Nothing is added to an installed repository: no workflow, no file under `.github/`, no secret.
+
+### Fix, knowledge and enforce PRs (PRD 1342)
+
+When the base branch's config says `laws.source: knowledge`, the check grades three more kinds of
+pull request into the default branch, told apart by their head branch's shape, on the laws they touch
+(`src/evaluate/evaluate.ts`, the kit's `kit/lib/outbox/status.ts`). The four law rules are
+`law-proof`, `law-text`, `test-removed` and `law-demoted`; `law-demoted` reads the knowledge folder at
+the PR's base, which the app snapshots beside the head. On a feature PR, those four are accounted only
+by an outbox item ranked `high` or above: an account `spec <where>`, or one naming a `medium` item,
+leaves the change unaccounted and the check red.
+
+| Pull request | Head branch | Conclusion |
+|---|---|---|
+| a fix PR (`/omni:bug-fix`, `/omni:visual-fix`) touching no law | `branches.fix` | `success` |
+| a fix PR touching a law | `branches.fix` | `failure`, its title naming each law, until the fix's folder (`<paths.delivery>/bugs/<n>-…/` or `visual/<n>-…/`, found from the number the branch's topic starts with) holds an `outbox/` with a `high` item and an account per change, and a person answered each on the PR; its outbox comment is posted as a feature PR's is |
+| a knowledge PR | `branches.knowledge` | `success`, never blocked: a person merging it answers every change it holds; the summary lists the laws it touches |
+| an enforce PR (`/omni:enforce`) | `branches.law` | `success`, the same |
 
 ## The inbox check (PRD 675)
 
@@ -126,6 +143,19 @@ default branch, labelled `labels.knowledge` (default `omni:knowledge`). A person
 - **To re-run a harvest,** replay its run from Inngest's dashboard. The branch and the PR are found
   again: a branch that already holds the harvest's commit is never committed to again, and only the
   PR's body is rewritten. Nothing to harvest opens nothing.
+- **Laws (PRD 1342),** when `laws.source` is `knowledge`: each decision classified a rule or an
+  invariant takes one of three paths. A test the feature changed becomes its `Enforced by:`. With no
+  test, the classifier's `worthALaw` says whether it is worth a law, unless galaxy's `law-worth` Jev
+  decision answers: the harvest POSTs `{repo, state, old, ref}` to `/api/laws/judge` (on `GALAXY_URL`
+  when set), signed with an HMAC-SHA256 of the body under `LAW_JUDGE_SECRET` (header
+  `x-omni-signature-256`), and Jev's answer counts when the workspace has put the decision On and it
+  is at or above the floor (`src/knowledge-harvest/law-judge.ts`). Not worth a law: it stays in the
+  PRD's `settled.md`, `not worth a law (<decided by> <score>)`. Worth a law: the harvest opens a law
+  issue, `Law: <statement>`, labelled `labels.law` (default `omni:law`), or finds the open one with
+  that title on a replay, then writes the law `Enforced by: pending #<issue>`. Every issue is opened
+  before any entry is written, so an entry the final checks then refuse leaves its issue open with no
+  law, for a person to close. No secret, a refusal or a failure: the classifier's answer, and the
+  harvest completes.
 - **What leaves GitHub:** per decision, the outbox item as raised and its answer, and a summary of the
   knowledge base (ids, titles, statements), with token-shaped strings masked. No code, no logs.
 
@@ -380,6 +410,10 @@ environment.
    and description.
 3. **Review and merge each knowledge PR.** Entries from adopted decisions carry
    `Proposed: harvest <date>` and bind nothing until a person deletes that line.
+4. **For laws (PRD 1342):** set `LAW_JUDGE_SECRET` to the same long random string
+   (`openssl rand -hex 32`) in both this project and galaxy's, and redeploy both; without it the
+   classifier says whether a decision is worth a law. Create the `omni:law` label the same way as
+   `omni:knowledge` (`omni init`). Each law issue is then taken by a person with `/omni:enforce <n>`.
 
 ## Checking it live
 
