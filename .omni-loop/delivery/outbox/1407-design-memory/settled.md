@@ -1875,3 +1875,83 @@ A constant: a follow-up PRD adds the concept, or this item is dropped. Nothing w
 ```
 
 <!-- /omni-outbox-settled: s9-15-design-paths-include-the-routes-folder -->
+
+<!-- omni-outbox-settled: s6-03-plugin-test-gains-design-memory-tests -->
+
+## s6-03-plugin-test-gains-design-memory-tests — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-10T15:12:01Z
+- Channel: feature pull request #1408
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1408#issuecomment-6098944963
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-89
+- Raised: 2026-10-10
+- Slice: s6
+- Wave: 4
+- Stays here: one answer about one test file, as for PRD 1342's s8-03: a law's proof file may gain tests when the tests that prove the law stay as they were.
+
+### The answer, as it was given
+
+```text
+A. A. Add the tests to the file the plan names, leaving the agent-limit tests untouched (built)
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-plugin-test-gains-design-memory-tests
+prd: 1407
+slice: s6
+rank: high
+bears-on: BR-PRODUCT-89
+raised: 2026-10-10
+wave: 4
+---
+
+## The question, in plain words
+
+The test file that proves the loop never starts too many agents at once also holds the checks on how every skill is written, and this work added checks for locking screens to it. Is it all right to add to that file?
+
+## The decision, in plain words
+
+Yes: the new checks cover only the design craft command and the slice builder, and the checks proving the agent limit were left exactly as they were.
+
+## The intro, for fun
+
+Another chapter went into the rulebook the judge keeps on the bench.
+
+## The punchline, for fun
+
+The judge's page is untouched, but the bench still asks for a signature.
+
+## The options, in plain words
+
+A. A. Add the tests to the file the plan names, leaving the agent-limit tests untouched (built)
+B. B. Move this slice's tests to a file of their own, so the law's proof file does not change
+
+## What I had to decide
+
+Whether the checks of locking, the review against a locked screen and the slice builder reading the screen library go in the test file the plan names, which also proves BR-PRODUCT-89, or in a test file of their own.
+
+## What I did meanwhile
+
+A new describe block in kit/test/plugin.test.ts holds twelve tests for this slice, and the pixel-perfect block gained the lock command and the language section; no line of the tests proving BR-PRODUCT-89 changed, and the whole file passes.
+
+## What it costs to change later
+
+A constant: move the new describe block to its own file under kit/test, which then no law names.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan names kit/test/plugin.test.ts as this slice's test file, as it did for PRD 1342, whose same question was answered A (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-03-plugin-test-gains-design-memory-tests -->
