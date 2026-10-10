@@ -323,6 +323,12 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 1299: where `repo`'s (owner/name) new PRDs are born, `pr` or `server`, as its row on the Omni
      * page says. `../approval/flag.ts` reads the reply. @returns {Promise<{ phase0: 'pr' | 'server' }>} */
     readPhase0Flag: (repo: string) => call('GET', `/api/repositories/phase0?${new URLSearchParams({ repo })}`),
+    /** PRD 1364: the repository links of the product named `product`, in the workspace that lists the
+     * plan repository `repo` (owner/name); `../product/targets.ts` reads the reply.
+     * @returns {Promise<{ product: { name: string }, targets: Array<{ repo: string, role: string | null, knowledge: string,
+     *   readAt: string | null, readOnly: boolean, consumes: string[] }> }>} */
+    readProductTargets: ({ repo, product }: { repo: string; product: string }) =>
+      call('GET', `/api/products/targets?${new URLSearchParams({ repo, product })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestProofUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
