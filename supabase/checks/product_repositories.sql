@@ -7,23 +7,17 @@
 -- only its owner, links and unlinks through product_repository_link() and product_repository_unlink():
 -- a member, the owner of another workspace and anyone signed out are refused (42501), and nobody writes
 -- the table directly. Every member reads the workspace's links; a stranger reads none. A new repository
--- is in no product. repository_set_product() still works, as a link, until landing 3 drops it, and
--- every repository that points at a product has a link to it. One transaction, rolled back at the end.
+-- is in no product. (Landing 3 dropped repositories.product_id and repository_set_product():
+-- supabase/checks/repositories.sql proves them gone.) One transaction, rolled back at the end.
 -- Any `FAIL:` stops the run.
 
 begin;
 
--- ── After the migration: the default trigger is gone, and every product a repository points at is a link ──
+-- ── After the migration: the default trigger is gone ──
 do $$
 begin
   if exists (select 1 from pg_trigger where tgname = 'repositories_default_product') then
     raise exception 'FAIL: the trigger that puts a new repository into the first product is still there';
-  end if;
-  if exists (select 1 from public.repositories r
-              where r.product_id is not null
-                and not exists (select 1 from public.product_repositories l
-                                 where l.product_id = r.product_id and l.repository = r.full_name and l.added_by = 'person')) then
-    raise exception 'FAIL: a repository points at a product it has no link to';
   end if;
 end $$;
 
@@ -266,48 +260,11 @@ do $$
 declare r public.repositories;
 begin
   r := public.add_repository(pg_temp.ws('vertuoza'), 'vertuoza/brand-new');
-  if r.product_id is not null or exists (select 1 from public.product_repositories l where l.repository = 'vertuoza/brand-new') then
+  if exists (select 1 from public.product_repositories l where l.repository = 'vertuoza/brand-new') then
     raise exception 'FAIL: a new repository is in a product: %', r;
   end if;
 end $$;
 reset role;
-
--- ── repository_set_product(), until landing 3: a member moves a repository, and its link moves with it ──
-set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000001364b1');
-do $$
-declare r public.repositories;
-begin
-  r := public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/pdf-builder', pg_temp.made('mobile'));
-  if r.product_id <> pg_temp.made('mobile') then raise exception 'FAIL: repository_set_product did not point it: %', r; end if;
-  if not exists (select 1 from public.product_repositories l
-                  where l.product_id = pg_temp.made('mobile') and l.repository = 'vertuoza/pdf-builder' and l.added_by = 'person')
-     or exists (select 1 from public.product_repositories l
-                 where l.product_id = pg_temp.made('first') and l.repository = 'vertuoza/pdf-builder') then
-    raise exception 'FAIL: repository_set_product did not move the link from the first product to Mobile';
-  end if;
-  -- Its other links stay.
-  r := public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-backend-php', pg_temp.made('mobile'));
-  if (select string_agg(p.name, ',' order by p.name) from public.product_repositories l join public.products p on p.id = l.product_id
-       where l.repository = 'vertuoza/vertuo-backend-php') is distinct from 'Estimates,Mobile' then
-    raise exception 'FAIL: repository_set_product touched a link of another product';
-  end if;
-  if (select l.role from public.product_repositories l where l.product_id = pg_temp.made('mobile') and l.repository = 'vertuoza/vertuo-backend-php')
-     is distinct from 'api' then
-    raise exception 'FAIL: repository_set_product rewrote the fields of a link that was there';
-  end if;
-end $$;
-reset role;
-
--- ── Every repository that points at a product, still: a link to it ──
-do $$
-begin
-  if exists (select 1 from public.repositories r
-              where r.product_id is not null
-                and not exists (select 1 from public.product_repositories l where l.product_id = r.product_id and l.repository = r.full_name)) then
-    raise exception 'FAIL: a repository points at a product it has no link to';
-  end if;
-end $$;
 
 rollback;
 

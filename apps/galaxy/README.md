@@ -649,10 +649,12 @@ Approvers list that used to live there.
 of the same product, never itself) and `added_by` (`person` or `prd`). Members read the links; the
 workspace's owners write them through `product_repository_link()` and `product_repository_unlink()`,
 which refuses to remove a repository another one of the product still consumes. The migration copied
-each `repositories.product_id` into one link, and a new repository is in no product;
-`repositories.product_id` and `repository_set_product()`, which now moves the link, stay only until
-PRD 1364's contract landing drops them. Proven by `supabase/checks/product_repositories.sql`
-(`supabase/migrations/20261129090000_product_repositories.sql`).
+each `repositories.product_id` into one link, and a new repository is in no product; the contract
+landing then dropped `repositories.product_id` and `repository_set_product()`, so a repository's
+products are its links alone, and opening the business links each repository in no product to the
+first product. Proven by `supabase/checks/product_repositories.sql` and
+`supabase/checks/repositories.sql` (`supabase/migrations/20261129090000_product_repositories.sql`,
+`supabase/migrations/20261129120000_drop_repository_product.sql`).
 
 **A PRD's product.** `dossiers.product_id` and `ideas.product_id` are nullable. A dossier's first
 push takes its repository's product when the repository is in exactly one, none when it is in none,

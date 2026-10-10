@@ -55,6 +55,14 @@ exception when insufficient_privilege then null;
 end;
 $$;
 -- Every product's look, as one value to compare before and after a refusal.
+-- Puts a repository in one product, and in that product only: what repository_set_product() did before
+-- PRD 1364 dropped it, written here as the links it leaves.
+create function pg_temp.move_to(repo text, product uuid) returns void language sql security definer as $$
+  delete from public.product_repositories l
+   where l.repository = repo and l.workspace_id = (select p.workspace_id from public.products p where p.id = product);
+  insert into public.product_repositories (product_id, workspace_id, repository, added_by)
+  select p.id, p.workspace_id, repo, 'person' from public.products p where p.id = product;
+$$;
 create function pg_temp.looks() returns text language sql security definer as $$
   select coalesce(string_agg(p.id::text || ':' || p.pitch_look, ';' order by p.id), '') from public.products p;
 $$;
@@ -103,7 +111,7 @@ begin
     raise exception 'FAIL: changing one product''s look changed another''s';
   end if;
   -- A repository pointed at the second product reads keynote; one on the first still arcade.
-  perform public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps', pg_temp.made('second'));
+  perform pg_temp.move_to('vertuoza/vertuo-apps', pg_temp.made('second'));
   if public.pitch_look_for_repo('vertuoza/vertuo-apps') <> 'keynote' then
     raise exception 'FAIL: pitch_look_for_repo did not read the repository''s product''s look';
   end if;
