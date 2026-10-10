@@ -1,5 +1,5 @@
-import { hasProducts, type Product } from '../business/model';
 import { boardPath } from '../ideas/model';
+import { productHomeHref } from '../products/model';
 import { addable, collectionLabel, hasNoAccess, phase0Of, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
@@ -8,9 +8,9 @@ import { addable, collectionLabel, hasNoAccess, phase0Of, type Phase0, type Repo
 // listed yet, one click each; a member reads the same list, read only. A repository the App cannot
 // read says so, with a link to the installation's settings on GitHub, and stays tracked. A workspace
 // with no installation reads a link to installing the App instead. Drawn on the server first;
-// RepositoriesPage.tsx wires the handlers. Once the business has two products or more (PRD 748 s4),
-// each row has a product select, any member's to change; while it has one, nothing says "Product".
-// PRD 1246 s4: each row also links to the repository's ideas board and has its Public ideas switch,
+// RepositoriesPage.tsx wires the handlers. Each row shows the products that link it as chips, each
+// linking to that product's home, where its links are changed (PRD 1364 s11); a repository in no product
+// shows none, and nothing says "Product". PRD 1246 s4: each row also links to the repository's ideas board and has its Public ideas switch,
 // any member's to change: off, only the workspace's members read the board. PRD 1299 s1: each row has
 // its Phase 0 on the server switch, the owner's only: on, a PRD born in it is approved on its PRD page
 // rather than by a phase-0 pull request.
@@ -32,18 +32,13 @@ export interface RepositoriesHandlers {
   close(): void;
   add(fullName: string): void;
   setTracked(fullName: string, tracked: boolean): void;
-  /** A row's product select (PRD 748 s4). */
-  setProduct(fullName: string, product: string): void;
   /** A row's Public ideas switch (PRD 1246 s4). */
   setPublicIdeas(fullName: string, on: boolean): void;
   /** A row's Phase 0 on the server switch (PRD 1299 s1). */
   setPhase0(fullName: string, phase0: Phase0): void;
 }
 
-const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas() {}, setPhase0() {} };
-
-/** What the head says once each repository has a product select. */
-const PRODUCTS_LINE = 'Each repository’s agents read its product’s business.';
+const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {} };
 
 export interface RepositoriesViewProps {
   state: RepositoriesState;
@@ -51,25 +46,15 @@ export interface RepositoriesViewProps {
   access: Access;
   /** The time the collection lines are read at (the server's, so both renders agree). */
   now: number;
-  /** The business's products, first first (PRD 748 s4): each row has a select from the second on. */
-  products?: Product[] | undefined;
   on?: RepositoriesHandlers;
 }
 
-/** Which product the repository serves: any member's to change, from the business's products. */
-function ProductSelect({ row, products, busy, on }: { row: RepositoryRow; products: Product[]; busy: boolean; on: RepositoriesHandlers }) {
+/** The products that link the repository, each a chip to its home; nothing for a repository in none. */
+function ProductChips({ row }: { row: RepositoryRow }) {
+  if (row.products.length === 0) return null;
   return (
-    <span className="repositories-product-field">
-      <select
-        className="repositories-product"
-        aria-label={`Product of ${row.fullName}`}
-        value={row.product ?? ''}
-        onChange={(e) => { if (e.currentTarget.value) on.setProduct(row.fullName, e.currentTarget.value); }}
-        disabled={busy}
-      >
-        {row.product === null && <option value="" disabled>Choose…</option>}
-        {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
+    <span className="repositories-products" aria-label={`Products of ${row.fullName}`}>
+      {row.products.map((p) => <a key={p.id} className="repositories-product-chip" href={productHomeHref(p.id)}>{p.name}</a>)}
     </span>
   );
 }
@@ -105,7 +90,7 @@ function Switch({ name, label, on, disabled, press }: { name: string; label: str
   );
 }
 
-function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; products: Product[]; on: RepositoriesHandlers }) {
+function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; on: RepositoriesHandlers }) {
   const noAccess = access.kind === 'installed' && hasNoAccess(row, access.reachable);
   return (
     <li className="repositories-row" data-repository={row.fullName}>
@@ -120,7 +105,7 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
         )}
         <a className="repositories-ideas" href={boardPath(row.fullName)}>Ideas board →</a>
       </div>
-      {hasProducts(products) && <ProductSelect row={row} products={products} busy={busy} on={on} />}
+      <ProductChips row={row} />
       <Switch name="Public ideas" label={`Public ideas board of ${row.fullName}`} on={row.publicIdeas} disabled={busy} press={() => { on.setPublicIdeas(row.fullName, !row.publicIdeas); }} />
       <Switch name="Phase 0 on the server" label={`Phase 0 on the server for ${row.fullName}`} on={phase0Of(row) === 'server'} disabled={!owner || busy} press={() => { on.setPhase0(row.fullName, phase0Of(row) === 'server' ? 'pr' : 'server'); }} />
       <Switch name="Tracked" label={`Track ${row.fullName}`} on={row.tracked} disabled={!owner || busy} press={() => { on.setTracked(row.fullName, !row.tracked); }} />
@@ -128,7 +113,7 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
   );
 }
 
-export function RepositoriesView({ state, owner, access, now, products = [], on = IDLE }: RepositoriesViewProps) {
+export function RepositoriesView({ state, owner, access, now, on = IDLE }: RepositoriesViewProps) {
   const rows = state.repositories;
   const canAdd = owner && access.kind === 'installed';
   return (
@@ -138,7 +123,6 @@ export function RepositoriesView({ state, owner, access, now, products = [], on 
         {owner
           ? <p className="ask-muted">Your workspace’s repositories. The Engineering board counts the tracked ones; switching one off hides it and keeps its history.</p>
           : <p className="ask-muted">{ONLY_OWNER}</p>}
-        {hasProducts(products) && <p className="ask-muted">{PRODUCTS_LINE}</p>}
         {state.refusal && <p className="repositories-refusal" role="alert">{state.refusal}</p>}
         {canAdd && !state.picking && <button type="button" className="ask-button" onClick={() => { on.pick(); }} disabled={state.busy}>Add repository</button>}
       </section>
@@ -156,7 +140,7 @@ export function RepositoriesView({ state, owner, access, now, products = [], on 
       <section className="repositories-list" aria-label="The workspace’s repositories">
         {rows.length === 0
           ? <p className="repositories-empty">No repositories yet. {owner ? 'Add one from the repositories the Omni App can see.' : 'The workspace’s owner adds them.'}</p>
-          : <ul>{rows.map((r) => <Row key={r.fullName} row={r} owner={owner} access={access} now={now} busy={state.busy} products={products} on={on} />)}</ul>}
+          : <ul>{rows.map((r) => <Row key={r.fullName} row={r} owner={owner} access={access} now={now} busy={state.busy} on={on} />)}</ul>}
         {access.kind === 'installed' && access.settingsUrl && <p className="repositories-missing"><a href={access.settingsUrl}>{MISSING_ONE}</a></p>}
       </section>
     </div>

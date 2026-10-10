@@ -3,8 +3,6 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { memberWorkspace } from '../data/workspace';
-import type { Approvers } from './approvers';
-import { approversDbOf, loadApprovers } from './approvers-load';
 import { pitchedOf, rowOf, type PitchedProduct, type ProductRow, type StoredProduct } from './model';
 import { productsRepository } from './products.repository';
 
@@ -62,15 +60,4 @@ export async function loadProduct(db: SupabaseClient<Database>, user: User, id: 
   const stored = read.products.find((p) => p.id === id);
   if (!stored) return { kind: 'not-found' };
   return { kind: 'product', workspace: read.workspace, editable: EDITABLE_BY_MEMBERS, product: pitchedOf(stored) };
-}
-
-/** One product's page: the product, and its Approvers list (PRD 1322 s1), null when that could not be read. */
-export type ProductPageLoad =
-  | Exclude<ProductLoad, { kind: 'product' }>
-  | (Extract<ProductLoad, { kind: 'product' }> & { approvers: Approvers | null });
-
-export async function loadProductPage(db: SupabaseClient<Database>, user: User, id: string): Promise<ProductPageLoad> {
-  const read = await loadProduct(db, user, id);
-  if (read.kind !== 'product') return read;
-  return { ...read, approvers: await loadApprovers(approversDbOf(db), read.workspace.id, id) };
 }

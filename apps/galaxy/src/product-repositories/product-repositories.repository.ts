@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { orThrow, parseRows } from '../data/parse-rows';
+import { StoredLinkFields } from './product-link-row';
 
 /** What the reads and writes need: the tables, and product_repository_link(). */
 export type ProductRepositoriesDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -17,14 +18,7 @@ export type StoredProductRow = z.infer<typeof StoredProduct>;
 
 const LINK_COLUMNS = 'repository, role, knowledge, read_at, read_only, consumes';
 /** One product link, as the table holds it. */
-const StoredLink = z.object({
-  repository: z.string(),
-  role: z.string().nullable(),
-  knowledge: z.enum(['own', 'imported', 'none']),
-  read_at: z.string().nullable(),
-  read_only: z.boolean(),
-  consumes: z.array(z.string()),
-});
+const StoredLink = StoredLinkFields;
 export type StoredLinkRow = z.infer<typeof StoredLink>;
 
 const Listing = z.object({ workspace_id: z.string() });

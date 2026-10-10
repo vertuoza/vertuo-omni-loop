@@ -4,12 +4,20 @@
 // can see, minus what is listed); which listed repositories the App cannot read; and the page's state
 // through its actions. GitHub spells a repository in any case; the list keeps it in lower case, so
 // every comparison ignores case. PRD 1299 s1 adds where its phase 0 is approved: a docs-only phase-0
-// pull request (`pr`, the default) or the PRD page (`server`), the owner's to switch.
+// pull request (`pr`, the default) or the PRD page (`server`), the owner's to switch. PRD 1364 s11
+// replaces the one product a repository served with the products that link it (product_repositories),
+// read beside the row: the page shows them as chips, and a product's own page changes them.
 import { z } from 'zod';
 
 /** Where a repository's phase 0 is approved (PRD 1299): a phase-0 pull request, or the PRD page. */
 export const Phase0Schema = z.enum(['pr', 'server']);
 export type Phase0 = z.infer<typeof Phase0Schema>;
+
+/** A product a repository is in, as its chip names and links it. */
+export interface RepositoryProduct {
+  id: string;
+  name: string;
+}
 
 export interface RepositoryRow {
   /** `owner/name`, in lower case. */
@@ -19,8 +27,8 @@ export interface RepositoryRow {
   collectedAt: string | null;
   /** Why the last collection failed, or null when it succeeded. */
   collectError: string | null;
-  /** The product it serves, whose business its agents read (PRD 748 s4), or null for none. */
-  product: string | null;
+  /** The products that link it (PRD 1364 s11), first first: none, one or several. */
+  products: RepositoryProduct[];
   /** Whether its ideas board is public at /ideas/<owner>/<repo> (PRD 1246 s4): any member's to switch. */
   publicIdeas: boolean;
   /** Where its phase 0 is approved (PRD 1299 s1): the owner's to switch. Absent reads as `pr`. */
@@ -33,7 +41,6 @@ export interface StoredRepository {
   tracked: boolean;
   collected_at?: string | null;
   collect_error?: string | null;
-  product_id?: string | null;
   public_ideas?: boolean;
   phase0?: string | null;
 }
@@ -53,12 +60,13 @@ export const SavedRepository = z.strictObject({
   phase0: Phase0Schema,
 });
 
-export const rowOf = (r: StoredRepository): RepositoryRow => ({
+/** A stored row as the page draws it, with the products that link it (none unless given). */
+export const repositoryRowOf = (r: StoredRepository, products: RepositoryProduct[] = []): RepositoryRow => ({
   fullName: r.full_name,
   tracked: r.tracked,
   collectedAt: r.collected_at ?? null,
   collectError: r.collect_error ?? null,
-  product: r.product_id ?? null,
+  products,
   publicIdeas: r.public_ideas ?? false,
   phase0: r.phase0 === 'server' ? 'server' : 'pr',
 });
@@ -132,8 +140,11 @@ export function repositoriesReducer(state: RepositoriesState, action: Repositori
     case 'busy':
       return { ...state, busy: true, refusal: null };
     case 'saved': {
-      const others = state.repositories.filter((r) => key(r.fullName) !== key(action.repository.fullName));
-      return { ...state, repositories: sorted([...others, action.repository]), picking: false, busy: false, refusal: null };
+      // A saved row comes back without its products: a save never changes them, so the listed ones stay.
+      const was = state.repositories.find((r) => key(r.fullName) === key(action.repository.fullName));
+      const others = state.repositories.filter((r) => r !== was);
+      const repository = { ...action.repository, products: was?.products ?? action.repository.products };
+      return { ...state, repositories: sorted([...others, repository]), picking: false, busy: false, refusal: null };
     }
     case 'refused':
       return { ...state, busy: false, refusal: action.message };

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { repositoriesTabHref } from '../product-repositories/repositories-tab.contract';
 import { PRODUCTS_HREF, productHomeHref } from './model';
 import type { ProductCard, ProductsList } from './products.service';
 import { SituationNotice, type Situation } from './ProductsScreen';
@@ -7,11 +8,13 @@ import { SituationNotice, type Situation } from './ProductsScreen';
 // concept's first screen draws them, each a link to its product home (s9): its name, its repositories
 // (one another product links too marked shared), its PRD count and how many of its items wait on the
 // person reading. Under the cards, the repositories in no product, plain, each with Add to a product,
-// which opens Settings › Repositories, where a repository is given a product today. Products are
-// optional: a workspace with none says so and still lists its repositories.
+// which opens a product home's Repositories & approvers tab with that repository picked (PRD 1364 s11):
+// the only product's straight away, or one of the products, chosen from a list; with no product yet,
+// Settings › Products, where one is made. Products are optional: a workspace with none says so and still
+// lists its repositories.
 
-/** Where a repository is given a product today. */
-export const ADD_TO_PRODUCT_HREF = '/app/settings/repositories';
+/** The Repositories & approvers tab of `product`, Add a repository starting on `repo`. */
+const addHref = (product: string, repo: string) => `${repositoriesTabHref(product)}?add=${encodeURIComponent(repo)}`;
 
 export const NO_PRODUCTS_YET = 'No products yet. Products are optional: the loop works without one.';
 export const ALL_IN_A_PRODUCT = 'Every repository is in a product.';
@@ -54,6 +57,21 @@ function Card({ product }: { product: ProductCard }) {
   );
 }
 
+/** A repository's way into a product: the only one's tab, a list of them, or making one first. */
+function AddToProduct({ repo, products }: { repo: string; products: readonly ProductCard[] }) {
+  const [only, ...more] = products;
+  if (!only) return <Link className="products-add" href={PRODUCTS_HREF}>Add to a product</Link>;
+  if (more.length === 0) return <Link className="products-add" href={addHref(only.id, repo)}>Add to {only.name}</Link>;
+  return (
+    <details className="products-add">
+      <summary>Add to a product</summary>
+      <ul className="products-add-list" aria-label={`Products to add ${repo} to`}>
+        {products.map((p) => <li key={p.id}><Link href={addHref(p.id, repo)}>{p.name}</Link></li>)}
+      </ul>
+    </details>
+  );
+}
+
 function ProductsHomeList({ list }: { list: ProductsList }) {
   return (
     <div className="ask-col products">
@@ -75,7 +93,7 @@ function ProductsHomeList({ list }: { list: ProductsList }) {
               {list.unlinked.map((repo) => (
                 <li key={repo} className="products-repo" data-repo={repo}>
                   <span className="products-repo-name">{repo}</span>
-                  <Link className="products-add" href={ADD_TO_PRODUCT_HREF}>Add to a product</Link>
+                  <AddToProduct repo={repo} products={list.products} />
                 </li>
               ))}
             </ul>

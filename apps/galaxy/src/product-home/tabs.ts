@@ -45,11 +45,13 @@ const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
 
 /** The product home's tabs, as the section tabs draw them. */
 export function productHomeTabs(home: ProductHome): SectionTab[] {
-  return ORDER.map((tab) => {
+  const drawn = ORDER.map((tab) => {
     const shown: SectionTab = { href: productHomeTabHref(home, tab), label: TABS[tab].label };
     const count = COUNTS[tab];
     return count === undefined ? shown : { ...shown, count: count(home) };
   });
+  // Last, the Repositories & approvers tab (s11), which draws itself at its own static route.
+  return [...drawn, { href: `${productHomeHref(home.product.id)}/repositories`, label: 'Repositories & approvers' }];
 }
 
 /** The line under the product's name on `tab`. */

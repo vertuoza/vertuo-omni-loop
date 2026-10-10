@@ -16,12 +16,15 @@ import { ledeOf, productHomeTabHref, productHomeTabs, type ProductHomeTab } from
 // ◆ or ◇ with its repository, its title linking to its PRD page, its PR chips and one state word. The PRDs
 // tab (/app/products/<id>/prds) lists every PRD of the product, newest first, with its birthplace and its
 // state word. Ideas, Roadmap, Bug fixes, Visual fixes and Questions (s10) are drawn by HomeTabs.tsx, each
-// at its own address (tabs.ts). Before the home, every situation of /app/products.
+// at its own address (tabs.ts). The Repositories & approvers tab (/app/products/<id>/repositories, s11) draws
+// itself (src/product-repositories/RepositoriesTab.tsx) under these same tabs. Before the home, every
+// situation of /app/products.
 
 /** Products in the sidebar: where the home goes back to. */
 const PRODUCTS_HOME_HREF = '/app/products';
 
 export type { ProductHomeTab };
+export { productHomeTabs };
 
 export type ProductHomeView = Situation | { kind: 'not-found' } | { kind: 'home'; home: Home };
 

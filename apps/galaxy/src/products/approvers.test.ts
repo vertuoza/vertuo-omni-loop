@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addableOf, approversOf, approversReducer, approveRuleOf, COULD_NOT_SAVE, databaseApprovers, demoApprovers, GONE, initialApproversForm,
-  NOT_OWNER, NOT_MEMBER, NOBODY_ASKED, ONLY_ASKED, type Approvers, type Member,
+  addableOf, approversOf, approversReducer, approveRuleOf, initialApproversForm,
+  NOT_OWNER, NOBODY_ASKED, ONLY_ASKED, type Approvers, type Member,
 } from './approvers';
 
 // A product's Approvers list (PRD 1322 s1) as data: the workspace's members, each listed asked to
 // approve or skipped, or not listed; who may still be added; the rule the list sets on approving; the
-// page's state as an owner edits it; and the calls, product_approver_set() and product_approver_remove()
-// as the signed-in person, or the same rules in memory for the demo.
+// page's state as an owner edits it. The calls are the product home's Repositories & approvers tab's
+// (PRD 1364 s11, src/product-repositories/repositories-tab.*.test.ts).
 
 const IRISA: Member = { id: 'u-irisa', name: 'Irisa', login: 'irisa' };
 const PAUL: Member = { id: 'u-paul', name: null, login: 'paul' };
@@ -18,18 +18,6 @@ const LISTED: Approvers = {
   members: [IRISA, PAUL, DEV],
   listed: [{ ...IRISA, state: 'asked' }, { ...DEV, state: 'skipped' }],
 };
-
-function db(answer: { data?: unknown; error?: unknown } | Error) {
-  const calls: [string, unknown][] = [];
-  return {
-    calls,
-    rpc: (fn: string, args: Record<string, unknown>) => {
-      calls.push([fn, args]);
-      if (answer instanceof Error) return Promise.reject(answer);
-      return Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null });
-    },
-  };
-}
 
 describe('the list', () => {
   it('lists the stored rows in the members\' order, by name, and drops a row whose member left', () => {
@@ -67,37 +55,5 @@ describe('the page\'s state', () => {
     expect(state).toMatchObject({ busy: false, message: NOT_OWNER, approvers: LISTED });
     state = approversReducer(state, { type: 'removed', member: DEV.id });
     expect(state.message).toBeNull();
-  });
-});
-
-describe('the database calls', () => {
-  it('lists a member with product_approver_set(), answering the state it stored', async () => {
-    const d = db({ data: { product: 'p-1', member: 'u-paul', state: 'asked' } });
-    expect(await databaseApprovers(d, 'p-1').set('u-paul', 'asked')).toEqual({ ok: true, state: 'asked' });
-    expect(d.calls).toEqual([['product_approver_set', { p_product: 'p-1', p_member: 'u-paul', p_state: 'asked' }]]);
-  });
-
-  it('takes a member off with product_approver_remove()', async () => {
-    const d = db({ data: true });
-    expect(await databaseApprovers(d, 'p-1').remove('u-dev')).toEqual({ ok: true });
-    expect(d.calls).toEqual([['product_approver_remove', { p_product: 'p-1', p_member: 'u-dev' }]]);
-  });
-
-  it('says why a change was refused, and keeps going when the call throws or answers out of shape', async () => {
-    expect(await databaseApprovers(db({ error: { code: '42501' } }), 'p-1').set('u-paul', 'asked')).toEqual({ ok: false, message: NOT_OWNER });
-    expect(await databaseApprovers(db({ error: { code: '22023' } }), 'p-1').set('u-paul', 'asked')).toEqual({ ok: false, message: NOT_MEMBER });
-    expect(await databaseApprovers(db({ error: { code: 'P0002' } }), 'p-1').remove('u-paul')).toEqual({ ok: false, message: GONE });
-    expect(await databaseApprovers(db(new Error('offline')), 'p-1').remove('u-paul')).toEqual({ ok: false, message: COULD_NOT_SAVE });
-    expect(await databaseApprovers(db({ data: { state: 'maybe' } }), 'p-1').set('u-paul', 'asked')).toEqual({ ok: false, message: COULD_NOT_SAVE });
-    expect(await databaseApprovers(db({ data: 'yes' }), 'p-1').remove('u-paul')).toEqual({ ok: false, message: COULD_NOT_SAVE });
-  });
-});
-
-describe('the demo', () => {
-  it('keeps the same rules in memory: a workspace member only', async () => {
-    const demo = demoApprovers([IRISA, PAUL]);
-    expect(await demo.set('u-paul', 'skipped')).toEqual({ ok: true, state: 'skipped' });
-    expect(await demo.set('u-stranger', 'asked')).toEqual({ ok: false, message: NOT_MEMBER });
-    expect(await demo.remove('u-paul')).toEqual({ ok: true });
   });
 });
