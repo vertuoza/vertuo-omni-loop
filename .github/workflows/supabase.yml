@@ -159,6 +159,11 @@ jobs:
         # product, none in no product, the named one in several; changing it is locked while an approval
         # is in force, and a PRD's product links its repositories.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_product.sql
+      - name: Which product a lookup finds
+        # PRD 1364: every product lookup reads the PRD's own product, then the repository's only
+        # product, then none: approvers, claims, personas, constituents and pitch follow it, and a
+        # token in a workspace of several products answers with no product instead of failing.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_lookups.sql
       - name: Who may read and write the business
         # Any member of a workspace opens its business, picks, suggests, confirms and rejects claims,
         # adds and renames products, points repositories at them and cites claims, through the business
