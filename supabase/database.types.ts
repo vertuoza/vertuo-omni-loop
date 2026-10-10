@@ -1137,6 +1137,7 @@ export type Database = {
           numbered_at: string | null
           opened_by: string | null
           prd: number | null
+          product_id: string | null
           title: string
           workspace_id: string
         }
@@ -1150,6 +1151,7 @@ export type Database = {
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
+          product_id?: string | null
           title: string
           workspace_id: string
         }
@@ -1163,10 +1165,18 @@ export type Database = {
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
+          product_id?: string | null
           title?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "dossiers_product_id_workspace_id_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
           {
             foreignKeyName: "dossiers_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -1304,6 +1314,7 @@ export type Database = {
           lane: string
           pitch: string
           prd: number | null
+          product_id: string | null
           repo: string
           title: string
           workspace_id: string
@@ -1316,6 +1327,7 @@ export type Database = {
           lane?: string
           pitch: string
           prd?: number | null
+          product_id?: string | null
           repo: string
           title: string
           workspace_id: string
@@ -1328,11 +1340,19 @@ export type Database = {
           lane?: string
           pitch?: string
           prd?: number | null
+          product_id?: string | null
           repo?: string
           title?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ideas_product_id_workspace_id_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
           {
             foreignKeyName: "ideas_workspace_id_repo_fkey"
             columns: ["workspace_id", "repo"]
@@ -3603,6 +3623,10 @@ export type Database = {
         Returns: Json
       }
       dossier_approve: { Args: { p_dossier: string }; Returns: Json }
+      dossier_link_repositories: {
+        Args: { p_dossier: string }
+        Returns: undefined
+      }
       dossier_list: {
         Args: { p_dossier?: string; p_workspace?: string }
         Returns: {
@@ -3632,6 +3656,7 @@ export type Database = {
           p_draft: string
           p_kind?: string
           p_prd: number
+          p_product?: string
           p_repo: string
           p_title: string
         }
@@ -3658,6 +3683,10 @@ export type Database = {
           skill: string
           status: string
         }[]
+      }
+      dossier_set_product: {
+        Args: { p_dossier: string; p_product: string }
+        Returns: Json
       }
       dossier_takes: {
         Args: { p_dossier_kind: string; p_version_kind: string }
@@ -3917,6 +3946,7 @@ export type Database = {
         Returns: string
       }
       pitch_settings_for_repo: { Args: { p_repo: string }; Returns: Json }
+      plan_repository_names: { Args: { p_plan: string }; Returns: string[] }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -4037,6 +4067,10 @@ export type Database = {
       repo_workspace: {
         Args: { person: string; repo: string }
         Returns: Record<string, unknown>
+      }
+      repository_only_product: {
+        Args: { p_repo: string; p_workspace: string }
+        Returns: string
       }
       repository_owner_only: {
         Args: { p_workspace: string }
