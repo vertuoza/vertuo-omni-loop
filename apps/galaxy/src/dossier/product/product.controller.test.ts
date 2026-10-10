@@ -21,11 +21,11 @@ function handlers(service: Partial<ProductService> | null) {
   const calls: string[] = [];
   const logs: string[] = [];
   const full: ProductService = {
-    async read(id) { calls.push(`read ${id}`); return { ok: true, value: { product: MOBILE, products: [MOBILE], locked: null } }; },
-    async change(id, product) { calls.push(`change ${id} ${product ?? 'none'}`); return { ok: true, value: { product: MOBILE } }; },
+    read: (id) => { calls.push(`read ${id}`); return Promise.resolve({ ok: true, value: { product: MOBILE, products: [MOBILE], locked: null } }); },
+    change: (id, product) => { calls.push(`change ${id} ${product ?? 'none'}`); return Promise.resolve({ ok: true, value: { product: MOBILE } }); },
     ...service,
   };
-  const h = productHandlers({ signedIn: async () => (service === null ? null : full), log: (line) => { logs.push(line); } });
+  const h = productHandlers({ signedIn: () => Promise.resolve(service === null ? null : full), log: (line) => { logs.push(line); } });
   return { ...h, calls, logs };
 }
 
@@ -60,9 +60,9 @@ describe('GET: what the picker shows', () => {
   });
 
   it('answers 404 for a dossier the caller does not read, and 500 on a failed read, logged', async () => {
-    const missing = handlers({ read: async () => ({ ok: false, kind: 'missing', error: 'No such PRD.' }) });
+    const missing = handlers({ read: () => Promise.resolve({ ok: false, kind: 'missing', error: 'No such PRD.' }) });
     expect((await missing.get(new Request(URL_OF))).status).toBe(404);
-    const down = handlers({ read: async () => ({ ok: false, kind: 'database', error: 'The PRD\'s product could not be read. Try again.' }) });
+    const down = handlers({ read: () => Promise.resolve({ ok: false, kind: 'database', error: 'The PRD\'s product could not be read. Try again.' }) });
     const answer = await down.get(new Request(URL_OF));
     expect(answer.status).toBe(500);
     expect(await answer.json()).toEqual({ error: 'The PRD\'s product could not be read. Try again.' });
@@ -102,25 +102,25 @@ describe('POST: a change of product', () => {
   });
 
   it('answers 409 while an approval is in force, in its own words', async () => {
-    const { post: send } = handlers({ change: async () => ({ ok: false, kind: 'locked', error: 'product is locked: PRD 7 is approved' }) });
+    const { post: send } = handlers({ change: () => Promise.resolve({ ok: false, kind: 'locked', error: 'product is locked: PRD 7 is approved' }) });
     const answer = await send(post({ dossier: DOSSIER, product: MOBILE.id }));
     expect(answer.status).toBe(409);
     expect(await answer.json()).toEqual({ error: 'product is locked: PRD 7 is approved' });
   });
 
   it('refuses a product of another workspace with 400, and a dossier it does not read with 404', async () => {
-    const foreign = handlers({ change: async () => ({ ok: false, kind: 'foreign-product', error: 'Product: no such product in this workspace.' }) });
+    const foreign = handlers({ change: () => Promise.resolve({ ok: false, kind: 'foreign-product', error: 'Product: no such product in this workspace.' }) });
     const answer = await foreign.post(post({ dossier: DOSSIER, product: MOBILE.id }));
     expect(answer.status).toBe(400);
     expect(await answer.json()).toEqual({ error: 'Product: no such product in this workspace.' });
-    const missing = handlers({ change: async () => ({ ok: false, kind: 'missing', error: 'No such PRD.' }) });
+    const missing = handlers({ change: () => Promise.resolve({ ok: false, kind: 'missing', error: 'No such PRD.' }) });
     expect((await missing.post(post({ dossier: DOSSIER, product: null }))).status).toBe(404);
   });
 
   it('answers 401 when the database says the caller is signed out, and 500 on a failure, logged', async () => {
-    const out = handlers({ change: async () => ({ ok: false, kind: 'signed-out', error: 'Sign in first to change the PRD\'s product.' }) });
+    const out = handlers({ change: () => Promise.resolve({ ok: false, kind: 'signed-out', error: 'Sign in first to change the PRD\'s product.' }) });
     expect((await out.post(post({ dossier: DOSSIER, product: null }))).status).toBe(401);
-    const down = handlers({ change: async () => ({ ok: false, kind: 'database', error: 'The PRD\'s product was not changed. Try again.' }) });
+    const down = handlers({ change: () => Promise.resolve({ ok: false, kind: 'database', error: 'The PRD\'s product was not changed. Try again.' }) });
     expect((await down.post(post({ dossier: DOSSIER, product: null }))).status).toBe(500);
     expect(down.logs).toHaveLength(1);
   });

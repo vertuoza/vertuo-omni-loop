@@ -18,8 +18,8 @@ import { productServiceOf, SIGNED_OUT, type ProductService } from './product.ser
 
 export type ProductDeps = {
   /** The service as the signed-in person, or null when nobody is signed in. */
-  signedIn(): Promise<ProductService | null>;
-  log(line: string): void;
+  signedIn: () => Promise<ProductService | null>;
+  log: (line: string) => void;
 };
 
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -50,7 +50,7 @@ export function productHandlers(deps: ProductDeps) {
   };
 
   return {
-    async get(request: Request): Promise<Response> {
+    get: async (request: Request): Promise<Response> => {
       const service = await deps.signedIn();
       if (!service) return refuse('signed-out', SIGNED_OUT);
       const dossier = UuidSchema.safeParse(new URL(request.url).searchParams.get('dossier'));
@@ -59,7 +59,7 @@ export function productHandlers(deps: ProductDeps) {
       return read.ok ? reply(200, read.value) : failed(read.kind, read.error, dossier.data);
     },
 
-    async post(request: Request): Promise<Response> {
+    post: async (request: Request): Promise<Response> => {
       const service = await deps.signedIn();
       if (!service) return refuse('signed-out', SIGNED_OUT);
       const change = await changeOf(request);

@@ -32,11 +32,11 @@ const no = <T>(code: string | null, message: string | null, hint: string | null 
 function world({ dossier: row = ok(dossier()), products = ok([ESTIMATES, MOBILE]), approval = ok(null), voided = ok(false), set = ok(ESTIMATES) }: World = {}) {
   const calls: string[] = [];
   const repo: DossierProductRepository = {
-    async dossier(id) { calls.push(`dossier ${id}`); return row; },
-    async products(workspace) { calls.push(`products ${workspace}`); return products; },
-    async latestApproval(id) { calls.push(`approval ${id}`); return approval; },
-    async voided(id) { calls.push(`voided ${id}`); return voided; },
-    async set(id, product) { calls.push(`set ${id} ${product ?? 'none'}`); return set; },
+    dossier: (id) => { calls.push(`dossier ${id}`); return Promise.resolve(row); },
+    products: (workspace) => { calls.push(`products ${workspace}`); return Promise.resolve(products); },
+    latestApproval: (id) => { calls.push(`approval ${id}`); return Promise.resolve(approval); },
+    voided: (id) => { calls.push(`voided ${id}`); return Promise.resolve(voided); },
+    set: (id, product) => { calls.push(`set ${id} ${product ?? 'none'}`); return Promise.resolve(set); },
   };
   return { service: productService(repo), calls };
 }

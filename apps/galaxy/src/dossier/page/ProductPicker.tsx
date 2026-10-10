@@ -20,7 +20,7 @@ type FieldProps = {
   pick: ProductPick;
   busy: boolean;
   problem: string | null;
-  onPick(product: string | null): void;
+  onPick: (product: string | null) => void;
 };
 
 /** The picker, as it reads: its select, then the lock or a refusal. */

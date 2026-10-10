@@ -12,9 +12,9 @@ const PICK = { product: MOBILE, products: [MOBILE], locked: null };
 
 function client(status: number, body: unknown) {
   const sent: Array<{ url: string; init: RequestInit }> = [];
-  const c = productClient(async (url, init) => {
+  const c = productClient((url, init) => {
     sent.push({ url, init });
-    return typeof body === 'string' ? new Response(body, { status }) : Response.json(body, { status });
+    return Promise.resolve(typeof body === 'string' ? new Response(body, { status }) : Response.json(body, { status }));
   });
   return { c, sent };
 }
@@ -43,7 +43,7 @@ describe('a change', () => {
     expect(await c.change(DOSSIER, MOBILE.id)).toEqual({ ok: true, product: MOBILE });
     expect(sent[0]?.url).toBe(PRODUCT_ROUTE);
     expect(sent[0]?.init.method).toBe('POST');
-    expect(JSON.parse(String(sent[0]?.init.body))).toEqual({ dossier: DOSSIER, product: MOBILE.id });
+    expect(JSON.parse(typeof sent[0]?.init.body === 'string' ? sent[0].init.body : '')).toEqual({ dossier: DOSSIER, product: MOBILE.id });
   });
 
   it('answers the route\'s own words on a refusal, and a plain line when it has none', async () => {
@@ -56,7 +56,7 @@ describe('a change', () => {
   });
 
   it('answers a plain line when the network fails', async () => {
-    const c = productClient(async () => { throw new TypeError('offline'); });
+    const c = productClient(() => Promise.reject(new TypeError('offline')));
     expect(await c.change(DOSSIER, null)).toEqual({ ok: false, locked: false, error: 'The product was not changed. Check your connection and try again.' });
   });
 });

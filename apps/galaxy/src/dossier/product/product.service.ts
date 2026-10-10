@@ -31,7 +31,7 @@ async function approvalInForce(repo: DossierProductRepository, dossier: string):
 export function productService(repo: DossierProductRepository) {
   return {
     /** What the picker shows for the dossier. */
-    async read(id: string): Promise<Served<ProductPick>> {
+    read: async (id: string): Promise<Served<ProductPick>> => {
       const dossier = await repo.dossier(id);
       if (!dossier.ok) return refused('database', NOT_READ);
       if (!dossier.value) return refused('missing', MISSING);
@@ -43,7 +43,7 @@ export function productService(repo: DossierProductRepository) {
     },
 
     /** Changes the dossier's product to `product`, or to none. */
-    async change(id: string, product: string | null): Promise<Served<{ product: ProductRef | null }>> {
+    change: async (id: string, product: string | null): Promise<Served<{ product: ProductRef | null }>> => {
       const set = await repo.set(id, product);
       if (set.ok) return { ok: true, value: { product: set.value } };
       if (set.code === '55000') return refused('locked', set.message || LOCKED);
