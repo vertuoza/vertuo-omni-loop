@@ -93,9 +93,11 @@ const PayloadSchema = z.looseObject({
       name: z.string(),
       full_name: z.string().nullish(),
       owner: z.looseObject({ login: z.string().nullish() }).nullish(),
+      default_branch: z.string().nullish(),
     })
     .nullish(),
   pull_request: PullRefSchema.extend({
+    base: z.looseObject({ ref: z.string().nullish() }).nullish(),
     merged: z.boolean().nullish(),
     merge_commit_sha: z.string().nullish(),
     merged_at: z.string().nullish(),
@@ -216,9 +218,12 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
 }
 
 /**
- * The retro's filter, pure: a pull request closed by its merge becomes one retro request carrying
- * the merge SHA and time; an unmerged one becomes none. Whether it is a feature PR is not decided
- * here: the retro reads the config at the merge SHA to decide (its step "qualify").
+ * The retro's filter, pure: a pull request closed by its merge into the repository's default branch
+ * becomes one retro request carrying the merge SHA and time; an unmerged one, or one merged into
+ * another branch (a sub-PR into its feature branch), becomes none (#1409: every sub-PR's merge used
+ * to start a retro and a harvest, which spent the Inngest account). A delivery naming no default
+ * branch is sent as before. Whether it is a feature PR is not decided here: the retro reads the
+ * config at the merge SHA to decide (its step "qualify").
  */
 export function toRetroRequests(event: string, delivery: unknown): RetroRequest[] {
   const payload = readPayload(delivery);
@@ -227,6 +232,8 @@ export function toRetroRequests(event: string, delivery: unknown): RetroRequest[
   const source = sourceOf(payload);
   const pull = payload.pull_request;
   if (!source || pull?.merged !== true) return [];
+  const defaultBranch = payload.repository?.default_branch;
+  if (defaultBranch && pull.base?.ref !== defaultBranch) return [];
 
   const prNumber = pull.number ?? payload.number ?? undefined;
   if (prNumber === undefined || !pull.merge_commit_sha || !pull.merged_at) return [];
