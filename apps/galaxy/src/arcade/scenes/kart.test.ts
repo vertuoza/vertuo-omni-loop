@@ -149,8 +149,9 @@ describe('loadKart', () => {
 
 describe('the kart canvas', () => {
   const calls: string[] = [];
-  const ctx = new Proxy({} as Record<string | symbol, unknown>, {
-    get: (target, prop) => (prop in target ? target[prop] : (..._a: unknown[]) => { calls.push(String(prop)); }),
+  const state: Record<string | symbol, unknown> = {};
+  const ctx = new Proxy(state, {
+    get: (target, prop) => (prop in target ? target[prop] : () => { calls.push(String(prop)); }),
     set: (target, prop, value) => { target[prop] = value; return true; },
   }) as unknown as CanvasRenderingContext2D;
   const frame = (kart?: KartDraw | null): FrameState => ({
@@ -184,7 +185,7 @@ describe('the race line of the text layer (slice 3)', () => {
   it('shows the place, the lap and the race time over the road, on both grids, with the way to pause', () => {
     expect(text('ready', WIDE, 'full', run())).toBe('3RD LAP 2/3 1:05.2 ENTER PAUSE');
     expect(text('ready', TALL, 'handheld', run({ place: 1, lap: 1, tenths: 0 }))).toBe('1ST LAP 1/3 0:00.0 START PAUSE');
-    expect(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH'].map((o, i) => text('ready', WIDE, 'full', run({ place: i + 1 })).split(' ')[0])).toEqual(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH']);
+    expect(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH'].map((_, i) => text('ready', WIDE, 'full', run({ place: i + 1 })).split(' ')[0])).toEqual(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH']);
   });
 
   it('shows the item the player holds, and nothing while the hands are empty', () => {

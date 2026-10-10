@@ -184,7 +184,7 @@ describe('the finish and the score (slice 4)', () => {
     const r = racing();
     const [fx, fy] = track.forward;
     const back = 3;
-    const player = { ...r.player, x: track.line.x - fx * back, y: track.line.y - fy * back, angle: track.heading, speed: 100, steer: 0 };
+    const player: Race['player'] = { ...r.player, x: track.line.x - fx * back, y: track.line.y - fy * back, angle: track.heading, speed: 100, steer: 0 };
     return { ...r, clock: 100, player, pace: { laps: LAPS - 1, passed: track.waypoints.length }, rivals: r.rivals.map(rivals) };
   }
 

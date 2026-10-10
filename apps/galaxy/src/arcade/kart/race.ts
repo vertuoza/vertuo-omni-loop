@@ -10,7 +10,7 @@ import { fleetSprite, MASCOTS } from '@omni/design';
 import type { Action } from '../keys';
 import type { KartHud, KartResults, KartRow } from '../scenes/kart.ts';
 import { kartAt, NO_FX, padOf, stepFx, type Fx, type Kart } from './kart';
-import { newWorld, stepItems, useItem, wantsToUse, type World } from './items';
+import { newWorld, stepItems, spendItem, wantsToUse, type World } from './items';
 import { RULES } from './rules';
 import { advance, aimOf, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
 import { LAPS, PAR_SECONDS, parseTrack, PLACES, type Track } from './track';
@@ -105,7 +105,7 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     rivals.forEach((r, j) => {
       const holder = racers[j + 1];
       if (!holder || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0)) return;
-      const used = useItem(items, holder);
+      const used = spendItem(items, holder);
       items = used.world;
       racers = racers.map((x, k) => (k === j + 1 ? used.racer : x));
     });
@@ -182,7 +182,7 @@ export function press(race: Race, action: Action): Stepped {
     return { race: { ...race, phase: 'paused', resume: race.phase }, events: [] };
   }
   if (action === 'b' && race.phase === 'race') {
-    const used = useItem(race.items, { kart: race.player, fx: race.fx });
+    const used = spendItem(race.items, { kart: race.player, fx: race.fx });
     return { race: { ...race, items: used.world, fx: used.racer.fx }, events: [] };
   }
   if (action === 'select' && race.phase === 'paused') return { race, events: [{ kind: 'quit' }] };

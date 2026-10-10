@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { itemFor, newWorld, stepItems as step, useItem, wantsToUse, weights, type Item, type Racer, type World } from './items';
+import { itemFor, newWorld, stepItems as step, spendItem, wantsToUse, weights, type Item, type Racer, type World } from './items';
 import { kartAt, NO_FX, stepFx, type Fx } from './kart';
 import { hudOf, newRace, press, step as stepRace, type Race } from './race';
 import { RULES } from './rules';
@@ -73,7 +73,7 @@ describe('the draw', () => {
 
 describe('BOOST', () => {
   it('lasts 1.5 seconds at 1.4 times the top speed', () => {
-    const used = useItem(world(), racer(line.x, line.y, { item: 'boost' })).racer;
+    const used = spendItem(world(), racer(line.x, line.y, { item: 'boost' })).racer;
     expect(used.fx).toMatchObject({ item: null, boost: RULES.boostTime });
     let k: Racer = { kart: { ...used.kart, speed: RULES.topSpeed }, fx: used.fx };
     for (let t = 0; t < RULES.boostTime - 1e-9; t += 1 / 60) {
@@ -101,7 +101,7 @@ describe('BOOST', () => {
 
 describe('BLOB', () => {
   it('lands behind the kart, spins out the first kart over it, and is gone', () => {
-    const dropped = useItem(empty(world()), racer(line.x, line.y, { item: 'blob' }));
+    const dropped = spendItem(empty(world()), racer(line.x, line.y, { item: 'blob' }));
     const [blob] = dropped.world.blobs;
     expect(blob).toBeDefined();
     if (!blob) return;
@@ -125,7 +125,7 @@ describe('BLOB', () => {
     let w = empty(world());
     const xs: number[] = [];
     for (let i = 0; i < 7; i++) {
-      w = useItem(w, racer(line.x + i * 40, line.y, { item: 'blob' }, 0)).world;
+      w = spendItem(w, racer(line.x + i * 40, line.y, { item: 'blob' }, 0)).world;
       xs.push(line.x + i * 40 - RULES.blobBehind);
     }
     expect(w.blobs).toHaveLength(RULES.blobMax);
@@ -135,7 +135,7 @@ describe('BLOB', () => {
 
 describe('ORB', () => {
   it('flies straight ahead at twice the top speed from just in front of the kart', () => {
-    const thrown = useItem(empty(world()), racer(line.x, line.y, { item: 'orb' }));
+    const thrown = spendItem(empty(world()), racer(line.x, line.y, { item: 'orb' }));
     const [orb] = thrown.world.orbs;
     expect(orb).toBeDefined();
     if (!orb) return;
@@ -166,7 +166,7 @@ describe('ORB', () => {
 
   it('spins out the kart it hits, and is gone', () => {
     let r = racer(line.x + Math.cos(heading) * 30, line.y + Math.sin(heading) * 30);
-    let w = useItem(empty(world()), racer(line.x, line.y, { item: 'orb' })).world;
+    let w = spendItem(empty(world()), racer(line.x, line.y, { item: 'orb' })).world;
     for (let i = 0; i < 60 && w.orbs.length; i++) { const s = step(track.map, w, [r], [2], 1 / 120); w = s.world; r = s.racers[0] ?? r; }
     expect(r.fx.spin).toBeGreaterThan(0);
     expect(w.orbs).toHaveLength(0);
@@ -194,7 +194,7 @@ describe('the spin-out', () => {
 
   it('cannot use an item, and a kart already spinning is not hit again', () => {
     const spinning = racer(line.x, line.y, { item: 'boost', spin: 0.5 });
-    expect(useItem(world(), spinning).racer).toBe(spinning);
+    expect(spendItem(world(), spinning).racer).toBe(spinning);
     const again = step(track.map, { ...empty(world()), blobs: [{ x: line.x, y: line.y }] }, [spinning], [1], 0.01).racers[0];
     expect(again?.fx.spin).toBe(0.5);
   });

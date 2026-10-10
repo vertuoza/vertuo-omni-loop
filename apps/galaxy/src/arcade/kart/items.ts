@@ -49,7 +49,7 @@ function spun(r: Racer): Racer {
 }
 
 /** What a racer does with its item: a BOOST starts, a BLOB drops behind it, an ORB flies off ahead. A spinning racer, or one holding nothing, does nothing. */
-export function useItem(world: World, r: Racer): { world: World; racer: Racer } {
+export function spendItem(world: World, r: Racer): { world: World; racer: Racer } {
   const { item } = r.fx;
   if (!item || r.fx.spin > 0) return { world, racer: r };
   const { kart } = r;

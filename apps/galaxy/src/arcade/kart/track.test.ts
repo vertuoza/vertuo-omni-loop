@@ -4,7 +4,7 @@ import { COMET_RING, isRoad, LAPS, PAR_SECONDS, parseTrack, TILE, tileAt, trackP
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, waypoints: TrackSource['waypoints'] = COMET_RING.waypoints): TrackSource {
-  const rows = COMET_RING.rows.map((r) => [...r]);
+  const rows = COMET_RING.rows.map((r) => Array.from(r));
   edit(rows);
   return { rows: rows.map((r) => r.join('')), waypoints };
 }

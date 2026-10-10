@@ -327,7 +327,7 @@ describe('the items on the floor (slice 5)', () => {
     const { ctx } = recorder();
     kart.press('b');
     expect(kart.hud().run?.item).toBeNull();
-    expect(() => kart.draw(ctx, frame(WIDE))).not.toThrow();
-    expect(() => kart.draw(ctx, frame(TALL))).not.toThrow();
+    expect(() => { kart.draw(ctx, frame(WIDE)); }).not.toThrow();
+    expect(() => { kart.draw(ctx, frame(TALL)); }).not.toThrow();
   });
 });

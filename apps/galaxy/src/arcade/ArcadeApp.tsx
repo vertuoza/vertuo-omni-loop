@@ -290,11 +290,13 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const [kart, setKart] = useState<ArcadeKart | null>(null);
   const kartRef = useRef(kart);
   kartRef.current = kart;
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const kartTry = kart?.status === 'loading' ? kart.retry : -1;
   useEffect(() => {
     if (kartTry < 0) return undefined;
     let gone = false;
-    void loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(active, meRef.current?.team ?? null)).then((game) => {
+    void loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null)).then((game) => {
       if (gone) return;
       setKart((k) => (k ? { ...k, status: game ? 'ready' : 'failed', game, hud: game ? game.hud() : null } : k));
     });

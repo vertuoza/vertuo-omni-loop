@@ -145,7 +145,7 @@ const where = (x: number, y: number) => `row ${y}, col ${x}`;
 /** The tiles of one character, as [x, y] in reading order. */
 function tilesOf(rows: readonly string[], c: string): [number, number][] {
   const out: [number, number][] = [];
-  rows.forEach((row, y) => { [...row].forEach((t, x) => { if (t === c) out.push([x, y]); }); });
+  rows.forEach((row, y) => { Array.from(row).forEach((t, x) => { if (t === c) out.push([x, y]); }); });
   return out;
 }
 
@@ -181,7 +181,7 @@ function shapeProblems(rows: readonly string[]): string[] {
   const width = rows[0]?.length ?? 0;
   rows.forEach((row, y) => {
     if (row.length !== width) problems.push(`${where(row.length, y)}: this row is ${row.length} tiles long, the first is ${width}`);
-    [...row].forEach((c, x) => { if (!isTileChar(c)) problems.push(`${where(x, y)}: unknown character '${c}'`); });
+    Array.from(row).forEach((c, x) => { if (!isTileChar(c)) problems.push(`${where(x, y)}: unknown character '${c}'`); });
   });
   return problems;
 }
