@@ -16,7 +16,7 @@ then `main`. Each slice is a sub-PR from `feat/design-memory--<slice>` into the 
 | s6 | `/omni:pixel-perfect lock` (a person's words only), the review against a locked screen and its mock, the high item on a locked change; `/omni:do-work` reads the library | `kit/plugin/skills/pixel-perfect/` `kit/plugin/skills/do-work/` `kit/porting/plugin--pixel-perfect.md` `kit/porting/plugin--do-work.md` `kit/test/plugin.test.ts` | s3, s4, s5 | 4 |
 | s7 | visual-fix, brainstorm and think-big write draft screens, mark mockups and run the word pass; invade drafts screen entries, never locks | `kit/plugin/skills/visual-fix/` `kit/plugin/skills/brainstorm/` `kit/plugin/skills/think-big/` `kit/plugin/skills/invade/` `kit/porting/plugin--brainstorm.md` `kit/test/plugin.test.ts` `kit/test/brainstorm-concept.test.ts` | s6 | 5 |
 | s8 | The guide: the library, locking, the word pass, and a diagram of a screen's life | `docs/guide/` `apps/galaxy/src/docs/` | s7 | 6 |
-| s9 | Dogfood: design on in omni-loop, its form filled from evidence, draft screens, the word pass over our before/after pages in `dogfood.md`, missing concepts as outbox items | `.omni-loop/config.yml` `.omni-loop/knowledge/playbook/design.md` `.omni-loop/knowledge/design/` `.omni-loop/delivery/inbox/1407-design-memory/dogfood.md` | s7 | 6 |
+| s9 | Dogfood: design on in omni-loop, its form filled from evidence, draft screens, the word pass over our before/after pages in `dogfood.md`, missing concepts as outbox items | `.omni-loop/config.yml` `.omni-loop/knowledge/playbook/design.md` `.omni-loop/knowledge/design/` `.omni-loop/delivery/shipped/1407-design-memory/dogfood.md` | s7 | 6 |
 
 Shared ground:
 
