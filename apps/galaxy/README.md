@@ -835,7 +835,17 @@ off, no row exists, and every player sees NO XP YET.
   kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the score
   (1000, 700, 500, 350, 200 or 100 for the place, plus a point per tenth of a second under 150
   seconds) is sent once under `kart`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or SCORE NOT
-  SAVED (A retries once) as Invaders. It is silent.
+  SAVED (A retries once) as Invaders. What it sounds like is in the sound section above.
+  **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
+  in space, all in code, no image file. The walls are dark metal with a neon edge (cyan outside the
+  circuit, magenta inside), the kerbs alternate the two neons, the road has panel seams and three
+  chevrons before each corner, and the verge is pale lunar ground that still halves the top speed.
+  Pylons, beacons, asteroids, satellites and wrecks stand on wall tiles, and an arch spans the start
+  line. The sky has two planets, a distant station and comets. Every kart casts a shadow. Sparks fly
+  where a kart scrapes a wall, a BOOST leaves a trail, a hit bursts and a taken box flashes
+  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
+  that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
+  still and no particle is drawn; the shadows stay.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
