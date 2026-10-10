@@ -2107,3 +2107,471 @@ A few lines in the product home's service and its tests; no stored shape changes
 ```
 
 <!-- /omni-outbox-settled: s9-02-ledger-lanes-and-who-a-prd-waits-on -->
+
+<!-- omni-outbox-settled: s10-01-tab-pages-share-one-address -->
+
+## s10-01-tab-pages-share-one-address — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s10
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-01-tab-pages-share-one-address
+prd: 1364
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+The new product tabs need their own web addresses, but the plan gave this piece of work only the screens, not the pages that serve them. Is it fine that one shared page serves all five new tabs?
+
+## The decision, in plain words
+
+One page now serves the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs, each at its own address under the product. An unknown tab name shows the not-found page.
+
+## The intro, for fun
+
+Five tabs walked into one doorway and asked who holds the key.
+
+## The punchline, for fun
+
+One doorway, five name tags, and a bouncer for any name not on the list.
+
+## The options, in plain words
+
+A. A. One shared page serves the five tabs, each at its own address, and an unknown name is not found.
+B. B. Five pages, one per tab, as the PRDs tab has.
+C. C. The tabs open through a query on the product's main page instead of their own addresses.
+
+## What I had to decide
+
+Whether the five new tabs of the product home may share one page outside this slice's planned ground, or each needs a page of its own.
+
+## What I did meanwhile
+
+The five tabs work at their own addresses through the one shared page, and the PRDs tab keeps its own page as before.
+
+## What it costs to change later
+
+Splitting it later into five pages is five small files and deleting one; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan gives this slice only the product home's code folder, so the page that serves the tabs sits outside its planned ground (author).
+
+```
+
+<!-- /omni-outbox-settled: s10-01-tab-pages-share-one-address -->
+
+<!-- omni-outbox-settled: s11-01-tab-joins-the-product-home-tabs -->
+
+## s11-01-tab-joins-the-product-home-tabs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s11
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-tab-joins-the-product-home-tabs
+prd: 1364
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+The new Repositories & approvers tab has to show in the product page's row of tabs, which another slice of this wave owns. Who adds it there?
+
+## The decision, in plain words
+
+This slice adds the one tab to that row itself, so the tab can be reached from the product page; the other slice adding its own tabs at the same time may have to line the two up when they are merged.
+
+## The intro, for fun
+
+Two crews are hanging signs on the same corridor on the same day.
+
+## The punchline, for fun
+
+One of them will have to slide a sign over a little.
+
+## The options, in plain words
+
+A. A. Add the tab to the product home's tab row in this slice, the option built.
+B. B. Leave the tab row to s10, and reach the tab only by its address until then.
+C. C. Draw a separate tab row on the new page only, and let the wave join the two later.
+
+## What I had to decide
+
+Whether this slice adds its tab to the product home's tab row (src/product-home/ProductHome.tsx and its render test), outside its territory, or leaves it to s10 or the wave.
+
+## What I did meanwhile
+
+Exported productHomeTabs() from apps/galaxy/src/product-home/ProductHome.tsx and appended { href: /app/products/<id>/repositories, label: 'Repositories & approvers' } to it; apps/galaxy/src/product-home/product-home.render.test.ts expects the third tab. The tab's page draws the same row from productHomeTabs(). s10 (same wave) adds its own tabs to that function, so merging the two sub-PRs may need the array lined up by hand.
+
+## What it costs to change later
+
+One line in one array, plus one line in its test; moving it later is a cut and paste.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives src/product-home/ to s9 and s10 only, and does not say which slice wires the Repositories & approvers tab into the product home's tab row.
+
+```
+
+<!-- /omni-outbox-settled: s11-01-tab-joins-the-product-home-tabs -->
+
+<!-- omni-outbox-settled: s11-02-add-to-a-product-opens-the-tab -->
+
+## s11-02-add-to-a-product-opens-the-tab — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s11
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-02-add-to-a-product-opens-the-tab
+prd: 1364
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+On the Products list, where should 'Add to a product' take a repository that is in no product, now that the old settings page no longer picks a product?
+
+## The decision, in plain words
+
+It opens the product's Repositories & approvers tab with that repository already picked: straight to it when the workspace has one product, from a short list of products when it has several, and to the products settings, to make one, when it has none.
+
+## The intro, for fun
+
+The old signpost pointed at a road that was just closed.
+
+## The punchline, for fun
+
+So it now points at the right door, with the key already in the lock.
+
+## The options, in plain words
+
+A. A. Open the product's tab with the repository picked, choosing the product from a list when there are several, the option built.
+B. B. Always open a single page that asks which product, then adds the repository there.
+C. C. Link to the first product's tab only.
+
+## What I had to decide
+
+Where the Products list's Add to a product link goes once Settings › Repositories drops its product select (settled item s8-02).
+
+## What I did meanwhile
+
+In apps/galaxy/src/products/ProductsHome.tsx, Add to a product links to /app/products/<id>/repositories?add=<repo> for the only product, opens a list of the products (a details element) when there are several, and links to /app/settings/products when there is none. The tab's Add a repository starts on the ?add= repository. A member who follows it lands on the tab read only.
+
+## What it costs to change later
+
+One small component and one query parameter; another target is a change of its links.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says only that repositories in no product are listed 'each with Add to a product', not where it leads with several products or none.
+
+```
+
+<!-- /omni-outbox-settled: s11-02-add-to-a-product-opens-the-tab -->
+
+<!-- omni-outbox-settled: s11-03-tab-writes-through-its-own-routes -->
+
+## s11-03-tab-writes-through-its-own-routes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s11
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-03-tab-writes-through-its-own-routes
+prd: 1364
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+How should the new tab save what an owner changes: repositories added, edited or removed, and approvers set?
+
+## The decision, in plain words
+
+Every change goes through the app's server, under the tab's own address, which checks the sign-in first and lets the database decide who may; the browser no longer writes to the database itself, and a new repository is added with no role yet, to be filled in on its row.
+
+## The intro, for fun
+
+The front desk used to hand out keys to the storeroom.
+
+## The punchline, for fun
+
+Now it fetches what you need and checks your badge on the way.
+
+## The options, in plain words
+
+A. A. Routes under the tab's own address, a new repository added with no role, the option built.
+B. B. Routes beside the other product calls the command line makes.
+C. C. Ask for the role before adding a repository, in the Add form.
+
+## What I had to decide
+
+Where the tab's writes go (ADR-0095's client, controller, service, repository, inside the slice's territory), and what a freshly added repository's link holds.
+
+## What I did meanwhile
+
+Four routes under apps/galaxy/app/app/products/[id]/repositories/: POST and DELETE links, POST and DELETE approvers (src/product-repositories/repositories-tab.controller.ts), rather than under app/api/products/, which is s4's and s5's ground. The Approvers list's writes moved there too, so src/products/approvers.ts and approvers-load.ts leave the layering baseline. Add a repository writes the link with no role, its own knowledge base, not read only and consuming nothing; the owner then sets its fields and saves the row whole.
+
+## What it costs to change later
+
+Moving the routes under /api is a rename of two folders and of two paths in the contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec and ADR-0095 do not say where a page's own write routes live when the plan gives /api/products to other slices.
+
+```
+
+<!-- /omni-outbox-settled: s11-03-tab-writes-through-its-own-routes -->
+
+<!-- omni-outbox-settled: s6-01-push-product-through-shared-client -->
+
+## s6-01-push-product-through-shared-client — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-push-product-through-shared-client
+prd: 1364
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+The product picked during a brainstorm needed one small change in a file outside the area agreed for this piece of work. Is that all right?
+
+## The decision, in plain words
+
+The product travels with the first upload through the kit's shared Omni page client, beside every other call to the page. The help text describes the new option in words and keeps its usage lines as they were.
+
+## The intro, for fun
+
+The product wanted a seat on the first upload, and the only bus leaves from the shared stop.
+
+## The punchline, for fun
+
+One more seat, same bus, same driver.
+
+## The options, in plain words
+
+A. Add the product to the shared client's upload call, and describe the option in the help text only
+B. Give the dossier command its own signed-in upload call that carries the product
+C. Add the option to the help usage lines too, changing the help table's own test
+
+## What I had to decide
+
+Whether pushDossier in kit/lib/ask/client.ts gains an optional product field (sent only when given), and whether --product joins the dossier usage lines in kit/lib/help/entries.ts, which kit/lib/help/entries.test.ts pins exactly.
+
+## What I did meanwhile
+
+kit/lib/ask/client.ts: pushDossier takes product and sends it only when set, as s4-03 and s5-01 did for the product calls. kit/lib/help/entries.ts: the dossier entry's detail describes --product <name>; its usage lines are unchanged, so entries.test.ts (outside this slice) still passes.
+
+## What it costs to change later
+
+A few lines: the field moves with the call; adding --product to the usage line is one string and the test's expected list.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names neither kit/lib/ask/client.ts nor kit/lib/help/entries.test.ts in s6's territory; s4-03 and s5-01 settled the shared client for the other product calls.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-push-product-through-shared-client -->
+
+<!-- omni-outbox-settled: s6-02-prd-product-line-where-dossiers-are-on -->
+
+## s6-02-prd-product-line-where-dossiers-are-on — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-prd-product-line-where-dossiers-are-on
+prd: 1364
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+The PRD lookup now shows a PRD's product. Should it show one in a repository that never sends its PRDs to the Omni page, and what should it say when the page cannot answer?
+
+## The decision, in plain words
+
+The product shows as the lookup's last line only where PRDs go to the Omni page, since that is where a product lives. When the page cannot answer, the line says the product is unknown and why, and the lookup still succeeds.
+
+## The intro, for fun
+
+Asking a PRD which product it belongs to is easy, unless it never met the page that knows.
+
+## The punchline, for fun
+
+So it only answers where the page can hear the question.
+
+## The options, in plain words
+
+A. Show the product line only where PRDs go to the Omni page, last, with unknown and the reason when the page cannot answer
+B. Always show a product line, none where PRDs do not go to the Omni page
+C. Show the product line right after the state line
+
+## What I had to decide
+
+Whether omni prd <n> prints product: none or nothing where dossier.enabled is false or ask.url is unset; where the line goes; and what it prints when the lookup fails (no sign-in, unreachable, refused).
+
+## What I did meanwhile
+
+kit/lib/dossier/product.ts: productLine() returns null where dossierSwitch() is off (no call is made), else product: <name> | none (404 reads none) | unknown (<why>). kit/bin/commands/prd.ts appends it after every other line; the exit is unchanged. kit/bin/prd.test.ts and every fixture without dossiers keep their exact output.
+
+## What it costs to change later
+
+A constant: printing product: none where dossiers are off, or moving the line, is one condition in kit/lib/dossier/product.ts and kit/bin/commands/prd.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says omni prd prints product: <name> or product: none, and says nothing of a repository with dossiers off, of an unreachable page, or of where the line goes.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-prd-product-line-where-dossiers-are-on -->
