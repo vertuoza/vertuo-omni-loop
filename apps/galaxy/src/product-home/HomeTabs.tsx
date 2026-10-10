@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { outboxTabPath } from '../dossier/page/history-at';
 import { workPath } from '../dossier/page/work';
 import { brainstormLine } from '../ideas/members/members';
-import { boardPath } from '../ideas/model';
+import { boardPath, LANES } from '../ideas/model';
 import { IDEAS } from '../ideas/words';
 import type { HomeFix, HomeIdea, HomeQuestion, HomeRoadmap, ProductHome as Home } from './product-home.service';
 
@@ -21,7 +21,11 @@ export const EMPTY = {
   questions: 'No outbox question of the product’s PRDs waits on a person.',
 } as const;
 
-const laneWord = (lane: string) => (IDEAS.lanes as Readonly<Record<string, string>>)[lane] ?? lane;
+/** An idea's lane as its board names it: Now, Next or Later; a lane no board has, as stored. */
+function laneWord(lane: string): string {
+  const known = LANES.find((l) => l === lane);
+  return known === undefined ? lane : IDEAS.lanes[known];
+}
 const day = (iso: string) => iso.slice(0, 10);
 
 function List({ label, empty, children }: { label: string; empty: string; children: ReactNode[] }) {

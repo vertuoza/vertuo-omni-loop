@@ -94,6 +94,11 @@ describe('the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs, filled
     expect(html).toContain('href="/ideas/acme/widgets"');
   });
 
+  it('names a lane no board has as it is stored', () => {
+    const home: Home = { ...EMPTY, ideas: [{ id: 'i-1', repo: 'a/b', title: 'T', pitch: 'P.', lane: 'someday', prd: null }] };
+    expect(rowsOf(render({ kind: 'home', home }, 'ideas'))).toEqual(['idea T a/b P. /omni:brainstorm \'T: P.\' someday']);
+  });
+
   it('lists the product\'s roadmaps, each with its milestone and target date, opening its page', () => {
     const html = render({ kind: 'home', home: FILLED }, 'roadmap');
     expect(current(html)).toBe('Roadmap');
