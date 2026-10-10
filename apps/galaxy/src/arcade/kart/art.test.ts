@@ -389,6 +389,21 @@ describe('the shadows and the effects', () => {
   it('keeps the shadows when motion is reduced', () => {
     expect(shadows(drawnOrder({ ...frame(WIDE), reduced: true })).length).toBe(shadows(drawnOrder()).length);
   });
+
+  it('draws no particle when motion is reduced', () => {
+    // The flash where a box is taken is the particle a race makes first: white squares on the floor (the stars are 2 by 1).
+    const flashes = (kart: ReturnType<typeof createKart>, reduced: boolean) => {
+      const r = recorder();
+      kart.draw(r.ctx, { ...frame(WIDE), reduced });
+      return r.fills.filter((f) => f.style === DEFAULT_THEME.white && f.rect[2] === f.rect[3]);
+    };
+    const kart = createKart({ seed: 3 });
+    kart.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) kart.step(new Set<Action>(), 0.05);
+    for (let t = 0; t < 12 && !kart.hud().run?.item; t += 0.05) kart.step(new Set<Action>(['a']), 0.05);
+    expect(flashes(kart, false).length).toBeGreaterThan(0);
+    expect(flashes(kart, true)).toHaveLength(0);
+  });
 });
 
 // The race tells the arcade what happened as cues (PRD 1427, slice 2), and how fast the player goes.
