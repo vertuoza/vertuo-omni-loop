@@ -545,3 +545,315 @@ One step in one workflow file.
 ```
 
 <!-- /omni-outbox-settled: s2-03-prd-product-check-not-yet-in-ci -->
+
+<!-- omni-outbox-settled: s3-01-prd-with-no-product-stays-none -->
+
+## s3-01-prd-with-no-product-stays-none — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-prd-with-no-product-stays-none
+prd: 1364
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+When a PRD has been set to no product, but its repository belongs to exactly one product, whose approvers, claims and personas does it read?
+
+## The decision, in plain words
+
+The PRD's own choice wins: a PRD with no product reads none, so any member approves it, even when its repository belongs to one product. Only a call that names no PRD, or one the server does not hold, falls back to the repository's only product.
+
+## The intro, for fun
+
+The form has a box marked No product, and somebody ticked it on purpose.
+
+## The punchline, for fun
+
+So the server believes the box instead of guessing from the address.
+
+## The options, in plain words
+
+A. A PRD with no product reads none, and any member approves it, the option built.
+B. A PRD with no product falls back to its repository's only product, so that product's approvers decide.
+C. Fall back only for a PRD born before its repository joined a product, and keep none when a person picked No product.
+
+## What I had to decide
+
+Whether a PRD whose product is none falls back to its repository's only product in the lookups, or stays with none.
+
+## What I did meanwhile
+
+Every lookup that knows its PRD reads that PRD's product, none included; a call without a PRD, or for a PRD the server does not hold, reads the repository's only product, else none.
+
+## What it costs to change later
+
+One line in the shared lookup function; switching to the fall-back changes no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists PRD, then repository, then none, but does not say whether a PRD with no product counts as having answered
+- (author) A PRD only has no product in a one-product repository when a person picked No product on its page, or when the repository joined the product after the PRD was born
+
+```
+
+<!-- /omni-outbox-settled: s3-01-prd-with-no-product-stays-none -->
+
+<!-- omni-outbox-settled: s3-02-answer-with-no-product-goes-to-the-first -->
+
+## s3-02-answer-with-no-product-goes-to-the-first — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-answer-with-no-product-goes-to-the-first
+prd: 1364
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+When a customer fact answered during a brainstorm finds no product, for a PRD with none or a repository in several products, where is it kept?
+
+## The decision, in plain words
+
+It is kept on the workspace's first product, as an answer in a repository with no product was kept before, because every fact other than a region must belong to a product.
+
+## The intro, for fun
+
+Every letter needs an address, even the ones nobody wrote one on.
+
+## The punchline, for fun
+
+Those go to the first house on the street, like they always did.
+
+## The options, in plain words
+
+A. Keep the answer on the workspace's first product, the option built.
+B. Refuse the answer and ask the agent to name the product.
+C. Let such facts belong to no product, which changes how facts are stored.
+
+## What I had to decide
+
+Where an answered customer fact that needs a product goes when the lookup finds none.
+
+## What I did meanwhile
+
+The answer takes the PRD's product, else the repository's only product, else the workspace's first product, the fall-back it had before for a repository with no product.
+
+## What it costs to change later
+
+One line in the answer function; facts already kept can be moved by a person on the business page.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a lookup with no product behaves as it does today without one; today that is the first product for an answer, so the fall-back was kept, not chosen anew
+
+```
+
+<!-- /omni-outbox-settled: s3-02-answer-with-no-product-goes-to-the-first -->
+
+<!-- omni-outbox-settled: s3-03-lookups-check-not-yet-in-ci -->
+
+## s3-03-lookups-check-not-yet-in-ci — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-lookups-check-not-yet-in-ci
+prd: 1364
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+The new check that proves how every lookup finds a product is not yet run by the automated checks on pull requests. Who adds it?
+
+## The decision, in plain words
+
+This slice did not touch the workflow file that lists the checks, because it is outside its territory; the check is written and passes locally, and one step in that workflow makes it run on every pull request.
+
+## The intro, for fun
+
+The third smoke alarm is unboxed, tested and lined up beside the other two.
+
+## The punchline, for fun
+
+The ladder is still in the wave's cupboard.
+
+## The options, in plain words
+
+A. Leave the workflow to the wave or a follow-up change, the option built.
+B. Widen this slice's territory to the workflow file and add the step here.
+
+## What I had to decide
+
+Where the workflow step that runs the new lookups check gets added.
+
+## What I did meanwhile
+
+Not added: the wave, or a follow-up change, adds one named step to the database workflow for the new check, as it did for the two checks before it.
+
+## What it costs to change later
+
+One step in one workflow file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) which slice or step of the wave owns workflow changes for new database checks
+
+```
+
+<!-- /omni-outbox-settled: s3-03-lookups-check-not-yet-in-ci -->
+
+<!-- omni-outbox-settled: s3-04-nobody-sends-the-prd-yet -->
+
+## s3-04-nobody-sends-the-prd-yet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-04-nobody-sends-the-prd-yet
+prd: 1364
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+The server can now read a PRD's own product when a call names the PRD, but the app and the kit do not send the PRD number yet. Which slice teaches them to?
+
+## The decision, in plain words
+
+The server takes the PRD as an optional extra, so everything deployed keeps working and reads the repository's only product as before; no slice of the plan sends the number yet, so a follow-up change in the app and the kit does.
+
+## The intro, for fun
+
+The new door opens for anyone who says the password.
+
+## The punchline, for fun
+
+Nobody has been told the password yet.
+
+## The options, in plain words
+
+A. Land the server side now with the PRD optional, and send it from the app and the kit in a follow-up, the option built.
+B. Add a slice to landing 2 that sends the PRD from the app's routes and the kit.
+
+## What I had to decide
+
+Whether the server change waits for the calls that send the PRD, or lands first with the PRD optional.
+
+## What I did meanwhile
+
+Landed first: the customer voice, the pitch, the constituents and an agent's link accept the PRD number, and without it read the repository's only product. Approvals already know their PRD and read its product now.
+
+## What it costs to change later
+
+One optional parameter per call in the app's routes and the kit's requests, in a later change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the plan gives the kit's calls that know their PRD to no slice of landing 2
+- (author) until they send it, a PRD in a repository of two products reads no product's claims, personas and pitch from a terminal
+
+```
+
+<!-- /omni-outbox-settled: s3-04-nobody-sends-the-prd-yet -->
