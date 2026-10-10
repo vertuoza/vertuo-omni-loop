@@ -3226,10 +3226,13 @@ export type Database = {
         Args: { p_product: string; p_workspace: string }
         Returns: Json
       }
-      business_for_repo: { Args: { p_repo: string }; Returns: Json }
+      business_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: Json
+      }
       business_for_repo_app: { Args: { p_repo: string }; Returns: Json }
       business_for_token: {
-        Args: { p_hash: string; p_repo?: string }
+        Args: { p_hash: string; p_prd?: number; p_repo?: string }
         Returns: Json
       }
       business_member_only: {
@@ -3324,6 +3327,7 @@ export type Database = {
       claim_answer: {
         Args: {
           p_kind: string
+          p_prd?: number
           p_ref: string
           p_repo: string
           p_state: string
@@ -3563,7 +3567,10 @@ export type Database = {
         Args: { p_kind: string; p_text: string }
         Returns: string
       }
-      constituents_for_repo: { Args: { p_repo: string }; Returns: Json }
+      constituents_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: Json
+      }
       constituents_for_repo_app: { Args: { p_repo: string }; Returns: Json }
       constituents_move_never_claims: { Args: never; Returns: number }
       constituents_of_product: { Args: { p_product: string }; Returns: Json }
@@ -3739,6 +3746,10 @@ export type Database = {
         Returns: string[]
       }
       link_github: { Args: never; Returns: Json }
+      lookup_product: {
+        Args: { p_prd?: number; p_repo: string; p_workspace: string }
+        Returns: string
+      }
       loop_is_silent: {
         Args: { at: string; l: Database["public"]["Tables"]["loops"]["Row"] }
         Returns: boolean
@@ -3926,7 +3937,10 @@ export type Database = {
       pitch_dossier_shipped: { Args: { p_dossier: string }; Returns: boolean }
       pitch_files: { Args: never; Returns: string[] }
       pitch_from_look: { Args: { p_look: string }; Returns: Json }
-      pitch_look_for_repo: { Args: { p_repo: string }; Returns: string }
+      pitch_look_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: string
+      }
       pitch_path_dossier: { Args: { path: string }; Returns: string }
       pitch_path_run: { Args: { path: string }; Returns: string }
       pitch_refusal: { Args: { p_pitch: Json }; Returns: string }
@@ -3945,7 +3959,10 @@ export type Database = {
         }
         Returns: string
       }
-      pitch_settings_for_repo: { Args: { p_repo: string }; Returns: Json }
+      pitch_settings_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: Json
+      }
       plan_repository_names: { Args: { p_plan: string }; Returns: string[] }
       product_add: {
         Args: { p_name: string; p_workspace: string }
