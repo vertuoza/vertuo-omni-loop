@@ -17469,11 +17469,11 @@ var error37 = () => {
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
-        const shortName10 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+        const shortName11 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
         if (sizing) {
-          return `Te ${shortName10}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+          return `Te ${shortName11}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
         }
-        return `Te ${shortName10}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+        return `Te ${shortName11}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
       }
       case "invalid_format": {
         const _issue = issue2;
@@ -27591,8 +27591,20 @@ function targetShortName(slug) {
 }
 var planSection = external_exports.object({
   guide: nullableText.default(null),
-  targets: external_exports.array(target).min(1, "at least one target")
-}).strict().superRefine(({ targets: targets2 }, issues) => {
+  targets: external_exports.array(target).min(1, "at least one target").optional(),
+  product: external_exports.string().trim().min(1).optional()
+}).strict().superRefine(({ targets: targets2, product }, issues) => {
+  if (targets2 !== void 0 && product !== void 0) {
+    issues.addIssue({
+      code: "custom",
+      path: [],
+      message: "product and targets cannot both be set \u2014 keep product to read the targets from the server, or targets to keep them here"
+    });
+  }
+  if (targets2 === void 0 && product === void 0) issues.addIssue({ code: "custom", path: ["targets"], message: "at least one target, or a product" });
+  checkTargets(targets2 ?? [], issues);
+}).transform(({ targets: targets2, ...plan2 }) => ({ ...plan2, targets: targets2 ?? [] }));
+function checkTargets(targets2, issues) {
   const seen = /* @__PURE__ */ new Set();
   const names = targets2.map(({ repo }) => targetShortName(repo));
   targets2.forEach(({ repo, knowledge: knowledge2, readAt, consumes = [] }, index) => {
@@ -27614,7 +27626,7 @@ var planSection = external_exports.object({
       issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: `only an imported target has one, and this one is ${knowledge2}` });
     }
   });
-});
+}
 var generatedEntry = external_exports.object({
   path: text2,
   from: external_exports.array(text2).min(1, "at least one source prefix"),
@@ -34679,6 +34691,11 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** PRD 1299: where `repo`'s (owner/name) new PRDs are born, `pr` or `server`, as its row on the Omni
      * page says. `../approval/flag.ts` reads the reply. @returns {Promise<{ phase0: 'pr' | 'server' }>} */
     readPhase0Flag: (repo) => call("GET", `/api/repositories/phase0?${new URLSearchParams({ repo })}`),
+    /** PRD 1364: the repository links of the product named `product`, in the workspace that lists the
+     * plan repository `repo` (owner/name); `../product/targets.ts` reads the reply.
+     * @returns {Promise<{ product: { name: string }, targets: Array<{ repo: string, role: string | null, knowledge: string,
+     *   readAt: string | null, readOnly: boolean, consumes: string[] }> }>} */
+    readProductTargets: ({ repo, product }) => call("GET", `/api/products/targets?${new URLSearchParams({ repo, product })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestProofUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/proofs/uploads", { body: { repo, prd: prd2, files } }),
@@ -52391,21 +52408,133 @@ var status4 = {
 
 // kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/product/targets.ts
+init_define_OMNI_BUNDLE();
+import { readFileSync as readFileSync76, writeFileSync as writeFileSync36 } from "node:fs";
+import { join as join98 } from "node:path";
+var PRODUCT_TARGETS_FILE = join98(LOCAL_DIR, "product-targets.json");
+var SLUG2 = /^[\w.-]+\/[\w.-]+$/;
+var COMMIT4 = /^[0-9a-f]{40}$/;
+var ProductLinkSchema = external_exports.object({
+  repo: external_exports.string().regex(SLUG2),
+  role: external_exports.string().min(1).nullable(),
+  knowledge: external_exports.enum(TARGET_KNOWLEDGE),
+  readAt: external_exports.string().regex(COMMIT4).nullable(),
+  readOnly: external_exports.boolean(),
+  consumes: external_exports.array(external_exports.string().regex(SLUG2))
+});
+var ProductTargetsSchema = external_exports.object({
+  product: external_exports.object({ name: external_exports.string().min(1) }),
+  targets: external_exports.array(ProductLinkSchema)
+});
+var TargetSchema = external_exports.object({
+  repo: external_exports.string().regex(SLUG2),
+  role: external_exports.string().min(1),
+  knowledge: external_exports.enum(TARGET_KNOWLEDGE),
+  readAt: external_exports.string().regex(COMMIT4).nullable(),
+  readOnly: external_exports.boolean(),
+  consumes: external_exports.array(external_exports.string())
+});
+var CopySchema = external_exports.object({
+  product: external_exports.string(),
+  readAt: external_exports.iso.datetime(),
+  targets: external_exports.array(TargetSchema)
+});
+var NOTHING_READ = "no targets: the server is unreachable and nothing was read yet";
+var shortName10 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function targetsOfProduct(reply, product) {
+  const parsed = ProductTargetsSchema.safeParse(reply);
+  if (!parsed.success) {
+    const issue2 = parsed.error.issues[0];
+    throw new Error(`the server answered no targets for product ${product}: ${issue2 ? `${issue2.path.join(".")} ${issue2.message}` : "out of shape"}`);
+  }
+  return parsed.data.targets.map(({ repo, role, knowledge: knowledge2, readAt, readOnly, consumes }) => {
+    if (role === null) throw new Error(`${repo} has no role in product ${product}: set it on the product page`);
+    return { repo, role, knowledge: knowledge2, readAt, readOnly, consumes: consumes.map(shortName10) };
+  });
+}
+function readCopy(root, product) {
+  let value;
+  try {
+    value = JSON.parse(readFileSync76(join98(root, PRODUCT_TARGETS_FILE), "utf8"));
+  } catch {
+    return null;
+  }
+  const kept = CopySchema.safeParse(value);
+  return kept.success && kept.data.product === product ? { readAt: kept.data.readAt, targets: kept.data.targets } : null;
+}
+function writeCopy(root, copy) {
+  ensureLocalDir(root);
+  writeFileSync36(join98(root, PRODUCT_TARGETS_FILE), `${JSON.stringify(copy, null, 2)}
+`);
+}
+var unanswered = (error62) => error62.status === null || error62.status >= 500;
+async function productTargets({ product, root, now: now2, fetchTargets }) {
+  let reply;
+  try {
+    reply = await fetchTargets();
+  } catch (error62) {
+    if (!(error62 instanceof AskCallError)) throw error62;
+    if (unanswered(error62)) {
+      const copy = readCopy(root, product);
+      if (copy === null) throw new Error(NOTHING_READ);
+      return { from: "copy", ...copy };
+    }
+    throw new Error(`the server refused the targets of product ${product} (${error62.status}): ${error62.reason ?? error62.message}`);
+  }
+  const targets2 = targetsOfProduct(reply, product);
+  writeCopy(root, { product, readAt: now2().toISOString(), targets: targets2 });
+  return { from: "server", targets: targets2 };
+}
+function lastReadLine(readAt) {
+  return `targets from the last read, ${readAt.slice(0, 10)} ${readAt.slice(11, 16)} UTC \xB7 server unreachable`;
+}
+
+// kit/bin/commands/targets.ts
 var USAGE32 = "usage: omni targets [--json]";
+async function targetList(ctx, product, io, note) {
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return "no targets: plan.product reads them from the Omni page, and ask.url is not set";
+  const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (client === null) return `no targets: no sign-in for ${credentialsHost(askUrl2)} (omni signin)`;
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni targets: no repository slug \u2014 set repo.slug in the config.");
+  try {
+    const read2 = await productTargets({
+      product,
+      root: mainCheckout(io.cwd, io.exec) ?? ctx.root,
+      now: io.now ?? (() => /* @__PURE__ */ new Date()),
+      fetchTargets: () => client.readProductTargets({ repo, product })
+    });
+    if (read2.from === "copy") println(note, lastReadLine(read2.readAt));
+    return read2.targets;
+  } catch (error62) {
+    return messageOf(error62);
+  }
+}
 var targets = {
-  run: synchronous((args, { ctx, stdout, exec, env }) => {
+  withoutContext: true,
+  async run(args, io) {
+    const { stdout, stderr, exec, env } = io;
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
     if (positional.length) throw usageError(USAGE32);
+    const ctx = loadContext(io.cwd, { exec });
     const plan2 = ctx.config.plan;
     if (!plan2) {
       println(stdout, "not a plan repository");
       return 1;
     }
-    const rows2 = readTargets(plan2.targets, { ctx, exec, env: githubEnv(ctx, { exec, env }) });
+    const list4 = plan2.product === void 0 ? plan2.targets : await targetList(ctx, plan2.product, io, flags.json ? stderr : stdout);
+    if (typeof list4 === "string") {
+      println(stdout, list4);
+      return 1;
+    }
+    const rows2 = readTargets(list4, { ctx, exec, env: githubEnv(ctx, { exec, env }) });
     if (flags.json) println(stdout, JSON.stringify(rows2, null, 2));
     else for (const line of targetsTable(rows2)) println(stdout, line);
     return rows2.every((row) => row.state === "ok") ? 0 : 1;
-  })
+  }
 };
 
 // kit/bin/commands/statusline.ts
@@ -52755,7 +52884,7 @@ var statusline = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync14 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join98 } from "node:path";
+import { join as join99 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
@@ -52777,7 +52906,7 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 // kit/bin/commands/update.ts
 var USAGE33 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync2(join98(tmpdir2(), "omni-update-"));
+  const dir = mkdtempSync2(join99(tmpdir2(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
