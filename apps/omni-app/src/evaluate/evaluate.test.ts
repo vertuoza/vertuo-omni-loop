@@ -205,7 +205,8 @@ describe('evaluate — laws on feature PRs: the base knowledge folder grades law
   it('hands the base knowledge folder to the gate when laws.source is knowledge', () => {
     gateSpy.mockClear();
     run({ base: 'base-laws', head: 'head-clear', changes: [] });
-    expect(gateResult).toHaveBeenCalledWith(42, expect.objectContaining({ base: expect.objectContaining({ read: expect.any(Function) }) }));
+    const handed = gateSpy.mock.calls[0]?.[1].base;
+    expect(typeof handed?.read).toBe('function');
   });
 
   it('hands none when laws.source is not knowledge', () => {

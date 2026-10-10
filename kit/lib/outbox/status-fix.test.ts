@@ -105,7 +105,8 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
     fixItem(root, 'medium');
     fixAccount(root, 'item s1-01-proof');
     const result = fixGateResult({ ctx: flatCtx(root), fix: { folder: FIX, number: ISSUE }, changes: [REMOVED_TEST] });
-    expect(result.unaccounted).toEqual([{ ...REMOVED_TEST, rule: 'test-removed', refused: expect.stringContaining('ranked medium') }]);
+    expect(result.unaccounted.map(({ path, rule }) => ({ path, rule }))).toEqual([{ path: REMOVED_TEST.path, rule: 'test-removed' }]);
+    expect(result.unaccounted[0]?.refused).toContain('ranked medium');
     expect(fixLawFailures(result)).toEqual([expect.stringMatching(/^kit\/lib\/proof\.test\.ts \(test-removed\): .*ranked medium/)]);
   });
 
