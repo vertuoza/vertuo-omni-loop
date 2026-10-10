@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 332" width="760" height="332">
+  <title>Where design craft gets your product's look</title>
+  <desc>Your repository holds your design tokens and theme config, your component library, your fonts and global styles, your screens and their copy, and a DESIGN.md when you have one. /omni:invade reads them and fills the design form: Product, System, Deliberate and Review. Your product wins over every general design rule. The form is read by /omni:pixel-perfect, which you type on any screen, and by /omni:do-work and /omni:visual-fix, which run the review on their own. With design.enabled false, the default, nothing runs and the loop is what it was.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <text x="20" y="22" class="dg-tag">YOUR REPOSITORY</text>
+  <rect x="23" y="37" width="200" height="160" class="dg-shadow"/>
+  <rect x="20" y="34" width="200" height="160" class="dg-box"/>
+  <text x="36" y="62" class="dg-small">design tokens, theme config</text>
+  <text x="36" y="88" class="dg-small">the component library</text>
+  <text x="36" y="114" class="dg-small">fonts, global styles</text>
+  <text x="36" y="140" class="dg-small">your screens and their copy</text>
+  <text x="36" y="166" class="dg-small">DESIGN.md, when you have one</text>
+  <path d="M228 114 L309.0 114.0" class="dg-line"/>
+  <polygon points="318,114 309.0,119.5 309.0,108.5" class="dg-head"/>
+  <text x="273" y="102" class="dg-code dg-you" text-anchor="middle">/omni:invade</text>
+  <text x="273" y="134" class="dg-small dg-muted" text-anchor="middle">fills it</text>
+  <text x="326" y="22" class="dg-tag">THE DESIGN FORM</text>
+  <rect x="329" y="37" width="200" height="160" class="dg-shadow"/>
+  <rect x="326" y="34" width="200" height="160" class="dg-box dg-key"/>
+  <text x="342" y="60" class="dg-code dg-you">Product</text>
+  <text x="342" y="77" class="dg-small dg-muted">who, where, its voice</text>
+  <text x="342" y="94" class="dg-code dg-you">System</text>
+  <text x="342" y="111" class="dg-small dg-muted">tokens, components, by path</text>
+  <text x="342" y="128" class="dg-code dg-you">Deliberate</text>
+  <text x="342" y="145" class="dg-small dg-muted">what it does on purpose</text>
+  <text x="342" y="162" class="dg-code dg-you">Review</text>
+  <text x="342" y="179" class="dg-small dg-muted">routes, widths, sign-in</text>
+  <text x="426" y="216" class="dg-small" text-anchor="middle">your product wins over</text>
+  <text x="426" y="232" class="dg-small" text-anchor="middle">every general design rule</text>
+  <path d="M532 84 L560.0 70.0" class="dg-line dg-edge-you"/>
+  <polygon points="568,66 562.4,74.9 557.5,65.1" class="dg-head dg-you"/>
+  <path d="M532 150 L559.5 159.2" class="dg-line dg-edge-agents"/>
+  <polygon points="568,162 557.7,164.4 561.2,153.9" class="dg-head dg-agents"/>
+  <rect x="577" y="37" width="166" height="58" class="dg-shadow"/>
+  <rect x="574" y="34" width="166" height="58" class="dg-box dg-key"/>
+  <text x="657" y="58" class="dg-code dg-you" text-anchor="middle">/omni:pixel-perfect</text>
+  <text x="657" y="78" class="dg-small dg-muted" text-anchor="middle">critique · audit · polish …</text>
+  <text x="657" y="110" class="dg-small dg-you" text-anchor="middle">you, on any screen</text>
+  <rect x="577" y="137" width="166" height="58" class="dg-shadow"/>
+  <rect x="574" y="134" width="166" height="58" class="dg-box"/>
+  <text x="657" y="158" class="dg-code" text-anchor="middle">/omni:do-work</text>
+  <text x="657" y="178" class="dg-code" text-anchor="middle">/omni:visual-fix</text>
+  <text x="657" y="210" class="dg-small dg-agents" text-anchor="middle">the loop, on its own</text>
+  <rect x="23" y="265" width="720" height="50" class="dg-shadow"/>
+  <rect x="20" y="262" width="720" height="50" class="dg-box"/>
+  <text x="40" y="284" class="dg-code">design.enabled: false</text>
+  <text x="205" y="284" class="dg-small">is the default: nothing above runs, and the loop is what it was.</text>
+  <text x="40" y="302" class="dg-small dg-muted">Set it to true to turn design craft on, false to turn it back off.</text>
+</svg>
