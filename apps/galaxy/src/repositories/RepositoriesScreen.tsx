@@ -52,7 +52,7 @@ function RepositoriesBody({ view }: { view: RepositoriesScreenView }) {
         </Notice>
       );
     case 'repositories': {
-      return <RepositoriesPage source={view.source} owner={view.owner} repositories={view.repositories} access={view.access} now={view.now} products={view.products} />;
+      return <RepositoriesPage source={view.source} owner={view.owner} repositories={view.repositories} access={view.access} now={view.now} />;
     }
   }
 }

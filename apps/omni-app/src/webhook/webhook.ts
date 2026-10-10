@@ -81,6 +81,7 @@ export const SUBSCRIBED = Object.freeze([...new Set([...Object.keys(HANDLED), ..
 const PullRefSchema = z.looseObject({
   number: PrNumberSchema.nullish(),
   head: z.looseObject({ sha: z.string().nullish() }).nullish(),
+  base: z.looseObject({ ref: z.string().nullish() }).nullish(),
 });
 
 /** The parts of a delivery the router reads; any of them may be missing. */
@@ -97,7 +98,6 @@ const PayloadSchema = z.looseObject({
     })
     .nullish(),
   pull_request: PullRefSchema.extend({
-    base: z.looseObject({ ref: z.string().nullish() }).nullish(),
     merged: z.boolean().nullish(),
     merge_commit_sha: z.string().nullish(),
     merged_at: z.string().nullish(),
@@ -192,7 +192,10 @@ export function toEvents(event: string, payload: unknown): AppEvent[] {
 /**
  * The checks' filter, pure: a check action becomes one check request per pull request it names —
  * the inbox check event for a re-run of an inbox check run, the outbox check event otherwise;
- * anything else — a `closed`, merged or not, included — becomes none.
+ * anything else — a `closed`, merged or not, included — becomes none. A pull request into another
+ * branch than the repository's default, a sub-PR into its feature branch, becomes none either
+ * (#1413): no check of the loop grades it, and each event of one cost a run. A delivery naming no
+ * default branch is sent as before.
  */
 export function toCheckRequests(event: string, delivery: unknown): CheckRequest[] {
   const payload = readPayload(delivery);
@@ -205,13 +208,16 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
   const name = event === 'check_run' && payload.check_run?.external_id === INBOX_EXTERNAL_ID ? INBOX_CHECK_EVENT : OUTBOX_CHECK_EVENT;
   const pulls =
     event === 'pull_request'
-      ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha }]
+      ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }]
       : (payload.check_run?.pull_requests ?? []).map((pull) => ({
           number: pull.number,
           sha: pull.head?.sha ?? payload.check_run?.head_sha,
+          base: pull.base?.ref,
         }));
+  const defaultBranch = payload.repository?.default_branch;
+  const intoDefault = (pull: { base: string | null | undefined }) => !defaultBranch || pull.base === defaultBranch;
 
-  return pulls.filter(isNamed).map((pull) => ({
+  return pulls.filter(intoDefault).filter(isNamed).map((pull) => ({
     name,
     data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger },
   }));
@@ -299,7 +305,7 @@ function handles(table: ActionTable, event: string, action: unknown): boolean {
 }
 
 /** A pull request named by an integer number and a head SHA. */
-function isNamed(pull: { number: PrNumber | null | undefined; sha: string | null | undefined }): pull is { number: PrNumber; sha: string } {
+function isNamed<T extends { number: PrNumber | null | undefined; sha: string | null | undefined }>(pull: T): pull is T & { number: PrNumber; sha: string } {
   return pull.number !== null && pull.number !== undefined && Boolean(pull.sha);
 }
 

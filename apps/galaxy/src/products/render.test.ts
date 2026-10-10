@@ -10,12 +10,12 @@ import { initialPitchForm, pitchFormReducer, withFont, withMusicProvider, type P
 import { ProductPage } from './ProductPage';
 import { DEMO_PRODUCTS, ProductScreen, ProductsScreen, type ProductScreenView, type ProductsScreenView } from './ProductsScreen';
 import { NO_PRODUCTS, ProductsView } from './ProductsView';
-import { DEMO_APPROVERS } from './route-view';
 
 // Settings › Products as the server renders it (PRD 859 s1, PRD 1108 s2): the list (each product a link
 // to its own page, with its look), the empty list, a product's page with its Pitch section — Look,
 // Voice, Intro / outro, Music and Length — as controls for whoever may edit the business and as text
-// for anyone else, a refusal, and every situation under the Settings tabs with Products marked.
+// for anyone else, a refusal, and every situation under the Settings tabs with Products marked. Its
+// Approvers list moved to the product home (PRD 1364 s11): the page links there.
 
 const VERTUOZA: ProductRow = { id: 'p-1', name: 'Vertuoza', look: 'arcade' };
 const OMNI: ProductRow = { id: 'p-2', name: 'Omni Loop', look: 'keynote' };
@@ -55,9 +55,9 @@ describe('the products list', () => {
 
 describe('a product\'s page, for whoever may edit the business', () => {
   it('is headed by the product, links back to the list, and has a Pitch section in five parts', () => {
-    const html = renderToStaticMarkup(createElement(ProductPage, { source: { kind: 'demo' }, editable: true, product: PITCHED, approvers: DEMO_APPROVERS }));
+    const html = renderToStaticMarkup(createElement(ProductPage, { source: { kind: 'demo' }, editable: true, product: PITCHED }));
     expect(headings(html, 1)).toEqual(['Vertuoza']);
-    expect(links(html)).toEqual([{ href: '/app/settings/products', text: '← Products' }]);
+    expect(links(html)[0]).toEqual({ href: '/app/settings/products', text: '← Products' });
     expect(headings(html, 2)).toEqual(['Pitch', 'Approvers']);
     expect(headings(html, 3)).toEqual(['Look', 'Voice', 'Intro / outro', 'Music', 'Length']);
     expect(text(html)).toContain(PITCH_HINT);
@@ -143,11 +143,22 @@ describe('a product\'s page, for whoever may edit the business', () => {
   });
 });
 
+describe('a product\'s Approvers, moved to its home (PRD 1364 s11)', () => {
+  it('says the list moved, and links to the product home\'s Repositories & approvers tab, for everyone', () => {
+    for (const editable of [true, false]) {
+      const html = renderToStaticMarkup(createElement(ProductPage, { source: { kind: 'demo' }, editable, product: PITCHED }));
+      const section = /<section[^>]*aria-labelledby="approvers-title"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '';
+      expect(text(section)).toContain('Who approves this product’s PRDs is set on its home, under Repositories & approvers.');
+      expect(links(section)).toEqual([{ href: `/app/products/${PITCHED.id}/repositories`, text: 'Open Repositories & approvers →' }]);
+      expect(section).not.toMatch(/<(select|button)\b/);
+    }
+  });
+});
+
 describe('a product\'s page, for someone who may not edit the business', () => {
   it('shows every value as text, with no control', () => {
     const pitch: PitchSettings = { ...defaultPitchSettings('keynote'), music: { provider: 'freepd', mood: 'calm' }, voice: { preset: 'playful', instructions: '' } };
-    const approvers = { ...DEMO_APPROVERS, owner: false };
-    const html = renderToStaticMarkup(createElement(ProductPage, { source: { kind: 'demo' }, editable: false, product: { ...OMNI, pitch }, approvers }));
+    const html = renderToStaticMarkup(createElement(ProductPage, { source: { kind: 'demo' }, editable: false, product: { ...OMNI, pitch } }));
     expect(html).not.toMatch(/<(select|input|textarea|button|form)\b/);
     expect(headings(html, 3)).toEqual([]);
     const shown = text(html);
@@ -171,7 +182,7 @@ describe('the screens', () => {
     ];
     const pages: ProductScreenView[] = [
       { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' }, { kind: 'not-found' },
-      { kind: 'product', source: { kind: 'demo' }, editable: true, product: { ...sure(DEMO_PRODUCTS[0], 'the first demo product'), pitch: defaultPitchSettings('arcade') }, approvers: null },
+      { kind: 'product', source: { kind: 'demo' }, editable: true, product: { ...sure(DEMO_PRODUCTS[0], 'the first demo product'), pitch: defaultPitchSettings('arcade') } },
     ];
     const htmls: [string, string][] = [
       ...lists.map((view): [string, string] => [view.kind, renderToStaticMarkup(createElement(ProductsScreen, { view }))]),

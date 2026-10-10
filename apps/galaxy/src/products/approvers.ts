@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
-// A product's Approvers list (PRD 1322 s1), on its page at Settings › Products › <product>: members of
-// the workspace, each asked to approve the product's PRDs or skipped
-// (supabase/migrations/20261124090000_product_approvers.sql). Once anyone is asked, only the asked may
-// approve (dossier_approve()); before, any member may, as PRD 1299 had it. Every member reads the list;
-// only a workspace owner changes it, through product_approver_set() and product_approver_remove() as
-// the signed-in person. In the demo, the same rules kept in memory.
+// A product's Approvers list (PRD 1322 s1) as pure data, on its home's Repositories & approvers tab
+// (PRD 1364 s11, src/product-repositories/): members of the workspace, each asked to approve the
+// product's PRDs or skipped (supabase/migrations/20261124090000_product_approvers.sql). Once anyone is
+// asked, only the asked may approve (dossier_approve()); before, any member may, as PRD 1299 had it.
+// Every member reads the list; only a workspace owner changes it, through the tab's routes
+// (src/product-repositories/repositories-tab.controller.ts), which call product_approver_set() and
+// product_approver_remove() as the signed-in person.
 
 export const APPROVER_STATES = [
   { value: 'asked', label: 'Asked to approve' },
@@ -92,64 +92,8 @@ export function approversReducer(form: ApproversForm, action: ApproversAction): 
   }
 }
 
-// ── The calls ──
-
-export type SetApprover = { ok: true; state: ApproverState } | { ok: false; message: string };
-export type RemoveApprover = { ok: true } | { ok: false; message: string };
-
-export interface ApproversPort {
-  /** Lists a member of the workspace as asked or skipped, or changes their state. */
-  set(member: string, state: ApproverState): Promise<SetApprover>;
-  /** Takes a member off the list. */
-  remove(member: string): Promise<RemoveApprover>;
-}
+// ── What a refused change says ──
 
 export const NOT_OWNER = 'Only a workspace owner can change who approves this product’s PRDs.';
 export const NOT_MEMBER = 'That person is not a member of this workspace any more. Reload the page.';
 export const GONE = 'That product is no longer in this workspace. Reload the page.';
-export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
-
-/** An error as PostgREST answers it, or anything thrown, as the page says it. */
-function refusalOf(error: unknown): string {
-  const code = propertyOf(error, 'code');
-  if (code === '42501') return NOT_OWNER;
-  if (code === '22023') return NOT_MEMBER;
-  if (code === 'P0002') return GONE;
-  return COULD_NOT_SAVE;
-}
-
-const SetAnswer = z.object({ state: ApproverState });
-
-type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
-
-export function databaseApprovers(db: Rpc, product: string): ApproversPort {
-  return {
-    async set(member, state) {
-      try {
-        const { data, error } = await db.rpc('product_approver_set', { p_product: product, p_member: member, p_state: state });
-        const answer = SetAnswer.safeParse(data);
-        if (error || !answer.success) return { ok: false, message: refusalOf(error) };
-        return { ok: true, state: answer.data.state };
-      } catch (err) {
-        return { ok: false, message: refusalOf(err) };
-      }
-    },
-    async remove(member) {
-      try {
-        const { data, error } = await db.rpc('product_approver_remove', { p_product: product, p_member: member });
-        if (error || typeof data !== 'boolean') return { ok: false, message: refusalOf(error) };
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, message: refusalOf(err) };
-      }
-    },
-  };
-}
-
-/** product_approver_set()'s and product_approver_remove()'s rules, over the demo's members. */
-export function demoApprovers(members: readonly Member[]): ApproversPort {
-  return {
-    set: (member, state) => Promise.resolve(members.some((m) => m.id === member) ? { ok: true, state } : { ok: false, message: NOT_MEMBER }),
-    remove: () => Promise.resolve({ ok: true }),
-  };
-}

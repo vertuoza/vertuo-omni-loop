@@ -490,6 +490,38 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(firstLine(`kit: 1\nplan:\n  repos: []\n  targets:\n${target(OWN)}\n`)).toMatch(/: plan: .*unrecognized: repos/);
   });
 
+  describe('plan.product in place of plan.targets (PRD 1364, s4)', () => {
+    it('reads a product name, trimmed, and gives an empty targets list: the targets are read from the server', () => {
+      expect(parseConfig('kit: 1\nplan:\n  guide: docs/repos.md\n  product: " Mobile "\n').plan).toEqual({
+        guide: 'docs/repos.md',
+        product: 'Mobile',
+        targets: [],
+      });
+      const bare = parseConfig('kit: 1\nplan:\n  product: Mobile\n').plan;
+      assertDefined(bare, 'the plan');
+      expect(bare.guide).toBeNull();
+      expect(bare.targets).toEqual([]);
+    });
+
+    it('keeps a config with targets free of any product key', () => {
+      const parsed = parseConfig(plan([OWN])).plan;
+      assertDefined(parsed, 'the plan');
+      expect(Object.hasOwn(parsed, 'product')).toBe(false);
+    });
+
+    it('refuses product and targets together, naming both', () => {
+      expect(firstLine(`kit: 1\nplan:\n  product: Mobile\n  targets:\n${target(OWN)}\n`)).toBe(
+        'c.yml is not a valid Omni Loop config: plan: product and targets cannot both be set — keep product to read the targets from the server, or targets to keep them here',
+      );
+    });
+
+    it('refuses a blank product, and a plan section with neither', () => {
+      expect(firstLine('kit: 1\nplan:\n  product: "  "\n')).toMatch(/: plan\.product: /);
+      expect(firstLine('kit: 1\nplan:\n  product: 7\n')).toMatch(/: plan\.product: /);
+      expect(firstLine('kit: 1\nplan:\n  guide: null\n')).toBe('c.yml is not a valid Omni Loop config: plan.targets: at least one target, or a product');
+    });
+  });
+
   describe('readOnly and consumes on a target (PRD 1162)', () => {
     it('reads a target without them as today: neither key at all', () => {
       const parsed = parseConfig(plan([OWN, NONE])).plan;
@@ -522,6 +554,12 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
       );
       expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }, IMPORTED]))).toMatch(
         /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(back\)/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }, IMPORTED, NONE]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(back, legacy\)$/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(none\)$/,
       );
     });
   });

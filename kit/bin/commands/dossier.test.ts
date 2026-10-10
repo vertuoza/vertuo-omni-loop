@@ -412,3 +412,66 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     expect(await run(['link', '7', '--kind', 'visual'], { root, fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
   });
 });
+
+describe('omni dossier push --product (PRD 1364)', () => {
+  const SPEC = '---\nprd: 7\ntitle: Team inbox\nblocked-by: none\nspec: file\n---\n\n# Team inbox\n';
+
+  /** A fetch that keeps each call's body and answers with `reply()`. */
+  function recordingFetch(reply: () => Response) {
+    const bodies: unknown[] = [];
+    const fetch = (_url: string, init: FetchInit) => {
+      bodies.push(init.body === undefined ? undefined : JSON.parse(init.body));
+      return Promise.resolve(reply());
+    };
+    return { bodies, fetch };
+  }
+
+  async function run(args: string[], { root, fetch }: { root: string; fetch: unknown }) {
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = await main(['dossier', ...args], {
+      cwd: root, tokens: signedIn(), env: {}, fetch,
+      stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
+    });
+    return { code, out: out.join(''), err: err.join('') };
+  }
+
+  const pushed = () => json(200, { id: 'd-1', url: LINK, added: [{ kind: 'spec', version: 1 }], unchanged: [], product: 'Mobile' });
+
+  it('sends the product a PRD\'s push names, so the server can apply the birth rule, and prints what it printed before', async () => {
+    const { root, write } = checkout();
+    write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
+    const { bodies, fetch } = recordingFetch(pushed);
+    expect(await run(['push', '7', '--product', 'Mobile'], { root, fetch })).toEqual({ code: 0, out: `${LINK}\nadded: spec v1\n`, err: '' });
+    expect(bodies).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', product: 'Mobile', artifacts: [{ kind: 'spec', content: SPEC }] }]);
+  });
+
+  it('sends the product again when the draft is gone and the push goes by the key', async () => {
+    const { root, write } = checkout({ record: [RECORD[0]] });
+    write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
+    let first = true;
+    const { bodies, fetch } = recordingFetch(() => {
+      if (!first) return pushed();
+      first = false;
+      return json(404, { error: 'No such draft dossier.' });
+    });
+    expect((await run(['push', '7', '--product', 'Estimates'], { root, fetch })).code).toBe(0);
+    expect(bodies.map((body) => (body as { product?: unknown }).product)).toEqual(['Estimates', 'Estimates']);
+  });
+
+  it('exits 2 with one line and calls nothing for a product on a fix, a concept, a link, open or status, or a blank one', async () => {
+    const { root, write } = checkout();
+    write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
+    const { bodies, fetch } = recordingFetch(pushed);
+    for (const args of [
+      ['push', '548', '--kind', 'visual', '--product', 'Mobile'], ['push', '1269', '--kind', 'concept', '--product', 'Mobile'],
+      ['link', '7', '--product', 'Mobile'], ['open', 'An idea', '--product', 'Mobile'], ['status', '--product', 'Mobile'],
+      ['push', '7', '--product', ' '], ['push', '7', '--product'],
+    ]) {
+      const result = await run(args, { root, fetch });
+      expect(result.code, JSON.stringify(args)).toBe(2);
+      expect(result.err.trim().split('\n'), JSON.stringify(args)).toHaveLength(1);
+    }
+    expect(bodies).toEqual([]);
+  });
+});

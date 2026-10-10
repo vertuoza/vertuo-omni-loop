@@ -196,7 +196,7 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
     expect(body).toEqual({
       id: A_STRING, url: `https://omni.example/prd/${body.id}`,
       added: [{ kind: 'spec', version: 1 }, { kind: 'plan', version: 1 }, { kind: 'before-after', version: 1 }],
-      unchanged: [],
+      unchanged: [], product: null,
     });
     expect(w.dossier(body.id)).toMatchObject({ home_repo: 'acme/widgets', prd: 7, title: 'Team inbox', opened_by: ADA.id, numbered_at: A_STRING });
     expect(w.versions(body.id).map(({ kind, source, uploaded_by }) => ({ kind, source, uploaded_by }))).toEqual([
@@ -403,7 +403,7 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
     const made = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox' });
     const { status, body } = await w.find('?repo=acme/widgets&prd=7', { headers: { 'x-forwarded-host': 'omni.vertuoza.dev', 'x-forwarded-proto': 'https' } });
     expect(status).toBe(200);
-    expect(body).toEqual({ id: made.id, url: `https://omni.vertuoza.dev/prd/${made.id}` });
+    expect(body).toEqual({ id: made.id, url: `https://omni.vertuoza.dev/prd/${made.id}`, product: null });
   });
 
   it('compares the repository lower-cased', async () => {
@@ -500,7 +500,7 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     expect(body).toEqual({
       id: A_STRING, url: `https://omni.example/visual/${body.id}`,
       added: [{ kind: 'before-after', version: 1 }, { kind: 'variations', version: 1 }, { kind: 'variations', version: 2 }],
-      unchanged: [],
+      unchanged: [], product: null,
     });
     expect(w.dossier(body.id)).toMatchObject({ kind: 'visual', prd: 7, title: 'Sidebar darker' });
 
@@ -564,10 +564,10 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     const prd = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox' });
     const visual = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), kind: 'visual', title: 'Sidebar' });
     const bug = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(571), kind: 'bug', title: 'Numbers' });
-    expect((await w.find('?repo=acme/widgets&prd=7')).body).toEqual({ id: prd.id, url: `https://omni.example/prd/${prd.id}` });
+    expect((await w.find('?repo=acme/widgets&prd=7')).body).toEqual({ id: prd.id, url: `https://omni.example/prd/${prd.id}`, product: null });
     expect((await w.find('?repo=acme/widgets&prd=7&kind=prd')).body.id).toBe(prd.id);
-    expect((await w.find('?repo=acme/widgets&prd=7&kind=visual')).body).toEqual({ id: visual.id, url: `https://omni.example/visual/${visual.id}` });
-    expect((await w.find('?repo=acme/widgets&prd=571&kind=bug')).body).toEqual({ id: bug.id, url: `https://omni.example/bugs/${bug.id}` });
+    expect((await w.find('?repo=acme/widgets&prd=7&kind=visual')).body).toEqual({ id: visual.id, url: `https://omni.example/visual/${visual.id}`, product: null });
+    expect((await w.find('?repo=acme/widgets&prd=571&kind=bug')).body).toEqual({ id: bug.id, url: `https://omni.example/bugs/${bug.id}`, product: null });
     expect((await w.find('?repo=acme/widgets&prd=571')).status).toBe(404);
     for (const query of ['?repo=acme/widgets&prd=7&kind=epic', '?repo=acme/widgets&prd=7&kind=']) {
       expect((await w.find(query)).status, query).toBe(400);
@@ -595,7 +595,7 @@ describe('a concept is a dossier with a kind (PRD 1272)', () => {
         { kind: 'concept-record', version: 1 }, { kind: 'vision', version: 1 },
         { kind: 'board', version: 1 }, { kind: 'board', version: 2 }, { kind: 'debate', version: 1 },
       ],
-      unchanged: [],
+      unchanged: [], product: null,
     });
     expect(w.dossier(body.id)).toMatchObject({ kind: 'concept', prd: 1269, title: 'Products' });
   });
@@ -636,8 +636,63 @@ describe('a concept is a dossier with a kind (PRD 1272)', () => {
   it('a lookup finds a concept by its issue, linked under /concepts', async () => {
     const w = world();
     const pushed = (await w.push(CONCEPT)).body.id;
-    expect((await w.find('?repo=acme/widgets&prd=1269&kind=concept')).body).toEqual({ id: pushed, url: `https://omni.example/concepts/${pushed}` });
+    expect((await w.find('?repo=acme/widgets&prd=1269&kind=concept')).body).toEqual({ id: pushed, url: `https://omni.example/concepts/${pushed}`, product: null });
     expect((await w.find('?repo=acme/widgets&prd=1269')).status).toBe(404);
+  });
+});
+
+describe('a PRD is born with its product (PRD 1364)', () => {
+  const PRD7 = { ...PUSH, artifacts: [{ kind: 'spec', content: SPEC }] };
+
+  it('takes the repository\'s only product, with no question and no product named', async () => {
+    const w = world();
+    w.fake.seedProduct('Mobile', ['acme/widgets']);
+    const { status, body } = await w.push(PRD7);
+    expect(status).toBe(200);
+    expect(body.product).toBe('Mobile');
+    expect((await w.find('?repo=acme/widgets&prd=7')).body.product).toBe('Mobile');
+  });
+
+  it('takes the one a first push names, in any case, in a repository of several products, and a later push never changes it', async () => {
+    const w = world();
+    w.fake.seedProduct('Mobile', ['acme/widgets']);
+    w.fake.seedProduct('Estimates', ['acme/widgets']);
+    expect((await w.push({ ...PRD7, product: ' estimates ' })).body.product).toBe('Estimates');
+    expect((await w.push({ ...PUSH, product: 'Mobile' })).body.product).toBe('Estimates');
+    expect((await w.find('?repo=acme/widgets&prd=7')).body.product).toBe('Estimates');
+  });
+
+  it('has none in a repository of several products when the push names none, or one the repository is not in', async () => {
+    const w = world();
+    w.fake.seedProduct('Mobile', ['acme/widgets']);
+    w.fake.seedProduct('Estimates', ['acme/widgets']);
+    w.fake.seedProduct('Billing', ['acme/ledger']);
+    expect((await w.push(PRD7)).body.product).toBeNull();
+    expect((await w.push({ ...PRD7, prd: 8, product: 'Billing' })).body.product).toBeNull();
+  });
+
+  it('has none in a repository of no product, whatever the push names', async () => {
+    const w = world();
+    w.fake.seedProduct('Mobile', ['acme/other']);
+    expect((await w.push({ ...PRD7, product: 'Mobile' })).body.product).toBeNull();
+    expect((await w.find('?repo=acme/widgets&prd=7')).body.product).toBeNull();
+  });
+
+  it('refuses 400 a product that is not a name of 1 to 80 characters, or named on a fix\'s or a concept\'s push, and writes nothing', async () => {
+    const w = world();
+    for (const product of ['', '   ', 'x'.repeat(81), 7, ['Mobile'], { name: 'Mobile' }]) {
+      const { status, body } = await w.push({ ...PRD7, product });
+      expect(status).toBe(400);
+      expect(body.error).toMatch(/product/);
+    }
+    const fix = await w.push({ repo: 'acme/widgets', prd: 548, kind: 'bug', title: 'Links', product: 'Mobile', artifacts: [{ kind: 'bug-record', content: '# Bug' }] });
+    expect(fix).toEqual({ status: 400, body: { error: 'A bug dossier has no product to name: only a PRD\'s push names one.' } });
+    expect(w.fake.tables.dossiers).toEqual([]);
+  });
+
+  it('takes a product sent as null as none named', async () => {
+    const w = world();
+    expect((await w.push({ ...PRD7, product: null })).status).toBe(200);
   });
 });
 
