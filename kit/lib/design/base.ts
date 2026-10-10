@@ -1,11 +1,12 @@
 // PRD 1369: the base `omni design touched` diffs against when none is given — the branch's own base:
 // on a slice branch (`branches.slice`), its feature branch on the remote; on any other branch, the
 // remote default branch.
+import type { Config } from '../types.ts';
 
 /** What the base reads of the config. */
 type BaseConfig = {
-  readonly repo: { readonly remote: string; readonly defaultBranch: string };
-  readonly branches: { readonly feature: string; readonly slice: string };
+  readonly repo: Pick<Config['repo'], 'remote' | 'defaultBranch'>;
+  readonly branches: Pick<Config['branches'], 'feature' | 'slice'>;
 };
 
 /** The slice template as an anchored pattern whose first group is the topic. */
