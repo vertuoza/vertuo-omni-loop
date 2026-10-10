@@ -21,7 +21,8 @@ describe('the calls', () => {
     expect(await client.saveLink(write)).toEqual({ ok: true, link: LINK });
     expect(sent[0]?.url).toBe(`/app/products/${PRODUCT}/repositories/links`);
     expect(sent[0]?.init).toMatchObject({ method: 'POST', credentials: 'same-origin' });
-    expect(JSON.parse(String(sent[0]?.init.body))).toEqual(write);
+    const body = sent[0]?.init.body;
+    expect(typeof body === 'string' ? JSON.parse(body) : null).toEqual(write);
   });
 
   it('removes a link and an approver with a DELETE naming it, and sets an approver with a POST', async () => {

@@ -50,7 +50,7 @@ describe('the demo\'s port', () => {
   it('keeps the database\'s rules on a link', async () => {
     const port = demoTabPort([link('acme/api', { addedBy: 'prd' })]);
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), role: 'Web App' })).toEqual({ ok: false, message: 'Role: Web App is not one kebab-case word.' });
-    expect(await port.saveLink({ ...newLinkWrite('acme/web'), knowledge: 'imported' })).toMatchObject({ ok: false, message: expect.stringContaining('Read at:') });
+    expect(await port.saveLink({ ...newLinkWrite('acme/web'), knowledge: 'imported' })).toEqual({ ok: false, message: 'Read at: an imported knowledge base names the commit it was read at.' });
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), readAt: 'abc' })).toMatchObject({ ok: false, message: 'Read at: abc is not a 40-hex commit.' });
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), consumes: ['acme/web'] })).toMatchObject({ ok: false, message: 'Consumes: acme/web cannot consume itself.' });
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), consumes: ['acme/zed'] })).toMatchObject({ ok: false, message: 'Consumes: acme/zed is not in this product.' });

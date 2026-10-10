@@ -33,7 +33,7 @@ describe('the page\'s view', () => {
   it('answers the session\'s own situation without reading, and the demo\'s product in the demo', async () => {
     const tab = vi.fn();
     for (const kind of ['closed', 'sign-in'] as const) {
-      expect(await repositoriesTabViewOf({ kind } as MemberSession, PRODUCT, deps({ tab }))).toEqual({ kind });
+      expect(await repositoriesTabViewOf({ kind }, PRODUCT, deps({ tab }))).toEqual({ kind });
     }
     expect(tab).not.toHaveBeenCalled();
     expect(await repositoriesTabViewOf({ kind: 'demo' }, 'demo-product-1', deps())).toMatchObject({ kind: 'tab', source: { kind: 'demo' }, tab: { product: { name: 'Widgets' } } });
