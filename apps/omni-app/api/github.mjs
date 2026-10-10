@@ -728,10 +728,13 @@ var ConfigSchema = z7.object({
   // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
   // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
   // repository paths where the screens, styles, tokens and components live; `omni design touched`
-  // matches a diff against them (`kit/lib/design/`).
+  // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
+  // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
+  // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in.
   design: section({
     enabled: z7.boolean().default(false),
-    paths: z7.array(text2).default([])
+    paths: z7.array(text2).default([]),
+    screens: nullableText.default(null)
   }),
   markers: section({ prefix: z7.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
@@ -761,6 +764,9 @@ var ConfigSchema = z7.object({
     });
   }
 });
+function designScreensDir({ paths, design }) {
+  return design.screens ?? `${paths.knowledge.replace(/\/+$/, "")}/design/screens/`;
+}
 var isRecord = (value) => value !== null && typeof value === "object";
 var RENAMED = Object.freeze([{ section: "branches", from: "terraform", to: "invade" }]);
 function renamedKey(raw) {
@@ -824,7 +830,8 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknow
 ${others.map((line) => `  - ${line}`).join("\n")}` : "";
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
-  return result.data;
+  const config = result.data;
+  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
 }
 
 // apps/omni-app/src/outbox-check/github-schema.ts
@@ -1045,7 +1052,7 @@ var FORMS = Object.freeze([
   form("releasing", "extended", [req("publishes"), opt("how"), opt("rollback"), opt("notes")]),
   form("bug-fixing", "extended", [req("steps"), opt("guard")]),
   form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
-  form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review")]),
+  form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review"), opt("language")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
 var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
