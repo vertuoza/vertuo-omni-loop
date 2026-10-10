@@ -38,6 +38,13 @@ Game Boy's buttons on a phone (design:
 - The music and sounds are generated in the browser, SNES style: two pulse leads, a triangle bass,
   noise drums and one echo (`src/arcade/sound.ts`), playing songs written as note strings
   (`src/arcade/score.ts`). No audio files.
+- OMNI KART sounds like a race. The effects: the countdown's beeps and GO, one sound per item (BOOST,
+  BLOB, ORB), a box, a hit, a spin-out, a wall scrape and the FINAL LAP jingle; a rival's are quieter
+  and lower the farther it is, and silent beyond 20 tiles. The music: nothing on the ready screen or
+  the countdown, the `race` tune from GO, the `lastLap` tune (the same, faster) after the FINAL LAP
+  jingle, nothing while paused, and the arcade's fanfare on the results. The engine: one quiet hum
+  under the music whose pitch follows your speed, from a low note at rest to an octave above at top
+  speed. M mutes all of it, and leaving the cabinet stops it.
 
 ## HOME at `/`, the arcade at `/play`
 

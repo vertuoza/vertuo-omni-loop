@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MASCOTS } from '@omni/design';
-import { farOf, motif, setMuted, sfx, unlock, writtenMotif, type Sfx } from './sound';
+import { engine, engineHz, farOf, motif, setMuted, sfx, unlock, writtenMotif, type Sfx } from './sound';
 import { sure } from './test/sure';
 
 // A fleet's motif is keyed by its mascot, never by its name (PRD 400): a workspace names its own
@@ -213,5 +213,48 @@ describe('the race\'s effects', () => {
     expect(master.target).toBe(0);
     setMuted(false);
     expect(master.target).toBeGreaterThan(0);
+  });
+});
+
+describe('the engine hum (PRD 1427)', () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { AudioContext: FakeAudio });
+    unlock();
+  });
+  afterAll(() => { engine(null); vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it('hums low at rest and an octave above at top speed, rising in between', () => {
+    expect(engineHz(1)).toBeCloseTo(2 * engineHz(0), 6);
+    expect(engineHz(0.5)).toBeGreaterThan(engineHz(0));
+    expect(engineHz(0.5)).toBeLessThan(engineHz(1));
+    expect(engineHz(5)).toBe(engineHz(1));
+    expect(engineHz(-1)).toBe(engineHz(0));
+  });
+
+  it('starts one oscillator, follows the level with it, and stops on null', () => {
+    audio.oscs = [];
+    engine(0);
+    engine(0.6);
+    expect(audio.oscs).toHaveLength(1);
+    const osc = sure(audio.oscs[0], 'the engine oscillator');
+    expect(osc.frequency.value).toBeCloseTo(engineHz(0), 6);
+    expect(osc.frequency.target).toBeCloseTo(engineHz(0.6), 6);
+    const hum = sure(audio.gains.at(-1), 'the engine gain').gain;
+    engine(null);
+    expect(hum.target).toBe(0);
+    engine(null);
+    engine(0.2);
+    expect(audio.oscs).toHaveLength(2);
+    engine(null);
+  });
+
+  it('sounds nothing when muted: the hum goes through the master', () => {
+    const master = sure(audio.gains[0], 'the master gain').gain;
+    setMuted(true);
+    engine(0.5);
+    expect(master.target).toBe(0);
+    engine(null);
+    setMuted(false);
   });
 });

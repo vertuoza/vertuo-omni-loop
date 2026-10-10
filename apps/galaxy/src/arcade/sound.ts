@@ -264,6 +264,40 @@ export function farOf(far: number): { level: number; pitch: number } {
   return f === 0 ? { level: 1, pitch: 1 } : { level: RIVAL_LOUD * (1 - f), pitch: 1 - (1 - RIVAL_LOW) * f };
 }
 
+// The engine's hum (PRD 1427), by ear and in one place: ENGINE_HZ at rest, an octave above at level 1, quiet under the music.
+const ENGINE_HZ = 55;
+const ENGINE_GAIN = 0.03;
+let hum: { osc: OscillatorNode; gain: GainNode } | null = null;
+
+/** The pitch of the engine at a level, 0 (at rest) to 1 (top speed): a low hum, rising to an octave above. */
+export const engineHz = (level: number): number => ENGINE_HZ * 2 ** Math.min(1, Math.max(0, level));
+
+/** The engine's hum under the music, its pitch following `level` (0 to 1); `null` stops it. Muted, the master is silent, so it does not sound. */
+export function engine(level: number | null) {
+  if (!ac) return;
+  const now = ac.currentTime;
+  if (level === null) {
+    if (!hum) return;
+    const old = hum;
+    hum = null;
+    old.gain.gain.setTargetAtTime(0, now, 0.05);
+    old.osc.stop(now + 0.4);
+    setTimeout(() => { old.osc.disconnect(); old.gain.disconnect(); }, 500);
+    return;
+  }
+  if (!hum) {
+    const osc = ac.createOscillator(), gain = ac.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = engineHz(level);
+    gain.gain.value = ENGINE_GAIN;
+    osc.connect(gain); gain.connect(master);
+    osc.start(now);
+    hum = { osc, gain };
+    return;
+  }
+  hum.osc.frequency.setTargetAtTime(engineHz(level), now, 0.08);
+}
+
 /** One of OMNI KART's effects: written for the player, `p` times lower when it is a rival's. */
 type KartVoice = (o: AudioNode, t: number, p: number) => void;
 
