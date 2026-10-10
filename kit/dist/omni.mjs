@@ -41402,6 +41402,16 @@ function formatTouched(touched2) {
       return ["ui: yes", ...touched2.paths.map((path) => `  ${path}`)];
   }
 }
+function screensTouched(screens2, changed) {
+  return screens2.filter((screen) => screen.implements.some((glob) => changed.some((path) => matchesGlob(glob, path))));
+}
+function screenLabel({ screen, status: status5, routes }) {
+  const mark = status5 === "locked" ? " \u{1F512}" : ` (${status5})`;
+  return `${screen}${mark}${routes.length ? ` (${routes.join(", ")})` : ""}`;
+}
+function formatScreensTouched(screens2) {
+  return screens2.length ? [`screens: ${screens2.map(screenLabel).join(" \xB7 ")}`] : [];
+}
 
 // kit/bin/commands/design.ts
 var USAGE13 = "usage: omni design touched [<base>] | omni design screens | omni design words <page.html>\u2026";
@@ -41415,15 +41425,16 @@ function currentBranch2({ ctx, exec }) {
 }
 function touched(io, given) {
   const { design: design2 } = io.ctx.config;
-  if (!design2.enabled) return designTouched(design2, []);
+  if (!design2.enabled) return formatTouched(designTouched(design2, []));
   const base = given ?? defaultDesignBase(currentBranch2(io), io.ctx.config);
   let changed;
   try {
     changed = branchPaths(io.ctx.root, base, io.exec);
   } catch {
-    return { ui: "unknown", reason: `cannot read ${base} \u2014 fetch it or pass another base` };
+    return formatTouched({ ui: "unknown", reason: `cannot read ${base} \u2014 fetch it or pass another base` });
   }
-  return designTouched(design2, changed);
+  const { screens: library } = readScreens(join53(io.ctx.root, designScreensDir(io.ctx.config)));
+  return [...formatTouched(designTouched(design2, changed)), ...formatScreensTouched(screensTouched(library, changed))];
 }
 function screens({ ctx }) {
   if (!ctx.config.design.enabled) return ["design: off"];
@@ -41463,7 +41474,7 @@ function words(io, pages) {
   });
 }
 var VERBS = {
-  touched: (io, operands2) => operands2.length > 1 ? null : formatTouched(touched(io, operands2[0])),
+  touched: (io, operands2) => operands2.length > 1 ? null : touched(io, operands2[0]),
   screens: (io, operands2) => operands2.length > 0 ? null : screens(io),
   words: (io, operands2) => operands2.length === 0 ? null : words(io, operands2)
 };
