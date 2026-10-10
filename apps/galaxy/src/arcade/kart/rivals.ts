@@ -3,7 +3,7 @@
 // along it. Pure and seeded, like race.ts, which plays all of it.
 import type { Tint } from '@omni/design';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { driveKart, type Kart, type Pad } from './kart';
+import { NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
 import { LAPS, type Track } from './track';
 
@@ -14,12 +14,12 @@ export interface Driver { sprite: string; tint: Tint | null; color: string | nul
 export interface Pace { laps: number; passed: number }
 
 /** A rival: its driver, its kart, where it is in the race, how fast it can go (a share of the player's top speed) and how far it drives off the line. */
-export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number; /** The race clock at which it crossed the line at the end of the last lap; none while it races. */ doneAt?: number | null }
+export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number; /** What it holds and what is on it (items.ts); none while it is plain. */ fx?: Fx; /** The race clock at which it crossed the line at the end of the last lap; none while it races. */ doneAt?: number | null }
 
 export const START_PACE: Pace = Object.freeze({ laps: 0, passed: 0 });
 
 /** One draw of a seeded generator (mulberry32): a number in [0, 1), and the next state. */
-function draw(state: number): [number, number] {
+export function draw(state: number): [number, number] {
   const s = (state + 0x6d2b79f5) | 0;
   let t = Math.imul(s ^ (s >>> 15), 1 | s);
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
@@ -87,8 +87,8 @@ export const lapOf = (pace: Pace): number => Math.min(pace.laps + 1, LAPS);
 
 const turn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
-/** What a rival's hands do: steer at the point it aims at (the next waypoint, off the line by its offset), and ease off in a sharp turn. */
-function rivalPad(track: Track, r: Rival): Pad {
+/** How far a rival's kart must turn to face the point it aims at: the next waypoint, off the line by its offset (radians, positive to the right). */
+export function aimOf(track: Track, r: Rival): number {
   const n = track.waypoints.length;
   const i = r.pace.passed;
   const w = i < n
@@ -98,7 +98,12 @@ function rivalPad(track: Track, r: Rival): Pad {
   const dx = w.x - from.x, dy = w.y - from.y;
   const len = Math.hypot(dx, dy) || 1;
   const tx = w.x - (dy / len) * r.offset, ty = w.y + (dx / len) * r.offset;
-  const diff = turn(Math.atan2(ty - r.kart.y, tx - r.kart.x) - r.kart.angle);
+  return turn(Math.atan2(ty - r.kart.y, tx - r.kart.x) - r.kart.angle);
+}
+
+/** What a rival's hands do: steer at the point it aims at, and ease off in a sharp turn. */
+function rivalPad(track: Track, r: Rival): Pad {
+  const diff = aimOf(track, r);
   const sharp = Math.abs(diff) > RULES.rivalSharp && r.kart.speed > RULES.rivalCorner;
   return { left: diff < -RULES.rivalAim, right: diff > RULES.rivalAim, accel: !sharp, brake: sharp && Math.abs(diff) > RULES.rivalSharp * 1.6 };
 }
@@ -112,8 +117,8 @@ export function rubber(rivalProgress: number, playerProgress: number): number {
 /** One short step of a rival, the player being `playerProgress` along: it drives its kart at its own pace, and its pace follows. */
 export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number): Rival {
   const band = rubber(progressOf(track, r.pace, r.kart), playerProgress);
-  const kart = driveKart(track.map, r.kart, rivalPad(track, r), dt, r.skill * band);
-  return { ...r, kart, pace: advance(track, r.pace, r.kart, kart) };
+  const { kart, fx } = stepFx(track.map, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX);
+  return { ...r, kart, fx, pace: advance(track, r.pace, r.kart, kart) };
 }
 
 /** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap. */

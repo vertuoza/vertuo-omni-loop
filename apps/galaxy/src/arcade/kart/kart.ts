@@ -2,6 +2,7 @@
 // speed, grass, and walls that stop the speed going into them and bounce the kart off. Pure: one
 // step of a kart is one call, and the race plays `dt` as several short ones (race.ts).
 import type { Action } from '../keys';
+import type { KartItem as Item } from '../scenes/kart.ts';
 import { RULES } from './rules';
 import { TILE, tileAt } from './track';
 
@@ -93,11 +94,34 @@ function bounceOff(map: readonly string[], k: Kart): Kart {
   return kart;
 }
 
-/** One short step of a kart: the speed the pad asks for, the turn, the move, and the walls. `pace` scales its top speed (a rival's skill). */
-export function driveKart(map: readonly string[], k: Kart, pad: Pad, dt: number, pace = 1): Kart {
-  const speed = speedAfter(k.speed, pad, topSpeedAt(map, k.x, k.y) * pace, dt);
+/** One short step of a kart: the speed the pad asks for (a `boost` always asks for the gas), the turn, the move, and the walls. `pace` scales its top speed (a rival's skill). */
+export function driveKart(map: readonly string[], k: Kart, pad: Pad, dt: number, pace = 1, boost = false): Kart {
+  // A BOOST pushes past the grass: it is faster than the top speed of the road, wherever the kart stands.
+  const top = boost ? RULES.topSpeed * RULES.boostFactor * pace : topSpeedAt(map, k.x, k.y) * pace;
+  const speed = speedAfter(k.speed, boost ? { ...pad, accel: true, brake: false } : pad, top, dt);
   const dir = (pad.right ? 1 : 0) - (pad.left ? 1 : 0);
   const angle = k.angle + dir * Math.sign(speed) * turnRate(speed) * dt;
   const x = k.x + Math.cos(angle) * speed * dt, y = k.y + Math.sin(angle) * speed * dt;
   return bounceOff(map, { x, y, angle, speed, steer: dir === 0 ? 0 : dir > 0 ? 1 : -1 });
 }
+
+/** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left. */
+export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number }
+
+/** A kart with nothing held and nothing on it. */
+export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0 });
+
+const HANDS_OFF: Pad = { left: false, right: false, accel: false, brake: false };
+
+/**
+ * One short step of a kart with what is on it: a spin-out takes the input and turns the kart on itself
+ * (the speed it dropped to wears off like any other), a BOOST drives past the grass, and the timers run down.
+ * The kart's `fx` after the step is returned with it.
+ */
+export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pace: number, fx: Fx): { kart: Kart; fx: Fx } {
+  const spinning = fx.spin > 0;
+  const moved = driveKart(map, k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0);
+  const kart = spinning ? { ...moved, angle: moved.angle + RULES.spinRate * dt, steer: 0 as const } : moved;
+  return { kart, fx: { item: fx.item, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt) } };
+}
+

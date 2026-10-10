@@ -24,6 +24,7 @@
   font-size: 10px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26;
 }
 .kt-place { color: var(--yellow); }
+.kt-item { margin-left: auto; color: var(--cyan); }
 .kt-final {
   position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap;
   font-size: 18px; letter-spacing: 2px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;

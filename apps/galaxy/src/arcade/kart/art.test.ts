@@ -85,7 +85,8 @@ describe('the race\'s drawing', () => {
     expect(bands.length).toBe(4);
     expect(sure(bands[0], 'the first band').rect[1]).toBe(0);
     expect(Math.max(...bands.map((b) => (b.rect[1] ?? 0) + (b.rect[3] ?? 0)))).toBeGreaterThanOrEqual(horizon - 1);
-    expect(Math.max(...fills.map((f) => (f.rect[1] ?? 0) + (f.rect[3] ?? 0)))).toBeLessThanOrEqual(horizon);
+    // (the item boxes standing on the floor are narrower than the screen: they are not the sky)
+    expect(Math.max(...fills.filter((f) => f.rect[2] === grid.w).map((f) => (f.rect[1] ?? 0) + (f.rect[3] ?? 0)))).toBeLessThanOrEqual(horizon);
     // The floor is one buffer the size of the grid, put on a canvas once and drawn at the corner.
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ w: grid.w, h: grid.h });
@@ -300,5 +301,33 @@ describe('the view a rival is seen from', () => {
     expect(viewFacing(Math.PI * 2 - 0.8, 0)).toBe('kart-left');
     expect(viewFacing(0.1, Math.PI * 2)).toBe('kart');
     expect(viewFacing(0.1 + Math.PI * 2, 0)).toBe('kart');
+  });
+});
+
+describe('the items on the floor (slice 5)', () => {
+  it('draws the item boxes as lit squares with a question mark, only while they are there', () => {
+    const kart = createKart({ seed: 3 });
+    kart.press('start');
+    const held = new Set<Action>(['a']);
+    let seen = 0;
+    for (let t = 0; t < 12; t += 0.05) {
+      kart.step(held, 0.05);
+      if (t < 3.1) continue;
+      const { ctx, fills } = recorder();
+      kart.draw(ctx, frame(WIDE));
+      seen += fills.filter((f) => f.style === DEFAULT_THEME.yellow).length;
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('shows no item before one is taken, and draws on both grids', () => {
+    const kart = createKart({ seed: 3 });
+    kart.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) kart.step(new Set<Action>(), 0.05);
+    const { ctx } = recorder();
+    kart.press('b');
+    expect(kart.hud().run?.item).toBeNull();
+    expect(() => kart.draw(ctx, frame(WIDE))).not.toThrow();
+    expect(() => kart.draw(ctx, frame(TALL))).not.toThrow();
   });
 });

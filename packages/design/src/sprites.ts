@@ -721,6 +721,14 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
   kart: { w: 28, h: 18, draw: kartDraw(0) },
   'kart-left': { w: 28, h: 18, draw: kartDraw(-1) },
   'kart-right': { w: 28, h: 18, draw: kartDraw(1) },
+  // OMNI KART's ORB (PRD 1359): a glowing orb thrown ahead; the second frame pulses its halo.
+  orb: {
+    w: 16, h: 16,
+    draw(d, f) {
+      d.ellipse(8, 8, f ? 7.5 : 6.5, f ? 7.5 : 6.5, 'e', 0);
+      d.ellipse(8, 8, 5, 5, 'P').ellipse(8, 8, 3, 3, 'Y').px(6, 6, 'e').px(7, 6, 'e');
+    },
+  },
 });
 
 /** A kart seen from behind, leaning `lean` (-1 left, 0 straight, 1 right): the body leans over, the inside wheel lifts and the outside one digs in. */
