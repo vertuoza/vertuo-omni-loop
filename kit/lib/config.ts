@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { messageOf } from './narrow.ts';
+import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
@@ -56,6 +57,9 @@ const proofUrl = z.string().refine((value) => {
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
 // The NAME of an environment variable, never its value.
 const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET');
+
+// PRD 1407: a selector the word pass reads — tags, ids, classes and attributes, no combinator.
+const wordSelector = text.refine((value) => parseSelector(value) !== null, 'a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator');
 
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
@@ -325,10 +329,23 @@ export const ConfigSchema = z
     // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
     // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
     // repository paths where the screens, styles, tokens and components live; `omni design touched`
-    // matches a diff against them (`kit/lib/design/`).
+    // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
+    // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
+    // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in. `words` tunes the word
+    // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
+    // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
+    // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
+    // `product` section lists.
     design: section({
       enabled: z.boolean().default(false),
       paths: z.array(text).default([]),
+      screens: nullableText.default(null),
+      words: section({
+        sentence: z.number().int().positive().default(7),
+        screen: wordSelector.default('[data-screen]'),
+        primary: wordSelector.default('[data-primary]'),
+        avoid: z.array(text).default([]),
+      }),
     }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
@@ -379,6 +396,11 @@ export function dossierSwitch(config: Pick<Config, 'dossier' | 'ask'>): { on: tr
 
 /** `.omni-loop/config.yml`, parsed: `Config` in `kit/lib/types.ts`. */
 type Config = z.infer<typeof ConfigSchema>;
+
+/** The screen library's folder (PRD 1407): `design.screens`, else `design/screens/` under `paths.knowledge`. */
+export function designScreensDir({ paths, design }: { paths: Pick<Config['paths'], 'knowledge'>; design: Pick<Config['design'], 'screens'> }): string {
+  return design.screens ?? `${paths.knowledge.replace(/\/+$/, '')}/design/screens/`;
+}
 
 /** One step from a `kit:` format to the next: a raw file in, the same file one `kit:` higher out. */
 type Migration = { from: number; migrate: (raw: Record<string, unknown>) => unknown };
@@ -476,7 +498,8 @@ export function parseConfig(
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
-  return result.data;
+  const config = result.data;
+  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
 }
 
 /** Reads `<root>/.omni-loop/config.yml`. */

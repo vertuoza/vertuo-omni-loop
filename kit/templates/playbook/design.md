@@ -33,3 +33,19 @@ sets aside, and why. -->
 <!-- slot: review · optional -->
 <!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),
 and how to sign in. -->
+
+## Language
+<!-- slot: language · optional -->
+<!-- The product's screen grammar: its laws, which win over the craft floor as the rest of this
+page does. Each law is a heading, then its lock line, then the law, then any amendments below it:
+
+  ### <the law>
+  🔒 <YYYY-MM-DD> · @<login> · "<their words>"
+
+  <the law, in a sentence or two>
+
+  #### Amended <YYYY-MM-DD> · @<login> · "<their words>"
+
+A law is changed only by a dated amendment below it, never by rewriting it.
+Only a person locks a law, in their own words: no agent writes one on its own. -->
+

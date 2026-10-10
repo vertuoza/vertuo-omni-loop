@@ -876,8 +876,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]'],
-    summary: 'whether a branch touches a screen, so its design review starts',
+    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…'],
+    summary: 'whether a branch touches a screen, the screen library, and the word pass over a mockup',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
       "design form, omni kb show design (the product, where its design system lives, what it does on " +
@@ -888,7 +888,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unknown when design.paths is empty or the base cannot be read, for the agent to judge from the ' +
       "diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
       'design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave ' +
-      'or a gate, it only reports, and touched exits 0 whatever it finds.',
+      'or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen ' +
+      'library, the folder design.screens names (by default design/screens/ under the knowledge ' +
+      'folder): one Markdown file per screen, its front matter saying its status (draft, locked or ' +
+      'superseded), who locked it, when and in which words, its mockup, the paths it implements and ' +
+      'its routes. It prints one line per screen, sorted by name, with its status, who locked it and ' +
+      'when, and its routes, then each file that does not read, says so when the library is empty, ' +
+      'and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 ' +
+      'whatever it finds. words is the word pass: it reads each mockup page given, structure never ' +
+      'style, and prints every screen (an element design.words.screen matches, by default ' +
+      '[data-screen]; a page with none is read whole and says so) with its visible strings, each ' +
+      "control's marked, and its word count, then its findings: sentence-on-control, a button or link " +
+      'whose label holds design.words.sentence words or more (default 7); two-primaries, more than one ' +
+      'primary action (design.words.primary, by default [data-primary]) in one screen; ' +
+      'explains-at-rest, a string outside any control longer than design.words.sentence; and ' +
+      'avoided-word, a word or phrase in design.words.avoid or in the explicit list the design ' +
+      "form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided " +
+      'words: or Avoid: with the words after it or one bullet each below it (prose is never read as a ' +
+      'list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no ' +
+      'combinator. A page it cannot read is named and the next is read; it prints design: off while ' +
+      'the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never ' +
+      'silenced.',
   },
   {
     name: 'e2e',

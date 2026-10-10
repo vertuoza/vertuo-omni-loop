@@ -2,7 +2,7 @@
 
 # Typeset
 
-Read the design form first (`omni kb show design`): its `product`, `system` and `deliberate` sections win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
+Read the design form first (`omni kb show design`): its `product`, `system`, `deliberate` and `language` sections (the last, its laws) win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
 
 Typography carries information, hierarchy, and voice. Improve it inside the established visual world; do not replace the identity unless the user asked to.
 

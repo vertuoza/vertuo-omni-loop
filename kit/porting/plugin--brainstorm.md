@@ -235,3 +235,32 @@ kit's sources and none of the skills.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/` and `pnpm test`, green.
+
+## PRD #1407, slice s7 — the before/after feeds the design memory
+
+- **Step 0:** the design flag read once also turns the design memory on or off. Off, nothing below
+  runs: no library read, no mark, no word pass, no draft screen.
+- **Step 5:** with the flag on, the form's `language` laws are read with the rest of it, and
+  `omni design screens` lists the library: a locked screen is drawn as written, and a change the
+  design makes to it is named in the spec's **Decisions** with who locked it, for the slice that
+  builds it to raise as the high item (`/omni:do-work`'s **A change to a locked screen or law**).
+  Every screen of the page carries `data-screen` and its primary action `data-primary`, and
+  `omni design words` runs over the page before anyone sees it; a finding is fixed in the "after",
+  never silenced, and one on "today" is said under it. Each screen the "after" draws is written to
+  the library as `status: draft`, with its mockup and a **Source** line naming the PRD; a draft
+  already there is brought up to it, and a locked one is never edited. With `--concept`, the drafts
+  `/omni:think-big` wrote are the starting point. No skill but `/omni:pixel-perfect lock` locks.
+- **Step 7** runs `omni check design` before the commit, and the drafts go in the same commit as
+  the folder; **step 9** carries them into the phase-0 PR, documents under the knowledge folder.
+  **Rework** writes them the same way.
+
+### Tests
+
+`kit/test/plugin.test.ts`: the flag, the library read, the marks, the word pass before the page is
+shown, the draft screens with their mockup and source, and the guardrail that nothing is locked.
+`kit/test/brainstorm-concept.test.ts`: step 5's `--concept` paragraph starts from think-big's
+drafts.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green.
