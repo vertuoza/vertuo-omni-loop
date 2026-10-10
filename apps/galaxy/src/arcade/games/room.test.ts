@@ -10,8 +10,9 @@ const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['inva
 describe('the registry', () => {
   it('lists Entropy Invaders, Super Omni World then OMNI KART, each keyed as the rulebook unlocks it', () => {
     expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART']]);
-    expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart' });
+    expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time' });
     expect(XP_RULES.unlocks).toMatchObject({ invaders: 1, platformer: 2, kart: 3 });
+    expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time']]);
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
   });
 });
@@ -130,7 +131,7 @@ describe('cabinetDoor', () => {
   assertDefined(soon, 'soon');
 
   it('plays Entropy Invaders on its unlocked cabinet: A opens the invaders scene', () => {
-    expect(GAMES[0]).toEqual({ id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders' });
+    expect(GAMES[0]).toEqual({ id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders', measure: 'points' });
     expect(cabinetDoor(game, status)).toEqual({ scene: 'invaders' });
   });
 
