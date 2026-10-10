@@ -3,7 +3,10 @@ import { kartAt, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
 import { advance, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
-import { LAPS, PAR_SECONDS, parseTrack, TILE, tileAt } from './track';
+import { LAPS, parseTrack, TILE, tileAt } from './track';
+
+/** The longest a rival's three laps are given in these tests, in seconds. */
+const LIMIT_SECONDS = 150;
 import type { Action } from '../keys';
 
 // The five rivals, the laps and the places (PRD 1359, slice 3).
@@ -105,9 +108,9 @@ function alone(skill: number, offset: number, seconds: number): number | null {
 
 describe('a rival alone on COMET RING', () => {
   it.each([[0.92, -RULES.lineOffset], [0.92, RULES.lineOffset], [1, 0], [0.96, 7]] as const)('completes three laps within twice the par time (skill %s, off the line by %s)', (skill, offset) => {
-    const time = alone(skill, offset, PAR_SECONDS * 2);
+    const time = alone(skill, offset, LIMIT_SECONDS * 2);
     expect(time).not.toBeNull();
-    expect(time ?? Infinity).toBeLessThan(PAR_SECONDS * 2);
+    expect(time ?? Infinity).toBeLessThan(LIMIT_SECONDS * 2);
   });
 });
 
@@ -276,7 +279,7 @@ describe('the race with five rivals', () => {
 
   it('lets all five rivals finish three laps within twice the par time, pushing past each other and the player', () => {
     let r = press(newRace({ seed: 11, cast }), 'start').race;
-    for (let t = 0; t < PAR_SECONDS * 2 && !r.rivals.every((v) => v.pace.laps >= LAPS); t += 0.05) r = step(r, GAS, 0.05).race;
+    for (let t = 0; t < LIMIT_SECONDS * 2 && !r.rivals.every((v) => v.pace.laps >= LAPS); t += 0.05) r = step(r, GAS, 0.05).race;
     expect(r.rivals.map((v) => v.pace.laps)).toEqual([LAPS, LAPS, LAPS, LAPS, LAPS]);
   });
 

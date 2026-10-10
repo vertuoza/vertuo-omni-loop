@@ -5,7 +5,7 @@
 //
 // ready (PRESS START) -> countdown (3 · 2 · 1) -> race (GO) <-> paused (START; leaving the scene, a
 // blurred window and a hidden tab pause it too, and only START resumes) -> finish (the player crossed the
-// line at the end of the last lap: the results table and the score, given once; A races again, B leaves).
+// line at the end of the last lap: the results table and the race time, given once; A races again, B leaves).
 import { fleetSprite, MASCOTS } from '@omni/design';
 import type { Action } from '../keys';
 import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
@@ -13,7 +13,7 @@ import { kartAt, NO_FX, padOf, stepFx, type Fx, type Kart } from './kart';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES } from './rules';
 import { advance, aimOf, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
-import { LAPS, PAR_SECONDS, parseTrack, PLACES, type Track } from './track';
+import { LAPS, parseTrack, PLACES, type Track } from './track';
 
 /** Frames add up to a countdown's end only to within what a float keeps. */
 const EPSILON = 1e-9;
@@ -49,8 +49,8 @@ export interface Race {
 
 /**
  * What happened in a step: a beat of the countdown, GO, an item used, a box taken, a kart hit by a BLOB or an ORB
- * (`spun`: it started a spin-out), the player's kart meeting a wall, the final lap starting, the finish with its
- * score (given once), the player leaving from the pause, or asking for another race from the results. A `racer` is 0
+ * (`spun`: it started a spin-out), the player's kart meeting a wall, the final lap starting, the finish with the
+ * player's time in tenths (given once), the player leaving from the pause, or asking for another race from the results. A `racer` is 0
  * for the player and 1 to 5 for the rivals, in their order.
  */
 export type RaceEvent =
@@ -58,7 +58,7 @@ export type RaceEvent =
   | { kind: 'item'; racer: number; item: Item } | { kind: 'box'; racer: number }
   | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean }
   | { kind: 'wall'; racer: number } | { kind: 'finalLap' }
-  | { kind: 'finish'; score: number } | { kind: 'quit' } | { kind: 'again' };
+  | { kind: 'finish'; tenths: number } | { kind: 'quit' } | { kind: 'again' };
 
 export interface Stepped { race: Race; events: RaceEvent[] }
 
@@ -146,12 +146,6 @@ export function placeOf(race: Race): number {
   return 1 + race.rivals.filter((r) => progressOf(track, r.pace, r.kart) >= mine).length;
 }
 
-/** The score of a finish: the place's points, and a point per tenth of a second under the par time (none at or over it). */
-export function scoreOf(place: number, seconds: number): number {
-  const points = RULES.placePoints[Math.min(Math.max(place, 1), PLACES) - 1] ?? 0;
-  return points + Math.max(0, Math.floor((PAR_SECONDS - seconds) * 10 + EPSILON));
-}
-
 /** The race clock's tenths of a second, as the clock shows them. */
 const tenthsOf = (seconds: number) => Math.floor(seconds * 10 + EPSILON);
 
@@ -168,7 +162,7 @@ function resultsOf(race: Race, clock: number): KartResults {
   entries.sort((a, b) => (a.at !== null && b.at !== null ? a.at - b.at || Number(a.you) - Number(b.you) : a.at !== null ? -1 : b.at !== null ? 1 : b.progress - a.progress));
   const rows: KartRow[] = entries.map((e, i) => ({ place: i + 1, name: e.name, tenths: e.at === null ? null : tenthsOf(e.at), you: e.you }));
   const place = rows.findIndex((r) => r.you) + 1;
-  return { rows, place, tenths: tenthsOf(clock), score: scoreOf(place, clock) };
+  return { rows, place, tenths: tenthsOf(clock) };
 }
 
 /** Plays `dt` seconds (no more than `RULES.maxDt` of them) with the buttons held. Before GO, and paused, nothing moves. */
@@ -191,7 +185,7 @@ export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped
     if (race.finalAt === null && next.finalAt !== null && moved.pace.laps < LAPS) events.push({ kind: 'finalLap' });
     if (moved.pace.laps < LAPS) return { race: next, events };
     const finish = resultsOf(next, clock);
-    return { race: { ...next, phase: 'finish', finish }, events: [...events, { kind: 'finish', score: finish.score }] };
+    return { race: { ...next, phase: 'finish', finish }, events: [...events, { kind: 'finish', tenths: finish.tenths }] };
   }
   return { race, events: [] };
 }
