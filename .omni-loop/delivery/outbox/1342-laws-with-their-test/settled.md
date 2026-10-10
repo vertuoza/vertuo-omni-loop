@@ -629,3 +629,473 @@ A small change in two functions and the command that calls them: the second call
 ```
 
 <!-- /omni-outbox-settled: s4-02-law-issue-opens-before-its-entry -->
+
+<!-- omni-outbox-settled: s5-01-wiring-and-env-list-outside-territory -->
+
+## s5-01-wiring-and-env-list-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-wiring-and-env-list-outside-territory
+prd: 1342
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+To switch the new law check on in the GitHub App, this part had to touch two files its plan did not give it: the place that starts the App's jobs, and the setup list of secrets in the App's guide. Is that acceptable?
+
+## The decision, in plain words
+
+Yes: the App now asks the Omni page whether each untested rule is worth a law, and the guide's list of secrets names the new one. Without these two small edits the feature would be built but never run, and the guide's own check would fail.
+
+## The intro, for fun
+
+The plan gave this part a room, and the light switch was in the hallway.
+
+## The punchline, for fun
+
+So it reached out, flipped it, and left a note on the door.
+
+## The options, in plain words
+
+A. A. Keep both edits in this slice, as built.
+B. B. Move the README bullet to s9 and leave the docs check red until s9 lands.
+C. C. Leave the App unwired until a later slice, so the law judge is never asked in production.
+
+## What I had to decide
+
+The slice's territory names apps/omni-app/src/knowledge-harvest/, apps/omni-app/src/env and apps/omni-app/.env.example (which does not exist). Wiring the judge into the served function needs one change in apps/omni-app/src/functions.ts, and the docs check (src/env-docs.test.ts) requires apps/omni-app/README.md's variable list to name LAW_JUDGE_SECRET, a file s9 owns. The spec asks that the judge secret be a documented variable checked by the app's env tests.
+
+## What I did meanwhile
+
+Added the knowledge harvest's lawJudge argument in src/functions.ts (built only when LAW_JUDGE_SECRET is set) and one bullet for LAW_JUDGE_SECRET in the README's env-variables list. No .env.example was created, since the app has none.
+
+## What it costs to change later
+
+Reverting is two small hunks; s9 may reword the README bullet freely.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether s9 expected to write that README bullet itself is not settled by the plan.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-wiring-and-env-list-outside-territory -->
+
+<!-- omni-outbox-settled: s6-01-sweep-asks-the-model-first -->
+
+## s6-01-sweep-asks-the-model-first — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-sweep-asks-the-model-first
+prd: 1342
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+When the sweep checks the old rules that have no test, who gives the answer when the company's judge is switched off?
+
+## The decision, in plain words
+
+A language model gives its own answer first, and the judge's answer replaces it when the judge is on. A rule the model cannot answer for is left as it is, and the switch that makes untested rules an error stays off until every rule has an answer.
+
+## The intro, for fun
+
+Every old rule gets a hearing, even when the judge is out to lunch.
+
+## The punchline, for fun
+
+Nobody is sentenced without an answer on the record.
+
+## The options, in plain words
+
+A. A. Ask the model first, the judge's answer counts when it gives one; an unanswered rule waits, and the switch stays off.
+B. B. Treat every rule the judge does not answer as worth a law, opening an issue for each, with no model.
+C. C. Leave every rule the judge does not answer untouched, with no model, so the sweep does nothing while the judge is off.
+
+## What I had to decide
+
+Whether the sweep needs the model key, and what happens to a rule nobody could judge.
+
+## What I did meanwhile
+
+The sweep asks the model the same worth-a-law question the harvest asks, then omni decide law-worth with that answer as --old. A rule the model cannot judge stays unenforced, is listed as not judged, and laws.requireProof is not set; a second run picks it up.
+
+## What it costs to change later
+
+One branch in the sweep command: dropping the model call or setting requireProof regardless is a few lines.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the sweep falls back to the classifier's answer but has no classifier for register entries, so a small model question stands in for it.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-sweep-asks-the-model-first -->
+
+<!-- omni-outbox-settled: s6-02-no-ledger-rule-leaves-anyway -->
+
+## s6-02-no-ledger-rule-leaves-anyway — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-no-ledger-rule-leaves-anyway
+prd: 1342
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+When an old rule is judged not worth a test but no past decision record says where it came from, where does it go?
+
+## The decision, in plain words
+
+It still leaves the list of rules, and the sweep's report names it as recorded nowhere, so the person reviewing the change sees it before merging. Its words stay in the history of the repository.
+
+## The intro, for fun
+
+Some rules arrived before anyone kept the receipts.
+
+## The punchline, for fun
+
+They leave quietly, but the report still waves goodbye by name.
+
+## The options, in plain words
+
+A. A. Remove it anyway, naming it in the report as recorded nowhere.
+B. B. Keep it in its register as it is, so it stays unenforced and the switch cannot turn on.
+C. C. Record it in a new file of not-worth-a-law entries in the knowledge folder.
+
+## What I had to decide
+
+What a not-worth-a-law entry with no ledger entry in its Source becomes.
+
+## What I did meanwhile
+
+Removed from its register like any other no; the report says 'recorded in no ledger', and the citations of it are listed. Most register entries in this repository have no ledger Source, so this case is common.
+
+## What it costs to change later
+
+One branch: keeping the entry instead, or writing a note somewhere else, is a few lines in the sweep's pure module.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec assumes every entry has a source PRD with a settled.md; most entries written by invade or by hand do not.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-no-ledger-rule-leaves-anyway -->
+
+<!-- omni-outbox-settled: s6-03-harvest-helpers-shared -->
+
+## s6-03-harvest-helpers-shared — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-harvest-helpers-shared
+prd: 1342
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+Should the sweep reuse the harvest's way of asking the judge and opening a law issue, even though that file belongs to an earlier part of this work?
+
+## The decision, in plain words
+
+Yes: the harvest's three small helpers were made shareable, unchanged in behaviour, so both paths ask the judge and open issues the same way.
+
+## The intro, for fun
+
+Two doors into the same courtroom should use the same doorbell.
+
+## The punchline, for fun
+
+One small edit next door saved a whole copy of the wiring.
+
+## The options, in plain words
+
+A. A. Export the helpers from the harvest command and reuse them.
+B. B. Copy them into the knowledge command, leaving the harvest untouched.
+C. C. Move them into a new shared module both commands import.
+
+## What I had to decide
+
+Whether to touch kit/bin/commands/harvest.ts, outside this slice's territory, to share askLawWorth, openLawIssue and prdTitle.
+
+## What I did meanwhile
+
+Exported the three helpers from harvest.ts; askLawWorth now takes its --ref from the caller (the harvest still passes 'PRD <n> <id>', the sweep passes 'sweep <id>'). The harvest's tests pass unchanged.
+
+## What it costs to change later
+
+Moving the helpers to a shared module later is a rename of imports.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The territory names no shared place for command helpers.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-harvest-helpers-shared -->
+
+<!-- omni-outbox-settled: s7-02-terminal-checks-read-the-base-rules -->
+
+## s7-02-terminal-checks-read-the-base-rules — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-terminal-checks-read-the-base-rules
+prd: 1342
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+The terminal checks for a bug fix, a visual fix and a feature's risky changes needed small edits in shared files outside this slice's ground to see a rule losing its test. Should this slice make them?
+
+## The decision, in plain words
+
+Yes: the edits are small and only hand the checks the rules as the main branch holds them, so the server and the terminal now judge the same way.
+
+## The intro, for fun
+
+Three checks were each given the old rulebook to compare with.
+
+## The punchline, for fun
+
+None of them had to learn a new trick, only where the shelf is.
+
+## The options, in plain words
+
+A. A. Wire all four terminal checks in this slice (built).
+B. B. Wire only omni bug and omni visual, which the plan asks for, and leave coverage and status to a follow-up.
+C. C. Revert the terminal wiring and open a follow-up slice for it.
+
+## What I had to decide
+
+Whether s7 wires the base knowledge folder into omni bug, omni visual, omni check coverage and the omni status gate, editing files no slice of this PRD owns (settled item s2-01 left the terminal commands to a follow-up).
+
+## What I did meanwhile
+
+Edited outside the territory: kit/lib/git.ts (baseKnowledge, and knowledgeAt moved there from kit/lib/status/facts.ts, which now imports it), kit/bin/branch-range.ts (fixLaws, and grade gets base and exec), kit/bin/commands/bug.ts, kit/bin/commands/visual.ts, kit/bin/commands/check.ts, kit/bin/commands/status.ts, kit/lib/outbox/account.ts (LAW_RULES exported) and a new test file, kit/bin/law-demoted.test.ts.
+
+## What it costs to change later
+
+A constant: each command drops its base argument and law-demoted goes back to firing only on the server.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's s7 territory names kit/lib/bug/ and kit/bin/bug.test.ts but not the command files that call them, so 'omni bug names the outbox' needed them.
+- (author) The wave's territory check will flag these paths as outside s7.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-terminal-checks-read-the-base-rules -->
+
+<!-- omni-outbox-settled: s7-03-fix-folder-from-branch-number -->
+
+## s7-03-fix-folder-from-branch-number — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-fix-folder-from-branch-number
+prd: 1342
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+When the server checks a fix, how does it find the folder where the fix's questions about rules live?
+
+## The decision, in plain words
+
+It reads the issue number at the start of the fix's branch name and looks for that number's bug or visual folder; a fix made for a plan repository is pointed to the plan's own pull request instead, where its record lives.
+
+## The intro, for fun
+
+Every fix carries its ticket number on its sleeve.
+
+## The punchline, for fun
+
+The check just reads the sleeve.
+
+## The options, in plain words
+
+A. A. Find the folder from the branch's issue number; a target's fix PR defers to the plan PR (built).
+B. B. Find the folder from the files the range adds under bugs/ or visual/.
+C. C. Grade a target's fix PR in the target too, failing it when it touches a law.
+
+## What I had to decide
+
+How evaluate finds a fix PR's folder (bugs/<nnnn>-<slug> or visual/<nnnn>-<slug>), and what a target repository's fix PR with a 'Part of <plan repo>#<n>' body gets.
+
+## What I did meanwhile
+
+The folder is the one whose number prefix is the leading digits of the branch topic (branches.fix, topic <n>-<slug>), searched under bugs/ then visual/. A branch with no leading number, or no such folder, has no fix folder: a change to a law then fails naming that. A target's fix PR deferring to a plan PR passes and links it, as a target feature PR does. The fix's outbox comment is posted like a feature PR's.
+
+## What it costs to change later
+
+A constant: one function in apps/omni-app/src/evaluate/evaluate.ts and one branch in checkTarget.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the folder but not how the server finds it; the fix skills cut the branch with topic <n>-<slug>, which this relies on.
+- (author) Whether a target's fix PR touching a law should instead be graded in the target is not settled by the spec.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-fix-folder-from-branch-number -->
