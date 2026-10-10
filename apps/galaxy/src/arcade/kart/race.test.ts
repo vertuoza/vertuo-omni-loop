@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race } from './race';
 import { RULES } from './rules';
-import { LAPS, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
 // The race's phases and what each one lets the player do (PRD 1359, slice 2).
 
@@ -296,13 +296,16 @@ describe('the events of a step', () => {
     expect(next.finalAt).not.toBeNull();
   });
 
+  /** COMET RING with a wall where the void is (the circuit has none since PRD 1447): a map drawn in the test that still has a wall. */
+  const walled = parseTrack({ rows: COMET_RING.rows.map((row) => row.replaceAll('~', 'X')), waypoints: COMET_RING.waypoints });
+
   /** A race with the player against the east wall of a road tile, facing it. */
   function atWall(): Race {
     const east = /[#r=S.]X/;
-    const row = track.map.findIndex((line) => east.test(line));
-    const col = (track.map[row] ?? '').search(east);
+    const row = walled.map.findIndex((line) => east.test(line));
+    const col = (walled.map[row] ?? '').search(east);
     expect(row).toBeGreaterThanOrEqual(0);
-    return { ...racing(), player: { x: (col + 1) * TILE - 2, y: row * TILE + 8, angle: 0, speed: 60, steer: 0 }, touching: false };
+    return { ...play(started(newRace({ seed: 7, track: walled })), NONE, RULES.countdown + 0.05), player: { x: (col + 1) * TILE - 2, y: row * TILE + 8, angle: 0, speed: 60, steer: 0 }, touching: false };
   }
 
   it('tells a wall contact once while the kart is held against it, and again only after a step without contact', () => {
