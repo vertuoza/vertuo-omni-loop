@@ -8455,6 +8455,12 @@ function servedPrinciple(reply, summary2) {
   const served = summary2.principles.find((principle) => principle.id === reply.serves);
   return served ? `${served.id}: ${served.statement}` : reply.serves;
 }
+function withoutWorth(classified) {
+  return classified.map((entry) => {
+    if (!entry.reply || !("worthALaw" in entry.reply)) return entry;
+    return { ...entry, reply: { ...entry.reply, worthALaw: void 0 } };
+  });
+}
 function lawQuestions({
   ctx,
   prepared,
@@ -9145,12 +9151,6 @@ function proposedProofs(classified, changed) {
   const kept3 = new Set(keptPaths(changed));
   const proposed = classified.flatMap(({ reply }) => reply && "enforcedBy" in reply ? reply.enforcedBy ?? [] : []);
   return [...new Set(proposed)].filter((path) => kept3.has(path)).sort();
-}
-function withoutWorth(classified) {
-  return classified.map((entry) => {
-    if (!entry.reply || !("worthALaw" in entry.reply)) return entry;
-    return { ...entry, reply: { ...entry.reply, worthALaw: void 0 } };
-  });
 }
 var asksWorth = (classified) => classified.some(({ reply }) => reply !== null && "worthALaw" in reply && reply.worthALaw !== void 0);
 async function judged2(judge2, question, asked) {
