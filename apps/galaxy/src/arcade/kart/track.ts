@@ -7,6 +7,7 @@
 //   #  road          .  grass (halves the top speed)       X  wall (bounces a kart off)
 //   r  kerb (road)   =  the start line (road)               ?  an item box (road)
 //   S  a starting place (road)
+// Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a wall tile.
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A tile's side in game pixels: the circuit's texture is one tile = 16×16 pixels. */
@@ -29,7 +30,16 @@ const isTileChar = (c: string): c is TileChar => Object.hasOwn(LEGEND, c);
 export interface TrackSource {
   readonly rows: readonly string[];
   readonly waypoints: readonly (readonly [number, number])[];
+  /** What stands on the wall tiles around the circuit; none when left out. */
+  readonly props?: readonly Prop[];
 }
+
+/** What stands off the road: pylons and beacons along the circuit's edge, the rest deeper in. */
+export const PROP_KINDS = ['pylon', 'beacon', 'asteroid', 'satellite', 'wreck'] as const;
+export type PropKind = (typeof PROP_KINDS)[number];
+
+/** A prop as written: its kind and the tile it stands on. */
+export interface Prop { readonly kind: PropKind; readonly x: number; readonly y: number }
 
 // 64×64 tiles. The road is five tiles wide. The racing line starts at the first corner after the line
 // (the long start straight runs along the bottom, east), and its last waypoint is the corner before it.
@@ -106,6 +116,34 @@ export const COMET_RING: TrackSource = {
     [54, 56], [54, 40], [44, 40], [44, 28], [56, 28], [56, 8], [36, 8],
     [36, 20], [20, 20], [20, 8], [8, 8], [8, 40], [18, 40], [18, 56],
   ],
+  // Pylons and beacons alternate along the wall tiles that touch the verge; asteroids, satellites and
+  // wrecks stand on wall tiles with no verge within three tiles. Every one is on a wall tile.
+  props: [
+    { kind: 'pylon', x: 4, y: 3 }, { kind: 'beacon', x: 11, y: 3 }, { kind: 'pylon', x: 18, y: 3 },
+    { kind: 'beacon', x: 32, y: 3 }, { kind: 'pylon', x: 39, y: 3 }, { kind: 'beacon', x: 46, y: 3 },
+    { kind: 'pylon', x: 53, y: 3 }, { kind: 'beacon', x: 60, y: 3 }, { kind: 'pylon', x: 25, y: 4 },
+    { kind: 'beacon', x: 3, y: 10 }, { kind: 'pylon', x: 31, y: 10 }, { kind: 'beacon', x: 61, y: 10 },
+    { kind: 'pylon', x: 13, y: 13 }, { kind: 'beacon', x: 41, y: 13 }, { kind: 'pylon', x: 48, y: 13 },
+    { kind: 'beacon', x: 25, y: 14 }, { kind: 'pylon', x: 3, y: 17 }, { kind: 'beacon', x: 61, y: 17 },
+    { kind: 'pylon', x: 13, y: 20 }, { kind: 'beacon', x: 41, y: 20 }, { kind: 'pylon', x: 51, y: 20 },
+    { kind: 'beacon', x: 3, y: 24 }, { kind: 'pylon', x: 61, y: 24 }, { kind: 'beacon', x: 18, y: 25 },
+    { kind: 'pylon', x: 25, y: 25 }, { kind: 'beacon', x: 32, y: 25 }, { kind: 'pylon', x: 39, y: 27 },
+    { kind: 'beacon', x: 13, y: 30 }, { kind: 'pylon', x: 3, y: 31 }, { kind: 'beacon', x: 61, y: 31 },
+    { kind: 'pylon', x: 49, y: 33 }, { kind: 'beacon', x: 39, y: 34 }, { kind: 'pylon', x: 18, y: 35 },
+    { kind: 'beacon', x: 3, y: 38 }, { kind: 'pylon', x: 59, y: 38 }, { kind: 'beacon', x: 23, y: 40 },
+    { kind: 'pylon', x: 39, y: 41 }, { kind: 'beacon', x: 4, y: 45 }, { kind: 'pylon', x: 11, y: 45 },
+    { kind: 'beacon', x: 45, y: 45 }, { kind: 'pylon', x: 59, y: 45 }, { kind: 'beacon', x: 23, y: 47 },
+    { kind: 'pylon', x: 29, y: 51 }, { kind: 'beacon', x: 36, y: 51 }, { kind: 'pylon', x: 49, y: 51 },
+    { kind: 'beacon', x: 13, y: 52 }, { kind: 'pylon', x: 59, y: 52 }, { kind: 'beacon', x: 13, y: 59 },
+    { kind: 'pylon', x: 59, y: 59 }, { kind: 'beacon', x: 20, y: 61 }, { kind: 'pylon', x: 27, y: 61 },
+    { kind: 'beacon', x: 34, y: 61 }, { kind: 'pylon', x: 41, y: 61 }, { kind: 'beacon', x: 48, y: 61 },
+    { kind: 'asteroid', x: 28, y: 1 }, { kind: 'satellite', x: 28, y: 11 }, { kind: 'wreck', x: 44, y: 16 },
+    { kind: 'asteroid', x: 16, y: 28 }, { kind: 'satellite', x: 26, y: 28 }, { kind: 'wreck', x: 36, y: 28 },
+    { kind: 'asteroid', x: 62, y: 36 }, { kind: 'satellite', x: 31, y: 37 }, { kind: 'wreck', x: 26, y: 46 },
+    { kind: 'asteroid', x: 36, y: 46 }, { kind: 'satellite', x: 62, y: 46 }, { kind: 'wreck', x: 1, y: 48 },
+    { kind: 'asteroid', x: 46, y: 48 }, { kind: 'satellite', x: 10, y: 53 }, { kind: 'wreck', x: 62, y: 56 },
+    { kind: 'asteroid', x: 1, y: 58 },
+  ],
 };
 
 /** A tile that is road under the wheels: the road, a kerb, the line, a box or a starting place. */
@@ -167,12 +205,13 @@ function lineOf(src: TrackSource): StartLine | null {
  * What is wrong with a circuit, each problem with the row and the column it is at: an unknown
  * character, rows of unequal length, a waypoint off the road, two consecutive waypoints (the last and
  * the first too) not joined by road, not exactly six starting places behind the line, a start line
- * that does not cross the road from wall to wall, an item box off the road. Empty when it is drivable.
+ * that does not cross the road from wall to wall, an item box off the road, a prop off a wall tile.
+ * Empty when it is drivable.
  */
 export function trackProblems(src: TrackSource = COMET_RING): string[] {
   const shape = shapeProblems(src.rows);
   if (shape.length) return shape;
-  return [...waypointProblems(src), ...placeProblems(src.rows), ...lineProblems(src), ...boxProblems(src.rows)];
+  return [...waypointProblems(src), ...placeProblems(src.rows), ...lineProblems(src), ...boxProblems(src.rows), ...propProblems(src)];
 }
 
 /** An unknown character, or a row not as long as the first. */
@@ -224,12 +263,17 @@ function lineProblems(src: TrackSource): string[] {
   return [...lineShapeProblems(src.rows, line), ...lineBehindProblems(src.rows, line)];
 }
 
+/** The line's tiles in order along it, the coordinate `k` it runs along (1 for a column), and its two ends. */
+function lineEnds(line: StartLine) {
+  const k = line.axis === 'column' ? 1 : 0;
+  const ordered = [...line.tiles].sort((a, b) => a[k] - b[k]);
+  return { k, ordered, first: at(ordered, 0, 'the first tile of the line'), last: at(ordered, ordered.length - 1, 'the last tile of the line') };
+}
+
 /** A start line with a gap, or one that does not cross the road from wall to wall. */
 function lineShapeProblems(rows: readonly string[], line: StartLine): string[] {
   const problems: string[] = [];
-  const k = line.axis === 'column' ? 1 : 0;       // the coordinate the line runs along
-  const ordered = [...line.tiles].sort((a, b) => a[k] - b[k]);
-  const first = at(ordered, 0, 'the first tile of the line'), last = at(ordered, ordered.length - 1, 'the last tile of the line');
+  const { k, ordered, first, last } = lineEnds(line);
   const before: [number, number] = line.axis === 'column' ? [first[0], first[1] - 1] : [first[0] - 1, first[1]];
   const after: [number, number] = line.axis === 'column' ? [last[0], last[1] + 1] : [last[0] + 1, last[1]];
   ordered.forEach((t, i) => {
@@ -257,6 +301,17 @@ function boxProblems(rows: readonly string[]): string[] {
   return tilesOf(rows, '?').filter(([x, y]) => !onRoad(rows, x, y)).map(([x, y]) => `${where(x, y)}: item box off the road`);
 }
 
+/** A prop that is not on a wall tile: on a road, kerb, line, box, start or verge tile (or off the map), or of a kind that does not exist. */
+function propProblems({ rows, props = [] }: TrackSource): string[] {
+  return props.flatMap(({ kind, x, y }) => {
+    if (!PROP_KINDS.includes(kind)) return [`${where(x, y)}: unknown prop kind '${String(kind)}'`];
+    const tile = rows[y]?.[x];
+    if (tile === 'X') return [];
+    const what = tile === undefined ? 'off the map' : `on a ${tile === '.' ? 'verge' : isTileChar(tile) ? LEGEND[tile] : 'unknown'} tile`;
+    return [`${where(x, y)}: a ${kind} stands ${what}, props stand on wall tiles only`];
+  });
+}
+
 /** A circuit ready to race on: its tiles, the racing line and the starting places, in game pixels. */
 export interface Track {
   readonly cols: number;
@@ -274,6 +329,10 @@ export interface Track {
   readonly places: readonly { x: number; y: number }[];
   /** The item boxes' centres. */
   readonly boxes: readonly { x: number; y: number }[];
+  /** The props, at their tile centres. */
+  readonly props: readonly { kind: PropKind; x: number; y: number }[];
+  /** The arch over the start line: its legs' centres, one beyond each end of the line. */
+  readonly arch: readonly [{ x: number; y: number }, { x: number; y: number }];
   /** The start line: its middle, and how far along `forward` the line stands (the dot product of the two). */
   readonly line: { readonly x: number; readonly y: number; readonly at: number };
 }
@@ -318,6 +377,17 @@ export function cornersOf(track: Pick<Track, 'waypoints'>): Corner[] {
   return out;
 }
 
+/** The tile of the first wall beyond each end of the start line, walking out along it; the line's own end when there is none. */
+function archLegs(rows: readonly string[], line: StartLine): [[number, number], [number, number]] {
+  const { k, first, last } = lineEnds(line);
+  const out = (from: [number, number], step: 1 | -1): [number, number] => {
+    let [x, y] = from;
+    while (tileAt(rows, x, y) !== 'X') { if (k === 1) y += step; else x += step; }
+    return [x, y];
+  };
+  return [out(first, -1), out(last, 1)];
+}
+
 /** The circuit as the game uses it; throws, naming the problems, when `trackProblems` finds any. */
 export function parseTrack(src: TrackSource = COMET_RING): Track {
   const problems = trackProblems(src);
@@ -329,10 +399,13 @@ export function parseTrack(src: TrackSource = COMET_RING): Track {
   const places = tilesOf(src.rows, 'S')
     .sort((a, b) => Math.abs(a[across] - lineAt) - Math.abs(b[across] - lineAt) || (across === 0 ? a[1] - b[1] : a[0] - b[0]))
     .map(centre);
+  const legs = archLegs(src.rows, line);
   const cols = src.rows[0]?.length ?? 0;
   return {
     cols, rows: src.rows.length, size: { w: cols * TILE, h: src.rows.length * TILE }, map: src.rows,
     waypoints: src.waypoints.map(centre), forward: line.forward, heading: Math.atan2(line.forward[1], line.forward[0]),
     places, boxes: tilesOf(src.rows, '?').map(centre), line: lineCentre(line.tiles, line.forward),
+    props: (src.props ?? []).map(({ kind, x, y }) => ({ kind, ...centre([x, y]) })),
+    arch: [centre(legs[0]), centre(legs[1])],
   };
 }

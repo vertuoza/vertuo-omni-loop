@@ -3,7 +3,7 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { createKart, viewFacing } from './art';
+import { createKart, propFrame, viewFacing } from './art';
 import type { Action } from '../keys';
 import { horizonOf } from './mode7';
 
@@ -142,6 +142,8 @@ describe('the race\'s drawing', () => {
 });
 
 describe('the player\'s kart', () => {
+  /** The player's kart among what the frame drew: the props and the arch are sprites too. */
+  const playerSprite = () => sure(sprites.find((x) => x.name.startsWith('kart')), 'the kart');
   const held = (...a: Action[]): ReadonlySet<Action> => new Set(a);
   /** A game raced for `seconds` of 50 ms frames, after START and the countdown. */
   function raced(seconds: number, ...buttons: Action[]) {
@@ -155,7 +157,7 @@ describe('the player\'s kart', () => {
 
   it.each([['wide', WIDE, 4], ['tall', TALL, 2]] as const)('is drawn from behind at the bottom of the %s grid, at a whole number of pixels', (_n, grid, scale) => {
     createKart().draw(recorder().ctx, frame(grid));
-    const [kart] = sprites;
+    const kart = playerSprite();
     expect(kart).toMatchObject({ name: 'kart', scale });
     expect(sure(kart, 'the kart').x).toBe((grid.w - 28 * scale) / 2);
     expect(sure(kart, 'the kart').y + 18 * scale).toBeLessThan(grid.h);
@@ -164,7 +166,7 @@ describe('the player\'s kart', () => {
 
   it('is tinted with the hero\'s suit, the look the arcade draws the hero with', () => {
     createKart().draw(recorder().ctx, frame(WIDE));
-    const [kart] = sprites;
+    const kart = playerSprite();
     expect(sure(kart, 'the kart').tint).toBeTruthy();
     expect(sure(kart, 'the kart').tint).toHaveProperty('Y');
   });
@@ -177,21 +179,21 @@ describe('the player\'s kart', () => {
     const [sx, sy, sw, sh, dx, dy, dw, dh] = sure(driver, 'the driver');
     expect([sx, sy, sw, sh]).toEqual([0, 0, 32, 26]);
     expect([dw, dh]).toEqual([64, 52]);
-    const kart = sure(sprites[0], 'the kart');
+    const kart = playerSprite();
     expect(sure(dx, 'dx')).toBeGreaterThan(kart.x);
     expect(sure(dx, 'dx') + sure(dw, 'width')).toBeLessThan(kart.x + 28 * 4);
     expect(sure(dy, 'dy') + sure(dh, 'dh')).toBeLessThanOrEqual(kart.y + 10 * 4);
   });
 
   it('leans into the turn: left, straight, right', () => {
-    const lean = (...b: Action[]) => { sprites.length = 0; raced(0.5, ...b).draw(recorder().ctx, frame(WIDE)); return sure(sprites[0], 'the kart').name; };
+    const lean = (...b: Action[]) => { sprites.length = 0; raced(0.5, ...b).draw(recorder().ctx, frame(WIDE)); return playerSprite().name; };
     expect(lean('a')).toBe('kart');
     expect(lean('a', 'left')).toBe('kart-left');
     expect(lean('a', 'right')).toBe('kart-right');
   });
 
   it('turns its tread with the speed, and holds still at rest or when motion is reduced', () => {
-    const frameOf = (kart: ReturnType<typeof createKart>, reduced = false) => { sprites.length = 0; kart.draw(recorder().ctx, { ...frame(WIDE), reduced }); return sure(sprites[0], 'the kart').frame; };
+    const frameOf = (kart: ReturnType<typeof createKart>, reduced = false) => { sprites.length = 0; kart.draw(recorder().ctx, { ...frame(WIDE), reduced }); return playerSprite().frame; };
     expect(frameOf(createKart())).toBe(0);
     expect(new Set([0, 1, 2, 3, 4, 5].map((n) => frameOf(raced(0.5 + n * 0.1, 'a')))).size).toBe(2);
     expect(frameOf(raced(1, 'a'), true)).toBe(0);
@@ -374,5 +376,52 @@ describe('the cues the game gives', () => {
     frames(game, 2, new Set<Action>(['a']));
     expect(game.speed()).toBeGreaterThan(0.3);
     expect(game.speed()).toBeLessThanOrEqual(1);
+  });
+});
+
+// The props and the arch stand around the circuit as sprites, with the karts (PRD 1427, slice 3).
+describe('the props and the arch', () => {
+  const at = (t: number, reduced = false): FrameState => ({ ...frame(WIDE), t, sceneT: t, reduced });
+  const drawn = (state: FrameState = frame(WIDE)) => { sprites.length = 0; createKart({ seed: 3 }).draw(recorder().ctx, state); return [...sprites]; };
+  const named = (list: typeof sprites, prefix: string) => list.filter((x) => x.name.startsWith(prefix));
+
+  it('draws the props in view as sprites, and the arch\'s two legs and its beam', () => {
+    const list = drawn();
+    expect(named(list, 'prop-').length).toBeGreaterThan(0);
+    expect(named(list, 'arch-leg')).toHaveLength(2);
+    expect(named(list, 'arch-beam')).toHaveLength(1);
+  });
+
+  it('draws them before the player\'s kart, so the kart covers them', () => {
+    const list = drawn();
+    const last = sure(list.at(-1), 'the last sprite');
+    expect(last.name).toBe('kart');
+    expect(list.findLastIndex((x) => x.name.startsWith('prop-'))).toBeLessThan(list.length - 1);
+  });
+
+  it('draws them far to near, each scaled by its distance', () => {
+    const horizon = horizonOf(WIDE.h);
+    const pylons = named(drawn(), 'prop-pylon').map((x) => ({ ...x, scale: sure(x.scale, 'a scale') }));
+    expect(pylons.length).toBeGreaterThan(1);
+    expect(pylons.map((x) => x.scale)).toEqual([...pylons.map((x) => x.scale)].sort((a, b) => a - b));
+    // The sprite's foot stands (height × focal) / z under the horizon, and its scale is proportional to 1 / z: their ratio is the same for every pylon.
+    const feet = pylons.map((x) => x.y + 28 * x.scale - horizon);
+    const products = pylons.flatMap((x, i) => ((feet[i] ?? 0) > 12 ? [x.scale / sure(feet[i], 'a foot')] : []));
+    expect(products.length).toBeGreaterThan(0);
+    for (const p of products) expect(p / sure(products[0], 'a product')).toBeCloseTo(1, 1);
+  });
+
+  it('blinks the beacons and turns the satellites, and holds them still when motion is reduced', () => {
+    expect(new Set([0, 0.25, 0.5, 0.75, 1, 1.25].map((t) => propFrame('beacon', at(t)))).size).toBe(2);
+    expect(new Set([0, 0.4, 0.8, 1.2, 1.6, 2].map((t) => propFrame('satellite', at(t)))).size).toBe(2);
+    for (const t of [0, 0.7, 1.3, 2.9]) for (const kind of ['beacon', 'satellite', 'pylon', 'asteroid', 'wreck'] as const) expect(propFrame(kind, at(t, true))).toBe(0);
+    expect(propFrame('pylon', at(0.7))).toBe(0);
+    const frames = (t: number, reduced: boolean) => named(drawn(at(t, reduced)), 'prop-beacon').map((x) => x.frame);
+    expect(frames(0, true)).toEqual(frames(0.5, true));
+    expect(frames(0, false)).not.toEqual(frames(0.5, false));
+  });
+
+  it('is the same drawing for the same race: the props are fixed in the circuit', () => {
+    expect(drawn()).toEqual(drawn());
   });
 });
