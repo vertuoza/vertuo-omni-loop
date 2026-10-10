@@ -29,6 +29,8 @@ export const RULES = Object.freeze({
   skillMin: 0.92,
   lineOffset: 14,
   waypointReach: 40,
+  /** How far from a waypoint crossing its corner's diagonal passes it too: out to the walls behind two tiles of grass, so a corner cut on the inside still counts. */
+  cornerGate: 104,
   rivalAim: 0.04,
   rivalSharp: 0.7,
   rivalCorner: 60,
