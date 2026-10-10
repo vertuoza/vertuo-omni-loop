@@ -329,6 +329,14 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      *   readAt: string | null, readOnly: boolean, consumes: string[] }> }>} */
     readProductTargets: ({ repo, product }: { repo: string; product: string }) =>
       call('GET', `/api/products/targets?${new URLSearchParams({ repo, product })}`),
+    /** PRD 1364: links each of `targets` to the product named `product`, in the workspace that lists the
+     * plan repository `repo` (owner/name), adding or changing each link; `../product/import.ts` reads
+     * the reply. @returns {Promise<{ product: { name: string }, added: string[], changed: string[], unchanged: string[] }>} */
+    importProductTargets: ({ repo, product, targets }: { repo: string; product: string; targets: unknown }) =>
+      call('POST', '/api/products/import', { body: { repo, product, targets } }),
+    /** PRD 1364: the products `repo` (owner/name) is in; `../product/import.ts` reads the reply.
+     * @returns {Promise<{ products: Array<{ name: string }> }>} */
+    readProductsOf: (repo: string) => call('GET', `/api/products/which?${new URLSearchParams({ repo })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestProofUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
