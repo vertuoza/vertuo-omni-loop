@@ -1535,6 +1535,41 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
 
   // Skills other skills run.
   {
+    name: 'pixel-perfect',
+    kind: 'skill',
+    who: 'you',
+    usage: [
+      '/omni:pixel-perfect critique [target]',
+      '/omni:pixel-perfect audit [target]',
+      '/omni:pixel-perfect polish [target]',
+      '/omni:pixel-perfect harden [target]',
+      '/omni:pixel-perfect typeset [target]',
+      '/omni:pixel-perfect layout [target]',
+      '/omni:pixel-perfect adapt [target]',
+      '/omni:pixel-perfect clarify [target]',
+      '/omni:pixel-perfect review',
+    ],
+    label: '/omni:pixel-perfect',
+    summary: 'design craft on a screen, following the product',
+    detail:
+      'Design craft imported from impeccable (Apache-2.0) and tailored. It runs only when the config ' +
+      'sets design.enabled to true (off, it says how to turn it on and stops), then reads the design ' +
+      'form, omni kb show design. The product wins: the form\'s product, system and deliberate ' +
+      'sections override the craft floor and the refuse list. critique and audit review a screen, ' +
+      'polish and harden finish it, typeset, layout, adapt and clarify fix one side of it, and every ' +
+      'edit first reads the craft floor. review is the bounded auto-review /omni:do-work and ' +
+      '/omni:visual-fix follow on UI work: critique, audit, the design lint (commands.design, when ' +
+      'set), screenshots at the form\'s widths (390 and 1440 by default) beside the mockup, then one ' +
+      'batch of polish and one confirming look. Fixes stay inside the slice\'s territory; what it ' +
+      'leaves becomes an outbox item. It never blocks a slice, a wave or a gate.',
+    group: 'everyday',
+    when: 'Use it when a screen should look and read like your product, before or after it is built.',
+    example: {
+      type: '/omni:pixel-perfect polish the quote page',
+      result: 'one batch of fixes in your tokens and components, checked at mobile and desktop widths',
+    },
+  },
+  {
     name: 'dossier-open',
     kind: 'skill',
     who: 'skills',

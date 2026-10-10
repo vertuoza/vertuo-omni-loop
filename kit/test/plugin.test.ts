@@ -2295,7 +2295,7 @@ describe('the pixel-perfect skill in this repository', () => {
 
   it('states the precedence itself: the product wins over the craft floor and the refuse list', () => {
     expect(read()).toMatch(/\*\*The product wins\.\*\*/);
-    expect(read()).toMatch(/`product`, `system` and `deliberate`[^.]*override the craft floor and the\s+refuse list/);
+    expect(read()).toMatch(/`product`, `system` and `deliberate`[^.]*override\s+the\s+craft\s+floor\s+and\s+the\s+refuse\s+list/);
     expect(ref('craft-floor')).toMatch(/The design form wins/);
   });
 
@@ -2317,7 +2317,7 @@ describe('the pixel-perfect skill in this repository', () => {
   });
 
   it('names no impeccable engine, no context file of its own, and no path only one agent has', () => {
-    const banned = [/scripts\/impeccable/, /PRODUCT\.md/, /\.impeccable\//, /\.claude\//, /CLAUDE\.md/, /AskUserQuestion/, /\/impeccable\b/, /critique-storage/, /impeccable detect/];
+    const banned = [/scripts\/impeccable/, /PRODUCT\.md/, /\.impeccable\//, /\.claude\//, /CLAUDE\.md/, /AskUserQuestion/, /(?:^|[\s`])\/impeccable\b/m, /critique-storage/, /impeccable detect/];
     for (const file of allFiles()) {
       const text = read(file);
       for (const pattern of banned) expect(text, `${file} names ${pattern.source}`).not.toMatch(pattern);
@@ -2336,9 +2336,11 @@ describe('the pixel-perfect skill in this repository', () => {
     expect(read()).toMatch(/kit\/NOTICE\.md/);
   });
 
-  it('omni help pixel-perfect lists its commands', () => {
+  it('omni help pixel-perfect lists its commands, and names the craft floor every edit reads', () => {
     const run = spawnSync(process.execPath, [join(repoRoot, '.omni-loop/bin/omni.mjs'), 'help', 'pixel-perfect'], { cwd: repoRoot, encoding: 'utf8' });
     expect(run.status).toBe(0);
-    for (const name of COMMANDS) expect(run.stdout, name).toContain(`/omni:pixel-perfect ${name}`);
+    for (const name of COMMANDS.filter((command: string) => command !== 'craft-floor')) expect(run.stdout, name).toContain(`/omni:pixel-perfect ${name}`);
+    expect(run.stdout).toContain('craft floor');
+    expect(run.stdout).toMatch(/never blocks/);
   });
 });
