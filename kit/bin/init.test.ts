@@ -1438,3 +1438,5 @@ describe('omni init — a repository already installed on its default branch (PR
     expect(out).toContain(INSTALL_BLOCK);
   });
 });
+
+// PRD 1342 live test: a throwaway change, this pull request is closed unmerged.
