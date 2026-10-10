@@ -17,7 +17,7 @@ import { realExec } from '../test/fixture.ts';
 import type { FakeExec } from '../test/fixture.ts';
 import type { RunningKit } from '../lib/init/bundle.ts';
 
-const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved'];
+const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved', 'omni:law'];
 const CONFIG = 'kit: 1\n# kept by hand, comments and all\nrepo:\n  slug: acme/widgets\npaths:\n  context: []\n';
 // Each bin carries its marker the way esbuild writes it into a real bundle (kit/build.ts).
 const binOf = (version: string) => `#!/usr/bin/env node\n    define_OMNI_BUNDLE_default = { home: "acme/kit", version: ${version ? `"${version}"` : 'null'} };\n`;

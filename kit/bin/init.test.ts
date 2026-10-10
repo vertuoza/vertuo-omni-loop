@@ -86,7 +86,7 @@ function fakeExec({
   return { exec, calls, install, plugin };
 }
 
-const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved'];
+const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved', 'omni:law'];
 /** The arguments of each `gh` call the fake was asked to run. */
 type Calls = readonly (readonly string[])[];
 const labelCalls = (calls: Calls, verb: string) => calls.filter((args) => args[0] === 'label' && args[1] === verb);
@@ -431,14 +431,14 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const fake = fakeExec({ labels: [{ name: 'omni:prd', color: 'ffffff' }, { name: 'omni:sub', color: '000000' }, { name: 'bug' }] });
     const { code, out, calls } = await init(root, [], { fake });
     expect(code).toBe(0);
-    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved']);
+    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved', 'omni:law']);
     expect(edits(calls)).toEqual([]);
     for (const args of labelCalls(calls, 'create')) {
       expect(args).not.toContain('--force');
       expect(args[args.indexOf('--color') + 1]).toMatch(/^[0-9a-f]{6}$/);
       expect(args[args.indexOf('--description') + 1]).toMatch(/\S/);
     }
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept, omni:approved\s+\(already there: omni:prd, omni:sub\)\n/);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept, omni:approved, omni:law\s+\(already there: omni:prd, omni:sub\)\n/);
   });
 
   it('creates omni:retro with its colour and description when it is missing', async () => {
@@ -537,7 +537,7 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const fake = fakeExec();
     await init(root, [], { fake });
-    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved']);
+    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved', 'omni:law']);
   });
 
   it('with an invalid config and no --force, creates no label', async () => {
@@ -571,8 +571,8 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     };
     const { code, out } = await init(root, [], { fake: { ...base, exec } });
     expect(code).toBe(0);
-    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved']);
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept, omni:approved\s+\(already there: omni:prd\)\n/);
+    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved', 'omni:law']);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept, omni:approved, omni:law\s+\(already there: omni:prd\)\n/);
     expect(out).toContain('  labels  gh could not create omni:sub — see step 3 below\n');
     expect(out).toContain('  3. Create the labels gh could not create:\n       https://github.com/acme/widgets/labels\n       omni:sub\n');
   });
@@ -698,7 +698,7 @@ const FIRST_RUN = [
   ...FORM_FILES.map((path) => `  wrote   ${path}`),
   '  wrote   .claude/settings.json  (statusLine)',
   '  wrote   .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)',
-  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept, omni:approved',
+  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept, omni:approved, omni:law',
   '',
   'Install pull request:',
   '  branch  created chore/install-omni-loop',

@@ -198,6 +198,35 @@ describe('end to end — a signed webhook to a completed check', () => {
     expect(outputOf(latest(github)).summary).toContain('https://github.com/acme/plan/issues/8');
   });
 
+  it('11. a fix PR that removes a law\'s test fails, naming the law, until its folder\'s outbox answers it (PRD 1342)', async () => {
+    const pull = { ...featurePull(), head: { ref: 'fix/77-crash', sha: 'head1' } };
+    const files = [{ filename: 'src/widget.test.ts', status: 'removed' }];
+    const github = fakeGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-fix'), head2: fixture('head-laws-fix-open') }, pull, files });
+    await deliver(github, pullRequestDelivery(pull, 'opened'));
+    expect(latest(github)).toMatchObject({ name: 'outbox', head_sha: 'head1', status: 'completed', conclusion: 'failure' });
+    expect(outputOf(latest(github)).title).toBe('2 unaccounted changes to a law — N-PRODUCT-1');
+    expect(outputOf(latest(github)).summary).toContain('.omni-loop/delivery/bugs/0077-crash/outbox/');
+
+    github.state.pull.head.sha = 'head2';
+    await deliver(github, pullRequestDelivery({ ...pull, head: { ref: 'fix/77-crash', sha: 'head2' } }));
+    expect(latest(github)).toMatchObject({ head_sha: 'head2', conclusion: 'failure', output: { title: '1 open outbox item — N-PRODUCT-1' } });
+    expect(firstComment(github).body).toContain('The fix removes the old test');
+  });
+
+  it('12. a fix PR that touches no law passes, and a knowledge PR passes listing its laws (PRD 1342)', async () => {
+    const fix = { ...featurePull(), head: { ref: 'fix/77-crash', sha: 'head1' } };
+    const clear = fakeGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-fix') }, pull: fix, files: [{ filename: 'src/widget.ts', status: 'modified' }] });
+    await deliver(clear, pullRequestDelivery(fix, 'opened'));
+    expect(latest(clear)).toMatchObject({ conclusion: 'success', output: { title: 'Outbox clear' } });
+
+    const knowledge = { ...featurePull(), head: { ref: 'docs/knowledge-widget', sha: 'head1' } };
+    const files = [{ filename: '.omni-loop/knowledge/product/invariants.md', status: 'modified' }];
+    const github = fakeGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-feature-demoted') }, pull: knowledge, files });
+    await deliver(github, pullRequestDelivery(knowledge, 'opened'));
+    expect(latest(github)).toMatchObject({ conclusion: 'success', output: { title: 'Knowledge PR: 1 law touched' } });
+    expect(outputOf(latest(github)).summary).toContain('N-PRODUCT-1: A widget is never shown without its colour.');
+  });
+
   it('5. a repository with no .omni-loop/config.yml gets no outbox check at all (PRD 359)', async () => {
     const pull = featurePull();
     const github = fakeGitHub({ commits: { base1: fixture('base-inactive'), head1: fixture('head-open') }, pull });

@@ -250,13 +250,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'knowledge',
     kind: 'command',
     who: 'you',
-    usage: ['omni knowledge <id>'],
+    usage: ['omni knowledge <id>', 'omni knowledge judge'],
     label: 'omni knowledge <id>',
     summary: 'one rule of the knowledge base',
     detail:
       'One entry of the knowledge base, a principle, a rule or an invariant, by its id (such as ' +
       'P-PRODUCT-1), with every entry that serves it. A proposed entry says who proposed it and ' +
-      'when: it describes the product, but it is no law until a person confirms it.',
+      'when: it describes the product, but it is no law until a person confirms it. judge is the ' +
+      'sweep: it asks of every rule and invariant whose Enforced by: is unenforced whether it is ' +
+      'worth a law, the model first, then omni decide law-worth. A yes opens its law issue and ' +
+      'reads pending #<n>; a no leaves its register for its PRD\'s settled.md, and every entry ' +
+      'still citing it is named. Once each one is judged it sets laws.requireProof: true. It ' +
+      'writes the working tree only, for a knowledge PR a person opens; a second run changes ' +
+      'nothing. It needs gh and OPENROUTER_API_KEY.',
   },
   {
     name: 'signin',
@@ -1485,6 +1491,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:prove 798',
       result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
+    },
+  },
+  {
+    name: 'enforce',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:enforce <n>'],
+    label: '/omni:enforce <n>',
+    summary: 'a law issue, to one PR with its test proven',
+    detail:
+      'Turns one law issue, a rule or an invariant of the knowledge base that reads Enforced by: ' +
+      'pending #<n>, into one PR into {defaultBranch}: it writes the law\'s test where the testing ' +
+      'form says tests live, then proves it, red with the law broken in the code and green once the ' +
+      "code is restored, the break never committed. It rewrites the entry's pending #<n> to the " +
+      "test's path on a law branch, and the PR closes the issue, its report showing the red and the " +
+      'green. A test that cannot go red stops it, with a comment on the issue, the law left pending ' +
+      'and no PR. It runs only where laws live in the knowledge base, and never merges.',
+    group: 'everyday',
+    when: 'Use it when a law issue waits for its test and you want one PR a person merges, without writing the test yourself.',
+    example: {
+      type: '/omni:enforce 1400',
+      result: "one PR adding the law's test, seen red with the law broken and green restored, closing the issue",
     },
   },
   {

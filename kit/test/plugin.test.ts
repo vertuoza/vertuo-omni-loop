@@ -2476,3 +2476,82 @@ describe('the design form in invade, think-big and brainstorm (PRD 1369)', () =>
     expect(page).toMatch(/`deliberate` section says the\s+product does on purpose holds/);
   });
 });
+
+// PRD 1342, s8: `/omni:enforce` turns one law issue into one PR whose test was seen red with the law
+// broken and green restored, and the two fix skills raise one `high` item per change to a law their
+// range makes, in the fix's own outbox.
+describe('laws born with their test, in the skills (PRD 1342)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+
+  it('/omni:enforce is named for its folder and triggers on its slash command', () => {
+    const data = frontmatter(read('enforce'));
+    expect(data?.name).toBe('enforce');
+    expect(String(data?.description)).toMatch(/\bTriggers on\b.*"\/omni:enforce"/);
+    expect(String(data?.description)).toMatch(/[Nn]ever merges/);
+  });
+
+  it('/omni:enforce starts from the config, refuses without laws in the knowledge base, then reads the briefing and the testing form', () => {
+    expect(missingInOrder(skillSection(read('enforce'), 'Step 0'), [
+      'omni.mjs config', '`laws.source`', '`knowledge`', 'kb show briefing', 'kb show testing',
+    ])).toEqual([]);
+  });
+
+  it('/omni:enforce reads the law issue and its entry, which must read pending #<n>', () => {
+    expect(missingInOrder(skillSection(read('enforce'), '1.'), [
+      'gh issue view <n> --comments', '`labels.law`', 'omni.mjs knowledge <id>', '`Enforced by: pending #<n>`', '**The stop**',
+    ])).toEqual([]);
+  });
+
+  it('/omni:enforce cuts branches.law with the entry id, from the default branch', () => {
+    expect(missingInOrder(skillSection(read('enforce'), '2.'), [
+      '`branches.law`', '`{id}`', 'git worktree add -b <law branch>', '<remote>/<repo.defaultBranch>',
+    ])).toEqual([]);
+  });
+
+  it('/omni:enforce proves the test: the law broken and red, then restored and green, the break never committed', () => {
+    const text = read('enforce');
+    expect(missingInOrder(skillSection(text, '4.'), [
+      '**Break the law**', 'smallest change', '**Red.**', 'verbatim', '**Restore**', '**Green.**', 'never committed',
+    ])).toEqual([]);
+    expect(skillSection(text, '4.')).toContain('A test that cannot go red is not a proof');
+  });
+
+  it('/omni:enforce rewrites pending #<n> to the test path, checks the knowledge, and opens one signed PR closing the issue', () => {
+    const text = read('enforce');
+    expect(missingInOrder(skillSection(text, '5.'), ['`Enforced by: pending #<n>`', "the test's path", 'omni.mjs check knowledge'])).toEqual([]);
+    expect(missingInOrder(skillSection(text, '6.'), [
+      'omni sign trailer', 'git push -u <remote> <law branch>', '/omni:pr', 'repo.defaultBranch', '`labels.law`', 'Closes #<n>',
+      '**Red:**', '**Green:**', 'omni sign footer',
+    ])).toEqual([]);
+  });
+
+  it('/omni:enforce stops with a comment on the issue when the test cannot go red, leaving the law pending and opening no PR', () => {
+    expect(missingInOrder(skillSection(read('enforce'), 'The stop'), [
+      'cannot be made to go red', 'gh issue comment <n> --body-file <file>', '`pending #<n>`', 'Open no pull request',
+    ])).toEqual([]);
+    expect(skillSection(read('enforce'), 'Never')).toContain('**Never merge.**');
+  });
+
+  for (const [skill, verb, step] of [['bug-fix', 'bug', '12.'], ['visual-fix', 'visual', '9.']] as const) {
+    it(`/omni:${skill} raises one high item per change to a law its range makes, in the fix's outbox, with an account naming it`, () => {
+      const text = read(skill);
+      const section = skillSection(text, 'A change to a law');
+      expect(missingInOrder(section, [
+        `omni.mjs ${verb} <n>`, '`law-proof`', '`law-text`', '`test-removed`', '`law-demoted`', '`outbox/`',
+        'one item per change', 'id: s1-<k>-<slug>', 'rank: high', 'bears-on: <law id>', 'outbox/accounts/s1.md',
+        'slice: s1', 'item s1-<k>-<slug>', 'a person answers',
+      ])).toEqual([]);
+      expect(section).toContain('`laws.source`');
+      expect(skillSection(text, step)).toContain('**A change to a law**');
+    });
+  }
+});

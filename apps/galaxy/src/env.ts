@@ -83,6 +83,7 @@ const STAGES_SYNC = oneSecret('the stages sync', 'STAGES_SYNC_SECRET');
 const STAGE_EVENT = oneSecret('the stage events', 'STAGE_EVENT_SECRET');
 const SECRETS_MASTER = oneSecret('Jev\'s master key', 'SECRETS_MASTER_KEY');
 const CONSTITUENT_JUDGE = oneSecret('the constituent judge', 'CONSTITUENT_JUDGE_SECRET');
+const LAW_JUDGE = oneSecret('the law judge', 'LAW_JUDGE_SECRET');
 const BUSINESS_RECHECK = oneSecret('the business recheck', 'BUSINESS_RECHECK_SECRET');
 
 /**
@@ -128,8 +129,8 @@ const GALAXY = envGroup({
  */
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
-  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND, DEMO,
-  GALAXY,
+  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND,
+  DEMO, GALAXY,
 ]);
 
 /**
@@ -166,6 +167,7 @@ export function readEnv(raw: EnvSource) {
     stageEventSecret: reader.group(STAGE_EVENT)?.secret ?? null,
     secretsMasterKey: reader.group(SECRETS_MASTER)?.secret ?? null,
     constituentJudgeSecret: reader.group(CONSTITUENT_JUDGE)?.secret ?? null,
+    lawJudgeSecret: reader.group(LAW_JUDGE)?.secret ?? null,
     businessRecheckSecret: reader.group(BUSINESS_RECHECK)?.secret ?? null,
     webPush: reader.group(WEB_PUSH),
     resend: reader.group(RESEND),

@@ -747,3 +747,29 @@ describe('parseConfig — keys this kit does not know (#1151)', () => {
     );
   });
 });
+
+describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
+  it('defaults to false, omni:law and test/law-{id}', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.laws.requireProof).toBe(false);
+    expect(config.labels.law).toBe('omni:law');
+    expect(config.branches.law).toBe('test/law-{id}');
+  });
+
+  it('reads the values a repository sets', () => {
+    const config = parseConfig('kit: 1\nlaws:\n  source: knowledge\n  requireProof: true\nlabels:\n  law: law\nbranches:\n  law: laws/{id}\n');
+    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true });
+    expect(config.labels.law).toBe('law');
+    expect(config.branches.law).toBe('laws/{id}');
+  });
+
+  it.each([
+    ['a requireProof that is no boolean', 'laws:\n  requireProof: yes please\n', /c\.yml.*laws\.requireProof/],
+    ['a requireProof given as text', "laws:\n  requireProof: 'true'\n", /c\.yml.*laws\.requireProof/],
+    ['an empty law label', "labels:\n  law: ''\n", /c\.yml.*labels\.law/],
+    ['a law label that is no text', 'labels:\n  law: 3\n', /c\.yml.*labels\.law/],
+    ['an empty law branch', "branches:\n  law: ''\n", /c\.yml.*branches\.law/],
+  ])('refuses %s, naming the key', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+});

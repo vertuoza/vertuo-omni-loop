@@ -1,6 +1,6 @@
 ---
 name: visual-fix
-description: Takes a small visual change from one line to one pull request a person merges — opens (or reads) its issue, shows today beside four or five rendered variations and asks which one, applies the pick on a fix branch, looks at the real screen once, records a before/after page with the pick and every round of variations, proves it with omni visual, opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch, wave or outbox. Stops and hands over the /omni:brainstorm line when the change needs data, a route, an API, a stored shape, a new screen or a new behaviour. Never merges. Triggers on "visual fix", "change the colour of", "this looks off", "make the sidebar darker", "/omni:visual-fix".
+description: Takes a small visual change from one line to one pull request a person merges — opens (or reads) its issue, shows today beside four or five rendered variations and asks which one, applies the pick on a fix branch, looks at the real screen once, records a before/after page with the pick and every round of variations, proves it with omni visual, opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops and hands over the /omni:brainstorm line when the change needs data, a route, an API, a stored shape, a new screen or a new behaviour. Never merges. Triggers on "visual fix", "change the colour of", "this looks off", "make the sidebar darker", "/omni:visual-fix".
 ---
 
 # Visual fix: one line to one pull request
@@ -8,14 +8,16 @@ description: Takes a small visual change from one line to one pull request a per
 A fast lane beside the loop, not inside it. A small visual change (a colour, a spacing, a label, a
 hover state) gets an issue, a set of rendered variations the person picks from, one fix branch and
 one pull request. There is no PRD, inbox folder, spec, plan, phase-0 PR, feature branch, wave or
-outbox: the person takes every visual decision by picking. The record (the before/after page, who
+outbox, except one item per change to a law the fix makes (**A change to a law**): the person takes
+every visual decision by picking. The record (the before/after page, who
 picked what, and every round of variations shown) is committed with the fix and sent to the fix's
 own page on the Omni page, a Visual Update. No release note and no retro follow a visual fix. It
 ends at a review gate: **a person merges.**
 
 In order: **start** (step 0, the flow's step 1); open or read the **issue** (2); **locate** the screen and check the **boundary**
 (3); draw the **variations** and ask (4); cut the **branch** (5); **apply** the pick (6); the
-**real check** (7); **record** the before/after page (8); **ship** (9); **hand off** (10).
+**real check** (7); **record** the before/after page (8), with **a change to a law** when the range
+makes one; **ship** (9); **hand off** (10).
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
@@ -211,10 +213,111 @@ The fix's folder is `<paths.delivery>/visual/<nnnn>-<slug>/`. Write in it:
 - `variations-r<k>.html`: every round's page of step 4, one file per round shown, k = 1, 2, … in
   the order shown, copied as the person saw it.
 
-Nothing else goes in that folder. Every page in it is self-contained: inline CSS and inline SVG, no
+Nothing else goes in that folder, but the `outbox/` of **A change to a law**. Every page in it is self-contained: inline CSS and inline SVG, no
 script from the network, and **no base64 raster image** (a `data:image/` URL that is not SVG). Each
 is at most `limits.beforeAfterMaxBytes` bytes. Build `before-after.html` from the round pages, never
 by linking to them.
+
+## A change to a law
+
+Only when `laws.source` is `knowledge`; otherwise skip this section. A law is a rule or an invariant
+of the knowledge base, and its proof is the test its `Enforced by:` line names. A fix may change a
+law only with a person's answer. Step 9's `node .omni-loop/bin/omni.mjs visual <n>` names each
+change to a law the range makes, one `not ok` line each, by its rule:
+
+| rule | the range |
+|---|---|
+| `law-proof` | changes a file a law's `Enforced by:` names |
+| `law-text` | rewords, adds or removes a law in a register |
+| `test-removed` | deletes a test, a law's among them |
+| `law-demoted` | turns a law's `Enforced by:` path back to `pending` or `unenforced`, or removes the law |
+
+Each line reads `- <path> (<rule>): a change to a law needs an item ranked high in
+<folder>/outbox/ and an account naming it in <folder>/outbox/accounts/.`
+
+First ask whether the fix needs that change. When it does not, undo it and rerun: that is the most
+reversible answer. When it does, keep it and raise it for a person, in the fix's folder
+(`<paths.delivery>/visual/<nnnn>-<slug>/`), under `outbox/`: **one item per change**, never two changes in one item.
+
+1. **The items.** `omni item new` writes a PRD's items only, so write each by hand as
+   `outbox/s1-<k>-<slug>.md`, in the shape every outbox item takes, `<k>` counting `01`, `02` … in
+   the order the lines came:
+
+   ```markdown
+   ---
+   id: s1-<k>-<slug>
+   prd: <n>
+   slice: s1
+   rank: high
+   bears-on: <law id>
+   raised: <YYYY-MM-DD>
+   wave: 1
+   ---
+
+   ## The question, in plain words
+
+   <one or two sentences a business person reads: what the fix changes about the rule, and why>
+
+   ## The decision, in plain words
+
+   <what this fix did, in the same plain words>
+
+   ## The intro, for fun
+
+   <one sentence, at most 120 characters, about the question, never about a person>
+
+   ## The punchline, for fun
+
+   <one sentence, at most 120 characters, following the intro>
+
+   ## The options, in plain words
+
+   A. <what the fix did> (built).
+   B. <keep the law as it was, and what the fix then does instead>
+
+   ## What I had to decide
+
+   <the law, its id, and the change the range makes to it>
+
+   ## What I did meanwhile
+
+   <what the branch holds now>
+
+   ## What it costs to change later
+
+   <what undoing it takes>
+
+   ## What I could not know
+
+   <what the knowledge, the issue and the code do not settle, each line marked (author)>
+   ```
+
+   The plain-words fields name no path, no code and no id. `<law id>` is the law's register id,
+   the one `omni knowledge <id>` explains. Never invent a rationale: a gap goes in the last
+   section, marked `(author)`.
+2. **The account.** Write `outbox/accounts/s1.md` in the same folder, naming each change once per
+   rule, as a line of `omni visual <n>` names it:
+
+   ```markdown
+   ---
+   prd: <n>
+   slice: s1
+   graded: <YYYY-MM-DD>
+   ---
+
+   ## Risky changes
+
+   - `<path>`
+     <rule>
+     item s1-<k>-<slug>
+   ```
+
+3. **Commit** the items and the account on the fix branch, signed (**Signing**), and rerun
+   `omni visual <n>` until it prints `ok`: an open item is not a failure there.
+
+On the pull request, the outbox check posts each item and stays red until a person answers it,
+through the same replies as a feature PR's outbox: a person answers, never this skill. That red is
+not an attempt at the fix. The PR's body and the hand-off name each item and the law it bears on.
 
 ## 9. Ship
 
@@ -226,7 +329,7 @@ by linking to them.
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing page, a page or a round too big, a raster image, a round not named `variations-r<k>.html`, any other file in the folder, an unsigned commit), commit, and rerun. |
+   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing page, a page or a round too big, a raster image, a round not named `variations-r<k>.html`, any other file in the folder, an unsigned commit), commit, and rerun. A line naming `law-proof`, `law-text`, `test-removed` or `law-demoted` follows **A change to a law**. |
    | `2` | The kit is not installed here, or its config does not read: say so and stop. |
 
 3. **Push** the fix branch: `git push -u <remote> <fix branch>`.
@@ -254,6 +357,11 @@ by linking to them.
    `<paths.delivery>/visual/<nnnn>-<slug>/before-after.html`, and the rounds of variations shown:
    `variations-r1.html`<, `variations-r2.html` …> beside it
 
+   ## Laws
+
+   <none | each item of **A change to a law**, its id and the law it bears on, for a person to
+   answer on this PR>
+
    ## Verified
 
    - <commands.preflight>: <green, or "none set here">
@@ -280,7 +388,8 @@ by linking to them.
 ## 10. Hand off
 
 Print, in a few lines: the issue, the PR, the fix's page beside it, what was verified and what was
-not (the preflight, the `omni visual` line, the real check or why it was not done), then:
+not (the preflight, the `omni visual` line, the real check or why it was not done), each item a
+change to a law raised and the law it bears on, then:
 
 > Open the PR's preview and merge it if it looks right.
 
@@ -299,5 +408,6 @@ worktree left behind, when there is one.
 - Never commit on `repo.defaultBranch`, and never write a round of variations into the repository
   before step 8, nor change one after it was shown.
 - Never report a screen as seen that was not.
-- Never open a PRD, an inbox folder, a plan or an outbox item for a visual fix, and never batch
-  several visual fixes into one PR.
+- Never open a PRD, an inbox folder, a plan or an outbox item for a visual fix, save the items
+  **A change to a law** asks for, and never batch several visual fixes into one PR.
+- Never answer an item of the fix's outbox: a person does.

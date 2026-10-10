@@ -69,7 +69,9 @@ to the repository: that is all. Setting the loop up on a repository, you also ne
    setting the loop up on it.
 3. **Join a team**: the loop already runs in your organization; your way around it.
 4. **Invade**: letting the loop read your repository and write down what it learned.
-5. **How the loop works**: its stages, its pull requests and its skills, in three drawings.
+5. **How the loop works**: its stages, its pull requests and its skills, in three drawings, and
+   [laws and their tests](/docs/loop#laws-and-their-tests): what a law is, `/omni:enforce` and the
+   sweep.
 6. **Your first PRD**: from an idea to a merged feature and its release note.
 7. **Design craft**, opt-in: the loop checks every screen it builds against your product's own
    look, and `/omni:pixel-perfect` brings design commands you can type on any screen.

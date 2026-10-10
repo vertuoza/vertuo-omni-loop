@@ -55,7 +55,8 @@ the command with one line naming the variables, never a value (ADR-0057). Every 
 
 <!-- omni:env-variables -->
 - `OPENROUTER_API_KEY`, and optionally `OPENROUTER_MODEL`: the model `omni harvest` asks where each
-  decision belongs.
+  decision belongs, and whether a rule is worth a law; `omni knowledge judge`, the sweep of a
+  repository's untested laws, needs it ([Laws and their tests](docs/guide/loop.md#laws-and-their-tests)).
 - `PROOF_URL` and `PROOF_STORAGE_STATE`: the address `/omni:prove` films and the file
   `omni proof session` writes its sign-in to.
 - `OMNI_LOOP_WORKSPACE`: the workspace a game command plays for when `--workspace` names none.

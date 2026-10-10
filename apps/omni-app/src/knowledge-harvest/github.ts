@@ -11,14 +11,14 @@ import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { PullFilesSchema } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { readKnowledge } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
 import { readDecisions } from 'vertuo-omni-plan/kit/lib/playbook/decisions.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { ChangedFile } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
+import type { IssueNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { ChangedFile, LawIssue } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { ListSchema } from '../retro/github.schema.ts';
 import { topicOf } from '../retro/qualify.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
-import { OpenPullSchema, parsedOr, PullMergeSchema, RefSchema } from './schema.ts';
+import { ListedIssueSchema, OpenPullSchema, parsedOr, PullMergeSchema, RefSchema } from './schema.ts';
 
 /** The one seam of GitHub the harvest reads and writes through: a REST route and its parameters. */
 const OPEN_PULLS_UNEXPECTED = 'GitHub answered the open pull requests unexpectedly';
@@ -152,4 +152,25 @@ export async function takenElsewhere(
     }
   }
   return { records: [...records].sort(), ids: [...ids].sort(), branches };
+}
+
+const LAW_ISSUES_UNEXPECTED = 'GitHub answered the open law issues unexpectedly';
+
+/**
+ * The law issue of `issue` (PRD 1342): the open one labelled `label` that already bears its title, so a
+ * replay never opens a second, else a new one, titled and labelled so.
+ */
+export async function openLawIssue(
+  octokit: RequestOctokit,
+  { owner, repo, label, issue }: { owner: string; repo: string; label: string; issue: Pick<LawIssue, 'title' | 'body'> },
+): Promise<{ number: IssueNumber; created: boolean }> {
+  const listed = await paginate((page: number) =>
+    octokit
+      .request('GET /repos/{owner}/{repo}/issues', { owner, repo, labels: label, state: 'open', per_page: PER_PAGE, page })
+      .then(({ data }) => parsedOr(ListSchema, data, LAW_ISSUES_UNEXPECTED)),
+  );
+  const open = parsedOr(ListedIssueSchema.array(), listed, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
+  if (open) return { number: open.number, created: false };
+  const { data } = await octokit.request('POST /repos/{owner}/{repo}/issues', { owner, repo, title: issue.title, body: issue.body, labels: [label] });
+  return { number: parsedOr(ListedIssueSchema, data, 'GitHub answered the new law issue unexpectedly').number, created: true };
 }

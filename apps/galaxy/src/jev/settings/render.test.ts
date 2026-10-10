@@ -116,9 +116,10 @@ describe('the decision rows (PRD 812 s2)', () => {
   const row = (html: string, name: string) => sure(rows(html).find((r) => r.name === name), 'rows(html).find((r) => r.name === name)').html;
   const valueOf = (html: string, name: string) => new RegExp(`name="${name}"[^>]*value="([^"]*)"|value="([^"]*)"[^>]*name="${name}"`).exec(html)?.slice(1).find(Boolean);
 
-  it('lists the six decisions, each with what it sends, Off at the defaults (PRD 855 s4 adds Unknown worth asking, PRD 871 s4 Constituent break, PRD 1217 s3 Human work kind)', () => {
+  it('lists the seven decisions, each with what it sends, Off at the defaults (PRD 855 s4 adds Unknown worth asking, PRD 871 s4 Constituent break, PRD 1217 s3 Human work kind, PRD 1342 s3 Worth a law)', () => {
     const html = page(STORED);
-    expect(rows(html).map((r) => r.name)).toEqual(['question-category', 'outbox-risk', 'bug-risk', 'unknown-worth-asking', 'constituent-break', 'hitl-category']);
+    expect(rows(html).map((r) => r.name)).toEqual(['question-category', 'outbox-risk', 'bug-risk', 'unknown-worth-asking', 'constituent-break', 'hitl-category', 'law-worth']);
+    expect(row(html, 'law-worth')).toMatch(/<option value="off" selected="">Off<\/option>/);
     expect(text(sure(row(html, 'hitl-category'), 'the value'))).toContain('Sends: The entry’s source, text, act and repository, and its PRD’s title.');
     expect(row(html, 'hitl-category')).toMatch(/<option value="off" selected="">Off<\/option>/);
     expect(text(sure(row(html, 'unknown-worth-asking'), 'the value'))).toContain('Sends: The agent’s question, its repository and file');

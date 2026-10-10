@@ -165,6 +165,97 @@ Three more labels say a state rather than a kind:
 Each of the loop's pull requests carries a status comment, kept current: where it is, and the steps
 left to a person.
 
+## Laws and their tests
+
+When your repository keeps its laws in the knowledge base (`laws.source: knowledge` in
+`.omni-loop/config.yml`), each rule and invariant there says what must stay true, and its
+`Enforced by:` line names how. A **law** is a decision worth a test, and it carries that test.
+Everything in this section is off unless `laws.source` is `knowledge`.
+
+`Enforced by:` reads one of three ways:
+
+| `Enforced by:` | What it means |
+|---|---|
+| a path, such as `src/quotes/total.test.ts` | the law's test: the outbox gate treats any change to it as a change to the law |
+| `pending #<n>` | a law that waits for its test: law issue `#<n>` is open, and agents respect the law already |
+| `unenforced` | a law with no test and no issue yet; refused once `laws.requireProof` is on, below |
+
+### Worth a law?
+
+When a feature pull request merges, the knowledge harvest writes back the decisions you settled.
+Each one it calls a rule or an invariant takes one of three paths:
+
+1. **The feature changed a test that proves it.** It becomes a law, with that test in its
+   `Enforced by:`.
+2. **No test, and not worth a law.** It stays out of the knowledge base. Its PRD's `settled.md` keeps
+   it, with the note `not worth a law`, and who decided.
+3. **No test, and worth a law.** The knowledge pull request writes it with `Enforced by: pending #<n>`,
+   and the harvest opens **law issue** `#<n>`, titled `Law: <statement>` and labelled `omni:law`
+   (`labels.law`). Its body names the entry, its register, its source and where its test would live.
+
+"Is this worth a law?" is answered by the model that classifies the decision. When your workspace
+turns the **`law-worth`** decision on in **Settings › Jev** on the Omni page, Jev's answer counts
+instead, whenever it is confident enough. It starts **Off** in every workspace; **Shadow** lets you
+read how often Jev agrees before you trust it. When Jev cannot answer, the model's answer stands, and
+the harvest still completes.
+
+### Give a law its test: `/omni:enforce`
+
+```text agent
+/omni:enforce 1400
+```
+
+It takes one law issue to one pull request. It writes one test of the law where your testing form
+says tests live, then **proves** it: it breaks the law in the code with the smallest change it can
+find and sees the test go red, then restores the code and sees it green. A test that cannot go red
+proves nothing. It then rewrites the entry's `pending #<n>` to the test's path, on a branch
+`test/law-<id>` (`branches.law`), and opens one pull request into the default branch that closes the
+issue, its description showing the red line and the green one. **You merge it.**
+
+When the test cannot be made to go red, or the law is already broken, it opens no pull request: it
+comments on the issue with what is stuck, and the law stays `pending`.
+
+### Move your repository onto it: the sweep
+
+A repository that kept laws before this has many `unenforced` ones. Once, from a terminal at its
+root, with `OPENROUTER_API_KEY` set:
+
+```bash terminal
+omni knowledge judge
+```
+
+It asks "worth a law?" of every `unenforced` rule and invariant, the model first, then
+`omni decide law-worth` with your sign-in, whose answer counts when your workspace turned `law-worth`
+on. A **yes** opens its law issue and turns the entry into `pending #<n>`; a **no** takes the entry
+out of its register and records it in its PRD's `settled.md` as not worth a law, and the report
+names every entry that cited it, for you to fix. Once every law is judged, it sets
+`laws.requireProof: true`. It only writes files: commit them on a `docs/knowledge-<topic>` branch
+(`branches.knowledge`), open the knowledge pull request, review it and merge it.
+
+From then on, `omni check knowledge` refuses a rule or an invariant whose `Enforced by:` is
+`unenforced`: each one names a test, or `pending #<n>`. Until a repository runs its sweep,
+`laws.requireProof` stays `false` and nothing changes, so a kit update never turns your checks red.
+
+### A person answers every change to a law
+
+Four changes count as a change to a law:
+
+- **`law-proof`**: the law's test changes;
+- **`law-text`**: a register of the knowledge base, or a decision record, changes;
+- **`test-removed`**: a test file is deleted;
+- **`law-demoted`**: a law's test path turns back to `pending` or `unenforced`, or a law leaves the
+  knowledge base.
+
+Each needs a question ranked `high`, one a person answers on the pull request. An account that says
+`spec <where>`, or names a `medium` question the loop adopted by itself, does not count: the outbox
+check stays red. Which pull request gets which check:
+
+| Pull request | Its outbox check |
+|---|---|
+| a feature pull request | as always, with the four law changes answered only by `high` questions |
+| a fix (`/omni:bug-fix`, `/omni:visual-fix`) | `success` when it touches no law. One that does needs a small `outbox/` in the fix's folder, one `high` question per change: the fix skills raise them, and the check names the law and stays red until you answer |
+| a knowledge pull request, or one `/omni:enforce` opened | never blocked: merging it is your answer. The check lists the laws it touches |
+
 ## Slices and waves
 
 The PRD's plan, `plan.md`, cuts it into thin slices. Each slice has a **territory**, the files it
@@ -212,6 +303,7 @@ omni board 7
 | `/omni:do-work <n> <slice>` | you want one slice alone; `/omni:wave` runs it for you | one sub-pull request into the feature branch |
 | `/omni:pixel-perfect <command> <screen>` | you want a screen critiqued, audited or polished; with [design craft](/docs/design) on, `/omni:do-work` and `/omni:visual-fix` run its `review` for you | the screen fixed in one bounded pass, and a report |
 | `/omni:pr` | a pull request of the loop is red or conflicts; the skills run it for you | the pull request green, or stuck, with the reason |
+| `/omni:enforce <issue>` | a law issue (`omni:law`) waits for its test ([Laws and their tests](#laws-and-their-tests)) | one pull request a person merges: the law's test, seen red with the law broken and green with it restored |
 | `/omni:invade` | once, after the install; with `--refresh` when the repository has changed a lot | one docs pull request: the knowledge base |
 | `/omni:status` | you want to see where the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |
@@ -225,9 +317,10 @@ Given a name, `/omni:help` explains one skill or command: `/omni:help yolo`.
 ## In a terminal
 
 A few `omni` commands are for you, in a terminal at the root of the repository or from Claude Code
-with `!` before them. None of them changes anything, except `omni signin`, `omni update`, and the
-last two: `omni roadmap answer` comments on the roadmap's issue, and `omni roadmap push` updates the
-roadmap's page.
+with `!` before them. None of them changes anything, except `omni signin`, `omni update`, `omni knowledge judge`, which
+writes the sweep's edits into your working tree and opens law issues, and the last two:
+`omni roadmap answer` comments on the roadmap's issue, and `omni roadmap push` updates the roadmap's
+page.
 
 | Command | What it says |
 |---|---|
@@ -238,6 +331,7 @@ roadmap's page.
 | `omni roadmap check 1200` | whether roadmap 1200 holds together: its PRDs wave by wave, or what it refuses |
 | `omni kb show briefing` | one form of the playbook, as the agents read it: `briefing`, `testing`… |
 | `omni knowledge BR-QUOTE-1` | one rule of the knowledge base, by its id |
+| `omni knowledge judge` | the sweep: asks "worth a law?" of every `unenforced` law, once per repository ([Laws and their tests](#laws-and-their-tests)) |
 | `omni signin` | signs this laptop in to the Omni page |
 | `omni version` | which kit the repository runs, and whether a newer one exists |
 | `omni update` | opens the pull request that brings the repository to the newer kit |

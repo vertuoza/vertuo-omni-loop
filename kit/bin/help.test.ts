@@ -218,6 +218,20 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out.replace(/\s+/g, ' ')).toMatch(/omni check inbox runs it too/);
   });
 
+  it('explains omni knowledge judge, the sweep of the unenforced laws (PRD 1342)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'knowledge'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni knowledge <id> +for you$/m);
+    expect(out).toMatch(/^omni knowledge judge$/m);
+    const flat = out.replace(/\s+/g, ' ');
+    expect(flat).toMatch(/every rule and invariant whose Enforced by: is unenforced/);
+    expect(flat).toMatch(/pending #<n>/);
+    expect(flat).toMatch(/settled\.md/);
+    expect(flat).toMatch(/laws\.requireProof: true/);
+    expect(flat).toMatch(/omni decide law-worth/);
+  });
+
   it('explains roadmap push and answer (PRD 1162, s6)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'roadmap'], root);
@@ -228,6 +242,19 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(flat).toMatch(/a 5-second limit and one sign-in refresh/);
     expect(flat).toMatch(/exits 1 with one line \(off, no sign-in, github unreachable, unreachable or refused\)/);
     expect(flat).toMatch(/as a comment on the roadmap's issue, with the marker/);
+  });
+
+  it('prints /omni:enforce: for you, a law issue to one PR, its test red with the law broken and green restored (PRD 1342)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'enforce'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^\/omni:enforce <n> +for you\n/);
+    const words = out.replace(/\s+/g, ' ');
+    for (const phrase of [/law issue/, /pending #<n>/, /red with the law broken/, /green/, /closes the issue/, /never merges/]) {
+      expect(words, String(phrase)).toMatch(phrase);
+    }
+    const overview = await run(['help'], root);
+    expect(overview.out).toMatch(/\n {2}\/omni:enforce <n> +a law issue, to one PR with its test proven\n/);
   });
 
   it('--help and -h print exactly what omni help prints', async () => {

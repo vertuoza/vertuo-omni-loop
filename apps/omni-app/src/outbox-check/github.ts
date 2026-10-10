@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import type { CommentId, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { deferredOutput, featureTopic, NOT_ACTIVE_ON_PR, planPrdOf, prdDirs, prdOfTopic, type PlanPrd } from '../evaluate/evaluate.ts';
+import { deferredOutput, NOT_ACTIVE_ON_PR, planPrdOf, prdDirs, prdOfTopic, pullKind, type PlanPrd } from '../evaluate/evaluate.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';
@@ -107,8 +107,8 @@ export type CheckTarget = { active: boolean; name: string; gated: boolean; reaso
  * names under the head's delivery folder — never a blob of the head, its comments or its compare.
  * `active`: the base branch has the loop installed (PRD 359: the app posts nothing anywhere else).
  * `name`: `ci.outboxContext`, or the kit's default when the config is broken (the check still has to
- * appear, to say so). `gated`: an Omni Loop feature pull request, the only one the gate runs on
- * (issue 876); `reason` says why another is not. A broken config is gated, so its check says what is
+ * appear, to say so). `gated`: an Omni Loop feature pull request (issue 876), or, with `laws.source:
+ * knowledge`, a fix, knowledge or enforce PR (PRD 1342, `pullKind`); `reason` says why another is not. A broken config is gated, so its check says what is
  * wrong. `deferTo`: on a pull request into the default branch that is not gated here, the plan
  * repository's PRD its body says it is part of (`planPrdOf`, issue 1202): a target feature PR, whose
  * check passes and points to the plan PR.
@@ -131,8 +131,13 @@ export async function checkTarget(
 
   const name = config.ci.outboxContext;
   const deferTo = pr.baseRef === config.repo.defaultBranch ? planPrdOf(pr.body, `${owner}/${repo}`) : null;
-  const feature = featureTopic(pr, config);
+  const feature = pullKind(pr, config);
   if ('skip' in feature) return { active: true, name, gated: false, reason: feature.skip, deferTo };
+  // A fix, knowledge or enforce PR (PRD 1342) is graded on the laws it touches: its branch says so.
+  // A target's fix PR keeps its record in the plan repository, so it defers there instead.
+  if (feature.kind !== 'feature') {
+    return deferTo ? { active: true, name, gated: false, reason: null, deferTo } : { active: true, name, gated: true, reason: null };
+  }
   const ref = headSha ?? pr.headSha;
   const names: string[] = [];
   for (const dir of prdDirs(config)) names.push(...(await folderNamesAt(octokit, { owner, repo, ref, dir })));
