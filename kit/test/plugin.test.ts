@@ -2652,7 +2652,7 @@ describe('the design memory in visual-fix, brainstorm, think-big and invade (PRD
       expect(step, name).toMatch(/only\s+a\s+person\s+locks,\s+through\s+`\/omni:pixel-perfect lock`/i);
       expect(step, name).toMatch(/locked screen's\s+file and(?: its)? mockup are never edited|never edit its file or its mockup/);
     }
-    for (const [name, step] of [['visual-fix', '8.'], ['brainstorm', '7.'], ['think-big', '6.']]) expect(skillSection(read(name), step), name).toContain('omni.mjs check design');
+    for (const [name, step] of [['visual-fix', '8.'], ['brainstorm', '7.'], ['think-big', '6.']] as const) expect(skillSection(read(name), step), name).toContain('omni.mjs check design');
   });
 
   it('visual-fix writes the pick to the library, not to the fix folder, and a draft already there is its draft amendment', () => {
