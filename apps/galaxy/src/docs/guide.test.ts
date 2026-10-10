@@ -20,10 +20,10 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'validate-e2e', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'validate-e2e', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Several repositories',
+  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
   'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
 ];
 
@@ -32,7 +32,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its fourteen pages, in order, each with its title', () => {
+  it('holds its sixteen pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -41,7 +41,7 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
       '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
@@ -78,6 +78,26 @@ describe('docs/guide', () => {
     ]) {
       expect(section, phrase).toContain(phrase);
     }
+  });
+
+  it('explains products: optional, many to many, a PRD\'s product, the product home and plan.product (PRD 1364)', () => {
+    const { pages } = readGuide(GUIDE);
+    const body = (slug: string) => pages.find((page) => page.slug === slug)?.body ?? '';
+    const products = body('products');
+    for (const heading of ['## Products are optional', '## A repository in several products', '## A PRD\'s product', '## The product home', '## A plan repository reads its targets from a product']) {
+      expect(products, heading).toContain(heading);
+    }
+    for (const phrase of [
+      'no product, one, or several', 'Which product is this PRD for?', '--product', 'product: none',
+      'product is locked: PRD', '**Ledger**', '**Repositories & approvers**', 'Settings › Repositories', 'omni product which', 'plan.product',
+    ]) {
+      expect(products, phrase).toContain(phrase);
+    }
+    const several = body('several-repositories');
+    for (const phrase of ['product: Mobile', 'omni product import --product', 'targets from the last read', '](/docs/products']) {
+      expect(several, phrase).toContain(phrase);
+    }
+    expect(body('index')).toContain('](/docs/products)');
   });
 
   it('sends someone joining a team past Invade, which their repository needs no more', () => {

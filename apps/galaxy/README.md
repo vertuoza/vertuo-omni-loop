@@ -619,20 +619,84 @@ Without `SECRETS_MASTER_KEY` (32 random bytes, base64: `openssl rand -base64 32`
 is not available on this deployment* and nothing can be saved. Losing it makes every stored key
 unreadable: each call then fails, today's path decides, and the owner pastes the key again.
 
-### Settings › Products: who approves (PRD 1322)
+### Products: the product home, its repositories and approvers (PRD 1364, PRD 1322)
 
-**Settings › Products › <product>** (`/app/settings/products/<id>`, `src/products/`) has an
-**Approvers** list: members of the workspace, each **asked to approve** or **skipped**
-(`public.product_approvers`, one row per listed member). The workspace's owners add a member and set
-or change their state through the owner-only `product_approver_set()` and `product_approver_remove()`;
-every other member reads the list. A member who leaves the workspace leaves every list.
+Products are optional ([`docs/guide/products.md`](../../docs/guide/products.md)). A repository is in
+no product, one or several, and a PRD has one product or none; the loop works the same with none.
+**Settings › Products** (`/app/settings/products`, `src/products/`) still creates, renames and
+deletes a product and holds its Pitch; a product's Settings page links to its product home for the
+Approvers list that used to live there.
 
-The list decides two things for a PRD born on the server (◆), whose product is its repository's
-(`repositories.product_id`):
+**Many to many.** `public.product_repositories` holds one row per product and repository: its
+`role` (one kebab-case word, or null until set), `knowledge` (`own`, `imported` or `none`),
+`read_at` (the 40-hex commit, only and always for `imported`), `read_only`, `consumes` (repositories
+of the same product, never itself) and `added_by` (`person` or `prd`). Members read the links; the
+workspace's owners write them through `product_repository_link()` and `product_repository_unlink()`,
+which refuses to remove a repository another one of the product still consumes. The migration copied
+each `repositories.product_id` into one link, and a new repository is in no product;
+`repositories.product_id` and `repository_set_product()`, which now moves the link, stay only until
+PRD 1364's contract landing drops them. Proven by `supabase/checks/product_repositories.sql`
+(`supabase/migrations/20261129090000_product_repositories.sql`).
+
+**A PRD's product.** `dossiers.product_id` and `ideas.product_id` are nullable. A dossier's first
+push takes its repository's product when the repository is in exactly one, none when it is in none,
+and, in several, the product the push names (`omni dossier push --product`, which `/omni:brainstorm`
+sends after asking *Which product is this PRD for?*) or none. Ideas, bug and visual fixes follow the
+same rule without the question. Giving a PRD a product links its home repository, and every
+repository its plan names, with `added_by = 'prd'`. The PRD's page has a **Product** picker
+(`GET`/`POST /api/dossiers/product`, `src/dossier/product/`) for every member until an approval is in
+force; then `dossier_set_product()` refuses with `product is locked: PRD <n> is approved`, and a void
+unlocks it. Proven by `supabase/checks/prd_product.sql`.
+
+**The lookups** (`lookup_product()`): the PRD's own product when the call names a PRD the server
+holds, else the repository's only product, else none, for `business_for_repo`, `business_for_token`,
+`dossier_approve`, `approval_request`, the voice's claims, agent questions, constituents and pitch. A
+PRD with no product reads none even in a repository with one product. With none, any member
+approves and the asked are every member but the author, as before; `business_for_token` with several
+products and no repository answers none instead of raising. Approvals know their PRD today; the
+kit's other calls do not send it yet, so they read the repository's only product. Proven by
+`supabase/checks/product_lookups.sql`.
+
+**Products in the sidebar** (`/app/products`, `src/products/ProductsHome.tsx`), first under Work:
+the workspace's products as cards, each with its repositories (one another product links too marked
+shared), its PRD count and how many of its PRDs wait on the viewer's approval; under them, the
+repositories in no product, each with **Add to a product**, which opens a product's Repositories &
+approvers tab with it picked.
+
+**The product home** (`/app/products/<id>`, `app/app/products/[id]/`, `src/product-home/`), each tab
+at its own address and reading only the product's rows:
+
+| tab | address | shows |
+|---|---|---|
+| **Ledger** | `/app/products/<id>` | three lanes, *on you* (waiting for the viewer's approval or answer), *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆/◇, one state word and the open PRs of its feature and landing branches; a summary of building, waiting on a person and drifted |
+| **PRDs** | `…/prds` | the product's PRDs, newest first, birthplace and state |
+| **Ideas**, **Roadmap**, **Bug fixes**, **Visual fixes** | `…/ideas`, `…/roadmap`, `…/bugs`, `…/visual` | the product's ideas (with their `/omni:brainstorm` line), roadmaps, bug and visual dossiers |
+| **Questions** | `…/questions` | the open outbox questions of its PRDs that wait on a person, each linking to the PRD page's Outbox tab |
+| **Repositories & approvers** | `…/repositories` | the links, every field editable by an owner, and **Add a repository** (`POST`/`DELETE …/repositories/links`); under them the **Approvers** list (`POST`/`DELETE …/repositories/approvers`); a member reads both |
+
+**Settings › Repositories** shows each repository's products as chips linking to their homes, and
+no longer offers a product select. `/prd`, `/ideas/<owner>/<repo>` (to members), `/bugs` and
+`/visual` gain a product filter: all, one product, or no product.
+
+**The kit's routes** (`src/product-repositories/product-repositories.controller.ts`):
+`GET /api/products/targets?repo=&product=` for `omni targets` when a plan repository's config names
+`plan.product`, `POST /api/products/import` for `omni product import --product <name>`, and
+`GET /api/products/which?repo=` for `omni product which`. Each answers 401 signed out.
+
+#### Who approves (PRD 1322)
+
+The product home's **Approvers** list holds members of the workspace, each **asked to approve** or
+**skipped** (`public.product_approvers`, one row per listed member). The workspace's owners add a
+member and set or change their state through the owner-only `product_approver_set()` and
+`product_approver_remove()`; every other member reads the list. A member who leaves the workspace
+leaves every list.
+
+The list decides two things for a PRD born on the server (◆), through its product (the PRD's own,
+else its repository's only one, as above):
 
 - **Who may approve.** Once the product lists a member asked to approve, `dossier_approve()` refuses
-  anyone else, a skipped member included, and the PRD's page shows them no **Approve**. A repository
-  with no product, or a product with nobody asked, keeps PRD 1299's rule: any member of the workspace.
+  anyone else, a skipped member included, and the PRD's page shows them no **Approve**. A PRD with no
+  product, or a product with nobody asked, keeps PRD 1299's rule: any member of the workspace.
   The author may approve when they are one of the product's approvers.
 - **Who is asked** ([The approval handshake](#the-approval-handshake-prd-1322)): the members asked to
   approve, except the PRD's author, or the author when that leaves nobody.
@@ -866,7 +930,7 @@ runs instead of stopping ([`docs/guide/loop.md`](../../docs/guide/loop.md#the-ap
 - **The request.** `POST /api/dossiers/approval/request` `{repo, prd}` appends one row to the
   append-only `public.approval_requests` (the dossier, its product, who asked, who is asked, when)
   and answers who was asked: the product's members asked to approve, except the author, or the author
-  when nobody else is ([Settings › Products](#settings--products-who-approves-prd-1322)). A skipped
+  when nobody else is ([Who approves](#who-approves-prd-1322)). A skipped
   member is never asked; a signed-out caller gets 401. Each person asked gets a push on every device
   they subscribed, if their **Phone alerts** are on, and an email, if their **Email** is on:
   `PRD <n> waits for your approval`, the spec's title, its before → after, the repositories and the
