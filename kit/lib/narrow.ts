@@ -72,3 +72,5 @@ export function at<T>(list: readonly T[], index: number, what: string): T {
 export function keysOf<K extends string>(record: Readonly<Record<K, unknown>>): K[] {
   return Object.keys(record).filter((key): key is K => Object.hasOwn(record, key));
 }
+
+// PRD 1342 live test: a throwaway change, this pull request is closed unmerged.
