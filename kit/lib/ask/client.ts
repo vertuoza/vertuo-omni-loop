@@ -287,16 +287,17 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       call('POST', '/api/dossiers', { body: { title, repo, ...(claudeSessionId ? { claudeSessionId } : {}) } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
      * PRD 627 a fix's push names its kind (visual or bug), and since PRD 1272 a concept's (concept); a
-     * PRD's names none, as before.
-     * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
-    pushDossier: ({ repo, prd, kind = 'prd', title, draftId = null, artifacts }: {
-      repo: unknown; prd: unknown; kind?: string | null; title: unknown; draftId?: unknown; artifacts: unknown;
+     * PRD's names none, as before. Since PRD 1364 a PRD's push names its product when one was chosen.
+     * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[], product?: string | null }>} */
+    pushDossier: ({ repo, prd, kind = 'prd', title, draftId = null, product = null, artifacts }: {
+      repo: unknown; prd: unknown; kind?: string | null; title: unknown; draftId?: unknown; product?: string | null; artifacts: unknown;
     }) =>
       call('POST', '/api/dossiers/push', {
-        body: { repo, prd, ...(kind && kind !== 'prd' ? { kind } : {}), title, ...(draftId ? { draftId } : {}), artifacts },
+        body: { repo, prd, ...(kind && kind !== 'prd' ? { kind } : {}), title, ...(draftId ? { draftId } : {}), ...(product ? { product } : {}), artifacts },
       }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
-     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. @returns {Promise<{ id: string, url: string }>} */
+     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. Since PRD 1364 it answers
+     * the dossier's product by its name, or null. @returns {Promise<{ id: string, url: string, product?: string | null }>} */
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }: { claudeSessionId: unknown; repo: unknown; work: unknown; ended?: boolean }) =>
