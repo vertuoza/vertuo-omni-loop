@@ -555,6 +555,12 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
       expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }, IMPORTED]))).toMatch(
         /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(back\)/,
       );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }, IMPORTED, NONE]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(back, legacy\)$/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(none\)$/,
+      );
     });
   });
 });
