@@ -22,6 +22,15 @@ describe('ConfigSchema', () => {
     expect(ConfigSchema.parse({ kit: 1, signature: null }).signature).toBeNull();
   });
 
+  it('names the approved check omni/approved unless the file renames it or turns it off with null (PRD 1548)', () => {
+    expect(ConfigSchema.parse({ kit: 1 }).ci.approvedContext).toBe('omni/approved');
+    expect(ConfigSchema.parse({ kit: 1, ci: { approvedContext: 'approved' } }).ci.approvedContext).toBe('approved');
+    expect(ConfigSchema.parse({ kit: 1, ci: { approvedContext: null } }).ci.approvedContext).toBeNull();
+    expect(ConfigSchema.parse({ kit: 1, ci: { approvedContext: 'approved' } }).ci.outboxContext).toBe('outbox');
+    expect(issues({ kit: 1, ci: { approvedContext: 3 } })[0]?.path).toEqual(['ci', 'approvedContext']);
+    expect(issues({ kit: 1, ci: { approvedContext: '' } })[0]?.path).toEqual(['ci', 'approvedContext']);
+  });
+
   it('refuses a wrong value, naming its field', () => {
     const [issue] = issues({ kit: 1, limits: { attempts: 'three' } });
     expect(issue?.path).toEqual(['limits', 'attempts']);

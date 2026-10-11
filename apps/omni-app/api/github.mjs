@@ -268,6 +268,12 @@ import { z as z5 } from "zod";
 import { z as z4 } from "zod";
 var IssueNumberSchema = z4.number().int().positive().brand();
 var PrdNumberSchema = IssueNumberSchema.brand();
+var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
+var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
+var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
+  const cut = id.lastIndexOf("-");
+  return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
+}).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
 var WorkSliceIdSchema = z4.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
@@ -279,6 +285,8 @@ var APP_ID = "omni-loop";
 var OUTBOX_CHECK_EVENT = "omni-loop/outbox.check.requested";
 var INBOX_CHECK_EVENT = "omni-loop/inbox.check.requested";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
+var APPROVED_CHECK_EVENT = "omni-loop/approved.check.requested";
+var APPROVED_EXTERNAL_ID = "omni-loop/approved";
 var RETRO_EVENT = "omni-loop/retro.requested";
 var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
 var inngest = new Inngest({ id: APP_ID });
@@ -675,6 +683,9 @@ var ConfigSchema = z7.object({
     outboxContext: text2.default("outbox"),
     // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
     inboxContext: text2.default("inbox"),
+    // PRD 1548: the name of the check run the omni-loop App posts on a target feature PR of a product
+    // PRD, saying whether what it builds is what was approved; `null` posts none.
+    approvedContext: nullableText.default("omni/approved"),
     aggregateCheck: nullableText.default(null),
     branchProtection: z7.boolean().default(false),
     runner: text2.default("ubuntu-latest")
@@ -1366,7 +1377,7 @@ function toCheckRequests(event, delivery) {
   const source = sourceOf(payload);
   if (!source) return [];
   const trigger = `${event}.${String(payload.action)}`;
-  const name = event === "check_run" && payload.check_run?.external_id === INBOX_EXTERNAL_ID ? INBOX_CHECK_EVENT : OUTBOX_CHECK_EVENT;
+  const name = event === "check_run" ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
   const pulls = event === "pull_request" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
     number: pull.number,
     sha: pull.head?.sha ?? payload.check_run?.head_sha,
@@ -1378,6 +1389,11 @@ function toCheckRequests(event, delivery) {
     name,
     data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger }
   }));
+}
+function rerunEventOf(externalId) {
+  if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
+  if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  return OUTBOX_CHECK_EVENT;
 }
 function toRetroRequests(event, delivery) {
   const payload = readPayload(delivery);

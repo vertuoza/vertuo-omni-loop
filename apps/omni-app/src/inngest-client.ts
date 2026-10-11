@@ -1,5 +1,5 @@
 // The one Inngest client the omni-loop app sends and serves its events through. `/api/github` sends
-// on it, the `outbox-check`, `inbox-check`, `retro` and `knowledge-harvest` functions are created on it, and `/api/inngest` serves it. The event key and
+// on it, the `outbox-check`, `inbox-check`, `approved-check`, `retro` and `knowledge-harvest` functions are created on it, and `/api/inngest` serves it. The event key and
 // the signing key come from the environment (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`), which the
 // SDK reads itself; nothing here names a secret.
 //
@@ -26,6 +26,15 @@ export const INBOX_CHECK_EVENT = 'omni-loop/inbox.check.requested';
  * re-run of it from a re-run of the outbox check, whatever `ci.inboxContext` names it.
  */
 export const INBOX_EXTERNAL_ID = 'omni-loop/inbox';
+
+/**
+ * The event `/api/github` sends when a person re-runs an approved check run (PRD 1548). Every other
+ * time, the `approved-check` function runs on the outbox check's own event, which it also listens to.
+ */
+export const APPROVED_CHECK_EVENT = 'omni-loop/approved.check.requested';
+
+/** The `external_id` every approved check run carries, so the webhook tells a re-run of it, whatever `ci.approvedContext` names it. */
+export const APPROVED_EXTERNAL_ID = 'omni-loop/approved';
 
 /** The event `/api/github` sends for a merged pull request; the `retro` function qualifies it (PRD 72). */
 export const RETRO_EVENT = 'omni-loop/retro.requested';

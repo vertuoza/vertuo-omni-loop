@@ -8,8 +8,8 @@ import { makeRepo } from '../../test/fixture.ts';
 import type { Repo } from '../../test/fixture.ts';
 import { sha256 } from '../dossier/folder.ts';
 import { AskCallError } from '../ask/client.ts';
-import { parsePrd } from '../ids.ts';
-import { failedReading, judgeApproval, parseApprovalReply, readApproval, treeFileOf } from './approval.ts';
+import { parsePrd, parseProductPrdId } from '../ids.ts';
+import { failedReading, judgeApproval, judgeProductApproval, parseApprovalReply, readApproval, readProductApproval, treeFileOf } from './approval.ts';
 
 const PRD = parsePrd(1299);
 const URL_ = 'https://omni.test/prd/acme/widgets/1299';
@@ -215,5 +215,45 @@ describe('readApproval', () => {
     const { ctx } = repo();
     expect((await readApproval(ctx, PRD, () => Promise.reject(new AskCallError('down')))).state).toBe('unreachable');
     expect((await readApproval(ctx, PRD, () => Promise.reject(new AskCallError('no', { status: 500 })))).lines).toEqual(['refused (500)']);
+  });
+});
+
+describe('judgeProductApproval — a product PRD has no tree: the server is its record (PRD 1548)', () => {
+  const MOBILE_12 = parseProductPrdId('mobile-12');
+  const productReply = (approval: unknown) => {
+    const parsed = parseApprovalReply({ url: URL_, approval });
+    assertDefined(parsed, 'the approval reply');
+    return parsed;
+  };
+  const APPROVED = { approver: { login: 'ada', member: true }, approvedAt: '2026-10-09T10:00:00Z', files: [pinned('spec', 'spec.md', SPEC), pinned('plan', 'plan.md', PLAN)] };
+
+  it('reads pending with no approval yet, naming the product PRD', () => {
+    expect(judgeProductApproval(MOBILE_12, productReply(null))).toEqual({
+      state: 'pending', lines: [`PRD mobile-12 waits for approval: ${URL_}`], url: URL_, approval: null, drift: [],
+    });
+  });
+
+  it('reads approved when nothing voided it, whatever any checkout holds', () => {
+    expect(judgeProductApproval(MOBILE_12, productReply(APPROVED))).toMatchObject({ state: 'approved', lines: ['approved by ada · 2026-10-09T10:00:00Z'], drift: [] });
+  });
+
+  it('reads drifted on a push that voided it, naming the pinned file', () => {
+    const voided = { ...APPROVED, voids: [{ pusher: 'bob', kind: 'plan', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-10T10:00:00Z' }] };
+    expect(judgeProductApproval(MOBILE_12, productReply(voided))).toMatchObject({
+      state: 'drifted', lines: [`≠ plan.md · voided by bob's push aaaaaaa→bbbbbbb · ✗ refuse · approve again: ${URL_}`],
+      drift: [{ kind: 'plan', file: 'plan.md', how: 'voided' }],
+    });
+  });
+
+  it('reads refused when the approver left the workspace', () => {
+    expect(judgeProductApproval(MOBILE_12, productReply({ ...APPROVED, approver: { login: 'ada', member: false } }))).toMatchObject({
+      state: 'refused', lines: ['approver ada is not a workspace member'],
+    });
+  });
+
+  it('readProductApproval judges a reply, and reads a call that failed as readApproval does', async () => {
+    expect((await readProductApproval(MOBILE_12, () => Promise.resolve({ url: URL_, approval: APPROVED }))).state).toBe('approved');
+    expect((await readProductApproval(MOBILE_12, () => Promise.resolve({ url: URL_ }))).lines).toEqual(['refused (malformed reply)']);
+    expect((await readProductApproval(MOBILE_12, () => Promise.reject(new AskCallError('down')))).state).toBe('unreachable');
   });
 });
