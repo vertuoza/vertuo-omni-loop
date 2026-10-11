@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configFrom } from '../config.ts';
-import { buildSnapshot, toIso, type Exec } from './github.ts';
+import { buildSnapshot, isRateLimit, toIso, type Exec } from './github.ts';
 
 // A gh read the fake answers: the start of its joined arguments, and its output (an Error is thrown).
 type Fixture = readonly [string, unknown];
@@ -11,7 +11,7 @@ import { projectEvents } from '../projector.ts';
 import { score } from '../economy.ts';
 import { nth, present } from '../test/present.ts';
 import { assertDefined } from '../../kit/test/assert.ts';
-import { parsePrd } from '../../kit/lib/ids.ts';
+import { parsePrd, PrNumberSchema } from '../../kit/lib/ids.ts';
 
 // The roster comes from Supabase with the config: pm and alice fly with beaver. The game reads the
 // workspace's tracked repositories (PRD 728): here, vertuoza/core-repo.
@@ -479,7 +479,7 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     ]);
     const all: Exec = async (args) => (args.join(' ').includes(other) ? twin(args) : exec(args));
     const s = await buildSnapshot({ config: both, exec: all, now });
-    expect(s.planets.map((p) => [p.home, p.prd, p.ownerTeam])).toEqual([[PLAN_REPO, 88, 'beaver'], [other, 88, 'octopod']]);
+    expect(s.planets.map((p) => [p.home, p.prd, p.ownerTeam])).toEqual([[other, 88, 'octopod'], [PLAN_REPO, 88, 'beaver']]); // the PRD closed last first
     const events = projectEvents(s, { config: both, now });
     const ids = events.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -571,5 +571,69 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
     expect(s.planets.map((p) => `${p.home}#${p.prd}`)).toEqual([`${PLAN_REPO}#88`]);
     expect(nth(s.planets, 0, 'the planet').regions.map((r) => present(r.featurePr, 'the feature PR').number)).toEqual([89, 284, 40]);
     expect(projectEvents(s, { config: cfg, now }).filter((e) => JSON.stringify(e).includes('old-plan'))).toEqual([]);
+  });
+});
+
+// What gh throws when the token's rate limit refuses a call.
+const rateLimited = (): Error => Object.assign(new Error('Command failed: gh api repos/x\ngh: API rate limit exceeded for user ID 1.'), { stderr: 'gh: API rate limit exceeded for user ID 1.' });
+
+describe('a read the token\'s rate limit refuses', () => {
+  it('is a rate limit, primary or secondary; a 404 is not', () => {
+    expect(isRateLimit(rateLimited())).toBe(true);
+    expect(isRateLimit(new Error('gh: You have exceeded a secondary rate limit.'))).toBe(true);
+    expect(isRateLimit(new Error('gh: Not Found (HTTP 404)'))).toBe(false);
+  });
+
+  it('never reads as empty: a shipped PRD\'s folder refused is no decommissioned planet', async () => {
+    const closed = { ...ISSUE, closedAt: '2026-09-23T10:00:00Z' };
+    const refused = await snap([[`issue list -R ${R} --label omni:prd`, [closed]], [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, rateLimited()]]);
+    expect(refused.planets).toEqual([]);
+    expect(refused.stopped?.by).toBe('rate-limit');
+    expect(refused.stopped?.message).toContain('API rate limit exceeded');
+    expect(projectEvents(refused, { config, now: NOW }).filter((e) => e.type === 'PLANET_DECOMMISSIONED')).toEqual([]);
+    // A 404 there still reads as no folder, as before.
+    const missing = await snap([[`issue list -R ${R} --label omni:prd`, [closed]], [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, new Error('gh: Not Found (HTTP 404)')]]);
+    expect(missing.stopped).toBeUndefined();
+    expect(missing.planets.map((p) => p.prd)).toEqual([2332]);
+  });
+
+  it('keeps every planet read in full before it, and drops the one it was reading', async () => {
+    const other = { ...ISSUE, number: 2333, title: 'Other', closedAt: '2026-09-23T10:00:00Z' };
+    const s = await snap([
+      [`issue list -R ${R} --label omni:prd`, [other, ISSUE]],
+      [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, '2332-generic-import\n2333-other\n'],
+      [`api repos/${R}/commits?path=.omni-loop/delivery/inbox/2333-other/`, rateLimited()],
+    ]);
+    expect(s.planets.map((p) => p.prd)).toEqual([2332]); // the open PRD is read first
+    expect(s.stopped?.by).toBe('rate-limit');
+    expect(s.stopped?.message).toContain('1 of 2 planets read');
+  });
+
+  it('stops before a planet once the read budget is spent', async () => {
+    const s = await snap([], { deadline: 0 });
+    expect(s.planets).toEqual([]);
+    expect(s.stopped).toEqual({ by: 'budget', message: 'read budget spent: 0 of 1 planets read' });
+  });
+});
+
+describe('a settled planet', () => {
+  const closed = { ...ISSUE, closedAt: '2026-09-22T10:00:05Z' };
+  const settled = (readBugs: boolean) => new Map([[`${R}#2332`, { mergedAt: '2026-09-22T10:00:00Z', repo: R, pr: PrNumberSchema.parse(500), readBugs }]]);
+
+  it('is read light: no feature PR, plan, zone or outbox read, and it stays terraformed', async () => {
+    const seen: string[] = [];
+    const s = await buildSnapshot({ config, exec: fakeExec(world([[`issue list -R ${R} --label omni:prd`, [closed]]]), seen), now: NOW, settled: settled(false) });
+    expect(seen.filter((c) => !/^issue list -R \S+ --label omni:prd|^api repos\/[^/]+\/[^/]+ --jq|contents\/\.omni-loop\/(config\.yml|delivery\/(inbox|shipped) --jq)/.test(c))).toEqual([]);
+    const p = nth(s.planets, 0, 'the planet');
+    expect(p.featurePr).toMatchObject({ repo: R, number: 500, mergedAt: '2026-09-22T10:00:00Z' });
+    const events = projectEvents(s, { config, now: NOW });
+    expect(events.map((e) => e.type)).toEqual(['PLANET_CHARTED', 'PLANET_TERRAFORMED']);
+    expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')?.id).toBe(`planet:${R}#2332:terraformed`);
+  });
+
+  it('reads its bugs while the aftershock window is open: a new one opens its wound', async () => {
+    const bug = { number: 9, createdAt: '2026-09-23T08:00:00Z', closedAt: null, closedBy: null };
+    const s = await buildSnapshot({ config, exec: fakeExec(world([[`issue list -R ${R} --label omni:prd`, [closed]], [`issue list -R ${R} --label bug`, [bug]]])), now: NOW, settled: settled(true) });
+    expect(projectEvents(s, { config, now: NOW }).filter((e) => e.type === 'WOUND_OPENED').map((e) => e.id)).toEqual([`bug:${R}#2332:${R}#9:opened`]);
   });
 });

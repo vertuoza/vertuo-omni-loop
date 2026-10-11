@@ -110,7 +110,7 @@ describe('the game scripts name their workspace', () => {
     expect(ghCalls()[0]).toMatch(/^issue list -R acme-gh\/acme-rockets /);
     expect(ghCalls().join('\n')).not.toMatch(/old-rockets|acme-plan/); // PRD 728: an untracked repository is not read
     const reads = server.calls.filter((c) => c.method === 'GET' && c.table !== 'workspaces');
-    expect(reads.map((c) => c.table).sort()).toEqual(['players', 'repositories', 'sectors', 'teams']);
+    expect(reads.map((c) => c.table).sort()).toEqual(['ledger_events', 'players', 'repositories', 'sectors', 'teams']); // the ledger first: its settled planets are read light
     for (const c of reads) expect(c.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
     const append = present(server.calls.find((c) => c.method === 'POST' && c.table === 'ledger_events'), 'the append');
     expect(append.url.searchParams.get('on_conflict')).toBe('workspace_id,id');

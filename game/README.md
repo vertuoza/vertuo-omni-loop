@@ -105,6 +105,33 @@ or its bare name; a tracked repository that no sector names counts as a sector o
 
 Scoring does not change: every number stays in `game/rulebook.ts`.
 
+## A poll's budget
+
+`game:project` once re-read every PRD in full at every poll. With 335 planets that took more than
+the ledger job's 30 minutes, and the token's hourly rate limit ran out midway. A cut job appends
+nothing. Worse, a refused read used to count as an empty one: a shipped PRD whose folder listing was
+refused looked like a PRD with no folder, and was written down as `PLANET_DECOMMISSIONED`, for good.
+Three rules now hold (`game/settled.ts`, `buildSnapshot` in `game/sources/github.ts`):
+
+- **A rate limit is never an empty read.** A read the token's rate limit refuses (primary or
+  secondary, `isRateLimit()`) stops the read. Every planet read in full before it is kept and
+  appended; the one being read is dropped; the run prints why and exits 1. The next poll reads the
+  rest. A 404 still reads as empty, as before.
+- **Settled planets are read light.** `game:project` reads the ledger first. A planet the ledger
+  holds as terraformed, with a `FEATURE_MERGED`, and with every wound it opened closed, is
+  **settled**: its zones, outbox, plan and timelines give nothing new, so they are not read again.
+  Its light read is its issue and, while the aftershock window (`aftershockWindowDays`) is open after
+  its merge, its bugs. A new aftershock opens a wound, which unsettles the planet: the next poll reads
+  it in full. A decommissioned or lost planet is never settled, so a PRD wrongly decommissioned by an
+  old refused read is read in full again and earns what it delivered.
+- **The newest first, within a budget.** Planets are read open first, then by when they closed, so
+  the work just done is the first paid. The read stops before a planet once 18 minutes have passed
+  (`READ_BUDGET_MINUTES`, `game/cli/project.ts`), keeps what it read and only warns, leaving the
+  ledger job's last minutes to `game:contributions` and `game:dossiers`.
+
+Nothing changes in the scoring: every event keeps its id, so a planet read in a later poll pays
+exactly what it would have, once.
+
 ## Answered questions
 
 PRD 1180. Every answered ask round pays its answerer `RULEBOOK.questionAnswered`
@@ -335,8 +362,11 @@ it ended on (concurrency `game-xp`); `rankings` runs on the Monday schedule, or 
   the labels at poll time.
 - **No clawback on re-raise.** A settle whose item is later reopened or re-raised keeps its points
   (spec §6.4 brake not implemented yet).
-- **Every poll re-reads all PRDs.** There is no incremental read; cost grows with the number of
-  planets.
+- **Every poll re-reads every unsettled PRD.** Settled planets are read light
+  ([A poll's budget](#a-polls-budget)), but each open, decommissioned or lost one is read in full at
+  every poll.
+- **A settled planet misses what changes after its merge** beyond its bugs: an approval given after
+  the merge is not paid.
 - **`game:xp` reads the whole ledger on every poll.** It recomputes every login from all of
   history, with no incremental read, so its cost grows with the ledger.
 - **Fleet stamps and scores live only in Supabase.** The ledger can be rebuilt from GitHub, and XP
