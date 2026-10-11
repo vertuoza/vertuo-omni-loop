@@ -393,3 +393,633 @@ Renaming or reshaping the field is a change in three function bodies and their r
 ```
 
 <!-- /omni-outbox-settled: s1-05-a-product-prd-answers-with-its-name -->
+
+<!-- omni-outbox-settled: s2-01-two-changes-outside-the-slice -->
+
+## s2-01-two-changes-outside-the-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-two-changes-outside-the-slice
+prd: 1548
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+This slice was meant to change only the dossier and PRD commands and their routes. Two small changes outside it were needed: may they stay?
+
+## The decision, in plain words
+
+Yes, kept. The terminal's connection to the Omni page learned the four new calls a product PRD needs, and the help's own test now lists the new commands, so the help and its test agree.
+
+## The intro, for fun
+
+The new commands needed a phone line, and the phone book needed a new page.
+
+## The punchline, for fun
+
+We added both and wrote down who we called.
+
+## The options, in plain words
+
+A. A. Keep both changes in this slice (built).
+B. B. Move the four new calls into a file of their own beside the dossier commands
+C. C. Leave the new commands out of the help
+
+## What I had to decide
+
+Confirm the two changes outside the territory: four calls added to kit/lib/ask/client.ts (pushProductDossier, findProductDossier, getDossier, readProductApproval) and the help pin in kit/lib/help/entries.test.ts updated to the new usage lines of omni dossier and omni prd.
+
+Decided by: Jev (hardToRevert 0.58) · agent said false
+
+## What I did meanwhile
+
+kit/lib/ask/client.ts gained four calls beside pushDossier and findDossier: POST /api/dossiers/push with productKey, GET /api/dossiers?product=&prd=, GET /api/dossiers/get?product=&prd=&kind= and GET /api/dossiers/approval?prd=<key>-<n>. Nothing existing changed. kit/lib/help/entries.test.ts pins the dossier entry's usage list exactly; it now lists the three new lines, and a new test checks the product PRD wording of omni dossier and omni prd.
+
+## What it costs to change later
+
+Each is a few lines to move or undo. Without the client calls the kit cannot reach a product PRD; without the test change the help test is red.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists kit/lib/help/entries.ts but not its test, and no slice lists kit/lib/ask/client.ts, which every kit call to the Omni page goes through.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-two-changes-outside-the-slice -->
+
+<!-- omni-outbox-settled: s2-02-a-product-prd-approval-judged-by-the-server -->
+
+## s2-02-a-product-prd-approval-judged-by-the-server — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-a-product-prd-approval-judged-by-the-server
+prd: 1548
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+A PRD that lives only on its product has no files in any checkout to compare with what was approved. When does its approval stop counting, as the terminal reads it?
+
+## The decision, in plain words
+
+The moment someone saves a changed version of an approved file, which the server already records. Nothing on anyone's computer is compared.
+
+## The intro, for fun
+
+An approval with no folder to check is like a receipt with no shopping bag.
+
+## The punchline, for fun
+
+So we asked the shop's own till, which never forgets a change.
+
+## The options, in plain words
+
+A. A. Judge by the server's voids, read from the approval route (built)
+B. B. Also compare each pinned file with the latest version the get call returns
+
+## What I had to decide
+
+Confirm that omni prd mobile-12 judges a product PRD's approval by the server's voids alone (pending, drifted on a void, refused when the approver left, else approved), read from GET /api/dossiers/approval?prd=mobile-12, with its title, page and product read from GET /api/dossiers?product=&prd=.
+
+## What I did meanwhile
+
+kit/lib/approval/approval.ts gained judgeProductApproval and readProductApproval, sharing one judgment with the tree's, and productPrdState maps it to the stage as a ◆ PRD's inbox stage is mapped. The kit client calls the approval route with prd=<key>-<n> and the repository it runs from, as s3 taught that route. omni approval and omni wait approval still name a PRD by its number only.
+
+## What it costs to change later
+
+Comparing pinned hashes with the latest versions as well is one get call per pinned kind; the judgment's shape stays.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Every change to a product PRD's files goes through dossier_push, which voids on a changed pinned hash, so a void is the only drift a product PRD can have.
+- (author) omni approval and omni wait approval on a product PRD are not in this slice's done-when; s12 is their first caller.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-a-product-prd-approval-judged-by-the-server -->
+
+<!-- omni-outbox-settled: s2-03-how-the-new-commands-take-and-give-files -->
+
+## s2-03-how-the-new-commands-take-and-give-files — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-how-the-new-commands-take-and-give-files
+prd: 1548
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+The new commands move a product PRD's files to and from the server. Where do they read the files to send, where do they write the ones they fetch, and what do they print?
+
+## The decision, in plain words
+
+Sending reads the PRD's files from a folder the command is pointed at, and fetching writes the file into a fresh folder outside every project, printing where it is and its fingerprint. The read-only view prints the file under a line saying its version and when it was read.
+
+## The intro, for fun
+
+Files without a home folder still need a front door and a mailbox.
+
+## The punchline, for fun
+
+The door is any folder you name, the mailbox a fresh one every time.
+
+## The options, in plain words
+
+A. A. A folder named with --from, a fresh scratch folder, a path then a sha256 line (built)
+B. B. Read the files to send from the current folder, with no flag
+C. C. Print the fetched file's content to the screen instead of writing a file
+
+## What I had to decide
+
+Confirm the shapes the skills will call in s11 and s12: omni dossier push --product <key> --new [--from <dir>] [--title] prints the new id, the link and the versions added; omni dossier push <key>-<n> --from <dir> pushes edits; omni dossier get <id> <kind> prints the scratch path then `sha256 <hash>`; omni prd <id> --show <kind> prints `<kind> of PRD <id> · v<k> · as of <time>`, a blank line, then the file; the last-read copy lives in .omni-loop/local/prd-cache/<id>/<kind>.json of the main checkout.
+
+## What I did meanwhile
+
+The files of --from are read by name (spec.md, plan.md, before-after.html, voice.json), the title from --title, else the spec's front matter, else (for a PRD already made) the title its page has. get writes under the system's temporary folder, in a new omni-<id>-* folder, checks the kit's own sha256 against the server's, keeps the last-read copy, and holds (exit 1) while the server is down; only --show answers from the copy, marked `· last-read copy, server unreachable`.
+
+## What it costs to change later
+
+Each shape is a line in one command and its tests; nothing stored depends on it but the last-read copies, which are a cache any change can drop.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the verbs and that they print a path and a hash, not the flags or the exact lines; s11 and s12 are their first callers.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-how-the-new-commands-take-and-give-files -->
+
+<!-- omni-outbox-settled: s2-04-the-prd-list-reads-a-repository-every-prd-had -->
+
+## s2-04-the-prd-list-reads-a-repository-every-prd-had — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-04-the-prd-list-reads-a-repository-every-prd-had
+prd: 1548
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+The page that lists every PRD, and a PRD's own page, still expect each PRD to have a home project. A PRD that lives only on its product has none: who teaches those pages, and before when?
+
+## The decision, in plain words
+
+Not this slice: it only taught the terminal and the routes it calls. The pages are left as they were, and a product PRD must not be created for real until a later slice teaches them.
+
+## The intro, for fun
+
+We built a new kind of guest, but the guest list still asks for a street address.
+
+## The punchline, for fun
+
+Nobody sends the invitation until the list learns to leave that line blank.
+
+## The options, in plain words
+
+A. A. Leave the pages to a later slice, before any product key is set (built)
+B. B. Widen this slice to the PRD list and page now
+C. C. Make the database leave product PRDs out of the list until the pages learn them
+
+## What I had to decide
+
+Name the slice that teaches the PRD list and the PRD page a product PRD (no home repository, no repository number, its name `mobile-12`), before any product key is set in production: s4, which owns DossierPage.tsx, or a new slice for apps/galaxy/src/dossier/page/history.ts and view.ts.
+
+Decided by: Jev (hardToRevert 0.60) · agent said true
+
+## What I did meanwhile
+
+DossierRow.home_repo stays typed as text: making it nullable turns the typecheck red in apps/galaxy/src/dossier/page/history.ts and view.ts, outside this territory. history.ts's stageKeyOf calls home_repo.toLowerCase() on a dossier with no PRD number, which a product PRD is, so the list would throw on one. The dossier fake leaves a product PRD out of dossier_list(), and the product PRD calls of this slice read no page row. No product PRD can exist until an owner sets a product's key (product_set_key()), which no page offers yet.
+
+## What it costs to change later
+
+A guard in two page modules and their tests; nothing stored changes. Left undone, the PRD list breaks for a workspace the day its first product PRD is created.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives no slice apps/galaxy/src/dossier/page/history.ts or view.ts; s1's item s1-03 named the dossier list among the readers s2 and s3 would teach, but neither territory holds it.
+
+```
+
+<!-- /omni-outbox-settled: s2-04-the-prd-list-reads-a-repository-every-prd-had -->
+
+<!-- omni-outbox-settled: s3-01-the-app-reads-the-approval-itself -->
+
+## s3-01-the-app-reads-the-approval-itself — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-the-app-reads-the-approval-itself
+prd: 1548
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+The check on a target pull request needs to know whether the plan was approved. Should the GitHub App read that record from the database itself, or ask the web app for it?
+
+## The decision, in plain words
+
+The App reads it from the database itself, the way it already reads a repository's business, and only for a product that lists the pull request's repository. A pull request naming a PRD of a product that does not hold its repository learns nothing of it.
+
+## The intro, for fun
+
+The robot at the door needed to see the signed permission slip.
+
+## The punchline, for fun
+
+It walks to the filing cabinet itself, but only opens its own team's drawer.
+
+## The options, in plain words
+
+A. A. The App reads the record as the service role, scoped to products holding the repository (built).
+B. B. A signed galaxy route reads it and the App calls that route.
+C. C. A new database function for the App, like business_for_repo_app.
+
+## What I had to decide
+
+Confirm the App reads a product PRD's approval, voids and latest versions as the service role, scoped by product_repositories, rather than through a signed call to a galaxy route.
+
+## What I did meanwhile
+
+apps/omni-app/src/approved-check/record.ts reads product_repositories (joined on products.key), dossiers, dossier_versions, approvals, workspace_members and approval_voids with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, the pair the pr-stats collector and the canon gate already use. Without that pair every approved check is held (neutral). No galaxy route or new secret was added, so env.ts is unchanged.
+
+## What it costs to change later
+
+Moving the read behind a galaxy route is a new route, a shared secret and swapping one reader passed to createApprovedCheck; the check's judgement and tests stay as they are.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists apps/galaxy/src/approval/ for this slice as 'reads the approval for the check', which hints at a galaxy route; dossier_approval() checks who calls, and the App has no person's session, so a route would itself need the service role.
+- (author) No boundary file was added for these reads, so pnpm schemas:verify does not check their shapes against production.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-the-app-reads-the-approval-itself -->
+
+<!-- omni-outbox-settled: s3-02-a-check-for-no-approval-yet -->
+
+## s3-02-a-check-for-no-approval-yet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-a-check-for-no-approval-yet
+prd: 1548
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+The spec says what the approval check shows when the work matches, has drifted or cannot be read. What should it show when nobody approved the PRD yet, when the approver has left the workspace, or when the PRD named does not exist for this repository?
+
+## The decision, in plain words
+
+Each of those three shows a red check with its reason in a few words: waiting for approval, approver no longer a member, or no such PRD for this repository. Only an unreadable server shows the neutral, not-failed check.
+
+## The intro, for fun
+
+Three new ways to be not quite ready showed up at the gate.
+
+## The punchline, for fun
+
+All three get a polite red light, and only a power cut gets a shrug.
+
+## The options, in plain words
+
+A. A. Failure for pending, refused and unknown (built).
+B. B. Neutral for unknown, failure for the other two.
+C. C. Neutral for all three, as held.
+
+## What I had to decide
+
+Confirm failure for pending, refused and unknown, or ask for neutral on any of them.
+
+## What I did meanwhile
+
+approvedVerdict() in apps/omni-app/src/approved-check/state.ts posts failure with 'pending · mobile-12 waits for approval', 'refused · approver <login> is not a workspace member' and 'unknown · no product PRD mobile-12 holds this repository'; held stays neutral, as the spec asks. A drift is checked before the member tick, so a drifted PRD reads drifted.
+
+## What it costs to change later
+
+Each conclusion is one constant in approvedVerdict() and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names building, drifted and held only; acceptance 6 says nothing of a PRD not yet approved.
+- (author) A required omni/approved check that fails on 'unknown' blocks a pull request whose body mistypes the PRD id until the body is fixed.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-a-check-for-no-approval-yet -->
+
+<!-- omni-outbox-settled: s3-03-one-test-outside-and-a-local-id-reader -->
+
+## s3-03-one-test-outside-and-a-local-id-reader — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-one-test-outside-and-a-local-id-reader
+prd: 1548
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+Adding the new check meant touching one test outside this slice's ground, and reading a product PRD's name before the slice that teaches the kit those names has landed. Are both acceptable?
+
+## The decision, in plain words
+
+Yes, kept small: the test that lists every function the App serves now lists the new one, and the check reads a name like mobile-12 with its own short reader until the kit's shared one lands.
+
+## The intro, for fun
+
+The new check arrived before its name tag printer did.
+
+## The punchline, for fun
+
+So it wrote its own name tag, in the same handwriting, for now.
+
+## The options, in plain words
+
+A. A. Keep the test change and the local reader until s2 lands (built).
+B. B. Wait for s2 and use its parser in this slice before merging.
+
+## What I had to decide
+
+Confirm the change to apps/omni-app/src/outbox-check/inngest-route.test.ts, and that productPrdOf() in apps/omni-app/src/approved-check/state.ts is swapped for s2's kit/lib/ids parser once it lands.
+
+## What I did meanwhile
+
+inngest-route.test.ts lists APPROVED_FUNCTION_ID and counts 11 registered functions (7 served). productPrdOf() reads 'Part of <key>-<n>' with the key rule of 20261203090000_product_prd_ids.sql (lowercase kebab-case, each part starting with a letter, at most 40 characters). entries/inngest.ts still says it serves six functions; that file is s4's ground.
+
+## What it costs to change later
+
+Swapping the reader for the kit's is an import and a deleted regular expression; reverting the test change is three lines.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) kit/lib/ids is s2's territory and runs in parallel, so this slice could not use its parser.
+- (author) The comment in apps/omni-app/entries/inngest.ts naming six functions is now stale.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-one-test-outside-and-a-local-id-reader -->
+
+<!-- omni-outbox-settled: s3-04-the-approval-route-takes-a-prd-id -->
+
+## s3-04-the-approval-route-takes-a-prd-id — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-04-the-approval-route-takes-a-prd-id
+prd: 1548
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+Approving a product PRD on its page, and reading its approval from the terminal, used to fail because such a PRD has no repository or issue. How should the web app name such a PRD when asked for its approval?
+
+## The decision, in plain words
+
+It takes the PRD's own name, like mobile-12, with the repository optional and only used to pick the workspace. Approving a product PRD works and labels no issue, since it has none.
+
+## The intro, for fun
+
+The approval desk only took forms with a street address on them.
+
+## The punchline, for fun
+
+Now it also takes a name and a product, no address needed.
+
+## The options, in plain words
+
+A. A. The PRD is named by its id, the repository optional (built).
+B. B. The product key and the number are sent as two parameters.
+
+## What I had to decide
+
+Confirm GET /api/dossiers/approval?prd=<key>-<n>[&repo=<owner/name>] as the shape s2's kit reads a product PRD's approval with.
+
+## What I did meanwhile
+
+apps/galaxy/src/approval/approval-api.ts calls dossier_approval(p_repo, p_prd, p_product) for a product PRD id (p_repo empty when none is given), refuses an id out of shape by saying the PRD is a number or a product PRD's id like mobile-12, and after dossier_approve() answers repo and prd null with prdId, reads the approval in force by that id and labels nothing.
+
+## What it costs to change later
+
+Another parameter shape is a few lines in the route and its tests, and in s2's caller.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) s2 builds the kit's reader in parallel; the two must agree on this query shape.
+- (author) After approving, the PRD is re-read by its id with no repository hint, so a person in two workspaces sharing the key reads the oldest product's PRD (settled item s1-02).
+
+```
+
+<!-- /omni-outbox-settled: s3-04-the-approval-route-takes-a-prd-id -->
