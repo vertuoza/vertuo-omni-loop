@@ -4,7 +4,8 @@
 // pause. Later slices add the race's own screens. Laid out for the grid the game is drawn on (kart.css).
 import { Hint } from '../hint';
 import { ordinal } from '../fleets';
-import { CHOICE_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, SINGLE_LINE, type KartChoice, type KartHud, type KartItem, type KartStatus } from './kart.ts';
+import { HeroSprite } from '../Sprite';
+import { CHOICE_LINE, GRID_JOINING_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
@@ -43,6 +44,28 @@ function ChoicePanel({ choice, multi, back }: { choice: Extract<KartChoice, { st
           <li data-cursor={choice.cursor === 'multi'} aria-disabled={!multi}>{choice.cursor === 'multi' ? '▶ ' : ''}{multi ? MULTI_LINE : MULTI_CLOSED_LINE}</li>
         </ul>
         <p className="hint"><Hint k="B">{back}</Hint></p>
+      </div>
+    </div>
+  );
+}
+
+/** The workspace's grid (PRD 1572): the players in their starting order, each with hero, name and best time, then the line that says what happens next. */
+function GridPanel({ view }: { view: KartGridView }) {
+  return (
+    <div className="kt">
+      <div className="j-panel kt-panel kt-mid kt-grid">
+        <p className="inv-title">GRID</p>
+        <ol className="kt-table kt-gridlist">
+          {view.rows.map((r) => (
+            <li key={r.id} className={r.you ? 'kt-you' : undefined} data-seat={r.seat}>
+              <HeroSprite hero={r.hero} team={r.fleet} scale={0.5} />
+              <span>{r.name}</span>
+              <span>{r.best === null ? 'NO TIME' : raceTime(r.best)}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="kt-score kt-gridline" role="status">{view.line}</p>
+        <p className="hint"><Hint k="B">BACK</Hint></p>
       </div>
     </div>
   );
@@ -100,7 +123,9 @@ function RaceScreen({ hud, back }: { hud: KartHud; back: string }) {
   );
 }
 
-export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false }: {
+export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null }: {
+  /** What the GRID shows once MULTI is picked (PRD 1572). */
+  lobby?: KartGridView | null;
   /** The ready screen's choice (PRD 1572); none reads as SINGLE picked, today's ready line. */
   choice?: KartChoice | null;
   /** Whether MULTI can be picked. */
@@ -117,6 +142,7 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   if (status !== 'ready') return <Notice line={status === 'failed' ? NOT_LOADED : 'LOADING…'} back={back} />;
   if (hud?.results) return <ResultsScreen results={hud.results} send={send} back={back} />;
   if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} />;
+  if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} />;
   if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} />;
   return (
     <div className="kt">

@@ -2,3 +2,5 @@
 // the cabinet opens, never before, so a page that never opens the game never downloads anything under
 // arcade/kart/. Nothing outside this folder imports it at run time (guard.test.ts).
 export { createKart, type KartOptions } from './art';
+// MULTI's grid (PRD 1572): joined over the workspace's link when MULTI is picked.
+export { openGrid, type GridSession } from './hub';

@@ -9,7 +9,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { choicePress, FIRST_CHOICE, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
+import { BACK_TO_CHOICE, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { sending, type ScoreSend } from './invaders-score';
@@ -370,5 +370,46 @@ describe('the choice on the ready screen (PRD 1572)', () => {
   });
   it('B goes back to the game room', () => {
     expect(kartPress('ready', 'b', 'ready')).toBe('back');
+  });
+});
+
+describe('the grid (PRD 1572)', () => {
+  const hero = { v: 1, body: 'girl', skin: 0, hair: 0, suit: 0, cape: 0 } as const;
+  const row = (id: string, name: string, best: number | null, you = false, seat = true) => ({ id, name, hero, fleet: null, best, you, seat });
+  const grid = (view: KartGridView) =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'grid' }, multi: true, lobby: view })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('picking MULTI with A or START goes to the grid, and only when it can be picked', () => {
+    const onMulti: KartChoice = { step: 'choose', cursor: 'multi' };
+    expect(choicePress(onMulti, 'a', true)).toEqual({ step: 'grid' });
+    expect(choicePress(onMulti, 'start', true)).toEqual({ step: 'grid' });
+    expect(choicePress(onMulti, 'a', false)).toBe(onMulti);
+  });
+
+  it("lists each player's name and best time or NO TIME, in the order it is given, with the line under them", () => {
+    const view: KartGridView = { state: 'joined', rows: [row('a', 'Ada', 653), row('b', 'Bo', null, true)], line: 'WAITING FOR ADA' };
+    expect(grid(view)).toBe('GRID Ada 1:05.3 Bo NO TIME WAITING FOR ADA B BACK');
+  });
+
+  it('says each line of the grid as it is given', () => {
+    for (const line of ['WAITING FOR RACERS', 'START RACE', 'WAITING FOR ADA', 'GRID FULL · 4 RACERS', 'RECONNECTING…', GRID_OUT_LINE]) {
+      expect(grid({ state: 'joined', rows: [row('a', 'Ada', null, true)], line })).toContain(line);
+    }
+  });
+
+  it('shows the joining line before the grid says anything', () => {
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'grid' }, multi: true })));
+    expect(html).toContain('JOINING THE GRID…');
+  });
+
+  it('goes back to the choice with B, the cursor on MULTI; A tries again only once the grid was out of reach', () => {
+    const view = (state: KartGridView['state']): KartGridView => ({ state, rows: [], line: '' });
+    expect(gridPress(view('joined'), 'b')).toBe('back');
+    expect(BACK_TO_CHOICE).toEqual({ step: 'choose', cursor: 'multi' });
+    expect(gridPress(view('out'), 'a')).toBe('retry');
+    for (const state of ['joining', 'joined', 'reconnecting'] as const) expect(gridPress(view(state), 'a'), state).toBeNull();
+    expect(gridPress(null, 'a')).toBeNull();
+    expect(gridPress(view('out'), 'start')).toBeNull();
   });
 });

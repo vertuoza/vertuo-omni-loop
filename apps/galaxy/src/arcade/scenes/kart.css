@@ -15,6 +15,10 @@
 .kt-choice { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 8px; letter-spacing: 1px; color: var(--white); }
 .kt-choice li[data-cursor="true"] { color: var(--yellow); }
 .kt-choice li[aria-disabled="true"] { opacity: 0.55; }
+/* The GRID (PRD 1572): a row a player, their hero, name and best time; the line under it says what happens next. */
+.kt-gridlist li { grid-template-columns: 20px 1fr auto; align-items: center; }
+.kt-gridlist li[data-seat="false"] { opacity: 0.6; }
+.kt-gridline { text-align: center; }
 /* The countdown's number and the GO after it, over the middle of the road. */
 .kt-beat {
   position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); margin: 0;
