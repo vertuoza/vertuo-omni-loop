@@ -89,6 +89,7 @@ Two entries in `kit/test/no-literals.test.mjs`.
 - Slice: s15
 - Wave: 10
 - Became: N-PRODUCT-1
+- Stays here: retired 2026-10-09 (kit/lib does network I/O in many places, so the invariant no longer held), was N-PRODUCT-1
 
 ### The answer, as it was given
 
