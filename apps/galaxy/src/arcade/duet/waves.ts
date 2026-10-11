@@ -52,6 +52,9 @@ export interface Wave { speed: number; gap: number; rows: number; pieces: readon
 
 export interface Chapter { numeral: string; name: string; waves: readonly Wave[] }
 
+/** Whether a cell's character is one the legend names. */
+const inLegend = (ch: string): ch is keyof typeof LEGEND => Object.hasOwn(LEGEND, ch);
+
 const HEADER = /^speed (\d+)(?: · gap (\d+))?$/;
 
 /** Reads one wave's text. `where` names it in a refusal: `chapter II · SLIDE, wave 4`. */
@@ -70,8 +73,8 @@ export function parseWave(text: string, where: string): Wave {
       let len = 1;
       while (line.charAt(col + len) === ch) len++;
       if (ch !== '.') {
-        if (!Object.hasOwn(LEGEND, ch)) throw new Error(`${where}, row ${row + 1}, column ${col + 1}: "${ch}" is not in the legend`);
-        const { kind, dir } = LEGEND[ch as keyof typeof LEGEND];
+        if (!inLegend(ch)) throw new Error(`${where}, row ${row + 1}, column ${col + 1}: "${ch}" is not in the legend`);
+        const { kind, dir } = LEGEND[ch];
         pieces.push({ kind, dir, row, col, len });
       }
       col += len;
