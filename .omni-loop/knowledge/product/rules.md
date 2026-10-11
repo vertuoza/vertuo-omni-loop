@@ -292,7 +292,7 @@ A workspace theme colour is accepted only as a lowercase six-digit #rrggbb value
 
 Serves: P-PRODUCT-25
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-02-theme-colours-lowercase, PRD #100
-Enforced by: pending #1488
+Enforced by: apps/galaxy/src/arcade/theme.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -501,7 +501,7 @@ A fleet's mascot is one of eleven keys held in a database list, the same list an
 
 Serves: P-PRODUCT-43
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
-Enforced by: pending #1507
+Enforced by: packages/design/src/mascots.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -512,7 +512,7 @@ A new fleet's key is its label lowercased, with each run of non-letters and non-
 
 Serves: P-PRODUCT-44
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
-Enforced by: pending #1508
+Enforced by: apps/galaxy/src/fleets/fleet-key-sql.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -534,7 +534,7 @@ A player whose fleet was retired is sent to pick a fleet only while at least one
 
 Serves: P-PRODUCT-46
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
-Enforced by: pending #1510
+Enforced by: apps/galaxy/src/arcade/onboarding.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -545,7 +545,7 @@ The dashboard's waiting-for-you tile counts the same questions the page's sideba
 
 Serves: P-PRODUCT-47
 Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
-Enforced by: pending #1511
+Enforced by: apps/galaxy/src/dashboard/stream/home.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #664
@@ -567,7 +567,7 @@ On a person's profile, each PRDs stage count opens the PRD list at that stage fi
 
 Serves: P-PRODUCT-49
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
-Enforced by: pending #1513
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -578,7 +578,7 @@ When the PRD list is narrowed to one person, it shows only the PRDs that person 
 
 Serves: P-PRODUCT-50
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
-Enforced by: pending #1514
+Enforced by: apps/galaxy/src/dossier/page/history.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -666,7 +666,7 @@ The Jev page's agreement rate counts only calls where Jev and the old way both a
 
 Serves: P-PRODUCT-56
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
-Enforced by: pending #1522
+Enforced by: apps/galaxy/src/jev/record/record.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
@@ -732,7 +732,7 @@ A product's Statement is a single line of at most 400 characters, and its owner 
 
 Serves: P-PRODUCT-59
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
-Enforced by: pending #1528
+Enforced by: apps/galaxy/src/constituents/constituents-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874

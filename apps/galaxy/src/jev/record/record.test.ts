@@ -110,3 +110,20 @@ describe('what a call was about', () => {
     expect(refLink(null)).toBeNull();
   });
 });
+
+// Law BR-PRODUCT-61 (.omni-loop/knowledge/product/rules.md, #1522).
+describe('the agreement rate', () => {
+  it('law BR-PRODUCT-61: counts only calls both sides answered, under the floor too; a failure, no key or an answer outside the options adds only to the call count', () => {
+    const record = decisionRecord([
+      call({ outcome: 'answered', jevAnswer: 'product', oldAnswer: 'product' }),
+      call({ outcome: 'under-floor', jevAnswer: 'ux', oldAnswer: 'product', confidence: 0.1 }),
+      call({ outcome: 'failed', jevAnswer: null, confidence: null, reason: 'Jev did not answer in 5 s.' }),
+      call({ outcome: 'no-key', jevAnswer: null, confidence: null, reason: 'No TypeSafe key is stored.' }),
+      call({ outcome: 'failed', jevAnswer: 'product', oldAnswer: 'product', reason: 'Jev answered outside the decision’s options.' }),
+    ], 'question-category', NOW);
+    expect(record.calls).toBe(5);
+    expect(record.compared).toBe(2);
+    expect(record.agreed).toBe(1);
+    expect(record.agreement).toBe(1 / 2);
+  });
+});
