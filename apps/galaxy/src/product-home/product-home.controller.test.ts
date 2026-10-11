@@ -44,7 +44,7 @@ describe('the product home\'s controller', () => {
 
   it('draws the demo\'s product in the demo, and no other', async () => {
     const { reads, d } = deps();
-    expect(await productHomeViewOf({ kind: 'demo' }, 'demo-product-1', d)).toEqual({ kind: 'home', home: demoProductHome('demo-product-1') });
+    expect(await productHomeViewOf({ kind: 'demo' }, 'demo-product-1', d)).toEqual({ kind: 'home', home: demoProductHome('demo-product-1'), demo: true });
     expect(await productHomeViewOf({ kind: 'demo' }, 'p-x', d)).toEqual({ kind: 'not-found' });
     expect(reads).toEqual([]);
   });

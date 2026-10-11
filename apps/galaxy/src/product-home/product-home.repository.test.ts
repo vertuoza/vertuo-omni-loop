@@ -29,10 +29,37 @@ function stub(answers: Record<string, Answer>) {
 
 describe('the product home\'s storage', () => {
   it('reads the workspace\'s product by its id, or none', async () => {
-    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile' }] } });
-    expect(await repo.product('ws-1', 'p-1')).toEqual({ id: 'p-1', name: 'Mobile' });
-    expect(calls).toEqual([['products', 'select', 'id, name'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'eq', 'id', 'p-1']]);
+    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile', key: 'mobile' }] } });
+    expect(await repo.product('ws-1', 'p-1')).toEqual({ id: 'p-1', name: 'Mobile', key: 'mobile' });
+    expect(calls).toEqual([['products', 'select', 'id, name, key'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'eq', 'id', 'p-1']]);
     expect(await stub({ products: { data: [] } }).repo.product('ws-1', 'p-x')).toBeNull();
+  });
+
+  it('reads the product\'s product PRDs, newest first, their outbox items with their settlements, and the authors\' logins (PRD 1548 s9)', async () => {
+    const prd = { id: 'd-m12', product_seq: 12, title: 'Quotes', opened_by: 'u-1', created_at: '2026-10-01T00:00:00Z' };
+    const item = { dossier_id: 'd-m12', item: 's2-01-quote-totals', rank: 'high', repository: 'vertuoza/vertuo-api', body: '---', raised_at: '2026-10-11T09:00:00Z', outbox_settlements: [] };
+    const { calls, repo } = stub({ dossiers: { data: [prd] }, outbox_items: { data: [item] }, players: { data: [{ user_id: 'u-1', github_login: 'paul' }] } });
+    expect(await repo.productPrds('ws-1', 'p-1')).toEqual([prd]);
+    expect(await repo.items(['d-m12'])).toEqual([item]);
+    expect(await repo.players('ws-1', ['u-1'])).toEqual([{ user_id: 'u-1', github_login: 'paul' }]);
+    expect(calls).toEqual([
+      ['dossiers', 'select', 'id, product_seq, title, opened_by, created_at'], ['dossiers', 'eq', 'kind', 'prd'], ['dossiers', 'not', 'product_seq', 'is', null],
+      ['dossiers', 'eq', 'workspace_id', 'ws-1'], ['dossiers', 'eq', 'product_id', 'p-1'], ['dossiers', 'order', 'created_at', { ascending: false }],
+      ['outbox_items', 'select', 'dossier_id, item, rank, repository, body, raised_at, outbox_settlements(id)'], ['outbox_items', 'in', 'dossier_id', ['d-m12']],
+      ['outbox_items', 'order', 'raised_at'],
+      ['players', 'select', 'user_id, github_login'], ['players', 'eq', 'workspace_id', 'ws-1'], ['players', 'in', 'user_id', ['u-1']],
+    ]);
+  });
+
+  it('reads no item and no player for none asked, and throws on a refused read or an item out of shape', async () => {
+    const { calls, repo } = stub({});
+    expect(await repo.items([])).toEqual([]);
+    expect(await repo.players('ws-1', [])).toEqual([]);
+    expect(calls).toEqual([]);
+    await expect(stub({ dossiers: { error: { message: 'boom' } } }).repo.productPrds('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s PRDs on the server (boom)');
+    await expect(stub({ outbox_items: { error: { message: 'boom' } } }).repo.items(['d-1'])).rejects.toThrow('could not read the PRDs\' outbox items (boom)');
+    await expect(stub({ players: { error: { message: 'boom' } } }).repo.players('ws-1', ['u-1'])).rejects.toThrow('could not read the PRDs\' authors (boom)');
+    await expect(stub({ outbox_items: { data: [{ item: 'x', rank: 'urgent' }] } }).repo.items(['d-1'])).rejects.toThrow();
   });
 
   it('reads the product\'s numbered PRDs, newest first', async () => {
