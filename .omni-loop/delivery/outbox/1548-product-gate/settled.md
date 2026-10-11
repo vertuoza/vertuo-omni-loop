@@ -2268,3 +2268,471 @@ Each change undoes on its own, with no stored data involved.
 ```
 
 <!-- /omni-outbox-settled: s7-06-changes-outside-the-slice -->
+
+<!-- omni-outbox-settled: s8-01-two-wiring-lines-outside-the-slice -->
+
+## s8-01-two-wiring-lines-outside-the-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s8
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-two-wiring-lines-outside-the-slice
+prd: 1548
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+This slice changed two places outside the area it was given, one line each, to switch on what it built. Are those changes all right to keep?
+
+## The decision, in plain words
+
+Yes, kept. The GitHub app's list of served functions now hands the outbox check its reader of the server and the Omni page's address, and the web app's outbox routes now tell the GitHub app after each question raised or answered.
+
+## The intro, for fun
+
+The slice built two new doorbells and had to run a wire through the neighbour's wall.
+
+## The punchline, for fun
+
+It drilled exactly two holes and swept up after itself.
+
+## The options, in plain words
+
+A. Keep the two lines, the option built.
+B. Move the wiring into a slice of its own.
+
+## What I had to decide
+
+Whether the GitHub app's list of served functions and the web app's outbox routes may change for this slice, which built what they switch on.
+
+## What I did meanwhile
+
+Each place changed by one line: without the server set up, the outbox check of a product PRD is held, as the approved check is; every other check and route answers exactly as before, and their tests pass unchanged.
+
+## What it costs to change later
+
+Each line undoes on its own, with no stored data involved.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the plan should have listed the two wiring files in this slice's area; the plan names them in no slice of this landing.
+
+```
+
+<!-- /omni-outbox-settled: s8-01-two-wiring-lines-outside-the-slice -->
+
+<!-- omni-outbox-settled: s8-02-the-product-outbox-check-holds-when-unread -->
+
+## s8-02-the-product-outbox-check-holds-when-unread — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s8
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-the-product-outbox-check-holds-when-unread
+prd: 1548
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+What does the outbox check on a product PRD's pull request show when the server cannot be read, when the PRD named is not one of this repository's product, or when the check itself fails?
+
+## The decision, in plain words
+
+An unreadable server shows held, not failed, as the approval check does, while a PRD this repository's product does not have, or a run that failed after its retries, shows red with the reason, since this check is the gate. Its details open the product's Questions tab, and it posts no comment.
+
+## The intro, for fun
+
+Every gate needs a plan for the day the keyholder is out to lunch.
+
+## The punchline, for fun
+
+Ours waits politely at the door instead of slamming it shut.
+
+## The options, in plain words
+
+A. Held when unread, red for an unknown PRD or a failed run (built).
+B. Red whenever the server cannot be read.
+C. Skipped when the server cannot be read, so it neither passes nor blocks.
+
+## What I had to decide
+
+How the product PRD's outbox check reads when the server is out of reach, when the PRD is not this repository's, and when its own run fails.
+
+## What I did meanwhile
+
+Built as described; a repository's own PRD and a plan repository's target pull request read exactly as before.
+
+## What it costs to change later
+
+Each reading is one line of the check's verdict, changed without touching any stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the open and the clear readings only; the held, unknown and failed readings follow the approval check's settled answers rather than anything said of the outbox check itself.
+
+```
+
+<!-- /omni-outbox-settled: s8-02-the-product-outbox-check-holds-when-unread -->
+
+<!-- omni-outbox-settled: s8-03-two-new-server-event-kinds -->
+
+## s8-03-two-new-server-event-kinds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s8
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-two-new-server-event-kinds
+prd: 1548
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+How does the web app tell the GitHub app that a question of a product PRD was raised or answered, so both checks on its pull requests follow?
+
+## The decision, in plain words
+
+Through the same signed message the approval already sends, with two new kinds, a question opened and a question settled (an adoption counts as settled), naming the PRD's own record. The GitHub app then runs every check a push would run again on each open pull request of that PRD, so both checks follow, and the third check, on a PRD's design files, runs again too.
+
+## The intro, for fun
+
+The two apps already pass notes, so we added two new words to their secret language.
+
+## The punchline, for fun
+
+Opened and settled: short enough to whisper, clear enough to act on.
+
+## The options, in plain words
+
+A. Two new kinds, opened and settled, on the same message (built).
+B. One kind for any change to the outbox.
+C. Name the PRD by its short name rather than its record.
+D. A message of its own that runs only the two checks, which changes a test that proves a rule of the gate.
+
+## What I had to decide
+
+The names of the two new kinds of message, what each one carries, and which checks a message posts again.
+
+## What I did meanwhile
+
+Built as described. The answer screen built beside this slice can send the settled kind the same way once it settles a question.
+
+## What it costs to change later
+
+Renaming a kind is a constant on each side, sent and read in the same release.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether an adoption should rather send a kind of its own; it holds no question open, so it changes nothing a check shows unless it closes one already open.
+- (author) Running the design-files check again costs a few more GitHub calls per pull request; a message of its own would avoid that, but it changes the test that proves how the gate reads its settings, which takes a question ranked high.
+
+```
+
+<!-- /omni-outbox-settled: s8-03-two-new-server-event-kinds -->
+
+<!-- omni-outbox-settled: s9-01-an-unclear-answer-is-refused -->
+
+## s9-01-an-unclear-answer-is-refused — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s9
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-01-an-unclear-answer-is-refused
+prd: 1548
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+When someone writes their own answer on the Questions tab and it says neither yes nor what to change, what happens to the question?
+
+## The decision, in plain words
+
+The answer is not saved and the person is asked to start with yes, say what to change, or add a line saying agreed or drifted, the same rule the terminal uses. Nothing is guessed.
+
+## The intro, for fun
+
+Some answers are a shrug typed out in full sentences.
+
+## The punchline, for fun
+
+We hand the shrug back and ask for a nod or a shake.
+
+## The options, in plain words
+
+A. Refuse it with a hint and keep the question open, as the terminal does (built).
+B. Settle it as a change to what was built, since a wrong change only costs a rework question.
+C. Ask the person to pick keep or change with two buttons beside their answer.
+
+## What I had to decide
+
+How the Questions tab reads an answer a person writes in their own words, when the kit's answer rules cannot tell whether it keeps or changes what was built.
+
+## What I did meanwhile
+
+The tab reads every answer with the kit's own rules: a letter is that option, A agrees and any other drifts; a written answer is judged as the terminal judges one, and one it cannot read is refused with a hint, the question staying open.
+
+## What it costs to change later
+
+A constant and one branch in the tab's service: settling such an answer as drifted, or adding two buttons for agreed and drifted, is a small change with no stored data to move.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says an answer settles the item, but not what a written answer that reads neither way should do.
+
+```
+
+<!-- /omni-outbox-settled: s9-01-an-unclear-answer-is-refused -->
+
+<!-- omni-outbox-settled: s9-02-who-a-question-is-for -->
+
+## s9-02-who-a-question-is-for — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s9
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-02-who-a-question-is-for
+prd: 1548
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+Each question on the Questions tab says who it is for. Who is that?
+
+## The decision, in plain words
+
+A question that asks a person to do something is for whoever can do it. Every other question is for the person who opened its PRD: it says for you, or their GitHub name, or its author when the name is unknown.
+
+## The intro, for fun
+
+Every question deserves to know whose desk it lands on.
+
+## The punchline, for fun
+
+Mostly the desk of whoever started the whole thing.
+
+## The options, in plain words
+
+A. Actions for whoever can do them, the rest for the PRD's author (built).
+B. Every question for the PRD's author.
+C. Every question for the product's approvers.
+
+## What I had to decide
+
+Who a question is for, which the spec asks the tab to show and an earlier decision said is read from its rank.
+
+## What I did meanwhile
+
+Read from the rank: a human-action item is for a person who can do it; a high or medium one is for its PRD's author, named by their GitHub login from the workspace's players, or for you when you opened it.
+
+## What it costs to change later
+
+One small function on the product home's service: naming the product's approvers instead, or another rule, changes no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec and the earlier decision say who it is for is read from the rank, but not which person each rank points at.
+
+```
+
+<!-- /omni-outbox-settled: s9-02-who-a-question-is-for -->
+
+<!-- omni-outbox-settled: s9-03-every-open-question-is-listed -->
+
+## s9-03-every-open-question-is-listed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s9
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-03-every-open-question-is-listed
+prd: 1548
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+Which questions of a product's PRDs does the Questions tab list: only the pressing ones, or every one still open?
+
+## The decision, in plain words
+
+Every question still open, the most pressing first within each PRD, so the tab lists exactly what holds the gate. For a PRD kept in a repository, the tab still lists only the questions waiting on a person and links to its PRD page, as before.
+
+## The intro, for fun
+
+A to-do list that hides some to-dos is just a nicer-looking worry.
+
+## The punchline, for fun
+
+So this one shows them all, worst on top.
+
+## The options, in plain words
+
+A. Every open question of a product PRD, worst first (built).
+B. Only the high and human-action ones, as for a repository's PRD.
+
+## What I had to decide
+
+Whether the tab lists the medium questions of a product PRD that are still open, or only the high and human-action ones as it does for a repository's PRD.
+
+## What I did meanwhile
+
+Lists every open row of a product PRD, sorted worst first as the outbox comment would number them, since the gate counts every open row; a repository PRD's questions are read and linked as before.
+
+## What it costs to change later
+
+A filter in the product home's service: hiding the open medium questions is one line, nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says every open question; the repository PRDs' list counts only those waiting on a person.
+
+```
+
+<!-- /omni-outbox-settled: s9-03-every-open-question-is-listed -->
