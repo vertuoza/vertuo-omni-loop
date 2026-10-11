@@ -24,9 +24,10 @@ export function questionsRepository(db: QuestionsDb) {
   return {
     /** Settles the open question with an answer given on the Questions tab. */
     async settle({ key, seq }: ProductPrd, { item, verdict, basis, answer }: Settlement): Promise<Settled> {
-      const { data, error }: Raw = await db.rpc('outbox_settle', {
+      const answered: Raw = await db.rpc('outbox_settle', {
         p_product: key, p_prd: seq, p_item: item, p_verdict: verdict, p_basis: basis, p_answer: answer, p_channel: 'questions',
       });
+      const { data, error } = answered;
       if (error) return { ok: false, code: error.code ?? null, message: error.message ?? null, hint: error.hint ?? null };
       return { ok: true, value: data };
     },

@@ -29,9 +29,11 @@ export interface QuestionsHandlers {
 
 const IDLE: QuestionsHandlers = { pick: () => {}, write: () => {}, type: () => {}, send: () => {} };
 
-function Settled({ state }: { state: QuestionState }) {
+function Settled({ q, state }: { q: QuestionView; state: QuestionState }) {
   const words = state.verdict === null ? '' : ` · ${VERDICT_WORDS[state.verdict]}`;
-  return <p className="questions-settled" role="status">Settled{words}{state.sent === null ? '' : ` — ${state.sent}`}</p>;
+  const option = q.options.find((o) => o.letter === state.sent);
+  const sent = option === undefined ? state.sent : `${option.letter} · ${option.text}`;
+  return <p className="questions-settled" role="status">Settled{words}{sent === null ? '' : ` — ${sent}`}</p>;
 }
 
 function OtherForm({ q, state, busy, on }: { q: QuestionView; state: QuestionState; busy: boolean; on: QuestionsHandlers }) {
@@ -47,7 +49,7 @@ function OtherForm({ q, state, busy, on }: { q: QuestionView; state: QuestionSta
 }
 
 function Answer({ q, state, busy, on }: { q: QuestionView; state: QuestionState; busy: boolean; on: QuestionsHandlers }) {
-  if (state.status === 'settled') return <Settled state={state} />;
+  if (state.status === 'settled') return <Settled q={q} state={state} />;
   const locked = busy || state.status === 'sending';
   return (
     <>

@@ -42,6 +42,7 @@ function world({ member = true, settled = false, settle, throws = false }: World
       const settlement = settled ? { verdict: 'agreed' as const, basis: 'stated', answer: 'A', channel: 'questions' as const, settledBy: 'irisa', settledAt: '2026-10-11T10:00:00Z' } : null;
       return Promise.resolve({ ok: true, value: { prdId: PRD, items: [{ ...OPEN, settlement }] } });
     },
+    settled: (prd) => { calls.push(`told ${prd.key}-${String(prd.seq)}`); return Promise.resolve(); },
     settle: (prd, s) => {
       calls.push(`settle ${prd.key}-${String(prd.seq)} ${s.item} ${s.verdict} ${s.basis} ${s.answer}`);
       return Promise.resolve(settle ?? { ok: true, value: { id: 'st-1', item: s.item, prdId: PRD, verdict: s.verdict, settledAt: '2026-10-11T11:00:00Z' } });
@@ -65,7 +66,7 @@ describe('POST /api/outbox/answer', () => {
     expect(res.headers.get('cache-control')).toBe('no-store');
     const body = AnswerReplySchema.parse(await res.json());
     expect(body).toEqual({ item: ITEM, prdId: 'mobile-12', verdict: 'agreed', settledAt: '2026-10-11T11:00:00Z' });
-    expect(calls).toEqual(['items mobile-12', 'settle mobile-12 s2-01-quote-totals agreed stated A. Round per line (built).']);
+    expect(calls).toEqual(['items mobile-12', 'settle mobile-12 s2-01-quote-totals agreed stated A. Round per line (built).', 'told mobile-12']);
   });
 
   it('settles an answer of the member\'s own, read by the kit\'s rules', async () => {

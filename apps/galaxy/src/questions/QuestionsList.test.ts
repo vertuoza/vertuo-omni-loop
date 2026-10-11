@@ -61,7 +61,7 @@ describe('a question on the Questions tab', () => {
     expect(actions).toEqual([{ type: 'send', key: KEY, answer: 'B' }, { type: 'settled', key: KEY, verdict: 'drifted' }]);
     const html = row(form);
     expect(html).toContain('data-state="settled"');
-    expect(text(html)).toContain('Settled · changes what was built — B');
+    expect(text(html)).toContain('Settled · changes what was built — B · On the total.');
     expect(text(html).endsWith('settled')).toBe(true);
     expect(html).not.toContain('<button');
   });

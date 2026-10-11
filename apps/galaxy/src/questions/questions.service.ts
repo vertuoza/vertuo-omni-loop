@@ -13,7 +13,8 @@ import type { QuestionsRepository, Settled } from './questions.repository';
 // built, any other drifts from it), and an answer of their own is judged against what was built; one the
 // rules cannot read is refused, never guessed. The question is read through the outbox's own service, as
 // the caller; the database has the last word on who may answer (a member of the PRD's workspace: anyone
-// else finds no such PRD) and on a question already settled.
+// else finds no such PRD) and on a question already settled. Once a settlement is stored, the App is told
+// (`item-settled`, PRD 1548 s8), so it re-posts the checks of the PRD's target pull requests.
 
 /** A service answer: its value, or why it was refused, in plain words. */
 type Answered = { ok: true; value: AnswerReply } | Refused;
@@ -23,6 +24,8 @@ type Refused = { ok: false; kind: AnswerRefusal; error: string };
 export interface QuestionsDeps {
   items: OutboxItemsService['items'];
   settle: QuestionsRepository['settle'];
+  /** Told once a settlement is stored, so the App re-posts the PRD's checks (PRD 1548 s8). Never throws. */
+  settled: (prd: { key: string; seq: number }) => Promise<void>;
 }
 
 /** One item of a product PRD, as the outbox's service reads it. */
@@ -66,6 +69,26 @@ function judged(row: ItemRow, answer: string): Judged | Refused {
   return verdict === 'agreed' || verdict === 'drifted' ? { ok: true, verdict, basis, recorded: reading.recorded } : refused('undetermined', UNDETERMINED);
 }
 
+/** What telling the App of a settlement takes: the dossier's read as the caller, the send, the clock, the log. */
+export interface TellDeps {
+  dossierOf: (prd: { key: string; seq: number; repo: null }) => Promise<{ ok: true; value: string | null } | { ok: false }>;
+  send: (event: { event: 'item-settled'; dossier: string; at: string }) => Promise<unknown>;
+  now: () => Date;
+  log: (line: string) => void;
+}
+
+/** The `settled` step: tells the App `item-settled` on product PRD `<key>-<seq>`'s dossier. Never throws. */
+export const tellSettled = ({ dossierOf, send, now, log }: TellDeps) => async ({ key, seq }: { key: string; seq: number }): Promise<void> => {
+  const id = `${key}-${String(seq)}`;
+  try {
+    const dossier = await dossierOf({ key, seq, repo: null });
+    if (dossier.ok && dossier.value !== null) await send({ event: 'item-settled', dossier: dossier.value, at: now().toISOString() });
+    else log(`questions: the dossier of ${id} could not be read, the App is not told of its item-settled`);
+  } catch (err) {
+    log(`questions: telling the App of ${id}'s item-settled failed — ${err instanceof Error ? err.message : String(err)}`);
+  }
+};
+
 export function questionsService(deps: QuestionsDeps) {
   return {
     /** Settles the open question `item` of product PRD `prdId` with the member's answer. */
@@ -75,8 +98,10 @@ export function questionsService(deps: QuestionsDeps) {
       const judgement = judged(open.row, answer);
       if (!judgement.ok) return judgement;
       const { verdict, basis, recorded } = judgement;
-      const stored = await deps.settle(productPrdParts(prdId), { item, verdict, basis, answer: recorded });
+      const prd = productPrdParts(prdId);
+      const stored = await deps.settle(prd, { item, verdict, basis, answer: recorded });
       if (!stored.ok) return settleRefusal(stored, prdId);
+      await deps.settled(prd);
       const reply = AnswerReplySchema.safeParse(stored.value);
       return reply.success ? { ok: true, value: reply.data } : refused('database', NOT_SAVED);
     },

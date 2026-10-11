@@ -53,6 +53,13 @@
    meta, A first, then "other…", which opens a field for an answer of one's own. The buttons wrap at
    393 px, each at least 44 px tall. A settled question says so in green; a refusal stays under it in red. */
 .questions-row { align-items: start; }
+/* On a phone the PRD's label and the rank share the first line, and the question takes the full width. */
+@media (max-width: 599.98px) {
+  .questions-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .questions-row .product-home-n { justify-self: start; height: 28px; }
+  .questions-row .product-home-main { grid-column: 1 / -1; grid-row: 2; }
+  .questions-row .product-home-state { grid-column: 2; grid-row: 1; align-self: center; }
+}
 .questions-opts { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .questions-opt { min-height: 44px; padding: 10px 14px; font-size: 14px; line-height: 1.3; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
 .questions-opt:not(:disabled):hover { border-color: var(--ask-plasma); }

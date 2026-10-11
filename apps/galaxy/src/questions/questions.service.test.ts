@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseOutboxItemId, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { ItemsQuery } from '../outbox-items/outbox-items.contract';
-import { questionsService, UNDETERMINED, type QuestionsDeps } from './questions.service';
+import { questionsService, tellSettled, UNDETERMINED, type QuestionsDeps, type TellDeps } from './questions.service';
 import type { Settled, Settlement } from './questions.repository';
 
 // Answering on the Questions tab (PRD 1548 s9, acceptance 9), on a fake outbox: a letter settles that
@@ -68,18 +68,30 @@ const row = (over: Record<string, unknown> = {}) => ({
 function fake(over: Partial<QuestionsDeps> = {}) {
   const asked: ItemsQuery[] = [];
   const settled: { prd: { key: string; seq: number }; settlement: Settlement }[] = [];
+  const told: string[] = [];
   const deps: QuestionsDeps = {
     items: (query) => { asked.push(query); return Promise.resolve({ ok: true, value: { prdId: PRD, items: [row()] } }); },
     settle: (prd, settlement): Promise<Settled> => {
       settled.push({ prd, settlement });
       return Promise.resolve({ ok: true, value: { id: 'st-1', item: settlement.item, prdId: 'mobile-12', verdict: settlement.verdict, settledAt: '2026-10-11T11:00:00Z' } });
     },
+    settled: (prd) => { told.push(`${prd.key}-${String(prd.seq)}`); return Promise.resolve(); },
     ...over,
   };
-  return { asked, settled, service: questionsService(deps) };
+  return { asked, settled, told, service: questionsService(deps) };
 }
 
 describe('answering a question on the Questions tab', () => {
+  it('tells the App once a settlement is stored, and never after a refusal', async () => {
+    const ok = fake();
+    await ok.service.answer({ prdId: PRD, item: ITEM, answer: 'A' });
+    expect(ok.told).toEqual(['mobile-12']);
+    const no = fake({ settle: () => Promise.resolve({ ok: false, code: 'P0002', message: null, hint: null }) });
+    await no.service.answer({ prdId: PRD, item: ITEM, answer: 'A' });
+    await no.service.answer({ prdId: PRD, item: ITEM, answer: 'Maybe' });
+    expect(no.told).toEqual([]);
+  });
+
   it('settles option A as agreed, recording the option as given, on the PRD the id names', async () => {
     const { asked, settled, service } = fake();
     expect(await service.answer({ prdId: PRD, item: ITEM, answer: 'A' })).toEqual({
@@ -145,5 +157,35 @@ describe('answering a question on the Questions tab', () => {
     expect(await service.answer({ prdId: PRD, item: ITEM, answer: 'A' })).toMatchObject({ ok: false, kind: 'malformed' });
     expect(await service.answer({ prdId: PRD, item: ITEM, answer: 'Verdict: agreed' })).toMatchObject({ ok: true });
     expect(settled[0]?.settlement).toMatchObject({ verdict: 'agreed', basis: 'stated' });
+  });
+});
+
+describe('telling the App of a settlement', () => {
+  function tell(dossierOf: TellDeps['dossierOf'], send: TellDeps['send'] = () => Promise.resolve(true)) {
+    const sent: unknown[] = [];
+    const logged: string[] = [];
+    const settled = tellSettled({ dossierOf, send: (e) => { sent.push(e); return send(e); }, now: () => new Date('2026-10-11T11:00:00Z'), log: (l) => { logged.push(l); } });
+    return { sent, logged, settled };
+  }
+
+  it('sends item-settled on the PRD\'s dossier, found as the caller', async () => {
+    const asked: unknown[] = [];
+    const { sent, logged, settled } = tell((prd) => { asked.push(prd); return Promise.resolve({ ok: true, value: 'd-m12' }); });
+    await settled({ key: 'mobile', seq: 12 });
+    expect(asked).toEqual([{ key: 'mobile', seq: 12, repo: null }]);
+    expect(sent).toEqual([{ event: 'item-settled', dossier: 'd-m12', at: '2026-10-11T11:00:00.000Z' }]);
+    expect(logged).toEqual([]);
+  });
+
+  it('sends nothing, logged, when the dossier cannot be read, and never throws', async () => {
+    const none = tell(() => Promise.resolve({ ok: true, value: null }));
+    await none.settled({ key: 'mobile', seq: 12 });
+    const failed = tell(() => Promise.resolve({ ok: false }));
+    await failed.settled({ key: 'mobile', seq: 12 });
+    expect([...none.sent, ...failed.sent]).toEqual([]);
+    expect(none.logged).toEqual(['questions: the dossier of mobile-12 could not be read, the App is not told of its item-settled']);
+    const thrown = tell(() => Promise.resolve({ ok: true, value: 'd-m12' }), () => Promise.reject(new Error('boom')));
+    await expect(thrown.settled({ key: 'mobile', seq: 12 })).resolves.toBeUndefined();
+    expect(thrown.logged).toEqual(['questions: telling the App of mobile-12\'s item-settled failed — boom']);
   });
 });
