@@ -45,32 +45,31 @@ function clientOf({ ctx, tokens, home, fetch, callMs }: ProductPrdIo) {
 /** Product PRD `id`: where it stands, its page and its product. */
 async function lookup(id: ProductPrdId, client: NonNullable<ReturnType<typeof signedInClient>>, io: ProductPrdIo): Promise<number> {
   const { key, seq } = productPrdParts(id);
-  let found: unknown = null;
-  let missing = false;
+  const seen: { found: unknown; missing: boolean } = { found: null, missing: false };
   const approval = await readProductApproval(id, async () => {
     try {
-      found = await client.findProductDossier({ key, seq, repo: io.ctx.config.repo.slug });
+      seen.found = await client.findProductDossier({ key, seq, repo: io.ctx.config.repo.slug });
     } catch (error) {
-      missing = error instanceof AskCallError && error.status === 404;
+      seen.missing = error instanceof AskCallError && error.status === 404;
       throw error;
     }
-    return found;
+    return seen.found;
   });
-  if (missing) {
+  if (seen.missing) {
     println(io.stderr, `omni prd: no PRD ${id} on the Omni page.`);
     return 1;
   }
   const state = productPrdState(id, approval);
-  const title = field(found, 'title');
-  const url = field(found, 'url');
-  const product = field(found, 'product');
+  const title = field(seen.found, 'title');
+  const url = field(seen.found, 'url');
+  const product = field(seen.found, 'product');
   println(io.stdout, [
     `PRD ${id}${isText(title) ? ` — ${title}` : ''}`,
     `state: ${state.state}`,
     'birthplace: server',
     ...approval.lines.map((line) => `approval: ${line}`),
     ...(isText(url) ? [`page: ${url}`] : []),
-    ...(found === null ? [] : [`product: ${isText(product) ? product : 'none'}`]),
+    ...(seen.found === null ? [] : [`product: ${isText(product) ? product : 'none'}`]),
   ].join('\n'));
   return 0;
 }

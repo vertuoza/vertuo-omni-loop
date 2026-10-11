@@ -37,6 +37,7 @@ function world() {
   return { clock, fake, push, find, get, mobile, tells };
 }
 
+const A_STRING: unknown = expect.any(String);
 const NEW = { productKey: 'mobile', new: true, title: 'Offline photo upload', artifacts: [{ kind: 'spec', content: SPEC }] };
 
 describe('POST /api/dossiers/push with a product key: a product PRD', () => {
@@ -45,7 +46,7 @@ describe('POST /api/dossiers/push with a product key: a product PRD', () => {
     const first = await w.push(NEW);
     expect(first.status).toBe(200);
     expect(first.body).toEqual({
-      id: expect.any(String), prdId: 'mobile-1', url: `https://omni.example/prd/${String(first.body.id)}`,
+      id: A_STRING, prdId: 'mobile-1', url: `https://omni.example/prd/${String(first.body.id)}`,
       added: [{ kind: 'spec', version: 1 }], unchanged: [], product: 'Mobile',
     });
     expect((await w.push(NEW)).body.prdId).toBe('mobile-2');

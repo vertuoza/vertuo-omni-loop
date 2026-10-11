@@ -22,6 +22,7 @@ const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refres
 const json = (status: number, body: unknown = {}) => new Response(JSON.stringify(body), { status });
 const down = (): Response => { throw new TypeError('fetch failed'); };
 
+const OFF_LINE: unknown = expect.stringMatching(/^omni prd: a product PRD lives on the Omni page, and dossiers are off here/);
 const FOUND = { id: 'd-12', url: LINK, prdId: 'mobile-12', title: 'Offline photo upload', product: 'Mobile', approval: null };
 const APPROVAL = { approver: { login: 'ada', member: true }, approvedAt: '2026-10-11T09:30:00.000Z', files: [{ kind: 'spec', path: 'spec.md', sha256: sha256(SPEC), versionId: 'v1' }] };
 const LATEST = { id: 'd-12', prdId: 'mobile-12', url: LINK, kind: 'spec', version: 2, sha256: sha256(SPEC), content: SPEC, createdAt: '2026-10-11T09:00:00.000Z' };
@@ -67,7 +68,7 @@ describe('omni prd <key>-<n>: a product PRD, read from the Omni page', () => {
   });
 
   it('needs dossiers on and a sign-in, saying which is missing', async () => {
-    expect(await prd(['mobile-12'], { reply: () => json(200, FOUND), enabled: false })).toMatchObject({ code: 1, err: expect.stringMatching(/^omni prd: a product PRD lives on the Omni page, and dossiers are off here/) });
+    expect(await prd(['mobile-12'], { reply: () => json(200, FOUND), enabled: false })).toMatchObject({ code: 1, err: OFF_LINE });
     expect(await prd(['mobile-12'], { reply: () => json(200, FOUND), tokens: memoryTokens() })).toMatchObject({ code: 1, err: 'omni prd: no sign-in (omni signin)\n' });
   });
 

@@ -31,8 +31,9 @@ export const ProductPrdIdSchema = z
   .string()
   .regex(PRODUCT_PRD)
   .refine((id) => {
-    const [, key = '', seq = ''] = PRODUCT_PRD.exec(id) ?? [];
-    return key.length <= 40 && Number(seq) <= PRODUCT_SEQ_MAX;
+    // The key is everything before the last hyphen, the number everything after it.
+    const cut = id.lastIndexOf('-');
+    return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
   })
   .brand<'ProductPrdId'>();
 export type ProductPrdId = z.infer<typeof ProductPrdIdSchema>;
