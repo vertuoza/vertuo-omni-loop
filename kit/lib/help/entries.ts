@@ -877,8 +877,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]'],
-    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, and the gallery',
+    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]', 'omni design parts'],
+    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, the gallery, and the parts DESIGN.md lists',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
       "design form, omni kb show design (the product, where its design system lives, what it does on " +
@@ -930,7 +930,15 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'screens in a group of their own after the pages. It writes ' +
       'to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; ' +
       'the page is generated each time and never committed. An empty library prints no screen yet ' +
-      'and writes nothing, design: off while the flag is off, and gallery exits 0.',
+      'and writes nothing, design: off while the flag is off, and gallery exits 0. parts lists the ' +
+      "closed list of parts the repository's DESIGN.md holds, the file design.system names (by default " +
+      "DESIGN.md at the root, in Google's DESIGN.md format: token groups in its front matter, one ### " +
+      "entry per part under Components with its Summary, Variants, States, Tokens, Accessibility, Do, " +
+      "Don't and Code lines, and the Reference screens section naming the library screens a builder " +
+      'copies): one line per part with its variants, states and code paths, then the count, the file and ' +
+      'its reference screens, then each thing in the file that does not read, a token reference that ' +
+      'does not resolve among them. With no file it prints parts: no DESIGN.md (run /omni:pixel-perfect ' +
+      'init), design: off while the flag is off, and parts exits 0 whatever it finds.',
   },
   {
     name: 'e2e',

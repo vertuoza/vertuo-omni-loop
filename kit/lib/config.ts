@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { messageOf } from './narrow.ts';
+import { designSystemPath } from './design/system/path.ts';
 import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
@@ -339,10 +340,13 @@ export const ConfigSchema = z
     // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
     // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
     // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
+    // PRD 1559: `system` is the path of the repository's DESIGN.md, the design system the skills read;
+    // unset, it reads as `DESIGN.md` at the root (`kit/lib/design/system/path.ts`).
     design: section({
       enabled: z.boolean().default(false),
       paths: z.array(text).default([]),
       ignore: z.array(text).optional(),
+      system: text.optional(),
       screens: nullableText.default(null),
       words: section({
         sentence: z.number().int().positive().default(7),
@@ -505,6 +509,15 @@ export function parseConfig(
   }
   const config = result.data;
   return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
+}
+
+/**
+ * The config as `omni config` prints it: an optional key whose default is applied where it is read
+ * (PRD 1559: `design.system`) shows that default, so `omni config design.system` answers `DESIGN.md`
+ * while the parsed config, and its design section's shape, leave the key unset.
+ */
+export function configView(config: Config): Config {
+  return { ...config, design: { ...config.design, system: designSystemPath(config.design) } };
 }
 
 /** Reads `<root>/.omni-loop/config.yml`. */
