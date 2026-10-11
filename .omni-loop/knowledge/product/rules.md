@@ -380,7 +380,7 @@ When a member leaves a workspace, their player row and every arcade_scores row k
 
 Serves: P-PRODUCT-33
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-01-scores-leave-with-the-player, PRD #160
-Enforced by: pending #1496
+Enforced by: apps/galaxy/src/data/scores-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
