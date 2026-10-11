@@ -174,6 +174,7 @@ A constant: one import and one entry in a list. Undoing it is reverting those tw
 - Raised: 2026-10-11
 - Slice: s3
 - Wave: 3
+- Stays here: an interim state between slices 3 and 4 of one PRD; slice 4 replaces it with the full game over screen and the score send, so nothing lasting about the product is stated.
 
 ### The answer, as it was given
 
