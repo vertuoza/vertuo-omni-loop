@@ -677,7 +677,7 @@ When more than one workspace tracks a repository, the canon check reads the busi
 
 Serves: P-PRODUCT-57
 Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
-Enforced by: pending #1523
+Enforced by: apps/omni-app/src/canon/business-pick-sql.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #840
