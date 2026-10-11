@@ -731,6 +731,7 @@ A constant, before or after merge: the listing and the step's place are a few li
 - Slice: s4
 - Wave: 4
 - Became: N-PRODUCT-6
+- Stays here: retired 2026-10-09 (replaced by N-PRODUCT-13), was N-PRODUCT-6
 
 ### The answer, as it was given
 

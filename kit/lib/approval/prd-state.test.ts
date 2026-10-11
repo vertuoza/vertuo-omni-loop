@@ -2,9 +2,9 @@
 // approval states, the server faked behind the approval call. A ◇ PRD reads as today and never calls.
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
-import { parsePrd } from '../ids.ts';
+import { parsePrd, parseProductPrdId } from '../ids.ts';
 import type { ApprovalReading, ApprovalState } from './approval.ts';
-import { approvalReader, birthplaceOf, prdState } from './prd-state.ts';
+import { approvalReader, birthplaceOf, prdState, productPrdState } from './prd-state.ts';
 import type { Tokens } from '../ask/schema.ts';
 
 const PRD = parsePrd(1299);
@@ -93,5 +93,14 @@ describe('approvalReader', () => {
     const read = await approvalReader(ctx, { repo: 'acme/widgets', tokens: signedIn('omni.test'), fetch })(PRD);
     expect(read).toMatchObject({ state: 'pending', lines: ['PRD 1299 waits for approval: https://omni.test/d'] });
     expect(urls).toEqual(['https://omni.test/api/dossiers/approval?repo=acme%2Fwidgets&prd=1299']);
+  });
+});
+
+describe('productPrdState — a product PRD, born on the server with no folder (PRD 1548)', () => {
+  it.each([
+    ['approved', 'inbox'], ['pending', 'prd'], ['drifted', 'drifted'], ['unreachable', 'unreachable'], ['refused', 'refused'],
+  ] as const)('reads %s as stage %s', (state, stage) => {
+    const id = parseProductPrdId('mobile-12');
+    expect(productPrdState(id, reading(state))).toEqual({ prd: id, birthplace: 'server', state: stage, approval: reading(state) });
   });
 });

@@ -8,6 +8,9 @@
 // and the number (supabase/migrations/20261011090000_fix_dossiers.sql), each kind taking its own versions.
 // Since PRD 1272 a concept is a kind too (supabase/migrations/20261119090000_concept_dossiers.sql),
 // numbered by its issue, with its record, its vision tour, a board per round and its debate.
+// Since PRD 1548 a product PRD (`mobile-12`) is a dossier keyed by its product and its number, with no
+// home repository (supabase/migrations/20261203090000_product_prd_ids.sql): dossier_push() creates or
+// pushes to one by its product's key, and dossier_approval() finds one by it, as every RPC does.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -136,7 +139,34 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
       if (!pushed || typeof pushed.id !== 'string') throw new DossierStoreError('push the dossier', undefined, 'no dossier came back');
       return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [], product: productOf(pushed.product) };
     },
+
+    /** PRD 1548: sends a product PRD's artifacts — to the product's next PRD, created, when `seq` is null,
+     * else to PRD `<key>-<seq>`. `repo`, when given, only says which workspace holds the key when two of
+     * the caller's do (supabase/migrations/20261203090000_product_prd_ids.sql). */
+    async pushProduct({ key, seq, repo, title, artifacts }: ProductPush): Promise<DossierPushed & { prdId: string }> {
+      const pushed = settle<Partial<Omit<DossierPushed, 'product'>> & { product?: unknown; prdId?: unknown }>('push the product PRD', await db.rpc('dossier_push', {
+        p_repo: repo, p_prd: seq, p_title: title, p_draft: null, p_artifacts: artifacts, p_product_key: key,
+      }));
+      if (!pushed || typeof pushed.id !== 'string' || typeof pushed.prdId !== 'string') {
+        throw new DossierStoreError('push the product PRD', undefined, 'no product PRD came back');
+      }
+      return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [], product: productOf(pushed.product), prdId: pushed.prdId };
+    },
   };
+}
+
+/** A push to a product PRD (PRD 1548): its product's key, its number (null: the next, created), the
+ * repository the kit runs from (or null), its title and its artifacts. */
+type ProductPush = { key: string; seq: number | null; repo: string | null; title: string; artifacts: DossierArtifact[] };
+
+/** PRD 1548: the dossier of product PRD `<key>-<seq>` as the caller reads it, found as every RPC finds
+ * one (prd_dossier(), through dossier_approval()); null when there is no such PRD the caller reads. */
+export async function productPrdOf(
+  db: Pick<SupabaseClient, 'rpc'>, { key, seq, repo }: { key: string; seq: number; repo: string | null },
+): Promise<string | null> {
+  const found = settle<unknown>('find the product PRD', await db.rpc('dossier_approval', { p_repo: repo, p_prd: seq, p_product: key }));
+  const dossier = propertyOf(found, 'dossier');
+  return typeof dossier === 'string' ? dossier : null;
 }
 
 export type DossierStore = ReturnType<typeof dossierStore>;
@@ -183,7 +213,10 @@ export type DossierVersionRow = {
   created_at: string;
 };
 
-export const DOSSIER_COLUMNS = 'id, workspace_id, home_repo, prd, kind, title, opened_by, created_at, numbered_at, birthplace';
+/** A version read whole (PRD 1548): what `omni dossier get` writes to a scratch file. */
+type LatestContent = { id: string; version: number; sha256: string; content: string; created_at: string };
+
+export const DOSSIER_COLUMNS ='id, workspace_id, home_repo, prd, kind, title, opened_by, created_at, numbered_at, birthplace';
 export const VERSION_COLUMNS = 'id, dossier_id, kind, bytes, source, uploaded_by, commit_sha, created_at';
 
 export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
@@ -197,6 +230,18 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
     async versions(dossierId: string): Promise<DossierVersionRow[]> {
       return settle<DossierVersionRow[]>('read the versions', await db.from('dossier_versions').select(VERSION_COLUMNS)
         .eq('dossier_id', dossierId).order('created_at', { ascending: true }).order('id', { ascending: true })) ?? [];
+    },
+
+    /** PRD 1548: the latest version of `kind` of the dossier, whole — its id, its number among its kind's,
+     * its hash, its content and when it was added — or null when it has none the caller may read. */
+    async latest(dossierId: string, kind: ArtifactKind): Promise<LatestContent | null> {
+      const ofKind = settle<Array<{ id: string; sha256: string; created_at: string }>>('read the versions', await db.from('dossier_versions')
+        .select('id, sha256, created_at').eq('dossier_id', dossierId).eq('kind', kind)
+        .order('created_at', { ascending: true }).order('id', { ascending: true })) ?? [];
+      const last = ofKind.at(-1);
+      if (!last) return null;
+      const row = settle<{ content: string }>('read the version', await db.from('dossier_versions').select('content').eq('id', last.id).maybeSingle());
+      return row ? { ...last, version: ofKind.length, content: row.content } : null;
     },
 
     /** One version's content, or null when the caller may not read it. */

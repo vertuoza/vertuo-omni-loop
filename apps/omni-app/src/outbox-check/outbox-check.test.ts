@@ -104,6 +104,32 @@ describe('outbox-check — the three steps', () => {
     assertDefined(compare, 'the compare request');
     expect(compare.basehead).toBe('base1...head1');
   });
+
+  // Law N-PRODUCT-4 (.omni-loop/knowledge/product/invariants.md, #1540).
+  it('law N-PRODUCT-4: the gate takes its rules from the base, and from the head reads only the delivery and knowledge folders', async () => {
+    const blobsOf = (github: ReturnType<typeof featureGitHub>) =>
+      github.state.requests.filter((r) => r.route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}').map((r) => String(r.file_sha));
+    const pull = (labels: string[]) => ({ number: parsePr(12), base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/widget', sha: 'head1' }, labels });
+
+    // The head renames the override label to `ship-it`: that label overrides nothing, the base's still does.
+    const renamed = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-renames-label') }, pull: pull(['ship-it']) });
+    await engine(renamed).execute();
+    expect(renamed.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
+    const base = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-renames-label') }, pull: pull(['omni:outbox-go']) });
+    await engine(base).execute();
+    expect(base.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'neutral' });
+
+    // From the head, only what is judged: the delivery folder, and the knowledge folder beside the base's.
+    const laws = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-feature-demoted') } });
+    await engine(laws).execute();
+    const blobs = [...blobsOf(renamed), ...blobsOf(laws)];
+    expect(blobs).toContain('base1:.omni-loop/config.yml');
+    expect(blobs).toContain('base1:.omni-loop/knowledge/product/invariants.md');
+    expect(blobs).toContain('head1:.omni-loop/knowledge/product/invariants.md');
+    for (const sha of blobs.filter((s) => s.startsWith('head1:'))) {
+      expect(sha).toMatch(/^head1:\.omni-loop\/(delivery|knowledge)\//);
+    }
+  });
 });
 
 describe('outbox-check — silent where the loop is not installed (PRD 359)', () => {
@@ -373,5 +399,23 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
     const github = featureGitHub();
     const { result } = await engine(github).execute();
     expect(result).toMatchObject({ conclusion: 'failure' });
+  });
+});
+
+describe('outbox-check — the live gate grades the pull request', () => {
+  /** The check run the live function completes for a feature PR at `head`, the range changing `files`. */
+  async function liveCheck(head: string, files: { filename: string; status: string }[] = []) {
+    const github = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture(head) }, files });
+    await engine(github).execute();
+    return checkRunAt(github.state, -1);
+  }
+
+  // Law BR-PRODUCT-6 (.omni-loop/knowledge/product/rules.md, #1468).
+  it('law BR-PRODUCT-6: the live check passes the changed files to the gate, so an unexplained risky change turns it red, as do open questions and unfinished rework', async () => {
+    expect(await liveCheck('head-clear')).toMatchObject({ conclusion: 'success' });
+    expect(await liveCheck('head-clear', [{ filename: 'src/widget.test.ts', status: 'removed' }]))
+      .toMatchObject({ conclusion: 'failure', output: { title: '1 unaccounted risky change' } });
+    expect(await liveCheck('head-open')).toMatchObject({ conclusion: 'failure', output: { title: '1 open outbox item' } });
+    expect(await liveCheck('head-drift')).toMatchObject({ conclusion: 'failure', output: { title: 'unreworked drift' } });
   });
 });

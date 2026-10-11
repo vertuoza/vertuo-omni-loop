@@ -386,7 +386,9 @@ and go on only once they approve it.
   it to raise as the high item its owner answers. A **draft** is a starting point.
 - **The marks and the word pass,** with the design flag on. Mark each screen of the page, "today"
   and "after", with `data-screen` (its name), and its one primary action with `data-primary`, the
-  convention every mockup the kit's skills write uses. Before anyone is shown the page, run
+  convention every mockup the kit's skills write uses. The page's own explanation (its title, the
+  PRD line, the captions under each mockup) sits outside every marked screen: the word pass reads
+  only marked screens, and skips a page with none. Before anyone is shown the page, run
   `node .omni-loop/bin/omni.mjs design words <folder>/before-after.html`; it exits 0 whatever it
   finds. Fix each finding of an "after" in that screen (a shorter label on the control, one primary
   action, a sentence that stands at rest cut or moved, an avoided word replaced), and run it again.
@@ -405,6 +407,7 @@ and go on only once they approve it.
   status: draft
   mock: <name>.html
   implements: [<the paths the spec says build it, or none yet>]
+  reads: [<the code the spec says it only depends on, or none>]
   routes: [<its routes, when the spec names them>]
   supersedes: null
   ---
@@ -424,7 +427,10 @@ and go on only once they approve it.
   fields: the library's reader refuses any other. A draft already there is brought up to the
   "after", and this PRD's line added to its **Source**: a draft changes freely. A locked screen's
   file and mockup are never edited, and no agent writes an amendment line: it needs its owner's
-  words.
+  words. **Which list.** One rule splits the paths: *a file whose change can change what a person
+  sees on this screen goes in `implements`; a file the screen only depends on goes in `reads`.* The
+  layout, styles and words go in `implements`; an engine, a data source or a rule behind it goes in
+  `reads`, and never a whole folder in `implements`: a lock trips on every file it names.
 - An **API or agent behaviour:** the exchange today and after (request and response, or user turn
   and agent turn), or a flow diagram.
 - **Nothing visible** (docs, config, a guard): a short page stating what changes and what stays the

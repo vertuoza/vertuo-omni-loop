@@ -1,7 +1,8 @@
 // PRD 1407: the screen library — a folder (`design.screens`) of one Markdown file per screen, each a
 // front matter (`screen`, `status`, who locked it, when and in which words, its mockup, the paths it
 // `implements`, its `routes`, the screen it `supersedes`), then dated amendment lines, then its
-// sections. `omni design screens` lists it; there is no hand-kept index. A file that does not read is
+// sections. PRD 1550: an optional `reads` list names the code behind the screen (engines, data,
+// rules): read for context, it never trips a lock; a screen without it reads `[]`. `omni design screens` lists it; there is no hand-kept index. A file that does not read is
 // named, never skipped in silence. The kit ships the shape only: every screen is the repository's.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,6 +23,8 @@ export type Screen = {
   readonly quote: string | null;
   readonly mock: string | null;
   readonly implements: readonly string[];
+  /** PRD 1550: the code the screen only depends on — read for context, never a lock's ground. */
+  readonly reads: readonly string[];
   readonly routes: readonly string[];
   readonly supersedes: string | null;
   /** Each `> Amended <date> · @login · "<quote>": <what changed>` line, as written. */
@@ -53,6 +56,7 @@ const ScreenFrontMatter = z
     quote: optional('quote'),
     mock: optional('mock'),
     implements: list('implements'),
+    reads: list('reads'),
     routes: list('routes'),
     supersedes: optional('supersedes'),
   })
@@ -95,7 +99,7 @@ export function parseScreen(text: string, file: string): { ok: true; screen: Scr
     const keys = issue?.code === 'unrecognized_keys' ? `: ${issue.keys.join(', ')}` : '';
     return fail(`${issue?.message ?? 'front matter does not read'}${keys}`);
   }
-  const { screen, status, quote, mock, implements: paths, routes, supersedes } = read.data;
+  const { screen, status, quote, mock, implements: paths, reads, routes, supersedes } = read.data;
   const lockedBy = read.data['locked-by'];
   const lockedOn = read.data['locked-on'];
   if (status === 'locked') {
@@ -103,7 +107,7 @@ export function parseScreen(text: string, file: string): { ok: true; screen: Scr
     if (missing.length) return fail(`a locked screen needs locked-by, locked-on and quote — missing ${missing.join(', ')}`);
   }
   const body = readBody(text.slice(fence[0].length));
-  return { ok: true, screen: { file, screen, status, lockedBy, lockedOn, quote, mock, implements: paths, routes, supersedes, ...body } };
+  return { ok: true, screen: { file, screen, status, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
 }
 
 /** The `.md` files directly in `dir`, each read; a folder that does not exist is an empty library. */

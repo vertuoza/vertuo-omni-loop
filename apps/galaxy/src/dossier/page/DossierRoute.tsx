@@ -35,6 +35,7 @@ import { readProofs } from './proof-read';
 import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
 import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
+import { attestationOf } from './Attestation.service';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
@@ -85,6 +86,8 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // who gets Approve, the approve screen too: the changed files' diffs and the spec's Problem and Solution.
 // Voids that cannot be read leave the approval unread; approvers that cannot be read leave the button to
 // any member, and dossier_approve() decides.
+// PRD 1548 s4: a product PRD's attestation is read as the member beside it (./Attestation.service.ts); one
+// that cannot be read is left out, never the page.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -272,6 +275,6 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
-  const markdown = await shownMarkdown(view, (shownId) => readContent(db, shownId));
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} />;
+  const [markdown, attestation] = await Promise.all([shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier)]);
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} />;
 }

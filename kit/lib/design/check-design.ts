@@ -4,7 +4,9 @@
 // never deleted. Also refused: a screen whose front matter does not read, a `superseded` screen no
 // other screen names, and a lock or amendment line that does not read. A draft, and a law with no
 // lock line, change freely. The grading is pure, on two snapshots (the working tree, and the base);
-// reading the base through git is the one impure part. The kit ships no law and no screen.
+// reading the base through git is the one impure part. The kit ships no law and no screen. PRD 1550:
+// an `implements` entry that names a folder (it ends in `/` or `/**`) is a warning, never a
+// violation: a lock would trip on every file in it, and the code behind a screen belongs in `reads`.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
@@ -33,6 +35,8 @@ type Law = {
 /** What the guard found: one line per violation, and what its pass line counts. */
 export type DesignGrade = {
   readonly violations: readonly string[];
+  /** PRD 1550: what only reports — one line per `implements` entry that names a folder. */
+  readonly warnings: readonly string[];
   readonly screens: number;
   readonly lockedScreens: number;
   readonly lockedLaws: number;
@@ -160,12 +164,24 @@ function gradeLaws(formFile: string, head: string | null, base: string | null): 
   return { violations, locked: now.filter((law) => law.lock !== null).length };
 }
 
+const FOLDER = /\/(?:\*\*)?$/;
+
+/** PRD 1550: one warning per `implements` entry that names a folder, screen by screen. */
+function folderWarnings(screens: readonly Pick<Screen, 'screen' | 'implements'>[]): string[] {
+  return screens.flatMap(({ screen, implements: paths }) =>
+    paths
+      .filter((entry) => FOLDER.test(entry))
+      .map((entry) => `${screen}: implements names a folder (${entry}) — a lock trips on every file in it; put the code behind the screen in reads`),
+  );
+}
+
 /** Grades the working tree's library and laws, and, when `base` is given, every decision locked there. */
 export function gradeDesign({ dir, formFile, head, base }: { dir: string; formFile: string; head: DesignSnapshot; base: DesignSnapshot | null }): DesignGrade {
   const screens = gradeScreens(dir, head.screens, base?.screens ?? null);
   const laws = gradeLaws(formFile, head.form, base?.form ?? null);
   return {
     violations: [...screens.violations, ...laws.violations],
+    warnings: folderWarnings(screens.screens),
     screens: screens.screens.length,
     lockedScreens: screens.screens.filter((entry) => entry.status === 'locked').length,
     lockedLaws: laws.locked,

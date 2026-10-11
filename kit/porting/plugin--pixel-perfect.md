@@ -163,3 +163,31 @@ PRD built (`omni design screens`, `omni design touched`'s `screens:` line, `omni
 repository" (its help line excepted), the precedence test names `language`, and the block "the
 design memory in pixel-perfect and do-work (PRD 1407)" holds each line above, with the rule that no
 skill but pixel-perfect writes `status: locked` or a `🔒` line.
+
+## PRD #1550, slice s4 — mockups, `reads` and the stale-mockup note
+
+- **`mock <screen>`**, a kit command, not imported, in `mock.md` beside `SKILL.md`: it reads the
+  screen's file, its `implements` and `reads` and the design form, screenshots the screen when the
+  app runs, and writes `<screen>.html` beside the screen's file, self-contained (inline CSS and
+  SVG, no script, no remote asset, no base64 raster), the screen marked `data-screen` and each
+  primary action `data-primary`, the explanation outside them; it runs the word pass, sets `mock`
+  and runs `omni check design`. On a locked screen it never overwrites the mockup: it writes a draft
+  amendment (`<screen>-next.md` and its mockup) and raises the high item. The input table, the
+  command table and the description name it.
+- **`mock.md` sits beside `SKILL.md`, not under `reference/`:** the plan names
+  `reference/mock.md`, but `kit/test/plugin.test.ts`, a law's proof, holds the `reference/` folder
+  to its exact list of commands. An outbox item of the slice says so.
+- **Step 0** says what a screen's two lists are: `implements` the files it is drawn from, `reads`
+  the code behind it, read for context, never tripping a lock.
+- **`reference/review.md`:** step 0 reads a `reads <screen>` entry of `omni design touched` for
+  context only, and reports `mock may be stale: <screen>` as a note, a `—` line of the **Design
+  review**, never a block and never an outbox item.
+- **`reference/lock.md`:** step 2 shows the screen's `implements` and `reads` with the rule that
+  splits them, and names an entry on the wrong list for the person to move before they lock.
+- **Left as it was:** `omni help pixel-perfect` (`kit/lib/help/`) does not name `mock`: that file is
+  outside the slice's territory.
+
+### Tests
+
+`kit/test/design-skills.test.ts`: `mock.md` and what it says, the command list naming `mock`,
+review's stale-mockup note, and lock's rule.
