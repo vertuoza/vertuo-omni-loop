@@ -25,6 +25,12 @@
 // folder, or to `--out` (read from the repository root), and its path printed. Generated each time,
 // never committed. An empty library prints `no screen yet` and writes nothing; `design: off` while
 // the flag is off. It exits 0 whatever it finds; only a usage mistake exits 2.
+//
+// `omni design parts` (PRD 1559): the closed list of parts the repository's DESIGN.md holds (the file
+// `design.system` names, `kit/lib/design/system/`) — each part with its variants, states and code
+// paths, then the count, the file and its reference screens, then each thing in the file that does not
+// read. With no file it prints `parts: no DESIGN.md (run /omni:pixel-perfect init)`, and `design: off`
+// while the flag is off. It exits 0 whatever it finds.
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -32,6 +38,8 @@ import { designScreensDir } from '../../lib/config.ts';
 import { defaultDesignBase } from '../../lib/design/base.ts';
 import { galleryPage } from '../../lib/design/gallery/page.ts';
 import { designIgnore, dropIgnored } from '../../lib/design/ignore.ts';
+import { formatParts } from '../../lib/design/system/format.ts';
+import { loadDesignSystem } from '../../lib/design/system/load.ts';
 import { formatScreens, readScreens } from '../../lib/design/screens.ts';
 import { avoidedWords } from '../../lib/design/words/avoid.ts';
 import { wordsContent } from '../../lib/design/words/content.ts';
@@ -45,7 +53,7 @@ import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
-const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>]';
+const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>] | omni design parts';
 
 /** The checked-out branch, or null on a detached head or when git cannot say. */
 function currentBranch({ ctx, exec }: CommandIo): string | null {
@@ -104,6 +112,11 @@ function gallery({ ctx }: CommandIo, out: string | undefined): string[] {
   return [path];
 }
 
+function parts({ ctx }: CommandIo): string[] {
+  if (!ctx.config.design.enabled) return ['design: off'];
+  return formatParts(loadDesignSystem(ctx.root, ctx.config.design));
+}
+
 /** A selector the config has already checked. */
 function checked(source: string): Selector {
   const selector = parseSelector(source);
@@ -148,6 +161,7 @@ const VERBS: Readonly<Record<string, (io: CommandIo, operands: readonly string[]
   screens: (io, operands) => (operands.length > 0 ? null : screens(io)),
   words: (io, operands) => (operands.length === 0 ? null : words(io, operands)),
   gallery: (io, operands, out) => (operands.length > 0 ? null : gallery(io, out)),
+  parts: (io, operands) => (operands.length > 0 ? null : parts(io)),
 };
 
 export const design: Command = {
