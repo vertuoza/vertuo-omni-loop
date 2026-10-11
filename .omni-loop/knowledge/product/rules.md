@@ -149,7 +149,7 @@ When a multi-select question has ticked choices and typed Other text, Claude rec
 
 Serves: P-PRODUCT-13
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s4-03-own-answer-with-several-choices, PRD #71
-Enforced by: pending #1476
+Enforced by: apps/galaxy/src/ask/answer-model.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73

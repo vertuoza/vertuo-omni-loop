@@ -123,6 +123,19 @@ describe('an answer', () => {
     expect(answerOf(checks, pick)).toBe('A live run');
   });
 
+  // Law BR-PRODUCT-14 (.omni-loop/knowledge/product/rules.md).
+  it('law BR-PRODUCT-14: ticked labels in listed order then the typed Other text, joined with ", "; Other replaces a single choice', () => {
+    let several = item(emptyDraft([checks]), 0);
+    several = pickOption(checks, several, 'Hooks');
+    several = pickOption(checks, several, 'RLS');
+    several = typeOther(checks, several, 'A live run');
+    expect(answerOf(checks, several)).toBe('RLS, Hooks, A live run');
+
+    let single = pickOption(storage, item(emptyDraft([storage]), 0), 'Memory');
+    single = typeOther(storage, single, 'Redis');
+    expect(answerOf(storage, single)).toBe('Redis');
+  });
+
   it('is no answer while Other is chosen but empty', () => {
     expect(answerOf(storage, toggleOther(storage, item(emptyDraft([storage]), 0)))).toBeNull();
     expect(answerOf(storage, typeOther(storage, item(emptyDraft([storage]), 0), ' \n '))).toBeNull();
