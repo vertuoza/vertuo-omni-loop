@@ -239,3 +239,158 @@ A constant: the over phase stays, and slice 4 adds the send on entering it and w
 ```
 
 <!-- /omni-outbox-settled: s3-01-last-life-ends-on-a-plain-line -->
+
+<!-- omni-outbox-settled: s4-01-quitting-shows-the-game-over -->
+
+## s4-01-quitting-shows-the-game-over — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-quitting-shows-the-game-over
+prd: 1633
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 4
+---
+
+## The question, in plain words
+
+The controls say that quitting from the pause, or pressing B on a ready screen after a life lost, goes back to the game room, but the stories say the player sees their score saved whichever way they leave. Where should these two ways out land?
+
+## The decision, in plain words
+
+Both now end the game on the game over screen, which shows the score being saved, then the best or the failure with a retry; B from there goes back to the game room. The pause screen labels its quit key END GAME, and so does the ready screen once play has started.
+
+## The intro, for fun
+
+Two doors out of the game, and the plan drew them opening straight onto the corridor.
+
+## The punchline, for fun
+
+We put a little lobby in between, where the score signs the guest book.
+
+## The options, in plain words
+
+A. A. Both ways out end on the game over screen, which shows the save; B from there goes to the room
+B. B. Both go straight to the game room, the score still sent once but its save not shown
+
+## What I had to decide
+
+Keep A: quitting from the pause and B on a later ready screen both move the run to its game over, which sends the score once and shows its save, as losing the last life does. One more press of B reaches the room. B would go straight to the room while the score is still sent, so the player never sees whether it was saved.
+
+## What I did meanwhile
+
+Built as A: apps/galaxy/src/arcade/duet/run.ts moves the run into over on SELECT on the pause and on B on a ready screen once started; scenes/duet.tsx shows the game over with the send line and labels both keys END GAME; scenes/duet.test.ts and duet/run.test.ts pin each route and the single send.
+
+## What it costs to change later
+
+A constant: one branch in the scene's press handling would send the score and leave for the room instead. Undoing it is a few lines in duet.live.ts and duet.tsx.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's controls table says SELECT on the pause quits to the room and B goes back to the room, while user story 6 and acceptance criterion 7 say the player sees the save on every route; the spec does not say which wins.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-quitting-shows-the-game-over -->
+
+<!-- omni-outbox-settled: s4-02-endless-waves-from-chapter-four-rows -->
+
+## s4-02-endless-waves-from-chapter-four-rows — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-endless-waves-from-chapter-four-rows
+prd: 1633
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 4
+---
+
+## The question, in plain words
+
+The spec says the endless waves come from one fixed seed, at the last chapter's speed or above, rising slowly and never ending, but not what they are made of or how fast they may get. What should they be?
+
+## The decision, in plain words
+
+Each endless wave is one to three rows taken from the last chapter's own rows, drawn from the fixed seed. The speed starts just above the last chapter's fastest, rises a little every five waves and stops rising after about 150 waves, so every wave stays passable however long a run lasts.
+
+## The intro, for fun
+
+Endless mode needed an endless supply of trouble, and the last chapter had a full pantry.
+
+## The punchline, for fun
+
+So the storm keeps cooking from the same recipes, just a little faster each round.
+
+## The options, in plain words
+
+A. A. One to three of the last chapter's rows a wave, speed 120 rising one every five waves up to 150
+B. B. The same rows, with the speed rising without a ceiling
+C. C. New rows written for endless mode alone
+
+## What I had to decide
+
+Keep A: endless waves are built from chapter IV's rows, one to three a wave, starting at speed 120, one more every five waves, and no faster than 150; the check proves the first 200 passable from any angle. B would keep speeding up without a ceiling, which no check can prove passable forever.
+
+## What I did meanwhile
+
+Built as A: apps/galaxy/src/arcade/duet/waves.ts adds ENDLESS_SEED, the ENDLESS constants block, the row pool and endlessWave; duet/waves.test.ts runs waveProblems on the first 200 endless waves, chained and each from any angle.
+
+## What it costs to change later
+
+A constant: the numbers sit in one block and the rows in one list, so a follow-up tunes them without touching the engine; the passability test keeps any tuning honest.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say whether endless speed keeps rising forever or stops at a ceiling; a ceiling of 150 was chosen by eye so the check can hold.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-endless-waves-from-chapter-four-rows -->
