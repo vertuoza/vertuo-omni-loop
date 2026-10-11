@@ -743,7 +743,7 @@ The inbox check turns red for a spec break only when it can quote the spec sente
 
 Serves: P-PRODUCT-60
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
-Enforced by: pending #1529
+Enforced by: apps/omni-app/src/canon/canon.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
