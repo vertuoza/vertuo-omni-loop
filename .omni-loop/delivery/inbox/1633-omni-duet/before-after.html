@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OMNI DUET</title>
+<style>
+/* Layout: today beside after, one row per moment; stacks at phone width. Omni app look outside, arcade screens inside. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side p{margin:0;color:var(--muted);font-size:14px}
+.empty{display:grid;place-items:center;min-height:180px;border:1px dashed var(--lineStrong);border-radius:6px;color:var(--muted);font:13px var(--mono);text-align:center;padding:16px}
+svg{width:100%;height:auto;display:block;border-radius:6px;image-rendering:pixelated}
+svg text{font-family:var(--mono)}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;font-size:14px;width:100%}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td.num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="tag">PRD 1633 · before / after</div>
+  <h1>OMNI DUET, the fourth cabinet</h1>
+  <p class="lead">A player who reaches LV 4 gets a new game: two orbs circle the Omni Loop crest, ◀ ▶ turn them, and they thread through waves of falling Entropy blocks. Four chapters, then endless mode worth double. Three lives, and a life lost never earns a point.</p>
+</header>
+
+<!-- 1. The game room on the wide grid -->
+<section class="row">
+  <h2>The game room, wide grid</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today</div>
+      <svg viewBox="0 0 640 230" role="img" aria-label="Game room today: three cabinets, Invaders, Super Omni World, Omni Kart">
+        <rect width="640" height="230" fill="#0b0a2a"/>
+        <text x="20" y="28" fill="#ffcf4a" font-size="16">GAME ROOM</text>
+        <text x="470" y="28" fill="#b9b6ff" font-size="11">LV 4 · 3 games</text>
+        <g>
+          <rect x="30" y="48" width="170" height="160" fill="#1b1960" stroke="#5b57d6"/>
+          <text x="115" y="70" fill="#f2f4ff" font-size="11" text-anchor="middle">ENTROPY INVADERS</text>
+          <rect x="235" y="48" width="170" height="160" fill="#1b1960" stroke="#5b57d6"/>
+          <text x="320" y="70" fill="#f2f4ff" font-size="11" text-anchor="middle">SUPER OMNI WORLD</text>
+          <rect x="440" y="48" width="170" height="160" fill="#1b1960" stroke="#ffcf4a" stroke-width="2"/>
+          <text x="525" y="70" fill="#f2f4ff" font-size="11" text-anchor="middle">OMNI KART</text>
+          <rect x="482" y="184" width="86" height="16" fill="#e2445c"/><text x="525" y="196" fill="#fff" font-size="10" text-anchor="middle">A · PLAY</text>
+        </g>
+        <text x="320" y="224" fill="#8e8bd6" font-size="10" text-anchor="middle">◀ ▶ choose · nothing past the third cabinet</text>
+      </svg>
+      <p>Three cabinets, all shown at once. At LV 4 nothing new opens.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After</div>
+      <svg viewBox="0 0 640 230" role="img" aria-label="Game room after: cursor on the fourth cabinet, the row scrolled to show Super Omni World, Omni Kart and Omni Duet">
+        <rect width="640" height="230" fill="#0b0a2a"/>
+        <text x="20" y="28" fill="#ffcf4a" font-size="16">GAME ROOM</text>
+        <text x="470" y="28" fill="#b9b6ff" font-size="11">LV 4 · 4 games</text>
+        <text x="14" y="134" fill="#8e8bd6" font-size="16">◀</text>
+        <rect x="30" y="48" width="170" height="160" fill="#1b1960" stroke="#5b57d6"/>
+        <text x="115" y="70" fill="#f2f4ff" font-size="11" text-anchor="middle">SUPER OMNI WORLD</text>
+        <rect x="235" y="48" width="170" height="160" fill="#1b1960" stroke="#5b57d6"/>
+        <text x="320" y="70" fill="#f2f4ff" font-size="11" text-anchor="middle">OMNI KART</text>
+        <rect x="440" y="48" width="170" height="160" fill="#1b1960" stroke="#ffcf4a" stroke-width="2"/>
+        <text x="525" y="70" fill="#f2f4ff" font-size="11" text-anchor="middle">OMNI DUET</text>
+        <circle cx="525" cy="128" r="26" fill="none" stroke="#5b57d6" stroke-dasharray="3 3"/>
+        <circle cx="503" cy="141" r="6" fill="#ff7a59"/><circle cx="547" cy="115" r="6" fill="#4ad7ff"/>
+        <rect x="500" y="84" width="22" height="8" fill="#a64bd6"/><rect x="532" y="96" width="30" height="8" fill="#a64bd6"/>
+        <text x="455" y="176" fill="#b9b6ff" font-size="9">CREW TOP 5</text>
+        <rect x="482" y="184" width="86" height="16" fill="#e2445c"/><text x="525" y="196" fill="#fff" font-size="10" text-anchor="middle">A · PLAY</text>
+        <text x="320" y="224" fill="#8e8bd6" font-size="10" text-anchor="middle">cabinets 2–4 shown · cursor on 4</text>
+      </svg>
+      <p>Four cabinets. The row keeps three in view and scrolls by one so the chosen cabinet is always shown: 1–3 with the cursor on 1 to 3, 2–4 with it on 4. The tall grid still shows one cabinet a page. Below LV 4 the fourth cabinet says <code>REACH LV 4 TO PLAY</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Play -->
+<section class="row">
+  <h2>Playing a chapter</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today</div>
+      <div class="empty">no dodge game in the arcade</div>
+      <p>One shooter, one platformer, one racer.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · tall grid, 320×288</div>
+      <svg viewBox="0 0 320 288" role="img" aria-label="Omni Duet in play: score 130, chapter 2 wave 4 of 10, two lives; two orbs on a circle around the crest, Entropy blocks falling, one sliding">
+        <rect width="320" height="288" fill="#07061f"/>
+        <g fill="#2a2770"><circle cx="40" cy="60" r="1"/><circle cx="270" cy="40" r="1"/><circle cx="210" cy="120" r="1"/><circle cx="70" cy="170" r="1"/><circle cx="290" cy="200" r="1"/><circle cx="150" cy="30" r="1"/></g>
+        <text x="10" y="16" fill="#f2f4ff" font-size="10">SCORE 130</text>
+        <text x="160" y="16" fill="#ffcf4a" font-size="10" text-anchor="middle">CH II · 4/10</text>
+        <text x="310" y="16" fill="#f2f4ff" font-size="10" text-anchor="end">♥ ×2</text>
+        <rect x="60" y="40" width="70" height="12" fill="#a64bd6"/><rect x="190" y="40" width="70" height="12" fill="#a64bd6"/>
+        <rect x="128" y="104" width="64" height="12" fill="#a64bd6"/>
+        <text x="110" y="113" fill="#c9a6ff" font-size="10">◂</text><text x="200" y="113" fill="#c9a6ff" font-size="10">▸</text>
+        <circle cx="160" cy="210" r="56" fill="none" stroke="#3a37a0" stroke-width="1.5"/>
+        <circle cx="160" cy="210" r="16" fill="#1b1960" stroke="#6a66e8"/>
+        <path d="M152 210a8 8 0 1 0 16 0a8 8 0 1 0-16 0" fill="none" stroke="#b9b6ff" stroke-width="2"/>
+        <path d="M118 185 q-6 8 -10 18" stroke="#ff7a59" stroke-opacity=".35" stroke-width="5" fill="none"/>
+        <circle cx="111" cy="183" r="6" fill="#ff7a59"/>
+        <path d="M202 235 q6 -8 10 -18" stroke="#4ad7ff" stroke-opacity=".35" stroke-width="5" fill="none"/>
+        <circle cx="209" cy="237" r="6" fill="#4ad7ff"/>
+        <text x="160" y="282" fill="#8e8bd6" font-size="9" text-anchor="middle">◀ ▶ TURN · START PAUSE</text>
+      </svg>
+      <p>The orbs stay opposite on one circle; ◀ and ▶ held turn them at a constant speed. A wave is passed when its last block falls below the circle untouched. The wide grid draws the same 320×288 playfield centred, so a run plays the same on a phone and a computer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. A life lost -->
+<section class="row">
+  <h2>A life lost</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today, in SUPER OMNI WORLD</div>
+      <svg viewBox="0 0 320 150" role="img" aria-label="Super Omni World today: a life lost keeps the score and puts the coins back">
+        <rect width="320" height="150" fill="#07061f"/>
+        <text x="160" y="40" fill="#f2f4ff" font-size="11" text-anchor="middle">LIFE LOST · SCORE KEPT 07 160</text>
+        <text x="160" y="70" fill="#ffcf4a" font-size="11" text-anchor="middle">the stage restarts with every coin and blob</text>
+        <text x="160" y="104" fill="#e2445c" font-size="11" text-anchor="middle">die on purpose → collect them again</text>
+      </svg>
+      <p>The route that let a player farm points by dying twice in 1-3. OMNI DUET must not repeat it.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After, in OMNI DUET</div>
+      <svg viewBox="0 0 320 150" role="img" aria-label="Omni Duet after a hit: chapter 3 ready screen, score restored to 200, lives 1, press start">
+        <rect width="320" height="150" fill="#07061f"/>
+        <rect x="40" y="30" width="240" height="90" fill="#0f0e3a" stroke="#6a66e8"/>
+        <text x="160" y="56" fill="#ffcf4a" font-size="12" text-anchor="middle">CHAPTER III · SPIN</text>
+        <text x="160" y="76" fill="#f2f4ff" font-size="10" text-anchor="middle">SCORE 200 · LIVES ×1</text>
+        <text x="160" y="104" fill="#4ad7ff" font-size="10" text-anchor="middle">START PLAY · B GAME ROOM</text>
+      </svg>
+      <p>A hit costs a life and restarts the chapter from its first wave, with the score back to what it was when the chapter began (here 200, after chapters I and II). Play waits for START. No sequence of hits ends higher than the same run without them, and a test proves it on every wave.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Score -->
+<section class="row">
+  <h2>How a run scores</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Part of the run</th><th>Waves</th><th>Each wave passed</th><th>A hit</th></tr></thead>
+      <tbody>
+        <tr><td>I · DRIFT, still blocks, rising speed</td><td class="num">~10</td><td class="num">+10</td><td>chapter restarts, score restored</td></tr>
+        <tr><td>II · SLIDE, sliding blocks join</td><td class="num">~10</td><td class="num">+10</td><td>chapter restarts, score restored</td></tr>
+        <tr><td>III · SPIN, turning blocks join</td><td class="num">~10</td><td class="num">+10</td><td>chapter restarts, score restored</td></tr>
+        <tr><td>IV · STORM, all three, faster</td><td class="num">~10</td><td class="num">+10</td><td>chapter restarts, score restored</td></tr>
+        <tr><td>ENDLESS ×2, waves from one fixed seed</td><td class="num">∞</td><td class="num">+20</td><td>wave restarts, score restored</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="lead">The game ends at the last life lost, on SELECT from the pause, or on B from a ready screen once play has started. Every way, the score reached is sent once under <code>duet</code>, with the NEW BEST and best lines Invaders already shows. Fixed 1/60 s steps make a run the same at 60 or 120 frames a second.</p>
+</section>
+
+</div>
+</body>
+</html>
