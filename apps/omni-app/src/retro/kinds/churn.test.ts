@@ -364,3 +364,40 @@ describe('churn — in the retro', () => {
     expect((markdown.match(/\d+/g) ?? []).filter((n: string) => !held.has(n))).toEqual([]);
   });
 });
+
+describe('churn — what it leaves out and what it could not read', () => {
+  // Law BR-PRODUCT-19 (.omni-loop/knowledge/product/rules.md, #1481).
+  it('law BR-PRODUCT-19: churn leaves out lockfiles at any depth and linguist-generated paths, and with no commit read its section is left out and the facts name what was not read', () => {
+    const sub = at(SUB_PULLS, 0, 'the first sub-PR');
+    const file = (path: string) => ({ path, previous: null, status: 'added', additions: 4, deletions: 0, blocks: [[1, 0, 1, 4]] });
+    const read = {
+      gitattributes: 'gen/** linguist-generated\n',
+      final: null,
+      pulls: [
+        {
+          number: 13,
+          url: sub.html_url,
+          headRef: 'feat/widget--s1',
+          mergedAt: sub.merged_at,
+          commits: [{ sha: sha('l1'), url: commitUrl('l1'), files: ['apps/web/deep/yarn.lock', 'gen/api/client.ts', 'src/cart.ts'].map(file) }],
+        },
+      ],
+    };
+    const counted = detect(read, { pr, prd, config, pulls: [] }).facts;
+    expect(counted.leftOut).toMatchObject({ generated: ['gen/api/client.ts'], lockfile: ['apps/web/deep/yarn.lock'] });
+    expect(counted.added).toBe(4);
+
+    const unread = {
+      gitattributes: null,
+      final: null,
+      pulls: [
+        { number: 13, url: sub.html_url, headRef: 'feat/widget--s1', mergedAt: sub.merged_at, commits: null },
+        { number: 14, url: sub.html_url, headRef: 'feat/widget--s2', mergedAt: sub.merged_at, commits: [{ sha: sha('l2'), url: commitUrl('l2'), files: null }] },
+      ],
+    };
+    const nothing = detect(unread, { pr, prd, config, pulls: [] }).facts;
+    expect(nothing.commits).toBe(0);
+    expect(section(nothing)).toBeNull();
+    expect(nothing.unread).toEqual({ pulls: [13], commits: [short('l2')] });
+  });
+});
