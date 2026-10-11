@@ -446,7 +446,7 @@ The share list and the already-answered note name each workspace member by their
 
 Serves: P-PRODUCT-38
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
-Enforced by: pending #1502
+Enforced by: apps/galaxy/src/ask/members-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
