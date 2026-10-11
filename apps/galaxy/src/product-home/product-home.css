@@ -48,3 +48,32 @@
 
 /* Its other tabs (s10) draw the same rows: an idea's /omni:brainstorm line wraps under its pitch. */
 .product-home-line { font: 12px/1.4 var(--ask-mono); color: var(--ask-ink); overflow-wrap: anywhere; }
+
+/* The Questions tab (PRD 1548 s9): a product PRD's question carries its options as buttons under its
+   meta, A first, then "other…", which opens a field for an answer of one's own. The buttons wrap at
+   393 px, each at least 44 px tall. A settled question says so in green; a refusal stays under it in red. */
+.questions-row { align-items: start; }
+.questions-opts { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.questions-opt { min-height: 44px; padding: 10px 14px; font-size: 14px; line-height: 1.3; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.questions-opt:not(:disabled):hover { border-color: var(--ask-plasma); }
+.questions-opt[data-sent] { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+.questions-other { display: grid; gap: 8px; max-width: 900px; min-width: 0; }
+.questions-other label { font-size: 13px; color: var(--ask-muted); }
+.questions-other-text {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.8em;
+  padding: 8px 10px;
+  resize: vertical;
+  font: 16px/1.5 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 6px;
+}
+.questions-other-text::placeholder { color: var(--ask-muted); opacity: 1; }
+.questions-other .ask-button { justify-self: start; }
+.questions-settled { margin: 0; font-size: 14px; font-weight: 700; color: var(--ask-green); overflow-wrap: anywhere; }
+.questions-refusal { margin: 0; font-size: 14px; color: var(--ask-red); overflow-wrap: anywhere; }
+.questions-elsewhere { font-size: 13px; }
+.product-home-row[data-state='settled'] .product-home-state { color: var(--ask-green); }
