@@ -11,7 +11,7 @@ import type { FrameState } from '../scenes/common.ts';
 import type { DuetGame, DuetHud } from '../scenes/duet.ts';
 import { corners, type Block } from './collide';
 import { orbs, RULES, type Point } from './rules';
-import { CHAPTERS, newRun, press, step, waveOf, wavesIn, type Run } from './run';
+import { CHAPTERS, newRun, pause, press, step, waveOf, wavesIn, type Run } from './run';
 import { blocksAt } from './waves';
 
 /** The crest's scale: whole pixels only, as every piece of the brand is drawn. */
@@ -23,12 +23,13 @@ const WARM = defined(RAMPS.O, 'the orange ramp');
 /** The blocks' ramp, light to dark: Entropy's own, as the blob is drawn. No theme token is in it. */
 const ENTROPY = defined(RAMPS.Z, "Entropy's ramp");
 
-/** What the text layer reads of a run: the wave is counted from 1, and never past the chapter's last. */
+/** What the text layer reads of a run: the wave is counted from 1, never past a chapter's last, and with no last in endless mode. */
 export function hudOf(run: Run): DuetHud {
   const waves = wavesIn(run);
   return {
-    phase: run.phase, chapter: defined(CHAPTERS[run.chapter], "the run's chapter"),
-    wave: Math.min(run.wave + 1, waves), waves, lives: run.lives, score: run.score,
+    phase: run.phase, chapter: defined(CHAPTERS[run.chapter], "the run's chapter"), endless: run.endless,
+    wave: run.endless ? run.wave + 1 : Math.min(run.wave + 1, waves), waves, lives: run.lives, score: run.score,
+    passed: run.passed, started: run.started,
   };
 }
 
@@ -105,7 +106,8 @@ export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run
   ctx.fillStyle = s.theme.void;
   ctx.fillRect(0, 0, RULES.field.w, RULES.field.h);
   track(ctx, s);
-  const wave = run.phase === 'play' ? waveOf(run) : undefined;
+  const falling = run.phase === 'play' || (run.phase === 'paused' && run.resume === 'play');
+  const wave = falling ? waveOf(run) : undefined;
   if (wave) for (const b of blocksAt(wave, run.tick)) block(ctx, b);
   const crest = logoPixels('mark');
   drawLogo(ctx, 'mark', RULES.centre.x - (crest.w * CREST_SCALE) / 2, RULES.centre.y - (crest.h * CREST_SCALE) / 2, { scale: CREST_SCALE });
@@ -126,16 +128,24 @@ export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run
 
 export interface DuetOptions { seed: number }
 
-/** The game as the arcade drives and draws it: a new run on its ready screen. */
+/**
+ * The game as the arcade drives and draws it: a new run on its ready screen. A step or a press says
+ * when it moved the run into `over`, once whichever way, so the arcade sends the score reached once.
+ */
 export function createDuet({ seed }: DuetOptions): DuetGame {
   let run = newRun({ seed });
   return {
-    step(held: ReadonlySet<Action>, dt: number) { run = step(run, held, dt).run; },
-    press(action: Action) {
-      const pressed = press(run, action);
-      run = pressed.run;
-      return { leave: pressed.events.includes('leave') };
+    step(held: ReadonlySet<Action>, dt: number) {
+      const stepped = step(run, held, dt);
+      run = stepped.run;
+      return { over: stepped.events.includes('over') };
     },
+    press(action: Action) {
+      const { run: next, events } = press(run, action);
+      run = next;
+      return { leave: events.includes('leave'), over: events.includes('over'), again: events.includes('again') };
+    },
+    pause() { run = pause(run).run; },
     hud: () => hudOf(run),
     draw(ctx: CanvasRenderingContext2D, s: FrameState) { drawField(ctx, s, run); },
   };
