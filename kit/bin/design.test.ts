@@ -190,6 +190,12 @@ describe('omni design touched', () => {
     });
   });
 
+  it('prints shared beside a shared screen (PRD 1584)', async () => {
+    const lib = '.omni-loop/knowledge/design/screens';
+    const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON, [`${lib}/home.md`]: '---\nscreen: home\nstatus: draft\nroutes: [/]\n---\n', [`${lib}/shell.md`]: '---\nscreen: app-shell\nstatus: draft\nkind: shared\nroutes: [/]\n---\n' } });
+    expect(await screens(repo.root)).toEqual({ code: 0, out: 'app-shell  draft · shared  —  /\nhome       draft           —  /\n', err: '' });
+  });
+
   it("reads the library from design.screens, says so when it is empty, and prints design: off while the flag is off", async () => {
     const own = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON + '  screens: docs/screens/\n', 'docs/screens/home.md': '---\nscreen: home\nstatus: draft\nroutes: [/]\n---\n' } });
     expect((await screens(own.root)).out).toBe('home  draft  —  /\n');

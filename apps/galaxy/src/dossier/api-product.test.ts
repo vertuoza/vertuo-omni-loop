@@ -1,7 +1,7 @@
 // A product PRD's dossier calls (PRD 1548 s2): created by a push naming its product's key, pushed to by
 // its key and its number, found by them, and its latest version of one kind read whole. Against the
 // stubbed Supabase client of ./store.fake.ts, which writes dossier_push() and dossier_approval() of
-// supabase/migrations/20261203090000_product_prd_ids.sql as the migration writes them.
+// supabase/migrations/20261203100000_product_prd_ids.sql as the migration writes them.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';

@@ -908,16 +908,23 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'library, the folder design.screens names (by default design/screens/ under the knowledge ' +
       'folder): one Markdown file per screen, its front matter saying its status (draft, locked or ' +
       'superseded), who locked it, when and in which words, its mockup, the paths it implements (the ' +
-      'files it is drawn from), the optional reads list (the code it only depends on) and its routes; ' +
+      'files it is drawn from), the optional reads list (the code it only depends on), its routes, and ' +
+      'an optional kind: page, the default, or shared, structure several pages show (an app shell, ' +
+      'notifications, a sign-in page), a screen of its own whose files each page it appears on lists in ' +
+      'reads, and any other kind is refused by name; ' +
       'omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and ' +
-      'when, and its routes, then each file that does not read, says so when the library is empty, ' +
+      'when, and its routes, with shared beside a shared screen, then each file that does not read, says so when the library is empty, ' +
       'and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 ' +
       'whatever it finds. words is the word pass: it reads each mockup page given, structure never ' +
       'style, and prints every screen (an element design.words.screen matches, by default ' +
       '[data-screen]; an unmarked page, one with none, is skipped with no finding, and says no ' +
-      'screen marked: skipped) with its visible strings, two sibling elements always two strings, ' +
+      'screen marked: skipped) with its visible strings (two sibling blocks, or a layout of spans with no ' +
+      'running text, are two strings, while a phrasing element such as code, em or span inside running ' +
+      'text keeps its sentence whole, and inside a control two sibling elements are joined with a space), ' +
       "each control's marked (a button, a link, or any element design.words.primary matches), and " +
-      'its word count, then its findings: sentence-on-control, a button or link ' +
+      'its word count; text inside an element design.words.content matches (by default [data-content]) ' +
+      'is content the screen shows, not words it wrote: it prints content · <n> words apart and raises ' +
+      'no finding. Then its findings: sentence-on-control, a button or link ' +
       'whose label holds design.words.sentence words or more (default 7); two-primaries, more than one ' +
       'primary action (design.words.primary, by default [data-primary]) in one screen; ' +
       'explains-at-rest, a string outside any control longer than design.words.sentence; and ' +
@@ -929,7 +936,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never ' +
       'silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no ' +
       'script, no remote asset): each screen with its status, who locked it and when, its routes, and ' +
-      'its mockup inline or no mockup, locked screens first, then drafts, then superseded. It writes ' +
+      'its mockup inline or no mockup, locked screens first, then drafts, then superseded, and the shared ' +
+      'screens in a group of their own after the pages. It writes ' +
       'to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; ' +
       'the page is generated each time and never committed. An empty library prints no screen yet ' +
       'and writes nothing, design: off while the flag is off, and gallery exits 0.',

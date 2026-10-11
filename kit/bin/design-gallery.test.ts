@@ -15,6 +15,7 @@ const LIB = '.omni-loop/knowledge/design/screens';
 const EDITOR = '---\nscreen: quote-editor\nstatus: locked\nlocked-by: "@ana"\nlocked-on: 2026-10-10\nquote: "build it"\nmock: quote-editor.html\nroutes: [/quotes/:id]\n---\n';
 const LIST = '---\nscreen: quote-list\nstatus: draft\nroutes: [/quotes]\n---\n';
 const OLD = '---\nscreen: old-editor\nstatus: superseded\n---\n';
+const SHELL = '---\nscreen: app-shell\nstatus: draft\nkind: shared\nroutes: [/quotes, /quotes/:id]\n---\n';
 const MOCK = '<main data-screen="quote-editor"><button data-primary>Send</button></main>';
 
 async function gallery(root: string, args: string[] = []) {
@@ -27,7 +28,7 @@ async function gallery(root: string, args: string[] = []) {
 function library(config = ON) {
   const repo = makeRepo({
     git: true,
-    files: { '.omni-loop/config.yml': config, [`${LIB}/old.md`]: OLD, [`${LIB}/list.md`]: LIST, [`${LIB}/editor.md`]: EDITOR, [`${LIB}/quote-editor.html`]: MOCK },
+    files: { '.omni-loop/config.yml': config, [`${LIB}/old.md`]: OLD, [`${LIB}/shell.md`]: SHELL, [`${LIB}/list.md`]: LIST, [`${LIB}/editor.md`]: EDITOR, [`${LIB}/quote-editor.html`]: MOCK },
   });
   const status = () => execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: repo.root, encoding: 'utf8' });
   return { ...repo, status };
@@ -44,8 +45,10 @@ describe('omni design gallery', () => {
     const page = readFileSync(path, 'utf8');
     expect(page.indexOf('<h2>quote-editor</h2>')).toBeLessThan(page.indexOf('<h2>quote-list</h2>'));
     expect(page.indexOf('<h2>quote-list</h2>')).toBeLessThan(page.indexOf('<h2>old-editor</h2>'));
+    expect(page.indexOf('<h2>old-editor</h2>')).toBeLessThan(page.indexOf('<h2 class="group">Shared screens</h2>'));
+    expect(page.indexOf('<h2 class="group">Shared screens</h2>')).toBeLessThan(page.indexOf('<h2>app-shell</h2>'));
     expect(page).toContain('srcdoc="&lt;main data-screen=&quot;quote-editor&quot;&gt;');
-    expect(page.match(/no mockup/g)).toHaveLength(2);
+    expect(page.match(/no mockup/g)).toHaveLength(3);
     expect(page).not.toMatch(/<script/i);
     expect(status()).toBe('');
   });

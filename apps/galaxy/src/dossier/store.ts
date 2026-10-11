@@ -9,7 +9,7 @@
 // Since PRD 1272 a concept is a kind too (supabase/migrations/20261119090000_concept_dossiers.sql),
 // numbered by its issue, with its record, its vision tour, a board per round and its debate.
 // Since PRD 1548 a product PRD (`mobile-12`) is a dossier keyed by its product and its number, with no
-// home repository (supabase/migrations/20261203090000_product_prd_ids.sql): dossier_push() creates or
+// home repository (supabase/migrations/20261203100000_product_prd_ids.sql): dossier_push() creates or
 // pushes to one by its product's key, and dossier_approval() finds one by it, as every RPC does.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
@@ -142,7 +142,7 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
 
     /** PRD 1548: sends a product PRD's artifacts — to the product's next PRD, created, when `seq` is null,
      * else to PRD `<key>-<seq>`. `repo`, when given, only says which workspace holds the key when two of
-     * the caller's do (supabase/migrations/20261203090000_product_prd_ids.sql). */
+     * the caller's do (supabase/migrations/20261203100000_product_prd_ids.sql). */
     async pushProduct({ key, seq, repo, title, artifacts }: ProductPush): Promise<DossierPushed & { prdId: string }> {
       const pushed = settle<Partial<Omit<DossierPushed, 'product'>> & { product?: unknown; prdId?: unknown }>('push the product PRD', await db.rpc('dossier_push', {
         p_repo: repo, p_prd: seq, p_title: title, p_draft: null, p_artifacts: artifacts, p_product_key: key,

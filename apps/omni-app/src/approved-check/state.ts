@@ -59,7 +59,7 @@ export type ApprovedVerdict = {
   drift: PinDrift[];
 };
 
-/** A product key (supabase/migrations/20261203090000_product_prd_ids.sql), then its PRD's number. */
+/** A product key (supabase/migrations/20261203100000_product_prd_ids.sql), then its PRD's number. */
 const PART_OF = /(?:^|[^\w-])Part of ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})(?![\w-])/;
 const KEY_MAX = 40;
 const SEQ_MAX = 2 ** 31 - 1;
