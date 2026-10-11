@@ -556,7 +556,7 @@ A person's name links to their profile page only when they are a member of the w
 
 Serves: P-PRODUCT-48
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
-Enforced by: pending #1512
+Enforced by: apps/galaxy/src/people/chips.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
