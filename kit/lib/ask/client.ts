@@ -23,6 +23,11 @@
 // another terminal renewed meanwhile), keeps the new tokens and retries; a second 401 is an error. Every call has a timeout. Anything but a 2xx, a network
 // failure or a timeout is an `AskCallError`, whose `status` is the HTTP status or `null`.
 //
+// With a kit token (`OMNI_TOKEN`, PRD 1628), the store carries it as `omniToken`: the client trades it
+// (`POST /api/ask/token {omni_token}`) for an access token on first use, keeps that in the store (in
+// memory), and trades again when it has under a minute left or a call answers 401. A token that does
+// not work is an `AskCallError` whose message is its one line, naming the variable, never its value.
+//
 // A reply's body is handed on as it came (`unknown`): the client reads only the fields it needs
 // itself (the renewed tokens, the `{error}` text), each through a schema; whoever called reads the rest.
 import { jsonObject, TokenReplySchema } from './schema.ts';
@@ -31,8 +36,11 @@ import type { IssueNumber, PrdNumber, ProductPrdId } from '../ids.ts';
 
 export type { Tokens } from './schema.ts';
 
-/** Where the sign-in of each host is kept: `homeTokens` (`./client-tokens.ts`), or a test's own. */
-export type TokenStore = { read(host: string): Tokens | null; write(host: string, tokens: Tokens): void };
+/**
+ * Where the sign-in of each host is kept: `homeTokens` (`./client-tokens.ts`), or a test's own.
+ * `omniToken`, on the kit token's store, is the token every access token is traded for.
+ */
+export type TokenStore = { read(host: string): Tokens | null; write(host: string, tokens: Tokens): void; omniToken?: string | undefined };
 
 /** The `fetch` the client calls through: `globalThis.fetch`, or a test's own, always given a URL. */
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -85,18 +93,57 @@ const withContext = (body: Body, context: unknown): Body => (context && typeof c
 /** `body` with `lead` added only when there is one (PRD 752): an older server never sees the field. */
 const withLead = (body: Body, lead: unknown): Body => (typeof lead === 'string' && lead !== '' ? { ...body, lead } : body);
 
+/** How long before its expiry a traded access token is traded again. */
+const TRADE_MARGIN_MS = 60_000;
+
+/** Whether `tokens` is past its `expires_at` (seconds as the page gives it, or milliseconds) less the margin. */
+function stale({ expires_at: at }: Tokens, now: number): boolean {
+  if (typeof at !== 'number') return false;
+  return (at < 1e12 ? at * 1000 : at) - TRADE_MARGIN_MS <= now;
+}
+
+/** A date the page gave (seconds, milliseconds or text) as `yyyy-mm-dd`, or `null`. */
+function dayOf(value: unknown): string | null {
+  const ms = typeof value === 'number' ? (value < 1e12 ? value * 1000 : value) : typeof value === 'string' ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : null;
+}
+
+/** A workspace's name, given as `{name}` or as text, or `null`. */
+function workspaceName(value: unknown): string | null {
+  const name = typeof value === 'string' ? value : jsonObject(value)?.name;
+  return typeof name === 'string' && name !== '' ? name : null;
+}
+
+const MAKE_ANOTHER = 'make a new one with omni setup-token';
+
+/** The one line a refused kit token stops on (spec, section 4), from the exchange's 401 `{error, reason}`. */
+function refusalLine(body: unknown, host: string): string {
+  const reply = jsonObject(body) ?? {};
+  if (reply.reason === 'expired') {
+    const day = dayOf(reply.expires_at);
+    return `OMNI_TOKEN expired${day ? ` on ${day}` : ''}: ${MAKE_ANOTHER}`;
+  }
+  if (reply.reason === 'revoked') return `OMNI_TOKEN was revoked: ${MAKE_ANOTHER}`;
+  if (reply.reason === 'not-a-member') {
+    const login = typeof reply.login === 'string' && reply.login !== '' ? reply.login : 'its maker';
+    return `OMNI_TOKEN: ${login} is no longer a member of ${workspaceName(reply.workspace) ?? 'its workspace'}`;
+  }
+  return `OMNI_TOKEN is not known to ${host}: ${MAKE_ANOTHER}`;
+}
+
 /** The fresh access token's reply, or `null` when it carries none. */
 function freshTokens(body: unknown): JsonObject | null {
   const fresh = jsonObject(body);
   return fresh && TokenReplySchema.shape.access_token.safeParse(fresh.access_token).success ? fresh : null;
 }
 
-export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }: {
+export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS, now = Date.now }: {
   baseUrl: string;
   host: string;
   tokens: TokenStore;
   fetch?: Fetch | undefined;
   callMs?: number | undefined;
+  now?: (() => number) | undefined;
 }) {
   const root = baseUrl.replace(/\/+$/, '');
   const segment = (value: string | number): string => encodeURIComponent(value);
@@ -154,13 +201,44 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     return kept;
   }
 
-  /** A 2xx response to an authorized request: a 401 refreshes the sign-in once and retries. */
+  /**
+   * Trades the kit token for an access token, kept in the store: `repo`, when given, goes with it, for
+   * the reply to say where its calls go. Throws an `AskCallError` carrying the token's one line.
+   */
+  async function trade(omniToken: string, repo: string | null = null): Promise<{ tokens: Tokens; reply: JsonObject }> {
+    let response: Response;
+    try {
+      response = await send('POST', '/api/ask/token', { body: repo ? { omni_token: omniToken, repo } : { omni_token: omniToken }, timeoutMs: callMs });
+    } catch {
+      throw new AskCallError(`OMNI_TOKEN: cannot reach ${host}: allow it in your environment's network access`);
+    }
+    const body = await bodyOf(response);
+    if (response.status === 401) throw new AskCallError(refusalLine(body, host), { status: 401, reason: reasonOf(body) });
+    if (!response.ok) {
+      const reason = reasonOf(body);
+      throw new AskCallError(`OMNI_TOKEN: ${host} answered ${response.status}${reason ? `: ${reason}` : ''}`, { status: response.status, reason });
+    }
+    const fresh = freshTokens(body);
+    if (!fresh) throw new AskCallError(`OMNI_TOKEN: ${host} answered with no access token`, { status: response.status });
+    const kept = renewed({ access_token: '' }, fresh);
+    tokens.write(host, kept);
+    return { tokens: kept, reply: fresh };
+  }
+
+  /** The sign-in a call goes with: the kit token's access token, traded first when it is stale. */
+  async function currentTokens(): Promise<Tokens | null> {
+    const held = tokens.read(host);
+    if (tokens.omniToken && (!held?.access_token || stale(held, now()))) return (await trade(tokens.omniToken)).tokens;
+    return held;
+  }
+
+  /** A 2xx response to an authorized request: a 401 refreshes the sign-in (or trades the kit token) once and retries. */
   async function authorized(method: string, path: string, options: { body?: unknown; timeoutMs: number; accept?: string; extra?: Record<string, string>; signal?: AbortSignal }): Promise<Response> {
-    const current = tokens.read(host);
+    const current = await currentTokens();
     if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
     let response = await send(method, path, { ...options, token: current.access_token });
     if (response.status === 401) {
-      const fresh = await refresh(current);
+      const fresh = tokens.omniToken ? (await trade(tokens.omniToken)).tokens : await refresh(current);
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
       response = await send(method, path, { ...options, token: fresh.access_token });
     }
@@ -195,11 +273,23 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     }
   }
 
+  /** Renews the kit token's access token now, as `renew` says how it went. */
+  async function renewByToken(omniToken: string): Promise<'renewed' | 'refused' | 'unreachable'> {
+    try {
+      await trade(omniToken);
+      return 'renewed';
+    } catch (error) {
+      const status = error instanceof AskCallError ? error.status : null;
+      return status === 401 || status === 403 ? 'refused' : 'unreachable';
+    }
+  }
+
   /**
    * Renews the stored sign-in now: `renewed` (the new tokens are kept), `refused` (the server no
    * longer honours it) or `unreachable`.
    */
   async function renew(): Promise<'renewed' | 'refused' | 'unreachable'> {
+    if (tokens.omniToken) return renewByToken(tokens.omniToken);
     const current = tokens.read(host);
     if (!current?.refresh_token) return 'refused';
     let response: Response;
@@ -252,8 +342,28 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     }
   }
 
+  /**
+   * Signs in with the kit token now (`omni signin`, `omni whoami` under `OMNI_TOKEN`): who it signs in
+   * as and, with `repo`, where its calls go (`workspace`, or the page's `reason`). Throws the token's
+   * `AskCallError`; without a kit token, an `AskCallError` too.
+   */
+  async function tradeToken({ repo = null }: { repo?: string | null } = {}) {
+    if (!tokens.omniToken) throw new AskCallError(`no OMNI_TOKEN to sign in to ${host} with`);
+    const { reply } = await trade(tokens.omniToken, repo);
+    const text = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : null);
+    const workspace = jsonObject(reply.workspace);
+    const name = text(workspace?.name);
+    return {
+      login: text(reply.login),
+      email: text(reply.email),
+      workspace: name ? { slug: text(workspace?.slug), name } : null,
+      reason: name ? null : text(reply.reason),
+    };
+  }
+
   return {
     renew,
+    tradeToken,
     download,
     upload,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.

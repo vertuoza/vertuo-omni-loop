@@ -62,6 +62,9 @@ the command with one line naming the variables, never a value (ADR-0057). Every 
 - `OMNI_LOOP_WORKSPACE`: the workspace a game command plays for when `--workspace` names none.
 - `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY`: the game's
   database, for the `game:*` commands, `personas-import` and `schemas:verify --production`.
+- `OMNI_TOKEN`: a kit token (`omk_…`, made by `omni setup-token`) that signs every `omni` command in
+  to the Omni page where no browser can, a Claude Code cloud session; set, it wins over the sign-in
+  `omni signin` keeps, and `omni whoami` prints `(OMNI_TOKEN ··<last four>)`.
 <!-- /omni:env-variables -->
 
 The app and the arcade each list their own: [`apps/omni-app/README.md`](apps/omni-app/README.md),
