@@ -5,7 +5,10 @@ on UI work. `/omni:do-work` follows it in its review step, before the sub-PR is 
 slice that builds or changes a screen; `/omni:visual-fix` follows it at its real check. A person
 may type it too.
 
-**Bounded:** one look, one batch of fixes, at most one confirming look. Never a loop.
+**Bounded:** with a DESIGN.md (the file `design.system` names), at most **three rounds** of
+screenshot, critique against DESIGN.md and the reference screen's mockup, and one batch of fixes
+(**Rounds**, below); it stops when a round finds nothing, or after round three. Without one, as
+before: one look, one batch of fixes, at most one confirming look. Never more than three rounds.
 
 **Never blocking.** A finding never stops the slice, the wave or the gate, and never turns a check
 red. Whatever it finds is fixed and listed, or left and recorded; the caller carries on either way.
@@ -33,6 +36,15 @@ Step 0 of the skill has run: the flag is on (off, the review is the one `design:
 caller's **Design review** section is that `—` line alone) and the design form is read.
 
 ## Steps
+
+**The system,** before step 0. Run `node .omni-loop/bin/omni.mjs config design.system` (unset, it
+reads `DESIGN.md`, at the repository's root), then `node .omni-loop/bin/omni.mjs design parts`
+(it always exits 0). When it prints `parts: no DESIGN.md (run /omni:pixel-perfect init)`, the
+review runs as before: one look (steps 0 to 5), it runs no round and no parts check, and the
+section's **Parts** line is that line. Otherwise keep its list of parts and its reference screens:
+the reference screen the plan names on the slice (or the one of DESIGN.md's reference screens
+nearest the screen the work changed) is read, its file and its mockup, and steps 4 and 5 run as
+**Rounds**, below.
 
 0. **The screens.** Run `node .omni-loop/bin/omni.mjs design touched <base>` (it always exits 0).
    Its `screens:` line names each library screen whose `implements` the work's diff touches, with
@@ -78,8 +90,48 @@ caller's **Design review** section is that `—` line alone) and the design form
    last). Then **one confirming look**, at the same widths, and stop, whatever it shows. On a
    locked screen a fix brings the built screen back to its mock, never away from it.
 
-Steps 1 and 2 report; only step 5 edits. A finding the form's `deliberate` section explains is not a
+With a DESIGN.md, steps 4 and 5 are the first round of **Rounds**, below, and the confirming look
+is the next round's screenshot. Steps 1 and 2 report; only step 5 (each round's **Fix**) edits. A finding the form's `deliberate` section explains is not a
 finding.
+
+## Rounds
+
+Only with a DESIGN.md (**The system**, above). A round is three acts, in order:
+
+1. **Screenshot** each screen step 0 named, at the form's widths (390 and 1440 when it names none),
+   as step 4 says.
+2. **Critique** what the screenshots show against DESIGN.md (its semantic tokens, its parts with
+   their variants and states, its Do's and Don'ts) and the reference screen's mockup, beside the
+   reference picture the caller gave and, for a locked screen, its mock. Steps 1 and 2 run in the
+   first round; a later round critiques only what the round before changed.
+3. **Fix** what the critique found, in one batch, inside the territory, in polish's order (step 5).
+
+The review runs at most three rounds. It stops when a round finds nothing (that round's screenshot
+is the confirming look), or after round three, whatever round three shows. Each round fixes only
+what the diff changed: a fault in an untouched part goes under **Seen, not touched** (below) in round
+one or round three alike, and is never carried into the next round. What is left after round three
+becomes an outbox item, as **What it did not fix** says.
+
+With no browser where the agent works (no browser tool, an app that cannot run, a sign-in the form
+does not explain), the section's line is `— Screens: not seen here`: the review runs no round, judges
+from the source as step 4 says, and nothing is reported as seen.
+
+## The parts check
+
+Only with a DESIGN.md. After the last round, run
+`node .omni-loop/bin/omni.mjs design parts --check <base>` (it always exits 0). It names the parts
+whose `Code` paths the diff changed (`parts changed:`), and each component file the diff adds under
+`design.paths` that no part names and no screen's `implements` claims (`off-list:`).
+
+- Each `off-list` part raises **one medium outbox item per part**, never one for several, and never
+  blocks: the question is "add `<part>` to DESIGN.md?", with the entry it would add (its `###`
+  heading and its Summary, Variants, States, Tokens, Accessibility, Do, Don't and Code lines) in
+  `decide`. Option A keeps the part and adds the entry; option B rebuilds it from listed parts. In
+  `/omni:do-work` its decisions step records it, with `hardToRevert`, `breaksNamedLaw` and
+  `needsHumanAction` all false, so the kit ranks it medium. A person typing the review gets the
+  list instead. The list grows on purpose, never by accident.
+- `parts: unknown` (the base does not read, or `design.paths` is empty) is said in the **Parts**
+  line as it is: the review never guesses which parts changed.
 
 ## A change to a locked screen or law
 
@@ -129,7 +181,14 @@ one line per step, and a **Locked** line when a locked screen or law changed, ea
 - — Design lint: not set here
 - ✓ Screenshots — 390 and 1440, beside the before/after page's "after" and quote-editor's mock
 - ✓ Polish — one batch, confirmed at 390 and 1440
+- ✓ Rounds — 2 of 3: round 2 found nothing
+- ✓ Parts — all listed
 ```
+
+With a DESIGN.md the section gains two lines: `Rounds — <n> of 3` (the rounds run, and why it
+stopped) and `Parts — all listed`, or `✗ Parts — <part>, <part>: not on the list (medium items
+s3-04, s3-05)`, or `— Parts: unknown`. Without one, the **Parts** line is
+`— Parts: no DESIGN.md (run /omni:pixel-perfect init)`, and there is no **Rounds** line.
 
 When `omni design touched` printed `mock may be stale`, one more line, opening on —, says it as a
 note, never a block: `- — Mock may be stale: quote-list (its implements changed, its mockup did not;

@@ -40,7 +40,9 @@ is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, 
 Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and, when it
 prints `true`, `node .omni-loop/bin/omni.mjs config design.paths`. Keep both. Anything but `true`
 (or a failure) means design craft is off here: step 4 marks no slice `ui: yes`, and nothing else in
-this skill changes.
+this skill changes. On, also run `node .omni-loop/bin/omni.mjs design parts` (it always exits 0) and
+keep what it prints: the closed list of parts in the repository's DESIGN.md and its reference
+screens, or `parts: no DESIGN.md (run /omni:pixel-perfect init)`, when step 4 writes no parts.
 
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
@@ -188,6 +190,22 @@ glob reaches into the prefix) is marked `ui: yes` on its done-when heading, afte
 **s3** (`ui: yes`)
 - <its observable conditions>
 ```
+
+With a DESIGN.md (step 0's `omni design parts` printed a list), each `ui: yes` slice also names,
+under its heading, the parts it builds from and the reference screen it copies, so `/omni:do-work`
+reads them before it writes the slice:
+
+```markdown
+**s3** (`ui: yes`)
+- Parts: <the listed parts it uses>
+- Reference screen: <the reference screen it copies>
+- <its observable conditions>
+```
+
+Parts are names from the list only; a part the slice needs and the list lacks is named as
+`<part> (not on the list)`, for `/omni:do-work` to raise as a question, never added to DESIGN.md
+here. The reference screen is one of DESIGN.md's reference screens, the one nearest what the slice
+builds. With no DESIGN.md, the slice writes neither line.
 
 A slice no glob meets is not marked. With the flag off, or `design.paths` empty, mark nothing:
 `/omni:do-work` then reads `omni design touched` on the built diff and judges for itself. The mark
