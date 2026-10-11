@@ -1,12 +1,16 @@
 import 'server-only';
 import { createHmac } from 'node:crypto';
+import type { OutboxItemsService } from '../outbox-items/outbox-items.service';
 
-// Telling the GitHub App that the server changed a product PRD (PRD 1548 s4): one signed POST to
-// omni-app's `/api/server-event` (apps/omni-app/src/server-event/server-event.ts), which re-posts
-// `omni/approved` on the PRD's open target pull requests. Two moments send one:
+// Telling the GitHub App that the server changed a product PRD (PRD 1548 s4 and s8): one signed POST to
+// omni-app's `/api/server-event` (apps/omni-app/src/server-event/server-event.ts), which re-posts both
+// checks, `omni/approved` and the outbox check, on the PRD's open target pull requests. Four moments send
+// one:
 //
-//   - `approved`  a member approved the PRD (src/approval/approval-api.ts);
-//   - `voided`    a push changed a file the approval in force pinned (the push route's `tellVoids`).
+//   - `approved`      a member approved the PRD (src/approval/approval-api.ts);
+//   - `voided`        a push changed a file the approval in force pinned (the push route's `tellVoids`);
+//   - `item-opened`   an outbox item was raised, or rewritten while open (`withOutboxTold`, s8);
+//   - `item-settled`  an item was answered, or adopted as it was raised (`withOutboxTold`, s8).
 //
 // The body is `{ event, dossier, at }`, signed with an HMAC-SHA256 over its exact bytes under
 // STAGE_EVENT_SECRET, which both apps already share for the stage events, in `x-omni-signature-256:
@@ -22,8 +26,13 @@ export const SERVER_EVENT_PATH = '/api/server-event';
 /** The header the App reads the signature from, the stage events' own. */
 export const SERVER_SIGNATURE_HEADER = 'x-omni-signature-256';
 
-/** What changed a product PRD on the server. */
-export type ServerEventKind = 'approved' | 'voided';
+/**
+ * What changed a product PRD on the server: an approval, a void, or (PRD 1548 s8) an outbox item raised or
+ * rewritten while open (`item-opened`), or answered or adopted as it was raised (`item-settled`). Any
+ * write of a product PRD's outbox sends one of the last two with the PRD's dossier, as
+ * `liveSendServerEvent({ event, dossier, at })` (./server-event-live.ts) or `withOutboxTold` below.
+ */
+export type ServerEventKind = 'approved' | 'voided' | 'item-opened' | 'item-settled';
 
 /** One server event, as the App reads it. */
 export type ServerEvent = { event: ServerEventKind; dossier: string; at: string };
@@ -81,4 +90,53 @@ export async function tellAppOfVoid(
   } catch (error) {
     log(`server event: telling the App of dossier ${dossier}'s void failed — ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+/** Which product PRD an outbox write is about, as the outbox repository finds its dossier. */
+type PrdOfWrite = { key: string; seq: number; repo: string | null };
+
+/** The dossier of product PRD `<key>-<seq>`, as the writer may read it: null when none, `ok: false` when it could not be read. */
+export type DossierOf = (prd: PrdOfWrite) => Promise<{ ok: true; value: string | null } | { ok: false }>;
+
+/** What telling the App of an outbox write takes: the dossier's read, the send, the clock and the log. */
+export type OutboxTellDeps = { dossierOf: DossierOf; send: (event: ServerEvent) => Promise<boolean>; now?: () => Date; log: (line: string) => void };
+
+/** After an outbox write of product PRD `request` names: tells the App `event`, once. Never throws. */
+async function tellAppOfItem(
+  { dossierOf, send, now = () => new Date(), log }: OutboxTellDeps,
+  event: 'item-opened' | 'item-settled',
+  request: { product: string; prd: number; repo?: string | undefined },
+): Promise<void> {
+  const id = `${request.product}-${request.prd}`;
+  try {
+    const dossier = await dossierOf({ key: request.product, seq: request.prd, repo: request.repo?.toLowerCase() ?? null });
+    if (!dossier.ok || dossier.value === null) {
+      log(`server event: the dossier of ${id} could not be read, the App is not told of its ${event}`);
+      return;
+    }
+    await send({ event, dossier: dossier.value, at: now().toISOString() });
+  } catch (error) {
+    log(`server event: telling the App of ${id}'s ${event} failed — ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * The outbox service (src/outbox-items/outbox-items.service.ts), telling the App after each write the
+ * server took: `item-opened` after a put, `item-settled` after an adoption or a settlement. A refused
+ * write tells nothing, and telling never changes what the write answers.
+ */
+export function withOutboxTold(service: OutboxItemsService, deps: OutboxTellDeps): OutboxItemsService {
+  return {
+    ...service,
+    put: async (request) => {
+      const served = await service.put(request);
+      if (served.ok) await tellAppOfItem(deps, request.adopt === true ? 'item-settled' : 'item-opened', request);
+      return served;
+    },
+    settle: async (request) => {
+      const served = await service.settle(request);
+      if (served.ok) await tellAppOfItem(deps, 'item-settled', request);
+      return served;
+    },
+  };
 }
