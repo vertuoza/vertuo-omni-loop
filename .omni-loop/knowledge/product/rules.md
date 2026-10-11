@@ -413,7 +413,7 @@ Each question's cost uses the price list's per-million-token prices. Cache reads
 
 Serves: P-PRODUCT-36
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
-Enforced by: pending #1499
+Enforced by: apps/galaxy/src/ask/prices.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
