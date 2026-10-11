@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from './rules';
-import { blocksAt, CHAPTERS, LEGEND, parseChapter, parseWave, passedAt, ring, SHAPE, struck, waveProblems, type Wave } from './waves';
+import {
+  blocksAt, CHAPTERS, ENDLESS_SEED, endlessWave, endlessWaves, LEGEND, parseChapter, parseWave, passedAt, ring, SHAPE, struck, waveProblems, type Wave,
+} from './waves';
 
 // OMNI DUET's waves (PRD 1633, slice 3): the four chapters as text, the legend they are written in,
 // the blocks they become, and the check that proves every wave passable.
@@ -142,5 +144,46 @@ describe('every wave is passable', () => {
     // right behind on one side asks them to lie flat within one block's height: too quick a turn.
     const tight = parseChapter('V', 'TIGHT', ['speed 300\n####..####\n....##....']);
     expect(waveProblems([tight])).toEqual(['chapter V · TIGHT, wave 1: no way through']);
+  });
+});
+
+// Slice 4: endless mode, once chapter IV is passed.
+
+describe('the endless waves', () => {
+  const endless = (waves: readonly Wave[]) => [{ numeral: 'ENDLESS', name: '×2', waves }];
+  const fastestStorm = Math.max(...(CHAPTERS[3]?.waves ?? []).map((w) => w.speed));
+
+  it('are drawn from one fixed seed: the same waves for every player, wave after wave', () => {
+    expect(Number.isInteger(ENDLESS_SEED)).toBe(true);
+    expect(endlessWave(0)).toEqual(endlessWave(0));
+    expect(endlessWave(17)).toEqual(endlessWave(17));
+    expect(endlessWaves(5)).toEqual([0, 1, 2, 3, 4].map((n) => endlessWave(n)));
+    const shapes = new Set(endlessWaves(40).map((w) => JSON.stringify(w.pieces)));
+    expect(shapes.size).toBeGreaterThan(10);
+  });
+
+  it('fall at chapter IV\'s speed or above, rising slowly and never falling back', () => {
+    const waves = endlessWaves(200);
+    expect(waves[0]?.speed).toBeGreaterThanOrEqual(fastestStorm);
+    waves.forEach((w, i) => { if (i > 0) expect(w.speed, `wave ${i + 1}`).toBeGreaterThanOrEqual(waves[i - 1]?.speed ?? 0); });
+    expect(waves[199]?.speed).toBeGreaterThan(waves[0]?.speed ?? Infinity);
+  });
+
+  it('use only the legend\'s blocks, all three kinds among them', () => {
+    const kinds = new Set(endlessWaves(60).flatMap((w) => w.pieces.map((p) => p.kind)));
+    expect(kinds).toEqual(new Set(['still', 'slide', 'turn']));
+  });
+
+  it('never end: any wave number has a wave', () => {
+    expect(endlessWave(100_000).pieces.length).toBeGreaterThan(0);
+  });
+
+  it('pass waveProblems for the first 200, each from where the wave before can leave the orbs', () => {
+    expect(waveProblems(endless(endlessWaves(200)))).toEqual([]);
+  });
+
+  it('can each be begun again from any angle, as a hit in endless mode begins the wave hit again', () => {
+    const stuck = endlessWaves(200).flatMap((w, i) => (waveProblems(endless([w])).length ? [i + 1] : []));
+    expect(stuck).toEqual([]);
   });
 });
