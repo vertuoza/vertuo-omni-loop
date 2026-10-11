@@ -175,9 +175,9 @@ describe('review: only what the work touches can hold it (PRD 1584)', () => {
   });
 
   it('reports Seen, not touched under its own heading, apart from the findings', () => {
-    const report = section(REVIEW, 'What it reports');
-    expect(report).toContain('### Seen, not touched');
-    expect(report).toMatch(/apart from the work's findings/);
+    // Its example block holds a `## Design review` line, so the section is read to the file's end.
+    const report = read(REVIEW).slice(read(REVIEW).indexOf('## What it reports'));
+    expect(inOrder(report, ["apart from the work's findings", '### Seen, not touched', 'file it as a bug of its own'])).toEqual([]);
   });
 
   it('screenshots a touched shared screen in place, on one page it appears on, as well as on its own', () => {
@@ -283,9 +283,9 @@ describe('the before/after has a Functional part and a Pixel perfect part (PRD 1
   });
 
   it("/omni:pr's feature body carries a Pixel perfect line: the screens, or none", () => {
-    const body = section('pr/SKILL.md', 'The body');
-    expect(body).toContain('**Pixel perfect:** <the screens to look at closely, or `none`>');
-    expect(body).toMatch(/only when `design\.enabled` is `true`/);
+    // The body's example block holds `## Slices`, so the text is read from the heading on.
+    const body = read('pr/SKILL.md').slice(read('pr/SKILL.md').indexOf('## The body'));
+    expect(inOrder(body, ['**Pixel perfect,** only when `design.enabled` is `true`', '**Pixel perfect:** <the screens to look at closely, or `none`>', '`Pixel perfect: no screen changes`', 'gives `none`', '**Landing PR**'])).toEqual([]);
   });
 });
 
