@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { parseOutboxItemId, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { AnswerReplySchema } from './questions.contract';
 import { answerQuestion, type QuestionsHandlerDeps } from './questions.controller';
-import type { Settled } from './questions.repository';
 import { questionsService, type QuestionsDeps } from './questions.service';
 
 // POST /api/outbox/answer (PRD 1548 s9, acceptance 9), with a fake outbox behind the real service: the
 // session is checked before anything is read, a malformed body is refused before the service runs, an
-// answer settles the question in the contract's shape, and a non-member's answer is refused as no such
-// PRD, as is a question already settled.
+// answer settles the question through the outbox's service, in the contract's shape, and a non-member's
+// answer is refused as no such PRD, as is a question already settled.
 
 const URL_ = 'https://omni.example/api/outbox/answer';
 const PRD = parseProductPrdId('mobile-12');
@@ -29,7 +28,7 @@ const BODY = [
 
 const OPEN = { item: ITEM, rank: 'high' as const, repository: 'vertuoza/vertuo-api', body: BODY, raisedAt: '2026-10-11T09:00:00Z', settlement: null };
 
-type World = { member?: boolean; settled?: boolean; settle?: Settled; throws?: boolean };
+type World = { member?: boolean; settled?: boolean; settle?: Awaited<ReturnType<QuestionsDeps['settle']>>; throws?: boolean };
 
 function world({ member = true, settled = false, settle, throws = false }: World = {}, signedIn: 'member' | 'out' | 'closed' = 'member') {
   const calls: string[] = [];
@@ -42,9 +41,8 @@ function world({ member = true, settled = false, settle, throws = false }: World
       const settlement = settled ? { verdict: 'agreed' as const, basis: 'stated', answer: 'A', channel: 'questions' as const, settledBy: 'irisa', settledAt: '2026-10-11T10:00:00Z' } : null;
       return Promise.resolve({ ok: true, value: { prdId: PRD, items: [{ ...OPEN, settlement }] } });
     },
-    settled: (prd) => { calls.push(`told ${prd.key}-${String(prd.seq)}`); return Promise.resolve(); },
-    settle: (prd, s) => {
-      calls.push(`settle ${prd.key}-${String(prd.seq)} ${s.item} ${s.verdict} ${s.basis} ${s.answer}`);
+    settle: (s) => {
+      calls.push(`settle ${s.product}-${String(s.prd)} ${s.item} ${s.verdict} ${s.basis} ${s.answer} (${s.channel ?? 'terminal'})`);
       return Promise.resolve(settle ?? { ok: true, value: { id: 'st-1', item: s.item, prdId: PRD, verdict: s.verdict, settledAt: '2026-10-11T11:00:00Z' } });
     },
   };
@@ -66,14 +64,14 @@ describe('POST /api/outbox/answer', () => {
     expect(res.headers.get('cache-control')).toBe('no-store');
     const body = AnswerReplySchema.parse(await res.json());
     expect(body).toEqual({ item: ITEM, prdId: 'mobile-12', verdict: 'agreed', settledAt: '2026-10-11T11:00:00Z' });
-    expect(calls).toEqual(['items mobile-12', 'settle mobile-12 s2-01-quote-totals agreed stated A. Round per line (built).', 'told mobile-12']);
+    expect(calls).toEqual(['items mobile-12', 'settle mobile-12 s2-01-quote-totals agreed stated A. Round per line (built). (questions)']);
   });
 
   it('settles an answer of the member\'s own, read by the kit\'s rules', async () => {
     const { calls, handler } = world();
     const res = await answerQuestion(post({ prdId: 'mobile-12', item: ITEM, answer: 'Round on the total instead, not per line' }), handler);
     expect(await answered(res)).toMatchObject({ status: 200, body: { verdict: 'drifted' } });
-    expect(calls[1]).toBe('settle mobile-12 s2-01-quote-totals drifted contradiction-marker Round on the total instead, not per line');
+    expect(calls[1]).toBe('settle mobile-12 s2-01-quote-totals drifted contradiction-marker Round on the total instead, not per line (questions)');
   });
 
   it('refuses a non-member, who reads no such PRD, before any write', async () => {
@@ -84,7 +82,7 @@ describe('POST /api/outbox/answer', () => {
   });
 
   it('refuses a non-member the database turns away at the write as no such PRD', async () => {
-    const { handler } = world({ settle: { ok: false, code: 'P0002', message: 'No PRD mobile-12 in your workspaces.', hint: null } });
+    const { handler } = world({ settle: { ok: false, kind: 'missing', error: 'No PRD mobile-12 in your workspaces.' } });
     expect(await answered(await answerQuestion(post({ prdId: 'mobile-12', item: ITEM, answer: 'A' }), handler)))
       .toEqual({ status: 404, body: { error: 'No PRD mobile-12 in your workspaces.' } });
   });
@@ -94,7 +92,7 @@ describe('POST /api/outbox/answer', () => {
     expect(await answered(await answerQuestion(post({ prdId: 'mobile-12', item: ITEM, answer: 'B' }), read.handler)))
       .toEqual({ status: 409, body: { error: 'This question is already settled.' } });
     expect(read.calls).toEqual(['items mobile-12']);
-    const raced = world({ settle: { ok: false, code: '22023', message: 'Item s2-01-quote-totals is already settled (agreed).', hint: 'settled' } });
+    const raced = world({ settle: { ok: false, kind: 'settled', error: 'Item s2-01-quote-totals is already settled (agreed).' } });
     expect((await answerQuestion(post({ prdId: 'mobile-12', item: ITEM, answer: 'B' }), raced.handler)).status).toBe(409);
   });
 
@@ -130,7 +128,7 @@ describe('POST /api/outbox/answer', () => {
   });
 
   it('answers a failed write or a failure 500, logged', async () => {
-    const write = world({ settle: { ok: false, code: 'XX000', message: 'boom', hint: null } });
+    const write = world({ settle: { ok: false, kind: 'database', error: 'The PRD\'s outbox was not written. Try again.' } });
     expect(await answered(await answerQuestion(post({ prdId: 'mobile-12', item: ITEM, answer: 'A' }), write.handler)))
       .toEqual({ status: 500, body: { error: 'The answer was not saved. Try again.' } });
     expect(write.logged).toEqual(['questions: The answer was not saved. Try again. (mobile-12 s2-01-quote-totals)']);

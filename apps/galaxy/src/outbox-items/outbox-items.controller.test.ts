@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseOutboxItemId, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { ItemsReplySchema } from './outbox-items.contract';
 import { putOutboxItem, readOutboxItems, settleOutboxItem, type OutboxItemsDeps } from './outbox-items.controller';
 import type { ItemColumns, OutboxItemsRepository, PrdOnProduct, Stored, StoredItemRow } from './outbox-items.repository';
@@ -164,6 +165,23 @@ describe('POST /api/outbox/items/settle', () => {
     const { deps, calls } = world({ write: settled });
     expect(await read(await settleOutboxItem(post('/settle', answer), deps))).toEqual({ status: 200, body: settled.value });
     expect(calls).toEqual(['settle {"item":"s7-01-default-timeout","verdict":"agreed","basis":"affirmation","answer":"Yes.","channel":"terminal"}']);
+  });
+
+  it('settles through the service as answered where the caller says, the terminal when it says nowhere', async () => {
+    const { deps, calls } = world();
+    const service = deps.connect?.('good').service;
+    await service?.settle({ product: 'mobile', prd: parsePrd(12), item: parseOutboxItemId(answer.item), verdict: 'drifted', basis: 'stated', answer: 'B.', channel: 'questions' });
+    await service?.settle({ product: 'mobile', prd: parsePrd(12), item: parseOutboxItemId(answer.item), verdict: 'agreed', basis: 'stated', answer: 'A.' });
+    expect(calls).toEqual([
+      'settle {"item":"s7-01-default-timeout","verdict":"drifted","basis":"stated","answer":"B.","channel":"questions"}',
+      'settle {"item":"s7-01-default-timeout","verdict":"agreed","basis":"stated","answer":"A.","channel":"terminal"}',
+    ]);
+  });
+
+  it('refuses a channel in the request\'s body: the kit always answers in the terminal', async () => {
+    const { deps, calls } = world();
+    expect((await settleOutboxItem(post('/settle', { ...answer, channel: 'questions' }), deps)).status).toBe(400);
+    expect(calls).toEqual([]);
   });
 
   it('refuses a malformed settlement before any write, and an item already settled in the database\'s words', async () => {

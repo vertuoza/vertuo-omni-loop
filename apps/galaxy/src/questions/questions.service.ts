@@ -2,30 +2,29 @@ import { parsePrd, productPrdParts, type ProductPrdId } from 'vertuo-omni-plan/k
 import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { interpretAnswer } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
 import { judgeAnswer } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import type { OutboxRefusal } from '../outbox-items/outbox-items.contract';
 import type { OutboxItemsService } from '../outbox-items/outbox-items.service';
 import { AnswerReplySchema, type AnswerRefusal, type AnswerReply, type AnswerRequest } from './questions.contract';
-import type { QuestionsRepository, Settled } from './questions.repository';
 
 // Answering on the Questions tab (PRD 1548 s9; ADR-0095, spec "Answers on the Questions tab"): a member
 // picks an option of an open question of a product PRD, or writes an answer of their own, and the
 // question is settled on the server, as given on the Questions tab. The answer is read by the kit's own
 // rules, as `omni answers` reads one in the terminal: a letter is that option (A agrees with what was
 // built, any other drifts from it), and an answer of their own is judged against what was built; one the
-// rules cannot read is refused, never guessed. The question is read through the outbox's own service, as
-// the caller; the database has the last word on who may answer (a member of the PRD's workspace: anyone
-// else finds no such PRD) and on a question already settled. Once a settlement is stored, the App is told
-// (`item-settled`, PRD 1548 s8), so it re-posts the checks of the PRD's target pull requests.
+// rules cannot read is refused, never guessed. The question is read and settled through the outbox's own
+// service (src/outbox-items), as the caller, its answer recorded as given on the Questions tab; the
+// database has the last word on who may answer (a member of the PRD's workspace: anyone else finds no such
+// PRD) and on a question already settled. The live wiring wraps that service so the App is told
+// `item-settled` once a settlement is stored (PRD 1548 s8), as the outbox's own settle route tells it.
 
 /** A service answer: its value, or why it was refused, in plain words. */
 type Answered = { ok: true; value: AnswerReply } | Refused;
 type Refused = { ok: false; kind: AnswerRefusal; error: string };
 
-/** What answering needs: the outbox's read of a product PRD's items, and the settlement's write. */
+/** What answering needs: the outbox service's read of a product PRD's items, and its settlement. */
 export interface QuestionsDeps {
   items: OutboxItemsService['items'];
-  settle: QuestionsRepository['settle'];
-  /** Told once a settlement is stored, so the App re-posts the PRD's checks (PRD 1548 s8). Never throws. */
-  settled: (prd: { key: string; seq: number }) => Promise<void>;
+  settle: OutboxItemsService['settle'];
 }
 
 /** One item of a product PRD, as the outbox's service reads it. */
@@ -41,11 +40,11 @@ const NOT_SAVED = 'The answer was not saved. Try again.';
 const refused = (kind: AnswerRefusal, error: string): Refused => ({ ok: false, kind, error });
 const noPrd = (prdId: string) => refused('missing', `No PRD ${prdId} in your workspaces.`);
 
-/** The database's refusal of a settlement, in the tab's words. */
-function settleRefusal(stored: Extract<Settled, { ok: false }>, prdId: string): Refused {
-  if (stored.code === 'P0002') return refused('missing', stored.message ?? `No PRD ${prdId} in your workspaces.`);
-  if (stored.code === '22023' && stored.hint === 'settled') return refused('settled', SETTLED);
-  if (stored.code === '42501') return refused('signed-out', 'Sign in first to answer.');
+/** The outbox's refusal of a settlement, in the tab's words. */
+function settleRefusal({ kind, error }: { kind: OutboxRefusal; error: string }): Refused {
+  if (kind === 'missing') return refused('missing', error);
+  if (kind === 'settled') return refused('settled', SETTLED);
+  if (kind === 'signed-out') return refused('signed-out', 'Sign in first to answer.');
   return refused('database', NOT_SAVED);
 }
 
@@ -69,26 +68,6 @@ function judged(row: ItemRow, answer: string): Judged | Refused {
   return verdict === 'agreed' || verdict === 'drifted' ? { ok: true, verdict, basis, recorded: reading.recorded } : refused('undetermined', UNDETERMINED);
 }
 
-/** What telling the App of a settlement takes: the dossier's read as the caller, the send, the clock, the log. */
-export interface TellDeps {
-  dossierOf: (prd: { key: string; seq: number; repo: null }) => Promise<{ ok: true; value: string | null } | { ok: false }>;
-  send: (event: { event: 'item-settled'; dossier: string; at: string }) => Promise<unknown>;
-  now: () => Date;
-  log: (line: string) => void;
-}
-
-/** The `settled` step: tells the App `item-settled` on product PRD `<key>-<seq>`'s dossier. Never throws. */
-export const tellSettled = ({ dossierOf, send, now, log }: TellDeps) => async ({ key, seq }: { key: string; seq: number }): Promise<void> => {
-  const id = `${key}-${String(seq)}`;
-  try {
-    const dossier = await dossierOf({ key, seq, repo: null });
-    if (dossier.ok && dossier.value !== null) await send({ event: 'item-settled', dossier: dossier.value, at: now().toISOString() });
-    else log(`questions: the dossier of ${id} could not be read, the App is not told of its item-settled`);
-  } catch (err) {
-    log(`questions: telling the App of ${id}'s item-settled failed — ${err instanceof Error ? err.message : String(err)}`);
-  }
-};
-
 export function questionsService(deps: QuestionsDeps) {
   return {
     /** Settles the open question `item` of product PRD `prdId` with the member's answer. */
@@ -98,10 +77,9 @@ export function questionsService(deps: QuestionsDeps) {
       const judgement = judged(open.row, answer);
       if (!judgement.ok) return judgement;
       const { verdict, basis, recorded } = judgement;
-      const prd = productPrdParts(prdId);
-      const stored = await deps.settle(prd, { item, verdict, basis, answer: recorded });
-      if (!stored.ok) return settleRefusal(stored, prdId);
-      await deps.settled(prd);
+      const { key, seq } = productPrdParts(prdId);
+      const stored = await deps.settle({ product: key, prd: parsePrd(seq), item, verdict, basis, answer: recorded, channel: 'questions' });
+      if (!stored.ok) return settleRefusal(stored);
       const reply = AnswerReplySchema.safeParse(stored.value);
       return reply.success ? { ok: true, value: reply.data } : refused('database', NOT_SAVED);
     },
