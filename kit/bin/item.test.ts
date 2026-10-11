@@ -518,6 +518,27 @@ describe('omni item new — a rendered item that "check outbox" would reject', (
     expect(s.err.join('')).toBe('');
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
+
+  // Law N-PRODUCT-3 (.omni-loop/knowledge/product/invariants.md, #1539).
+  it('law N-PRODUCT-3: a raised item with a bad option is refused at the source, neither written nor adopted', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const json = writeJson(root, {
+      ...FIELDS,
+      options: [
+        'Wait five seconds, using `defaultTimeoutMs`, the option built.',
+        'Wait one second, so a stuck call is caught sooner.',
+      ],
+    });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/fails "check outbox"/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md'))).toBe(false);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/settled.md'))).toBe(false);
+  });
 });
 
 describe('omni item new — the intro and the punchline (PRD #50, slice s1)', () => {

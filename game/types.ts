@@ -75,7 +75,10 @@ export type SnapshotPlanet = {
 };
 
 /** The world at one moment: every planet, and the roster (lower-cased login → fleet). */
-export type Snapshot = { at: string; teams: Record<string, string>; planets: SnapshotPlanet[] };
+// `stopped` says why a read ended before every planet (a rate limit, the read budget): `planets` then
+// holds only the planets read in full before it.
+export type Snapshot = { at: string; teams: Record<string, string>; planets: SnapshotPlanet[]; stopped?: SnapshotStop };
+export type SnapshotStop = { by: 'rate-limit' | 'budget'; message: string };
 
 export type DerivedZoneState = 'sealed' | 'secured' | 'under-fire' | 'claimed' | 'open';
 

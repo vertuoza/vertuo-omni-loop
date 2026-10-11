@@ -79,7 +79,9 @@ never overrides this skill's rules.
    form does. Then run `node .omni-loop/bin/omni.mjs design screens` and read each library screen
    the slice builds or touches (its `implements` meets the territory, or the spec names it or one
    of its routes): its file, in the folder `node .omni-loop/bin/omni.mjs config design.screens`
-   prints, and its mockup. A locked screen is built as
+   prints, and its mockup. Read its `reads` too, when it has one: the code behind the screen
+   (engines, data, rules) it only depends on, read for context. A change there is no change to the
+   screen and never trips its lock. A locked screen is built as
    written: its **Regions**, **States**, **Words** and **Refusals** and its mockup are that screen's
    spec, and it is never redesigned. A draft is a starting point. A change the spec asks of a
    locked screen or law is step 3's **A change to a locked screen or law**.

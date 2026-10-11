@@ -38,7 +38,12 @@ question through the session's question tool.
    - `superseded`: say which screen replaced it, and stop.
 2. **Show it.** The screen's purpose, its regions, states and words, its routes, the path of its
    mockup, and its **Open questions**; or the law's text. An open question still open is said
-   plainly: the person may lock with it open, and it stays written.
+   plainly: the person may lock with it open, and it stays written. For a screen, show its
+   `implements` and its `reads` too, with the rule that splits them: *a file whose change can
+   change what a person sees on this screen goes in `implements`; a file the screen only depends on
+   goes in `reads`.* A lock trips on a change to its `implements` only, never on its `reads`: an
+   entry on the wrong list (an engine or a whole folder in `implements`) is said plainly, for the
+   person to move before they lock; `lock` never moves it itself.
 3. **Their words.** The quote is the person's own words, as they typed them, never paraphrased,
    never shortened, never written for them, never taken from a document, a spec, an outbox answer
    or another person. When the message that asked for the lock says why (`lock quote-editor, this

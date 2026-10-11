@@ -152,7 +152,8 @@ Always, even when the line is precise: the person picks, the skill never does.
    **The word pass,** only when step 0 read the design flag as `true`, before the page is shown.
    Mark **today** and each variation as a screen, with `data-screen` (`today`, `A` … `E`), and the
    one primary action of each with `data-primary`, the convention every mockup the kit's skills
-   write uses. Then run `node .omni-loop/bin/omni.mjs design words <page>`; it exits 0 whatever it
+   write uses. The page's own explanation (its title, the line, the letters' captions) sits outside
+   every marked screen: the word pass reads only marked screens, and skips a page with none. Then run `node .omni-loop/bin/omni.mjs design words <page>`; it exits 0 whatever it
    finds. Fix each finding in the variation it names (a shorter label on the control, one primary
    action, a sentence that stands at rest cut or moved to where it is needed, an avoided word
    replaced) and run it again. The rule is fixed in the screen, never silenced: never drop a mark,
@@ -259,6 +260,7 @@ person locks, through `/omni:pixel-perfect lock`; a pick is a draft until its pe
   status: draft
   mock: <name>.html
   implements: [<the files its look comes from, step 3>]
+  reads: [<the code behind it the screen only depends on, when step 3 read some>]
   routes: [<the routes that show it, when the router says>]
   supersedes: null
   ---
@@ -276,6 +278,10 @@ person locks, through `/omni:pixel-perfect lock`; a pick is a draft until its pe
   **Open questions**. **Source** names where it came from, in one line: `/omni:visual-fix #<n>, pick
   <letter> by @<login> on <YYYY-MM-DD>: <paths.delivery>/visual/<nnnn>-<slug>/before-after.html`.
   The front matter holds only the fields above: the library's reader refuses any other.
+  **Which list.** One rule splits the files: *a file whose change can change what a person sees
+  on this screen goes in `implements`; a file the screen only depends on goes in `reads`.* The
+  layout, styles and words go in `implements`; an engine, a data source or a rule behind it goes in
+  `reads`, and never a whole folder in `implements`: a lock trips on every file it names.
 - **A draft already there:** bring its mockup and its sections up to the pick, its draft amendment,
   and add the line of this fix to its **Source**. A draft changes freely.
 - **A locked screen:** never edit its file or its mockup. The pick, when it departs from them, is

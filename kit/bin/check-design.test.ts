@@ -241,6 +241,38 @@ describe('omni check design — the laws of the design form', () => {
   });
 });
 
+describe('omni check design — what a screen claims (PRD 1550)', () => {
+  const draft = (lists: string) => `---\nscreen: game-room\nstatus: draft\n${lists}routes: [/play]\n---\n\n## Purpose\n\nPlays.\n`;
+
+  it('warns, and still passes, for each implements entry that names a folder', async () => {
+    const { root } = repoOn({ [`${DIR}/game-room.md`]: draft('implements: [src/arcade/scenes/games.tsx, src/arcade/games/, "src/arcade/kart/**"]\n') });
+    const { code, out, err } = await checkDesign(root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/check design — 1 screen\(s\), 0 locked/);
+    const lock = 'a lock trips on every file in it; put the code behind the screen in reads';
+    expect(err).toBe(
+      `warning: game-room: implements names a folder (src/arcade/games/) — ${lock}\n` + `warning: game-room: implements names a folder (src/arcade/kart/**) — ${lock}\n`,
+    );
+  });
+
+  it('reads a screen with reads, warning on no folder there, and one without reads as before', async () => {
+    const { root } = repoOn({
+      [`${DIR}/game-room.md`]: draft('implements: [src/arcade/scenes/games.tsx]\nreads: [src/arcade/games/]\n'),
+      [`${DIR}/home.md`]: draft('implements: [src/home/page.tsx]\n').replace('game-room', 'home'),
+    });
+    expect(await checkDesign(root)).toMatchObject({ code: 0, err: '' });
+  });
+
+  it('lets a locked screen gain reads only with an amendment, as any change', async () => {
+    const locked = screen().replace('implements: [src/quotes/]', 'implements: [src/quotes/editor.tsx]');
+    const { root, write } = repoOn({ [`${DIR}/quote-editor.md`]: locked });
+    write(`${DIR}/quote-editor.md`, locked.replace('routes:', 'reads: [src/quotes/engine/]\nroutes:'));
+    const { code, out } = await checkDesign(root);
+    expect(code).toBe(1);
+    expect(out).toContain('the locked screen "quote-editor" changed without an amendment');
+  });
+});
+
 describe('omni check all', () => {
   it('runs the design guard', async () => {
     const { root, write } = repoOn({ [`${DIR}/quote-editor.md`]: screen() });

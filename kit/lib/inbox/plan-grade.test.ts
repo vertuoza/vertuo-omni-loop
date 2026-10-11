@@ -376,6 +376,50 @@ flow:
     });
     expect(graded.violations).toEqual(["flow: back's imported flow at .omni-loop/knowledge/repos/back/flow/config.yml cannot be read — not valid YAML"]);
   });
+
+  // Law BR-PRODUCT-69 (.omni-loop/knowledge/product/rules.md, #1530).
+  it("law BR-PRODUCT-69: first means strictly before by landing then wave, a later landing already waits, the limit counts listed paths, and each repository's rows meet that repository's own rules", () => {
+    const kernel = parseConfig(`kit: 1
+repo:
+  slug: acme/widgets
+flow:
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan:
+          - slice: { maxFiles: 2 }
+          - wave: first
+          - blocks: all
+`);
+    const grade = (rows: string[]) => gradePlan(planMd(rows, LANDED), { config: kernel }).violations;
+    // Sharing the first wave is not sitting before.
+    expect(grade(['| s1 | K | `src/kernel/` | — | 1 | 1 |', '| s2 | A | `src/app/` | s1 | 1 | 1 |'])).toContainEqual(
+      expect.stringMatching(/^flow: s1 \(wave 1\) touches area kernel and does not sit before s2 \(wave 1\)/),
+    );
+    // An earlier landing is before, whatever the wave; a slice in a later landing already waits for it.
+    expect(grade(['| s1 | K | `src/kernel/` | — | 1 | 1 |', '| s2 | K | `src/kernel/x/` | s1 | 2 | 1 |', '| s3 | A | `src/app/` | — | 1 | 2 |'])).toEqual([]);
+    // The limit counts the paths a slice lists.
+    expect(grade(['| s1 | K | `src/kernel/` `src/kernel/a/` `src/kernel/b/` | — | 1 | 1 |'])).toEqual([
+      'flow: s1 touches 3 paths — kernel: slice maxFiles 2, at most 2 paths in a slice of this area.',
+    ]);
+    // In a plan repository, the same rows meet the plan repository's rules, back's copied rules, and the kit's defaults for legacy.
+    const graded = gradePlan(
+      plan(
+        [
+          '| s1 | plan | docs | `docs/a.md` `docs/b.md` | — | 1 |',
+          '| s2 | back | mixed | `src/db/x.sql` `docs/a.md` | — | 1 |',
+          '| s3 | legacy | mixed | `src/db/x.sql` `docs/a.md` `docs/b.md` | — | 1 |',
+        ],
+        ['plan', 'back', 'legacy'],
+      ),
+      { config: MULTI, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([
+      expect.stringMatching(/^flow \(plan\): s1 touches 2 paths — docs: slice maxFiles 1/),
+      expect.stringMatching(/^flow \(back\): s2 touches src\/db\/x\.sql \(area migrations\) .* — migrations: slice alone/),
+    ]);
+  });
 });
 
 describe('gradePlan — readOnly and consumes targets (PRD 1162)', () => {

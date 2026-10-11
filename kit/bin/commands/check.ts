@@ -196,7 +196,7 @@ const CONFIG_TITLE = 'check config — the config does not hold what it claims:'
 
 // PRD 1407: the screen library and the design form's laws — a locked decision changes only with a
 // dated amendment, graded against the base at its merge base with HEAD; off while `design.enabled` is.
-function checkDesign({ ctx, stdout, exec }: CommandIo, { base, baseKnown }: Pick<Range, 'base' | 'baseKnown'>): boolean {
+function checkDesign({ ctx, stdout, stderr, exec }: CommandIo, { base, baseKnown }: Pick<Range, 'base' | 'baseKnown'>): boolean {
   if (!ctx.config.design.enabled) {
     println(stdout, formatPass('check design — design is off; nothing to check.'));
     return true;
@@ -210,6 +210,7 @@ function checkDesign({ ctx, stdout, exec }: CommandIo, { base, baseKnown }: Pick
     head: headSnapshot({ root: ctx.root, dir, formFile }),
     base: ref === null ? null : snapshotAt({ root: ctx.root, ref, dir, formFile, exec }),
   });
+  for (const warning of grade.warnings) println(stderr, `warning: ${warning}`);
   const compared = ref === null ? `locks not compared — no ${base}` : `compared with ${base}`;
   return report(
     stdout,

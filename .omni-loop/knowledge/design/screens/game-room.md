@@ -1,8 +1,9 @@
 ---
 screen: game-room
 status: draft
-mock: null
-implements: [apps/galaxy/src/arcade/scenes/games.tsx, apps/galaxy/src/arcade/scenes/games.css, apps/galaxy/src/arcade/games/]
+mock: game-room.html
+implements: [apps/galaxy/src/arcade/scenes/games.tsx, apps/galaxy/src/arcade/scenes/games.css, apps/galaxy/src/arcade/games/room.ts, apps/galaxy/src/arcade/games/index.ts]
+reads: [apps/galaxy/src/arcade/games/, apps/galaxy/src/arcade/scenes/menu.tsx, apps/galaxy/src/arcade/deep-link.ts]
 routes: [/play#games]
 supersedes: null
 ---
