@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { repositoriesTabHref } from '../product-repositories/repositories-tab.contract';
 import { PRODUCTS_HREF, productHomeHref } from './model';
+import { firstToOpen, homeTotals, tileRepositories } from './products-home.model';
 import type { ProductCard, ProductsList } from './products.service';
 import { SituationNotice, type Situation } from './ProductsScreen';
 
-// Products in the sidebar, drawn (PRD 1364 s8): /app/products, the workspace's products as cards, as the
-// concept's first screen draws them, each a link to its product home (s9): its name, its repositories
-// (one another product links too marked shared), its PRD count and how many of its items wait on the
-// person reading. Under the cards, the repositories in no product, plain, each with Add to a product,
+// Products in the sidebar, drawn (PRD 1364 s8; drawn again by #1598, pick D): /app/products opens on four
+// totals (products, repositories, PRDs, what waits on the person reading), then one tile per product, all
+// of one height: its name and its Open link to its product home (s9), one line of its PRDs and
+// repositories, its repositories by name (their shared owner said once, one another product links too
+// marked shared, the rest counted), and what waits on the reader. The Open of the product waiting most
+// leads in yellow. Under the tiles, the repositories in no product, plain, each with Add to a product,
 // which opens a product home's Repositories & approvers tab with that repository picked (PRD 1364 s11):
 // the only product's straight away, or one of the products, chosen from a list; with no product yet,
 // Settings › Products, where one is made. Products are optional: a workspace with none says so and still
@@ -32,28 +35,58 @@ export const DEMO_PRODUCTS_LIST: ProductsList = {
 
 const plural = (n: number, one: string, many: string) => `${String(n)} ${n === 1 ? one : many}`;
 
-function Card({ product }: { product: ProductCard }) {
+function TileRepositoryList({ product }: { product: ProductCard }) {
+  const repos = tileRepositories(product.repositories);
+  if (repos.shown.length === 0) return <span className="products-tile-repos" />;
   return (
-    <li data-product={product.id}>
-      <Link className="products-card" href={productHomeHref(product.id)}>
-        <strong className="products-card-name">{product.name}</strong>
-        {product.repositories.length === 0
-          ? <span className="ask-muted products-card-repos">No repository yet</span>
-          : (
-            <span className="products-card-repos" aria-label={`${product.name}'s repositories`}>
-              {product.repositories.map((r) => (
-                <span key={r.repo} className="products-chip" data-shared={r.shared || undefined}>
-                  {r.repo}{r.shared ? <em className="products-shared"> · shared</em> : null}
-                </span>
-              ))}
-            </span>
-          )}
-        <span className="products-card-counts">
-          <span className="products-count">{plural(product.prds, 'PRD', 'PRDs')}</span>
-          <span className="products-count products-waiting" data-waiting={product.waiting > 0 || undefined}>{product.waiting} waiting on you</span>
+    <p className="products-tile-repos" aria-label={`${product.name}'s repositories`}>
+      {repos.owner === null ? null : <span className="products-owner">{repos.owner} / </span>}
+      {repos.shown.map((r, i) => (
+        <span key={r.repo}>
+          {i > 0 ? <span aria-hidden="true"> · </span> : null}
+          <span className="products-chip" data-shared={r.shared || undefined} title={r.repo}>{r.name}</span>
+          {r.shared ? <em className="products-shared"> shared</em> : null}
         </span>
-      </Link>
+      ))}
+      {repos.more > 0 ? <span className="products-more"> +{repos.more}</span> : null}
+    </p>
+  );
+}
+
+/** What waits on the reader in a product, or, with no repository yet, the way to add one. */
+function TileStatus({ product }: { product: ProductCard }) {
+  if (product.repositories.length === 0) return <Link href={repositoriesTabHref(product.id)}>Add a repository</Link>;
+  const waiting = product.waiting > 0;
+  return <span className="products-waiting" data-waiting={waiting || undefined}>{waiting ? `${String(product.waiting)} waiting on you` : 'Nothing waiting'}</span>;
+}
+
+const tileLine = (product: ProductCard) =>
+  `${plural(product.prds, 'PRD', 'PRDs')} · ${product.repositories.length === 0 ? 'No repository yet' : plural(product.repositories.length, 'repository', 'repositories')}`;
+
+function Tile({ product, first }: { product: ProductCard; first: boolean }) {
+  const home = productHomeHref(product.id);
+  return (
+    <li className="products-tile" data-waiting={product.waiting > 0 || undefined} data-product={product.id}>
+      <Link className="products-tile-name" href={home}>{product.name}</Link>
+      <span className="products-tile-line">{tileLine(product)}</span>
+      <TileRepositoryList product={product} />
+      <span className="products-tile-foot">
+        <TileStatus product={product} />
+        <Link className={first ? 'products-open products-open-first' : 'products-open'} href={home} aria-label={`Open ${product.name}`}>Open</Link>
+      </span>
     </li>
+  );
+}
+
+function Totals({ list }: { list: ProductsList }) {
+  const totals = homeTotals(list);
+  return (
+    <dl className="products-sum" aria-label="Totals">
+      <div><dt>products</dt><dd>{totals.products}</dd></div>
+      <div><dt>repositories</dt><dd>{totals.repositories}</dd></div>
+      <div><dt>PRDs</dt><dd>{totals.prds}</dd></div>
+      <div data-waiting={totals.waiting > 0 || undefined}><dt>waiting on you</dt><dd>{totals.waiting}</dd></div>
+    </dl>
   );
 }
 
@@ -73,16 +106,23 @@ function AddToProduct({ repo, products }: { repo: string; products: readonly Pro
 }
 
 function ProductsHomeList({ list }: { list: ProductsList }) {
+  const leading = firstToOpen(list.products);
   return (
     <div className="ask-col products">
-      <section className="ask-card products-head" aria-labelledby="products-home-title">
+      <header className="products-head">
         <h1 id="products-home-title">Products</h1>
-        <p className="ask-muted">What your workspace builds, each with its repositories, its PRDs and what waits on you.</p>
-      </section>
-      <section className="products-list" aria-label="The workspace’s products">
+      </header>
+      <section className="products-list" aria-labelledby="products-home-title">
         {list.products.length === 0
           ? <p className="products-empty">{NO_PRODUCTS_YET} <Link href={PRODUCTS_HREF}>Open Settings › Products →</Link></p>
-          : <ul className="products-cards">{list.products.map((p) => <Card key={p.id} product={p} />)}</ul>}
+          : (
+            <>
+              <Totals list={list} />
+              <ul className="products-tiles">
+                {list.products.map((p) => <Tile key={p.id} product={p} first={p.id === leading} />)}
+              </ul>
+            </>
+          )}
       </section>
       <section className="products-list products-unlinked" aria-labelledby="products-unlinked-title">
         <h2 id="products-unlinked-title">Repositories in no product</h2>

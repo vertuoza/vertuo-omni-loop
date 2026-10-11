@@ -134,33 +134,85 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 .links-consumes legend { padding: 0; margin-bottom: 4px; font-size: 14px; color: var(--ask-muted); }
 .links-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 
-/* Products in the sidebar (PRD 1364 s8): /app/products, one card per product, linking to its product
-   home: its name, its repositories as chips (a shared one marked), its PRD count and what waits on the
-   reader; then the repositories in no product, each with Add to a product. At 393 px a card's chips and
-   counts wrap under its name. A card stretches to its row's height: the chips row takes the
-   spare room and keeps its chips their own height, so a lone chip never stretches into a circle. */
-.products-cards { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.products-card {
+/* Products in the sidebar (PRD 1364 s8; drawn again by #1598, pick D): /app/products, a plain heading,
+   four totals, then one tile per product, all of one height, never stretched to the longest list: its
+   name and its Open link to its product home, one line of its PRDs and repositories, its repositories
+   as a mono list cut at three lines (their shared owner said once, the rest counted), and what waits on
+   the reader, its tile edged in the signal. The Open of the product waiting most leads, in the signal;
+   then the repositories in no product, each with Add to a product. At 393 px the totals go two by two
+   and the tiles one per row. */
+.products-head h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+.products-sum {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 10px;
-  height: 100%;
-  padding: 14px 16px;
-  background: var(--ask-surface);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 0 8px;
+  background: var(--ask-sunk);
   border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
-  color: var(--ask-ink);
-  text-decoration: none;
+}
+.products-sum > div { display: flex; flex-direction: column-reverse; justify-content: flex-end; padding: 14px 18px; border-left: 1px solid var(--ask-line); min-width: 0; }
+.products-sum > div:first-child { border-left: 0; }
+.products-sum dt { font-size: 13px; color: var(--ask-muted); }
+.products-sum dd { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.products-sum > div[data-waiting] dd { color: var(--ask-plasma); }
+@media (max-width: 640px) {
+  .products-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .products-sum > div:nth-child(3) { border-left: 0; }
+  .products-sum > div:nth-child(n + 3) { border-top: 1px solid var(--ask-line); }
+}
+.products-list ul.products-tiles { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.products-tile {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 8px;
+  min-height: 168px;
+  padding: 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-left: 4px solid var(--ask-line-strong);
+  border-radius: 10px;
   min-width: 0;
 }
-.products-card:hover { border-color: var(--ask-plasma); }
-.products-card:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
-.products-card-name { font-size: 18px; overflow-wrap: anywhere; }
-.products-card-repos { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 6px; font-size: 14px; }
-.products-chip { padding: 2px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; overflow-wrap: anywhere; }
-.products-shared { font-style: normal; color: var(--ask-muted); }
-.products-card-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ask-muted); }
-.products-waiting[data-waiting] { color: var(--ask-ink); font-weight: 700; }
+.products-tile[data-waiting] { border-left-color: var(--ask-plasma); }
+a.products-tile-name { justify-self: start; font-size: 19px; font-weight: 700; color: var(--ask-ink); text-decoration: none; overflow-wrap: anywhere; }
+a.products-tile-name:hover { text-decoration: underline; }
+.products-tile-line { font-size: 14px; color: var(--ask-muted); }
+.products-tile-repos {
+  margin: 0;
+  font: 500 13px/1.6 var(--ask-mono);
+  color: var(--ask-ink);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.products-owner, .products-more { color: var(--ask-muted); }
+.products-shared {
+  margin-left: 4px;
+  padding: 1px 4px;
+  border: 1px solid var(--ask-cyan);
+  border-radius: 4px;
+  font: normal 700 10px/1 var(--ask-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ask-cyan);
+  vertical-align: 1px;
+}
+.products-tile-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.products-waiting { color: var(--ask-muted); }
+.products-waiting[data-waiting] { color: var(--ask-plasma); font-weight: 700; }
+a.products-open {
+  display: inline-flex;
+  padding: 6px 12px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 8px;
+  font-weight: 700;
+  color: var(--ask-ink);
+  text-decoration: none;
+}
+a.products-open:hover { border-color: var(--ask-plasma); }
+a.products-open-first { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
 
 .products-unlinked h2 { margin: 0; font-size: 16px; }
 .products-repo {

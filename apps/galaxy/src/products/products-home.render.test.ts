@@ -5,8 +5,9 @@ import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { ALL_IN_A_PRODUCT, DEMO_PRODUCTS_LIST, NO_PRODUCTS_YET, ProductsHome } from './ProductsHome';
 import type { ProductsList } from './products.service';
 
-// /app/products as the server renders it (PRD 1364 s8): each product's card, a link to its product home,
-// with its repositories (a shared one marked), its PRD count and what waits on the reader; the
+// /app/products as the server renders it (PRD 1364 s8, drawn again by #1598, pick D): the four totals,
+// then each product's tile, its name and its Open linking to its product home, with its PRD count, its
+// repositories (their shared owner said once, a shared one marked) and what waits on the reader; the
 // repositories in no product below, each with Add to a product, which opens a product home's Repositories
 // & approvers tab on that repository (PRD 1364 s11); the empty states; and the situations.
 
@@ -24,26 +25,48 @@ const LIST: ProductsList = {
 const render = (list: ProductsList) => renderToStaticMarkup(createElement(ProductsHome, { view: { kind: 'products', list } }));
 
 describe('the products list, filled', () => {
-  it('draws each product as a card linking to its product home, with its repositories, PRDs and what waits on you', () => {
+  it('draws each product as a tile whose name and Open link to its product home, with its PRDs, repositories and what waits on you', () => {
     const html = render(LIST);
     expect(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1]).toBe('Products');
     expect(links(html)).toEqual([
-      { href: '/app/products/p-mobile', text: 'Mobile vertuo/api · shared vertuo/app 3 PRDs 2 waiting on you' },
-      { href: '/app/products/p-estimates', text: 'Estimates No repository yet 1 PRD 0 waiting on you' },
+      { href: '/app/products/p-mobile', text: 'Mobile' },
+      { href: '/app/products/p-mobile', text: 'Open' },
+      { href: '/app/products/p-estimates', text: 'Estimates' },
+      { href: '/app/products/p-estimates/repositories', text: 'Add a repository' },
+      { href: '/app/products/p-estimates', text: 'Open' },
       { href: '/app/products/p-mobile/repositories?add=vertuo%2Fscripts', text: 'Mobile' },
       { href: '/app/products/p-estimates/repositories?add=vertuo%2Fscripts', text: 'Estimates' },
+    ]);
+    const mobile = /<li[^>]*data-product="p-mobile"[^>]*>([\s\S]*?)<\/li>/.exec(html)?.[1] ?? '';
+    expect(text(mobile)).toBe('Mobile 3 PRDs · 2 repositories vertuo / api shared · app 2 waiting on you Open');
+    const estimates = /<li[^>]*data-product="p-estimates"[^>]*>([\s\S]*?)<\/li>/.exec(html)?.[1] ?? '';
+    expect(text(estimates)).toBe('Estimates 1 PRD · No repository yet Add a repository Open');
+  });
+
+  it('totals the products, the repositories once each, the PRDs and what waits on you', () => {
+    const html = render(LIST);
+    const sum = /<dl class="products-sum"[^>]*>([\s\S]*?)<\/dl>/.exec(html)?.[1] ?? '';
+    expect(text(sum)).toBe('products 2 repositories 3 PRDs 4 waiting on you 2');
+  });
+
+  it('leads with the Open of the product waiting most, and marks the tiles something waits in', () => {
+    const html = render(LIST);
+    expect([...html.matchAll(/<a class="(products-open[^"]*)"/g)].map((m) => m[1])).toEqual(['products-open products-open-first', 'products-open']);
+    expect([...html.matchAll(/<li class="products-tile"( data-waiting="true")? data-product="([^"]*)"/g)].map((m) => [m[2], Boolean(m[1])])).toEqual([
+      ['p-mobile', true],
+      ['p-estimates', false],
     ]);
   });
 
   it('marks only the shared repository as shared', () => {
     const html = render(LIST);
-    expect([...html.matchAll(/<span class="products-chip"( data-shared="true")?>([^<]*)/g)].map((m) => [m[2], Boolean(m[1])])).toEqual([
-      ['vertuo/api', true],
-      ['vertuo/app', false],
+    expect([...html.matchAll(/<span class="products-chip"( data-shared="true")? title="[^"]*">([^<]*)/g)].map((m) => [m[2], Boolean(m[1])])).toEqual([
+      ['api', true],
+      ['app', false],
     ]);
   });
 
-  it('lists the repositories in no product below the cards, each with Add to a product, opening on each product\'s Repositories & approvers tab', () => {
+  it('lists the repositories in no product below the tiles, each with Add to a product, opening on each product\'s Repositories & approvers tab', () => {
     const html = render(LIST);
     expect(html.indexOf('Repositories in no product')).toBeGreaterThan(html.indexOf('data-product="p-estimates"'));
     const row = /<li class="products-repo" data-repo="vertuo\/scripts">([\s\S]*?)<\/details>/.exec(html)?.[1] ?? '';
