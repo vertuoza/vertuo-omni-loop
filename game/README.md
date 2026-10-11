@@ -105,6 +105,26 @@ or its bare name; a tracked repository that no sector names counts as a sector o
 
 Scoring does not change: every number stays in `game/rulebook.ts`.
 
+## A poll's budget
+
+`game:project` re-reads every PRD in full at every poll. With hundreds of planets that can outlast the
+ledger job's 30 minutes and the token's hourly rate limit; a cut job appends nothing. A refused read
+used to count as an empty one, too: a shipped PRD whose folder listing was refused looked like a PRD
+with no folder, and was written down as `PLANET_DECOMMISSIONED` for good. Two rules now hold
+(`buildSnapshot` in `game/sources/github.ts`):
+
+- **A rate limit is never an empty read.** A read the token's rate limit refuses (primary or
+  secondary, `isRateLimit()`) stops the read. Every planet read in full before it is kept and
+  appended; the one being read is dropped; the run prints why and exits 1. The next poll reads the
+  rest. A 404 still reads as empty, as before.
+- **The newest first, within a budget.** Planets are read open first, then by when they closed, so
+  the work just done is the first paid. The read stops before a planet once 18 minutes have passed
+  (`READ_BUDGET_MINUTES`, `game/cli/project.ts`), keeps what it read and only warns, leaving the
+  ledger job's last minutes to `game:contributions` and `game:dossiers`.
+
+Nothing changes in the scoring: every event keeps its id, so a planet read in a later poll pays
+exactly what it would have, once.
+
 ## Answered questions
 
 PRD 1180. Every answered ask round pays its answerer `RULEBOOK.questionAnswered`
@@ -336,7 +356,8 @@ it ended on (concurrency `game-xp`); `rankings` runs on the Monday schedule, or 
 - **No clawback on re-raise.** A settle whose item is later reopened or re-raised keeps its points
   (spec §6.4 brake not implemented yet).
 - **Every poll re-reads all PRDs.** There is no incremental read; cost grows with the number of
-  planets.
+  planets. A poll cut by the read budget leaves the oldest closed PRDs to a later one
+  ([A poll's budget](#a-polls-budget)).
 - **`game:xp` reads the whole ledger on every poll.** It recomputes every login from all of
   history, with no incremental read, so its cost grows with the ledger.
 - **Fleet stamps and scores live only in Supabase.** The ledger can be rebuilt from GitHub, and XP

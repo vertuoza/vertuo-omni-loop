@@ -1,6 +1,6 @@
 ---
 name: pixel-perfect
-description: Design craft on a screen, imported from impeccable and tailored so the product wins — reads the design flag first (off, it says how to turn it on and stops), then the repository's design form, whose product, system, deliberate and language sections override the craft floor and the refuse list, and its screen library, where a locked screen is built as written. Its commands review a screen (critique, audit), finish it (polish, harden) or fix one side of it (typeset, layout, adapt, clarify), and review is the bounded auto-review /omni:do-work and /omni:visual-fix follow on UI work — one look, one batch of fixes, one confirming look, never blocking, save that a change to a locked screen or law is a high outbox item for whoever locked it. lock, typed by a person, records their lock on a screen or a law in their own words; no skill locks on its own. Fixes stay inside the slice's territory; anything else becomes an outbox item. Triggers on "polish this screen", "audit the quote page", "critique this page", "does this look like our product", "/omni:pixel-perfect polish", "/omni:pixel-perfect review", "lock this screen", "/omni:pixel-perfect lock".
+description: Design craft on a screen, imported from impeccable and tailored so the product wins — reads the design flag first (off, it says how to turn it on and stops), then the repository's design form, whose product, system, deliberate and language sections override the craft floor and the refuse list, and its screen library, where a locked screen is built as written. Its commands review a screen (critique, audit), finish it (polish, harden) or fix one side of it (typeset, layout, adapt, clarify), and review is the bounded auto-review /omni:do-work and /omni:visual-fix follow on UI work — one look, one batch of fixes, one confirming look, never blocking, save that a change to a locked screen or law is a high outbox item for whoever locked it. mock draws a library screen's mockup, one self-contained HTML file beside it. lock, typed by a person, records their lock on a screen or a law in their own words; no skill locks on its own. Fixes stay inside the slice's territory; anything else becomes an outbox item. Triggers on "polish this screen", "audit the quote page", "critique this page", "does this look like our product", "/omni:pixel-perfect polish", "/omni:pixel-perfect review", "lock this screen", "/omni:pixel-perfect lock", "draw this screen's mockup", "/omni:pixel-perfect mock".
 ---
 
 <!-- Imported from pbakaus/impeccable@d631a8827f99414d2b6daba4ef08b7f8701751d7 (the impeccable skill's SKILL.md, version 4.5.2, Apache-2.0) and modified — every change in kit/porting/plugin--pixel-perfect.md, the attribution in kit/NOTICE.md -->
@@ -27,6 +27,7 @@ branch shape or command you can read with `omni config <key>`.
 |---|---|---|
 | a command and a target | `/omni:pixel-perfect polish the quote page` | runs that command on that screen |
 | `review`, from a skill | `/omni:pixel-perfect review` | the bounded auto-review of a slice or a visual fix: [reference/review.md](reference/review.md) |
+| `mock <screen>` | `/omni:pixel-perfect mock quote-editor` | draws that library screen's mockup, `<screen>.html` beside its file, and sets its `mock`; on a locked screen, a draft amendment and the high item: [mock.md](mock.md) |
 | `lock <screen>`, or `lock law "<law>"`, typed by a person | `/omni:pixel-perfect lock quote-editor` | locks a library screen, or a law of the form's `language` section, in that person's own words: [reference/lock.md](reference/lock.md). Never followed by a skill |
 | a request that names no command | `/omni:pixel-perfect does this look like our product?` | picks the one command that fits; when two fit, asks which |
 | nothing | `/omni:pixel-perfect` | shows the commands below and asks which, as one question through the session's question tool; never runs one unasked |
@@ -57,7 +58,9 @@ branch shape or command you can read with `omni config <key>`.
    so when the library is empty). Each screen is a file in the folder
    `node .omni-loop/bin/omni.mjs config design.screens` prints, its mockup beside it when its `mock`
    names one. Read the screens the target is or touches: their **Purpose**, **Regions**,
-   **States**, **Words**, **Refusals** and **Open questions**, and the mockup. A locked screen is
+   **States**, **Words**, **Refusals** and **Open questions**, and the mockup. Its `implements`
+   names the files it is drawn from; its `reads`, when it has one, the code behind it (engines,
+   data, rules), read for context only: a change there never trips a lock. A locked screen is
    built as written and never redesigned: its file and its mockup are the reference, and a
    departure from them is a defect or a change its owner decides (**Locked decisions**, below). A
    draft is a starting point, free to change.
@@ -114,6 +117,7 @@ not the product: a tool's landing page is still Persuade, a docs index is still 
 | `adapt [target]` | fix | mobile and desktop, touch targets, breakpoints | [reference/adapt.md](reference/adapt.md) |
 | `clarify [target]` | fix | labels, errors and empty-state copy, in the product's words | [reference/clarify.md](reference/clarify.md) |
 | `review` | the loop's | critique, audit, the lint, screenshots, then polish, bounded and never blocking | [reference/review.md](reference/review.md) |
+| `mock <screen>` | the library's | draws a screen's mockup from its file, its `implements` and `reads` and the design form: one self-contained HTML file beside it, marked, its `mock` set | [mock.md](mock.md) |
 | `lock <screen>` | the person's | records a person's lock on a library screen or a law, in their own words: who, when, and their quote, committed | [reference/lock.md](reference/lock.md) |
 | — | shared | the quality floor and the refuse list, read before any edit to a screen | [reference/craft-floor.md](reference/craft-floor.md) |
 

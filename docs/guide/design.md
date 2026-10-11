@@ -1,6 +1,6 @@
 ---
 title: Design craft (opt-in)
-description: Turn on design craft, fill the design form and its laws, keep a library of screens a person locks, run the word pass, type /omni:pixel-perfect on a screen, and read the Design review the loop adds to a sub-PR that changes a screen.
+description: Turn on design craft, fill the design form and its laws, keep a library of screens a person locks, draw each screen's mockup and see them all in the gallery, run the word pass, type /omni:pixel-perfect on a screen, and read the Design review the loop adds to a sub-PR that changes a screen.
 ---
 
 Screens an agent builds tend to look generic: right enough, but not quite your product. **Design
@@ -43,6 +43,10 @@ design:
   (7 by default), `screen` and `primary` the selectors that mark a screen and its main action
   (`[data-screen]` and `[data-primary]` by default), and `avoid` a list of words your product
   never uses (empty by default).
+- **`design.ignore`**: globs `omni design touched` drops from a change before it reads it (below).
+  You rarely set it: left out, it is the common test shapes, `**/*.test.*`, `**/*.spec.*`,
+  `**/__tests__/**` and `**/test/**`, so a change made only of tests is no screen change. Set your
+  own list when your tests live elsewhere, or `[]` to drop nothing.
 - **`commands.design`**, under the `commands:` block you already have: a design linter you already
   use, such as `npx impeccable detect src`, run during each review. `null` by default: the review then says `Design lint: not set here`. The
   loop never installs one for you.
@@ -116,7 +120,8 @@ locked-by: "@ana"
 locked-on: 2026-10-10
 quote: "this is the editor, build it"
 mock: quote-editor.html
-implements: [src/quotes/editor/]
+implements: [src/quotes/editor/QuoteEditor.tsx, src/quotes/editor/editor.css, src/quotes/editor/words.ts]
+reads: [src/quotes/pricing/]
 routes: [/quotes/:id]
 supersedes: null
 ---
@@ -130,8 +135,8 @@ supersedes: null
 ```
 
 - The top block says the screen's **status**, who locked it, when and in which words, its mockup
-  (`mock`, an HTML page beside the file), the code that builds it (`implements`) and the addresses
-  it lives at (`routes`).
+  (`mock`, an HTML page beside the file, below), the files it is drawn from (`implements`), the
+  code behind it (`reads`, optional) and the addresses it lives at (`routes`).
 - **Regions** says what each part of the screen shows and where its data comes from; **States** its
   empty, loading and error states; **Words** its labels; **Refusals** what it does not do, on
   purpose; **Open questions** what is still undecided.
@@ -143,6 +148,24 @@ A screen is in one of three states:
 | **draft** | a starting point. Anyone may change it, and it holds nothing up |
 | **locked** | a person decided it. Agents build it as written, and never redesign it |
 | **superseded** | replaced whole by a newer screen. It is kept, never deleted, and the new screen names it in `supersedes` |
+
+### What a screen claims: `implements` and `reads`
+
+A screen names its code in two lists, split by one rule: **a file whose change can change what a
+person sees on this screen goes in `implements`; a file the screen only depends on goes in
+`reads`.**
+
+- **`implements`** holds what the screen is drawn from: its layout, its styles, its words. This is
+  what a lock guards: a change there to a locked screen asks its owner (below).
+- **`reads`** holds the code behind it: engines, data, rules. Agents read it for context when they
+  build or review the screen, but a change there **never** trips a lock. The developer who fixes
+  the pricing engine behind a locked quote editor does not wait for anyone.
+
+`reads` is optional: a screen without it reads as an empty list, and nothing written before has to
+change. Name files in `implements`, not folders: a folder there means a lock trips on every file
+in it, the engine's included. `omni check design` warns about each one, and still passes.
+
+![What a screen claims: implements, the files it is drawn from, where a change to a locked screen raises a high outbox item and a change that leaves the mockup alone is named mock may be stale; the screen's file and its mockup, one HTML page drawn by /omni:pixel-perfect mock; reads, the code behind it, which never trips a lock; below, design.ignore drops tests before touched reads a change, and omni design gallery shows every screen on one page that is never committed](diagrams/screen-claims.svg)
 
 There is no index to keep by hand. To see the library:
 
@@ -168,7 +191,8 @@ names any file whose top block does not read, and says so when the library is em
 writes the approved "after" of each screen it draws; `/omni:think-big` writes the screens of the
 concept you crowned; and `/omni:invade` drafts an entry for each screen it can prove your
 repository has, with every undecided point under **Open questions**. Each one writes
-`status: draft` and says where it came from. None of them locks anything.
+`status: draft`, splits the screen's code between `implements` and `reads` by the rule above, and
+says where it came from. None of them locks anything.
 
 **Only a person locks**, in their own words:
 
@@ -213,7 +237,51 @@ It runs as part of `omni check all`, and refuses:
 - a screen whose top block does not read;
 - a `superseded` screen that no other screen names in `supersedes`.
 
-A draft changes freely.
+A draft changes freely. It also warns, on standard error, and still passes:
+
+```text terminal
+warning: quote-editor: implements names a folder (src/quotes/editor/) — a lock trips on every file in it; put the code behind the screen in reads
+```
+
+## Mockups and the gallery
+
+A screen's mockup is the picture a lock is made against: one HTML page beside the screen's file,
+named by its `mock`. It is HTML, never a screenshot, because the word pass and a lock read text,
+never pixels, and no image goes into git. To draw one:
+
+```text agent
+/omni:pixel-perfect mock quote-editor
+```
+
+It reads the screen's file, its `implements` and its `reads`, and the design form, takes a
+screenshot of the screen when the app runs here (the form's **Review** section says how), and
+writes `quote-editor.html` beside `quote-editor.md`: one self-contained page, with inline styles
+and drawings, no script, no remote font or image. The screen is the element marked
+`data-screen="quote-editor"`, and each primary action carries `data-primary`; an explanation of
+the mockup sits outside the mark. It runs the word pass on it and fixes what it finds, then sets
+the screen's `mock` and changes nothing else in the file. Typed by you, it commits the screen and
+its mockup on the branch you are on, and pushes nothing.
+
+On a **locked** screen it never overwrites the mockup. It writes the new one as a draft beside it,
+`quote-editor-next.md` and its mockup, and raises the high outbox item a change to a locked screen
+always raises: its owner takes it with `/omni:pixel-perfect lock` (below).
+
+**A stale mockup is named, never blocked.** When a change touches a screen's `implements` but
+leaves its mockup alone, `omni design touched` adds a `mock may be stale: quote-editor` line, and
+the design review reports it. A change under `reads` never marks a mockup stale. A draft with no
+mockup is fine.
+
+To see every screen at once:
+
+```bash terminal agent
+omni design gallery
+```
+
+It writes one page of the whole library and prints its path: each screen with its status, who
+locked it and when, its routes and its mockup (or `no mockup`), locked screens first, then drafts,
+then superseded. The page goes to a fresh folder under your system's temporary folder, or to the
+file `--out <file>` names. It is written anew each time and **never committed**: there is no index
+to keep. An empty library prints `no screen yet` and writes nothing.
 
 ## The word pass
 
@@ -225,7 +293,7 @@ before a person sees them:
 omni design words .omni-loop/delivery/inbox/7-quotes/before-after.html
 ```
 
-It lists the visible words of each screen in the page, and flags four things:
+It lists the visible words of each marked screen in the page, and flags four things:
 
 | Rule | It flags |
 |---|---|
@@ -244,11 +312,22 @@ before-after.html
     ! two-primaries: 2 primary actions — "Save", "Send the quote to the customer right now please"
 ```
 
-**It reads the page's structure, never its look.** A screen is an element marked `data-screen`, its
-primary action one marked `data-primary`. Every mockup the loop's skills write is marked that way:
-the before/after pages, the visual-fix rounds and the think-big boards. If your own mockups use
-other markers, set `design.words.screen` and `design.words.primary` to your selectors. A page with
-no screen marked is read whole, and says so.
+**It reads the page's structure, never its look, and only the screens it marks.** A screen is an
+element marked `data-screen`, its primary action one marked `data-primary`. Every mockup the loop's
+skills write is marked that way: the before/after pages, the visual-fix rounds, the think-big
+boards and the screens' own mockups. What explains the page sits outside every mark, so a caption
+is never mistaken for a screen's words. A page with **no** screen marked is skipped, with no
+finding:
+
+```text terminal
+before-after.html
+  no screen marked: skipped ([data-screen])
+```
+
+Two neighbouring elements are always two strings: `<span>ask.client.ts</span><span>POST</span>`
+reads `ask.client.ts` and `POST`, never glued together. A control is a button, a link, or any
+element marked `data-primary`, whatever its tag. If your own mockups use other markers, set
+`design.words.screen` and `design.words.primary` to your selectors.
 
 **It never blocks.** It always exits 0 and prints what it found. `/omni:brainstorm`,
 `/omni:visual-fix` and `/omni:think-big` run it before showing you a mockup and fix what it finds,
@@ -273,6 +352,7 @@ Type a command and the screen you mean:
 | `adapt` | mobile and desktop, touch targets, breakpoints |
 | `clarify` | labels, error messages and empty states, in your product's words |
 | `review` | the bounded review the loop runs on its own (below) |
+| `mock` | draws a screen's mockup, beside its file in the library (above) |
 | `lock` | locks a screen of the library or a law, in your words (above) |
 
 Each command looks once, fixes in one batch, and checks once more, then stops. It changes only the
@@ -294,16 +374,21 @@ may touch meet `design.paths`. While it builds, the agent also asks the change i
 omni design touched
 ```
 
-It prints `ui: yes` with the files that matched, `ui: no`, `ui: unknown` when `design.paths` is
-empty, or `design: off`. It never fails. When the change touches the code of screens in the library
-(their `implements`), it adds a `screens:` line naming each one, with its status and routes (🔒
-means locked):
+It first drops every changed file a `design.ignore` glob matches (by default the test shapes), so a
+change made only of tests reads `ui: no`. Then it prints `ui: yes` with the files that matched,
+`ui: no`, `ui: unknown` when `design.paths` is empty, or `design: off`. It never fails. When the
+change touches the code of screens in the library, it adds a `screens:` line: each screen whose
+`implements` it touches, with its status and routes (🔒 means locked), then each screen it reaches
+only through `reads`, as `reads <screen>`, which trips no lock. A screen whose `implements` changed
+while its mockup did not gets a `mock may be stale` note:
 
 ```text terminal
 ui: yes
-  src/quotes/editor/a.tsx
-  src/quotes/list/b.tsx
-screens: quote-editor 🔒 (/quotes/:id) · quote-list (draft) (/quotes)
+  src/quotes/editor/QuoteEditor.tsx
+  src/quotes/list/QuoteList.tsx
+  src/quotes/pricing/total.ts
+screens: quote-editor 🔒 (/quotes/:id) · quote-list (draft) (/quotes) · reads quote-totals
+mock may be stale: quote-editor
 ```
 
 The review screenshots those routes, and compares a locked screen with its mockup. A difference

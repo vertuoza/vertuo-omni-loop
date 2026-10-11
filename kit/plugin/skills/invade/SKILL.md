@@ -446,7 +446,8 @@ in the folder `node .omni-loop/bin/omni.mjs config design.screens` prints, from 
   screen: <name>
   status: draft
   mock: null
-  implements: [<the files the screen is made of>]
+  implements: [<the files the screen is drawn from: its layout, its styles, its words>]
+  reads: [<the code behind it: the engines, data and rules it only depends on>]
   routes: [<its routes, as the router declares them>]
   supersedes: null
   ---
@@ -465,6 +466,10 @@ in the folder `node .omni-loop/bin/omni.mjs config design.screens` prints, from 
   show: each part and where its data comes from, the empty, loading and error states the code
   renders, the labels it shows. **Refusals** stays empty unless a page or a comment says what the
   screen deliberately does not do.
+- **Which list.** One rule splits the files: *a file whose change can change what a person sees
+  on this screen goes in `implements`; a file the screen only depends on goes in `reads`.* Never a
+  whole folder in `implements`: a lock trips on every file it names. A file the evidence cannot
+  place stays in `implements`, where a lock still sees it, and the doubt is an open question.
 - **Every undecided point goes under Open questions**, one line each, saying what was read and what
   it could not tell: a state the code does not render, a region whose purpose the copy does not
   say, a direction the screens do not settle. Never invent a direction to fill one.
