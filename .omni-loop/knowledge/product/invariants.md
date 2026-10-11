@@ -15,7 +15,7 @@ Merged: @pierrederval, 2026-09-25, PR #4
 A raised item is graded by the same check the outbox gate uses before anything is written or adopted, so a bad option or a below-floor rank is refused at the source.
 
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s13-01-item-new-json-shape-and-input-flag-rename, PRD #7
-Enforced by: pending #1539
+Enforced by: kit/bin/item.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -25,7 +25,7 @@ Merged: @pierrederval, 2026-09-25, PR #9
 The outbox gate reads its settings from the base branch, so a pull request can never change the rules it is judged by, such as the override label. From the pull request's head it reads only what is judged: the delivery folder, and the knowledge folder as data compared with the base's, so a law that loses its test is seen (PRD 1342).
 
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s1-01-evaluate-reads-two-snapshots, PRD #28
-Enforced by: pending #1540
+Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
@@ -45,7 +45,7 @@ Merged: @pierrederval, 2026-09-25, PR #40
 A plugin hook that cannot run never blocks a person's message or question: each hooks.json command ends in || true, and omni ask hook exits 0 with no output for any known kind, whatever the repository, config or server state.
 
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s1-03-hooks-never-block, PRD #71
-Enforced by: pending #1542
+Enforced by: kit/bin/ask-hook.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -55,7 +55,7 @@ Merged: @pierrederval, 2026-09-26, PR #73
 The ask hooks send no call unless ask.url is set in the repository's config and its host equals the host saved in the session. Every call goes to a path under ask.url, and emptying the setting switches the mode off at once.
 
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s1-04-where-the-hooks-send-calls, PRD #71
-Enforced by: pending #1543
+Enforced by: kit/bin/ask-hook.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73

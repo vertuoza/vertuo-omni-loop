@@ -314,6 +314,37 @@ describe('omni ask hook, with the mode on', () => {
   });
 });
 
+describe('where the ask hooks send calls', () => {
+  // Law N-PRODUCT-8 (.omni-loop/knowledge/product/invariants.md, #1543).
+  it('law N-PRODUCT-8: the hooks call only under ask.url, only when its host is the saved host, and stop once ask.url is emptied', async () => {
+    const { root, write, tokens } = await modeOn({ answer: answerFirst });
+    const pre = async () => {
+      const s = io();
+      expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin: PRE, tokens })).toBe(0);
+      return s.out.join('');
+    };
+
+    // ask.url set, its host the one saved in the session: the hook calls, every call under ask.url.
+    expect(await pre()).not.toBe('');
+    expect(server.calls.length).toBeGreaterThan(0);
+    const under = new URL(server.url).pathname.replace(/\/?$/, '/');
+    for (const call of server.calls) expect(call.path.startsWith(under)).toBe(true);
+
+    // The session saved another host than ask.url's, signed in there too: no call.
+    server.calls.splice(0);
+    tokens.write('elsewhere.example.com', { access_token: 'access-1', refresh_token: 'refresh-1' });
+    writeMode(root, { host: 'elsewhere.example.com' });
+    expect(await pre()).toBe('');
+    expect(server.calls).toEqual([]);
+
+    // ask.url emptied, the session's host left as it was: the mode is off at once, no call.
+    writeMode(root, { host: server.host });
+    write('.omni-loop/config.yml', 'kit: 1\nask:\n  url:\n');
+    expect(await pre()).toBe('');
+    expect(server.calls).toEqual([]);
+  });
+});
+
 describe('omni ask usage', () => {
   it('refuses anything but hook pre, post, prompt or end', async () => {
     for (const args of [['ask'], ['ask', 'hook'], ['ask', 'hook', 'later'], ['ask', 'hook', 'pre', 'extra'], ['ask', 'dance']]) {
@@ -422,5 +453,39 @@ describe('the plugin\'s hooks.json', () => {
     });
     expect(run.status).toBe(0);
     expect(dig(JSON.parse(run.stdout), 'hookSpecificOutput', 'additionalContext')).toBe(PROMPT_CONTEXT);
+  });
+});
+
+// Law N-PRODUCT-7 (.omni-loop/knowledge/product/invariants.md, #1542).
+describe('a plugin hook that cannot run', () => {
+  it('law N-PRODUCT-7: never blocks a message or question — every hooks.json command ends in || true, and omni ask hook exits 0 with no output for any known kind, whatever the repository, config or server state', async () => {
+    const { hooks } = JSON.parse(readFileSync(HOOKS, 'utf8')) as HooksFile;
+    const commands = Object.values(hooks).flatMap((entries) => entries.flatMap((entry) => entry.hooks.map(({ command }) => command)));
+    expect(commands.length).toBeGreaterThan(0);
+    for (const command of commands) expect({ command, endsInOrTrue: command.endsWith(' || true') }).toEqual({ command, endsInOrTrue: true });
+
+    const noConfig = makeRepo({ git: true });
+    const broken = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: [\n' } });
+    writeMode(broken.root, { host: 'ask.example.com' });
+    const outside = mkdtempSync(join(tmpdir(), 'omni-nogit-'));
+    const serverDown = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nask:\n  url: https://ask.example.com\n' } });
+    writeMode(serverDown.root, { host: 'ask.example.com' });
+    writeTerminal(serverDown.root, 'term-a', { sessionId: 'gone', host: 'ask.example.com' });
+    const down = () => Promise.reject(new Error('the server is down'));
+    const tokens = memoryTokens({ 'ask.example.com': { access_token: 'access-1', refresh_token: 'refresh-1' } });
+    const states = [
+      { state: 'no config', cwd: noConfig.root, kinds: KINDS },
+      { state: 'a broken config', cwd: broken.root, kinds: KINDS },
+      { state: 'outside a repository', cwd: outside, kinds: KINDS },
+      // With the mode on, prompt prints its context without the server: only the kinds that call it can fail here.
+      { state: 'the server down', cwd: serverDown.root, kinds: KINDS.filter((kind) => kind !== 'prompt') },
+    ];
+    for (const { state, cwd, kinds } of states) {
+      for (const kind of kinds) {
+        const s = io();
+        const code = await main(['ask', 'hook', kind], { cwd, ...s, stdin: PRE, tokens, fetch: down });
+        expect({ state, kind, code, stdout: s.out.join('') }).toEqual({ state, kind, code: 0, stdout: '' });
+      }
+    }
   });
 });

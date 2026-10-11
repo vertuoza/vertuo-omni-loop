@@ -61,7 +61,7 @@ The live outbox check passes the pull request's changed files to the gate, so a 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s5-01-check-grades-changed-files, PRD #28
-Enforced by: pending #1468
+Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
@@ -314,7 +314,7 @@ Ask mode is open to any workspace member, whatever the account's email or with n
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
-Enforced by: pending #1490
+Enforced by: apps/galaxy/src/ask/workspace-gate-sql.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -424,7 +424,7 @@ An ask session that belongs to no workspace is kept, and nobody can read it, its
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s2-02-session-of-owner-in-no-workspace, PRD #144
-Enforced by: pending #1500
+Enforced by: apps/galaxy/src/ask/workspace-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -688,7 +688,7 @@ A link may read a repository the workspace lists, or any repository the workspac
 
 Serves: P-PRODUCT-58
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
-Enforced by: pending #1524
+Enforced by: apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -699,7 +699,7 @@ When a member leaves a workspace, every link they made stops working and any cal
 
 Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-02-left-maker-links-listed, PRD #855
-Enforced by: pending #1525
+Enforced by: apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -710,7 +710,7 @@ When an agent sends a question naming a code project that does not belong to the
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s3-01-report-repo-must-be-the-workspaces, PRD #855
-Enforced by: pending #1526
+Enforced by: apps/galaxy/src/agent-connect/questions/report-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
