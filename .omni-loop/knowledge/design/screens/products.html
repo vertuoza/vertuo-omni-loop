@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Products mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). Faces named first,
+     served by the app; here they fall back to system faces. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --ask-px: "Press Start 2P", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  .note { max-width: 1180px; margin: 0 auto; padding: 24px 16px 8px; font: 14px/1.55 system-ui, sans-serif; color: var(--ask-muted); }
+  .note h1 { margin: 0 0 6px; font-size: 20px; color: var(--ask-ink); }
+  .note p { margin: 0 0 6px; max-width: 80ch; }
+  .note b { color: var(--ask-ink); }
+  .variant { max-width: 1180px; margin: 28px auto 0; padding: 0 16px; }
+  .variant > h2 { margin: 0 0 4px; font: 700 15px/1.3 system-ui, sans-serif; color: var(--ask-plasma); letter-spacing: .02em; }
+  .variant > p { margin: 0 0 10px; font: 14px/1.5 system-ui, sans-serif; color: var(--ask-muted); max-width: 90ch; }
+  .variant > p.words { font-size: 13px; color: #6f75b8; }
+
+  /* The page area, as the app draws it under its top bar (the app shell is its own shared screen). */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong);
+    font: 600 15px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .page { padding: 24px; display: grid; gap: 20px; }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+
+  /* ---------- today: products.css as written ---------- */
+  .t-head { padding: 22px 24px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .t-head h1 { margin: 0 0 8px; font-size: 24px; }
+  .t-head p { margin: 0; color: var(--ask-muted); }
+  .t-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+  .t-card { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; height: 100%; padding: 14px 16px; background: var(--ask-surface);
+    border: 1px solid var(--ask-line-strong); border-radius: 12px; color: var(--ask-ink); text-decoration: none; min-width: 0; }
+  .t-card strong { font-size: 18px; color: var(--ask-cyan); }
+  .t-repos { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; font-size: 14px; }
+  .t-chip { padding: 2px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; overflow-wrap: anywhere; color: var(--ask-cyan); }
+  .t-chip em { font-style: normal; color: var(--ask-muted); }
+  .t-counts { display: flex; gap: 16px; font-size: 14px; color: var(--ask-muted); }
+  .t-fold { position: relative; height: 380px; overflow: hidden; }
+  .t-fold::after { content: ''; position: absolute; inset: auto 0 0 0; height: 40px; background: linear-gradient(transparent, var(--ask-ground)); }
+
+  /* ---------- shared pieces of the variations ---------- */
+  .v-intro h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+  .v-intro p { margin: 4px 0 0; color: var(--ask-muted); font-size: 16px; }
+  .owner { font: 500 13px/1 var(--ask-mono); color: var(--ask-muted); }
+  .chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 9px; border: 1px solid var(--ask-line-strong); border-radius: 6px;
+    font: 500 13px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .shared { font: 700 10px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-cyan); padding: 2px 5px;
+    border: 1px solid var(--ask-cyan); border-radius: 4px; }
+  .stat { display: grid; gap: 0; }
+  .stat b { font-size: 22px; line-height: 1.1; }
+  .stat span { font-size: 13px; color: var(--ask-muted); }
+  .wait b { color: var(--ask-plasma); }
+  .zero b { color: var(--ask-muted); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font: 700 15px/1 var(--ask-body);
+    background: var(--ask-plasma); color: var(--ask-on-plasma); text-decoration: none; border: 0; white-space: nowrap; }
+  .ghost { display: inline-flex; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 14px/1 var(--ask-body);
+    color: var(--ask-ink); text-decoration: none; white-space: nowrap; }
+  .unlinked { display: grid; gap: 8px; }
+  .unlinked h2 { margin: 0; font-size: 16px; }
+  .unlinked li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 8px 14px;
+    border: 1px dashed var(--ask-line-strong); border-radius: 10px; font: 500 14px/1.4 var(--ask-mono); }
+  .unlinked li a { font: 600 14px/1 var(--ask-body); }
+
+  /* ---------- A: cards that fit their content ---------- */
+  .a-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+  .a-card { display: grid; gap: 14px; padding: 18px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; min-width: 0; }
+  .a-card.hot { border-color: var(--ask-plasma); }
+  .a-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .a-top strong { font-size: 20px; }
+  .a-stats { display: flex; gap: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--ask-line); }
+  .a-repos { display: flex; flex-wrap: wrap; gap: 6px; }
+  .a-more { font: 600 13px/1.6 var(--ask-body); color: var(--ask-cyan); align-self: center; }
+  .a-empty { font-size: 14px; color: var(--ask-muted); }
+
+  /* ---------- B: one row per product ---------- */
+  .b-table { display: grid; border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
+  .b-row { display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(0, 2.6fr) 80px 120px 96px; gap: 16px; align-items: center;
+    padding: 14px 18px; border-top: 1px solid var(--ask-line); min-width: 0; }
+  .b-row:first-child { border-top: 0; }
+  .b-headrow { font: 700 12px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 10px; }
+  .b-name { font-size: 18px; font-weight: 700; }
+  .b-repos { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+  .b-num { font-size: 18px; font-weight: 700; text-align: right; }
+  .b-num.w { color: var(--ask-plasma); }
+  .b-num.z { color: var(--ask-muted); font-weight: 400; }
+  .b-go { justify-self: end; }
+  @media (max-width: 760px) { .b-row { grid-template-columns: 1fr auto; } .b-repos, .b-headrow { display: none; } }
+
+  /* ---------- C: what waits on you first ---------- */
+  .c-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 16px 20px;
+    border-radius: 12px; background: var(--ask-plasma-soft); border: 1px solid var(--ask-plasma); }
+  .c-strip p { margin: 0; font-size: 18px; }
+  .c-strip b { color: var(--ask-plasma); }
+  .c-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; align-items: start; }
+  .c-card { display: grid; gap: 10px; padding: 16px 18px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .c-card strong { font-size: 19px; }
+  .c-badge { justify-self: start; padding: 4px 10px; border-radius: 999px; font: 700 13px/1 var(--ask-body); background: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .c-quiet { justify-self: start; font-size: 13px; color: var(--ask-muted); }
+  .c-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: var(--ask-muted); }
+  details.c-repos summary { cursor: pointer; font: 600 14px/1.4 var(--ask-body); color: var(--ask-cyan); }
+  details.c-repos ul { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+  /* ---------- D: a summary, then compact tiles ---------- */
+  .d-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-sunk); }
+  .d-sum .stat { padding: 14px 18px; border-left: 1px solid var(--ask-line); }
+  .d-sum .stat:first-child { border-left: 0; }
+  .d-sum .stat b { font-size: 28px; }
+  @media (max-width: 640px) { .d-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .d-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .d-tile { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; padding: 16px; background: var(--ask-surface);
+    border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-line-strong); border-radius: 10px; min-height: 168px; }
+  .d-tile.hot { border-left-color: var(--ask-plasma); }
+  .d-tile strong { font-size: 19px; }
+  .d-line { font-size: 14px; color: var(--ask-muted); }
+  .d-repolist { margin: 0; font: 500 13px/1.6 var(--ask-mono); color: var(--ask-ink); overflow-wrap: anywhere; }
+  .d-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+  .d-foot .w { color: var(--ask-plasma); font-weight: 700; }
+
+  /* ---------- E: one product per band, repositories in columns ---------- */
+  .e-band { display: grid; grid-template-columns: 240px minmax(0, 1fr); border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
+  .e-side { display: grid; align-content: start; gap: 12px; padding: 18px; background: var(--ask-sunk); border-right: 1px solid var(--ask-line); }
+  .e-side strong { font-size: 20px; }
+  .e-side .row { display: flex; gap: 20px; }
+  .e-side > a { justify-self: start; }
+  .e-main { padding: 16px 18px; min-width: 0; }
+  .e-main ul { columns: 3 210px; column-gap: 18px; font: 500 13.5px/2 var(--ask-mono); }
+  .e-main li { break-inside: avoid; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .e-main li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .e-empty { font-size: 14px; color: var(--ask-muted); }
+  .e-stack { display: grid; gap: 12px; }
+  @media (max-width: 760px) { .e-band { grid-template-columns: 1fr; } .e-side { border-right: 0; border-bottom: 1px solid var(--ask-line); } }
+</style>
+</head>
+<body>
+<div class="note"><p><b>Products at /app/products, pick D of #1598.</b> Drawn from the source (apps/galaxy/src/products/), with the app shell outside the marked screen. The figures are examples; the repositories are the workspace's of 2026-10-11.</p></div>
+<section class="variant">
+  <h2>D · A summary, then even tiles</h2>
+  <p>Four totals across the top, then tiles of one fixed height: name, one line of figures, the repositories as a plain mono list cut at three lines, and a foot with what waits and Open. A tile waiting on you gets a yellow left edge. Calm and even, the grid never stretches to one long list.</p>
+  <div class="frame"><div class="bar">Work › <b>Products</b></div>
+    <div class="page" data-screen="D">
+      <header class="v-intro"><h1>Products</h1></header>
+      <div class="d-sum" data-content><span class="stat"><b>4</b><span>products</span></span><span class="stat"><b>15</b><span>repositories</span></span><span class="stat"><b>66</b><span>PRDs</span></span><span class="stat wait"><b>5</b><span>waiting on you</span></span></div>
+      <ul class="d-tiles">
+        <li class="d-tile hot"><strong>Vertuoza</strong><span class="d-line" data-content>23 PRDs · 13 repositories</span>
+          <p class="d-repolist">pdf-builder · teamleaddashboard · vertuo-ai-domain · vertuo-apps · vertuo-automation-plan · vertuo-backend-php · +7</p>
+          <span class="d-foot"><span class="w" data-content>3 waiting on you</span><a class="btn" href="#" data-primary>Open</a></span></li>
+        <li class="d-tile hot"><strong>omni-loop</strong><span class="d-line" data-content>41 PRDs · 1 repository</span>
+          <p class="d-repolist">vertuo-omni-loop</p><span class="d-foot"><span class="w" data-content>2 waiting on you</span><a class="ghost" href="#">Open</a></span></li>
+        <li class="d-tile"><strong>Vertuo UX</strong><span class="d-line" data-content>2 PRDs · 1 repository</span>
+          <p class="d-repolist">vertuo-ux-research-domain <span class="shared">shared</span></p><span class="d-foot"><span style="color:var(--ask-muted)">Nothing waiting</span><a class="ghost" href="#">Open</a></span></li>
+        <li class="d-tile"><strong>Vertuoza ERP</strong><span class="d-line">No repository yet</span><p class="d-repolist"></p>
+          <span class="d-foot"><a href="#">Add a repository</a><a class="ghost" href="#">Open</a></span></li>
+      </ul>
+      <section class="unlinked"><h2>Repositories in no product</h2><ul data-content><li>vertuoza/vertuo-docs <a href="#">Add to a product</a></li></ul></section>
+    </div>
+  </div>
+</section>
+</body>
+</html>
