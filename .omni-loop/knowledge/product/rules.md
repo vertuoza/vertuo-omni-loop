@@ -127,7 +127,7 @@ A round moves only from open to answered, from open to abandoned, or from abando
 
 Serves: P-PRODUCT-11
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s2-04-round-moves-forward, PRD #71
-Enforced by: pending #1474
+Enforced by: apps/galaxy/src/ask/rounds-sql.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
