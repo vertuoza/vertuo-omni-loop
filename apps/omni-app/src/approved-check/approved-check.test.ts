@@ -47,10 +47,12 @@ const RECORD: ApprovalRecord = {
   latest: PINS.map(({ kind, sha256, versionId, content }) => ({ kind, sha256, versionId, commitSha: null, content })),
 };
 
+const A_NUMBER: unknown = expect.any(Number);
+
 const pullOf = (body: string | undefined) => ({ number: parsePr(446), base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/offline-upload', sha: 'head1' }, labels: [], ...(body === undefined ? {} : { body }) });
 
 /** A run: the stubbed GitHub, the record's reads, and the log. */
-function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/d-12', config = ACTIVE, record = RECORD as ApprovalRecord | null | Error }: { body?: string; config?: string | null; record?: ApprovalRecord | null | Error } = {}) {
+function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/d-12', config = ACTIVE, record = RECORD }: { body?: string; config?: string | null; record?: ApprovalRecord | null | Error } = {}) {
   const github = fakeGitHub({ commits: { base1: commitWith(config) }, pull: pullOf(body) });
   const reads: string[] = [];
   const readRecord: RecordReader = (repository, prd) => {
@@ -93,7 +95,7 @@ describe('approved-check — a target feature PR of a product PRD (acceptance 6)
     for (const action of ['opened', 'synchronize']) {
       const run = setUp();
       const { results } = await deliver(run, 'pull_request', pullRequest(action));
-      expect(results.map((r) => r.result)).toEqual([{ checkRunId: expect.any(Number), name: 'omni/approved', prd: 'mobile-12', state: 'building', conclusion: 'success' }]);
+      expect(results.map((r) => r.result)).toEqual([{ checkRunId: A_NUMBER, name: 'omni/approved', prd: 'mobile-12', state: 'building', conclusion: 'success' }]);
       const { run: check, output, created } = posted(run);
       expect(check).toMatchObject({ name: 'omni/approved', head_sha: 'head1', status: 'completed', conclusion: 'success' });
       expect(output.title).toBe('building · 5 of 5 pinned');
