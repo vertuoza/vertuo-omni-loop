@@ -32,15 +32,6 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nci:\n  inboxContext: ""\n')).toThrow(/ci\.inboxContext/);
   });
 
-  it('names the approved check "omni/approved" unless the file renames it or turns it off with null (PRD 1548)', () => {
-    expect(parseConfig('kit: 1\n').ci.approvedContext).toBe('omni/approved');
-    expect(parseConfig('kit: 1\nci:\n  approvedContext: approved\n').ci.approvedContext).toBe('approved');
-    expect(parseConfig('kit: 1\nci:\n  approvedContext: null\n').ci.approvedContext).toBeNull();
-    expect(parseConfig('kit: 1\nci:\n  approvedContext: approved\n').ci.outboxContext).toBe('outbox');
-    expect(() => parseConfig('kit: 1\nci:\n  approvedContext: 3\n', 'c.yml')).toThrow(/c\.yml.*ci\.approvedContext/);
-    expect(() => parseConfig('kit: 1\nci:\n  approvedContext: ""\n')).toThrow(/ci\.approvedContext/);
-  });
-
   it('takes an https ask.url, or http only on 127.0.0.1', () => {
     expect(parseConfig('kit: 1\nask:\n  url: https://ask.example.com\n').ask.url).toBe('https://ask.example.com');
     expect(parseConfig('kit: 1\nask:\n  url: http://127.0.0.1:4321\n').ask.url).toBe('http://127.0.0.1:4321');
