@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App shell mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-px: "Press Start 2P", "Courier New", monospace;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  .mock-note { max-width: 1200px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--ask-muted); }
+  .mock-note b { color: var(--ask-ink); }
+
+  /* nav/sidebar.css, as written (the open sidebar, from 900 px). */
+  .app-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); grid-template-rows: auto 1fr; min-height: 760px; }
+  .app-sidebar { grid-row: 1 / span 2; display: grid; align-content: start; grid-template-rows: auto auto 1fr; gap: 18px; padding: 16px;
+    background: var(--ask-surface); border-right: 1px solid var(--ask-line); min-width: 0; }
+  .app-sidebar-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+  .brand-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+  .ask-mark { font: 10px/1 var(--ask-px); letter-spacing: .04em; color: var(--ask-plasma); }
+  .app-sidebar-fold { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--ask-line-strong);
+    border-radius: 6px; background: transparent; font: 700 16px/1 var(--ask-body); color: var(--ask-muted); }
+  .app-sidebar-workspace { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--ask-muted); }
+  .app-sidebar-nav { display: grid; gap: 18px; }
+  .app-sidebar-group { display: grid; gap: 4px; }
+  .app-sidebar-label { margin: 0; padding: 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); }
+  .app-sidebar-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  a.app-sidebar-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent;
+    font: 700 15px/1.3 var(--ask-body); color: var(--ask-ink); text-decoration: none; }
+  a.app-sidebar-item[aria-current='page'] { color: var(--ask-plasma); border-color: var(--ask-plasma); background: var(--ask-ground); }
+  .app-sidebar-sprite { display: inline-flex; flex: none; line-height: 0; }
+  .app-sidebar-badge { margin-left: auto; min-width: 20px; padding: 3px 6px; border-radius: 999px; font: 700 12px/1 var(--ask-body);
+    text-align: center; color: var(--ask-on-plasma); background: var(--ask-plasma); }
+  .app-sidebar-foot { align-self: end; display: grid; gap: 6px; padding: 12px 0 0; border-top: 1px solid var(--ask-line); }
+  .app-sidebar-links { list-style: none; margin: 0; padding: 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .app-sidebar-links li + li::before { content: '·'; margin-right: 6px; color: var(--ask-muted); }
+  .app-sidebar-links a.app-sidebar-item { display: inline-flex; gap: 4px; padding: 2px 0; border: 0; font-size: 13px; font-weight: 600; }
+  .app-sidebar-out { display: inline-flex; color: var(--ask-muted); }
+  .app-sidebar-version { margin: 0; padding: 0 10px; font: 500 12px/1.2 var(--ask-mono); color: var(--ask-muted); }
+
+  /* nav/app-bar.css, as written. */
+  .app-bar { grid-column: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-width: 0;
+    padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); }
+  .app-bar-menu { display: none; place-items: center; width: 36px; height: 36px; padding: 0; border: 1.5px solid var(--ask-line-strong);
+    border-radius: 6px; background: var(--ask-surface); color: var(--ask-ink); font: 700 18px/1 var(--ask-body); }
+  .app-bar-tile { display: inline-grid; place-items: center; flex: none; width: 40px; height: 40px; border: 1.5px solid var(--ask-line-strong);
+    border-radius: 8px; background: var(--ask-sunk); line-height: 0; }
+  .app-bar-trail ol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 0; padding: 0; list-style: none;
+    font: 600 15px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .app-bar-trail li { display: inline-flex; align-items: center; gap: 8px; }
+  .app-bar-sep { font-weight: 700; }
+  .app-bar-here { font-size: 16px; font-weight: 700; color: var(--ask-ink); }
+  .app-bar-end, .app-bar-view, .app-bar-you { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .app-bar-end { margin-left: auto; }
+  .ask-switch { display: inline-flex; border: 1.5px solid var(--ask-line-strong); border-radius: 6px; overflow: hidden; }
+  .ask-switch button { padding: 6px 10px; border: 0; background: transparent; color: var(--ask-muted); font: 700 13px/1 var(--ask-body); }
+  .ask-switch button[aria-pressed='true'] { background: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .game-mode { padding: 7px 10px; border: 1.5px solid var(--ask-line-strong); border-radius: 6px; background: var(--ask-sunk); color: var(--ask-ink);
+    font: 8px/1 var(--ask-px); }
+  .bell-button { position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0;
+    border: 1.5px solid var(--ask-line-strong); border-radius: 6px; background: var(--ask-surface); color: var(--ask-ink); }
+  .bell-badge { position: absolute; top: -7px; right: -7px; min-width: 18px; padding: 3px 5px; border-radius: 999px; font: 700 11px/1 var(--ask-body);
+    text-align: center; color: var(--ask-ground); background: var(--ask-red); }
+  .user-menu-button { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1.5px solid var(--ask-line-strong);
+    border-radius: 50%; background: var(--ask-surface); }
+
+  /* Where each page draws its own screen. */
+  .ask-main { grid-column: 2; padding: 24px; }
+  .page-slot { display: block; width: 100%; height: 100%; min-height: 560px; }
+
+  @media (max-width: 899.98px) {
+    .app-shell { grid-template-columns: minmax(0, 1fr); }
+    .app-sidebar { display: none; }
+    .app-bar, .ask-main { grid-column: 1; }
+    .app-bar-menu { display: inline-grid; }
+  }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>The app shell around /app, signed in, the sidebar open, theme Omni.</b> A shared screen (<code>kind: shared</code>): the sidebar and the top bar every app page sits in. Drawn from the source (apps/galaxy/src/nav/), not from a screenshot: the app was not run here. The workspace's name, the two counts, the release and the avatar's letter are example data. The crest and the sections' sprites are drawn by <code>@omni/design</code> on the server; the squares here stand in for them at their real sizes (32 px, 16 px, 32 px in the bar's tile). The bell is its own shared screen, <code>notifications</code>: only its button is drawn here.</p>
+
+<div class="app-shell" data-screen="app-shell">
+  <aside class="app-sidebar" aria-label="Sidebar">
+    <div class="app-sidebar-head">
+      <a class="brand-logo" href="/app">
+        <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#2a2350" stroke="#ffd84a"/><text x="16" y="20" text-anchor="middle" font-size="8" fill="#ffd84a">crest</text></svg>
+        <span class="ask-mark">OMNI LOOP</span>
+      </a>
+      <button type="button" class="app-sidebar-fold" title="Collapse the menu" aria-label="Collapse the menu">«</button>
+      <p class="app-sidebar-workspace" data-content>Vertuoza</p>
+    </div>
+    <nav class="app-sidebar-nav" aria-label="Sections">
+      <div class="app-sidebar-group">
+        <p class="app-sidebar-label">Dashboard</p>
+        <ul class="app-sidebar-items">
+          <li><a class="app-sidebar-item" href="/app" aria-current="page"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Home</a></li>
+          <li><a class="app-sidebar-item" href="/app/fleet"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Fleet</a></li>
+          <li><a class="app-sidebar-item" href="/app/loop"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Loop</a></li>
+          <li><a class="app-sidebar-item" href="/app/workspace"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Workspace</a></li>
+          <li><a class="app-sidebar-item" href="/app/engineering"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Engineering</a></li>
+        </ul>
+      </div>
+      <div class="app-sidebar-group">
+        <p class="app-sidebar-label">Work</p>
+        <ul class="app-sidebar-items">
+          <li><a class="app-sidebar-item" href="/app/products"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Products</a></li>
+          <li><a class="app-sidebar-item" href="/roadmaps"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Roadmaps</a></li>
+          <li><a class="app-sidebar-item" href="/ideas"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Ideas</a></li>
+          <li><a class="app-sidebar-item" href="/concepts"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Concepts</a></li>
+          <li><a class="app-sidebar-item" href="/prd"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>PRDs<span class="app-sidebar-badge" aria-hidden="true" data-content>2</span></a></li>
+          <li><a class="app-sidebar-item" href="/bugs"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Bug Fixes</a></li>
+          <li><a class="app-sidebar-item" href="/visual"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Visual Updates</a></li>
+          <li><a class="app-sidebar-item" href="/ask"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Questions<span class="app-sidebar-badge" aria-hidden="true" data-content>1</span></a></li>
+          <li><a class="app-sidebar-item" href="/knowledge"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Knowledge</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="app-sidebar-foot">
+      <ul class="app-sidebar-items">
+        <li><a class="app-sidebar-item" href="/app/settings"><svg class="app-sidebar-sprite" width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Settings</a></li>
+      </ul>
+      <ul class="app-sidebar-links" aria-label="Omni">
+        <li><a class="app-sidebar-item" href="/docs" target="_blank">Docs<span class="app-sidebar-out" aria-hidden="true">↗</span></a></li>
+        <li><a class="app-sidebar-item" href="/releases" target="_blank">Release notes<span class="app-sidebar-out" aria-hidden="true">↗</span></a></li>
+      </ul>
+      <p class="app-sidebar-version">Omni Loop v<span data-content>0.0.324</span></p>
+    </div>
+  </aside>
+
+  <header class="app-bar">
+    <button type="button" class="app-bar-menu" aria-label="Menu">☰</button>
+    <span class="app-bar-tile" aria-hidden="true"><svg width="32" height="32"><rect width="32" height="32" fill="#5a60c4"/></svg></span>
+    <nav class="app-bar-trail" aria-label="Breadcrumb">
+      <ol><li>Dashboard</li><li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><span aria-current="page">Home</span></li></ol>
+    </nav>
+    <span class="app-bar-end">
+      <span class="app-bar-view">
+        <span class="ask-switch" role="group" aria-label="Theme"><button type="button" aria-pressed="true">Omni</button><button type="button" aria-pressed="false">Light</button><button type="button" aria-pressed="false">Dark</button></span>
+        <button type="button" class="game-mode">Game mode</button>
+        <button type="button" class="bell-button" aria-label="Waiting for you: 3"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="bell-badge" aria-hidden="true">3</span></button>
+      </span>
+      <span class="app-bar-you">
+        <button type="button" class="user-menu-button" aria-label="DAM-DEV"><svg width="24" height="24" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><rect x="5" y="1" width="6" height="5" fill="#ffd8b0"/><rect x="4" y="6" width="8" height="6" fill="#a45cff"/></svg></button>
+      </span>
+    </span>
+  </header>
+
+  <main class="ask-main">
+    <svg class="page-slot" viewBox="0 0 900 560" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="1" y="1" width="898" height="558" rx="8" fill="none" stroke="#1a2170" stroke-dasharray="6 6"/>
+      <text x="450" y="285" text-anchor="middle" fill="#8a90d6" font-size="16">each page draws its own screen here</text>
+    </svg>
+  </main>
+</div>
+
+<p class="mock-note">No primary action is marked: the shell is a frame, and none of its controls is the next step on every page (the screen's open question). Not drawn: the rail folded from 900 px, the phone drawer below 900 px (here only ☰ shows), the user menu open, and the signed-out bar (Sign in with GitHub in the avatar's place, no bell).</p>
+</body>
+</html>
