@@ -48,7 +48,8 @@ read `repo.*`, `branches.fix`, `worktrees`, `paths.delivery`, `labels.visual`, `
 Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`. Keep what it
 prints. Anything but `true` (or a failure) means design craft is off here: step 7 runs no design
 review, and the PR has no **Design review** section. Off, the design memory is off too: step 3 reads
-no screen library, step 4 marks no screen and runs no word pass, step 8 writes no draft screen,
+no screen library, step 4 marks no screen and runs no word pass and no parts check, step 8 writes
+no draft screen,
 **A change to a locked screen** does not apply, and the PR has no **Draft screen** section. Nothing
 else in this skill changes.
 
@@ -161,6 +162,20 @@ Always, even when the line is precise: the person picks, the skill never does.
    shows now: say it under today, never redraw today to hide it. A finding a variation keeps on
    purpose (the line asks for exactly that) is said under it. With a locked screen (step 3), a
    variation that departs from its mockup or its file says so under its letter, in one line.
+
+   **The parts,** with the design flag on and a DESIGN.md, before the page is shown. Read the closed
+   list: the file `node .omni-loop/bin/omni.mjs config design.system` prints, and
+   `node .omni-loop/bin/omni.mjs design parts`, each part with its variants, states and code paths.
+   Each variation is drawn only from the parts it lists and semantic tokens (`colors.primary`, never
+   a hex value or a primitive), each part tagged `data-part="<name>"` beside `data-screen` and
+   `data-primary`; today and each variation alike are tagged, today drawn as the product shows it.
+   Run `node .omni-loop/bin/omni.mjs design parts --check <page>` beside the word pass; it exits 0
+   whatever it finds. Each `untagged:` finding is fixed in the screen it names by tagging the control
+   with the part it is, and the check runs again; one on today with no listed part is said under
+   today. An `off-list:` part stays only when the design needs a new part, proposed, never invented:
+   the page names it outside the marked screen, under its letter. When `design parts` prints
+   `parts: no DESIGN.md`, the round draws as it does today, from the real screen's markup and
+   styles, and no parts check runs.
 2. Open it in the person's browser when the session can, and give its path either way.
 3. Ask which one, as **one question** through the session's question tool, with A to E as its
    options; the person may answer "another round", with a note. Ask mode carries the question to
@@ -253,7 +268,7 @@ person locks, through `/omni:pixel-perfect lock`; a pick is a draft until its pe
 
 - **No library screen** (step 3): write `<name>.md`, `<name>` the screen's short kebab-case name,
   and beside it its mockup `<name>.html`: the pick at full size, copied from its round as the
-  person saw it, `data-screen` and `data-primary` kept, under the page rules above.
+  person saw it, `data-screen`, `data-primary` and `data-part` kept, under the page rules above.
 
   ```markdown
   ---
@@ -482,6 +497,8 @@ body and the hand-off name each item, the screen and who locked it.
    - `omni visual <n>`: ok
    - `omni check design`: <ok> (only with the design flag on)
    - `omni design words`: <what it found on the rounds, and what was fixed>
+   - `omni design parts --check`: <what it found on the rounds, what was fixed, each off-list part
+     kept> (only with a DESIGN.md)
    - <the real check: what was looked at, and how; or the sentence saying it was not done and the
      preview is the check>
 
@@ -497,8 +514,9 @@ body and the hand-off name each item, the screen and who locked it.
    <the line `omni sign footer` prints>
    ```
 
-   The **Design review** and **Draft screen** sections, and the two design lines of **Verified**,
-   are there only when the design flag is on; off, leave them out.
+   The **Design review** and **Draft screen** sections, and the design lines of **Verified**,
+   are there only when the design flag is on; off, leave them out. The parts line is there only
+   with a DESIGN.md.
    The pick line is the one in `before-after.html`, copied as it is. The before/after line is a
    repository path, never a URL. `/omni:pr` watches it until it is green or stuck.
 

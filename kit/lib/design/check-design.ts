@@ -7,11 +7,33 @@
 // reading the base through git is the one impure part. The kit ships no law and no screen. PRD 1550:
 // an `implements` entry that names a folder (it ends in `/` or `/**`) is a warning, never a
 // violation: a lock would trip on every file in it, and the code behind a screen belongs in `reads`.
+// PRD 1559: DESIGN.md is kept by hand, so it drifts from the code; with design on and a DESIGN.md
+// where `design.system` points, four kinds of drift are warnings, never violations: a part whose
+// `Code` path is gone, a component file under `design.paths` (its `design.ignore` dropped) that no
+// part names and no screen `implements` (a shared screen's shell files included), a token reference
+// that does not resolve, and a reference screen the library does not hold.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { loadConfig } from '../config.ts';
 import type { ExecText } from '../context.ts';
 import { parseForm } from '../playbook/forms.ts';
+import { matchesGlob } from './glob.ts';
+import { designIgnore, dropIgnored } from './ignore.ts';
+import { isComponentFile } from './parts/names.ts';
 import { parseScreen, type Screen } from './screens.ts';
+import { loadDesignSystem } from './system/load.ts';
+import type { DesignSystem } from './system/read.ts';
+
+/** PRD 1559: what the drift warnings read from the working tree, beside its DESIGN.md. */
+export type DriftFacts = {
+  /** Where DESIGN.md was read: what each warning starts with. */
+  readonly path: string;
+  readonly system: DesignSystem;
+  /** The component files under `design.paths`, `design.ignore` dropped. */
+  readonly componentFiles: readonly string[];
+  /** Each part's `Code` path that names nothing in the working tree. */
+  readonly gone: readonly { readonly part: string; readonly path: string }[];
+};
 
 /** The screen library and the design form, as one side of the comparison holds them. */
 export type DesignSnapshot = {
@@ -19,6 +41,8 @@ export type DesignSnapshot = {
   readonly screens: Readonly<Record<string, string>>;
   /** The design form's text, or null when it has none. */
   readonly form: string | null;
+  /** PRD 1559: the working tree's DESIGN.md and what it describes; absent at the base, and with no DESIGN.md. */
+  readonly drift?: DriftFacts | null;
 };
 
 /** One law of the `language` slot: its heading, its lock line, its text and its amendment lines. */
@@ -175,21 +199,112 @@ function folderWarnings(screens: readonly Pick<Screen, 'screen' | 'implements'>[
   );
 }
 
+/** PRD 1559: one warning per drift between DESIGN.md, the code and the library, each led by DESIGN.md's path. */
+function driftWarnings(dir: string, drift: DriftFacts, screens: readonly Pick<Screen, 'screen' | 'implements'>[]): string[] {
+  const { path, system, componentFiles, gone } = drift;
+  const codes = system.parts.flatMap((part) => part.code);
+  const claims = screens.flatMap((screen) => screen.implements);
+  const claimed = (file: string) => [...codes, ...claims].some((glob) => matchesGlob(glob, file));
+  const library = new Set(screens.map((screen) => screen.screen));
+  return [
+    ...gone.map(({ part, path: code }) => `part ${part}: its code path ${code} is gone`),
+    ...componentFiles
+      .filter((file) => !claimed(file))
+      .map((file) => `${file} is a component file no part names and no screen implements — list it under a part's Code, or in a screen's implements`),
+    ...system.unresolved.map(({ reference, where }) => `unresolved reference {${reference}} in ${where}`),
+    ...system.referenceScreens
+      .filter(({ screen }) => !library.has(screen))
+      .map(({ screen }) => `the reference screen "${screen}" is not in the library (${dir.replace(/\/*$/, '/')})`),
+  ].map((warning) => `${path}: ${warning}`);
+}
+
 /** Grades the working tree's library and laws, and, when `base` is given, every decision locked there. */
 export function gradeDesign({ dir, formFile, head, base }: { dir: string; formFile: string; head: DesignSnapshot; base: DesignSnapshot | null }): DesignGrade {
   const screens = gradeScreens(dir, head.screens, base?.screens ?? null);
   const laws = gradeLaws(formFile, head.form, base?.form ?? null);
   return {
     violations: [...screens.violations, ...laws.violations],
-    warnings: folderWarnings(screens.screens),
+    warnings: [...folderWarnings(screens.screens), ...(head.drift ? driftWarnings(dir, head.drift, screens.screens) : [])],
     screens: screens.screens.length,
     lockedScreens: screens.screens.filter((entry) => entry.status === 'locked').length,
     lockedLaws: laws.locked,
   };
 }
 
-/** The library and the form as the working tree under `root` holds them. */
-export function headSnapshot({ root, dir, formFile }: { root: string; dir: string; formFile: string }): DesignSnapshot {
+/** The config's `design` section, as the drift warnings read it. */
+export type DriftDesign = {
+  readonly enabled: boolean;
+  readonly paths: readonly string[];
+  readonly ignore?: readonly string[] | undefined;
+  readonly system?: string | undefined;
+};
+
+const WILDCARD = /[*?{]/;
+
+/** The folder a glob's matches all live under: its segments before the first wildcard. */
+const globBase = (glob: string): string => {
+  const segments = glob.replace(/^\.\//, '').split('/');
+  const cut = segments.findIndex((segment) => WILDCARD.test(segment));
+  return (cut === -1 ? segments : segments.slice(0, cut)).filter(Boolean).join('/');
+};
+
+/** A folder's entries, or null when `path` is no folder. */
+function entriesOf(path: string) {
+  try {
+    return readdirSync(path, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+}
+
+const walked = (name: string) => name !== 'node_modules' && !name.startsWith('.');
+
+/** Every file under `base` (or `base` itself, a file), relative to `root`; `node_modules` and dot folders are never walked. */
+function filesUnder(root: string, base: string): string[] {
+  const entries = entriesOf(join(root, base));
+  if (entries === null) return base && existsSync(join(root, base)) ? [base] : [];
+  const at = (name: string) => (base ? `${base}/${name}` : name);
+  return entries.flatMap((entry) => {
+    if (entry.isDirectory()) return walked(entry.name) ? filesUnder(root, at(entry.name)) : [];
+    return entry.isFile() ? [at(entry.name)] : [];
+  });
+}
+
+/** The files a glob matches in the working tree under `root`. */
+const matching = (root: string, glob: string): string[] => filesUnder(root, globBase(glob)).filter((file) => matchesGlob(glob, file));
+
+/** Whether a part's `Code` path names something in the working tree: a file or folder, or a glob's match. */
+const present = (root: string, code: string): boolean =>
+  WILDCARD.test(code) ? matching(root, code).length > 0 : existsSync(join(root, code.replace(/^\.\//, '').replace(/\/+$/, '')));
+
+/** PRD 1559: the facts the drift warnings grade, or null with design off or no DESIGN.md. */
+function driftFacts(root: string, design: DriftDesign | null): DriftFacts | null {
+  if (!design?.enabled) return null;
+  const { path, system } = loadDesignSystem(root, design);
+  if (!system) return null;
+  const components = design.paths.flatMap((glob) => matching(root, glob)).filter(isComponentFile);
+  return {
+    path,
+    system,
+    componentFiles: dropIgnored(designIgnore(design), [...new Set(components)].sort()),
+    gone: system.parts.flatMap((part) => part.code.filter((code) => !present(root, code)).map((code) => ({ part: part.name, path: code }))),
+  };
+}
+
+/** The config's design section under `root`, or null when it does not read. */
+function designOf(root: string): DriftDesign | null {
+  try {
+    return loadConfig(root).design;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The library and the form as the working tree under `root` holds them, and, PRD 1559, the drift
+ * facts of its DESIGN.md; `design` is the config's design section, read from `root` when not given.
+ */
+export function headSnapshot({ root, dir, formFile, design }: { root: string; dir: string; formFile: string; design?: DriftDesign }): DesignSnapshot {
   const read = (path: string): string | null => (existsSync(path) ? readFileSync(path, 'utf8') : null);
   const folder = join(root, dir);
   let names: string[] = [];
@@ -200,7 +315,7 @@ export function headSnapshot({ root, dir, formFile }: { root: string; dir: strin
   }
   const screens: Record<string, string> = {};
   for (const name of names) screens[name] = readFileSync(join(folder, name), 'utf8');
-  return { screens, form: read(join(root, formFile)) };
+  return { screens, form: read(join(root, formFile)), drift: driftFacts(root, design ?? designOf(root)) };
 }
 
 /** The library and the form at `ref`, read through git and never checked out. */

@@ -69,7 +69,8 @@ phase-0 PR and step 10 hands off to the PRD's page. Everything else runs as writ
 what it prints for step 5 (and **Rework**, which writes the page the same way). Anything but `true`
 (or a failure) means design craft is off here: step 5 reads no design form, and the page is drawn
 as it always has been. Off, the design memory is off too: step 5 reads no screen library, marks no
-screen, runs no word pass and writes no draft screen, and steps 7 and 9 carry none.
+screen, runs no word pass and no parts check and writes no draft screen, and steps 7 and 9 carry
+none.
 
 With `--concept`, read the concept next, as **From a concept** says. Each of its three stops ends
 the skill there, before the dossier opens and before any question.
@@ -409,11 +410,27 @@ and go on only once they approve it.
   The rule is fixed in the screen, never silenced: never drop a mark, unmark a primary action or
   reword the finding away. A finding on "today" is what the product shows now: say it under the
   mockup, never redraw today to hide it.
+- **The parts,** with the design flag on and a DESIGN.md, for the Pixel perfect part alone. Read the
+  closed list: the file `node .omni-loop/bin/omni.mjs config design.system` prints, and
+  `node .omni-loop/bin/omni.mjs design parts`, each part with its variants, states and code paths.
+  Each "after" is drawn only from the parts it lists and semantic tokens (`colors.primary`, never a
+  hex value or a primitive), each part tagged `data-part="<name>"` beside `data-screen` and
+  `data-primary`; "today" is tagged the same way where it shows a listed part, and drawn as the
+  product shows it. Before anyone is shown the page, run
+  `node .omni-loop/bin/omni.mjs design parts --check <folder>/before-after.html` beside the word
+  pass; it exits 0 whatever it finds. Each `untagged:` finding is fixed in its screen by tagging the
+  control with the part it is, and the check runs again; one on "today" with no listed part is said
+  under the mockup. An `off-list:` part stays only when the design needs a new part, proposed, never
+  invented: the page names it outside the marked screen, for the slice that builds it to raise as a
+  new entry of DESIGN.md. The Functional part, and a page that says
+  `Pixel perfect: no screen changes`, draws no part and is not checked. When `design parts` prints
+  `parts: no DESIGN.md`, the page draws as it does today, from the design form's `system` section,
+  and no parts check runs.
 - **The draft screens,** with the design flag on: each screen the "after" draws is written to the
   library as a draft, never locked. Only a person locks, through `/omni:pixel-perfect lock`; an
   approved "after" is a draft until its person locks it. A screen with no file yet gets
   `<name>.md`, `<name>` its short kebab-case name, and its mockup `<name>.html` beside it: that
-  "after" alone, under the page rules below, marks kept.
+  "after" alone, under the page rules below, marks kept, `data-part` included.
 
   ```markdown
   ---
@@ -711,7 +728,7 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
    `PRD <n> has no voice yet: nothing to rework from`.
 3. **Rewrite** the spec and the before/after page to answer the latest round's objection and its
    lowest scores, the way steps 4 and 5 write them (with the design flag on, the marks, the word
-   pass and the drafts included), and add the change to the spec's **Decisions**.
+   pass, the parts and the drafts included), and add the change to the spec's **Decisions**.
    The overrule and the gap question hold as in **The voice**.
 4. **Ask the personas again** as round `rework-<k>`, `<k>` one more than the last rework round (1
    for the first), appended to `voice.json`.

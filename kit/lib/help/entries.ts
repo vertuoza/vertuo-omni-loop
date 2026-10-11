@@ -877,8 +877,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]'],
-    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, and the gallery',
+    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]', 'omni design parts [--check <page.html | ref>]'],
+    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, the gallery, and the parts DESIGN.md lists',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
       "design form, omni kb show design (the product, where its design system lives, what it does on " +
@@ -930,7 +930,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'screens in a group of their own after the pages. It writes ' +
       'to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; ' +
       'the page is generated each time and never committed. An empty library prints no screen yet ' +
-      'and writes nothing, design: off while the flag is off, and gallery exits 0.',
+      'and writes nothing, design: off while the flag is off, and gallery exits 0. parts lists the ' +
+      "closed list of parts the repository's DESIGN.md holds, the file design.system names (by default " +
+      "DESIGN.md at the root, in Google's DESIGN.md format: token groups in its front matter, one ### " +
+      "entry per part under Components with its Summary, Variants, States, Tokens, Accessibility, Do, " +
+      "Don't and Code lines, and the Reference screens section naming the library screens a builder " +
+      'copies): one line per part with its variants, states and code paths, then the count, the file and ' +
+      'its reference screens, then each thing in the file that does not read, a token reference that ' +
+      'does not resolve among them. With no file it prints parts: no DESIGN.md (run /omni:pixel-perfect ' +
+      'init), design: off while the flag is off, and parts exits 0 whatever it finds. parts --check ' +
+      '<page.html> is the parts check over a mockup: it reads only the marked screens, as words does ' +
+      '(an unmarked page says no screen marked: skipped), counts the parts each tags with ' +
+      'data-part="<name>" (case, spaces and dashes aside, EmptyState and empty-state are one part), and ' +
+      'prints off-list: for a tag the list does not hold and untagged: for a control (a button, an ' +
+      'input but a hidden one, a select, a textarea, an element with a control role, a link classed btn ' +
+      'or button, or any element design.words.primary matches) that carries no tag, itself or on an ' +
+      'element around it; what design.words.content marks is content, never a part and never untagged, ' +
+      'and a screen with neither finding says parts: all listed. parts --check <ref> reads what the ' +
+      'branch changed since its merge base with <ref>, design.ignore dropped: parts changed: names each ' +
+      'part whose Code paths a change matches, and off-list: names each component file (.tsx, .jsx, ' +
+      '.vue, .svelte or .astro) the diff adds under design.paths that no part names and no screen ' +
+      'implements; it prints parts: unknown when the ref does not read or design.paths is empty, and ' +
+      'never guesses. Both exit 0 whatever they find.',
   },
   {
     name: 'e2e',
@@ -1652,7 +1673,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'edit first reads the craft floor. review is the bounded auto-review /omni:do-work and ' +
       '/omni:visual-fix follow on UI work: critique, audit, the design lint (commands.design, when ' +
       'set), screenshots at the form\'s widths (390 and 1440 by default) beside the mockup, then one ' +
-      'batch of polish and one confirming look. Fixes stay inside the slice\'s territory; what it ' +
+      'batch of polish and one confirming look; with a DESIGN.md, up to three rounds of looking and ' +
+      'fixing, and the parts check. Fixes stay inside the slice\'s territory; what it ' +
       'leaves becomes an outbox item. It never blocks a slice, a wave or a gate.',
     group: 'everyday',
     when: 'Use it when a screen should look and read like your product, before or after it is built.',

@@ -284,3 +284,131 @@ describe('omni check all', () => {
     expect(s.out.join('')).toContain('the locked screen "quote-editor" changed without an amendment');
   });
 });
+
+describe('omni check design — drift between DESIGN.md, the code and the library (PRD 1559)', () => {
+  const DRIFT_CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\ndesign:\n  enabled: true\n  paths: [src/ui/, "src/pages/**"]\n';
+
+  const system = ({ code = 'src/ui/button.tsx', token = '{colors.primary}', reference = 'quote-list' } = {}) =>
+    [
+      '---',
+      'colors:',
+      '  blue-600: "#2563eb"',
+      '  primary: "{colors.blue-600}"',
+      '---',
+      '',
+      '## Components',
+      '',
+      '### Button',
+      '',
+      '- **Summary:** the one way to start an action.',
+      `- **Tokens:** ${token}`,
+      `- **Code:** ${code}, src/ui/icons/`,
+      '',
+      '## Reference screens',
+      '',
+      `- \`${reference}\` — a list with its empty, loading and error states`,
+      '',
+    ].join('\n');
+
+  const shared = '---\nscreen: app-shell\nkind: shared\nstatus: draft\nimplements: [src/ui/shell.tsx]\nroutes: []\n---\n\n## Purpose\n\nThe frame.\n';
+  const list = '---\nscreen: quote-list\nstatus: draft\nimplements: [src/pages/quotes.tsx]\nroutes: [/quotes]\n---\n\n## Purpose\n\nLists.\n';
+
+  /** A repository whose DESIGN.md, code and library agree. */
+  function cleanRepo(files: Record<string, string> = {}) {
+    return makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': DRIFT_CONFIG,
+        'DESIGN.md': system(),
+        'src/ui/button.tsx': 'export const Button = 1;\n',
+        'src/ui/icons/check.tsx': 'export const Check = 1;\n',
+        'src/ui/button.test.tsx': 'test\n',
+        'src/ui/tokens.ts': 'export const tokens = {};\n',
+        'src/ui/shell.tsx': 'export const Shell = 1;\n',
+        'src/ui/node_modules/x/y.tsx': 'not ours\n',
+        'src/pages/quotes.tsx': 'export const Quotes = 1;\n',
+        'src/other/menu.tsx': 'outside design.paths\n',
+        [`${DIR}/app-shell.md`]: shared,
+        [`${DIR}/quote-list.md`]: list,
+        ...files,
+      },
+    });
+  }
+
+  it('warns on nothing for a clean repository, a shared screen’s files included', async () => {
+    const { root } = cleanRepo();
+    expect(await checkDesign(root, [])).toMatchObject({ code: 0, err: '' });
+  });
+
+  it('warns on a part whose code path is gone, and stays green', async () => {
+    const { root, write } = cleanRepo();
+    write('DESIGN.md', system({ code: 'src/ui/old-button.tsx' }));
+    const { code, err } = await checkDesign(root, []);
+    expect(code).toBe(0);
+    expect(err).toContain('warning: DESIGN.md: part Button: its code path src/ui/old-button.tsx is gone');
+  });
+
+  it('warns on a component file under design.paths that no part names and no screen implements', async () => {
+    const { root, write } = cleanRepo();
+    write('src/ui/card.tsx', 'export const Card = 1;\n');
+    write('src/pages/nested/badge.vue', '<template/>\n');
+    const { code, err } = await checkDesign(root, []);
+    expect(code).toBe(0);
+    expect(err).toContain('warning: DESIGN.md: src/ui/card.tsx is a component file no part names and no screen implements');
+    expect(err).toContain('warning: DESIGN.md: src/pages/nested/badge.vue is a component file no part names and no screen implements');
+    for (const quiet of ['tokens.ts', 'button.test.tsx', 'node_modules', 'menu.tsx', 'button.tsx is', 'check.tsx', 'shell.tsx']) expect(err).not.toContain(quiet);
+  });
+
+  it('reads a design.paths entry that names one file, and a Code path that is a glob', async () => {
+    const { root, write } = cleanRepo({ 'src/app.tsx': 'x\n', 'src/ui/forms/field.tsx': 'x\n' });
+    write('.omni-loop/config.yml', DRIFT_CONFIG.replace('paths: [', 'paths: [src/app.tsx, '));
+    write('DESIGN.md', system({ code: '`src/ui/forms/*.tsx`, src/ui/button.tsx, `src/ui/gone/*.tsx`' }));
+    const { err } = await checkDesign(root, []);
+    expect(err).toContain('warning: DESIGN.md: src/app.tsx is a component file');
+    expect(err).toContain('part Button: its code path src/ui/gone/*.tsx is gone');
+    expect(err).not.toContain('field.tsx');
+    expect(err).not.toContain('src/ui/forms/*.tsx is gone');
+  });
+
+  it('warns on a token reference that does not resolve', async () => {
+    const { root, write } = cleanRepo();
+    write('DESIGN.md', system({ token: '{colors.accent}' }));
+    const { code, err } = await checkDesign(root, []);
+    expect(code).toBe(0);
+    expect(err).toContain('warning: DESIGN.md: unresolved reference {colors.accent} in part Button');
+  });
+
+  it('warns on a reference screen the library does not hold', async () => {
+    const { root, write } = cleanRepo();
+    write('DESIGN.md', system({ reference: 'quote-board' }));
+    const { code, err } = await checkDesign(root, []);
+    expect(code).toBe(0);
+    expect(err).toContain(`warning: DESIGN.md: the reference screen "quote-board" is not in the library (${DIR}/)`);
+  });
+
+  it('reads DESIGN.md where design.system points', async () => {
+    const { root, write } = cleanRepo();
+    rmSync(join(root, 'DESIGN.md'));
+    write('.omni-loop/config.yml', DRIFT_CONFIG.replace('  paths:', '  system: docs/DESIGN.md\n  paths:'));
+    write('docs/DESIGN.md', system({ code: 'src/ui/gone.tsx' }));
+    const { err } = await checkDesign(root, []);
+    expect(err).toContain('warning: docs/DESIGN.md: part Button: its code path src/ui/gone.tsx is gone');
+  });
+
+  it('says nothing about drift without a DESIGN.md, nor with design off', async () => {
+    const without = cleanRepo({ 'src/ui/card.tsx': 'x\n' });
+    rmSync(join(without.root, 'DESIGN.md'));
+    expect(await checkDesign(without.root, [])).toMatchObject({ code: 0, err: '' });
+    const off = cleanRepo({ 'src/ui/card.tsx': 'x\n' });
+    off.write('.omni-loop/config.yml', DRIFT_CONFIG.replace('enabled: true', 'enabled: false'));
+    expect(await checkDesign(off.root, [])).toMatchObject({ code: 0, err: '' });
+  });
+
+  it('keeps a violation red beside its drift warnings', async () => {
+    const { root, write } = cleanRepo({ 'src/ui/card.tsx': 'x\n' });
+    write(`${DIR}/old.md`, screen({ name: 'old', status: 'superseded' }));
+    const { code, err } = await checkDesign(root, []);
+    expect(code).toBe(1);
+    expect(err).toContain('src/ui/card.tsx is a component file');
+  });
+});

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Booking form mockup</title>
+<style>  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); }
+  :root { --font-head: "Source Serif 4", Georgia, "Times New Roman", serif; --head-weight: 600; --font-body: "IBM Plex Sans", system-ui, sans-serif; --font-data: "IBM Plex Mono", ui-monospace, Menlo, monospace; --data-weight: 500; --radius: 2px; --radius-lg: 4px; --control-h: 40px; --pad-x: 14px; --body-size: 15px; --border: 1px; --label-case: none; --label-track: 0; --gap: 12px; --ground: #faf8f2; --surface: #ffffff; --sunk: #f2eee2; --line: #e4dcc8; --line-strong: #737b8c; --ink: #13213b; --muted: #4a5263; --primary: #253f78; --primary-hover: #1c3159; --primary-active: #13213b; --on-primary: #ffffff; --primary-soft: #e4eaf8; --focus: #9b1b5a; --link: #30529b; --success: #1d6a39; --on-success: #ffffff; --success-soft: #e2f2e6; --warning: #8a5700; --on-warning: #ffffff; --warning-soft: #fbefd2; --error: #b0241b; --on-error: #ffffff; --error-soft: #fbe2de; --info: #30529b; --on-info: #ffffff; --info-soft: #e4eaf8; --disabled: #e4dcc8; --on-disabled: #4a5263; --selection: #c9d6f1; --scrim: #0b1424; }
+  .mock-note { max-width: 960px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--muted); }
+  .mock-note b { color: var(--ink); }
+
+  .x { color: var(--ink); background: var(--ground); font: var(--body-size)/1.5 var(--font-body); }
+  .x ::selection { background: var(--selection); color: var(--ink); }
+  .x :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .x h1, .x h2, .x h3 { font-family: var(--font-head); font-weight: var(--head-weight); color: var(--ink); margin: 0; }
+  .x h1 { font-size: 28px; line-height: 1.15; }
+  .x h3 { font-size: 15px; }
+  .x .data { font-family: var(--font-data); font-weight: var(--data-weight); font-variant-numeric: tabular-nums; }
+  .x .muted { color: var(--muted); }
+  .x a { color: var(--link); text-underline-offset: 3px; }
+
+  /* Button: primary, secondary, quiet. */
+  .btn { display: inline-flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 0 var(--pad-x);
+    border: var(--border) solid transparent; border-radius: var(--radius); font: 600 var(--body-size)/1 var(--font-body);
+    text-transform: var(--label-case); letter-spacing: var(--label-track); cursor: pointer; }
+  .btn-primary { background: var(--primary); color: var(--on-primary); }
+  .btn-primary.is-hover { background: var(--primary-hover); }
+  .btn-primary.is-active { background: var(--primary-active); }
+  .btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+  .btn-secondary.is-hover { background: var(--sunk); }
+  .btn-secondary.is-active { background: var(--primary-soft); }
+  .btn-quiet { background: transparent; color: var(--link); }
+  .btn-quiet.is-hover { background: var(--sunk); }
+  .btn-quiet.is-active { background: var(--primary-soft); }
+  .btn.is-focus { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .btn:disabled { background: var(--disabled); color: var(--on-disabled); border-color: transparent; cursor: not-allowed; }
+  .btn .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; }
+
+  /* Text field and select. */
+  .field { display: grid; gap: 6px; font-size: 14px; color: var(--ink); }
+  .field > span:first-child { font-weight: 600; }
+  .field input, .field select { min-height: var(--control-h); padding: 0 12px; border: var(--border) solid var(--line-strong);
+    border-radius: var(--radius); background: var(--surface); color: var(--ink); font: var(--body-size)/1.2 var(--font-body); min-width: 0; }
+  .field.is-focus input, .field.is-focus select { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .field.is-error input { border-color: var(--error); background: var(--error-soft); }
+  .field .err { color: var(--error); font-weight: 600; }
+  .field input:disabled, .field select:disabled { background: var(--disabled); color: var(--on-disabled); border-color: var(--line); }
+
+  /* Checkbox. */
+  .check { display: inline-flex; align-items: center; gap: 8px; min-height: var(--control-h); color: var(--ink); }
+  .check input { width: 20px; height: 20px; accent-color: var(--primary); margin: 0; }
+  .check.is-focus input { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .check input:disabled + span { color: var(--on-disabled); }
+
+  /* Status badge. */
+  .badge { display: inline-block; padding: 3px 8px; border-radius: var(--radius); font: 600 13px/1.2 var(--font-body);
+    text-transform: var(--label-case); letter-spacing: var(--label-track); }
+  .badge-free { background: var(--success-soft); color: var(--success); }
+  .badge-booked { background: var(--info-soft); color: var(--info); }
+  .badge-held { background: var(--warning-soft); color: var(--warning); }
+  .badge-out { background: var(--sunk); color: var(--muted); }
+
+  /* Tabs. */
+  .tabs { display: flex; gap: 4px; border-bottom: var(--border) solid var(--line); }
+  .tab { padding: 10px 12px; color: var(--muted); text-decoration: none; font-weight: 600; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .tab[aria-current='page'] { color: var(--ink); border-bottom-color: var(--primary); }
+  .tab.is-hover { color: var(--ink); background: var(--sunk); }
+
+  /* Notice. */
+  .notice { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--radius-lg); border: var(--border) solid; font-size: 14px; }
+  .notice-info { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+  .notice-success { background: var(--success-soft); color: var(--success); border-color: var(--success); }
+  .notice-warning { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
+  .notice-error { background: var(--error-soft); color: var(--error); border-color: var(--error); }
+  .notice b { font-weight: 700; }
+
+  /* Berth table. */
+  .table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 14px; }
+  .table th { text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 600; border-bottom: var(--border) solid var(--line-strong);
+    text-transform: var(--label-case); letter-spacing: var(--label-track); }
+  .table td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .table tr.is-selected td { background: var(--primary-soft); }
+  .table .num { text-align: right; }
+  .bone { display: block; height: 10px; border-radius: var(--radius); background: var(--sunk); }
+
+  /* The app's top bar (structure, drawn here only to set the screens). */
+  .bar { display: flex; align-items: center; gap: 20px; padding: 0 16px; background: var(--surface); border-bottom: var(--border) solid var(--line); flex-wrap: wrap; }
+  .brand { font: var(--head-weight) 18px/1 var(--font-head); color: var(--ink); padding: 14px 0; }
+  .page { display: grid; gap: var(--gap); padding: 20px 16px; }
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+  .filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+  .form { display: grid; gap: var(--gap); max-width: 560px; }
+  .row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--gap); }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>Book a berth at /book, with one field in error, theme light.</b> Drawn by /omni:pixel-perfect mock from DESIGN.md (starter A, Chart room), from its parts and semantic tokens only: nothing is built yet, so the screen has no implements. Faces are named first and not loaded. Boats, berths, times and the phone number are example data.</p>
+<div class="x" data-screen="booking-form">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#" aria-current="page">Bookings</a></nav></header>
+  <main class="page">
+    <h1>Book a berth</h1>
+    <div class="notice notice-info" data-part="notice"><b class="data" data-content>B12 · Fri 14:00 to Sun 11:00</b></div>
+    <form class="form">
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Boat name</span><input value="Saltire"></label>
+        <label class="field is-error" data-part="text-field"><span>Length overall (m)</span><input value="13.4" aria-invalid="true"><span class="err">B12 takes up to 12 m.</span></label>
+      </div>
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Arrive</span><input class="data" value="Fri 12 Jun 14:00"></label>
+        <label class="field" data-part="text-field"><span>Leave</span><input class="data" value="Sun 14 Jun 11:00"></label>
+      </div>
+      <label class="field" data-part="text-field"><span>Phone</span><input type="tel" value="+44 7700 900123"></label>
+      <label class="check" data-part="checkbox"><input type="checkbox" checked><span>Shore power</span></label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" data-part="button" data-primary>Book berth B12</button>
+        <button type="button" class="btn btn-quiet" data-part="button">Cancel</button>
+      </div>
+    </form>
+  </main>
+</div>
+<p class="mock-note">Not drawn here: the form empty, the booking sent, and the dark theme.</p>
+</body>
+</html>

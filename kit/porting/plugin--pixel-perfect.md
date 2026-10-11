@@ -213,3 +213,51 @@ review's stale-mockup note, and lock's rule.
 ### Tests
 
 `kit/test/design-skills.test.ts`.
+
+## PRD #1559, slices s4 to s6 — the design system in DESIGN.md
+
+- **`init`** (s4), a kit command, not imported, in `init.md` **beside `SKILL.md`**, as `mock.md`
+  is: the plan names `reference/init.md`, but `kit/test/plugin.test.ts`, a law's proof, holds the
+  `reference/` folder to its exact list of commands (outbox item `s4-01-init-beside-skill`,
+  adopted). Typed by a person, never followed by a skill; with design off, the one `design: off`
+  line. It reads `design.system` for the path and `omni design parts` for what is there, then takes
+  one of two paths: **Reading** a design system the repository has (tokens, theme files, component
+  folders, Storybook, a shadcn `components.json`, Figma links) into DESIGN.md, each entry naming its
+  file, a `TODO(human)` where the files are silent, a tool linked never copied; or **Starters**, for
+  a repository with none: questions about the product, then two or three full directions on one
+  self-contained page in the scratchpad, each checked against the craft floor's refuse list and the
+  word pass before it is shown, the person picking or asking for another round. Either way it
+  writes DESIGN.md in Google's format (the token groups, the prose sections in the format's order,
+  Components as a closed list of `###` parts, Reference screens), its reference screens as draft
+  library screens whose mockups `mock` draws, and the form's System slot as `See: <design.system>`
+  (never over a `by: human` slot), then opens one docs-only pull request on `branches.knowledge`.
+  A DESIGN.md already there in another shape is kept, its missing sections proposed. It never
+  locks and never writes code. The input table, the command table and the description name it.
+- **`reference/review.md`** (s5): its **Bounded** line becomes, with a DESIGN.md, at most three
+  rounds; without one it stays one look, one batch and one confirming look (outbox item
+  `s5-01-one-look-without-design-md`, adopted). **The system**, read before step 0, runs
+  `omni config design.system` and `omni design parts` and reads the reference screen. **Rounds**:
+  screenshot at the form's widths, critique against DESIGN.md and the reference screen's mockup,
+  one batch of fixes inside the territory; it stops on a clean round or after round three; each
+  round fixes only what the diff changed, a fault in an untouched part staying under **Seen, not
+  touched** in every round; no browser is `— Screens: not seen here`. **The parts check** runs
+  `omni design parts --check <base>` after the last round: one medium outbox item per off-list
+  part, never one for several and never a block, with the DESIGN.md entry it would add in
+  `decide`; `parts: unknown` is said as it is. The report gains the `Rounds — <n> of 3` and
+  `Parts — …` lines, or `— Parts: no DESIGN.md (run /omni:pixel-perfect init)` without one.
+- **`mock.md`** (s6): with a DESIGN.md, step 4's **The parts** draws the mockup only from listed
+  parts and semantic tokens, each part tagged `data-part`, and step 5 runs
+  `omni design parts --check` beside the word pass, fixing every `untagged:` finding; an
+  `off-list:` part stays only when the design needs one, named outside the marked screen.
+  **Standing in** takes the faces from DESIGN.md's `typography` tokens. Without a DESIGN.md it
+  draws as before. The report adds the parts check beside the word pass.
+- **Left as it was:** the skill's description still calls `review` "one look, one batch of fixes,
+  one confirming look", true without a DESIGN.md; `omni help pixel-perfect` (`kit/lib/help/`) names
+  the rounds and the parts check since the wave's own help commit.
+
+### Tests
+
+`kit/test/design-init.test.ts` (`init`, the form's `See:` line, invade's `init` line),
+`kit/lib/playbook/design.test.ts` (the System slot's comment), `kit/test/design-review-rounds.test.ts`
+(the rounds and the parts check) and `kit/test/design-mockup-parts.test.ts` (`mock` drawing from the
+list): each in a file of its own, never in `kit/test/plugin.test.ts`, a law's proof.

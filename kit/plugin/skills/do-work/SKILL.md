@@ -88,6 +88,15 @@ never overrides this skill's rules.
    written: its **Regions**, **States**, **Words** and **Refusals** and its mockup are that screen's
    spec, and it is never redesigned. A draft is a starting point. A change the spec asks of a
    locked screen or law is step 3's **A change to a locked screen or law**.
+7. **The design system,** under the same condition as item 6, before the first line of the slice is
+   written. Run `node .omni-loop/bin/omni.mjs design parts` (it always exits 0). When it prints
+   `parts: no DESIGN.md (run /omni:pixel-perfect init)`, nothing more is read: the slice builds as
+   item 6 says. Otherwise read DESIGN.md (the file `node .omni-loop/bin/omni.mjs config design.system`
+   names) in full: its semantic tokens, its closed list of parts with their variants, states and
+   code paths, its Do's and Don'ts. Then read the reference screen the plan names on the slice's
+   done-when (`Reference screen:`), or, when it names none, the one of DESIGN.md's reference screens
+   nearest what the slice builds: its file and its mockup, in the library folder item 6 names. The
+   parts the plan names (`Parts:`) are the ones the slice builds from.
 
 The slice branch is `branches.slice` filled with the feature branch's topic and the slice id.
 Never work on the default branch or on the feature branch.
@@ -127,6 +136,10 @@ building, commit and push work in progress at least every half of
   from the repository root: that is not a change outside the territory, and no decision. Never stage
   or commit a path under a generated entry's `path`, in a work-in-progress commit or any other: the
   wave rebuilds it once after merging (step 5, item 1, drops what you rebuilt).
+- **Build from the list,** with a DESIGN.md (step 1, item 7): a screen is built from listed parts
+  and semantic tokens, each part through its `Code` paths, never a hex value or a one-off component.
+  A part the screen needs and the list lacks is proposed, never invented: build it inside the
+  territory, and step 4's parts check raises it as a question.
 - **Follow local patterns;** let abstractions earn their keep. Narrow, behavioural seams; small
   ports over broad clients; one responsibility per module.
 - **Reviewable commits:** one coherent change each, no unrelated formatting, each ending with the
@@ -262,6 +275,13 @@ reviewable commits (step 2) and run the tests again at **Point `do-work.test`** 
 
 The review reads the same check's `screens:` line (the library screens the diff touches, their
 status and routes): it screenshots those routes and compares a locked screen with its mockup.
+
+With a DESIGN.md, the review looks in up to three rounds, each holding only on what the diff
+changed, and then runs the parts check on the slice's diff, as `reference/review.md` says. It
+raises one medium item per off-list part the diff adds, through step 3 ("add `<part>` to
+DESIGN.md?", with the entry it would add, `hardToRevert`, `breaksNamedLaw` and `needsHumanAction`
+all false): never a stop, never a block. The section then carries the `Rounds — <n> of 3` and
+`Parts — …` lines.
 
 **It never fails the slice, the wave or the gate.** No finding turns a check red, holds the
 preflight or leaves the sub-PR draft, and a finding is never the **stop** or the **blocked**

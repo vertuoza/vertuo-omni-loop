@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Berthline: three starter directions</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #ffffff; color: #1b1b1f; font: 15px/1.55 system-ui, sans-serif; }
+  .intro, .dir-head, .explain { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  .intro h1 { font-size: 26px; margin: 0 0 8px; }
+  .dir { border-top: 6px solid #1b1b1f; padding: 8px 0 32px; }
+  .dir-head h2 { font-size: 22px; margin: 0 0 6px; }
+  .grid { max-width: 1180px; margin: 0 auto; padding: 0 16px; display: grid; gap: 16px; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; font: 12px/1.3 ui-monospace, Menlo, monospace; }
+  .sw { display: grid; grid-template-columns: 28px 28px 1fr; gap: 6px; align-items: center; }
+  .sw i { display: block; height: 22px; border: 1px solid #0003; }
+  .sheet { padding: 16px; display: grid; gap: 14px; }
+  .sheet-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: center; }
+  .sheet-row > div { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 16px; }
+  .frame { border: 1px solid #0002; overflow: hidden; }
+  .cap { font: 12px/1.4 system-ui, sans-serif; color: #55565c; margin: 4px 0 0; }
+  .checks { font-size: 14px; }
+  @media (max-width: 600px) { .sheet-row { grid-template-columns: 1fr; } .screens { grid-template-columns: 1fr; } }
+
+  .x { color: var(--ink); background: var(--ground); font: var(--body-size)/1.5 var(--font-body); }
+  .x ::selection { background: var(--selection); color: var(--ink); }
+  .x :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .x h1, .x h2, .x h3 { font-family: var(--font-head); font-weight: var(--head-weight); color: var(--ink); margin: 0; }
+  .x h1 { font-size: 28px; line-height: 1.15; }
+  .x h3 { font-size: 15px; }
+  .x .data { font-family: var(--font-data); font-weight: var(--data-weight); font-variant-numeric: tabular-nums; }
+  .x .muted { color: var(--muted); }
+  .x a { color: var(--link); text-underline-offset: 3px; }
+
+  /* Button: primary, secondary, quiet. */
+  .btn { display: inline-flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 0 var(--pad-x);
+    border: var(--border) solid transparent; border-radius: var(--radius); font: 600 var(--body-size)/1 var(--font-body);
+    text-transform: var(--label-case); letter-spacing: var(--label-track); cursor: pointer; }
+  .btn-primary { background: var(--primary); color: var(--on-primary); }
+  .btn-primary.is-hover { background: var(--primary-hover); }
+  .btn-primary.is-active { background: var(--primary-active); }
+  .btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+  .btn-secondary.is-hover { background: var(--sunk); }
+  .btn-secondary.is-active { background: var(--primary-soft); }
+  .btn-quiet { background: transparent; color: var(--link); }
+  .btn-quiet.is-hover { background: var(--sunk); }
+  .btn-quiet.is-active { background: var(--primary-soft); }
+  .btn.is-focus { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .btn:disabled { background: var(--disabled); color: var(--on-disabled); border-color: transparent; cursor: not-allowed; }
+  .btn .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; }
+
+  /* Text field and select. */
+  .field { display: grid; gap: 6px; font-size: 14px; color: var(--ink); }
+  .field > span:first-child { font-weight: 600; }
+  .field input, .field select { min-height: var(--control-h); padding: 0 12px; border: var(--border) solid var(--line-strong);
+    border-radius: var(--radius); background: var(--surface); color: var(--ink); font: var(--body-size)/1.2 var(--font-body); min-width: 0; }
+  .field.is-focus input, .field.is-focus select { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .field.is-error input { border-color: var(--error); background: var(--error-soft); }
+  .field .err { color: var(--error); font-weight: 600; }
+  .field input:disabled, .field select:disabled { background: var(--disabled); color: var(--on-disabled); border-color: var(--line); }
+
+  /* Checkbox. */
+  .check { display: inline-flex; align-items: center; gap: 8px; min-height: var(--control-h); color: var(--ink); }
+  .check input { width: 20px; height: 20px; accent-color: var(--primary); margin: 0; }
+  .check.is-focus input { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .check input:disabled + span { color: var(--on-disabled); }
+
+  /* Status badge. */
+  .badge { display: inline-block; padding: 3px 8px; border-radius: var(--radius); font: 600 13px/1.2 var(--font-body);
+    text-transform: var(--label-case); letter-spacing: var(--label-track); }
+  .badge-free { background: var(--success-soft); color: var(--success); }
+  .badge-booked { background: var(--info-soft); color: var(--info); }
+  .badge-held { background: var(--warning-soft); color: var(--warning); }
+  .badge-out { background: var(--sunk); color: var(--muted); }
+
+  /* Tabs. */
+  .tabs { display: flex; gap: 4px; border-bottom: var(--border) solid var(--line); }
+  .tab { padding: 10px 12px; color: var(--muted); text-decoration: none; font-weight: 600; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .tab[aria-current='page'] { color: var(--ink); border-bottom-color: var(--primary); }
+  .tab.is-hover { color: var(--ink); background: var(--sunk); }
+
+  /* Notice. */
+  .notice { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--radius-lg); border: var(--border) solid; font-size: 14px; }
+  .notice-info { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+  .notice-success { background: var(--success-soft); color: var(--success); border-color: var(--success); }
+  .notice-warning { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
+  .notice-error { background: var(--error-soft); color: var(--error); border-color: var(--error); }
+  .notice b { font-weight: 700; }
+
+  /* Berth table. */
+  .table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 14px; }
+  .table th { text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 600; border-bottom: var(--border) solid var(--line-strong);
+    text-transform: var(--label-case); letter-spacing: var(--label-track); }
+  .table td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .table tr.is-selected td { background: var(--primary-soft); }
+  .table .num { text-align: right; }
+  .bone { display: block; height: 10px; border-radius: var(--radius); background: var(--sunk); }
+
+  /* The app's top bar (structure, drawn here only to set the screens). */
+  .bar { display: flex; align-items: center; gap: 20px; padding: 0 16px; background: var(--surface); border-bottom: var(--border) solid var(--line); flex-wrap: wrap; }
+  .brand { font: var(--head-weight) 18px/1 var(--font-head); color: var(--ink); padding: 14px 0; }
+  .page { display: grid; gap: var(--gap); padding: 20px 16px; }
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+  .filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+  .form { display: grid; gap: var(--gap); max-width: 560px; }
+  .row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--gap); }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dir-a .x { --font-head: "Source Serif 4", Georgia, "Times New Roman", serif; --head-weight: 600; --font-body: "IBM Plex Sans", system-ui, sans-serif; --font-data: "IBM Plex Mono", ui-monospace, Menlo, monospace; --data-weight: 500; --radius: 2px; --radius-lg: 4px; --control-h: 40px; --pad-x: 14px; --body-size: 15px; --border: 1px; --label-case: none; --label-track: 0; --gap: 12px; --ground: #faf8f2; --surface: #ffffff; --sunk: #f2eee2; --line: #e4dcc8; --line-strong: #737b8c; --ink: #13213b; --muted: #4a5263; --primary: #253f78; --primary-hover: #1c3159; --primary-active: #13213b; --on-primary: #ffffff; --primary-soft: #e4eaf8; --focus: #9b1b5a; --link: #30529b; --success: #1d6a39; --on-success: #ffffff; --success-soft: #e2f2e6; --warning: #8a5700; --on-warning: #ffffff; --warning-soft: #fbefd2; --error: #b0241b; --on-error: #ffffff; --error-soft: #fbe2de; --info: #30529b; --on-info: #ffffff; --info-soft: #e4eaf8; --disabled: #e4dcc8; --on-disabled: #4a5263; --selection: #c9d6f1; --scrim: #0b1424; }
+  .dir-a .theme-dark .x { --ground: #0a0f1a; --surface: #121a2a; --sunk: #060a12; --line: #1c2639; --line-strong: #5c6882; --ink: #e3e8f2; --muted: #9ba5b9; --primary: #9db4e6; --primary-hover: #c9d6f1; --primary-active: #e4eaf8; --on-primary: #0b1424; --primary-soft: #1e2c49; --focus: #f08cbf; --link: #9db4e6; --success: #86d6a0; --on-success: #060a12; --success-soft: #10301b; --warning: #f2c46b; --on-warning: #060a12; --warning-soft: #33270a; --error: #ff9d92; --on-error: #060a12; --error-soft: #3a1714; --info: #9db4e6; --on-info: #060a12; --info-soft: #1e2c49; --disabled: #1c2639; --on-disabled: #9ba5b9; --selection: #1e2c49; --scrim: #060a12; }
+  .dir-b .x { --font-head: "Archivo Narrow", "Arial Narrow", system-ui, sans-serif; --head-weight: 700; --font-body: Archivo, system-ui, sans-serif; --font-data: "Archivo Narrow", "Arial Narrow", system-ui, sans-serif; --data-weight: 700; --radius: 0px; --radius-lg: 0px; --control-h: 52px; --pad-x: 18px; --body-size: 17px; --border: 2px; --label-case: uppercase; --label-track: 0.04em; --gap: 16px; --ground: #ffffff; --surface: #ffffff; --sunk: #f1f1f1; --line: #c9c9c9; --line-strong: #0a0a0a; --ink: #0a0a0a; --muted: #5c5c5c; --primary: #ffd400; --primary-hover: #ffe04d; --primary-active: #e6bf00; --on-primary: #0a0a0a; --primary-soft: #fff6c2; --focus: #0b4fb3; --link: #0b4fb3; --success: #11692f; --on-success: #ffffff; --success-soft: #dff5e5; --warning: #a3420a; --on-warning: #ffffff; --warning-soft: #ffe8d9; --error: #b3121f; --on-error: #ffffff; --error-soft: #ffe0e0; --info: #0b4fb3; --on-info: #ffffff; --info-soft: #e1ecff; --disabled: #f1f1f1; --on-disabled: #5c5c5c; --selection: #fff6c2; --scrim: #0a0a0a; }
+  .dir-b .theme-dark .x { --ground: #000000; --surface: #141414; --sunk: #262626; --line: #262626; --line-strong: #e5e5e5; --ink: #ffffff; --muted: #969696; --primary: #ffd400; --primary-hover: #ffe04d; --primary-active: #e6bf00; --on-primary: #0a0a0a; --primary-soft: #332b00; --focus: #8ab8ff; --link: #8ab8ff; --success: #6fe08f; --on-success: #0a0a0a; --success-soft: #0c2a15; --warning: #ffaa70; --on-warning: #0a0a0a; --warning-soft: #3a1c08; --error: #ff8b8b; --on-error: #0a0a0a; --error-soft: #3a0a0e; --info: #8ab8ff; --on-info: #0a0a0a; --info-soft: #0d2347; --disabled: #262626; --on-disabled: #969696; --selection: #332b00; --scrim: #000000; }
+  .dir-c .x { --font-head: "Source Sans 3", system-ui, sans-serif; --head-weight: 600; --font-body: "Source Sans 3", system-ui, sans-serif; --font-data: "Source Sans 3", system-ui, sans-serif; --data-weight: 600; --radius: 8px; --radius-lg: 12px; --control-h: 44px; --pad-x: 16px; --body-size: 16px; --border: 1px; --label-case: none; --label-track: 0; --gap: 16px; --ground: #f3f6f6; --surface: #ffffff; --sunk: #e7eeee; --line: #d3dede; --line-strong: #6d8183; --ink: #10292b; --muted: #40595b; --primary: #0e6359; --primary-hover: #0a5149; --primary-active: #10292b; --on-primary: #ffffff; --primary-soft: #dff3ef; --focus: #1f5aa6; --link: #1f5aa6; --success: #127468; --on-success: #ffffff; --success-soft: #dff3ef; --warning: #875400; --on-warning: #ffffff; --warning-soft: #fbefd6; --error: #ad2a2a; --on-error: #ffffff; --error-soft: #fbe3e3; --info: #1f5aa6; --on-info: #ffffff; --info-soft: #e2edfb; --disabled: #e7eeee; --on-disabled: #40595b; --selection: #b2e6dd; --scrim: #10292b; }
+  .dir-c .theme-dark .x { --ground: #0c1a1b; --surface: #132627; --sunk: #071214; --line: #1d3435; --line-strong: #5f7b7e; --ink: #e1ecec; --muted: #9fb6b8; --primary: #7fd1c4; --primary-hover: #b2e6dd; --primary-active: #dff3ef; --on-primary: #071214; --primary-soft: #0f2e2a; --focus: #9cc2f2; --link: #9cc2f2; --success: #7fd1c4; --on-success: #071214; --success-soft: #0f2e2a; --warning: #f0c36a; --on-warning: #071214; --warning-soft: #302207; --error: #ff9e9e; --on-error: #071214; --error-soft: #361515; --info: #9cc2f2; --on-info: #071214; --info-soft: #13253d; --disabled: #1d3435; --on-disabled: #9fb6b8; --selection: #0f2e2a; --scrim: #071214; }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>Berthline: three starter directions</h1>
+  <p>/omni:pixel-perfect init, starter path, on a repository with no design system. Each direction is a full set: 30 semantic tokens in light and dark, eight parts in every state, and the two reference screens built only from them. The product's answers come from its README and design form: the harbourmaster at a desk by the window, skippers on a phone in full sun or at dusk, a shipping-forecast voice. Faces are named first in each font-family and not loaded: the browser's fallbacks stand in. Example data throughout.</p>
+</div>
+<section class="dir dir-a" aria-labelledby="h-a">
+  <div class="dir-head">
+    <h2 id="h-a">A · Chart room</h2>
+    <p>An Admiralty chart on the desk: chart paper, navy ink, chart magenta for focus, a serif for titles and figures set like a tide table. Dense enough for the harbourmaster's whole pontoon at once, and dark ink on paper in full sun.</p>
+    <p class="cap">Drawn from: the Met Office forecast the README admires (plain, dense, read the same way by all), the desk by the window and the phone in full sun. Faces: IBM Plex Mono, IBM Plex Sans, Source Serif 4. Corners 2px, controls 40px high. 30 semantic tokens, light then dark in each pair below; every text pair passes 4.5:1 and every edge 3:1 in both.</p>
+  </div>
+  <div class="grid">
+    <div class="swatches"><span class="sw"><i style="background:#faf8f2" title="light #faf8f2"></i><i style="background:#0a0f1a" title="dark #0a0f1a"></i>ground</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#121a2a" title="dark #121a2a"></i>surface</span><span class="sw"><i style="background:#f2eee2" title="light #f2eee2"></i><i style="background:#060a12" title="dark #060a12"></i>sunk</span><span class="sw"><i style="background:#e4dcc8" title="light #e4dcc8"></i><i style="background:#1c2639" title="dark #1c2639"></i>line</span><span class="sw"><i style="background:#737b8c" title="light #737b8c"></i><i style="background:#5c6882" title="dark #5c6882"></i>line-strong</span><span class="sw"><i style="background:#13213b" title="light #13213b"></i><i style="background:#e3e8f2" title="dark #e3e8f2"></i>ink</span><span class="sw"><i style="background:#4a5263" title="light #4a5263"></i><i style="background:#9ba5b9" title="dark #9ba5b9"></i>muted</span><span class="sw"><i style="background:#253f78" title="light #253f78"></i><i style="background:#9db4e6" title="dark #9db4e6"></i>primary</span><span class="sw"><i style="background:#1c3159" title="light #1c3159"></i><i style="background:#c9d6f1" title="dark #c9d6f1"></i>primary-hover</span><span class="sw"><i style="background:#13213b" title="light #13213b"></i><i style="background:#e4eaf8" title="dark #e4eaf8"></i>primary-active</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#0b1424" title="dark #0b1424"></i>on-primary</span><span class="sw"><i style="background:#e4eaf8" title="light #e4eaf8"></i><i style="background:#1e2c49" title="dark #1e2c49"></i>primary-soft</span><span class="sw"><i style="background:#9b1b5a" title="light #9b1b5a"></i><i style="background:#f08cbf" title="dark #f08cbf"></i>focus</span><span class="sw"><i style="background:#30529b" title="light #30529b"></i><i style="background:#9db4e6" title="dark #9db4e6"></i>link</span><span class="sw"><i style="background:#1d6a39" title="light #1d6a39"></i><i style="background:#86d6a0" title="dark #86d6a0"></i>success</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#060a12" title="dark #060a12"></i>on-success</span><span class="sw"><i style="background:#e2f2e6" title="light #e2f2e6"></i><i style="background:#10301b" title="dark #10301b"></i>success-soft</span><span class="sw"><i style="background:#8a5700" title="light #8a5700"></i><i style="background:#f2c46b" title="dark #f2c46b"></i>warning</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#060a12" title="dark #060a12"></i>on-warning</span><span class="sw"><i style="background:#fbefd2" title="light #fbefd2"></i><i style="background:#33270a" title="dark #33270a"></i>warning-soft</span><span class="sw"><i style="background:#b0241b" title="light #b0241b"></i><i style="background:#ff9d92" title="dark #ff9d92"></i>error</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#060a12" title="dark #060a12"></i>on-error</span><span class="sw"><i style="background:#fbe2de" title="light #fbe2de"></i><i style="background:#3a1714" title="dark #3a1714"></i>error-soft</span><span class="sw"><i style="background:#30529b" title="light #30529b"></i><i style="background:#9db4e6" title="dark #9db4e6"></i>info</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#060a12" title="dark #060a12"></i>on-info</span><span class="sw"><i style="background:#e4eaf8" title="light #e4eaf8"></i><i style="background:#1e2c49" title="dark #1e2c49"></i>info-soft</span><span class="sw"><i style="background:#e4dcc8" title="light #e4dcc8"></i><i style="background:#1c2639" title="dark #1c2639"></i>disabled</span><span class="sw"><i style="background:#4a5263" title="light #4a5263"></i><i style="background:#9ba5b9" title="dark #9ba5b9"></i>on-disabled</span><span class="sw"><i style="background:#c9d6f1" title="light #c9d6f1"></i><i style="background:#1e2c49" title="dark #1e2c49"></i>selection</span><span class="sw"><i style="background:#0b1424" title="light #0b1424"></i><i style="background:#060a12" title="dark #060a12"></i>scrim</span></div>
+    <div class="frame"><div class="x sheet">
+  <div class="sheet-row"><h3>Button</h3><div>
+    <button type="button" class="btn btn-primary" data-part="button">Book</button>
+    <button type="button" class="btn btn-primary is-hover" data-part="button">Hover</button>
+    <button type="button" class="btn btn-primary is-focus" data-part="button">Focus</button>
+    <button type="button" class="btn btn-primary is-active" data-part="button">Active</button>
+    <button type="button" class="btn btn-primary" data-part="button" disabled>Disabled</button>
+    <button type="button" class="btn btn-primary" data-part="button" aria-busy="true"><span class="spin" aria-hidden="true"></span>Booking</button>
+  </div></div>
+  <div class="sheet-row"><h3>Secondary, quiet</h3><div>
+    <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    <button type="button" class="btn btn-secondary is-hover" data-part="button">Hover</button>
+    <button type="button" class="btn btn-secondary is-focus" data-part="button">Focus</button>
+    <button type="button" class="btn btn-secondary" data-part="button" disabled>Disabled</button>
+    <button type="button" class="btn btn-quiet" data-part="button">Cancel</button>
+    <button type="button" class="btn btn-quiet is-hover" data-part="button">Hover</button>
+  </div></div>
+  <div class="sheet-row"><h3>Text field</h3><div>
+    <label class="field" data-part="text-field"><span>Boat name</span><input value="Saltire"></label>
+    <label class="field is-focus" data-part="text-field"><span>Focus</span><input value="Puffin"></label>
+    <label class="field is-error" data-part="text-field"><span>Length (m)</span><input value="13.4"><span class="err">Up to 12 m.</span></label>
+    <label class="field" data-part="text-field"><span>Disabled</span><input value="B12" disabled></label>
+  </div></div>
+  <div class="sheet-row"><h3>Select</h3><div>
+    <label class="field" data-part="select"><span>Pontoon</span><select><option>All</option></select></label>
+    <label class="field is-focus" data-part="select"><span>Focus</span><select><option>B</option></select></label>
+    <label class="field" data-part="select"><span>Disabled</span><select disabled><option>D</option></select></label>
+  </div></div>
+  <div class="sheet-row"><h3>Checkbox</h3><div>
+    <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+    <label class="check" data-part="checkbox"><input type="checkbox" checked><span>Shore power</span></label>
+    <label class="check is-focus" data-part="checkbox"><input type="checkbox"><span>Focus</span></label>
+    <label class="check" data-part="checkbox"><input type="checkbox" disabled><span>Disabled</span></label>
+  </div></div>
+  <div class="sheet-row"><h3>Status badge</h3><div>
+    <span class="badge badge-free" data-part="status-badge">Free</span>
+    <span class="badge badge-booked" data-part="status-badge">Booked</span>
+    <span class="badge badge-held" data-part="status-badge">Held</span>
+    <span class="badge badge-out" data-part="status-badge">Out of service</span>
+  </div></div>
+  <div class="sheet-row"><h3>Tabs</h3><div>
+    <nav class="tabs" aria-label="Example" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab is-hover" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav>
+  </div></div>
+  <div class="sheet-row"><h3>Notice</h3><div>
+    <div class="notice notice-info" data-part="notice"><b>B12 held until 18:00.</b></div>
+    <div class="notice notice-success" data-part="notice"><b>B12 is booked.</b></div>
+    <div class="notice notice-warning" data-part="notice"><b>Gale warning tonight.</b></div>
+    <div class="notice notice-error" data-part="notice"><b>Payment did not go through.</b></div>
+  </div></div>
+</div></div>
+    <div class="screens">
+      <div><div class="frame"><div class="x" data-screen="a-berths">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav></header>
+  <main class="page">
+    <div class="head">
+      <div><h1>Berths</h1><p class="muted data" data-content>Fri 12 Jun · 14:20</p></div>
+      <button type="button" class="btn btn-primary" data-part="button" data-primary>Book a berth</button>
+    </div>
+    <form class="filters" data-part="select">
+      <label class="field"><span>Pontoon</span><select><option>All</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+    </form>
+    <div class="filters">
+      <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+      <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    </div>
+    <table class="table" data-part="berth-table">
+      <thead><tr><th>Berth</th><th class="num">Length</th><th>Status</th><th>Boat</th><th>Until</th></tr></thead>
+      <tbody><tr><td class="data">A01</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Kittiwake</td><td class="data" data-content>Sun 11:00</td></tr><tr><td class="data">A02</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-free" data-part="status-badge">Free</span></td><td data-content></td><td class="data" data-content></td></tr><tr class="is-selected"><td class="data">B12</td><td class="data num" data-content>12.0 m</td><td><span class="badge badge-held" data-part="status-badge">Held</span></td><td data-content>Saltire</td><td class="data" data-content>Fri 18:00</td></tr><tr><td class="data">C07</td><td class="data num" data-content>10.5 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Puffin II</td><td class="data" data-content>Mon 09:00</td></tr><tr><td class="data">D04</td><td class="data num" data-content>15.0 m</td><td><span class="badge badge-out" data-part="status-badge">Out of service</span></td><td data-content></td><td class="data" data-content></td></tr></tbody>
+    </table>
+  </main>
+</div></div><p class="cap">Berths, light: a list.</p></div>
+      <div><div class="frame"><div class="x" data-screen="a-booking-form">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#" aria-current="page">Bookings</a></nav></header>
+  <main class="page">
+    <h1>Book a berth</h1>
+    <div class="notice notice-info" data-part="notice"><b class="data" data-content>B12 · Fri 14:00 to Sun 11:00</b></div>
+    <form class="form">
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Boat name</span><input value="Saltire"></label>
+        <label class="field is-error" data-part="text-field"><span>Length overall (m)</span><input value="13.4" aria-invalid="true"><span class="err">B12 takes up to 12 m.</span></label>
+      </div>
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Arrive</span><input class="data" value="Fri 12 Jun 14:00"></label>
+        <label class="field" data-part="text-field"><span>Leave</span><input class="data" value="Sun 14 Jun 11:00"></label>
+      </div>
+      <label class="field" data-part="text-field"><span>Phone</span><input type="tel" value="+44 7700 900123"></label>
+      <label class="check" data-part="checkbox"><input type="checkbox" checked><span>Shore power</span></label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" data-part="button" data-primary>Book berth B12</button>
+        <button type="button" class="btn btn-quiet" data-part="button">Cancel</button>
+      </div>
+    </form>
+  </main>
+</div></div><p class="cap">Book a berth, light: a form with an error.</p></div>
+      <div><div class="frame"><div class="x" data-screen="a-berths-states">
+  <main class="page">
+    <h3>Loading</h3>
+    <table class="table" data-part="berth-table" aria-busy="true"><thead><tr><th>Berth</th><th>Length</th><th>Status</th><th>Boat</th></tr></thead><tbody><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr></tbody></table>
+    <h3>Empty</h3>
+    <div class="notice notice-info" data-part="notice"><b>No free berth on pontoon D.</b><span><button type="button" class="btn btn-quiet" data-part="button">Show all pontoons</button></span></div>
+    <h3>Error</h3>
+    <div class="notice notice-error" data-part="notice" role="alert"><b>Berths did not load.</b><span><button type="button" class="btn btn-secondary" data-part="button">Try again</button></span></div>
+  </main>
+</div></div><p class="cap">Berths: loading, empty, error.</p></div>
+      <div><div class="frame theme-dark"><div class="x" data-screen="a-berths-dark">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav></header>
+  <main class="page">
+    <div class="head">
+      <div><h1>Berths</h1><p class="muted data" data-content>Fri 12 Jun · 14:20</p></div>
+      <button type="button" class="btn btn-primary" data-part="button" data-primary>Book a berth</button>
+    </div>
+    <form class="filters" data-part="select">
+      <label class="field"><span>Pontoon</span><select><option>All</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+    </form>
+    <div class="filters">
+      <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+      <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    </div>
+    <table class="table" data-part="berth-table">
+      <thead><tr><th>Berth</th><th class="num">Length</th><th>Status</th><th>Boat</th><th>Until</th></tr></thead>
+      <tbody><tr><td class="data">A01</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Kittiwake</td><td class="data" data-content>Sun 11:00</td></tr><tr><td class="data">A02</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-free" data-part="status-badge">Free</span></td><td data-content></td><td class="data" data-content></td></tr><tr class="is-selected"><td class="data">B12</td><td class="data num" data-content>12.0 m</td><td><span class="badge badge-held" data-part="status-badge">Held</span></td><td data-content>Saltire</td><td class="data" data-content>Fri 18:00</td></tr><tr><td class="data">C07</td><td class="data num" data-content>10.5 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Puffin II</td><td class="data" data-content>Mon 09:00</td></tr><tr><td class="data">D04</td><td class="data num" data-content>15.0 m</td><td><span class="badge badge-out" data-part="status-badge">Out of service</span></td><td data-content></td><td class="data" data-content></td></tr></tbody>
+    </table>
+  </main>
+</div></div><p class="cap">Berths, dark: at dusk.</p></div>
+    </div>
+  </div>
+</section><section class="dir dir-b" aria-labelledby="h-b">
+  <div class="dir-head">
+    <h2 id="h-b">B · Pontoon</h2>
+    <p>Built for the pontoon in glare: white and black, a signal yellow for the one action, condensed capitals and 52 px targets for wet hands. Loud on the desk too.</p>
+    <p class="cap">Drawn from: the skipper on the pontoon in full sun with wet hands. Faces: Archivo, Archivo Narrow. Corners 0px, controls 52px high. 30 semantic tokens, light then dark in each pair below; every text pair passes 4.5:1 and every edge 3:1 in both.</p>
+  </div>
+  <div class="grid">
+    <div class="swatches"><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#000000" title="dark #000000"></i>ground</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#141414" title="dark #141414"></i>surface</span><span class="sw"><i style="background:#f1f1f1" title="light #f1f1f1"></i><i style="background:#262626" title="dark #262626"></i>sunk</span><span class="sw"><i style="background:#c9c9c9" title="light #c9c9c9"></i><i style="background:#262626" title="dark #262626"></i>line</span><span class="sw"><i style="background:#0a0a0a" title="light #0a0a0a"></i><i style="background:#e5e5e5" title="dark #e5e5e5"></i>line-strong</span><span class="sw"><i style="background:#0a0a0a" title="light #0a0a0a"></i><i style="background:#ffffff" title="dark #ffffff"></i>ink</span><span class="sw"><i style="background:#5c5c5c" title="light #5c5c5c"></i><i style="background:#969696" title="dark #969696"></i>muted</span><span class="sw"><i style="background:#ffd400" title="light #ffd400"></i><i style="background:#ffd400" title="dark #ffd400"></i>primary</span><span class="sw"><i style="background:#ffe04d" title="light #ffe04d"></i><i style="background:#ffe04d" title="dark #ffe04d"></i>primary-hover</span><span class="sw"><i style="background:#e6bf00" title="light #e6bf00"></i><i style="background:#e6bf00" title="dark #e6bf00"></i>primary-active</span><span class="sw"><i style="background:#0a0a0a" title="light #0a0a0a"></i><i style="background:#0a0a0a" title="dark #0a0a0a"></i>on-primary</span><span class="sw"><i style="background:#fff6c2" title="light #fff6c2"></i><i style="background:#332b00" title="dark #332b00"></i>primary-soft</span><span class="sw"><i style="background:#0b4fb3" title="light #0b4fb3"></i><i style="background:#8ab8ff" title="dark #8ab8ff"></i>focus</span><span class="sw"><i style="background:#0b4fb3" title="light #0b4fb3"></i><i style="background:#8ab8ff" title="dark #8ab8ff"></i>link</span><span class="sw"><i style="background:#11692f" title="light #11692f"></i><i style="background:#6fe08f" title="dark #6fe08f"></i>success</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#0a0a0a" title="dark #0a0a0a"></i>on-success</span><span class="sw"><i style="background:#dff5e5" title="light #dff5e5"></i><i style="background:#0c2a15" title="dark #0c2a15"></i>success-soft</span><span class="sw"><i style="background:#a3420a" title="light #a3420a"></i><i style="background:#ffaa70" title="dark #ffaa70"></i>warning</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#0a0a0a" title="dark #0a0a0a"></i>on-warning</span><span class="sw"><i style="background:#ffe8d9" title="light #ffe8d9"></i><i style="background:#3a1c08" title="dark #3a1c08"></i>warning-soft</span><span class="sw"><i style="background:#b3121f" title="light #b3121f"></i><i style="background:#ff8b8b" title="dark #ff8b8b"></i>error</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#0a0a0a" title="dark #0a0a0a"></i>on-error</span><span class="sw"><i style="background:#ffe0e0" title="light #ffe0e0"></i><i style="background:#3a0a0e" title="dark #3a0a0e"></i>error-soft</span><span class="sw"><i style="background:#0b4fb3" title="light #0b4fb3"></i><i style="background:#8ab8ff" title="dark #8ab8ff"></i>info</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#0a0a0a" title="dark #0a0a0a"></i>on-info</span><span class="sw"><i style="background:#e1ecff" title="light #e1ecff"></i><i style="background:#0d2347" title="dark #0d2347"></i>info-soft</span><span class="sw"><i style="background:#f1f1f1" title="light #f1f1f1"></i><i style="background:#262626" title="dark #262626"></i>disabled</span><span class="sw"><i style="background:#5c5c5c" title="light #5c5c5c"></i><i style="background:#969696" title="dark #969696"></i>on-disabled</span><span class="sw"><i style="background:#fff6c2" title="light #fff6c2"></i><i style="background:#332b00" title="dark #332b00"></i>selection</span><span class="sw"><i style="background:#0a0a0a" title="light #0a0a0a"></i><i style="background:#000000" title="dark #000000"></i>scrim</span></div>
+    <div class="frame"><div class="x sheet">
+  <div class="sheet-row"><h3>Button</h3><div>
+    <button type="button" class="btn btn-primary" data-part="button">Book</button>
+    <button type="button" class="btn btn-primary is-hover" data-part="button">Hover</button>
+    <button type="button" class="btn btn-primary is-focus" data-part="button">Focus</button>
+    <button type="button" class="btn btn-primary is-active" data-part="button">Active</button>
+    <button type="button" class="btn btn-primary" data-part="button" disabled>Disabled</button>
+    <button type="button" class="btn btn-primary" data-part="button" aria-busy="true"><span class="spin" aria-hidden="true"></span>Booking</button>
+  </div></div>
+  <div class="sheet-row"><h3>Secondary, quiet</h3><div>
+    <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    <button type="button" class="btn btn-secondary is-hover" data-part="button">Hover</button>
+    <button type="button" class="btn btn-secondary is-focus" data-part="button">Focus</button>
+    <button type="button" class="btn btn-secondary" data-part="button" disabled>Disabled</button>
+    <button type="button" class="btn btn-quiet" data-part="button">Cancel</button>
+    <button type="button" class="btn btn-quiet is-hover" data-part="button">Hover</button>
+  </div></div>
+  <div class="sheet-row"><h3>Text field</h3><div>
+    <label class="field" data-part="text-field"><span>Boat name</span><input value="Saltire"></label>
+    <label class="field is-focus" data-part="text-field"><span>Focus</span><input value="Puffin"></label>
+    <label class="field is-error" data-part="text-field"><span>Length (m)</span><input value="13.4"><span class="err">Up to 12 m.</span></label>
+    <label class="field" data-part="text-field"><span>Disabled</span><input value="B12" disabled></label>
+  </div></div>
+  <div class="sheet-row"><h3>Select</h3><div>
+    <label class="field" data-part="select"><span>Pontoon</span><select><option>All</option></select></label>
+    <label class="field is-focus" data-part="select"><span>Focus</span><select><option>B</option></select></label>
+    <label class="field" data-part="select"><span>Disabled</span><select disabled><option>D</option></select></label>
+  </div></div>
+  <div class="sheet-row"><h3>Checkbox</h3><div>
+    <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+    <label class="check" data-part="checkbox"><input type="checkbox" checked><span>Shore power</span></label>
+    <label class="check is-focus" data-part="checkbox"><input type="checkbox"><span>Focus</span></label>
+    <label class="check" data-part="checkbox"><input type="checkbox" disabled><span>Disabled</span></label>
+  </div></div>
+  <div class="sheet-row"><h3>Status badge</h3><div>
+    <span class="badge badge-free" data-part="status-badge">Free</span>
+    <span class="badge badge-booked" data-part="status-badge">Booked</span>
+    <span class="badge badge-held" data-part="status-badge">Held</span>
+    <span class="badge badge-out" data-part="status-badge">Out of service</span>
+  </div></div>
+  <div class="sheet-row"><h3>Tabs</h3><div>
+    <nav class="tabs" aria-label="Example" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab is-hover" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav>
+  </div></div>
+  <div class="sheet-row"><h3>Notice</h3><div>
+    <div class="notice notice-info" data-part="notice"><b>B12 held until 18:00.</b></div>
+    <div class="notice notice-success" data-part="notice"><b>B12 is booked.</b></div>
+    <div class="notice notice-warning" data-part="notice"><b>Gale warning tonight.</b></div>
+    <div class="notice notice-error" data-part="notice"><b>Payment did not go through.</b></div>
+  </div></div>
+</div></div>
+    <div class="screens">
+      <div><div class="frame"><div class="x" data-screen="b-berths">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav></header>
+  <main class="page">
+    <div class="head">
+      <div><h1>Berths</h1><p class="muted data" data-content>Fri 12 Jun · 14:20</p></div>
+      <button type="button" class="btn btn-primary" data-part="button" data-primary>Book a berth</button>
+    </div>
+    <form class="filters" data-part="select">
+      <label class="field"><span>Pontoon</span><select><option>All</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+    </form>
+    <div class="filters">
+      <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+      <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    </div>
+    <table class="table" data-part="berth-table">
+      <thead><tr><th>Berth</th><th class="num">Length</th><th>Status</th><th>Boat</th><th>Until</th></tr></thead>
+      <tbody><tr><td class="data">A01</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Kittiwake</td><td class="data" data-content>Sun 11:00</td></tr><tr><td class="data">A02</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-free" data-part="status-badge">Free</span></td><td data-content></td><td class="data" data-content></td></tr><tr class="is-selected"><td class="data">B12</td><td class="data num" data-content>12.0 m</td><td><span class="badge badge-held" data-part="status-badge">Held</span></td><td data-content>Saltire</td><td class="data" data-content>Fri 18:00</td></tr><tr><td class="data">C07</td><td class="data num" data-content>10.5 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Puffin II</td><td class="data" data-content>Mon 09:00</td></tr><tr><td class="data">D04</td><td class="data num" data-content>15.0 m</td><td><span class="badge badge-out" data-part="status-badge">Out of service</span></td><td data-content></td><td class="data" data-content></td></tr></tbody>
+    </table>
+  </main>
+</div></div><p class="cap">Berths, light: a list.</p></div>
+      <div><div class="frame"><div class="x" data-screen="b-booking-form">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#" aria-current="page">Bookings</a></nav></header>
+  <main class="page">
+    <h1>Book a berth</h1>
+    <div class="notice notice-info" data-part="notice"><b class="data" data-content>B12 · Fri 14:00 to Sun 11:00</b></div>
+    <form class="form">
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Boat name</span><input value="Saltire"></label>
+        <label class="field is-error" data-part="text-field"><span>Length overall (m)</span><input value="13.4" aria-invalid="true"><span class="err">B12 takes up to 12 m.</span></label>
+      </div>
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Arrive</span><input class="data" value="Fri 12 Jun 14:00"></label>
+        <label class="field" data-part="text-field"><span>Leave</span><input class="data" value="Sun 14 Jun 11:00"></label>
+      </div>
+      <label class="field" data-part="text-field"><span>Phone</span><input type="tel" value="+44 7700 900123"></label>
+      <label class="check" data-part="checkbox"><input type="checkbox" checked><span>Shore power</span></label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" data-part="button" data-primary>Book berth B12</button>
+        <button type="button" class="btn btn-quiet" data-part="button">Cancel</button>
+      </div>
+    </form>
+  </main>
+</div></div><p class="cap">Book a berth, light: a form with an error.</p></div>
+      <div><div class="frame"><div class="x" data-screen="b-berths-states">
+  <main class="page">
+    <h3>Loading</h3>
+    <table class="table" data-part="berth-table" aria-busy="true"><thead><tr><th>Berth</th><th>Length</th><th>Status</th><th>Boat</th></tr></thead><tbody><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr></tbody></table>
+    <h3>Empty</h3>
+    <div class="notice notice-info" data-part="notice"><b>No free berth on pontoon D.</b><span><button type="button" class="btn btn-quiet" data-part="button">Show all pontoons</button></span></div>
+    <h3>Error</h3>
+    <div class="notice notice-error" data-part="notice" role="alert"><b>Berths did not load.</b><span><button type="button" class="btn btn-secondary" data-part="button">Try again</button></span></div>
+  </main>
+</div></div><p class="cap">Berths: loading, empty, error.</p></div>
+      <div><div class="frame theme-dark"><div class="x" data-screen="b-berths-dark">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav></header>
+  <main class="page">
+    <div class="head">
+      <div><h1>Berths</h1><p class="muted data" data-content>Fri 12 Jun · 14:20</p></div>
+      <button type="button" class="btn btn-primary" data-part="button" data-primary>Book a berth</button>
+    </div>
+    <form class="filters" data-part="select">
+      <label class="field"><span>Pontoon</span><select><option>All</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+    </form>
+    <div class="filters">
+      <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+      <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    </div>
+    <table class="table" data-part="berth-table">
+      <thead><tr><th>Berth</th><th class="num">Length</th><th>Status</th><th>Boat</th><th>Until</th></tr></thead>
+      <tbody><tr><td class="data">A01</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Kittiwake</td><td class="data" data-content>Sun 11:00</td></tr><tr><td class="data">A02</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-free" data-part="status-badge">Free</span></td><td data-content></td><td class="data" data-content></td></tr><tr class="is-selected"><td class="data">B12</td><td class="data num" data-content>12.0 m</td><td><span class="badge badge-held" data-part="status-badge">Held</span></td><td data-content>Saltire</td><td class="data" data-content>Fri 18:00</td></tr><tr><td class="data">C07</td><td class="data num" data-content>10.5 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Puffin II</td><td class="data" data-content>Mon 09:00</td></tr><tr><td class="data">D04</td><td class="data num" data-content>15.0 m</td><td><span class="badge badge-out" data-part="status-badge">Out of service</span></td><td data-content></td><td class="data" data-content></td></tr></tbody>
+    </table>
+  </main>
+</div></div><p class="cap">Berths, dark: at dusk.</p></div>
+    </div>
+  </div>
+</section><section class="dir dir-c" aria-labelledby="h-c">
+  <div class="dir-head">
+    <h2 id="h-c">C · Harbour office</h2>
+    <p>A calm office tool: a sea-green action on cool grey, soft corners and room to breathe. Easy on the eye all day at the desk.</p>
+    <p class="cap">Drawn from: the harbourmaster's long day at the desk. Faces: Source Sans 3. Corners 8px, controls 44px high. 30 semantic tokens, light then dark in each pair below; every text pair passes 4.5:1 and every edge 3:1 in both.</p>
+  </div>
+  <div class="grid">
+    <div class="swatches"><span class="sw"><i style="background:#f3f6f6" title="light #f3f6f6"></i><i style="background:#0c1a1b" title="dark #0c1a1b"></i>ground</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#132627" title="dark #132627"></i>surface</span><span class="sw"><i style="background:#e7eeee" title="light #e7eeee"></i><i style="background:#071214" title="dark #071214"></i>sunk</span><span class="sw"><i style="background:#d3dede" title="light #d3dede"></i><i style="background:#1d3435" title="dark #1d3435"></i>line</span><span class="sw"><i style="background:#6d8183" title="light #6d8183"></i><i style="background:#5f7b7e" title="dark #5f7b7e"></i>line-strong</span><span class="sw"><i style="background:#10292b" title="light #10292b"></i><i style="background:#e1ecec" title="dark #e1ecec"></i>ink</span><span class="sw"><i style="background:#40595b" title="light #40595b"></i><i style="background:#9fb6b8" title="dark #9fb6b8"></i>muted</span><span class="sw"><i style="background:#0e6359" title="light #0e6359"></i><i style="background:#7fd1c4" title="dark #7fd1c4"></i>primary</span><span class="sw"><i style="background:#0a5149" title="light #0a5149"></i><i style="background:#b2e6dd" title="dark #b2e6dd"></i>primary-hover</span><span class="sw"><i style="background:#10292b" title="light #10292b"></i><i style="background:#dff3ef" title="dark #dff3ef"></i>primary-active</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#071214" title="dark #071214"></i>on-primary</span><span class="sw"><i style="background:#dff3ef" title="light #dff3ef"></i><i style="background:#0f2e2a" title="dark #0f2e2a"></i>primary-soft</span><span class="sw"><i style="background:#1f5aa6" title="light #1f5aa6"></i><i style="background:#9cc2f2" title="dark #9cc2f2"></i>focus</span><span class="sw"><i style="background:#1f5aa6" title="light #1f5aa6"></i><i style="background:#9cc2f2" title="dark #9cc2f2"></i>link</span><span class="sw"><i style="background:#127468" title="light #127468"></i><i style="background:#7fd1c4" title="dark #7fd1c4"></i>success</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#071214" title="dark #071214"></i>on-success</span><span class="sw"><i style="background:#dff3ef" title="light #dff3ef"></i><i style="background:#0f2e2a" title="dark #0f2e2a"></i>success-soft</span><span class="sw"><i style="background:#875400" title="light #875400"></i><i style="background:#f0c36a" title="dark #f0c36a"></i>warning</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#071214" title="dark #071214"></i>on-warning</span><span class="sw"><i style="background:#fbefd6" title="light #fbefd6"></i><i style="background:#302207" title="dark #302207"></i>warning-soft</span><span class="sw"><i style="background:#ad2a2a" title="light #ad2a2a"></i><i style="background:#ff9e9e" title="dark #ff9e9e"></i>error</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#071214" title="dark #071214"></i>on-error</span><span class="sw"><i style="background:#fbe3e3" title="light #fbe3e3"></i><i style="background:#361515" title="dark #361515"></i>error-soft</span><span class="sw"><i style="background:#1f5aa6" title="light #1f5aa6"></i><i style="background:#9cc2f2" title="dark #9cc2f2"></i>info</span><span class="sw"><i style="background:#ffffff" title="light #ffffff"></i><i style="background:#071214" title="dark #071214"></i>on-info</span><span class="sw"><i style="background:#e2edfb" title="light #e2edfb"></i><i style="background:#13253d" title="dark #13253d"></i>info-soft</span><span class="sw"><i style="background:#e7eeee" title="light #e7eeee"></i><i style="background:#1d3435" title="dark #1d3435"></i>disabled</span><span class="sw"><i style="background:#40595b" title="light #40595b"></i><i style="background:#9fb6b8" title="dark #9fb6b8"></i>on-disabled</span><span class="sw"><i style="background:#b2e6dd" title="light #b2e6dd"></i><i style="background:#0f2e2a" title="dark #0f2e2a"></i>selection</span><span class="sw"><i style="background:#10292b" title="light #10292b"></i><i style="background:#071214" title="dark #071214"></i>scrim</span></div>
+    <div class="frame"><div class="x sheet">
+  <div class="sheet-row"><h3>Button</h3><div>
+    <button type="button" class="btn btn-primary" data-part="button">Book</button>
+    <button type="button" class="btn btn-primary is-hover" data-part="button">Hover</button>
+    <button type="button" class="btn btn-primary is-focus" data-part="button">Focus</button>
+    <button type="button" class="btn btn-primary is-active" data-part="button">Active</button>
+    <button type="button" class="btn btn-primary" data-part="button" disabled>Disabled</button>
+    <button type="button" class="btn btn-primary" data-part="button" aria-busy="true"><span class="spin" aria-hidden="true"></span>Booking</button>
+  </div></div>
+  <div class="sheet-row"><h3>Secondary, quiet</h3><div>
+    <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    <button type="button" class="btn btn-secondary is-hover" data-part="button">Hover</button>
+    <button type="button" class="btn btn-secondary is-focus" data-part="button">Focus</button>
+    <button type="button" class="btn btn-secondary" data-part="button" disabled>Disabled</button>
+    <button type="button" class="btn btn-quiet" data-part="button">Cancel</button>
+    <button type="button" class="btn btn-quiet is-hover" data-part="button">Hover</button>
+  </div></div>
+  <div class="sheet-row"><h3>Text field</h3><div>
+    <label class="field" data-part="text-field"><span>Boat name</span><input value="Saltire"></label>
+    <label class="field is-focus" data-part="text-field"><span>Focus</span><input value="Puffin"></label>
+    <label class="field is-error" data-part="text-field"><span>Length (m)</span><input value="13.4"><span class="err">Up to 12 m.</span></label>
+    <label class="field" data-part="text-field"><span>Disabled</span><input value="B12" disabled></label>
+  </div></div>
+  <div class="sheet-row"><h3>Select</h3><div>
+    <label class="field" data-part="select"><span>Pontoon</span><select><option>All</option></select></label>
+    <label class="field is-focus" data-part="select"><span>Focus</span><select><option>B</option></select></label>
+    <label class="field" data-part="select"><span>Disabled</span><select disabled><option>D</option></select></label>
+  </div></div>
+  <div class="sheet-row"><h3>Checkbox</h3><div>
+    <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+    <label class="check" data-part="checkbox"><input type="checkbox" checked><span>Shore power</span></label>
+    <label class="check is-focus" data-part="checkbox"><input type="checkbox"><span>Focus</span></label>
+    <label class="check" data-part="checkbox"><input type="checkbox" disabled><span>Disabled</span></label>
+  </div></div>
+  <div class="sheet-row"><h3>Status badge</h3><div>
+    <span class="badge badge-free" data-part="status-badge">Free</span>
+    <span class="badge badge-booked" data-part="status-badge">Booked</span>
+    <span class="badge badge-held" data-part="status-badge">Held</span>
+    <span class="badge badge-out" data-part="status-badge">Out of service</span>
+  </div></div>
+  <div class="sheet-row"><h3>Tabs</h3><div>
+    <nav class="tabs" aria-label="Example" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab is-hover" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav>
+  </div></div>
+  <div class="sheet-row"><h3>Notice</h3><div>
+    <div class="notice notice-info" data-part="notice"><b>B12 held until 18:00.</b></div>
+    <div class="notice notice-success" data-part="notice"><b>B12 is booked.</b></div>
+    <div class="notice notice-warning" data-part="notice"><b>Gale warning tonight.</b></div>
+    <div class="notice notice-error" data-part="notice"><b>Payment did not go through.</b></div>
+  </div></div>
+</div></div>
+    <div class="screens">
+      <div><div class="frame"><div class="x" data-screen="c-berths">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav></header>
+  <main class="page">
+    <div class="head">
+      <div><h1>Berths</h1><p class="muted data" data-content>Fri 12 Jun · 14:20</p></div>
+      <button type="button" class="btn btn-primary" data-part="button" data-primary>Book a berth</button>
+    </div>
+    <form class="filters" data-part="select">
+      <label class="field"><span>Pontoon</span><select><option>All</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+    </form>
+    <div class="filters">
+      <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+      <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    </div>
+    <table class="table" data-part="berth-table">
+      <thead><tr><th>Berth</th><th class="num">Length</th><th>Status</th><th>Boat</th><th>Until</th></tr></thead>
+      <tbody><tr><td class="data">A01</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Kittiwake</td><td class="data" data-content>Sun 11:00</td></tr><tr><td class="data">A02</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-free" data-part="status-badge">Free</span></td><td data-content></td><td class="data" data-content></td></tr><tr class="is-selected"><td class="data">B12</td><td class="data num" data-content>12.0 m</td><td><span class="badge badge-held" data-part="status-badge">Held</span></td><td data-content>Saltire</td><td class="data" data-content>Fri 18:00</td></tr><tr><td class="data">C07</td><td class="data num" data-content>10.5 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Puffin II</td><td class="data" data-content>Mon 09:00</td></tr><tr><td class="data">D04</td><td class="data num" data-content>15.0 m</td><td><span class="badge badge-out" data-part="status-badge">Out of service</span></td><td data-content></td><td class="data" data-content></td></tr></tbody>
+    </table>
+  </main>
+</div></div><p class="cap">Berths, light: a list.</p></div>
+      <div><div class="frame"><div class="x" data-screen="c-booking-form">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#" aria-current="page">Bookings</a></nav></header>
+  <main class="page">
+    <h1>Book a berth</h1>
+    <div class="notice notice-info" data-part="notice"><b class="data" data-content>B12 · Fri 14:00 to Sun 11:00</b></div>
+    <form class="form">
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Boat name</span><input value="Saltire"></label>
+        <label class="field is-error" data-part="text-field"><span>Length overall (m)</span><input value="13.4" aria-invalid="true"><span class="err">B12 takes up to 12 m.</span></label>
+      </div>
+      <div class="row2">
+        <label class="field" data-part="text-field"><span>Arrive</span><input class="data" value="Fri 12 Jun 14:00"></label>
+        <label class="field" data-part="text-field"><span>Leave</span><input class="data" value="Sun 14 Jun 11:00"></label>
+      </div>
+      <label class="field" data-part="text-field"><span>Phone</span><input type="tel" value="+44 7700 900123"></label>
+      <label class="check" data-part="checkbox"><input type="checkbox" checked><span>Shore power</span></label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" data-part="button" data-primary>Book berth B12</button>
+        <button type="button" class="btn btn-quiet" data-part="button">Cancel</button>
+      </div>
+    </form>
+  </main>
+</div></div><p class="cap">Book a berth, light: a form with an error.</p></div>
+      <div><div class="frame"><div class="x" data-screen="c-berths-states">
+  <main class="page">
+    <h3>Loading</h3>
+    <table class="table" data-part="berth-table" aria-busy="true"><thead><tr><th>Berth</th><th>Length</th><th>Status</th><th>Boat</th></tr></thead><tbody><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr><tr><td><span class="bone" style="width:40px"></span></td><td><span class="bone" style="width:50px"></span></td><td><span class="bone" style="width:70px"></span></td><td><span class="bone" style="width:90px"></span></td></tr></tbody></table>
+    <h3>Empty</h3>
+    <div class="notice notice-info" data-part="notice"><b>No free berth on pontoon D.</b><span><button type="button" class="btn btn-quiet" data-part="button">Show all pontoons</button></span></div>
+    <h3>Error</h3>
+    <div class="notice notice-error" data-part="notice" role="alert"><b>Berths did not load.</b><span><button type="button" class="btn btn-secondary" data-part="button">Try again</button></span></div>
+  </main>
+</div></div><p class="cap">Berths: loading, empty, error.</p></div>
+      <div><div class="frame theme-dark"><div class="x" data-screen="c-berths-dark">
+  <header class="bar"><span class="brand">Berthline</span><nav class="tabs" aria-label="Sections" data-part="tabs"><a class="tab" href="#" aria-current="page">Berths</a><a class="tab" href="#">Arrivals</a><a class="tab" href="#">Bookings</a></nav></header>
+  <main class="page">
+    <div class="head">
+      <div><h1>Berths</h1><p class="muted data" data-content>Fri 12 Jun · 14:20</p></div>
+      <button type="button" class="btn btn-primary" data-part="button" data-primary>Book a berth</button>
+    </div>
+    <form class="filters" data-part="select">
+      <label class="field"><span>Pontoon</span><select><option>All</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+    </form>
+    <div class="filters">
+      <label class="check" data-part="checkbox"><input type="checkbox"><span>Free only</span></label>
+      <button type="button" class="btn btn-secondary" data-part="button">Show</button>
+    </div>
+    <table class="table" data-part="berth-table">
+      <thead><tr><th>Berth</th><th class="num">Length</th><th>Status</th><th>Boat</th><th>Until</th></tr></thead>
+      <tbody><tr><td class="data">A01</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Kittiwake</td><td class="data" data-content>Sun 11:00</td></tr><tr><td class="data">A02</td><td class="data num" data-content>8.0 m</td><td><span class="badge badge-free" data-part="status-badge">Free</span></td><td data-content></td><td class="data" data-content></td></tr><tr class="is-selected"><td class="data">B12</td><td class="data num" data-content>12.0 m</td><td><span class="badge badge-held" data-part="status-badge">Held</span></td><td data-content>Saltire</td><td class="data" data-content>Fri 18:00</td></tr><tr><td class="data">C07</td><td class="data num" data-content>10.5 m</td><td><span class="badge badge-booked" data-part="status-badge">Booked</span></td><td data-content>Puffin II</td><td class="data" data-content>Mon 09:00</td></tr><tr><td class="data">D04</td><td class="data num" data-content>15.0 m</td><td><span class="badge badge-out" data-part="status-badge">Out of service</span></td><td data-content></td><td class="data" data-content></td></tr></tbody>
+    </table>
+  </main>
+</div></div><p class="cap">Berths, dark: at dusk.</p></div>
+    </div>
+  </div>
+</section>
+<div class="explain checks">
+  <h2>Checked before showing</h2>
+  <p>Craft floor's refuse list: no card grid as the page, no hero metric, no kicker, no gradient text, no glass, no coloured side border, no hard offset shadow, no glyph standing in for an icon, monospace only for berth codes, lengths and times (data, not costume). Light is the default because both scenes are in daylight; dark is for dusk. The word pass and the parts check run on every marked screen.</p>
+</div>
+</body>
+</html>

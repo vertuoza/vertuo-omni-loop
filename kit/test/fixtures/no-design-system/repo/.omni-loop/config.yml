@@ -1,0 +1,8 @@
+# A fixture repository with no design system (PRD 1559, s8): the dogfood of /omni:pixel-perfect
+# init's starter path. Only the design section matters here.
+kit: 1
+design:
+  enabled: true
+  paths:
+    - src/
+  screens: .omni-loop/knowledge/design/screens/

@@ -171,6 +171,15 @@ describe('omni kb show design', () => {
     expect((await omni(root, ['check', 'kb'])).code).toBe(0);
   });
 
+  it('PRD 1559: shows the template’s See: DESIGN.md line in a comment, which kb show never prints as a pointer', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await omni(root, ['kb', 'show', 'design']);
+    expect(code).toBe(0);
+    expect(formTemplate('design')).toMatch(/<!--[^>]*See: DESIGN\.md[^>]*\/omni:pixel-perfect init[^>]*-->/);
+    expect(out).not.toContain('See: DESIGN.md');
+    expect(out).not.toContain('[→ DESIGN.md]');
+  });
+
   it('keeps a repository’s own open question in place of the kit’s', async () => {
     const mine = formText({
       frontMatter: { form: 'design', state: 'blank' },

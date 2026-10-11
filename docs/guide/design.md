@@ -1,6 +1,6 @@
 ---
 title: Design craft (opt-in)
-description: Turn on design craft, fill the design form and its laws, keep a library of screens and shared screens a person locks, draw each screen's mockup and see them all in the gallery, run the word pass, read the before/after's Functional and Pixel perfect parts, type /omni:pixel-perfect on a screen, and read the Design review the loop adds to a sub-PR that changes a screen.
+description: Turn on design craft, fill the design form and its laws, write your design system in DESIGN.md with /omni:pixel-perfect init and keep it honest, keep a library of screens and shared screens a person locks, draw each screen's mockup from the listed parts and see them all in the gallery, run the word pass and the parts check, read the before/after's Functional and Pixel perfect parts, type /omni:pixel-perfect on a screen, and read the Design review, in up to three rounds, the loop adds to a sub-PR that changes a screen.
 ---
 
 Screens an agent builds tend to look generic: right enough, but not quite your product. **Design
@@ -8,8 +8,10 @@ craft** gives the loop an eye for that. It reads what your product looks like fr
 playbook, checks every screen it builds against it, and brings a set of design commands you can
 type on any screen yourself.
 
-It also gives the loop a **memory**: the laws your screens follow, and a library of the screens
-you have decided, so the next agent builds on what you chose instead of starting from zero.
+It also gives the loop a **memory**: the laws your screens follow, a library of the screens you
+have decided, and a **design system** in one file, `DESIGN.md`: the tokens and the closed list of
+parts every screen is built from. The next agent builds on what you chose instead of starting from
+zero, and from your parts instead of its own.
 
 It is **off by default**. A repository that does not turn it on sees no change at all, and turning
 it off again brings the loop back to what it was. When it is on, **nothing it finds ever blocks**:
@@ -44,6 +46,9 @@ design:
   (`[data-screen]` and `[data-primary]` by default), `content` the selector that marks content
   the screen shows rather than words it wrote (`[data-content]` by default), and `avoid` a list of
   words your product never uses (empty by default).
+- **`design.system`**: the path of your design system's file (below). You rarely set it: left
+  out, it is `DESIGN.md`, at the repository's root. `omni config design.system` prints the path the
+  loop reads.
 - **`design.ignore`**: globs `omni design touched` drops from a change before it reads it (below).
   You rarely set it: left out, it is the common test shapes, `**/*.test.*`, `**/*.spec.*`,
   `**/__tests__/**` and `**/test/**`, so a change made only of tests is no screen change. Set your
@@ -99,14 +104,146 @@ A law is never rewritten. When it changes, its owner adds an **amendment** below
 agent never does. The kit ships no law, only the shape: every law is yours. Your laws win over
 the general quality floor, as the rest of the form does.
 
-Already have a page that describes your design system, such as a `DESIGN.md`? Point the form at it
-with a `See: DESIGN.md` line instead of copying it.
+Your design system itself, the tokens and the parts, does not go in the form: it has a file of its
+own, `DESIGN.md` (below), and the form's **System** section points at it with one line,
+`See: DESIGN.md`.
 
 With design craft on, `/omni:invade` fills the form for you from what your repository shows (your
 theme and token files, your component library, your fonts and global styles, your screens and their
 copy), naming each file it read. Where the files do not say, it leaves a `TODO(human)` question for
 you rather than inventing a direction. Run `/omni:invade --refresh` after your design system moves.
-A repository with no screens keeps the form blank and the flag off.
+A repository with no screens keeps the form blank and the flag off. invade never writes `DESIGN.md`:
+where it finds screens and no `DESIGN.md`, its pull request and its report end with the line to
+type, `/omni:pixel-perfect init`.
+
+## Your design system: DESIGN.md
+
+The form says what your product looks like. It does not give the agent a **fixed set of parts to
+build with**: left to itself, every screen picks its own colours and draws its own button and its
+own card, and a repository with no design system gets the model's defaults, which is the generic
+look itself. `DESIGN.md` is that set: one file every skill that draws or builds a screen reads.
+
+It is written in [Google's DESIGN.md format](https://github.com/google-labs-code/design.md), at the
+path `design.system` names (`DESIGN.md`, at the root, unless you set another): a front matter of
+token groups (`colors`, `typography`, `rounded`, `spacing`, `components`), then prose sections in the
+format's order (Overview, Colors, Typography, Layout, Elevation & Depth, Shapes, Components, Do's and
+Don'ts), and one section of the loop's own after them, **Reference screens**. The format's own tools
+read it too: `npx @google/design.md lint` checks its references and its contrast, and `export` turns
+its tokens into a Tailwind theme or DTCG tokens. The loop never installs them.
+
+```markdown file=DESIGN.md
+---
+colors:
+  blue-600: "#2563eb"
+  primary: "{colors.blue-600}"
+---
+
+## Components
+
+### Button
+
+- **Summary:** the one way to start an action.
+- **Variants:** primary, secondary, ghost
+- **States:** default, hover, focus-visible, active, disabled, loading
+- **Tokens:** colors.primary, rounded.md
+- **Accessibility:** a visible focus ring; a loading button keeps its label for screen readers
+- **Do:** one primary button per place
+- **Don't:** a link styled as a button to start an action
+- **Code:** `src/ui/Button.tsx`
+
+## Reference screens
+
+- `quote-list` — a list with its empty, loading and error states
+- `quote-editor` — a form
+- `app-shell` — the shell every page is built inside
+```
+
+- **Semantic tokens only reach a screen:** `colors.primary`, never a hex value. Primitives such as
+  `colors.blue-600` exist for semantic tokens to point at.
+- **Components, a closed list.** Each part is one `###` entry under Components, with the lines
+  **Summary**, **Variants**, **States** (default, hover, focus-visible, active, disabled, and loading,
+  error and empty where it shows data), **Tokens**, **Accessibility**, **Do**, **Don't** and
+  **Code**, the paths of its implementation, in any framework. A part not on the list is proposed,
+  never invented (see **The parts check**, below).
+- **Parts are not screens.** A part is a component a screen is built from: a button, a table, a
+  badge. Structure several pages share, such as the app shell, the notifications panel or a sign-in
+  page, is a **shared screen** of the library (below), never a part.
+- **Reference screens** are two or three screens of the library a builder copies, each with one line
+  on what it shows: a list with its empty, loading and error states; a form; a detail or a
+  dashboard. A shared screen may be one. Their mockups are what an agent copies when it builds a new
+  screen.
+
+### Write it: /omni:pixel-perfect init
+
+You do not write `DESIGN.md` by hand. Type, once per repository, and again after your design system
+moves:
+
+```text agent
+/omni:pixel-perfect init
+```
+
+- **Your repository has a design system** (token or theme files, a Tailwind or theme config, a
+  component folder, Storybook, a shadcn `components.json`, a Figma link): `init` reads it into
+  `DESIGN.md`, and every entry names the file it was read from. What the files do not say, such as a
+  component's states or when not to use it, is a `TODO(human)` question for you, never invented. A
+  link to a tool you already have, a Figma library or a Storybook site, is linked, never copied.
+- **Your repository has none:** `init` asks about your product, one question at a time (who uses it,
+  on what screens, its voice, one product you admire), then shows you **two or three starter
+  directions** on one rendered page. Each is a full set: about thirty semantic tokens in light and
+  dark, eight to twelve components in every state, and two or three reference screens built only
+  from them. Each one is checked against the craft floor's list of machine-made patterns before you
+  see it. You pick one, or ask for another round, as with `/omni:visual-fix`; `init` never picks for
+  you.
+
+Either way, it writes `DESIGN.md`, its reference screens as **draft** screens of the library, each
+with a mockup drawn by `/omni:pixel-perfect mock`, and the form's `See: DESIGN.md` line, then opens
+**one docs-only pull request** you merge. It never locks a screen and never writes code: turning the
+tokens into CSS or a Tailwind theme is the first ordinary change after it, and `export` writes that
+file. A `DESIGN.md` you already have, in another shape, is kept: `init` proposes the sections it
+lacks and rewrites nothing you wrote. With design craft off, `init` prints one line saying how to
+turn it on, and does nothing else.
+
+### The closed list: omni design parts
+
+To see the parts your `DESIGN.md` lists:
+
+```bash terminal agent
+omni design parts
+```
+
+```text terminal
+Button — variants: primary, secondary, ghost · states: default, hover, focus-visible, active, disabled, loading · code: src/ui/Button.tsx
+EmptyState — variants: none · states: default · code: none
+2 parts · DESIGN.md · reference screens: quote-list, quote-editor, app-shell
+```
+
+One line per part, with its variants, its states and its code; then the count, the file and its
+reference screens; then a line for anything in the file that does not read, such as a part listed
+twice or a line it does not know. With no `DESIGN.md`, it prints
+`parts: no DESIGN.md (run /omni:pixel-perfect init)`; with design craft off, `design: off`. It always
+exits 0.
+
+### Keep it honest: the drift warnings
+
+`DESIGN.md` is kept by hand, so it can drift from your code. `omni check design`, part of
+`omni check all`, warns about it on standard error, and still passes:
+
+```text terminal
+warning: DESIGN.md: part Button: its code path src/ui/Button.tsx is gone
+warning: DESIGN.md: src/ui/Card.tsx is a component file no part names and no screen implements — list it under a part's Code, or in a screen's implements
+warning: DESIGN.md: unresolved reference {colors.accent} in part Button
+warning: DESIGN.md: the reference screen "quote-board" is not in the library (.omni-loop/knowledge/design/screens/)
+```
+
+- a part whose **Code** path no longer exists;
+- a component file under `design.paths` that no part names and no screen's `implements` claims; a
+  shared screen's shell files are claimed by the shared screen, so they are not parts and raise
+  nothing;
+- a token reference that does not resolve;
+- a reference screen the library does not hold.
+
+A warning never turns the check red. To fix them, run `/omni:pixel-perfect init` again: it proposes
+the fixes in a pull request. `/omni:invade --refresh` only reports them, with that line.
 
 ## The screen library
 
@@ -304,6 +441,13 @@ the mockup sits outside the mark. It runs the word pass on it and fixes what it 
 the screen's `mock` and changes nothing else in the file. Typed by you, it commits the screen and
 its mockup on the branch you are on, and pushes nothing.
 
+**With a `DESIGN.md`, it draws from the list.** The mockup is built only from the parts `DESIGN.md`
+lists and its semantic tokens, each part tagged `data-part="<name>"` beside `data-screen` and
+`data-primary`, in the variant and state the screen shows, and the parts check (below) runs beside
+the word pass. A part the screen needs and the list lacks stays only when the design truly needs a
+new part, and the mockup names it outside the marked screen. With no `DESIGN.md`, it draws from what
+the form's **System** section names, as before.
+
 On a **locked** screen it never overwrites the mockup. It writes the new one as a draft beside it,
 `quote-editor-next.md` and its mockup, and raises the high outbox item a change to a locked screen
 always raises: its owner takes it with `/omni:pixel-perfect lock` (below).
@@ -315,7 +459,7 @@ A mockup is one self-contained page: it cannot load the product's fonts, its ima
 
 | What is missing | What stands in |
 |---|---|
-| **Fonts** | the product's faces named first in each `font-family`, with the fallbacks the product itself uses; no font is loaded |
+| **Fonts** | the product's faces named first in each `font-family`, with the fallbacks the product itself uses; no font is loaded. With a `DESIGN.md`, its `typography` tokens name those faces |
 | **Pixel art and images** | an inline SVG placeholder at the image's real size, labelled with what it stands for |
 | **Example data** | allowed, and expected on a screen that shows data: taken from the product's own demo data or fixtures when they exist, realistic, put inside `data-content` (below), and said to be examples outside the marked screen |
 | **No screenshot** | the screen is drawn from the source, and the mockup says so outside the mark |
@@ -413,6 +557,54 @@ mockups use other markers, set `design.words.screen`, `design.words.primary` and
 `/omni:visual-fix` and `/omni:think-big` run it before showing you a mockup and fix what it finds,
 and the review's critique runs it too. A finding is fixed in the screen, never silenced.
 
+## The parts check
+
+With a `DESIGN.md`, every mockup the loop draws is built from the listed parts, and every part is
+tagged `data-part="<name>"`: `/omni:pixel-perfect mock`'s mockups, the marked screens of the
+before/after's Pixel perfect part, `/omni:visual-fix`'s variations, and `/omni:think-big`'s cards
+and prototypes. The parts check reads those tags, the way the word pass reads the words:
+
+```bash terminal agent
+omni design parts --check .omni-loop/delivery/inbox/7-quotes/before-after.html
+```
+
+```text terminal
+.omni-loop/delivery/inbox/7-quotes/before-after.html
+  screen quote-editor · 6 parts tagged
+    off-list: Stepper
+    untagged: button "Send"
+```
+
+- **`off-list:`** a `data-part` tag that names no part of the list.
+- **`untagged:`** a control (a button, an input, a select, a link drawn as a button) that carries no
+  tag, itself or on an element around it.
+- **`parts: all listed`** when a screen has neither.
+
+It reads the **marked screens only**, as the word pass does: a page with no `data-screen` prints
+`no screen marked: skipped`, and what sits inside `data-content` is content the screen shows, never
+a part and never untagged. Each skill runs it beside the word pass before you see the page, and
+fixes every `untagged:` finding by tagging the control with the part it is. An `off-list:` part stays
+only when the design needs a new part: the page then names it outside the marked screen, as a
+proposal. The Functional part of a before/after, and a page that says
+`Pixel perfect: no screen changes`, draws no part and is not checked.
+
+Given a branch instead of a page, it reads the change:
+
+```bash terminal agent
+omni design parts --check origin/feat/quotes
+```
+
+```text terminal
+parts changed: Button
+off-list: src/ui/Stepper.tsx (added: no part names it, no screen implements it)
+```
+
+`parts changed:` names each part whose **Code** paths the change touched. `off-list:` names each
+component file the change **adds** under `design.paths` that no part names and no screen's
+`implements` claims. When it cannot tell (the branch does not read, or `design.paths` is empty), it
+says `parts: unknown` and never guesses. Either way it always exits 0, and with no `DESIGN.md` it
+prints the `/omni:pixel-perfect init` line.
+
 ## The before/after: a Functional part and a Pixel perfect part
 
 With design craft on, the before/after page `/omni:brainstorm` writes for a PRD has two parts, in
@@ -422,8 +614,10 @@ this order, each under its own heading:
   Every PRD has it.
 - **Pixel perfect:** only when the change changes a screen: the marked screens, today beside after,
   and one line naming the library screens they are, shared screens included
-  (`screens: quote-list · app-shell`). It is the part the review and the word pass read, and the
-  one a reviewer looks at closely.
+  (`screens: quote-list · app-shell`). It is the part the review, the word pass and the parts
+  check read, and the one a reviewer looks at closely. With a `DESIGN.md`, its screens are drawn
+  from the listed parts, each tagged, so what you approve here is built from the same parts as the
+  screen that ships.
 
 A PRD that changes no screen (a database fix, a guard, a doc) has the Functional part alone, and
 says, in place of the second, the one line `Pixel perfect: no screen changes`. Then **no slice
@@ -461,9 +655,11 @@ Type a command and the screen you mean:
 | `clarify` | labels, error messages and empty states, in your product's words |
 | `review` | the bounded review the loop runs on its own (below) |
 | `mock` | draws a screen's mockup, beside its file in the library (above) |
+| `init` | writes your `DESIGN.md`, from the design system you have or a starter you pick (above) |
 | `lock` | locks a screen of the library or a law, in your words (above) |
 
-Each command looks once, fixes in one batch, and checks once more, then stops. It changes only the
+Each command looks once, fixes in one batch, and checks once more, then stops (`review` runs up to
+three rounds with a `DESIGN.md`, below). It changes only the
 screen you named, and asks before going further. A redesign or a brand new screen is not its job:
 that is a product decision, and starts at `/omni:brainstorm`. With design craft off, the command
 prints one line saying how to turn it on, and does nothing else.
@@ -473,7 +669,22 @@ prints one line saying how to turn it on, and does nothing else.
 With design craft on, the review starts on its own: nobody asks for it. When `/omni:do-work` builds a
 slice that changes a screen, it runs `/omni:pixel-perfect review` before the sub-PR is marked ready.
 
-![The design review on a slice: omni design touched decides whether a screen changed; when it did, a critique, an audit, the lint, screenshots at 390 and 1440 and one batch of polish, then a Design review section on the sub-PR, and what it left goes to the outbox; it never blocks](diagrams/design-review.svg)
+With a `DESIGN.md`, the slice is built from your parts before it is reviewed against them:
+
+![A UI slice from DESIGN.md to the Design review: /omni:plan names on the slice the parts it uses and the reference screen it copies; /omni:do-work reads DESIGN.md, and that screen's file and mockup, before it writes the first line, and builds from listed parts and semantic tokens; the review looks in up to three rounds, each fixing only what the slice changed, then runs omni design parts --check on the diff, where each new part not on the list raises one medium outbox item, add it to DESIGN.md?; the sub-PR's Design review gains the Rounds and Parts lines; nothing blocks](diagrams/design-system.svg)
+
+- **`/omni:plan`** writes, on each `ui: yes` slice, the parts it builds from and the reference screen
+  it copies, as two lines under the slice: `Parts: Button, DataTable, EmptyState` and
+  `Reference screen: quote-list`. A part the slice needs and the list lacks is written
+  `Stepper (not on the list)`, never added to `DESIGN.md` there.
+- **`/omni:do-work`** reads `DESIGN.md`, and that reference screen's file and mockup, **before** it
+  writes the first line of the slice, not only at review. It builds the screen from listed parts,
+  through their **Code** paths, and semantic tokens: never a hex value, never a one-off component.
+
+With no `DESIGN.md`, neither reads anything new, and the review shows one line pointing at
+`/omni:pixel-perfect init`.
+
+![The design review on a slice: omni design touched decides whether a screen changed; when it did, a critique, an audit and the lint, then, with a DESIGN.md, up to three rounds of screenshots at 390 and 1440, a critique against DESIGN.md and the reference screen, and one batch of fixes, stopping on a clean round, then the parts check; a Design review section on the sub-PR with its Rounds and Parts lines, and what it left goes to the outbox; it never blocks](diagrams/design-review.svg)
 
 **How it knows a slice changes a screen.** `/omni:plan` marks a slice `ui: yes` when the files it
 may touch meet `design.paths`. While it builds, the agent also asks the change itself:
@@ -512,6 +723,32 @@ when you set one, screenshots at the form's widths compared with the "after" scr
 before/after page, then one batch of fixes and one more look. Its fixes stay inside the files the
 slice may touch.
 
+### Up to three rounds
+
+Looking at the real screen and fixing what it shows is what makes a screen match its design, so,
+with a `DESIGN.md`, the review does not stop at one look. It runs **up to three rounds**, each of
+three acts:
+
+1. **Screenshot** each screen the change touched, at the form's widths (390 and 1440 when it names
+   none).
+2. **Critique** what the screenshots show against `DESIGN.md` (its tokens, its parts with their
+   variants and states, its Do's and Don'ts) and the reference screen's mockup, beside the
+   before/after's "after".
+3. **Fix** what the critique found, in one batch, inside the files the slice may touch.
+
+It stops when a round finds nothing, or after round three, whatever round three shows. **Each round
+fixes only what the change touched:** a fault in a part the slice did not change goes under **Seen,
+not touched** (below), in round one or round three alike, and is never carried into the next round.
+What is left after round three becomes a question in the outbox, as any finding left does. With no
+browser where the agent works, the line is `— Screens: not seen here`: no round runs, and nothing is
+reported as seen.
+
+**Then the parts check, on the slice's diff:** `omni design parts --check` against the feature
+branch. Each part the diff **adds** that the list does not hold raises **one medium outbox item per
+part**: "add `Stepper` to DESIGN.md?", with the entry it would add. You answer it with the others:
+keep the part and add its entry, or rebuild it from listed parts. It never blocks. The list grows
+because someone decided it should, never by accident.
+
 The sub-PR then carries a **Design review** section, one line per step:
 
 ```markdown github
@@ -522,7 +759,14 @@ The sub-PR then carries a **Design review** section, one line per step:
 - — Design lint: not set here
 - ✓ Screenshots — 390 and 1440, beside the before/after page's "after"
 - ✓ Polish — one batch, confirmed at 390 and 1440
+- ✓ Rounds — 2 of 3: round 2 found nothing
+- ✗ Parts — Stepper: not on the list (medium item s3-04)
 ```
+
+The last two lines come with a `DESIGN.md`: `Rounds — <n> of 3` (the rounds run, and why it
+stopped), and `Parts — all listed`, or the parts it raised, or `— Parts: unknown` when the check
+could not tell. With no `DESIGN.md`, there is no **Rounds** line and the **Parts** line is
+`— Parts: no DESIGN.md (run /omni:pixel-perfect init)`.
 
 - **✓** done, nothing left.
 - **✗** done, something left. What the review did not fix becomes a question in the PRD's outbox,
@@ -555,8 +799,8 @@ review** section.
 
 ## Turn it off
 
-Set `design.enabled: false`, or remove the `design:` block. The form, its laws and the screen
-library stay; the loop simply stops reading it, runs no review, and the sub-PRs have no **Design review**
+Set `design.enabled: false`, or remove the `design:` block. The form, its laws, `DESIGN.md` and the
+screen library stay; the loop simply stops reading them, runs no review, and the sub-PRs have no **Design review**
 section.
 
 ## Where the commands come from
@@ -564,7 +808,7 @@ section.
 The `/omni:pixel-perfect` commands are imported from [impeccable](https://github.com/pbakaus/impeccable)
 by Paul Bakaus, which started from Anthropic's frontend-design skill, both under the Apache License
 2.0, and were modified for the loop: they read your design form, let your product win, stay bounded
-and never block. The kit owns the copy: nothing is installed and nothing calls the network. The
-credit is in `kit/NOTICE.md`, and every change in `kit/porting/plugin--pixel-perfect.md`.
+and never block. `review`, `mock`, `init` and `lock` are the kit's own, not imported. The kit owns
+the copy: nothing is installed and nothing calls the network. The credit is in `kit/NOTICE.md`, and every change in `kit/porting/plugin--pixel-perfect.md`.
 
 [Next → Validate with e2e (beta)](/docs/validate-e2e)

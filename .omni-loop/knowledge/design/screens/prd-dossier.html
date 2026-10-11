@@ -69,8 +69,8 @@
     <div class="dossier-head-top">
       <h1 class="dossier-title"><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/1550">PRD #1550 ↗</a> <span data-content>Design memory, round 2 — a quiet word pass, screens that claim what they show, mockups and a gallery</span></h1>
       <div class="dossier-actions">
-        <a class="ask-button stage-action" href="#outbox" data-primary>Answer the outbox</a>
-        <button type="button" class="ask-button">Copy link</button>
+        <a class="ask-button stage-action" href="#outbox" data-part="button" data-primary>Answer the outbox</a>
+        <button type="button" class="ask-button" data-part="copy-link">Copy link</button>
       </div>
     </div>
     <dl class="dossier-facts">
@@ -104,7 +104,7 @@
   </header>
 
   <section class="dossier-pane" aria-label="Spec">
-    <form class="dossier-picker" method="get"><label>Version <select name="v"><option>v3 · latest</option><option>v2</option><option>v1</option></select></label></form>
+    <form class="dossier-picker" method="get" data-part="version-picker"><label>Version <select name="v"><option>v3 · latest</option><option>v2</option><option>v1</option></select></label></form>
     <p class="dossier-front" data-content>prd: 1550 · blocked-by: none · spec: file · phase0: server</p>
     <article class="dossier-md" data-content>
       <h1>Design memory, round 2</h1>

@@ -276,7 +276,8 @@ from, each command to run, and each question left.
 it can prove exists, from the router's routes and the files that render a page or a view, each with
 its route or routes, the files it is made of, the copy it shows, and what it could not tell. A
 screen the library already holds (`node .omni-loop/bin/omni.mjs design screens`) is reported by its
-name, as already there.
+name, as already there. It also notes whether the repository holds its DESIGN.md, the file
+`node .omni-loop/bin/omni.mjs config design.system` prints (`DESIGN.md` unless set).
 
 ## 2. The map: one checkpoint
 
@@ -417,6 +418,11 @@ blank, flag on or off. What each slot holds, and what the opener says about whic
   breakpoints the theme or the styles set, and the sign-in the tests or `proof.setup` already use.
   An existing `DESIGN.md`, or any page that already writes the design system down, is pointed at
   (`See: <path>`, step 4), never copied.
+- **Never writes DESIGN.md.** The design system's file is written by `/omni:pixel-perfect init`, a
+  command a person runs: where facet 4 found screens and no DESIGN.md, `system` says where the
+  tokens and components live as the files show, and the pull request's body and the hand-off give
+  the line `/omni:pixel-perfect init`, to write it. invade never drafts a part, a token set or a
+  starter direction.
 - **Never invent a visual direction.** Describe the look the product has, never the look it should
   have: no adjective, palette, mood or rule the files do not show, and no craft-floor rule or taste
   of your own written in as the product's. `product` (who uses it, where, under what light, its
@@ -634,7 +640,9 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
    ````
 
    The **Draft screens** section is there only when step 5 drafted a screen; otherwise leave it
-   out.
+   out. With the design flag on, where facet 4 found screens and no DESIGN.md, end it (or, without
+   it, the body) with the line `No DESIGN.md yet: run /omni:pixel-perfect init to write the design
+   system every screen is built from.`
 
    **Every hole is a checkbox**, one per entry in `questions` of
    `node .omni-loop/bin/omni.mjs kb status --json`, never typed from memory; "none" when there are
@@ -690,7 +698,9 @@ its result, and every check that ran or did not.
 With the design flag on, end that report with **the list of drafts for the owner**: each draft
 screen written, by its path, with its routes and its open questions counted, and the line that none
 is locked, that a person reads each one and locks the screens they choose with
-`/omni:pixel-perfect lock <screen>`, in their own words.
+`/omni:pixel-perfect lock <screen>`, in their own words. Where facet 4 found screens and no
+DESIGN.md, add one line after it: `No DESIGN.md yet: run /omni:pixel-perfect init to write the
+design system every screen is built from.`
 
 End with one line on the business: what the repository sells, to whom and against whom is not
 invade's to write. The Omni page drafts it from the repositories and the web pages a person points it
@@ -708,7 +718,7 @@ at, at Settings › Business › Draft from my repos, and every drafted claim wa
 - Every register entry it writes is proposed: `Proposed: invade <today>`. It never removes a
   `Proposed:` line, and never touches a confirmed entry.
 - Writes only under the front door, the screen library and the config file: never a `CLAUDE.md`, a README, a workflow or
-  source code. Repatriating decision records copies them; the originals are never deleted.
+  source code. Never writes DESIGN.md: it gives the `/omni:pixel-perfect init` line. Repatriating decision records copies them; the originals are never deleted.
 - Never rewrites a `by: human` section, nor any section a person wrote.
 - Never copies a kit default into a form, and never copies a page a pointer or an index entry can
   name.

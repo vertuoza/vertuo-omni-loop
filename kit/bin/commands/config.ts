@@ -1,4 +1,5 @@
 // `omni config [key.path]` — the resolved config as JSON, or one value (a string printed bare).
+import { configView } from '../../lib/config.ts';
 import { propertyOf } from '../../lib/narrow.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
@@ -9,7 +10,7 @@ export const config: Command = {
     const { positional } = parseArgs('config', args);
     if (positional.length > 1) throw usageError('usage: omni config [key.path]');
     const [key] = positional;
-    let value: unknown = ctx.config;
+    let value: unknown = configView(ctx.config);
     if (key) {
       for (const part of key.split('.')) {
         if (value === null || typeof value !== 'object' || !Object.hasOwn(value, part)) {

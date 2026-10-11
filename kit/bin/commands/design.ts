@@ -25,6 +25,21 @@
 // folder, or to `--out` (read from the repository root), and its path printed. Generated each time,
 // never committed. An empty library prints `no screen yet` and writes nothing; `design: off` while
 // the flag is off. It exits 0 whatever it finds; only a usage mistake exits 2.
+//
+// `omni design parts` (PRD 1559): the closed list of parts the repository's DESIGN.md holds (the file
+// `design.system` names, `kit/lib/design/system/`) — each part with its variants, states and code
+// paths, then the count, the file and its reference screens, then each thing in the file that does not
+// read. With no file it prints `parts: no DESIGN.md (run /omni:pixel-perfect init)`, and `design: off`
+// while the flag is off. It exits 0 whatever it finds.
+//
+// `omni design parts --check <page.html | ref>` (PRD 1559, s2): the parts check. Given a page (an
+// operand ending in `.html` or `.htm`), it reads the page's marked screens only
+// (`kit/lib/design/parts/page.ts`): `off-list:` for a `data-part` tag the list does not hold,
+// `untagged:` for a control with no tag, `no screen marked: skipped` on a page with none. Given a ref,
+// it reads what the branch changed since its merge base with it (`kit/lib/design/parts/diff.ts`): the
+// parts whose `Code` paths changed, then each component file added under `design.paths` that no part
+// names and no screen implements, or `parts: unknown` when it cannot tell. It prints the no-DESIGN.md
+// line and `design: off` as `parts` does, and exits 0 whatever it finds.
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -32,6 +47,11 @@ import { designScreensDir } from '../../lib/config.ts';
 import { defaultDesignBase } from '../../lib/design/base.ts';
 import { galleryPage } from '../../lib/design/gallery/page.ts';
 import { designIgnore, dropIgnored } from '../../lib/design/ignore.ts';
+import { type Change, formatDiffParts, parseNameStatus, partsOfDiff } from '../../lib/design/parts/diff.ts';
+import { formatPageParts, partsOfPage, type PartRules } from '../../lib/design/parts/page.ts';
+import { formatParts } from '../../lib/design/system/format.ts';
+import { loadDesignSystem } from '../../lib/design/system/load.ts';
+import type { DesignSystem } from '../../lib/design/system/read.ts';
 import { formatScreens, readScreens } from '../../lib/design/screens.ts';
 import { avoidedWords } from '../../lib/design/words/avoid.ts';
 import { wordsContent } from '../../lib/design/words/content.ts';
@@ -45,7 +65,7 @@ import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
-const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>]';
+const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>] | omni design parts [--check <page.html | ref>]';
 
 /** The checked-out branch, or null on a detached head or when git cannot say. */
 function currentBranch({ ctx, exec }: CommandIo): string | null {
@@ -104,6 +124,59 @@ function gallery({ ctx }: CommandIo, out: string | undefined): string[] {
   return [path];
 }
 
+/** Each changed path since the merge base with `ref`, and whether it was added; null when git cannot read the ref. */
+function changesSince({ ctx, exec }: CommandIo, ref: string): Change[] | null {
+  try {
+    const output = exec('git', ['diff', '--name-status', '-z', '--no-renames', '--no-ext-diff', `${ref}...HEAD`, '--'], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return parseNameStatus(output);
+  } catch {
+    return null;
+  }
+}
+
+/** The parts check over a diff: the parts it changes, then each new component file no part or screen holds. */
+function checkDiff(io: CommandIo, system: DesignSystem, ref: string): string[] {
+  const changes = changesSince(io, ref);
+  if (!changes) return [`parts: unknown — cannot read ${ref}: fetch it or pass another ref`];
+  const { design: config } = io.ctx.config;
+  const ignore = designIgnore(config);
+  const kept = new Set(dropIgnored(ignore, changes.map(({ path }) => path)));
+  const { screens: library } = readScreens(join(io.ctx.root, designScreensDir(io.ctx.config)));
+  return formatDiffParts(partsOfDiff(changes.filter(({ path }) => kept.has(path)), {
+    parts: system.parts,
+    claimed: library.flatMap((screen) => screen.implements),
+    paths: config.paths,
+  }));
+}
+
+/** The parts check over one mockup page's marked screens. */
+function checkPage(io: CommandIo, system: DesignSystem, page: string): string[] {
+  const { words: config } = io.ctx.config.design;
+  let html: string;
+  try {
+    html = readFileSync(resolve(io.ctx.root, page), 'utf8');
+  } catch (error) {
+    return [`${page}: cannot read — ${messageOf(error).split('\n')[0]}`];
+  }
+  const rules: PartRules = {
+    screen: checked(config.screen),
+    primary: checked(config.primary),
+    content: checked(wordsContent(config)),
+    parts: system.parts.map(({ name }) => name),
+  };
+  return formatPageParts(page, partsOfPage(html, rules), rules);
+}
+
+const PAGE = /\.html?$/i;
+
+function parts(io: CommandIo, check: string | undefined): string[] {
+  const { ctx } = io;
+  if (!ctx.config.design.enabled) return ['design: off'];
+  const loaded = loadDesignSystem(ctx.root, ctx.config.design);
+  if (check === undefined || !loaded.system) return formatParts(loaded);
+  return PAGE.test(check) ? checkPage(io, loaded.system, check) : checkDiff(io, loaded.system, check);
+}
+
 /** A selector the config has already checked. */
 function checked(source: string): Selector {
   const selector = parseSelector(source);
@@ -142,20 +215,24 @@ function words(io: CommandIo, pages: readonly string[]): string[] {
   });
 }
 
+/** The value flags a verb may take. */
+type Values = { readonly out?: string | undefined; readonly check?: string | undefined };
+
 /** Each verb's lines from its operands, or null when the operands are a usage mistake. */
-const VERBS: Readonly<Record<string, (io: CommandIo, operands: readonly string[], out: string | undefined) => string[] | null>> = {
+const VERBS: Readonly<Record<string, (io: CommandIo, operands: readonly string[], values: Values) => string[] | null>> = {
   touched: (io, operands) => (operands.length > 1 ? null : touched(io, operands[0])),
   screens: (io, operands) => (operands.length > 0 ? null : screens(io)),
   words: (io, operands) => (operands.length === 0 ? null : words(io, operands)),
-  gallery: (io, operands, out) => (operands.length > 0 ? null : gallery(io, out)),
+  gallery: (io, operands, { out }) => (operands.length > 0 ? null : gallery(io, out)),
+  parts: (io, operands, { check }) => (operands.length > 0 ? null : parts(io, check)),
 };
 
 export const design: Command = {
   run: synchronous((args: string[], io: CommandIo): number => {
-    const { positional, flags } = parseArgs('design', args, { values: ['out'] });
+    const { positional, flags } = parseArgs('design', args, { values: ['out', 'check'] });
     const [verb = '', ...operands] = positional;
-    if (flags.out !== undefined && verb !== 'gallery') throw usageError(USAGE);
-    const lines = Object.hasOwn(VERBS, verb) ? VERBS[verb]?.(io, operands, flags.out) : null;
+    if ((flags.out !== undefined && verb !== 'gallery') || (flags.check !== undefined && verb !== 'parts')) throw usageError(USAGE);
+    const lines = Object.hasOwn(VERBS, verb) ? VERBS[verb]?.(io, operands, flags) : null;
     if (!lines) throw usageError(USAGE);
     for (const line of lines) println(io.stdout, line);
     return 0;

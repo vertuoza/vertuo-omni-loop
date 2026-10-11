@@ -55,8 +55,8 @@ never overrides this skill's rules.
 Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and keep what it
 prints. Anything but `true` (or a failure) means design craft is off here: step 2 reads no design
 form and copies no craft floor, and the Craft critic works as it always has. Off, the design memory
-is off too: step 2 reads no screen library, no page is marked or word-passed (**Boards**), and
-step 6 writes no draft screen.
+is off too: step 2 reads no screen library and no parts list, no page is marked or word-passed
+and no parts check runs (**Boards**), and step 6 writes no draft screen.
 
 Then, before your first question, follow `/omni:dossier-open` with one line of the brief: it opens a
 draft dossier for it on the Omni page, linked to this Claude session, and prints its link as
@@ -225,6 +225,21 @@ replaced); then run it again. The rule is fixed in the screen, never silenced: n
 unmark a primary action or reword the finding away. A finding a concept keeps on purpose (its
 direction is exactly that) is said on the board beside it.
 
+**The parts,** with the design flag on and a DESIGN.md. The closed list is the fuel sheet's `parts`
+section: the file `node .omni-loop/bin/omni.mjs config design.system` prints, read through
+`node .omni-loop/bin/omni.mjs design parts`. The moderator gives the list to each artist and
+prototyper with their card: every card and prototype is drawn only from the parts it lists and
+semantic tokens (`colors.primary`, never a hex value or a primitive), each part tagged
+`data-part="<name>"` beside `data-screen` and `data-primary`. Before a board or the vision tour is
+shown, run `node .omni-loop/bin/omni.mjs design parts --check <page>` beside the word pass; it exits
+0 whatever it finds. Each `untagged:` finding is fixed by the card's artist or the prototype's
+prototyper, who tags the control with the part it is; then it runs again. An `off-list:` part stays
+only when the design needs a new part, proposed, never invented: the board names it outside the
+marked screen, beside the concept. A concept that leaves the list (an identity that redraws the
+parts themselves) says so on the board, as a leap the person crowns knowingly. When
+`design parts` prints `parts: no DESIGN.md`, every page draws as it does today, from the fuel
+sheet's `design` section, and no parts check runs.
+
 Open each board in the person's browser when the session can, and give its path either way. Then
 ask **one question** per round through the session's question tool (AskUserQuestion; ask mode
 carries it to the Omni page when it is on). Its answer is one of:
@@ -280,7 +295,11 @@ nothing in the repository changes.
   it. Then the screen library: run `node .omni-loop/bin/omni.mjs design screens`, and copy into the
   fuel sheet, under the id `screens`, each screen the brief touches, its status, who locked it and
   its routes, with the path of its file and its mockup, in the folder
-  `node .omni-loop/bin/omni.mjs config design.screens` prints. A locked screen is a person's
+  `node .omni-loop/bin/omni.mjs config design.screens` prints. Then the parts list, when there is a
+  DESIGN.md: copy what `node .omni-loop/bin/omni.mjs design parts` prints under the id `parts`, with
+  the path `node .omni-loop/bin/omni.mjs config design.system` prints and DESIGN.md's semantic
+  tokens; when it prints `parts: no DESIGN.md`, write that line under the id and nothing else.
+  A locked screen is a person's
   decision: a concept that redraws it says so, names who locked it, and is a leap the person
   crowns knowingly, never a quiet redraw. The product's look is what the form and its files
   show, never a direction this run invents. Then, flag on or off: its screens and where their look
@@ -513,7 +532,7 @@ crowned concept.
     the default branch. In it, for each screen of the vision tour, write a draft to the folder
     `node .omni-loop/bin/omni.mjs config design.screens` prints: `<name>.md`, `<name>` its short
     kebab-case name, and its mockup `<name>.html` beside it, that screen of `vision.html` alone,
-    static, marks kept, under the page rules of **Boards**.
+    static, marks kept, `data-part` included, under the page rules of **Boards**.
 
     ```markdown
     ---
