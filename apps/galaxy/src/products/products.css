@@ -145,7 +145,7 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 .products-sum {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0;
+  margin: 0 0 8px;
   background: var(--ask-sunk);
   border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
