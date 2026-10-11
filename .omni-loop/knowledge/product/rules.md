@@ -644,7 +644,7 @@ Jev is on exactly when a key is stored: turning it off deletes the key and sets 
 
 Serves: P-PRODUCT-55
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
-Enforced by: pending #1520
+Enforced by: apps/galaxy/src/jev/jev-key-sql.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
