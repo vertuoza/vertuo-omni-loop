@@ -1415,10 +1415,13 @@ var ConfigSchema = z8.object({
   // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
   // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
   // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
+  // PRD 1559: `system` is the path of the repository's DESIGN.md, the design system the skills read;
+  // unset, it reads as `DESIGN.md` at the root (`kit/lib/design/system/path.ts`).
   design: section({
     enabled: z8.boolean().default(false),
     paths: z8.array(text3).default([]),
     ignore: z8.array(text3).optional(),
+    system: text3.optional(),
     screens: nullableText.default(null),
     words: section({
       sentence: z8.number().int().positive().default(7),
