@@ -11,9 +11,9 @@ import { RetryAfterError } from 'inngest';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createApprovedCheck } from '../approved-check/approved-check.ts';
 import type { ApprovalRecord, PinnedFile } from '../approved-check/state.ts';
-import { APPROVED_CHECK_EVENT, type CheckRequest, inngest } from '../inngest-client.ts';
+import { OUTBOX_CHECK_EVENT, type CheckRequest, inngest } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
-import { createOutboxCheck, OUTBOX_RECHECK_EVENT } from '../outbox-check/outbox-check.ts';
+import { createOutboxCheck } from '../outbox-check/outbox-check.ts';
 import { createServerEventRecheck, SERVER_EVENT_FUNCTION_ID, SERVER_EVENT_TRIGGER } from './recheck.ts';
 import { receiveServerEvent, SERVER_SIGNATURE_HEADER, type ServerEventRequest } from './server-event.ts';
 import type { PrdTargets } from './targets.ts';
@@ -83,7 +83,7 @@ function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.
 }
 
 describe('server-event — an approval, a void, an item opened or settled re-posts both checks on the PRD\'s open target PRs (acceptance 8)', () => {
-  it('reads the targets from the database, one GET per pull request and no list call, and sends an approved and an outbox check event for each that names the PRD', async () => {
+  it('reads the targets from the database, one GET per pull request and no list call, and sends one outbox check event, which both checks run, for each that names the PRD', async () => {
     for (const event of ['approved', 'voided', 'item-opened', 'item-settled'] as const) {
       const run = setUp();
       const [sent] = await post(event);
@@ -94,7 +94,7 @@ describe('server-event — an approval, a void, an item opened or settled re-pos
       expect(run.github.state.requests.some((r) => r.route === 'GET /repos/{owner}/{repo}/pulls')).toBe(false);
       const sentOn = ctx.step.sendEvent.mock.calls.map(([id, events]) => [id, events]);
       const data = { installationId: 77, owner: 'acme', repo: 'api', repository: 'acme/api', prNumber: 446, headSha: 'head9', trigger: SERVER_EVENT_TRIGGER };
-      expect(sentOn).toEqual([['recheck', [{ name: APPROVED_CHECK_EVENT, data }, { name: OUTBOX_RECHECK_EVENT, data }]]]);
+      expect(sentOn).toEqual([['recheck', [{ name: OUTBOX_CHECK_EVENT, data }]]]);
     }
   });
 
@@ -104,7 +104,7 @@ describe('server-event — an approval, a void, an item opened or settled re-pos
     const { ctx } = await new InngestTestEngine({ function: run.recheck, events: [sent as never], steps: sentSteps() }).execute();
     const [[, events]] = ctx.step.sendEvent.mock.calls as unknown as [[string, CheckRequest[]]];
     const approved = createApprovedCheck({ client: inngest, octokitFor: () => run.github.octokit, readRecord: () => Promise.resolve(RECORD), galaxyUrl: 'https://galaxy.example' });
-    const checked = await new InngestTestEngine({ function: approved, events: events.filter((e) => e.name === APPROVED_CHECK_EVENT) as never }).execute();
+    const checked = await new InngestTestEngine({ function: approved, events: events as never }).execute();
     expect(checked.result).toMatchObject({ name: 'omni/approved', prd: 'mobile-12', state: 'building', conclusion: 'success' });
     expect(run.github.state.checkRuns).toEqual([expect.objectContaining({ head_sha: 'head9', conclusion: 'success' })]);
   });
@@ -120,7 +120,7 @@ describe('server-event — an approval, a void, an item opened or settled re-pos
       readProductOutbox: () => Promise.resolve({ dossierId: DOSSIER, productId: 'p-1', productName: 'Mobile', open: [] }),
       galaxyUrl: 'https://galaxy.example',
     });
-    const checked = await new InngestTestEngine({ function: outbox, events: events.filter((e) => e.name === OUTBOX_RECHECK_EVENT) as never }).execute();
+    const checked = await new InngestTestEngine({ function: outbox, events: events as never }).execute();
     expect(checked.result).toMatchObject({ name: 'outbox', conclusion: 'success' });
     expect(checkRunAt(run.github.state, -1)).toMatchObject({ head_sha: 'head9', conclusion: 'success' });
     expect(outputOf(checkRunAt(run.github.state, -1)).title).toBe('0 open · one gate on Mobile');

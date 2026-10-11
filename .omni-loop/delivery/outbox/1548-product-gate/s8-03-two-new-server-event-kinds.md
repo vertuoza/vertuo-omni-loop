@@ -14,7 +14,7 @@ How does the web app tell the GitHub app that a question of a product PRD was ra
 
 ## The decision, in plain words
 
-Through the same signed message the approval already sends, with two new kinds, a question opened and a question settled (an adoption counts as settled), naming the PRD's own record. The GitHub app then posts both checks again on every open pull request of that PRD, and leaves the other checks alone.
+Through the same signed message the approval already sends, with two new kinds, a question opened and a question settled (an adoption counts as settled), naming the PRD's own record. The GitHub app then runs every check a push would run again on each open pull request of that PRD, so both checks follow, and the third check, on a PRD's design files, runs again too.
 
 ## The intro, for fun
 
@@ -29,6 +29,7 @@ Opened and settled: short enough to whisper, clear enough to act on.
 A. Two new kinds, opened and settled, on the same message (built).
 B. One kind for any change to the outbox.
 C. Name the PRD by its short name rather than its record.
+D. A message of its own that runs only the two checks, which changes a test that proves a rule of the gate.
 
 ## What I had to decide
 
@@ -47,3 +48,4 @@ Renaming a kind is a constant on each side, sent and read in the same release.
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) Whether an adoption should rather send a kind of its own; it holds no question open, so it changes nothing a check shows unless it closes one already open.
+- (author) Running the design-files check again costs a few more GitHub calls per pull request; a message of its own would avoid that, but it changes the test that proves how the gate reads its settings, which takes a question ranked high.

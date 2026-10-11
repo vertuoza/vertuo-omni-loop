@@ -16,9 +16,9 @@
 //                       on a repository without the loop's config, nothing
 //
 // Runs are debounced per repository and pull request, so a burst of pushes and label changes is one
-// evaluation of the latest state. Besides the webhook's event, it runs on OUTBOX_RECHECK_EVENT, which the
-// server event sends when an approval, a void, an item or a settlement changed a product PRD
-// (../server-event/recheck.ts), so the target PRs' checks follow the server without a push. A snapshot over its bound is not retried: the same bound fails the
+// evaluation of the latest state. The server event sends the same event when an approval, a void, an item
+// or a settlement changed a product PRD (../server-event/recheck.ts), so the target PRs' checks follow the
+// server without a push. A snapshot over its bound is not retried: the same bound fails the
 // same way, so it goes straight to the failure handler with the bound as its reason.
 //
 // The app is public (PRD 359): it is installed on repositories that never asked for the loop, so a
@@ -72,12 +72,6 @@ type FailureInput = {
 
 export const FUNCTION_ID = 'outbox-check';
 
-/**
- * The event the server event sends to re-post the outbox check of a product PRD's target PR (PRD 1548
- * s8). Its own name, not the webhook's: the inbox check, which also runs on the webhook's, is left alone.
- */
-export const OUTBOX_RECHECK_EVENT = 'omni-loop/outbox.recheck.requested';
-
 /** What a run returns when it posted nothing: the repository has not installed the loop. */
 const SILENT = Object.freeze({ posted: false, reason: NOT_ACTIVE_ON_REPO });
 
@@ -112,7 +106,7 @@ export function createOutboxCheck({
     {
       id: FUNCTION_ID,
       name: 'omni-loop · outbox',
-      triggers: [{ event: OUTBOX_CHECK_EVENT }, { event: OUTBOX_RECHECK_EVENT }],
+      triggers: [{ event: OUTBOX_CHECK_EVENT }],
       debounce: DEBOUNCE,
       retries: 3,
       onFailure: createFailureHandler({ octokitFor }),

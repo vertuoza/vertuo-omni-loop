@@ -11,7 +11,7 @@ import { type AppEvent, inngest } from '../inngest-client.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
 import { checkRunAt, fakeGitHub, outputOf } from './fake-github.ts';
-import { createFailureHandler, createOutboxCheck, OUTBOX_RECHECK_EVENT } from './outbox-check.ts';
+import { createFailureHandler, createOutboxCheck } from './outbox-check.ts';
 import type { ProductOutbox, ProductOutboxReader } from './product-outbox.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
@@ -121,14 +121,6 @@ describe('the outbox check of a product PRD\'s target PR — one gate on the pro
     const t = setUp({ read: () => Promise.resolve(null) });
     await t.run(await deliver(targetPull()));
     expect(checkRunAt(t.github.state, -1)).toMatchObject({ conclusion: 'failure', output: { title: 'unknown · no product PRD mobile-12 holds this repository' } });
-  });
-
-  it('re-posts on the server event\'s own event, as on the webhook\'s', async () => {
-    const t = setUp();
-    expect((t.fn as unknown as { opts: { triggers: unknown[] } }).opts.triggers).toContainEqual({ event: OUTBOX_RECHECK_EVENT });
-    const [webhook] = await deliver(targetPull());
-    await t.run([{ ...(webhook as AppEvent), name: OUTBOX_RECHECK_EVENT }]);
-    expect(checkRunAt(t.github.state, -1)).toMatchObject({ conclusion: 'success', output: { title: '0 open · one gate on Mobile' } });
   });
 
   it('a target PR of a plan-repository PRD still passes, pointing at its plan PR, reading no outbox row', async () => {
