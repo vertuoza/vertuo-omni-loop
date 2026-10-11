@@ -68,3 +68,26 @@ describe('the loops migration', () => {
     expect(read('.github/workflows/supabase.yml')).toContain('-v ON_ERROR_STOP=1 -f supabase/checks/loops.sql');
   });
 });
+
+// Law BR-PRODUCT-74 (.omni-loop/knowledge/product/rules.md, #1535).
+it('law BR-PRODUCT-74: parking keeps the loop running, a later tick unparks, stop ends parked or stopped, an ended loop refuses a push', () => {
+  // The newest loop_push(): 20261110090000_roadmaps.sql replaced the one of the loops migration.
+  const newest = read('supabase/migrations/20261110090000_roadmaps.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+  const fn = /create or replace function public\.loop_push\(.*?\$\$;/.exec(newest)?.[0] ?? '';
+  const branch = (from: string, to: string) => fn.slice(fn.indexOf(from), fn.indexOf(to, fn.indexOf(from)));
+  const notThisPrd = "parked = coalesce((select jsonb_agg(e) from jsonb_array_elements(parked) e where (e ->> 'prd')::integer <> v_prd), '[]'::jsonb)";
+
+  // An ended loop refuses any push: every event but start goes through this guard.
+  expect(fn).toContain("if v_loop.state <> 'running' then raise exception 'This loop has stopped: start a new one.' using errcode = '55000';");
+  // Parking records the PRD, who it waits on and on what, and leaves the loop's state alone.
+  const park = branch("elsif p_event = 'park' then", 'else update public.loops');
+  expect(park).toContain(`${notThisPrd} || jsonb_build_array(jsonb_build_object( 'prd', v_prd, 'who', btrim(body ->> 'who'), 'what', btrim(body ->> 'what'),`);
+  expect(park).not.toMatch(/\bstate =/);
+  // A later round of that PRD takes it off the parked list.
+  const tick = branch("if p_event = 'tick' then", "elsif p_event = 'park' then");
+  expect(tick).toContain(notThisPrd);
+  expect(tick).not.toMatch(/\bstate =/);
+  // Stopping ends parked while PRDs still wait, else stopped.
+  expect(branch('else update public.loops', 'return jsonb_build_object'))
+    .toContain("set state = case when jsonb_array_length(parked) > 0 then 'parked' else 'stopped' end");
+});

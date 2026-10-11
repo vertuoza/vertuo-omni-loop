@@ -42,4 +42,9 @@ describe('the release workflow', () => {
     const runs = steps().map((step) => dig(step, 'run')).filter(Boolean);
     expect(runs).toEqual(['pnpm install --frozen-lockfile', 'node kit/release/release.ts']);
   });
+
+  it('checks out with the deploy key, the one actor the ruleset on main lets push without checks', () => {
+    const checkout = steps().find((step) => String(dig(step, 'uses')).startsWith('actions/checkout@'));
+    expect(dig(checkout, 'with', 'ssh-key')).toBe('${{ secrets.RELEASE_DEPLOY_KEY }}');
+  });
 });

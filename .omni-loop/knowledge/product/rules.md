@@ -6,7 +6,7 @@ In a phase-0 pull request, a path under the delivery folder, the knowledge root 
 
 Serves: P-PRODUCT-1
 Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s13-01-phase-0-docs-kind, PRD #3
-Enforced by: pending #1463
+Enforced by: kit/lib/policy/phase-0.test.ts
 Stated: 2026-09-25
 Decided: @claude-code-session (delegated by pierre-derval) via PRD issue #3, 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
@@ -28,7 +28,7 @@ When the only red check is the outbox context and only person-answered items rem
 
 Serves: P-PRODUCT-3
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s4-03-outbox-check-red-is-the-gate, PRD #7
-Enforced by: pending #1465
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -39,7 +39,7 @@ Every slice is claimed by a draft pull request before it is built, however it is
 
 Serves: P-PRODUCT-4
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s5-02-claim-first-alone, PRD #7
-Enforced by: pending #1466
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -50,7 +50,7 @@ A feature pull request stays a draft while any question is open, with each open 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s9-01-gate-red-stays-draft, PRD #7
-Enforced by: pending #1467
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -72,7 +72,7 @@ The install sets laws.source to knowledge only when the knowledge registers hold
 
 Serves: P-PRODUCT-6
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-02-laws-source-from-register-entries, PRD #45
-Enforced by: pending #1469
+Enforced by: kit/bin/init.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -94,7 +94,7 @@ A form section holding repository text beside TODO(human) lines reads as text: t
 
 Serves: P-PRODUCT-8
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s1-02-section-with-text-and-open-questions, PRD #45
-Enforced by: pending #1471
+Enforced by: kit/lib/playbook/resolve.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -105,7 +105,7 @@ Invade rewrites a knowledge-page section only when it is empty, holds nothing bu
 
 Serves: P-PRODUCT-9
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-03-terraform-treats-an-unmarked-section-as-a-persons, PRD #45
-Enforced by: pending #1472
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -116,7 +116,7 @@ Invade marks a form state: filled with invaded: <today> when any section holds t
 
 Serves: P-PRODUCT-10
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-05-terraform-marks-a-form-holding-only-questions-filled, PRD #45
-Enforced by: pending #1473
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -127,7 +127,7 @@ A round moves only from open to answered, from open to abandoned, or from abando
 
 Serves: P-PRODUCT-11
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s2-04-round-moves-forward, PRD #71
-Enforced by: pending #1474
+Enforced by: apps/galaxy/src/ask/rounds-sql.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -160,7 +160,7 @@ omni ask on opens no session and closes none, so switching it on in one terminal
 
 Serves: P-PRODUCT-14
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s5-02-switching-when-the-page-is-away, PRD #71
-Enforced by: pending #1477
+Enforced by: kit/bin/ask.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -193,7 +193,7 @@ Retro churn counts only commits of pull requests merged into the feature branch,
 
 Serves: P-PRODUCT-17
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s4-01-churn-counts-merged-work, PRD #72
-Enforced by: pending #1480
+Enforced by: apps/omni-app/src/retro/kinds/churn.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -204,7 +204,7 @@ Retro churn leaves out known lockfiles by name at any depth and paths the root .
 
 Serves: P-PRODUCT-7
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s4-03-churn-leaves-out-tool-written-files, PRD #72
-Enforced by: pending #1481
+Enforced by: apps/omni-app/src/retro/kinds/churn.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -215,7 +215,7 @@ When the retro grades a territory breach, shared ground is only the prefixes tha
 
 Serves: P-PRODUCT-18
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s5-01-shared-ground-is-computed, PRD #72
-Enforced by: pending #1482
+Enforced by: apps/omni-app/src/retro/kinds/delivery.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -226,7 +226,7 @@ In retro prose, a backtick span is set aside only when it holds a letter and app
 
 Serves: P-PRODUCT-19
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s6-03-what-the-guard-counts-as-copied, PRD #72
-Enforced by: pending #1483
+Enforced by: apps/omni-app/src/retro/guard.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -237,7 +237,7 @@ A bug counts against a request when it has the bug label, was opened within 14 d
 
 Serves: P-PRODUCT-20
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s8-05-what-ties-a-bug-to-the-prd, PRD #72
-Enforced by: pending #1484
+Enforced by: apps/omni-app/src/retro/kinds/after-merge.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -259,7 +259,7 @@ When any gh search for omni credits fails, the run prints one line and exits 2 w
 
 Serves: P-PRODUCT-22
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s3-02-credits-other-github-failures, PRD #99
-Enforced by: pending #1485
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
@@ -270,7 +270,7 @@ In omni credits, an issue or pull request opened by the signature's bot account 
 
 Serves: P-PRODUCT-23
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-01-credits-app-items-counted-apart, PRD #99
-Enforced by: pending #1486
+Enforced by: kit/lib/credits/classify.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
@@ -281,7 +281,7 @@ With signing off, omni credits prints PRD issues as a bare count and omits the a
 
 Serves: P-PRODUCT-24
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-03-credits-lines-not-looked-for, PRD #99
-Enforced by: pending #1487
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
@@ -292,7 +292,7 @@ A workspace theme colour is accepted only as a lowercase six-digit #rrggbb value
 
 Serves: P-PRODUCT-25
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-02-theme-colours-lowercase, PRD #100
-Enforced by: pending #1488
+Enforced by: apps/galaxy/src/arcade/theme.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -446,7 +446,7 @@ The share list and the already-answered note name each workspace member by their
 
 Serves: P-PRODUCT-38
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
-Enforced by: pending #1502
+Enforced by: apps/galaxy/src/ask/members-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -501,7 +501,7 @@ A fleet's mascot is one of eleven keys held in a database list, the same list an
 
 Serves: P-PRODUCT-43
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
-Enforced by: pending #1507
+Enforced by: packages/design/src/mascots.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -512,7 +512,7 @@ A new fleet's key is its label lowercased, with each run of non-letters and non-
 
 Serves: P-PRODUCT-44
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
-Enforced by: pending #1508
+Enforced by: apps/galaxy/src/fleets/fleet-key-sql.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -534,7 +534,7 @@ A player whose fleet was retired is sent to pick a fleet only while at least one
 
 Serves: P-PRODUCT-46
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
-Enforced by: pending #1510
+Enforced by: apps/galaxy/src/arcade/onboarding.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -545,7 +545,7 @@ The dashboard's waiting-for-you tile counts the same questions the page's sideba
 
 Serves: P-PRODUCT-47
 Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
-Enforced by: pending #1511
+Enforced by: apps/galaxy/src/dashboard/stream/home.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #664
@@ -556,7 +556,7 @@ A person's name links to their profile page only when they are a member of the w
 
 Serves: P-PRODUCT-48
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
-Enforced by: pending #1512
+Enforced by: apps/galaxy/src/people/chips.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -567,7 +567,7 @@ On a person's profile, each PRDs stage count opens the PRD list at that stage fi
 
 Serves: P-PRODUCT-49
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
-Enforced by: pending #1513
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -578,7 +578,7 @@ When the PRD list is narrowed to one person, it shows only the PRDs that person 
 
 Serves: P-PRODUCT-50
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
-Enforced by: pending #1514
+Enforced by: apps/galaxy/src/dossier/page/history.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -600,7 +600,7 @@ A person's profile lists only the PRDs and fixes of the workspace the profile is
 
 Serves: P-PRODUCT-52
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
-Enforced by: pending #1516
+Enforced by: apps/galaxy/src/profile/profile.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -666,7 +666,7 @@ The Jev page's agreement rate counts only calls where Jev and the old way both a
 
 Serves: P-PRODUCT-56
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
-Enforced by: pending #1522
+Enforced by: apps/galaxy/src/jev/record/record.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
@@ -721,7 +721,7 @@ Jev judges an agent's question only on the report that first stores it; a repeat
 
 Serves: P-PRODUCT-37
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s4-02-jev-judges-first-report-bring-back-final, PRD #855
-Enforced by: pending #1527
+Enforced by: apps/galaxy/src/agent-connect/mcp/server.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -732,7 +732,7 @@ A product's Statement is a single line of at most 400 characters, and its owner 
 
 Serves: P-PRODUCT-59
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
-Enforced by: pending #1528
+Enforced by: apps/galaxy/src/constituents/constituents-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
@@ -766,7 +766,7 @@ A product's pitch look may be changed by exactly those who may edit the workspac
 
 Serves: P-PRODUCT-62
 Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
-Enforced by: pending #1531
+Enforced by: apps/galaxy/src/products/pitch-look-sql.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-06, PR #860
@@ -777,7 +777,7 @@ When a pull request waits on another that was closed without merging, it is no l
 
 Serves: P-PRODUCT-63
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-01-waits-on-closed-or-unreadable, PRD #1118
-Enforced by: pending #1532
+Enforced by: kit/lib/care/decide.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
@@ -788,7 +788,7 @@ The care list reads a bug's fix pull requests from its fix-plan table, one per r
 
 Serves: P-PRODUCT-64
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
-Enforced by: pending #1533
+Enforced by: kit/bin/care.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
@@ -799,7 +799,7 @@ A loop that has not yet said when it will wake next reads live until one hour af
 
 Serves: P-PRODUCT-2
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
-Enforced by: pending #1534
+Enforced by: apps/galaxy/src/loop/api.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
@@ -810,7 +810,7 @@ Parking a PRD records who it waits on and the loop keeps running; a later round 
 
 Serves: P-PRODUCT-65
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
-Enforced by: pending #1535
+Enforced by: apps/galaxy/src/loop/migration.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
@@ -832,7 +832,7 @@ omni loop push counts as off, printing off and exiting 1, only when ask.url is n
 
 Serves: P-PRODUCT-67
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
-Enforced by: pending #1537
+Enforced by: kit/bin/loop.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142

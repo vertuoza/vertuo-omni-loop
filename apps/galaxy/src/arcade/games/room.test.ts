@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { XP_RULES, type XpRules } from '@omni/galaxy';
+import { playerXp, XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES } from './index';
 import { barFill, cabinetDoor, cabinets, gamesHint, levelTag, ROOM_CABINETS, XP_LINE, xpStatus, type Cabinet } from './room';
 import { sure } from '../test/sure';
@@ -173,5 +173,21 @@ describe('OMNI KART\'s cabinet (PRD 1359)', () => {
     const kart3 = cabinets(lv3)[2];
     assertDefined(kart3, 'kart3');
     expect(cabinetDoor(kart3, lv3)).toEqual({ scene: 'kart' });
+  });
+});
+
+// Law N-PRODUCT-10 (.omni-loop/knowledge/product/invariants.md, #1545).
+describe('a player with no level', () => {
+  it('law N-PRODUCT-10: is stored with level 0, never an empty value, and every screen reads 0 as no level and shows none', () => {
+    const [stored] = playerXp([], { now: new Date('2026-10-01T00:00:00Z'), logins: ['newcomer'] });
+    assertDefined(stored, 'stored');
+    expect(stored.level).toBe(0);
+    expect(stored.xp).toBe(0);
+    const status = xpStatus(true, stored);
+    expect(status).toEqual({ kind: 'none' });
+    expect(levelTag(status)).toBeNull();
+    expect(gamesHint(status)).not.toMatch(/LV/);
+    expect(barFill(status)).toBe(0);
+    expect(Object.values(XP_LINE).join(' ')).not.toMatch(/LV/);
   });
 });

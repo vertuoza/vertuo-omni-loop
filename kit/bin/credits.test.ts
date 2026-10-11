@@ -221,6 +221,24 @@ describe('omni credits', () => {
     ].join('\n'));
   });
 
+  // Law BR-PRODUCT-26 (.omni-loop/knowledge/product/rules.md, #1487).
+  it('law BR-PRODUCT-26: a total that was not looked for is left out of the text and null under --json, never zero', async () => {
+    const off = { config: `${CONFIG}signature: null\n`, routes: WORLD };
+    const offText = (await omni(['credits'], off)).out.split('\n');
+    expect(offText).toContain('PRD issues 1');
+    expect(offText.some((line) => line.startsWith('Opened by the app') || line.startsWith('Co-authored commits'))).toBe(false);
+    const offDoc = JSON.parse((await omni(['credits', '--json'], off)).out) as { totals: { byTheApp: unknown; commits: unknown } };
+    expect(offDoc.totals).toMatchObject({ byTheApp: null, commits: null });
+
+    const noBot = { config: `${CONFIG}signature:\n  name: Robo\n  email: robo@example.com\n`, routes: WORLD };
+    const noBotText = (await omni(['credits'], noBot)).out.split('\n');
+    expect(noBotText.some((line) => line.startsWith('Opened by the app'))).toBe(false);
+    expect(noBotText.some((line) => line.startsWith('Co-authored commits on default branches: '))).toBe(true);
+    const noBotDoc = JSON.parse((await omni(['credits', '--json'], noBot)).out) as { totals: { byTheApp: unknown; commits: unknown } };
+    expect(noBotDoc.totals.byTheApp).toBeNull();
+    expect(noBotDoc.totals.commits).toEqual(expect.any(Number));
+  });
+
   it('at the 1,000-result cap, prints the report and a warning naming the query (AC 10)', async () => {
     const full = Array.from({ length: 1000 }, (_, index) => searched(index + 1, { labels: ['omni:sub'] }));
     const { code, out, err } = await omni(['credits'], { routes: [['search prs --owner acme --label omni:sub', full]] });
@@ -241,6 +259,26 @@ describe('omni credits', () => {
     expect(out).toBe('');
     expect(err.split('\n').filter(Boolean)).toHaveLength(1);
     expect(err.startsWith(said)).toBe(true);
+  });
+
+  // Law BR-PRODUCT-24 (.omni-loop/knowledge/product/rules.md, #1485).
+  it('law BR-PRODUCT-24: any failed search exits 2 with one line and no report; an unreadable PR a signed commit names is left uncounted with a warning', async () => {
+    const failed = () => Object.assign(new Error('Command failed'), { status: 1, stderr: 'HTTP 502: Bad Gateway\n' });
+    const searchFails = await omni(['credits'], { routes: [['search commits', failed()], ...WORLD] });
+    expect(searchFails.code).toBe(2);
+    expect(searchFails.out).toBe('');
+    expect(searchFails.err.split('\n').filter(Boolean)).toEqual(['omni credits: gh failed: HTTP 502: Bad Gateway']);
+
+    const viewFails = await omni(['credits', '--json'], { routes: [['pr view 8 --repo acme/gadgets', failed()], ...WORLD] });
+    expect(viewFails.code).toBe(0);
+    const doc = JSON.parse(viewFails.out) as CreditsDoc;
+    expect(doc.items.some((item) => item.repo === 'acme/gadgets' && item.number === 8)).toBe(false);
+    expect(doc.warnings).toEqual(['acme/gadgets#8, named by a signed commit, could not be read: HTTP 502: Bad Gateway']);
+
+    const rateLimited = Object.assign(new Error('Command failed'), { status: 1, stderr: 'HTTP 403: API rate limit exceeded for user ID 1.\n' });
+    const viewRateLimited = await omni(['credits'], { routes: [['pr view 8 --repo acme/gadgets', rateLimited], ...WORLD] });
+    expect(viewRateLimited.code).toBe(2);
+    expect(viewRateLimited.out).toBe('');
   });
 
   it('gh missing while reading the login of github.user: exits 2 with one line', async () => {
