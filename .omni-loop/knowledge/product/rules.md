@@ -820,7 +820,7 @@ A signed-out visitor to the Loop page or one loop's page is asked to sign in, th
 
 Serves: P-PRODUCT-66
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
-Enforced by: pending #1536
+Enforced by: apps/galaxy/src/loop/page/page.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
