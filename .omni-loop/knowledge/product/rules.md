@@ -600,7 +600,7 @@ A person's profile lists only the PRDs and fixes of the workspace the profile is
 
 Serves: P-PRODUCT-52
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
-Enforced by: pending #1516
+Enforced by: apps/galaxy/src/profile/profile.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
