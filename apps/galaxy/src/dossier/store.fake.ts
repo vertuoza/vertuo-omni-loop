@@ -52,7 +52,7 @@
 // the dossier's product, {id, name} or null. A member reads the workspace's products.
 //
 // A product PRD (PRD 1548): a product may carry a key (seedProduct's `key`), and dossier_push() with
-// p_product_key of supabase/migrations/20261203090000_product_prd_ids.sql is written here as the
+// p_product_key of supabase/migrations/20261203100000_product_prd_ids.sql is written here as the
 // migration writes it — the product's next PRD, with no home repository and born on the server, when
 // p_prd is null, else PRD p_prd of it, its answer carrying prdId; product_of_key() picks the caller's
 // product listing the repository first, then the oldest. dossier_approval() answers a product PRD's
@@ -351,7 +351,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return dossier;
   }
 
-  /** dossier_push() with p_product_key (supabase/migrations/20261203090000_product_prd_ids.sql): the
+  /** dossier_push() with p_product_key (supabase/migrations/20261203100000_product_prd_ids.sql): the
    * product's next PRD when p_prd is null, else PRD p_prd of it; the answer carries prdId. */
   function pushProduct(me: FakeAccount, args: Row, key: string): Result {
     const checked = productPushArgs(args, key);
