@@ -117,17 +117,25 @@ function prdOf(value: string | null): PrdNumber | null {
   return parsed.success && parsed.data <= PRD_MAX ? parsed.data : null;
 }
 
-/** GET: the approval in force, for the kit's `omni approval`. */
-export async function answerApproval(request: Request, deps: ApprovalDeps): Promise<Response> {
-  if (!deps.connect) return refuse(503, NO_DATABASE);
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
-  if (!auth.ok) return refuse(auth.status, auth.error);
+/** The PRD a GET's query names, `?repo=<owner/name>&prd=<n>`, its repository in lower case; or the 400
+ * that refuses it. Shared with the App's judge route (src/approvals/judge.controller.ts, PRD 1612). */
+export function prdQueryOf(request: Request): { repo: string; prd: PrdNumber } | Response {
   const query = new URL(request.url).searchParams;
   const repo = query.get('repo') ?? '';
   if (repo.length > 200 || !REPO.test(repo)) return refuse(400, '`repo` must be the repository as owner/name.');
   const prd = prdOf(query.get('prd'));
   if (prd === null) return refuse(400, "`prd` is the PRD's number.");
-  return inForce(request, deps.connect(auth.caller.token), repo.toLowerCase(), prd, deps);
+  return { repo: repo.toLowerCase(), prd };
+}
+
+/** GET: the approval in force, for the kit's `omni approval`. */
+export async function answerApproval(request: Request, deps: ApprovalDeps): Promise<Response> {
+  if (!deps.connect) return refuse(503, NO_DATABASE);
+  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
+  if (!auth.ok) return refuse(auth.status, auth.error);
+  const named = prdQueryOf(request);
+  if (named instanceof Response) return named;
+  return inForce(request, deps.connect(auth.caller.token), named.repo, named.prd, deps);
 }
 
 /** The caller of a POST: its bearer token's client when it carries one, else the page's session. */

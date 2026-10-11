@@ -25,9 +25,9 @@ export type Refusal = { code: string | null; message: string | null };
 /** A read: its value, or the refusal. */
 export type Answer<T> = { ok: true; value: T } | { ok: false; refusal: Refusal };
 
-const UUID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-const text = z.string().min(1);
-const at = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
+export const UUID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+export const text = z.string().min(1);
+export const at = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
 
 /** What approval_request() answers: the request recorded, who it asked, and what a notification shows. */
 const Requested = z.object({
@@ -62,7 +62,7 @@ const Recipients = z.array(z.object({
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 
 /** A function's answer parsed by `schema`, or the refusal. */
-async function parsed<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, fn: string): Promise<Answer<T>> {
+export async function parsed<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, fn: string): Promise<Answer<T>> {
   const { data, error } = await call;
   if (error) return { ok: false, refusal: { code: error.code ?? null, message: error.message ?? null } };
   const read = schema.safeParse(data);

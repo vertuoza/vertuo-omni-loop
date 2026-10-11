@@ -35,7 +35,7 @@ const voidOf = (id: string, kind: string, from: string, to: string) => ({
 
 const REACHED = [{ user: IRISA, email: 'irisa@acme.test', devices: [{ id: VOID_PLAN, endpoint: 'https://push.example/1', p256dh: 'k', auth: 'a' }] }];
 
-function world(answers: Record<string, Raw | Error>, { reach = true, unlabel = (() => Promise.resolve()) as TellDeps['unlabel'] } = {}) {
+function world(answers: Record<string, Raw | Error>, { reach = true, unlabel = (): Promise<void> => Promise.resolve() }: { reach?: boolean; unlabel?: TellDeps['unlabel'] } = {}) {
   const caller = stub(answers);
   const service = stub(answers);
   const pushed: Array<{ endpoint: string; payload: string }> = [];
