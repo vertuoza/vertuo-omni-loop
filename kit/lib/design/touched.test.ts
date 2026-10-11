@@ -1,6 +1,6 @@
 // PRD 1369: whether a diff touches a screen, as `omni design touched` says it.
 import { describe, expect, it } from 'vitest';
-import { designTouched, formatScreensTouched, formatTouched, screensTouched, type ScreenTouch } from './touched.ts';
+import { designTouched, formatScreensTouched, formatStaleMocks, formatTouched, screensRead, screensTouched, staleMocks, type MockedScreen, type ScreenRead, type ScreenTouch } from './touched.ts';
 
 const CHANGED = ['src/ui/Button.tsx', 'src/api/route.ts', 'styles/global.css', 'README.md'];
 
@@ -65,5 +65,50 @@ describe('formatScreensTouched', () => {
 
   it('prints no line when no screen is touched', () => {
     expect(formatScreensTouched([])).toEqual([]);
+  });
+});
+
+// PRD 1550: a screen's `reads` — the code behind it — is named apart and never trips a lock; a change
+// to its `implements` that leaves its mockup alone names the mockup as maybe stale.
+const GAMES: ScreenRead = { screen: 'game-room', implements: ['src/arcade/scenes/games.tsx'], reads: ['src/arcade/games/'] };
+const LOCKED_GAMES: ScreenTouch & ScreenRead = { ...GAMES, status: 'locked', routes: ['/play'] };
+
+describe('screensRead', () => {
+  it('keeps each screen a reads entry matches and no implements entry does, in the library order', () => {
+    expect(screensRead([GAMES], ['src/arcade/games/kart/physics.ts'])).toEqual([GAMES]);
+    expect(screensRead([GAMES], ['src/arcade/games/kart/physics.ts', 'src/arcade/scenes/games.tsx'])).toEqual([]);
+    expect(screensRead([GAMES, { ...GAMES, screen: 'b', reads: [] }], ['src/arcade/games/a.ts'])).toEqual([GAMES]);
+    expect(screensRead([GAMES], ['src/arcade/scenes/other.tsx'])).toEqual([]);
+  });
+
+  it('names no locked screen on the screens: line for a change under reads alone', () => {
+    const changed = ['src/arcade/games/kart/physics.ts'];
+    expect(screensTouched([LOCKED_GAMES], changed)).toEqual([]);
+    expect(formatScreensTouched(screensTouched([LOCKED_GAMES], changed), screensRead([LOCKED_GAMES], changed))).toEqual(['screens: reads game-room']);
+  });
+
+  it('prints the screens an implements entry touches first, then each screen read, on one line', () => {
+    expect(formatScreensTouched([EDITOR], [GAMES])).toEqual(['screens: quote-editor 🔒 (/quotes/:id) · reads game-room']);
+    expect(formatScreensTouched([], [])).toEqual([]);
+  });
+});
+
+describe('staleMocks', () => {
+  const DIR = 'kb/design/screens/';
+  const WITH_MOCK: MockedScreen = { screen: 'quote-editor', mock: 'quote-editor.html' };
+
+  it('names each touched screen whose mockup the change leaves alone', () => {
+    expect(staleMocks([WITH_MOCK], ['src/quotes/editor/a.tsx'], DIR)).toEqual(['quote-editor']);
+  });
+
+  it('names none whose mockup changed too, or that has no mockup', () => {
+    expect(staleMocks([WITH_MOCK], ['src/quotes/editor/a.tsx', 'kb/design/screens/quote-editor.html'], DIR)).toEqual([]);
+    expect(staleMocks([WITH_MOCK], ['src/quotes/editor/a.tsx', 'kb/design/screens/quote-editor.html'], 'kb/design/screens')).toEqual([]);
+    expect(staleMocks([{ ...WITH_MOCK, mock: null }], ['src/quotes/editor/a.tsx'], DIR)).toEqual([]);
+  });
+
+  it('prints one mock may be stale: line per screen', () => {
+    expect(formatStaleMocks(['a', 'b'])).toEqual(['mock may be stale: a', 'mock may be stale: b']);
+    expect(formatStaleMocks([])).toEqual([]);
   });
 });

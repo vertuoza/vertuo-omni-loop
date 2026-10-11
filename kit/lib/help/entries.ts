@@ -887,13 +887,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "slice's feature branch, else the default branch) and prints design: off while the flag is off, " +
       'ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: ' +
       'unknown when design.paths is empty or the base cannot be read, for the agent to judge from the ' +
-      "diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
+      'diff. It first drops every changed path a design.ignore glob matches (by default the test ' +
+      'shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change ' +
+      'made only of tests reads ui: no. Its screens: line names each library screen whose implements ' +
+      'the change touches, and as reads <screen> each one it reaches only through its reads, the code ' +
+      'behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen ' +
+      "whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
       'design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave ' +
       'or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen ' +
       'library, the folder design.screens names (by default design/screens/ under the knowledge ' +
       'folder): one Markdown file per screen, its front matter saying its status (draft, locked or ' +
-      'superseded), who locked it, when and in which words, its mockup, the paths it implements and ' +
-      'its routes. It prints one line per screen, sorted by name, with its status, who locked it and ' +
+      'superseded), who locked it, when and in which words, its mockup, the paths it implements (the ' +
+      'files it is drawn from), the optional reads list (the code it only depends on) and its routes; ' +
+      'omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and ' +
       'when, and its routes, then each file that does not read, says so when the library is empty, ' +
       'and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 ' +
       'whatever it finds. words is the word pass: it reads each mockup page given, structure never ' +

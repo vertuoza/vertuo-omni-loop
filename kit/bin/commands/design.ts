@@ -5,6 +5,10 @@
 // only a usage mistake exits 2. Below its answer, PRD 1407 adds one `screens:` line naming each
 // library screen whose `implements` a changed path matches (the `design.paths` semantics), with its
 // status and routes; no line when none does, while the flag is off, or when the base cannot be read.
+// PRD 1550: it first drops every changed path a `design.ignore` glob matches (by default the common
+// test shapes); a screen reached only through its `reads` is named `reads <screen>` on the same line
+// and never as a locked screen; and each screen whose `implements` changed while its mockup did not
+// gets a `mock may be stale: <screen>` line, a note that never blocks.
 //
 // `omni design screens` (PRD 1407): the screen library at `design.screens` — one line per screen,
 // its name, status, who locked it and when, and its routes, then each file that does not read; it says
@@ -19,13 +23,14 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { designScreensDir } from '../../lib/config.ts';
 import { defaultDesignBase } from '../../lib/design/base.ts';
+import { designIgnore, dropIgnored } from '../../lib/design/ignore.ts';
 import { formatScreens, readScreens } from '../../lib/design/screens.ts';
 import { avoidedWords } from '../../lib/design/words/avoid.ts';
 import { formatPage, wordPass, type WordRules } from '../../lib/design/words/pass.ts';
 import { parseSelector, type Selector } from '../../lib/design/words/selector.ts';
 import { messageOf } from '../../lib/narrow.ts';
 import { readForm } from '../../lib/playbook/forms.ts';
-import { designTouched, formatScreensTouched, formatTouched, screensTouched } from '../../lib/design/touched.ts';
+import { designTouched, formatScreensTouched, formatStaleMocks, formatTouched, screensRead, screensTouched, staleMocks } from '../../lib/design/touched.ts';
 import { branchPaths } from '../branch-range.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
@@ -43,7 +48,7 @@ function currentBranch({ ctx, exec }: CommandIo): string | null {
   }
 }
 
-/** The answer, then the `screens:` line when a library screen's `implements` matches a changed path. */
+/** The answer, then the `screens:` line when a library screen's `implements` or `reads` matches a changed path, then each stale mockup. */
 function touched(io: CommandIo, given: string | undefined): string[] {
   const { design } = io.ctx.config;
   if (!design.enabled) return formatTouched(designTouched(design, []));
@@ -54,8 +59,15 @@ function touched(io: CommandIo, given: string | undefined): string[] {
   } catch {
     return formatTouched({ ui: 'unknown', reason: `cannot read ${base} — fetch it or pass another base` });
   }
-  const { screens: library } = readScreens(join(io.ctx.root, designScreensDir(io.ctx.config)));
-  return [...formatTouched(designTouched(design, changed)), ...formatScreensTouched(screensTouched(library, changed))];
+  const kept = dropIgnored(designIgnore(design), changed);
+  const dir = designScreensDir(io.ctx.config);
+  const { screens: library } = readScreens(join(io.ctx.root, dir));
+  const hit = screensTouched(library, kept);
+  return [
+    ...formatTouched(designTouched(design, kept)),
+    ...formatScreensTouched(hit, screensRead(library, kept)),
+    ...formatStaleMocks(staleMocks(hit, changed, dir)),
+  ];
 }
 
 function screens({ ctx }: CommandIo): string[] {
