@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { answerJudge, judgeSigningString, type JudgeDeps } from './judge.controller';
-import { judgeRepository, type JudgeRepository } from './judge.repository';
+import { judgeRepository } from './judge.repository';
 import { approvalInForce } from './judge.service';
 
 vi.mock('server-only', () => ({}));
@@ -167,7 +167,7 @@ describe('GET /api/approvals/judge', () => {
 describe('approvalInForce', () => {
   it('reads nothing past the dossier when there is none', async () => {
     const stub = record({ dossiers: { data: [], error: null } });
-    const read = await approvalInForce(judgeRepository(stub.db) as JudgeRepository, 'acme/mobile', 7 as never);
+    const read = await approvalInForce(judgeRepository(stub.db), 'acme/mobile', 7 as never);
     expect(read).toEqual({ ok: true, value: null });
     expect(stub.calls.map((c) => c.table)).toEqual(['dossiers']);
   });

@@ -1,5 +1,5 @@
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Answer } from './approvals.repository';
+import type { Answer } from './answer';
 import type { ApprovalRow, JudgeRepository, VoidRow } from './judge.repository';
 
 // The approval in force, as the App's check reads it (PRD 1612 s2, spec §3): the same record the kit's
@@ -8,6 +8,9 @@ import type { ApprovalRow, JudgeRepository, VoidRow } from './judge.repository';
 // dossier is the one in force; a void since means it no longer holds, and the kit's judge reads it as
 // drifted. Each pinned file carries the approved text when the database still holds it, so the kit's
 // `omni approval restore` can write it back once it hashes to its sha256.
+
+/** The reads this service judges from: the service role's view of the approval record. */
+export type ApprovalRecord = JudgeRepository;
 
 /** A file the approval pins: its kind, path, sha256 and version, and the approved text when kept. */
 export type JudgedFile = { kind: string; path: string; sha256: string; versionId: string; content?: string };

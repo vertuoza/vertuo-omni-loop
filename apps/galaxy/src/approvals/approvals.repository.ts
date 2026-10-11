@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
+import { at, parsed, text, UUID, type Answer } from './answer';
 
 // The approvals' storage (PRD 1322 s2): the only file of this folder that reaches Supabase. It calls the
 // database's functions (supabase/migrations/20261125090000_approval_requests.sql) and parses what they
@@ -19,15 +20,7 @@ type CallerDb = Pick<SupabaseClient, 'rpc'>;
 /** The service role's client: the functions and the subscriptions table. */
 type ServiceDb = Pick<SupabaseClient, 'rpc' | 'from'>;
 
-/** Why the database said no: its code (42501, P0002, 22023…, or `shape`) and message. */
-export type Refusal = { code: string | null; message: string | null };
-
-/** A read: its value, or the refusal. */
-export type Answer<T> = { ok: true; value: T } | { ok: false; refusal: Refusal };
-
-export const UUID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-export const text = z.string().min(1);
-export const at = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
+export type { Answer, Refusal } from './answer';
 
 /** What approval_request() answers: the request recorded, who it asked, and what a notification shows. */
 const Requested = z.object({
@@ -59,15 +52,6 @@ const Recipients = z.array(z.object({
   devices: z.array(z.object({ id: UUID, endpoint: text, p256dh: text, auth: text })),
 }));
 
-type Raw = { data: unknown; error: { code?: string; message?: string } | null };
-
-/** A function's answer parsed by `schema`, or the refusal. */
-export async function parsed<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, fn: string): Promise<Answer<T>> {
-  const { data, error } = await call;
-  if (error) return { ok: false, refusal: { code: error.code ?? null, message: error.message ?? null } };
-  const read = schema.safeParse(data);
-  return read.success ? { ok: true, value: read.data } : { ok: false, refusal: { code: 'shape', message: `${fn}() answered out of shape` } };
-}
 
 /** The caller's side: asking, and the bell. */
 export function approvalsRepository(db: CallerDb) {

@@ -2,8 +2,7 @@ import { prdQueryOf } from '../approval/approval-api';
 import { callerOrigin } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import { STAGE_SIGNATURE_HEADER, verifySignature } from '../stages/event/event';
-import type { JudgeRepository } from './judge.repository';
-import { approvalInForce } from './judge.service';
+import { approvalInForce, type ApprovalRecord } from './judge.service';
 
 // The judge route's HTTP edge (PRD 1612 s2, spec §3), as a plain function of a Request, so it is tested
 // on a stubbed database and the route stays one line:
@@ -28,7 +27,7 @@ export type JudgeDeps = {
   /** STAGE_EVENT_SECRET; unset, every request is refused. */
   secret: string | undefined;
   /** The service role's reads of the approval record, or null when this deployment has none. */
-  record: (() => JudgeRepository) | null;
+  record: (() => ApprovalRecord) | null;
   log?: (line: string) => void;
 };
 

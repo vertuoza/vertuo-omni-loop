@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
-import { at, parsed, text, UUID, type Answer } from './approvals.repository';
+import { at, parsed, text, UUID, type Answer } from './answer';
 
 // The judge's storage (PRD 1612 s2): the approval record as the service role reads it, for the App's
 // signed `GET /api/approvals/judge`. dossier_approval() checks who calls (auth.uid()), and the App is
@@ -10,7 +10,7 @@ import { at, parsed, text, UUID, type Answer } from './approvals.repository';
 // of them (supabase/migrations/20261123090000_approvals.sql, 20261125090000_approval_requests.sql,
 // 20260928090000_dossiers.sql, 20260926120000_workspaces.sql). It holds no rule: the newest numbered
 // dossier of the PRD, its newest approval, that approval's voids, the versions it pins and whether the
-// approver is a member, each parsed as it comes (approvals.repository.ts's `parsed`). A refusal comes
+// approver is a member, each parsed as it comes (./answer.ts's `parsed`). A refusal comes
 // back as its code and message; rows out of shape as the code `shape`.
 
 /** The service role's client: its tables. */
