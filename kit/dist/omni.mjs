@@ -44596,9 +44596,9 @@ var ENTRIES = deepFreeze([
     kind: "command",
     who: "you",
     label: "omni product \u2026",
-    usage: ["omni product import --product <name>", "omni product which"],
+    usage: ["omni product import --product <name>", "omni product which", "omni product use <key>", "omni product phase0 <owner/name>\u2026"],
     summary: "plan targets into a product; this repo's products",
-    detail: "omni product import --product <name> copies the targets of this plan repository, its plan.targets, into the product of that name on the Omni page, with your sign-in: each target becomes a repository link with its role, knowledge, read-at commit, read-only flag and what it consumes, an existing link is changed to match, and it prints what it added and changed. A second run changes nothing. It never edits the config: swap targets for product: <name> in the plan section yourself, and omni targets then reads the links from the product. Only an owner of the workspace changes its links. omni product which prints the products this repository is in, one per line, or none. Either exits 1, with one line saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses."
+    detail: "omni product import --product <name> copies the targets of this plan repository, its plan.targets, into the product of that name on the Omni page, with your sign-in: each target becomes a repository link with its role, knowledge, read-at commit, read-only flag and what it consumes, an existing link is changed to match, and it prints what it added and changed. A second run changes nothing. It never edits the config: swap targets for product: <name> in the plan section yourself, and omni targets then reads the links from the product. Only an owner of the workspace changes its links. omni product which prints the products this repository is in, one per line, or none, after remembered: <key> when this checkout remembers one. Either exits 1, with one line saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses. omni product use <key> remembers the product this checkout runs from, for every worktree of it, so a product PRD (mobile-12) is built from here with no plan repository. omni product phase0 <owner/name>\u2026 reads each repository's phase-0 flag and prints one line each, refusing by name any not on server, which a product PRD cannot land in. Exit 0 when every one is on server, 1 otherwise."
   },
   {
     name: "whoami",
@@ -44886,7 +44886,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:mega-brainstorm"],
     label: "/omni:mega-brainstorm",
     summary: "one PRD across repositories, from a plan repository",
-    detail: "The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into one PRD whose plan says which slice lands in which target repository, read from a read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR and one phase-0 PR, with a table of what lands where, all live in the plan repository; it never writes in a target. It ends with the /omni:ultra-yolo line that builds it.",
+    detail: "The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into one PRD whose plan says which slice lands in which target repository, read from a read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR and one phase-0 PR, with a table of what lands where, all live in the plan repository; it never writes in a target. It ends with the /omni:ultra-yolo line that builds it. With --product <key>, it runs from any checkout of a repository the product holds, a plan repository or not, and makes a product PRD (mobile-12) on the Omni page instead: no issue, no branch and no PR in any repository, every repository it lands in on phase 0 on the server.",
     group: "multi-repo",
     when: "Use it when one idea needs changes in several repositories and this is their plan repository.",
     example: {
