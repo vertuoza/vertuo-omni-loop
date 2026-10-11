@@ -53,56 +53,43 @@ function isFolder(dir: string): boolean {
   return existsSync(dir) && statSync(dir).isDirectory();
 }
 
+/** `run`'s value as a promise, as an `async` function that awaits nothing gives it: an error it
+ * throws rejects the promise. */
+function promised<T>(run: () => T): Promise<T> {
+  return new Promise((resolve) => {
+    resolve(run());
+  });
+}
+
 /** The `git` store of the repository `ctx` reads. */
 export function gitOutboxStore(ctx: Context): OutboxStore {
   return {
-    async readItem(ref) {
-      return readText(inRoot(ctx.root, ref));
-    },
-    async removeItem(ref) {
+    readItem: (ref) => promised(() => readText(inRoot(ctx.root, ref))),
+    removeItem: (ref) => promised(() => {
       rmSync(inRoot(ctx.root, ref));
-    },
-    async spentIds(prd, out) {
+    }),
+    spentIds: (prd, out) => promised(() => {
       const ids = spentInOutbox(ctx, prd);
       // With `--out`, the folder's own items are spent too: two items raised into one scratch folder
       // never share an id, and the relay never finds two files of one name.
       if (out !== null) for (const name of markdownFiles(out.abs)) ids.add(basename(name, '.md'));
       return ids;
-    },
-    async writeItem({ prd, id, text }, out) {
+    }),
+    writeItem: ({ prd, id, text }, out) => promised(() => {
       const outboxDir = outboxDirOf(ctx, prd);
       const { abs, shown } = out ?? { abs: join(ctx.root, outboxDir), shown: outboxDir };
       mkdirSync(abs, { recursive: true });
       writeFileSync(join(abs, `${id}.md`), text);
       return join(shown, `${id}.md`);
-    },
-    async adopt(itemText) {
-      return adoptItem({ ctx, itemText });
-    },
-    async settle(ref, answer) {
-      return settleItem({ ctx, file: ref, answer });
-    },
-    async relay(prd, dir, laws) {
-      if (!isFolder(dir)) return null;
-      return relayFolder({ ctx, laws, prd, dir });
-    },
-    async gate(prd, options) {
-      return gateResult(prd, { ctx, ...options });
-    },
-    async openItems(prd) {
-      return openItemsForPrd(prd, { ctx });
-    },
-    async adoptedEntries(prd) {
-      return adoptedEntriesForPrd(prd, { ctx });
-    },
-    async replies(request, client) {
-      return readReplies({ ctx, ...request }, client);
-    },
-    async prComment(prd, client) {
-      return upsertOutboxPrComment({ prd, ctx }, client);
-    },
-    async issueComment(request, client) {
-      return upsertOutboxComment({ ctx, ...request }, client);
-    },
+    }),
+    adopt: (itemText) => promised(() => adoptItem({ ctx, itemText })),
+    settle: (ref, answer) => promised(() => settleItem({ ctx, file: ref, answer })),
+    relay: (prd, dir, laws) => promised(() => (isFolder(dir) ? relayFolder({ ctx, laws, prd, dir }) : null)),
+    gate: (prd, options) => promised(() => gateResult(prd, { ctx, ...options })),
+    openItems: (prd) => promised(() => openItemsForPrd(prd, { ctx })),
+    adoptedEntries: (prd) => promised(() => adoptedEntriesForPrd(prd, { ctx })),
+    replies: (request, client) => promised(() => readReplies({ ctx, ...request }, client)),
+    prComment: (prd, client) => promised(() => upsertOutboxPrComment({ prd, ctx }, client)),
+    issueComment: (request, client) => promised(() => upsertOutboxComment({ ctx, ...request }, client)),
   };
 }
