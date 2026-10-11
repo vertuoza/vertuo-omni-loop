@@ -83,7 +83,7 @@ When a kit default names {config:<key>} and the key is unknown, set to null, or 
 
 Serves: P-PRODUCT-7
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s1-01-kit-default-names-an-unset-setting, PRD #45
-Enforced by: pending #1470
+Enforced by: kit/lib/playbook/resolve.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
