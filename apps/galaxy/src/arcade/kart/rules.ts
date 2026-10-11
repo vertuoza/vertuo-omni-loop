@@ -64,4 +64,7 @@ export const RULES = Object.freeze({
   finalBanner: 2.5,
   countdown: 3,
   goBanner: 0.75,
+  /** MULTI (PRD 1572): how many players of a workspace hold a place on the grid, and the Realtime messages a second a race may cost (sent and delivered both count). */
+  places: 4,
+  messageBudget: 80,
 } as const);

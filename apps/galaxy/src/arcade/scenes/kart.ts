@@ -3,7 +3,7 @@
 // that folder at run time (guard.test.ts): the loaded game comes in as `FrameState.kart` and draws
 // itself, and until then, or if it never loads, the canvas is the dark behind the text layer's line
 // (kart.tsx). The grid the race is drawn on is the one it started on, as SUPER OMNI WORLD keeps its own.
-import type { Tint } from '@omni/design';
+import type { Hero, Tint } from '@omni/design';
 import type { Action } from '../keys';
 import type { Grid } from '../grid';
 import type { FrameState, KartDraw, Pages, SceneName } from './common.ts';
@@ -144,10 +144,35 @@ export interface ArcadeKart {
   choice: KartChoice;
   /** Whether MULTI can be picked: the account gave a link to the grid. */
   multi: boolean;
+  /** What the GRID shows, once MULTI is picked (PRD 1572); none before. */
+  lobby: KartGridView | null;
 }
 
-/** Where the ready screen stands: choosing between SINGLE and MULTI (the cursor on one), or SINGLE picked. */
-export type KartChoice = { step: 'choose'; cursor: 'single' | 'multi' } | { step: 'single' };
+/** Where the ready screen stands: choosing between SINGLE and MULTI (the cursor on one), SINGLE picked, or MULTI picked: on the workspace's grid. */
+export type KartChoice = { step: 'choose'; cursor: 'single' | 'multi' } | { step: 'single' } | { step: 'grid' };
+
+/** A player on the GRID screen: their hero, name and best time in tenths (none before a first race), whether it is the player at this screen and whether they hold a place. */
+export interface KartGridRow { id: string; name: string; hero: Hero; fleet: string | null; best: number | null; you: boolean; seat: boolean }
+
+/**
+ * What the GRID screen shows (PRD 1572): where the link stands (`joining`, `joined`, `reconnecting`
+ * or `out` of reach), the players in their starting order and the line under them: START RACE,
+ * WAITING FOR <NAME>, WAITING FOR RACERS, GRID FULL · 4 RACERS, RECONNECTING… or GRID OUT OF REACH · A TO RETRY.
+ */
+export interface KartGridView { state: 'joining' | 'joined' | 'reconnecting' | 'out'; rows: readonly KartGridRow[]; line: string }
+
+/** The GRID's two lines the game's code does not say: while joining, and when the grid cannot be reached (or its code did not load). */
+export const GRID_JOINING_LINE = 'JOINING THE GRID…';
+export const GRID_OUT_LINE = 'GRID OUT OF REACH · A TO RETRY';
+
+/** What a press does on the GRID: B goes back to the choice, A tries again once the grid was out of reach. */
+export function gridPress(view: KartGridView | null, action: Action): 'back' | 'retry' | null {
+  if (action === 'b') return 'back';
+  return action === 'a' && view?.state === 'out' ? 'retry' : null;
+}
+
+/** The choice B goes back to from the GRID: the cursor stays on MULTI. */
+export const BACK_TO_CHOICE: KartChoice = { step: 'choose', cursor: 'multi' };
 
 /** The ready screen's first state: the cursor on SINGLE. */
 export const FIRST_CHOICE: KartChoice = { step: 'choose', cursor: 'single' };
@@ -162,14 +187,14 @@ export const MULTI_CLOSED_LINE = 'MULTI · SIGN IN TO RACE';
 
 /**
  * What a press does on the choice: ▲ ▼ move the cursor (MULTI is skipped when it cannot be picked),
- * A or START picks. B is the room's, through `kartPress`. A pick of MULTI is the grid's, slice 3's:
- * until then it leaves the choice as it is.
+ * A or START picks: SINGLE is today's ready line, MULTI the workspace's grid. B is the room's,
+ * through `kartPress`.
  */
 export function choicePress(choice: KartChoice, action: Action, multi: boolean): KartChoice {
   if (choice.step !== 'choose') return choice;
   if (action === 'up') return { step: 'choose', cursor: 'single' };
   if (action === 'down') return multi ? { step: 'choose', cursor: 'multi' } : choice;
-  if ((action === 'a' || action === 'start') && choice.cursor === 'single') return { step: 'single' };
+  if (action === 'a' || action === 'start') return choice.cursor === 'single' ? { step: 'single' } : multi ? { step: 'grid' } : choice;
   return choice;
 }
 

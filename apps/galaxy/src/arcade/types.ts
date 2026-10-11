@@ -80,11 +80,26 @@ export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>
  */
 export interface Session { id: string; email: string; givenName: string; crew: boolean; github: string | null }
 
+/** Where a link to the grid stands: joined, dropped and trying again by itself, or refused (not a player of the workspace, KART not unlocked, or out of reach). */
+export type KartLinkStatus = 'joined' | 'reconnecting' | 'refused';
+
+/** What a link tells the game: who Presence holds (entries by player id, as sent), a message another player broadcast, and where the link stands. */
+export interface KartLinkEvents {
+  presence(entries: Readonly<Record<string, unknown>>): void;
+  message(from: string, body: unknown): void;
+  status(status: KartLinkStatus): void;
+}
+
 /**
- * The live link to a workspace's OMNI KART grid (PRD 1572). Its shape is slice 3's to widen; the
- * choice only needs to know whether an account can give one.
+ * The live link to a workspace's OMNI KART grid (PRD 1572): one private channel, `kart:<workspace id>`.
+ * It holds no rule: it opens the channel, says who the player is (`who`, their Presence entry) again
+ * each time the channel is back, sends what it is given and closes. A message is not echoed to its sender.
  */
-export interface KartLink { leave(): void }
+export interface KartLink {
+  join(who: Record<string, unknown>, on: KartLinkEvents): void;
+  send(body: unknown): void;
+  leave(): void;
+}
 
 /**
  * Sign-in and saving, behind one interface: Supabase in production, the browser's own storage in the
