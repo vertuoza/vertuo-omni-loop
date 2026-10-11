@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 452" width="760" height="452">
+  <title>A UI slice built from DESIGN.md</title>
+  <desc>A UI slice, from DESIGN.md to the Design review. DESIGN.md holds the semantic tokens, a closed list of parts and its reference screens. /omni:plan writes on each ui: yes slice the parts it uses and the reference screen it copies. /omni:do-work reads them, and that screen's file and mockup, before it builds, and builds from listed parts and semantic tokens. /omni:pixel-perfect review then runs up to three rounds of screenshot, critique against DESIGN.md and the reference screen, and fix; each round fixes only what the slice touched, a round that finds nothing ends it, and a fault in an untouched part goes under Seen, not touched. Then omni design parts --check runs on the slice's diff: each new part not on the list raises one medium outbox item, add it to DESIGN.md?. The sub-PR's Design review gains a Rounds line and a Parts line. Nothing blocks, and with no DESIGN.md nothing new is read.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <text x="20" y="22" class="dg-tag">YOUR DESIGN SYSTEM</text>
+  <rect x="23" y="37" width="200" height="84" class="dg-shadow"/>
+  <rect x="20" y="34" width="200" height="84" class="dg-box dg-key"/>
+  <text x="120" y="56" class="dg-code dg-you" text-anchor="middle">DESIGN.md</text>
+  <text x="120" y="76" class="dg-small dg-muted" text-anchor="middle">semantic tokens</text>
+  <text x="120" y="92" class="dg-small dg-muted" text-anchor="middle">a closed list of parts</text>
+  <text x="120" y="108" class="dg-small dg-muted" text-anchor="middle">its reference screens</text>
+  <path d="M223 76 L253.0 76.0" class="dg-line dg-edge-agents"/>
+  <polygon points="262,76 253.0,81.5 253.0,70.5" class="dg-head dg-agents"/>
+  <rect x="268" y="37" width="220" height="84" class="dg-shadow"/>
+  <rect x="265" y="34" width="220" height="84" class="dg-box"/>
+  <text x="375" y="56" class="dg-code" text-anchor="middle">/omni:plan</text>
+  <text x="375" y="76" class="dg-small dg-muted" text-anchor="middle">on each ui: yes slice</text>
+  <text x="375" y="92" class="dg-code" text-anchor="middle">Parts: Button, DataTable</text>
+  <text x="375" y="108" class="dg-code" text-anchor="middle">Reference screen: quote-list</text>
+  <path d="M488 76 L518.0 76.0" class="dg-line dg-edge-agents"/>
+  <polygon points="527,76 518.0,81.5 518.0,70.5" class="dg-head dg-agents"/>
+  <rect x="533" y="37" width="210" height="84" class="dg-shadow"/>
+  <rect x="530" y="34" width="210" height="84" class="dg-box"/>
+  <text x="635" y="56" class="dg-code" text-anchor="middle">/omni:do-work</text>
+  <text x="635" y="76" class="dg-small dg-muted" text-anchor="middle">reads them before it builds,</text>
+  <text x="635" y="92" class="dg-small dg-muted" text-anchor="middle">builds from listed parts</text>
+  <text x="635" y="108" class="dg-small dg-muted" text-anchor="middle">and semantic tokens</text>
+  <path d="M635 121 L635 144 L95 144" class="dg-line dg-edge-agents"/>
+  <path d="M95 144 L95.0 166.0" class="dg-line dg-edge-agents"/>
+  <polygon points="95,175 89.5,166.0 100.5,166.0" class="dg-head dg-agents"/>
+  <text x="645" y="138" class="dg-code dg-agents">ui: yes</text>
+  <text x="108" y="166" class="dg-tag dg-agents">/OMNI:PIXEL-PERFECT REVIEW</text>
+  <rect x="23" y="181" width="150" height="64" class="dg-shadow"/>
+  <rect x="20" y="178" width="150" height="64" class="dg-box"/>
+  <text x="95" y="200" class="dg-code" text-anchor="middle">round 1</text>
+  <text x="95" y="218" class="dg-small dg-muted" text-anchor="middle">screenshot, critique,</text>
+  <text x="95" y="234" class="dg-small dg-muted" text-anchor="middle">fix what it touched</text>
+  <path d="M173 210 L188.0 210.0" class="dg-line"/>
+  <polygon points="197,210 188.0,215.5 188.0,204.5" class="dg-head"/>
+  <rect x="203" y="181" width="150" height="64" class="dg-shadow"/>
+  <rect x="200" y="178" width="150" height="64" class="dg-box"/>
+  <text x="275" y="200" class="dg-code" text-anchor="middle">round 2</text>
+  <text x="275" y="218" class="dg-small dg-muted" text-anchor="middle">only what round 1</text>
+  <text x="275" y="234" class="dg-small dg-muted" text-anchor="middle">changed</text>
+  <path d="M353 210 L368.0 210.0" class="dg-line"/>
+  <polygon points="377,210 368.0,215.5 368.0,204.5" class="dg-head"/>
+  <rect x="383" y="181" width="150" height="64" class="dg-shadow"/>
+  <rect x="380" y="178" width="150" height="64" class="dg-box"/>
+  <text x="455" y="200" class="dg-code" text-anchor="middle">round 3</text>
+  <text x="455" y="218" class="dg-small dg-muted" text-anchor="middle">the last one,</text>
+  <text x="455" y="234" class="dg-small dg-muted" text-anchor="middle">whatever it shows</text>
+  <path d="M533 210 L548.0 210.0" class="dg-line"/>
+  <polygon points="557,210 548.0,215.5 548.0,204.5" class="dg-head"/>
+  <rect x="563" y="181" width="180" height="64" class="dg-shadow"/>
+  <rect x="560" y="178" width="180" height="64" class="dg-box"/>
+  <text x="650" y="200" class="dg-code" text-anchor="middle">omni design parts</text>
+  <text x="650" y="216" class="dg-code" text-anchor="middle">--check &lt;base&gt;</text>
+  <text x="650" y="234" class="dg-small dg-muted" text-anchor="middle">on the slice's diff</text>
+  <text x="20" y="264" class="dg-small dg-muted">A round that finds nothing ends the review. Untouched parts: Seen, not touched.</text>
+  <path d="M600 245 L600 280 L230 280" class="dg-line dg-edge-agents"/>
+  <path d="M230 280 L230.0 297.0" class="dg-line dg-edge-agents"/>
+  <polygon points="230,306 224.5,297.0 235.5,297.0" class="dg-head dg-agents"/>
+  <path d="M700 245 L700.0 309.0" class="dg-line dg-dash"/>
+  <polygon points="700,318 694.5,309.0 705.5,309.0" class="dg-head"/>
+  <text x="690" y="300" class="dg-small dg-muted" text-anchor="end">each new part off the list</text>
+  <text x="20" y="300" class="dg-tag">THE SUB-PR</text>
+  <rect x="23" y="313" width="440" height="94" class="dg-shadow"/>
+  <rect x="20" y="310" width="440" height="94" class="dg-box"/>
+  <text x="36" y="334" class="dg-code">## Design review</text>
+  <text x="36" y="354" class="dg-small dg-muted">… critique, audit, lint, screenshots, polish</text>
+  <text x="36" y="373" class="dg-small">✓ Rounds — 2 of 3: round 2 found nothing</text>
+  <text x="36" y="392" class="dg-small">✗ Parts — Stepper: not on the list (medium item)</text>
+  <rect x="507" y="329" width="236" height="64" class="dg-shadow"/>
+  <rect x="504" y="326" width="236" height="64" class="dg-box dg-key"/>
+  <text x="622" y="348" class="dg-small dg-you" text-anchor="middle">the PRD's outbox</text>
+  <text x="622" y="366" class="dg-small" text-anchor="middle">add Stepper to DESIGN.md?</text>
+  <text x="622" y="382" class="dg-small dg-muted" text-anchor="middle">one medium item per part</text>
+  <text x="20" y="436" class="dg-small dg-muted">Never blocking: a new part is a question you answer, never a stop. With no DESIGN.md, nothing new is read.</text>
+</svg>

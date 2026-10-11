@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 436" width="760" height="436">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" width="760" height="470">
   <title>The design review on a slice</title>
-  <desc>/omni:do-work builds a slice, then asks omni design touched whether it changes a screen. ui: no writes one line, no screen changed. ui: yes runs /omni:pixel-perfect review in five steps: a critique against the design form, an audit with the craft floor, the design lint when commands.design is set, screenshots at 390 and 1440 compared with the mockup, and one batch of polish with one more look. The sub-PR gets a Design review section with a check, a cross or a dash per step; what it left goes to the PRD's outbox, which you answer at the end. It never blocks: no slice stops and no check turns red.</desc>
+  <desc>/omni:do-work builds a slice, then asks omni design touched whether it changes a screen. ui: no writes one line, no screen changed. ui: yes runs /omni:pixel-perfect review in five steps: a critique against the design form, an audit with the craft floor, the design lint when commands.design is set, screenshots at 390 and 1440 compared with the mockup, and one batch of polish with one more look. With a DESIGN.md, the screenshots and the fixes run in up to three rounds, each a screenshot, a critique against DESIGN.md and the reference screen, and one batch of fixes of only what the slice touched, stopping on a round that finds nothing; then omni design parts --check reads the slice's diff, and each new part not on the list raises one medium outbox item. The sub-PR gets a Design review section with a check, a cross or a dash per step, and, with a DESIGN.md, a Rounds line and a Parts line; what it left goes to the PRD's outbox, which you answer at the end. It never blocks: no slice stops and no check turns red.</desc>
   <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
        tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
   <style>
@@ -89,18 +89,23 @@
   <rect x="615" y="139" width="128" height="56" class="dg-shadow"/>
   <rect x="612" y="136" width="128" height="56" class="dg-box"/>
   <text x="676" y="159" class="dg-code" text-anchor="middle">5 polish</text>
-  <text x="676" y="178" class="dg-small dg-muted" text-anchor="middle">one batch, one look</text>
+  <text x="676" y="178" class="dg-small dg-muted" text-anchor="middle">fix, then look again</text>
+  <path d="M650 136 Q602 106 563.6 131.0" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="556,136 560.6,126.4 566.6,135.6" class="dg-head dg-agents"/>
+  <text x="602" y="112" class="dg-small dg-agents" text-anchor="middle">up to 3 rounds, with DESIGN.md</text>
   <path d="M676 195 L454.6 259.5" class="dg-line dg-edge-agents"/>
   <polygon points="446,262 453.1,254.2 456.2,264.8" class="dg-head dg-agents"/>
   <text x="20" y="248" class="dg-tag">THE SUB-PR</text>
-  <rect x="23" y="261" width="420" height="128" class="dg-shadow"/>
-  <rect x="20" y="258" width="420" height="128" class="dg-box"/>
+  <rect x="23" y="261" width="420" height="162" class="dg-shadow"/>
+  <rect x="20" y="258" width="420" height="162" class="dg-box"/>
   <text x="36" y="282" class="dg-code">## Design review</text>
   <text x="36" y="306" class="dg-small">✓ Critique — reads as the product, 2 fixed</text>
   <text x="36" y="323" class="dg-small">✗ Audit — 1 left, sent to the outbox</text>
   <text x="36" y="340" class="dg-small">— Design lint: not set here</text>
   <text x="36" y="357" class="dg-small">✓ Screenshots — 390 and 1440</text>
   <text x="36" y="374" class="dg-small">✓ Polish — one batch, confirmed</text>
+  <text x="36" y="391" class="dg-small">✓ Rounds — 2 of 3: round 2 found nothing</text>
+  <text x="36" y="408" class="dg-small">✓ Parts — all listed</text>
   <path d="M443 322 L514.0 322.0" class="dg-line dg-dash"/>
   <polygon points="523,322 514.0,327.5 514.0,316.5" class="dg-head"/>
   <text x="483" y="312" class="dg-small dg-muted" text-anchor="middle">what it left</text>
@@ -108,5 +113,5 @@
   <rect x="532" y="294" width="208" height="56" class="dg-box dg-key"/>
   <text x="636" y="317" class="dg-small dg-you" text-anchor="middle">the PRD's outbox</text>
   <text x="636" y="336" class="dg-small dg-muted" text-anchor="middle">you answer it at the end</text>
-  <text x="20" y="420" class="dg-small dg-muted">Never blocking: no slice stops, no check turns red, nothing waits on a design finding.</text>
+  <text x="20" y="454" class="dg-small dg-muted">Never blocking: no slice stops, no check turns red, nothing waits on a design finding.</text>
 </svg>

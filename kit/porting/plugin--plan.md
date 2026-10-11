@@ -179,3 +179,19 @@ kit's sources.
 
 `kit/test/plugin.test.ts`, the block "the design review in the skills that drive screen work (PRD
 1369)": the flag in step 0 and the `ui: yes` mark in step 4.
+
+## PRD #1559, slice s5 — the parts and the reference screen on a UI slice
+
+- **Step 0,** with design on, also runs `omni design parts` and keeps what it prints: the closed
+  list of DESIGN.md's parts and its reference screens, or
+  `parts: no DESIGN.md (run /omni:pixel-perfect init)`.
+- **Step 4, UI slices:** with a DESIGN.md, each `ui: yes` slice names under its heading the parts
+  it builds from (`- Parts: …`, names from the list only; a missing one written
+  `<part> (not on the list)`, never added to DESIGN.md here) and the reference screen it copies
+  (`- Reference screen: …`, the one of DESIGN.md's reference screens nearest what it builds), so
+  `/omni:do-work` reads them before it writes the slice. With no DESIGN.md, neither line. The lines
+  change no territory, blocker or wave.
+
+### Tests
+
+`kit/test/design-review-rounds.test.ts`, never `kit/test/plugin.test.ts`, a law's proof.

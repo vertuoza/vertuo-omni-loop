@@ -290,3 +290,23 @@ drafts.
 ### Tests
 
 `kit/test/design-skills.test.ts`.
+
+## PRD #1559, slice s6 — the Pixel perfect part draws from DESIGN.md
+
+- **Step 5's parts,** with the design flag on and a DESIGN.md, for the Pixel perfect part alone:
+  read the closed list (`omni config design.system`, `omni design parts`); each "after" is drawn
+  only from listed parts and semantic tokens, each part tagged `data-part="<name>"` beside
+  `data-screen` and `data-primary`, and "today" is tagged where it shows a listed part, drawn as the
+  product shows it. `omni design parts --check <folder>/before-after.html` runs beside the word pass
+  before anyone sees the page; each `untagged:` finding is fixed by tagging the control, one on
+  "today" with no listed part is said under the mockup, and an `off-list:` part stays only when the
+  design needs a new part, named outside the marked screen for the slice that builds it to raise.
+  The Functional part, and a page that says `Pixel perfect: no screen changes`, draws no part and is
+  not checked. With no DESIGN.md, the page draws from the form's `system` section, as before.
+- **Step 5's draft screens** keep their `data-part` tags in the mockup written beside them.
+- **Step 0** says that, design off, no parts check runs; **Rework** rewrites the page with the parts
+  included.
+
+### Tests
+
+`kit/test/design-mockup-parts.test.ts`, never `kit/test/plugin.test.ts`, a law's proof.
