@@ -248,7 +248,7 @@ The config refuses a signature.name or signature.email that is empty, holds a li
 
 Serves: P-PRODUCT-21
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s1-01-signature-name-address-shape, PRD #99
-Enforced by: pending #1458
+Enforced by: kit/lib/config.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #103
