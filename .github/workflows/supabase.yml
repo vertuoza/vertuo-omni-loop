@@ -282,6 +282,12 @@ jobs:
         # The rollback guard refuses while a product PRD exists. Two creates at once, in two sessions
         # through dblink, take two numbers with no gap (PRD 1548).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_prd_ids.sql
+      - name: A product PRD's outbox items and their append-only settlements
+        # outbox_item_put() writes an item row with its typed columns and its markdown, rewritten while
+        # it is open; outbox_settle() appends one settlement and refuses a second, and a non-member;
+        # outbox_item_adopt() settles a medium item adopted. A settlement is never updated or deleted,
+        # and another workspace reads nothing (PRD 1548).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/outbox_items.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
