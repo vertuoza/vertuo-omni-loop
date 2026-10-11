@@ -70,6 +70,22 @@ export function cabinets(s: XpStatus, rules: XpRules = XP_RULES, games: readonly
   return room;
 }
 
+/** How many cabinets the wide grid stands side by side, at their full size. */
+export const WIDE_WINDOW = 3;
+
+/**
+ * The cabinets the wide grid shows, by their place in the room: a window of `WIDE_WINDOW` that
+ * holds the cabinet under the cursor. It stays on the first ones until the cursor passes them, then
+ * scrolls by one a cabinet: with four, cabinets 1–3 on 1 to 3, and 2–4 on 4. A cursor out of the
+ * room is read as the nearest cabinet.
+ */
+export function roomWindow(at: number, count: number, size: number = WIDE_WINDOW): number[] {
+  const shown = Math.min(size, count);
+  const cursor = Math.max(0, Math.min(at, count - 1));
+  const first = Math.max(0, cursor - shown + 1);
+  return Array.from({ length: shown }, (_, i) => first + i);
+}
+
 /** Where A on a cabinet leads: its game's scene, or why it does not play. */
 export function cabinetDoor(c: Cabinet, s: XpStatus): { scene: SceneName } | { refused: string } {
   if (c.kind === 'soon') return { refused: 'THIS CABINET ARRIVES SOON' };

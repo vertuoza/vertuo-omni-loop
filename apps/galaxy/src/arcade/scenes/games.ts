@@ -7,8 +7,8 @@ import { nebulaFor, space, type FrameState, type Pages, type SceneName } from '.
 
 /**
  * The games group's scenes laid out on the tall grid. On it the room shows one cabinet a page, which
- * ◀ ▶ turn; on the wide grid the three stand side by side (grid.ts reads this list). Super Omni
- * World's stage is 18 tiles high, the tall grid's height.
+ * ◀ ▶ turn; on the wide grid three stand side by side, a window that follows the cursor (grid.ts
+ * reads this list). Super Omni World's stage is 18 tiles high, the tall grid's height.
  */
 export const TALL_SCENES: readonly SceneName[] = ['games', 'platformer'];
 
