@@ -1023,3 +1023,314 @@ Another parameter shape is a few lines in the route and its tests, and in s2's c
 ```
 
 <!-- /omni-outbox-settled: s3-04-the-approval-route-takes-a-prd-id -->
+
+<!-- omni-outbox-settled: s4-01-the-server-event-reuses-the-stage-secret -->
+
+## s4-01-the-server-event-reuses-the-stage-secret — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-the-server-event-reuses-the-stage-secret
+prd: 1548
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+The web app now tells the GitHub app when a product PRD is approved or its approval is voided. Which shared secret proves the message came from the web app, and where does it send it?
+
+## The decision, in plain words
+
+It signs with the secret the two apps already share for their stage messages, and sends to the GitHub app's production address, written into the web app. Nobody has to set anything new.
+
+## The intro, for fun
+
+Two apps already share one secret handshake, so we taught them a second move with it.
+
+## The punchline, for fun
+
+Same handshake, new dance, and no new key under the doormat.
+
+## The options, in plain words
+
+A. Reuse the stage events' secret and a fixed production address (built).
+B. A secret of its own for server events, set in both apps.
+C. Reuse the secret, but read the App's address from a new variable, defaulting to production.
+
+## What I had to decide
+
+Confirm reusing STAGE_EVENT_SECRET (galaxy and omni-app already share it, signing in the same x-omni-signature-256 header) for the new server event, and the fixed address https://omni-loop.vercel.app/api/server-event (app.yml's url) in apps/galaxy/src/server-event/server-event.service.ts, rather than a secret and an OMNI_APP_URL of its own.
+
+## What I did meanwhile
+
+galaxy signs { event, dossier, at } with an HMAC-SHA256 of the exact body under serverEnv().stageEventSecret and POSTs it to OMNI_APP_URL + /api/server-event; omni-app verifies it with env.stageEvents.secret and answers 401 to a bad or missing signature. Without the secret galaxy sends nothing and logs one line, and omni-app refuses every event. A preview of galaxy also posts to the production App.
+
+## What it costs to change later
+
+A secret of its own is a new group in both env.ts files, their README and .env.example lists, and a value set in both Vercel projects. An address variable is one group in galaxy's env.ts and its docs; the constant stays as its default.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the event is signed but not with which secret; the PRD, the registers and the glossary name no address for the App on galaxy's side, and galaxy's env.ts (outside this slice) has none.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-the-server-event-reuses-the-stage-secret -->
+
+<!-- omni-outbox-settled: s4-02-which-open-pull-requests-are-rechecked -->
+
+## s4-02-which-open-pull-requests-are-rechecked — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-which-open-pull-requests-are-rechecked
+prd: 1548
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+When a product PRD is approved or voided, the GitHub app re-checks the PRD's open pull requests without asking GitHub for a list. Which pull requests does it look at?
+
+## The decision, in plain words
+
+Every open pull request the web app last recorded in the product's repositories. The app reads each one once and re-checks only those whose description names the PRD.
+
+## The intro, for fun
+
+No list from GitHub means we go through our own notebook, page by page.
+
+## The punchline, for fun
+
+One quick peek per pull request, and only the ones wearing the PRD's name tag get re-checked.
+
+## The options, in plain words
+
+A. Every open recorded pull request of the product's repositories, each read once (built).
+B. Only the open ones Omni-man signed, into the default branch.
+C. Store each pull request's PRD when the collector reads it, and read no pull request at all.
+
+## What I had to decide
+
+Confirm the candidates are the rows of pull_requests (the prStats collector's, PRD 612) with neither merged_at nor closed_at, in every repository product_repositories lists for the PRD's product, in its workspace, each read with one GET of that pull request (its body and head) through the workspace's github_installation_id; or narrow it (signed only, base the default branch only) or widen it.
+
+## What I did meanwhile
+
+apps/omni-app/src/server-event/targets.ts reads dossiers, products, workspaces, product_repositories and pull_requests as the service role; apps/omni-app/src/server-event/recheck.ts reads each pull request once, keeps those whose body says Part of <key>-<n>, and sends one approved check event per kept pull request, which the approved check posts with its own verdict. A repository the collector does not track, or a pull request opened since its last 15-minute run, is not re-checked by the event; its next webhook posts the check.
+
+## What it costs to change later
+
+Narrowing or widening the candidates is one query in targets.ts. Reading the installation per repository instead of per workspace is one App call per repository.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the event lists target PRs from pull_requests, not which of them; pull_requests keeps no body, so which are a PRD's own can only be read from GitHub, one pull request at a time.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-which-open-pull-requests-are-rechecked -->
+
+<!-- omni-outbox-settled: s4-03-five-changes-outside-the-slice -->
+
+## s4-03-five-changes-outside-the-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-five-changes-outside-the-slice
+prd: 1548
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+Building this needed small changes in files outside the slice's ground: may they stay?
+
+## The decision, in plain words
+
+Yes, kept. The GitHub app's new address needed its build list, its hosting settings and its test of served functions to name it, and the web app's push and PRD page needed one line each to send the void and show the approval card.
+
+## The intro, for fun
+
+The new message needed a door, a doorbell and a nameplate in the hallway.
+
+## The punchline, for fun
+
+We touched the hallway as little as we could and wrote down every fingerprint.
+
+## The options, in plain words
+
+A. Keep all five in this slice (built).
+B. Move the galaxy wiring to a later slice, leaving the void unsent and the card unshown until then.
+
+## What I had to decide
+
+Confirm the five changes outside the territory: apps/omni-app/build.ts (server-event in FUNCTIONS), apps/omni-app/vercel.json (its maxDuration, which narrate.test.ts requires of every function), apps/omni-app/src/outbox-check/inngest-route.test.ts (the eighth function and twelve registered), apps/galaxy/src/dossier/api-live.ts (tellVoids wrapped by withAppTold) and apps/galaxy/src/dossier/page/DossierRoute.tsx (the attestation read on the product PRD path).
+
+## What I did meanwhile
+
+Each is a line or two. The new Vercel function's bundle, apps/omni-app/api/server-event.mjs, is generated and left to the wave's rebuild. The plan names apps/galaxy/layering/baseline.json, which does not exist: the baseline is layering/baseline.json at the root, and it needed no change since every new galaxy file follows its role.
+
+## What it costs to change later
+
+Each is a few lines to undo. Without the first three the new route is not served or its tests are red; without the last two the void is not sent and the page shows no attestation.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory has no entry for the App's build list, its Vercel settings or the dossier push and page wiring, which the done-when lines need.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-five-changes-outside-the-slice -->
+
+<!-- omni-outbox-settled: s4-04-restore-and-ask-again-are-links -->
+
+## s4-04-restore-and-ask-again-are-links — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-restore-and-ask-again-are-links
+prd: 1548
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+When a file changed after a product PRD was approved, its approval card offers to restore the approved file and to ask for the approval again. What do those two do?
+
+## The decision, in plain words
+
+Restore opens the approved version of that file on the PRD's page, so someone can send it again, and Ask again opens the approval screen; neither changes anything by itself.
+
+## The intro, for fun
+
+The card got two shiny buttons, and we had to decide how brave they are.
+
+## The punchline, for fun
+
+For now they open doors, they do not walk through them.
+
+## The options, in plain words
+
+A. Two links: the pinned version, and the approve screen (built).
+B. Restore pushes the pinned version back; Ask again stays a link.
+C. Both act: Restore pushes it back, Ask again asks the product's approvers.
+
+## What I had to decide
+
+Confirm Restore as a link to the pinned version on the page (?tab=<kind>&v=<n>) and Ask again as a link to the approve screen (#approve), or ask for Restore to push the pinned version back as a new version, and Ask again to send the approvers a new request.
+
+## What I did meanwhile
+
+apps/galaxy/src/dossier/page/Attestation.service.ts builds both hrefs; Attestation.tsx renders them as plain links. The approve screen got id=approve in DossierPage.tsx. A product PRD's page shows no approve screen yet (approvalView reads only a PRD with a number), so Ask again lands on the page top until it does.
+
+## What it costs to change later
+
+A restoring push is a new action and route in galaxy calling dossier_push with the pinned content; an asking request is a page call of the existing approval request route. Either replaces a link with a button: no stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec and the before/after page name restore and ask again, never what each does; the page has no action today that pushes an old version back.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-restore-and-ask-again-are-links -->
