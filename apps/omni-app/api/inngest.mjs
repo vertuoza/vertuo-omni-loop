@@ -1575,6 +1575,7 @@ function parseIssue(value) {
 function parsePrd(value) {
   return parseId(PrdNumberSchema, numeric(value), "PRD number", value);
 }
+var isProductPrdId = (id) => typeof id === "string";
 function parsePr(value) {
   return parseId(PrNumberSchema, numeric(value), "pull request number", value);
 }
@@ -2592,6 +2593,14 @@ var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 var BRACKET_LIST = /^\[([\s\S]*)\]$/;
 var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
 var PrdField = z15.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
+var ItemPrdField = z15.string().transform((raw, refinement) => {
+  const product = ProductPrdIdSchema.safeParse(raw);
+  if (product.success) return product.data;
+  const prd = PrdField.safeParse(raw);
+  if (prd.success) return prd.data;
+  refinement.addIssue({ code: "custom", message: "prd must be a number, or a product PRD like mobile-12" });
+  return z15.NEVER;
+});
 var SliceField = z15.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
 var BlockedBySchema = z15.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
   if (raw === "none") return "none";
@@ -2639,7 +2648,7 @@ var SpecFrontMatterSchema = z15.object({
 }).strict();
 var OutboxItemFrontMatterSchema = z15.object({
   id: z15.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
-  prd: PrdField,
+  prd: ItemPrdField,
   slice: SliceField,
   rank: z15.enum(RANK_VALUES, {
     message: `rank must be one of: ${RANK_VALUES.join(", ")}`
@@ -3496,7 +3505,7 @@ function formatUnaccounted(change) {
 function formatUnreworked(entry) {
   return `  - ${entry.id}`;
 }
-function formatReport(prd, result, { subject = `PRD #${prd}` } = {}) {
+function formatReport(prd, result, { subject = isProductPrdId(prd) ? `PRD ${prd}` : `PRD #${prd}` } = {}) {
   const lines = [];
   if (result.items.length === 0) {
     lines.push(`outbox-status \u2014 ${subject}: no open item.`);
