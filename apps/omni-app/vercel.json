@@ -8,6 +8,9 @@
     },
     "api/inngest.mjs": {
       "maxDuration": 300
+    },
+    "api/server-event.mjs": {
+      "maxDuration": 60
     }
   }
 }
