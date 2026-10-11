@@ -699,7 +699,7 @@ When a member leaves a workspace, every link they made stops working and any cal
 
 Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-02-left-maker-links-listed, PRD #855
-Enforced by: pending #1525
+Enforced by: apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
