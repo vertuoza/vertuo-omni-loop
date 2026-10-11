@@ -424,7 +424,7 @@ An ask session that belongs to no workspace is kept, and nobody can read it, its
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s2-02-session-of-owner-in-no-workspace, PRD #144
-Enforced by: pending #1500
+Enforced by: apps/galaxy/src/ask/workspace-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
