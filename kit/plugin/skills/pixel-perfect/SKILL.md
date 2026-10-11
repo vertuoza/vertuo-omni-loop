@@ -60,7 +60,11 @@ branch shape or command you can read with `omni config <key>`.
    names one. Read the screens the target is or touches: their **Purpose**, **Regions**,
    **States**, **Words**, **Refusals** and **Open questions**, and the mockup. Its `implements`
    names the files it is drawn from; its `reads`, when it has one, the code behind it (engines,
-   data, rules), read for context only: a change there never trips a lock. A locked screen is
+   data, rules), read for context only: a change there never trips a lock. A shared screen
+   (`kind: shared`) is structure several pages show (an app shell, notifications, a sign-in page,
+   a dialog, a toast), a screen of its own with its own `implements`, mockup and lock; each page it
+   appears on lists its files in `reads`, so a change to it never trips a page's lock, and a change
+   to a page never trips its. A screen with no `kind` is a page. A locked screen is
    built as written and never redesigned: its file and its mockup are the reference, and a
    departure from them is a defect or a change its owner decides (**Locked decisions**, below). A
    draft is a starting point, free to change.

@@ -226,7 +226,8 @@ attach them to the PR when the session can.
 
 The fix's folder is `<paths.delivery>/visual/<nnnn>-<slug>/`. Write in it:
 
-- `before-after.html`:
+- `before-after.html`, all screens: with the design flag on, it is the Pixel perfect part alone of
+  the before/after `/omni:brainstorm` writes in two parts, and keeps the shape below:
   - **the pick line**, once, in exactly this shape, with the letter, the login and the day of
     step 4 (no other attribute, no other words; the Omni page reads it as it is):
 
@@ -258,6 +259,7 @@ person locks, through `/omni:pixel-perfect lock`; a pick is a draft until its pe
   ---
   screen: <name>
   status: draft
+  kind: <page, or shared for structure several pages show>
   mock: <name>.html
   implements: [<the files its look comes from, step 3>]
   reads: [<the code behind it the screen only depends on, when step 3 read some>]
@@ -278,10 +280,18 @@ person locks, through `/omni:pixel-perfect lock`; a pick is a draft until its pe
   **Open questions**. **Source** names where it came from, in one line: `/omni:visual-fix #<n>, pick
   <letter> by @<login> on <YYYY-MM-DD>: <paths.delivery>/visual/<nnnn>-<slug>/before-after.html`.
   The front matter holds only the fields above: the library's reader refuses any other.
-  **Which list.** One rule splits the files: *a file whose change can change what a person sees
-  on this screen goes in `implements`; a file the screen only depends on goes in `reads`.* The
-  layout, styles and words go in `implements`; an engine, a data source or a rule behind it goes in
-  `reads`, and never a whole folder in `implements`: a lock trips on every file it names.
+  **Which list.** One rule splits the files, in four lines:
+  - A file whose change can change what a person sees on this screen goes in `implements`, the
+    data files that hold its words included.
+  - A file the screen only depends on goes in `reads`.
+  - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+    its files in `reads`.
+  - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+  The layout, styles and words go in `implements`; an engine, a data source or a rule behind it
+  goes in `reads`, and never a whole folder in `implements`: a lock trips on every file it names.
+  When the line is about shared structure (the app shell, a menu, notifications), the screen is that
+  shared screen, `kind: shared`, never the page the person happened to look at.
 - **A draft already there:** bring its mockup and its sections up to the pick, its draft amendment,
   and add the line of this fix to its **Source**. A draft changes freely.
 - **A locked screen:** never edit its file or its mockup. The pick, when it departs from them, is

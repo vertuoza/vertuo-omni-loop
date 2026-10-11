@@ -28,22 +28,33 @@ which, as one question through the session's question tool. Followed by a skill,
    **Words**, **Refusals** and **Open questions**. Its `implements`: the files it is drawn from,
    its layout, its styles and its words, read in full. Its `reads`: the code behind it (engines,
    data, rules), read for what the screen shows of it, its data shapes and its states. One rule
-   splits the two lists: *a file whose change can change what a person sees on this screen goes in
-   `implements`; a file the screen only depends on goes in `reads`.* An entry on the wrong list is
-   said in the report; `mock` never moves it. And the
+   splits the two lists, in four lines:
+   - A file whose change can change what a person sees on this screen goes in `implements`, the
+     data files that hold its words included.
+   - A file the screen only depends on goes in `reads`.
+   - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+     its files in `reads`.
+   - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+   An entry on the wrong list is said in the report; `mock` never moves it. A shared screen (an app
+   shell, notifications, a sign-in page, a dialog, a toast) is drawn on its own, as one marked
+   screen; it names the pages it appears on in `routes` when it has none of its own. A page that
+   shows one draws only its own part in detail. And the
    design form, `node .omni-loop/bin/omni.mjs kb show design`: its `product`, `system`,
    `deliberate` and `language` sections, which win over any habit of your own.
 3. **Look at it, when the app runs.** Take a screenshot of the screen at its routes, as the design
    form's `review` section says (its widths, 390 and 1440 when it names none; how to sign in),
    through the session's browser tool. The screenshot is a reference for the drawing, kept in the
    session's scratch, never committed. When the app cannot run or be seen here, draw from the
-   source, and say so in the report.
+   source, and say so in the report (**Standing in**, below).
 4. **Draw it.** Write **one self-contained HTML file**, `<screen>.html`, beside `<screen>.md`:
    inline CSS and inline SVG, **no script**, no remote asset (no external stylesheet, font, image
    or `@import`), **no base64 raster image** (a `data:image/` URL that is not SVG). It draws the
    screen as the product builds it: its tokens, its components, its real words from `implements`,
    each region and the state the screen is mostly seen in. Nothing the screen's file and its code
-   do not show is invented: what they leave open stays under the screen's **Open questions**.
+   do not show is invented: what they leave open stays under the screen's **Open questions**. What
+   a self-contained file cannot carry (the product's fonts, its images, its data) is stood in for
+   as **Standing in** says, below.
    - **The marks.** The screen is one element with `data-screen="<screen>"`; each primary action
      inside it carries `data-primary`, the convention every mockup the kit's skills write uses. An
      explanation of the mockup, when it needs one, sits outside the marked screen: the word pass
@@ -67,6 +78,22 @@ which, as one question through the session's question tool. Followed by a skill,
    `node .omni-loop/bin/omni.mjs sign trailer` prints as its last line, no blank line between them
    (it prints nothing when signing is off: add nothing). It pushes nothing. Followed by a skill,
    the skill commits them with its own work.
+
+## Standing in
+
+What a self-contained mockup cannot carry is stood in for, never guessed at and never left out:
+
+- **Fonts:** name the product's faces first in each `font-family`, with the fallbacks the product
+  itself uses; never load a font.
+- **Pixel art and images:** an inline SVG placeholder at the image's real size, labelled with what it
+  stands for.
+- **Example data:** allowed, and expected for a screen that shows data. Take it from the product's
+  own demo data or fixtures when they exist, keep it realistic, put it inside `data-content`, and
+  say outside the marked screen that the figures are examples.
+- **No screenshot:** draw from the source and say so outside the mark, and in the report.
+- **No gallery yet:** open the `.html` file directly.
+- **An undecided primary action:** mark the one the screen's own words point to, say so outside the
+  mark, and keep the question in the screen's **Open questions**.
 
 ## A locked screen
 
