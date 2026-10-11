@@ -56,8 +56,8 @@ async function signedIn(request: Request, deps: OutboxItemsDeps): Promise<Outbox
 }
 
 /** Runs `serve` as the caller and answers its result in `shape`; a refusal in its words, a failure 500. */
-async function answer<T>(
-  request: Request, deps: OutboxItemsDeps, shape: { parse: (value: unknown) => T },
+async function answer(
+  request: Request, deps: OutboxItemsDeps, shape: { parse: (value: unknown) => unknown },
   serve: (service: OutboxItemsService) => Promise<{ ok: true; value: unknown } | { ok: false; kind: OutboxRefusal; error: string } | Response>,
 ): Promise<Response> {
   const service = await signedIn(request, deps);

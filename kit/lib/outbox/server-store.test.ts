@@ -35,7 +35,7 @@ function itemText({ prd = 'mobile-12', id = ID, rank = 'high' }: { prd?: string;
 type Row = { item: string; rank: string; body: string; settlement: { verdict: string; basis: string; settledAt: string } | null };
 
 /** A client answering `items` to every read, recording every write, and failing each write with `fail`. */
-function client({ items = [] as Row[], reply, fail }: { items?: Row[]; reply?: unknown; fail?: unknown } = {}) {
+function client({ items = [] as Row[], reply, fail }: { items?: Row[]; reply?: unknown; fail?: Error } = {}) {
   const writes: unknown[] = [];
   const write = (body: unknown): Promise<unknown> => {
     writes.push(body);

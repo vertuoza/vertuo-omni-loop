@@ -272,9 +272,11 @@ export function serverOutboxStore({ ctx, connect, now }: { ctx: Context; connect
     },
 
     // A product PRD's questions are answered on its Questions tab: no reply on GitHub settles one.
-    async replies(request) {
-      productPrd(request.prd);
-      return { settled: [], failed: [], held: [], round: null };
+    replies(request) {
+      return new Promise((resolve) => {
+        productPrd(request.prd);
+        resolve({ settled: [], failed: [], held: [], round: null });
+      });
     },
 
     async prComment(prd) {

@@ -97,7 +97,7 @@ describe('omni item new --prd mobile-12', () => {
   it('counts the next item of the slice after the rows the PRD already spent', async () => {
     const { raise } = world();
     await raise(HIGH);
-    expect(JSON.parse((await raise(HIGH)).out).id).toBe('s7-02-default-timeout');
+    expect((JSON.parse((await raise(HIGH)).out) as { id: string }).id).toBe('s7-02-default-timeout');
   });
 
   it('adopts a medium item at once with --adopt: a settled row, and the gate stays green', async () => {

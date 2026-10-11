@@ -18,7 +18,10 @@ const AT = '2026-10-11T12:00:00Z';
 
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status });
 const refuse = (status: number, error: string): Response => json(status, { error });
-const text = (body: unknown, name: string): string => String(propertyOf(body, name) ?? '');
+const text = (body: unknown, name: string): string => {
+  const value = propertyOf(body, name);
+  return typeof value === 'string' ? value : '';
+};
 
 /** The product PRD a body or a query names: `<product>-<prd>`. */
 const prdIdOf = (product: unknown, prd: unknown): string => `${String(product)}-${String(prd)}`;

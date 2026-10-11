@@ -46,7 +46,7 @@ const STORES: readonly (readonly [string, Traits, () => Subject])[] = [
       const { root, ctx } = makeRepo({ config: { ask: { url: 'https://omni.example' }, dossier: { enabled: true } } });
       const scratch = join(root, 'scratch');
       mkdirSync(scratch);
-      const tokens = { read: (host: string) => SIGNED_IN[host as keyof typeof SIGNED_IN] ?? null, write: () => undefined };
+      const tokens = { read: (host: string) => (host === 'omni.example' ? SIGNED_IN[host] : null), write: () => undefined };
       const prd = parseProductPrdId('mobile-12');
       return { store: outboxStore(ctx, prd, { tokens, fetch: fakeOutboxRoutes().fetch }), prd, scratch, laws: lawsFor(ctx) };
     },
