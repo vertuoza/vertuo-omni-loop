@@ -9,6 +9,7 @@ import { drawFleets } from './fleets.ts';
 import { drawGames, drawPlatformer } from './games.ts';
 import { drawInvaders } from './invaders.ts';
 import { drawKart } from './kart.ts';
+import { drawDuet } from './duet.ts';
 import { drawLevelUp } from './levelup.ts';
 import { drawAway, drawCoin, drawGate, drawIntro, drawReady, drawWelcome } from './join.ts';
 import { drawMap } from './map.ts';
@@ -54,6 +55,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'invaders': { drawInvaders(ctx, s); return; }
     case 'platformer': { drawPlatformer(ctx, s); return; }
     case 'kart': { drawKart(ctx, s); return; }
+    case 'duet': { drawDuet(ctx, s); return; }
     case 'levelup': { drawLevelUp(ctx, s); return; }
   }
 }

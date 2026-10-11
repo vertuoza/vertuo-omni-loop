@@ -1,7 +1,8 @@
 'use client';
 // The game room's text layer: the heading and the badge, the player's level and XP bar (or why they
-// have none), and a cabinet per game, laid out for the grid the screen is drawn on: the three
-// cabinets side by side on the wide grid, one a page on the tall one (games.css).
+// have none), and a cabinet per game, laid out for the grid the screen is drawn on: a window of
+// three cabinets side by side on the wide grid, following the cursor (games/room.ts, roomWindow),
+// one a page on the tall one (games.css).
 import { useEffect, useRef } from 'react';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WoundKind } from '@omni/galaxy';
@@ -11,7 +12,7 @@ import { HeroSprite, Sprite } from '../Sprite';
 import { crewLook, heroOf } from '../fleets';
 import { Hint } from '../hint';
 import type { Player, ScoresRead } from '../types';
-import { barFill, cabinets, type Cabinet, type XpStatus, XP_LINE } from '../games/room';
+import { barFill, cabinets, roomWindow, type Cabinet, type XpStatus, XP_LINE } from '../games/room';
 import { stillPixels, type Still } from '../games/still';
 import { STILLS } from '../games/stills';
 import { badgeOf } from './menu.tsx';
@@ -157,7 +158,7 @@ export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
   const room = cabinets(xp);
   const at = Math.max(0, Math.min(index, room.length - 1));
   const tall = grid.name === 'tall';
-  const shown = tall ? [at] : room.map((_, i) => i);
+  const shown = tall ? [at] : roomWindow(at, room.length);
   const f = crewLook(me?.team);
   return (
     <div className="games">

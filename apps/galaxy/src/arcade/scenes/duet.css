@@ -1,0 +1,36 @@
+/* The duet group: OMNI DUET's loading and failure lines, its ready screen, its HUD, a chapter's banner,
+   the pause and the game over (PRD 1633), over the
+   arcade's canvas. Laid out on the wide grid (640×360) first, where the playfield is the middle 400
+   pixels; the rules at the end rearrange it for the tall grid (320×288), which the playfield fills.
+   A screen's title is Entropy Invaders' own (`.inv-title`, invaders.css). */
+
+.dt { position: absolute; inset: 0; }
+/* The loading and failure line and the way back under it share their place across the middle. */
+.dt-notice, .dt-back { position: absolute; left: 50%; margin: 0; font-size: 8px; white-space: nowrap; }
+.dt-notice { top: 50%; transform: translate(-50%, -50%); letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
+.dt-back { top: calc(50% + 18px); transform: translateX(-50%); }
+/* The ready screen: over the top of the playfield, clear of the crest and its orbs in the lower third. */
+.dt-panel {
+  left: 50%; top: 30%; transform: translate(-50%, -50%); gap: 6px; justify-items: center; text-align: center;
+  line-height: 1.4; width: 340px;
+}
+.dt-panel .inv-title { font-size: 8px; }
+/* The ready line breaks between its two halves, never inside one. */
+.dt-half { display: inline-block; white-space: nowrap; }
+.dt-panel .hint { font-size: 8px; }
+/* The HUD, over the top of the playfield (x 120 to 520 on this grid): the score on its left, the
+   chapter and wave in the middle, the lives left on its right. Each stat is Entropy Invaders' own. */
+.dt-score { left: 132px; }
+.dt-wave { left: 50%; transform: translateX(-50%); justify-items: center; }
+.dt-lives { right: 132px; justify-items: end; }
+/* The game over says more than the other screens: it sits lower, over the middle of the playfield,
+   since nothing moves under it any more. */
+.dt-over { top: 42%; }
+/* A chapter's banner, over the top half of the playfield, clear of the crest and its orbs. */
+.dt-banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap; }
+
+/* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .dt-panel { padding: 8px 10px; width: 280px; }
+.grid-tall .dt-score { left: 10px; }
+.grid-tall .dt-lives { right: 10px; }
+.grid-tall .dt-banner { font-size: 12px; }
