@@ -1,13 +1,16 @@
-// `server-event`: the Inngest function a server event runs (PRD 1548 s4, acceptance 8). An approval or
-// a void on the server re-posts `omni/approved` on every open target pull request of that product PRD:
+// `server-event`: the Inngest function a server event runs (PRD 1548 s4 and s8, acceptance 8). An
+// approval, a void, an outbox item opened or one settled on the server re-posts both checks,
+// `omni/approved` and the outbox check, on every open target pull request of that product PRD:
 //
 //   step "targets"             its open pull requests, read from the database (./targets.ts), never
 //                              listed from GitHub
 //   step "pull <owner/name#n>" each one read (one `GET` of that pull request, never a list): kept when
 //                              its body names the PRD (`Part of mobile-12`), with its head
-//   step "recheck"             one approved check event per kept pull request (APPROVED_CHECK_EVENT),
-//                              which the approved check itself runs (../approved-check/approved-check.ts):
-//                              the verdict is that function's alone
+//   step "recheck"             two events per kept pull request: APPROVED_CHECK_EVENT, which the approved
+//                              check runs (../approved-check/approved-check.ts), and OUTBOX_RECHECK_EVENT,
+//                              which the outbox check runs (../outbox-check/outbox-check.ts), never the
+//                              webhook's own event, so the inbox check is left alone: each verdict is
+//                              that function's alone
 //
 // Debounced per PRD: the burst of events one approval or one push makes re-checks once, from the last.
 // The installation's GitHub budget is shared with galaxy (PRD 902): a read it refuses is never sent; the
@@ -19,12 +22,13 @@ import { productPrdOf } from '../approved-check/state.ts';
 import { APPROVED_CHECK_EVENT, type CheckRequest } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
+import { OUTBOX_RECHECK_EVENT } from '../outbox-check/outbox-check.ts';
 import { SERVER_EVENT, ServerEventSchema } from './server-event.ts';
 import type { OpenPull, TargetsReader } from './targets.ts';
 
 export const SERVER_EVENT_FUNCTION_ID = 'server-event';
 
-/** The trigger the approved check is told it runs for. */
+/** The trigger the checks are told they run for. */
 export const SERVER_EVENT_TRIGGER = 'server-event';
 
 const SERVER_EVENT_DEBOUNCE = Object.freeze({ key: 'event.data.dossier', period: '5s', timeout: '1m' });
@@ -88,12 +92,10 @@ export function createServerEventRecheck({
       }
       if (kept.length === 0) return { prd: targets.prdId, rechecked: NONE };
 
-      const events: CheckRequest[] = kept.map(({ repository, number, headSha }) => {
+      const events: CheckRequest[] = kept.flatMap(({ repository, number, headSha }) => {
         const [owner = '', repo = ''] = repository.split('/');
-        return {
-          name: APPROVED_CHECK_EVENT,
-          data: { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER },
-        };
+        const data = { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER };
+        return [{ name: APPROVED_CHECK_EVENT, data }, { name: OUTBOX_RECHECK_EVENT, data }];
       });
       await step.sendEvent('recheck', events);
       return { prd: targets.prdId, rechecked: kept.map((pull) => `${pull.repository}#${pull.number}`) };

@@ -5,7 +5,10 @@
 //                       or unless the pull request is not an Omni Loop feature PR: then the check is
 //                       posted already `skipped`, and the run ends there (issue 876) — or, on a
 //                       target feature PR (`Part of <plan repo>#<prd>`), already `success`, pointing
-//                       to the plan PR that grades its PRD (issue 1202)
+//                       to the plan PR that grades its PRD (issue 1202) — or, on a target feature PR of
+//                       a product PRD (`Part of mobile-12`, PRD 1548 s8), already graded from the PRD's
+//                       outbox rows on the server (./product-outbox.ts): `0 open · one gate on Mobile`,
+//                       `<k> open · answer on Mobile › Questions`, or held when the server cannot be read
 //   step "evaluate"     snapshot into /tmp + evaluate — one step, because /tmp does not survive steps
 //   step "publish"      complete the check run; rewrite the comment unless the head moved on
 //   onFailure           complete the check run as `failure` — never left `in_progress`; on a pull
@@ -13,7 +16,9 @@
 //                       on a repository without the loop's config, nothing
 //
 // Runs are debounced per repository and pull request, so a burst of pushes and label changes is one
-// evaluation of the latest state. A snapshot over its bound is not retried: the same bound fails the
+// evaluation of the latest state. Besides the webhook's event, it runs on OUTBOX_RECHECK_EVENT, which the
+// server event sends when an approval, a void, an item or a settlement changed a product PRD
+// (../server-event/recheck.ts), so the target PRs' checks follow the server without a push. A snapshot over its bound is not retried: the same bound fails the
 // same way, so it goes straight to the failure handler with the bound as its reason.
 //
 // The app is public (PRD 359): it is installed on repositories that never asked for the loop, so a
@@ -42,6 +47,7 @@ import {
   changedFiles,
   checkTarget,
   completeAsDeferred,
+  completeAsProduct,
   completeAsFailure,
   completeAsSkipped,
   planPrOf,
@@ -54,6 +60,8 @@ import {
   type GitHubClient,
 } from './github.ts';
 import { messageField } from './github-schema.ts';
+import { productOutboxVerdict, type OutboxReading, type ProductOutboxReader } from './product-outbox.ts';
+import type { ProductPrdRef } from '../approved-check/state.ts';
 
 /** What a failure handler is handed: the failed run's event, its final error, and its steps. */
 type FailureInput = {
@@ -63,6 +71,12 @@ type FailureInput = {
 };
 
 export const FUNCTION_ID = 'outbox-check';
+
+/**
+ * The event the server event sends to re-post the outbox check of a product PRD's target PR (PRD 1548
+ * s8). Its own name, not the webhook's: the inbox check, which also runs on the webhook's, is left alone.
+ */
+export const OUTBOX_RECHECK_EVENT = 'omni-loop/outbox.recheck.requested';
 
 /** What a run returns when it posted nothing: the repository has not installed the loop. */
 const SILENT = Object.freeze({ posted: false, reason: NOT_ACTIVE_ON_REPO });
@@ -80,29 +94,44 @@ export const DEBOUNCE = Object.freeze({
 export function createOutboxCheck({
   client,
   octokitFor,
+  readProductOutbox = null,
+  galaxyUrl = '',
+  now = () => new Date(),
   log = (line) => { console.error(line); },
 }: {
   client: Inngest;
   octokitFor: OctokitFor<GitHubClient>;
+  /** A product PRD's outbox rows' reader; null when the App cannot read the server here, which holds every such check. */
+  readProductOutbox?: ProductOutboxReader | null;
+  /** The galaxy the check's Details link to: a product's Questions tab. */
+  galaxyUrl?: string;
+  now?: () => Date;
   log?: (line: string) => void;
 }) {
   return client.createFunction(
     {
       id: FUNCTION_ID,
       name: 'omni-loop · outbox',
-      triggers: [{ event: OUTBOX_CHECK_EVENT }],
+      triggers: [{ event: OUTBOX_CHECK_EVENT }, { event: OUTBOX_RECHECK_EVENT }],
       debounce: DEBOUNCE,
       retries: 3,
       onFailure: createFailureHandler({ octokitFor }),
     },
     async ({ event, step }) => {
-      const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
+      const request = CheckRequestDataSchema.parse(event.data);
+      const { installationId, owner, repo, prNumber, headSha } = request;
       const budgeted = <T>(work: () => Promise<T>) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
 
       const started = await step.run('in-progress', () => budgeted(async () => {
         const octokit = await octokitFor(installationId);
-        const { active, name, gated, reason, deferTo } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
+        const { active, name, gated, reason, deferTo, product } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
         if (!active) return null;
+        if (!gated && product) {
+          const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log);
+          const verdict = productOutboxVerdict(product, reading, galaxyUrl);
+          const [checkRunId] = await completeAsProduct(octokit, { owner, repo, headSha, name, verdict });
+          return { checkRunId, name, skipped: true as const, conclusion: verdict.conclusion };
+        }
         if (!gated && deferTo) {
           const planPr = await planPrOf(octokit, deferTo);
           const [checkRunId] = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr });
@@ -137,6 +166,26 @@ export function createOutboxCheck({
       return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment };
     },
   );
+}
+
+/** A product PRD's outbox as the check reads it: reached, or held since now when the reader is missing or throws. */
+async function outboxReadingOf(
+  read: ProductOutboxReader | null,
+  repository: string,
+  prd: ProductPrdRef,
+  now: () => Date,
+  log: (line: string) => void,
+): Promise<OutboxReading> {
+  const held = (why: string): OutboxReading => {
+    log(`outbox check of ${repository} for ${prd.id} is held: ${why}`);
+    return { reachable: false, since: now().toISOString() };
+  };
+  if (!read) return held('the App cannot read the server here');
+  try {
+    return { reachable: true, outbox: await read(repository, prd) };
+  } catch (error) {
+    return held(error instanceof Error ? error.message : String(error));
+  }
 }
 
 /**
@@ -220,7 +269,8 @@ async function evaluateAt(
 /**
  * The failure handler: once the run has failed after its retries, complete the check as `failure`
  * with the reason ("omni-loop could not evaluate: …"); on a pull request the gate does not run on,
- * `skipped` instead (issue 876), or `success` on a target feature PR (issue 1202). Inngest hands it the original event under
+ * `skipped` instead (issue 876), or `success` on a target feature PR (issue 1202), but `failure` on a
+ * product PRD's target PR, whose outbox the check grades (PRD 1548 s8). Inngest hands it the original event under
  * `event.data.event` and the final error.
  */
 export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<GitHubClient> }) {
@@ -232,7 +282,7 @@ export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<Gi
       // The failure may be GitHub itself: what the pull request is stays unknown.
     }
     if (target && !target.active) return { ...SILENT };
-    if (target && !target.gated) return completeUngated(octokit, { owner, repo, headSha, target });
+    if (target && !target.gated) return completeUngated(octokit, { owner, repo, headSha, target, reason });
     // Gated, or unknown: an open check run of this name was started by step "in-progress", on a gated
     // pull request only, so failing it is safe. A new failed check is created only once the pull
     // request is known to be gated: never red on one that is not (issue 876).
@@ -254,13 +304,18 @@ export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<Gi
 
 /**
  * The failure handler's completion of a pull request the gate does not run on: `success` pointing to
- * the plan PR on a target feature PR (issue 1202), `skipped` on any other (issue 876).
+ * the plan PR on a target feature PR (issue 1202), `skipped` on any other (issue 876) — but `failure`,
+ * with why the run failed, on a product PRD's target PR, whose outbox rows are its gate (PRD 1548 s8).
  */
 async function completeUngated(
   octokit: GitHubClient,
-  { owner, repo, headSha, target }: { owner: string; repo: string; headSha: string; target: CheckTarget },
+  { owner, repo, headSha, target, reason: failed }: { owner: string; repo: string; headSha: string; target: CheckTarget; reason: unknown },
 ) {
   const { name, reason, deferTo } = target;
+  if (target.product) {
+    const checkRunIds = await completeAsFailure(octokit, { owner, repo, headSha, name, reason: failed });
+    return { checkRunIds, name, reason: failed };
+  }
   if (deferTo) {
     const checkRunIds = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr: await planPrOf(octokit, deferTo) });
     return { checkRunIds, name, conclusion: 'success' };

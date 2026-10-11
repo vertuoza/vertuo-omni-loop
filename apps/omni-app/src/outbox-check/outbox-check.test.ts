@@ -8,7 +8,7 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub } from './fake-github.ts';
 import { startCheck } from '../publish/publish.ts';
-import { DEBOUNCE, FUNCTION_ID, createFailureHandler, createOutboxCheck } from './outbox-check.ts';
+import { DEBOUNCE, FUNCTION_ID, OUTBOX_RECHECK_EVENT, createFailureHandler, createOutboxCheck } from './outbox-check.ts';
 import { appFunctions } from '../functions.ts';
 import { readEnv } from '../env.ts';
 
@@ -166,9 +166,9 @@ describe('outbox-check — silent where the loop is not installed (PRD 359)', ()
 });
 
 describe('outbox-check — the function’s configuration', () => {
-  it('is triggered by the event /api/github sends', () => {
+  it('is triggered by the event /api/github sends, and by the one the server event sends (PRD 1548 s8)', () => {
     expect(outboxCheck.id()).toBe(FUNCTION_ID);
-    expect(outboxCheck.opts.triggers).toEqual([{ event: OUTBOX_CHECK_EVENT }]);
+    expect(outboxCheck.opts.triggers).toEqual([{ event: OUTBOX_CHECK_EVENT }, { event: OUTBOX_RECHECK_EVENT }]);
   });
 
   it('debounces per repository and pull request number', () => {

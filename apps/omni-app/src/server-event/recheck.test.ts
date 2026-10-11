@@ -12,7 +12,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { createApprovedCheck } from '../approved-check/approved-check.ts';
 import type { ApprovalRecord, PinnedFile } from '../approved-check/state.ts';
 import { APPROVED_CHECK_EVENT, type CheckRequest, inngest } from '../inngest-client.ts';
-import { fakeGitHub } from '../outbox-check/fake-github.ts';
+import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
+import { createOutboxCheck, OUTBOX_RECHECK_EVENT } from '../outbox-check/outbox-check.ts';
 import { createServerEventRecheck, SERVER_EVENT_FUNCTION_ID, SERVER_EVENT_TRIGGER } from './recheck.ts';
 import { receiveServerEvent, SERVER_SIGNATURE_HEADER, type ServerEventRequest } from './server-event.ts';
 import type { PrdTargets } from './targets.ts';
@@ -49,7 +50,7 @@ const TARGETS: PrdTargets = { prdId: 'mobile-12', installationId: 77, pulls: [{ 
 const sentSteps = () => [{ id: 'recheck', handler: () => ({ ids: ['e-1'] }) }];
 
 /** A signed server event in, through the route's unit: the Inngest events it sent. */
-async function post(event: 'approved' | 'voided'): Promise<ServerEventRequest[]> {
+async function post(event: 'approved' | 'voided' | 'item-opened' | 'item-settled'): Promise<ServerEventRequest[]> {
   const body = JSON.stringify({ event, dossier: DOSSIER, at: '2026-10-11T09:00:00.000Z' });
   const sent: ServerEventRequest[] = [];
   const reply = await receiveServerEvent(
@@ -81,9 +82,9 @@ function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.
   return { github, reads, logged, recheck };
 }
 
-describe('server-event — an approval or a void re-posts omni/approved on the PRD\'s open target PRs (acceptance 8)', () => {
-  it('reads the targets from the database, one GET per pull request and no list call, and sends one approved check event for each that names the PRD', async () => {
-    for (const event of ['approved', 'voided'] as const) {
+describe('server-event — an approval, a void, an item opened or settled re-posts both checks on the PRD\'s open target PRs (acceptance 8)', () => {
+  it('reads the targets from the database, one GET per pull request and no list call, and sends an approved and an outbox check event for each that names the PRD', async () => {
+    for (const event of ['approved', 'voided', 'item-opened', 'item-settled'] as const) {
       const run = setUp();
       const [sent] = await post(event);
       const { result, ctx } = await new InngestTestEngine({ function: run.recheck, events: [sent as never], steps: sentSteps() }).execute();
@@ -92,10 +93,8 @@ describe('server-event — an approval or a void re-posts omni/approved on the P
       expect(run.github.state.requests.map((r) => r.route)).toEqual(['GET /repos/{owner}/{repo}/pulls/{pull_number}']);
       expect(run.github.state.requests.some((r) => r.route === 'GET /repos/{owner}/{repo}/pulls')).toBe(false);
       const sentOn = ctx.step.sendEvent.mock.calls.map(([id, events]) => [id, events]);
-      expect(sentOn).toEqual([['recheck', [{
-        name: APPROVED_CHECK_EVENT,
-        data: { installationId: 77, owner: 'acme', repo: 'api', repository: 'acme/api', prNumber: 446, headSha: 'head9', trigger: SERVER_EVENT_TRIGGER },
-      }]]]);
+      const data = { installationId: 77, owner: 'acme', repo: 'api', repository: 'acme/api', prNumber: 446, headSha: 'head9', trigger: SERVER_EVENT_TRIGGER };
+      expect(sentOn).toEqual([['recheck', [{ name: APPROVED_CHECK_EVENT, data }, { name: OUTBOX_RECHECK_EVENT, data }]]]);
     }
   });
 
@@ -105,9 +104,26 @@ describe('server-event — an approval or a void re-posts omni/approved on the P
     const { ctx } = await new InngestTestEngine({ function: run.recheck, events: [sent as never], steps: sentSteps() }).execute();
     const [[, events]] = ctx.step.sendEvent.mock.calls as unknown as [[string, CheckRequest[]]];
     const approved = createApprovedCheck({ client: inngest, octokitFor: () => run.github.octokit, readRecord: () => Promise.resolve(RECORD), galaxyUrl: 'https://galaxy.example' });
-    const checked = await new InngestTestEngine({ function: approved, events: events as never }).execute();
+    const checked = await new InngestTestEngine({ function: approved, events: events.filter((e) => e.name === APPROVED_CHECK_EVENT) as never }).execute();
     expect(checked.result).toMatchObject({ name: 'omni/approved', prd: 'mobile-12', state: 'building', conclusion: 'success' });
     expect(run.github.state.checkRuns).toEqual([expect.objectContaining({ head_sha: 'head9', conclusion: 'success' })]);
+  });
+
+  it('hands the outbox check what it grades: an item settled turns the target PR\'s outbox check green (s8)', async () => {
+    const run = setUp();
+    const [sent] = await post('item-settled');
+    const { ctx } = await new InngestTestEngine({ function: run.recheck, events: [sent as never], steps: sentSteps() }).execute();
+    const [[, events]] = ctx.step.sendEvent.mock.calls as unknown as [[string, CheckRequest[]]];
+    const outbox = createOutboxCheck({
+      client: inngest,
+      octokitFor: () => run.github.octokit,
+      readProductOutbox: () => Promise.resolve({ dossierId: DOSSIER, productId: 'p-1', productName: 'Mobile', open: [] }),
+      galaxyUrl: 'https://galaxy.example',
+    });
+    const checked = await new InngestTestEngine({ function: outbox, events: events.filter((e) => e.name === OUTBOX_RECHECK_EVENT) as never }).execute();
+    expect(checked.result).toMatchObject({ name: 'outbox', conclusion: 'success' });
+    expect(checkRunAt(run.github.state, -1)).toMatchObject({ head_sha: 'head9', conclusion: 'success' });
+    expect(outputOf(checkRunAt(run.github.state, -1)).title).toBe('0 open · one gate on Mobile');
   });
 
   it('sends nothing for an open pull request whose body names another PRD, or none', async () => {
