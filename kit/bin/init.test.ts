@@ -915,6 +915,20 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
     expect(read(testing)).toBe(ours);
   });
 
+  // Law BR-PRODUCT-7 (.omni-loop/knowledge/product/rules.md, #1469).
+  it('law BR-PRODUCT-7: laws.source is knowledge only once a register holds a principle, rule or invariant; an empty knowledge folder stays none, even on --force', async () => {
+    const { root, read, write } = makeRepo({ git: true, files: REPOS.make });
+    await init(root);
+    expect(existsSync(join(root, KNOWLEDGE))).toBe(true);
+    expect(readConfig(read).laws.source).toBe('none');
+    expect((await init(root, ['--force'])).code).toBe(0);
+    expect(readConfig(read).laws.source).toBe('none');
+
+    write(`${KNOWLEDGE}/domains/billing/rules.md`, RULE);
+    expect((await init(root, ['--force'])).code).toBe(0);
+    expect(readConfig(read).laws.source).toBe('knowledge');
+  });
+
   it('reads knowledge from an entry in any register: a domain rule, a cross-domain invariant', async () => {
     for (const [path, text] of [[`${KNOWLEDGE}/domains/billing/rules.md`, RULE], [`${KNOWLEDGE}/cross-domain/billing--quotes.md`, INVARIANT]] as const) {
       const { root, read } = makeRepo({ git: true, files: { [path]: text } });

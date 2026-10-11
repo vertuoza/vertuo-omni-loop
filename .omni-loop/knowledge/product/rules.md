@@ -6,7 +6,7 @@ In a phase-0 pull request, a path under the delivery folder, the knowledge root 
 
 Serves: P-PRODUCT-1
 Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s13-01-phase-0-docs-kind, PRD #3
-Enforced by: pending #1463
+Enforced by: kit/lib/policy/phase-0.test.ts
 Stated: 2026-09-25
 Decided: @claude-code-session (delegated by pierre-derval) via PRD issue #3, 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
@@ -72,7 +72,7 @@ The install sets laws.source to knowledge only when the knowledge registers hold
 
 Serves: P-PRODUCT-6
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-02-laws-source-from-register-entries, PRD #45
-Enforced by: pending #1469
+Enforced by: kit/bin/init.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -127,7 +127,7 @@ A round moves only from open to answered, from open to abandoned, or from abando
 
 Serves: P-PRODUCT-11
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s2-04-round-moves-forward, PRD #71
-Enforced by: pending #1474
+Enforced by: apps/galaxy/src/ask/rounds-sql.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -556,7 +556,7 @@ A person's name links to their profile page only when they are a member of the w
 
 Serves: P-PRODUCT-48
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
-Enforced by: pending #1512
+Enforced by: apps/galaxy/src/people/chips.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -600,7 +600,7 @@ A person's profile lists only the PRDs and fixes of the workspace the profile is
 
 Serves: P-PRODUCT-52
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
-Enforced by: pending #1516
+Enforced by: apps/galaxy/src/profile/profile.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -721,7 +721,7 @@ Jev judges an agent's question only on the report that first stores it; a repeat
 
 Serves: P-PRODUCT-37
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s4-02-jev-judges-first-report-bring-back-final, PRD #855
-Enforced by: pending #1527
+Enforced by: apps/galaxy/src/agent-connect/mcp/server.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -766,7 +766,7 @@ A product's pitch look may be changed by exactly those who may edit the workspac
 
 Serves: P-PRODUCT-62
 Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
-Enforced by: pending #1531
+Enforced by: apps/galaxy/src/products/pitch-look-sql.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-06, PR #860
@@ -777,7 +777,7 @@ When a pull request waits on another that was closed without merging, it is no l
 
 Serves: P-PRODUCT-63
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-01-waits-on-closed-or-unreadable, PRD #1118
-Enforced by: pending #1532
+Enforced by: kit/lib/care/decide.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119

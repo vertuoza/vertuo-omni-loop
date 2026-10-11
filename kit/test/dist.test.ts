@@ -20,6 +20,17 @@ describe('the committed bundle (AC 10)', () => {
     expect(readFileSync(fresh).equals(committed())).toBe(true);
   });
 
+  // Law N-PRODUCT-5 (.omni-loop/knowledge/product/invariants.md, #1541).
+  it('law N-PRODUCT-5: kit/build.ts builds the same bytes from any working directory, to a scratch file, leaving the committed bundle alone', () => {
+    const before = committed();
+    const fromRoot = join(mkdtempSync(join(tmpdir(), 'omni-dist-root-')), 'omni.mjs');
+    const fromElsewhere = join(mkdtempSync(join(tmpdir(), 'omni-dist-else-')), 'omni.mjs');
+    execFileSync('node', [join(repoRoot, 'kit/build.ts'), fromRoot], { cwd: repoRoot, stdio: 'ignore' });
+    execFileSync('node', [join(repoRoot, 'kit/build.ts'), fromElsewhere], { cwd: tmpdir(), stdio: 'ignore' });
+    expect(readFileSync(fromElsewhere).equals(readFileSync(fromRoot))).toBe(true);
+    expect(committed().equals(before)).toBe(true);
+  });
+
   it('starts with a node shebang', () => {
     expect(committed().toString('utf8').split('\n')[0]).toBe('#!/usr/bin/env node');
   });

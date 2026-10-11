@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { trackedFiles } from './check-report.ts';
+import { loadContext } from './context.ts';
 
 const commit = (root: string) => {
   execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
@@ -48,5 +49,17 @@ describe('trackedFiles', () => {
   it('returns nothing for a folder git tracks nothing in', () => {
     const { ctx } = makeRepo({ git: true, files: { 'top.md': '' } });
     expect(trackedFiles(ctx, 'missing')).toEqual([]);
+  });
+
+  // Law N-PRODUCT-2 (.omni-loop/knowledge/product/invariants.md, #1538).
+  it('law N-PRODUCT-2: tracked files come only from git, with no fallback that walks plain folders', () => {
+    const plain = makeRepo({ files: { 'docs/a.md': '# a\n' } });
+    expect(() => loadContext(plain.root)).toThrow(/is not inside a git repository/);
+    expect(() => trackedFiles(plain.ctx)).toThrow();
+
+    const { root, ctx } = makeRepo({ git: true, files: { 'docs/a.md': '# a\n' } });
+    writeFileSync(join(root, 'docs/untracked.md'), '# on disk, not in git\n');
+    expect(trackedFiles(ctx)).not.toContain('docs/untracked.md');
+    expect(trackedFiles(ctx, 'docs')).toEqual(['docs/a.md']);
   });
 });
