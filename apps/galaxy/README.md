@@ -1427,6 +1427,8 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
      `CONSTITUENT_JUDGE_SECRET`, `LAW_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
    - the approval alerts: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push), `RESEND_API_KEY`,
      `RESEND_FROM` (email)
+   - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each
+     token's stored sign-in; without it no token is made or traded
    - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { cliSignInReturn } from '../../../src/ask/cli-code';
+import { cliSignInReturn, type CliSession } from '../../../src/ask/cli-code';
 import { cliCallbackDeps } from '../../../src/ask/cli-code-live';
+import { madeCookie, tokenSignInReturn } from '../../../src/ask/kit-token';
+import { kitMakeDeps } from '../../../src/ask/kit-token-live';
 import { sessionOf } from '../../../src/data/session';
 import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn } from '../../../src/data/sign-in';
 import { signInDeps } from '../../../src/data/sign-in-live';
@@ -23,6 +25,10 @@ import { VOTER_NEXT } from '../../../src/ideas/vote/vote';
 // terminal, not a cookie, which joins and links as well before its one-time code is issued, and the
 // browser goes on to the terminal's loopback address with that code, or back to /ask/signin with the
 // reason (src/ask/cli-code.ts).
+// With `?next=ask-cli&purpose=token` it is a kit token being made (PRD 1628): `omni setup-token`, or
+// Make a token on a profile page. The same fresh sign-in, joined and linked, becomes the token's stored
+// session, and the token goes back once: to the terminal's loopback address, or to the page, kept for
+// it in a cookie only POST /api/ask/token/made reads (src/ask/kit-token.ts).
 // With `?next=ideas` it is a voter on a public ideas board (PRD 1246): their sign-in asked no
 // `read:org`, the vote they pressed is counted as them, and they land back on that board, allowlisted,
 // never on /signup and joining nothing (src/ideas/vote/callback.ts).
@@ -34,15 +40,34 @@ function origin(request: NextRequest) {
   return host ? `${proto}://${host}` : request.nextUrl.origin;
 }
 
+/** `omni signin` coming back: on to the terminal's loopback address with a one-time code, or back to
+ * /ask/signin with the reason, the PKCE verifier spent. */
+async function cliReturn(request: NextRequest) {
+  const { deps, spent } = cliCallbackDeps(request.cookies.getAll());
+  const joining = joinBeforeIssue(deps, (session) => settleSignIn(supabaseAs(session.access_token), session, signInDeps));
+  const response = NextResponse.redirect(await cliSignInReturn(request.nextUrl, origin(request), joining));
+  for (const { name, value, options } of spent) response.cookies.set(name, value, options);
+  return response;
+}
+
+/** A kit token's round trip coming back: on to the loopback or the page, the made token kept for the
+ * page in its cookie, and the PKCE verifier spent. */
+async function kitTokenReturn(request: NextRequest) {
+  const join = (session: CliSession) => settleSignIn(supabaseAs(session.access_token), session, signInDeps);
+  const { deps, spent } = kitMakeDeps(request.cookies.getAll(), join);
+  const { location, made } = await tokenSignInReturn(request.nextUrl, origin(request), deps);
+  const response = NextResponse.redirect(location);
+  for (const { name, value, options } of spent) response.cookies.set(name, value, options);
+  if (made) {
+    const cookie = madeCookie(made, new URL(location).protocol === 'https:');
+    response.cookies.set(cookie.name, cookie.value, cookie.options);
+  }
+  return response;
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  if (params.get('next') === 'ask-cli') {
-    const { deps, spent } = cliCallbackDeps(request.cookies.getAll());
-    const joining = joinBeforeIssue(deps, (session) => settleSignIn(supabaseAs(session.access_token), session, signInDeps));
-    const response = NextResponse.redirect(await cliSignInReturn(request.nextUrl, origin(request), joining));
-    for (const { name, value, options } of spent) response.cookies.set(name, value, options);
-    return response;
-  }
+  if (params.get('next') === 'ask-cli') return params.get('purpose') === 'token' ? kitTokenReturn(request) : cliReturn(request);
   if (params.get('next') === VOTER_NEXT) {
     const ports = supabaseEnv()
       ? await supabaseServer().then((db) => ({
