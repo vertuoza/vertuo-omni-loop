@@ -17,7 +17,7 @@ When a pull request's head commit date cannot be read, the claimed-stale check t
 
 Serves: P-PRODUCT-2
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s3-03-unknown-head-commit-date-reads-as-not-stale, PRD #7
-Enforced by: pending #1464
+Enforced by: kit/lib/board.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
