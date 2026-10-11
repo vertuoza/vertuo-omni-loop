@@ -655,7 +655,7 @@ When a terminal asks Jev about a repository, the Jev settings of the workspace t
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s3-03-decide-unowned-repository, PRD #812
-Enforced by: pending #1521
+Enforced by: apps/galaxy/src/jev/decisions/decide-route.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
