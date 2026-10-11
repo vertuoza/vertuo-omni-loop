@@ -877,8 +877,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…'],
-    summary: 'whether a branch touches a screen, the screen library, and the word pass over a mockup',
+    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]'],
+    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, and the gallery',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
       "design form, omni kb show design (the product, where its design system lives, what it does on " +
@@ -917,7 +917,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no ' +
       'combinator. A page it cannot read is named and the next is read; it prints design: off while ' +
       'the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never ' +
-      'silenced.',
+      'silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no ' +
+      'script, no remote asset): each screen with its status, who locked it and when, its routes, and ' +
+      'its mockup inline or no mockup, locked screens first, then drafts, then superseded. It writes ' +
+      'to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; ' +
+      'the page is generated each time and never committed. An empty library prints no screen yet ' +
+      'and writes nothing, design: off while the flag is off, and gallery exits 0.',
   },
   {
     name: 'e2e',
