@@ -215,3 +215,12 @@ Not a re-port: kit-local prose behind `design.enabled`, wired to `omni design sc
 
 `kit/test/plugin.test.ts`, the block "the design memory in pixel-perfect and do-work (PRD 1407)":
 the library read in step 1, the locked screen built as written, and the high item in step 3.
+
+## PRD #1550, slice s4 — a screen's `reads`
+
+- **Step 1, item 6** reads a library screen's `reads` too, when it has one: the code behind the
+  screen, for context. A change there is no change to the screen and never trips its lock.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.
