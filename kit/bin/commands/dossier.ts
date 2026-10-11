@@ -51,6 +51,8 @@ import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } fr
 import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
 import { isOneOf } from '../../lib/narrow.ts';
 import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
+import { PRODUCT_USAGE, productCallOf, runProductCall } from './dossier-product.ts';
+import type { ProductCall } from './dossier-product.ts';
 import type { Exec, FreeCommand, FreeIo, Out, Vars } from '../io.ts';
 
 /** What a test hands `omni dossier` beyond `main()`'s own. */
@@ -60,6 +62,8 @@ type DossierOptions = {
   fetch?: Fetch;
   callMs?: number | undefined;
   now?: () => number;
+  /** PRD 1548: the scratch space `get` writes in; the system's when not given. */
+  scratch?: string | undefined;
 };
 
 /** What each verb is handed once the context, the client and the sign-in are known. */
@@ -75,7 +79,7 @@ type VerbIo = {
   now: () => number;
 };
 
-const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
+const USAGE = `usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status | ${PRODUCT_USAGE}`;
 const KINDS = ['prd', 'visual', 'bug', 'concept'] as const;
 /** What a dossier other than a PRD's is of: a fix of its kind, or a concept (PRD 1272), each keyed by its issue. */
 type IssueKind = FixKind | 'concept';
@@ -287,14 +291,38 @@ function kindOf(flag: string | undefined, numbered: boolean): 'prd' | IssueKind 
   return flag;
 }
 
+/** A verb on a product PRD (PRD 1548, `./dossier-product.ts`): it needs dossiers on and a sign-in, but no
+ * repository slug, which it sends only when set. */
+async function runProduct(
+  call: ProductCall,
+  { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, scratch }: Pick<FreeIo, 'cwd' | 'stdout' | 'stderr' | 'exec'> & DossierOptions & { fetch: Fetch; now: () => number },
+): Promise<number> {
+  const ctx = loadContext(cwd, { exec });
+  const toggle = dossierSwitch(ctx.config);
+  if (!toggle.on) {
+    println(stderr, 'off');
+    return 1;
+  }
+  const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+  if (!client) {
+    println(stderr, NO_SIGN_IN);
+    return 1;
+  }
+  const io = { repo: ctx.config.repo.slug, client, home: mainCheckout(ctx.root, exec) ?? ctx.root, scratch, stdout, stderr, now };
+  return runProductCall(call, io, addedLine);
+}
+
 export const dossier = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
+    { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now, scratch }: FreeIo & DossierOptions,
   ) {
-    const { positional, flags } = parseArgs('dossier', args, { values: ['kind', 'product'] });
+    const { positional, flags } = parseArgs('dossier', args, { values: ['kind', 'product', 'from', 'title'], booleans: ['new'] });
     const [verb = '', ...rest] = positional;
+    const productCall = productCallOf(verb, rest, flags);
+    if (productCall && flags.kind !== undefined) throw usageError(`usage: ${PRODUCT_USAGE}`);
+    if (productCall) return runProduct(productCall, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, scratch });
     const [first = ''] = rest;
     const title = verb === 'open' && rest.length === 1 ? first.trim().slice(0, TITLE_MAX) : '';
     const numbered = ['push', 'link'].includes(verb);

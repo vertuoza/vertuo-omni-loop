@@ -13,6 +13,12 @@ import {
   parseOutboxItemId,
   parsePr,
   parsePrd,
+  parsePrdId,
+  parseProductPrdId,
+  isProductPrdId,
+  productPrdParts,
+  type ProductPrdId,
+  ProductPrdIdSchema,
   parseSliceId,
   parseWorkSliceId,
   type PrdNumber,
@@ -167,5 +173,46 @@ describe('the brands — one kind never passes for another', () => {
     expectTypeOf<PrdNumber>().toExtend<number>();
     expectTypeOf<SliceId>().toExtend<string>();
     expect(parsePrd(7) + 1).toBe(8);
+  });
+});
+
+describe('parsePrdId — a PRD of a repository (12) or of a product (mobile-12), PRD 1548', () => {
+  it('reads a number as a repository PRD, as parsePrd does', () => {
+    expect(parsePrdId('12')).toBe(12);
+    expect(parsePrdId(12)).toBe(12);
+    expect(isProductPrdId(parsePrdId('12'))).toBe(false);
+  });
+
+  it('reads <key>-<n> as a product PRD, its key kebab-case', () => {
+    expect(parsePrdId('mobile-12')).toBe('mobile-12');
+    expect(parsePrdId('field-app-3')).toBe('field-app-3');
+    expect(parsePrdId('v2-1')).toBe('v2-1');
+    expect(isProductPrdId(parsePrdId('mobile-12'))).toBe(true);
+  });
+
+  it.each([
+    'mobile', '12-mobile', 'Mobile-12', 'mobile-0', 'mobile-012', 'mobile-', '-12', 'mobile--12', 'mobile-12a', '2fa-1', 'mobile-12-',
+    ' mobile-12', '', '0', `mobile-${2 ** 31}`,
+  ])('refuses %j by name', (value) => {
+    expect(() => parsePrdId(value)).toThrow(`PRD ${JSON.stringify(value)}: a PRD is its number (12) or its product's key and its number (mobile-12)`);
+  });
+
+  it('splits a product PRD into its key and its number, the key itself kebab-case with hyphens', () => {
+    expect(productPrdParts(parseProductPrdId('mobile-12'))).toEqual({ key: 'mobile', seq: 12 });
+    expect(productPrdParts(parseProductPrdId('field-app-3'))).toEqual({ key: 'field-app', seq: 3 });
+    expect(productPrdParts(parseProductPrdId(`a-${2 ** 31 - 1}`))).toEqual({ key: 'a', seq: 2 ** 31 - 1 });
+  });
+
+  it('parseProductPrdId refuses a plain number, which is a repository PRD', () => {
+    expect(() => parseProductPrdId('12')).toThrow('product PRD "12": ');
+    expect(ProductPrdIdSchema.safeParse('mobile-12').success).toBe(true);
+    expectTypeOf(parseProductPrdId('mobile-12')).toEqualTypeOf<ProductPrdId>();
+    expectTypeOf(parsePrdId('mobile-12')).toEqualTypeOf<PrdNumber | ProductPrdId>();
+  });
+
+  it('a key of 40 characters and no more', () => {
+    const forty = `a${'b'.repeat(39)}`;
+    expect(parsePrdId(`${forty}-1`)).toBe(`${forty}-1`);
+    expect(() => parsePrdId(`${forty}b-1`)).toThrow('PRD ');
   });
 });
