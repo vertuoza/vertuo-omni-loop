@@ -5,11 +5,10 @@
    A screen's title is Entropy Invaders' own (`.inv-title`, invaders.css). */
 
 .dt { position: absolute; inset: 0; }
-.dt-notice {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0;
-  font-size: 8px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; white-space: nowrap;
-}
-.dt-back { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+/* The loading and failure line and the way back under it share their place across the middle. */
+.dt-notice, .dt-back { position: absolute; left: 50%; margin: 0; font-size: 8px; white-space: nowrap; }
+.dt-notice { top: 50%; transform: translate(-50%, -50%); letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
+.dt-back { top: calc(50% + 18px); transform: translateX(-50%); }
 /* The ready screen: over the top of the playfield, clear of the crest and its orbs in the lower third. */
 .dt-panel {
   left: 50%; top: 30%; transform: translate(-50%, -50%); gap: 6px; justify-items: center; text-align: center;

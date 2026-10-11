@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { RULES } from './rules';
-import { BANNER_SECONDS, CHAPTERS, ENDLESS_POINTS, newRun, pause, press, step, WAVE_POINTS, waveOf, wavesIn, type Run, type RunEvent } from './run';
+import { BANNER_SECONDS, CHAPTER_TITLES, ENDLESS_POINTS, newRun, pause, press, step, WAVE_POINTS, waveOf, wavesIn, type Run, type RunEvent } from './run';
 import { blocksAt, ring, route, struck } from './waves';
 
 // OMNI DUET's run (PRD 1633): the ready screen, START into play, B back to the room, and the orbs turned
@@ -22,8 +22,8 @@ describe('a new run', () => {
   it('waits on the ready screen of chapter I · DRIFT, with three lives and no score', () => {
     const run = newRun({ seed: 7 });
     expect(run).toMatchObject({ phase: 'ready', chapter: 0, lives: 3, score: 0, seed: 7, angle: 0, carry: 0 });
-    expect(CHAPTERS[run.chapter]).toEqual({ numeral: 'I', name: 'DRIFT' });
-    expect(CHAPTERS.map((c) => `${c.numeral} · ${c.name}`)).toEqual(['I · DRIFT', 'II · SLIDE', 'III · SPIN', 'IV · STORM']);
+    expect(CHAPTER_TITLES[run.chapter]).toEqual({ numeral: 'I', name: 'DRIFT' });
+    expect(CHAPTER_TITLES.map((c) => `${c.numeral} · ${c.name}`)).toEqual(['I · DRIFT', 'II · SLIDE', 'III · SPIN', 'IV · STORM']);
   });
 
   it('does not turn the orbs before START: nothing moves on the ready screen', () => {
@@ -220,13 +220,13 @@ describe('the chapters, one after another', () => {
 
   it('plays chapters I to IV in turn, scoring 10 a wave', () => {
     let run = playing();
-    for (const [i, c] of CHAPTERS.entries()) {
+    for (const [i, c] of CHAPTER_TITLES.entries()) {
       expect(run.chapter, c.name).toBe(i);
-      run = i < CHAPTERS.length - 1 ? clearChapter(run) : run;
+      run = i < CHAPTER_TITLES.length - 1 ? clearChapter(run) : run;
     }
     while (!run.endless) run = pilot(run).run;
     expect(run.score).toBe(10 * run.passed);
-    expect(run.passed).toBe(CHAPTERS.length * 10);
+    expect(run.passed).toBe(CHAPTER_TITLES.length * 10);
     expect(run.lives).toBe(3);
   });
 });
@@ -263,7 +263,7 @@ function cleanRun(): Run[] {
   if (flown) return flown;
   const starts: Run[] = [];
   let run = playing();
-  while (starts.length < CHAPTERS.length * 10 + ENDLESS_FLOWN) {
+  while (starts.length < CHAPTER_TITLES.length * 10 + ENDLESS_FLOWN) {
     run = pastBanner(run);
     starts.push(run);
     run = pilot(run).run;
@@ -273,7 +273,7 @@ function cleanRun(): Run[] {
   return starts;
 }
 
-const atEndless = (): Run => cleanRun()[CHAPTERS.length * 10] ?? playing();
+const atEndless = (): Run => cleanRun()[CHAPTER_TITLES.length * 10] ?? playing();
 
 /**
  * Turns the orbs into the wave now falling: the first bin a block covers that they can reach in time,
@@ -285,27 +285,31 @@ function crash(run: Run): { run: Run; events: RunEvent[] } {
   const { bins, move } = ring();
   const start = ((Math.round((run.angle / (Math.PI * 2)) * bins) % bins) + bins) % bins;
   const covered = (b: number, tick: number) => struck((((b % bins) + bins) % bins / bins) * Math.PI * 2, blocksAt(wave, tick));
+  const hidden = (b: number, tick: number) => covered(b, tick) && covered(b - 1, tick) && covered(b + 1, tick);
   for (let tick = 1; tick < 3600; tick++) {
     for (let k = -tick; k <= tick; k++) {
-      const b = start + k * move;
-      if (!covered(b, tick) || !covered(b - 1, tick) || !covered(b + 1, tick)) continue;
-      let r = run;
-      const events: RunEvent[] = [];
-      for (let i = 0; i < tick + 60 && !events.includes('hit'); i++) {
-        const s = step(r, turnHeld(i < Math.abs(k) ? (Math.sign(k) as -1 | 1) : 0), RULES.subStep);
-        r = s.run;
-        events.push(...s.events);
-      }
-      if (!events.includes('hit')) throw new Error(`the crash at chapter ${run.chapter + 1}, wave ${run.wave + 1} missed`);
-      return { run: r, events };
+      if (hidden(start + k * move, tick)) return flyInto(run, tick, k);
     }
   }
   throw new Error('no block to crash into');
 }
 
+/** Turns the orbs `k` moves (anticlockwise when positive) then holds still, until a hit or `tick` + 60 sub-steps. */
+function flyInto(run: Run, tick: number, k: number): { run: Run; events: RunEvent[] } {
+  let r = run;
+  const events: RunEvent[] = [];
+  for (let i = 0; i < tick + 60 && !events.includes('hit'); i++) {
+    const s = step(r, turnHeld(i < Math.abs(k) ? (Math.sign(k) as -1 | 1) : 0), RULES.subStep);
+    r = s.run;
+    events.push(...s.events);
+  }
+  if (!events.includes('hit')) throw new Error(`the crash at chapter ${run.chapter + 1}, wave ${run.wave + 1} missed`);
+  return { run: r, events };
+}
+
 describe('endless mode', () => {
   it('follows chapter IV\'s last wave: the ENDLESS · ×2 banner, then its first wave', () => {
-    const before = cleanRun()[CHAPTERS.length * 10 - 1];
+    const before = cleanRun()[CHAPTER_TITLES.length * 10 - 1];
     if (!before) throw new Error('no last wave');
     const { run, events } = pilot(before);
     expect(events.slice(-2)).toEqual(['pass', 'endless']);
@@ -322,7 +326,7 @@ describe('endless mode', () => {
     const { run, events } = pilot(start);
     expect(events).toEqual(['pass']);
     expect(run).toMatchObject({ endless: true, wave: 1, score: start.score + 20, passed: start.passed + 1 });
-    const ten = cleanRun()[CHAPTERS.length * 10 + 10];
+    const ten = cleanRun()[CHAPTER_TITLES.length * 10 + 10];
     expect(ten?.score).toBe(400 + 10 * 20);
   });
 
@@ -333,7 +337,7 @@ describe('endless mode', () => {
   });
 
   it('costs a life on a hit, begins the wave hit again with the score it began with, and waits on the ready screen', () => {
-    const start = cleanRun()[CHAPTERS.length * 10 + 3];
+    const start = cleanRun()[CHAPTER_TITLES.length * 10 + 3];
     if (!start) throw new Error('no fourth endless wave');
     const { run, events } = crash(start);
     expect(events).toEqual(['hit']);
@@ -456,7 +460,7 @@ describe('every way a run ends', () => {
 describe('no death earns a point', () => {
   // For every wave of the four chapters and the first 50 endless waves: a run hit at that wave, then
   // flown on with the same inputs, never holds a higher score than the clean run at the same point.
-  const POINTS = CHAPTERS.length * 10 + ENDLESS_FLOWN;
+  const POINTS = CHAPTER_TITLES.length * 10 + ENDLESS_FLOWN;
   it.each(Array.from({ length: POINTS }, (_, i) => i))('at wave %i of the run', (i) => {
     const clean = cleanRun();
     const start = clean[i], next = clean[i + 1];

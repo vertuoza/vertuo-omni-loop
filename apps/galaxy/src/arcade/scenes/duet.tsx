@@ -7,7 +7,7 @@
 // the grid the game is drawn on (duet.css).
 import { Hint } from '../hint';
 import {
-  bannerLine, LOADING_LINE, NOT_LOADED, overLines, PAUSED_LINE, readyParts, waveLine, type DuetHud, type DuetStatus,
+  bannerLine, LOADING_LINE, NOT_LOADED, overLines, PAUSED_LINE, readyParts, waveLine, type ArcadeDuet, type DuetHud, type DuetStatus,
 } from './duet.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
@@ -94,4 +94,9 @@ export function DuetOverlay({ status, hud = null, send = null, back = 'GAME ROOM
       </div>
     </div>
   );
+}
+
+/** The arcade's OMNI DUET layer: its overlay once the cabinet has opened, nothing before. */
+export function DuetLayer({ duet, send }: { duet: ArcadeDuet | null; send: ScoreSend | null }) {
+  return duet ? <DuetOverlay status={duet.status} hud={duet.hud} send={send} /> : null;
 }

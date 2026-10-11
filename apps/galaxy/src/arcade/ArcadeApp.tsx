@@ -34,7 +34,7 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { KartOverlay } from './scenes/kart.tsx';
-import { DuetOverlay } from './scenes/duet.tsx';
+import { DuetLayer } from './scenes/duet.tsx';
 import { duetDrawOf, useDuet } from './scenes/duet.live';
 import { duetRetry, type ArcadeDuet } from './scenes/duet.ts';
 import { BACK_TO_CHOICE, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartHud } from './scenes/kart.ts';
@@ -402,7 +402,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // holds where the import stands, the grid it started on, the game once loaded and its text layer.
   // The run says once when it ends, whichever way: the score reached is sent then, under `duet`; A on
   // its game over begins a new game, whose score is sent in its turn.
-  const { duet, duetRef, openDuet, closeDuet, pressDuet, stepDuet, pauseDuet } = useDuet(() => import('./duet/index'), {
+  const { duet, duetRef, openDuet, followScene, pressDuet, stepDuet, pauseDuet } = useDuet(() => import('./duet/index'), {
     over: (score) => { sendScoreRef.current(DUET, score); },
     again: () => { held.clear(); runRef.current += 1; showSend(null); },
   });
@@ -473,15 +473,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null, choice: FIRST_CHOICE, multi: !!account.kartGrid?.(), lobby: null });
     go({ scene: 'kart' }, 'start');
   }, [go, held, showSend, account]);
-
-  /** A on OMNI DUET's unlocked cabinet: the game's code is imported now, on the grid the cabinet is shown on. */
-  const playDuet = useCallback(() => {
-    held.clear();
-    runRef.current += 1;
-    showSend(null);
-    openDuet(gridFor(formRef.current, 'duet'));
-    go({ scene: 'duet' }, 'start');
-  }, [go, held, showSend, openDuet]);
 
   /**
    * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
@@ -578,9 +569,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (ui.scene !== 'platformer' && pfRef.current) setPf(null);
     if (ui.scene === 'kart' && !kartRef.current) go({ scene: 'games' });
     if (ui.scene !== 'kart' && kartRef.current) setKart(null);
-    if (ui.scene === 'duet' && !duetRef.current) go({ scene: 'games' });
-    if (ui.scene !== 'duet' && duetRef.current) closeDuet();
-  }, [ui.scene, go, showHud, pfRef, setPf, kartRef, duetRef, closeDuet]);
+    if (!followScene(ui.scene)) go({ scene: 'games' });
+  }, [ui.scene, go, showHud, pfRef, setPf, kartRef, followScene]);
   // A window that loses focus or a hidden tab never hears its keys and fingers go up: nothing stays
   // held, and a game pauses.
   useEffect(() => {
@@ -718,6 +708,34 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
+    /** A on OMNI DUET's unlocked cabinet: the game's code is imported now, on the grid the cabinet is shown on. */
+    const playDuet = () => {
+      held.clear();
+      runRef.current += 1;
+      showSend(null);
+      openDuet(gridFor(formRef.current, 'duet'));
+      go({ scene: 'duet' }, 'start');
+    };
+    /**
+     * Opens `scene` from the game room or a level-up: OMNI RUNNER, OMNI KART and OMNI DUET through
+     * their own start, any other scene at once.
+     */
+    const openGame = (scene: SceneName, effect: Sfx) => {
+      if (scene === 'platformer') playPlatformer();
+      else if (scene === 'kart') playKart();
+      else if (scene === 'duet') playDuet();
+      else go({ scene }, effect);
+    };
+    /**
+     * A press in OMNI DUET: ◀ ▶ are read held, by the canvas loop; a press answers START, SELECT, B
+     * and the screens. Silent, as the other new games are. At the game over, A retries a score that
+     * was not saved, once; otherwise A plays again and B goes back.
+     */
+    const actDuet = () => {
+      const s = sendRef.current;
+      if (s?.state === 'failed' && duetRetry(duetRef.current?.hud ?? null, s, action)) { sendScore(DUET, s.score, s.tries + 1); return; }
+      if (pressDuet(action)) go({ scene: 'games' }, 'back');
+    };
     // OPEN THE APP? takes every press while it is up: A (or START) leaves for the app in this tab,
     // B closes it on the scene as it was, and nothing else is read (leave.ts).
     if (u.leaving) {
@@ -847,10 +865,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'start') {
           const door = cabinetDoor(at(room, spot, 'the cabinet under the cursor'), status);
           if (!('scene' in door)) { go({ toast: door.refused }, 'buzz'); return; }
-          if (door.scene === 'platformer') { playPlatformer(); return; }
-          if (door.scene === 'kart') { playKart(); return; }
-          if (door.scene === 'duet') { playDuet(); return; }
-          if (door.scene === 'invaders') playInvaders(); else go({ scene: door.scene }, 'select');
+          if (door.scene === 'invaders') playInvaders(); else openGame(door.scene, 'select');
           return;
         }
         if (action === 'b') { go({ scene: 'menu' }, 'back'); return; }
@@ -867,10 +882,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           if (view) playInvaders(); else open('menu', { toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
           return;
         }
-        if (game?.scene === 'platformer') { playPlatformer(); return; }
-        if (game?.scene === 'kart') { playKart(); return; }
-        if (game?.scene === 'duet') { playDuet(); return; }
-        if (game?.scene) { go({ scene: game.scene }, 'start'); return; }
+        if (game?.scene) { openGame(game.scene, 'start'); return; }
         open('menu', {}, action === 'b' ? 'back' : 'select'); return;
       }
       case 'invaders': {
@@ -943,14 +955,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         }
         return;
       }
-      case 'duet': {
-        // ◀ ▶ are read held, by the canvas loop; a press answers START, SELECT, B and the screens. Silent, as the other new games are.
-        // At the game over, A retries a score that was not saved, once; otherwise A plays again and B goes back.
-        const s = sendRef.current;
-        if (s?.state === 'failed' && duetRetry(duetRef.current?.hud ?? null, s, action)) { sendScore(DUET, s.score, s.tries + 1); return; }
-        if (pressDuet(action)) go({ scene: 'games' }, 'back');
-        return;
-      }
+      case 'duet': actDuet(); return;
       case 'fleets': {
         const n = view?.teams.length ?? 0;
         if (!view || !n) { if (action === 'b') go({ scene: 'menu' }, 'back'); return; }
@@ -973,7 +978,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, playDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -1161,7 +1166,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
-      case 'duet': return duet ? <DuetOverlay status={duet.status} hud={duet.hud} send={send} /> : null;
+      case 'duet': return <DuetLayer duet={duet} send={send} />;
       case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;

@@ -11,7 +11,7 @@ import type { FrameState } from '../scenes/common.ts';
 import type { DuetGame, DuetHud } from '../scenes/duet.ts';
 import { corners, type Block } from './collide';
 import { orbs, RULES, type Point } from './rules';
-import { CHAPTERS, newRun, pause, press, step, waveOf, wavesIn, type Run } from './run';
+import { CHAPTER_TITLES, newRun, pause, press, step, waveOf, wavesIn, type Run } from './run';
 import { blocksAt } from './waves';
 
 /** The crest's scale: whole pixels only, as every piece of the brand is drawn. */
@@ -27,7 +27,7 @@ const ENTROPY = defined(RAMPS.Z, "Entropy's ramp");
 export function hudOf(run: Run): DuetHud {
   const waves = wavesIn(run);
   return {
-    phase: run.phase, chapter: defined(CHAPTERS[run.chapter], "the run's chapter"), endless: run.endless,
+    phase: run.phase, chapter: defined(CHAPTER_TITLES[run.chapter], "the run's chapter"), endless: run.endless,
     wave: run.endless ? run.wave + 1 : Math.min(run.wave + 1, waves), waves, lives: run.lives, score: run.score,
     passed: run.passed, started: run.started,
   };

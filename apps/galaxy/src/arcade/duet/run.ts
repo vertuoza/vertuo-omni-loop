@@ -14,13 +14,13 @@
 // the move into `over` is told once, by the event `over`, so the score reached is sent once.
 import type { Action } from '../keys';
 import { RULES, turn } from './rules';
-import { blocksAt, CHAPTERS as WRITTEN, endlessWave, passedAt, struck, type Wave } from './waves';
+import { blocksAt, CHAPTERS, endlessWave, passedAt, struck, type Wave } from './waves';
 
-/** The chapters, in the order they are played: each one's numeral and name, as the screens say them. */
-export const CHAPTERS: readonly { numeral: string; name: string }[] = Object.freeze(WRITTEN.map(({ numeral, name }) => ({ numeral, name })));
+/** The chapters' titles, in the order they are played: each one's numeral and name, as the screens say them. */
+export const CHAPTER_TITLES: readonly { numeral: string; name: string }[] = Object.freeze(CHAPTERS.map(({ numeral, name }) => ({ numeral, name })));
 
 /** The lives a run starts with. */
-export const LIVES = 3;
+const LIVES = 3;
 
 /** What a wave passed in a chapter adds to the score. */
 export const WAVE_POINTS = 10;
@@ -40,7 +40,7 @@ export interface Run {
   readonly phase: Phase;
   /** The run's seed: the same seed and inputs give the same run. */
   readonly seed: number;
-  /** The chapter being played, an index into `CHAPTERS`: the last one, once in endless mode. */
+  /** The chapter being played, an index into `CHAPTER_TITLES`: the last one, once in endless mode. */
   readonly chapter: number;
   /** Whether the run is in endless mode, past chapter IV. */
   readonly endless: boolean;
@@ -88,11 +88,11 @@ export function newRun({ seed }: { seed: number }): Run {
 
 /** The wave falling now: the chapter's, or endless mode's. */
 export function waveOf(run: Run): Wave | undefined {
-  return run.endless ? endlessWave(run.wave) : WRITTEN[run.chapter]?.waves[run.wave];
+  return run.endless ? endlessWave(run.wave) : CHAPTERS[run.chapter]?.waves[run.wave];
 }
 
 /** How many waves the run's chapter has: none counted in endless mode, which never ends. */
-export const wavesIn = (run: Run): number => (run.endless ? 0 : WRITTEN[run.chapter]?.waves.length ?? 0);
+export const wavesIn = (run: Run): number => (run.endless ? 0 : CHAPTERS[run.chapter]?.waves.length ?? 0);
 
 /**
  * The run after a hit: a life gone and, on a ready screen, the chapter from its first wave with the
@@ -113,7 +113,7 @@ function passed(run: Run): Stepped {
   const done = { ...run, score, waveScore: score, passed: run.passed + 1, tick: 0 };
   if (run.endless || run.wave + 1 < wavesIn(run)) return { run: { ...done, wave: run.wave + 1 }, events: ['pass'] };
   const banner = { ...done, phase: 'chapter' as const, wave: 0, banner: BANNER_STEPS, chapterScore: score };
-  if (run.chapter + 1 < WRITTEN.length) return { run: { ...banner, chapter: run.chapter + 1 }, events: ['pass', 'chapter'] };
+  if (run.chapter + 1 < CHAPTERS.length) return { run: { ...banner, chapter: run.chapter + 1 }, events: ['pass', 'chapter'] };
   return { run: { ...banner, endless: true }, events: ['pass', 'endless'] };
 }
 
@@ -162,28 +162,30 @@ export function pause(run: Run): Stepped {
 /** The run ended where it stands, the score reached kept: the one move into `over` a press makes. */
 const ended = (run: Run): Stepped => ({ run: { ...run, phase: 'over', carry: 0 }, events: ['over'] });
 
+/** What each phase does with a press: a move, or undefined when the press does nothing there. */
+const PRESSES: Readonly<Record<Phase, (run: Run, action: Action) => Stepped | undefined>> = {
+  ready: (run, action) => {
+    if (action === 'start') return { run: { ...run, phase: 'play', started: true, carry: 0 }, events: ['start'] };
+    if (action === 'b') return run.started ? ended(run) : { run, events: ['leave'] };
+    return undefined;
+  },
+  play: (run, action) => (action === 'start' ? pause(run) : undefined),
+  chapter: (run, action) => (action === 'start' ? pause(run) : undefined),
+  paused: (run, action) => {
+    if (action === 'start') return { run: { ...run, phase: run.resume, carry: 0 }, events: ['resume'] };
+    return action === 'select' ? ended(run) : undefined;
+  },
+  over: (run, action) => {
+    if (action === 'a') return { run: newRun({ seed: run.seed }), events: ['again'] };
+    return action === 'b' ? { run, events: ['leave'] } : undefined;
+  },
+};
+
 /**
  * Answers a press: START starts play from a ready screen, pauses play and resumes a pause; SELECT on
  * the pause ends the run; B on the first ready screen leaves, and on a later one ends the run; once
  * over, A plays again from chapter I and B leaves.
  */
 export function press(run: Run, action: Action): Stepped {
-  switch (run.phase) {
-    case 'ready':
-      if (action === 'start') return { run: { ...run, phase: 'play', started: true, carry: 0 }, events: ['start'] };
-      if (action === 'b') return run.started ? ended(run) : { run, events: ['leave'] };
-      break;
-    case 'play': case 'chapter':
-      if (action === 'start') return pause(run);
-      break;
-    case 'paused':
-      if (action === 'start') return { run: { ...run, phase: run.resume, carry: 0 }, events: ['resume'] };
-      if (action === 'select') return ended(run);
-      break;
-    case 'over':
-      if (action === 'a') return { run: newRun({ seed: run.seed }), events: ['again'] };
-      if (action === 'b') return { run, events: ['leave'] };
-      break;
-  }
-  return { run, events: [] };
+  return PRESSES[run.phase](run, action) ?? { run, events: [] };
 }

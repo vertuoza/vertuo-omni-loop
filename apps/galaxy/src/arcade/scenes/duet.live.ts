@@ -86,7 +86,15 @@ export function useDuet(load: Load, hooks: DuetHooks = NO_HOOKS) {
   const show = useCallback((next: ArcadeDuet | null) => { duetRef.current = next; setDuet(next); }, []);
   /** A on the unlocked cabinet: the import starts, on the grid the cabinet is shown on. */
   const openDuet = useCallback((grid: Grid) => { setDuet({ status: 'loading', retry: 0, grid, game: null, hud: null }); }, []);
-  const closeDuet = useCallback(() => { setDuet(null); }, []);
+  /**
+   * The scene shown now: the game is only ever on its own scene, so another scene closes it. False when
+   * the duet scene is up with no game, which then goes back to the room.
+   */
+  const followScene = useCallback((scene: SceneName): boolean => {
+    if (scene === 'duet') return duetRef.current !== null;
+    if (duetRef.current) setDuet(null);
+    return true;
+  }, []);
   /** A press on the scene: true when it leaves for the room (the state is cleared then). */
   const pressDuet = useCallback((action: Action): boolean => {
     const next = pressedDuet(duetRef.current, action, hooksRef.current);
@@ -108,5 +116,5 @@ export function useDuet(load: Load, hooks: DuetHooks = NO_HOOKS) {
     const next = pausedDuet(d);
     if (next !== d) show(next);
   }, [show]);
-  return { duet, duetRef, openDuet, closeDuet, pressDuet, stepDuet, pauseDuet };
+  return { duet, duetRef, openDuet, followScene, pressDuet, stepDuet, pauseDuet };
 }

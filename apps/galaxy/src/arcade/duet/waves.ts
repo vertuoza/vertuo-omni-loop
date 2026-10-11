@@ -145,7 +145,7 @@ const LONGEST = 60 / RULES.subStep;
  * The bins the orbs can be at when `wave` is passed, starting from `from`, turning ◀, ▶ or not at
  * each sub-step, never touching a block: empty when no way gets through.
  */
-export function through(wave: Wave, from: Uint8Array): { reach: Uint8Array; passed: boolean } {
+function through(wave: Wave, from: Uint8Array): { reach: Uint8Array; passed: boolean } {
   const { bins, move } = ring();
   let reach = from;
   for (let tick = 1; tick <= LONGEST; tick++) {
@@ -175,35 +175,46 @@ export function route(wave: Wave, angle: number): (-1 | 0 | 1)[] | null {
   const start = ((Math.round((angle / (Math.PI * 2)) * bins) % bins) + bins) % bins;
   // came[t][b]: the bin the orbs stood at the sub-step before, when they stand at `b` after sub-step t + 1; -1 when unreachable.
   const came: Int16Array[] = [];
-  let reach = new Uint8Array(bins);
+  let reach: Uint8Array = new Uint8Array(bins);
   reach[start] = 1;
   for (let tick = 1; tick <= LONGEST; tick++) {
-    const blocks = blocksAt(wave, tick);
-    const from = new Int16Array(bins).fill(-1);
-    const next = new Uint8Array(bins);
-    let any = false;
-    for (let b = 0; b < bins; b++) {
-      const prev = [b, (b - move + bins) % bins, (b + move) % bins].find((p) => reach[p]);
-      if (prev === undefined || struck((b / bins) * Math.PI * 2, blocks)) continue;
-      from[b] = prev;
-      next[b] = 1;
-      any = true;
-    }
-    if (!any) return null;
-    came.push(from);
-    reach = next;
-    if (passedAt(wave, tick)) {
-      let b = reach.indexOf(1);
-      const turns: (-1 | 0 | 1)[] = [];
-      for (let t = came.length - 1; t >= 0; t--) {
-        const p = came[t]?.[b] ?? -1;
-        turns.unshift(p === b ? 0 : (p + move) % bins === b ? 1 : -1);
-        b = p;
-      }
-      return turns;
-    }
+    const out = spread(reach, blocksAt(wave, tick), bins, move);
+    if (!out) return null;
+    came.push(out.from);
+    reach = out.next;
+    if (passedAt(wave, tick)) return unwind(came, reach.indexOf(1), bins, move);
   }
   return null;
+}
+
+/**
+ * One sub-step of `route`'s search: the bins the orbs can stand at after it, from `reach`, clear of
+ * `blocks`, and the bin each came from (-1 when unreachable); null when none is reachable.
+ */
+function spread(reach: Uint8Array, blocks: readonly Block[], bins: number, move: number): { from: Int16Array; next: Uint8Array } | null {
+  const from = new Int16Array(bins).fill(-1);
+  const next = new Uint8Array(bins);
+  let any = false;
+  for (let b = 0; b < bins; b++) {
+    const prev = [b, (b - move + bins) % bins, (b + move) % bins].find((p) => reach[p]);
+    if (prev === undefined || struck((b / bins) * Math.PI * 2, blocks)) continue;
+    from[b] = prev;
+    next[b] = 1;
+    any = true;
+  }
+  return any ? { from, next } : null;
+}
+
+/** The turns that led to bin `end`, walked back through `came`: the first sub-step's first. */
+function unwind(came: readonly Int16Array[], end: number, bins: number, move: number): (-1 | 0 | 1)[] {
+  let b = end;
+  const turns: (-1 | 0 | 1)[] = [];
+  for (let t = came.length - 1; t >= 0; t--) {
+    const p = came[t]?.[b] ?? -1;
+    turns.unshift(p === b ? 0 : (p + move) % bins === b ? 1 : -1);
+    b = p;
+  }
+  return turns;
 }
 
 /**
@@ -438,7 +449,7 @@ export const ENDLESS_SEED = 0x1633;
  * apart, entering after `gap`; the speed starts at `speed`, rises by one every `rise` waves and stops
  * at `topSpeed`, so every wave stays passable however long the run.
  */
-export const ENDLESS = Object.freeze({ speed: 120, rise: 5, topSpeed: 150, maxRows: 3, spacing: 5, gap: 16 });
+const ENDLESS = Object.freeze({ speed: 120, rise: 5, topSpeed: 150, maxRows: 3, spacing: 5, gap: 16 });
 
 /** The rows an endless wave is built from: chapter IV's own rows, all three kinds of block. */
 const ROWS: readonly string[] = Object.freeze([
