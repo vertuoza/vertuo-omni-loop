@@ -9,7 +9,8 @@ import type { Repo } from '../../test/fixture.ts';
 import { sha256 } from '../dossier/folder.ts';
 import { AskCallError } from '../ask/client.ts';
 import { parsePrd } from '../ids.ts';
-import { failedReading, judgeApproval, parseApprovalReply, readApproval, treeFileOf } from './approval.ts';
+import { checkoutTree, failedReading, judgeApproval, parseApprovalReply, readApproval, treeFileOf, verdictOf } from './approval.ts';
+import type { ApprovalTree } from './approval.ts';
 
 const PRD = parsePrd(1299);
 const URL_ = 'https://omni.test/prd/acme/widgets/1299';
@@ -35,7 +36,7 @@ function repo(files: Record<string, string> = {}, dir = INBOX) {
 function judge(ctx: Repo['ctx'], body: unknown) {
   const parsed = parseApprovalReply(body);
   assertDefined(parsed, 'the approval reply');
-  return judgeApproval(ctx, PRD, parsed);
+  return judgeApproval(PRD, parsed, checkoutTree(ctx, PRD));
 }
 
 describe('parseApprovalReply', () => {
@@ -215,5 +216,56 @@ describe('readApproval', () => {
     const { ctx } = repo();
     expect((await readApproval(ctx, PRD, () => Promise.reject(new AskCallError('down')))).state).toBe('unreachable');
     expect((await readApproval(ctx, PRD, () => Promise.reject(new AskCallError('no', { status: 500 })))).lines).toEqual(['refused (500)']);
+  });
+});
+
+describe('judgeApproval, pure (PRD 1612)', () => {
+  /** A tree held in memory, as the App reads a PR's head: path to text. */
+  const memoryTree = (files: Record<string, string>): ApprovalTree => ({
+    fileOf: (file) => file.path,
+    read: (file) => files[file] ?? null,
+  });
+  const HEAD = { [`${INBOX}/spec.md`]: SPEC, [`${INBOX}/plan.md`]: PLAN, [`${INBOX}/before-after.html`]: PAGE };
+  const parsed = (body: unknown) => {
+    const read = parseApprovalReply(body);
+    assertDefined(read, 'the approval reply');
+    return read;
+  };
+  const verdict = (body: unknown, files: Record<string, string> = HEAD) => verdictOf(judgeApproval(PRD, parsed(body), memoryTree(files)));
+
+  it('gives the gate\'s four states from fixtures, reading nothing but the tree it is handed', () => {
+    const withText = { approver: { login: 'ada', member: true }, approvedAt: 't', files: [pinned('plan', `${INBOX}/plan.md`, PLAN, { content: PLAN })] };
+    expect(verdict(reply())).toBe('approved');
+    expect(verdict(reply(null))).toBe('waiting');
+    expect(verdict(reply(), { ...HEAD, [`${INBOX}/plan.md`]: 'another plan' })).toBe('drifted');
+    expect(verdict(reply(withText), { [`${INBOX}/plan.md`]: `${PLAN}\n` })).toBe('drifted');
+    expect(verdict(reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files: PINNED, voids: [
+      { pusher: 'ada', kind: 'plan', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: 't' },
+    ] }))).toBe('drifted');
+    expect(verdictOf(failedReading(new AskCallError('GET x: timed out')))).toBe('held');
+  });
+
+  it('tells whitespace only from content against an in-memory head', () => {
+    const files = [pinned('plan', `${INBOX}/plan.md`, PLAN, { content: PLAN })];
+    const body = reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files });
+    expect(judgeApproval(PRD, parsed(body), memoryTree({ [`${INBOX}/plan.md`]: `${PLAN}  ` })).drift).toEqual([
+      { kind: 'plan', file: `${INBOX}/plan.md`, how: 'whitespace only' },
+    ]);
+    expect(judgeApproval(PRD, parsed(body), memoryTree({})).drift).toEqual([{ kind: 'plan', file: `${INBOX}/plan.md`, how: 'missing' }]);
+  });
+
+  it('gives on the checkout exactly the reading readApproval gives', async () => {
+    const { ctx } = repo({ [`${INBOX}/plan.md`]: 'changed' });
+    expect(judgeApproval(PRD, parsed(reply()), checkoutTree(ctx, PRD))).toEqual(await readApproval(ctx, PRD, () => Promise.resolve(reply())));
+  });
+});
+
+describe('verdictOf', () => {
+  it('holds an unreachable or refused reading, never fails it; only a drift fails', () => {
+    expect(verdictOf({ state: 'approved' })).toBe('approved');
+    expect(verdictOf({ state: 'pending' })).toBe('waiting');
+    expect(verdictOf({ state: 'drifted' })).toBe('drifted');
+    expect(verdictOf({ state: 'unreachable' })).toBe('held');
+    expect(verdictOf({ state: 'refused' })).toBe('held');
   });
 });
