@@ -688,7 +688,7 @@ A link may read a repository the workspace lists, or any repository the workspac
 
 Serves: P-PRODUCT-58
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
-Enforced by: pending #1524
+Enforced by: apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
