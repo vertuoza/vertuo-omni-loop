@@ -6,7 +6,7 @@ import { galleryOrder, galleryPage } from './page.ts';
 
 function screen(name: string, fields: Partial<Screen> = {}): Screen {
   return {
-    file: `${name}.md`, screen: name, status: 'draft', lockedBy: null, lockedOn: null, quote: null, mock: null,
+    file: `${name}.md`, screen: name, status: 'draft', kind: 'page', lockedBy: null, lockedOn: null, quote: null, mock: null,
     implements: [], reads: [], routes: [], supersedes: null, amendments: [], sections: {}, ...fields,
   };
 }
@@ -25,6 +25,12 @@ const read = (mock: string) => MOCKS[mock] ?? null;
 describe('galleryOrder', () => {
   it('puts locked screens first, then drafts, then superseded, keeping the library order within each', () => {
     expect(galleryOrder([OLD, DRAFT, LOCKED, BARE]).map((s) => s.screen)).toEqual(['quote-editor', 'a-draft', 'b-bare', 'old-editor']);
+  });
+
+  it('puts the shared screens after every page, in the same order among themselves (PRD 1584)', () => {
+    const shell = screen('app-shell', { kind: 'shared' });
+    const bell = screen('notifications', { kind: 'shared', status: 'locked', lockedBy: '@ana', lockedOn: '2026-10-11', quote: 'yes' });
+    expect(galleryOrder([shell, OLD, bell, DRAFT, LOCKED]).map((s) => s.screen)).toEqual(['quote-editor', 'a-draft', 'old-editor', 'notifications', 'app-shell']);
   });
 });
 
@@ -57,6 +63,15 @@ describe('galleryPage', () => {
     expect(page).not.toMatch(/<script/i);
     expect(page).not.toMatch(/(?:src|href)="(?:https?:)?\/\//i);
     expect(page).toContain(`content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"`);
+  });
+
+  it('shows the shared screens in a group of their own, after the pages, and no group when there is none (PRD 1584)', () => {
+    const shared = galleryPage({ screens: [screen('app-shell', { kind: 'shared', routes: ['/', '/prds'] }), LOCKED, DRAFT], problems: [] }, read);
+    const group = shared.indexOf('<h2 class="group">Shared screens</h2>');
+    expect(group).toBeGreaterThan(shared.indexOf('<h2>a-draft</h2>'));
+    expect(group).toBeLessThan(shared.indexOf('<h2>app-shell</h2>'));
+    expect(shared).toContain('<section class="draft shared">');
+    expect(page).not.toContain('Shared screens');
   });
 
   it('escapes what a screen file says', () => {
