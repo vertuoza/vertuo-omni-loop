@@ -7,6 +7,7 @@ import { RETRO_FUNCTION_ID } from '../retro/retro.ts';
 import { HARVEST_FUNCTION_ID } from '../knowledge-harvest/knowledge-harvest.ts';
 import { PR_STATS_FUNCTION_ID } from '../pr-stats/pr-stats.ts';
 import { CANON_ACTION_FUNCTION_ID } from '../inbox-check/canon-action.ts';
+import { APPROVED_FUNCTION_ID, APPROVED_RERUN_FUNCTION_ID } from '../approved-check/approved-check.ts';
 
 describe('/api/inngest', () => {
   beforeEach(() => {
@@ -16,7 +17,7 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the outbox-check function, the inbox-check function (PRD 675), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), and nothing else', () => {
+  it('serves the outbox-check function, the inbox-check function (PRD 675), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), the omni/approved check and its rerun (PRD 1612), and nothing else', () => {
     expect(functions.map((fn) => fn.id())).toEqual([
       FUNCTION_ID,
       INBOX_FUNCTION_ID,
@@ -24,6 +25,8 @@ describe('/api/inngest', () => {
       HARVEST_FUNCTION_ID,
       PR_STATS_FUNCTION_ID,
       CANON_ACTION_FUNCTION_ID,
+      APPROVED_FUNCTION_ID,
+      APPROVED_RERUN_FUNCTION_ID,
     ]);
   });
 
@@ -35,8 +38,9 @@ describe('/api/inngest', () => {
     const response = await GET(new Request('https://omni-loop.example/api/inngest', { headers: { host: 'omni-loop.example' } }));
     expect(response.status).toBe(200);
     const body = (await response.json()) as { function_count: number };
-    // Inngest registers each failure handler as a function of its own, beside its function; prStats and canonAction have none.
-    expect(body.function_count).toBe(10);
+    // Inngest registers each failure handler as a function of its own, beside its function; prStats,
+    // canonAction, approvedCheck and approvedRerun have none.
+    expect(body.function_count).toBe(12);
   });
 });
 
@@ -66,6 +70,6 @@ describe('/api/inngest — the environment, read when the route loads (PRD 1059)
   });
 
   it('loads on a preview with nothing set', async () => {
-    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(6);
+    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(8);
   });
 });
