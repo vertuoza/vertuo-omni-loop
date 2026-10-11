@@ -9,13 +9,14 @@ import type { AppEnv } from '../env.ts';
 import { type AppEvent, inngest } from '../inngest-client.ts';
 import { forwardStageEvent, stageEventUrl } from '../stage-forward/stage-forward.ts';
 import { forwardTouch, touchedUrl } from '../stage-forward/touch.ts';
+import type { ApprovedLabelRequest } from '../approved-check/events.ts';
 import { receiveWebhook } from './webhook.ts';
 
 /** The groups the route reads. */
 export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl'>;
 
 /** `POST` and `GET` of `/api/github`, bound to `env`; `send` is the app's Inngest client's unless given. */
-export function githubRoute(env: GithubRouteEnv, { send = (events: AppEvent[]) => inngest.send(events) }: { send?: (events: AppEvent[]) => Promise<unknown> } = {}) {
+export function githubRoute(env: GithubRouteEnv, { send = (events: (AppEvent | ApprovedLabelRequest)[]) => inngest.send(events) }: { send?: (events: (AppEvent | ApprovedLabelRequest)[]) => Promise<unknown> } = {}) {
   const stage = { url: stageEventUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   const touched = { url: touchedUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   return {
@@ -25,6 +26,7 @@ export function githubRoute(env: GithubRouteEnv, { send = (events: AppEvent[]) =
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
+        sendApproved: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched),
       });

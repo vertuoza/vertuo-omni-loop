@@ -1,12 +1,15 @@
-// The six Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The eight Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
 // the retro with its day-14 run (PRD 72), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
-// the pr-stats collector (PRD 612) and the canon buttons (PRD 839). Every installation call spends the
+// the pr-stats collector (PRD 612), the canon buttons (PRD 839), and the `omni/approved` check with its rerun on
+// the approved label (PRD 1612), which asks galaxy's judge signed with `STAGE_EVENT_SECRET`. Every installation call spends the
 // installation's budget through the shared client (PRD 902), on the store galaxy writes too; the retro also looks up its
 // installation on each target of a multi-repository PRD as the App itself (PRD 1130). A test hands `octokitFor` a
 // stubbed GitHub.
 import { githubClient } from '@omni/github';
+import { createApprovedCheck, createApprovedRerun } from './approved-check/approved-check.ts';
+import { askJudge } from './approved-check/judge-client.ts';
 import type { AppEnv } from './env.ts';
 import { liveCanon } from './canon/live.ts';
 import { createCanonAction } from './inbox-check/canon-action.ts';
@@ -39,5 +42,11 @@ export function appFunctions(
     }),
     prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
     canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
+    approvedCheck: createApprovedCheck({
+      client: inngest,
+      octokitFor,
+      ask: (repo, prd) => askJudge(repo, prd, { galaxyUrl: env.galaxyUrl, secret: env.stageEvents?.secret }),
+    }),
+    approvedRerun: createApprovedRerun({ client: inngest, octokitFor }),
   };
 }

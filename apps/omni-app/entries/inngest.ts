@@ -7,10 +7,11 @@
 // value, or in production a missing GITHUB_WEBHOOK_SECRET or GitHub App, fails the function's start
 // with one error naming every variable concerned, never a value.
 //
-// It serves six functions (../src/functions.ts): the outbox check (PRD 28), the inbox check (PRD 675), the retro (PRD 72)
+// It serves eight functions (../src/functions.ts): the outbox check (PRD 28), the inbox check (PRD 675), the retro (PRD 72)
 // and the knowledge harvest (PRD 82), each with its own failure handler, which Inngest registers as a function of its own,
 // `prStats` (PRD 612), the Engineering board's collector, on a 15-minute schedule, and `canonAction`
-// (PRD 839), which answers a click of a button on a red canon check.
+// (PRD 839), which answers a click of a button on a red canon check, and `approvedCheck` with
+// `approvedRerun` (PRD 1612), the omni/approved check and its rerun on the approved label.
 import { serve } from 'inngest/edge';
 import { processEnv, readEnv } from '../src/env.ts';
 import { appFunctions } from '../src/functions.ts';
