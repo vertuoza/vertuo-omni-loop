@@ -501,7 +501,7 @@ A fleet's mascot is one of eleven keys held in a database list, the same list an
 
 Serves: P-PRODUCT-43
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
-Enforced by: pending #1507
+Enforced by: packages/design/src/mascots.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
