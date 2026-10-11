@@ -171,7 +171,7 @@ A retro field the model wrote is dropped when it exceeds its cap in rules or hol
 
 Serves: P-PRODUCT-15
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s2-04-prose-caps-and-refused-words, PRD #72
-Enforced by: pending #1478
+Enforced by: apps/omni-app/src/retro/guard.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
