@@ -277,3 +277,16 @@ drafts.
 ### Tests
 
 `kit/test/design-skills.test.ts`.
+
+## PRD #1584, slice s3 — two parts, and shared screens
+
+- **Step 5**, with the design flag on, writes the before/after in two parts: **Functional** (what
+  the change does, today beside after), then **Pixel perfect** (the marked screens and a
+  `screens:` line naming the library screens), or the one line `Pixel perfect: no screen changes`
+  for a PRD that changes no screen. Design off, the page is written as before.
+- **Step 5's draft screens** carry `kind`, and the rule that splits the two lists is stated in its
+  four lines; shared structure is drafted once, as a `kind: shared` screen.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

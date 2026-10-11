@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import type { JevOutcome } from '../client';
 import type { JevDecideDeps } from '../resolve';
@@ -188,5 +190,43 @@ describe('what repo_workspace() returned', () => {
     expect(placedFrom([{ workspace_id: null, refusal: 'Install the App first.' }])).toEqual({ workspace: null, reason: 'Install the App first.' });
     expect(placedFrom([])).toEqual({ workspace: null, reason: null });
     expect(placedFrom(null)).toEqual({ workspace: null, reason: null });
+  });
+});
+
+describe('whose Jev settings a terminal\'s call reads', () => {
+  const source = (path: string): string =>
+    readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8').replace(/--[^\n]*/g, '').replace(/\s+/g, ' ');
+
+  // Law BR-PRODUCT-60 (.omni-loop/knowledge/product/rules.md, #1521).
+  it('law BR-PRODUCT-60: the owning workspace\'s settings apply, an unowned repository goes to the first-joined workspace, another workspace\'s is refused', async () => {
+    // Where a call goes is repo_workspace()'s to say, in its newest migration.
+    const pick = /function public\.repo_workspace\([^$]*\$\$(.*?)\$\$/.exec(source('../../../../../supabase/migrations/20261004090000_workspace_gate.sql'))?.[1] ?? '';
+    const owned = pick.indexOf('where m.user_id = person and v_owner <> \'\' and lower(w.github_org) = v_owner order by m.joined_at, w.slug limit 1; if workspace_id is not null then return;');
+    const refused = pick.indexOf('refusal := format(\'you are not a member of %s, which owns %s\', owning, shown); return;');
+    const firstJoined = pick.indexOf('where m.user_id = person order by m.joined_at, w.slug limit 1;');
+    expect(owned).toBeGreaterThan(-1);
+    expect(refused).toBeGreaterThan(owned);
+    expect(firstJoined).toBeGreaterThan(refused);
+    // The terminal's call asks it, as the service role.
+    expect(source('./decide-live.ts')).toContain(".rpc('repo_workspace', { person: userId, repo })");
+
+    // The route reads the Jev settings of the workspace it names, and refuses when it names none.
+    const FIRST = '00000000-0000-4000-8000-00000000f001';
+    const w = world({ mode: 'on', noul: 0.91 });
+    const jev = sure(w.route.jev, 'w.route.jev');
+    const read: string[] = [];
+    const route: DecideRouteDeps = {
+      ...w.route,
+      jev: { ...jev, settings: (workspace, decision) => { read.push(workspace); return jev.settings(workspace, decision); } },
+      place: (_userId, repo) => Promise.resolve(
+        repo === 'acme/widgets' ? { workspace: ACME, reason: null }
+          : repo === 'stray/thing' ? { workspace: FIRST, reason: null }
+            : { workspace: null, reason: `you are not a member of Globex, which owns ${repo}` }),
+    };
+    const call = async (repo: string) => (await decideRoute(request({ ...CALL, repo }), 'outbox-risk', route)).status;
+    expect(await call('acme/widgets')).toBe(200);
+    expect(await call('stray/thing')).toBe(200);
+    expect(await call('globex/app')).toBe(403);
+    expect(read).toEqual([ACME, FIRST]);
   });
 });

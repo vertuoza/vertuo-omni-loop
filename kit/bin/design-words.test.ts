@@ -170,4 +170,43 @@ describe('omni design words', () => {
     const on = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON } });
     expect((await words(on.root, [])).code).toBe(2);
   });
+
+  it('counts the text inside [data-content] apart, as content · <n> words, with no finding on it (PRD 1584)', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': HEAD + ON,
+        'mock.html': page('<section data-screen="dossier"><h1>Spec</h1><article data-content><p>This PRD explains at length what the screen shows to its reader.</p></article></section>'),
+      },
+    });
+    expect(await words(root, ['mock.html'])).toEqual({
+      code: 0,
+      out: ['mock.html', '  screen dossier · 1 word', '    Spec (1)', '    content · 12 words', '    findings: none', ''].join('\n'),
+      err: '',
+    });
+  });
+
+  it('reads the content mark design.words.content sets (PRD 1584)', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': HEAD + ON + '  words:\n    content: .figures\n',
+        'mock.html': page('<div data-screen="dash"><p class="figures">12 quotes sent and 4 signed this week by the crew</p><p data-content>Six words that are now copy</p></div>'),
+      },
+    });
+    const { out } = await words(root, ['mock.html']);
+    expect(out).toContain('    Six words that are now copy (6)\n    content · 11 words\n    findings: none\n');
+  });
+
+  it("reads a sentence whole across its inline code, and a control's parts with a space (PRD 1584)", async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': HEAD + ON,
+        'mock.html': page('<div data-screen="s"><p>on <code>main</code> (2026-10-11)</p><button><b>CREW TOP 5</b><span>NO SCORES YET</span></button><div><span>ask.client.ts</span><span>POST</span></div></div>'),
+      },
+    });
+    const { out } = await words(root, ['mock.html']);
+    expect(out).toContain('    on main (2026-10-11) (3)\n    [control] CREW TOP 5 NO SCORES YET (6)\n    ask.client.ts (1)\n    POST (1)\n');
+  });
 });

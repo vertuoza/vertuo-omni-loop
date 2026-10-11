@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 384" width="840" height="384">
+  <title>Shared screens and what holds a change</title>
+  <desc>Shared screens, what can hold a change, and the before/after's two parts. On the left, a page, quote-list: its implements are its own files, and it lists the app shell's files in reads, so its lock trips only on a change to its own implements and a change to the shell never trips it; a screen with no kind is a page. In the middle, a shared screen, app-shell, with kind: shared: structure many pages show, such as an app shell, a notifications bell or a sign-in page, with its own implements, mockup, lock, review and group in the gallery, its routes naming the pages it appears on. On the right, Seen, not touched: when /omni:pixel-perfect review sees a fault in a part the change did not touch, it reports it apart under its own heading, never against the work, never a block, never an outbox item, and suggests it as a bug of its own. Below, the before/after page in two parts: Functional, what the change does, today beside after, which every PRD has; then Pixel perfect, naming the screens it changes, such as screens: quote-list · app-shell, or the one line Pixel perfect: no screen changes. The feature pull request carries a Pixel perfect line naming those screens, or none, in which case no slice runs a review, a mockup or a word pass.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <text x="20" y="22" class="dg-tag">1 · A PAGE</text>
+  <rect x="23" y="37" width="250" height="190" class="dg-shadow"/>
+  <rect x="20" y="34" width="250" height="190" class="dg-box"/>
+  <text x="34" y="58" class="dg-code">quote-list.md</text>
+  <text x="34" y="78" class="dg-code dg-you">implements: [QuoteList.tsx]</text>
+  <text x="34" y="96" class="dg-code dg-agents">reads: [src/shell/]</text>
+  <text x="34" y="122" class="dg-small">its lock trips only on a change</text>
+  <text x="34" y="140" class="dg-small">to its own implements</text>
+  <text x="34" y="166" class="dg-small dg-muted">a change to the shell</text>
+  <text x="34" y="184" class="dg-small dg-muted">never trips it</text>
+  <text x="34" y="210" class="dg-code dg-muted">kind: page, the default</text>
+  <path d="M295 129 L279 129" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="270,129 279,134.5 279,123.5" class="dg-head dg-agents"/>
+  <text x="295" y="22" class="dg-tag">2 · A SHARED SCREEN</text>
+  <rect x="298" y="37" width="250" height="190" class="dg-shadow"/>
+  <rect x="295" y="34" width="250" height="190" class="dg-box dg-key"/>
+  <text x="309" y="58" class="dg-code">app-shell.md</text>
+  <text x="309" y="78" class="dg-code dg-you">kind: shared</text>
+  <text x="309" y="96" class="dg-code dg-you">implements: [src/shell/…]</text>
+  <text x="309" y="122" class="dg-small">structure many pages show:</text>
+  <text x="309" y="140" class="dg-small">a shell, a bell, a sign-in page</text>
+  <text x="309" y="166" class="dg-small dg-muted">its own mockup, lock, review</text>
+  <text x="309" y="184" class="dg-small dg-muted">and group in the gallery</text>
+  <text x="309" y="210" class="dg-small dg-muted">routes: the pages it appears on</text>
+  <path d="M545 129 L561 129" class="dg-line dg-edge-agents"/>
+  <polygon points="570,129 561,134.5 561,123.5" class="dg-head dg-agents"/>
+  <text x="570" y="22" class="dg-tag">3 · SEEN, NOT TOUCHED</text>
+  <rect x="573" y="37" width="250" height="190" class="dg-shadow"/>
+  <rect x="570" y="34" width="250" height="190" class="dg-box"/>
+  <text x="584" y="58" class="dg-small dg-agents">the design review</text>
+  <text x="584" y="80" class="dg-small">a fault in a part the change</text>
+  <text x="584" y="98" class="dg-small">did not touch, seen on a page</text>
+  <text x="584" y="124" class="dg-small dg-muted">reported apart, under its</text>
+  <text x="584" y="142" class="dg-small dg-muted">own heading: never against</text>
+  <text x="584" y="160" class="dg-small dg-muted">the work, never a block,</text>
+  <text x="584" y="178" class="dg-small dg-muted">never an outbox item</text>
+  <text x="584" y="204" class="dg-small">suggested as a bug of its own</text>
+  <text x="20" y="262" class="dg-tag">4 · THE BEFORE/AFTER, IN TWO PARTS</text>
+  <rect x="23" y="277" width="250" height="96" class="dg-shadow"/>
+  <rect x="20" y="274" width="250" height="96" class="dg-box"/>
+  <text x="34" y="298" class="dg-small dg-you">Functional</text>
+  <text x="34" y="318" class="dg-small">what the change does,</text>
+  <text x="34" y="336" class="dg-small">today beside after</text>
+  <text x="34" y="356" class="dg-small dg-muted">every PRD has it</text>
+  <path d="M270 322 L286 322" class="dg-line dg-edge-you"/>
+  <polygon points="295,322 286,327.5 286,316.5" class="dg-head dg-you"/>
+  <rect x="298" y="277" width="250" height="96" class="dg-shadow"/>
+  <rect x="295" y="274" width="250" height="96" class="dg-box dg-key"/>
+  <text x="309" y="298" class="dg-small dg-you">Pixel perfect</text>
+  <text x="309" y="318" class="dg-code">screens: quote-list · app-shell</text>
+  <text x="309" y="338" class="dg-small dg-muted">or, with no screen changed:</text>
+  <text x="309" y="356" class="dg-code">Pixel perfect: no screen changes</text>
+  <path d="M545 322 L561 322" class="dg-line dg-edge-app"/>
+  <polygon points="570,322 561,327.5 561,316.5" class="dg-head dg-app"/>
+  <text x="570" y="262" class="dg-tag">5 · THE FEATURE PR</text>
+  <rect x="573" y="277" width="250" height="96" class="dg-shadow"/>
+  <rect x="570" y="274" width="250" height="96" class="dg-box"/>
+  <text x="584" y="298" class="dg-code dg-app">Pixel perfect: &lt;screens&gt;</text>
+  <text x="584" y="318" class="dg-small">where a reviewer looks closely,</text>
+  <text x="584" y="336" class="dg-small dg-muted">or none: then no slice runs</text>
+  <text x="584" y="354" class="dg-small dg-muted">review, mockup or word pass</text>
+</svg>

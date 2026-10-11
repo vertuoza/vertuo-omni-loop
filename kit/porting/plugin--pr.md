@@ -147,3 +147,13 @@ Not a re-port: a kit-local bug fix. The omni-loop App skipped a target feature P
 `Part of <plan slug>#<n>` line `/omni:ultra-yolo` writes and passes the check, linking the plan PR.
 `--repo <slug>` gains one bullet saying so, and that a `gate` or `ci/outbox` red from a workflow the
 target wrote itself is a human step; `/omni:ultra-yolo` §2 item 4 and `/omni:mega-pr-care` point to it.
+
+## PRD #1584, slice s3 — the Pixel perfect line
+
+Not a re-port: a kit-local addition. With `design.enabled` on, the feature PR's body carries a
+**Pixel perfect** line right after the link line, naming the screens the before/after's Pixel
+perfect part lists, or `none`. Design off, no such line.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

@@ -3746,6 +3746,7 @@ export type Database = {
         Args: { p_logins: string[]; p_user_id: string }
         Returns: string[]
       }
+      kart_grid_allows: { Args: { p_topic: string }; Returns: boolean }
       link_github: { Args: never; Returns: Json }
       lookup_product: {
         Args: { p_prd?: number; p_repo: string; p_workspace: string }

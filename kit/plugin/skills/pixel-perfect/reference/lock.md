@@ -39,11 +39,19 @@ question through the session's question tool.
 2. **Show it.** The screen's purpose, its regions, states and words, its routes, the path of its
    mockup, and its **Open questions**; or the law's text. An open question still open is said
    plainly: the person may lock with it open, and it stays written. For a screen, show its
-   `implements` and its `reads` too, with the rule that splits them: *a file whose change can
-   change what a person sees on this screen goes in `implements`; a file the screen only depends on
-   goes in `reads`.* A lock trips on a change to its `implements` only, never on its `reads`: an
-   entry on the wrong list (an engine or a whole folder in `implements`) is said plainly, for the
-   person to move before they lock; `lock` never moves it itself.
+   `implements` and its `reads` too, with the rule that splits them, in its four lines:
+   - A file whose change can change what a person sees on this screen goes in `implements`, the
+     data files that hold its words included.
+   - A file the screen only depends on goes in `reads`.
+   - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+     its files in `reads`.
+   - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+   A lock trips only when a change touches that screen's own `implements`, never its `reads`: so
+   locking a shared screen guards it alone, and the pages around it stay free; locking a page never
+   holds a change to the shared screens it shows. An entry on the wrong list (an engine or a whole
+   folder in `implements`, a shared screen's files in a page's `implements`) is said plainly, for
+   the person to move before they lock; `lock` never moves it itself.
 3. **Their words.** The quote is the person's own words, as they typed them, never paraphrased,
    never shortened, never written for them, never taken from a document, a spec, an outbox answer
    or another person. When the message that asked for the lock says why (`lock quote-editor, this

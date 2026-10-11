@@ -62,12 +62,12 @@
 </style>
 </head>
 <body>
-<p class="mock-note"><b>A PRD's page at /prd/&lt;id&gt;, signed in, at building with one outbox question open, on its Spec tab.</b> Drawn from the source (apps/galaxy/src/dossier/page/), not from a screenshot, in theme Omni. PRD 1550 stands in for any PRD; its spec's text is abridged.</p>
+<p class="mock-note"><b>A PRD's page at /prd/&lt;id&gt;, signed in, at building with one outbox question open, on its Spec tab.</b> Drawn from the source (apps/galaxy/src/dossier/page/), not from a screenshot, in theme Omni. PRD 1550 stands in for any PRD; its spec's text is abridged, and the PRD's own text (its title, its front matter, its spec) is marked <code>data-content</code>: content the page shows, not words it wrote. The app shell around the page is its own shared screen, <code>app-shell</code>, and is not drawn here.</p>
 
 <main class="ask" data-screen="prd-dossier">
   <header class="dossier-head">
     <div class="dossier-head-top">
-      <h1 class="dossier-title"><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/1550">PRD #1550 ↗</a> <span>Design memory, round 2 — a quiet word pass, screens that claim what they show, mockups and a gallery</span></h1>
+      <h1 class="dossier-title"><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/1550">PRD #1550 ↗</a> <span data-content>Design memory, round 2 — a quiet word pass, screens that claim what they show, mockups and a gallery</span></h1>
       <div class="dossier-actions">
         <a class="ask-button stage-action" href="#outbox" data-primary>Answer the outbox</a>
         <button type="button" class="ask-button">Copy link</button>
@@ -105,8 +105,8 @@
 
   <section class="dossier-pane" aria-label="Spec">
     <form class="dossier-picker" method="get"><label>Version <select name="v"><option>v3 · latest</option><option>v2</option><option>v1</option></select></label></form>
-    <p class="dossier-front">prd: 1550 · blocked-by: none · spec: file · phase0: server</p>
-    <article class="dossier-md">
+    <p class="dossier-front" data-content>prd: 1550 · blocked-by: none · spec: file · phase0: server</p>
+    <article class="dossier-md" data-content>
       <h1>Design memory, round 2</h1>
       <h2>Problem</h2>
       <p>PRD 1407 gave every repository a design memory: a screen library, locks, and a word pass. A simulation on <code>main</code> (2026-10-11), with omni-loop's own library and the last 60 merges, shows where it falls short:</p>

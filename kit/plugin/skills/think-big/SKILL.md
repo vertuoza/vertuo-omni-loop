@@ -519,6 +519,7 @@ crowned concept.
     ---
     screen: <name>
     status: draft
+    kind: <page, or shared for structure several pages show>
     mock: <name>.html
     implements: []
     reads: []
@@ -545,9 +546,17 @@ crowned concept.
     line, which needs its owner's words: the concept's screen goes in a new draft, `<name>-<n>.md`,
     whose **Open questions** names the locked screen it would change and who locked it. Every draft
     is a draft, never locked: only a person locks, through `/omni:pixel-perfect lock`. Both lists
-    start empty, since a concept has no code yet; whoever fills them follows one rule: *a file whose
-    change can change what a person sees on this screen goes in `implements`; a file the screen
-    only depends on goes in `reads`.*
+    start empty, since a concept has no code yet; whoever fills them follows one rule, in four
+    lines:
+    - A file whose change can change what a person sees on this screen goes in `implements`, the
+      data files that hold its words included.
+    - A file the screen only depends on goes in `reads`.
+    - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+      its files in `reads`.
+    - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+    Structure the tour shows on several screens (an app shell, notifications, a sign-in page) is
+    drafted once, as its own `kind: shared` screen, never redrawn inside each page's draft.
 
     Run `node .omni-loop/bin/omni.mjs check design` and
     `node .omni-loop/bin/omni.mjs design screens` until neither names a draft of this run, commit
