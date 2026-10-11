@@ -19,6 +19,7 @@ import type { ExecText } from '../context.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { matchesGlob } from './glob.ts';
 import { designIgnore, dropIgnored } from './ignore.ts';
+import { isComponentFile } from './parts/names.ts';
 import { parseScreen, type Screen } from './screens.ts';
 import { loadDesignSystem } from './system/load.ts';
 import type { DesignSystem } from './system/read.ts';
@@ -238,8 +239,6 @@ export type DriftDesign = {
   readonly system?: string | undefined;
 };
 
-/** What a component file is named: a file a framework renders as a component. */
-const COMPONENT = /\.(?:tsx|jsx|vue|svelte|astro)$/;
 const WILDCARD = /[*?{]/;
 
 /** The folder a glob's matches all live under: its segments before the first wildcard. */
@@ -283,7 +282,7 @@ function driftFacts(root: string, design: DriftDesign | null): DriftFacts | null
   if (!design?.enabled) return null;
   const { path, system } = loadDesignSystem(root, design);
   if (!system) return null;
-  const components = design.paths.flatMap((glob) => matching(root, glob)).filter((file) => COMPONENT.test(file));
+  const components = design.paths.flatMap((glob) => matching(root, glob)).filter(isComponentFile);
   return {
     path,
     system,

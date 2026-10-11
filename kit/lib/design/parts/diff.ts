@@ -8,6 +8,7 @@
 // guesses. Pure: the caller reads git and the library; it only reports.
 import { matchesGlob } from '../glob.ts';
 import type { Part } from '../system/read.ts';
+import { isComponentFile } from './names.ts';
 
 /** One changed path, and whether the diff adds it. */
 export type Change = { readonly path: string; readonly added: boolean };
@@ -22,8 +23,6 @@ export type DiffRules = {
 /** The parts the diff changes, in the list's order, and each new component file no part or screen holds; `offList` null when it cannot tell. */
 export type DiffParts = { readonly changed: readonly string[]; readonly offList: readonly string[] | null };
 
-const COMPONENT = /\.(?:tsx|jsx|vue|svelte|astro)$/;
-
 const matchesAny = (globs: readonly string[], path: string): boolean => globs.some((glob) => matchesGlob(glob, path));
 
 /** The parts check over a diff's changes, the ignored paths already dropped. */
@@ -32,7 +31,7 @@ export function partsOfDiff(changes: readonly Change[], { parts, claimed, paths 
   if (paths.length === 0) return { changed, offList: null };
   const named = parts.flatMap(({ code }) => code);
   const offList = changes
-    .filter(({ path, added }) => added && COMPONENT.test(path) && matchesAny(paths, path) && !matchesAny(named, path) && !matchesAny(claimed, path))
+    .filter(({ path, added }) => added && isComponentFile(path) && matchesAny(paths, path) && !matchesAny(named, path) && !matchesAny(claimed, path))
     .map(({ path }) => path);
   return { changed, offList };
 }

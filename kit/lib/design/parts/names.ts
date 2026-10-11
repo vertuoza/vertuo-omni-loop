@@ -11,3 +11,6 @@ export function isListed(listed: readonly string[], name: string): boolean {
   const key = partKey(name);
   return key !== '' && listed.some((part) => partKey(part) === key);
 }
+
+/** A component file: one a framework renders as a component (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`), shared by the parts check and the drift check. */
+export const isComponentFile = (path: string): boolean => /\.(?:tsx|jsx|vue|svelte|astro)$/.test(path);
