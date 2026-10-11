@@ -23,6 +23,13 @@ TODO(human): Who uses this product, where, on what screens and under what light?
 ## System
 <!-- slot: system · required -->
 TODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?
+<!-- With a DESIGN.md (the file `design.system` names, DESIGN.md unless set), this slot is the one
+line that points at it:
+
+  See: DESIGN.md
+
+/omni:pixel-perfect init writes that file and this line, from the design system the repository
+has, or from a starter a person picks. -->
 
 ## Deliberate
 <!-- slot: deliberate · optional -->
