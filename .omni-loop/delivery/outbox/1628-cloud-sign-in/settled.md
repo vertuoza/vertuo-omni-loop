@@ -626,3 +626,236 @@ Moving it is a change to one function of the status line command.
 ```
 
 <!-- /omni-outbox-settled: s2-03-status-line-token -->
+
+<!-- omni-outbox-settled: s3-01-token-printed-lines -->
+
+## s3-01-token-printed-lines — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-token-printed-lines
+prd: 1628
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+When the terminal hands back a new cloud token, how should it show it: on a line of its own as well as in the line to paste, or only in the line to paste?
+
+## The decision, in plain words
+
+The terminal shows the token on a line of its own, then the day it expires, then the line to paste, which carries the token a second time. Nothing else ever shows it again.
+
+## The intro, for fun
+
+A brand new key comes out of the machine, and it has to decide how many times to wave it at you.
+
+## The punchline, for fun
+
+Twice in one breath, then never again, like a magician who forgets the trick right after.
+
+## The options, in plain words
+
+A. A. Three lines: the token alone, its expiry, then the paste line, the option built.
+B. B. Two lines: the expiry, then the paste line, so the token is printed exactly once.
+
+## What I had to decide
+
+Keep A, or pick B to print the token only inside the paste line (two lines instead of three).
+
+## What I did meanwhile
+
+omni setup-token prints three lines after the browser link: the token alone, 'It expires on <yyyy-mm-dd>.' (the expiry's UTC day), and 'Paste it as OMNI_TOKEN=<token> in your cloud environment's variables.'. The test pins those lines and sweeps every printed line so the token appears in no other.
+
+## What it costs to change later
+
+One constant line in kit/bin/commands/setup-token.ts and its test; the guide page (s5) quotes whatever lines are printed.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists the token, its expiry and the paste line as three things printed, and the paste line itself holds the token, so 'the token once' reads either as shown once in its life or as printed once in the output.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-token-printed-lines -->
+
+<!-- omni-outbox-settled: s4-01-made-token-asked-on-open -->
+
+## s4-01-made-token-asked-on-open — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-made-token-asked-on-open
+prd: 1628
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+How does your profile page know, after the sign-in comes back, that a new token is waiting to be shown?
+
+## The decision, in plain words
+
+Your own profile asks once each time it opens whether a token is waiting; almost always the answer is no and nothing shows. The address coming back carries no mark, because the sign-in only accepts a plain way back.
+
+## The intro, for fun
+
+The page knocks on the token's door every time it walks past.
+
+## The punchline, for fun
+
+Usually nobody answers, and that is fine.
+
+## The options, in plain words
+
+A. A. Ask once on every open of your own profile, the option built.
+B. B. Let the way back carry a marker (a change to the sign-in), and ask only then.
+C. C. Have the page's server read the waiting token itself, widening where its cookie is sent.
+
+## What I had to decide
+
+Whether your own profile asks POST /api/ask/token/made once on every open, or only when the address it comes back to carries a marker, which s1's way-back rule (/app/... with no query) does not allow today.
+
+## What I did meanwhile
+
+TerminalTokens.tsx asks once per page on your own profile (a ref keeps React's double effect to one call); a 404 shows nothing. Someone else's profile and the demo never ask.
+
+## What it costs to change later
+
+A constant: the call moves behind a marker in a few lines once the way back allows one.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- one extra small request on each open of your own profile (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-made-token-asked-on-open -->
+
+<!-- omni-outbox-settled: s4-02-limit-words -->
+
+## s4-02-limit-words — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-limit-words
+prd: 1628
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+What does Make a token say when you already hold 20 live tokens?
+
+## The decision, in plain words
+
+The form is greyed out and says: You hold 20 tokens already: revoke one to make another. Those are the database's own words, so the page and a refused sign-in say the same thing.
+
+## The intro, for fun
+
+Twenty tokens in the pocket, and the pocket is full.
+
+## The punchline, for fun
+
+Empty one before you stuff in another.
+
+## The options, in plain words
+
+A. A. The database's own sentence, the option built.
+B. B. A shorter line, such as Limit of 20 reached.
+C. C. No line: only the disabled button.
+
+## What I had to decide
+
+The limit-reached words were an open question of the profile draft; the built screen uses kit_token_make()'s refusal text, 13 words at rest, past the word pass's 7.
+
+## What I did meanwhile
+
+TERMINAL_LINE.limit in apps/galaxy/src/profile/terminal-tokens.ts; the draft's open question now records the choice.
+
+## What it costs to change later
+
+A constant: one string.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- the word pass's 7-word rule is broken on purpose while the limit holds (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-limit-words -->
