@@ -28,7 +28,7 @@ When the only red check is the outbox context and only person-answered items rem
 
 Serves: P-PRODUCT-3
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s4-03-outbox-check-red-is-the-gate, PRD #7
-Enforced by: pending #1465
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -39,7 +39,7 @@ Every slice is claimed by a draft pull request before it is built, however it is
 
 Serves: P-PRODUCT-4
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s5-02-claim-first-alone, PRD #7
-Enforced by: pending #1466
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -50,7 +50,7 @@ A feature pull request stays a draft while any question is open, with each open 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s9-01-gate-red-stays-draft, PRD #7
-Enforced by: pending #1467
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -193,7 +193,7 @@ Retro churn counts only commits of pull requests merged into the feature branch,
 
 Serves: P-PRODUCT-17
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s4-01-churn-counts-merged-work, PRD #72
-Enforced by: pending #1480
+Enforced by: apps/omni-app/src/retro/kinds/churn.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -204,7 +204,7 @@ Retro churn leaves out known lockfiles by name at any depth and paths the root .
 
 Serves: P-PRODUCT-7
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s4-03-churn-leaves-out-tool-written-files, PRD #72
-Enforced by: pending #1481
+Enforced by: apps/omni-app/src/retro/kinds/churn.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -215,7 +215,7 @@ When the retro grades a territory breach, shared ground is only the prefixes tha
 
 Serves: P-PRODUCT-18
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s5-01-shared-ground-is-computed, PRD #72
-Enforced by: pending #1482
+Enforced by: apps/omni-app/src/retro/kinds/delivery.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -237,7 +237,7 @@ A bug counts against a request when it has the bug label, was opened within 14 d
 
 Serves: P-PRODUCT-20
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s8-05-what-ties-a-bug-to-the-prd, PRD #72
-Enforced by: pending #1484
+Enforced by: apps/omni-app/src/retro/kinds/after-merge.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -270,7 +270,7 @@ In omni credits, an issue or pull request opened by the signature's bot account 
 
 Serves: P-PRODUCT-23
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-01-credits-app-items-counted-apart, PRD #99
-Enforced by: pending #1486
+Enforced by: kit/lib/credits/classify.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
@@ -788,7 +788,7 @@ The care list reads a bug's fix pull requests from its fix-plan table, one per r
 
 Serves: P-PRODUCT-64
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
-Enforced by: pending #1533
+Enforced by: kit/bin/care.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
@@ -799,7 +799,7 @@ A loop that has not yet said when it will wake next reads live until one hour af
 
 Serves: P-PRODUCT-2
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
-Enforced by: pending #1534
+Enforced by: apps/galaxy/src/loop/api.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
