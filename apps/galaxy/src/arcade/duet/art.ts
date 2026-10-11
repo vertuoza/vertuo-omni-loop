@@ -1,6 +1,7 @@
 // OMNI DUET's playfield on the canvas (PRD 1633): the 320×288 field, the Omni Loop crest at the centre
-// of the circle, and the two orbs on it, each with its short trail: the warm one in the orange ramp,
-// the cool one in the theme's cyan. The scene places the field on the grid (scenes/duet.ts); this file
+// of the circle, the two orbs on it, each with its short trail (the warm one in the orange ramp, the
+// cool one in the theme's cyan), and the wave's Entropy blocks falling through it, in Entropy's ramp
+// with spikes along their edges. The scene places the field on the grid (scenes/duet.ts); this file
 // draws in the field's own game pixels. Every colour equal to a theme token is read from the frame's
 // theme (ADR-0046).
 import { drawLogo, logoPixels, RAMPS, rampFrom } from '@omni/design';
@@ -8,8 +9,10 @@ import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Action } from '../keys';
 import type { FrameState } from '../scenes/common.ts';
 import type { DuetGame, DuetHud } from '../scenes/duet.ts';
+import { corners, type Block } from './collide';
 import { orbs, RULES, type Point } from './rules';
-import { CHAPTERS, newRun, press, step, type Run } from './run';
+import { CHAPTERS, newRun, press, step, waveOf, wavesIn, type Run } from './run';
+import { blocksAt } from './waves';
 
 /** The crest's scale: whole pixels only, as every piece of the brand is drawn. */
 const CREST_SCALE = 2;
@@ -17,9 +20,55 @@ const CREST_SCALE = 2;
 /** The warm orb's ramp, light to dark: no theme token is orange. */
 const WARM = defined(RAMPS.O, 'the orange ramp');
 
-/** What the text layer reads of a run. */
+/** The blocks' ramp, light to dark: Entropy's own, as the blob is drawn. No theme token is in it. */
+const ENTROPY = defined(RAMPS.Z, "Entropy's ramp");
+
+/** What the text layer reads of a run: the wave is counted from 1, and never past the chapter's last. */
 export function hudOf(run: Run): DuetHud {
-  return { phase: run.phase, chapter: defined(CHAPTERS[run.chapter], "the run's chapter"), lives: run.lives, score: run.score };
+  const waves = wavesIn(run);
+  return {
+    phase: run.phase, chapter: defined(CHAPTERS[run.chapter], "the run's chapter"),
+    wave: Math.min(run.wave + 1, waves), waves, lives: run.lives, score: run.score,
+  };
+}
+
+/** A filled convex polygon, row by row on whole pixels: a turned block, drawn without turning the canvas. */
+function polygon(ctx: CanvasRenderingContext2D, pts: readonly Point[]) {
+  const ys = pts.map((p) => p.y);
+  const top = Math.floor(Math.min(...ys)), bottom = Math.ceil(Math.max(...ys));
+  for (let y = top; y < bottom; y++) {
+    const mid = y + 0.5;
+    let left = Infinity, right = -Infinity;
+    pts.forEach((a, i) => {
+      const b = defined(pts[(i + 1) % pts.length], 'the next corner');
+      if ((a.y <= mid && b.y > mid) || (b.y <= mid && a.y > mid)) {
+        const x = a.x + ((mid - a.y) / (b.y - a.y)) * (b.x - a.x);
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+      }
+    });
+    if (right > left) ctx.fillRect(Math.round(left), y, Math.max(1, Math.round(right) - Math.round(left)), 1);
+  }
+}
+
+/** One Entropy block: its dark edge, its body, a lit line along its top, and a spike every 4 pixels along its long edges. */
+function block(ctx: CanvasRenderingContext2D, b: Block) {
+  // The block's own directions on the screen: along its length, and out of its top edge.
+  const along = { x: Math.cos(b.angle), y: -Math.sin(b.angle) }, up = { x: -Math.sin(b.angle), y: -Math.cos(b.angle) };
+  ctx.fillStyle = defined(ENTROPY[3], "a block's edge");
+  polygon(ctx, corners(b));
+  ctx.fillStyle = defined(ENTROPY[1], "a block's body");
+  polygon(ctx, corners({ ...b, w: b.w - 2, h: b.h - 2 }));
+  ctx.fillStyle = defined(ENTROPY[0], "a block's light");
+  const lit = b.h / 2 - 2;
+  polygon(ctx, corners({ ...b, cx: b.cx + up.x * lit, cy: b.cy + up.y * lit, w: b.w - 4, h: 1 }));
+  ctx.fillStyle = defined(ENTROPY[2], "a block's spikes");
+  for (let d = -b.w / 2 + 2; d <= b.w / 2 - 2; d += 4) {
+    for (const side of [1, -1]) {
+      const out = side * (b.h / 2 + 1);
+      ctx.fillRect(Math.round(b.cx + along.x * d + up.x * out), Math.round(b.cy + along.y * d + up.y * out), 1, 1);
+    }
+  }
 }
 
 /** A filled disc of radius `r` about (`cx`, `cy`), row by row on whole pixels. */
@@ -51,11 +100,13 @@ function track(ctx: CanvasRenderingContext2D, s: FrameState) {
   }
 }
 
-/** The field: its dark, the circle, the crest, then each orb's trail and the orb. */
+/** The field: its dark, the circle, the crest, the wave's blocks, then each orb's trail and the orb. */
 export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run) {
   ctx.fillStyle = s.theme.void;
   ctx.fillRect(0, 0, RULES.field.w, RULES.field.h);
   track(ctx, s);
+  const wave = run.phase === 'play' ? waveOf(run) : undefined;
+  if (wave) for (const b of blocksAt(wave, run.tick)) block(ctx, b);
   const crest = logoPixels('mark');
   drawLogo(ctx, 'mark', RULES.centre.x - (crest.w * CREST_SCALE) / 2, RULES.centre.y - (crest.h * CREST_SCALE) / 2, { scale: CREST_SCALE });
   const cool = rampFrom(s.theme.cyan);

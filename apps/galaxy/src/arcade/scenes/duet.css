@@ -1,4 +1,5 @@
-/* The duet group: OMNI DUET's loading and failure lines and its ready screen (PRD 1633), over the
+/* The duet group: OMNI DUET's loading and failure lines, its ready screen, its HUD, a chapter's banner
+   and the line a run ends on (PRD 1633), over the
    arcade's canvas. Laid out on the wide grid (640×360) first, where the playfield is the middle 400
    pixels; the rules at the end rearrange it for the tall grid (320×288), which the playfield fills.
    A screen's title is Entropy Invaders' own (`.inv-title`, invaders.css). */
@@ -18,6 +19,16 @@
 /* The ready line breaks between its two halves, never inside one. */
 .dt-half { display: inline-block; white-space: nowrap; }
 .dt-panel .hint { font-size: 8px; }
+/* The HUD, over the top of the playfield (x 120 to 520 on this grid): the score on its left, the
+   chapter and wave in the middle, the lives left on its right. Each stat is Entropy Invaders' own. */
+.dt-score { left: 132px; }
+.dt-wave { left: 50%; transform: translateX(-50%); justify-items: center; }
+.dt-lives { right: 132px; justify-items: end; }
+/* A chapter's banner, over the top half of the playfield, clear of the crest and its orbs. */
+.dt-banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap; }
 
 /* ── On the tall grid (320×288) ───────────────────────────────────────────── */
 .grid-tall .dt-panel { padding: 8px 10px; width: 280px; }
+.grid-tall .dt-score { left: 10px; }
+.grid-tall .dt-lives { right: 10px; }
+.grid-tall .dt-banner { font-size: 12px; }

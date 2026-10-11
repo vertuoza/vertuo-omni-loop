@@ -1,10 +1,10 @@
 'use client';
 // OMNI DUET's text layer (PRD 1633), over the arcade's canvas: the loading line, the failure line with
-// its way back, and the ready screen (CHAPTER I · DRIFT · LIVES ×3 · PRESS START). Once play has
-// started the playfield is left clear; later slices add the HUD, the banners, the pause and the game
-// over screen. Laid out for the grid the game is drawn on (duet.css).
+// its way back, the ready screen (CHAPTER I · DRIFT · LIVES ×3 · PRESS START), the HUD in play (the
+// score, CH II · 4/10 and the lives left), the chapter's banner, and the line the run ends on. Slice 4
+// adds the pause and the full game over screen. Laid out for the grid the game is drawn on (duet.css).
 import { Hint } from '../hint';
-import { LOADING_LINE, NOT_LOADED, readyParts, type DuetHud, type DuetStatus } from './duet.ts';
+import { bannerLine, LOADING_LINE, NOT_LOADED, readyParts, waveLine, type DuetHud, type DuetStatus } from './duet.ts';
 import './common.css';
 import './invaders.css';
 import './duet.css';
@@ -19,6 +19,17 @@ function Notice({ line, back }: { line: string; back: string }) {
   );
 }
 
+/** The HUD over the top of the playfield: the score, the chapter and wave, the lives left. */
+function Stats({ hud }: { hud: DuetHud }) {
+  return (
+    <>
+      <p className="inv-stat dt-score"><b>SCORE</b><span>{hud.score}</span></p>
+      <p className="inv-stat dt-wave"><b>WAVE</b><span>{waveLine(hud)}</span></p>
+      <p className="inv-stat dt-lives"><b>LIVES</b><span>×{hud.lives}</span></p>
+    </>
+  );
+}
+
 export function DuetOverlay({ status, hud = null, back = 'GAME ROOM' }: {
   /** Where the game's import stands: the ready screen shows once it has loaded. */
   status: DuetStatus;
@@ -28,7 +39,26 @@ export function DuetOverlay({ status, hud = null, back = 'GAME ROOM' }: {
   back?: string;
 }) {
   if (status !== 'ready' || !hud) return <Notice line={status === 'failed' ? NOT_LOADED : LOADING_LINE} back={back} />;
-  if (hud.phase !== 'ready') return null;
+  if (hud.phase === 'play') return <div className="dt"><Stats hud={hud} /></div>;
+  if (hud.phase === 'chapter') {
+    return (
+      <div className="dt">
+        <Stats hud={hud} />
+        <p className="dt-banner inv-title" role="status">{bannerLine(hud)}</p>
+      </div>
+    );
+  }
+  if (hud.phase === 'over') {
+    return (
+      <div className="dt">
+        <div className="j-panel dt-panel">
+          <p className="inv-title">GAME OVER</p>
+          <p className="inv-final"><b>SCORE</b><span>{hud.score}</span></p>
+          <p className="hint"><Hint k="A">PLAY AGAIN</Hint> <Hint k="B">{back}</Hint></p>
+        </div>
+      </div>
+    );
+  }
   const [chapter, call] = readyParts(hud);
   return (
     <div className="dt">
