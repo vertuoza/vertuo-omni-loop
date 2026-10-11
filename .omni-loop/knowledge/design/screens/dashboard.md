@@ -1,8 +1,9 @@
 ---
 screen: dashboard
 status: draft
-mock: null
-implements: [apps/galaxy/app/app/page.tsx, apps/galaxy/src/dashboard/]
+mock: dashboard.html
+implements: [apps/galaxy/app/app/page.tsx, apps/galaxy/src/dashboard/Dashboard.tsx, apps/galaxy/src/dashboard/DashboardScreen.tsx, apps/galaxy/src/dashboard/DashboardSignIn.tsx, apps/galaxy/src/dashboard/MemberGate.tsx, apps/galaxy/src/dashboard/Notes.tsx, apps/galaxy/src/dashboard/YouBlock.tsx, apps/galaxy/src/dashboard/dashboard.css, apps/galaxy/src/dashboard/board/Board.tsx, apps/galaxy/src/dashboard/board/PeriodSwitch.tsx, apps/galaxy/src/dashboard/board/period.ts, apps/galaxy/src/dashboard/board/board.css, apps/galaxy/src/dashboard/counts/WaitingTile.tsx, apps/galaxy/src/dashboard/counts/counts.css, apps/galaxy/src/dashboard/stream/HomeStream.tsx]
+reads: [apps/galaxy/src/dashboard/, apps/galaxy/app/app/layout.tsx]
 routes: [/app]
 supersedes: null
 ---
