@@ -92,7 +92,7 @@ function stubs({ worth, jev = { answer: null, confidence: null, decidedBy: 'old'
 }
 
 /** `gh` faked: each law issue opened gets the next number from 91. */
-async function judge(r: Repo, { env = { OPENROUTER_API_KEY: KEY } }: { env?: Record<string, string> } = {}) {
+async function judge(r: Repo, { env = { OPENROUTER_API_KEY: KEY }, id }: { env?: Record<string, string>; id?: string } = {}) {
   const out: string[] = [];
   const err: string[] = [];
   const opened: { args: readonly string[]; input: unknown }[] = [];
@@ -101,7 +101,7 @@ async function judge(r: Repo, { env = { OPENROUTER_API_KEY: KEY } }: { env?: Rec
     opened.push({ args, input: typeof options?.input === 'string' ? JSON.parse(options.input) : null });
     return JSON.stringify({ number: 90 + opened.length });
   };
-  const code = await main(['knowledge', 'judge'], { cwd: r.root, exec, env, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
+  const code = await main(['knowledge', 'judge', ...(id === undefined ? [] : [id])], { cwd: r.root, exec, env, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
   return { code, out: out.join(''), err: err.join(''), opened };
 }
 
@@ -214,6 +214,53 @@ describe('omni knowledge judge — the sweep (PRD 1342)', () => {
   });
 });
 
+describe('omni knowledge judge <id> — one law alone', () => {
+  it('judges only that law, pends it on its law issue, and leaves requireProof unset while others wait', async () => {
+    const r = repo();
+    const { asked } = stubs({ worth: { [NAMED]: true, [BLUE]: false } });
+    const { code, out, opened } = await judge(r, { id: 'BR-PRODUCT-1' });
+    expect(code).toBe(0);
+    expect(asked).toEqual([NAMED]);
+    expect(opened).toHaveLength(1);
+    const rules = r.read(`${K}/product/rules.md`);
+    expect(rules).toContain('Enforced by: pending #91');
+    expect(rules).toContain(`${BLUE}\n\nServes: P-PRODUCT-1\nSource: ${LEDGER}, entry s1-02-blue, PRD #42\nEnforced by: unenforced`);
+    expect(r.read('.omni-loop/config.yml')).toBe(CONFIG);
+    expect(out).toContain('omni knowledge judge — 1 unenforced law(s):');
+    expect(out).toContain('BR-PRODUCT-1 → pending #91, worth a law (classifier)');
+    expect(out).not.toContain('BR-PRODUCT-2 →');
+    expect(out).toContain('laws.requireProof stays false: 1 law(s) not judged');
+  });
+
+  it('sets requireProof when the law it judges is the last one waiting', async () => {
+    const r = repo();
+    stubs({ worth: { [NAMED]: true, [BLUE]: true } });
+    await judge(r, { id: 'BR-PRODUCT-1' });
+    const { code, out } = await judge(r, { id: 'BR-PRODUCT-2' });
+    expect(code).toBe(0);
+    expect(r.read(`${K}/product/rules.md`)).toContain('Enforced by: pending #91');
+    expect(out).toContain('laws.requireProof: true, set in .omni-loop/config.yml');
+  });
+
+  it('exits 1, asking nothing and writing nothing, when the id names no unenforced law', async () => {
+    const r = repo();
+    const { asked } = stubs({ worth: {} });
+    const cases: [string, RegExp][] = [
+      ['BR-PRODUCT-9', /nothing in the knowledge folder claims BR-PRODUCT-9/],
+      ['P-PRODUCT-1', /P-PRODUCT-1 is a principle, not a law/],
+      ['N-PRODUCT-1', /N-PRODUCT-1 is not unenforced \(Enforced by: kit\/lib\/widgets\.test\.ts\)/],
+    ];
+    for (const [id, why] of cases) {
+      const { code, err, opened } = await judge(r, { id });
+      expect(code).toBe(1);
+      expect(err).toMatch(why);
+      expect(opened).toEqual([]);
+    }
+    expect(asked).toEqual([]);
+    expect(status(r.root)).toBe('');
+  });
+});
+
 describe('omni knowledge <id>', () => {
   it('still prints one entry, and exits 2 on a usage error', async () => {
     const r = repo();
@@ -222,6 +269,6 @@ describe('omni knowledge <id>', () => {
     expect(await main(['knowledge', 'P-PRODUCT-1'], io)).toBe(0);
     expect(out.join('')).toContain('Widgets are simple.');
     expect(await main(['knowledge'], io)).toBe(2);
-    expect(await main(['knowledge', 'judge', 'more'], io)).toBe(2);
+    expect(await main(['knowledge', 'judge', 'one', 'more'], io)).toBe(2);
   });
 });

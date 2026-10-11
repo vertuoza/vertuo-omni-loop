@@ -229,7 +229,7 @@ It asks "worth a law?" of every `unenforced` rule and invariant, the model first
 on. A **yes** opens its law issue and turns the entry into `pending #<n>`; a **no** takes the entry
 out of its register and records it in its PRD's `settled.md` as not worth a law, and the report
 names every entry that cited it, for you to fix. Once every law is judged, it sets
-`laws.requireProof: true`. It only writes files: commit them on a `docs/knowledge-<topic>` branch
+`laws.requireProof: true`. To judge one law alone, name it: `omni knowledge judge BR-PRODUCT-23`. It only writes files: commit them on a `docs/knowledge-<topic>` branch
 (`branches.knowledge`), open the knowledge pull request, review it and merge it.
 
 From then on, `omni check knowledge` refuses a rule or an invariant whose `Enforced by:` is
@@ -331,7 +331,7 @@ page.
 | `omni roadmap check 1200` | whether roadmap 1200 holds together: its PRDs wave by wave, or what it refuses |
 | `omni kb show briefing` | one form of the playbook, as the agents read it: `briefing`, `testing`… |
 | `omni knowledge BR-QUOTE-1` | one rule of the knowledge base, by its id |
-| `omni knowledge judge` | the sweep: asks "worth a law?" of every `unenforced` law, once per repository ([Laws and their tests](#laws-and-their-tests)) |
+| `omni knowledge judge [<id>]` | the sweep: asks "worth a law?" of every `unenforced` law, once per repository, or of the one law `<id>` names ([Laws and their tests](#laws-and-their-tests)) |
 | `omni signin` | signs this laptop in to the Omni page |
 | `omni version` | which kit the repository runs, and whether a newer one exists |
 | `omni update` | opens the pull request that brings the repository to the newer kit |

@@ -252,7 +252,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'knowledge',
     kind: 'command',
     who: 'you',
-    usage: ['omni knowledge <id>', 'omni knowledge judge'],
+    usage: ['omni knowledge <id>', 'omni knowledge judge [<id>]'],
     label: 'omni knowledge <id>',
     summary: 'one rule of the knowledge base',
     detail:
@@ -262,7 +262,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'sweep: it asks of every rule and invariant whose Enforced by: is unenforced whether it is ' +
       'worth a law, the model first, then omni decide law-worth. A yes opens its law issue and ' +
       'reads pending #<n>; a no leaves its register for its PRD\'s settled.md, and every entry ' +
-      'still citing it is named. Once each one is judged it sets laws.requireProof: true. It ' +
+      'still citing it is named. judge <id> judges that one law alone, the same way. Once each one ' +
+      'is judged it sets laws.requireProof: true. It ' +
       'writes the working tree only, for a knowledge PR a person opens; a second run changes ' +
       'nothing. It needs gh and OPENROUTER_API_KEY.',
   },

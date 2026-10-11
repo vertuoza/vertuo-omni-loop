@@ -198,8 +198,8 @@ sweep a repository runs once (it needs `OPENROUTER_API_KEY`, and exits `2` witho
 nothing): every `unenforced` rule and invariant is asked "worth a law?", the model first, then
 `omni decide law-worth`; a yes opens its law issue through `gh` and becomes `pending #<n>`, a no
 leaves its register for its PRD's `settled.md` and the report names every entry that cited it; once
-every one is judged it sets `laws.requireProof: true` in the config. It writes the working tree and
-commits nothing: a person opens the knowledge PR. With **`laws.requireProof: true`** (default
+every one is judged it sets `laws.requireProof: true` in the config. `omni knowledge judge <id>`
+judges that one law alone, the same way. It writes the working tree and commits nothing: a person opens the knowledge PR. With **`laws.requireProof: true`** (default
 `false`), `omni check knowledge` refuses a confirmed rule or invariant whose `Enforced by:` is
 `unenforced`; proposed entries and a plan repository's imported copies are not held to it.
 **`/omni:enforce <issue>`** writes a law's test, proves it (red with the law broken by the smallest
