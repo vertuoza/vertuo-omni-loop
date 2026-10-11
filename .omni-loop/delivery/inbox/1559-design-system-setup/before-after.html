@@ -66,6 +66,9 @@ pre .d { color: var(--term-dim); } pre .ok { color: #6fd39c; } pre .w { color: #
     <p class="lead">PRD 1559. One UI slice in a target repository with design craft on, today and after: a quotes list with a "New quote" button. Mockups show the look; the terminals show what the agent reads and reports.</p>
   </div>
 
+  <h2>Functional</h2>
+  <p class="note">The quotes list belongs to an example target repository, not to omni-loop: its mockups illustrate the flow and are not screens of omni-loop's library.</p>
+
   <section class="cols">
     <div class="col">
       <header><h2>Today</h2><span class="tag">design form + screen library</span></header>
@@ -80,8 +83,8 @@ TODO(human): Where do the design tokens … live?</pre>
       </div>
 
       <div class="step"><span class="n">2 · the mockup on the before/after page</span>
-        <div class="mock" data-screen="quotes-today">
-          <div class="bar"><span class="title">Quotes</span><button class="t-btn" data-primary>+ New quote</button></div>
+        <div class="mock">
+          <div class="bar"><span class="title">Quotes</span><button class="t-btn">+ New quote</button></div>
           <div class="t-card"><div class="row" style="border:0"><span>Renovation, Lyon</span><span class="t-pill">Draft</span></div></div>
           <div class="t-card"><div class="row" style="border:0"><span>Roof, Namur</span><span class="t-pill">Sent</span></div></div>
         </div>
@@ -118,20 +121,21 @@ EmptyState  —                             states: default
       </div>
 
       <div class="step"><span class="n">2 · the mockup on the before/after page</span>
-        <div class="mock" data-screen="quotes-after">
-          <div class="bar"><span class="title">Quotes</span><button class="a-btn" data-part="button" data-primary>New quote</button></div>
+        <div class="mock">
+          <div class="bar"><span class="title">Quotes</span><button class="a-btn" data-part="button">New quote</button></div>
           <div data-part="table">
             <div class="row"><span>Renovation, Lyon</span><span class="a-badge w" data-part="badge">DRAFT</span></div>
             <div class="row"><span>Roof, Namur</span><span class="a-badge" data-part="badge">SENT</span></div>
           </div>
         </div>
 <pre><span class="d">$ omni design parts --check before-after.html</span>
-<span class="ok">parts: button, table, badge — all listed · untagged: none</span></pre>
+<span class="ok">parts: button, table, badge — all listed · untagged: none</span>
+<span class="d">(on the page's marked screens; data-content is never counted)</span></pre>
       </div>
 
       <div class="step"><span class="n">3 · building the slice</span>
 <pre><span class="d">plan: s2 · ui: yes · parts: Button, Table, Badge · copies: quotes-list</span>
-<span class="d">do-work reads DESIGN.md + quotes-list.md + quotes-list.png first</span>
+<span class="d">do-work reads DESIGN.md + quotes-list.md + quotes-list.html first</span>
 src/quotes/QuoteList.tsx   <span class="ok">uses src/ui/Table, src/ui/Badge</span>
 src/quotes/NewQuote.tsx    <span class="ok">uses src/ui/Button</span></pre>
       </div>
@@ -141,10 +145,18 @@ src/quotes/NewQuote.tsx    <span class="ok">uses src/ui/Button</span></pre>
 ✓ Critique — reads as the product
 ✓ Rounds — 2 of 3: round 1 fixed the empty state, round 2 clean
 ✗ Parts — 1 new: DateRangePicker (item s2-01: add it to DESIGN.md?)
-✓ Screenshots — 390 and 1440, beside quotes-list.png</pre>
-        <p class="note">A new part is a medium outbox question, never a red check.</p>
+✓ Screenshots — 390 and 1440, beside quotes-list.html
+
+### Seen, not touched
+— app-shell: menu highlight lost at 390 (file it apart)</pre>
+        <p class="note">A new part is a medium outbox question, never a red check. Each round fixes only what the slice touched.</p>
       </div>
     </div>
+  </section>
+
+  <section class="same">
+    <h3>Pixel perfect</h3>
+    <p>Pixel perfect: no screen changes. The kit gains a file, a command and skill text; omni-loop's six library screens keep their look (s8 only tags their parts with <code>data-part</code>).</p>
   </section>
 
   <section class="same">
