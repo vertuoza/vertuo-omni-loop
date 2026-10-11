@@ -2811,3 +2811,12 @@ describe('whose section /omni:invade may rewrite', () => {
     expect(rule).toContain("nor any other section that is a person's, on any run, with or without `--refresh`");
   });
 });
+
+describe('the front matter /omni:invade gives a form', () => {
+  // Law BR-PRODUCT-11 (.omni-loop/knowledge/product/rules.md, #1473).
+  it('law BR-PRODUCT-11: a form holding any text, See: line or TODO(human) question is filled and dated; only a wholly empty one stays blank with invaded: null', () => {
+    const fill = skillSection(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8'), '5.').replace(/\s+/g, ' ');
+    expect(fill).toContain('A form whose sections hold any text, `See:` line or question is `state: filled`, with `invaded: <today>`.');
+    expect(fill).toContain('A form left wholly empty stays `state: blank`, `evidence: []`, `invaded: null`.');
+  });
+});
