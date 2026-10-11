@@ -56,7 +56,9 @@ import { createSeen, fanfareOf, levelUpFor, type LevelUp, type Local } from './l
 import { addressAt, landing } from './deep-link';
 import { leaveMove, openOver } from './leave.ts';
 import { LeaveOverlay } from './leave.tsx';
-import type { GridSession } from './kart/index';
+import type { GridSession, RaceStart } from './kart/index';
+import { loadedInto, useKartLive } from './scenes/kart.live';
+import type { GridPlayer } from './kart/net';
 import type { Account, DossiersRead, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
 import { at, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import './shell.css';
@@ -332,7 +334,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     let gone = false;
     void loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null)).then((game) => {
       if (gone) return;
-      setKart((k) => (k ? { ...k, status: game ? 'ready' : 'failed', game, hud: game ? game.hud() : null } : k));
+      setKart((k) => loadedInto(k, game));
     });
     return () => { gone = true; };
   }, [kartTry]);
@@ -340,8 +342,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // was overtaken (B, or the scene left, while the game's code was on its way) from the one that stands.
   const lobbyRef = useRef<GridSession | null>(null);
   const lobbyTurn = useRef(0);
+  const whoRef = useRef<GridPlayer | null>(null);
+  const startRef = useRef<(start: RaceStart) => void>(() => undefined);
   const leaveLobby = useCallback(() => {
     lobbyTurn.current += 1;
+    kartRef.current?.game?.close(); // a race in play says it left before the channel is left
     lobbyRef.current?.leave();
     lobbyRef.current = null;
   }, []);
@@ -360,7 +365,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     import('./kart/index').then(({ openGrid }) => {
       if (turn !== lobbyTurn.current) { link.leave(); return; }
       const who = { id: m.id, name: m.display_name, hero: m.hero, fleet: m.team, best, arrival: Date.now() };
-      lobbyRef.current = openGrid(link, who, (lobby) => { setKart((k) => (k && k.choice.step === 'grid' ? { ...k, lobby } : k)); });
+      whoRef.current = who;
+      lobbyRef.current = openGrid(link, who, (lobby) => { setKart((k) => (k && k.choice.step === 'grid' ? { ...k, lobby } : k)); }, (start) => { startRef.current(start); });
     }).catch((err: unknown) => {
       console.error(err);
       out();
@@ -377,6 +383,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const hud = game.hud();
     setKart((k) => (k && k.game === game && !sameKartHud(k.hud, hud) ? { ...k, hud } : k));
   }, []);
+  const { beginRace, backToGrid, awayKart } = useKartLive({ kartRef, sceneRef: uiRef, lobbyRef, lobbyTurn, whoRef, runRef, startRef, kart, held, setKart, showSend, showKartHud, openLobby });
   /** A race paused from outside: a blurred window, a hidden tab, leaving for OPEN THE APP?. */
   const pauseKart = useCallback(() => {
     const game = uiRef.current.scene === 'kart' ? kartRef.current?.game ?? null : null;
@@ -559,14 +566,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       gameRef.current = pauseGame(g);
       showHud(gameRef.current);
     };
-    const onVisibility = () => { if (document.hidden) lost(); };
+    const onVisibility = () => { if (document.hidden) { lost(); awayKart(); } };
     window.addEventListener('blur', lost);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [held, showHud, pausePlatformer, pauseKart]);
+  }, [held, showHud, pausePlatformer, pauseKart, awayKart]);
 
   // ── Timed hand-overs ──
   // They wait while OPEN THE APP? is up, so B finds the scene it covered, and start again from there.
@@ -882,6 +889,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           const pressed = gridPress(k.lobby, action);
           if (pressed === 'back') { leaveLobby(); setKart({ ...k, choice: BACK_TO_CHOICE, lobby: null }); }
           else if (pressed === 'retry') { if (lobbyRef.current) lobbyRef.current.retry(); else openLobby(); }
+          else if (pressed === 'start') { const start = lobbyRef.current?.start(); if (start) beginRace(start); }
           return;
         }
         const press = kartPress(k.status, action, k.hud?.phase);
@@ -897,6 +905,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (k.status === 'ready' && k.game) {
           // START starts the countdown and pauses; SELECT on the pause leaves, and sends nothing.
           const pressed = k.game.press(action);
+          if (pressed.grid) { backToGrid(k); return; }
           if (pressed.quit) { setKart(null); go({ scene: 'games' }, 'back'); return; }
           if (pressed.again) { held.clear(); runRef.current += 1; showSend(null); setKart({ ...k, status: 'loading', retry: k.retry + 1, game: null, hud: null }); return; }
           hearKart(k.game);
@@ -926,7 +935,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openLobby, leaveLobby, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the

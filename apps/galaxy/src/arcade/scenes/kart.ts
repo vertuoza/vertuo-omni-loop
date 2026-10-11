@@ -19,7 +19,9 @@ export const PAGES: Pages = {};
 
 /** What the text layer shows of the race: its phase, and the countdown's number or the GO that follows it. */
 export interface KartHud {
-  phase: 'ready' | 'countdown' | 'race' | 'paused' | 'finish';
+  phase: 'ready' | 'countdown' | 'race' | 'paused' | 'finish' | 'left';
+  /** In a MULTI race (PRD 1572): whether the race's menu (BACK TO RACE / LEAVE RACE) is open over the race. Absent in a SINGLE race. */
+  menu?: boolean;
   beat: '3' | '2' | '1' | 'GO' | null;
   /** The race's own line, once it has begun: the player's place (1 to 6), the lap (1 to `laps`), the race time in tenths of a second and whether FINAL LAP shows. */
   run?: KartRun;
@@ -63,8 +65,8 @@ export function raceTime(tenths: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.${total % 10}`;
 }
 
-/** The player left the race from its pause. */
-export interface KartQuit { quit: boolean; /** A on the results: another race, with a new seed. */ again: boolean }
+/** The player left the race from its pause. In MULTI, `grid` is back to the grid: from the race's menu (LEAVE RACE), from YOU LEFT THE RACE, or A on the results. */
+export interface KartQuit { quit: boolean; /** A on the results: another race, with a new seed. */ again: boolean; grid?: boolean }
 
 /**
  * What happened in the race, as the arcade hears it (PRD 1427): the countdown's beeps and GO, an item used
@@ -111,7 +113,7 @@ export function kartSong(hud: KartHud | null): SongName | null {
   switch (hud?.phase) {
     case 'race': return hud.run?.final ? 'lastLap' : 'race';
     case 'finish': return 'fanfare';
-    case 'ready': case 'countdown': case 'paused': case undefined: return null;
+    case 'ready': case 'countdown': case 'paused': case 'left': case undefined: return null;
   }
 }
 
@@ -127,6 +129,10 @@ export interface KartGame extends KartDraw {
   step(held: ReadonlySet<Action>, dt: number): number | null;
   press(action: Action): KartQuit;
   pause(): void;
+  /** The tab is hidden: a SINGLE race pauses; a MULTI race is left at once (PRD 1572), `YOU LEFT THE RACE`, and nothing is sent to the score. */
+  away(): void;
+  /** The scene is left (or the page closes): a MULTI race in play sends its `leave` and the game stops listening. Nothing for a SINGLE race. */
+  close(): void;
   hud(): KartHud;
   /** The cues since the last call, in order, then forgotten. */
   cues(): readonly KartCue[];
@@ -149,7 +155,7 @@ export interface ArcadeKart {
 }
 
 /** Where the ready screen stands: choosing between SINGLE and MULTI (the cursor on one), SINGLE picked, or MULTI picked: on the workspace's grid. */
-export type KartChoice = { step: 'choose'; cursor: 'single' | 'multi' } | { step: 'single' } | { step: 'grid' };
+export type KartChoice = { step: 'choose'; cursor: 'single' | 'multi' } | { step: 'single' } | { step: 'grid' } | { step: 'live' };
 
 /** A player on the GRID screen: their hero, name and best time in tenths (none before a first race), whether it is the player at this screen and whether they hold a place. */
 export interface KartGridRow { id: string; name: string; hero: Hero; fleet: string | null; best: number | null; you: boolean; seat: boolean }
@@ -165,10 +171,11 @@ export interface KartGridView { state: 'joining' | 'joined' | 'reconnecting' | '
 export const GRID_JOINING_LINE = 'JOINING THE GRID…';
 export const GRID_OUT_LINE = 'GRID OUT OF REACH · A TO RETRY';
 
-/** What a press does on the GRID: B goes back to the choice, A tries again once the grid was out of reach. */
-export function gridPress(view: KartGridView | null, action: Action): 'back' | 'retry' | null {
+/** What a press does on the GRID: B goes back to the choice, A tries again once the grid was out of reach, A or START asks to start the race (the grid says whether this player may). */
+export function gridPress(view: KartGridView | null, action: Action): 'back' | 'retry' | 'start' | null {
   if (action === 'b') return 'back';
-  return action === 'a' && view?.state === 'out' ? 'retry' : null;
+  if (action === 'a' && view?.state === 'out') return 'retry';
+  return (action === 'a' || action === 'start') && view?.state === 'joined' ? 'start' : null;
 }
 
 /** The choice B goes back to from the GRID: the cursor stays on MULTI. */
@@ -220,6 +227,10 @@ export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'
   }
 }
 
+/** What a MULTI race's menu is called, and what the screen says after the player left it (PRD 1572). */
+export const MENU_LINE = 'RACE MENU';
+export const LEFT_LINE = 'YOU LEFT THE RACE';
+
 /** What the screen before the race says it is: PAUSED, with its way on and its way out. */
 export const PAUSED_LINE = 'PAUSED';
 
@@ -235,7 +246,7 @@ export function kartPress(status: KartStatus, action: Action, phase: KartHud['ph
 
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
 export const sameKartHud = (a: KartHud | null, b: KartHud | null): boolean =>
-  a === b || (!!a && !!b && a.phase === b.phase && a.beat === b.beat && a.results === b.results && sameRun(a.run, b.run));
+  a === b || (!!a && !!b && a.phase === b.phase && a.menu === b.menu && a.beat === b.beat && a.results === b.results && sameRun(a.run, b.run));
 
 const sameRun = (a: KartRun | undefined, b: KartRun | undefined): boolean =>
   a === b || (!!a && !!b && a.place === b.place && a.lap === b.lap && a.laps === b.laps && a.tenths === b.tenths && a.final === b.final && a.item === b.item);

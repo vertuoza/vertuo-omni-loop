@@ -2,10 +2,11 @@
 // OMNI KART's text layer (PRD 1359), over the arcade's canvas: the loading line, the failure line with
 // its way back, the ready screen (COMET RING · 3 LAPS · PRESS START), the countdown and its GO, and the
 // pause. Later slices add the race's own screens. Laid out for the grid the game is drawn on (kart.css).
+import type { ReactNode } from 'react';
 import { Hint } from '../hint';
 import { ordinal } from '../fleets';
 import { HeroSprite } from '../Sprite';
-import { CHOICE_LINE, GRID_JOINING_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
+import { CHOICE_LINE, GRID_JOINING_LINE, LEFT_LINE, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
@@ -105,20 +106,43 @@ function ResultsScreen({ results, send, back }: { results: NonNullable<KartHud['
   );
 }
 
+/** A panel over the middle of the race: its title and the keys it offers. */
+function MidPanel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="j-panel kt-panel kt-mid">
+      <p className="inv-title">{title}</p>
+      <p className="hint">{children}</p>
+    </div>
+  );
+}
+
+/** What stands over the race, if anything: the pause, the MULTI race's menu, or the notice of a player who left. */
+function RacePanel({ hud, back }: { hud: KartHud; back: string }) {
+  if (hud.phase === 'left') return <MidPanel title={LEFT_LINE}><Hint k="A">GRID</Hint></MidPanel>;
+  if (hud.phase === 'paused') return <MidPanel title={PAUSED_LINE}><Hint k="ENTER">RESUME</Hint> <Hint k="TAB">{back}</Hint></MidPanel>;
+  if (hud.menu && hud.phase === 'race') return <MidPanel title={MENU_LINE}><Hint k="ENTER">BACK TO RACE</Hint> <Hint k="TAB">LEAVE RACE</Hint></MidPanel>;
+  return null;
+}
+
+/** The notes around the race: the final lap, what stands over it, and the key that opens the pause (the menu in MULTI). */
+function RaceNotes({ hud, back }: { hud: KartHud; back: string }) {
+  const racing = hud.phase === 'race';
+  return (
+    <>
+      {racing && hud.run?.final && <p className="kt-final" role="status">FINAL LAP</p>}
+      <RacePanel hud={hud} back={back} />
+      {racing && !hud.menu && <p className="hint kt-foot"><Hint k="ENTER">{hud.menu === undefined ? 'PAUSE' : 'MENU'}</Hint></p>}
+    </>
+  );
+}
+
 /** The countdown, the race's line and the pause. */
 function RaceScreen({ hud, back }: { hud: KartHud; back: string }) {
   return (
     <div className="kt">
       {hud.beat && <p className={`kt-beat${hud.beat === 'GO' ? ' kt-go' : ''}`} key={hud.beat} role="status">{hud.beat}</p>}
       {hud.run && <RaceLine run={hud.run} />}
-      {hud.run?.final && hud.phase === 'race' && <p className="kt-final" role="status">FINAL LAP</p>}
-      {hud.phase === 'paused' && (
-        <div className="j-panel kt-panel kt-mid">
-          <p className="inv-title">{PAUSED_LINE}</p>
-          <p className="hint"><Hint k="ENTER">RESUME</Hint> <Hint k="TAB">{back}</Hint></p>
-        </div>
-      )}
-      {hud.phase === 'race' && <p className="hint kt-foot"><Hint k="ENTER">PAUSE</Hint></p>}
+      <RaceNotes hud={hud} back={back} />
     </div>
   );
 }
@@ -139,10 +163,11 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   /** Where leaving goes, as its hint says: the game room in the arcade. */
   back?: string;
 }) {
+  // The grid needs nothing of the game: it shows while the game loads again behind it.
+  if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} />;
   if (status !== 'ready') return <Notice line={status === 'failed' ? NOT_LOADED : 'LOADING…'} back={back} />;
   if (hud?.results) return <ResultsScreen results={hud.results} send={send} back={back} />;
   if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} />;
-  if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} />;
   if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} />;
   return (
     <div className="kt">
