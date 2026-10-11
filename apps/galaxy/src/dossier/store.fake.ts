@@ -56,7 +56,7 @@
 // migration writes it — the product's next PRD, with no home repository and born on the server, when
 // p_prd is null, else PRD p_prd of it, its answer carrying prdId; product_of_key() picks the caller's
 // product listing the repository first, then the oldest. dossier_approval() answers a product PRD's
-// dossier and the approval a test seeded (seedApproval), null when the caller reads no such PRD.
+// dossier, with no approval (the approval route's tests prove those), null when the caller reads no such PRD.
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
@@ -181,8 +181,6 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     players: Record<string, Record<string, FakePlayer>>;
     teams: FakeFleet[];
     products: FakeProduct[];
-    /** PRD 1548: each dossier's approval in force, as dossier_approval() answers it, by dossier id. */
-    approvals: Record<string, unknown>;
   } = {
     dossiers: [], dossier_versions: [],
     ask_sessions: [], ask_rounds: [], ask_shares: [],
@@ -191,7 +189,6 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     players: {},
     teams: [],
     products: [],
-    approvals: {},
   };
   /** `fail`: every read fails so. `rosterDown` (PRD 652): only the faces' reads (roster and fleets) fail. */
   const state: { fail: Failure | null; calls: number; rosterDown: boolean } = { fail: null, calls: 0, rosterDown: false };
@@ -372,14 +369,14 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     };
   }
 
-  /** dossier_approval() of a product PRD (p_product): {dossier, approval} as seeded, null when there is
+  /** dossier_approval() of a product PRD (p_product): {dossier, approval: null}, null when there is
    * no such PRD the caller reads. A repository's PRD is the approval route's, not the dossier fake's. */
   function approvalOf(me: FakeAccount | null, args: Row): Result {
     if (!me) return refuse('42501', 'Sign in first.');
     const key = trimmed(args.p_product);
     if (key === '') return refuse('PGRST202', 'The dossier fake reads a product PRD\'s approval only.');
     const dossier = productPrd(me, key, args.p_prd, trimmed(args.p_repo).toLowerCase());
-    return { data: dossier ? { dossier: dossier.id, approval: tables.approvals[dossier.id] ?? null } : null, error: null };
+    return { data: dossier ? { dossier: dossier.id, approval: null } : null, error: null };
   }
 
   function push(me: FakeAccount | null, args: Row): Result {
@@ -658,11 +655,5 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return id;
   }
 
-  /** The approval in force of dossier `dossierId` (PRD 1548), as dossier_approval() answers it: the
-   * approvals themselves are proved by supabase/checks/approvals.sql, not here. */
-  function seedApproval(dossierId: string, approval: unknown) {
-    tables.approvals[dossierId] = approval;
-  }
-
-  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, seedProduct, seedApproval, sha256 };
+  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, seedProduct, sha256 };
 }

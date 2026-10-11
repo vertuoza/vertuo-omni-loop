@@ -23,8 +23,10 @@ const json = (status: number, body: unknown = {}) => new Response(JSON.stringify
 const down = (): Response => { throw new TypeError('fetch failed'); };
 
 const OFF_LINE: unknown = expect.stringMatching(/^omni prd: a product PRD lives on the Omni page, and dossiers are off here/);
-const FOUND = { id: 'd-12', url: LINK, prdId: 'mobile-12', title: 'Offline photo upload', product: 'Mobile', approval: null };
+const FOUND = { id: 'd-12', url: LINK, prdId: 'mobile-12', title: 'Offline photo upload', product: 'Mobile' };
 const APPROVAL = { approver: { login: 'ada', member: true }, approvedAt: '2026-10-11T09:30:00.000Z', files: [{ kind: 'spec', path: 'spec.md', sha256: sha256(SPEC), versionId: 'v1' }] };
+/** The Omni page: the approval route answers `approval` in force, the dossier lookup FOUND. */
+const server = (approval: unknown = null) => (url: string) => (url.includes('/api/dossiers/approval') ? json(200, { url: LINK, approval }) : json(200, FOUND));
 const LATEST = { id: 'd-12', prdId: 'mobile-12', url: LINK, kind: 'spec', version: 2, sha256: sha256(SPEC), content: SPEC, createdAt: '2026-10-11T09:00:00.000Z' };
 
 async function prd(args: string[], { reply, enabled, tokens = signedIn(), root, at = '2026-10-11T12:00:00.000Z', files = {} }: {
@@ -46,19 +48,19 @@ async function prd(args: string[], { reply, enabled, tokens = signedIn(), root, 
 
 describe('omni prd <key>-<n>: a product PRD, read from the Omni page', () => {
   it('prints its title, its stage read from its approval, birthplace server, its approval lines, its page and its product', async () => {
-    const run = await prd(['mobile-12'], { reply: () => json(200, FOUND) });
+    const run = await prd(['mobile-12'], { reply: server() });
     expect(run).toMatchObject({ code: 0, err: '' });
     expect(run.out).toBe([
       'PRD mobile-12 — Offline photo upload', 'state: prd', 'birthplace: server', `approval: PRD mobile-12 waits for approval: ${LINK}`,
       `page: ${LINK}`, 'product: Mobile', '',
     ].join('\n'));
-    expect(run.urls).toEqual([`${BASE}/api/dossiers?product=mobile&prd=12&repo=acme%2Fwidgets`]);
+    expect(run.urls).toEqual([`${BASE}/api/dossiers/approval?prd=mobile-12&repo=acme%2Fwidgets`, `${BASE}/api/dossiers?product=mobile&prd=12&repo=acme%2Fwidgets`]);
   });
 
   it('reads inbox once approved, drifted once a push voided it', async () => {
-    expect((await prd(['mobile-12'], { reply: () => json(200, { ...FOUND, approval: APPROVAL }) })).out).toContain('state: inbox\nbirthplace: server\napproval: approved by ada · 2026-10-11T09:30:00.000Z\n');
+    expect((await prd(['mobile-12'], { reply: server(APPROVAL) })).out).toContain('state: inbox\nbirthplace: server\napproval: approved by ada · 2026-10-11T09:30:00.000Z\n');
     const voided = { ...APPROVAL, voids: [{ pusher: 'bob', kind: 'spec', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-11T10:00:00.000Z' }] };
-    expect((await prd(['mobile-12'], { reply: () => json(200, { ...FOUND, approval: voided }) })).out).toContain('state: drifted\n');
+    expect((await prd(['mobile-12'], { reply: server(voided) })).out).toContain('state: drifted\n');
   });
 
   it('holds while the server is down, saying so; says none for a PRD the page has not', async () => {

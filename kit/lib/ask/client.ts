@@ -27,7 +27,7 @@
 // itself (the renewed tokens, the `{error}` text), each through a schema; whoever called reads the rest.
 import { jsonObject, TokenReplySchema } from './schema.ts';
 import type { JsonObject, Tokens } from './schema.ts';
-import type { IssueNumber, PrdNumber } from '../ids.ts';
+import type { IssueNumber, PrdNumber, ProductPrdId } from '../ids.ts';
 
 export type { Tokens } from './schema.ts';
 
@@ -303,11 +303,14 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       call('POST', '/api/dossiers/push', {
         body: { productKey: key, ...(seq === null ? { new: true } : { prd: seq }), ...(repo ? { repo } : {}), title, artifacts },
       }),
-    /** PRD 1548: product PRD `<key>-<seq>`'s dossier, its title, its product and its approval in force; a
-     * 404 when there is none. @returns {Promise<{ id: string, url: string, prdId: string, title: string | null,
-     *   product: string | null, approval: unknown }>} */
+    /** PRD 1548: product PRD `<key>-<seq>`'s dossier, its title and its product; a 404 when there is none.
+     * @returns {Promise<{ id: string, url: string, prdId: string, title: string | null, product: string | null }>} */
     findProductDossier: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ product: key, prd: String(seq), ...(repo ? { repo } : {}) })}`),
+    /** PRD 1548: product PRD `id`'s (`mobile-12`) approval in force, with its page's link, as `readApproval`'s
+     * reply; `repo` only chooses between two workspaces holding the key. A 404 when there is no such PRD. */
+    readProductApproval: ({ id, repo }: { id: ProductPrdId; repo: string | null }) =>
+      call('GET', `/api/dossiers/approval?${new URLSearchParams({ prd: id, ...(repo ? { repo } : {}) })}`),
     /** PRD 1548: product PRD `<key>-<seq>`'s latest version of `kind`, whole; a 404 when it has none.
      * @returns {Promise<{ id: string, prdId: string, url: string, kind: string, version: number, sha256: string,
      *   content: string, createdAt: string }>} */

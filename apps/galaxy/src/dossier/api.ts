@@ -41,7 +41,6 @@
 // 400. A push and a lookup each answer the dossier's product by its name, or null when it has none.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, callerOrigin as origin, withInstallLink, type TokenCheck } from '../ask/auth';
-import { z } from 'zod';
 import {
   ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isPulseKind, isPushedArtifactKind, isPushKind, isRoundKind, KIND_ARTIFACTS,
   productPrdOf, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, type DossierArtifact, type DossierProduct, type PushKind,
@@ -283,16 +282,16 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
 //
 //   POST /api/dossiers/push  {productKey, new: true | prd, repo?, title, artifacts}
 //                                      → 200 {id, prdId, url, added, unchanged, product}
-//   GET  /api/dossiers?product=<key>&prd=<n>[&repo=]   → 200 {id, url, prdId, title, product, approval}
+//   GET  /api/dossiers?product=<key>&prd=<n>[&repo=]   → 200 {id, url, prdId, title, product}
 //   GET  /api/dossiers/get?product=<key>&prd=<n>&kind=<kind>[&repo=]
 //                                      → 200 {id, prdId, url, kind, version, sha256, content, createdAt}
 //
 // `new: true` creates the product's next PRD; `prd` pushes to the one of that number. `repo`, the
 // repository the kit runs from, only chooses between two of the caller's workspaces holding the key
 // (settled item s1-02). A push names no draft, no kind and no product name: 400. A key no product of the
-// caller's workspaces has, or a PRD there is none of, is 404. The lookup answers the approval in force as
-// the approval route does (src/approval/approval-api.ts), so the kit judges it with the same reader; the
-// get answers the latest version of one of a PRD's kinds (spec, plan, before-after, voice) whole.
+// caller's workspaces has, or a PRD there is none of, is 404. The approval in force is the approval
+// route's to answer (`GET /api/dossiers/approval?prd=<key>-<n>`, src/approval/approval-api.ts); the get
+// answers the latest version of one of a PRD's kinds (spec, plan, before-after, voice) whole.
 
 /** A product's key as a call sends it: one a product PRD's id can carry (`mobile`, `field-app`), or null. */
 const productKeyOf = (value: unknown): string | null =>
@@ -364,34 +363,16 @@ function productQuery(query: URLSearchParams): { key: string; seq: PrdNumber; re
   return { key, seq, repo, prdId: `${key}-${String(seq)}` };
 }
 
-const at = z.string().refine((value) => !Number.isNaN(Date.parse(value))).transform((value) => new Date(value).toISOString());
-const text = z.string().min(1);
-
-/** The approval in force as dossier_approval() answers it, read into the approval route's answer: times in
- * ISO 8601, a file's approved text only when the database still holds it. */
-const ApprovalAnswer = z.object({
-  approver: z.object({ login: text, member: z.boolean() }),
-  approvedAt: at,
-  files: z.array(z.object({ kind: text, path: text, sha256: text, versionId: text, content: z.string().nullable().optional() })
-    .transform(({ content, ...file }) => (content === null || content === undefined ? file : { ...file, content }))),
-  voids: z.array(z.object({ pusher: text, kind: text, from: text, to: text, voidedAt: at })).optional(),
-}).nullable();
-
 async function findProductPrd(request: Request, client: DossierClient, query: URLSearchParams): Promise<Response> {
   const named = productQuery(query);
   if (named instanceof Response) return named;
   const found = await productPrdOf(client, named);
   if (!found) return refuse(404, `No PRD ${named.prdId}.`);
-  const approval = ApprovalAnswer.safeParse(found.approval);
-  if (!approval.success) {
-    console.error(`dossier: the approval of ${named.prdId} came back out of shape`);
-    return refuse(500, 'The dossier database could not answer. Try again.');
-  }
   const reader = dossierReader(client);
-  const dossier = await reader.dossier(found.dossier);
+  const dossier = await reader.dossier(found);
   return reply(200, {
-    id: found.dossier, url: linkTo(request, found.dossier), prdId: named.prdId, title: dossier?.title ?? null,
-    product: nameOf(await reader.product(found.dossier)), approval: approval.data,
+    id: found, url: linkTo(request, found), prdId: named.prdId, title: dossier?.title ?? null,
+    product: nameOf(await reader.product(found)),
   });
 }
 
@@ -405,10 +386,10 @@ export function getDossier(request: Request, deps: DossierDeps): Promise<Respons
     if (named instanceof Response) return named;
     const found = await productPrdOf(client, named);
     if (!found) return refuse(404, `No PRD ${named.prdId}.`);
-    const latest = await dossierReader(client).latest(found.dossier, kind);
+    const latest = await dossierReader(client).latest(found, kind);
     if (!latest) return refuse(404, `PRD ${named.prdId} has no ${kind} yet.`);
     return reply(200, {
-      id: found.dossier, prdId: named.prdId, url: linkTo(request, found.dossier), kind, version: latest.version,
+      id: found, prdId: named.prdId, url: linkTo(request, found), kind, version: latest.version,
       sha256: latest.sha256, content: latest.content, createdAt: latest.created_at,
     });
   });

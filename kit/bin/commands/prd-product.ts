@@ -1,8 +1,9 @@
 // `omni prd <key>-<n> [--show <kind>]` (PRD 1548 s2): a product PRD (`mobile-12`), which lives on the
 // server and in no repository, read from the Omni page.
 //
-// - Without `--show`: one lookup (`GET /api/dossiers?product=&prd=`) answers its title, its page, its
-//   product and its approval in force, which `readProductApproval` judges; its stage is read as a ◆ PRD's
+// - Without `--show`: the approval route (`GET /api/dossiers/approval?prd=<key>-<n>`) answers its
+//   approval in force, which `readProductApproval` judges, and the dossier lookup
+//   (`GET /api/dossiers?product=&prd=`) its title, its page and its product; its stage is read as a ◆ PRD's
 //   is (`productPrdState`). It prints `PRD <id> — <title>`, `state:`, `birthplace: server`, one `approval:`
 //   line per line the reading says, `page:` and `product:`. While the server is down it prints the held
 //   reading and exits 0, as `omni prd <n>` does for a ◆ PRD; a PRD the page has not is exit 1.
@@ -42,34 +43,45 @@ function clientOf({ ctx, tokens, home, fetch, callMs }: ProductPrdIo) {
   return client ? { client } : { why: 'no sign-in (omni signin)' };
 }
 
-/** Product PRD `id`: where it stands, its page and its product. */
-async function lookup(id: ProductPrdId, client: NonNullable<ReturnType<typeof signedInClient>>, io: ProductPrdIo): Promise<number> {
+/** Product PRD `id`'s title and product from its page, or null when the page cannot say. */
+async function pageOf(id: ProductPrdId, client: NonNullable<ReturnType<typeof signedInClient>>, repo: string | null): Promise<unknown> {
   const { key, seq } = productPrdParts(id);
-  const seen: { found: unknown; missing: boolean } = { found: null, missing: false };
+  try {
+    return await client.findProductDossier({ key, seq, repo });
+  } catch (error) {
+    if (!(error instanceof AskCallError)) throw error;
+    return null;
+  }
+}
+
+/** Product PRD `id`: where it stands, read from the approval route, then its title, page and product. */
+async function lookup(id: ProductPrdId, client: NonNullable<ReturnType<typeof signedInClient>>, io: ProductPrdIo): Promise<number> {
+  const repo = io.ctx.config.repo.slug;
+  const seen = { missing: false };
   const approval = await readProductApproval(id, async () => {
     try {
-      seen.found = await client.findProductDossier({ key, seq, repo: io.ctx.config.repo.slug });
+      return await client.readProductApproval({ id, repo });
     } catch (error) {
       seen.missing = error instanceof AskCallError && error.status === 404;
       throw error;
     }
-    return seen.found;
   });
   if (seen.missing) {
     println(io.stderr, `omni prd: no PRD ${id} on the Omni page.`);
     return 1;
   }
   const state = productPrdState(id, approval);
-  const title = field(seen.found, 'title');
-  const url = field(seen.found, 'url');
-  const product = field(seen.found, 'product');
+  const page = approval.state === 'unreachable' ? null : await pageOf(id, client, repo);
+  const title = field(page, 'title');
+  const url = field(page, 'url') ?? approval.url;
+  const product = field(page, 'product');
   println(io.stdout, [
     `PRD ${id}${isText(title) ? ` — ${title}` : ''}`,
     `state: ${state.state}`,
     'birthplace: server',
     ...approval.lines.map((line) => `approval: ${line}`),
     ...(isText(url) ? [`page: ${url}`] : []),
-    ...(seen.found === null ? [] : [`product: ${isText(product) ? product : 'none'}`]),
+    ...(page === null ? [] : [`product: ${isText(product) ? product : 'none'}`]),
   ].join('\n'));
   return 0;
 }

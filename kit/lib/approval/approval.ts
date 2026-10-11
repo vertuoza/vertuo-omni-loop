@@ -160,7 +160,7 @@ export function readApproval(ctx: { root: string; layout: Layout }, prd: PrdNumb
   return readWith(call, (reply) => judgeApproval(ctx, prd, reply));
 }
 
-/** PRD 1548: asks product PRD `prdId`'s lookup through `call` (its answer carries `url` and `approval`)
+/** PRD 1548: asks the approval route for product PRD `prdId` (`?prd=<key>-<n>`) through `call`
  * and judges its approval in force. */
 export function readProductApproval(prdId: ProductPrdId, call: () => Promise<unknown>): Promise<ApprovalReading> {
   return readWith(call, (reply) => judgeProductApproval(prdId, reply));

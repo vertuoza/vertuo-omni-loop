@@ -94,27 +94,12 @@ describe('POST /api/dossiers/push with a product key: a product PRD', () => {
 });
 
 describe('GET /api/dossiers?product=<key>&prd=<n>: a product PRD by its id', () => {
-  it('answers its dossier, link, id, title, product and approval in force (none yet)', async () => {
+  it('answers its dossier, link, id, title and product', async () => {
     const w = world();
     const made = await w.push(NEW);
     expect(await w.find('?product=mobile&prd=1')).toEqual({
       status: 200,
-      body: { id: made.body.id, url: made.body.url, prdId: 'mobile-1', title: 'Offline photo upload', product: 'Mobile', approval: null },
-    });
-  });
-
-  it('answers the approval as the approval route does: times in ISO 8601, a file\'s text only when it is kept', async () => {
-    const w = world();
-    const made = await w.push(NEW);
-    w.fake.seedApproval(String(made.body.id), {
-      approver: { login: 'ada', member: true }, approvedAt: '2026-10-11 09:30:00+00',
-      files: [{ kind: 'spec', path: 'spec.md', sha256: 'a'.repeat(64), versionId: 'v1', content: null }],
-      voids: [{ pusher: 'bob', kind: 'spec', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-11 10:00:00+00' }],
-    });
-    expect((await w.find('?product=mobile&prd=1')).body.approval).toEqual({
-      approver: { login: 'ada', member: true }, approvedAt: '2026-10-11T09:30:00.000Z',
-      files: [{ kind: 'spec', path: 'spec.md', sha256: 'a'.repeat(64), versionId: 'v1' }],
-      voids: [{ pusher: 'bob', kind: 'spec', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-11T10:00:00.000Z' }],
+      body: { id: made.body.id, url: made.body.url, prdId: 'mobile-1', title: 'Offline photo upload', product: 'Mobile' },
     });
   });
 

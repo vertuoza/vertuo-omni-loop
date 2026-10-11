@@ -159,15 +159,14 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
  * repository the kit runs from (or null), its title and its artifacts. */
 type ProductPush = { key: string; seq: number | null; repo: string | null; title: string; artifacts: DossierArtifact[] };
 
-/** PRD 1548: product PRD `<key>-<seq>` as the caller reads it, found as every RPC finds one
- * (prd_dossier(), through dossier_approval()): its dossier's id and its approval in force, unparsed (null
- * when none yet); null when there is no such PRD the caller reads. */
+/** PRD 1548: the dossier of product PRD `<key>-<seq>` as the caller reads it, found as every RPC finds
+ * one (prd_dossier(), through dossier_approval()); null when there is no such PRD the caller reads. */
 export async function productPrdOf(
   db: Pick<SupabaseClient, 'rpc'>, { key, seq, repo }: { key: string; seq: number; repo: string | null },
-): Promise<{ dossier: string; approval: unknown } | null> {
+): Promise<string | null> {
   const found = settle<unknown>('find the product PRD', await db.rpc('dossier_approval', { p_repo: repo, p_prd: seq, p_product: key }));
   const dossier = propertyOf(found, 'dossier');
-  return typeof dossier === 'string' ? { dossier, approval: propertyOf(found, 'approval') ?? null } : null;
+  return typeof dossier === 'string' ? dossier : null;
 }
 
 export type DossierStore = ReturnType<typeof dossierStore>;
