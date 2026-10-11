@@ -20,11 +20,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e', 'use-cases',
+  'index', 'install', 'join', 'cloud', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e', 'use-cases',
   'troubleshooting',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
+  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
   'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
 ];
 
@@ -42,7 +42,7 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
       '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
@@ -105,6 +105,27 @@ describe('docs/guide', () => {
     const join = readGuide(GUIDE).pages.find((page) => page.slug === 'join');
     expect(join?.next).toBe('/docs/loop');
     for (const never of ['omni init', 'installing the GitHub App', '/omni:invade']) expect(join?.body).toContain(never);
+  });
+
+  it('walks a member from no token to omni whoami in a cloud session, linked from Install and Join a team (PRD 1628)', () => {
+    const { pages } = readGuide(GUIDE);
+    const body = (slug: string) => pages.find((page) => page.slug === slug)?.body ?? '';
+    const cloud = body('cloud');
+    for (const heading of ['## 1. Make a token', '## 2. Set up the cloud environment', '## 3. Check it', '## What needs no setting up', '## When OMNI_TOKEN fails']) {
+      expect(cloud, heading).toContain(heading);
+    }
+    for (const phrase of [
+      'omni setup-token', 'Make the token in your browser: ', "Paste it as OMNI_TOKEN=<token> in your cloud environment's variables.",
+      '**Terminal tokens**', '**Make a token**', '**Revoke**', '30, 90 or 365',
+      '**Environment variables:**', 'OMNI_TOKEN=omk_…', 'OPENROUTER_API_KEY', '**Network access:**', '**Custom**', '**Full**', 'www.omni-loop.xyz', 'openrouter.ai', 'ask.url',
+      'omni whoami', '<your login> (OMNI_TOKEN ··<last four>)', "Claude's GitHub connection",
+      'OMNI_TOKEN expired on <date>: make a new one with omni setup-token', 'OMNI_TOKEN was revoked: make a new one with omni setup-token',
+      'OMNI_TOKEN: <login> is no longer a member of <workspace>', "OMNI_TOKEN: cannot reach <host>: allow it in your environment's network access",
+      'environment: OMNI_TOKEN is not valid', 'OMNI_TOKEN is set in this environment: revoke it on your profile page',
+    ]) {
+      expect(cloud, phrase).toContain(phrase);
+    }
+    for (const slug of ['install', 'join']) expect(body(slug), slug).toContain('](/docs/cloud)');
   });
 
   it('says why the phase-0 pull request goes into the default branch, and links it where a PRD is approved', () => {
@@ -323,6 +344,13 @@ describe('the guard', () => {
     expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { wait } from './approval-wait.ts';\n" })).toEqual([]);
     expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { waits } from './approval-wait.ts';\n" }))
       .toEqual(['index.md: omni wait is no command of the CLI']);
+  });
+
+  it('knows a command its index imports beside others from one file, as `omni whoami` from signin.ts (PRD 1628)', () => {
+    const named = page('A', '/docs/b', '```bash terminal\nomni whoami\nomni signout\n```');
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { signin, signout, whoami } from './signin.ts';\n" })).toEqual([]);
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { signin, signouts, whoamis } from './signin.ts';\n" }))
+      .toEqual(['index.md: omni whoami is no command of the CLI', 'index.md: omni signout is no command of the CLI']);
   });
 
   it('fails on a page with no title', () => {
