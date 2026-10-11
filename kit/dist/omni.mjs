@@ -41293,7 +41293,7 @@ var WORD = /[\p{L}\p{N}]/u;
 function countWords(text13) {
   return text13.split(/\s+/).filter((token) => WORD.test(token)).length;
 }
-var isControl = ({ tag, attributes }) => tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
+var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
 var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
 var squash = (text13) => text13.replace(/\s+/g, " ").trim();
 function textOf3(node3) {
@@ -41315,15 +41315,13 @@ var skipped2 = (element, walk2, top2) => isHidden(element) || !top2 && matches(w
 function visitElement(element, walk2, top2) {
   if (skipped2(element, walk2, top2)) return;
   if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element)));
-  if (isControl(element)) {
-    flush(walk2);
+  flush(walk2);
+  if (isControl(element, walk2.rules.primary)) {
     walk2.phrases.push(...phraseOf(textOf3(element), true));
     return;
   }
-  const block = BLOCK.has(element.tag);
-  if (block) flush(walk2);
   for (const child of element.children) visit2(child, walk2);
-  if (block) flush(walk2);
+  flush(walk2);
 }
 function visit2(node3, walk2) {
   if (node3.kind === "text") walk2.run += node3.text;
@@ -41362,23 +41360,21 @@ function screensUnder(node3, rules) {
   return found2;
 }
 function wordPass(html, rules) {
-  const root = parseHtml(html);
-  const marked = screensUnder(root, rules);
-  const whole2 = marked.length === 0;
-  const screens2 = (whole2 ? [root] : marked).map((screen, index) => {
+  const marked = screensUnder(parseHtml(html), rules);
+  const screens2 = marked.map((screen, index) => {
     const { phrases, primaries } = readScreen(screen, rules);
     return {
-      name: whole2 ? "(whole page)" : screenName(screen, rules, index),
+      name: screenName(screen, rules, index),
       phrases,
       words: phrases.reduce((sum, phrase) => sum + phrase.words, 0),
       findings: findings(phrases, primaries, rules)
     };
   });
-  return { whole: whole2, screens: screens2 };
+  return { skipped: marked.length === 0, screens: screens2 };
 }
-function formatPage(page2, { whole: whole2, screens: screens2 }, rules) {
+function formatPage(page2, { skipped: skipped3, screens: screens2 }, rules) {
   const lines2 = [page2];
-  if (whole2) lines2.push(`  no screen marked (${rules.screen.source}): the page read whole`);
+  if (skipped3) lines2.push(`  no screen marked: skipped (${rules.screen.source})`);
   for (const screen of screens2) {
     lines2.push(`  screen ${screen.name} \xB7 ${screen.words} ${screen.words === 1 ? "word" : "words"}`);
     for (const phrase of screen.phrases) lines2.push(`    ${phrase.control ? "[control] " : ""}${phrase.text} (${phrase.words})`);
@@ -43420,7 +43416,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["omni design touched [<base>]", "omni design screens", "omni design words <page.html>\u2026"],
     summary: "whether a branch touches a screen, the screen library, and the word pass over a mockup",
-    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements and its routes. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; a page with none is read whole and says so) with its visible strings, each control's marked, and its word count, then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced."
+    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements and its routes. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings, two sibling elements always two strings, each control's marked (a button, a link, or any element design.words.primary matches), and its word count, then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced."
   },
   {
     name: "e2e",
