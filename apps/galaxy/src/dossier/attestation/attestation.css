@@ -1,0 +1,63 @@
+/* The Attestation page (PRD 1612 s4): the omni/approved check's Details, on Ask's reading tokens, in a
+   900 px column like the app pages' prose. The seal is lit (plasma) while the approval holds, and dim
+   otherwise; `=` reads green, `≠` red, `?` and `·` muted. No colour of its own. */
+
+.attestation { max-width: 900px; gap: 16px; }
+
+.attestation-crumbs { font-size: 14px; color: var(--ask-muted); }
+.attestation-crumbs b { color: var(--ask-ink); }
+
+.attestation-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; }
+.attestation-head h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+.attestation-head p { margin: 2px 0 0; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
+
+.attestation-seal { width: 72px; height: 72px; }
+.attestation-seal-ring { fill: none; stroke: var(--ask-line-strong); stroke-width: 3; }
+.attestation-seal-core { fill: var(--ask-sunk); stroke: var(--ask-line-strong); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.attestation-seal-prd { font: 700 11px var(--ask-mono); fill: var(--ask-muted); }
+.attestation-seal-hash { font: 500 8px var(--ask-mono); fill: var(--ask-muted); }
+.attestation[data-verdict='approved'] .attestation-seal-ring,
+.attestation[data-verdict='approved'] .attestation-seal-core { stroke: var(--ask-plasma); }
+.attestation[data-verdict='approved'] .attestation-seal-core { fill: var(--ask-surface); }
+.attestation[data-verdict='approved'] .attestation-seal-prd { fill: var(--ask-plasma); }
+
+.attestation-card { gap: 8px; padding: 14px 16px; justify-items: stretch; }
+.attestation-card h2 { margin: 0; font-size: 13px; line-height: 1.3; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ask-muted); }
+
+.attestation-pins,
+.attestation-targets { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.attestation-pins { font: 500 13px/1.6 var(--ask-mono); }
+.attestation-pins li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+.attestation-path { overflow-wrap: anywhere; }
+.attestation-pins small { color: var(--ask-muted); text-align: right; }
+.attestation-mark { color: var(--ask-muted); }
+.attestation-mark[data-mark='matches'] { color: var(--ask-green); }
+.attestation-mark[data-mark='differs'] { color: var(--ask-red); }
+
+.attestation-cmd,
+.attestation-again,
+.attestation-approve { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.attestation-cmd code {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line-strong);
+  font: 500 13px var(--ask-mono);
+}
+.attestation-copy { padding: 6px 12px; font-size: 13px; }
+.attestation-approve .ask-button { padding: 7px 14px; font-size: 14px; }
+.attestation-card .ask-muted { font-size: 13px; }
+
+.attestation-targets { font-size: 14px; }
+.attestation-targets li { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.attestation-targets [data-state] { color: var(--ask-muted); }
+.attestation-targets [data-state='approved'],
+.attestation-targets [data-state='merged'] { color: var(--ask-green); }
+.attestation-targets [data-state='drifted'] { color: var(--ask-red); }
+
+.attestation-policy { margin: 0; font-size: 13px; }
+
+@media (max-width: 480px) {
+  .attestation-pins li { grid-template-columns: 18px minmax(0, 1fr); }
+  .attestation-pins small { grid-column: 2; text-align: left; }
+}
