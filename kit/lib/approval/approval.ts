@@ -25,7 +25,7 @@ import { z } from 'zod';
 import { AskCallError } from '../ask/client.ts';
 import { ARTIFACT_KINDS, sha256 } from '../dossier/folder.ts';
 import type { Layout } from '../layout.ts';
-import type { PrdNumber } from '../ids.ts';
+import type { PrdNumber, ProductPrdId } from '../ids.ts';
 
 export type ApprovalState = 'approved' | 'pending' | 'drifted' | 'unreachable' | 'refused';
 
@@ -88,30 +88,49 @@ function driftOf(ctx: { root: string; layout: Layout }, prd: PrdNumber, file: Pi
   return { kind: file.kind, file: tree, how: spacing ? 'whitespace only' : 'content' };
 }
 
-/** The approval in force judged against the tree being read. */
-export function judgeApproval(ctx: { root: string; layout: Layout }, prd: PrdNumber, reply: ApprovalReply): ApprovalReading {
+/** How a reply is judged: the PRD as its lines name it, where a pinned file is today, and how the files
+ * being read differ from the pinned ones. */
+type Judge = { named: string; fileOf: (file: Pick<PinnedFile, 'kind' | 'path'>) => string; drift: (files: PinnedFile[]) => Drift[] };
+
+/** The approval in force judged by `judge`: pending, voided, its approver gone, a file differing, or approved. */
+function judged(reply: ApprovalReply, { named, fileOf, drift: driftIn }: Judge): ApprovalReading {
   const { url, approval } = reply;
   const reading = (state: ApprovalState, lines: string[], drift: Drift[] = []): ApprovalReading => ({ state, lines, url, approval, drift });
-  if (!approval) return reading('pending', [`PRD ${Number(prd)} waits for approval: ${url}`]);
+  if (!approval) return reading('pending', [`${named} waits for approval: ${url}`]);
   const voids = approval.voids ?? [];
   if (voids.length > 0) {
-    const fileOf = (kind: string) => {
+    const fileOfKind = (kind: string) => {
       const file = approval.files.find((f) => f.kind === kind);
-      return file ? treeFileOf(ctx, prd, file) : kind;
+      return file ? fileOf(file) : kind;
     };
     const lines = voids.map((v) =>
-      `≠ ${basename(fileOf(v.kind))} · voided by ${v.pusher}'s push ${v.from.slice(0, 7)}→${v.to.slice(0, 7)} · ✗ refuse · approve again: ${url}`);
-    return reading('drifted', lines, voids.map((v) => ({ kind: v.kind, file: fileOf(v.kind), how: 'voided' })));
+      `≠ ${basename(fileOfKind(v.kind))} · voided by ${v.pusher}'s push ${v.from.slice(0, 7)}→${v.to.slice(0, 7)} · ✗ refuse · approve again: ${url}`);
+    return reading('drifted', lines, voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: 'voided' })));
   }
   const { login, member } = approval.approver;
   if (!member) return reading('refused', [`approver ${login} is not a workspace member`]);
   // The personas' rounds (voice) are appended by the loop after approval, its shipped round included:
   // a changed voice never drifts an approval (PRD 1322).
-  const drift = approval.files.filter((file) => file.kind !== 'voice').flatMap((file) => driftOf(ctx, prd, file) ?? []);
+  const drift = driftIn(approval.files.filter((file) => file.kind !== 'voice'));
   if (drift.length > 0) {
     return reading('drifted', drift.map((d) => `≠ ${basename(d.file)} · ${d.how} · ✗ refuse · restore it, or approve again: ${url}`), drift);
   }
   return reading('approved', [`approved by ${login} · ${approval.approvedAt}`]);
+}
+
+/** The approval in force judged against the tree being read. */
+export function judgeApproval(ctx: { root: string; layout: Layout }, prd: PrdNumber, reply: ApprovalReply): ApprovalReading {
+  return judged(reply, {
+    named: `PRD ${Number(prd)}`,
+    fileOf: (file) => treeFileOf(ctx, prd, file),
+    drift: (files) => files.flatMap((file) => driftOf(ctx, prd, file) ?? []),
+  });
+}
+
+/** PRD 1548: a product PRD's approval in force. It has no tree: its files are its dossier's versions, and
+ * every push that changes a pinned one voids the approval on the server, so the voids are its drift. */
+export function judgeProductApproval(prdId: ProductPrdId, reply: ApprovalReply): ApprovalReading {
+  return judged(reply, { named: `PRD ${prdId}`, fileOf: (file) => file.path, drift: () => [] });
 }
 
 /** A reading the server did not judge: `unreachable` when the call got no answer, `refused` with its
@@ -123,8 +142,8 @@ export function failedReading(error: unknown): ApprovalReading {
   return { state: 'refused', lines: [`refused (${error.status})`], ...none };
 }
 
-/** Asks the approval route through `call` and judges its reply against the tree. */
-export async function readApproval(ctx: { root: string; layout: Layout }, prd: PrdNumber, call: () => Promise<unknown>): Promise<ApprovalReading> {
+/** Asks through `call` and judges its reply with `judge`. */
+async function readWith(call: () => Promise<unknown>, judge: (reply: ApprovalReply) => ApprovalReading): Promise<ApprovalReading> {
   let body: unknown;
   try {
     body = await call();
@@ -133,5 +152,16 @@ export async function readApproval(ctx: { root: string; layout: Layout }, prd: P
   }
   const reply = parseApprovalReply(body);
   if (!reply) return { state: 'refused', lines: ['refused (malformed reply)'], url: null, approval: null, drift: [] };
-  return judgeApproval(ctx, prd, reply);
+  return judge(reply);
+}
+
+/** Asks the approval route through `call` and judges its reply against the tree. */
+export function readApproval(ctx: { root: string; layout: Layout }, prd: PrdNumber, call: () => Promise<unknown>): Promise<ApprovalReading> {
+  return readWith(call, (reply) => judgeApproval(ctx, prd, reply));
+}
+
+/** PRD 1548: asks product PRD `prdId`'s lookup through `call` (its answer carries `url` and `approval`)
+ * and judges its approval in force. */
+export function readProductApproval(prdId: ProductPrdId, call: () => Promise<unknown>): Promise<ApprovalReading> {
+  return readWith(call, (reply) => judgeProductApproval(prdId, reply));
 }

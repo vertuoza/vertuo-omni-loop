@@ -96,7 +96,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'prd',
     kind: 'command',
     who: 'you',
-    usage: ['omni prd <n>'],
+    usage: ['omni prd <n>', 'omni prd <key>-<n> [--show <kind>]'],
     label: 'omni prd <n>',
     summary: 'where PRD n lives and its files',
     detail:
@@ -105,7 +105,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'one lookup the skills run before following any delivery path. Where dossiers are on, its last ' +
       'line is the product its dossier on the Omni page names, product: <name> or product: none, or ' +
       'product: unknown with why when the page cannot tell. Exit 1 when the PRD is in ' +
-      'neither {inbox} nor {shipped}.',
+      'neither {inbox} nor {shipped}. A product PRD, as mobile-12, is read from the Omni page: its stage ' +
+      'from its approval, birthplace: server, its approval lines, its page and its product; --show <kind> ' +
+      'prints its latest spec, plan, before-after or voice, read-only, as of when it was read, and the ' +
+      'last copy read while the server is down. mobile, 12-mobile and Mobile-12 are refused by name.',
   },
   {
     name: 'board',
@@ -284,7 +287,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'dossier',
     kind: 'command',
     who: 'you',
-    usage: ['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status'],
+    usage: [
+      'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+    ],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
     detail:
@@ -297,7 +303,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'work on concept n, its issue\'s number: its page under Work › Concepts, filled from its ' +
       'concept.md, vision tour, boards and debate. With --product <name>, a PRD\'s push names the product ' +
       'the brainstorm asked for, for a repository in several products: the first push makes it the ' +
-      'PRD\'s product, and a repository in one product or none decides alone. It never holds up the ' +
+      'PRD\'s product, and a repository in one product or none decides alone. A product PRD, as mobile-12, ' +
+      'lives on the Omni page and in no repository: push --product <key> --new creates the product\'s next ' +
+      'PRD from the files of --from and prints its id; push <key>-<n> saves the edited files of --from as ' +
+      'new versions; get <key>-<n> <kind> writes the latest spec, plan, before-after or voice to a scratch ' +
+      'file and prints its path and its sha256, and holds while the server is down. It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {

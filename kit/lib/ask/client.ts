@@ -295,6 +295,24 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       call('POST', '/api/dossiers/push', {
         body: { repo, prd, ...(kind && kind !== 'prd' ? { kind } : {}), title, ...(draftId ? { draftId } : {}), ...(product ? { product } : {}), artifacts },
       }),
+    /** PRD 1548: sends a product PRD's files — to the product keyed `key`'s next PRD, created, when `seq`
+     * is null, else to PRD `<key>-<seq>`. `repo`, the repository the kit runs from, only chooses between
+     * two workspaces holding the key. @returns {Promise<{ id: string, prdId: string, url: string,
+     *   added: Array<{ kind: string, version: number }>, unchanged: string[], product: string | null }>} */
+    pushProductDossier: ({ key, seq, repo, title, artifacts }: { key: string; seq: number | null; repo: string | null; title: string; artifacts: unknown }) =>
+      call('POST', '/api/dossiers/push', {
+        body: { productKey: key, ...(seq === null ? { new: true } : { prd: seq }), ...(repo ? { repo } : {}), title, artifacts },
+      }),
+    /** PRD 1548: product PRD `<key>-<seq>`'s dossier, its title, its product and its approval in force; a
+     * 404 when there is none. @returns {Promise<{ id: string, url: string, prdId: string, title: string | null,
+     *   product: string | null, approval: unknown }>} */
+    findProductDossier: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
+      call('GET', `/api/dossiers?${new URLSearchParams({ product: key, prd: String(seq), ...(repo ? { repo } : {}) })}`),
+    /** PRD 1548: product PRD `<key>-<seq>`'s latest version of `kind`, whole; a 404 when it has none.
+     * @returns {Promise<{ id: string, prdId: string, url: string, kind: string, version: number, sha256: string,
+     *   content: string, createdAt: string }>} */
+    getDossier: ({ key, seq, kind, repo }: { key: string; seq: number; kind: string; repo: string | null }) =>
+      call('GET', `/api/dossiers/get?${new URLSearchParams({ product: key, prd: String(seq), kind, ...(repo ? { repo } : {}) })}`),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
      * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. Since PRD 1364 it answers
      * the dossier's product by its name, or null. @returns {Promise<{ id: string, url: string, product?: string | null }>} */
