@@ -34,6 +34,7 @@ import { galleryPage } from '../../lib/design/gallery/page.ts';
 import { designIgnore, dropIgnored } from '../../lib/design/ignore.ts';
 import { formatScreens, readScreens } from '../../lib/design/screens.ts';
 import { avoidedWords } from '../../lib/design/words/avoid.ts';
+import { wordsContent } from '../../lib/design/words/content.ts';
 import { formatPage, wordPass, type WordRules } from '../../lib/design/words/pass.ts';
 import { parseSelector, type Selector } from '../../lib/design/words/selector.ts';
 import { messageOf } from '../../lib/narrow.ts';
@@ -127,6 +128,7 @@ function words(io: CommandIo, pages: readonly string[]): string[] {
     sentence: config.words.sentence,
     screen: checked(config.words.screen),
     primary: checked(config.words.primary),
+    content: checked(wordsContent(config.words)),
     avoid: [...fromForm, ...config.words.avoid.filter((term) => !known.has(term.toLowerCase()))],
   };
   return pages.flatMap((page) => {

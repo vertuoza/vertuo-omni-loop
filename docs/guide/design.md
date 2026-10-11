@@ -1,6 +1,6 @@
 ---
 title: Design craft (opt-in)
-description: Turn on design craft, fill the design form and its laws, keep a library of screens a person locks, draw each screen's mockup and see them all in the gallery, run the word pass, type /omni:pixel-perfect on a screen, and read the Design review the loop adds to a sub-PR that changes a screen.
+description: Turn on design craft, fill the design form and its laws, keep a library of screens and shared screens a person locks, draw each screen's mockup and see them all in the gallery, run the word pass, read the before/after's Functional and Pixel perfect parts, type /omni:pixel-perfect on a screen, and read the Design review the loop adds to a sub-PR that changes a screen.
 ---
 
 Screens an agent builds tend to look generic: right enough, but not quite your product. **Design
@@ -41,8 +41,9 @@ design:
   in your knowledge folder, `.omni-loop/knowledge/design/screens/`.
 - **`design.words`**: tunes the word pass (below). `sentence` is how many words make a sentence
   (7 by default), `screen` and `primary` the selectors that mark a screen and its main action
-  (`[data-screen]` and `[data-primary]` by default), and `avoid` a list of words your product
-  never uses (empty by default).
+  (`[data-screen]` and `[data-primary]` by default), `content` the selector that marks content
+  the screen shows rather than words it wrote (`[data-content]` by default), and `avoid` a list of
+  words your product never uses (empty by default).
 - **`design.ignore`**: globs `omni design touched` drops from a change before it reads it (below).
   You rarely set it: left out, it is the common test shapes, `**/*.test.*`, `**/*.spec.*`,
   `**/__tests__/**` and `**/test/**`, so a change made only of tests is no screen change. Set your
@@ -119,6 +120,7 @@ status: locked
 locked-by: "@ana"
 locked-on: 2026-10-10
 quote: "this is the editor, build it"
+kind: page
 mock: quote-editor.html
 implements: [src/quotes/editor/QuoteEditor.tsx, src/quotes/editor/editor.css, src/quotes/editor/words.ts]
 reads: [src/quotes/pricing/]
@@ -134,7 +136,8 @@ supersedes: null
 ## Open questions
 ```
 
-- The top block says the screen's **status**, who locked it, when and in which words, its mockup
+- The top block says the screen's **status**, who locked it, when and in which words, its
+  **kind** (`page`, the default, or `shared`, below), its mockup
   (`mock`, an HTML page beside the file, below), the files it is drawn from (`implements`), the
   code behind it (`reads`, optional) and the addresses it lives at (`routes`).
 - **Regions** says what each part of the screen shows and where its data comes from; **States** its
@@ -151,9 +154,16 @@ A screen is in one of three states:
 
 ### What a screen claims: `implements` and `reads`
 
-A screen names its code in two lists, split by one rule: **a file whose change can change what a
-person sees on this screen goes in `implements`; a file the screen only depends on goes in
-`reads`.**
+A screen names its code in two lists, split by one rule, in four lines:
+
+- **A file whose change can change what a person sees on this screen goes in `implements`**, the
+  data files that hold its words included.
+- **A file the screen only depends on goes in `reads`.**
+- **Structure several pages share is a shared screen of its own** (below); each page lists its
+  files in `reads`.
+- **A view file two pages share, and that is not structure, goes in `reads` on each.**
+
+Every skill that writes a screen states the rule in these lines.
 
 - **`implements`** holds what the screen is drawn from: its layout, its styles, its words. This is
   what a lock guards: a change there to a locked screen asks its owner (below).
@@ -174,14 +184,46 @@ omni design screens
 ```
 
 ```text terminal
-quote-editor  locked      @ana 2026-10-10  /quotes/:id
-quote-list    draft       —                /quotes
-quote-new     draft       —                —
-quote-old     superseded  —                —
+app-shell     draft · shared  —                /quotes · /quotes/:id
+quote-editor  locked          @ana 2026-10-10  /quotes/:id
+quote-list    draft           —                /quotes
+quote-new     draft           —                —
+quote-old     superseded      —                —
 ```
 
-One line per screen, sorted by name: its status, who locked it and when, and its routes. It also
-names any file whose top block does not read, and says so when the library is empty.
+One line per screen, sorted by name: its status, `shared` beside a shared screen, who locked it
+and when, and its routes. It also names any file whose top block does not read, and says so when
+the library is empty.
+
+### Shared screens
+
+Some structure is on many pages at once: the app shell (the sidebar and top bar around every page),
+the notifications bell and its panel, a sign-in page, a dialog, a toast. A change to it changes
+what a person sees everywhere, so it is not the code "behind" a page: it is a **shared screen**, a
+screen of its own, with `kind: shared` in its top block.
+
+```markdown file=.omni-loop/knowledge/design/screens/app-shell.md
+---
+screen: app-shell
+status: draft
+kind: shared
+mock: app-shell.html
+implements: [src/shell/AppShell.tsx, src/shell/Sidebar.tsx, src/shell/shell.css]
+routes: [/quotes, /quotes/:id]
+---
+```
+
+- It has everything a page has: its own `implements`, mockup, lock, review and place in the
+  gallery. With no route of its own, its `routes` name the pages it appears on.
+- **Each page it appears on lists its files in `reads`**: `quote-list` and `quote-editor` read
+  `src/shell/`, they do not implement it.
+- **Locking the shell guards the shell, and only the shell.** A change to the shell's files never
+  trips a page's lock, and a change to a page never trips the shell's. A shared screen starts as a
+  draft, like any other, and holds nothing until a person locks it.
+- `kind` is optional: a screen without it is a `page`, so nothing written before has to change. Any
+  other kind is refused by name. The kit names no shared screen: your repository draws its own.
+
+![Shared screens and what holds a change: the page quote-list implements its own files and reads the shell's; the shared screen app-shell, kind: shared, implements the shell; only a change to a screen's own implements can hold it; the review reports a fault in a part the change did not touch under Seen, not touched, never against the work; below, the before/after's Functional part, then its Pixel perfect part naming the screens, or Pixel perfect: no screen changes, which runs no design work, and the feature PR's Pixel perfect line](diagrams/shared-screens.svg)
 
 ![A screen's life: a skill writes it as a draft; a person locks it with their login, the date and their words; a change asks its owner through a high outbox item and adds a dated amendment line; a screen replaced whole is superseded, kept and named by its replacement](diagrams/screen-life.svg)
 
@@ -266,6 +308,20 @@ On a **locked** screen it never overwrites the mockup. It writes the new one as 
 `quote-editor-next.md` and its mockup, and raises the high outbox item a change to a locked screen
 always raises: its owner takes it with `/omni:pixel-perfect lock` (below).
 
+### Standing in
+
+A mockup is one self-contained page: it cannot load the product's fonts, its images or its data.
+`mock` stands in for each, and never guesses or leaves it out:
+
+| What is missing | What stands in |
+|---|---|
+| **Fonts** | the product's faces named first in each `font-family`, with the fallbacks the product itself uses; no font is loaded |
+| **Pixel art and images** | an inline SVG placeholder at the image's real size, labelled with what it stands for |
+| **Example data** | allowed, and expected on a screen that shows data: taken from the product's own demo data or fixtures when they exist, realistic, put inside `data-content` (below), and said to be examples outside the marked screen |
+| **No screenshot** | the screen is drawn from the source, and the mockup says so outside the mark |
+| **No gallery yet** | open the `.html` file directly |
+| **An undecided primary action** | the one the screen's own words point to is marked, the mockup says so outside the mark, and the question stays in the screen's **Open questions** |
+
 **A stale mockup is named, never blocked.** When a change touches a screen's `implements` but
 leaves its mockup alone, `omni design touched` adds a `mock may be stale: quote-editor` line, and
 the design review reports it. A change under `reads` never marks a mockup stale. A draft with no
@@ -279,7 +335,7 @@ omni design gallery
 
 It writes one page of the whole library and prints its path: each screen with its status, who
 locked it and when, its routes and its mockup (or `no mockup`), locked screens first, then drafts,
-then superseded. The page goes to a fresh folder under your system's temporary folder, or to the
+then superseded, and the shared screens in a group of their own, after the pages. The page goes to a fresh folder under your system's temporary folder, or to the
 file `--out <file>` names. It is written anew each time and **never committed**: there is no index
 to keep. An empty library prints `no screen yet` and writes nothing.
 
@@ -324,14 +380,66 @@ before-after.html
   no screen marked: skipped ([data-screen])
 ```
 
-Two neighbouring elements are always two strings: `<span>ask.client.ts</span><span>POST</span>`
-reads `ask.client.ts` and `POST`, never glued together. A control is a button, a link, or any
-element marked `data-primary`, whatever its tag. If your own mockups use other markers, set
-`design.words.screen` and `design.words.primary` to your selectors.
+**Copy apart from content.** Some of what a screen shows is not words it wrote: the PRD text in a
+dossier's pane, the figures on a dashboard, a customer's name. Mark it `data-content`, and the pass
+counts it apart, as `content · <n> words`, and raises no finding on it. It is not skipped silently:
+you see what was left out. Set `design.words.content` when your mockups mark content another way.
+
+**How it cuts the words into strings:**
+
+- **A sentence stays whole.** A phrasing element inside running text (`a`, `b`, `code`, `em`,
+  `span`, `strong`, `time` and the like) does not split it: `on <code>main</code> (2026-10-11)`
+  is one string.
+- **Two neighbouring blocks are two strings**, and so are neighbouring elements with no running
+  text around them: `<span>ask.client.ts</span><span>POST</span>` reads `ask.client.ts` and
+  `POST`, never glued together.
+- **A control's parts are words apart.** Inside a control, two neighbouring elements are joined
+  with a space: `<b>CREW TOP 5</b><span>NO SCORES YET</span>` reads `CREW TOP 5 NO SCORES YET`.
+
+```text terminal
+dossier.html
+  screen prd-dossier · 10 words
+    Shipped on main (2026-10-11) (4)
+    [control] CREW TOP 5 NO SCORES YET (6)
+    content · 412 words
+    findings: none
+```
+
+A control is a button, a link, or any element marked `data-primary`, whatever its tag. If your own
+mockups use other markers, set `design.words.screen`, `design.words.primary` and
+`design.words.content` to your selectors.
 
 **It never blocks.** It always exits 0 and prints what it found. `/omni:brainstorm`,
 `/omni:visual-fix` and `/omni:think-big` run it before showing you a mockup and fix what it finds,
 and the review's critique runs it too. A finding is fixed in the screen, never silenced.
+
+## The before/after: a Functional part and a Pixel perfect part
+
+With design craft on, the before/after page `/omni:brainstorm` writes for a PRD has two parts, in
+this order, each under its own heading:
+
+- **Functional:** what the change does, today beside after: the flow, the data, the exchange.
+  Every PRD has it.
+- **Pixel perfect:** only when the change changes a screen: the marked screens, today beside after,
+  and one line naming the library screens they are, shared screens included
+  (`screens: quote-list · app-shell`). It is the part the review and the word pass read, and the
+  one a reviewer looks at closely.
+
+A PRD that changes no screen (a database fix, a guard, a doc) has the Functional part alone, and
+says, in place of the second, the one line `Pixel perfect: no screen changes`. Then **no slice
+runs design work for it**: no review, no mockup, no word pass. Each sub-PR's **Design review** is
+the one line `— Design review: no screen changes (Pixel perfect: no screen changes)`.
+
+The feature pull request says where to look, right after its link line:
+
+```markdown github
+**Pixel perfect:** quote-list · app-shell
+```
+
+It names the screens of the before/after's `screens:` line, or `none` when the page says
+`Pixel perfect: no screen changes`. `/omni:visual-fix`'s page is all screens: it is the Pixel
+perfect part alone. With design craft off, the before/after is written in one part, as before,
+and the pull request has no such line.
 
 ## Use it on a screen
 
@@ -392,7 +500,12 @@ mock may be stale: quote-editor
 ```
 
 The review screenshots those routes, and compares a locked screen with its mockup. A difference
-from a locked screen is the high outbox item above, never an edit of the screen.
+from a locked screen is the high outbox item above, never an edit of the screen. A shared screen
+the change touched is screenshotted **in place**, on one page it appears on, as well as on its own.
+
+**Only what a change touches can hold it.** A lock trips only when the change touches that screen's
+own `implements`. A change to its `reads`, to another screen, or to a shared screen it shows is no
+change to it.
 
 **The review, in five steps:** a critique against your design form, an audit, your design linter
 when you set one, screenshots at the form's widths compared with the "after" screen of the PRD's
@@ -418,6 +531,23 @@ The sub-PR then carries a **Design review** section, one line per step:
 - **—** not run, and why. A slice that changes no screen shows one line,
   `— Design review: no screen changed (ui: no)`. When the app cannot run or cannot be seen where the
   agent works, the line says so, and nothing is reported as seen.
+
+### Seen, not touched
+
+A screenshot shows the whole page, not only what the slice changed. A fault the review sees in a
+part the change did not touch (another screen, or a shared screen the change left alone) is not the
+slice's: the developer fixing the quote list is never held by a bug in the menu. It goes under its
+own heading at the end of the **Design review**, apart from the slice's findings:
+
+```markdown github
+### Seen, not touched
+
+- — app-shell: the menu's active item loses its highlight at 390 (not touched here; file it as a bug of its own)
+```
+
+It is never a finding against the slice, never fixed in it, never an outbox item and never a
+block. The review names the screen it sits on and suggests filing it as a bug of its own, through
+`/omni:bug-fix` or `/omni:visual-fix`; it files nothing itself. No such fault, no heading.
 
 `/omni:visual-fix` runs the same review when it looks at the real screen, against the variation you
 picked. A visual fix has no outbox, so what it left is listed in its pull request's **Design

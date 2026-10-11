@@ -1,0 +1,79 @@
+---
+screen: app-shell
+status: draft
+kind: shared
+mock: app-shell.html
+implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css]
+reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
+routes: [/app, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
+supersedes: null
+---
+
+## Purpose
+
+The frame around every app page: the sidebar on the left (where a person can go) and the top bar
+over the page (where they are and how they see it). One wrapper, `AppShell`
+(`apps/galaxy/src/nav/AppShell.tsx`), used by the layout of each app section, so a change here
+changes what a person sees on every page listed in `routes`. Each of those pages lists these files
+in its `reads`, never in its `implements`.
+
+## Regions
+
+- **The sidebar** (`nav/Sidebar.tsx`, `nav/sidebar.ts`): the OMNI LOOP logo (the crest and the
+  wordmark, `nav/BrandLogo.tsx`) linked to /app, « to fold it, the workspace's name; the
+  **Dashboard** group (Home, Fleet, Loop, Workspace, Engineering) and the **Work** group (Products,
+  Roadmaps, Ideas, Concepts, PRDs, Bug Fixes, Visual Updates, Questions, Knowledge), each entry with
+  its 16 px sprite, the current one marked; Questions and PRDs carry a count badge; at the foot
+  Settings, then Docs · Release notes (each opening a new tab), then `Omni Loop v<version>`.
+- **The top bar** (`nav/AppBar.tsx`): the section's sprite at 2× in a tile and the trail to the page
+  (`Work › PRDs`); then the theme switch (Omni, Light, Dark), Game mode, the bell (its own shared
+  screen, `notifications`) and you (the avatar opening the user menu: your name and login, My
+  profile, Sign out; `nav/UserMenu.tsx`).
+- **The page** in `<main class="ask-main">`, drawn by each page's own screen.
+
+## States
+
+- **Folded to the rail** (from 900 px, the `omni-menu` cookie): a 56 px rail with the crest, each
+  section's sprite, a dot for a count and the Settings gear; » opens it again (`nav/menu-rail.ts`).
+- **Phone, below 900 px:** no sidebar; the bar opens with ☰, which slides the sidebar in as a
+  drawer over a scrim (`nav/drawer.ts`, `nav/drawer.css`). The theme switch, Game mode and the bell
+  wrap to a second row.
+- **Signed out:** no bell; Sign in with GitHub in the avatar's place (`nav/UserMenu.tsx`).
+- **No workspace name:** the line under the logo is not drawn.
+- **A path under no entry:** the tile shows the OMNI LOOP mark and the bar has no trail.
+
+## Words
+
+OMNI LOOP · Dashboard · Home · Fleet · Loop · Workspace · Engineering · Work · Products · Roadmaps ·
+Ideas · Concepts · PRDs · Bug Fixes · Visual Updates · Questions · Knowledge · Settings · Docs ·
+Release notes · Omni Loop v<version> · Collapse the menu · Expand the menu · Menu · Omni · Light ·
+Dark · Game mode · My profile · Sign out · Sign in with GitHub.
+
+## Refusals
+
+- No entry has nested lines: an entry's own pages (Questions' Shared with me, Settings' Fleets)
+  show as tabs on those pages, never as menu lines (`nav/sidebar.ts`).
+- Every entry is a client-side link, so the shell, the waiting polls and the bell's count stay
+  across a page change; Docs and Release notes, which leave the app, are not prefetched.
+- The shell adds no colour of its own: every colour is a token of `src/ask/theme-tokens.ts`.
+
+## Open questions
+
+- The shell has no one primary action, and the mockup marks none: is a shared frame meant to carry
+  a primary at all, or only the page inside it?
+- Each section's `layout.tsx` wires the shell to its pages and also imports the page's own
+  stylesheet: is a layout part of the shell, or of each page? Here it sits in `reads` on both.
+- The theme switch and Game mode are drawn by the public bar of /docs and /releases too: they are
+  `reads` here, a view two bars share, by the rule's fourth line.
+
+## Source
+
+- apps/galaxy/src/nav/AppShell.tsx
+- apps/galaxy/src/nav/Sidebar.tsx
+- apps/galaxy/src/nav/sidebar.ts
+- apps/galaxy/src/nav/AppBar.tsx
+- apps/galaxy/src/nav/BrandLogo.tsx
+- apps/galaxy/src/nav/UserMenu.tsx
+- apps/galaxy/src/nav/sidebar.css, app-bar.css
+- apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx
+- PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)

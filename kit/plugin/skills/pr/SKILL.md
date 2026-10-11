@@ -198,6 +198,17 @@ are Conventional Commits for all three kinds. Every body, template or not, ends 
 - [x] <scenario title> — `<file under acceptance.dir>`
 ```
 
+**Pixel perfect,** only when `design.enabled` is `true` (`omni config design.enabled`): right after
+the link line, one line telling a reviewer where to look closely:
+
+```markdown
+**Pixel perfect:** <the screens to look at closely, or `none`>
+```
+
+The screens are the ones the `screens:` line of the PRD's before/after names, in its Pixel perfect
+part (`quote-list · app-shell`); a before/after that says `Pixel perfect: no screen changes`, or has
+no such part, gives `none`. Design off: no such line.
+
 Tick a slice when its sub-PR merges; tick a scenario when it passes. Without a template, follow the
 top with **Summary**, **Verified** (real commands and their result, or why a check was not run),
 **Risk and rollback** (what to revert), and **Reviewer focus** (the riskiest decisions, not a repeat

@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.322" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.327" };
   }
 });
 
@@ -27857,7 +27857,8 @@ var ConfigSchema = external_exports.object({
   // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
   // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
   // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
-  // drops nothing.
+  // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
+  // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
   design: section({
     enabled: external_exports.boolean().default(false),
     paths: external_exports.array(text2).default([]),
@@ -27867,6 +27868,7 @@ var ConfigSchema = external_exports.object({
       sentence: external_exports.number().int().positive().default(7),
       screen: wordSelector.default("[data-screen]"),
       primary: wordSelector.default("[data-primary]"),
+      content: wordSelector.optional(),
       avoid: external_exports.array(text2).default([])
     })
   }),
@@ -32881,24 +32883,24 @@ function breaches(paths, territory, generated2 = []) {
 }
 function sharedGround(left, right, generated2 = []) {
   const built = generatedPrefixes(generated2);
-  const shared = /* @__PURE__ */ new Set();
+  const shared2 = /* @__PURE__ */ new Set();
   for (const a of left.territory) {
     for (const b of right.territory) {
       const [x, y] = [prefixOf(a), prefixOf(b)];
       const meets = x.startsWith(y) || y.startsWith(x);
       const narrower = x.length >= y.length ? x : y;
-      if (meets && !covers(built, narrower)) shared.add(x.length >= y.length ? y : x);
+      if (meets && !covers(built, narrower)) shared2.add(x.length >= y.length ? y : x);
     }
   }
-  return [...shared];
+  return [...shared2];
 }
 function collisions(slices, generated2 = []) {
   const pairs = [];
   for (const [i, a] of slices.entries()) {
     for (const b of slices.slice(i + 1)) {
       if ((a.repo ?? null) !== (b.repo ?? null)) continue;
-      const shared = sharedGround(a, b, generated2);
-      if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
+      const shared2 = sharedGround(a, b, generated2);
+      if (shared2.length > 0) pairs.push({ left: a.id, right: b.id, shared: shared2 });
     }
   }
   return pairs;
@@ -32913,9 +32915,9 @@ function collisionRows(slices, generated2 = []) {
   const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
   const at2 = (id) => `${landed ? `l${landingOf2.get(id)}` : ""}w${waveOf.get(id)}`;
-  return collisions(slices, generated2).map(({ left, right, shared }) => ({
+  return collisions(slices, generated2).map(({ left, right, shared: shared2 }) => ({
     pair: `${left} \xB7 ${right}`,
-    shared: shared.map((ground) => `\`${ground}\``).join(", "),
+    shared: shared2.map((ground) => `\`${ground}\``).join(", "),
     resolved: `${left} ${at2(left)} \xB7 ${right} ${at2(right)}`
   }));
 }
@@ -34147,9 +34149,9 @@ function readDecisions({ ctx }) {
   });
   const byNumber2 = /* @__PURE__ */ new Map();
   for (const record2 of records) byNumber2.set(record2.number, [...byNumber2.get(record2.number) ?? [], record2.file]);
-  const shared = [...byNumber2].filter(([, files]) => files.length > 1).map(([number4, files]) => ({ number: number4, files }));
+  const shared2 = [...byNumber2].filter(([, files]) => files.length > 1).map(([number4, files]) => ({ number: number4, files }));
   const highest = records.reduce((max, record2) => Math.max(max, Number(record2.number)), 0);
-  return { dir, records, shared, next: String(highest + 1).padStart(4, "0") };
+  return { dir, records, shared: shared2, next: String(highest + 1).padStart(4, "0") };
 }
 
 // kit/lib/knowledge/look-rule.ts
@@ -40261,6 +40263,7 @@ var import_yaml5 = __toESM(require_dist(), 1);
 import { readdirSync as readdirSync18, readFileSync as readFileSync37 } from "node:fs";
 import { join as join50 } from "node:path";
 var SCREEN_STATUSES = ["draft", "locked", "superseded"];
+var SCREEN_KINDS = ["page", "shared"];
 var FRONT_MATTER3 = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 var DATE4 = /^\d{4}-\d{2}-\d{2}$/;
 var AMENDMENT = /^> Amended /;
@@ -40272,6 +40275,7 @@ var date5 = external_exports.coerce.string().regex(DATE4, "locked-on must be a Y
 var ScreenFrontMatter = external_exports.object({
   screen: name("screen"),
   status: external_exports.enum(SCREEN_STATUSES, { message: `status must be one of: ${SCREEN_STATUSES.join(", ")}` }),
+  kind: external_exports.enum(SCREEN_KINDS, { message: `kind must be one of: ${SCREEN_KINDS.join(", ")}` }).default("page"),
   "locked-by": optional2("locked-by"),
   "locked-on": date5,
   quote: optional2("quote"),
@@ -40315,7 +40319,7 @@ function parseScreen(text14, file2) {
     const keys = issue2?.code === "unrecognized_keys" ? `: ${issue2.keys.join(", ")}` : "";
     return fail2(`${issue2?.message ?? "front matter does not read"}${keys}`);
   }
-  const { screen, status: status5, quote, mock, implements: paths, reads, routes, supersedes } = read2.data;
+  const { screen, status: status5, kind, quote, mock, implements: paths, reads, routes, supersedes } = read2.data;
   const lockedBy = read2.data["locked-by"];
   const lockedOn = read2.data["locked-on"];
   if (status5 === "locked") {
@@ -40323,7 +40327,7 @@ function parseScreen(text14, file2) {
     if (missing.length) return fail2(`a locked screen needs locked-by, locked-on and quote \u2014 missing ${missing.join(", ")}`);
   }
   const body = readBody2(text14.slice(fence[0].length));
-  return { ok: true, screen: { file: file2, screen, status: status5, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
+  return { ok: true, screen: { file: file2, screen, status: status5, kind, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
 }
 function readScreens(dir) {
   let files;
@@ -40347,7 +40351,7 @@ function formatScreens({ screens: screens2, problems }, dir) {
   if (screens2.length === 0) return [`screens: none in ${dir}`, ...unread];
   const rows2 = screens2.map((s) => ({
     name: s.screen,
-    status: s.status,
+    status: s.kind === "shared" ? `${s.status} \xB7 shared` : s.status,
     locker: s.lockedBy === null && s.lockedOn === null ? "\u2014" : [s.lockedBy, s.lockedOn].filter((part) => part !== null).join(" "),
     routes: s.routes.length ? s.routes.join(", ") : "\u2014"
   }));
@@ -41685,8 +41689,9 @@ function defaultDesignBase(branch, { repo, branches }) {
 // kit/lib/design/gallery/page.ts
 init_define_OMNI_BUNDLE();
 var ORDER = { locked: 0, draft: 1, superseded: 2 };
+var shared = (screen) => screen.kind === "shared" ? 1 : 0;
 function galleryOrder(screens2) {
-  return [...screens2].sort((a, b) => ORDER[a.status] - ORDER[b.status]);
+  return [...screens2].sort((a, b) => shared(a) - shared(b) || ORDER[a.status] - ORDER[b.status]);
 }
 var escape3 = (text14) => text14.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 var POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
@@ -41699,6 +41704,7 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .lede { color: var(--muted); margin: 0 0 24px; }
 section { border-top: 1px solid var(--line); padding: 20px 0; }
 h2 { font-size: 18px; margin: 0; }
+h2.group { font-size: 20px; margin: 32px 0 0; padding-top: 20px; border-top: 2px solid var(--line); }
 .meta { color: var(--muted); margin: 4px 0 12px; }
 .locked .status { color: var(--lock); font-weight: 600; }
 iframe { display: block; width: 100%; height: 80vh; min-height: 360px; resize: vertical; overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
@@ -41713,7 +41719,8 @@ function section3(screen, readMock) {
     const html = readMock(screen.mock);
     body = html === null ? `<p class="none">mockup cannot be read: ${escape3(screen.mock)}</p>` : `<iframe sandbox="" title="${escape3(screen.screen)}" srcdoc="${escape3(html)}"></iframe>`;
   }
-  return `<section class="${screen.status}">
+  const kind = screen.kind === "shared" ? " shared" : "";
+  return `<section class="${screen.status}${kind}">
 <h2>${escape3(screen.screen)}</h2>
 <p class="meta"><span class="status">${screen.status}</span>${lock}${routes}</p>
 ${body}
@@ -41721,6 +41728,10 @@ ${body}
 }
 function galleryPage(library, readMock) {
   const screens2 = galleryOrder(library.screens);
+  const sections = screens2.map((screen, at2) => {
+    const opens = screen.kind === "shared" && screens2[at2 - 1]?.kind !== "shared";
+    return `${opens ? '<h2 class="group">Shared screens</h2>\n' : ""}${section3(screen, readMock)}`;
+  });
   const problems = library.problems.length ? `<section class="problems">
 ${library.problems.map((problem) => `<p>does not read: ${escape3(problem)}</p>`).join("\n")}
 </section>
@@ -41737,8 +41748,8 @@ ${library.problems.map((problem) => `<p>does not read: ${escape3(problem)}</p>`)
 <body>
 <main>
 <h1>Screen gallery</h1>
-<p class="lede">${screens2.length} screen${screens2.length === 1 ? "" : "s"}: locked first, then drafts, then superseded. Generated by omni design gallery; never committed.</p>
-${screens2.map((screen) => section3(screen, readMock)).join("\n")}
+<p class="lede">${screens2.length} screen${screens2.length === 1 ? "" : "s"}: locked first, then drafts, then superseded; the shared screens after the pages. Generated by omni design gallery; never committed.</p>
+${sections.join("\n")}
 ${problems}</main>
 </body>
 </html>
@@ -41815,6 +41826,13 @@ function avoidedWords(product2) {
     seen.add(key2);
     return true;
   });
+}
+
+// kit/lib/design/words/content.ts
+init_define_OMNI_BUNDLE();
+var DEFAULT_WORDS_CONTENT = "[data-content]";
+function wordsContent(words4) {
+  return words4.content ?? DEFAULT_WORDS_CONTENT;
 }
 
 // kit/lib/design/words/pass.ts
@@ -41976,6 +41994,7 @@ var BLOCK = /* @__PURE__ */ new Set([
   "tr",
   "ul"
 ]);
+var PHRASING = /* @__PURE__ */ new Set(["a", "abbr", "b", "cite", "code", "em", "i", "kbd", "mark", "q", "s", "small", "span", "strong", "sub", "sup", "time", "u", "var"]);
 var CONTROL_ROLES = /* @__PURE__ */ new Set(["button", "link", "menuitem", "tab", "option", "switch", "checkbox", "radio"]);
 var INPUT_CONTROLS = /* @__PURE__ */ new Set(["submit", "button", "reset"]);
 var WORD = /[\p{L}\p{N}]/u;
@@ -41984,12 +42003,18 @@ function countWords(text14) {
 }
 var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
 var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
+var wordsOf = (count4) => `${count4} ${count4 === 1 ? "word" : "words"}`;
 var squash = (text14) => text14.replace(/\s+/g, " ").trim();
-function textOf3(node3) {
+function textOf3(node3, spaced) {
   if (node3.kind === "text") return node3.text;
   if (isHidden(node3)) return "";
   const own2 = node3.tag === "input" ? ` ${node3.attributes.get("value") ?? ""} ` : "";
-  return own2 + node3.children.map(textOf3).join(BLOCK.has(node3.tag) ? " " : "");
+  const block = BLOCK.has(node3.tag);
+  return node3.children.reduce((text14, child, index) => {
+    const before2 = node3.children[index - 1];
+    const apart = block || spaced && before2?.kind === "element" && child.kind === "element";
+    return text14 + (index > 0 && apart ? " " : "") + textOf3(child, spaced);
+  }, own2);
 }
 function phraseOf(text14, control) {
   const squashed = squash(text14);
@@ -42001,26 +42026,44 @@ function flush(walk2) {
   walk2.run = "";
 }
 var skipped2 = (element, walk2, top2) => isHidden(element) || !top2 && matches(walk2.rules.screen, element);
-function visitElement(element, walk2, top2) {
-  if (skipped2(element, walk2, top2)) return;
-  if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element)));
+var hasRunningText = (element) => element.children.some((child) => child.kind === "text" && WORD.test(child.text));
+var runsOn = (child, running) => running && child.kind === "element" && PHRASING.has(child.tag);
+function readContent2(element, walk2, inline) {
+  if (!inline) flush(walk2);
+  walk2.content += countWords(textOf3(element, true));
+}
+function readControl(element, walk2) {
   flush(walk2);
-  if (isControl(element, walk2.rules.primary)) {
-    walk2.phrases.push(...phraseOf(textOf3(element), true));
+  walk2.phrases.push(...phraseOf(textOf3(element, true), true));
+}
+function visitChildren(element, walk2, inline) {
+  if (!inline) flush(walk2);
+  const running = inline || hasRunningText(element);
+  for (const child of element.children) visit2(child, walk2, runsOn(child, running));
+  if (!inline) flush(walk2);
+}
+function visitElement(element, walk2, top2, inline) {
+  if (skipped2(element, walk2, top2)) return;
+  if (!top2 && matches(walk2.rules.content, element)) {
+    readContent2(element, walk2, inline);
     return;
   }
-  for (const child of element.children) visit2(child, walk2);
-  flush(walk2);
+  if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element, true)));
+  if (isControl(element, walk2.rules.primary)) {
+    readControl(element, walk2);
+    return;
+  }
+  visitChildren(element, walk2, inline);
 }
-function visit2(node3, walk2) {
+function visit2(node3, walk2, inline) {
   if (node3.kind === "text") walk2.run += node3.text;
-  else visitElement(node3, walk2, false);
+  else visitElement(node3, walk2, false, inline);
 }
 function readScreen(screen, rules) {
-  const walk2 = { rules, phrases: [], primaries: [], run: "" };
-  visitElement(screen, walk2, true);
+  const walk2 = { rules, phrases: [], primaries: [], run: "", content: 0 };
+  visitElement(screen, walk2, true, false);
   flush(walk2);
-  return { phrases: walk2.phrases, primaries: walk2.primaries };
+  return { phrases: walk2.phrases, primaries: walk2.primaries, content: walk2.content };
 }
 function screenName(screen, rules, index) {
   const named4 = [...namingAttributes(rules.screen), "id", "aria-label"].map((name3) => screen.attributes.get(name3)?.trim()).find(Boolean);
@@ -42051,11 +42094,12 @@ function screensUnder(node3, rules) {
 function wordPass(html, rules) {
   const marked = screensUnder(parseHtml(html), rules);
   const screens2 = marked.map((screen, index) => {
-    const { phrases, primaries } = readScreen(screen, rules);
+    const { phrases, primaries, content } = readScreen(screen, rules);
     return {
       name: screenName(screen, rules, index),
       phrases,
       words: phrases.reduce((sum, phrase) => sum + phrase.words, 0),
+      content,
       findings: findings(phrases, primaries, rules)
     };
   });
@@ -42065,8 +42109,9 @@ function formatPage(page2, { skipped: skipped3, screens: screens2 }, rules) {
   const lines2 = [page2];
   if (skipped3) lines2.push(`  no screen marked: skipped (${rules.screen.source})`);
   for (const screen of screens2) {
-    lines2.push(`  screen ${screen.name} \xB7 ${screen.words} ${screen.words === 1 ? "word" : "words"}`);
+    lines2.push(`  screen ${screen.name} \xB7 ${wordsOf(screen.words)}`);
     for (const phrase of screen.phrases) lines2.push(`    ${phrase.control ? "[control] " : ""}${phrase.text} (${phrase.words})`);
+    if (screen.content > 0) lines2.push(`    content \xB7 ${wordsOf(screen.content)}`);
     if (screen.findings.length === 0) lines2.push("    findings: none");
     for (const finding of screen.findings) lines2.push(`    ! ${finding.rule}: ${finding.message}`);
   }
@@ -42190,6 +42235,7 @@ function words(io, pages) {
     sentence: config3.words.sentence,
     screen: checked(config3.words.screen),
     primary: checked(config3.words.primary),
+    content: checked(wordsContent(config3.words)),
     avoid: [...fromForm, ...config3.words.avoid.filter((term) => !known2.has(term.toLowerCase()))]
   };
   return pages.flatMap((page2) => {
@@ -44332,7 +44378,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["omni design touched [<base>]", "omni design screens", "omni design words <page.html>\u2026", "omni design gallery [--out <file>]"],
     summary: "whether a branch touches a screen, the screen library, the word pass over a mockup, and the gallery",
-    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. It first drops every changed path a design.ignore glob matches (by default the test shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change made only of tests reads ui: no. Its screens: line names each library screen whose implements the change touches, and as reads <screen> each one it reaches only through its reads, the code behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements (the files it is drawn from), the optional reads list (the code it only depends on) and its routes; omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings, two sibling elements always two strings, each control's marked (a button, a link, or any element design.words.primary matches), and its word count, then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no script, no remote asset): each screen with its status, who locked it and when, its routes, and its mockup inline or no mockup, locked screens first, then drafts, then superseded. It writes to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; the page is generated each time and never committed. An empty library prints no screen yet and writes nothing, design: off while the flag is off, and gallery exits 0."
+    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. It first drops every changed path a design.ignore glob matches (by default the test shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change made only of tests reads ui: no. Its screens: line names each library screen whose implements the change touches, and as reads <screen> each one it reaches only through its reads, the code behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements (the files it is drawn from), the optional reads list (the code it only depends on), its routes, and an optional kind: page, the default, or shared, structure several pages show (an app shell, notifications, a sign-in page), a screen of its own whose files each page it appears on lists in reads, and any other kind is refused by name; omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, with shared beside a shared screen, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings (two sibling blocks, or a layout of spans with no running text, are two strings, while a phrasing element such as code, em or span inside running text keeps its sentence whole, and inside a control two sibling elements are joined with a space), each control's marked (a button, a link, or any element design.words.primary matches), and its word count; text inside an element design.words.content matches (by default [data-content]) is content the screen shows, not words it wrote: it prints content \xB7 <n> words apart and raises no finding. Then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no script, no remote asset): each screen with its status, who locked it and when, its routes, and its mockup inline or no mockup, locked screens first, then drafts, then superseded, and the shared screens in a group of their own after the pages. It writes to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; the page is generated each time and never committed. An empty library prints no screen yet and writes nothing, design: off while the flag is off, and gallery exits 0."
   },
   {
     name: "e2e",
@@ -46536,11 +46582,11 @@ function init2(positional, flags, { ctx, stdout }) {
   println(stdout, `kb init \u2014 wrote ${wrote.length} file(s); ${files.length - wrote.length} already there, left as they were.`);
   return 0;
 }
-function recordLines({ dir, records, shared, next: next2 }) {
+function recordLines({ dir, records, shared: shared2, next: next2 }) {
   const lines2 = [`## Records  [read live from ${dir}]`];
   if (records.length === 0) lines2.push("No decision records yet.");
   lines2.push(...records.map(({ number: number4, file: file2, title }) => `${number4}  ${title ?? file2}`));
-  lines2.push(...shared.map(({ number: number4, files }) => `! ${number4} is used by ${files.length} records: ${files.join(", ")}`));
+  lines2.push(...shared2.map(({ number: number4, files }) => `! ${number4} is used by ${files.length} records: ${files.join(", ")}`));
   lines2.push(`Next free number: ${next2}`);
   return lines2;
 }
@@ -48345,15 +48391,15 @@ function groundOf(step2, live) {
   return slices.filter((slice) => step2.slices.includes(slice.id));
 }
 function sharedOf(a, b, live, generated2) {
-  const shared = /* @__PURE__ */ new Set();
+  const shared2 = /* @__PURE__ */ new Set();
   for (const left of groundOf(a, live)) {
     for (const right of groundOf(b, live)) {
       const repo = left.repo ?? null;
       if (repo !== (right.repo ?? null)) continue;
-      for (const path of sharedGround(left, right, generated2)) shared.add(repo === null ? path : `${repo}:${path}`);
+      for (const path of sharedGround(left, right, generated2)) shared2.add(repo === null ? path : `${repo}:${path}`);
     }
   }
-  return [...shared].sort();
+  return [...shared2].sort();
 }
 function keptBack(step2, busy, { plan: plan2, live, done, generated: generated2 }) {
   const same2 = busy.find((other) => other.step.prd === step2.prd);
@@ -48361,8 +48407,8 @@ function keptBack(step2, busy, { plan: plan2, live, done, generated: generated2 
   const blocker = blockerOf(step2, plan2, live);
   if (blocker !== null) return blocker.why;
   for (const other of busy) {
-    const shared = sharedOf(step2, other.step, live, generated2);
-    if (shared.length > 0) return `${shared.join(", ")} shared with ${stepRef(other)}`;
+    const shared2 = sharedOf(step2, other.step, live, generated2);
+    if (shared2.length > 0) return `${shared2.join(", ")} shared with ${stepRef(other)}`;
   }
   return orderOf(step2, plan2, done)?.why ?? null;
 }
@@ -48464,19 +48510,19 @@ function groundOf2(a, b) {
   return repo === null ? ground : ground.map((path) => `${repo}:${path}`);
 }
 function meeting(first, second) {
-  const shared = /* @__PURE__ */ new Set();
+  const shared2 = /* @__PURE__ */ new Set();
   const left = /* @__PURE__ */ new Set();
   const right = /* @__PURE__ */ new Set();
   for (const a of first.slices) {
     for (const b of second.slices) {
       const ground = groundOf2(a, b);
       if (ground.length === 0) continue;
-      for (const path of ground) shared.add(path);
+      for (const path of ground) shared2.add(path);
       left.add(a.id);
       right.add(b.id);
     }
   }
-  return { shared: [...shared].sort(), left: [...left], right: [...right] };
+  return { shared: [...shared2].sort(), left: [...left], right: [...right] };
 }
 function orderCollisions(units) {
   const waves = units.filter((unit3) => unit3.kind === "wave" && !unit3.done);
@@ -48484,10 +48530,10 @@ function orderCollisions(units) {
     for (const second of waves.slice(i + 1)) {
       if (first.prd === second.prd) continue;
       const [earlier, later] = first.order < second.order ? [first, second] : [second, first];
-      const { shared, left, right } = meeting(earlier, later);
-      if (shared.length === 0) continue;
+      const { shared: shared2, left, right } = meeting(earlier, later);
+      if (shared2.length === 0) continue;
       later.deps.add(earlier);
-      later.why.push(`${later.prd} ${right.join(", ")} after ${earlier.prd} ${left.join(", ")}: both touch ${shared.join(", ")}`);
+      later.why.push(`${later.prd} ${right.join(", ")} after ${earlier.prd} ${left.join(", ")}: both touch ${shared2.join(", ")}`);
     }
   }
 }
@@ -51161,7 +51207,7 @@ function fileOf(dir, name3) {
   if (size > PITCH_FILE_MAX_BYTES) refuse2(`${name3}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name3, path, bytes: size, type: PITCH_FILES[name3] };
 }
-function wordsOf(sent) {
+function wordsOf2(sent) {
   const word = (key2) => {
     const value = sent[key2];
     const max = WORD_MAX[key2];
@@ -51180,7 +51226,7 @@ function readPitchRun(dir, prd2) {
   if (!isOneOf(AUDIENCES, audience)) return refuse2(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
   if (!isOneOf(LOOKS, look)) return refuse2(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
   if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse2(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
-  const words4 = wordsOf(sent);
+  const words4 = wordsOf2(sent);
   const files = keysOf(PITCH_FILES).map((name3) => fileOf(dir, name3));
   return { audience, look, commit, ...words4, files };
 }
@@ -51350,7 +51396,7 @@ function syncErrors({ meta: meta3, scenes }) {
   return [{ path: "meta.music.sync.at", message: `${sync2.at} s is past the end of scene ${sync2.scene + 1}, ${scene2.duration} s long` }];
 }
 function sceneWarnings(scene2, index) {
-  const words4 = wordsOf2(scene2, `scenes.${index}`);
+  const words4 = wordsOf3(scene2, `scenes.${index}`);
   const warnings = words4.flatMap(overLimit);
   const count4 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
   if (count4 / READ_WORDS_PER_SECOND > scene2.duration) {
@@ -51383,7 +51429,7 @@ function textsAt(value, path, at2) {
   if (key2 !== "*") return textsAt(propertyOf(value, key2), rest, `${at2}.${key2}`);
   return Array.isArray(value) ? value.flatMap((item2, n) => textsAt(item2, rest, `${at2}.${n}`)) : [];
 }
-function wordsOf2(scene2, at2) {
+function wordsOf3(scene2, at2) {
   return WORD_FIELDS.flatMap(([field2, limit]) => textsAt(scene2, field2.split("."), at2).map((piece) => ({ ...piece, limit })));
 }
 function lengthWarnings(seconds4) {

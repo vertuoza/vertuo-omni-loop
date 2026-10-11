@@ -191,3 +191,25 @@ skill but pixel-perfect writes `status: locked` or a `🔒` line.
 
 `kit/test/design-skills.test.ts`: `mock.md` and what it says, the command list naming `mock`,
 review's stale-mockup note, and lock's rule.
+
+## PRD #1584, slice s3 — shared screens, touched-only holds and Standing in
+
+- **`reference/review.md`** gains **Only what the work touches can hold it**: a lock trips only when
+  the diff changes that screen's own `implements`. Its new **Seen, not touched** section reports a
+  fault in a part the diff did not change (another screen's `implements`, or a shared screen the
+  diff did not touch) under its own heading, apart from the work's findings: never a finding
+  against the work, never fixed in it, never an outbox item, never a block, suggested as a bug of
+  its own. Step 4 screenshots a touched shared screen in place, on one page it appears on, as well
+  as on its own.
+- **`mock.md`** gains **Standing in** (fonts, pixel art and images, example data inside
+  `data-content`, no screenshot, no gallery yet, an undecided primary action), and draws a shared
+  screen on its own.
+- **`mock.md` and `reference/lock.md`** state the rule that splits `implements` from `reads` in its
+  four lines (the data files that hold a screen's words in `implements`; a shared screen of its own
+  for shared structure; a view file two pages share in `reads` on each). `lock.md` says locking a
+  shared screen guards it alone.
+- **Step 0** says what a shared screen (`kind: shared`) is.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

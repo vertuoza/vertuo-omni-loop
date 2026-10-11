@@ -2,7 +2,9 @@
 // front matter (`screen`, `status`, who locked it, when and in which words, its mockup, the paths it
 // `implements`, its `routes`, the screen it `supersedes`), then dated amendment lines, then its
 // sections. PRD 1550: an optional `reads` list names the code behind the screen (engines, data,
-// rules): read for context, it never trips a lock; a screen without it reads `[]`. `omni design screens` lists it; there is no hand-kept index. A file that does not read is
+// rules): read for context, it never trips a lock; a screen without it reads `[]`. PRD 1584: an optional
+// `kind` — `page` (the default) or `shared`, structure several pages show (an app shell, a sign-in page),
+// a screen of its own whose files each page lists in `reads`. `omni design screens` lists it; there is no hand-kept index. A file that does not read is
 // named, never skipped in silence. The kit ships the shape only: every screen is the repository's.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,11 +15,16 @@ import { messageOf } from '../narrow.ts';
 /** The three states a screen may be in, in its life's order. */
 const SCREEN_STATUSES = ['draft', 'locked', 'superseded'] as const;
 
+/** PRD 1584: a page (the default), or structure several pages share. */
+const SCREEN_KINDS = ['page', 'shared'] as const;
+
 /** One screen of the library, as its file says it. */
 export type Screen = {
   readonly file: string;
   readonly screen: string;
   readonly status: (typeof SCREEN_STATUSES)[number];
+  /** PRD 1584: `page`, or `shared` for structure several pages show; a screen without `kind` is a page. */
+  readonly kind: (typeof SCREEN_KINDS)[number];
   readonly lockedBy: string | null;
   readonly lockedOn: string | null;
   readonly quote: string | null;
@@ -51,6 +58,7 @@ const ScreenFrontMatter = z
   .object({
     screen: name('screen'),
     status: z.enum(SCREEN_STATUSES, { message: `status must be one of: ${SCREEN_STATUSES.join(', ')}` }),
+    kind: z.enum(SCREEN_KINDS, { message: `kind must be one of: ${SCREEN_KINDS.join(', ')}` }).default('page'),
     'locked-by': optional('locked-by'),
     'locked-on': date,
     quote: optional('quote'),
@@ -99,7 +107,7 @@ export function parseScreen(text: string, file: string): { ok: true; screen: Scr
     const keys = issue?.code === 'unrecognized_keys' ? `: ${issue.keys.join(', ')}` : '';
     return fail(`${issue?.message ?? 'front matter does not read'}${keys}`);
   }
-  const { screen, status, quote, mock, implements: paths, reads, routes, supersedes } = read.data;
+  const { screen, status, kind, quote, mock, implements: paths, reads, routes, supersedes } = read.data;
   const lockedBy = read.data['locked-by'];
   const lockedOn = read.data['locked-on'];
   if (status === 'locked') {
@@ -107,7 +115,7 @@ export function parseScreen(text: string, file: string): { ok: true; screen: Scr
     if (missing.length) return fail(`a locked screen needs locked-by, locked-on and quote — missing ${missing.join(', ')}`);
   }
   const body = readBody(text.slice(fence[0].length));
-  return { ok: true, screen: { file, screen, status, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
+  return { ok: true, screen: { file, screen, status, kind, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
 }
 
 /** The `.md` files directly in `dir`, each read; a folder that does not exist is an empty library. */
@@ -138,7 +146,7 @@ export function formatScreens({ screens, problems }: Library, dir: string): stri
   if (screens.length === 0) return [`screens: none in ${dir}`, ...unread];
   const rows = screens.map((s) => ({
     name: s.screen,
-    status: s.status,
+    status: s.kind === 'shared' ? `${s.status} · shared` : s.status,
     locker: s.lockedBy === null && s.lockedOn === null ? '—' : [s.lockedBy, s.lockedOn].filter((part) => part !== null).join(' '),
     routes: s.routes.length ? s.routes.join(', ') : '—',
   }));

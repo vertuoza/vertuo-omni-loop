@@ -9,7 +9,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartHud, type KartStatus } from './kart.ts';
+import { BACK_TO_CHOICE, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { sending, type ScoreSend } from './invaders-score';
@@ -22,7 +22,7 @@ const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' =
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A game that does nothing, as the loader hands it over. */
-const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0 });
+const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0 });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
@@ -259,6 +259,19 @@ describe('the results and the score (slice 4)', () => {
     expect(t).toContain('TIME 1:40.0');
   });
 
+  it('fills a MULTI table in live: the time of whoever finished, a dash for whoever races, OUT for whoever left', () => {
+    const live = (): KartHud => ({ phase: 'finish', beat: null, results: { rows: [
+      { place: 1, name: 'YOU', tenths: 1000, you: true }, { place: 2, name: 'ALPHA', tenths: 1042, you: false },
+      { place: 3, name: 'BRAVO', tenths: null, you: false }, { place: 4, name: 'CHARLIE', tenths: null, you: false, out: true },
+    ], place: 1, tenths: 1000, live: true } });
+    expect(text('ready', WIDE, 'full', live())).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:44.2 3RD BRAVO — -- CHARLIE OUT');
+    expect(sameKartHud(live(), live())).toBe(true);
+    const first = live();
+    const later = live();
+    if (first.results && later.results) later.results = { ...first.results, rows: first.results.rows.map((r) => (r.name === 'BRAVO' ? { ...r, tenths: 1100 } : r)) };
+    expect(sameKartHud(first, later)).toBe(false);
+  });
+
   it('shows A to race again and B to the room when nothing is being retried', () => {
     expect(text('ready', WIDE, 'full', results())).toContain('A RACE AGAIN');
     expect(text('ready', WIDE, 'full', results())).toContain('GAME ROOM');
@@ -343,5 +356,125 @@ describe('the race\'s music and engine (PRD 1427)', () => {
   it('hums during the countdown and the race only', () => {
     expect(['ready', 'countdown', 'race', 'paused', 'finish'].map((p) => kartEngineOn(hud(p as KartHud['phase'])))).toEqual([false, true, true, false, false]);
     expect(kartEngineOn(null)).toBe(false);
+  });
+});
+
+describe('the choice on the ready screen (PRD 1572)', () => {
+  const choose = (choice: KartChoice, multi: boolean) =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice, multi })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('shows the circuit, then SINGLE and MULTI, the cursor on SINGLE', () => {
+    expect(choose(FIRST_CHOICE, true)).toBe('COMET RING · 3 LAPS ▶ SINGLE MULTI B GAME ROOM');
+  });
+  it('reads MULTI · SIGN IN TO RACE without a link, and the cursor skips it', () => {
+    expect(choose(FIRST_CHOICE, false)).toContain(MULTI_CLOSED_LINE);
+    expect(choicePress(FIRST_CHOICE, 'down', false)).toBe(FIRST_CHOICE);
+  });
+  it('moves with up and down, and picks SINGLE with A or START', () => {
+    const multi = choicePress(FIRST_CHOICE, 'down', true);
+    expect(multi).toEqual({ step: 'choose', cursor: 'multi' });
+    expect(choicePress(multi, 'up', true)).toEqual(FIRST_CHOICE);
+    expect(choicePress(FIRST_CHOICE, 'a', true)).toEqual({ step: 'single' });
+    expect(choicePress(FIRST_CHOICE, 'start', true)).toEqual({ step: 'single' });
+  });
+  it('picking SINGLE shows today\'s ready line', () => {
+    expect(choose({ step: 'single' }, true)).toContain(READY_LINE);
+  });
+  it('B goes back to the game room', () => {
+    expect(kartPress('ready', 'b', 'ready')).toBe('back');
+  });
+});
+
+describe('the grid (PRD 1572)', () => {
+  const hero = { v: 1, body: 'girl', skin: 0, hair: 0, suit: 0, cape: 0 } as const;
+  const row = (id: string, name: string, best: number | null, you = false, seat = true) => ({ id, name, hero, fleet: null, best, you, seat });
+  const grid = (view: KartGridView) =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'grid' }, multi: true, lobby: view })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('picking MULTI with A or START goes to the grid, and only when it can be picked', () => {
+    const onMulti: KartChoice = { step: 'choose', cursor: 'multi' };
+    expect(choicePress(onMulti, 'a', true)).toEqual({ step: 'grid' });
+    expect(choicePress(onMulti, 'start', true)).toEqual({ step: 'grid' });
+    expect(choicePress(onMulti, 'a', false)).toBe(onMulti);
+  });
+
+  it("lists each player's name and best time or NO TIME, in the order it is given, with the line under them", () => {
+    const view: KartGridView = { state: 'joined', rows: [row('a', 'Ada', 653), row('b', 'Bo', null, true)], line: 'WAITING FOR ADA' };
+    expect(grid(view)).toBe('GRID Ada 1:05.3 Bo NO TIME WAITING FOR ADA B BACK');
+  });
+
+  it('says each line of the grid as it is given', () => {
+    for (const line of ['WAITING FOR RACERS', 'START RACE', 'WAITING FOR ADA', 'GRID FULL · 4 RACERS', 'RECONNECTING…', GRID_OUT_LINE]) {
+      expect(grid({ state: 'joined', rows: [row('a', 'Ada', null, true)], line })).toContain(line);
+    }
+  });
+
+  it('shows the joining line before the grid says anything', () => {
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'grid' }, multi: true })));
+    expect(html).toContain('JOINING THE GRID…');
+  });
+
+  it('goes back to the choice with B, the cursor on MULTI; A tries again only once the grid was out of reach', () => {
+    const view = (state: KartGridView['state']): KartGridView => ({ state, rows: [], line: '' });
+    expect(gridPress(view('joined'), 'b')).toBe('back');
+    expect(BACK_TO_CHOICE).toEqual({ step: 'choose', cursor: 'multi' });
+    expect(gridPress(view('out'), 'a')).toBe('retry');
+    for (const state of ['joining', 'reconnecting'] as const) expect(gridPress(view(state), 'a'), state).toBeNull();
+    expect(gridPress(null, 'a')).toBeNull();
+    expect(gridPress(view('out'), 'start')).toBeNull();
+  });
+
+  it('asks to start the race with A or START once joined (the grid says whether this player may)', () => {
+    const view = (state: KartGridView['state']): KartGridView => ({ state, rows: [], line: '' });
+    expect(gridPress(view('joined'), 'a')).toBe('start');
+    expect(gridPress(view('joined'), 'start')).toBe('start');
+    expect(gridPress(view('joining'), 'start')).toBeNull();
+    expect(gridPress(view('reconnecting'), 'start')).toBeNull();
+  });
+});
+
+describe('the live race on the text layer (PRD 1572, slice 4)', () => {
+  const run = { place: 2, lap: 1, laps: 3, tenths: 123, final: false, item: null } as const;
+  const text = (hud: KartHud) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud, choice: { step: 'live' }, multi: true })))
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('shows the place among the players, the lap and the time on the race line', () => {
+    const t = text({ phase: 'race', beat: null, menu: false, run });
+    expect(t).toContain('2ND');
+    expect(t).toContain('LAP 1/3');
+    expect(t).toContain('0:12.3');
+    expect(t).not.toContain('BACK TO RACE');
+  });
+
+  it('opens BACK TO RACE and LEAVE RACE over the race with ENTER and TAB', () => {
+    const t = text({ phase: 'race', beat: null, menu: true, run });
+    expect(t).toContain('BACK TO RACE');
+    expect(t).toContain('LEAVE RACE');
+    expect(t).toContain('LAP 1/3');
+  });
+
+  it('says YOU LEFT THE RACE with A for the grid', () => {
+    const t = text({ phase: 'left', beat: null });
+    expect(t).toContain('YOU LEFT THE RACE');
+    expect(t).toContain('GRID');
+  });
+
+  it('keeps the PAUSE hint in a SINGLE race, and the music and engine off once the player left', () => {
+    expect(text({ phase: 'race', beat: null, run })).toContain('PAUSE');
+    expect(kartSong({ phase: 'left', beat: null })).toBeNull();
+    expect(kartEngineOn({ phase: 'left', beat: null })).toBe(false);
+  });
+
+  it('tells a menu opening from the same race without it', () => {
+    expect(sameKartHud({ phase: 'race', beat: null, menu: false, run }, { phase: 'race', beat: null, menu: true, run })).toBe(false);
+    expect(sameKartHud({ phase: 'race', beat: null, menu: true, run }, { phase: 'race', beat: null, menu: true, run: { ...run } })).toBe(true);
+  });
+
+  it('shows the grid, not the loading line, while the single game loads again behind it', () => {
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'loading', hud: null, choice: { step: 'grid' }, multi: true })));
+    expect(html).toContain('JOINING THE GRID…');
+    expect(html).not.toContain('LOADING…');
   });
 });

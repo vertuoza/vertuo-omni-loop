@@ -278,7 +278,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
 
 // ── A product PRD (PRD 1548) ────────────────────────────────────────────────────
 // A product PRD has no home repository: it is keyed by its product's key and its number on that product,
-// `mobile-12` (supabase/migrations/20261203090000_product_prd_ids.sql). Its calls:
+// `mobile-12` (supabase/migrations/20261203100000_product_prd_ids.sql). Its calls:
 //
 //   POST /api/dossiers/push  {productKey, new: true | prd, repo?, title, artifacts}
 //                                      → 200 {id, prdId, url, added, unchanged, product}

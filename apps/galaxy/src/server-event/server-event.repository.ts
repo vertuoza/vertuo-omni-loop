@@ -3,7 +3,7 @@ import { z } from 'zod';
 // The server event's one read (PRD 1548 s4): the voids the caller's last push of a dossier left, as
 // approval_voids_of_push() lists them (supabase/migrations/20261126090000_approval_voiding.sql), called as
 // the caller who pushed so the database checks who reads. A product PRD's void names no repository (its
-// dossier has no home repository, supabase/migrations/20261203090000_product_prd_ids.sql). It holds no rule.
+// dossier has no home repository, supabase/migrations/20261203100000_product_prd_ids.sql). It holds no rule.
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 
