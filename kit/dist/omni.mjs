@@ -27852,10 +27852,13 @@ var ConfigSchema = external_exports.object({
   // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
   // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
   // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
-  // `product` section lists.
+  // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
+  // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
+  // drops nothing.
   design: section({
     enabled: external_exports.boolean().default(false),
     paths: external_exports.array(text2).default([]),
+    ignore: external_exports.array(text2).optional(),
     screens: nullableText.default(null),
     words: section({
       sentence: external_exports.number().int().positive().default(7),
@@ -39694,6 +39697,7 @@ var ScreenFrontMatter = external_exports.object({
   quote: optional2("quote"),
   mock: optional2("mock"),
   implements: list3("implements"),
+  reads: list3("reads"),
   routes: list3("routes"),
   supersedes: optional2("supersedes")
 }).strict();
@@ -39731,7 +39735,7 @@ function parseScreen(text13, file2) {
     const keys = issue2?.code === "unrecognized_keys" ? `: ${issue2.keys.join(", ")}` : "";
     return fail2(`${issue2?.message ?? "front matter does not read"}${keys}`);
   }
-  const { screen, status: status5, quote, mock, implements: paths, routes, supersedes } = read2.data;
+  const { screen, status: status5, quote, mock, implements: paths, reads, routes, supersedes } = read2.data;
   const lockedBy = read2.data["locked-by"];
   const lockedOn = read2.data["locked-on"];
   if (status5 === "locked") {
@@ -39739,7 +39743,7 @@ function parseScreen(text13, file2) {
     if (missing.length) return fail2(`a locked screen needs locked-by, locked-on and quote \u2014 missing ${missing.join(", ")}`);
   }
   const body = readBody2(text13.slice(fence[0].length));
-  return { ok: true, screen: { file: file2, screen, status: status5, lockedBy, lockedOn, quote, mock, implements: paths, routes, supersedes, ...body } };
+  return { ok: true, screen: { file: file2, screen, status: status5, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
 }
 function readScreens(dir) {
   let files;
@@ -39873,11 +39877,18 @@ function gradeLaws(formFile, head, base) {
   }
   return { violations, locked: now2.filter((law) => law.lock !== null).length };
 }
+var FOLDER2 = /\/(?:\*\*)?$/;
+function folderWarnings(screens2) {
+  return screens2.flatMap(
+    ({ screen, implements: paths }) => paths.filter((entry3) => FOLDER2.test(entry3)).map((entry3) => `${screen}: implements names a folder (${entry3}) \u2014 a lock trips on every file in it; put the code behind the screen in reads`)
+  );
+}
 function gradeDesign({ dir, formFile, head, base }) {
   const screens2 = gradeScreens(dir, head.screens, base?.screens ?? null);
   const laws = gradeLaws(formFile, head.form, base?.form ?? null);
   return {
     violations: [...screens2.violations, ...laws.violations],
+    warnings: folderWarnings(screens2.screens),
     screens: screens2.screens.length,
     lockedScreens: screens2.screens.filter((entry3) => entry3.status === "locked").length,
     lockedLaws: laws.locked
@@ -40101,7 +40112,7 @@ function checkConfig3({ ctx, stdout }) {
   );
 }
 var CONFIG_TITLE = "check config \u2014 the config does not hold what it claims:";
-function checkDesign({ ctx, stdout, exec }, { base, baseKnown }) {
+function checkDesign({ ctx, stdout, stderr, exec }, { base, baseKnown }) {
   if (!ctx.config.design.enabled) {
     println(stdout, formatPass("check design \u2014 design is off; nothing to check."));
     return true;
@@ -40115,6 +40126,7 @@ function checkDesign({ ctx, stdout, exec }, { base, baseKnown }) {
     head: headSnapshot({ root: ctx.root, dir, formFile }),
     base: ref === null ? null : snapshotAt({ root: ctx.root, ref, dir, formFile, exec })
   });
+  for (const warning of grade.warnings) println(stderr, `warning: ${warning}`);
   const compared = ref === null ? `locks not compared \u2014 no ${base}` : `compared with ${base}`;
   return report2(
     stdout,
@@ -41088,6 +41100,38 @@ function defaultDesignBase(branch, { repo, branches }) {
   return `${repo.remote}/${branches.feature.replace(/\{topic\}/g, topic)}`;
 }
 
+// kit/lib/design/ignore.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/design/glob.ts
+init_define_OMNI_BUNDLE();
+var WILDCARD = /[*?{]/;
+var WILDCARDS = Object.freeze({ "**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]" });
+var TOKEN = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
+function source(pattern) {
+  return pattern.replace(TOKEN, (token, alternatives) => {
+    if (alternatives !== void 0) return `(?:${alternatives.split(",").map(source).join("|")})`;
+    return WILDCARDS[token] ?? token.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  });
+}
+function matchesGlob(pattern, path) {
+  const glob = pattern.startsWith("./") ? pattern.slice(2) : pattern;
+  if (glob.endsWith("/") || !WILDCARD.test(glob)) {
+    const folder = glob.replace(/\/+$/, "");
+    return path === folder || path.startsWith(`${folder}/`);
+  }
+  return new RegExp(`^${source(glob)}$`).test(path);
+}
+
+// kit/lib/design/ignore.ts
+var DEFAULT_DESIGN_IGNORE = Object.freeze(["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**"]);
+function designIgnore(design2) {
+  return design2.ignore ?? DEFAULT_DESIGN_IGNORE;
+}
+function dropIgnored(ignore, changed) {
+  return changed.filter((path) => !ignore.some((glob) => matchesGlob(glob, path)));
+}
+
 // kit/lib/design/words/avoid.ts
 init_define_OMNI_BUNDLE();
 var LABEL2 = /^(?:words?\s+(?:we|it|they|the\s+product)\s+avoids?|words?\s+to\s+avoid|avoided\s+words?|avoid)$/i;
@@ -41386,28 +41430,7 @@ function formatPage(page2, { skipped: skipped3, screens: screens2 }, rules) {
 
 // kit/lib/design/touched.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/design/glob.ts
-init_define_OMNI_BUNDLE();
-var WILDCARD = /[*?{]/;
-var WILDCARDS = Object.freeze({ "**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]" });
-var TOKEN = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
-function source(pattern) {
-  return pattern.replace(TOKEN, (token, alternatives) => {
-    if (alternatives !== void 0) return `(?:${alternatives.split(",").map(source).join("|")})`;
-    return WILDCARDS[token] ?? token.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  });
-}
-function matchesGlob(pattern, path) {
-  const glob = pattern.startsWith("./") ? pattern.slice(2) : pattern;
-  if (glob.endsWith("/") || !WILDCARD.test(glob)) {
-    const folder = glob.replace(/\/+$/, "");
-    return path === folder || path.startsWith(`${folder}/`);
-  }
-  return new RegExp(`^${source(glob)}$`).test(path);
-}
-
-// kit/lib/design/touched.ts
+import { posix as posix5 } from "node:path";
 function designTouched(design2, changed) {
   if (!design2.enabled) return { ui: "off" };
   if (design2.paths.length === 0) return { ui: "unknown" };
@@ -41428,14 +41451,26 @@ function formatTouched(touched2) {
   }
 }
 function screensTouched(screens2, changed) {
-  return screens2.filter((screen) => screen.implements.some((glob) => changed.some((path) => matchesGlob(glob, path))));
+  return screens2.filter((screen) => touches2(screen.implements, changed));
+}
+var touches2 = (globs, changed) => globs.some((glob) => changed.some((path) => matchesGlob(glob, path)));
+function screensRead(screens2, changed) {
+  return screens2.filter((screen) => touches2(screen.reads, changed) && !touches2(screen.implements, changed));
+}
+function staleMocks(touched2, changed, dir) {
+  const paths = new Set(changed.map((path) => posix5.normalize(path)));
+  return touched2.filter(({ mock }) => mock !== null && !paths.has(posix5.join(dir, mock))).map(({ screen }) => screen);
+}
+function formatStaleMocks(screens2) {
+  return screens2.map((screen) => `mock may be stale: ${screen}`);
 }
 function screenLabel({ screen, status: status5, routes }) {
   const mark = status5 === "locked" ? " \u{1F512}" : ` (${status5})`;
   return `${screen}${mark}${routes.length ? ` (${routes.join(", ")})` : ""}`;
 }
-function formatScreensTouched(screens2) {
-  return screens2.length ? [`screens: ${screens2.map(screenLabel).join(" \xB7 ")}`] : [];
+function formatScreensTouched(screens2, read2 = []) {
+  const labels2 = [...screens2.map(screenLabel), ...read2.map(({ screen }) => `reads ${screen}`)];
+  return labels2.length ? [`screens: ${labels2.join(" \xB7 ")}`] : [];
 }
 
 // kit/bin/commands/design.ts
@@ -41458,8 +41493,15 @@ function touched(io, given) {
   } catch {
     return formatTouched({ ui: "unknown", reason: `cannot read ${base} \u2014 fetch it or pass another base` });
   }
-  const { screens: library } = readScreens(join53(io.ctx.root, designScreensDir(io.ctx.config)));
-  return [...formatTouched(designTouched(design2, changed)), ...formatScreensTouched(screensTouched(library, changed))];
+  const kept = dropIgnored(designIgnore(design2), changed);
+  const dir = designScreensDir(io.ctx.config);
+  const { screens: library } = readScreens(join53(io.ctx.root, dir));
+  const hit = screensTouched(library, kept);
+  return [
+    ...formatTouched(designTouched(design2, kept)),
+    ...formatScreensTouched(hit, screensRead(library, kept)),
+    ...formatStaleMocks(staleMocks(hit, changed, dir))
+  ];
 }
 function screens({ ctx }) {
   if (!ctx.config.design.enabled) return ["design: off"];
@@ -41884,10 +41926,10 @@ function filesUnder3(folder, extensions) {
     return extensions.some((extension) => entry3.name.endsWith(extension)) ? [path] : [];
   }).sort();
 }
-var posix5 = (path) => path.split(sep).join("/");
+var posix6 = (path) => path.split(sep).join("/");
 function readRecordings(root, dir) {
   return filesUnder3(join55(root, dir, ".e2e", "cache"), [".json"]).map((path) => {
-    const name3 = posix5(relative3(root, path));
+    const name3 = posix6(relative3(root, path));
     let text13;
     try {
       text13 = readFileSync41(path, "utf8");
@@ -41900,7 +41942,7 @@ function readRecordings(root, dir) {
 function readTaggedTests(root, dir, prd2) {
   const tag = new RegExp(`(?<![\\w-])prd-${prd2}(?![\\w-])`);
   const base = join55(root, dir);
-  return filesUnder3(base, [".ts", ".tsx", ".js", ".mjs", ".cjs"]).filter((path) => !relative3(base, path).split(sep).includes(".e2e")).filter((path) => tag.test(readFileSync41(path, "utf8"))).map((path) => ({ id: posix5(relative3(base, path)), file: posix5(relative3(root, path)) }));
+  return filesUnder3(base, [".ts", ".tsx", ".js", ".mjs", ".cjs"]).filter((path) => !relative3(base, path).split(sep).includes(".e2e")).filter((path) => tag.test(readFileSync41(path, "utf8"))).map((path) => ({ id: posix6(relative3(base, path)), file: posix6(relative3(root, path)) }));
 }
 
 // kit/lib/e2e/heals.ts
@@ -43416,7 +43458,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["omni design touched [<base>]", "omni design screens", "omni design words <page.html>\u2026"],
     summary: "whether a branch touches a screen, the screen library, and the word pass over a mockup",
-    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements and its routes. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings, two sibling elements always two strings, each control's marked (a button, a link, or any element design.words.primary matches), and its word count, then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced."
+    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. It first drops every changed path a design.ignore glob matches (by default the test shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change made only of tests reads ui: no. Its screens: line names each library screen whose implements the change touches, and as reads <screen> each one it reaches only through its reads, the code behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements (the files it is drawn from), the optional reads list (the code it only depends on) and its routes; omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings, two sibling elements always two strings, each control's marked (a button, a link, or any element design.words.primary matches), and its word count, then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced."
   },
   {
     name: "e2e",
@@ -44413,12 +44455,12 @@ import { dirname as dirname14 } from "node:path";
 // kit/lib/init/settings.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync13, readFileSync as readFileSync49, writeFileSync as writeFileSync18 } from "node:fs";
-import { dirname as dirname13, join as join63, posix as posix6, sep as sep2 } from "node:path";
-var SETTINGS_FILE = posix6.join(".claude", "settings.json");
-var PERSONAL_SETTINGS_FILE = posix6.join(".claude", "settings.local.json");
+import { dirname as dirname13, join as join63, posix as posix7, sep as sep2 } from "node:path";
+var SETTINGS_FILE = posix7.join(".claude", "settings.json");
+var PERSONAL_SETTINGS_FILE = posix7.join(".claude", "settings.local.json");
 var STATUS_LINE_KEY = "statusLine";
 var REFRESH_SECONDS = 30;
-var commandPath = (bin) => bin.split(sep2).join(posix6.sep);
+var commandPath = (bin) => bin.split(sep2).join(posix7.sep);
 function statusLineSetting(bin) {
   return {
     type: "command",
@@ -44628,7 +44670,7 @@ function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms,
 // kit/lib/init/installed.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync46, readFileSync as readFileSync50 } from "node:fs";
-import { dirname as dirname15, join as join64, posix as posix7 } from "node:path";
+import { dirname as dirname15, join as join64, posix as posix8 } from "node:path";
 
 // kit/lib/playbook/filled.ts
 init_define_OMNI_BUNDLE();
@@ -44672,7 +44714,7 @@ function invadedOn(text13) {
 // kit/lib/init/installed.ts
 var LOOP_DIR2 = dirname15(CONFIG_FILE);
 function insideLoop2(path) {
-  const clean = posix7.normalize(path).replace(/\/+$/, "");
+  const clean = posix8.normalize(path).replace(/\/+$/, "");
   return clean === LOOP_DIR2 || clean.startsWith(`${LOOP_DIR2}/`);
 }
 var QUIET8 = {
