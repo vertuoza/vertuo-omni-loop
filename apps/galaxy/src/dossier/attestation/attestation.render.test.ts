@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { demoAttestation } from './attestation-demo';
 import { approveAgain } from './attestation.client';
 import { AttestationScreenView } from './AttestationPage';
@@ -61,7 +62,7 @@ describe('the attestation page', () => {
   });
 
   it('a PRD approved in its repository says it has none', () => {
-    const html = renderToStaticMarkup(createElement(AttestationScreenView, { screen: { kind: 'repo-born', prd: 918, page: '/prd/x' } }));
+    const html = renderToStaticMarkup(createElement(AttestationScreenView, { screen: { kind: 'repo-born', prd: parsePrd(918), page: '/prd/x' } }));
     expect(text(html)).toContain('No attestation for this PRD');
   });
 });

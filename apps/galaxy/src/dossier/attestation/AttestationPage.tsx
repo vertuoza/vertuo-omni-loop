@@ -121,7 +121,7 @@ export function AttestationScreenView({ screen }: { screen: Exclude<AttestationS
     case 'repo-born':
       return (
         <Notice title="No attestation for this PRD">
-          <p className="ask-muted">PRD {screen.prd} was approved in its repository, by its merged phase-0 pull request: no check carries its approval.</p>
+          <p className="ask-muted">PRD {Number(screen.prd)} was approved in its repository, by its merged phase-0 pull request: no check carries its approval.</p>
           <p><a href={screen.page}>Open the PRD</a></p>
         </Notice>
       );

@@ -1,4 +1,5 @@
 import 'server-only';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { ArcadeMode } from '../../data/mode';
 import { serverEnv } from '../../env';
 import { dossierSession } from '../page/route-gate';
@@ -23,7 +24,7 @@ export type AttestationScreen =
   | { kind: 'database-down' }
   | { kind: 'sign-in'; supabase: { url: string; key: string }; returnPath: string; error: string | null }
   | { kind: 'not-found' }
-  | { kind: 'repo-born'; prd: number; page: string }
+  | { kind: 'repo-born'; prd: PrdNumber; page: string }
   | { kind: 'attestation'; attestation: Attestation };
 
 /** The database, its public settings and the signed-in person, as /prd/<id> reads them. */
@@ -45,8 +46,7 @@ export async function attestationScreenOf(id: string, query: Query, deps: Attest
   if (!session) return { kind: 'closed' };
   if (!session.user) return { kind: 'sign-in', supabase: session.env, returnPath: dossierCallbackPath(id), error: one(query.signin_error) };
   try {
-    const read = await readAttestation(deps.ports(session.db), id, session.user.id, head);
-    return read.kind === 'repo-born' ? { ...read, prd: Number(read.prd) } : read;
+    return await readAttestation(deps.ports(session.db), id, session.user.id, head);
   } catch (error) {
     console.error(`Attestation: ${id} could not be read (${error instanceof Error ? error.message : String(error)})`);
     return { kind: 'database-down' };

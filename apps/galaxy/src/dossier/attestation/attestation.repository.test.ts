@@ -17,7 +17,8 @@ type Tables = Record<string, unknown[] | { error: string }>;
 function stubDb(tables: Tables): AttestationDb & { reads: string[] } {
   const reads: string[] = [];
   const answer = (name: string) => {
-    const rows = tables[name] ?? [];
+    const rows: Tables[string] | undefined = tables[name];
+    if (rows === undefined) return { data: [], error: null };
     return Array.isArray(rows) ? { data: rows, error: null } : { data: null, error: { message: rows.error } };
   };
   const query = (name: string) => {

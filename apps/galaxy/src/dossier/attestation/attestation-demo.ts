@@ -51,10 +51,8 @@ const headWith = (plan: string): HeadFiles => ({
 /** The demo's attestation in the state `?state=` names, at `head` (the demo's own when none is named). */
 export function demoAttestation(state: string | null, head: string | null): Attestation {
   const at = head ?? DEMO_HEAD;
-  switch (state) {
-    case 'drifted': return attestationOf(facts(true), YOU, at, headWith(`${TEXTS.plan}\n`), TARGETS);
-    case 'waiting': return attestationOf(facts(false), YOU, at, { kind: 'unread' }, TARGETS);
-    case 'held': return attestationOf(facts(true), YOU, at, { kind: 'unread' }, TARGETS);
-    default: return attestationOf(facts(true), YOU, at, headWith(TEXTS.plan), TARGETS);
-  }
+  if (state === 'drifted') return attestationOf(facts(true), YOU, at, headWith(`${TEXTS.plan}\n`), TARGETS);
+  if (state === 'waiting') return attestationOf(facts(false), YOU, at, { kind: 'unread' }, TARGETS);
+  if (state === 'held') return attestationOf(facts(true), YOU, at, { kind: 'unread' }, TARGETS);
+  return attestationOf(facts(true), YOU, at, headWith(TEXTS.plan), TARGETS);
 }

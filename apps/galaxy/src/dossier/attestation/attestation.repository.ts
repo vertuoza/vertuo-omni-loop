@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { readApproval, readAskedApprovers, readVoids, type ApprovalRow } from '../page/approval';
 import type { AttestationFacts } from './attestation-facts';
@@ -18,7 +18,7 @@ import type { AttestationFacts } from './attestation-facts';
 export type AttestationDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 const DossierRow = z.object({
-  id: z.string(), workspace_id: z.string(), home_repo: z.string(), prd: z.number().int().positive().nullable(),
+  id: z.string(), workspace_id: z.string(), home_repo: z.string(), prd: PrdNumberSchema.nullable(),
   kind: z.string().nullable().optional(), birthplace: z.string().nullable().optional(), product_id: z.string().nullable().optional(),
 });
 type Dossier = z.infer<typeof DossierRow>;
@@ -91,8 +91,7 @@ export function attestationRepository(db: AttestationDb) {
     async facts(id: string): Promise<AttestationFacts | 'not-found' | { repoBorn: PrdNumber }> {
       const [dossier] = await read(db.from('dossiers').select('id, workspace_id, home_repo, prd, kind, birthplace, product_id').eq('id', id).limit(1), DossierRow, 'the dossier');
       if (!dossier || dossier.prd === null || (dossier.kind ?? 'prd') !== 'prd') return 'not-found';
-      const prd = parsePrd(dossier.prd);
-      return dossier.birthplace === 'server' ? factsOf(dossier, prd) : { repoBorn: prd };
+      return dossier.birthplace === 'server' ? factsOf(dossier, dossier.prd) : { repoBorn: dossier.prd };
     },
   };
 }

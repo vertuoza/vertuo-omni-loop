@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { attestationScreenOf, type AttestationDeps } from './attestation.controller';
 import type { AttestationPorts } from './attestation.service';
 
@@ -38,7 +39,7 @@ describe('the attestation page, by who reads it', () => {
 
   it('says not found, and that a PRD approved in its repository has no attestation', async () => {
     expect(await attestationScreenOf(ID, {}, deps().all)).toEqual({ kind: 'not-found' });
-    const repoBorn = await attestationScreenOf(ID, {}, deps({}, () => Promise.resolve({ repoBorn: 918 as never })).all);
+    const repoBorn = await attestationScreenOf(ID, {}, deps({}, () => Promise.resolve({ repoBorn: parsePrd(918) })).all);
     expect(repoBorn).toEqual({ kind: 'repo-born', prd: 918, page: `/prd/${ID}` });
   });
 
