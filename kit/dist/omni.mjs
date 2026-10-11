@@ -41463,9 +41463,15 @@ function visitChildren(element, walk2, inline) {
 }
 function visitElement(element, walk2, top2, inline) {
   if (skipped2(element, walk2, top2)) return;
-  if (!top2 && matches(walk2.rules.content, element)) return readContent2(element, walk2, inline);
+  if (!top2 && matches(walk2.rules.content, element)) {
+    readContent2(element, walk2, inline);
+    return;
+  }
   if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element, true)));
-  if (isControl(element, walk2.rules.primary)) return readControl(element, walk2);
+  if (isControl(element, walk2.rules.primary)) {
+    readControl(element, walk2);
+    return;
+  }
   visitChildren(element, walk2, inline);
 }
 function visit2(node3, walk2, inline) {
