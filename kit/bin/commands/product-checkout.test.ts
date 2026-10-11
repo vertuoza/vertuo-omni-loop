@@ -65,7 +65,7 @@ describe('omni product use <key>', () => {
     execFileSync('git', ['worktree', 'add', '-q', tree], { cwd: root });
     expect((await run(tree, ['use', 'mobile'])).code).toBe(0);
     expect(existsSync(join(tree, REMEMBERED))).toBe(false);
-    expect(JSON.parse(readFileSync(join(root, REMEMBERED), 'utf8')).key).toBe('mobile');
+    expect(JSON.parse(readFileSync(join(root, REMEMBERED), 'utf8'))).toMatchObject({ key: 'mobile' });
   });
 
   it('refuses a key that is not one, or none, exit 2, remembering nothing', async () => {
