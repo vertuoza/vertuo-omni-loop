@@ -14,7 +14,9 @@ export interface Driver { sprite: string; tint: Tint | null; color: string | nul
 export interface Pace { laps: number; passed: number }
 
 /** A rival: its driver, its kart, where it is in the race, how fast it can go (a share of the player's top speed) and how far it drives off the line. */
-export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number; /** What it holds and what is on it (items.ts); none while it is plain. */ fx?: Fx; /** The race clock at which it crossed the line at the end of the last lap; none while it races. */ doneAt?: number | null }
+export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number; /** What it holds and what is on it (items.ts); none while it is plain. */ fx?: Fx; /** The race clock at which it crossed the line at the end of the last lap; none while it races. */ doneAt?: number | null;
+  /** A remote player in a MULTI race (PRD 1572): who they are, and the state last heard from them (their kart and what is on it) with the race clock it came at. Their kart is read from it, carried forward, and never driven. */
+  id?: string; /** Their place on the grid, 0 on pole: a tie in progress goes to the one who started ahead. */ slot?: number; heard?: { kart: Kart; fx: Fx; at: number } }
 
 export const START_PACE: Pace = Object.freeze({ laps: 0, passed: 0 });
 
