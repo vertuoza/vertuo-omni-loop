@@ -3283,3 +3283,316 @@ Two usage lines and a sentence in one entry, and one line in its test; nothing s
 ```
 
 <!-- /omni-outbox-settled: s11-03-the-help-does-not-list-the-new-product-verbs -->
+
+<!-- omni-outbox-settled: s12-01-skills-do-by-hand-what-the-board-cannot-read -->
+
+## s12-01-skills-do-by-hand-what-the-board-cannot-read — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-01-skills-do-by-hand-what-the-board-cannot-read
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+Several of the loop's commands still only know a repository's own PRD numbers, so they cannot read a product PRD yet. Should the skills work around them for now, or wait until those commands learn product PRDs?
+
+## The decision, in plain words
+
+The skills work around them: they read the plan from the server and the pull requests from GitHub themselves, wait on approval by asking again every minute, and say in their report which command did not run. Teaching those commands product PRDs is a follow-up.
+
+## The intro, for fun
+
+Half the toolbox speaks the new language and the other half still nods politely.
+
+## The punchline, for fun
+
+So the skills translate by hand until the second half takes lessons.
+
+## The options, in plain words
+
+A. The skills work around the commands for now, and a follow-up teaches the commands product PRDs (built).
+B. Hold every product PRD build until those commands learn product PRDs.
+C. Teach the commands product PRDs inside this PRD, before the skills ship.
+
+## What I had to decide
+
+Whether the product path of the ultra and mega skills reads the plan, the pull requests and the approval itself while the board, the next step, care, the approval wait, the plan checks, ship, rework and the Loop page take only a repository's PRD number.
+
+## What I did meanwhile
+
+Each skill's product section reads the plan through the dossier, grades the slices from the target pull requests the way the board does, waits on approval by reading the PRD again once a minute for up to an hour, drives a product PRD beside the loop plan with no Loop page tick, and names every command it could not run in its hand-off.
+
+## What it costs to change later
+
+Skill text only: once a command learns product PRDs, the matching sentence of each product section is replaced by that command.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether grading slices by hand matches the board exactly on a claim gone stale (author)
+- whether a product PRD should appear on the Loop page before its commands learn product ids (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-01-skills-do-by-hand-what-the-board-cannot-read -->
+
+<!-- omni-outbox-settled: s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing -->
+
+## s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+When a product PRD reaches the build with no plan on its page, or with a plan split into several landings, should the build plan it or split it itself?
+
+## The decision, in plain words
+
+Neither: the build stops in one line. A product PRD's plan is approved together with its spec at brainstorm, so the build never writes one after approval, and a product PRD lands as one feature pull request per repository for now.
+
+## The intro, for fun
+
+The builder shows up and finds the blueprint drawer empty.
+
+## The punchline, for fun
+
+It leaves a note asking for the blueprint instead of sketching one on a napkin.
+
+## The options, in plain words
+
+A. Stop in one line: the plan comes from the brainstorm, in one landing per repository (built).
+B. Plan it in the build, as a repository's PRD is planned, and ask for approval again.
+C. Allow several landings, each repository getting its own chain of pull requests.
+
+## What I had to decide
+
+What the build does with a product PRD whose page holds no plan, or whose plan has more than one landing.
+
+## What I did meanwhile
+
+The build stops with one line naming the brainstorm that plans it, or the number of landings, and builds nothing.
+
+## What it costs to change later
+
+Skill text only: allowing either later is a paragraph in the build's product section.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a plan written after approval would void the approval on the server (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing -->
+
+<!-- omni-outbox-settled: s12-03-reworks-only-from-answers-given-in-the-run -->
+
+## s12-03-reworks-only-from-answers-given-in-the-run — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-03-reworks-only-from-answers-given-in-the-run
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+When someone disagrees with a decision on the product's Questions tab, the loop has no command yet that reads that answer back. Which disagreements does the rework run act on?
+
+## The decision, in plain words
+
+Only the ones answered in the same run, in the terminal, where the run saw the question and the answer. A disagreement given on the Questions tab is reported as held until a command can read it.
+
+## The intro, for fun
+
+Someone wrote a strong opinion on the fridge, and the robot cannot read handwriting yet.
+
+## The punchline, for fun
+
+It acts on what you told it out loud and points at the fridge for the rest.
+
+## The options, in plain words
+
+A. Rework only what was answered in the same run; hold the rest, named (built).
+B. Hold every product rework until a command reads the answers on the server.
+C. Add that command to this PRD, so the rework run reads every answer.
+
+## What I had to decide
+
+Which drifted answers on a product PRD the rework run reworks, while no command lists the answers settled on the server.
+
+## What I did meanwhile
+
+The rework run reworks each answer posted as a disagreement in the same run, bounded by the option picked, and names every other one as held on the Questions tab.
+
+## What it costs to change later
+
+Skill text only, plus a command that lists a product PRD's settled answers when one lands.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- how often a person answers on the Questions tab rather than in the terminal (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-03-reworks-only-from-answers-given-in-the-run -->
+
+<!-- omni-outbox-settled: s12-04-a-product-prds-branches-are-named-after-its-id -->
+
+## s12-04-a-product-prds-branches-are-named-after-its-id — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-04-a-product-prds-branches-are-named-after-its-id
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+A product PRD has no folder name to build its branch names from. What name do its branches and its local copies of each repository take?
+
+## The decision, in plain words
+
+Its own name, like mobile-12, in place of the topic, so every repository's feature branch and every slice branch of that PRD carry it, and two PRDs never share a copy.
+
+## The intro, for fun
+
+Every branch needs a name tag, and this PRD only came with a number plate.
+
+## The punchline, for fun
+
+So the number plate went on every branch, which at least never gets lost.
+
+## The options, in plain words
+
+A. Name them after the PRD's id alone (built).
+B. Add a short word from the title after the id.
+C. Give the product PRD a topic field on its page and use that.
+
+## What I had to decide
+
+What fills the topic of a product PRD's feature and slice branches, and of its target clones.
+
+## What I did meanwhile
+
+The PRD's id fills the topic everywhere, for every repository it lands in.
+
+## What it costs to change later
+
+Renaming later means new branches for any PRD already being built; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether people want a readable word in the branch name beside the id (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-04-a-product-prds-branches-are-named-after-its-id -->
