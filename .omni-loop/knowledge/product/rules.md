@@ -766,7 +766,7 @@ A product's pitch look may be changed by exactly those who may edit the workspac
 
 Serves: P-PRODUCT-62
 Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
-Enforced by: pending #1531
+Enforced by: apps/galaxy/src/products/pitch-look-sql.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-06, PR #860
