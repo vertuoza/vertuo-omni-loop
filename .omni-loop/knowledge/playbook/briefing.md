@@ -22,6 +22,8 @@ Use this page when a session starts: the rules that cost the most when broken.
   the most reversible option and record the decision as an outbox item; two principles pulling
   against each other stop that slice.
 - Never lower a coverage floor or add a suppression to turn a check green.
+- Never mark a pull request ready whose new migration is dated at or before the newest on `main`:
+  re-date it first (`node scripts/migration-order.ts`; conventions › A migration stays the newest).
 - Never reformat files you did not change: format only what you touched.
 - A red check on your pull request is yours to fix. Read the CI page first; after
   `3` attempts, leave a comment saying what is stuck.

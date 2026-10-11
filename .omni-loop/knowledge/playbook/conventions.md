@@ -46,6 +46,13 @@ the list in the same change. ADR-0057 records the rule.
   `supabase/migrations/<version>_<name>.sql` takes a version after the latest one on both the branch
   and `main`, never one a plan names without checking: two files on one version cannot both apply.
   Before it reaches production a clash is a rename; after, it is a new migration (PRD 902, s1-01).
+- **A migration stays the newest until it merges.** `supabase db push` refuses a migration dated
+  before the newest one production applied, so a branch whose migration `main` overtook while it
+  waited is re-dated (`git mv`, then every path that names it) after `main`'s newest, and checked again
+  after each merge of `main` and just before the pull request is marked ready. The `supabase` workflow's
+  `check` job refuses an overtaken migration (`node scripts/migration-order.ts`), and its `deploy` job
+  pushes with `--include-all`, so one that merges after its check ran still applies rather than
+  blocking every deploy after it (PRD 1364, 2026-10-11, fixed by #1456).
 - **A new database check runs in CI.** Each file under `supabase/checks/` is its own named step in
   the `supabase` workflow's `check` job, added in the pull request that adds the check; a check CI
   does not run proves nothing (PRD 902, s1-02).
