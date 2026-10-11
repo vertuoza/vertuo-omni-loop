@@ -101,3 +101,27 @@ describe('readTestLog — the failing tests a log names, and its counts', () => 
     expect(readTestLog(log)).toEqual({ reporter: 'pytest', tests: ['tests/test_cart.py::test_add_item'], counts: null });
   });
 });
+
+// Law BR-PRODUCT-17 (.omni-loop/knowledge/product/rules.md): a failing test is named by its file,
+// groups and title joined by ' > ', with whitespace collapsed and line numbers and retry marks
+// dropped, whatever tool ran it. Only final failures count; a test that passes on a retry within
+// the run does not.
+describe('law BR-PRODUCT-17 — one name per failing test, whatever tool ran it', () => {
+  it('joins file, groups and title by " > ", collapses whitespace, drops line numbers and retry marks, and counts only final failures', () => {
+    const vitest = [' FAIL  src/cart/cart.test.ts  >  cart >   adds an   item', '      Tests  1 failed | 4 passed (5)'].join('\n');
+    const jest = ['FAIL src/cart/cart.test.ts', '  ● cart ›  adds  an item', 'Tests:       1 failed, 4 passed, 5 total'].join('\n');
+    const playwright = [
+      'Running 5 tests using 2 workers',
+      '  1 failed',
+      '    [chromium] › src/cart/cart.test.ts:12:5 › cart ›  adds an item (retry #2) ─────────────',
+      '  1 flaky',
+      '    [chromium] › src/cart/cart.test.ts:20:5 › cart › removes an item ──────────────────────',
+      '  3 passed (9.1s)',
+    ].join('\n');
+
+    const name = 'src/cart/cart.test.ts > cart > adds an item';
+    expect(readTestLog(vitest).tests).toEqual([name]);
+    expect(readTestLog(jest).tests).toEqual([name]);
+    expect(readTestLog(playwright).tests).toEqual([`[chromium] > ${name}`]);
+  });
+});

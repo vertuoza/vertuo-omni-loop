@@ -182,7 +182,7 @@ A failing test is named by its file, groups and title joined by ' > ', with whit
 
 Serves: P-PRODUCT-16
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s3-03-one-name-per-failing-test, PRD #72
-Enforced by: pending #1479
+Enforced by: apps/omni-app/src/retro/kinds/ci-logs.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
