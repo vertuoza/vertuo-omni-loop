@@ -3,6 +3,7 @@ import { supabaseAs, supabaseEnv } from '../data/supabase-server';
 import type { OutboxItemsDeps } from './outbox-items.controller';
 import { outboxItemsRepository } from './outbox-items.repository';
 import { outboxItemsService } from './outbox-items.service';
+import { withOutboxAppTold } from '../server-event/server-event-live';
 
 // A product PRD's outbox routes' real dependencies (PRD 1548 s7), for /api/outbox/items and
 // /api/outbox/items/settle: a Supabase client per call, acting as the caller's access token (never a
@@ -12,7 +13,8 @@ import { outboxItemsService } from './outbox-items.service';
 /** The outbox as the person whose access token `token` is. */
 function asCaller(token: string) {
   const client = supabaseAs(token);
-  return { auth: client.auth, service: outboxItemsService(outboxItemsRepository(client)) };
+  const repository = outboxItemsRepository(client);
+  return { auth: client.auth, service: withOutboxAppTold(outboxItemsService(repository), repository.dossier) };
 }
 
 export function outboxItemsDeps(): OutboxItemsDeps {
