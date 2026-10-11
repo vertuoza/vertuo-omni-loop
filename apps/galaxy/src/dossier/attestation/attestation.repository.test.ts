@@ -25,7 +25,7 @@ function stubDb(tables: Tables): AttestationDb & { reads: string[] } {
     const result = answer(name);
     const builder: Record<string, unknown> = {
       then: (ok: (value: unknown) => unknown, ko?: (error: unknown) => unknown) => Promise.resolve(result).then(ok, ko),
-      maybeSingle: () => Promise.resolve(result.error ? result : { data: (result.data ?? [])[0] ?? null, error: null }),
+      maybeSingle: () => Promise.resolve(result.data === null ? result : { data: result.data[0] ?? null, error: null }),
     };
     for (const method of ['select', 'eq', 'in', 'order', 'limit']) builder[method] = () => builder;
     return builder;
