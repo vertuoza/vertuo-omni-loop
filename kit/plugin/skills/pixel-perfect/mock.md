@@ -59,8 +59,22 @@ which, as one question through the session's question tool. Followed by a skill,
      inside it carries `data-primary`, the convention every mockup the kit's skills write uses. An
      explanation of the mockup, when it needs one, sits outside the marked screen: the word pass
      reads only marked screens.
+   - **The parts,** with the design flag on and a DESIGN.md. Read the closed list first: the file
+     `node .omni-loop/bin/omni.mjs config design.system` prints, and
+     `node .omni-loop/bin/omni.mjs design parts`, each part with its variants, states and code
+     paths. The mockup is then drawn only from the parts it lists and semantic tokens
+     (`colors.primary`, never a hex value or a primitive), each part tagged `data-part="<name>"`
+     beside `data-screen` and `data-primary`, in the variant and state the screen shows. Step 5 runs
+     `node .omni-loop/bin/omni.mjs design parts --check <screen>.html` beside the word pass; it
+     exits 0 whatever it finds. Each `untagged:` finding is fixed by tagging the control with the
+     part it is. An `off-list:` part stays only when the design needs a new part, proposed, never
+     invented: the mockup names it outside the marked screen, and the report says it. When
+     `design parts` prints `parts: no DESIGN.md`, the mockup draws as it does today, from the
+     tokens and components the design form's `system` section names, and no parts check runs.
 5. **The word pass.** Run `node .omni-loop/bin/omni.mjs design words <screen>.html`; it exits 0
-   whatever it finds. Fix each finding in the screen (a shorter label on the control, one primary
+   whatever it finds. With a DESIGN.md, run
+   `node .omni-loop/bin/omni.mjs design parts --check <screen>.html` beside it (**The parts**,
+   step 4), and fix its findings the same way. Fix each finding in the screen (a shorter label on the control, one primary
    action, a sentence that stands at rest cut or moved, an avoided word replaced) and run it again.
    The rule is fixed in the screen, never silenced: never drop a mark, unmark a primary action or
    reword the finding away. A finding that is what the product shows now is said in the report,
@@ -84,7 +98,8 @@ which, as one question through the session's question tool. Followed by a skill,
 What a self-contained mockup cannot carry is stood in for, never guessed at and never left out:
 
 - **Fonts:** name the product's faces first in each `font-family`, with the fallbacks the product
-  itself uses; never load a font.
+  itself uses; never load a font. With a DESIGN.md, the faces DESIGN.md's `typography` tokens name
+  are the product's faces, first in each `font-family`.
 - **Pixel art and images:** an inline SVG placeholder at the image's real size, labelled with what it
   stands for.
 - **Example data:** allowed, and expected for a screen that shows data. Take it from the product's
@@ -114,5 +129,6 @@ locked screen with no mockup yet is drawn the same way: its new mockup is the dr
 
 Three lines: the mockup written (its path, or the draft amendment's), what it was drawn from (the
 screenshot, or the source alone, and which section of the design form was a hole), and the word
-pass (findings fixed, findings left and why). Then the commit, typed by a person, or the high item
+pass (findings fixed, findings left and why), with the parts check beside it when there is a
+DESIGN.md (`untagged:` fixed, each `off-list:` part kept and why). Then the commit, typed by a person, or the high item
 to raise, on a locked screen.
