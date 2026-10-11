@@ -40,8 +40,6 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber, type SliceId } from '../../kit/lib/ids.ts';
 import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, parsePlanRepos, deliveryOf, prdOfFolder, type PlanSlice, type SettledEntry } from './parsers.ts';
 import type { GameConfig } from '../config.ts';
-import { planetKey } from '../events.ts';
-import type { SettledPlanet } from '../settled.ts';
 import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet, SnapshotStop } from '../types.ts';
 
 /** How the game calls gh: its arguments in, its stdout out. */
@@ -143,7 +141,6 @@ const firstIso = (out: string): string | null => toIso(lines(out)[0]);
 
 /**
  * `prds` keeps only those PRD numbers (in every home) and the PRDs their specs name as blockers.
- * `settled` (game:project, from the ledger: game/settled.ts) are the planets read light, by their key.
  * `deadline` (epoch ms) stops reading before a planet once it has passed.
  *
  * The planets are read most recent first: the open ones, then the closed ones by when they closed. A
@@ -151,7 +148,7 @@ const firstIso = (out: string): string | null => toIso(lines(out)[0]);
  * drops the one it was reading, and says why in `stopped`: the next poll reads the rest again.
  */
 export async function buildSnapshot(
-  { config, exec = ghExec, now = new Date(), prds, settled, deadline }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly PrdNumber[]; settled?: ReadonlyMap<string, SettledPlanet>; deadline?: number },
+  { config, exec = ghExec, now = new Date(), prds, deadline }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly PrdNumber[]; deadline?: number },
 ): Promise<Snapshot> {
   const teams = { ...(config.roster ?? {}) };
   const wanted = prds ? new Set(prds) : null;
@@ -190,10 +187,7 @@ export async function buildSnapshot(
         chosen = issues.filter((i) => keep.has(i.number));
       }
 
-      for (const issue of chosen) {
-        const light = settled?.get(planetKey(home, issue.number));
-        queue.push({ issue, read: () => (light ? readSettledPlanet(exec, { home, issue, teams, settled: light }) : readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf })) });
-      }
+      for (const issue of chosen) queue.push({ issue, read: () => readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }) });
     }
   } catch (err) {
     if (isRateLimit(err)) return snapshot({ by: 'rate-limit', message: `GitHub rate limit before any planet was read: ${firstLine(err)}` });
@@ -216,17 +210,6 @@ export async function buildSnapshot(
 // close, then by its birth. ISO times sort as text; an open PRD's sorts above every date.
 const recency = (issue: IssueRow): string => `${issue.closedAt ? toIso(issue.closedAt) ?? '' : '~'} ${toIso(issue.createdAt) ?? ''}`;
 const firstLine = (err: unknown): string => (err instanceof Error ? err.message : String(err)).split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('Command failed')).at(0) ?? 'refused';
-
-// A settled planet (game/settled.ts): its issue, the feature PR the ledger saw merge, and, while the
-// aftershock window is open, its bugs. Its zones, outbox and regions are not read again: the ledger
-// holds every event they give.
-async function readSettledPlanet(exec: Exec, { home, issue, teams, settled }: { home: string; issue: IssueRow; teams: Record<string, string>; settled: SettledPlanet }): Promise<SnapshotPlanet> {
-  const planet = chartPlanet(home, issue, teams);
-  const { mergedAt, repo, pr } = settled;
-  planet.featurePr = { repo, number: pr, createdAt: mergedAt, readyAt: mergedAt, mergedAt, lastActivityAt: mergedAt };
-  if (settled.readBugs) planet.bugs.push(...await readBugs(exec, home, planet.prd));
-  return planet;
-}
 
 // Multi-repository PRDs (PRD 728): in each tracked repository, the feature PRs into its default branch
 // whose body starts `Part of <owner>/<home>#<n>`. Each is one more region of that PRD. A repository is

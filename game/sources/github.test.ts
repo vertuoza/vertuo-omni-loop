@@ -11,7 +11,7 @@ import { projectEvents } from '../projector.ts';
 import { score } from '../economy.ts';
 import { nth, present } from '../test/present.ts';
 import { assertDefined } from '../../kit/test/assert.ts';
-import { parsePrd, PrNumberSchema } from '../../kit/lib/ids.ts';
+import { parsePrd } from '../../kit/lib/ids.ts';
 
 // The roster comes from Supabase with the config: pm and alice fly with beaver. The game reads the
 // workspace's tracked repositories (PRD 728): here, vertuoza/core-repo.
@@ -613,27 +613,5 @@ describe('a read the token\'s rate limit refuses', () => {
     const s = await snap([], { deadline: 0 });
     expect(s.planets).toEqual([]);
     expect(s.stopped).toEqual({ by: 'budget', message: 'read budget spent: 0 of 1 planets read' });
-  });
-});
-
-describe('a settled planet', () => {
-  const closed = { ...ISSUE, closedAt: '2026-09-22T10:00:05Z' };
-  const settled = (readBugs: boolean) => new Map([[`${R}#2332`, { mergedAt: '2026-09-22T10:00:00Z', repo: R, pr: PrNumberSchema.parse(500), readBugs }]]);
-
-  it('is read light: no feature PR, plan, zone or outbox read, and it stays terraformed', async () => {
-    const seen: string[] = [];
-    const s = await buildSnapshot({ config, exec: fakeExec(world([[`issue list -R ${R} --label omni:prd`, [closed]]]), seen), now: NOW, settled: settled(false) });
-    expect(seen.filter((c) => !/^issue list -R \S+ --label omni:prd|^api repos\/[^/]+\/[^/]+ --jq|contents\/\.omni-loop\/(config\.yml|delivery\/(inbox|shipped) --jq)/.test(c))).toEqual([]);
-    const p = nth(s.planets, 0, 'the planet');
-    expect(p.featurePr).toMatchObject({ repo: R, number: 500, mergedAt: '2026-09-22T10:00:00Z' });
-    const events = projectEvents(s, { config, now: NOW });
-    expect(events.map((e) => e.type)).toEqual(['PLANET_CHARTED', 'PLANET_TERRAFORMED']);
-    expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')?.id).toBe(`planet:${R}#2332:terraformed`);
-  });
-
-  it('reads its bugs while the aftershock window is open: a new one opens its wound', async () => {
-    const bug = { number: 9, createdAt: '2026-09-23T08:00:00Z', closedAt: null, closedBy: null };
-    const s = await buildSnapshot({ config, exec: fakeExec(world([[`issue list -R ${R} --label omni:prd`, [closed]], [`issue list -R ${R} --label bug`, [bug]]])), now: NOW, settled: settled(true) });
-    expect(projectEvents(s, { config, now: NOW }).filter((e) => e.type === 'WOUND_OPENED').map((e) => e.id)).toEqual([`bug:${R}#2332:${R}#9:opened`]);
   });
 });
