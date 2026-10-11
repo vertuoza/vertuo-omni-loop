@@ -31,19 +31,24 @@ export class SignInError extends Error {
 /** The key a sign-in is kept under: the host of `ask.url`, with its port. */
 export const credentialsHost = (askUrl: string): string => new URL(askUrl).host;
 
-/** The ask client of `askUrl`, with the person's sign-in for its host (`tokens`, else the one in
- * `home`), or null when there is none. */
-export function signedInClient({ askUrl, tokens, home, fetch, callMs }: {
+/**
+ * The ask client of `askUrl`, with the person's sign-in for its host, or null when there is none:
+ * `tokens` when given, else the kit token `OMNI_TOKEN` when set (PRD 1628; `omniToken`, read from the
+ * environment when left out with `home`), which wins over the sign-in kept in `home`.
+ */
+export function signedInClient({ askUrl, tokens, home, omniToken, fetch, callMs, now }: {
   askUrl: string;
   tokens: TokenStore | undefined;
   home: string | undefined;
+  omniToken?: string | null | undefined;
   fetch: Fetch;
   callMs: number | undefined;
+  now?: (() => number) | undefined;
 }): ReturnType<typeof askClient> | null {
   const host = credentialsHost(askUrl);
-  const store = tokens ?? homeTokens(home ? { home } : undefined);
+  const store = tokens ?? homeTokens({ home, omniToken });
   if (!store.read(host)) return null;
-  return askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
+  return askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}), ...(now ? { now } : {}) });
 }
 
 /** Where a call of the contract goes: a path under `ask.url`, which may itself carry a path. */
@@ -78,11 +83,13 @@ function workspaceOf(value: unknown): { slug: string | null; name: string } | nu
 }
 
 /**
- * The line a sign-in ends on (PRD 459): who signed in and, when the page said, where `repo`'s calls
+ * The line a sign-in ends on (PRD 459): who signed in (and by what, under a kit token) and, when the page said, where `repo`'s calls
  * go — to a workspace, or the page's reason why none (which carries the App's install link when no
  * workspace owns it yet). All of them are a sign-in that worked.
  */
-export function signedInLine({ login, email, repo, workspace, reason }: {
+export function signedInLine({ login, email, repo, workspace, reason, by = null }: {
+  /** What signed in in place of the browser: `OMNI_TOKEN` (PRD 1628). */
+  by?: string | null;
   login?: string | null;
   email?: string | null;
   repo?: string | null;
@@ -90,7 +97,8 @@ export function signedInLine({ login, email, repo, workspace, reason }: {
   reason?: string | null;
 } = {}): string {
   const who = isText(login) ? login : isText(email) ? email : null;
-  const head = who ? `signed in as ${who}` : 'signed in';
+  const signed = by ? `signed in by ${by}` : 'signed in';
+  const head = who ? `${signed} as ${who}` : signed;
   if (!isText(repo)) return head;
   if (workspace && isText(workspace.name)) return `${head} — ${repo} goes to ${workspace.name}`;
   if (isText(reason)) return `${head} — ${reason}`;
