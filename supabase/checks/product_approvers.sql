@@ -41,11 +41,9 @@ insert into public.repositories (workspace_id, full_name) values
   ('00000000-0000-4000-8000-0000000b0000', 'pa-org/mobile'),
   ('00000000-0000-4000-8000-0000000b0000', 'pa-org/web'),
   ('00000000-0000-4000-8000-0000000b0000', 'pa-org/loose');
-update public.repositories set product_id = case full_name
-    when 'pa-org/mobile' then '00000000-0000-4000-8000-0000000b0d01'::uuid
-    when 'pa-org/web' then '00000000-0000-4000-8000-0000000b0d02'::uuid
-  end
- where workspace_id = '00000000-0000-4000-8000-0000000b0000';
+insert into public.product_repositories (product_id, workspace_id, repository, added_by) values
+  ('00000000-0000-4000-8000-0000000b0d01', '00000000-0000-4000-8000-0000000b0000', 'pa-org/mobile', 'person'),
+  ('00000000-0000-4000-8000-0000000b0d02', '00000000-0000-4000-8000-0000000b0000', 'pa-org/web', 'person');
 
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'email', email, 'role', 'authenticated')::text, true);

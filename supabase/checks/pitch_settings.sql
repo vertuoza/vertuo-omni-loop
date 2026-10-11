@@ -72,6 +72,14 @@ exception when invalid_parameter_value then null;
 end;
 $$;
 -- Every product's settings and look, as one value to compare before and after a refusal.
+-- Puts a repository in one product, and in that product only: what repository_set_product() did before
+-- PRD 1364 dropped it, written here as the links it leaves.
+create function pg_temp.move_to(repo text, product uuid) returns void language sql security definer as $$
+  delete from public.product_repositories l
+   where l.repository = repo and l.workspace_id = (select p.workspace_id from public.products p where p.id = product);
+  insert into public.product_repositories (product_id, workspace_id, repository, added_by)
+  select p.id, p.workspace_id, repo, 'person' from public.products p where p.id = product;
+$$;
 create function pg_temp.settings() returns text language sql security definer as $$
   select coalesce(string_agg(p.id::text || ':' || p.pitch_look || ':' || p.pitch::text, ';' order by p.id), '') from public.products p;
 $$;
@@ -114,7 +122,7 @@ begin
   if second.pitch <> '{}'::jsonb or second.pitch_look <> 'arcade' then
     raise exception 'FAIL: a new product starts with % in %', second.pitch, second.pitch_look;
   end if;
-  perform public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps', pg_temp.made('first'));
+  perform pg_temp.move_to('vertuoza/vertuo-apps', pg_temp.made('first'));
 end $$;
 
 -- ── Mo saves the second product's settings; the first keeps its own, and pitch_look follows ──
@@ -157,7 +165,7 @@ begin
   if public.pitch_settings_for_repo('vertuoza/not-listed') <> '{}'::jsonb then
     raise exception 'FAIL: a repository with no product did not read {}';
   end if;
-  perform public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps', pg_temp.made('second'));
+  perform pg_temp.move_to('vertuoza/vertuo-apps', pg_temp.made('second'));
   if public.pitch_settings_for_repo('VERTUOZA/vertuo-apps') #>> '{look,preset}' <> 'keynote' then
     raise exception 'FAIL: pitch_settings_for_repo did not read the second product''s settings';
   end if;

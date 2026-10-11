@@ -3,10 +3,10 @@
 -- demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/business.sql
 -- Any member of a workspace opens its business, picks, suggests, confirms and rejects claims, adds and
--- renames products, points a repository at a product, and cites claims, all through the functions of
+-- renames products, and cites claims, all through the functions of
 -- 20261019090000_business_store.sql; a member of another workspace and anyone signed out are refused
--- (42501), and a bad kind or value is refused (22023). Opening the business points every repository
--- at its first product; one tracked later is in no product (PRD 1364). business_for_repo() returns confirmed claims only: the region from the
+-- (42501), and a bad kind or value is refused (22023). Opening the business links every repository in
+-- no product to its first product; one tracked later is in no product (PRD 1364). business_for_repo() returns confirmed claims only: the region from the
 -- business and the rest from the repository's product, the business's claims only when the repository
 -- has none. Nobody writes the four tables directly, and nobody updates or deletes a citation. Nothing
 -- is seeded.
@@ -42,8 +42,8 @@ begin
   if exists (select 1 from public.businesses) or exists (select 1 from public.products) or exists (select 1 from public.claims) then
     raise exception 'FAIL: a business, product or claim exists before anyone opened a page';
   end if;
-  if exists (select 1 from public.repositories where product_id is not null) then
-    raise exception 'FAIL: a repository points at a product before any business exists';
+  if exists (select 1 from public.product_repositories) then
+    raise exception 'FAIL: a repository is linked to a product before any business exists';
   end if;
 end $$;
 
@@ -108,7 +108,15 @@ create function pg_temp.store() returns text language sql security definer as $$
     (select string_agg(row(s.*)::text, ';' order by s.id) from public.business_sources s),
     (select string_agg(row(x.*)::text, ';' order by x.id) from public.claim_receipts x),
     (select string_agg(row(d.*)::text, ';' order by d.id) from public.business_drafts d),
-    (select string_agg(r.full_name || ':' || coalesce(r.product_id::text, '-'), ';' order by r.full_name) from public.repositories r));
+    (select string_agg(l.repository || ':' || l.product_id, ';' order by l.repository, l.product_id) from public.product_repositories l));
+$$;
+-- Puts a repository in one product, and in that product only: what repository_set_product() did before
+-- PRD 1364 dropped it, written here as the links it leaves.
+create function pg_temp.move_to(repo text, product uuid) returns void language sql security definer as $$
+  delete from public.product_repositories l
+   where l.repository = repo and l.workspace_id = (select p.workspace_id from public.products p where p.id = product);
+  insert into public.product_repositories (product_id, workspace_id, repository, added_by)
+  select p.id, p.workspace_id, repo, 'person' from public.products p where p.id = product;
 $$;
 
 -- ── Signed out: no function runs, nothing is read ──
@@ -166,8 +174,11 @@ begin
   end if;
   select p.id into first from public.products p where p.business_id = b.id;
   insert into made values ('erp', first);
-  if exists (select 1 from public.repositories r where r.workspace_id = pg_temp.ws('vertuoza') and r.product_id is distinct from first) then
-    raise exception 'FAIL: business_open did not point every repository at the first product';
+  if exists (select 1 from public.repositories r
+              where r.workspace_id = pg_temp.ws('vertuoza')
+                and not exists (select 1 from public.product_repositories l
+                                 where l.repository = r.full_name and l.product_id = first and l.added_by = 'person')) then
+    raise exception 'FAIL: business_open did not link every repository to the first product';
   end if;
 
   c := public.claim_pick(pg_temp.ws('vertuoza'), null, 'region', ' Belgium ', 'pick');
@@ -256,23 +267,17 @@ begin
   end if;
 end $$;
 
--- ── Products, and repositories pointed at them ──
+-- ── Products, and repositories linked to them ──
 do $$
 declare
   p public.products;
-  r public.repositories;
 begin
   p := public.product_add(pg_temp.ws('vertuoza'), 'Omni Loop');
   insert into made values ('omni', p.id);
   perform pg_temp.invalid(format('select public.product_add(%L, ''omni loop'')', pg_temp.ws('vertuoza')));
   p := public.product_rename(pg_temp.ws('vertuoza'), p.id, 'The Loop');
   if p.name <> 'The Loop' then raise exception 'FAIL: product_rename did not rename: %', p; end if;
-  r := public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-omni-loop', pg_temp.made('omni'));
-  if r.product_id <> pg_temp.made('omni') then raise exception 'FAIL: repository_set_product did not point it: %', r; end if;
-  begin
-    perform public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/missing', pg_temp.made('omni'));
-    raise exception 'FAIL: repository_set_product pointed a repository that is not listed';
-  exception when no_data_found then null; end;
+  perform pg_temp.move_to('vertuoza/vertuo-omni-loop', pg_temp.made('omni'));
   perform public.claim_pick(pg_temp.ws('vertuoza'), pg_temp.made('omni'), 'offering', 'developer tool', 'pick');
 end $$;
 reset role;
@@ -284,8 +289,7 @@ do $$
 declare r public.repositories;
 begin
   r := public.add_repository(pg_temp.ws('vertuoza'), 'vertuoza/later-one');
-  if r.product_id is not null
-     or exists (select 1 from public.product_repositories l where l.repository = 'vertuoza/later-one') then
+  if exists (select 1 from public.product_repositories l where l.repository = 'vertuoza/later-one') then
     raise exception 'FAIL: a repository tracked later was put in a product: %', r;
   end if;
 end $$;
@@ -318,8 +322,8 @@ end $$;
 reset role;
 
 -- A repository with no product reads the business's claims only.
-update public.repositories set product_id = null
- where workspace_id = pg_temp.ws('vertuoza') and full_name = 'vertuoza/pdf-builder';
+delete from public.product_repositories
+ where workspace_id = pg_temp.ws('vertuoza') and repository = 'vertuoza/pdf-builder';
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
@@ -672,7 +676,7 @@ declare
   got jsonb;
   c public.claims;
   stmt text;
-  product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
+  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps');
   waiting integer := public.business_to_check(pg_temp.ws('vertuoza'));
 begin
   got := public.claim_answer('Vertuoza/Vertuo-Apps', 'size', ' 20-50 ', 'proposed', 'brainstorm · PRD 822');
@@ -795,7 +799,7 @@ reset role;
 -- could now; agents and the App still read and cite a confirmed one like any claim.
 do $$
 declare
-  product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
+  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps');
   biz uuid := (select b.id from public.businesses b where b.workspace_id = pg_temp.ws('vertuoza'));
   next_seq integer := (select max(c.seq) from public.claims c where c.business_id = biz);
   c public.claims;
@@ -814,7 +818,7 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare
-  product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
+  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps');
   got jsonb;
   stmt text;
 begin
@@ -871,7 +875,7 @@ begin
   end if;
   if (select string_agg(x.kind || '#' || x.seq, ',' order by x.seq) from public.claims x
        where x.workspace_id = pg_temp.ws('vertuoza') and x.state = 'confirmed'
-         and (x.product_id is null or x.product_id = (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps')))
+         and (x.product_id is null or x.product_id = (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps')))
      <> (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'claims') x) then
     raise exception 'FAIL: the App does not read exactly the region''s and the product''s confirmed claims: %', got->'claims';
   end if;
@@ -918,7 +922,7 @@ begin
     'delete from public.claims',
     'update public.claim_citations set cited_by = ''x''',
     'delete from public.claim_citations',
-    'update public.repositories set product_id = null',
+    'delete from public.product_repositories',
     format('insert into public.business_sources (workspace_id, business_id, url) select %L, id, ''https://x.test'' from public.businesses', pg_temp.ws('vertuoza')),
     'delete from public.business_sources',
     'update public.claim_receipts set quote = ''x''',
@@ -957,7 +961,7 @@ begin
       format('select public.claim_set_state(%L, %L, ''rejected'')', pg_temp.ws('vertuoza'), pg_temp.made('rival-one')),
       format('select public.product_add(%L, ''Planted'')', pg_temp.ws('vertuoza')),
       format('select public.product_rename(%L, %L, ''Planted'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-      format('select public.repository_set_product(%L, ''vertuoza/vertuo-apps'', %L)', pg_temp.ws('vertuoza'), pg_temp.made('omni')),
+      format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'')', pg_temp.made('omni')),
       format('select public.business_source_add(%L, ''https://planted.test'')', pg_temp.ws('vertuoza')),
       format('select public.business_source_remove(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.made('page-pricing')),
       format('select public.business_draft_start(%L, ''draft'')', pg_temp.ws('vertuoza')),

@@ -106,7 +106,8 @@ declare
   b public.businesses := public.business_open(pg_temp.ws('vertuoza'));
 begin
   insert into made select 'product', p.id from public.products p where p.business_id = b.id order by p.ordinal limit 1;
-  if (select r.product_id from public.repositories r where r.full_name = 'vertuoza/con-web') is distinct from pg_temp.made('product') then
+  if not exists (select 1 from public.product_repositories l
+                  where l.repository = 'vertuoza/con-web' and l.product_id = pg_temp.made('product')) then
     raise exception 'FAIL: vertuoza/con-web does not serve the first product';
   end if;
 end $$;

@@ -23,7 +23,7 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
 
 const STORED = {
   workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
-  collected_at: null, collected_until: null, collect_error: null, product_id: null, public_ideas: false, phase0: 'pr',
+  collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr',
 };
 
 describe('the database calls', () => {
