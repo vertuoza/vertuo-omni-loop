@@ -226,7 +226,7 @@ In retro prose, a backtick span is set aside only when it holds a letter and app
 
 Serves: P-PRODUCT-19
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s6-03-what-the-guard-counts-as-copied, PRD #72
-Enforced by: pending #1483
+Enforced by: apps/omni-app/src/retro/guard.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
