@@ -314,7 +314,7 @@ Ask mode is open to any workspace member, whatever the account's email or with n
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
-Enforced by: pending #1490
+Enforced by: apps/galaxy/src/ask/workspace-gate-sql.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
