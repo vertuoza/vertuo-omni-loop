@@ -1,6 +1,7 @@
 // PRD 1369: whether a diff touches a screen — the answer `omni design touched` prints and
 // `/omni:do-work` reads to start `/omni:pixel-perfect review`. Pure: the caller hands it the config's
 // `design` section and the changed paths. It only reports: no answer here ever blocks anything.
+import { posix } from 'node:path';
 import { matchesGlob } from './glob.ts';
 import type { Screen } from './screens.ts';
 
@@ -50,7 +51,39 @@ export type ScreenTouch = Pick<Screen, 'screen' | 'status' | 'routes' | 'impleme
  * names its own paths.
  */
 export function screensTouched<T extends ScreenTouch>(screens: readonly T[], changed: readonly string[]): T[] {
-  return screens.filter((screen) => screen.implements.some((glob) => changed.some((path) => matchesGlob(glob, path))));
+  return screens.filter((screen) => touches(screen.implements, changed));
+}
+
+/** A library screen as the `reads` half of the `screens:` line reads it. */
+export type ScreenRead = Pick<Screen, 'screen' | 'implements' | 'reads'>;
+
+const touches = (globs: readonly string[], changed: readonly string[]) => globs.some((glob) => changed.some((path) => matchesGlob(glob, path)));
+
+/**
+ * PRD 1550: the library screens a changed path reaches only through their `reads` — the code behind
+ * the screen — and through no `implements` entry, in the library's order. Such a change never trips
+ * a lock: the `screens:` line names each as `reads <screen>`.
+ */
+export function screensRead<T extends ScreenRead>(screens: readonly T[], changed: readonly string[]): T[] {
+  return screens.filter((screen) => touches(screen.reads, changed) && !touches(screen.implements, changed));
+}
+
+/** A library screen as the stale-mockup note reads it. */
+export type MockedScreen = Pick<Screen, 'screen' | 'mock'>;
+
+/**
+ * PRD 1550: of the screens a change touches through `implements`, the names of those with a mockup
+ * the change leaves alone. `mock` is a file beside the screen, so it is read under the library's
+ * folder `dir`. A screen with no mockup is fine: it is never named.
+ */
+export function staleMocks(touched: readonly MockedScreen[], changed: readonly string[], dir: string): string[] {
+  const paths = new Set(changed.map((path) => posix.normalize(path)));
+  return touched.filter(({ mock }) => mock !== null && !paths.has(posix.join(dir, mock))).map(({ screen }) => screen);
+}
+
+/** One `mock may be stale: <screen>` line per screen: a note, never a block. */
+export function formatStaleMocks(screens: readonly string[]): string[] {
+  return screens.map((screen) => `mock may be stale: ${screen}`);
 }
 
 /** One screen on the `screens:` line: a lock when locked, else its status, then its routes. */
@@ -59,7 +92,11 @@ function screenLabel({ screen, status, routes }: ScreenTouch): string {
   return `${screen}${mark}${routes.length ? ` (${routes.join(', ')})` : ''}`;
 }
 
-/** The `screens:` line `omni design touched` adds below its answer; no line when no screen is touched. */
-export function formatScreensTouched(screens: readonly ScreenTouch[]): string[] {
-  return screens.length ? [`screens: ${screens.map(screenLabel).join(' · ')}`] : [];
+/**
+ * The `screens:` line `omni design touched` adds below its answer: each screen an `implements` entry
+ * touches, then each screen only `read` (PRD 1550) as `reads <screen>`; no line when there is none.
+ */
+export function formatScreensTouched(screens: readonly ScreenTouch[], read: readonly Pick<Screen, 'screen'>[] = []): string[] {
+  const labels = [...screens.map(screenLabel), ...read.map(({ screen }) => `reads ${screen}`)];
+  return labels.length ? [`screens: ${labels.join(' · ')}`] : [];
 }
