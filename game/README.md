@@ -226,8 +226,10 @@ only the service role writes it. It rebuilds from the ledger, so the backup leav
 workflow is switched on, no row exists, and every player's game room says NO XP YET.
 
 The crew's high scores, `public.arcade_scores`, are the other half: the arcade posts them through
-`submit_score()`, which checks the game against the player's `player_xp.unlocked`. Nothing rebuilds
-them, so `game:export` backs them up.
+`submit_score()`, which checks the game against the player's `player_xp.unlocked` and keeps the better
+value in each game's direction: the highest score, except OMNI KART (`kart`), whose `best` is a race
+time in tenths of a second and the lowest wins (PRD 1440). Nothing rebuilds them, so `game:export`
+backs them up.
 
 ## Contributions
 

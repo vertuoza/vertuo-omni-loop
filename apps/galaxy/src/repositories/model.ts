@@ -55,7 +55,6 @@ export const SavedRepository = z.strictObject({
   collected_at: z.string().nullable(),
   collected_until: z.string().nullable(),
   collect_error: z.string().nullable(),
-  product_id: z.string().nullable(),
   public_ideas: z.boolean(),
   phase0: Phase0Schema,
 });

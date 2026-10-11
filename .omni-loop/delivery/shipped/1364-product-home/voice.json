@@ -114,6 +114,60 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-10",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The tabs follow the layering rule and every one has page tests. I'd still like a look at them in a browser before trusting the Ledger's counts.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "omni targets prints the table and keeps a last read, and plan.targets still works. Only omni targets reads the product so far, which the docs say plainly.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A page per product with what waits on me, and a shared API in both products. That's what I asked for.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Many to many with the PRD carrying its product, and the old column dropped only after its readers moved. The kit not sending the PRD to the lookups yet is the gap to close.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Mobile's home and its Questions tab are in one place. The count on the product card and the Ledger can differ, which I'll notice.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
     }
   ]
 }

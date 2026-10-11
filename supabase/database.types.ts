@@ -2373,7 +2373,6 @@ export type Database = {
           collected_until: string | null
           full_name: string
           phase0: string
-          product_id: string | null
           public_ideas: boolean
           tracked: boolean
           workspace_id: string
@@ -2386,7 +2385,6 @@ export type Database = {
           collected_until?: string | null
           full_name: string
           phase0?: string
-          product_id?: string | null
           public_ideas?: boolean
           tracked?: boolean
           workspace_id: string
@@ -2399,19 +2397,11 @@ export type Database = {
           collected_until?: string | null
           full_name?: string
           phase0?: string
-          product_id?: string | null
           public_ideas?: boolean
           tracked?: boolean
           workspace_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "repositories_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "repositories_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -2934,7 +2924,6 @@ export type Database = {
           collected_until: string | null
           full_name: string
           phase0: string
-          product_id: string | null
           public_ideas: boolean
           tracked: boolean
           workspace_id: string
@@ -4094,28 +4083,6 @@ export type Database = {
         Returns: undefined
       }
       repository_phase0: { Args: { p_repo: string }; Returns: string }
-      repository_set_product: {
-        Args: { p_full_name: string; p_product: string; p_workspace: string }
-        Returns: {
-          added_at: string
-          added_by: string | null
-          collect_error: string | null
-          collected_at: string | null
-          collected_until: string | null
-          full_name: string
-          phase0: string
-          product_id: string | null
-          public_ideas: boolean
-          tracked: boolean
-          workspace_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "repositories"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       restore_fleet: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -4252,7 +4219,6 @@ export type Database = {
           collected_until: string | null
           full_name: string
           phase0: string
-          product_id: string | null
           public_ideas: boolean
           tracked: boolean
           workspace_id: string
@@ -4274,7 +4240,6 @@ export type Database = {
           collected_until: string | null
           full_name: string
           phase0: string
-          product_id: string | null
           public_ideas: boolean
           tracked: boolean
           workspace_id: string
@@ -4296,7 +4261,6 @@ export type Database = {
           collected_until: string | null
           full_name: string
           phase0: string
-          product_id: string | null
           public_ideas: boolean
           tracked: boolean
           workspace_id: string

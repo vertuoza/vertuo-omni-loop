@@ -32,6 +32,20 @@ describe('a game\'s crew table', () => {
     expect(board.mine).toBe(1240);
   });
 
+  it('puts a time game\'s lowest first, the earlier of two equal times first, and a score game\'s highest first', async () => {
+    const { db } = world(PEOPLE.ada, (w) => {
+      for (const [who, best, at] of [['ada', 1200, '2026-09-26T09:00:00Z'], ['both', 1023, '2026-09-26T09:05:00Z'], ['bea', 1023, '2026-09-26T09:01:00Z']] as const) {
+        w.tables.arcade_scores.push(score(VERTUOZA, PEOPLE[who].id, best, at, 'kart'));
+      }
+      for (let i = 0; i < 4; i++) w.tables.arcade_scores.push(score(VERTUOZA, `00000000-0000-4000-8000-00000000e0${i}`, 2000 + i, '2026-09-26T09:10:00Z', 'kart'));
+    });
+    const board = await loadScores(db, VERTUOZA, 'kart', PEOPLE.ada.id);
+    expect(board.top.map((l) => l.best)).toEqual([1023, 1023, 1200, 2000, 2001]);
+    expect(board.top.slice(0, 2).map((l) => l.id)).toEqual([PEOPLE.bea.id, PEOPLE.both.id]);
+    expect(board.mine).toBe(1200);
+    expect((await loadScores(db, VERTUOZA, 'invaders', null)).top[0]?.best).toBe(1240);
+  });
+
   it('puts the earlier of two equal scores first', async () => {
     const { db } = world(PEOPLE.ada, (w) => {
       present(w.tables.arcade_scores.find((s) => s.user_id === PEOPLE.both.id && s.workspace_id === VERTUOZA), 'both\'s score').best = 1240;
@@ -74,6 +88,20 @@ describe('every game\'s crew table, as the page reads it', () => {
     const { db } = world(PEOPLE.ada, (w) => { w.state.failOn = 'arcade_scores'; });
     expect(await readScores(db, VERTUOZA, PEOPLE.ada.id)).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable' });
     expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe('the fake database keeps the better in the game\'s direction', () => {
+  it('keeps the lower time for kart and the higher score for invaders', async () => {
+    const { db } = world(PEOPLE.ada, (w) => {
+      const xp = present(w.tables.player_xp.find((x) => x.github_login === 'ada-gh' && x.workspace_id === VERTUOZA), 'ada\'s xp');
+      xp.unlocked = ['invaders', 'kart'];
+    });
+    expect(await submitScore(db, VERTUOZA, 'kart', 1200)).toBe(1200);
+    expect(await submitScore(db, VERTUOZA, 'kart', 1500)).toBe(1200);
+    expect(await submitScore(db, VERTUOZA, 'kart', 900)).toBe(900);
+    expect(await submitScore(db, VERTUOZA, 'invaders', 300)).toBe(1240);
+    expect(await submitScore(db, VERTUOZA, 'invaders', 2000)).toBe(2000);
   });
 });
 

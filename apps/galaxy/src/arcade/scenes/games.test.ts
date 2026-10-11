@@ -102,6 +102,39 @@ describe('the game room, for a player with a level', () => {
   });
 });
 
+describe('the screen of a lit cabinet', () => {
+  const ALL_LIT = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders', 'platformer', 'kart'] });
+  /** Each cabinet's markup, by its marquee. */
+  const byTitle = (grid: Grid, me: Player | null = player, index = 0) => {
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid, page: 0, pages: 1 } },
+      createElement(GamesOverlay, { xp: ALL_LIT, me, index, onPick: () => {} })));
+    return new Map(html.split('<button').slice(1).map((c) => [sure(/class="marquee">([^<]*)</.exec(c)?.[1], 'a marquee'), c]));
+  };
+
+  it('shows each game\'s own screen: the Invaders formation, a slice of stage 1-1, a still of the race', () => {
+    const cabs = byTitle(WIDE);
+    expect(sure(cabs.get('ENTROPY INVADERS'), 'the Invaders cabinet')).toContain('cab-row');
+    for (const title of ['SUPER OMNI WORLD', 'OMNI KART']) {
+      const cab = sure(cabs.get(title), title);
+      expect(cab, title).not.toContain('cab-row');
+      expect(cab, title).toContain('cab-still');
+    }
+  });
+
+  it('puts the player in their own game: their hero running in Super Omni World, their kart and hero on the circuit', () => {
+    const cabs = byTitle(WIDE);
+    expect(sure(cabs.get('SUPER OMNI WORLD'), 'the Super Omni World cabinet')).toContain('cab-runner');
+    expect(sure(cabs.get('OMNI KART'), 'the OMNI KART cabinet')).toContain('cab-kart');
+    const visitor = byTitle(WIDE, null);
+    expect(sure(visitor.get('OMNI KART'), 'the OMNI KART cabinet')).not.toContain('cab-kart');
+  });
+
+  it.each([[WIDE, 156, 62], [TALL, 196, 46]])('draws the still the size of the screen\'s inside on its grid (%o)', (grid, w, h) => {
+    const cab = sure(byTitle(grid, player, 2).get('OMNI KART'), 'the OMNI KART cabinet');
+    expect(cab).toContain(`class="cab-still" width="${w}" height="${h}"`);
+  });
+});
+
 describe('the crew\'s top five on the lit cabinet', () => {
   const markup = (grid: Grid, scores: Record<string, ScoresRead>) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid, page: 0, pages: 1 } },
     createElement(GamesOverlay, { xp: LEVEL_3, me: player, index: 0, scores, onPick: () => {} })));
@@ -119,6 +152,18 @@ describe('the crew\'s top five on the lit cabinet', () => {
     expect(text).toContain('CREW TOP 5');
     expect(text).not.toContain('NO SCORES YET');
     expect(text).toContain('A · PLAY');
+  });
+
+  it('shows each best in its game\'s text: a race time on OMNI KART\'s cabinet, digits on the others', () => {
+    const times: ScoresRead = { top: [line('u-a', 'ACE', 1023), line(player.id, 'INKY', 1850)], mine: 1850 };
+    const kart = cabinets(xpStatus(true, { xp: 600, level: 6, unlocked: ['invaders', 'kart'] }));
+    const at = kart.findIndex((c) => c.kind === 'game' && c.game.id === 'kart');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const text = room(xpStatus(true, { xp: 600, level: 6, unlocked: ['invaders', 'kart'] }), TALL, at, player, { invaders: CREW, kart: times });
+    expect(text).toContain('1:42.3');
+    expect(text).toContain('3:05.0');
+    expect(text).not.toContain('1 023');
+    expect(room(LEVEL_3, WIDE, 0, player, { invaders: CREW })).toContain('9 210');
   });
 
   it('highlights the player\'s own line, and no other', () => {

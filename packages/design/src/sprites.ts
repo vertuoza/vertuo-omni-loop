@@ -729,6 +729,65 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
       d.ellipse(8, 8, 5, 5, 'P').ellipse(8, 8, 3, 3, 'Y').px(6, 6, 'e').px(7, 6, 'e');
     },
   },
+  // OMNI KART's props (PRD 1427): they stand off the circuit as billboards, drawn the way a kart is.
+  // A pylon is still; a beacon's lamp blinks and a satellite's panels turn (frame 1).
+  'prop-pylon': { w: 12, h: 28, draw(d) {
+    d.poly([[3, 27], [9, 27], [8, 6], [4, 6]], 'A');
+    d.rect(5, 6, 2, 21, 'L', 1).rect(2, 26, 8, 2, 'A', 2);
+    d.rect(3, 10, 6, 1, 'C', 1).rect(3, 16, 6, 1, 'C', 1).rect(3, 22, 6, 1, 'C', 1);
+    d.rect(4, 2, 4, 4, 'C', 0);
+  } },
+  'prop-beacon': { w: 12, h: 24, draw(d, f) {
+    d.rect(5, 8, 2, 16, 'L', 1).rect(2, 22, 8, 2, 'A', 2);
+    d.ellipse(6, 5, f ? 5 : 3, f ? 5 : 3, f ? 'M' : 'R', f ? 0 : 2);
+    if (f) d.ellipse(6, 5, 2, 2, 'W', 0);
+  } },
+  'prop-asteroid': { w: 28, h: 22, draw(d) {
+    d.poly([[3, 14], [6, 5], [14, 1], [23, 5], [26, 13], [21, 20], [9, 20]], 'A', 1);
+    d.pxs([[8, 8], [9, 8], [18, 6], [19, 7], [12, 15], [13, 15], [20, 14]], 'A', 3);
+    d.pxs([[10, 5], [11, 5], [16, 3], [17, 3]], 'L', 0);
+  } },
+  'prop-satellite': { w: 28, h: 20, draw(d, f) {
+    d.rect(11, 6, 6, 8, 'L', 1).rect(12, 7, 4, 2, 'C', 0).rect(13, 14, 2, 3, 'A', 2);
+    if (f) { d.rect(5, 8, 6, 5, 'E', 1).rect(17, 8, 6, 5, 'E', 1); d.rect(5, 10, 6, 1, 'E', 3).rect(17, 10, 6, 1, 'E', 3); }
+    else { d.rect(1, 3, 10, 12, 'E', 1).rect(17, 3, 10, 12, 'E', 1); d.rect(1, 9, 10, 1, 'E', 3).rect(17, 9, 10, 1, 'E', 3); }
+    d.px(14, 3, 'Y', 0).px(14, 4, 'L', 2);
+  } },
+  'prop-wreck': { w: 32, h: 18, draw(d) {
+    d.poly([[2, 14], [7, 8], [18, 6], [26, 9], [30, 15], [22, 17], [8, 17]], 'A', 1);
+    d.poly([[18, 6], [24, 2], [27, 9]], 'A', 2);
+    d.rect(9, 10, 7, 3, 'R', 2).pxs([[12, 11], [13, 11]], 'O', 0);
+    d.pxs([[5, 14], [6, 14], [20, 14], [21, 13]], 'A', 3);
+  } },
+  // OMNI KART's item box (PRD 1427, slice 7): a glowing cube, seen face on (frame 0) and turned a quarter (frame 1), a halo round it.
+  'item-box': { w: 16, h: 16, outline: false, draw(d, f) {
+    d.ellipse(8, 8, 7.5, 7.5, 'C', 0);
+    if (f) {
+      d.poly([[5, 3], [11, 3], [13, 6], [13, 13], [10, 14], [4, 14], [3, 5]], 'Y', 1);
+      d.rect(9, 5, 4, 8, 'O', 2).rect(4, 4, 5, 1, 'Y', 0);
+    } else {
+      d.rect(3, 3, 10, 10, 'Y', 1).rect(3, 3, 10, 2, 'Y', 0).rect(3, 11, 10, 2, 'O', 2);
+    }
+    d.px(6, 7, 'W', 0).px(7, 7, 'W', 0).px(7, 8, 'W', 0).px(7, 10, 'W', 0);
+  } },
+  // The distant station in OMNI KART's sky (PRD 1427, slice 6): a hub with two wings of panels; its lamp and windows blink (frame 1).
+  'sky-station': { w: 28, h: 14, draw(d, f) {
+    d.rect(11, 3, 6, 8, 'L', 1).rect(12, 4, 4, 2, 'C', 0).rect(13, 11, 2, 2, 'A', 2);
+    d.rect(1, 6, 10, 2, 'A', 1).rect(17, 6, 10, 2, 'A', 1);
+    d.rect(0, 4, 3, 6, 'E', 1).rect(25, 4, 3, 6, 'E', 1);
+    d.px(14, 1, f ? 'Y' : 'R', 0).rect(13, 2, 2, 1, 'A', 2);
+    d.pxs([[12, 8], [15, 8]], f ? 'Y' : 'C', 0);
+  } },
+  // The arch over the start line: a leg on each side, and the beam between, stretched across the road.
+  'arch-leg': { w: 10, h: 48, draw(d) {
+    d.rect(2, 4, 6, 44, 'A', 1).rect(2, 4, 2, 44, 'L', 1).rect(0, 44, 10, 4, 'A', 2);
+    d.rect(3, 12, 4, 1, 'C', 1).rect(3, 22, 4, 1, 'C', 1).rect(3, 32, 4, 1, 'C', 1);
+    d.rect(1, 0, 8, 4, 'A', 2);
+  } },
+  'arch-beam': { w: 16, h: 8, outline: false, draw(d, f) {
+    d.rect(0, 0, 16, 8, 'A', 1).rect(0, 0, 16, 2, 'L', 1).rect(0, 6, 16, 2, 'A', 3);
+    for (let x = 0; x < 16; x += 4) d.rect(x + (f ? 2 : 0), 2, 2, 4, x % 8 ? 'Y' : 'C', 1);
+  } },
 });
 
 /** A kart seen from behind, leaning `lean` (-1 left, 0 straight, 1 right): the body leans over, the inside wheel lifts and the outside one digs in. */

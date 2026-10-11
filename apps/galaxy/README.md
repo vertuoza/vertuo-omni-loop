@@ -38,6 +38,13 @@ Game Boy's buttons on a phone (design:
 - The music and sounds are generated in the browser, SNES style: two pulse leads, a triangle bass,
   noise drums and one echo (`src/arcade/sound.ts`), playing songs written as note strings
   (`src/arcade/score.ts`). No audio files.
+- OMNI KART sounds like a race. The effects: the countdown's beeps and GO, one sound per item (BOOST,
+  BLOB, ORB), a box, a hit, a spin-out, a fall into the void and the FINAL LAP jingle; a rival's are quieter
+  and lower the farther it is, and silent beyond 20 tiles. The music: nothing on the ready screen or
+  the countdown, the `race` tune from GO, the `lastLap` tune (the same, faster) after the FINAL LAP
+  jingle, nothing while paused, and the arcade's fanfare on the results. The engine: one quiet hum
+  under the music whose pitch follows your speed, from a low note at rest to an octave above at top
+  speed. M mutes all of it, and leaving the cabinet stops it.
 
 ## HOME at `/`, the arcade at `/play`
 
@@ -123,7 +130,7 @@ HOME.
 | Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
-| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the score sent at the finish |
+| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the race time sent at the finish (the lowest is kept) |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -309,7 +316,7 @@ the database's policies decide what they see:
   (`src/data/players.ts`).
 - **With GitHub linked**, it also reads their `player_xp` row in that workspace, by lower-cased
   login (`src/data/xp.ts`), and each game's crew table from `arcade_scores`: its top five with the
-  players' names and heroes, and their own best (`src/data/scores.ts`). Each is read on its own,
+  players' names and heroes, and their own best (`src/data/scores.ts`), sorted in the game's direction: highest first for a score, fastest first for OMNI KART's time (PRD 1440). Each is read on its own,
   after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
   no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
 - **The planets' dossiers**, for every member, visitor or player (`src/data/dossiers.ts`): the
@@ -649,10 +656,12 @@ Approvers list that used to live there.
 of the same product, never itself) and `added_by` (`person` or `prd`). Members read the links; the
 workspace's owners write them through `product_repository_link()` and `product_repository_unlink()`,
 which refuses to remove a repository another one of the product still consumes. The migration copied
-each `repositories.product_id` into one link, and a new repository is in no product;
-`repositories.product_id` and `repository_set_product()`, which now moves the link, stay only until
-PRD 1364's contract landing drops them. Proven by `supabase/checks/product_repositories.sql`
-(`supabase/migrations/20261129090000_product_repositories.sql`).
+each `repositories.product_id` into one link, and a new repository is in no product; the contract
+landing then dropped `repositories.product_id` and `repository_set_product()`, so a repository's
+products are its links alone, and opening the business links each repository in no product to the
+first product. Proven by `supabase/checks/product_repositories.sql` and
+`supabase/checks/repositories.sql` (`supabase/migrations/20261129090000_product_repositories.sql`,
+`supabase/migrations/20261202090000_drop_repository_product.sql`).
 
 **A PRD's product.** `dossiers.product_id` and `ideas.product_id` are nullable. A dossier's first
 push takes its repository's product when the repository is in exactly one, none when it is in none,
@@ -883,16 +892,36 @@ off, no row exists, and every player sees NO XP YET.
   **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
   none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
   leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
-  **BOOST** is 1.5 seconds at 1.4 times the top speed, grass included. **BLOB** is an Entropy blob
+  **BOOST** is 1.5 seconds at 1.4 times the top speed. **BLOB** is an Entropy blob
   dropped behind: the first kart over it spins out and it is gone, and a seventh removes the oldest
   of six. **ORB** (a 16×16 `@omni/design` sprite) is thrown straight ahead at twice the top speed,
-  bounces off walls, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
+  turns back at the road's edge, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
   A spin-out lasts 1 second at 30% of the speed with no input, and never stops the race. The rivals
   use theirs by rule: a BOOST at once on a straight, a BLOB with a kart close behind, an ORB with a
-  kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the score
-  (1000, 700, 500, 350, 200 or 100 for the place, plus a point per tenth of a second under 150
-  seconds) is sent once under `kart`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or SCORE NOT
-  SAVED (A retries once) as Invaders. It is silent.
+  kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the player's
+  race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under `kart`: the
+  kart keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
+  or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
+  **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
+  in space, all in code, no image file. **The void** (PRD 1447): everything off the road is the void,
+  written `~` in the map: the floor has nothing there, and the space the circuit floats in shows all round
+  it, under the horizon as above it, its stars, nebulae and planets with the galaxy's glow along the
+  horizon. A neon edge sits on the void's side of the road's edge (cyan outside the circuit, magenta
+  inside); the map holds road and void only, and past its edge is void too. The kerbs alternate the two neons, the road has panel seams and three chevrons before
+  each corner. Nothing off the road slows or bounces a kart: **the fall** is the only cost. A kart
+  falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width;
+  it may hang over until then), and for 1 second takes no input, stays where it went over,
+  shrinks as it sinks and keeps its item, and a BOOST or a spin-out ends. **The way back:** it
+  returns at rest on the racing line, at the point nearest where it fell on the segment it was on
+  (never past the next waypoint, never across the start line), facing the race, and blinks for half
+  a second while it drives; its laps and waypoints are kept, the race clock never stops, and rivals
+  fall and return by the same rule. The player's fall plays the `fall` sound; a rival's is silent.
+  Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
+  line. The sky has two planets, a distant station and comets. The camera sits so the player's kart is
+  drawn where it stands. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
+  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
+  that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
+  still and no particle is drawn; the shadows stay.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
@@ -1476,7 +1505,8 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
 - `submit_score(workspace, game, score)`, security definer, is the only way a score goes in. It
   refuses a caller with no player row in the workspace (a visitor, a member of another workspace,
   anyone signed out), a game their `player_xp.unlocked` does not hold, and a score outside
-  0..9,999,999. It keeps the higher of the stored best and the score, and returns the best as
+  0..9,999,999. It keeps the better of the stored best and the score in the game's direction (the lowest for
+  `kart`, whose value is a race time in tenths; the highest for every other game), and returns the best as
   stored.
 - `contributions` (PRD 328): who authored each pull request merged into a sector repository's
   default branch (`kind` `pr-merged`, `at` when it merged) and who opened each `omni:prd` issue

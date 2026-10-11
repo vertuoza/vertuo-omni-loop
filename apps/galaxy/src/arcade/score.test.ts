@@ -46,9 +46,18 @@ describe('the songs', () => {
     expect(parseSong(SONGS.intro).steps * stepSeconds(SONGS.intro.bpm)).toBe(20);
   });
 
+  it('writes the race tune of about 30 seconds and the last lap faster, both parsing and looping', () => {
+    const seconds = (s: Song) => parseSong(s).steps * stepSeconds(s.bpm);
+    expect(Math.abs(seconds(SONGS.race) - 30)).toBeLessThan(1);
+    expect(SONGS.race.loop).toBe(true);
+    expect(SONGS.lastLap.loop).toBe(true);
+    expect(SONGS.lastLap.bpm).toBeGreaterThan(SONGS.race.bpm);
+    expect(parseSong(SONGS.lastLap).notes).toEqual(parseSong(SONGS.race).notes);
+  });
+
   it('loops only the background tracks', () => {
     const looping = Object.entries(SONGS).filter(([, s]) => 'loop' in s && s.loop).map(([n]) => n).sort();
-    expect(looping).toEqual(['name', 'select']);
+    expect(looping).toEqual(['lastLap', 'name', 'race', 'select']);
   });
 
   it('rings the unlock fanfare as the level-up fanfare, then a bar of its own for the game', () => {

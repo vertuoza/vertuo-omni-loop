@@ -84,8 +84,8 @@ describe('BOOST', () => {
     expect(k.fx.boost).toBeLessThan(0.02);
   });
 
-  it('works on grass too: faster than the road\'s top speed where the grass would halve it', () => {
-    const open = ['................', '................', '................', '................'];
+  it('is faster than the road\'s top speed', () => {
+    const open = ['################', '################', '################', '################'];
     const run = (fx: Fx) => {
       let k: Racer = { kart: { ...kartAt(32, 32, 0), speed: RULES.topSpeed }, fx };
       for (let i = 0; i < 90; i++) {
@@ -94,7 +94,7 @@ describe('BOOST', () => {
       }
       return k.kart.speed;
     };
-    expect(run(NO_FX)).toBeLessThanOrEqual(RULES.topSpeed * RULES.grassFactor + 1e-9);
+    expect(run(NO_FX)).toBeLessThanOrEqual(RULES.topSpeed + 1e-9);
     expect(run({ ...NO_FX, boost: 99 })).toBeGreaterThan(RULES.topSpeed);
   });
 });
@@ -145,7 +145,7 @@ describe('ORB', () => {
     expect(flown?.angle).toBeCloseTo(heading, 5);
   });
 
-  it('bounces off walls, and is gone at its third bounce', () => {
+  it('turns back at the road\'s edge, and is gone at its third bounce', () => {
     let w: World = { ...empty(world()), orbs: [{ x: line.x, y: line.y, angle: heading + Math.PI / 2, bounces: 0, age: 0 }] };
     const seen = new Set<number>();
     let steps = 0;
@@ -285,5 +285,27 @@ describe('in the race', () => {
     expect(later.phase).toBe('race');
     expect(later.fx.spin).toBe(0);
     expect(later.clock).toBeGreaterThan(r.clock + 1.4);
+  });
+});
+
+describe('what the items report (PRD 1427)', () => {
+  it('names the racer that took a box, once', () => {
+    const a = step(track.map, world(), [racer(), onBox()], [2, 3], 0.01);
+    expect(a.events).toEqual([{ kind: 'box', racer: 1 }]);
+    expect(step(track.map, a.world, [racer(), a.racers[1] ?? racer()], [2, 3], 0.01).events).toEqual([]);
+  });
+
+  it('names the racer a BLOB hit, and that it spun out', () => {
+    const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y }] };
+    expect(step(track.map, w, [racer(0, 0), racer()], [1, 2], 0.01).events).toEqual([{ kind: 'hit', racer: 1, item: 'blob', spun: true }]);
+  });
+
+  it('names the racer an ORB hit, and says so when it was already spinning', () => {
+    const at = (fx: Partial<Fx>) => {
+      const w: World = { ...empty(world()), orbs: [{ x: line.x - 1, y: line.y, angle: heading, bounces: 0, age: 0 }] };
+      return step(track.map, w, [racer(line.x + 2, line.y, fx)], [1], 0.001).events;
+    };
+    expect(at({})).toEqual([{ kind: 'hit', racer: 0, item: 'orb', spun: true }]);
+    expect(at({ spin: 0.5 })).toEqual([{ kind: 'hit', racer: 0, item: 'orb', spun: false }]);
   });
 });

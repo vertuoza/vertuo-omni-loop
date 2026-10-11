@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · persona:Irisa ✗"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-10",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each piece landed as a pure module with its own recorded-canvas test, and the particles are seeded and capped at 64. How it looks on a real screen is still for a person to judge.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Still scenery for a kart. At least it ships no image, no audio file and no migration, and costs nothing to anyone who never opens the cabinet.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A space circuit with its own music and an engine that follows your speed, built slice by slice in one run: that is the demo I want to show.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The synth stayed in the arcade’s sound module behind its one mute, and the track and the driving did not change.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "Fun for the team, but nothing in the release note is something a customer would notice.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · persona:Irisa ✗"
     }
   ]
 }
