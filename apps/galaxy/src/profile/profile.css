@@ -51,11 +51,18 @@
 .terminal-name { font-weight: 700; overflow-wrap: anywhere; }
 .terminal-four { font-family: var(--ask-mono); font-weight: 400; }
 .terminal-meta { grid-column: 1; color: var(--ask-muted); font-size: 14px; overflow-wrap: anywhere; }
-.terminal-row > .ask-button, .terminal-confirm { grid-column: 2; grid-row: 1 / span 2; }
-.terminal-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 6px; }
+.terminal-row > .ask-button { grid-column: 2; grid-row: 1 / span 2; }
+.terminal-confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 6px; }
 .terminal-make { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 10px; }
 .terminal-make label { display: grid; gap: 2px; min-width: 0; font-size: 14px; color: var(--ask-muted); }
 .terminal-make label:first-of-type { flex: 1 1 180px; max-width: 320px; }
+.terminal-make :is(input, select) {
+  font: 16px/1.3 var(--ask-body); color: var(--ask-ink); background: var(--ask-sunk);
+  border: 1.5px solid var(--ask-line-strong); border-radius: 6px; padding: 8px 10px; min-width: 0; box-sizing: border-box;
+}
+.terminal-make input { width: 100%; }
+.terminal-make :is(input, select):focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.terminal-make :is(input, select):disabled { opacity: 0.6; }
 .terminal-shown {
   display: grid; gap: 6px; margin-top: 12px; padding: 10px 12px; min-width: 0;
   border: 1.5px solid var(--ask-plasma); border-radius: 8px; background: var(--ask-plasma-soft);
