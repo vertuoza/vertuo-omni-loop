@@ -139,9 +139,15 @@ function visitChildren(element: Element, walk: Walk, inline: boolean): void {
  */
 function visitElement(element: Element, walk: Walk, top: boolean, inline: boolean): void {
   if (skipped(element, walk, top)) return;
-  if (!top && matches(walk.rules.content, element)) return readContent(element, walk, inline);
+  if (!top && matches(walk.rules.content, element)) {
+    readContent(element, walk, inline);
+    return;
+  }
   if (matches(walk.rules.primary, element)) walk.primaries.push(squash(textOf(element, true)));
-  if (isControl(element, walk.rules.primary)) return readControl(element, walk);
+  if (isControl(element, walk.rules.primary)) {
+    readControl(element, walk);
+    return;
+  }
   visitChildren(element, walk, inline);
 }
 
