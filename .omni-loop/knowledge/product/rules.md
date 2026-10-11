@@ -94,7 +94,7 @@ A form section holding repository text beside TODO(human) lines reads as text: t
 
 Serves: P-PRODUCT-8
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s1-02-section-with-text-and-open-questions, PRD #45
-Enforced by: pending #1471
+Enforced by: kit/lib/playbook/resolve.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
