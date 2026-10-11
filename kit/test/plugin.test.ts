@@ -2833,3 +2833,22 @@ describe('/omni:pr when only the outbox check is red', () => {
     expect(skillSection(text, 'Labels')).toContain("Never add `labels.outboxGo`; it is a person's override.");
   });
 });
+
+describe('a slice is claimed before it is built', () => {
+  // Law BR-PRODUCT-4 (.omni-loop/knowledge/product/rules.md, #1466).
+  it('law BR-PRODUCT-4: the wave claims every slice before dispatch, and do-work run alone opens the claim itself before building', () => {
+    const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, `skills/${name}/SKILL.md`), 'utf8');
+    const wave = read('wave');
+    expect(skillSection(wave, '2. Claim every slice first').replace(/\s+/g, ' ')).toContain(
+      "Before any subagent starts, `git fetch <remote>`, then, for each takeable slice, in board order: - **`runnable`:** follow `/omni:pr`'s **Claim** mode",
+    );
+    expect(wave.indexOf('## 2. Claim every slice first')).toBeLessThan(wave.indexOf('## 3. Dispatch'));
+    const doWork = read('do-work');
+    const before = skillSection(doWork, '1. Read before you build').replace(/\s+/g, ' ');
+    expect(before).toContain('**Under `--in-wave`:** `/omni:wave` has already claimed the slice.');
+    expect(before).toContain(
+      "**Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the claimed status) before you build anything.",
+    );
+    expect(doWork.indexOf('## 1. Read before you build')).toBeLessThan(doWork.indexOf('## 2. Build'));
+  });
+});
