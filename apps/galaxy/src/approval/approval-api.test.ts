@@ -26,6 +26,7 @@ type World = { database?: boolean; session?: boolean; answers?: Record<string, A
 function world({ database = true, session = true, answers = {}, label = () => Promise.resolve() }: World = {}) {
   const calls: Array<{ fn: string; args: unknown; as: string }> = [];
   const labelled: Array<[string, number]> = [];
+  const told: unknown[] = [];
   const rpcAs = (as: string) => (fn: string, args: unknown) => {
     calls.push({ fn, args, as });
     const answer = answers[fn];
@@ -46,6 +47,8 @@ function world({ database = true, session = true, answers = {}, label = () => Pr
     session: () => Promise.resolve(session ? ({ rpc: rpcAs('session') } as unknown as Awaited<ReturnType<ApprovalDeps['session']>>) : null),
     label: (repo, prd) => { labelled.push([repo, prd]); return label(); },
     installLink: 'https://github.com/apps/omni/installations/new',
+    tellApp: (event) => { told.push(event); return Promise.resolve(true); },
+    now: () => new Date('2026-10-11T09:00:00.000Z'),
   };
   const get = async (query: string, token: string | null = 'ada-token') => {
     const response = await answerApproval(new Request(`https://omni.example/api/dossiers/approval${query}`, {
@@ -59,7 +62,7 @@ function world({ database = true, session = true, answers = {}, label = () => Pr
     }), deps);
     return { status: response.status, body: (await response.json()) as unknown };
   };
-  return { calls, labelled, get, post };
+  return { calls, labelled, told, get, post };
 }
 
 const IN_FORCE = {
@@ -171,10 +174,17 @@ describe('POST /api/dossiers/approval — a product PRD (PRD 1548)', () => {
     expect(w.labelled).toEqual([]);
   });
 
+  it('tells the GitHub App once, with one server event, so it re-posts omni/approved on the PRD\'s target PRs (PRD 1548 s4)', async () => {
+    const w = world({ answers: { dossier_approve: { data: { id: 'a1', repo: null, prd: null, prdId: 'mobile-12' }, error: null } } });
+    await w.post({ dossier: DOSSIER });
+    expect(w.told).toEqual([{ event: 'approved', dossier: DOSSIER, at: '2026-10-11T09:00:00.000Z' }]);
+  });
+
   it('answers 500 when a product PRD\'s approval answers no id of shape', async () => {
     const w = world({ answers: { dossier_approve: { data: { id: 'a1', repo: null, prd: null, prdId: 'Mobile' }, error: null } } });
     expect((await w.post({ dossier: DOSSIER })).status).toBe(500);
     expect(w.labelled).toEqual([]);
+    expect(w.told).toEqual([]);
   });
 });
 
@@ -187,6 +197,7 @@ describe('POST /api/dossiers/approval', () => {
       { fn: 'dossier_approval', args: { p_repo: 'acme/widgets', p_prd: 1299 }, as: 'session' },
     ]);
     expect(w.labelled).toEqual([['acme/widgets', 1299]]);
+    expect(w.told).toEqual([]);
   });
 
   it('approves as a terminal sign-in when the call carries a bearer token', async () => {

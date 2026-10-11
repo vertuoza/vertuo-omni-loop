@@ -22,7 +22,9 @@
 // session; a POST that carries a bearer token approves as that sign-in instead. Both run as the caller:
 // dossier_approve() and dossier_approval() (supabase/migrations/20261123090000_approvals.sql) check who
 // calls. Once an approval is written, the PRD's issue gets its approved label (./label.ts): a label that
-// cannot be added is logged and never undoes the approval, which is the record.
+// cannot be added is logged and never undoes the approval, which is the record. A product PRD's approval
+// instead tells the GitHub App, with one signed server event (PRD 1548 s4, ../server-event/), which re-posts
+// `omni/approved` on its open target pull requests; telling never undoes the approval either.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed query or body (or the
 // database's own: a ◇ dossier, a draft, a missing spec, plan or before/after), 401 no valid sign-in, 403
@@ -33,6 +35,7 @@ import { z } from 'zod';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { authenticate, callerOrigin, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
+import type { ServerEvent } from '../server-event/server-event.service';
 
 /** A Supabase client acting as the caller: the functions. */
 export type ApprovalDb = Pick<SupabaseClient, 'rpc'>;
@@ -48,6 +51,10 @@ export type ApprovalDeps = {
   label: (repo: string, prd: PrdNumber) => Promise<void>;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
+  /** Tells the GitHub App a product PRD was approved (PRD 1548 s4); never throws. Missing: the App is not told. */
+  tellApp?: (event: ServerEvent) => Promise<unknown>;
+  /** The clock the server event is dated by. */
+  now?: () => Date;
 };
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
@@ -222,6 +229,8 @@ export async function approveDossier(request: Request, deps: ApprovalDeps): Prom
     } catch (error) {
       console.error(`approval: PRD #${key.prd} of ${key.repo} is approved, but its label was not added: ${error instanceof Error ? error.message : String(error)}`);
     }
+  } else {
+    await deps.tellApp?.({ event: 'approved', dossier, at: (deps.now?.() ?? new Date()).toISOString() });
   }
   const read = await inForce(request, db, key, deps);
   return read.status === 200 ? reply(201, await read.json()) : read;
