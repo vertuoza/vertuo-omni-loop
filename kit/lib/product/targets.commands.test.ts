@@ -4,6 +4,7 @@
 // fixture plan repository: `gh` and the server are fakes, and nothing here calls the network.
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { main } from '../../bin/omni.ts';
 import { makeRepo, realExec } from '../../test/fixture.ts';
 
@@ -116,7 +117,7 @@ describe.each([
     const { code, out, repos } = await omni(['board', '7', '--json'], { config, fetch });
     expect(code).toBe(0);
     expect(repos).toEqual(['acme/backend', 'acme/frontend']);
-    const { slices }: { slices: { id: string; slug: string | null; state: string }[] } = JSON.parse(out);
+    const { slices } = z.object({ slices: z.array(z.looseObject({ id: z.string(), slug: z.string().nullable(), state: z.string() })) }).parse(JSON.parse(out));
     expect(slices.map(({ id, slug, state }) => ({ id, slug, state }))).toEqual([
       { id: 's1', slug: 'acme/backend', state: 'runnable' },
       { id: 's2', slug: 'acme/frontend', state: 'runnable' },
@@ -134,7 +135,7 @@ describe.each([
   it('omni care list lists each target', async () => {
     const { code, out } = await omni(['care', 'list', '7', '--json'], { config });
     expect(code).toBe(0);
-    const entries: { repo: string; kind: string }[] = JSON.parse(out);
+    const entries = z.array(z.looseObject({ repo: z.string(), kind: z.string() })).parse(JSON.parse(out));
     expect(entries.filter(({ kind }) => kind === 'target').map(({ repo }) => repo)).toEqual(['acme/backend', 'acme/frontend']);
   });
 
