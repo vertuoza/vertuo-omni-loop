@@ -2,15 +2,15 @@
 // every outbox verb read and wrote them before the seam — open items under the PRD's outbox folder,
 // the append-only `settled.md` beside them, accounts under `accounts/`. Each method is the code a
 // verb ran, moved behind `OutboxStore`; the library functions it calls are unchanged.
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
 import type { Context } from '../context.ts';
 import type { PrdNumber } from '../ids.ts';
 import { adoptedEntriesForPrd, openItemsForPrd, upsertOutboxComment, upsertOutboxPrComment } from './comment.ts';
-import { outboxItemFiles } from './outbox.ts';
-import { markdownFiles, relayFolder, settledIds } from './relay.ts';
+import { outboxItemFiles, SETTLED_FILE } from './outbox.ts';
+import { relayFolder } from './relay.ts';
 import { readReplies } from './replies.ts';
-import { adoptItem, settleItem } from './settle.ts';
+import { adoptItem, parseSettledEntries, settleItem } from './settle.ts';
 import { gateResult } from './status.ts';
 import type { ItemRead, OutboxStore } from './store.ts';
 
@@ -43,9 +43,24 @@ function readText(path: string): ItemRead {
 function spentInOutbox(ctx: Context, prd: PrdNumber): Set<string> {
   const outboxDir = outboxDirOf(ctx, prd);
   const prefix = `${outboxDir}/`;
-  const ids = settledIds(ctx, outboxDir);
-  for (const path of outboxItemFiles({ ctx })) if (path.startsWith(prefix)) ids.add(basename(path, '.md'));
+  const ids = new Set(
+    outboxItemFiles({ ctx })
+      .filter((path) => path.startsWith(prefix))
+      .map((path) => basename(path, '.md')),
+  );
+  const settledFile = join(ctx.root, outboxDir, SETTLED_FILE);
+  if (existsSync(settledFile)) {
+    for (const entry of parseSettledEntries(readFileSync(settledFile, 'utf8'), ctx.markers)) ids.add(entry.id);
+  }
   return ids;
+}
+
+/** Adds to `ids` the id of every item a folder outside the outbox holds: its own `.md` files. */
+function spendFolder(ids: Set<string>, dir: string): void {
+  if (!existsSync(dir)) return;
+  for (const name of readdirSync(dir)) {
+    if (name.endsWith('.md') && statSync(join(dir, name)).isFile()) ids.add(basename(name, '.md'));
+  }
 }
 
 /** Whether `dir` is a folder. */
@@ -72,7 +87,7 @@ export function gitOutboxStore(ctx: Context): OutboxStore {
       const ids = spentInOutbox(ctx, prd);
       // With `--out`, the folder's own items are spent too: two items raised into one scratch folder
       // never share an id, and the relay never finds two files of one name.
-      if (out !== null) for (const name of markdownFiles(out.abs)) ids.add(basename(name, '.md'));
+      if (out !== null) spendFolder(ids, out.abs);
       return ids;
     }),
     writeItem: ({ prd, id, text }, out) => promised(() => {
