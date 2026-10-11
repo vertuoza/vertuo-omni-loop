@@ -750,14 +750,15 @@ Merged: @pierrederval, 2026-10-01, PR #874
 
 ## BR-PRODUCT-69
 
-The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and every row is checked against this repository's rules.
+The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and in a plan repository each repository's rows are checked against that repository's own rules (a target with no copied rules against the kit's defaults).
 
 Serves: P-PRODUCT-61
 Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
-Enforced by: pending #1530
+Enforced by: kit/lib/inbox/plan-grade.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1090
+Reworded: @pierrederval, 2026-10-11, the plan check grades each target against its own flow since #1090
 
 ## BR-PRODUCT-70
 
