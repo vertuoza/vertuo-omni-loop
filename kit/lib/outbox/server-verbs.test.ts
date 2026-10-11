@@ -177,6 +177,14 @@ describe('omni adopt, settle, item relay and answers on mobile-12', () => {
     expect(await run(['answers', 'ask', 'mobile-12'])).toMatchObject({ code: 1, err: 'omni answers: nothing to ask on PRD mobile-12 — no open human-action or high question.\n' });
   });
 
+  it('settles option A as agreed even when its reason reads like a change', async () => {
+    const { routes, run, raise, json } = world();
+    await raise(HIGH);
+    const picks = json([{ number: 1, pick: 'A', reason: 'no, changing it is not worth it' }] as unknown as Record<string, unknown>);
+    expect(await run(['answers', 'post', '--prd', 'mobile-12', '--answers', picks])).toMatchObject({ code: 0, out: '1: s7-01-default-timeout settled as "agreed"\n' });
+    expect(routes.rows('mobile-12')[0]?.settlement).toMatchObject({ verdict: 'agreed', basis: 'stated' });
+  });
+
   it('refuses picks that name no open question, settling nothing', async () => {
     const { routes, run, raise, json } = world();
     await raise(HIGH);

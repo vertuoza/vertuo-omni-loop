@@ -75,6 +75,32 @@ describe('the server store names an item <prd>/<id>', () => {
   });
 });
 
+describe('the server store finds the item a ref names among the PRD\'s rows', () => {
+  const OTHER = 's7-02-other';
+  const rows = (): Row[] => [open(), { ...open(itemText({ id: OTHER })), item: OTHER }];
+
+  it('reads and settles that item, not the first', async () => {
+    const { fake, writes } = client({ items: rows() });
+    const { store: server } = store(fake);
+    expect(await server.readItem(`mobile-12/${OTHER}`)).toEqual({ ok: true, text: itemText({ id: OTHER }) });
+    expect(await server.settle(`mobile-12/${OTHER}`, { text: 'Yes, five seconds is right.' })).toMatchObject({ ok: true, removedFile: `mobile-12/${OTHER}` });
+    expect(writes).toMatchObject([{ item: OTHER }]);
+  });
+
+  it('refuses to adopt an item that is not medium in its own words, sending nothing', async () => {
+    const { fake, writes } = client();
+    expect(await store(fake).store.adopt(itemText())).toEqual({
+      ok: false, errors: [`${ID}: only a "medium" item is adopted at raise time — this one is ranked "high" and is written as an open item instead.`],
+    });
+    expect(writes).toEqual([]);
+  });
+
+  it('words an answer of the wrong type as the kit does', async () => {
+    const { fake } = client({ items: rows() });
+    expect(await store(fake).store.settle(`mobile-12/${ID}`, { text: 5 })).toEqual({ ok: false, errors: ['text: Expected string, received number'] });
+  });
+});
+
 describe('the server store holds only a product PRD\'s outbox', () => {
   it('refuses a repository\'s PRD, naming where its outbox is', async () => {
     const { store: server, root } = store(client().fake);

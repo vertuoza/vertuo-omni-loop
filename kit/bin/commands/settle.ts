@@ -60,8 +60,8 @@ function answerText(flags: Partial<Record<'answer' | 'answer-file', string>>, ct
 }
 
 /** The product PRD `--prd` names, or null when it names a repository's PRD or none. */
-function productOf(prd: string | undefined): ProductPrdId | null {
-  const named = prd === undefined ? null : prdIdArg('settle', '--prd', prd);
+function productOf(given: string | undefined): ProductPrdId | null {
+  const named = given === undefined ? null : prdIdArg('settle', '--prd', given);
   return named !== null && isProductPrdId(named) ? named : null;
 }
 

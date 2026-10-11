@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseWorkSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { outboxItemsRepository, type OutboxItemsDb } from './outbox-items.repository';
 
 // A product PRD's outbox storage (PRD 1548 s7): the reads and RPCs it sends, as the signed-in person, each
@@ -7,7 +8,7 @@ import { outboxItemsRepository, type OutboxItemsDb } from './outbox-items.reposi
 
 const DOSSIER = '11111111-1111-4111-8111-111111111111';
 const MOBILE = { key: 'mobile', seq: 12, repo: 'acme/app' };
-const COLUMNS = { item: 's7-01-default-timeout', slice: 's7', rank: 'medium', bearsOn: 'none', wave: 4, raised: '2026-10-11', body: '---\n…' };
+const COLUMNS = { item: 's7-01-default-timeout', slice: parseWorkSliceId('s7'), rank: 'medium', bearsOn: 'none', wave: 4, raised: '2026-10-11', body: '---\n…' };
 
 type Answer = { data: unknown; error: { code?: string; message?: string; hint?: string } | null };
 

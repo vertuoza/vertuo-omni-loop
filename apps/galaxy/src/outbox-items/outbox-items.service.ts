@@ -1,4 +1,4 @@
-import { parseProductPrdId, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseProductPrdId, type PrdNumber, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { OutboxRowSchema, type ItemsQuery, type ItemsReply, type OutboxRefusal, type PutRequest, type SettleRequest } from './outbox-items.contract';
 import type { ItemColumns, OutboxItemsRepository, PrdOnProduct, Stored, StoredItemRow } from './outbox-items.repository';
@@ -20,7 +20,7 @@ const NOT_WRITTEN = 'The PRD\'s outbox was not written. Try again.';
 const refused = (kind: OutboxRefusal, error: string): { ok: false; kind: OutboxRefusal; error: string } => ({ ok: false, kind, error });
 
 /** The product PRD a request names, as the repository takes it, and its id. */
-function prdOf({ product, prd, repo }: { product: string; prd: number; repo?: string | undefined }): PrdOnProduct & { id: ProductPrdId } {
+function prdOf({ product, prd, repo }: { product: string; prd: PrdNumber; repo?: string | undefined }): PrdOnProduct & { id: ProductPrdId } {
   return { key: product, seq: prd, repo: repo?.toLowerCase() ?? null, id: parseProductPrdId(`${product}-${prd}`) };
 }
 

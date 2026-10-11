@@ -6,6 +6,7 @@
 // message and hint; an answer out of shape as the code `shape`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import type { WorkSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** What the reads and writes need: the tables, and the database's functions. */
@@ -35,7 +36,7 @@ const StoredItem = z.object({
 export type StoredItemRow = z.infer<typeof StoredItem>;
 
 /** An item's columns, as the kit's item parser read them from its body, and the body itself. */
-export type ItemColumns = { item: string; slice: string; rank: string; bearsOn: string; wave: number; raised: string; body: string };
+export type ItemColumns = { item: string; slice: WorkSliceId; rank: string; bearsOn: string; wave: number; raised: string; body: string };
 
 /** Which product PRD a write is about, and the repository it comes from. */
 export type PrdOnProduct = { key: string; seq: number; repo: string | null };
