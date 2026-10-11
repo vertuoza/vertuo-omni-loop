@@ -310,6 +310,18 @@ describe('the signature section (PRD #99, PRD #215)', () => {
     expect(() => parseConfig('kit: 1\nsignature:\n  email: "a\\nb@example.com"\n')).toThrow(/signature\.email/);
     expect(() => parseConfig('kit: 1\nsignature:\n  footer: ""\n')).toThrow(/signature\.footer/);
   });
+
+  // Law BR-PRODUCT-23 (.omni-loop/knowledge/product/rules.md, #1458).
+  it('law BR-PRODUCT-23: refuses a name or an email that is empty, holds a line break, or holds < or >, naming that key; a footer only has to be non-empty', () => {
+    for (const key of ['name', 'email']) {
+      for (const value of ['""', '"a\\nb"', '"a\\rb"', '"a<b"', '"a>b"']) {
+        expect(() => parseConfig(`kit: 1\nsignature:\n  ${key}: ${value}\n`), `${key}: ${value}`).toThrow(new RegExp(`signature\\.${key}`));
+      }
+    }
+    expect(() => parseConfig('kit: 1\nsignature:\n  footer: ""\n')).toThrow(/signature\.footer/);
+    const footer = '<b>{name}</b> > by\nnext line';
+    expect(parseConfig(`kit: 1\nsignature:\n  footer: ${JSON.stringify(footer)}\n`).signature?.footer).toBe(footer);
+  });
 });
 
 describe('omni config', () => {
