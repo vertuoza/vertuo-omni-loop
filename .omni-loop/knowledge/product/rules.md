@@ -567,7 +567,7 @@ On a person's profile, each PRDs stage count opens the PRD list at that stage fi
 
 Serves: P-PRODUCT-49
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
-Enforced by: pending #1513
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
