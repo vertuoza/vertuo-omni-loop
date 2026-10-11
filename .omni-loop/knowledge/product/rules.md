@@ -832,7 +832,7 @@ omni loop push counts as off, printing off and exiting 1, only when ask.url is n
 
 Serves: P-PRODUCT-67
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
-Enforced by: pending #1537
+Enforced by: kit/bin/loop.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
