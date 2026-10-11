@@ -6,7 +6,7 @@
 //
 // `omni setup-token` (PRD 1628) listens the same way for a kit token instead of a code:
 // `http://127.0.0.1:<port>/callback?state=<state>&token=<omk_…>&expires_at=<ISO date>`, the way back
-// `apps/galaxy/src/ask/kit-token.ts` sends. The token is taken only when it is well formed and its
+// the Omni page sends (its kit-token module). The token is taken only when it is well formed and its
 // expiry readable; no page this listener answers, and no error it raises, ever holds it.
 import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
