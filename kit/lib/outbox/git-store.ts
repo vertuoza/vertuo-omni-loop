@@ -2,21 +2,30 @@
 // every outbox verb read and wrote them before the seam — open items under the PRD's outbox folder,
 // the append-only `settled.md` beside them, accounts under `accounts/`. Each method is the code a
 // verb ran, moved behind `OutboxStore`; the library functions it calls are unchanged.
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
 import type { Context } from '../context.ts';
+import { isProductPrdId } from '../ids.ts';
 import type { PrdNumber } from '../ids.ts';
 import { adoptedEntriesForPrd, openItemsForPrd, upsertOutboxComment, upsertOutboxPrComment } from './comment.ts';
 import { outboxItemFiles, SETTLED_FILE } from './outbox.ts';
 import { relayFolder } from './relay.ts';
 import { readReplies } from './replies.ts';
 import { adoptItem, parseSettledEntries, settleItem } from './settle.ts';
+import { isFolder, spendFolder, writeInto } from './out-folder.ts';
 import { gateResult } from './status.ts';
-import type { ItemRead, OutboxStore } from './store.ts';
+import type { ItemRead, OutboxPrd, OutboxStore } from './store.ts';
 
 /** `path` as the repository root resolves it: an absolute path as is. */
 function inRoot(root: string, path: string): string {
   return isAbsolute(path) ? path : join(root, path);
+}
+
+/** PRD `prd` as a repository's, or the error the library throws for a PRD with no folder: a product
+ * PRD's outbox (`mobile-12`, PRD 1548) is never in the repository. */
+function repoPrd(prd: OutboxPrd): PrdNumber {
+  if (isProductPrdId(prd)) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
+  return prd;
 }
 
 /** The outbox folder of PRD `prd`, or the error the library throws for a PRD with none. */
@@ -55,19 +64,6 @@ function spentInOutbox(ctx: Context, prd: PrdNumber): Set<string> {
   return ids;
 }
 
-/** Adds to `ids` the id of every item a folder outside the outbox holds: its own `.md` files. */
-function spendFolder(ids: Set<string>, dir: string): void {
-  if (!existsSync(dir)) return;
-  for (const name of readdirSync(dir)) {
-    if (name.endsWith('.md') && statSync(join(dir, name)).isFile()) ids.add(basename(name, '.md'));
-  }
-}
-
-/** Whether `dir` is a folder. */
-function isFolder(dir: string): boolean {
-  return existsSync(dir) && statSync(dir).isDirectory();
-}
-
 /** `run`'s value as a promise, as an `async` function that awaits nothing gives it: an error it
  * throws rejects the promise. */
 function promised<T>(run: () => T): Promise<T> {
@@ -84,27 +80,24 @@ export function gitOutboxStore(ctx: Context): OutboxStore {
       rmSync(inRoot(ctx.root, ref));
     }),
     spentIds: (prd, out) => promised(() => {
-      const ids = spentInOutbox(ctx, prd);
+      const ids = spentInOutbox(ctx, repoPrd(prd));
       // With `--out`, the folder's own items are spent too: two items raised into one scratch folder
       // never share an id, and the relay never finds two files of one name.
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     }),
     writeItem: ({ prd, id, text }, out) => promised(() => {
-      const outboxDir = outboxDirOf(ctx, prd);
-      const { abs, shown } = out ?? { abs: join(ctx.root, outboxDir), shown: outboxDir };
-      mkdirSync(abs, { recursive: true });
-      writeFileSync(join(abs, `${id}.md`), text);
-      return join(shown, `${id}.md`);
+      const outboxDir = outboxDirOf(ctx, repoPrd(prd));
+      return writeInto(out ?? { abs: join(ctx.root, outboxDir), shown: outboxDir }, id, text);
     }),
     adopt: (itemText) => promised(() => adoptItem({ ctx, itemText })),
     settle: (ref, answer) => promised(() => settleItem({ ctx, file: ref, answer })),
-    relay: (prd, dir, laws) => promised(() => (isFolder(dir) ? relayFolder({ ctx, laws, prd, dir }) : null)),
-    gate: (prd, options) => promised(() => gateResult(prd, { ctx, ...options })),
-    openItems: (prd) => promised(() => openItemsForPrd(prd, { ctx })),
-    adoptedEntries: (prd) => promised(() => adoptedEntriesForPrd(prd, { ctx })),
-    replies: (request, client) => promised(() => readReplies({ ctx, ...request }, client)),
-    prComment: (prd, client) => promised(() => upsertOutboxPrComment({ prd, ctx }, client)),
-    issueComment: (request, client) => promised(() => upsertOutboxComment({ ctx, ...request }, client)),
+    relay: (prd, dir, laws) => promised(() => (isFolder(dir) ? relayFolder({ ctx, laws, prd: repoPrd(prd), dir }) : null)),
+    gate: (prd, options) => promised(() => gateResult(repoPrd(prd), { ctx, ...options })),
+    openItems: (prd) => promised(() => openItemsForPrd(repoPrd(prd), { ctx })),
+    adoptedEntries: (prd) => promised(() => adoptedEntriesForPrd(repoPrd(prd), { ctx })),
+    replies: (request, client) => promised(() => readReplies({ ctx, ...request, prd: repoPrd(request.prd) }, client)),
+    prComment: (prd, client) => promised(() => upsertOutboxPrComment({ prd: repoPrd(prd), ctx }, client)),
+    issueComment: (request, client) => promised(() => upsertOutboxComment({ ctx, ...request, prd: repoPrd(request.prd) }, client)),
   };
 }
