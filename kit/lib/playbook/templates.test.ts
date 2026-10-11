@@ -20,8 +20,8 @@ const KIT_ORIGINAL = new Set(['playbook/review.md', 'playbook/design.md']);
 /** The slots whose kit default is a question, not doctrine: only the repository can answer them (PRD 1369). */
 const KIT_HOLES = new Set(['design#product', 'design#system']);
 
-/** The optional slots the kit leaves empty: there is no default worth shipping (PRD 1369). */
-const KIT_EMPTY = new Set(['design#deliberate', 'design#review']);
+/** The optional slots the kit leaves empty: there is no default worth shipping (PRD 1369; PRD 1407: the laws are the repository's own). */
+const KIT_EMPTY = new Set(['design#deliberate', 'design#review', 'design#language']);
 
 /** What a template's slot holds: a question, nothing, or else a kit default. */
 const kitKind = (formId: string, slotId: string): string => {

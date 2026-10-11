@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 326" width="840" height="326">
+  <title>A screen's life in the library</title>
+  <desc>A screen of the library lives in four steps. First it is written as a draft, status: draft, by the loop: /omni:visual-fix writes the variation you picked, /omni:brainstorm the approved after of each screen it draws, /omni:think-big the screens of the crowned concept, and /omni:invade the screens it can prove your repository has; anyone may change a draft. Then a person locks it, status: locked, by typing /omni:pixel-perfect lock with the screen's name: it records their GitHub login, the date and their own words, and no agent ever locks. Then, when a change departs from the locked screen, the agent raises a high outbox item for whoever locked it; that owner answers and adds a dated amendment line, > Amended with the date, in their words, and no amendment line is ever removed. Last, a screen replaced whole is marked status: superseded: it is kept, never deleted, and the new screen names it in supersedes. Below, the one deliberate block: a change to a locked screen or law raises a high outbox item for whoever locked it, and omni check design refuses a locked screen or law changed without a new amendment line. A draft changes freely, and nothing else in design craft ever blocks.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <text x="20" y="22" class="dg-tag">1 · DRAFT</text>
+  <rect x="23" y="37" width="170" height="158" class="dg-shadow"/>
+  <rect x="20" y="34" width="170" height="158" class="dg-box"/>
+  <text x="34" y="58" class="dg-code">status: draft</text>
+  <text x="34" y="80" class="dg-small dg-muted">written by the loop:</text>
+  <text x="34" y="100" class="dg-code dg-agents">/omni:visual-fix</text>
+  <text x="34" y="118" class="dg-code dg-agents">/omni:brainstorm</text>
+  <text x="34" y="136" class="dg-code dg-agents">/omni:think-big</text>
+  <text x="34" y="154" class="dg-code dg-agents">/omni:invade</text>
+  <text x="34" y="178" class="dg-small dg-muted">anyone may change it</text>
+  <path d="M198 113 L215.0 113.0" class="dg-line dg-edge-you"/>
+  <polygon points="224,113 215.0,118.5 215.0,107.5" class="dg-head dg-you"/>
+  <text x="230" y="22" class="dg-tag">2 · LOCKED</text>
+  <rect x="233" y="37" width="170" height="158" class="dg-shadow"/>
+  <rect x="230" y="34" width="170" height="158" class="dg-box dg-key"/>
+  <text x="244" y="58" class="dg-code dg-you">status: locked</text>
+  <text x="244" y="80" class="dg-small">only a person locks,</text>
+  <text x="244" y="98" class="dg-small dg-muted">with their login,</text>
+  <text x="244" y="116" class="dg-small dg-muted">the date and</text>
+  <text x="244" y="134" class="dg-small dg-muted">their own words</text>
+  <text x="244" y="160" class="dg-code dg-you">/omni:pixel-perfect</text>
+  <text x="244" y="178" class="dg-code dg-you">lock &lt;screen&gt;</text>
+  <path d="M408 113 L425.0 113.0" class="dg-line dg-edge-agents"/>
+  <polygon points="434,113 425.0,118.5 425.0,107.5" class="dg-head dg-agents"/>
+  <text x="440" y="22" class="dg-tag">3 · AMENDED</text>
+  <rect x="443" y="37" width="170" height="158" class="dg-shadow"/>
+  <rect x="440" y="34" width="170" height="158" class="dg-box"/>
+  <text x="454" y="58" class="dg-code">&gt; Amended &lt;date&gt;</text>
+  <text x="454" y="80" class="dg-small">a change raises a</text>
+  <text x="454" y="98" class="dg-small">high outbox item;</text>
+  <text x="454" y="116" class="dg-small">the owner answers</text>
+  <text x="454" y="134" class="dg-small">and adds a dated</text>
+  <text x="454" y="152" class="dg-small">line, in their words</text>
+  <text x="454" y="178" class="dg-small dg-muted">each line stays</text>
+  <path d="M618 113 L635.0 113.0" class="dg-line"/>
+  <polygon points="644,113 635.0,118.5 635.0,107.5" class="dg-head"/>
+  <text x="650" y="22" class="dg-tag">4 · SUPERSEDED</text>
+  <rect x="653" y="37" width="170" height="158" class="dg-shadow"/>
+  <rect x="650" y="34" width="170" height="158" class="dg-box"/>
+  <text x="664" y="58" class="dg-code">status: superseded</text>
+  <text x="664" y="80" class="dg-small">replaced whole by</text>
+  <text x="664" y="98" class="dg-small">a new screen, which</text>
+  <text x="664" y="116" class="dg-small">names it in</text>
+  <text x="664" y="136" class="dg-code">supersedes:</text>
+  <text x="664" y="178" class="dg-small dg-muted">kept, never deleted</text>
+  <rect x="23" y="233" width="800" height="76" class="dg-shadow"/>
+  <rect x="20" y="230" width="800" height="76" class="dg-box"/>
+  <text x="40" y="253" class="dg-small">A change to a locked screen or law raises a high outbox item for whoever locked it.</text>
+  <text x="40" y="273" class="dg-code">omni check design</text>
+  <text x="170" y="273" class="dg-small">refuses a locked screen or law changed without a new amendment line.</text>
+  <text x="40" y="293" class="dg-small dg-muted">A draft changes freely; nothing else in design craft ever blocks.</text>
+</svg>

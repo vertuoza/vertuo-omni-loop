@@ -125,3 +125,41 @@ File by file:
 Also new with the import: `kit/NOTICE.md` (the attribution and the Apache-2.0 text), the
 `pixel-perfect` entry of `kit/lib/help/entries.ts` (`omni help pixel-perfect`), and its lines in
 `kit/test/plugin.test.ts`.
+
+## PRD #1407, slice s6 — the design memory
+
+Not an import: kit-local changes, behind the same `design.enabled` flag, wired to the commands the
+PRD built (`omni design screens`, `omni design touched`'s `screens:` line, `omni design words`,
+`omni check design`) and to the design form's optional `language` slot, never restating them.
+
+- **The `language` slot** is named wherever the skill lists the form's sections: the description,
+  **Step 0**, **The product wins** (`product`, `system`, `deliberate` and `language` override the
+  craft floor and the refuse list), `reference/craft-floor.md`, `reference/critique.md`, and the
+  design-form line of `adapt`, `clarify`, `harden`, `layout` and `typeset`.
+- **Step 0** gains **The library**: `omni design screens`, then the files and mockups of the
+  screens the target is or touches. A locked screen is built as written and never redesigned; a
+  draft is a starting point.
+- **`lock`** (`reference/lock.md`, new, the kit's own): typed by a person only, never followed by a
+  skill. It locks a library screen (`status: locked`, `locked-by`, `locked-on`, `quote`) or a law
+  (its `🔒` line), with the person's own words verbatim and the GitHub login (the one ask mode gives
+  with the answer, else `gh api user`), checks with `omni check design`, commits the one file
+  signed, and pushes nothing. Its **Amend** records an owner's amendment line the same way.
+- **Rules for every command** gains **Locked decisions**: no command edits a locked screen's body
+  or a locked law, a fix on one goes back toward its mockup, and a change to one is the one high
+  item.
+- **`reference/review.md`** gains step 0, **The screens** (`omni design touched`'s `screens:` line,
+  and a locked screen's file and mockup as the reference picture), the word pass in the critique
+  (`omni design words`, exit 0, its findings critique findings), screenshots at each screen's
+  routes, the comparison of a locked screen with its mock, polish that moves a locked screen only
+  back toward its mock, the section **A change to a locked screen or law** (a high outbox item
+  naming the screen, the change and who locked it; every other finding unchanged), and a
+  **Locked** line in the report.
+- **Left as it was:** `omni help pixel-perfect` (`kit/lib/help/`) does not yet name `lock`: that
+  file is outside the slice's territory, and an outbox item says so.
+
+### Tests
+
+`kit/test/plugin.test.ts`: `lock` joins the command list of "the pixel-perfect skill in this
+repository" (its help line excepted), the precedence test names `language`, and the block "the
+design memory in pixel-perfect and do-work (PRD 1407)" holds each line above, with the rule that no
+skill but pixel-perfect writes `status: locked` or a `🔒` line.

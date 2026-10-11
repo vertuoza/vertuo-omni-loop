@@ -193,3 +193,25 @@ the `design.enabled` flag (default off), wired to `/omni:pixel-perfect review` a
 `kit/test/plugin.test.ts`, the block "the design review in the skills that drive screen work (PRD
 1369)": the flag in step 0, `omni design touched` then `/omni:pixel-perfect review` before the
 coverage grade, the `ui: unknown` judgement, the never-blocking lines, and the section in step 5.
+
+## PRD #1407, slice s6 — the design memory
+
+Not a re-port: kit-local prose behind `design.enabled`, wired to `omni design screens`,
+`omni design touched`'s `screens:` line and `/omni:pixel-perfect`'s review, never restating them.
+
+- **Step 1** gains item 6, **The design memory**: on a slice that builds or changes a screen, read
+  `omni kb show design` with its `language` laws, then `omni design screens` and each library
+  screen the slice builds or touches, file and mockup. A locked screen is built as written, never
+  redesigned; a draft is a starting point.
+- **Step 3** gains **A change to a locked screen or law**: never edit a locked screen's body or a
+  locked law, never lock; build what the spec asks, and record it with `hardToRevert: true` by rule
+  (the Jev step skipped, so it is always high), naming the screen, the change and who locked it,
+  with the amendment line the owner would add left for their words. Never a stop, and the one
+  design finding that is high. **Exactly two ways a slice ends early** says so.
+- **Step 4's design review** reads the same check's `screens:` line, and a change it finds to a
+  locked screen is that high item, never a lock and never an edit of the locked file.
+
+### Tests
+
+`kit/test/plugin.test.ts`, the block "the design memory in pixel-perfect and do-work (PRD 1407)":
+the library read in step 1, the locked screen built as written, and the high item in step 3.

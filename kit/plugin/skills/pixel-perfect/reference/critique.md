@@ -34,7 +34,9 @@ review's step 1: no question is asked, and its priority issues feed the polish b
    - "this page" -> the current route or source file
 2. **Read the design form** (Step 0 of the skill has: `omni kb show design`). Its `product`
    section is who the screen is for and in what words; its `system` section, which tokens and
-   components the screen should use; its `deliberate` section, what is not a finding.
+   components the screen should use; its `deliberate` section, what is not a finding; its
+   `language` section, the laws the screen keeps (a law broken is a finding, a law a person locked
+   is never redesigned).
 
 ### Assessment A: Design Review
 
