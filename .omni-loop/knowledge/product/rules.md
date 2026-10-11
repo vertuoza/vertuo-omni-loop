@@ -666,7 +666,7 @@ The Jev page's agreement rate counts only calls where Jev and the old way both a
 
 Serves: P-PRODUCT-56
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
-Enforced by: pending #1522
+Enforced by: apps/galaxy/src/jev/record/record.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
