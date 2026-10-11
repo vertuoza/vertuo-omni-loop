@@ -696,7 +696,7 @@ at its own address and reading only the product's rows:
 | **Ledger** | `/app/products/<id>` | three lanes, *on you* (waiting for the viewer's approval or answer), *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆/◇, one state word and the open PRs of its feature and landing branches; a summary of building, waiting on a person and drifted |
 | **PRDs** | `…/prds` | the product's PRDs, newest first, birthplace and state |
 | **Ideas**, **Roadmap**, **Bug fixes**, **Visual fixes** | `…/ideas`, `…/roadmap`, `…/bugs`, `…/visual` | the product's ideas (with their `/omni:brainstorm` line), roadmaps, bug and visual dossiers |
-| **Questions** | `…/questions` | the open outbox questions of its PRDs that wait on a person, each linking to the PRD page's Outbox tab |
+| **Questions** | `…/questions` | every open outbox question of its PRDs, worst first within a PRD, each with its PRD, the repository it was raised in and who it is for; a product PRD's is answered there ([Answering on the Questions tab](#answering-on-the-questions-tab-prd-1548)), any other PRD's links to its PRD page's Outbox tab |
 | **Repositories & approvers** | `…/repositories` | the links, every field editable by an owner, and **Add a repository** (`POST`/`DELETE …/repositories/links`); under them the **Approvers** list (`POST`/`DELETE …/repositories/approvers`); a member reads both |
 
 **Settings › Repositories** shows each repository's products as chips linking to their homes, and
@@ -1054,6 +1054,70 @@ runs instead of stopping ([`docs/guide/loop.md`](../../docs/guide/loop.md#the-ap
 - **The approve screen.** A ◆ PRD's approval cell opens with the spec's **Problem** and **Solution**
   above **Approve**, which only someone allowed to approve sees, then the pinned files. A ◇ PRD's page
   is unchanged.
+
+### A product PRD (PRD 1548)
+
+A **product PRD** (◆) is a dossier keyed by its product and a counter, `mobile-12`, with no home
+repository, no GitHub issue and no folder in any repository
+([`docs/guide/products.md`](../../docs/guide/products.md#a-product-prd)). Its code lands as one feature
+PR per target repository, each saying `Part of mobile-12`, on which the App posts `omni/approved` and
+the outbox check ([`apps/omni-app/README.md`](../omni-app/README.md#a-product-prds-checks-prd-1548)).
+
+- **The key.** `products.key` is lowercase kebab-case (`mobile`, `field-app`), unique in the
+  workspace and never ending in `-<digits>`. An owner sets it once with `product_set_key()`, and it
+  never changes. No page offers it yet: an owner calls the function in the database. Until a product
+  has a key, it has no product PRD.
+- **The kit's routes** take the PRD's id: `POST /api/dossiers/push` with `productKey` and `new: true`
+  (`omni dossier push --product <key> --new`) creates the product's next PRD and answers its `prdId`,
+  or with `prd` pushes new versions to it; `GET /api/dossiers?product=&prd=` finds it;
+  `GET /api/dossiers/get?product=&prd=&kind=` answers one kind's latest version whole
+  (`omni dossier get`); `GET /api/dossiers/approval?prd=<key>-<n>` its approval in force. `repo`, when
+  sent, only chooses between two of the caller's workspaces holding the key. Approving one labels no
+  issue, since it has none.
+- **The attestation.** The PRD's page shows, under its head, at `/prd/<id>#attestation` (where
+  `omni/approved`'s Details opens; `src/dossier/page/Attestation.tsx`): who approved it, whether they
+  are a workspace member and a product approver today, when, and each pinned file's hash beside
+  today's. Drifted, each changed file offers **Restore** (its approved version, to push again) and the
+  card **Ask again** (the approve screen, `#approve`). Both are plain links that change nothing.
+- **The server events.** Galaxy tells the App each time the server changes a product PRD
+  (`src/server-event/`): `approved` (Approve), `voided` (a push changed a pinned file), `item-opened`
+  (an outbox item raised, or rewritten while open) and `item-settled` (one answered, or adopted as it
+  was raised). Each is one POST of `{ event, dossier, at }` to the App's `/api/server-event`, signed
+  with an HMAC-SHA256 under `STAGE_EVENT_SECRET` in `x-omni-signature-256`. A missing secret, a
+  refusal or a network failure is one log line and never fails what told it: the PR's next webhook
+  posts the checks anyway.
+- **The outbox, on the server.** Its items are rows of `outbox_items`, and each answer one row of the
+  append-only `outbox_settlements`, written only through RPCs
+  (`supabase/migrations/20261204090000_outbox_items.sql`, proven by `supabase/checks/outbox_items.sql`). An item
+  keeps its markdown as written, checked by the kit's own parser before any write. An item takes one
+  settlement, and a second is refused. The kit reaches them through `src/outbox-items/`:
+  `GET /api/outbox/items?product=&prd=` (every item, with its settlement), `POST /api/outbox/items`
+  (raise one, or adopt one) and `POST /api/outbox/items/settle`, each as the caller's sign-in, so the
+  database decides who may. A non-member finds no such PRD.
+
+#### Answering on the Questions tab (PRD 1548)
+
+On the product home's **Questions** tab (`/app/products/<id>/questions`, `src/questions/`), a product
+PRD's open question shows its options as buttons, A being what was built, and **other…** for an
+answer of one's own. One answer is sent at a time, to `POST /api/outbox/answer {prdId, item, answer}`.
+
+- The answer is read by the kit's own rules, as `omni answers` reads one: a letter is that option (A
+  agrees with what was built, any other drifts), and an answer of one's own is judged against what was
+  built. One the rules cannot read is refused (422) with *Say whether this keeps what was built…*,
+  never guessed.
+- It is settled through the outbox's own service, as the caller, recorded as given on the Questions
+  tab (channel `questions`), then the App is told `item-settled`, so the outbox check follows. Nothing
+  is posted to GitHub.
+- A refusal shows under the question: 401 signed out, 404 no such PRD or question in the caller's
+  workspaces, 409 already settled, 503 no database. In the demo, answers settle in memory.
+- Who a question is for: whoever can do a human action, else the person who opened its PRD.
+
+**Not yet.** `/prd` and a PRD's page still read every dossier's home repository, which a product PRD
+has none of: the list can break, and the page show it wrongly, once a workspace has one (settled item
+s2-04). A drifted answer given here is not reworked by `/omni:ultra-yolo-fix`, which reworks only the
+answers given in the terminal in the same run (s12-03). The gate counts open rows only, and the server
+keeps no account of risky changes yet (s7-03). An objection to an adopted item has no place on the
+server yet (s5-01).
 
 ### The Outbox tab (PRD 251)
 
