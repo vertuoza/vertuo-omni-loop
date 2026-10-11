@@ -427,3 +427,55 @@ export const CHAPTERS: readonly Chapter[] = Object.freeze([
   parseChapter('III', 'SPIN', SPIN),
   parseChapter('IV', 'STORM', STORM),
 ]);
+
+// ── Endless mode ─────────────────────────────────────────────────────────────────────────────────
+
+/** The one seed every endless run draws its waves from: the same waves for every player. */
+export const ENDLESS_SEED = 0x1633;
+
+/**
+ * How endless waves are drawn: one to `maxRows` rows of blocks, each one of `ROWS`, `spacing` rows
+ * apart, entering after `gap`; the speed starts at `speed`, rises by one every `rise` waves and stops
+ * at `topSpeed`, so every wave stays passable however long the run.
+ */
+export const ENDLESS = Object.freeze({ speed: 120, rise: 5, topSpeed: 150, maxRows: 3, spacing: 5, gap: 16 });
+
+/** The rows an endless wave is built from: chapter IV's own rows, all three kinds of block. */
+const ROWS: readonly string[] = Object.freeze([
+  '....##....', '.>>.......', '.......@@.', '##......**', '...<<<<...', '.......###', '.@@.......', '....>>....',
+  '##......##', '.**.......', '......<<<.', '...@@@....', '###.....##', '..>>......', '....**....', '......<<..',
+  '###.......', '.......<<.', '..**......', '>>......@@',
+]);
+
+/** A small seeded generator (mulberry32): the same seed gives the same numbers, in [0, 1). */
+function random(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const drawn = new Map<number, Wave>();
+
+/** Endless wave `n` (from 0): drawn from `ENDLESS_SEED` and its number alone, so any wave is reached at once. */
+export function endlessWave(n: number): Wave {
+  const known = drawn.get(n);
+  if (known) return known;
+  const next = random(Math.imul(ENDLESS_SEED, 0x9e3779b1) ^ Math.imul(n + 1, 0x85ebca6b));
+  const pick = () => ROWS[Math.floor(next() * ROWS.length)] ?? '..........';
+  const count = 1 + Math.floor(next() * ENDLESS.maxRows);
+  const blank = '..........';
+  const lines = Array.from({ length: count }, (_, i) => [...(i > 0 ? Array<string>(ENDLESS.spacing - 1).fill(blank) : []), pick()]).flat();
+  const speed = Math.min(ENDLESS.topSpeed, ENDLESS.speed + Math.floor(n / ENDLESS.rise));
+  const wave = parseWave([`speed ${speed} · gap ${ENDLESS.gap}`, ...lines].join('\n'), `endless, wave ${n + 1}`);
+  if (drawn.size >= 64) drawn.clear();
+  drawn.set(n, wave);
+  return wave;
+}
+
+/** The first `count` endless waves. */
+export const endlessWaves = (count: number): Wave[] => Array.from({ length: count }, (_, n) => endlessWave(n));

@@ -1,10 +1,15 @@
 'use client';
 // OMNI DUET's text layer (PRD 1633), over the arcade's canvas: the loading line, the failure line with
-// its way back, the ready screen (CHAPTER I · DRIFT · LIVES ×3 · PRESS START), the HUD in play (the
-// score, CH II · 4/10 and the lives left), the chapter's banner, and the line the run ends on. Slice 4
-// adds the pause and the full game over screen. Laid out for the grid the game is drawn on (duet.css).
+// its way back, the ready screen (CHAPTER I · DRIFT · LIVES ×3 · PRESS START, or ENDLESS ×2 after a life
+// lost in endless mode), the HUD in play (the score, CH II · 4/10 or ENDLESS ×2 · WAVE n, and the lives
+// left), a chapter's banner and ENDLESS · ×2, the pause, and the game over: the score, where the run
+// got to, and the score's send (saving, NEW BEST, the best, or not saved with A to retry). Laid out for
+// the grid the game is drawn on (duet.css).
 import { Hint } from '../hint';
-import { bannerLine, LOADING_LINE, NOT_LOADED, readyParts, waveLine, type DuetHud, type DuetStatus } from './duet.ts';
+import {
+  bannerLine, LOADING_LINE, NOT_LOADED, overLines, PAUSED_LINE, readyParts, waveLine, type DuetHud, type DuetStatus,
+} from './duet.ts';
+import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
 import './duet.css';
@@ -30,11 +35,31 @@ function Stats({ hud }: { hud: DuetHud }) {
   );
 }
 
-export function DuetOverlay({ status, hud = null, back = 'GAME ROOM' }: {
+/** The game over: the score, the send's state, the waves passed and where the run got to, then A and B. */
+function Over({ hud, send, back }: { hud: DuetHud; send: ScoreSend | null; back: string }) {
+  const line = sendLine(send);
+  const [passed, reached] = overLines(hud);
+  return (
+    <div className="dt">
+      <div className="j-panel dt-panel dt-over">
+        <p className="inv-title">GAME OVER</p>
+        <p className="inv-final"><b>SCORE</b><span>{hud.score}</span></p>
+        {line && send && <p className={`inv-send inv-${sendTone(send)}`} role="status">{line}</p>}
+        <p className="inv-sub">{passed}</p>
+        <p className="inv-sub">{reached}</p>
+        <p className="hint">{canRetry(send) ? <Hint k="A">RETRY</Hint> : <Hint k="A">PLAY AGAIN</Hint>} <Hint k="B">{back}</Hint></p>
+      </div>
+    </div>
+  );
+}
+
+export function DuetOverlay({ status, hud = null, send = null, back = 'GAME ROOM' }: {
   /** Where the game's import stands: the ready screen shows once it has loaded. */
   status: DuetStatus;
   /** What the run is showing, once it has loaded. */
   hud?: DuetHud | null;
+  /** The score reached, being sent or sent, once the run is over. */
+  send?: ScoreSend | null;
   /** Where leaving goes, as its hint says: the game room in the arcade. */
   back?: string;
 }) {
@@ -48,23 +73,24 @@ export function DuetOverlay({ status, hud = null, back = 'GAME ROOM' }: {
       </div>
     );
   }
-  if (hud.phase === 'over') {
+  if (hud.phase === 'paused') {
     return (
       <div className="dt">
+        <Stats hud={hud} />
         <div className="j-panel dt-panel">
-          <p className="inv-title">GAME OVER</p>
-          <p className="inv-final"><b>SCORE</b><span>{hud.score}</span></p>
-          <p className="hint"><Hint k="A">PLAY AGAIN</Hint> <Hint k="B">{back}</Hint></p>
+          <p className="inv-title">{PAUSED_LINE}</p>
+          <p className="hint"><Hint k="ENTER">RESUME</Hint> <Hint k="TAB">END GAME</Hint></p>
         </div>
       </div>
     );
   }
+  if (hud.phase === 'over') return <Over hud={hud} send={send} back={back} />;
   const [chapter, call] = readyParts(hud);
   return (
     <div className="dt">
       <div className="j-panel dt-panel">
         <p className="inv-title"><span className="dt-half">{chapter}</span> <span className="dt-half">{call}</span></p>
-        <p className="hint"><Hint k="B">{back}</Hint></p>
+        <p className="hint"><Hint k="B">{hud.started ? 'END GAME' : back}</Hint></p>
       </div>
     </div>
   );
