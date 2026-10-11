@@ -12,6 +12,11 @@ commands:
   preflight: pnpm test
   preflightFull: pnpm test
   test: pnpm test
+  # Run after the preflight by every slice, every wave check and every finish: lint and typecheck
+  # are CI checks too, and a slice that skipped them reached the finish red (PRD 1584).
+  checks:
+    - pnpm lint
+    - pnpm typecheck
   # PRD 1072: mutation testing of the delivery core files changed against origin/main (PRD 556's
   # meaning), run by the bug-fix skill after a fix. Never in the preflight or pull request CI.
   mutation: pnpm mutation:changed

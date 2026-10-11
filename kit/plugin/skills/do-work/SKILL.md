@@ -79,7 +79,12 @@ never overrides this skill's rules.
    form does. Then run `node .omni-loop/bin/omni.mjs design screens` and read each library screen
    the slice builds or touches (its `implements` meets the territory, or the spec names it or one
    of its routes): its file, in the folder `node .omni-loop/bin/omni.mjs config design.screens`
-   prints, and its mockup. A locked screen is built as
+   prints, and its mockup. Read its `reads` too, when it has one: the code behind the screen
+   (engines, data, rules) it only depends on, read for context. A change there is no change to the
+   screen and never trips its lock. A lock trips only when the slice's diff changes that screen's
+   own `implements`: a page lists the files of a shared screen it shows (`kind: shared`, an app
+   shell, notifications) in its `reads`, so a change to the shared screen alone never holds the
+   page, and a change to the page never holds the shared screen. A locked screen is built as
    written: its **Regions**, **States**, **Words** and **Refusals** and its mockup are that screen's
    spec, and it is never redesigned. A draft is a starting point. A change the spec asks of a
    locked screen or law is step 3's **A change to a locked screen or law**.
@@ -235,7 +240,11 @@ above).
 point runs again.
 
 **Design review.** Only when step 0 read the design flag as `true`; off, skip to the coverage below.
-It starts on its own: no one asks for it. Run
+It starts on its own: no one asks for it. First, the PRD's before/after page (`omni prd` lists it):
+when it says `Pixel perfect: no screen changes`, the PRD changes no screen, and the slice runs no
+pixel-perfect work (no review, no mockup, no word pass): the section is the one line
+`— Design review: no screen changes (Pixel perfect: no screen changes)`, and the step goes on to the
+coverage below. Otherwise run
 `node .omni-loop/bin/omni.mjs design touched <repo.remote>/<feature branch>`; it always exits 0.
 
 | the slice | it does |
@@ -262,7 +271,9 @@ screen, what was found, the fix it would make and why it was left; its `gaps` ca
 When the app cannot run or be seen here, the review says so and nothing is reported as seen. A
 change the review finds to a locked screen, or a fix it would make that changes one, is the high
 item of step 3's **A change to a locked screen or law**, never a lock and never an edit of the
-locked file.
+locked file. A fault the review lists under `Seen, not touched` (a part the diff did not change)
+is not this slice's: it is never fixed here and never an outbox item of this slice, and it stays in
+the **Design review** section, suggested as a bug of its own.
 
 Keep its report for the sub-PR: a **Design review** section, one ✓, ✗ or — line per step, in the
 shape `reference/review.md` shows, then what was fixed, one line each. The screenshots stay in a

@@ -30,6 +30,12 @@ describe('supabaseAccount', () => {
     expect(linkIdentity).not.toHaveBeenCalled();
   });
 
+  it("gives OMNI KART's grid link to a player of a workspace, and none to a person with no workspace (PRD 1572)", () => {
+    expect(account().kartGrid?.()).toBeNull();
+    const link = supabaseAccount({ url: 'https://db.example.com', key: 'k', workspace: 'w1' }).kartGrid?.();
+    expect(Object.keys(link ?? {}).sort()).toEqual(['join', 'leave', 'send']);
+  });
+
   it('says why when GitHub sign-in could not start', async () => {
     signInWithOAuth.mockResolvedValueOnce({ data: {}, error: { message: 'provider is not enabled' } });
     await expect(account().signIn()).rejects.toThrow('GitHub sign-in: provider is not enabled');

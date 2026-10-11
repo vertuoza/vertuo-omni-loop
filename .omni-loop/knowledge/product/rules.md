@@ -17,7 +17,7 @@ When a pull request's head commit date cannot be read, the claimed-stale check t
 
 Serves: P-PRODUCT-2
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s3-03-unknown-head-commit-date-reads-as-not-stale, PRD #7
-Enforced by: pending #1464
+Enforced by: kit/lib/board.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -61,7 +61,7 @@ The live outbox check passes the pull request's changed files to the gate, so a 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s5-01-check-grades-changed-files, PRD #28
-Enforced by: pending #1468
+Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
@@ -83,7 +83,7 @@ When a kit default names {config:<key>} and the key is unknown, set to null, or 
 
 Serves: P-PRODUCT-7
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s1-01-kit-default-names-an-unset-setting, PRD #45
-Enforced by: pending #1470
+Enforced by: kit/lib/playbook/resolve.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -149,7 +149,7 @@ When a multi-select question has ticked choices and typed Other text, Claude rec
 
 Serves: P-PRODUCT-13
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s4-03-own-answer-with-several-choices, PRD #71
-Enforced by: pending #1476
+Enforced by: apps/galaxy/src/ask/answer-model.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -171,7 +171,7 @@ A retro field the model wrote is dropped when it exceeds its cap in rules or hol
 
 Serves: P-PRODUCT-15
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s2-04-prose-caps-and-refused-words, PRD #72
-Enforced by: pending #1478
+Enforced by: apps/omni-app/src/retro/guard.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -182,7 +182,7 @@ A failing test is named by its file, groups and title joined by ' > ', with whit
 
 Serves: P-PRODUCT-16
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s3-03-one-name-per-failing-test, PRD #72
-Enforced by: pending #1479
+Enforced by: apps/omni-app/src/retro/kinds/ci-logs.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -303,7 +303,7 @@ link_github() answers only a caller who has at least one workspace_members row; 
 
 Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-03-link-github-needs-a-workspace, PRD #100
-Enforced by: pending #1489
+Enforced by: apps/galaxy/src/data/link-github-sql.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -314,7 +314,7 @@ Ask mode is open to any workspace member, whatever the account's email or with n
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
-Enforced by: pending #1490
+Enforced by: apps/galaxy/src/ask/workspace-gate-sql.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -380,7 +380,7 @@ When a member leaves a workspace, their player row and every arcade_scores row k
 
 Serves: P-PRODUCT-33
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-01-scores-leave-with-the-player, PRD #160
-Enforced by: pending #1496
+Enforced by: apps/galaxy/src/data/scores-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -413,7 +413,7 @@ Each question's cost uses the price list's per-million-token prices. Cache reads
 
 Serves: P-PRODUCT-36
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
-Enforced by: pending #1499
+Enforced by: apps/galaxy/src/ask/prices.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -424,7 +424,7 @@ An ask session that belongs to no workspace is kept, and nobody can read it, its
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s2-02-session-of-owner-in-no-workspace, PRD #144
-Enforced by: pending #1500
+Enforced by: apps/galaxy/src/ask/workspace-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -435,7 +435,7 @@ The model's guessed category is written only while no person has set one, throug
 
 Serves: P-PRODUCT-37
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
-Enforced by: pending #1501
+Enforced by: apps/galaxy/src/ask/category-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -644,7 +644,7 @@ Jev is on exactly when a key is stored: turning it off deletes the key and sets 
 
 Serves: P-PRODUCT-55
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
-Enforced by: pending #1520
+Enforced by: apps/galaxy/src/jev/jev-key-sql.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
@@ -655,7 +655,7 @@ When a terminal asks Jev about a repository, the Jev settings of the workspace t
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s3-03-decide-unowned-repository, PRD #812
-Enforced by: pending #1521
+Enforced by: apps/galaxy/src/jev/decisions/decide-route.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
@@ -677,7 +677,7 @@ When more than one workspace tracks a repository, the canon check reads the busi
 
 Serves: P-PRODUCT-57
 Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
-Enforced by: pending #1523
+Enforced by: apps/omni-app/src/canon/business-pick-sql.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #840
@@ -688,7 +688,7 @@ A link may read a repository the workspace lists, or any repository the workspac
 
 Serves: P-PRODUCT-58
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
-Enforced by: pending #1524
+Enforced by: apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -699,7 +699,7 @@ When a member leaves a workspace, every link they made stops working and any cal
 
 Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-02-left-maker-links-listed, PRD #855
-Enforced by: pending #1525
+Enforced by: apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -710,7 +710,7 @@ When an agent sends a question naming a code project that does not belong to the
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s3-01-report-repo-must-be-the-workspaces, PRD #855
-Enforced by: pending #1526
+Enforced by: apps/galaxy/src/agent-connect/questions/report-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -743,21 +743,22 @@ The inbox check turns red for a spec break only when it can quote the spec sente
 
 Serves: P-PRODUCT-60
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
-Enforced by: pending #1529
+Enforced by: apps/omni-app/src/canon/canon.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
 
 ## BR-PRODUCT-69
 
-The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and every row is checked against this repository's rules.
+The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and in a plan repository each repository's rows are checked against that repository's own rules (a target with no copied rules against the kit's defaults).
 
 Serves: P-PRODUCT-61
 Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
-Enforced by: pending #1530
+Enforced by: kit/lib/inbox/plan-grade.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1090
+Reworded: @pierrederval, 2026-10-11, the plan check grades each target against its own flow since #1090
 
 ## BR-PRODUCT-70
 
@@ -820,7 +821,7 @@ A signed-out visitor to the Loop page or one loop's page is asked to sign in, th
 
 Serves: P-PRODUCT-66
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
-Enforced by: pending #1536
+Enforced by: apps/galaxy/src/loop/page/page.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142

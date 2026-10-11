@@ -13,6 +13,7 @@ locked-on: 2026-10-10
 quote: "this is the editor, build it"
 mock: quote-editor.html
 implements: [src/quotes/editor/]
+reads: [src/quotes/engine/, src/quotes/rules.ts]
 routes: [/quotes/:id]
 supersedes: null
 ---
@@ -51,11 +52,13 @@ describe('parseScreen', () => {
         file: 'quote-editor.md',
         screen: 'quote-editor',
         status: 'locked',
+        kind: 'page',
         lockedBy: '@login',
         lockedOn: '2026-10-10',
         quote: 'this is the editor, build it',
         mock: 'quote-editor.html',
         implements: ['src/quotes/editor/'],
+        reads: ['src/quotes/engine/', 'src/quotes/rules.ts'],
         routes: ['/quotes/:id'],
         supersedes: null,
         amendments: ['> Amended 2026-11-02 · @login · "a total line": the footer shows the total'],
@@ -75,8 +78,19 @@ describe('parseScreen', () => {
     const read = parseScreen(DRAFT, 'quote-list.md');
     expect(read).toMatchObject({
       ok: true,
-      screen: { screen: 'quote-list', status: 'draft', lockedBy: null, lockedOn: null, quote: null, mock: null, implements: [], routes: ['/quotes', '/quotes/archived'], supersedes: null, amendments: [], sections: { Purpose: 'Every quote.' } },
+      screen: { screen: 'quote-list', status: 'draft', kind: 'page', lockedBy: null, lockedOn: null, quote: null, mock: null, implements: [], reads: [], routes: ['/quotes', '/quotes/archived'], supersedes: null, amendments: [], sections: { Purpose: 'Every quote.' } },
     });
+  });
+
+  it('reads kind: shared, and a screen without kind as a page (PRD 1584)', () => {
+    const shared = parseScreen('---\nscreen: app-shell\nstatus: draft\nkind: shared\nroutes: [/, /prds]\n---\n', 'app-shell.md');
+    expect(shared).toMatchObject({ ok: true, screen: { screen: 'app-shell', kind: 'shared' } });
+    expect(parseScreen('---\nscreen: a\nstatus: draft\nkind: page\n---\n', 'a.md')).toMatchObject({ ok: true, screen: { kind: 'page' } });
+    expect(parseScreen(DRAFT, 'quote-list.md')).toMatchObject({ ok: true, screen: { kind: 'page' } });
+  });
+
+  it('refuses an unknown kind by name', () => {
+    expect(parseScreen('---\nscreen: a\nstatus: draft\nkind: other\n---\n', 'a.md')).toEqual({ ok: false, problem: 'a.md: kind must be one of: page, shared' });
   });
 
   it('names a file with no front matter, front matter that is not YAML, or a field it refuses', () => {
@@ -91,6 +105,7 @@ describe('parseScreen', () => {
     expect(problem('---\nscreen: a\nstatus: done\n---\n')).toMatch(/^x\.md: status must be one of: draft, locked, superseded/);
     expect(problem('---\nscreen: a\nstatus: draft\nowner: me\n---\n')).toMatch(/^x\.md: .*owner/);
     expect(problem('---\nscreen: a\nstatus: draft\nroutes: /a\n---\n')).toMatch(/^x\.md: routes/);
+    expect(problem('---\nscreen: a\nstatus: draft\nreads: src/engine/\n---\n')).toMatch(/^x\.md: reads must be a bracketed list/);
     expect(problem('---\nscreen: a\nstatus: draft\nlocked-on: 10/10/2026\n---\n')).toMatch(/^x\.md: locked-on must be a YYYY-MM-DD date/);
   });
 
@@ -133,12 +148,27 @@ describe('readScreens', () => {
 });
 
 describe('formatScreens', () => {
+  it('prints a screen with reads exactly as one without (PRD 1550)', () => {
+    const without = LOCKED.replace('reads: [src/quotes/engine/, src/quotes/rules.ts]\n', '');
+    expect(without).not.toContain('reads:');
+    expect(formatScreens(readScreens(library({ 'b.md': LOCKED })), 'kb/')).toEqual(formatScreens(readScreens(library({ 'b.md': without })), 'kb/'));
+  });
+
   it('lists name, status, locker, date and routes, one aligned line each, then the files that do not read', () => {
     const dir = library({ 'a.md': DRAFT, 'b.md': LOCKED, 'z.md': 'nope' });
     expect(formatScreens(readScreens(dir), 'kb/design/screens/')).toEqual([
       'quote-editor  locked  @login 2026-10-10  /quotes/:id',
       'quote-list    draft   —                  /quotes, /quotes/archived',
       'does not read: kb/design/screens/z.md: no front matter — a screen starts with a --- block',
+    ]);
+  });
+
+  it('prints shared beside a shared screen, and nothing new beside a page (PRD 1584)', () => {
+    const SHELL = '---\nscreen: app-shell\nstatus: draft\nkind: shared\nroutes: [/, /prds]\n---\n';
+    expect(formatScreens(readScreens(library({ 'a.md': DRAFT, 'b.md': LOCKED, 's.md': SHELL })), 'kb/')).toEqual([
+      'app-shell     draft · shared  —                  /, /prds',
+      'quote-editor  locked          @login 2026-10-10  /quotes/:id',
+      'quote-list    draft           —                  /quotes, /quotes/archived',
     ]);
   });
 

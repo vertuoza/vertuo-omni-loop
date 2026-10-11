@@ -1,10 +1,15 @@
 // `omni design words <page>…` (PRD 1407, s4): the word pass over a mockup — each screen's visible
-// strings and word count, then its findings under four rules. It reads structure, never style, and it
+// strings and word count, then its findings under four rules; a page with no marked screen is
+// skipped (PRD 1550, s1). It reads structure, never style, and it
 // only reports: exit 0 whatever it finds, on a fixture repository.
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const HEAD = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 const ON = 'design:\n  enabled: true\n';
 const DESIGN = '.omni-loop/knowledge/playbook/design.md';
@@ -127,13 +132,28 @@ describe('omni design words', () => {
     expect(out).not.toContain('ignored');
   });
 
-  it('reads a page with no marked screen whole, and says so', async () => {
-    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON, 'plain.html': page('<h1>Hello</h1><button data-primary>Go</button><script>var x = "not words"</script>') } });
-    expect(await words(root, ['plain.html'])).toEqual({
-      code: 0,
-      out: ['plain.html', '  no screen marked ([data-screen]): the page read whole', '  screen (whole page) · 2 words', '    Hello (1)', '    [control] Go (1)', '    findings: none', ''].join('\n'),
-      err: '',
+  it('skips a page with no marked screen, with no finding', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': HEAD + ON,
+        'plain.html': page('<h1>Hello</h1><p>PRD 1342. Nothing on a screen changes, only the words of this caption.</p><button data-primary>Go</button><button data-primary>Stop</button>'),
+      },
     });
+    expect(await words(root, ['plain.html'])).toEqual({ code: 0, out: ['plain.html', '  no screen marked: skipped ([data-screen])', ''].join('\n'), err: '' });
+  });
+
+  it("reads PRD 1407's before/after: its two primaries and its explanation at rest, the caption outside left alone", async () => {
+    const before = readFileSync(resolve(REPO, '.omni-loop/delivery/shipped/1407-design-memory/before-after.html'), 'utf8');
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON, 'before-after.html': before } });
+    const { code, out } = await words(root, ['before-after.html']);
+    expect(code).toBe(0);
+    expect(out).toContain('  screen today · ');
+    expect(out).toContain('    [control] Save (1)\n');
+    expect(out).toContain('    ! two-primaries: 2 primary actions — "Save", "Click here to send this quote to the customer now"\n');
+    expect(out).toContain('    ! explains-at-rest: "Use this screen to create a new quote for your customer and send it." — 14 words at rest (more than 7)\n');
+    expect(out).not.toContain('Nobody read its words');
+    expect(out).not.toContain('no screen marked');
   });
 
   it('names a page it cannot read and goes on to the next, still exit 0', async () => {
@@ -149,5 +169,44 @@ describe('omni design words', () => {
     expect(await words(root, ['mock.html'])).toEqual({ code: 0, out: 'design: off\n', err: '' });
     const on = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON } });
     expect((await words(on.root, [])).code).toBe(2);
+  });
+
+  it('counts the text inside [data-content] apart, as content · <n> words, with no finding on it (PRD 1584)', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': HEAD + ON,
+        'mock.html': page('<section data-screen="dossier"><h1>Spec</h1><article data-content><p>This PRD explains at length what the screen shows to its reader.</p></article></section>'),
+      },
+    });
+    expect(await words(root, ['mock.html'])).toEqual({
+      code: 0,
+      out: ['mock.html', '  screen dossier · 1 word', '    Spec (1)', '    content · 12 words', '    findings: none', ''].join('\n'),
+      err: '',
+    });
+  });
+
+  it('reads the content mark design.words.content sets (PRD 1584)', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': HEAD + ON + '  words:\n    content: .figures\n',
+        'mock.html': page('<div data-screen="dash"><p class="figures">12 quotes sent and 4 signed this week by the crew</p><p data-content>Six words that are now copy</p></div>'),
+      },
+    });
+    const { out } = await words(root, ['mock.html']);
+    expect(out).toContain('    Six words that are now copy (6)\n    content · 11 words\n    findings: none\n');
+  });
+
+  it("reads a sentence whole across its inline code, and a control's parts with a space (PRD 1584)", async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': HEAD + ON,
+        'mock.html': page('<div data-screen="s"><p>on <code>main</code> (2026-10-11)</p><button><b>CREW TOP 5</b><span>NO SCORES YET</span></button><div><span>ask.client.ts</span><span>POST</span></div></div>'),
+      },
+    });
+    const { out } = await words(root, ['mock.html']);
+    expect(out).toContain('    on main (2026-10-11) (3)\n    [control] CREW TOP 5 NO SCORES YET (6)\n    ask.client.ts (1)\n    POST (1)\n');
   });
 });

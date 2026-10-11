@@ -203,3 +203,24 @@ describe('fillConfig', () => {
     });
   });
 });
+
+// Law BR-PRODUCT-8 (.omni-loop/knowledge/product/rules.md): when a kit default names
+// {config:<key>} and the key is unknown, set to null, or holds a list or a section, the
+// placeholder stays in the text exactly as written and a problem line is reported.
+describe('law BR-PRODUCT-8 — a kit default never shows a guessed config value', () => {
+  it('keeps an unknown, null, list or section {config:<key>} exactly as written, and reports a problem line for each', () => {
+    const body = 'Unknown {config:nope.x}, null {config:commands.preflight}, list {config:commands.checks}, section {config:commands}.';
+    const template = formText({ slots: [{ id: 'commands', heading: 'Commands', required: true, body }] });
+    const { ctx } = makeRepo({ config: { commands: { test: 'pnpm test', preflight: null, checks: ['pnpm lint'] } } });
+    const result = resolveForm('testing', { ctx, template });
+    const commands = section(result, 'commands');
+    assertDefined(commands, 'the commands section');
+    expect(commands.text).toBe(body);
+    expect(result.problems).toEqual([
+      'kit default testing#commands: {config:nope.x} names no config key',
+      'kit default testing#commands: {config:commands.preflight} is not set in the config',
+      'kit default testing#commands: {config:commands.checks} holds no single value',
+      'kit default testing#commands: {config:commands} holds no single value',
+    ]);
+  });
+});

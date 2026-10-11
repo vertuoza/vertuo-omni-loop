@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OMNI KART multiplayer</title>
+<style>
+/* Layout: today beside after, one row per moment of a race; stacks at phone width. Omni app look outside, arcade screens inside (their colours are the game's own, in both themes). */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ /* the arcade screen, the same in both themes */
+ --scr:#0b0a2e;--scrPanel:#16144a;--scrEdge:#6a5cff;--scrInk:#f1f1f8;--scrDim:#8f8cc4;--scrYellow:#ffd23f;--scrGreen:#4ade80;--scrRed:#ff5c7a;--scrCyan:#5ee7ff;--scrRoad:#2b2870;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side p{margin:0;color:var(--muted);font-size:14px}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+ul{margin:0;padding-left:20px;display:grid;gap:6px}
+li{color:var(--muted);font-size:14px}
+li b{color:var(--ink);font-weight:600}
+
+/* the arcade screen */
+.screen{background:var(--scr);border-radius:8px;padding:18px 14px;display:grid;place-items:center;gap:12px;min-height:250px}
+.panel{background:var(--scrPanel);border:2px solid var(--scrEdge);border-radius:4px;padding:14px 16px;display:grid;gap:9px;width:min(100%,300px);font:12px/1.35 var(--mono);color:var(--scrInk);letter-spacing:.08em;text-transform:uppercase}
+.panel p{margin:0}
+.panel .title{color:var(--scrInk);text-align:center;font-size:14px;letter-spacing:.2em}
+.panel .sub{text-align:center;color:var(--scrDim)}
+.panel ol{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.panel li{display:grid;grid-template-columns:34px 1fr auto;gap:10px;font:inherit;color:var(--scrInk);font-variant-numeric:tabular-nums}
+.panel li.you{color:var(--scrYellow)}
+.panel li.dim{color:var(--scrDim)}
+.panel li.out span:last-child{color:var(--scrRed)}
+.panel .big{color:var(--scrYellow);font-size:14px;text-align:center}
+.panel .send{text-align:center;color:var(--scrGreen)}
+.panel .hint{text-align:center;color:var(--scrDim);font-size:11px}
+.menu{display:grid;gap:4px;justify-items:center}
+.menu span{color:var(--scrDim)}
+.menu span.on{color:var(--scrYellow)}
+.menu span.on::before{content:"▶ "}
+.menu span.off{color:var(--scrDim);text-decoration:line-through;text-decoration-thickness:1px}
+.changed{outline:2px dashed var(--scrYellow);outline-offset:3px;border-radius:2px}
+
+/* the race's line */
+.hud{display:flex;justify-content:space-between;gap:8px;width:min(100%,320px);font:12px var(--mono);color:var(--scrInk);letter-spacing:.08em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.hud b{color:var(--scrYellow);font-weight:400}
+.foot{font:11px var(--mono);color:var(--scrDim);letter-spacing:.08em;text-transform:uppercase}
+
+/* the starting grid, seen from above */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;width:min(100%,260px);padding:14px 16px;background:var(--scrRoad);border-radius:6px;border-top:4px dashed var(--scrInk)}
+.slot{display:grid;gap:2px;justify-items:center;padding:6px 4px;border:1px dashed var(--scrDim);border-radius:3px;font:10px/1.2 var(--mono);color:var(--scrDim);letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums;min-width:0}
+.slot:nth-child(even){margin-top:14px}
+.slot .k{width:18px;height:10px;border-radius:3px;background:var(--scrDim)}
+.slot.cpu .k{background:var(--scrDim)}
+.slot.you{border-color:var(--scrYellow);color:var(--scrYellow)}
+.slot.you .k{background:var(--scrYellow)}
+.slot.mate{border-color:var(--scrCyan);color:var(--scrCyan)}
+.slot.mate .k{background:var(--scrCyan)}
+.slot.empty{opacity:.45}
+
+/* the states */
+.states{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.states li{display:grid;grid-template-columns:minmax(0,13em) minmax(0,1fr);gap:12px;align-items:baseline;color:var(--muted);font-size:14px}
+.states li span:last-child{font:600 13px var(--mono);color:var(--ink);letter-spacing:.06em;overflow-wrap:anywhere}
+@media (max-width:520px){.states li{grid-template-columns:1fr;gap:2px}}
+
+/* the budget and the flow */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:420px;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td{color:var(--ink);font-variant-numeric:tabular-nums}
+td.num{font-family:var(--mono)}
+td.win{color:var(--plasma);font-weight:600}
+pre{margin:0;background:var(--plasmaSoft);border-radius:6px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);overflow-x:auto}
+.keep{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.keep{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+<header>
+ <div class="tag">PRD 1572 · before / after</div>
+ <h1>OMNI KART races SINGLE or MULTI</h1>
+ <p class="lead">The ready screen offers SINGLE, today's race against five CPU karts, or MULTI: the workspace's grid, where up to four players race COMET RING live, each from their own browser. The best time takes pole, BLOBs and ORBs hit the other players, and a MULTI time counts for the best time. Names below are examples.</p>
+</header>
+
+<!-- 1. The ready screen -->
+<section class="row" aria-labelledby="m1">
+ <h2 id="m1">The cabinet opens</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <div class="screen" role="img" aria-label="Today: the ready panel reads COMET RING, 3 LAPS, PRESS START, with B for the game room">
+    <div class="panel">
+     <p class="title">Comet Ring · 3 laps · press start</p>
+     <p class="hint">B game room</p>
+    </div>
+   </div>
+   <p>One way in: START begins a race against five CPU karts, the player last on the grid.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <div class="screen" role="img" aria-label="After: the ready panel reads COMET RING, 3 LAPS, then two lines, SINGLE with the cursor and MULTI, with A to pick and B for the game room">
+    <div class="panel">
+     <p class="title">Comet Ring · 3 laps</p>
+     <div class="menu changed"><span class="on">Single</span><span>Multi</span></div>
+     <p class="hint">▲▼ choose · A pick · B game room</p>
+    </div>
+    <div class="panel" aria-hidden="true">
+     <p class="sub">On the demo</p>
+     <div class="menu"><span class="on">Single</span><span class="off">Multi · sign in to race</span></div>
+    </div>
+   </div>
+   <p>The cursor starts on SINGLE, which leads to today's <code>PRESS START</code> and today's race, word for word. Where nobody else can be reached (the demo, the closed arcade), MULTI cannot be picked.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 2. The grid -->
+<section class="row" aria-labelledby="m2">
+ <h2 id="m2">Waiting on the grid</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <div class="screen" role="img" aria-label="Today: no screen; a race is always alone against the CPU">
+    <div class="panel">
+     <p class="sub">No such screen</p>
+     <p class="hint">Colleagues meet only on the crew top 5</p>
+    </div>
+   </div>
+   <p>Players of a workspace compare best times on the cabinet's crew table, but never race each other.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <div class="screen" role="img" aria-label="After: the GRID lists three players in starting order with their best times, the player who arrived first reads START RACE">
+    <div class="panel changed">
+     <p class="title">Grid · Comet Ring</p>
+     <ol>
+      <li><span>P1</span><span>Sam</span><span>1:36.4</span></li>
+      <li class="you"><span>P2</span><span>You</span><span>1:42.3</span></li>
+      <li class="dim"><span>P3</span><span>Zoe</span><span>No time</span></li>
+     </ol>
+     <p class="big">Start race</p>
+     <p class="hint">Start race · B back</p>
+    </div>
+   </div>
+   <p>MULTI joins the workspace's one grid. The first player to arrive reads <code>START RACE</code>; the others read <code>WAITING FOR &lt;NAME&gt;</code>. Alone, it reads <code>WAITING FOR RACERS</code>.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 3. The starting order -->
+<section class="row" aria-labelledby="m3">
+ <h2 id="m3">The starting places</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <div class="screen" role="img" aria-label="Today: five CPU karts on places one to five, the player on the sixth and last place">
+    <div class="grid">
+     <div class="slot cpu"><span class="k"></span>P1 Nova</div>
+     <div class="slot cpu"><span class="k"></span>P2 Vega</div>
+     <div class="slot cpu"><span class="k"></span>P3 Orbit</div>
+     <div class="slot cpu"><span class="k"></span>P4 Luna</div>
+     <div class="slot cpu"><span class="k"></span>P5 Comet</div>
+     <div class="slot you"><span class="k"></span>P6 You</div>
+    </div>
+   </div>
+   <p>The player always starts last, so the race is a climb (PRD 1359). SINGLE keeps it that way.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After · MULTI</div>
+   <div class="screen" role="img" aria-label="After: in MULTI, Sam with the best time on pole, You second, Zoe with no time third, the other places empty">
+    <div class="grid changed">
+     <div class="slot mate"><span class="k"></span>P1 Sam 1:36.4</div>
+     <div class="slot you"><span class="k"></span>P2 You 1:42.3</div>
+     <div class="slot mate"><span class="k"></span>P3 Zoe no time</div>
+     <div class="slot empty">empty</div>
+     <div class="slot empty">empty</div>
+     <div class="slot empty">empty</div>
+    </div>
+   </div>
+   <p><b>Your best time sets your place.</b> The fastest best time takes pole, then by best time; no time starts behind; a tie goes by arrival on the grid. Players only, four places at most, no CPU karts.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 4. The race -->
+<section class="row" aria-labelledby="m4">
+ <h2 id="m4">During the race</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <div class="screen" role="img" aria-label="Today: the race's line reads 4th of 6, lap 2 of 3, the time and the item, with ENTER to pause">
+    <div class="hud"><span><b>4</b>/6</span><span>Lap 2/3</span><span>0:51.2</span><span>Orb</span></div>
+    <div class="panel">
+     <p class="title">Paused</p>
+     <p class="hint">Enter resume · Tab game room</p>
+    </div>
+    <p class="foot">Enter pause · a hidden tab pauses too</p>
+   </div>
+   <p>The race waits for the player: ENTER, a window losing focus and a hidden tab all pause it, and only START resumes.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After · MULTI</div>
+   <div class="screen" role="img" aria-label="After: the race's line reads 2nd of 3, lap 2 of 3, the time and the item; ENTER opens BACK TO RACE and LEAVE RACE while the race goes on">
+    <div class="hud"><span class="changed"><b>2</b>/3</span><span>Lap 2/3</span><span>0:51.2</span><span>Orb</span></div>
+    <div class="panel changed">
+     <p class="title">Race on</p>
+     <p class="hint">Enter back to race · Tab leave race</p>
+    </div>
+    <p class="foot">The others keep racing · a hidden tab leaves</p>
+   </div>
+   <ul>
+    <li><b>Each browser drives its own kart</b> and sends where it is; the others' karts are drawn from it.</li>
+    <li><b>BLOBs and ORBs reach the other players;</b> the player hit decides the hit, and the item leaves every circuit.</li>
+    <li><b>No pause:</b> the menu opens while the race goes on. A hidden tab leaves the race, and a player silent for 10 s is <code>OUT</code>.</li>
+   </ul>
+  </div>
+ </div>
+</section>
+
+<!-- 5. The finish -->
+<section class="row" aria-labelledby="m5">
+ <h2 id="m5">At the finish</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <div class="screen" role="img" aria-label="Today: the RESULTS table of six karts, then TIME and NEW BEST">
+    <div class="panel">
+     <p class="title">Results</p>
+     <ol>
+      <li><span>1st</span><span>Nova</span><span>1:39.8</span></li>
+      <li class="you"><span>2nd</span><span>You</span><span>1:42.3</span></li>
+      <li><span>3rd</span><span>Vega</span><span>1:44.0</span></li>
+      <li><span>4th</span><span>Orbit</span><span>1:47.6</span></li>
+      <li><span>5th</span><span>Luna</span><span>--</span></li>
+      <li><span>6th</span><span>Comet</span><span>--</span></li>
+     </ol>
+     <p class="big">Time 1:42.3</p>
+     <p class="send">New best</p>
+     <p class="hint">A race again · B game room</p>
+    </div>
+   </div>
+   <p>Six karts, five of them CPU. The time goes to the cabinet, which keeps the better one.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After · MULTI</div>
+   <div class="screen" role="img" aria-label="After: the RESULTS table lists the players only, Sam first, You second, Zoe still racing; then TIME and NEW BEST, with A for the grid">
+    <div class="panel">
+     <p class="title">Results</p>
+     <ol class="changed">
+      <li><span>1st</span><span>Sam</span><span>1:38.1</span></li>
+      <li class="you"><span>2nd</span><span>You</span><span>1:41.9</span></li>
+      <li class="dim"><span>3rd</span><span>Zoe</span><span>—</span></li>
+     </ol>
+     <p class="big">Time 1:41.9</p>
+     <p class="send">New best</p>
+     <p class="hint">A grid · B game room</p>
+    </div>
+   </div>
+   <p>The players only, filling in live as they cross the line: <code>—</code> still racing, <code>OUT</code> left. The time is sent through <code>submit_score</code> as a solo time is, so a MULTI time can be the new best.</p>
+  </div>
+ </div>
+</section>
+
+<!-- 6. The lines -->
+<section class="row" aria-labelledby="m6">
+ <h2 id="m6">What the grid says when it cannot race</h2>
+ <div class="side after">
+  <ul class="states">
+   <li><span>Refused, or unreachable</span><span>GRID OUT OF REACH · A TO RETRY</span></li>
+   <li><span>Dropped while waiting</span><span>RECONNECTING…</span></li>
+   <li><span>A fifth player</span><span>GRID FULL · 4 RACERS</span></li>
+   <li><span>Arriving during a race</span><span>RACE ON · 3 RACERS</span></li>
+   <li><span>Back from a hidden tab</span><span>YOU LEFT THE RACE · A GRID</span></li>
+   <li><span>A player silent for 10 s</span><span>OUT</span></li>
+  </ul>
+  <p>SINGLE always plays, whatever the grid says.</p>
+ </div>
+</section>
+
+<!-- 7. Under the hood -->
+<section class="row" aria-labelledby="m7">
+ <h2 id="m7">Under the hood</h2>
+ <div class="row">
+  <div class="side">
+   <div class="tag">The channel</div>
+<pre>your browser                Supabase Realtime          a colleague's browser
+                            private · kart:&lt;workspace&gt;
+presence: who, best time ─▶ presence ───────────────▶ the grid, in order
+START: seed, order       ─▶ broadcast ──────────────▶ 3 · 2 · 1 · GO
+your kart's state        ─▶ broadcast ──────────────▶ your kart, carried forward
+BLOB / ORB               ─▶ broadcast ──────────────▶ on their circuit
+                         ◀─ hit ◀──────────────────── they decide they were hit
+finish ─▶ RESULTS · submit_score(time), unchanged</pre>
+   <p>No server and no host: each browser owns its own kart. A migration lets only a player of the workspace with OMNI KART unlocked join the topic, with their own session.</p>
+  </div>
+  <div class="side">
+   <div class="tag">The budget</div>
+   <div class="scroll">
+    <table>
+     <thead><tr><th>Players</th><th>States a second</th><th>Messages a second</th></tr></thead>
+     <tbody>
+      <tr><td class="num">2</td><td class="num">10</td><td class="num">40</td></tr>
+      <tr><td class="num">3</td><td class="num">8</td><td class="num">72</td></tr>
+      <tr><td class="num">4</td><td class="num">5</td><td class="num">80</td></tr>
+      <tr><td class="num">5</td><td colspan="2">waits: four places</td></tr>
+     </tbody>
+    </table>
+   </div>
+   <p>Supabase counts every message sent and every one delivered, so a race of <code>n</code> players costs <code>n² × rate</code>. The rate keeps a race at or under 80 a second, inside the Free plan's 100 for the whole project, which the approvals stream shares.</p>
+  </div>
+ </div>
+</section>
+
+</main>
+</body>
+</html>

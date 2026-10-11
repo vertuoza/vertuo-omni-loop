@@ -309,3 +309,18 @@ describe('what the items report (PRD 1427)', () => {
     expect(at({ spin: 0.5 })).toEqual([{ kind: 'hit', racer: 0, item: 'orb', spun: false }]);
   });
 });
+
+describe('items with an id (PRD 1572, slice 6)', () => {
+  it('a BLOB that hits names the id it was sent with, and an ORB too', () => {
+    const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y, id: 'b:1' }], orbs: [{ x: line.x + 400, y: line.y, angle: heading, bounces: 0, age: 0, id: 'b:2' }] };
+    const near = step(track.map, w, [racer()], [1], 0.01);
+    expect(near.events).toContainEqual({ kind: 'hit', racer: 0, item: 'blob', spun: true, id: 'b:1' });
+    const w2: World = { ...empty(world()), orbs: [{ x: line.x - 2, y: line.y, angle: heading, bounces: 0, age: 0, id: 'b:2' }] };
+    expect(step(track.map, w2, [racer()], [1], 0.02).events).toContainEqual({ kind: 'hit', racer: 0, item: 'orb', spun: true, id: 'b:2' });
+  });
+
+  it('an ORB in flight keeps its id', () => {
+    const w: World = { ...empty(world()), orbs: [{ x: line.x - 80, y: line.y, angle: heading, bounces: 0, age: 0, id: 'b:2' }] };
+    expect(step(track.map, w, [racer(line.x, line.y - 400)], [1], 0.05).world.orbs[0]?.id).toBe('b:2');
+  });
+});

@@ -215,7 +215,9 @@ they were shown, and `omni concept` checks each rule.
 vision tour, each screen is an element with `data-screen` (its name) and its one primary action
 carries `data-primary`, the convention every mockup the kit's skills write uses: the moderator
 gives it to each artist and prototyper with their card, and adds a missing mark before the board
-is built. Before a board or the vision tour is shown, run
+is built. The page's own explanation (a board's title, a card's caption, the tour's narration)
+sits outside every marked screen: the word pass reads only marked screens, and skips a page with
+none. Before a board or the vision tour is shown, run
 `node .omni-loop/bin/omni.mjs design words <page>`; it exits 0 whatever it finds. Each finding goes
 back to the card's artist or the prototype's prototyper, who fixes it in the screen (a shorter label
 on the control, one primary action, a sentence that stands at rest cut or moved, an avoided word
@@ -517,8 +519,10 @@ crowned concept.
     ---
     screen: <name>
     status: draft
+    kind: <page, or shared for structure several pages show>
     mock: <name>.html
     implements: []
+    reads: []
     routes: [<the route it shows, when the product has one>]
     supersedes: null
     ---
@@ -541,7 +545,18 @@ crowned concept.
     freely. A locked screen's file and mockup are never edited, and no agent writes an amendment
     line, which needs its owner's words: the concept's screen goes in a new draft, `<name>-<n>.md`,
     whose **Open questions** names the locked screen it would change and who locked it. Every draft
-    is a draft, never locked: only a person locks, through `/omni:pixel-perfect lock`.
+    is a draft, never locked: only a person locks, through `/omni:pixel-perfect lock`. Both lists
+    start empty, since a concept has no code yet; whoever fills them follows one rule, in four
+    lines:
+    - A file whose change can change what a person sees on this screen goes in `implements`, the
+      data files that hold its words included.
+    - A file the screen only depends on goes in `reads`.
+    - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+      its files in `reads`.
+    - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+    Structure the tour shows on several screens (an app shell, notifications, a sign-in page) is
+    drafted once, as its own `kind: shared` screen, never redrawn inside each page's draft.
 
     Run `node .omni-loop/bin/omni.mjs check design` and
     `node .omni-loop/bin/omni.mjs design screens` until neither names a draft of this run, commit

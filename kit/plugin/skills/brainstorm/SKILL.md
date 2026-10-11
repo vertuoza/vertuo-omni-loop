@@ -368,6 +368,20 @@ and go on only once they approve it.
 
 `before-after.html` in the folder, always, because `omni phase0` requires one:
 
+- **Two parts,** with the design flag on, in this order, each under its own heading:
+  - **Functional:** what the change does, today beside after: the flow, the data, the exchange,
+    drawn as the kinds below say (an API's exchange, a flow diagram, a short page for nothing
+    visible). Every PRD has it.
+  - **Pixel perfect:** only when the change changes a screen: the marked screens, today beside
+    after, as **A change with a screen** below says, and one line naming the library screens they
+    are, shared screens included (`screens: quote-list · app-shell`). It is the part review and the
+    word pass read, and the one a reviewer looks at closely.
+
+  A PRD that changes no screen (a database fix, a guard, a doc) has the Functional part alone, and
+  says, in place of the second part, the one line `Pixel perfect: no screen changes`: no slice runs
+  pixel-perfect work for it, and the feature PR's **Pixel perfect** line (`/omni:pr`) is `none`.
+  With the design flag off, the page is written as before, in one part, by the kinds below.
+
 - A change with a **screen:** two mockups side by side, the screen today and the screen after.
   With the design flag on, read `node .omni-loop/bin/omni.mjs kb show design` first (and the file a
   pointer section names), and build the "after" from the product's own tokens and components as
@@ -386,7 +400,9 @@ and go on only once they approve it.
   it to raise as the high item its owner answers. A **draft** is a starting point.
 - **The marks and the word pass,** with the design flag on. Mark each screen of the page, "today"
   and "after", with `data-screen` (its name), and its one primary action with `data-primary`, the
-  convention every mockup the kit's skills write uses. Before anyone is shown the page, run
+  convention every mockup the kit's skills write uses. The page's own explanation (its title, the
+  PRD line, the captions under each mockup) sits outside every marked screen: the word pass reads
+  only marked screens, and skips a page with none. Before anyone is shown the page, run
   `node .omni-loop/bin/omni.mjs design words <folder>/before-after.html`; it exits 0 whatever it
   finds. Fix each finding of an "after" in that screen (a shorter label on the control, one primary
   action, a sentence that stands at rest cut or moved, an avoided word replaced), and run it again.
@@ -403,8 +419,10 @@ and go on only once they approve it.
   ---
   screen: <name>
   status: draft
+  kind: <page, or shared for structure several pages show>
   mock: <name>.html
   implements: [<the paths the spec says build it, or none yet>]
+  reads: [<the code the spec says it only depends on, or none>]
   routes: [<its routes, when the spec names them>]
   supersedes: null
   ---
@@ -424,7 +442,19 @@ and go on only once they approve it.
   fields: the library's reader refuses any other. A draft already there is brought up to the
   "after", and this PRD's line added to its **Source**: a draft changes freely. A locked screen's
   file and mockup are never edited, and no agent writes an amendment line: it needs its owner's
-  words.
+  words. **Which list.** One rule splits the paths, in four lines:
+  - A file whose change can change what a person sees on this screen goes in `implements`, the
+    data files that hold its words included.
+  - A file the screen only depends on goes in `reads`.
+  - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+    its files in `reads`.
+  - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+  The layout, styles and words go in `implements`; an engine, a data source or a rule behind it
+  goes in `reads`, and never a whole folder in `implements`: a lock trips on every file it names.
+  A shared screen (an app shell, notifications, a sign-in page, a dialog, a toast) is drawn and
+  drafted once, on its own; it names the pages it appears on in `routes` when it has none of its
+  own.
 - An **API or agent behaviour:** the exchange today and after (request and response, or user turn
   and agent turn), or a flow diagram.
 - **Nothing visible** (docs, config, a guard): a short page stating what changes and what stays the

@@ -3,7 +3,7 @@ import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { DROPPED, guard as guardProse } from './guard.ts';
 import type { GuardSheet } from './guard.ts';
-import { FIELD_CAPS } from './rules.ts';
+import { FIELD_CAPS, REFUSED_GAME_WORDS, REFUSED_PERSON_WORDS } from './rules.ts';
 
 /** A finding's words, or a verdict, as the tests bend them: any field, of any type. */
 type Words = Record<string, unknown>;
@@ -200,6 +200,28 @@ describe('guard — an id, a link, a length, a word', () => {
     const { prose, dropped } = guard({ reply: withTitle({ nested: 'object' }), sheet });
     expect(prose.findings['repeated-red:e2e']?.title).toEqual({ dropped: DROPPED.notText });
     expect(dropped).toEqual([{ field: 'findings.repeated-red:e2e.title', reason: DROPPED.notText }]);
+  });
+
+  // Law BR-PRODUCT-16 (.omni-loop/knowledge/product/rules.md, #1478).
+  it('law BR-PRODUCT-16: drops a field the model wrote past its cap in rules, or holding any word of either kit question-pool list', () => {
+    const field = (name: 'summary' | 'title' | 'whyItMatters' | 'lesson' | 'lessons', text: string) => {
+      const reply = clean();
+      if (name === 'summary') reply.summary = text;
+      else if (name === 'lessons') reply.lessons = [{ text, findings: ['repeated-red:e2e'] }];
+      else wordsOf(reply, 'repeated-red:e2e')[name] = text;
+      const path = name === 'summary' ? 'summary' : name === 'lessons' ? 'lessons.0' : `findings.repeated-red:e2e.${name}`;
+      return guard({ reply, sheet }).dropped.find((drop) => drop.field === path)?.reason;
+    };
+    const caps = { summary: FIELD_CAPS.summary, title: FIELD_CAPS.title, whyItMatters: FIELD_CAPS.whyItMatters, lesson: FIELD_CAPS.lesson, lessons: FIELD_CAPS.lesson };
+    for (const [name, cap] of Object.entries(caps) as [keyof typeof caps, number][]) {
+      expect(field(name, 'A'.repeat(cap)), `${name} at its cap`).toBeUndefined();
+      expect(field(name, 'A'.repeat(cap + 1)), `${name} past its cap`).toBe(DROPPED.tooLong);
+    }
+    for (const word of [...REFUSED_GAME_WORDS, ...REFUSED_PERSON_WORDS]) {
+      for (const name of Object.keys(caps) as (keyof typeof caps)[]) {
+        expect(field(name, `The check failed near ${word} again.`), `${name} holding "${word}"`).toBe(DROPPED.refusedWord);
+      }
+    }
   });
 
   it('never repeats the refused words or text in a reason', () => {

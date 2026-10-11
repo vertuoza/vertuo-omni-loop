@@ -445,8 +445,10 @@ in the folder `node .omni-loop/bin/omni.mjs config design.screens` prints, from 
   ---
   screen: <name>
   status: draft
+  kind: <page, or shared for structure several pages show>
   mock: null
-  implements: [<the files the screen is made of>]
+  implements: [<the files the screen is drawn from: its layout, its styles, its words>]
+  reads: [<the code behind it: the engines, data and rules it only depends on>]
   routes: [<its routes, as the router declares them>]
   supersedes: null
   ---
@@ -465,6 +467,20 @@ in the folder `node .omni-loop/bin/omni.mjs config design.screens` prints, from 
   show: each part and where its data comes from, the empty, loading and error states the code
   renders, the labels it shows. **Refusals** stays empty unless a page or a comment says what the
   screen deliberately does not do.
+- **Which list.** One rule splits the files, in four lines:
+  - A file whose change can change what a person sees on this screen goes in `implements`, the
+    data files that hold its words included.
+  - A file the screen only depends on goes in `reads`.
+  - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+    its files in `reads`.
+  - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+  Never a whole folder in `implements`: a lock trips on every file it names. A file the evidence
+  cannot place stays in `implements`, where a lock still sees it, and the doubt is an open question.
+- **Shared screens.** Structure the evidence shows on several pages (a layout every route renders
+  inside, a menu, notifications, a sign-in page, a dialog, a toast) is drafted once, as its own
+  screen with `kind: shared`: it names the pages it appears on in `routes` when it has none of its
+  own. A screen with no `kind` is a page.
 - **Every undecided point goes under Open questions**, one line each, saying what was read and what
   it could not tell: a state the code does not render, a region whose purpose the copy does not
   say, a direction the screens do not settle. Never invent a direction to fill one.

@@ -86,6 +86,14 @@ describe('isClaimedStale — the stale-claim rule, exported for the Engineering 
     expect(isClaimedStale(claim({ isDraft: false }), NOW, 60)).toBe(false);
     expect(isClaimedStale(claim({ headCommitDate: null }), NOW, 60)).toBe(false);
   });
+
+  // Law BR-PRODUCT-2 (.omni-loop/knowledge/product/rules.md, #1464).
+  it('law BR-PRODUCT-2: a head commit date that cannot be read counts as the claim having moved on, so the slice is never stale on that signal alone', () => {
+    const coldClaim = { isDraft: true, createdAt: new Date(NOW - 24 * 60 * 60_000).toISOString() };
+    for (const headCommitDate of [null, undefined, '']) {
+      expect(isClaimedStale({ ...coldClaim, headCommitDate }, NOW, 60)).toBe(false);
+    }
+  });
 });
 
 describe('boardFor — states', () => {

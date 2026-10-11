@@ -12,6 +12,14 @@ red. Whatever it finds is fixed and listed, or left and recorded; the caller car
 A change to a locked screen or law is recorded as a high item, the one a person must answer before
 the gate turns green (**A change to a locked screen or law**, below); the slice still carries on.
 
+## Only what the work touches can hold it
+
+A lock trips only when the diff changes that screen's own `implements`. A change to its `reads`, to
+another screen's `implements`, or to a shared screen (`kind: shared`) the page shows, is no change
+to that screen: locking a shared screen guards the shared screen, and a change to it alone never
+trips a page's lock; a change to a page never trips the shared screen's. A fault the review sees in
+a part the diff did not change is not the work's: it goes under **Seen, not touched**, below.
+
 ## What it is given
 
 | input | from |
@@ -30,7 +38,11 @@ caller's **Design review** section is that `—` line alone) and the design form
    Its `screens:` line names each library screen whose `implements` the work's diff touches, with
    its status and its routes (`quote-editor 🔒 (/quotes/:id) · quote-list (draft) (/quotes)`); no
    such line, no library screen is touched. Read each one's file and mockup (step 0 of the skill
-   listed them). The screens the review looks at are those, by their routes, and any other screen
+   listed them). A screen the line names as `reads <screen>` is one whose `reads`, the code behind
+   it, the work touched: read it for context; it is no change to that screen, and never trips its
+   lock. A `mock may be stale: <screen>` line names a screen whose `implements` the work touched
+   while its mockup stayed as it was: it is a **note** for the report (**What it reports**), never
+   a block, never an outbox item, and never a reason to redraw the mockup here. The screens the review looks at are those, by their routes, and any other screen
    the work changed. For a locked screen (`🔒`), its file and mockup are the reference picture,
    ahead of the before/after page: it is built as written. A draft is compared with the reference
    picture the caller gave, and its file is a starting point.
@@ -54,7 +66,11 @@ caller's **Design review** section is that `—` line alone) and the design form
    Compare each with the reference picture: what differs, and whether the difference is the
    product's (the design form, the real data) or a defect. A locked screen: compare it with its mock,
    and with its **Regions**, **States** and **Words**, at each width; a difference that is not the
-   real data is a defect, or a change to the locked screen (below). When the app cannot run, or cannot be
+   real data is a defect, or a change to the locked screen (below). A shared screen
+   (`kind: shared`) the work touched is screenshotted **in place**: on one page it appears on, as
+   well as on its own (its `routes` name the pages it appears on when it has none of its own). A
+   fault seen in a part the diff did not change is **Seen, not touched** (below), never a defect
+   of the work. When the app cannot run, or cannot be
    seen here (no browser tool, a sign-in the form does not explain), say so in the step's line,
    and nothing is reported as seen: steps 1 and 2 then judge from the source and say so.
 5. **Polish** ([polish.md](polish.md)): fix what steps 1 to 4 found, in **one batch**, inside the
@@ -80,6 +96,16 @@ Every other finding stays what it was: fixed, or a decision of its usual rank, n
 draft changes freely. A person typing the review gets the change in the list, with the owner to
 ask and `/omni:pixel-perfect lock <screen>`'s **Amend** as the way that owner records it.
 
+## Seen, not touched
+
+A page the review screenshots shows more than the work changed. A fault it sees in a part the diff
+did not change (another screen's `implements`, or a shared screen the diff did not touch) is
+reported under its own heading, `Seen, not touched`, apart from the work's findings. It is never a
+finding against the work, never fixed in the work, never an outbox item and never a block: the
+caller carries on as if it were not there. The review names the screen it sits on (or the file,
+when no library screen claims it), says what it saw, and suggests filing it as a bug of its own,
+through `/omni:bug-fix` or `/omni:visual-fix`; it files nothing itself.
+
 ## What it did not fix
 
 Each finding left after the confirming look, and each fix that would leave the territory, is a
@@ -104,6 +130,21 @@ one line per step, and a **Locked** line when a locked screen or law changed, ea
 - ✓ Screenshots — 390 and 1440, beside the before/after page's "after" and quote-editor's mock
 - ✓ Polish — one batch, confirmed at 390 and 1440
 ```
+
+When `omni design touched` printed `mock may be stale`, one more line, opening on —, says it as a
+note, never a block: `- — Mock may be stale: quote-list (its implements changed, its mockup did not;
+/omni:pixel-perfect mock quote-list redraws it)`. A draft with no mockup is no note.
+
+When the review saw a fault in a part the work did not touch, the section ends with its own heading,
+apart from the work's findings, one line per fault, opening on —:
+
+```markdown
+### Seen, not touched
+
+- — app-shell: the menu's active item loses its highlight at 390 (not touched here; file it as a bug of its own)
+```
+
+No such fault, no heading.
 
 The screenshots go with it when there are any (attached to the pull request, or committed where
 the calling skill keeps its record); a screenshot never lands in the slice's territory. Then the

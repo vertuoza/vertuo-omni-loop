@@ -215,3 +215,24 @@ Not a re-port: kit-local prose behind `design.enabled`, wired to `omni design sc
 
 `kit/test/plugin.test.ts`, the block "the design memory in pixel-perfect and do-work (PRD 1407)":
 the library read in step 1, the locked screen built as written, and the high item in step 3.
+
+## PRD #1550, slice s4 — a screen's `reads`
+
+- **Step 1, item 6** reads a library screen's `reads` too, when it has one: the code behind the
+  screen, for context. A change there is no change to the screen and never trips its lock.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.
+
+## PRD #1584, slice s3 — touched-only holds and no screen changes
+
+- **Step 1, item 6** writes the rule down: a lock trips only when the slice's diff changes that
+  screen's own `implements`; a page lists a shared screen's files in `reads`.
+- **Step 4's design review** runs no pixel-perfect work for a PRD whose before/after says
+  `Pixel perfect: no screen changes`, and a fault under `Seen, not touched` is never fixed in the
+  slice nor an outbox item of it.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

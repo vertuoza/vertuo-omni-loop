@@ -1,8 +1,9 @@
 ---
 screen: dashboard
 status: draft
-mock: null
-implements: [apps/galaxy/app/app/page.tsx, apps/galaxy/src/dashboard/]
+mock: dashboard.html
+implements: [apps/galaxy/app/app/page.tsx, apps/galaxy/src/dashboard/Dashboard.tsx, apps/galaxy/src/dashboard/DashboardScreen.tsx, apps/galaxy/src/dashboard/DashboardSignIn.tsx, apps/galaxy/src/dashboard/MemberGate.tsx, apps/galaxy/src/dashboard/Notes.tsx, apps/galaxy/src/dashboard/YouBlock.tsx, apps/galaxy/src/dashboard/dashboard.css, apps/galaxy/src/dashboard/board/Board.tsx, apps/galaxy/src/dashboard/board/PeriodSwitch.tsx, apps/galaxy/src/dashboard/board/period.ts, apps/galaxy/src/dashboard/board/board.css, apps/galaxy/src/dashboard/counts/WaitingTile.tsx, apps/galaxy/src/dashboard/counts/counts.css, apps/galaxy/src/dashboard/stream/HomeStream.tsx]
+reads: [apps/galaxy/src/dashboard/, apps/galaxy/app/app/layout.tsx, apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/Bell.tsx, apps/galaxy/src/nav/bell.ts]
 routes: [/app]
 supersedes: null
 ---
@@ -12,7 +13,9 @@ supersedes: null
 The app's home, your dashboard: your hero, fleet, season points and places, Waiting for you, then
 the board for the period chosen, whose People table is your team (`apps/galaxy/app/app/page.tsx`,
 `apps/galaxy/src/dashboard/Dashboard.tsx`). It sits inside the app shell, the sidebar and the top
-bar (`apps/galaxy/app/app/layout.tsx`).
+bar (`apps/galaxy/app/app/layout.tsx`): a shared screen of its own, `app-shell`, with the bell its
+own `notifications`. Their files are in `reads` here, so a change to the shell never trips this
+screen.
 
 ## Regions
 
