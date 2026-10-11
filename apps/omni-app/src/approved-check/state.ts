@@ -133,7 +133,7 @@ function pinsTable(approval: ApprovalInForce, latest: readonly LatestVersion[]):
 export function approvedVerdict(prd: ProductPrdRef, reading: RecordReading): ApprovedVerdict {
   if (!reading.reachable) {
     const title = `held · server unreachable since ${reading.since}`;
-    const summary = `The record of ${prd.id} could not be read: held, not failed. The check is posted again once the server answers.`;
+    const summary = `The record of ${prd.id} could not be read: held, not failed. It is posted again on the next push or approval, or when this check is re-run.`;
     return { state: 'held', conclusion: 'neutral', title, summary, dossierId: null, drift: [] };
   }
   const { record } = reading;

@@ -1,6 +1,7 @@
-// The six Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The seven Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
+// the approved check (PRD 1548), reading a product PRD's record as the service role,
 // the retro with its day-14 run (PRD 72), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
 // the pr-stats collector (PRD 612) and the canon buttons (PRD 839). Every installation call spends the
 // installation's budget through the shared client (PRD 902), on the store galaxy writes too; the retro also looks up its
@@ -9,6 +10,8 @@
 import { githubClient } from '@omni/github';
 import type { AppEnv } from './env.ts';
 import { liveCanon } from './canon/live.ts';
+import { createApprovedCheck } from './approved-check/approved-check.ts';
+import { recordReader } from './approved-check/record.ts';
 import { createCanonAction } from './inbox-check/canon-action.ts';
 import { createInboxCheck } from './inbox-check/inbox-check.ts';
 import { inngest } from './inngest-client.ts';
@@ -30,6 +33,7 @@ export function appFunctions(
   return {
     outboxCheck: createOutboxCheck({ client: inngest, octokitFor }),
     inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
+    approvedCheck: createApprovedCheck({ client: inngest, octokitFor, readRecord: env.supabase ? recordReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
     retro: createRetro({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
     knowledgeHarvest: createKnowledgeHarvest({
       client: inngest,
