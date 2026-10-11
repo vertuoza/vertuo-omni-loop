@@ -215,8 +215,8 @@ var SECRETS = Object.freeze([
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
-function maskSecrets(text8) {
-  let out = plainText(text8);
+function maskSecrets(text10) {
+  let out = plainText(text10);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -372,9 +372,9 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text8) => {
-    if (!text8.startsWith("data:")) return false;
-    const data = text8.slice(5).trim();
+  const line = (text10) => {
+    if (!text10.startsWith("data:")) return false;
+    const data = text10.slice(5).trim();
     if (data === "[DONE]") return true;
     let raw;
     try {
@@ -393,9 +393,9 @@ async function readContent(response) {
     buffer += decoder.decode(value, { stream: true });
     let newline = buffer.indexOf("\n");
     while (newline !== -1) {
-      const text8 = buffer.slice(0, newline).replace(/\r$/, "");
+      const text10 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text8)) {
+      if (line(text10)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -406,12 +406,12 @@ async function readContent(response) {
   line(buffer + decoder.decode());
   return content;
 }
-function parseJson(text8) {
-  const start = text8.indexOf("{");
-  const end = text8.lastIndexOf("}");
+function parseJson(text10) {
+  const start = text10.indexOf("{");
+  const end = text10.lastIndexOf("}");
   if (start === -1 || end < start) return void 0;
   try {
-    return JSON.parse(text8.slice(start, end + 1));
+    return JSON.parse(text10.slice(start, end + 1));
   } catch {
     return void 0;
   }
@@ -678,265 +678,119 @@ function supabaseGithubStore(db) {
   };
 }
 
-// apps/omni-app/src/canon/live.ts
-import { createClient } from "@supabase/supabase-js";
+// apps/omni-app/src/approved-check/approved-check.ts
+import { mkdtempSync as mkdtempSync5, rmSync as rmSync6 } from "node:fs";
+import { tmpdir as tmpdir5 } from "node:os";
+import { join as join25 } from "node:path";
+import { RetryAfterError } from "inngest";
 
-// apps/omni-app/src/canon/canon.ts
+// kit/lib/approval/approval.ts
+import { existsSync as existsSync4, readFileSync as readFileSync3 } from "node:fs";
+import { basename, join as join4 } from "node:path";
+import { z as z10 } from "zod";
+
+// kit/lib/ask/schema.ts
+import { z as z5 } from "zod";
+var text = z5.string().min(1);
+var JsonObjectSchema = z5.record(z5.string(), z5.unknown());
+var ModeFileSchema = z5.object({
+  host: text,
+  sessionId: text.nullable().catch(null)
+});
+var TerminalFileSchema = z5.object({ sessionId: text, host: text });
+var ROUND_STATUSES = ["open", "answered", "abandoned"];
+var RoundFileSchema = z5.object({
+  roundId: text,
+  status: z5.enum(ROUND_STATUSES).catch("open")
+});
+var HeartbeatWindowSchema = z5.object({ sentAt: z5.number() });
+var TokensSchema = z5.looseObject({ access_token: text });
+var TokenReplySchema = z5.object({ access_token: text, refresh_token: text });
+
+// kit/lib/dossier/folder.ts
 import { createHash } from "node:crypto";
+import { existsSync as existsSync3, readdirSync as readdirSync2, readFileSync as readFileSync2 } from "node:fs";
+import { join as join3 } from "node:path";
+
+// kit/lib/front-matter.ts
+var FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
+function withFile(file, message) {
+  return file ? `${file}: ${message}` : message;
+}
+function stripQuotes(value) {
+  const trimmed = value.trim();
+  if (trimmed.length >= 2) {
+    const first = trimmed[0];
+    const last = trimmed[trimmed.length - 1];
+    if (first === '"' && last === '"' || first === "'" && last === "'") {
+      return trimmed.slice(1, -1);
+    }
+  }
+  return trimmed;
+}
+function parseFrontMatterLines(rawFrontMatter) {
+  const data = {};
+  const errors = [];
+  for (const rawLine of rawFrontMatter.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const match = line.match(FRONT_MATTER_LINE);
+    if (!match) {
+      errors.push(`front matter line is not "key: value": "${rawLine}"`);
+      continue;
+    }
+    const [, key = "", rawValue = ""] = match;
+    data[key] = stripQuotes(rawValue);
+  }
+  return { data, errors };
+}
+
+// kit/lib/layout.ts
+import { existsSync as existsSync2, readdirSync } from "node:fs";
+import { join as join2, posix } from "node:path";
+
+// kit/lib/ids.ts
 import { z as z6 } from "zod";
 
-// apps/omni-app/src/canon/schema.ts
-import { z as z5 } from "zod";
-var ClaimSchema = z5.looseObject({ id: z5.string(), kind: z5.string(), value: z5.string().nullish() });
-var PersonaSchema = z5.looseObject({
-  name: z5.string(),
-  who: z5.string().nullish(),
-  trade: z5.string().nullish(),
-  stance: z5.string().nullish(),
-  usage: z5.string().nullish()
-});
-var BusinessSchema = z5.looseObject({
-  business: z5.unknown().optional(),
-  claims: z5.array(ClaimSchema).nullish(),
-  personas: z5.array(PersonaSchema).nullish(),
-  updatedAt: z5.string().nullish()
-});
-var ConstituentSchema = z5.looseObject({ id: z5.string(), text: z5.string() });
-var ConstituentsSchema = z5.looseObject({
-  state: z5.string().nullish(),
-  statement: ConstituentSchema.nullish(),
-  never: z5.array(ConstituentSchema).nullish(),
-  latestEventId: z5.string().nullish()
-});
-var FindingSchema = z5.looseObject({ quote: z5.string(), claims: z5.array(z5.string()), why: z5.unknown().optional() });
-var ReplyPersonaSchema = z5.looseObject({ name: z5.unknown().optional(), line: z5.unknown().optional() });
-function parsed(schema, what, value) {
-  const result = schema.safeParse(value);
-  if (result.success) return result.data;
-  const [issue] = result.error.issues;
-  const field3 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
-  throw new Error(`the ${what} read is malformed: ${field3}: ${issue?.message ?? result.error.message}`);
-}
-var parseBusiness = (value) => parsed(BusinessSchema, "business", value);
-var parseConstituents = (value) => parsed(ConstituentsSchema, "constituents", value);
-
-// apps/omni-app/src/canon/canon.ts
-var CheckedReplySchema = z6.object({
-  findings: z6.array(z6.object({ quote: z6.string(), claims: z6.array(z6.string()), why: z6.string() })),
-  persona: z6.object({ name: z6.string(), line: z6.string() })
-});
-var CANON_GATE = "canon";
-var CANON_SPEC_LIMIT = 4e4;
-var MAX_QUOTE = 300;
-var CACHE_LIMIT = 200;
-var JUDGE_NOT_CONFIGURED = "no-secret";
-var plain = (text8) => (text8 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-function quoted2(text8, quote) {
-  const q = plain(quote);
-  return q.length > 0 && plain(text8).includes(q);
-}
-var SYSTEM = [
-  "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), the business claims its team confirmed, and its personas.",
-  "Report a finding only when the spec designs something that is not the product the Statement describes, breaks a Never line, or designs for a customer outside the size, trade or region claims.",
-  'Answer one JSON object and nothing else: {"findings": [{"quote", "claims", "why"}], "persona": {"name", "line"}}.',
-  "- quote: the exact words of the spec that break the claim, copied character for character, at most 300 characters.",
-  '- claims: the ids of what it breaks, exactly as given (e.g. "statement", "never#4", "size#1").',
-  "- why: one short sentence.",
-  "- persona: of the personas given, the one the spec fits worst, by name, and one line in their own voice about the spec, at most 200 characters. Empty name and line when there is no persona.",
-  'No finding when the spec fits: "findings": [].'
-].join("\n");
-var SCHEMA = Object.freeze({
-  name: "canon_findings",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["findings", "persona"],
-    properties: {
-      findings: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["quote", "claims", "why"],
-          properties: { quote: { type: "string" }, claims: { type: "array", items: { type: "string" } }, why: { type: "string" } }
-        }
-      },
-      persona: {
-        type: "object",
-        additionalProperties: false,
-        required: ["name", "line"],
-        properties: { name: { type: "string" }, line: { type: "string" } }
-      }
-    }
-  }
-});
-function checkReply(value) {
-  if (!value || typeof value !== "object") return { errors: ["the reply must be one JSON object"], reply: null };
-  const items = "findings" in value ? value.findings : void 0;
-  if (!Array.isArray(items)) return { errors: ["findings: an array"], reply: null };
-  const parsed2 = items.map((item) => FindingSchema.safeParse(item));
-  const errors = parsed2.flatMap((result, i) => result.success ? [] : [`findings.${i}: {"quote": string, "claims": string[], "why": string}`]);
-  if (errors.length > 0) return { errors, reply: null };
-  const findings = parsed2.flatMap(
-    (result) => result.success ? [{ quote: result.data.quote.trim(), claims: result.data.claims.map((id) => id.trim()), why: text(result.data.why) }] : []
-  );
-  const persona = ReplyPersonaSchema.safeParse("persona" in value ? value.persona ?? {} : {});
-  const { name, line } = persona.success ? persona.data : {};
-  return { errors, reply: { findings, persona: { name: text(name), line: text(line) } } };
-}
-var text = (value) => (value === void 0 || value === null ? "" : stringOf(value)).trim();
-var stringOf = (value) => String(value);
-var thrownMessage = (error) => error !== null && typeof error === "object" && "message" in error ? error.message : void 0;
-function userPrompt({ spec, claims, constituents, personas }) {
-  const constituentLines = constituents.length ? constituents.map((c) => `${c.id}: ${c.text}`) : ["(none)"];
-  const claimLines = claims.length ? claims.map((claim) => `${claim.id}: ${claim.kind} \u2014 ${claim.value}`) : ["(none)"];
-  const personaLines = personas.length ? personas.map((p) => `${p.name}: ${[p.who, p.trade, p.stance, p.usage].filter(Boolean).join("; ")}`) : ["(none)"];
-  return [
-    "Constituents (the Statement and the Never lines):",
-    ...constituentLines,
-    "",
-    "Claims (confirmed):",
-    ...claimLines,
-    "",
-    "Personas:",
-    ...personaLines,
-    "",
-    "The spec:",
-    '"""',
-    spec.slice(0, CANON_SPEC_LIMIT),
-    '"""'
-  ].join("\n");
-}
-var neutral = (reason2) => ({
-  name: CANON_GATE,
-  ok: true,
-  neutral: true,
-  reason: reason2,
-  details: [],
-  canon: { state: "neutral", reason: reason2, claimsRead: 0, findings: [], persona: null, judge: null }
-});
-function kept({ spec, reply, claims, constituents, personas }) {
-  const ids = /* @__PURE__ */ new Set([...claims.map((claim) => claim.id), ...constituents.map((c) => c.id)]);
-  const findings = [];
-  for (const finding of reply.findings) {
-    if (finding.quote.length > MAX_QUOTE || !quoted2(spec, finding.quote)) continue;
-    const cited = [...new Set(finding.claims.filter((id) => ids.has(id)))];
-    if (cited.length === 0) continue;
-    findings.push({ quote: finding.quote, claims: cited, why: finding.why });
-  }
-  const named = personas.find((p) => plain(p.name) === plain(reply.persona.name));
-  const persona = named && reply.persona.line ? { name: named.name, line: reply.persona.line.slice(0, 200) } : null;
-  return { findings, persona };
-}
-var plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-function judged({ claims, constituents, findings, persona, judge: judge2 }) {
-  const claimsRead = claims.length;
-  if (findings.length === 0) {
-    const read = constituents.length ? `${plural(claimsRead, "claim")}, ${plural(constituents.length, "constituent")}` : plural(claimsRead, "claim");
-    const reason3 = `canon \u2713 \xB7 ${read} read`;
-    return { name: CANON_GATE, ok: true, neutral: false, reason: reason3, details: [], canon: { state: "green", reason: reason3, claimsRead, findings, persona, judge: judge2 } };
-  }
-  const reason2 = `canon \u2717 ${findings.length}`;
-  const values = new Map([
-    ...claims.map((claim) => [claim.id, claim.value]),
-    ...constituents.map((c) => [c.id, c.text])
-  ]);
-  const details = findings.map(
-    (finding) => `${finding.claims.map((id) => `${id} "${values.get(id)}"`).join(", ")} \u2014 the spec: "${finding.quote}"`
-  );
-  if (persona) details.push(`${persona.name}: "${persona.line}"`);
-  if (judge2?.decidedBy === "jev") details.push(`judged by Jev (constituent-break, confidence ${judge2.confidence})`);
-  return { name: CANON_GATE, ok: false, neutral: false, title: reason2, reason: reason2, details, canon: { state: "red", reason: reason2, claimsRead, findings, persona, judge: judge2 } };
-}
-function liveConstituents(read) {
-  if (read?.state !== "ok") return [];
-  return [...read.statement ? [read.statement] : [], ...read.never ?? []].filter((c) => c.text.trim()).map((c) => ({ id: c.id, text: c.text.trim() }));
-}
-async function canonOf({ readBusiness, readConstituents }, repo) {
-  const business = await attempt(() => readBusiness(repo), "no business");
-  if (business.gate) return business;
-  if (!business.value) return { gate: neutral("no business: the App cannot read businesses here") };
-  const read = await attempt(() => readConstituents(repo), "no constituents");
-  if (read.gate) return read;
-  return enough(repo, business.value, read.value);
-}
-async function attempt(read, what) {
-  try {
-    return { value: await read() };
-  } catch (error) {
-    return { gate: neutral(`${what}: the read failed (${String(thrownMessage(error) ?? error)})`) };
-  }
-}
-function enough(repo, business, read) {
-  const constituents = liveConstituents(read);
-  const claims = business.claims ?? [];
-  if (constituents.length === 0 && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
-  if (constituents.length === 0 && claims.length === 0) {
-    return { gate: neutral("no confirmed claim or constituent for this repository's product") };
-  }
-  return { business, claims, personas: business.personas ?? [], constituents, version: read?.latestEventId ?? "" };
-}
-var isConstituent = (id) => id === "statement" || /^never#\d+$/.test(id);
-function judgeState({ spec, constituents, findings }) {
-  const statement2 = constituents.find((c) => c.id === "statement")?.text ?? null;
-  const never = constituents.filter((c) => c.id !== "statement");
-  const broken = findings.map((f) => ({ quote: f.quote, constituents: f.claims.filter(isConstituent), why: f.why.slice(0, 500) })).filter((f) => f.constituents.length > 0).slice(0, 50);
-  return { spec: spec.slice(0, CANON_SPEC_LIMIT), statement: statement2, never, verdict: { broken: broken.length > 0, findings: broken } };
-}
-function counted(findings, broken) {
-  if (broken) return findings;
-  return findings.map((f) => ({ ...f, claims: f.claims.filter((id) => !isConstituent(id)) })).filter((f) => f.claims.length > 0);
-}
-var NO_JUDGE = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: "no judge here" });
-function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge2 = NO_JUDGE, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
-  async function modelVerdict({ repo, spec, read }) {
-    const { business, claims, constituents, personas, version } = read;
-    const key = [repo, createHash("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
-    const hit = cache.get(key);
-    if (hit) return hit;
-    const answer = await ask3({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, personas }), check: checkReply, schema: SCHEMA });
-    if (!answer.ok) {
-      return { gate: neutral(answer.error === NO_KEY ? `model not configured (${answer.reason})` : `model error: ${answer.reason}`) };
-    }
-    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, personas });
-    cache.set(key, verdict);
-    for (const oldest of cache.keys()) {
-      if (cache.size <= limit) break;
-      cache.delete(oldest);
-    }
-    return verdict;
-  }
-  return {
-    async grade({ repo, spec, ref = null }) {
-      const read = await canonOf({ readBusiness, readConstituents }, repo);
-      if (read.gate) return read.gate;
-      const { claims, constituents } = read;
-      const verdict = await modelVerdict({ repo, spec, read });
-      if (verdict.gate) return verdict.gate;
-      if (constituents.length === 0) return judged({ claims, constituents, ...verdict, judge: null });
-      const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said = await judge2({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
-      if (!said.ok) {
-        return neutral(said.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said.reason})` : `judge error: ${said.reason}`);
-      }
-      const findings = counted(verdict.findings, said.answer === "true");
-      return judged({ claims, constituents, findings, persona: verdict.persona, judge: { decidedBy: said.decidedBy, confidence: said.confidence } });
-    }
-  };
+// kit/lib/schema/parse-or-throw.ts
+function parseOrThrow(schema, value, shape) {
+  const parsed2 = schema.safeParse(value, { error: KIT_MESSAGES });
+  if (parsed2.success) return parsed2.data;
+  const issue = parsed2.error.issues[0];
+  const field3 = issue && issue.path.length ? `${issue.path.join(".")}: ` : "";
+  throw new Error(`${shape}: ${field3}${issue?.message ?? "invalid"}`);
 }
 
-// apps/omni-app/src/canon/judge.ts
-import { z as z12 } from "zod";
+// kit/lib/ids.ts
+var IssueNumberSchema = z6.number().int().positive().brand();
+var PrdNumberSchema = IssueNumberSchema.brand();
+var PrNumberSchema = z6.number().int().positive().brand();
+var CommentIdSchema = z6.number().int().positive().brand();
+var WorkSliceIdSchema = z6.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var SliceIdSchema = z6.string().regex(/^s\d+$/).brand().brand();
+var OutboxItemIdSchema = z6.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var DIGITS = /^\d+$/;
+function numeric(value) {
+  return typeof value === "string" && DIGITS.test(value) ? Number(value) : value;
+}
+function parseId(schema, value, what, given) {
+  return parseOrThrow(schema, value, `${what} ${JSON.stringify(given)}`);
+}
+function parseIssue(value) {
+  return parseId(IssueNumberSchema, numeric(value), "issue number", value);
+}
+function parsePrd(value) {
+  return parseId(PrdNumberSchema, numeric(value), "PRD number", value);
+}
+function parsePr(value) {
+  return parseId(PrNumberSchema, numeric(value), "pull request number", value);
+}
 
-// apps/omni-app/src/stage-forward/stage-forward.ts
-import { createHmac } from "node:crypto";
-import { z as z11 } from "zod";
-
-// kit/lib/config.ts
-import { existsSync as existsSync2, readFileSync } from "node:fs";
-import { join as join2 } from "node:path";
+// kit/lib/playbook/forms.ts
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parse } from "yaml";
-import { z as z8 } from "zod";
+import { z as z7 } from "zod";
 
 // kit/lib/narrow.ts
 function isOneOf(values, value) {
@@ -967,845 +821,7 @@ function keysOf(record) {
   return Object.keys(record).filter((key) => Object.hasOwn(record, key));
 }
 
-// kit/lib/design/words/selector.ts
-var NAME = String.raw`[A-Za-z_][\w-]*`;
-var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
-var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
-function parseCompound(text8) {
-  const compound = COMPOUND.exec(text8.trim());
-  if (!compound || compound[0] === "") return null;
-  const [, tag, parts = ""] = compound;
-  const matched = [...parts.matchAll(new RegExp(PART, "g"))];
-  return {
-    tag: tag === void 0 || tag === "*" ? null : tag.toLowerCase(),
-    ids: matched.flatMap(([, id]) => id === void 0 ? [] : [id]),
-    classes: matched.flatMap(([, , className]) => className === void 0 ? [] : [className]),
-    attributes: matched.flatMap(([, , , name, doubled, single, bare2]) => name === void 0 ? [] : [{ name: name.toLowerCase(), value: doubled ?? single ?? bare2 ?? null }])
-  };
-}
-function parseSelector(source) {
-  const compounds = [];
-  for (const piece of source.split(",")) {
-    const compound = parseCompound(piece);
-    if (!compound) return null;
-    compounds.push(compound);
-  }
-  return { source, compounds };
-}
-
-// kit/lib/flow/schema.ts
-import { existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { z as z7 } from "zod";
-
-// kit/lib/flow/points.ts
-var HOOK_MODES = Object.freeze(["before", "after", "replace"]);
-var EXTEND = Object.freeze(["before", "after"]);
-var ANY = HOOK_MODES;
-var SLICE_INPUTS = Object.freeze(["prd", "slice", "territory", "branch"]);
-var FLOW_POINTS = Object.freeze([
-  { point: "plan.slice", skills: ["plan", "mega-brainstorm"], modes: EXTEND, inputs: ["prd", "slice", "territory"], outputs: [] },
-  { point: "plan.done", skills: ["plan"], modes: EXTEND, inputs: ["prd", "plan"], outputs: [] },
-  { point: "do-work.start", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
-  { point: "do-work.test", skills: ["do-work"], modes: ANY, inputs: SLICE_INPUTS, outputs: ["the verdict line"] },
-  { point: "do-work.review", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
-  { point: "do-work.ready", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
-  {
-    point: "pr.open",
-    skills: ["pr"],
-    modes: ANY,
-    inputs: ["base", "head", "title", "body", "draft"],
-    outputs: ["the PR's URL as its last line before the verdict", "the verdict line"]
-  },
-  { point: "wave.merge", skills: ["wave", "ultra-wave"], modes: ANY, inputs: ["prd", "slice", "pr"], outputs: ["the merged PR's number in the verdict"] },
-  { point: "yolo.ready", skills: ["yolo", "ultra-yolo"], modes: EXTEND, inputs: ["prd", "pr"], outputs: [] }
-]);
-function flowPoint(name) {
-  return FLOW_POINTS.find(({ point }) => point === name);
-}
-
-// kit/lib/flow/schema.ts
-var CLAUDE_ALIAS = "claude";
-var DEFAULT_AREA = "default";
-var text2 = z7.string().min(1);
-var regexSource = z7.string().refine((source) => {
-  try {
-    new RegExp(source);
-    return true;
-  } catch {
-    return false;
-  }
-}, "not a valid regular expression");
-var hookRef = z7.union([text2, z7.object({ path: text2, alias: z7.literal(CLAUDE_ALIAS) }).strict()]);
-var hookRefs = z7.union([hookRef, z7.array(hookRef).min(1)]);
-var pointHooks = z7.union([
-  hookRef,
-  z7.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict()
-]);
-function hookRefProblem(ref) {
-  const path = typeof ref === "string" ? ref : ref.path;
-  const claude = typeof ref !== "string";
-  if (claude && /^\/[\w.:-]+$/.test(path)) return null;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return `${path} is a URL \u2014 name a file of this repository by its path`;
-  if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
-  if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
-  if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
-    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
-  }
-  return null;
-}
-var asList = (refs) => refs === void 0 ? [] : Array.isArray(refs) ? refs : [refs];
-var isBare = (value) => typeof value === "string" || "path" in value;
-function hooksByMode(value) {
-  if (typeof value === "string" || "path" in value) return { before: [], after: [value], replace: null };
-  return { before: asList(value.before), after: asList(value.after), replace: value.replace ?? null };
-}
-function eachHook(point, value) {
-  const { before: before2, after, replace } = hooksByMode(value);
-  const one = (mode, ref) => ({ key: isBare(value) ? [point] : [point, mode], mode, ref });
-  return [
-    ...before2.map((ref) => one("before", ref)),
-    ...replace === null ? [] : [one("replace", replace)],
-    ...after.map((ref) => one("after", ref))
-  ];
-}
-var KNOWN_POINTS = FLOW_POINTS.map(({ point }) => point).join(", ");
-var hooksSection = z7.record(z7.string(), pointHooks).superRefine((hooks, issues) => {
-  for (const [name, value] of Object.entries(hooks)) {
-    const point = flowPoint(name);
-    if (!point) {
-      issues.addIssue({ code: "custom", path: [name], message: `not a point of the catalog (${KNOWN_POINTS})` });
-      continue;
-    }
-    for (const { key, mode, ref } of eachHook(name, value)) {
-      if (mode === "replace" && !point.modes.includes("replace")) {
-        issues.addIssue({ code: "custom", path: key, message: `${name} takes before and after hooks only: its act is never replaced` });
-      }
-      const problem = hookRefProblem(ref);
-      if (problem) issues.addIssue({ code: "custom", path: key, message: problem });
-    }
-  }
-});
-var planRule = z7.union([
-  z7.object({ slice: z7.object({ alone: z7.boolean().optional(), maxFiles: z7.number().int().positive().optional() }).strict() }).strict(),
-  z7.object({ wave: z7.literal("first") }).strict(),
-  z7.object({ blocks: z7.literal("all") }).strict(),
-  z7.object({ landing: z7.literal("alone") }).strict()
-]);
-var MERGE_METHODS = Object.freeze(["squash", "merge", "rebase"]);
-var subPrRules = z7.object({
-  merge: z7.enum(MERGE_METHODS).optional(),
-  requireChecks: z7.array(text2).optional(),
-  approval: z7.literal("person").optional(),
-  territory: z7.enum(["report", "block"]).optional(),
-  maxOpen: z7.number().int().positive().optional()
-}).strict();
-var rulesSection = z7.object({ plan: z7.array(planRule).optional(), subPr: subPrRules.optional() }).strict();
-var area = z7.object({
-  paths: z7.array(regexSource).min(1, "at least one path pattern"),
-  knowledge: text2.optional(),
-  inherit: z7.boolean().optional(),
-  rules: rulesSection.optional(),
-  hooks: hooksSection.optional()
-}).strict();
-var AREA_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-var FlowSchema = z7.object({
-  rules: rulesSection.optional(),
-  hooks: hooksSection.optional(),
-  areas: z7.record(z7.string(), area).optional(),
-  // Reserved for events, which a later PRD defines: refused until then, never read.
-  on: z7.unknown().optional()
-}).strict().superRefine((flow, issues) => {
-  if (flow.on !== void 0) {
-    issues.addIssue({ code: "custom", path: ["on"], message: "reserved for events, which a later PRD defines \u2014 remove it" });
-  }
-  for (const name of Object.keys(flow.areas ?? {})) {
-    if (name === DEFAULT_AREA) {
-      issues.addIssue({ code: "custom", path: ["areas", name], message: `${DEFAULT_AREA} names the root of flow \u2014 call this area something else` });
-    } else if (!AREA_NAME.test(name)) {
-      issues.addIssue({ code: "custom", path: ["areas", name], message: "an area is named by one kebab-case word, such as kernel" });
-    }
-  }
-});
-
-// kit/lib/config.ts
-var CONFIG_FILE = ".omni-loop/config.yml";
-var CONFIG_VERSION = 1;
-var ConfigError = class extends Error {
-  /** True when the file was read and does not hold a valid config, false when there is no file to read. */
-  invalid;
-  constructor(message, { invalid = false } = {}) {
-    super(message);
-    this.name = "ConfigError";
-    this.invalid = invalid;
-  }
-};
-var text3 = z8.string().min(1);
-var nullableText = text3.nullable();
-var branchTemplate = z8.string().min(1);
-var labelName = z8.string().min(1);
-var section = (shape) => z8.preprocess((value) => value === void 0 ? {} : value, z8.object(shape).strict());
-var trailerPart = text3.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
-var askUrl = z8.string().refine((value) => {
-  let url;
-  try {
-    url = new URL(value);
-  } catch {
-    return false;
-  }
-  return url.protocol === "https:" || url.protocol === "http:" && url.hostname === "127.0.0.1";
-}, "an https URL, or http on 127.0.0.1");
-var httpsUrl = z8.string().refine((value) => {
-  if (/\s/.test(value)) return false;
-  try {
-    return new URL(value).protocol === "https:";
-  } catch {
-    return false;
-  }
-}, "an absolute https URL");
-var PROOF_GITHUB_DEPLOYMENT = "github-deployment";
-var proofUrl = z8.string().refine((value) => {
-  if (value === PROOF_GITHUB_DEPLOYMENT) return true;
-  if (/\s/.test(value)) return false;
-  try {
-    return ["https:", "http:"].includes(new URL(value).protocol);
-  } catch {
-    return false;
-  }
-}, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
-var envName = z8.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
-var wordSelector = text3.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
-var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
-var target = z8.object({
-  repo: z8.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
-  role: z8.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
-  knowledge: z8.enum(TARGET_KNOWLEDGE),
-  readAt: z8.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
-  // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
-  // and imported.
-  readOnly: z8.boolean().optional(),
-  // PRD 1162: the short names of the targets whose default-branch packages this one installs.
-  consumes: z8.array(z8.string()).optional()
-}).strict();
-function targetShortName(slug) {
-  return slug.slice(slug.indexOf("/") + 1);
-}
-var planSection = z8.object({
-  guide: nullableText.default(null),
-  targets: z8.array(target).min(1, "at least one target").optional(),
-  product: z8.string().trim().min(1).optional()
-}).strict().superRefine(({ targets, product }, issues) => {
-  if (targets !== void 0 && product !== void 0) {
-    issues.addIssue({
-      code: "custom",
-      path: [],
-      message: "product and targets cannot both be set \u2014 keep product to read the targets from the server, or targets to keep them here"
-    });
-  }
-  if (targets === void 0 && product === void 0) issues.addIssue({ code: "custom", path: ["targets"], message: "at least one target, or a product" });
-  checkTargets(targets ?? [], issues);
-}).transform(({ targets, ...plan }) => ({ ...plan, targets: targets ?? [] }));
-function checkTargets(targets, issues) {
-  const seen = /* @__PURE__ */ new Set();
-  const names = targets.map(({ repo }) => targetShortName(repo));
-  targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
-    const own = targetShortName(repo);
-    const others = names.filter((name) => name !== own);
-    consumes.forEach((name, at2) => {
-      const path = ["targets", index, "consumes", at2];
-      if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
-      else if (!others.includes(name)) {
-        issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
-      }
-    });
-    if (seen.has(repo)) issues.addIssue({ code: "custom", path: ["targets", index, "repo"], message: `${repo} is listed twice` });
-    seen.add(repo);
-    if (knowledge === "imported" && readAt === null) {
-      issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: "required when knowledge is imported" });
-    }
-    if (knowledge !== "imported" && readAt !== null) {
-      issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: `only an imported target has one, and this one is ${knowledge}` });
-    }
-  });
-}
-var generatedEntry = z8.object({
-  path: text3,
-  from: z8.array(text3).min(1, "at least one source prefix"),
-  build: z8.string().trim().min(1)
-}).strict();
-var ConfigSchema = z8.object({
-  kit: z8.literal(CONFIG_VERSION),
-  repo: section({
-    slug: z8.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
-    remote: text3.default("origin"),
-    defaultBranch: text3.default("main")
-  }),
-  github: section({ user: nullableText.default(null) }),
-  branches: section({
-    feature: branchTemplate.default("feat/{topic}"),
-    fix: branchTemplate.default("fix/{topic}"),
-    phase0: branchTemplate.default("docs/phase-0-{topic}"),
-    slice: branchTemplate.default("feat/{topic}--{slice}"),
-    // Landings: the branch of each landing of a PRD of more than one, stacked on the one before;
-    // `{landing}` and `{landings}` are its number and the count, `{name}` its plan's name for it.
-    // A PRD of one landing keeps `feature`.
-    landing: branchTemplate.default("feat/{topic}-{landing}of{landings}-{name}"),
-    rework: branchTemplate.default("fix-{item}"),
-    retro: branchTemplate.default("docs/retro-{topic}"),
-    knowledge: branchTemplate.default("docs/knowledge-{topic}"),
-    invade: branchTemplate.default("docs/omni-invade"),
-    // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
-    update: branchTemplate.default("chore/omni-update-{version}"),
-    // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
-    megaInvade: branchTemplate.default("docs/omni-mega-invade"),
-    // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-    concept: branchTemplate.default("docs/concept-{topic}"),
-    // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
-    law: branchTemplate.default("test/law-{id}")
-  }),
-  worktrees: text3.default(".claude/worktrees"),
-  paths: section({
-    delivery: text3.default(".omni-loop/delivery"),
-    knowledge: text3.default(".omni-loop/knowledge"),
-    adr: text3.default(".omni-loop/knowledge/adr"),
-    playbook: text3.default(".omni-loop/knowledge/playbook"),
-    glossary: nullableText.default(null),
-    context: z8.array(text3).default(["CLAUDE.md"])
-  }),
-  labels: section({
-    prd: labelName.default("omni:prd"),
-    phase0: labelName.default("omni:phase-0"),
-    feature: labelName.default("omni:feature"),
-    sub: labelName.default("omni:sub"),
-    inProgress: labelName.default("omni:in-progress"),
-    needsFix: labelName.default("omni:needs-fix"),
-    outboxGo: labelName.default("omni:outbox-go"),
-    retro: labelName.default("omni:retro"),
-    knowledge: labelName.default("omni:knowledge"),
-    visual: labelName.default("omni:visual"),
-    // PRD 556: the bug-fix lane's labels — the issue and its PR, a regression, and the triage's risk.
-    bug: labelName.default("omni:bug"),
-    regression: labelName.default("omni:regression"),
-    riskCritical: labelName.default("omni:risk-critical"),
-    riskHigh: labelName.default("omni:risk-high"),
-    riskMedium: labelName.default("omni:risk-medium"),
-    riskLow: labelName.default("omni:risk-low"),
-    // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
-    concept: labelName.default("omni:concept"),
-    // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
-    // display: nothing reads it.
-    approved: labelName.default("omni:approved"),
-    // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
-    law: labelName.default("omni:law"),
-    autoCreate: z8.boolean().default(false)
-  }),
-  prLinks: section({
-    feature: text3.default("Closes #{prd}"),
-    sub: text3.default("Part of #{prd}"),
-    phase0: text3.default("Refs #{prd}")
-  }),
-  // How a pull request into the default branch or a landing branch is opened: `openWith` names a
-  // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
-  // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
-  pr: section({ openWith: nullableText.default(null) }),
-  board: section({ matchBy: z8.enum(["base", "label"]).default("base") }),
-  ci: section({
-    outboxContext: text3.default("outbox"),
-    // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
-    inboxContext: text3.default("inbox"),
-    // PRD 1612: the name of the check run the omni-loop App posts on a ◆ PRD's feature PR and its
-    // target PRs, from the approval in force.
-    approvedContext: text3.default("omni/approved"),
-    aggregateCheck: nullableText.default(null),
-    branchProtection: z8.boolean().default(false),
-    runner: text3.default("ubuntu-latest")
-  }),
-  commands: section({
-    preflight: nullableText.default(null),
-    preflightFull: nullableText.default(null),
-    checks: z8.array(text3).default([]),
-    test: nullableText.default(null),
-    // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
-    mutation: nullableText.default(null),
-    // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
-    design: nullableText.default(null)
-  }),
-  acceptance: z8.object({
-    enabled: z8.boolean().default(false),
-    dir: nullableText.default(null),
-    pendingSuffix: nullableText.default(null),
-    run: nullableText.default(null)
-  }).strict().refine((a) => !a.enabled || a.dir !== null, {
-    message: "acceptance.dir is required when acceptance.enabled is true",
-    path: ["dir"]
-  }).prefault({}),
-  laws: section({
-    source: z8.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
-    claudeMdHeading: text3.default("## Invariants"),
-    // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
-    // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
-    // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
-    requireProof: z8.boolean().default(false)
-  }),
-  risk: section({
-    storedShape: z8.array(regexSource).default([]),
-    sharedContract: z8.array(text3).default([])
-  }),
-  // Landings: the paths that must reach the default branch in a landing of their own (a
-  // repository's migrations directories, say). Regex sources over repository paths, compiled once
-  // by `omni plan check`; empty, no plan is refused for what it puts together.
-  landings: section({ alone: z8.array(regexSource).default([]) }),
-  notify: section({
-    slack: z8.object({ channelVar: text3.default("OMNI_SLACK_CHANNEL"), tokenSecret: text3.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
-  }),
-  limits: section({
-    stallDays: z8.number().int().positive().default(5),
-    attempts: z8.number().int().positive().default(3),
-    claimStaleMinutes: z8.number().int().positive().default(60),
-    beforeAfterMaxBytes: z8.number().int().positive().default(512e3),
-    // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
-    // was before, one step at a time.
-    parallelSteps: z8.number().int().min(1).max(6).default(3),
-    // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
-    // and a config that does not set it parses exactly as before.
-    hookMaxBytes: z8.number().int().positive().optional()
-  }),
-  ask: section({ url: askUrl.nullable().default(null) }),
-  // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
-  // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
-  dossier: section({ enabled: z8.boolean().default(false) }),
-  // PRD 262: whether a PRD ships with a release note (`<folder>/release.md`, `kit/lib/releases/`).
-  // Off by default: a repository opts in. When it is on, `omni ship` refuses a PRD whose folder has
-  // no note, or whose note `omni check releases` would fail.
-  releaseNotes: section({ enabled: z8.boolean().default(false) }),
-  // PRD 251: whether an outbox may be answered outside the pull request — at the end of
-  // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
-  // opts out. The pull request takes replies either way.
-  answers: section({ enabled: z8.boolean().default(true) }),
-  // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
-  // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
-  // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
-  // `deployment` names the GitHub deployment environment to film when a commit has several previews.
-  proof: section({
-    url: proofUrl.nullable().default(null),
-    deployment: nullableText.default(null),
-    setup: nullableText.default(null),
-    bypassEnv: envName.nullable().default(null),
-    maxSeconds: z8.number().int().positive().default(60)
-  }),
-  // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
-  // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
-  // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
-  e2e: section({
-    enabled: z8.boolean().default(false),
-    url: proofUrl.nullable().default(null),
-    deployment: nullableText.default(null),
-    setup: nullableText.default(null),
-    bypassEnv: envName.nullable().default(null),
-    dir: text3.default("e2e"),
-    model: text3.default("anthropic/claude-sonnet-5.5")
-  }),
-  // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
-  // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
-  // repository paths where the screens, styles, tokens and components live; `omni design touched`
-  // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
-  // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
-  // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in. `words` tunes the word
-  // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
-  // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
-  // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
-  // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
-  // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
-  // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
-  // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
-  design: section({
-    enabled: z8.boolean().default(false),
-    paths: z8.array(text3).default([]),
-    ignore: z8.array(text3).optional(),
-    screens: nullableText.default(null),
-    words: section({
-      sentence: z8.number().int().positive().default(7),
-      screen: wordSelector.default("[data-screen]"),
-      primary: wordSelector.default("[data-primary]"),
-      content: wordSelector.optional(),
-      avoid: z8.array(text3).default([])
-    })
-  }),
-  markers: section({ prefix: z8.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
-  // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
-  // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
-  // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
-  // as written. `home` defaults to the Omni Loop home page (ADR-0047, ADR-0055).
-  signature: z8.object({
-    name: trailerPart.default("Omni-man"),
-    email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
-    home: httpsUrl.default("https://www.omni-loop.xyz"),
-    footer: text3.default("\u{1F9B8} {name} by [Omni Loop]({home}) \xA9")
-  }).strict().nullable().prefault({}),
-  plan: planSection.optional(),
-  // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
-  // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
-  flow: FlowSchema.optional(),
-  // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
-  // it has none, and parses with no `generated` key.
-  generated: z8.array(generatedEntry).optional()
-}).strict().superRefine(({ pr, flow }, issues) => {
-  const hooks = flow?.hooks?.["pr.open"];
-  if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
-    issues.addIssue({
-      code: "custom",
-      path: ["flow", "hooks", "pr.open", "replace"],
-      message: "pr.openWith already replaces how a pull request opens \u2014 keep one of the two"
-    });
-  }
-});
-function designScreensDir({ paths, design }) {
-  return design.screens ?? `${paths.knowledge.replace(/\/+$/, "")}/design/screens/`;
-}
-var isRecord = (value) => value !== null && typeof value === "object";
-var RENAMED = Object.freeze([{ section: "branches", from: "terraform", to: "invade" }]);
-function renamedKey(raw) {
-  return RENAMED.find(({ section: name, from }) => {
-    const value = isRecord(raw) ? raw[name] : void 0;
-    return value !== null && typeof value === "object" && Object.hasOwn(value, from);
-  });
-}
-function describeIssue(issue) {
-  const path = issue.path.join(".") || "(top level)";
-  const keys = issue.code === "unrecognized_keys" ? ` (unrecognized: ${issue.keys.join(", ")})` : "";
-  return `${path}: ${issue.message}${keys}`;
-}
-var MIGRATIONS = Object.freeze([]);
-function migrateConfig(raw, migrations = MIGRATIONS) {
-  let current = raw;
-  for (const { from, migrate } of migrations) {
-    if (isRecord(current) && current.kit === from) current = migrate(current);
-  }
-  return current;
-}
-function dropUnrecognized(raw, issues) {
-  let dropped = false;
-  for (const issue of issues) {
-    if (issue.code !== "unrecognized_keys") continue;
-    let at2 = raw;
-    for (const step of issue.path) at2 = isRecord(at2) ? at2[String(step)] : void 0;
-    if (!isRecord(at2)) continue;
-    for (const key of issue.keys) {
-      if (Object.hasOwn(at2, key)) {
-        Reflect.deleteProperty(at2, key);
-        dropped = true;
-      }
-    }
-  }
-  return dropped;
-}
-function checkConfig(raw, ignoreUnknownKeys) {
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
-  if (result.success || !ignoreUnknownKeys) return result;
-  const copy = structuredClone(raw);
-  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
-}
-function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
-  let raw;
-  try {
-    raw = parse(source) ?? {};
-  } catch (error) {
-    throw new ConfigError(`${file}: not valid YAML \u2014 ${messageOf2(error).split("\n")[0]}`, { invalid: true });
-  }
-  if (migrate) raw = migrateConfig(raw);
-  const renamed = renamedKey(raw);
-  if (renamed) {
-    const { section: name, from, to } = renamed;
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`, { invalid: true });
-  }
-  const result = checkConfig(raw, ignoreUnknownKeys);
-  if (!result.success) {
-    const [first, ...others] = result.error.issues.map(describeIssue);
-    const more = others.length ? `
-${others.map((line) => `  - ${line}`).join("\n")}` : "";
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
-  }
-  const config = result.data;
-  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
-}
-function loadConfig(root) {
-  const file = join2(root, CONFIG_FILE);
-  if (!existsSync2(file)) {
-    throw new ConfigError(`This repository is not installed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
-  }
-  return parseConfig(readFileSync(file, "utf8"), CONFIG_FILE);
-}
-
-// kit/lib/ids.ts
-import { z as z9 } from "zod";
-
-// kit/lib/schema/parse-or-throw.ts
-function parseOrThrow(schema, value, shape) {
-  const parsed2 = schema.safeParse(value, { error: KIT_MESSAGES });
-  if (parsed2.success) return parsed2.data;
-  const issue = parsed2.error.issues[0];
-  const field3 = issue && issue.path.length ? `${issue.path.join(".")}: ` : "";
-  throw new Error(`${shape}: ${field3}${issue?.message ?? "invalid"}`);
-}
-
-// kit/lib/ids.ts
-var IssueNumberSchema = z9.number().int().positive().brand();
-var PrdNumberSchema = IssueNumberSchema.brand();
-var PrNumberSchema = z9.number().int().positive().brand();
-var CommentIdSchema = z9.number().int().positive().brand();
-var WorkSliceIdSchema = z9.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
-var SliceIdSchema = z9.string().regex(/^s\d+$/).brand().brand();
-var OutboxItemIdSchema = z9.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
-var DIGITS = /^\d+$/;
-function numeric(value) {
-  return typeof value === "string" && DIGITS.test(value) ? Number(value) : value;
-}
-function parseId(schema, value, what, given) {
-  return parseOrThrow(schema, value, `${what} ${JSON.stringify(given)}`);
-}
-function parseIssue(value) {
-  return parseId(IssueNumberSchema, numeric(value), "issue number", value);
-}
-function parsePrd(value) {
-  return parseId(PrdNumberSchema, numeric(value), "PRD number", value);
-}
-function parsePr(value) {
-  return parseId(PrNumberSchema, numeric(value), "pull request number", value);
-}
-
-// apps/omni-app/src/outbox-check/github-schema.ts
-import { z as z10 } from "zod";
-var Label = z10.union([z10.string(), z10.looseObject({ name: z10.string().nullish() })]);
-var labelName2 = (label2) => typeof label2 === "string" ? label2 : label2.name ?? void 0;
-var PullSchema = z10.looseObject({
-  base: z10.looseObject({ ref: z10.string(), sha: z10.string() }),
-  head: z10.looseObject({ ref: z10.string(), sha: z10.string() }),
-  labels: z10.array(Label).nullish(),
-  body: z10.string().nullish()
-});
-var PullsPageSchema = z10.array(z10.looseObject({ number: z10.number(), body: z10.string().nullish() }));
-var PullHeadSchema = z10.looseObject({ head: z10.looseObject({ sha: z10.string() }) });
-var IssueSchema = z10.looseObject({
-  state: z10.string(),
-  labels: z10.array(Label).nullish(),
-  pull_request: z10.unknown().optional()
-});
-var CreatedSchema = z10.looseObject({ id: z10.number() });
-var CommentWrittenSchema = z10.looseObject({ id: CommentIdSchema });
-var CommentsPageSchema = z10.array(z10.looseObject({ id: CommentIdSchema, body: z10.string().nullish() }));
-var ComparePageSchema = z10.looseObject({
-  files: z10.array(z10.looseObject({ filename: z10.string(), status: z10.string() })).nullish(),
-  commits: z10.array(z10.looseObject({ sha: z10.string(), commit: z10.looseObject({ message: z10.string().nullish() }).nullish() })).nullish()
-});
-var CheckRunsSchema = z10.looseObject({
-  check_runs: z10.array(z10.looseObject({ id: z10.number(), status: z10.string().nullish() })).nullish()
-});
-var TreeEntrySchema = z10.looseObject({
-  path: z10.string(),
-  mode: z10.string(),
-  type: z10.string(),
-  sha: z10.string(),
-  size: z10.number().nullish()
-});
-var TreeSchema = z10.looseObject({ truncated: z10.boolean().nullish(), tree: z10.array(TreeEntrySchema) });
-var BlobSchema = z10.looseObject({ content: z10.string(), encoding: z10.string().nullish() });
-var RefSchema = z10.looseObject({ object: z10.looseObject({ sha: z10.string() }) });
-var GitCommitSchema = z10.looseObject({ tree: z10.looseObject({ sha: z10.string() }) });
-var ShaSchema = z10.looseObject({ sha: z10.string() });
-var PullWrittenSchema = z10.looseObject({ number: PrNumberSchema, html_url: z10.string() });
-var PullsSchema = z10.array(
-  z10.looseObject({
-    number: PrNumberSchema,
-    html_url: z10.string(),
-    state: z10.string(),
-    merged_at: z10.string().nullish(),
-    head: z10.looseObject({ sha: z10.string().nullish() }).nullish()
-  })
-);
-var FailureSchema = z10.looseObject({ status: z10.unknown(), message: z10.unknown() }).partial();
-function statusOf(error) {
-  const read = FailureSchema.safeParse(error);
-  return read.success ? read.data.status : void 0;
-}
-function messageField(error) {
-  const read = FailureSchema.safeParse(error);
-  return read.success ? read.data.message : void 0;
-}
-function firstLine(reason2) {
-  const said = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
-  return said.split("\n")[0] || "unknown error";
-}
-var printed = (value) => String(value);
-
-// apps/omni-app/src/stage-forward/stage-forward.ts
-var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
-var DEFAULT_SHAPES = (() => {
-  const { branches, prLinks, labels } = parseConfig("kit: 1");
-  return Object.freeze({ branches, prLinks, approved: labels.approved });
-})();
-var PullEventSchema = z11.looseObject({
-  action: z11.unknown(),
-  repository: z11.looseObject({ full_name: z11.string().min(1), default_branch: z11.string().nullish() }),
-  pull_request: z11.looseObject({
-    head: z11.looseObject({ ref: z11.string() }),
-    base: z11.looseObject({ ref: z11.string() }),
-    merged: z11.unknown(),
-    merged_at: z11.string().nullish(),
-    created_at: z11.string().nullish(),
-    updated_at: z11.string().nullish(),
-    body: z11.unknown()
-  })
-});
-var LabeledEventSchema = z11.looseObject({
-  action: z11.literal("labeled"),
-  repository: z11.looseObject({ full_name: z11.string().min(1) }),
-  label: z11.looseObject({ name: z11.string() }),
-  issue: z11.looseObject({ number: PrdNumberSchema, updated_at: z11.string().min(1), pull_request: z11.unknown().optional() })
-});
-function signStageEvent(secret, body) {
-  return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
-}
-function stageEventUrl(galaxyUrl) {
-  return `${galaxyUrl.replace(/\/+$/, "")}/api/stages/event`;
-}
-
-// apps/omni-app/src/canon/judge.ts
-var JUDGE_SECRET_VAR = "CONSTITUENT_JUDGE_SECRET";
-var JUDGE_TIMEOUT_MS = 55e3;
-var VerdictSchema = z12.looseObject({
-  answer: z12.enum(["true", "false"]),
-  confidence: z12.number().nullable().catch(null),
-  decidedBy: z12.string().nullable().catch(null)
-});
-var RefusalSchema = z12.looseObject({ error: z12.unknown().optional() });
-function judgeUrl(galaxyUrl) {
-  return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/constituents/judge`;
-}
-var failed = (error, reason2) => ({ ok: false, error, answer: null, confidence: null, decidedBy: null, reason: reason2 });
-function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS }) {
-  return async ({ repo, state, old, ref }) => {
-    if (!secret) return failed(JUDGE_NOT_CONFIGURED, `${JUDGE_SECRET_VAR} is not set`);
-    const body = JSON.stringify({ repo, state, old, ref });
-    let response;
-    try {
-      response = await post(url, {
-        method: "POST",
-        body,
-        headers: { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
-        signal: AbortSignal.timeout(timeoutMs)
-      });
-    } catch (error) {
-      return failed("judge", `galaxy could not be reached: ${String(thrownMessage(error) ?? error)}`);
-    }
-    const reply = await response.json().catch(() => null);
-    if (!response.ok) {
-      const refusal4 = RefusalSchema.safeParse(reply);
-      const said = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
-      return failed("judge", `galaxy answered ${response.status}${said}`);
-    }
-    const verdict = VerdictSchema.safeParse(reply);
-    if (!verdict.success) return failed("judge", "galaxy answered no verdict");
-    const { answer, confidence, decidedBy } = verdict.data;
-    return { ok: true, error: null, answer, confidence, decidedBy, reason: null };
-  };
-}
-
-// apps/omni-app/src/canon/live.ts
-var CANON_MODEL = "anthropic/claude-haiku-4.5";
-var CANON_CALL = Object.freeze({ ...MODEL_CALL, budgetMs: 6e4, maxTokens: 2048 });
-function serviceClient({ url, key, fetch: fetch2 }) {
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    ...fetch2 ? { global: { fetch: fetch2 } } : {}
-  });
-}
-var refused2 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
-function businessReader(connection) {
-  const db = serviceClient(connection);
-  return async (repo) => {
-    const { data, error } = await db.rpc("business_for_repo_app", { p_repo: repo });
-    if (error) throw refused2(error);
-    return data === null ? null : parseBusiness(data);
-  };
-}
-function constituentsReader(connection) {
-  const db = serviceClient(connection);
-  return async (repo) => {
-    const { data, error } = await db.rpc("constituents_for_repo_app", { p_repo: repo });
-    if (error) throw refused2(error);
-    return data === null ? null : parseConstituents(data);
-  };
-}
-function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
-  const { supabase } = env;
-  const readBusiness = supabase ? businessReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
-  const readConstituents = supabase ? constituentsReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
-  const judge2 = constituentJudge({ url: judgeUrl(env.galaxyUrl), secret: env.constituentJudge?.secret, fetch: fetch2 });
-  const openrouter = env.openrouter ? { key: env.openrouter.key, model: CANON_MODEL } : null;
-  const ask3 = (request) => askModel({ ...request, openrouter, fetch: fetch2, call: CANON_CALL, title: "omni loop canon" });
-  return createCanon({ readBusiness, readConstituents, judge: judge2, ask: ask3 });
-}
-
-// apps/omni-app/src/inngest-client.ts
-import { Inngest } from "inngest";
-import { z as z13 } from "zod";
-var APP_ID = "omni-loop";
-var OUTBOX_CHECK_EVENT = "omni-loop/outbox.check.requested";
-var INBOX_CHECK_EVENT = "omni-loop/inbox.check.requested";
-var INBOX_EXTERNAL_ID = "omni-loop/inbox";
-var RETRO_EVENT = "omni-loop/retro.requested";
-var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
-var inngest = new Inngest({ id: APP_ID });
-var SourceSchema = z13.looseObject({
-  installationId: z13.number(),
-  owner: z13.string(),
-  repo: z13.string(),
-  repository: z13.string()
-});
-var CheckRequestDataSchema = SourceSchema.extend({
-  prNumber: PrNumberSchema,
-  headSha: z13.string(),
-  trigger: z13.string().optional()
-});
-var CanonFactsSchema = z13.object({
-  prd: PrdNumberSchema,
-  persona: z13.string().nullable(),
-  claims: z13.array(z13.string())
-});
-var CanonActionRequestDataSchema = SourceSchema.extend({
-  prNumber: PrNumberSchema,
-  headSha: z13.string().optional(),
-  checkRunId: z13.number().optional(),
-  action: z13.string(),
-  facts: CanonFactsSchema
-});
-var FailureEventDataSchema = z13.looseObject({
-  event: z13.looseObject({ data: z13.unknown() }),
-  error: z13.looseObject({ message: z13.unknown() }).nullish()
-});
-
-// apps/omni-app/src/outbox-check/github.ts
-import { mkdtempSync as mkdtempSync3, readFileSync as readFileSync11, rmSync as rmSync3 } from "node:fs";
-import { tmpdir as tmpdir3 } from "node:os";
-import { join as join18 } from "node:path";
-
-// apps/omni-app/src/evaluate/evaluate.ts
-import { existsSync as existsSync16, readdirSync as readdirSync8, readFileSync as readFileSync9 } from "node:fs";
-import { join as join15 } from "node:path";
-
-// kit/lib/context.ts
-import { execFileSync } from "node:child_process";
-import { realpathSync } from "node:fs";
-
-// kit/lib/layout.ts
-import { existsSync as existsSync4, readdirSync } from "node:fs";
-import { join as join4, posix } from "node:path";
-
 // kit/lib/playbook/forms.ts
-import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
-import { join as join3 } from "node:path";
-import { parse as parse2 } from "yaml";
-import { z as z14 } from "zod";
 var req = (id) => Object.freeze({ id, required: true });
 var opt = (id) => Object.freeze({ id, required: false });
 var form = (id, kind, slots, { pointerOnly = false } = {}) => Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
@@ -1833,15 +849,15 @@ var OLD_DATE_KEY = "terraformed";
 var OLD_BY = "terraform";
 var DATE = /^\d{4}-\d{2}-\d{2}$/;
 var EVIDENCE = /^(.+)@([0-9a-f]{7,40})$/;
-var FrontMatterSchema = z14.object({
-  form: z14.enum(FORM_IDS),
-  "form-version": z14.number().int().positive(),
-  state: z14.enum(FORM_STATES),
-  "points-to": z14.string().min(1).nullable(),
-  evidence: z14.array(z14.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
-  invaded: z14.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  [OLD_DATE_KEY]: z14.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  index: z14.string().min(1).optional()
+var FrontMatterSchema = z7.object({
+  form: z7.enum(FORM_IDS),
+  "form-version": z7.number().int().positive(),
+  state: z7.enum(FORM_STATES),
+  "points-to": z7.string().min(1).nullable(),
+  evidence: z7.array(z7.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
+  invaded: z7.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  [OLD_DATE_KEY]: z7.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  index: z7.string().min(1).optional()
 }).strict().superRefine((fm, context) => {
   if (fm.invaded === void 0 && fm[OLD_DATE_KEY] === void 0) {
     context.addIssue({ code: "custom", path: ["invaded"], message: "missing \u2014 a YYYY-MM-DD date, or null" });
@@ -1869,13 +885,13 @@ var MARKER = /^<!--\s*slot:\s*([a-z][a-z0-9-]*)\s*·\s*(required|optional)(?:\s*
 var COMMENT = /<!--[\s\S]*?-->/g;
 var SEE = /^See:\s+([^\s#]+)(?:#(\S+))?$/;
 var HOLE = /^(?:[-*]\s+)?TODO\(human\):\s*(.*\S)\s*$/;
-function withFile(file, message) {
+function withFile2(file, message) {
   return file ? `${file}: ${message}` : message;
 }
 function readFrontMatter(raw) {
   let data;
   try {
-    data = parse2(raw);
+    data = parse(raw);
   } catch (error) {
     return { errors: [`front matter is not YAML \u2014 ${messageOf2(error).split("\n")[0]}`] };
   }
@@ -1916,14 +932,14 @@ function readHead(head) {
   return { title: head[at2]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
-  const text8 = raw.replace(COMMENT, "").trim();
-  const lines = text8.split("\n").map((line) => line.trim()).filter(Boolean);
+  const text10 = raw.replace(COMMENT, "").trim();
+  const lines = text10.split("\n").map((line) => line.trim()).filter(Boolean);
   const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text8, see: null, questions };
+  if (questions.length === lines.length) return { kind: "holes", text: text10, see: null, questions };
   const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
-  if (see) return { kind: "pointer", text: text8, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text8, see: null, questions };
+  if (see) return { kind: "pointer", text: text10, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
+  return { kind: "text", text: text10, see: null, questions };
 }
 function readSection(heading, lines) {
   const at2 = lines.findIndex((line) => line.trim() !== "");
@@ -1952,12 +968,12 @@ function readSlots(sections, { file, errors, oldSpellings }) {
       continue;
     }
     if (read.kind === "malformed") {
-      errors.push(withFile(file, `"## ${heading}": malformed slot marker ${read.first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
+      errors.push(withFile2(file, `"## ${heading}": malformed slot marker ${read.first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
       continue;
     }
     const { slot, oldBy } = read;
     if (slots.some((known) => known.id === slot.id)) {
-      errors.push(withFile(file, `slot "${slot.id}" appears twice`));
+      errors.push(withFile2(file, `slot "${slot.id}" appears twice`));
       continue;
     }
     if (oldBy) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: "by: invade" });
@@ -1965,13 +981,13 @@ function readSlots(sections, { file, errors, oldSpellings }) {
   }
   return { slots, unmarked };
 }
-function parseForm(text8, { file = null } = {}) {
-  const block = text8.match(FRONT_MATTER_BLOCK);
-  if (!block) return { ok: false, errors: [withFile(file, 'missing its front matter (a "---" fenced header)')] };
+function parseForm(text10, { file = null } = {}) {
+  const block = text10.match(FRONT_MATTER_BLOCK);
+  if (!block) return { ok: false, errors: [withFile2(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
   const { data, errors: frontMatterErrors = [] } = readFrontMatter(rawFrontMatter ?? "");
-  errors.push(...frontMatterErrors.map((message) => withFile(file, message)));
+  errors.push(...frontMatterErrors.map((message) => withFile2(file, message)));
   const { head, sections } = splitSections((body ?? "").split(/\r?\n/));
   const oldSpellings = [];
   if (data?.[OLD_DATE_KEY] !== void 0) oldSpellings.push({ where: "front matter", old: `${OLD_DATE_KEY}:`, now: "invaded:" });
@@ -2001,8 +1017,8 @@ function parseForm(text8, { file = null } = {}) {
 function readForm(id, { ctx }) {
   const file = ctx.layout.formPath(id);
   if (file === null) throw new Error(`the kit has no form "${id}"`);
-  if (!existsSync3(join3(ctx.root, file))) return { file, exists: false };
-  return { file, exists: true, ...parseForm(readFileSync2(join3(ctx.root, file), "utf8"), { file }) };
+  if (!existsSync(join(ctx.root, file))) return { file, exists: false };
+  return { file, exists: true, ...parseForm(readFileSync(join(ctx.root, file), "utf8"), { file }) };
 }
 var PLAYBOOK_ID = /^playbook\/([^#\s]+)#([^#\s]+)$/;
 function isPlaybookId(id) {
@@ -2032,7 +1048,7 @@ function parseFolderName(name) {
   return prd.success ? { prd: prd.data, topic } : null;
 }
 function prdFoldersIn(absolute) {
-  if (!existsSync4(absolute)) return [];
+  if (!existsSync2(absolute)) return [];
   return readdirSync(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).flatMap((entry) => {
     const parsed2 = parseFolderName(entry.name);
     return parsed2 ? [{ name: entry.name, prd: parsed2.prd }] : [];
@@ -2047,7 +1063,7 @@ function foldersLayout(root, paths) {
     archive: `${base}/archive`,
     concepts: `${base}/inbox/concepts`
   };
-  const folders = (dir) => prdFoldersIn(join4(root, dir));
+  const folders = (dir) => prdFoldersIn(join2(root, dir));
   function find(dir, prd) {
     return folders(dir).find((folder) => folder.prd === prd)?.name ?? null;
   }
@@ -2091,7 +1107,7 @@ function foldersLayout(root, paths) {
       const out = folders(dirs.outbox).map(({ name, prd }) => ({ prd, dir: `${dirs.outbox}/${name}`, shipped: false }));
       for (const { name, prd } of folders(dirs.shipped)) {
         const dir = `${dirs.shipped}/${name}/outbox`;
-        if (existsSync4(join4(root, dir))) out.push({ prd, dir, shipped: true });
+        if (existsSync2(join2(root, dir))) out.push({ prd, dir, shipped: true });
       }
       return out;
     },
@@ -2101,8 +1117,867 @@ function foldersLayout(root, paths) {
   });
 }
 
+// kit/lib/concept/parse.ts
+import { z as z8 } from "zod";
+
+// kit/lib/markdown-body.ts
+var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
+function sectionsOf(body) {
+  const sections = [];
+  let current = null;
+  for (const line of body.split(/\r?\n/)) {
+    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading && !line.startsWith("###")) {
+      current = { name: group(heading, 1), lines: [] };
+      sections.push(current);
+    } else if (/^#\s/.test(line)) {
+      current = null;
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  return sections;
+}
+function cells(line) {
+  let inner = line.trim();
+  if (inner.startsWith("|")) inner = inner.slice(1);
+  if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
+  return inner.split(/(?<!\\)\|/).map((cell3) => cell3.trim().replace(/\\\|/g, "|"));
+}
+function firstTable(lines) {
+  const start = lines.findIndex((line) => line.trim().startsWith("|"));
+  if (start === -1) return null;
+  const block = [];
+  for (const line of lines.slice(start)) {
+    if (!line.trim().startsWith("|")) break;
+    block.push(line.trim());
+  }
+  const [header = "", ...rest] = block;
+  return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
+}
+
+// kit/lib/concept/parse.ts
+var CONCEPT_KINDS = ["product", "identity", "platform"];
+var CONCEPT_SCALES = ["vast", "lite"];
+var FrontMatterSchema2 = z8.object({
+  concept: z8.string().regex(/^[1-9]\d*$/).transform(Number),
+  title: z8.string().trim().min(1),
+  kind: z8.enum(CONCEPT_KINDS),
+  scale: z8.enum(CONCEPT_SCALES)
+}).strict();
+
+// kit/lib/voice/voice.ts
+import { z as z9 } from "zod";
+var VOICE_FILE = "voice.json";
+var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
+var STAGES_SAID = "design, spec, rework-<k>, shipped";
+var STANCES = ["excited", "neutral", "skeptical"];
+var SETTLED = ["accepted", "saved-as-claim", "just-this-run", "none"];
+var KNOWN_STANCES = STANCES;
+var KNOWN_SETTLED = SETTLED;
+var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
+var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$/;
+var MAX_SENTENCES = 2;
+var TOP_FIELDS = ["rounds"];
+var ROUND_FIELDS = ["stage", "date", "personas", "objection", "fit"];
+var VoicePersonaSchema = z9.looseObject({
+  name: z9.string(),
+  stance: z9.enum(STANCES),
+  score: z9.number(),
+  reaction: z9.string(),
+  citations: z9.array(z9.string())
+});
+var VoiceObjectionSchema = z9.looseObject({ persona: z9.string(), text: z9.string(), citations: z9.array(z9.string()), settled: z9.enum(SETTLED) });
+var VoiceRoundSchema = z9.object({
+  stage: z9.string(),
+  date: z9.string(),
+  personas: z9.array(VoicePersonaSchema),
+  objection: VoiceObjectionSchema.nullish(),
+  fit: z9.string().nullish()
+});
+var VoiceSchema = z9.object({ rounds: z9.array(VoiceRoundSchema) });
+var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isText = (value) => typeof value === "string" && value.trim().length > 0;
+function countSentences(text10) {
+  return text10.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+}
+function citationProblems(citations, field3) {
+  if (!Array.isArray(citations) || citations.length === 0) {
+    return [`${field3} must cite at least one persona:<name> or claim id.`];
+  }
+  return citations.flatMap(
+    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
+  );
+}
+function lineProblems(text10, field3) {
+  if (!isText(text10)) return [`${field3} must be a sentence.`];
+  const count2 = countSentences(text10);
+  return count2 > MAX_SENTENCES ? [`${field3} holds ${count2} sentences; two at most.`] : [];
+}
+function personaProblems(persona, i) {
+  const at2 = `personas[${i}]`;
+  if (!isRecord(persona)) return [`${at2} must be an object.`];
+  const problems = [];
+  if (!isText(persona.name)) problems.push(`${at2}.name must be a name.`);
+  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at2}.stance must be one of ${STANCES.join(", ")}.`);
+  const { score } = persona;
+  if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || score > 5) {
+    problems.push(`${at2}.score must be a whole number from 1 to 5.`);
+  }
+  problems.push(...lineProblems(persona.reaction, `${at2}.reaction`));
+  problems.push(...citationProblems(persona.citations, `${at2}.citations`));
+  return problems;
+}
+function objectionProblems(objection, names) {
+  if (objection === null) return [];
+  if (!isRecord(objection)) return ["objection must be an object, or null when no persona objected."];
+  const problems = [];
+  if (!isText(objection.persona)) problems.push("objection.persona must be a name.");
+  else if (names.length > 0 && !names.includes(objection.persona)) {
+    problems.push(`objection.persona ${JSON.stringify(objection.persona)} is not one of the round's personas.`);
+  }
+  problems.push(...lineProblems(objection.text, "objection.text"));
+  problems.push(...citationProblems(objection.citations, "objection.citations"));
+  if (!KNOWN_SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(", ")}.`);
+  return problems;
+}
+var unknownFields = (value, known, where) => Object.keys(value).filter((key) => !known.includes(key)).map((key) => `\`${key}\` is not a field of ${where}.`);
+var personasProblems = (personas) => Array.isArray(personas) && personas.length > 0 ? personas.flatMap(personaProblems) : ["personas must list at least one persona."];
+var fitProblems = (fit) => fit === void 0 || fit === null || isText(fit) ? [] : ["fit must be one line, or null."];
+function roundProblems(round) {
+  if (!isRecord(round)) return ["must be an object."];
+  const names = Array.isArray(round.personas) ? round.personas.map((p) => isRecord(p) ? p.name : void 0) : [];
+  return [
+    ...unknownFields(round, ROUND_FIELDS, "a round"),
+    ...DATE2.test(plainText(round.date)) ? [] : ["date must be YYYY-MM-DD."],
+    ...personasProblems(round.personas),
+    ...objectionProblems(round.objection ?? null, names),
+    ...fitProblems(round.fit)
+  ];
+}
+function parseVoice(text10) {
+  let voice;
+  try {
+    voice = JSON.parse(text10);
+  } catch {
+    return { ok: false, voice: null, errors: ["not valid JSON."] };
+  }
+  if (!isRecord(voice) || !Array.isArray(voice.rounds)) {
+    return { ok: false, voice: null, errors: ["must be an object with a `rounds` list."] };
+  }
+  const errors = unknownFields(voice, TOP_FIELDS, "voice.json");
+  if (voice.rounds.length === 0) errors.push("`rounds` holds no round.");
+  const seen = /* @__PURE__ */ new Set();
+  voice.rounds.forEach((round, i) => {
+    const stage = isRecord(round) ? round.stage : void 0;
+    const known = typeof stage === "string" && STAGE.test(stage);
+    const name = known ? `round ${stage}` : `round ${i + 1}`;
+    if (!known) errors.push(`${name}: stage ${JSON.stringify(stage ?? null)} is not one of ${STAGES_SAID}.`);
+    else if (seen.has(stage)) errors.push(`${name}: the stage comes twice.`);
+    if (known) seen.add(stage);
+    errors.push(...roundProblems(round).map((problem) => `${name}: ${problem}`));
+  });
+  if (errors.length) return { ok: false, voice: null, errors };
+  const read = VoiceSchema.safeParse(voice);
+  if (!read.success) return { ok: false, voice: null, errors: read.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`) };
+  return { ok: true, voice: read.data, errors: [] };
+}
+
+// kit/lib/dossier/folder.ts
+var ARTIFACT_MAX_BYTES = 512 * 1024;
+var ARTIFACT_KINDS = Object.freeze([
+  { kind: "spec", pathOf: (layout, prd) => layout.specPath(prd) },
+  { kind: "plan", pathOf: (layout, prd) => layout.planPath(prd) },
+  { kind: "before-after", pathOf: (layout, prd) => layout.beforeAfterPath(prd) },
+  // A PRD with no folder throws here, as it always has; `readDossierFolder` asks only once it has one.
+  { kind: "voice", pathOf: (layout, prd) => `${defined(layout.whereIs(prd), `the folder of PRD ${Number(prd)}`).dir}/${VOICE_FILE}` }
+]);
+var sha256 = (content) => createHash("sha256").update(content, "utf8").digest("hex");
+var FIX_ROOTS = Object.freeze({ visual: "visual", bug: "bugs" });
+
+// kit/lib/approval/approval.ts
+var text2 = z10.string().min(1);
+var PinnedFileSchema = z10.object({ kind: text2, path: text2, sha256: text2, versionId: text2, content: z10.string().optional() });
+var VoidSchema = z10.object({ pusher: text2, kind: text2, from: text2, to: text2, voidedAt: text2 });
+var ApprovalSchema = z10.object({
+  approver: z10.object({ login: text2, member: z10.boolean() }),
+  approvedAt: text2,
+  files: z10.array(PinnedFileSchema),
+  voids: z10.array(VoidSchema).optional()
+});
+var ApprovalReplySchema = z10.object({ url: text2, approval: ApprovalSchema.nullable() });
+var UNREACHABLE_LINE = "server unreachable \xB7 held, not failed";
+function parseApprovalReply(body) {
+  const parsed2 = ApprovalReplySchema.safeParse(body);
+  return parsed2.success ? parsed2.data : null;
+}
+function treeFileOf(ctx, prd, file) {
+  const kept3 = ARTIFACT_KINDS.find((entry) => entry.kind === file.kind);
+  if (!kept3 || !ctx.layout.whereIs(prd)) return file.path;
+  return kept3.pathOf(ctx.layout, prd) ?? file.path;
+}
+var squeezed = (content) => content.replace(/\s+/g, "");
+function checkoutTree(ctx, prd) {
+  return {
+    fileOf: (file) => treeFileOf(ctx, prd, file),
+    read: (file) => {
+      const absolute = join4(ctx.root, file);
+      return existsSync4(absolute) ? readFileSync3(absolute, "utf8") : null;
+    }
+  };
+}
+function driftOf(tree, file) {
+  const path = tree.fileOf(file);
+  const content = tree.read(path);
+  if (content === null) return { kind: file.kind, file: path, how: "missing" };
+  if (sha256(content) === file.sha256) return null;
+  const spacing = file.content !== void 0 && squeezed(file.content) === squeezed(content);
+  return { kind: file.kind, file: path, how: spacing ? "whitespace only" : "content" };
+}
+function judgeApproval(prd, reply, tree) {
+  const { url, approval } = reply;
+  const reading = (state, lines, drift2 = []) => ({ state, lines, url, approval, drift: drift2 });
+  if (!approval) return reading("pending", [`PRD ${Number(prd)} waits for approval: ${url}`]);
+  const voids = approval.voids ?? [];
+  if (voids.length > 0) {
+    const fileOf = (kind) => {
+      const file = approval.files.find((f) => f.kind === kind);
+      return file ? tree.fileOf(file) : kind;
+    };
+    const lines = voids.map((v) => `\u2260 ${basename(fileOf(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url}`);
+    return reading("drifted", lines, voids.map((v) => ({ kind: v.kind, file: fileOf(v.kind), how: "voided" })));
+  }
+  const { login, member } = approval.approver;
+  if (!member) return reading("refused", [`approver ${login} is not a workspace member`]);
+  const drift = approval.files.filter((file) => file.kind !== "voice").flatMap((file) => driftOf(tree, file) ?? []);
+  if (drift.length > 0) {
+    return reading("drifted", drift.map((d) => `\u2260 ${basename(d.file)} \xB7 ${d.how} \xB7 \u2717 refuse \xB7 restore it, or approve again: ${url}`), drift);
+  }
+  return reading("approved", [`approved by ${login} \xB7 ${approval.approvedAt}`]);
+}
+function verdictOf(reading) {
+  switch (reading.state) {
+    case "approved":
+      return "approved";
+    case "pending":
+      return "waiting";
+    case "drifted":
+      return "drifted";
+    case "unreachable":
+    case "refused":
+      return "held";
+  }
+}
+
+// kit/lib/approval/prd-state.ts
+import { existsSync as existsSync5, readFileSync as readFileSync6 } from "node:fs";
+import { join as join7 } from "node:path";
+
+// kit/lib/ask/client-tokens.ts
+import { chmodSync, mkdirSync, readFileSync as readFileSync4, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join as join5 } from "node:path";
+
+// kit/lib/ask/credentials.ts
+import { chmodSync as chmodSync2, readFileSync as readFileSync5, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join6 } from "node:path";
+
+// kit/lib/approval/prd-state.ts
+var FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+function birthplaceOf(ctx, prd) {
+  const spec = ctx.layout.specPath(prd);
+  if (!spec || !existsSync5(join7(ctx.root, spec))) return "repo";
+  const block = FRONT_MATTER.exec(readFileSync6(join7(ctx.root, spec), "utf8"));
+  if (!block) return "repo";
+  return parseFrontMatterLines(block[1] ?? "").data.phase0 === "server" ? "server" : "repo";
+}
+
+// apps/omni-app/src/evaluate/evaluate.ts
+import { existsSync as existsSync19, readdirSync as readdirSync9, readFileSync as readFileSync14 } from "node:fs";
+import { join as join20 } from "node:path";
+
+// kit/lib/config.ts
+import { existsSync as existsSync7, readFileSync as readFileSync7 } from "node:fs";
+import { join as join9 } from "node:path";
+import { parse as parse2 } from "yaml";
+import { z as z12 } from "zod";
+
+// kit/lib/design/words/selector.ts
+var NAME = String.raw`[A-Za-z_][\w-]*`;
+var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
+var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
+function parseCompound(text10) {
+  const compound = COMPOUND.exec(text10.trim());
+  if (!compound || compound[0] === "") return null;
+  const [, tag, parts = ""] = compound;
+  const matched = [...parts.matchAll(new RegExp(PART, "g"))];
+  return {
+    tag: tag === void 0 || tag === "*" ? null : tag.toLowerCase(),
+    ids: matched.flatMap(([, id]) => id === void 0 ? [] : [id]),
+    classes: matched.flatMap(([, , className]) => className === void 0 ? [] : [className]),
+    attributes: matched.flatMap(([, , , name, doubled, single, bare2]) => name === void 0 ? [] : [{ name: name.toLowerCase(), value: doubled ?? single ?? bare2 ?? null }])
+  };
+}
+function parseSelector(source) {
+  const compounds = [];
+  for (const piece of source.split(",")) {
+    const compound = parseCompound(piece);
+    if (!compound) return null;
+    compounds.push(compound);
+  }
+  return { source, compounds };
+}
+
+// kit/lib/flow/schema.ts
+import { existsSync as existsSync6, statSync } from "node:fs";
+import { join as join8 } from "node:path";
+import { z as z11 } from "zod";
+
+// kit/lib/flow/points.ts
+var HOOK_MODES = Object.freeze(["before", "after", "replace"]);
+var EXTEND = Object.freeze(["before", "after"]);
+var ANY = HOOK_MODES;
+var SLICE_INPUTS = Object.freeze(["prd", "slice", "territory", "branch"]);
+var FLOW_POINTS = Object.freeze([
+  { point: "plan.slice", skills: ["plan", "mega-brainstorm"], modes: EXTEND, inputs: ["prd", "slice", "territory"], outputs: [] },
+  { point: "plan.done", skills: ["plan"], modes: EXTEND, inputs: ["prd", "plan"], outputs: [] },
+  { point: "do-work.start", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
+  { point: "do-work.test", skills: ["do-work"], modes: ANY, inputs: SLICE_INPUTS, outputs: ["the verdict line"] },
+  { point: "do-work.review", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
+  { point: "do-work.ready", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
+  {
+    point: "pr.open",
+    skills: ["pr"],
+    modes: ANY,
+    inputs: ["base", "head", "title", "body", "draft"],
+    outputs: ["the PR's URL as its last line before the verdict", "the verdict line"]
+  },
+  { point: "wave.merge", skills: ["wave", "ultra-wave"], modes: ANY, inputs: ["prd", "slice", "pr"], outputs: ["the merged PR's number in the verdict"] },
+  { point: "yolo.ready", skills: ["yolo", "ultra-yolo"], modes: EXTEND, inputs: ["prd", "pr"], outputs: [] }
+]);
+function flowPoint(name) {
+  return FLOW_POINTS.find(({ point }) => point === name);
+}
+
+// kit/lib/flow/schema.ts
+var CLAUDE_ALIAS = "claude";
+var DEFAULT_AREA = "default";
+var text3 = z11.string().min(1);
+var regexSource = z11.string().refine((source) => {
+  try {
+    new RegExp(source);
+    return true;
+  } catch {
+    return false;
+  }
+}, "not a valid regular expression");
+var hookRef = z11.union([text3, z11.object({ path: text3, alias: z11.literal(CLAUDE_ALIAS) }).strict()]);
+var hookRefs = z11.union([hookRef, z11.array(hookRef).min(1)]);
+var pointHooks = z11.union([
+  hookRef,
+  z11.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict()
+]);
+function hookRefProblem(ref) {
+  const path = typeof ref === "string" ? ref : ref.path;
+  const claude = typeof ref !== "string";
+  if (claude && /^\/[\w.:-]+$/.test(path)) return null;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return `${path} is a URL \u2014 name a file of this repository by its path`;
+  if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
+  if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
+  if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
+    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+  }
+  return null;
+}
+var asList = (refs) => refs === void 0 ? [] : Array.isArray(refs) ? refs : [refs];
+var isBare = (value) => typeof value === "string" || "path" in value;
+function hooksByMode(value) {
+  if (typeof value === "string" || "path" in value) return { before: [], after: [value], replace: null };
+  return { before: asList(value.before), after: asList(value.after), replace: value.replace ?? null };
+}
+function eachHook(point, value) {
+  const { before: before2, after, replace } = hooksByMode(value);
+  const one = (mode, ref) => ({ key: isBare(value) ? [point] : [point, mode], mode, ref });
+  return [
+    ...before2.map((ref) => one("before", ref)),
+    ...replace === null ? [] : [one("replace", replace)],
+    ...after.map((ref) => one("after", ref))
+  ];
+}
+var KNOWN_POINTS = FLOW_POINTS.map(({ point }) => point).join(", ");
+var hooksSection = z11.record(z11.string(), pointHooks).superRefine((hooks, issues) => {
+  for (const [name, value] of Object.entries(hooks)) {
+    const point = flowPoint(name);
+    if (!point) {
+      issues.addIssue({ code: "custom", path: [name], message: `not a point of the catalog (${KNOWN_POINTS})` });
+      continue;
+    }
+    for (const { key, mode, ref } of eachHook(name, value)) {
+      if (mode === "replace" && !point.modes.includes("replace")) {
+        issues.addIssue({ code: "custom", path: key, message: `${name} takes before and after hooks only: its act is never replaced` });
+      }
+      const problem = hookRefProblem(ref);
+      if (problem) issues.addIssue({ code: "custom", path: key, message: problem });
+    }
+  }
+});
+var planRule = z11.union([
+  z11.object({ slice: z11.object({ alone: z11.boolean().optional(), maxFiles: z11.number().int().positive().optional() }).strict() }).strict(),
+  z11.object({ wave: z11.literal("first") }).strict(),
+  z11.object({ blocks: z11.literal("all") }).strict(),
+  z11.object({ landing: z11.literal("alone") }).strict()
+]);
+var MERGE_METHODS = Object.freeze(["squash", "merge", "rebase"]);
+var subPrRules = z11.object({
+  merge: z11.enum(MERGE_METHODS).optional(),
+  requireChecks: z11.array(text3).optional(),
+  approval: z11.literal("person").optional(),
+  territory: z11.enum(["report", "block"]).optional(),
+  maxOpen: z11.number().int().positive().optional()
+}).strict();
+var rulesSection = z11.object({ plan: z11.array(planRule).optional(), subPr: subPrRules.optional() }).strict();
+var area = z11.object({
+  paths: z11.array(regexSource).min(1, "at least one path pattern"),
+  knowledge: text3.optional(),
+  inherit: z11.boolean().optional(),
+  rules: rulesSection.optional(),
+  hooks: hooksSection.optional()
+}).strict();
+var AREA_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+var FlowSchema = z11.object({
+  rules: rulesSection.optional(),
+  hooks: hooksSection.optional(),
+  areas: z11.record(z11.string(), area).optional(),
+  // Reserved for events, which a later PRD defines: refused until then, never read.
+  on: z11.unknown().optional()
+}).strict().superRefine((flow, issues) => {
+  if (flow.on !== void 0) {
+    issues.addIssue({ code: "custom", path: ["on"], message: "reserved for events, which a later PRD defines \u2014 remove it" });
+  }
+  for (const name of Object.keys(flow.areas ?? {})) {
+    if (name === DEFAULT_AREA) {
+      issues.addIssue({ code: "custom", path: ["areas", name], message: `${DEFAULT_AREA} names the root of flow \u2014 call this area something else` });
+    } else if (!AREA_NAME.test(name)) {
+      issues.addIssue({ code: "custom", path: ["areas", name], message: "an area is named by one kebab-case word, such as kernel" });
+    }
+  }
+});
+
+// kit/lib/config.ts
+var CONFIG_FILE = ".omni-loop/config.yml";
+var CONFIG_VERSION = 1;
+var ConfigError = class extends Error {
+  /** True when the file was read and does not hold a valid config, false when there is no file to read. */
+  invalid;
+  constructor(message, { invalid = false } = {}) {
+    super(message);
+    this.name = "ConfigError";
+    this.invalid = invalid;
+  }
+};
+var text4 = z12.string().min(1);
+var nullableText = text4.nullable();
+var branchTemplate = z12.string().min(1);
+var labelName = z12.string().min(1);
+var section = (shape) => z12.preprocess((value) => value === void 0 ? {} : value, z12.object(shape).strict());
+var trailerPart = text4.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
+var askUrl = z12.string().refine((value) => {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === "https:" || url.protocol === "http:" && url.hostname === "127.0.0.1";
+}, "an https URL, or http on 127.0.0.1");
+var httpsUrl = z12.string().refine((value) => {
+  if (/\s/.test(value)) return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}, "an absolute https URL");
+var PROOF_GITHUB_DEPLOYMENT = "github-deployment";
+var proofUrl = z12.string().refine((value) => {
+  if (value === PROOF_GITHUB_DEPLOYMENT) return true;
+  if (/\s/.test(value)) return false;
+  try {
+    return ["https:", "http:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
+var envName = z12.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
+var wordSelector = text4.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
+var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
+var target = z12.object({
+  repo: z12.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
+  role: z12.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
+  knowledge: z12.enum(TARGET_KNOWLEDGE),
+  readAt: z12.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
+  // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
+  // and imported.
+  readOnly: z12.boolean().optional(),
+  // PRD 1162: the short names of the targets whose default-branch packages this one installs.
+  consumes: z12.array(z12.string()).optional()
+}).strict();
+function targetShortName(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
+var planSection = z12.object({
+  guide: nullableText.default(null),
+  targets: z12.array(target).min(1, "at least one target").optional(),
+  product: z12.string().trim().min(1).optional()
+}).strict().superRefine(({ targets, product }, issues) => {
+  if (targets !== void 0 && product !== void 0) {
+    issues.addIssue({
+      code: "custom",
+      path: [],
+      message: "product and targets cannot both be set \u2014 keep product to read the targets from the server, or targets to keep them here"
+    });
+  }
+  if (targets === void 0 && product === void 0) issues.addIssue({ code: "custom", path: ["targets"], message: "at least one target, or a product" });
+  checkTargets(targets ?? [], issues);
+}).transform(({ targets, ...plan }) => ({ ...plan, targets: targets ?? [] }));
+function checkTargets(targets, issues) {
+  const seen = /* @__PURE__ */ new Set();
+  const names = targets.map(({ repo }) => targetShortName(repo));
+  targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
+    const own = targetShortName(repo);
+    const others = names.filter((name) => name !== own);
+    consumes.forEach((name, at2) => {
+      const path = ["targets", index, "consumes", at2];
+      if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
+      else if (!others.includes(name)) {
+        issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
+      }
+    });
+    if (seen.has(repo)) issues.addIssue({ code: "custom", path: ["targets", index, "repo"], message: `${repo} is listed twice` });
+    seen.add(repo);
+    if (knowledge === "imported" && readAt === null) {
+      issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: "required when knowledge is imported" });
+    }
+    if (knowledge !== "imported" && readAt !== null) {
+      issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: `only an imported target has one, and this one is ${knowledge}` });
+    }
+  });
+}
+var generatedEntry = z12.object({
+  path: text4,
+  from: z12.array(text4).min(1, "at least one source prefix"),
+  build: z12.string().trim().min(1)
+}).strict();
+var ConfigSchema = z12.object({
+  kit: z12.literal(CONFIG_VERSION),
+  repo: section({
+    slug: z12.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
+    remote: text4.default("origin"),
+    defaultBranch: text4.default("main")
+  }),
+  github: section({ user: nullableText.default(null) }),
+  branches: section({
+    feature: branchTemplate.default("feat/{topic}"),
+    fix: branchTemplate.default("fix/{topic}"),
+    phase0: branchTemplate.default("docs/phase-0-{topic}"),
+    slice: branchTemplate.default("feat/{topic}--{slice}"),
+    // Landings: the branch of each landing of a PRD of more than one, stacked on the one before;
+    // `{landing}` and `{landings}` are its number and the count, `{name}` its plan's name for it.
+    // A PRD of one landing keeps `feature`.
+    landing: branchTemplate.default("feat/{topic}-{landing}of{landings}-{name}"),
+    rework: branchTemplate.default("fix-{item}"),
+    retro: branchTemplate.default("docs/retro-{topic}"),
+    knowledge: branchTemplate.default("docs/knowledge-{topic}"),
+    invade: branchTemplate.default("docs/omni-invade"),
+    // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
+    update: branchTemplate.default("chore/omni-update-{version}"),
+    // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
+    megaInvade: branchTemplate.default("docs/omni-mega-invade"),
+    // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
+    concept: branchTemplate.default("docs/concept-{topic}"),
+    // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
+    law: branchTemplate.default("test/law-{id}")
+  }),
+  worktrees: text4.default(".claude/worktrees"),
+  paths: section({
+    delivery: text4.default(".omni-loop/delivery"),
+    knowledge: text4.default(".omni-loop/knowledge"),
+    adr: text4.default(".omni-loop/knowledge/adr"),
+    playbook: text4.default(".omni-loop/knowledge/playbook"),
+    glossary: nullableText.default(null),
+    context: z12.array(text4).default(["CLAUDE.md"])
+  }),
+  labels: section({
+    prd: labelName.default("omni:prd"),
+    phase0: labelName.default("omni:phase-0"),
+    feature: labelName.default("omni:feature"),
+    sub: labelName.default("omni:sub"),
+    inProgress: labelName.default("omni:in-progress"),
+    needsFix: labelName.default("omni:needs-fix"),
+    outboxGo: labelName.default("omni:outbox-go"),
+    retro: labelName.default("omni:retro"),
+    knowledge: labelName.default("omni:knowledge"),
+    visual: labelName.default("omni:visual"),
+    // PRD 556: the bug-fix lane's labels — the issue and its PR, a regression, and the triage's risk.
+    bug: labelName.default("omni:bug"),
+    regression: labelName.default("omni:regression"),
+    riskCritical: labelName.default("omni:risk-critical"),
+    riskHigh: labelName.default("omni:risk-high"),
+    riskMedium: labelName.default("omni:risk-medium"),
+    riskLow: labelName.default("omni:risk-low"),
+    // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
+    concept: labelName.default("omni:concept"),
+    // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
+    // display: nothing reads it.
+    approved: labelName.default("omni:approved"),
+    // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
+    law: labelName.default("omni:law"),
+    autoCreate: z12.boolean().default(false)
+  }),
+  prLinks: section({
+    feature: text4.default("Closes #{prd}"),
+    sub: text4.default("Part of #{prd}"),
+    phase0: text4.default("Refs #{prd}")
+  }),
+  // How a pull request into the default branch or a landing branch is opened: `openWith` names a
+  // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
+  // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
+  pr: section({ openWith: nullableText.default(null) }),
+  board: section({ matchBy: z12.enum(["base", "label"]).default("base") }),
+  ci: section({
+    outboxContext: text4.default("outbox"),
+    // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
+    inboxContext: text4.default("inbox"),
+    // PRD 1612: the name of the check run the omni-loop App posts on a ◆ PRD's feature PR and its
+    // target PRs, from the approval in force.
+    approvedContext: text4.default("omni/approved"),
+    aggregateCheck: nullableText.default(null),
+    branchProtection: z12.boolean().default(false),
+    runner: text4.default("ubuntu-latest")
+  }),
+  commands: section({
+    preflight: nullableText.default(null),
+    preflightFull: nullableText.default(null),
+    checks: z12.array(text4).default([]),
+    test: nullableText.default(null),
+    // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
+    mutation: nullableText.default(null),
+    // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
+    design: nullableText.default(null)
+  }),
+  acceptance: z12.object({
+    enabled: z12.boolean().default(false),
+    dir: nullableText.default(null),
+    pendingSuffix: nullableText.default(null),
+    run: nullableText.default(null)
+  }).strict().refine((a) => !a.enabled || a.dir !== null, {
+    message: "acceptance.dir is required when acceptance.enabled is true",
+    path: ["dir"]
+  }).prefault({}),
+  laws: section({
+    source: z12.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    claudeMdHeading: text4.default("## Invariants"),
+    // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
+    // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
+    // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
+    requireProof: z12.boolean().default(false)
+  }),
+  risk: section({
+    storedShape: z12.array(regexSource).default([]),
+    sharedContract: z12.array(text4).default([])
+  }),
+  // Landings: the paths that must reach the default branch in a landing of their own (a
+  // repository's migrations directories, say). Regex sources over repository paths, compiled once
+  // by `omni plan check`; empty, no plan is refused for what it puts together.
+  landings: section({ alone: z12.array(regexSource).default([]) }),
+  notify: section({
+    slack: z12.object({ channelVar: text4.default("OMNI_SLACK_CHANNEL"), tokenSecret: text4.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
+  }),
+  limits: section({
+    stallDays: z12.number().int().positive().default(5),
+    attempts: z12.number().int().positive().default(3),
+    claimStaleMinutes: z12.number().int().positive().default(60),
+    beforeAfterMaxBytes: z12.number().int().positive().default(512e3),
+    // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
+    // was before, one step at a time.
+    parallelSteps: z12.number().int().min(1).max(6).default(3),
+    // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
+    // and a config that does not set it parses exactly as before.
+    hookMaxBytes: z12.number().int().positive().optional()
+  }),
+  ask: section({ url: askUrl.nullable().default(null) }),
+  // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
+  // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
+  dossier: section({ enabled: z12.boolean().default(false) }),
+  // PRD 262: whether a PRD ships with a release note (`<folder>/release.md`, `kit/lib/releases/`).
+  // Off by default: a repository opts in. When it is on, `omni ship` refuses a PRD whose folder has
+  // no note, or whose note `omni check releases` would fail.
+  releaseNotes: section({ enabled: z12.boolean().default(false) }),
+  // PRD 251: whether an outbox may be answered outside the pull request — at the end of
+  // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
+  // opts out. The pull request takes replies either way.
+  answers: section({ enabled: z12.boolean().default(true) }),
+  // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
+  // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
+  // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
+  // `deployment` names the GitHub deployment environment to film when a commit has several previews.
+  proof: section({
+    url: proofUrl.nullable().default(null),
+    deployment: nullableText.default(null),
+    setup: nullableText.default(null),
+    bypassEnv: envName.nullable().default(null),
+    maxSeconds: z12.number().int().positive().default(60)
+  }),
+  // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
+  // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
+  // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
+  e2e: section({
+    enabled: z12.boolean().default(false),
+    url: proofUrl.nullable().default(null),
+    deployment: nullableText.default(null),
+    setup: nullableText.default(null),
+    bypassEnv: envName.nullable().default(null),
+    dir: text4.default("e2e"),
+    model: text4.default("anthropic/claude-sonnet-5.5")
+  }),
+  // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
+  // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
+  // repository paths where the screens, styles, tokens and components live; `omni design touched`
+  // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
+  // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
+  // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in. `words` tunes the word
+  // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
+  // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
+  // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
+  // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
+  // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
+  // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
+  // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
+  design: section({
+    enabled: z12.boolean().default(false),
+    paths: z12.array(text4).default([]),
+    ignore: z12.array(text4).optional(),
+    screens: nullableText.default(null),
+    words: section({
+      sentence: z12.number().int().positive().default(7),
+      screen: wordSelector.default("[data-screen]"),
+      primary: wordSelector.default("[data-primary]"),
+      content: wordSelector.optional(),
+      avoid: z12.array(text4).default([])
+    })
+  }),
+  markers: section({ prefix: z12.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
+  // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
+  // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
+  // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
+  // as written. `home` defaults to the Omni Loop home page (ADR-0047, ADR-0055).
+  signature: z12.object({
+    name: trailerPart.default("Omni-man"),
+    email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
+    home: httpsUrl.default("https://www.omni-loop.xyz"),
+    footer: text4.default("\u{1F9B8} {name} by [Omni Loop]({home}) \xA9")
+  }).strict().nullable().prefault({}),
+  plan: planSection.optional(),
+  // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
+  // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
+  flow: FlowSchema.optional(),
+  // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
+  // it has none, and parses with no `generated` key.
+  generated: z12.array(generatedEntry).optional()
+}).strict().superRefine(({ pr, flow }, issues) => {
+  const hooks = flow?.hooks?.["pr.open"];
+  if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
+    issues.addIssue({
+      code: "custom",
+      path: ["flow", "hooks", "pr.open", "replace"],
+      message: "pr.openWith already replaces how a pull request opens \u2014 keep one of the two"
+    });
+  }
+});
+function designScreensDir({ paths, design }) {
+  return design.screens ?? `${paths.knowledge.replace(/\/+$/, "")}/design/screens/`;
+}
+var isRecord2 = (value) => value !== null && typeof value === "object";
+var RENAMED = Object.freeze([{ section: "branches", from: "terraform", to: "invade" }]);
+function renamedKey(raw) {
+  return RENAMED.find(({ section: name, from }) => {
+    const value = isRecord2(raw) ? raw[name] : void 0;
+    return value !== null && typeof value === "object" && Object.hasOwn(value, from);
+  });
+}
+function describeIssue(issue) {
+  const path = issue.path.join(".") || "(top level)";
+  const keys = issue.code === "unrecognized_keys" ? ` (unrecognized: ${issue.keys.join(", ")})` : "";
+  return `${path}: ${issue.message}${keys}`;
+}
+var MIGRATIONS = Object.freeze([]);
+function migrateConfig(raw, migrations = MIGRATIONS) {
+  let current = raw;
+  for (const { from, migrate } of migrations) {
+    if (isRecord2(current) && current.kit === from) current = migrate(current);
+  }
+  return current;
+}
+function dropUnrecognized(raw, issues) {
+  let dropped = false;
+  for (const issue of issues) {
+    if (issue.code !== "unrecognized_keys") continue;
+    let at2 = raw;
+    for (const step of issue.path) at2 = isRecord2(at2) ? at2[String(step)] : void 0;
+    if (!isRecord2(at2)) continue;
+    for (const key of issue.keys) {
+      if (Object.hasOwn(at2, key)) {
+        Reflect.deleteProperty(at2, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+function checkConfig(raw, ignoreUnknownKeys) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
+  let raw;
+  try {
+    raw = parse2(source) ?? {};
+  } catch (error) {
+    throw new ConfigError(`${file}: not valid YAML \u2014 ${messageOf2(error).split("\n")[0]}`, { invalid: true });
+  }
+  if (migrate) raw = migrateConfig(raw);
+  const renamed = renamedKey(raw);
+  if (renamed) {
+    const { section: name, from, to } = renamed;
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`, { invalid: true });
+  }
+  const result = checkConfig(raw, ignoreUnknownKeys);
+  if (!result.success) {
+    const [first, ...others] = result.error.issues.map(describeIssue);
+    const more = others.length ? `
+${others.map((line) => `  - ${line}`).join("\n")}` : "";
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
+  }
+  const config = result.data;
+  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
+}
+function loadConfig(root) {
+  const file = join9(root, CONFIG_FILE);
+  if (!existsSync7(file)) {
+    throw new ConfigError(`This repository is not installed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
+  }
+  return parseConfig(readFileSync7(file, "utf8"), CONFIG_FILE);
+}
+
+// kit/lib/context.ts
+import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
+
 // kit/lib/markers.ts
-var escape = (text8) => text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var escape = (text10) => text10.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape(prefix);
   return Object.freeze({
@@ -2138,12 +2013,12 @@ function createContext(root, config) {
 }
 
 // kit/lib/bug/verdict.ts
-import { readFileSync as readFileSync3, statSync as statSync2 } from "node:fs";
-import { isAbsolute, join as join6, normalize } from "node:path";
+import { readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
+import { isAbsolute, join as join11, normalize } from "node:path";
 
 // kit/lib/fix-verdict.ts
-import { existsSync as existsSync5, readdirSync as readdirSync2 } from "node:fs";
-import { join as join5 } from "node:path";
+import { existsSync as existsSync8, readdirSync as readdirSync3 } from "node:fs";
+import { join as join10 } from "node:path";
 
 // kit/lib/signature.ts
 var SIGNED_MARKER = "<!-- omni-loop:signed -->";
@@ -2169,9 +2044,9 @@ function issuePrefix(issue) {
   return `${String(issue).padStart(4, "0")}-`;
 }
 function numberedFolders(ctx, root, prefix) {
-  const absolute = join5(ctx.root, root);
-  if (!existsSync5(absolute)) return [];
-  return readdirSync2(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
+  const absolute = join10(ctx.root, root);
+  if (!existsSync8(absolute)) return [];
+  return readdirSync3(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
 }
 
 // kit/lib/bug/verdict.ts
@@ -2180,8 +2055,8 @@ function bugRoot(ctx) {
 }
 
 // kit/lib/knowledge/registers.ts
-import { existsSync as existsSync6, readFileSync as readFileSync4, readdirSync as readdirSync3 } from "node:fs";
-import { basename, join as join7 } from "node:path";
+import { existsSync as existsSync9, readFileSync as readFileSync9, readdirSync as readdirSync4 } from "node:fs";
+import { basename as basename2, join as join12 } from "node:path";
 var PRODUCT_CODE = "PRODUCT";
 var LAYER_FILES = {
   "principles.md": "principle",
@@ -2208,8 +2083,8 @@ var FIELD_KEY = {
   "Glossary term": "glossaryTerm"
 };
 var FIELD_NAMES = keysOf(FIELD_KEY);
-function idsCitedIn(text8) {
-  return [...new Set(text8.match(ID_TOKEN) ?? [])];
+function idsCitedIn(text10) {
+  return [...new Set(text10.match(ID_TOKEN) ?? [])];
 }
 function codeOf(name) {
   return name.replace(/-/g, "").toUpperCase();
@@ -2277,10 +2152,10 @@ function readPending(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
   };
 }
-function splitEntries(text8) {
+function splitEntries(text10) {
   const entries = [];
   let current = null;
-  for (const line of text8.split("\n")) {
+  for (const line of text10.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries.push(current);
@@ -2295,8 +2170,8 @@ function splitEntries(text8) {
   if (current) entries.push(current);
   return entries;
 }
-function parseEntryFile(file, text8, place) {
-  return splitEntries(text8).map(({ id, lines }) => {
+function parseEntryFile(file, text10, place) {
+  return splitEntries(text10).map(({ id, lines }) => {
     const { fields, counts, fieldAt } = readFields(lines);
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
@@ -2329,19 +2204,19 @@ function parseEntryFile(file, text8, place) {
   });
 }
 function listDir(root, dir, predicate) {
-  const abs = join7(root, dir);
-  if (!existsSync6(abs)) return [];
-  return readdirSync3(abs, { withFileTypes: true }).filter(predicate).map((entry) => entry.name).sort();
+  const abs = join12(root, dir);
+  if (!existsSync9(abs)) return [];
+  return readdirSync4(abs, { withFileTypes: true }).filter(predicate).map((entry) => entry.name).sort();
 }
 function diskSource(root) {
   return {
     files: (dir) => listDir(root, dir, (entry) => entry.isFile()),
     dirs: (dir) => listDir(root, dir, (entry) => entry.isDirectory()),
-    read: (file) => readFileSync4(join7(root, file), "utf8")
+    read: (file) => readFileSync9(join12(root, file), "utf8")
   };
 }
-function glossaryTermOf(text8) {
-  return readFields(text8.split("\n")).fields.glossaryTerm ?? null;
+function glossaryTermOf(text10) {
+  return readFields(text10.split("\n")).fields.glossaryTerm ?? null;
 }
 function productDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/product`;
@@ -2391,7 +2266,7 @@ function readKnowledge({ ctx, source = diskSource(ctx.root) }) {
   });
   const crossDomainNames = source.files(CROSS_DOMAIN_DIR).filter((name) => name.endsWith(".md"));
   const crossDomainFiles = crossDomainNames.map((fileName) => {
-    const name = basename(fileName, ".md");
+    const name = basename2(fileName, ".md");
     const halves = name.split("--");
     const pair = halves.length === 2 && halves.every(Boolean) ? halves : null;
     const file = `${CROSS_DOMAIN_DIR}/${fileName}`;
@@ -2424,16 +2299,16 @@ function servedBy(entries, id) {
 }
 
 // kit/lib/outbox/comment.ts
-import { existsSync as existsSync11, readFileSync as readFileSync7, writeFileSync as writeFileSync2 } from "node:fs";
-import { z as z17 } from "zod";
+import { existsSync as existsSync14, readFileSync as readFileSync12, writeFileSync as writeFileSync4 } from "node:fs";
+import { z as z15 } from "zod";
 
 // kit/lib/check-report.ts
 import { execFileSync as execFileSync2 } from "node:child_process";
-import { readFileSync as readFileSync5 } from "node:fs";
-import { join as join8 } from "node:path";
+import { readFileSync as readFileSync10 } from "node:fs";
+import { join as join13 } from "node:path";
 var LIST_MAX_BYTES = 256 * 1024 * 1024;
 function readRepoFile(ctx, path) {
-  return readFileSync5(join8(ctx.root, path), "utf8");
+  return readFileSync10(join13(ctx.root, path), "utf8");
 }
 
 // kit/lib/commands.ts
@@ -2506,9 +2381,9 @@ var PUNCHLINES = Object.freeze([
   "Small print, big relief once it is settled."
 ]);
 var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
-function stableHash(text8) {
+function stableHash(text10) {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(text8)) {
+  for (const byte of new TextEncoder().encode(text10)) {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
@@ -2533,44 +2408,11 @@ function assignBanter(ids, { pool = BANTER_POOL } = {}) {
 }
 
 // kit/lib/outbox/outbox.ts
-import { existsSync as existsSync7, readdirSync as readdirSync4 } from "node:fs";
-import { join as join9 } from "node:path";
-
-// kit/lib/front-matter.ts
-var FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
-function withFile2(file, message) {
-  return file ? `${file}: ${message}` : message;
-}
-function stripQuotes(value) {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if (first === '"' && last === '"' || first === "'" && last === "'") {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-function parseFrontMatterLines(rawFrontMatter) {
-  const data = {};
-  const errors = [];
-  for (const rawLine of rawFrontMatter.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match = line.match(FRONT_MATTER_LINE);
-    if (!match) {
-      errors.push(`front matter line is not "key: value": "${rawLine}"`);
-      continue;
-    }
-    const [, key = "", rawValue = ""] = match;
-    data[key] = stripQuotes(rawValue);
-  }
-  return { data, errors };
-}
+import { existsSync as existsSync10, readdirSync as readdirSync5 } from "node:fs";
+import { join as join14 } from "node:path";
 
 // kit/lib/schema/front-matter.ts
-import { z as z15 } from "zod";
+import { z as z13 } from "zod";
 var SPEC_VALUES = ["file", "issue"];
 var PROOF_VALUES = ["video"];
 var E2E_VALUES = ["validate"];
@@ -2579,10 +2421,10 @@ var RANK_VALUES = ["human-action", "high", "medium"];
 var BLOCKED_BY_MESSAGE = 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]';
 var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 var BRACKET_LIST = /^\[([\s\S]*)\]$/;
-var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
-var PrdField = z15.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
-var SliceField = z15.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
-var BlockedBySchema = z15.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
+var DATE3 = /^\d{4}-\d{2}-\d{2}$/;
+var PrdField = z13.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
+var SliceField = z13.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
+var BlockedBySchema = z13.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
   if (raw === "none") return "none";
   const match = raw.match(BLOCKED_BY_LIST);
   if (!match) {
@@ -2590,57 +2432,57 @@ var BlockedBySchema = z15.string().trim().min(1, "blocked-by is required").trans
       code: "custom",
       message: BLOCKED_BY_MESSAGE
     });
-    return z15.NEVER;
+    return z13.NEVER;
   }
   const inner = (match[1] ?? "").trim();
   const prds = inner.length === 0 ? [] : inner.split(",").map((token) => PrdNumberSchema.safeParse(Number(token.trim())));
   const read = prds.flatMap((prd) => prd.success ? [prd.data] : []);
   if (read.length !== prds.length) {
     ctx.addIssue({ code: "custom", message: BLOCKED_BY_MESSAGE });
-    return z15.NEVER;
+    return z13.NEVER;
   }
   return read;
 });
-var AreasSchema = z15.string().trim().transform((raw, ctx) => {
+var AreasSchema = z13.string().trim().transform((raw, ctx) => {
   const match = raw.match(BRACKET_LIST);
   if (!match) {
     ctx.addIssue({
       code: "custom",
       message: "areas must be a bracketed list of domain folder names, e.g. [credits]"
     });
-    return z15.NEVER;
+    return z13.NEVER;
   }
   const inner = (match[1] ?? "").trim();
   return inner.length === 0 ? [] : inner.split(",").map((token) => token.trim());
 }).optional();
-var SpecFrontMatterSchema = z15.object({
+var SpecFrontMatterSchema = z13.object({
   prd: PrdField,
-  title: z15.string().trim().min(1, "title is required"),
+  title: z13.string().trim().min(1, "title is required"),
   "blocked-by": BlockedBySchema,
-  spec: z15.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
+  spec: z13.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
   areas: AreasSchema,
   // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
-  proof: z15.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
+  proof: z13.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
   // PRD 1275: `e2e: validate` asks `/omni:yolo` to follow `/omni:validate-e2e` once the feature PR is ready.
-  e2e: z15.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(" or ")}, or left out` }).optional(),
+  e2e: z13.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(" or ")}, or left out` }).optional(),
   // PRD 1299: `phase0: server` says the PRD is approved on its PRD page, not by a phase-0 PR.
-  phase0: z15.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
+  phase0: z13.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
 }).strict();
-var OutboxItemFrontMatterSchema = z15.object({
-  id: z15.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
+var OutboxItemFrontMatterSchema = z13.object({
+  id: z13.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
   prd: PrdField,
   slice: SliceField,
-  rank: z15.enum(RANK_VALUES, {
+  rank: z13.enum(RANK_VALUES, {
     message: `rank must be one of: ${RANK_VALUES.join(", ")}`
   }),
-  "bears-on": z15.string().trim().min(1, "bears-on is required"),
-  raised: z15.string().regex(DATE2, "raised must be a YYYY-MM-DD date"),
-  wave: z15.coerce.number({ message: "wave must be a number" }).int().positive()
+  "bears-on": z13.string().trim().min(1, "bears-on is required"),
+  raised: z13.string().regex(DATE3, "raised must be a YYYY-MM-DD date"),
+  wave: z13.coerce.number({ message: "wave must be a number" }).int().positive()
 }).strict();
-var AccountFrontMatterSchema = z15.object({
+var AccountFrontMatterSchema = z13.object({
   prd: PrdField,
   slice: SliceField,
-  graded: z15.string().regex(DATE2, "graded must be a YYYY-MM-DD date")
+  graded: z13.string().regex(DATE3, "graded must be a YYYY-MM-DD date")
 }).strict();
 
 // kit/lib/outbox/outbox.ts
@@ -2765,17 +2607,17 @@ function validateSections(body) {
   );
   return { errors, sections };
 }
-function parseOutboxItem(text8, { file = null } = {}) {
-  const read = readFrontMatterBlock(text8, file, OutboxItemFrontMatterSchema);
+function parseOutboxItem(text10, { file = null } = {}) {
+  const read = readFrontMatterBlock(text10, file, OutboxItemFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const errors = [...read.errors];
   const { errors: sectionErrors, sections } = validateSections(read.body);
-  errors.push(...sectionErrors.map((message) => withFile2(file, message)));
+  errors.push(...sectionErrors.map((message) => withFile(file, message)));
   let parsedOptions;
   if (OPTIONS_HEADING in sections) {
     const { options, errors: optionErrors } = parseOutboxOptions(sections[OPTIONS_HEADING] ?? "");
     parsedOptions = options;
-    errors.push(...optionErrors.map((message) => withFile2(file, message)));
+    errors.push(...optionErrors.map((message) => withFile(file, message)));
   }
   if (errors.length > 0 || read.data === null) return { ok: false, errors };
   const fm = read.data;
@@ -2798,10 +2640,10 @@ function parseOutboxItem(text8, { file = null } = {}) {
   };
   return { ok: true, item };
 }
-function readFrontMatterBlock(text8, file, schema) {
-  const blockMatch = text8.match(FRONT_MATTER_BLOCK2);
+function readFrontMatterBlock(text10, file, schema) {
+  const blockMatch = text10.match(FRONT_MATTER_BLOCK2);
   if (!blockMatch) {
-    return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
+    return { body: null, errors: [withFile(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
   const [, rawFrontMatter = "", body = ""] = blockMatch;
   const lines = parseFrontMatterLines(rawFrontMatter);
@@ -2811,7 +2653,7 @@ function readFrontMatterBlock(text8, file, schema) {
   );
   return {
     body,
-    errors: [...lines.errors, ...refusals].map((message) => withFile2(file, message)),
+    errors: [...lines.errors, ...refusals].map((message) => withFile(file, message)),
     data: checked2.success ? checked2.data : null
   };
 }
@@ -2855,17 +2697,17 @@ var REGISTER_OR_ADR_ID = /\bN\d+\b|\bBR-[A-Z0-9]+-\d+\b|\bADR-\d{4}\b/g;
 var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
-function countSentences(text8) {
-  const trimmed = (text8 ?? "").trim();
+function countSentences2(text10) {
+  const trimmed = (text10 ?? "").trim();
   if (!trimmed) return 0;
   const matches = trimmed.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
-function uniqueMatches(text8, pattern) {
-  return [...new Set(text8.match(pattern) ?? [])];
+function uniqueMatches(text10, pattern) {
+  return [...new Set(text10.match(pattern) ?? [])];
 }
-function plainWordsProblems(text8) {
-  const value = text8 ?? "";
+function plainWordsProblems(text10) {
+  const value = text10 ?? "";
   const problems = [];
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -2896,14 +2738,14 @@ function plainWordsProblems(text8) {
       `carries a code identifier (${codeWords.join(", ")}) \u2014 write the plain word instead of the variable or constant name`
     );
   }
-  const sentenceCount = countSentences(value);
+  const sentenceCount = countSentences2(value);
   if (sentenceCount > 2) {
     problems.push(`is ${sentenceCount} sentences long \u2014 say it in one or two sentences`);
   }
   return problems;
 }
-function funLineProblems(text8) {
-  const value = (text8 ?? "").trim();
+function funLineProblems(text10) {
+  const value = (text10 ?? "").trim();
   const problems = plainWordsProblems(value);
   const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
@@ -2927,10 +2769,10 @@ function resolveBearsOn(bearsOn, laws) {
   return laws.resolve(bearsOn);
 }
 function itemFilesUnder(root, dir) {
-  const absolute = join9(root, dir);
-  if (!existsSync7(absolute)) return [];
+  const absolute = join14(root, dir);
+  if (!existsSync10(absolute)) return [];
   const files = [];
-  for (const entry of readdirSync4(absolute, { withFileTypes: true })) {
+  for (const entry of readdirSync5(absolute, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       if (entry.name === "accounts") continue;
       files.push(...itemFilesUnder(root, `${dir}/${entry.name}`));
@@ -2950,11 +2792,11 @@ function outboxItemFiles({ ctx }) {
 }
 
 // kit/lib/outbox/settle.ts
-import { existsSync as existsSync8, mkdirSync, readFileSync as readFileSync6, rmSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute as isAbsolute2, join as join10, relative } from "node:path";
-import { z as z16 } from "zod";
-function parseItem(text8, file) {
-  return parseOutboxItem(text8, { file });
+import { existsSync as existsSync11, mkdirSync as mkdirSync2, readFileSync as readFileSync11, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
+import { dirname as dirname2, isAbsolute as isAbsolute2, join as join15, relative } from "node:path";
+import { z as z14 } from "zod";
+function parseItem(text10, file) {
+  return parseOutboxItem(text10, { file });
 }
 var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
@@ -2963,22 +2805,22 @@ var CHANNEL_LABEL = {
   "prd-issue": "PRD issue",
   "feature-pull-request": "feature pull request"
 };
-var AnswerChannelSchema = z16.object({
-  kind: z16.enum(CHANNEL_KINDS, {
+var AnswerChannelSchema = z14.object({
+  kind: z14.enum(CHANNEL_KINDS, {
     message: `channel.kind must be one of: ${CHANNEL_KINDS.join(", ")}`
   }),
-  number: z16.coerce.number({ message: "channel.number must be a number" }).int().positive(),
-  url: z16.string().trim().min(1).optional()
+  number: z14.coerce.number({ message: "channel.number must be a number" }).int().positive(),
+  url: z14.string().trim().min(1).optional()
 }).strict();
-var AnswerSchema = z16.object({
-  text: z16.string().trim().min(1, "the answer text is required"),
-  approvedBy: z16.string().trim().min(1, "approvedBy is required \u2014 who approved it"),
-  approvedAt: z16.string().regex(
+var AnswerSchema = z14.object({
+  text: z14.string().trim().min(1, "the answer text is required"),
+  approvedBy: z14.string().trim().min(1, "approvedBy is required \u2014 who approved it"),
+  approvedAt: z14.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "approvedAt must be an ISO date or date-time"
   ),
   channel: AnswerChannelSchema,
-  statedVerdict: z16.enum(VERDICTS).optional()
+  statedVerdict: z14.enum(VERDICTS).optional()
 }).strict();
 function channelLabel(channel) {
   return `${CHANNEL_LABEL[channel.kind]} #${channel.number}`;
@@ -3055,8 +2897,8 @@ function renderSettledEntry({
   );
   return lines.join("\n");
 }
-function parseSettledEntries(text8, markers) {
-  return latestPerId(rawSettledEntries(text8, markers));
+function parseSettledEntries(text10, markers) {
+  return latestPerId(rawSettledEntries(text10, markers));
 }
 function latestPerId(entries) {
   const byId = /* @__PURE__ */ new Map();
@@ -3072,8 +2914,8 @@ function closedEntry({ id, fields, blocks }) {
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
-function rawSettledEntries(text8, markers) {
-  const lines = text8.split("\n");
+function rawSettledEntries(text10, markers) {
+  const lines = text10.split("\n");
   const entries = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
@@ -3106,11 +2948,11 @@ function rawSettledEntries(text8, markers) {
 }
 
 // kit/lib/outbox/status.ts
-import { existsSync as existsSync10 } from "node:fs";
+import { existsSync as existsSync13 } from "node:fs";
 
 // kit/lib/outbox/account.ts
-import { existsSync as existsSync9, readdirSync as readdirSync5 } from "node:fs";
-import { basename as basename2 } from "node:path";
+import { existsSync as existsSync12, readdirSync as readdirSync6 } from "node:fs";
+import { basename as basename3 } from "node:path";
 var ACCOUNTS_DIR = "accounts";
 var RISKY_CHANGES_HEADING = "Risky changes";
 var ENTRY_PATH_LINE = /^-\s+`([^`]+)`$/;
@@ -3188,11 +3030,11 @@ function validateBody(body) {
   errors.push(...entryErrors);
   return { errors, entries };
 }
-function parseAccount(text8, { file = null } = {}) {
-  const read = readFrontMatterBlock(text8, file, AccountFrontMatterSchema);
+function parseAccount(text10, { file = null } = {}) {
+  const read = readFrontMatterBlock(text10, file, AccountFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const { errors: bodyErrors, entries } = validateBody(read.body);
-  const errors = [...read.errors, ...bodyErrors.map((message) => withFile2(file, message))];
+  const errors = [...read.errors, ...bodyErrors.map((message) => withFile(file, message))];
   if (errors.length > 0 || read.data === null) return { ok: false, errors };
   const fm = read.data;
   const account = {
@@ -3208,24 +3050,24 @@ function readAccounts(prd, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const dir = `${outboxDir}/${ACCOUNTS_DIR}`;
-  if (!existsSync9(`${ctx.root}/${dir}`)) return [];
+  if (!existsSync12(`${ctx.root}/${dir}`)) return [];
   const prdPrefix = `${outboxDir}/`;
   const ranks = /* @__PURE__ */ new Map();
   for (const path of outboxItemFiles({ ctx }).filter((file) => file.startsWith(prdPrefix))) {
     const parsed2 = parseOutboxItem(readRepoFile(ctx, path));
-    ranks.set(basename2(path, ".md"), parsed2.ok ? parsed2.item.rank : null);
+    ranks.set(basename3(path, ".md"), parsed2.ok ? parsed2.item.rank : null);
   }
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  if (existsSync9(`${ctx.root}/${settledFile}`)) {
+  if (existsSync12(`${ctx.root}/${settledFile}`)) {
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
       ranks.set(entry.id, entry.fields.Rank ?? null);
     }
   }
-  const names = readdirSync5(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
+  const names = readdirSync6(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text8 = readRepoFile(ctx, file);
-    const parsed2 = parseAccount(text8, { file });
+    const text10 = readRepoFile(ctx, file);
+    const parsed2 = parseAccount(text10, { file });
     if (!parsed2.ok) return parsed2;
     const unresolved = parsed2.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
@@ -3234,7 +3076,7 @@ function readAccounts(prd, { ctx }) {
       return {
         ok: false,
         errors: unresolved.map(
-          (id) => withFile2(
+          (id) => withFile(
             file,
             `item account names an id no outbox file carries: "${id}"`
           )
@@ -3368,8 +3210,8 @@ function openItemFiles(prd, { ctx }) {
   return outboxItemFiles({ ctx }).filter((file) => file.startsWith(prefix));
 }
 function describeItem(file, { ctx }) {
-  const text8 = readRepoFile(ctx, file);
-  const parsed2 = parseOutboxItem(text8, { file });
+  const text10 = readRepoFile(ctx, file);
+  const parsed2 = parseOutboxItem(text10, { file });
   return parsed2.ok ? { file, id: parsed2.item.id, rank: parsed2.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
@@ -3384,7 +3226,7 @@ function unreworkedDrift(prd, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  if (!existsSync10(`${ctx.root}/${settledFile}`)) return [];
+  if (!existsSync13(`${ctx.root}/${settledFile}`)) return [];
   const entries = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
   return entries.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
@@ -3409,7 +3251,7 @@ function fixOutboxContext(ctx, folder, number) {
   const layout = {
     ...ctx.layout,
     outboxDir: () => dir,
-    outboxDirs: () => existsSync10(`${ctx.root}/${dir}`) ? [{ prd: number, dir, shipped: false }] : []
+    outboxDirs: () => existsSync13(`${ctx.root}/${dir}`) ? [{ prd: number, dir, shipped: false }] : []
   };
   return { ...ctx, layout };
 }
@@ -3597,11 +3439,11 @@ function readSettledEntries(prd, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  if (!existsSync11(`${ctx.root}/${settledFile}`)) return [];
+  if (!existsSync14(`${ctx.root}/${settledFile}`)) return [];
   return parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
 }
-function firstSentence(text8) {
-  const trimmed = (text8 ?? "").trim();
+function firstSentence(text10) {
+  const trimmed = (text10 ?? "").trim();
   const match = trimmed.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match ? match[0] : trimmed).trim();
 }
@@ -3617,8 +3459,8 @@ function answeredOutcome(entry) {
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
-function quoteReply(text8) {
-  const oneLine4 = (text8 ?? "").replace(/\s+/g, " ").trim();
+function quoteReply(text10) {
+  const oneLine4 = (text10 ?? "").replace(/\s+/g, " ").trim();
   const truncated = oneLine4.length > 120 ? `${oneLine4.slice(0, 117)}\u2026` : oneLine4;
   return `"${truncated}"`;
 }
@@ -3642,14 +3484,14 @@ function formatApprovedAt(approvedAt) {
   const [, , month, day3] = match;
   return `${Number(day3)} ${MONTH_NAMES[Number(month) - 1]}`;
 }
-function tableCell(text8) {
-  return (text8 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
+function tableCell(text10) {
+  return (text10 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
-function quoted3(text8) {
-  return (text8 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+function quoted2(text10) {
+  return (text10 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
-function funLine(text8) {
-  return `_${(text8 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+function funLine(text10) {
+  return `_${(text10 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
 }
 function formatOptionsTable(options, mark) {
   return [
@@ -3712,7 +3554,7 @@ function openQuestionLines(item, { number, round, banter }) {
     "",
     funLine(banter.intro),
     "",
-    quoted3(item.sections.questionPlain),
+    quoted2(item.sections.questionPlain),
     "",
     funLine(banter.punchline),
     ""
@@ -3755,7 +3597,7 @@ function adoptedQuestionLines(entry, { number, round, banter }) {
     "",
     funLine(banter.intro),
     "",
-    quoted3(question),
+    quoted2(question),
     "",
     funLine(banter.punchline),
     ""
@@ -3913,26 +3755,26 @@ function upsertOutboxPrComment({ prd, ctx, now = () => (/* @__PURE__ */ new Date
     body
   };
 }
-var PrCommentResultSchema = z17.object({
-  htmlUrl: z17.string().nullish(),
-  newAdoptedCount: z17.number().optional()
+var PrCommentResultSchema = z15.object({
+  htmlUrl: z15.string().nullish(),
+  newAdoptedCount: z15.number().optional()
 }).loose();
 
 // kit/lib/visual/verdict.ts
-import { existsSync as existsSync15, readdirSync as readdirSync7, readFileSync as readFileSync8 } from "node:fs";
-import { join as join14 } from "node:path";
+import { existsSync as existsSync18, readdirSync as readdirSync8, readFileSync as readFileSync13 } from "node:fs";
+import { join as join19 } from "node:path";
 
 // kit/lib/inbox/check-inbox.ts
-import { existsSync as existsSync14, readdirSync as readdirSync6, statSync as statSync3 } from "node:fs";
-import { basename as basename4, dirname as dirname3, join as join13 } from "node:path";
+import { existsSync as existsSync17, readdirSync as readdirSync7, statSync as statSync3 } from "node:fs";
+import { basename as basename5, dirname as dirname4, join as join18 } from "node:path";
 
 // kit/lib/roadmap/index.ts
-import { existsSync as existsSync13 } from "node:fs";
-import { join as join12 } from "node:path";
+import { existsSync as existsSync16 } from "node:fs";
+import { join as join17 } from "node:path";
 
 // kit/lib/inbox/inbox.ts
-import { existsSync as existsSync12 } from "node:fs";
-import { basename as basename3, dirname as dirname2, join as join11 } from "node:path";
+import { existsSync as existsSync15 } from "node:fs";
+import { basename as basename4, dirname as dirname3, join as join16 } from "node:path";
 var FRONT_MATTER_BLOCK3 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var FORBIDDEN_STATUS_LIKE_FIELDS = ["status", "branch", "value", "priority"];
 function unrecognizedKeyMessage(key) {
@@ -3942,29 +3784,29 @@ function unrecognizedKeyMessage(key) {
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
   return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
-function parseSpec(text8, { file = null } = {}) {
-  const blockMatch = text8.match(FRONT_MATTER_BLOCK3);
+function parseSpec(text10, { file = null } = {}) {
+  const blockMatch = text10.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
-      errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')]
+      errors: [withFile(file, 'missing a front-matter block (a "---" fenced header)')]
     };
   }
   const [, rawFrontMatter] = blockMatch;
   const errors = [];
   const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter ?? "");
-  errors.push(...lineErrors.map((message) => withFile2(file, message)));
+  errors.push(...lineErrors.map((message) => withFile(file, message)));
   const parsed2 = SpecFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (!parsed2.success) {
     for (const issue of parsed2.error.issues) {
       if (issue.code === "unrecognized_keys") {
         for (const key of issue.keys) {
-          errors.push(withFile2(file, unrecognizedKeyMessage(key)));
+          errors.push(withFile(file, unrecognizedKeyMessage(key)));
         }
         continue;
       }
       const field3 = issue.path.length > 0 ? issue.path.join(".") : "(front matter)";
-      errors.push(withFile2(file, `${field3}: ${issue.message}`));
+      errors.push(withFile(file, `${field3}: ${issue.message}`));
     }
   }
   if (errors.length > 0 || !parsed2.success) return { ok: false, errors };
@@ -3983,45 +3825,7 @@ function parseSpec(text8, { file = null } = {}) {
 }
 
 // kit/lib/roadmap/parse.ts
-import { z as z18 } from "zod";
-
-// kit/lib/markdown-body.ts
-var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
-function sectionsOf(body) {
-  const sections = [];
-  let current = null;
-  for (const line of body.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading && !line.startsWith("###")) {
-      current = { name: group(heading, 1), lines: [] };
-      sections.push(current);
-    } else if (/^#\s/.test(line)) {
-      current = null;
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  return sections;
-}
-function cells(line) {
-  let inner = line.trim();
-  if (inner.startsWith("|")) inner = inner.slice(1);
-  if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
-  return inner.split(/(?<!\\)\|/).map((cell3) => cell3.trim().replace(/\\\|/g, "|"));
-}
-function firstTable(lines) {
-  const start = lines.findIndex((line) => line.trim().startsWith("|"));
-  if (start === -1) return null;
-  const block = [];
-  for (const line of lines.slice(start)) {
-    if (!line.trim().startsWith("|")) break;
-    block.push(line.trim());
-  }
-  const [header = "", ...rest] = block;
-  return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
-}
-
-// kit/lib/roadmap/parse.ts
+import { z as z16 } from "zod";
 var PRD_COLUMNS = ["id", "PRD", "title", "blocked by", "why", "wave"];
 var QUESTION_COLUMNS = ["id", "question", "recommendation", "blocks", "kind"];
 var QUESTION_KINDS = ["default", "person"];
@@ -4039,19 +3843,19 @@ var PRD_CELL = /^#([1-9]\d*)$/;
 var WAVE_CELL = /^[1-9]\d*$/;
 var NONE_CELL = /^(?:|-|–|—|none)$/i;
 var ID_CELL = /^[^\s,|]+$/;
-var optionalText = z18.string().trim().min(1).optional();
-var FrontMatterSchema2 = z18.object({
-  roadmap: z18.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
-  title: z18.string().trim().min(1),
-  milestone: z18.string().trim().min(1),
+var optionalText = z16.string().trim().min(1).optional();
+var FrontMatterSchema3 = z16.object({
+  roadmap: z16.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
+  title: z16.string().trim().min(1),
+  milestone: z16.string().trim().min(1),
   product: optionalText,
-  target: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  target: z16.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
 function frontMatter(raw) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const parsed2 = FrontMatterSchema2.safeParse(data, { error: KIT_MESSAGES });
+  const parsed2 = FrontMatterSchema3.safeParse(data, { error: KIT_MESSAGES });
   if (parsed2.success) return { data: parsed2.data, errors };
   for (const issue of parsed2.error.issues) {
     if (issue.code === "unrecognized_keys") {
@@ -4221,8 +4025,8 @@ function prerequisitesOf(section4) {
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
 }
-function parseRoadmap(text8) {
-  const block = FRONT_MATTER_BLOCK4.exec(text8);
+function parseRoadmap(text10) {
+  const block = FRONT_MATTER_BLOCK4.exec(text10);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
   const front = frontMatter(raw);
@@ -4427,7 +4231,7 @@ function roadmapsDir(ctx) {
 }
 function roadmapFiles(ctx) {
   const dir = roadmapsDir(ctx);
-  return prdFoldersIn(join12(ctx.root, dir)).map(({ name, prd }) => ({
+  return prdFoldersIn(join17(ctx.root, dir)).map(({ name, prd }) => ({
     number: parseIssue(prd),
     dir: `${dir}/${name}`,
     file: `${dir}/${name}/roadmap.md`
@@ -4436,13 +4240,13 @@ function roadmapFiles(ctx) {
 function prdFacts(ctx, prd) {
   const specFile = ctx.layout.specPath(prd);
   if (specFile === null) return "no-folder";
-  if (!existsSync13(join12(ctx.root, specFile))) return "unreadable";
+  if (!existsSync16(join17(ctx.root, specFile))) return "unreadable";
   const parsed2 = parseSpec(readRepoFile(ctx, specFile), { file: specFile });
   return parsed2.ok ? { blockedBy: parsed2.record.blockedBy } : "unreadable";
 }
 function gradeRoadmapFile(ctx, entry) {
   const at2 = (message) => `${entry.file}: ${message}`;
-  if (!existsSync13(join12(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at2("roadmap.md is missing.")] };
+  if (!existsSync16(join17(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at2("roadmap.md is missing.")] };
   const parsed2 = parseRoadmap(readRepoFile(ctx, entry.file));
   if (!parsed2.ok) return { ...entry, roadmap: null, violations: parsed2.errors.map(at2) };
   const { roadmap } = parsed2;
@@ -4458,133 +4262,16 @@ function gradeRoadmaps(ctx) {
   return roadmapFiles(ctx).map((entry) => gradeRoadmapFile(ctx, entry));
 }
 
-// kit/lib/voice/voice.ts
-import { z as z19 } from "zod";
-var VOICE_FILE = "voice.json";
-var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
-var STAGES_SAID = "design, spec, rework-<k>, shipped";
-var STANCES = ["excited", "neutral", "skeptical"];
-var SETTLED = ["accepted", "saved-as-claim", "just-this-run", "none"];
-var KNOWN_STANCES = STANCES;
-var KNOWN_SETTLED = SETTLED;
-var DATE3 = /^\d{4}-\d{2}-\d{2}$/;
-var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$/;
-var MAX_SENTENCES = 2;
-var TOP_FIELDS = ["rounds"];
-var ROUND_FIELDS = ["stage", "date", "personas", "objection", "fit"];
-var VoicePersonaSchema = z19.looseObject({
-  name: z19.string(),
-  stance: z19.enum(STANCES),
-  score: z19.number(),
-  reaction: z19.string(),
-  citations: z19.array(z19.string())
-});
-var VoiceObjectionSchema = z19.looseObject({ persona: z19.string(), text: z19.string(), citations: z19.array(z19.string()), settled: z19.enum(SETTLED) });
-var VoiceRoundSchema = z19.object({
-  stage: z19.string(),
-  date: z19.string(),
-  personas: z19.array(VoicePersonaSchema),
-  objection: VoiceObjectionSchema.nullish(),
-  fit: z19.string().nullish()
-});
-var VoiceSchema = z19.object({ rounds: z19.array(VoiceRoundSchema) });
-var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
-var isText = (value) => typeof value === "string" && value.trim().length > 0;
-function countSentences2(text8) {
-  return text8.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
-}
-function citationProblems(citations, field3) {
-  if (!Array.isArray(citations) || citations.length === 0) {
-    return [`${field3} must cite at least one persona:<name> or claim id.`];
-  }
-  return citations.flatMap(
-    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
-  );
-}
-function lineProblems(text8, field3) {
-  if (!isText(text8)) return [`${field3} must be a sentence.`];
-  const count2 = countSentences2(text8);
-  return count2 > MAX_SENTENCES ? [`${field3} holds ${count2} sentences; two at most.`] : [];
-}
-function personaProblems(persona, i) {
-  const at2 = `personas[${i}]`;
-  if (!isRecord2(persona)) return [`${at2} must be an object.`];
-  const problems = [];
-  if (!isText(persona.name)) problems.push(`${at2}.name must be a name.`);
-  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at2}.stance must be one of ${STANCES.join(", ")}.`);
-  const { score } = persona;
-  if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || score > 5) {
-    problems.push(`${at2}.score must be a whole number from 1 to 5.`);
-  }
-  problems.push(...lineProblems(persona.reaction, `${at2}.reaction`));
-  problems.push(...citationProblems(persona.citations, `${at2}.citations`));
-  return problems;
-}
-function objectionProblems(objection, names) {
-  if (objection === null) return [];
-  if (!isRecord2(objection)) return ["objection must be an object, or null when no persona objected."];
-  const problems = [];
-  if (!isText(objection.persona)) problems.push("objection.persona must be a name.");
-  else if (names.length > 0 && !names.includes(objection.persona)) {
-    problems.push(`objection.persona ${JSON.stringify(objection.persona)} is not one of the round's personas.`);
-  }
-  problems.push(...lineProblems(objection.text, "objection.text"));
-  problems.push(...citationProblems(objection.citations, "objection.citations"));
-  if (!KNOWN_SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(", ")}.`);
-  return problems;
-}
-var unknownFields = (value, known, where) => Object.keys(value).filter((key) => !known.includes(key)).map((key) => `\`${key}\` is not a field of ${where}.`);
-var personasProblems = (personas) => Array.isArray(personas) && personas.length > 0 ? personas.flatMap(personaProblems) : ["personas must list at least one persona."];
-var fitProblems = (fit) => fit === void 0 || fit === null || isText(fit) ? [] : ["fit must be one line, or null."];
-function roundProblems(round) {
-  if (!isRecord2(round)) return ["must be an object."];
-  const names = Array.isArray(round.personas) ? round.personas.map((p) => isRecord2(p) ? p.name : void 0) : [];
-  return [
-    ...unknownFields(round, ROUND_FIELDS, "a round"),
-    ...DATE3.test(plainText(round.date)) ? [] : ["date must be YYYY-MM-DD."],
-    ...personasProblems(round.personas),
-    ...objectionProblems(round.objection ?? null, names),
-    ...fitProblems(round.fit)
-  ];
-}
-function parseVoice(text8) {
-  let voice;
-  try {
-    voice = JSON.parse(text8);
-  } catch {
-    return { ok: false, voice: null, errors: ["not valid JSON."] };
-  }
-  if (!isRecord2(voice) || !Array.isArray(voice.rounds)) {
-    return { ok: false, voice: null, errors: ["must be an object with a `rounds` list."] };
-  }
-  const errors = unknownFields(voice, TOP_FIELDS, "voice.json");
-  if (voice.rounds.length === 0) errors.push("`rounds` holds no round.");
-  const seen = /* @__PURE__ */ new Set();
-  voice.rounds.forEach((round, i) => {
-    const stage = isRecord2(round) ? round.stage : void 0;
-    const known = typeof stage === "string" && STAGE.test(stage);
-    const name = known ? `round ${stage}` : `round ${i + 1}`;
-    if (!known) errors.push(`${name}: stage ${JSON.stringify(stage ?? null)} is not one of ${STAGES_SAID}.`);
-    else if (seen.has(stage)) errors.push(`${name}: the stage comes twice.`);
-    if (known) seen.add(stage);
-    errors.push(...roundProblems(round).map((problem) => `${name}: ${problem}`));
-  });
-  if (errors.length) return { ok: false, voice: null, errors };
-  const read = VoiceSchema.safeParse(voice);
-  if (!read.success) return { ok: false, voice: null, errors: read.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`) };
-  return { ok: true, voice: read.data, errors: [] };
-}
-
 // kit/lib/inbox/check-inbox.ts
 function knownAreas(ctx) {
-  const dir = join13(ctx.root, domainsDir(ctx));
-  if (!existsSync14(dir)) return /* @__PURE__ */ new Set();
+  const dir = join18(ctx.root, domainsDir(ctx));
+  if (!existsSync17(dir)) return /* @__PURE__ */ new Set();
   return new Set(
-    readdirSync6(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+    readdirSync7(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
 }
-function violationsForFile(file, folder, text8, ctx) {
-  const parsed2 = parseSpec(text8, { file });
+function violationsForFile(file, folder, text10, ctx) {
+  const parsed2 = parseSpec(text10, { file });
   if (!parsed2.ok) {
     return { record: null, violations: parsed2.errors };
   }
@@ -4596,7 +4283,7 @@ function violationsForFile(file, folder, text8, ctx) {
       `${file}: prd ${record.prd} does not agree with its folder's number, ${folderPrd} ("${folder}").`
     );
   }
-  if (record.areas?.length && existsSync14(join13(ctx.root, ctx.layout.knowledgeRoot))) {
+  if (record.areas?.length && existsSync17(join18(ctx.root, ctx.layout.knowledgeRoot))) {
     const known = knownAreas(ctx);
     for (const area2 of record.areas) {
       if (!known.has(area2)) {
@@ -4621,36 +4308,36 @@ function blockedByViolations(records, ctx) {
   return violations;
 }
 function beforeAfterViolation(file, ctx) {
-  const absolute = join13(ctx.root, file);
-  if (!existsSync14(absolute)) return null;
+  const absolute = join18(ctx.root, file);
+  if (!existsSync17(absolute)) return null;
   const { size } = statSync3(absolute);
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
 function voiceViolations(file, ctx) {
-  if (!existsSync14(join13(ctx.root, file))) return [];
+  if (!existsSync17(join18(ctx.root, file))) return [];
   return parseVoice(readRepoFile(ctx, file)).errors.map((error) => `${file}: ${error}`);
 }
 function gradeFolder(specFile, ctx) {
-  const folder = basename4(dirname3(specFile));
+  const folder = basename5(dirname4(specFile));
   const violations = [];
   let record = null;
-  if (!existsSync14(join13(ctx.root, specFile))) {
+  if (!existsSync17(join18(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
-    const text8 = readRepoFile(ctx, specFile);
-    const graded = violationsForFile(specFile, folder, text8, ctx);
+    const text10 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text10, ctx);
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
-  const beforeAfter = beforeAfterViolation(`${dirname3(specFile)}/before-after.html`, ctx);
+  const beforeAfter = beforeAfterViolation(`${dirname4(specFile)}/before-after.html`, ctx);
   if (beforeAfter) violations.push(beforeAfter);
-  violations.push(...voiceViolations(`${dirname3(specFile)}/${VOICE_FILE}`, ctx));
+  violations.push(...voiceViolations(`${dirname4(specFile)}/${VOICE_FILE}`, ctx));
   return { violations, record };
 }
 function inboxViolationsFor({ ctx, prd }) {
   const wanted = Number(prd);
-  const specFile = ctx.layout.specFiles().find((file) => parseFolderName(basename4(dirname3(file)))?.prd === wanted);
+  const specFile = ctx.layout.specFiles().find((file) => parseFolderName(basename5(dirname4(file)))?.prd === wanted);
   if (specFile === void 0) return [`PRD ${wanted} has no inbox folder.`];
   const { violations, record } = gradeFolder(specFile, ctx);
   return [...violations, ...blockedByViolations(record ? [record] : [], ctx)];
@@ -4672,13 +4359,13 @@ function evaluate({
   comments = [],
   now = () => (/* @__PURE__ */ new Date()).toISOString()
 }) {
-  const configFile = join15(base, CONFIG_FILE);
-  if (!existsSync16(configFile)) {
+  const configFile = join20(base, CONFIG_FILE);
+  if (!existsSync19(configFile)) {
     return skipped(NOT_ACTIVE_ON_REPO, `No \`${CONFIG_FILE}\` on the base branch \`${pr.baseRef}\`.`);
   }
   let config;
   try {
-    config = parseConfig(readFileSync9(configFile, "utf8"), CONFIG_FILE);
+    config = parseConfig(readFileSync14(configFile, "utf8"), CONFIG_FILE);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     const [firstLine3 = ""] = error.message.split("\n");
@@ -4691,7 +4378,7 @@ function evaluate({
   const knowledge = config.laws.source === "knowledge" ? diskSource(base) : null;
   if (kind.kind === "fix") return fixVerdict2(kind.topic, { ctx, labels, changes: changes ?? [], base: knowledge, comments, now });
   if (kind.kind !== "feature") return lawsVerdict(kind.kind, { ctx, changes: changes ?? [], base: knowledge });
-  const prd = prdOfTopic(kind.topic, prdDirs(config).flatMap((dir) => folderNames(join15(ctx.root, dir))), config);
+  const prd = prdOfTopic(kind.topic, prdDirs(config).flatMap((dir) => folderNames(join20(ctx.root, dir))), config);
   if ("skip" in prd) return skipped(NOT_ACTIVE_ON_PR, prd.skip);
   const result = gateResult(prd.number, { ctx, labels, changes, base: knowledge });
   return {
@@ -4731,7 +4418,7 @@ var LAWS_PR = Object.freeze({ knowledge: "Knowledge PR", law: "Enforce PR" });
 function lawsVerdict(kind, { ctx, changes, base }) {
   const laws = lawsTouched(changes, { ctx, base });
   const what = LAWS_PR[kind];
-  const title = laws.length === 0 ? `${what}: no law touched` : `${what}: ${plural2(laws.length, "law")} touched`;
+  const title = laws.length === 0 ? `${what}: no law touched` : `${what}: ${plural(laws.length, "law")} touched`;
   const summary2 = [
     `${what}: never blocked. A person merging it answers every change to a law it holds.`,
     ...laws.length > 0 ? ["Laws this range touches:", ...lawLines(laws)] : ["It touches no law."]
@@ -4794,17 +4481,17 @@ function deferredOutput(plan, planPr) {
   };
 }
 function folderNames(absolute) {
-  if (!existsSync16(absolute)) return [];
-  return readdirSync8(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  if (!existsSync19(absolute)) return [];
+  return readdirSync9(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 }
-var plural2 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+var plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 function conclusionOf(result, noun = { unaccounted: "unaccounted risky change", suffix: "" }) {
   const reasons = [];
-  if (result.items.length > 0) reasons.push(plural2(result.items.length, "open outbox item"));
+  if (result.items.length > 0) reasons.push(plural(result.items.length, "open outbox item"));
   if (result.unreworked.length > 0) reasons.push("unreworked drift");
   const unaccounted = result.unaccounted ?? [];
   if (unaccounted.length > 0) {
-    reasons.push(`${plural2(unaccounted.length, noun.unaccounted)}${noun.suffix}`);
+    reasons.push(`${plural(unaccounted.length, noun.unaccounted)}${noun.suffix}`);
   }
   if (reasons.length === 0) return { conclusion: "success", title: "Outbox clear" };
   if (result.overridden) {
@@ -4828,6 +4515,116 @@ function planComment(prd, { ctx, comments, now }) {
   upsertOutboxPrComment({ prd, ctx, now }, client);
   return plan;
 }
+
+// apps/omni-app/src/inngest-client.ts
+import { Inngest } from "inngest";
+import { z as z17 } from "zod";
+var APP_ID = "omni-loop";
+var OUTBOX_CHECK_EVENT = "omni-loop/outbox.check.requested";
+var INBOX_CHECK_EVENT = "omni-loop/inbox.check.requested";
+var INBOX_EXTERNAL_ID = "omni-loop/inbox";
+var RETRO_EVENT = "omni-loop/retro.requested";
+var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
+var inngest = new Inngest({ id: APP_ID });
+var SourceSchema = z17.looseObject({
+  installationId: z17.number(),
+  owner: z17.string(),
+  repo: z17.string(),
+  repository: z17.string()
+});
+var CheckRequestDataSchema = SourceSchema.extend({
+  prNumber: PrNumberSchema,
+  headSha: z17.string(),
+  trigger: z17.string().optional()
+});
+var CanonFactsSchema = z17.object({
+  prd: PrdNumberSchema,
+  persona: z17.string().nullable(),
+  claims: z17.array(z17.string())
+});
+var CanonActionRequestDataSchema = SourceSchema.extend({
+  prNumber: PrNumberSchema,
+  headSha: z17.string().optional(),
+  checkRunId: z17.number().optional(),
+  action: z17.string(),
+  facts: CanonFactsSchema
+});
+var FailureEventDataSchema = z17.looseObject({
+  event: z17.looseObject({ data: z17.unknown() }),
+  error: z17.looseObject({ message: z17.unknown() }).nullish()
+});
+
+// apps/omni-app/src/outbox-check/github.ts
+import { mkdtempSync as mkdtempSync3, readFileSync as readFileSync16, rmSync as rmSync4 } from "node:fs";
+import { tmpdir as tmpdir3 } from "node:os";
+import { join as join23 } from "node:path";
+
+// apps/omni-app/src/outbox-check/github-schema.ts
+import { z as z18 } from "zod";
+var Label = z18.union([z18.string(), z18.looseObject({ name: z18.string().nullish() })]);
+var labelName2 = (label2) => typeof label2 === "string" ? label2 : label2.name ?? void 0;
+var PullSchema = z18.looseObject({
+  base: z18.looseObject({ ref: z18.string(), sha: z18.string() }),
+  head: z18.looseObject({ ref: z18.string(), sha: z18.string() }),
+  labels: z18.array(Label).nullish(),
+  body: z18.string().nullish()
+});
+var PullsPageSchema = z18.array(z18.looseObject({ number: z18.number(), body: z18.string().nullish() }));
+var PullHeadSchema = z18.looseObject({ head: z18.looseObject({ sha: z18.string() }) });
+var IssueSchema = z18.looseObject({
+  state: z18.string(),
+  labels: z18.array(Label).nullish(),
+  pull_request: z18.unknown().optional()
+});
+var CreatedSchema = z18.looseObject({ id: z18.number() });
+var CommentWrittenSchema = z18.looseObject({ id: CommentIdSchema });
+var CommentsPageSchema = z18.array(z18.looseObject({ id: CommentIdSchema, body: z18.string().nullish() }));
+var ComparePageSchema = z18.looseObject({
+  files: z18.array(z18.looseObject({ filename: z18.string(), status: z18.string() })).nullish(),
+  commits: z18.array(z18.looseObject({ sha: z18.string(), commit: z18.looseObject({ message: z18.string().nullish() }).nullish() })).nullish()
+});
+var CheckRunsSchema = z18.looseObject({
+  check_runs: z18.array(z18.looseObject({ id: z18.number(), status: z18.string().nullish() })).nullish()
+});
+var TreeEntrySchema = z18.looseObject({
+  path: z18.string(),
+  mode: z18.string(),
+  type: z18.string(),
+  sha: z18.string(),
+  size: z18.number().nullish()
+});
+var TreeSchema = z18.looseObject({ truncated: z18.boolean().nullish(), tree: z18.array(TreeEntrySchema) });
+var BlobSchema = z18.looseObject({ content: z18.string(), encoding: z18.string().nullish() });
+var RefSchema = z18.looseObject({ object: z18.looseObject({ sha: z18.string() }) });
+var GitCommitSchema = z18.looseObject({ tree: z18.looseObject({ sha: z18.string() }) });
+var ShaSchema = z18.looseObject({ sha: z18.string() });
+var PullWrittenSchema = z18.looseObject({ number: PrNumberSchema, html_url: z18.string() });
+var PullsSchema = z18.array(
+  z18.looseObject({
+    number: PrNumberSchema,
+    html_url: z18.string(),
+    state: z18.string(),
+    merged_at: z18.string().nullish(),
+    head: z18.looseObject({ sha: z18.string().nullish() }).nullish()
+  })
+);
+var FailureSchema = z18.looseObject({ status: z18.unknown(), message: z18.unknown() }).partial();
+function statusOf(error) {
+  const read = FailureSchema.safeParse(error);
+  return read.success ? read.data.status : void 0;
+}
+function messageField(error) {
+  const read = FailureSchema.safeParse(error);
+  return read.success ? read.data.message : void 0;
+}
+function messageOf3(error) {
+  return messageField(error) ?? error;
+}
+function firstLine(reason2) {
+  const said = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
+  return said.split("\n")[0] || "unknown error";
+}
+var printed = (value) => String(value);
 
 // apps/omni-app/src/publish/publish.ts
 var DEFAULT_CHECK_NAME = ConfigSchema.parse({ kit: 1 }).ci.outboxContext;
@@ -4884,9 +4681,9 @@ var oneLine = (title) => title.split("\n")[0] ?? "";
 var bounded = (summary2) => summary2.length <= MAX_SUMMARY ? summary2 : summary2.slice(0, MAX_SUMMARY - TRUNCATED.length) + TRUNCATED;
 
 // apps/omni-app/src/snapshot/snapshot.ts
-import { mkdirSync as mkdirSync2, mkdtempSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { mkdirSync as mkdirSync3, mkdtempSync, writeFileSync as writeFileSync5 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname as dirname4, join as join16 } from "node:path";
+import { dirname as dirname5, join as join21 } from "node:path";
 var MAX_FILES = 2e3;
 var MAX_BYTES = 20 * 1024 * 1024;
 var BLOB_CONCURRENCY = 16;
@@ -4930,15 +4727,15 @@ async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
       `The snapshot holds ${bytes.toLocaleString("en-US")} bytes, over the bound of 20 MB.`
     );
   }
-  const folder = dest ?? mkdtempSync(join16(tmpdir(), "omni-snapshot-"));
+  const folder = dest ?? mkdtempSync(join21(tmpdir(), "omni-snapshot-"));
   const queue = [...list2];
   const fetchNext = async () => {
     for (let file = queue.shift(); file; file = queue.shift()) {
       const { data: answer } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
       const data = BlobSchema.parse(answer);
-      const target2 = join16(folder, ...repositoryPath(file.path));
-      mkdirSync2(dirname4(target2), { recursive: true });
-      writeFileSync3(target2, Buffer.from(data.content, data.encoding === "base64" ? "base64" : "utf8"));
+      const target2 = join21(folder, ...repositoryPath(file.path));
+      mkdirSync3(dirname5(target2), { recursive: true });
+      writeFileSync5(target2, Buffer.from(data.content, data.encoding === "base64" ? "base64" : "utf8"));
     }
   };
   await Promise.all(Array.from({ length: Math.min(BLOB_CONCURRENCY, queue.length) }, fetchNext));
@@ -4972,55 +4769,55 @@ async function filesUnder(tree, ref, segments) {
 var isRegular = (entry) => entry.mode === "100644" || entry.mode === "100755";
 
 // apps/omni-app/src/retro/github.ts
-import { mkdtempSync as mkdtempSync2, readFileSync as readFileSync10, rmSync as rmSync2 } from "node:fs";
+import { mkdtempSync as mkdtempSync2, readFileSync as readFileSync15, rmSync as rmSync3 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join17 } from "node:path";
+import { join as join22 } from "node:path";
 
 // apps/omni-app/src/retro/github.schema.ts
-import { z as z20 } from "zod";
-var label = z20.union([z20.string(), z20.object({ name: z20.string() })]);
-var PullSchema2 = z20.object({
+import { z as z19 } from "zod";
+var label = z19.union([z19.string(), z19.object({ name: z19.string() })]);
+var PullSchema2 = z19.object({
   number: PrNumberSchema,
-  title: z20.string().nullish(),
-  html_url: z20.string().nullish(),
-  state: z20.string().nullish(),
-  draft: z20.boolean().nullish(),
-  merged: z20.boolean().nullish(),
-  base: z20.object({ ref: z20.string() }),
-  head: z20.object({ ref: z20.string(), sha: z20.string() }),
-  created_at: z20.string().nullish(),
-  closed_at: z20.string().nullish(),
-  merged_at: z20.string().nullish(),
-  merge_commit_sha: z20.string().nullish(),
-  labels: z20.array(label).nullish()
+  title: z19.string().nullish(),
+  html_url: z19.string().nullish(),
+  state: z19.string().nullish(),
+  draft: z19.boolean().nullish(),
+  merged: z19.boolean().nullish(),
+  base: z19.object({ ref: z19.string() }),
+  head: z19.object({ ref: z19.string(), sha: z19.string() }),
+  created_at: z19.string().nullish(),
+  closed_at: z19.string().nullish(),
+  merged_at: z19.string().nullish(),
+  merge_commit_sha: z19.string().nullish(),
+  labels: z19.array(label).nullish()
 });
-var ListSchema = z20.array(z20.unknown());
-var PullsSchema2 = z20.array(PullSchema2.extend({ state: z20.string(), created_at: z20.string() }));
-var RetroPullsSchema = z20.array(z20.object({ number: PrNumberSchema, state: z20.string(), html_url: z20.string() }));
-var InstallationSchema = z20.object({ id: z20.number() });
-var TreeSchema2 = z20.object({
-  tree: z20.array(z20.object({ path: z20.string(), type: z20.string(), sha: z20.string() }))
+var ListSchema = z19.array(z19.unknown());
+var PullsSchema2 = z19.array(PullSchema2.extend({ state: z19.string(), created_at: z19.string() }));
+var RetroPullsSchema = z19.array(z19.object({ number: PrNumberSchema, state: z19.string(), html_url: z19.string() }));
+var InstallationSchema = z19.object({ id: z19.number() });
+var TreeSchema2 = z19.object({
+  tree: z19.array(z19.object({ path: z19.string(), type: z19.string(), sha: z19.string() }))
 });
-var ContentSchema = z20.union([
-  z20.array(z20.unknown()),
-  z20.object({ type: z20.string(), content: z20.string().nullish(), encoding: z20.string().nullish() })
+var ContentSchema = z19.union([
+  z19.array(z19.unknown()),
+  z19.object({ type: z19.string(), content: z19.string().nullish(), encoding: z19.string().nullish() })
 ]);
-var BlobSchema2 = z20.object({ content: z20.string().nullish(), encoding: z20.string().nullish() });
-var RefSchema2 = z20.object({ object: z20.object({ sha: z20.string() }) });
-var IssuesSchema = z20.array(
-  z20.object({
+var BlobSchema2 = z19.object({ content: z19.string().nullish(), encoding: z19.string().nullish() });
+var RefSchema2 = z19.object({ object: z19.object({ sha: z19.string() }) });
+var IssuesSchema = z19.array(
+  z19.object({
     number: IssueNumberSchema,
-    html_url: z20.string(),
-    state: z20.string(),
-    title: z20.string(),
-    body: z20.string().nullish(),
-    pull_request: z20.unknown().optional()
+    html_url: z19.string(),
+    state: z19.string(),
+    title: z19.string(),
+    body: z19.string().nullish(),
+    pull_request: z19.unknown().optional()
   })
 );
-var CreatedIssueSchema = z20.object({ number: IssueNumberSchema, html_url: z20.string() });
-var CreatedCommentSchema = z20.object({ id: CommentIdSchema });
-var RetroDocSchema = z20.object({ runs: z20.array(z20.unknown()).catch([]) }).catch({ runs: [] });
-var RetroLessonsSchema = z20.object({ lessons: z20.array(z20.object({ text: z20.unknown() }).catch({ text: null })).catch([]) }).catch({ lessons: [] });
+var CreatedIssueSchema = z19.object({ number: IssueNumberSchema, html_url: z19.string() });
+var CreatedCommentSchema = z19.object({ id: CommentIdSchema });
+var RetroDocSchema = z19.object({ runs: z19.array(z19.unknown()).catch([]) }).catch({ runs: [] });
+var RetroLessonsSchema = z19.object({ lessons: z19.array(z19.object({ text: z19.unknown() }).catch({ text: null })).catch([]) }).catch({ lessons: [] });
 function parseGitHub(schema, value, route) {
   return parseOrThrow(schema, value, `${route} answered an unexpected shape`);
 }
@@ -5104,12 +4901,12 @@ async function listFolder(octokit, { owner, repo, ref, path }) {
   return data.tree.map((entry) => ({ name: entry.path, type: entry.type }));
 }
 async function readFiles(octokit, { owner, repo, ref, paths }) {
-  const folder = mkdtempSync2(join17(tmpdir2(), "omni-retro-"));
+  const folder = mkdtempSync2(join22(tmpdir2(), "omni-retro-"));
   try {
     await snapshot(octokit, { owner, repo, ref, paths, dest: folder });
-    return Object.fromEntries(paths.map((path) => [path, readOrNull(join17(folder, path))]));
+    return Object.fromEntries(paths.map((path) => [path, readOrNull(join22(folder, path))]));
   } finally {
-    rmSync2(folder, { recursive: true, force: true });
+    rmSync3(folder, { recursive: true, force: true });
   }
 }
 async function readContent2(octokit, { owner, repo, ref, path }) {
@@ -5128,7 +4925,7 @@ function statusOf2(error) {
 }
 function readOrNull(file) {
   try {
-    return readFileSync10(file, "utf8");
+    return readFileSync15(file, "utf8");
   } catch {
     return null;
   }
@@ -5164,14 +4961,14 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
-  let text8;
+  let text10;
   try {
-    text8 = readFileSync11(join18(folder, CONFIG_FILE), "utf8");
+    text10 = readFileSync16(join23(folder, CONFIG_FILE), "utf8");
   } catch {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text8, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
+    return { folder, config: parseConfig(text10, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -5179,12 +4976,12 @@ async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnkno
 }
 async function checkTarget(octokit, { owner, repo, prNumber, headSha }) {
   const pr = await readPull2(octokit, { owner, repo, prNumber });
-  const folder = mkdtempSync3(join18(tmpdir3(), "omni-name-"));
+  const folder = mkdtempSync3(join23(tmpdir3(), "omni-name-"));
   let read;
   try {
     read = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: folder });
   } finally {
-    rmSync3(folder, { recursive: true, force: true });
+    rmSync4(folder, { recursive: true, force: true });
   }
   const { config, error } = read;
   if (!config && !error) return { active: false, name: DEFAULT_CHECK_NAME, gated: false, reason: null };
@@ -5204,10 +5001,10 @@ async function checkTarget(octokit, { owner, repo, prNumber, headSha }) {
 }
 async function planPrOf(octokit, plan) {
   const [owner = "", repo = ""] = plan.repo.split("/");
-  const closes = new RegExp(`Closes #${plan.prd}(?!\\d)`);
+  const closes2 = new RegExp(`Closes #${plan.prd}(?!\\d)`);
   try {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, state: "open", per_page: PER_PAGE });
-    return PullsPageSchema.parse(data).find((pull) => closes.test(pull.body ?? ""))?.number ?? null;
+    return PullsPageSchema.parse(data).find((pull) => closes2.test(pull.body ?? ""))?.number ?? null;
   } catch (error) {
     if (statusOf3(error) === 403 || statusOf3(error) === 404) return null;
     throw error;
@@ -5217,14 +5014,14 @@ function statusOf3(error) {
   return typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : null;
 }
 async function folderNamesAt(octokit, { owner, repo, ref, dir }) {
-  const treeAt = async (treeSha2) => TreeSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/trees/{tree_sha}", { owner, repo, tree_sha: treeSha2 })).data).tree;
+  const treeAt2 = async (treeSha2) => TreeSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/trees/{tree_sha}", { owner, repo, tree_sha: treeSha2 })).data).tree;
   let treeSha = ref;
   for (const segment of dir.split("/").filter(Boolean)) {
-    const entry = (await treeAt(treeSha)).find((candidate) => candidate.path === segment && candidate.type === "tree");
+    const entry = (await treeAt2(treeSha)).find((candidate) => candidate.path === segment && candidate.type === "tree");
     if (!entry) return [];
     treeSha = entry.sha;
   }
-  return (await treeAt(treeSha)).filter((entry) => entry.type === "tree").map((entry) => entry.path);
+  return (await treeAt2(treeSha)).filter((entry) => entry.type === "tree").map((entry) => entry.path);
 }
 async function listComments(octokit, { owner, repo, prNumber }) {
   const comments = await paginate(
@@ -5325,12 +5122,691 @@ async function completeOpen(octokit, {
   return [CreatedSchema.parse(created).id];
 }
 
-// apps/omni-app/src/inbox-check/canon-actions.ts
+// apps/omni-app/src/approved-check/events.ts
+import { z as z20 } from "zod";
+var APPROVED_CHECK_EVENT = "omni-loop/approved.check.requested";
+var APPROVED_LABEL_EVENT = "omni-loop/approved.label.changed";
+var SourceSchema2 = z20.looseObject({
+  installationId: z20.number(),
+  owner: z20.string(),
+  repo: z20.string(),
+  repository: z20.string(),
+  trigger: z20.string().optional()
+});
+var ApprovedCheckDataSchema = SourceSchema2.extend({ prNumber: PrNumberSchema, headSha: z20.string().optional() });
+var ApprovedLabelDataSchema = SourceSchema2.extend({ prd: PrdNumberSchema });
+
+// apps/omni-app/src/approved-check/github.ts
+import { mkdtempSync as mkdtempSync4, rmSync as rmSync5 } from "node:fs";
+import { tmpdir as tmpdir4 } from "node:os";
+import { join as join24 } from "node:path";
 import { z as z21 } from "zod";
+
+// apps/omni-app/src/approved-check/subject.ts
+function partOf(body, slug) {
+  return body.trimStart().startsWith("Part of ") ? planPrdOf(body, slug) : null;
+}
+function subjectOf(pr, config, slug) {
+  if (pr.baseRef !== config.repo.defaultBranch) return { skip: `The base \`${pr.baseRef}\` is not the default branch.` };
+  const target2 = partOf(pr.body, slug);
+  if (target2) return { kind: "target", ...target2 };
+  const kind = pullKind(pr, config);
+  if ("skip" in kind) return kind;
+  if (kind.kind !== "feature") return { skip: `A ${kind.kind} pull request names no PRD.` };
+  return { kind: "feature", topic: kind.topic };
+}
+
+// apps/omni-app/src/approved-check/github.ts
+async function configAt(octokit, { owner, repo, ref }) {
+  const folder = mkdtempSync4(join24(tmpdir4(), "omni-approved-config-"));
+  try {
+    return (await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder })).config;
+  } finally {
+    rmSync5(folder, { recursive: true, force: true });
+  }
+}
+async function folderNamesAt2(octokit, { owner, repo, ref, dir }) {
+  let entries = await treeAt(octokit, { owner, repo, sha: ref });
+  for (const segment of dir.split("/").filter(Boolean)) {
+    const entry = entries.find((candidate) => candidate.path === segment && candidate.type === "tree");
+    if (!entry) return [];
+    entries = await treeAt(octokit, { owner, repo, sha: entry.sha });
+  }
+  return entries.filter((entry) => entry.type === "tree").map((entry) => entry.path);
+}
+async function treeAt(octokit, { owner, repo, sha }) {
+  const { data } = await octokit.request("GET /repos/{owner}/{repo}/git/trees/{tree_sha}", { owner, repo, tree_sha: sha });
+  return TreeSchema.parse(data).tree;
+}
+async function prdFolderAt(octokit, { owner, repo, ref, config, which }) {
+  for (const dir of prdDirs(config)) {
+    for (const name of await folderNamesAt2(octokit, { owner, repo, ref, dir })) {
+      const folder = parseFolderName(name);
+      if (folder && which(folder)) return { prd: folder.prd, dir: `${dir}/${name}` };
+    }
+  }
+  return null;
+}
+async function openPulls(octokit, { owner, repo }) {
+  return paginate(
+    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, state: "open", per_page: PER_PAGE, page }).then(({ data }) => PullsPageSchema.parse(data))
+  );
+}
+var closes = (prd) => new RegExp(`Closes #${Number(prd)}(?!\\d)`);
+async function featurePullOf(octokit, { slug, prd }) {
+  const [owner = "", repo = ""] = slug.split("/");
+  try {
+    for (const { number, body } of await openPulls(octokit, { owner, repo })) {
+      if (!closes(prd).test(body ?? "")) continue;
+      const pull = await readPull2(octokit, { owner, repo, prNumber: parsePr(number) });
+      const config = await configAt(octokit, { owner, repo, ref: pull.baseSha });
+      if (config && pull.baseRef === config.repo.defaultBranch) return { pull, config };
+    }
+  } catch (error) {
+    const status = statusOf(error);
+    if (status === 403 || status === 404) return { held: `${slug} cannot be read from this installation (${status})` };
+    throw error;
+  }
+  return { held: `${slug} has no open feature PR for PRD ${Number(prd)}` };
+}
+var SearchSchema = z21.looseObject({
+  items: z21.array(z21.looseObject({ number: z21.number(), body: z21.string().nullish(), repository_url: z21.string(), pull_request: z21.unknown().optional() }))
+});
+async function openPullsOfPrd(octokit, { owner, repo, prd }) {
+  const slug = `${owner}/${repo}`;
+  const here = (await openPulls(octokit, { owner, repo })).filter((pull) => closes(prd).test(pull.body ?? "")).map((pull) => ({ owner, repo, prNumber: parsePr(pull.number) }));
+  const { data } = await octokit.request("GET /search/issues", {
+    q: `"Part of ${slug}#${Number(prd)}" is:pr is:open user:${owner}`,
+    per_page: PER_PAGE
+  });
+  const targets = SearchSchema.parse(data).items.flatMap((item) => {
+    const [targetRepo = "", targetOwner = ""] = item.repository_url.split("/").reverse();
+    const part = partOf(item.body ?? "", `${targetOwner}/${targetRepo}`);
+    if (item.pull_request === void 0 || !part || part.repo.toLowerCase() !== slug.toLowerCase() || part.prd !== prd) return [];
+    return [{ owner: targetOwner, repo: targetRepo, prNumber: parsePr(item.number) }];
+  });
+  return [...here, ...targets];
+}
+async function postApprovedCheck(octokit, { owner, repo, name, headSha, output }) {
+  const { data } = await octokit.request("POST /repos/{owner}/{repo}/check-runs", {
+    owner,
+    repo,
+    name,
+    head_sha: headSha,
+    status: "completed",
+    conclusion: output.conclusion,
+    completed_at: (/* @__PURE__ */ new Date()).toISOString(),
+    ...output.detailsUrl ? { details_url: output.detailsUrl } : {},
+    output: { title: output.title, summary: output.summary }
+  });
+  return CreatedSchema.parse(data).id;
+}
+
+// apps/omni-app/src/approved-check/verdict.ts
+import { basename as basename6 } from "node:path";
+function attestationUrl(url, head) {
+  return `${url.replace(/\/+$/, "")}/attestation?head=${encodeURIComponent(head)}`;
+}
+function approvedOutput(prd, reading, head) {
+  const verdict = verdictOf(reading);
+  const detailsUrl = reading.url ? attestationUrl(reading.url, head) : null;
+  const summary2 = [...reading.lines, "", `Read against ${head}.`].join("\n");
+  switch (verdict) {
+    case "approved": {
+      const k = (reading.approval?.files ?? []).filter((file) => file.kind !== "voice").length;
+      return { verdict, conclusion: "success", title: `approved by @${reading.approval?.approver.login ?? "?"} \xB7 ${k}/${k} pinned files match`, summary: summary2, detailsUrl };
+    }
+    case "waiting":
+      return { verdict, conclusion: "neutral", title: `waits for approval: ${reading.url ?? ""}`, summary: summary2, detailsUrl };
+    case "drifted": {
+      const files = reading.drift.map((d) => `\u2260 ${basename6(d.file)} \xB7 ${d.how}`).join(" \xB7 ");
+      const restore = `omni approval restore ${Number(prd)}`;
+      return {
+        verdict,
+        conclusion: "failure",
+        title: `${files} \xB7 run ${restore}, or approve again`,
+        summary: [`Run \`${restore}\` to write each drifted file back to its approved content, or approve the PRD again on its page.`, "", summary2].join("\n"),
+        detailsUrl
+      };
+    }
+    case "held":
+      return { verdict, conclusion: "neutral", title: UNREACHABLE_LINE, summary: summary2, detailsUrl };
+  }
+}
+function heldReading(why) {
+  return { state: "unreachable", lines: [UNREACHABLE_LINE, why], url: null, approval: null, drift: [] };
+}
+
+// apps/omni-app/src/approved-check/approved-check.ts
+var APPROVED_FUNCTION_ID = "approved-check";
+var APPROVED_RERUN_FUNCTION_ID = "approved-rerun";
+var APPROVED_DEBOUNCE = Object.freeze({
+  key: 'event.data.repository + "#" + string(event.data.prNumber)',
+  period: "5s",
+  timeout: "1m"
+});
+var RERUN_DEBOUNCE = Object.freeze({
+  key: 'event.data.repository + "#" + string(event.data.prd)',
+  period: "5s",
+  timeout: "1m"
+});
+var nothing = (reason2) => ({ posted: false, reason: reason2 });
+function createApprovedCheck({
+  client,
+  octokitFor,
+  ask: ask3,
+  log = (line) => {
+    console.error(line);
+  }
+}) {
+  return client.createFunction(
+    {
+      id: APPROVED_FUNCTION_ID,
+      name: "omni-loop \xB7 approved",
+      triggers: [{ event: OUTBOX_CHECK_EVENT }, { event: APPROVED_CHECK_EVENT }],
+      debounce: APPROVED_DEBOUNCE,
+      retries: 3
+    },
+    async ({ event, step }) => {
+      const { installationId, owner, repo, prNumber } = ApprovedCheckDataSchema.parse(event.data);
+      const where = `${owner}/${repo}#${prNumber}`;
+      const judged3 = await step.run("judge", () => budgeted(where, log, async () => judgePull(await octokitFor(installationId), { owner, repo, prNumber }, ask3)));
+      if ("posted" in judged3) return judged3;
+      const checkRunId = await step.run("post", () => budgeted(where, log, async () => postApprovedCheck(await octokitFor(installationId), { owner, repo, name: judged3.name, headSha: judged3.headSha, output: judged3.output })));
+      return { checkRunId, name: judged3.name, conclusion: judged3.output.conclusion, title: judged3.output.title };
+    }
+  );
+}
+function createApprovedRerun({
+  client,
+  octokitFor,
+  log = (line) => {
+    console.error(line);
+  }
+}) {
+  return client.createFunction(
+    {
+      id: APPROVED_RERUN_FUNCTION_ID,
+      name: "omni-loop \xB7 approved, rerun",
+      triggers: [{ event: APPROVED_LABEL_EVENT }],
+      debounce: RERUN_DEBOUNCE,
+      retries: 3
+    },
+    async ({ event, step }) => {
+      const { installationId, owner, repo, prd, trigger } = ApprovedLabelDataSchema.parse(event.data);
+      const pulls = await step.run("find", () => budgeted(`${owner}/${repo} PRD ${Number(prd)}`, log, async () => openPullsOfPrd(await octokitFor(installationId), { owner, repo, prd })));
+      if (pulls.length === 0) return { rerun: [] };
+      await step.sendEvent("rerun", pulls.map((pull) => rerunOf(installationId, pull, trigger)));
+      return { rerun: pulls.map((pull) => `${pull.owner}/${pull.repo}#${pull.prNumber}`) };
+    }
+  );
+}
+function rerunOf(installationId, pull, trigger) {
+  const data = { installationId, owner: pull.owner, repo: pull.repo, repository: `${pull.owner}/${pull.repo}`, prNumber: pull.prNumber };
+  return { name: APPROVED_CHECK_EVENT, data: trigger === void 0 ? data : { ...data, trigger } };
+}
+async function judgePull(octokit, { owner, repo, prNumber }, ask3) {
+  const pr = await readPull2(octokit, { owner, repo, prNumber });
+  const config = await configAt(octokit, { owner, repo, ref: pr.baseSha });
+  if (!config) return nothing(NOT_ACTIVE_ON_REPO);
+  const subject = subjectOf(pr, config, `${owner}/${repo}`);
+  if ("skip" in subject) return nothing(subject.skip);
+  const check = (prd, reading2, read) => ({ name: config.ci.approvedContext, headSha: pr.headSha, prd, output: approvedOutput(prd, reading2, read) });
+  let source;
+  if (subject.kind === "feature") {
+    source = { owner, repo, ref: pr.headSha, config, which: (folder2) => folder2.topic === subject.topic };
+  } else {
+    const feature = await featurePullOf(octokit, { slug: subject.repo, prd: subject.prd });
+    if ("held" in feature) return check(subject.prd, heldReading(feature.held), pr.headSha);
+    const [planOwner = "", planRepo = ""] = subject.repo.split("/");
+    source = { owner: planOwner, repo: planRepo, ref: feature.pull.headSha, config: feature.config, which: (folder2) => folder2.prd === subject.prd };
+  }
+  const folder = await prdFolderAt(octokit, source);
+  if (!folder) return nothing(`No PRD folder for this pull request at ${source.ref}.`);
+  const reading = await readingAt(octokit, source, folder, ask3);
+  return reading ? check(folder.prd, reading, source.ref) : nothing(`PRD ${Number(folder.prd)} was born in its repository (\u25C7): its phase-0 PR approved it.`);
+}
+async function readingAt(octokit, source, folder, ask3) {
+  const { owner, repo, ref, config } = source;
+  const root = mkdtempSync5(join25(tmpdir5(), "omni-approved-"));
+  try {
+    try {
+      await snapshot(octokit, { owner, repo, ref, paths: [folder.dir], dest: root });
+    } catch (error) {
+      if (error instanceof SnapshotBoundError) return heldReading(error.message);
+      throw error;
+    }
+    const ctx = { root, layout: foldersLayout(root, config.paths) };
+    if (birthplaceOf(ctx, folder.prd) !== "server") return null;
+    const answer = await ask3(`${owner}/${repo}`, folder.prd);
+    if ("held" in answer) return heldReading(answer.held);
+    const kept3 = new Set(ARTIFACT_KINDS.map((entry) => entry.kind));
+    const elsewhere = (answer.reply.approval?.files ?? []).filter((file) => !kept3.has(file.kind)).map((file) => file.path);
+    if (elsewhere.length > 0) await snapshot(octokit, { owner, repo, ref, paths: elsewhere, dest: root });
+    return judgeApproval(folder.prd, answer.reply, checkoutTree(ctx, folder.prd));
+  } finally {
+    rmSync6(root, { recursive: true, force: true });
+  }
+}
+function refusalOf(error) {
+  for (let cause = error, depth = 0; cause instanceof Error && depth < 4; cause = cause.cause, depth += 1) {
+    if (cause instanceof GithubPaused || cause instanceof GithubDeferred) return cause;
+  }
+  return null;
+}
+async function budgeted(where, log, work) {
+  try {
+    return await work();
+  } catch (error) {
+    const refused3 = refusalOf(error);
+    if (!refused3) throw error;
+    log(`approved check of ${where} waits for the GitHub budget: ${refused3.message}`);
+    throw new RetryAfterError(refused3.message, new Date(refused3.until), { cause: refused3 });
+  }
+}
+
+// apps/omni-app/src/approved-check/judge-client.ts
+import { createHmac as createHmac2 } from "node:crypto";
+
+// apps/omni-app/src/stage-forward/stage-forward.ts
+import { createHmac } from "node:crypto";
+import { z as z22 } from "zod";
+var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
+var DEFAULT_SHAPES = (() => {
+  const { branches, prLinks, labels } = parseConfig("kit: 1");
+  return Object.freeze({ branches, prLinks, approved: labels.approved });
+})();
+var PullEventSchema = z22.looseObject({
+  action: z22.unknown(),
+  repository: z22.looseObject({ full_name: z22.string().min(1), default_branch: z22.string().nullish() }),
+  pull_request: z22.looseObject({
+    head: z22.looseObject({ ref: z22.string() }),
+    base: z22.looseObject({ ref: z22.string() }),
+    merged: z22.unknown(),
+    merged_at: z22.string().nullish(),
+    created_at: z22.string().nullish(),
+    updated_at: z22.string().nullish(),
+    body: z22.unknown()
+  })
+});
+var LabeledEventSchema = z22.looseObject({
+  action: z22.literal("labeled"),
+  repository: z22.looseObject({ full_name: z22.string().min(1) }),
+  label: z22.looseObject({ name: z22.string() }),
+  issue: z22.looseObject({ number: PrdNumberSchema, updated_at: z22.string().min(1), pull_request: z22.unknown().optional() })
+});
+function signStageEvent(secret, body) {
+  return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
+}
+function stageEventUrl(galaxyUrl) {
+  return `${galaxyUrl.replace(/\/+$/, "")}/api/stages/event`;
+}
+
+// apps/omni-app/src/approved-check/judge-client.ts
+var JUDGE_TIMEOUT_MS = 1e4;
+var SLUG = /^[\w.-]+\/[\w.-]+$/;
+function judgePath(repo, prd) {
+  if (!SLUG.test(repo)) throw new Error(`judge: "${repo}" is not an owner/name repository`);
+  return `/api/approvals/judge?repo=${repo}&prd=${Number(prd)}`;
+}
+function signJudge(secret, signed) {
+  return `sha256=${createHmac2("sha256", secret).update(signed).digest("hex")}`;
+}
+async function askJudge(repo, prd, { galaxyUrl, secret, fetch: get = fetch, timeoutMs = JUDGE_TIMEOUT_MS }) {
+  if (!secret) return { held: "STAGE_EVENT_SECRET is not set on the App" };
+  const path = judgePath(repo, prd);
+  let response;
+  try {
+    response = await get(`${galaxyUrl.replace(/\/+$/, "")}${path}`, {
+      method: "GET",
+      headers: { [STAGE_SIGNATURE_HEADER]: signJudge(secret, path) },
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (error) {
+    return { held: `galaxy did not answer: ${String(messageOf3(error))}` };
+  }
+  if (!response.ok) return { held: `galaxy answered ${response.status}` };
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    return { held: "galaxy answered no JSON" };
+  }
+  const reply = parseApprovalReply(body);
+  return reply ? { reply } : { held: "galaxy answered no approval" };
+}
+
+// apps/omni-app/src/canon/live.ts
+import { createClient } from "@supabase/supabase-js";
+
+// apps/omni-app/src/canon/canon.ts
+import { createHash as createHash2 } from "node:crypto";
+import { z as z24 } from "zod";
+
+// apps/omni-app/src/canon/schema.ts
+import { z as z23 } from "zod";
+var ClaimSchema = z23.looseObject({ id: z23.string(), kind: z23.string(), value: z23.string().nullish() });
+var PersonaSchema = z23.looseObject({
+  name: z23.string(),
+  who: z23.string().nullish(),
+  trade: z23.string().nullish(),
+  stance: z23.string().nullish(),
+  usage: z23.string().nullish()
+});
+var BusinessSchema = z23.looseObject({
+  business: z23.unknown().optional(),
+  claims: z23.array(ClaimSchema).nullish(),
+  personas: z23.array(PersonaSchema).nullish(),
+  updatedAt: z23.string().nullish()
+});
+var ConstituentSchema = z23.looseObject({ id: z23.string(), text: z23.string() });
+var ConstituentsSchema = z23.looseObject({
+  state: z23.string().nullish(),
+  statement: ConstituentSchema.nullish(),
+  never: z23.array(ConstituentSchema).nullish(),
+  latestEventId: z23.string().nullish()
+});
+var FindingSchema = z23.looseObject({ quote: z23.string(), claims: z23.array(z23.string()), why: z23.unknown().optional() });
+var ReplyPersonaSchema = z23.looseObject({ name: z23.unknown().optional(), line: z23.unknown().optional() });
+function parsed(schema, what, value) {
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  const [issue] = result.error.issues;
+  const field3 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
+  throw new Error(`the ${what} read is malformed: ${field3}: ${issue?.message ?? result.error.message}`);
+}
+var parseBusiness = (value) => parsed(BusinessSchema, "business", value);
+var parseConstituents = (value) => parsed(ConstituentsSchema, "constituents", value);
+
+// apps/omni-app/src/canon/canon.ts
+var CheckedReplySchema = z24.object({
+  findings: z24.array(z24.object({ quote: z24.string(), claims: z24.array(z24.string()), why: z24.string() })),
+  persona: z24.object({ name: z24.string(), line: z24.string() })
+});
+var CANON_GATE = "canon";
+var CANON_SPEC_LIMIT = 4e4;
+var MAX_QUOTE = 300;
+var CACHE_LIMIT = 200;
+var JUDGE_NOT_CONFIGURED = "no-secret";
+var plain = (text10) => (text10 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+function quoted3(text10, quote) {
+  const q = plain(quote);
+  return q.length > 0 && plain(text10).includes(q);
+}
+var SYSTEM = [
+  "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), the business claims its team confirmed, and its personas.",
+  "Report a finding only when the spec designs something that is not the product the Statement describes, breaks a Never line, or designs for a customer outside the size, trade or region claims.",
+  'Answer one JSON object and nothing else: {"findings": [{"quote", "claims", "why"}], "persona": {"name", "line"}}.',
+  "- quote: the exact words of the spec that break the claim, copied character for character, at most 300 characters.",
+  '- claims: the ids of what it breaks, exactly as given (e.g. "statement", "never#4", "size#1").',
+  "- why: one short sentence.",
+  "- persona: of the personas given, the one the spec fits worst, by name, and one line in their own voice about the spec, at most 200 characters. Empty name and line when there is no persona.",
+  'No finding when the spec fits: "findings": [].'
+].join("\n");
+var SCHEMA = Object.freeze({
+  name: "canon_findings",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["findings", "persona"],
+    properties: {
+      findings: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["quote", "claims", "why"],
+          properties: { quote: { type: "string" }, claims: { type: "array", items: { type: "string" } }, why: { type: "string" } }
+        }
+      },
+      persona: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "line"],
+        properties: { name: { type: "string" }, line: { type: "string" } }
+      }
+    }
+  }
+});
+function checkReply(value) {
+  if (!value || typeof value !== "object") return { errors: ["the reply must be one JSON object"], reply: null };
+  const items = "findings" in value ? value.findings : void 0;
+  if (!Array.isArray(items)) return { errors: ["findings: an array"], reply: null };
+  const parsed2 = items.map((item) => FindingSchema.safeParse(item));
+  const errors = parsed2.flatMap((result, i) => result.success ? [] : [`findings.${i}: {"quote": string, "claims": string[], "why": string}`]);
+  if (errors.length > 0) return { errors, reply: null };
+  const findings = parsed2.flatMap(
+    (result) => result.success ? [{ quote: result.data.quote.trim(), claims: result.data.claims.map((id) => id.trim()), why: text5(result.data.why) }] : []
+  );
+  const persona = ReplyPersonaSchema.safeParse("persona" in value ? value.persona ?? {} : {});
+  const { name, line } = persona.success ? persona.data : {};
+  return { errors, reply: { findings, persona: { name: text5(name), line: text5(line) } } };
+}
+var text5 = (value) => (value === void 0 || value === null ? "" : stringOf(value)).trim();
+var stringOf = (value) => String(value);
+var thrownMessage = (error) => error !== null && typeof error === "object" && "message" in error ? error.message : void 0;
+function userPrompt({ spec, claims, constituents, personas }) {
+  const constituentLines = constituents.length ? constituents.map((c) => `${c.id}: ${c.text}`) : ["(none)"];
+  const claimLines = claims.length ? claims.map((claim) => `${claim.id}: ${claim.kind} \u2014 ${claim.value}`) : ["(none)"];
+  const personaLines = personas.length ? personas.map((p) => `${p.name}: ${[p.who, p.trade, p.stance, p.usage].filter(Boolean).join("; ")}`) : ["(none)"];
+  return [
+    "Constituents (the Statement and the Never lines):",
+    ...constituentLines,
+    "",
+    "Claims (confirmed):",
+    ...claimLines,
+    "",
+    "Personas:",
+    ...personaLines,
+    "",
+    "The spec:",
+    '"""',
+    spec.slice(0, CANON_SPEC_LIMIT),
+    '"""'
+  ].join("\n");
+}
+var neutral = (reason2) => ({
+  name: CANON_GATE,
+  ok: true,
+  neutral: true,
+  reason: reason2,
+  details: [],
+  canon: { state: "neutral", reason: reason2, claimsRead: 0, findings: [], persona: null, judge: null }
+});
+function kept({ spec, reply, claims, constituents, personas }) {
+  const ids = /* @__PURE__ */ new Set([...claims.map((claim) => claim.id), ...constituents.map((c) => c.id)]);
+  const findings = [];
+  for (const finding of reply.findings) {
+    if (finding.quote.length > MAX_QUOTE || !quoted3(spec, finding.quote)) continue;
+    const cited = [...new Set(finding.claims.filter((id) => ids.has(id)))];
+    if (cited.length === 0) continue;
+    findings.push({ quote: finding.quote, claims: cited, why: finding.why });
+  }
+  const named = personas.find((p) => plain(p.name) === plain(reply.persona.name));
+  const persona = named && reply.persona.line ? { name: named.name, line: reply.persona.line.slice(0, 200) } : null;
+  return { findings, persona };
+}
+var plural2 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+function judged({ claims, constituents, findings, persona, judge: judge2 }) {
+  const claimsRead = claims.length;
+  if (findings.length === 0) {
+    const read = constituents.length ? `${plural2(claimsRead, "claim")}, ${plural2(constituents.length, "constituent")}` : plural2(claimsRead, "claim");
+    const reason3 = `canon \u2713 \xB7 ${read} read`;
+    return { name: CANON_GATE, ok: true, neutral: false, reason: reason3, details: [], canon: { state: "green", reason: reason3, claimsRead, findings, persona, judge: judge2 } };
+  }
+  const reason2 = `canon \u2717 ${findings.length}`;
+  const values = new Map([
+    ...claims.map((claim) => [claim.id, claim.value]),
+    ...constituents.map((c) => [c.id, c.text])
+  ]);
+  const details = findings.map(
+    (finding) => `${finding.claims.map((id) => `${id} "${values.get(id)}"`).join(", ")} \u2014 the spec: "${finding.quote}"`
+  );
+  if (persona) details.push(`${persona.name}: "${persona.line}"`);
+  if (judge2?.decidedBy === "jev") details.push(`judged by Jev (constituent-break, confidence ${judge2.confidence})`);
+  return { name: CANON_GATE, ok: false, neutral: false, title: reason2, reason: reason2, details, canon: { state: "red", reason: reason2, claimsRead, findings, persona, judge: judge2 } };
+}
+function liveConstituents(read) {
+  if (read?.state !== "ok") return [];
+  return [...read.statement ? [read.statement] : [], ...read.never ?? []].filter((c) => c.text.trim()).map((c) => ({ id: c.id, text: c.text.trim() }));
+}
+async function canonOf({ readBusiness, readConstituents }, repo) {
+  const business = await attempt(() => readBusiness(repo), "no business");
+  if (business.gate) return business;
+  if (!business.value) return { gate: neutral("no business: the App cannot read businesses here") };
+  const read = await attempt(() => readConstituents(repo), "no constituents");
+  if (read.gate) return read;
+  return enough(repo, business.value, read.value);
+}
+async function attempt(read, what) {
+  try {
+    return { value: await read() };
+  } catch (error) {
+    return { gate: neutral(`${what}: the read failed (${String(thrownMessage(error) ?? error)})`) };
+  }
+}
+function enough(repo, business, read) {
+  const constituents = liveConstituents(read);
+  const claims = business.claims ?? [];
+  if (constituents.length === 0 && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
+  if (constituents.length === 0 && claims.length === 0) {
+    return { gate: neutral("no confirmed claim or constituent for this repository's product") };
+  }
+  return { business, claims, personas: business.personas ?? [], constituents, version: read?.latestEventId ?? "" };
+}
+var isConstituent = (id) => id === "statement" || /^never#\d+$/.test(id);
+function judgeState({ spec, constituents, findings }) {
+  const statement2 = constituents.find((c) => c.id === "statement")?.text ?? null;
+  const never = constituents.filter((c) => c.id !== "statement");
+  const broken = findings.map((f) => ({ quote: f.quote, constituents: f.claims.filter(isConstituent), why: f.why.slice(0, 500) })).filter((f) => f.constituents.length > 0).slice(0, 50);
+  return { spec: spec.slice(0, CANON_SPEC_LIMIT), statement: statement2, never, verdict: { broken: broken.length > 0, findings: broken } };
+}
+function counted(findings, broken) {
+  if (broken) return findings;
+  return findings.map((f) => ({ ...f, claims: f.claims.filter((id) => !isConstituent(id)) })).filter((f) => f.claims.length > 0);
+}
+var NO_JUDGE = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: "no judge here" });
+function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge2 = NO_JUDGE, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
+  async function modelVerdict({ repo, spec, read }) {
+    const { business, claims, constituents, personas, version } = read;
+    const key = [repo, createHash2("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
+    const hit = cache.get(key);
+    if (hit) return hit;
+    const answer = await ask3({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, personas }), check: checkReply, schema: SCHEMA });
+    if (!answer.ok) {
+      return { gate: neutral(answer.error === NO_KEY ? `model not configured (${answer.reason})` : `model error: ${answer.reason}`) };
+    }
+    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, personas });
+    cache.set(key, verdict);
+    for (const oldest of cache.keys()) {
+      if (cache.size <= limit) break;
+      cache.delete(oldest);
+    }
+    return verdict;
+  }
+  return {
+    async grade({ repo, spec, ref = null }) {
+      const read = await canonOf({ readBusiness, readConstituents }, repo);
+      if (read.gate) return read.gate;
+      const { claims, constituents } = read;
+      const verdict = await modelVerdict({ repo, spec, read });
+      if (verdict.gate) return verdict.gate;
+      if (constituents.length === 0) return judged({ claims, constituents, ...verdict, judge: null });
+      const state = judgeState({ spec, constituents, findings: verdict.findings });
+      const said = await judge2({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      if (!said.ok) {
+        return neutral(said.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said.reason})` : `judge error: ${said.reason}`);
+      }
+      const findings = counted(verdict.findings, said.answer === "true");
+      return judged({ claims, constituents, findings, persona: verdict.persona, judge: { decidedBy: said.decidedBy, confidence: said.confidence } });
+    }
+  };
+}
+
+// apps/omni-app/src/canon/judge.ts
+import { z as z25 } from "zod";
+var JUDGE_SECRET_VAR = "CONSTITUENT_JUDGE_SECRET";
+var JUDGE_TIMEOUT_MS2 = 55e3;
+var VerdictSchema = z25.looseObject({
+  answer: z25.enum(["true", "false"]),
+  confidence: z25.number().nullable().catch(null),
+  decidedBy: z25.string().nullable().catch(null)
+});
+var RefusalSchema = z25.looseObject({ error: z25.unknown().optional() });
+function judgeUrl(galaxyUrl) {
+  return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/constituents/judge`;
+}
+var failed = (error, reason2) => ({ ok: false, error, answer: null, confidence: null, decidedBy: null, reason: reason2 });
+function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS2 }) {
+  return async ({ repo, state, old, ref }) => {
+    if (!secret) return failed(JUDGE_NOT_CONFIGURED, `${JUDGE_SECRET_VAR} is not set`);
+    const body = JSON.stringify({ repo, state, old, ref });
+    let response;
+    try {
+      response = await post(url, {
+        method: "POST",
+        body,
+        headers: { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+    } catch (error) {
+      return failed("judge", `galaxy could not be reached: ${String(thrownMessage(error) ?? error)}`);
+    }
+    const reply = await response.json().catch(() => null);
+    if (!response.ok) {
+      const refusal4 = RefusalSchema.safeParse(reply);
+      const said = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
+      return failed("judge", `galaxy answered ${response.status}${said}`);
+    }
+    const verdict = VerdictSchema.safeParse(reply);
+    if (!verdict.success) return failed("judge", "galaxy answered no verdict");
+    const { answer, confidence, decidedBy } = verdict.data;
+    return { ok: true, error: null, answer, confidence, decidedBy, reason: null };
+  };
+}
+
+// apps/omni-app/src/canon/live.ts
+var CANON_MODEL = "anthropic/claude-haiku-4.5";
+var CANON_CALL = Object.freeze({ ...MODEL_CALL, budgetMs: 6e4, maxTokens: 2048 });
+function serviceClient({ url, key, fetch: fetch2 }) {
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...fetch2 ? { global: { fetch: fetch2 } } : {}
+  });
+}
+var refused2 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+function businessReader(connection) {
+  const db = serviceClient(connection);
+  return async (repo) => {
+    const { data, error } = await db.rpc("business_for_repo_app", { p_repo: repo });
+    if (error) throw refused2(error);
+    return data === null ? null : parseBusiness(data);
+  };
+}
+function constituentsReader(connection) {
+  const db = serviceClient(connection);
+  return async (repo) => {
+    const { data, error } = await db.rpc("constituents_for_repo_app", { p_repo: repo });
+    if (error) throw refused2(error);
+    return data === null ? null : parseConstituents(data);
+  };
+}
+function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
+  const { supabase } = env;
+  const readBusiness = supabase ? businessReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
+  const readConstituents = supabase ? constituentsReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
+  const judge2 = constituentJudge({ url: judgeUrl(env.galaxyUrl), secret: env.constituentJudge?.secret, fetch: fetch2 });
+  const openrouter = env.openrouter ? { key: env.openrouter.key, model: CANON_MODEL } : null;
+  const ask3 = (request) => askModel({ ...request, openrouter, fetch: fetch2, call: CANON_CALL, title: "omni loop canon" });
+  return createCanon({ readBusiness, readConstituents, judge: judge2, ask: ask3 });
+}
+
+// apps/omni-app/src/inbox-check/canon-actions.ts
+import { z as z26 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var MAX_LABEL = 20;
-var MarkerSchema = z21.looseObject({ prd: z21.unknown(), persona: z21.unknown(), claims: z21.unknown() });
+var MarkerSchema = z26.looseObject({ prd: z26.unknown(), persona: z26.unknown(), claims: z26.unknown() });
 function canonActions(canon) {
   if (canon?.state !== "red") return [];
   const persona = canon.persona?.name;
@@ -5376,16 +5852,16 @@ function canonComment(action, facts, { galaxyUrl }) {
 }
 
 // apps/omni-app/src/inbox-check/inbox-check.ts
-import { mkdtempSync as mkdtempSync5, rmSync as rmSync5 } from "node:fs";
-import { tmpdir as tmpdir5 } from "node:os";
-import { join as join22 } from "node:path";
+import { mkdtempSync as mkdtempSync7, rmSync as rmSync8 } from "node:fs";
+import { tmpdir as tmpdir7 } from "node:os";
+import { join as join29 } from "node:path";
 import { NonRetriableError as NonRetriableError2 } from "inngest";
 
 // apps/omni-app/src/outbox-check/outbox-check.ts
-import { mkdtempSync as mkdtempSync4, rmSync as rmSync4 } from "node:fs";
-import { tmpdir as tmpdir4 } from "node:os";
-import { join as join19 } from "node:path";
-import { NonRetriableError, RetryAfterError } from "inngest";
+import { mkdtempSync as mkdtempSync6, rmSync as rmSync7 } from "node:fs";
+import { tmpdir as tmpdir6 } from "node:os";
+import { join as join26 } from "node:path";
+import { NonRetriableError, RetryAfterError as RetryAfterError2 } from "inngest";
 var FUNCTION_ID = "outbox-check";
 var SILENT = Object.freeze({ posted: false, reason: NOT_ACTIVE_ON_REPO });
 var UNKNOWN_PR = "omni-loop could not tell whether this is an Omni Loop feature PR";
@@ -5412,8 +5888,8 @@ function createOutboxCheck({
     },
     async ({ event, step }) => {
       const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
-      const budgeted = (work) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
-      const started = await step.run("in-progress", () => budgeted(async () => {
+      const budgeted2 = (work) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
+      const started = await step.run("in-progress", () => budgeted2(async () => {
         const octokit = await octokitFor(installationId);
         const { active, name, gated, reason: reason2, deferTo } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
         if (!active) return null;
@@ -5433,9 +5909,9 @@ function createOutboxCheck({
       if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: started.conclusion };
       const verdict = await step.run(
         "evaluate",
-        () => budgeted(() => notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha })))
+        () => budgeted2(() => notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha })))
       );
-      const published = await step.run("publish", () => budgeted(async () => {
+      const published = await step.run("publish", () => budgeted2(async () => {
         const octokit = await octokitFor(installationId);
         return publish(octokit, {
           owner,
@@ -5473,13 +5949,13 @@ async function waitingOnBudget(where, log, work) {
     const refused3 = budgetRefusal(error);
     if (!refused3) throw error;
     log(`outbox check of ${where} waits for the GitHub budget: ${refused3.message}`);
-    throw new RetryAfterError(refused3.message, new Date(refused3.until), { cause: refused3 });
+    throw new RetryAfterError2(refused3.message, new Date(refused3.until), { cause: refused3 });
   }
 }
 async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
   const pr = await readPull2(octokit, { owner, repo, prNumber });
-  const base = mkdtempSync4(join19(tmpdir4(), "omni-base-"));
-  const head = mkdtempSync4(join19(tmpdir4(), "omni-head-"));
+  const base = mkdtempSync6(join26(tmpdir6(), "omni-base-"));
+  const head = mkdtempSync6(join26(tmpdir6(), "omni-head-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base });
     let comments = [];
@@ -5499,8 +5975,8 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
       comments
     });
   } finally {
-    rmSync4(base, { recursive: true, force: true });
-    rmSync4(head, { recursive: true, force: true });
+    rmSync7(base, { recursive: true, force: true });
+    rmSync7(head, { recursive: true, force: true });
   }
 }
 function createFailureHandler({ octokitFor }) {
@@ -5546,8 +6022,8 @@ function onFailedRun(octokitFor, work) {
 }
 
 // apps/omni-app/src/inbox-check/evaluate-inbox.ts
-import { existsSync as existsSync18, readdirSync as readdirSync9, readFileSync as readFileSync13 } from "node:fs";
-import { join as join21 } from "node:path";
+import { existsSync as existsSync21, readdirSync as readdirSync10, readFileSync as readFileSync18 } from "node:fs";
+import { join as join28 } from "node:path";
 
 // kit/lib/flow/resolve.ts
 var LANDINGS_ALIAS_AREA = "landings.alone";
@@ -5815,8 +6291,8 @@ function landingAloneViolations(slices, flow) {
 }
 
 // kit/lib/plan-repo/copy-flow.ts
-import { existsSync as existsSync17, readFileSync as readFileSync12, statSync as statSync4 } from "node:fs";
-import { join as join20 } from "node:path";
+import { existsSync as existsSync20, readFileSync as readFileSync17, statSync as statSync4 } from "node:fs";
+import { join as join27 } from "node:path";
 import { parse as parse3, stringify } from "yaml";
 var COPY_FLOW_DIR = "flow";
 var COPY_FLOW_FILE = "config.yml";
@@ -5838,19 +6314,19 @@ function parseFlowConfig(source, file) {
   return flow === void 0 ? { landings, pr } : { flow, landings, pr };
 }
 function copyFolder(repo, { ctx }) {
-  return join20(ctx.config.paths.knowledge, "repos", at(repo.split("/"), 1, `the name of ${repo}`));
+  return join27(ctx.config.paths.knowledge, "repos", at(repo.split("/"), 1, `the name of ${repo}`));
 }
 function copyFlowFolder(repo, { config }) {
-  return join20(copyFolder(repo, { ctx: { config } }), COPY_FLOW_DIR);
+  return join27(copyFolder(repo, { ctx: { config } }), COPY_FLOW_DIR);
 }
 function readCopyFlow(repo, { root, config }) {
   const folder = copyFlowFolder(repo, { config });
-  const file = join20(folder, COPY_FLOW_FILE);
-  if (!existsSync17(join20(root, file))) return null;
-  const flow = parseFlowConfig(readFileSync12(join20(root, file), "utf8"), file);
+  const file = join27(folder, COPY_FLOW_FILE);
+  if (!existsSync20(join27(root, file))) return null;
+  const flow = parseFlowConfig(readFileSync17(join27(root, file), "utf8"), file);
   const readHook = (path) => {
-    const hook = join20(root, folder, path);
-    return existsSync17(hook) && statSync4(hook).isFile() ? readFileSync12(hook, "utf8") : null;
+    const hook = join27(root, folder, path);
+    return existsSync20(hook) && statSync4(hook).isFile() ? readFileSync17(hook, "utf8") : null;
   };
   return { folder, config: flow, readHook };
 }
@@ -5863,7 +6339,7 @@ function targetFlows({ root, config }) {
       const copy = readCopyFlow(repo, { root, config });
       if (copy) flows.set(shortName2(repo), { ok: true, config: copy.config });
     } catch (error) {
-      flows.set(shortName2(repo), { ok: false, file: join20(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
+      flows.set(shortName2(repo), { ok: false, file: join27(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
     }
   }
   return flows;
@@ -5871,20 +6347,20 @@ function targetFlows({ root, config }) {
 
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text8) {
-  const id = WorkSliceIdSchema.safeParse(text8);
-  if (!id.success) throw new Error(`This plan's slice table names "${text8}", which is no slice id like s1.`);
+function sliceIdOf(text10) {
+  const id = WorkSliceIdSchema.safeParse(text10);
+  if (!id.success) throw new Error(`This plan's slice table names "${text10}", which is no slice id like s1.`);
   return id.data;
 }
 function blockedByCell(cell3) {
-  const text8 = (cell3 ?? "").trim();
-  if (NOTHING.test(text8)) return [];
-  return text8.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+  const text10 = (cell3 ?? "").trim();
+  if (NOTHING.test(text10)) return [];
+  return text10.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell3) {
-  const text8 = (cell3 ?? "").trim();
-  if (NOTHING.test(text8)) return [];
-  return [...text8.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
+  const text10 = (cell3 ?? "").trim();
+  if (NOTHING.test(text10)) return [];
+  return [...text10.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -5953,8 +6429,8 @@ function parsePlanSlices(markdown) {
   return slices;
 }
 function landingCell(cell3) {
-  const text8 = plainCell(cell3);
-  return NOTHING.test(text8) ? 1 : Number(text8);
+  const text10 = plainCell(cell3);
+  return NOTHING.test(text10) ? 1 : Number(text10);
 }
 function plainCell(cell3) {
   return (cell3 ?? "").replace(/`/g, "").trim();
@@ -6383,19 +6859,19 @@ function phase0Topic(headRef, template) {
   return headRef.slice(prefix.length, headRef.length - suffix.length) || null;
 }
 function readConfigAt(base) {
-  const file = join21(base, CONFIG_FILE);
-  if (!existsSync18(file)) return null;
+  const file = join28(base, CONFIG_FILE);
+  if (!existsSync21(file)) return null;
   try {
-    return parseConfig(readFileSync13(file, "utf8"), CONFIG_FILE);
+    return parseConfig(readFileSync18(file, "utf8"), CONFIG_FILE);
   } catch (error) {
     if (error instanceof ConfigError) return null;
     throw error;
   }
 }
 function inboxPrd({ head, config, topic }) {
-  const dir = join21(head, createContext(head, config).layout.dirs.inbox);
-  if (!existsSync18(dir)) return null;
-  for (const entry of readdirSync9(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+  const dir = join28(head, createContext(head, config).layout.dirs.inbox);
+  if (!existsSync21(dir)) return null;
+  for (const entry of readdirSync10(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const parsed2 = entry.isDirectory() ? parseFolderName(entry.name) : null;
     if (parsed2?.topic === topic) return parsed2.prd;
   }
@@ -6413,7 +6889,7 @@ function inboxRoadmap({ head, config, topic }) {
   if (wanted === null) return null;
   const ctx = createContext(head, config);
   const entry = roadmapFiles(ctx).find(
-    (file) => parseFolderName(file.dir.slice(file.dir.lastIndexOf("/") + 1))?.topic === wanted && existsSync18(join21(head, file.file))
+    (file) => parseFolderName(file.dir.slice(file.dir.lastIndexOf("/") + 1))?.topic === wanted && existsSync21(join28(head, file.file))
   );
   if (!entry) return null;
   return gradeRoadmaps(ctx).find((graded) => graded.dir === entry.dir) ?? null;
@@ -6570,9 +7046,9 @@ async function canonGateOf({
   repo
 }) {
   if (!canon || !repo) return neutral("the canon gate is not wired here");
-  const file = join21(head, inFolder(ctx.layout.specPath(prd), prd));
-  if (!existsSync18(file)) return neutral(`no spec.md in ${placeOf(ctx, prd).dir}`);
-  return canon.grade({ repo, spec: readFileSync13(file, "utf8"), ref: `PRD ${prd}` });
+  const file = join28(head, inFolder(ctx.layout.specPath(prd), prd));
+  if (!existsSync21(file)) return neutral(`no spec.md in ${placeOf(ctx, prd).dir}`);
+  return canon.grade({ repo, spec: readFileSync18(file, "utf8"), ref: `PRD ${prd}` });
 }
 function placeOf(ctx, prd) {
   const place = ctx.layout.whereIs(prd);
@@ -6610,11 +7086,11 @@ function inboxGate({ ctx, prd }) {
 }
 function planGate({ ctx, prd, head }) {
   const file = inFolder(ctx.layout.planPath(prd), prd);
-  const absolute = join21(head, file);
-  if (!existsSync18(absolute)) {
+  const absolute = join28(head, file);
+  if (!existsSync21(absolute)) {
     return { name: "plan", ok: false, reason: `no plan.md in ${placeOf(ctx, prd).dir}` };
   }
-  const graded = gradePlan(readFileSync13(absolute, "utf8"), { config: ctx.config, targets: targetFlows({ root: head, config: ctx.config }) });
+  const graded = gradePlan(readFileSync18(absolute, "utf8"), { config: ctx.config, targets: targetFlows({ root: head, config: ctx.config }) });
   if (graded.violations.length > 0) return { name: "plan", ok: false, reason: graded.violations.join("; ") };
   const slices = graded.slices.length;
   const waves = graded.waves.length;
@@ -6769,19 +7245,19 @@ function createInboxCheck({ client, octokitFor, canon = null }) {
 }
 async function phase0CheckName(octokit, { owner, repo, prNumber }) {
   const pr = await readPull2(octokit, { owner, repo, prNumber });
-  const folder = mkdtempSync5(join22(tmpdir5(), "omni-inbox-name-"));
+  const folder = mkdtempSync7(join29(tmpdir7(), "omni-inbox-name-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: folder });
     if (!config || phase0Topic(pr.headRef, config.branches.phase0) === null) return null;
     return config.ci.inboxContext;
   } finally {
-    rmSync5(folder, { recursive: true, force: true });
+    rmSync8(folder, { recursive: true, force: true });
   }
 }
 async function evaluateAt2(octokit, { owner, repo, prNumber, headSha, canon }) {
   const pr = await readPull2(octokit, { owner, repo, prNumber });
-  const base = mkdtempSync5(join22(tmpdir5(), "omni-inbox-base-"));
-  const head = mkdtempSync5(join22(tmpdir5(), "omni-inbox-head-"));
+  const base = mkdtempSync7(join29(tmpdir7(), "omni-inbox-base-"));
+  const head = mkdtempSync7(join29(tmpdir7(), "omni-inbox-head-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base });
     const topic = config ? phase0Topic(pr.headRef, config.branches.phase0) : null;
@@ -6796,8 +7272,8 @@ async function evaluateAt2(octokit, { owner, repo, prNumber, headSha, canon }) {
     const { changes, commits } = await compareFacts(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     return await evaluateInbox({ base, head, pr: { headRef: pr.headRef }, repo: `${owner}/${repo}`, changes, commits, issue, canon });
   } finally {
-    rmSync5(base, { recursive: true, force: true });
-    rmSync5(head, { recursive: true, force: true });
+    rmSync8(base, { recursive: true, force: true });
+    rmSync8(head, { recursive: true, force: true });
   }
 }
 function createInboxFailureHandler({ octokitFor }) {
@@ -6861,39 +7337,39 @@ import { NonRetriableError as NonRetriableError3 } from "inngest";
 // kit/lib/knowledge/pipeline.ts
 import {
   cpSync,
-  existsSync as existsSync29,
-  mkdirSync as mkdirSync5,
-  mkdtempSync as mkdtempSync6,
-  readdirSync as readdirSync12,
-  readFileSync as readFileSync22,
+  existsSync as existsSync32,
+  mkdirSync as mkdirSync6,
+  mkdtempSync as mkdtempSync8,
+  readdirSync as readdirSync13,
+  readFileSync as readFileSync27,
   renameSync,
-  rmSync as rmSync6,
+  rmSync as rmSync9,
   statSync as statSync5,
   symlinkSync,
-  writeFileSync as writeFileSync6
+  writeFileSync as writeFileSync8
 } from "node:fs";
-import { tmpdir as tmpdir6 } from "node:os";
-import { dirname as dirname8, join as join33 } from "node:path";
-import { z as z24 } from "zod";
+import { tmpdir as tmpdir8 } from "node:os";
+import { dirname as dirname9, join as join40 } from "node:path";
+import { z as z29 } from "zod";
 
 // kit/lib/delivery/ship.ts
 import { execFileSync as execFileSync4 } from "node:child_process";
-import { existsSync as existsSync20, readFileSync as readFileSync15, writeFileSync as writeFileSync4, mkdirSync as mkdirSync3 } from "node:fs";
-import { basename as basename5, join as join24, dirname as dirname6 } from "node:path";
+import { existsSync as existsSync23, readFileSync as readFileSync20, writeFileSync as writeFileSync6, mkdirSync as mkdirSync4 } from "node:fs";
+import { basename as basename7, join as join31, dirname as dirname7 } from "node:path";
 
 // kit/lib/releases/check-releases.ts
-import { existsSync as existsSync19, readFileSync as readFileSync14 } from "node:fs";
-import { join as join23 } from "node:path";
+import { existsSync as existsSync22, readFileSync as readFileSync19 } from "node:fs";
+import { join as join30 } from "node:path";
 
 // kit/lib/releases/note.ts
-import { dirname as dirname5 } from "node:path";
+import { dirname as dirname6 } from "node:path";
 var RELEASE_NOTE_FILE = "release.md";
 var INITIAL_VERSION = "0.0.1";
 var TITLE_MAX = 60;
 var DESCRIPTION_MAX = 280;
 var FIELDS = ["prd", "title", "version"];
 var REQUIRED = ["prd", "title"];
-var KIT_FOLDER = `${dirname5(CONFIG_FILE)}/`;
+var KIT_FOLDER = `${dirname6(CONFIG_FILE)}/`;
 var FRONT_MATTER_BLOCK5 = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
 var FIELD_LINE2 = /^([A-Za-z][\w-]*):(?:[ \t]+(.*))?$/;
 var PRD_NUMBER = /^[1-9]\d*$/;
@@ -6906,7 +7382,7 @@ var FORBIDDEN = [
   { pattern: /`/, what: () => "a backtick" },
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), what: () => `a path under ${KIT_FOLDER}` }
 ];
-var characters = (text8) => Array.from(text8).length;
+var characters = (text10) => Array.from(text10).length;
 function unquote(value) {
   const trimmed = value.trim();
   const first = trimmed[0];
@@ -6934,8 +7410,8 @@ ${line.trim()}`;
   }
   return { fields, errors };
 }
-function splitNote(text8) {
-  const match = text8.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
+function splitNote(text10) {
+  const match = text10.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
@@ -6952,8 +7428,8 @@ function notePrd(fields, errors) {
   errors.push(`prd "${prd}" is not a PRD number`);
   return null;
 }
-function parseReleaseNote(text8) {
-  const parts = splitNote(text8);
+function parseReleaseNote(text10) {
+  const parts = splitNote(text10);
   if (!parts) return { ok: false, errors: ['no front matter \u2014 a release note opens with a "---" fenced header holding prd and title'] };
   const { fields, errors } = readFields2(parts.front);
   for (const key of Object.keys(fields)) {
@@ -6995,14 +7471,14 @@ function descriptionViolations(lines, description) {
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
-function contentViolations(name, text8) {
+function contentViolations(name, text10) {
   return FORBIDDEN.flatMap(({ pattern, what }) => {
-    const match = text8.match(pattern);
+    const match = text10.match(pattern);
     return match ? [`${name} holds ${what(match[0])}`] : [];
   });
 }
-function gradeReleaseNote(text8, { prd }) {
-  const parsed2 = parseReleaseNote(text8);
+function gradeReleaseNote(text10, { prd }) {
+  const parsed2 = parseReleaseNote(text10);
   if (!parsed2.ok) return parsed2.errors;
   const { note } = parsed2;
   const out = [];
@@ -7011,7 +7487,7 @@ function gradeReleaseNote(text8, { prd }) {
     out.push(`version ${note.version === "" ? '""' : note.version} is not ${INITIAL_VERSION} \u2014 only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text8)?.body ?? ""), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text10)?.body ?? ""), note.description));
   out.push(...contentViolations("title", note.title), ...contentViolations("description", note.description));
   return out;
 }
@@ -7026,7 +7502,7 @@ var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
 function releaseNoteReasons(ctx, prd, dir, read) {
   if (!ctx.config.releaseNotes.enabled) return [];
   const file = releaseNotePath(dir);
-  if (!existsSync20(join24(ctx.root, file))) return [`no release note: ${file}`];
+  if (!existsSync23(join31(ctx.root, file))) return [`no release note: ${file}`];
   return gradeReleaseNote(read(file), { prd }).map((rule) => `release note: ${rule}`);
 }
 function planShip(ctx, prd, { files, read }) {
@@ -7044,12 +7520,12 @@ function planShip(ctx, prd, { files, read }) {
   const shipped = `${dirs.shipped}/${where.name}`;
   const outbox = `${dirs.outbox}/${where.name}`;
   const moves = [{ from: where.dir, to: shipped }];
-  const hasOutbox = existsSync20(join24(ctx.root, outbox));
+  const hasOutbox = existsSync23(join31(ctx.root, outbox));
   if (hasOutbox) moves.push({ from: outbox, to: `${shipped}/outbox` });
   const rewrites = [];
   for (const file of files) {
-    if (!REWRITTEN.test(file) || basename5(file) === SETTLED_FILE) continue;
-    if (!existsSync20(join24(ctx.root, file))) continue;
+    if (!REWRITTEN.test(file) || basename7(file) === SETTLED_FILE) continue;
+    if (!existsSync23(join31(ctx.root, file))) continue;
     const before2 = read(file);
     let after = before2.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
@@ -7062,15 +7538,15 @@ function movedPath(moves, file) {
 }
 
 // kit/lib/outbox/check-outbox.ts
-import { existsSync as existsSync22 } from "node:fs";
-import { join as join26 } from "node:path";
+import { existsSync as existsSync25 } from "node:fs";
+import { join as join33 } from "node:path";
 
 // kit/lib/laws.ts
-import { existsSync as existsSync21, readdirSync as readdirSync10, readFileSync as readFileSync16 } from "node:fs";
-import { join as join25 } from "node:path";
+import { existsSync as existsSync24, readdirSync as readdirSync11, readFileSync as readFileSync21 } from "node:fs";
+import { join as join32 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text8, heading) {
-  const lines = text8.split("\n");
+function invariantAdrs(text10, heading) {
+  const lines = text10.split("\n");
   const start = lines.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
@@ -7083,9 +7559,9 @@ function invariantAdrs(text8, heading) {
   return ids;
 }
 function adrFiles(ctx, number) {
-  const dir = join25(ctx.root, ctx.layout.adrDir);
-  if (!existsSync21(dir)) return [];
-  return readdirSync10(dir).filter((name) => name.startsWith(`${number}-`) && name.endsWith(".md")).sort();
+  const dir = join32(ctx.root, ctx.layout.adrDir);
+  if (!existsSync24(dir)) return [];
+  return readdirSync11(dir).filter((name) => name.startsWith(`${number}-`) && name.endsWith(".md")).sort();
 }
 function lawsFor(ctx) {
   const source = ctx.config.laws.source;
@@ -7093,8 +7569,8 @@ function lawsFor(ctx) {
   let invariants = null;
   const invariantSet = () => {
     if (invariants === null) {
-      const file = join25(ctx.root, "CLAUDE.md");
-      invariants = existsSync21(file) ? invariantAdrs(readFileSync16(file, "utf8"), claudeMdHeading) : /* @__PURE__ */ new Set();
+      const file = join32(ctx.root, "CLAUDE.md");
+      invariants = existsSync24(file) ? invariantAdrs(readFileSync21(file, "utf8"), claudeMdHeading) : /* @__PURE__ */ new Set();
     }
     return invariants;
   };
@@ -7109,7 +7585,7 @@ function lawsFor(ctx) {
       return { ok: false, reason: `${bearsOn} is ambiguous: ${files.join(", ")}` };
     }
     if (ID_SHAPE.test(bearsOn)) {
-      if (!existsSync21(join25(ctx.root, ctx.layout.knowledgeRoot))) {
+      if (!existsSync24(join32(ctx.root, ctx.layout.knowledgeRoot))) {
         return { ok: false, reason: `${bearsOn}: no knowledge folder at ${ctx.layout.knowledgeRoot}` };
       }
       return resolveId(bearsOn, { ctx }) ? { ok: true } : { ok: false, reason: `${bearsOn} names no entry in ${ctx.layout.knowledgeRoot}` };
@@ -7137,8 +7613,8 @@ var FUN_SECTION_FIELDS = [
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
-function checkItemText(file, text8, { laws }) {
-  const parsed2 = parseItem(text8, file);
+function checkItemText(file, text10, { laws }) {
+  const parsed2 = parseItem(text10, file);
   if (!parsed2.ok) return parsed2.errors;
   const { item } = parsed2;
   const violations = [];
@@ -7224,7 +7700,7 @@ function findOutboxViolations({ ctx }) {
   }
   for (const { dir } of ctx.layout.outboxDirs()) {
     const settledFile = `${dir}/${SETTLED_FILE}`;
-    if (!existsSync22(join26(ctx.root, settledFile))) continue;
+    if (!existsSync25(join33(ctx.root, settledFile))) continue;
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
       for (const id of entry.became) {
         if (removedBySweep(entry.fields, id)) continue;
@@ -7241,20 +7717,20 @@ function findOutboxViolations({ ctx }) {
 }
 
 // kit/lib/outbox/settle-merge.ts
-import { existsSync as existsSync23 } from "node:fs";
-import { join as join27 } from "node:path";
-import { z as z22 } from "zod";
+import { existsSync as existsSync26 } from "node:fs";
+import { join as join34 } from "node:path";
+import { z as z27 } from "zod";
 var MERGED_OVER_RED_BASIS = "merged-over-red";
 var MERGED_OVER_RED_REASON = "the feature pull request merged while this item was open; merging adopts what was built";
-var PrField = z22.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
-var MergeSchema = z22.object({
-  by: z22.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z22.string().min(1, "merge.by is required \u2014 who merged")),
-  at: z22.string().regex(
+var PrField = z27.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
+var MergeSchema = z27.object({
+  by: z27.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z27.string().min(1, "merge.by is required \u2014 who merged")),
+  at: z27.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
   ),
   pr: PrField,
-  url: z22.string().trim().min(1).optional()
+  url: z27.string().trim().min(1).optional()
 }).strict();
 function mergeAnswer(merge) {
   return {
@@ -7300,7 +7776,7 @@ function settleAtMerge({
     return { ok: false, errors: [`PRD ${prd} has no inbox or shipped folder`] };
   }
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  const existing = existsSync23(join27(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
+  const existing = existsSync26(join34(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
   const answer = mergeAnswer(facts);
   const errors = [];
   const entries = [];
@@ -7347,13 +7823,13 @@ function settleAtMerge({
 }
 
 // kit/lib/knowledge/check-knowledge.ts
-import { existsSync as existsSync24, readFileSync as readFileSync17 } from "node:fs";
-import { join as join28 } from "node:path";
+import { existsSync as existsSync27, readFileSync as readFileSync22 } from "node:fs";
+import { join as join35 } from "node:path";
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail, text: text8 }) {
-  return text8 ?? `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text10 }) {
+  return text10 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -7367,13 +7843,13 @@ function findOwningLibraryViolations(ctx, knowledge) {
   if (ctx.copyOf) return violations;
   for (const domain of knowledge.domains) {
     const readme = `${domainsDir(ctx)}/${domain.name}/README.md`;
-    if (!existsSync24(join28(ctx.root, readme))) continue;
-    const section4 = readFileSync17(join28(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
+    if (!existsSync27(join35(ctx.root, readme))) continue;
+    const section4 = readFileSync22(join35(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
     const listed = section4.split(/^## /m)[0] ?? "";
     for (const match of listed.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = (match[1] ?? "").replace(/\/$/, "");
-      if (!existsSync24(join28(ctx.root, path))) {
+      if (!existsSync27(join35(ctx.root, path))) {
         violations.push(
           violation(readme, domain.name, `names owning library ${path}, which does not exist.`)
         );
@@ -7504,11 +7980,11 @@ function idShapeViolations(entry) {
     )
   ];
 }
-function headingAnchors(text8) {
+function headingAnchors(text10) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line of text8.split("\n")) {
+  for (const line of text10.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
@@ -7525,8 +8001,8 @@ function missingPathViolations(ctx, entry, label2, value, { onlyPathLike }) {
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
     const [path = "", anchor] = part.split("#");
-    if (anchor && existsSync24(join28(ctx.root, path)) && path.endsWith(".md")) {
-      if (!headingAnchors(readFileSync17(join28(ctx.root, path), "utf8")).has(anchor.toLowerCase())) {
+    if (anchor && existsSync27(join35(ctx.root, path)) && path.endsWith(".md")) {
+      if (!headingAnchors(readFileSync22(join35(ctx.root, path), "utf8")).has(anchor.toLowerCase())) {
         violations.push(
           violation(
             entry.file,
@@ -7537,7 +8013,7 @@ function missingPathViolations(ctx, entry, label2, value, { onlyPathLike }) {
       }
       continue;
     }
-    if (!existsSync24(join28(ctx.root, path))) {
+    if (!existsSync27(join35(ctx.root, path))) {
       violations.push(
         violation(
           entry.file,
@@ -7672,8 +8148,8 @@ function proofViolations(ctx, entry, requireProof) {
   if (meansPending(entry.enforcedBy)) return [];
   return missingPathViolations(ctx, entry, "Enforced by", entry.enforcedBy, { onlyPathLike: false });
 }
-function findUnresolvedCitations(file, text8, resolve) {
-  return idsCitedIn(text8).filter((id) => !resolve(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text10, resolve) {
+  return idsCitedIn(text10).filter((id) => !resolve(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries) {
   return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
@@ -7696,9 +8172,9 @@ function gradeKnowledge({
 }) {
   const knowledge = readKnowledge({ ctx });
   const resolve = (id) => knowledge.entries.find((entry) => entry.id === id);
-  const text8 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
+  const text10 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
-    ...findLayoutViolations(ctx, knowledge, { glossaryText: text8 }),
+    ...findLayoutViolations(ctx, knowledge, { glossaryText: text10 }),
     ...findOwningLibraryViolations(ctx, knowledge),
     ...findCrossDomainFileViolations(knowledge),
     ...findReusedIds(knowledge.entries),
@@ -7713,22 +8189,22 @@ function gradeKnowledge({
 }
 
 // kit/lib/knowledge/classify.ts
-import { existsSync as existsSync26, readFileSync as readFileSync19 } from "node:fs";
-import { join as join30 } from "node:path";
-import { z as z23 } from "zod";
+import { existsSync as existsSync29, readFileSync as readFileSync24 } from "node:fs";
+import { join as join37 } from "node:path";
+import { z as z28 } from "zod";
 
 // kit/lib/playbook/decisions.ts
-import { existsSync as existsSync25, readdirSync as readdirSync11, readFileSync as readFileSync18 } from "node:fs";
-import { join as join29 } from "node:path";
+import { existsSync as existsSync28, readdirSync as readdirSync12, readFileSync as readFileSync23 } from "node:fs";
+import { join as join36 } from "node:path";
 var RECORD = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
-  const absolute = join29(ctx.root, dir);
-  const names = existsSync25(absolute) ? readdirSync11(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
+  const absolute = join36(ctx.root, dir);
+  const names = existsSync28(absolute) ? readdirSync12(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
   const records = names.map((name) => {
     const file = `${dir}/${name}`;
-    const title = readFileSync18(join29(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
+    const title = readFileSync23(join36(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
     return { number: name.match(RECORD)?.[1] ?? "", file, title };
   });
   const byNumber = /* @__PURE__ */ new Map();
@@ -7748,36 +8224,36 @@ var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 var RECORD_ID = /^ADR-(\d{4})$/;
 function capped(field3, max) {
-  return z23.string({ error: (issue) => issue.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`).max(max, `${field3} is over its cap of ${max} characters`);
+  return z28.string({ error: (issue) => issue.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`).max(max, `${field3} is over its cap of ${max} characters`);
 }
-var text4 = (field3) => z23.string({ error: (issue) => issue.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`);
+var text6 = (field3) => z28.string({ error: (issue) => issue.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`);
 var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
-var enforcedBy = z23.array(text4("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
-var worthALaw = z23.boolean({ error: "worthALaw must be true or false" }).optional();
-var ClassificationSchema = z23.discriminatedUnion(
+var enforcedBy = z28.array(text6("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
+var worthALaw = z28.boolean({ error: "worthALaw must be true or false" }).optional();
+var ClassificationSchema = z28.discriminatedUnion(
   "kind",
   [
-    z23.object({
-      kind: z23.literal("adr"),
-      title: text4("title").refine((value) => !value.includes("\n"), "title must be one line"),
+    z28.object({
+      kind: z28.literal("adr"),
+      title: text6("title").refine((value) => !value.includes("\n"), "title must be one line"),
       statement,
       reason
     }).strict(),
-    z23.object({ kind: z23.literal("invariant"), place: text4("place"), statement, enforcedBy, worthALaw, reason }).strict(),
-    z23.object({
-      kind: z23.literal("rule"),
-      place: text4("place"),
+    z28.object({ kind: z28.literal("invariant"), place: text6("place"), statement, enforcedBy, worthALaw, reason }).strict(),
+    z28.object({
+      kind: z28.literal("rule"),
+      place: text6("place"),
       statement,
-      serves: text4("serves"),
-      principle: z23.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
+      serves: text6("serves"),
+      principle: z28.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
       enforcedBy,
       worthALaw,
       reason
     }).strict(),
-    z23.object({ kind: z23.literal("covered"), covers: text4("covers"), reason }).strict(),
-    z23.object({ kind: z23.literal("stays-here"), statement, reason }).strict()
+    z28.object({ kind: z28.literal("covered"), covers: text6("covers"), reason }).strict(),
+    z28.object({ kind: z28.literal("stays-here"), statement, reason }).strict()
   ],
   { error: () => `kind must be one of: ${CLASSIFICATION_KINDS.join(", ")}` }
 ).superRefine((reply, context) => {
@@ -7794,14 +8270,14 @@ function firstLine2(value) {
 }
 function knowledgeSummary({ ctx }) {
   const places = {
-    adr: existsSync26(join30(ctx.root, ctx.layout.adrDir)),
-    knowledge: existsSync26(join30(ctx.root, ctx.layout.knowledgeRoot))
+    adr: existsSync29(join37(ctx.root, ctx.layout.adrDir)),
+    knowledge: existsSync29(join37(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge = readKnowledge({ ctx });
   const placeOf4 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
   const domains = knowledge.domains.map((domain) => {
-    const readme = join30(ctx.root, domainsDir(ctx), domain.name, "README.md");
-    return { name: domain.name, firstLine: existsSync26(readme) ? firstLine2(readFileSync19(readme, "utf8")) : null };
+    const readme = join37(ctx.root, domainsDir(ctx), domain.name, "README.md");
+    return { name: domain.name, firstLine: existsSync29(readme) ? firstLine2(readFileSync24(readme, "utf8")) : null };
   });
   const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf4(entry), statement: entry.statement }));
   const laws = knowledge.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf4(entry), statement: entry.statement }));
@@ -7882,9 +8358,9 @@ function classificationJsonSchema(summary2) {
   };
 }
 function section2(heading, body) {
-  const text8 = plainText(body).trim();
-  if (text8 === "") return [];
-  return [`### ${heading}`, "", text8, ""];
+  const text10 = plainText(body).trim();
+  if (text10 === "") return [];
+  return [`### ${heading}`, "", text10, ""];
 }
 function itemSections(candidate) {
   const sections = candidate.item?.sections;
@@ -7968,8 +8444,8 @@ function classificationPrompt({
 }
 
 // kit/lib/knowledge/harvest.ts
-import { existsSync as existsSync27, readFileSync as readFileSync20 } from "node:fs";
-import { join as join31 } from "node:path";
+import { existsSync as existsSync30, readFileSync as readFileSync25 } from "node:fs";
+import { join as join38 } from "node:path";
 var BECAME_FIELD = "Became";
 var STAYS_HERE_FIELD = "Stays here";
 function writtenBack(entry) {
@@ -7992,22 +8468,22 @@ function toCandidate(entry, ledgerFile) {
     rank: entry.fields.Rank ?? (parsed2.ok ? parsed2.item.rank : null) ?? null
   };
 }
-function candidatesFromLedger(text8, { markers, ledgerFile = null }) {
-  const entries = parseSettledEntries(text8, markers);
+function candidatesFromLedger(text10, { markers, ledgerFile = null }) {
+  const entries = parseSettledEntries(text10, markers);
   return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const ledgerFile = `${outboxDir}/${SETTLED_FILE}`;
-  const absolute = join31(ctx.root, ledgerFile);
-  if (!existsSync27(absolute)) return [];
-  return candidatesFromLedger(readFileSync20(absolute, "utf8"), { markers: ctx.markers, ledgerFile });
+  const absolute = join38(ctx.root, ledgerFile);
+  if (!existsSync30(absolute)) return [];
+  return candidatesFromLedger(readFileSync25(absolute, "utf8"), { markers: ctx.markers, ledgerFile });
 }
 
 // kit/lib/knowledge/write.ts
-import { existsSync as existsSync28, mkdirSync as mkdirSync4, readFileSync as readFileSync21, writeFileSync as writeFileSync5 } from "node:fs";
-import { dirname as dirname7, join as join32 } from "node:path";
+import { existsSync as existsSync31, mkdirSync as mkdirSync5, readFileSync as readFileSync26, writeFileSync as writeFileSync7 } from "node:fs";
+import { dirname as dirname8, join as join39 } from "node:path";
 var KEPT_STATUSES = Object.freeze(["added", "modified", "renamed"]);
 var LAW_ISSUE_FIRST = "its law issue opens first";
 var CLASSIFIER = "classifier";
@@ -8103,13 +8579,13 @@ function makeFiles(ctx) {
   return {
     read(path) {
       if (!texts.has(path)) {
-        const absolute = join32(ctx.root, path);
-        texts.set(path, existsSync28(absolute) ? readFileSync21(absolute, "utf8") : null);
+        const absolute = join39(ctx.root, path);
+        texts.set(path, existsSync31(absolute) ? readFileSync26(absolute, "utf8") : null);
       }
       return texts.get(path) ?? null;
     },
-    write(path, text8) {
-      texts.set(path, text8);
+    write(path, text10) {
+      texts.set(path, text10);
       this.changed.add(path);
     },
     changed: /* @__PURE__ */ new Set(),
@@ -8118,8 +8594,8 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text8, entry, { heading }) {
-  let base = text8 ?? `# ${heading}
+function appendEntry(text10, entry, { heading }) {
+  let base = text10 ?? `# ${heading}
 `;
   if (!/^## /m.test(base)) {
     const lines = base.split("\n");
@@ -8178,8 +8654,8 @@ function renderRecord({
     ""
   ].join("\n");
 }
-function addLedgerLine(text8, { id, line, markers }) {
-  const lines = text8.split("\n");
+function addLedgerLine(text10, { id, line, markers }) {
+  const lines = text10.split("\n");
   const open = lines.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
   const close = lines.indexOf(markers.settledClose(id), open);
@@ -8364,7 +8840,7 @@ function landLaw({
   ...run
 }) {
   const { ctx, merge, candidate, source } = run;
-  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync28(join32(ctx.root, path)) });
+  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync31(join39(ctx.root, path)) });
   const chosen = lawPath(proof.kept, worth, reply.worthALaw);
   if (chosen.path === "no") {
     const law = { ...chosen.worth, issue: null };
@@ -8385,7 +8861,7 @@ function landLaw({
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
-var PullFilesSchema = z24.array(z24.looseObject({ filename: z24.string().min(1), status: z24.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
+var PullFilesSchema = z29.array(z29.looseObject({ filename: z29.string().min(1), status: z29.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
 function keptPaths(changed) {
   return changed.filter((file) => KEPT_STATUSES.includes(file.status)).map((file) => file.path);
 }
@@ -8394,18 +8870,18 @@ function loopPaths(ctx) {
   return [paths.delivery, paths.knowledge, paths.adr, paths.playbook, paths.glossary].filter((path) => typeof path === "string" && path.length > 0).map((path) => path.replace(/\/+$/, ""));
 }
 function overlay(root, keep) {
-  const scratch = mkdtempSync6(join33(tmpdir6(), "omni-harvest-"));
+  const scratch = mkdtempSync8(join40(tmpdir8(), "omni-harvest-"));
   const walk2 = (dir) => {
-    for (const name of readdirSync12(join33(root, dir))) {
+    for (const name of readdirSync13(join40(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === ".git") continue;
       if (keep.includes(rel)) {
-        cpSync(join33(root, rel), join33(scratch, rel), { recursive: true });
-      } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync5(join33(root, rel)).isDirectory()) {
-        mkdirSync5(join33(scratch, rel), { recursive: true });
+        cpSync(join40(root, rel), join40(scratch, rel), { recursive: true });
+      } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync5(join40(root, rel)).isDirectory()) {
+        mkdirSync6(join40(scratch, rel), { recursive: true });
         walk2(rel);
       } else {
-        symlinkSync(join33(root, rel), join33(scratch, rel));
+        symlinkSync(join40(root, rel), join40(scratch, rel));
       }
     }
   };
@@ -8417,14 +8893,14 @@ function inScratch(ctx, fn) {
   try {
     return fn(createContext(root, ctx.config));
   } finally {
-    rmSync6(root, { recursive: true, force: true });
+    rmSync9(root, { recursive: true, force: true });
   }
 }
 function filesUnder2(root, dir) {
-  const absolute = join33(root, dir);
-  if (!existsSync29(absolute)) return [];
+  const absolute = join40(root, dir);
+  if (!existsSync32(absolute)) return [];
   const out = [];
-  for (const entry of readdirSync12(absolute, { withFileTypes: true })) {
+  for (const entry of readdirSync13(absolute, { withFileTypes: true })) {
     const rel = `${dir}/${entry.name}`;
     if (entry.isDirectory()) out.push(...filesUnder2(root, rel));
     else if (entry.isFile()) out.push(rel);
@@ -8432,20 +8908,20 @@ function filesUnder2(root, dir) {
   return out;
 }
 function applyHarvestEdits({ root, edits }) {
-  for (const path of edits.deletes) rmSync6(join33(root, path), { force: true });
+  for (const path of edits.deletes) rmSync9(join40(root, path), { force: true });
   for (const { from, to } of edits.moves) {
-    mkdirSync5(dirname8(join33(root, to)), { recursive: true });
-    renameSync(join33(root, from), join33(root, to));
+    mkdirSync6(dirname9(join40(root, to)), { recursive: true });
+    renameSync(join40(root, from), join40(root, to));
   }
-  for (const { path, text: text8 } of edits.writes) {
-    mkdirSync5(dirname8(join33(root, path)), { recursive: true });
-    writeFileSync6(join33(root, path), text8);
+  for (const { path, text: text10 } of edits.writes) {
+    mkdirSync6(dirname9(join40(root, path)), { recursive: true });
+    writeFileSync8(join40(root, path), text10);
   }
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
   for (const write of writes) byPath.set(write.path, write.text);
-  return [...byPath].map(([path, text8]) => ({ path, text: text8 }));
+  return [...byPath].map(([path, text10]) => ({ path, text: text10 }));
 }
 function prepareHarvest({
   ctx,
@@ -8468,10 +8944,10 @@ function prepareHarvest({
     let rewrites = [];
     if (defined(scratch.layout.whereIs(n), `the folder of PRD ${n}`).state === "inbox") {
       const files = loopPaths(scratch).flatMap((path) => filesUnder2(scratch.root, path));
-      const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync22(join33(scratch.root, file), "utf8") });
+      const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync27(join40(scratch.root, file), "utf8") });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
-      rewrites = plan.rewrites.map(({ file, text: text8 }) => ({ path: movedPath(moves, file), text: text8 }));
+      rewrites = plan.rewrites.map(({ file, text: text10 }) => ({ path: movedPath(moves, file), text: text10 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
@@ -8523,7 +8999,7 @@ function knowledgeFiles(ctx) {
   return filesUnder2(ctx.root, ctx.layout.knowledgeRoot).filter((file) => file.endsWith(".md"));
 }
 function runChecks(ctx) {
-  const knowledge = existsSync29(join33(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
+  const knowledge = existsSync32(join40(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
   const outbox = findOutboxViolations({ ctx });
   return { knowledge, outbox };
 }
@@ -8547,7 +9023,7 @@ function lawQuestions({
   prdTitle
 }) {
   const kept3 = keptPaths(prepared.changed ?? []);
-  const proven = (paths = []) => paths.some((path) => kept3.includes(path.trim()) && existsSync29(join33(ctx.root, path.trim())));
+  const proven = (paths = []) => paths.some((path) => kept3.includes(path.trim()) && existsSync32(join40(ctx.root, path.trim())));
   return classified.flatMap(({ id, reply }) => {
     if (!reply || reply.kind !== "rule" && reply.kind !== "invariant") return [];
     if (reply.worthALaw === void 0 || proven(reply.enforcedBy)) return [];
@@ -8743,14 +9219,14 @@ async function upsertPull(octokit, { owner, repo, branch, base, head, title, bod
 }
 
 // apps/omni-app/src/retro/qualify.ts
-import { mkdtempSync as mkdtempSync7, rmSync as rmSync7 } from "node:fs";
-import { tmpdir as tmpdir7 } from "node:os";
-import { join as join34 } from "node:path";
+import { mkdtempSync as mkdtempSync9, rmSync as rmSync10 } from "node:fs";
+import { tmpdir as tmpdir9 } from "node:os";
+import { join as join41 } from "node:path";
 async function qualify(octokit, { owner, repo, prNumber, mergeSha }) {
   const read = await readPull(octokit, { owner, repo, prNumber });
   if (!read.merged) return { skip: `#${prNumber} was closed, not merged.`, pr: read };
   const pr = Object.assign(read, { mergeSha });
-  const { config, error } = await configAt(octokit, { owner, repo, sha: mergeSha });
+  const { config, error } = await configAt2(octokit, { owner, repo, sha: mergeSha });
   if (error) throw error;
   if (!config) return { skip: `No \`${CONFIG_FILE}\` at the merge ${mergeSha}.`, pr };
   const { defaultBranch } = config.repo;
@@ -8796,12 +9272,12 @@ function topicOf2(headRef, featureTemplate) {
   const topic = headRef.slice(prefix.length, headRef.length - suffix.length);
   return topic && !topic.includes("/") ? topic : null;
 }
-async function configAt(octokit, { owner, repo, sha }) {
-  const dest = mkdtempSync7(join34(tmpdir7(), "omni-retro-config-"));
+async function configAt2(octokit, { owner, repo, sha }) {
+  const dest = mkdtempSync9(join41(tmpdir9(), "omni-retro-config-"));
   try {
     return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest, ignoreUnknownKeys: true });
   } finally {
-    rmSync7(dest, { recursive: true, force: true });
+    rmSync10(dest, { recursive: true, force: true });
   }
 }
 async function prdFolder(octokit, { owner, repo, sha, dirs, topic }) {
@@ -8837,10 +9313,10 @@ function parseSaved(schema, value, id) {
 }
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
-import { z as z25 } from "zod";
-async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text8 }) {
+import { z as z30 } from "zod";
+async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text10 }) {
   const body = `${marker2}
-${String(text8).trimEnd()}
+${String(text10).trimEnd()}
 `;
   const comments = await listComments(octokit, { owner, repo, prNumber });
   const existing = comments.find((comment) => comment.body.includes(marker2));
@@ -8861,7 +9337,7 @@ ${String(text8).trimEnd()}
   });
   return { commentId: CommentWrittenSchema.parse(data).id, created: true };
 }
-var FailureCommentSchema = z25.object({ commentId: CommentIdSchema, reason: z25.string(), created: z25.boolean() });
+var FailureCommentSchema = z30.object({ commentId: CommentIdSchema, reason: z30.string(), created: z30.boolean() });
 var COMMENT_FAILURE_STEP = "comment-failure";
 function commentOnFailure(octokitFor, step, { installationId, owner, repo }, schema, comment) {
   const run = async () => {
@@ -8872,29 +9348,29 @@ function commentOnFailure(octokitFor, step, { installationId, owner, repo }, sch
 }
 
 // apps/omni-app/src/knowledge-harvest/github.ts
-import { mkdtempSync as mkdtempSync8, readdirSync as readdirSync13, rmSync as rmSync8, statSync as statSync6 } from "node:fs";
-import { tmpdir as tmpdir8 } from "node:os";
-import { join as join35 } from "node:path";
+import { mkdtempSync as mkdtempSync10, readdirSync as readdirSync14, rmSync as rmSync11, statSync as statSync6 } from "node:fs";
+import { tmpdir as tmpdir10 } from "node:os";
+import { join as join42 } from "node:path";
 
 // apps/omni-app/src/knowledge-harvest/schema.ts
-import { z as z26 } from "zod";
-var HarvestEventSchema = z26.looseObject({
-  installationId: z26.number(),
-  owner: z26.string(),
-  repo: z26.string(),
+import { z as z31 } from "zod";
+var HarvestEventSchema = z31.looseObject({
+  installationId: z31.number(),
+  owner: z31.string(),
+  repo: z31.string(),
   prNumber: PrNumberSchema
 });
 var FailedHarvestEventSchema = HarvestEventSchema.partial();
-var PullMergeSchema = z26.looseObject({
-  merged: z26.boolean().nullish(),
-  merged_at: z26.string().nullish(),
-  merged_by: z26.looseObject({ login: z26.string().nullish() }).nullish(),
-  merge_commit_sha: z26.string().nullish(),
-  html_url: z26.string().nullish()
+var PullMergeSchema = z31.looseObject({
+  merged: z31.boolean().nullish(),
+  merged_at: z31.string().nullish(),
+  merged_by: z31.looseObject({ login: z31.string().nullish() }).nullish(),
+  merge_commit_sha: z31.string().nullish(),
+  html_url: z31.string().nullish()
 });
-var RefSchema3 = z26.looseObject({ object: z26.looseObject({ sha: z26.string() }) });
-var OpenPullSchema = z26.looseObject({ head: z26.looseObject({ ref: z26.string().nullish() }).nullish() });
-var CommitSchema = z26.looseObject({ message: z26.string().nullish() });
+var RefSchema3 = z31.looseObject({ object: z31.looseObject({ sha: z31.string() }) });
+var OpenPullSchema = z31.looseObject({ head: z31.looseObject({ ref: z31.string().nullish() }).nullish() });
+var CommitSchema = z31.looseObject({ message: z31.string().nullish() });
 function parsedOr(schema, value, context) {
   const parsed2 = schema.safeParse(value);
   if (parsed2.success) return parsed2.data;
@@ -8902,124 +9378,124 @@ function parsedOr(schema, value, context) {
   const field3 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
   throw new Error(`${context}: ${field3}: ${issue?.message ?? parsed2.error.message}`);
 }
-var MergeSchema2 = z26.object({ by: z26.string(), at: z26.string(), pr: PrNumberSchema, url: z26.string().exactOptional() });
-var QualifiedSchema = z26.union([
-  z26.object({ skip: z26.string() }),
-  z26.object({
-    skip: z26.null(),
+var MergeSchema2 = z31.object({ by: z31.string(), at: z31.string(), pr: PrNumberSchema, url: z31.string().exactOptional() });
+var QualifiedSchema = z31.union([
+  z31.object({ skip: z31.string() }),
+  z31.object({
+    skip: z31.null(),
     config: ConfigSchema,
-    prd: z26.object({ number: PrdNumberSchema, topic: z26.string(), title: z26.string() }),
+    prd: z31.object({ number: PrdNumberSchema, topic: z31.string(), title: z31.string() }),
     merge: MergeSchema2
   })
 ]);
-var MoveSchema = z26.object({ from: z26.string(), to: z26.string() });
-var EditsSchema = z26.object({
-  deletes: z26.array(z26.string()),
-  moves: z26.array(MoveSchema),
-  writes: z26.array(z26.object({ path: z26.string(), text: z26.string() }))
+var MoveSchema = z31.object({ from: z31.string(), to: z31.string() });
+var EditsSchema = z31.object({
+  deletes: z31.array(z31.string()),
+  moves: z31.array(MoveSchema),
+  writes: z31.array(z31.object({ path: z31.string(), text: z31.string() }))
 });
-var ItemSectionsSchema = z26.object({
-  questionPlain: z26.string().nullable().exactOptional(),
-  decisionPlain: z26.string().nullable().exactOptional(),
-  options: z26.array(z26.object({ letter: z26.string(), text: z26.string() })).nullable().exactOptional(),
-  personSteps: z26.string().nullable().exactOptional(),
-  whatIHadToDecide: z26.string().nullable().exactOptional(),
-  whatIDidMeanwhile: z26.string().nullable().exactOptional(),
-  whatItCostsToChangeLater: z26.string().nullable().exactOptional()
+var ItemSectionsSchema = z31.object({
+  questionPlain: z31.string().nullable().exactOptional(),
+  decisionPlain: z31.string().nullable().exactOptional(),
+  options: z31.array(z31.object({ letter: z31.string(), text: z31.string() })).nullable().exactOptional(),
+  personSteps: z31.string().nullable().exactOptional(),
+  whatIHadToDecide: z31.string().nullable().exactOptional(),
+  whatIDidMeanwhile: z31.string().nullable().exactOptional(),
+  whatItCostsToChangeLater: z31.string().nullable().exactOptional()
 });
-var CandidateSchema = z26.object({
-  id: z26.string(),
-  verdict: z26.string().nullable(),
-  answer: z26.string(),
-  itemText: z26.string(),
-  item: z26.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
+var CandidateSchema = z31.object({
+  id: z31.string(),
+  verdict: z31.string().nullable(),
+  answer: z31.string(),
+  itemText: z31.string(),
+  item: z31.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
 });
-var SummarySchema = z26.object({
-  places: z26.object({ adr: z26.boolean(), knowledge: z26.boolean() }),
-  domains: z26.array(z26.object({ name: z26.string(), firstLine: z26.string().nullable() })),
-  principles: z26.array(z26.object({ id: z26.string(), place: z26.string(), statement: z26.string() })),
-  decisions: z26.array(z26.object({ number: z26.string(), title: z26.string().nullable() })),
-  laws: z26.array(
-    z26.object({ id: z26.string(), kind: z26.enum(["principle", "rule", "invariant"]).nullable(), place: z26.string(), statement: z26.string() })
+var SummarySchema = z31.object({
+  places: z31.object({ adr: z31.boolean(), knowledge: z31.boolean() }),
+  domains: z31.array(z31.object({ name: z31.string(), firstLine: z31.string().nullable() })),
+  principles: z31.array(z31.object({ id: z31.string(), place: z31.string(), statement: z31.string() })),
+  decisions: z31.array(z31.object({ number: z31.string(), title: z31.string().nullable() })),
+  laws: z31.array(
+    z31.object({ id: z31.string(), kind: z31.enum(["principle", "rule", "invariant"]).nullable(), place: z31.string(), statement: z31.string() })
   )
 });
-var SettledSchema = z26.object({
-  tip: z26.string(),
-  prepared: z26.object({
-    ok: z26.literal(true),
+var SettledSchema = z31.object({
+  tip: z31.string(),
+  prepared: z31.object({
+    ok: z31.literal(true),
     prd: PrdNumberSchema,
     edits: EditsSchema,
-    settled: z26.array(z26.object({ id: z26.string(), from: z26.enum(["open", "drift"]) })),
-    shipped: z26.array(MoveSchema),
-    candidates: z26.array(CandidateSchema),
+    settled: z31.array(z31.object({ id: z31.string(), from: z31.enum(["open", "drift"]) })),
+    shipped: z31.array(MoveSchema),
+    candidates: z31.array(CandidateSchema),
     summary: SummarySchema,
-    changed: z26.array(z26.object({ path: z26.string(), status: z26.string() }))
+    changed: z31.array(z31.object({ path: z31.string(), status: z31.string() }))
   })
 });
-var ClassificationOutSchema = z26.object({
-  id: z26.string(),
+var ClassificationOutSchema = z31.object({
+  id: z31.string(),
   reply: ClassificationSchema.nullable(),
-  reason: z26.string().nullable(),
-  error: z26.string().nullable()
+  reason: z31.string().nullable(),
+  error: z31.string().nullable()
 });
-var PlacedSchema = z26.object({
-  id: z26.string(),
-  kind: z26.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
-  landedAs: z26.array(z26.string()),
-  files: z26.array(z26.string()),
-  ledgerFile: z26.string(),
-  ledgerLine: z26.string(),
-  decided: z26.string(),
-  status: z26.string().nullable(),
-  proposed: z26.boolean(),
-  reason: z26.string(),
-  enforcedBy: z26.array(z26.string()).exactOptional(),
-  dropped: z26.array(z26.object({ path: z26.string(), reason: z26.string() })).exactOptional(),
-  law: z26.object({ worth: z26.boolean(), decidedBy: z26.string(), confidence: z26.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
+var PlacedSchema = z31.object({
+  id: z31.string(),
+  kind: z31.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
+  landedAs: z31.array(z31.string()),
+  files: z31.array(z31.string()),
+  ledgerFile: z31.string(),
+  ledgerLine: z31.string(),
+  decided: z31.string(),
+  status: z31.string().nullable(),
+  proposed: z31.boolean(),
+  reason: z31.string(),
+  enforcedBy: z31.array(z31.string()).exactOptional(),
+  dropped: z31.array(z31.object({ path: z31.string(), reason: z31.string() })).exactOptional(),
+  law: z31.object({ worth: z31.boolean(), decidedBy: z31.string(), confidence: z31.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
 });
-var LawIssueSchema = z26.object({
-  id: z26.string(),
-  entry: z26.string(),
-  register: z26.string(),
-  statement: z26.string(),
-  source: z26.string(),
-  title: z26.string(),
-  body: z26.string()
+var LawIssueSchema = z31.object({
+  id: z31.string(),
+  entry: z31.string(),
+  register: z31.string(),
+  statement: z31.string(),
+  source: z31.string(),
+  title: z31.string(),
+  body: z31.string()
 });
-var WrittenSchema = z26.object({
+var WrittenSchema = z31.object({
   edits: EditsSchema,
-  placed: z26.array(PlacedSchema),
-  notPlaced: z26.array(z26.object({ id: z26.string(), reason: z26.string() })),
-  checks: z26.object({ knowledge: z26.array(z26.string()), outbox: z26.array(z26.string()) }),
-  commit: z26.object({
-    files: z26.array(z26.object({ path: z26.string(), content: z26.string() })),
-    moves: z26.array(MoveSchema),
-    deletes: z26.array(z26.string())
+  placed: z31.array(PlacedSchema),
+  notPlaced: z31.array(z31.object({ id: z31.string(), reason: z31.string() })),
+  checks: z31.object({ knowledge: z31.array(z31.string()), outbox: z31.array(z31.string()) }),
+  commit: z31.object({
+    files: z31.array(z31.object({ path: z31.string(), content: z31.string() })),
+    moves: z31.array(MoveSchema),
+    deletes: z31.array(z31.string())
   }),
-  taken: z26.array(z26.string()),
-  lawIssues: z26.array(LawIssueSchema)
+  taken: z31.array(z31.string()),
+  lawIssues: z31.array(LawIssueSchema)
 });
-var LawWorthStateSchema = z26.object({
-  statement: z26.string(),
-  why: z26.string().nullable(),
-  principle: z26.string().nullable(),
-  domain: z26.string().nullable(),
-  prdTitle: z26.string().nullable()
+var LawWorthStateSchema = z31.object({
+  statement: z31.string(),
+  why: z31.string().nullable(),
+  principle: z31.string().nullable(),
+  domain: z31.string().nullable(),
+  prdTitle: z31.string().nullable()
 });
-var LawQuestionsSchema = z26.array(z26.object({ id: z26.string(), state: LawWorthStateSchema, old: z26.boolean() }));
-var LawJudgementSchema = z26.object({
-  worth: z26.object({ worth: z26.boolean(), decidedBy: z26.string(), confidence: z26.number().nullable() }).nullable(),
-  reason: z26.string().nullable()
+var LawQuestionsSchema = z31.array(z31.object({ id: z31.string(), state: LawWorthStateSchema, old: z31.boolean() }));
+var LawJudgementSchema = z31.object({
+  worth: z31.object({ worth: z31.boolean(), decidedBy: z31.string(), confidence: z31.number().nullable() }).nullable(),
+  reason: z31.string().nullable()
 });
-var LawIssueOpenedSchema = z26.object({ number: IssueNumberSchema, created: z26.boolean() });
-var ListedIssueSchema = z26.looseObject({ number: IssueNumberSchema, title: z26.string().nullish(), pull_request: z26.unknown().optional() });
-var PublishedSchema = z26.object({
-  branch: z26.string(),
-  commit: z26.string(),
-  committed: z26.boolean(),
-  pr: z26.object({ number: PrNumberSchema, url: z26.string(), created: z26.boolean() })
+var LawIssueOpenedSchema = z31.object({ number: IssueNumberSchema, created: z31.boolean() });
+var ListedIssueSchema = z31.looseObject({ number: IssueNumberSchema, title: z31.string().nullish(), pull_request: z31.unknown().optional() });
+var PublishedSchema = z31.object({
+  branch: z31.string(),
+  commit: z31.string(),
+  committed: z31.boolean(),
+  pr: z31.object({ number: PrNumberSchema, url: z31.string(), created: z31.boolean() })
 }).nullable();
-var CommentedSchema = z26.object({ commentId: CommentIdSchema, created: z26.boolean() });
+var CommentedSchema = z31.object({ commentId: CommentIdSchema, created: z31.boolean() });
 
 // apps/omni-app/src/knowledge-harvest/github.ts
 var OPEN_PULLS_UNEXPECTED = "GitHub answered the open pull requests unexpectedly";
@@ -9051,19 +9527,19 @@ function loopPaths2(config) {
   );
 }
 async function withTreeAt(octokit, { owner, repo, sha, config, also = [] }, fn) {
-  const root = mkdtempSync8(join35(tmpdir8(), "omni-harvest-tree-"));
+  const root = mkdtempSync10(join42(tmpdir10(), "omni-harvest-tree-"));
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths: [.../* @__PURE__ */ new Set([...loopPaths2(config), ...also])], dest: root });
     return await fn(createContext(root, loadConfig(root)), root);
   } finally {
-    rmSync8(root, { recursive: true, force: true });
+    rmSync11(root, { recursive: true, force: true });
   }
 }
 function filesIn(root, dir = "") {
   const out = [];
-  for (const name of readdirSync13(join35(root, dir))) {
+  for (const name of readdirSync14(join42(root, dir))) {
     const rel = dir ? `${dir}/${name}` : name;
-    if (statSync6(join35(root, rel)).isDirectory()) out.push(...filesIn(root, rel));
+    if (statSync6(join42(root, rel)).isDirectory()) out.push(...filesIn(root, rel));
     else out.push(rel);
   }
   return out.sort();
@@ -9085,14 +9561,14 @@ async function takenElsewhere(octokit, { owner, repo, config, own }) {
   const paths = [config.paths.knowledge, config.paths.adr].filter((path) => Boolean(path));
   for (const branch of branches) {
     const sha = await tipOf(octokit, { owner, repo, branch });
-    const root = mkdtempSync8(join35(tmpdir8(), "omni-harvest-taken-"));
+    const root = mkdtempSync10(join42(tmpdir10(), "omni-harvest-taken-"));
     try {
       await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
       const ctx = createContext(root, config);
       for (const entry of readKnowledge({ ctx }).entries) ids.add(entry.id);
       for (const record of readDecisions({ ctx }).records) records.add(record.number);
     } finally {
-      rmSync8(root, { recursive: true, force: true });
+      rmSync11(root, { recursive: true, force: true });
     }
   }
   return { records: [...records].sort(), ids: [...ids].sort(), branches };
@@ -9122,7 +9598,7 @@ ${commitMarker(merge.pr)} Merged by @${bare(merge.by)}.`;
 }
 var bare = (who) => (who ?? "").replace(/^@/, "");
 var day2 = (value) => (value ?? "").slice(0, 10);
-var cell = (text8) => (text8 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+var cell = (text10) => (text10 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
@@ -9130,9 +9606,9 @@ function landedAs(entry) {
   return `${entry.landedAs.join(", ")} (new, ${standing})`;
 }
 function decidedShort(decided) {
-  const text8 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
-  if (text8.startsWith("nobody")) return "nobody \u2014 adopted";
-  return text8;
+  const text10 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
+  if (text10.startsWith("nobody")) return "nobody \u2014 adopted";
+  return text10;
 }
 function enforcedText(paths, issue) {
   if (issue !== null) return `pending #${issue}`;
@@ -9210,7 +9686,7 @@ function toCommit(edits, filesBefore) {
     }
   }
   return {
-    files: edits.writes.map(({ path, text: text8 }) => ({ path, content: text8 })),
+    files: edits.writes.map(({ path, text: text10 }) => ({ path, content: text10 })),
     moves,
     deletes
   };
@@ -9405,24 +9881,24 @@ function createHarvestFailureHandler({ octokitFor }) {
     const { installationId, owner, repo, prNumber } = failed2.success ? failed2.data : {};
     if (!installationId || !prNumber) return { skipped: "not a merge" };
     const reason2 = firstLine(error?.message ?? event.data.error?.message);
-    const text8 = `The knowledge harvest could not run: ${reason2}`;
+    const text10 = `The knowledge harvest could not run: ${reason2}`;
     return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
-      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text8 });
+      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text10 });
       return { ...posted, reason: reason2 };
     });
   };
 }
 
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z27 } from "zod";
+import { z as z32 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
-var JUDGE_TIMEOUT_MS2 = 55e3;
-var VerdictSchema2 = z27.looseObject({
-  answer: z27.enum(["true", "false"]),
-  confidence: z27.number().nullable().catch(null),
-  decidedBy: z27.string().nullable().catch(null)
+var JUDGE_TIMEOUT_MS3 = 55e3;
+var VerdictSchema2 = z32.looseObject({
+  answer: z32.enum(["true", "false"]),
+  confidence: z32.number().nullable().catch(null),
+  decidedBy: z32.string().nullable().catch(null)
 });
-var RefusalSchema2 = z27.looseObject({ error: z27.string().optional().catch(void 0) });
+var RefusalSchema2 = z32.looseObject({ error: z32.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
@@ -9445,7 +9921,7 @@ function judgementOf({ status, ok, reply }) {
   if (decidedBy !== "jev" || confidence === null) return kept2("galaxy kept the classifier's answer");
   return { worth: { worth: answer === "true", decidedBy: "Jev", confidence }, reason: null };
 }
-function lawJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS2 }) {
+function lawJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS3 }) {
   return async ({ state, old }, { repo, ref }) => {
     if (!secret) return kept2(`${LAW_JUDGE_SECRET_VAR} is not set`);
     const { statement: statement2, why, principle, domain, prdTitle } = state;
@@ -9465,8 +9941,8 @@ function installationOctokitFor(githubApp, github) {
     const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app reads GitHub as an installation");
     app ??= new App({ appId: id, privateKey });
     const octokit = await app.getInstallationOctokit(installationId);
-    const budgeted = github.bound({ installation: installationId, priority: "background" });
-    const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init);
+    const budgeted2 = github.bound({ installation: installationId, priority: "background" });
+    const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted2(url, init);
     octokit.hook.before("request", (options) => {
       options.request = { ...options.request, fetch: fetch2 };
     });
@@ -9490,19 +9966,19 @@ function githubStoreOf(supabase) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-import { z as z29 } from "zod";
+import { z as z34 } from "zod";
 
 // kit/lib/plan-repo/gh-schema.ts
-import { z as z28 } from "zod";
-var GhRepositorySchema = z28.looseObject({ default_branch: z28.string() });
-var GhContentEntrySchema = z28.looseObject({ type: z28.string(), name: z28.string(), path: z28.string() });
-var GhCompareFileSchema = z28.looseObject({
-  filename: z28.string(),
-  previous_filename: z28.string().optional()
+import { z as z33 } from "zod";
+var GhRepositorySchema = z33.looseObject({ default_branch: z33.string() });
+var GhContentEntrySchema = z33.looseObject({ type: z33.string(), name: z33.string(), path: z33.string() });
+var GhCompareFileSchema = z33.looseObject({
+  filename: z33.string(),
+  previous_filename: z33.string().optional()
 });
-var GhCompareSchema = z28.looseObject({
-  ahead_by: z28.number().optional(),
-  files: z28.array(GhCompareFileSchema).optional()
+var GhCompareSchema = z33.looseObject({
+  ahead_by: z33.number().optional(),
+  files: z33.array(GhCompareFileSchema).optional()
 });
 function firstIssue(error) {
   const [issue] = error.issues;
@@ -9512,64 +9988,64 @@ function firstIssue(error) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z29.looseObject({
-  limit: z29.number(),
-  remaining: z29.number(),
-  resetAt: z29.string().nullish()
+var RateLimitSchema = z34.looseObject({
+  limit: z34.number(),
+  remaining: z34.number(),
+  resetAt: z34.string().nullish()
 });
-var RateLimited = z29.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z29.looseObject({
-  repository: z29.looseObject({
-    pullRequests: z29.looseObject({
-      pageInfo: z29.looseObject({ hasNextPage: z29.boolean(), endCursor: z29.string().nullish() }),
-      nodes: z29.array(z29.looseObject({ number: PrNumberSchema, updatedAt: z29.string() }))
+var RateLimited = z34.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z34.looseObject({
+  repository: z34.looseObject({
+    pullRequests: z34.looseObject({
+      pageInfo: z34.looseObject({ hasNextPage: z34.boolean(), endCursor: z34.string().nullish() }),
+      nodes: z34.array(z34.looseObject({ number: PrNumberSchema, updatedAt: z34.string() }))
     })
   })
 });
-var ActorSchema = z29.looseObject({ login: z29.string().nullish(), __typename: z29.string().nullish() }).nullish();
-var PullDetailSchema = z29.looseObject({
+var ActorSchema = z34.looseObject({ login: z34.string().nullish(), __typename: z34.string().nullish() }).nullish();
+var PullDetailSchema = z34.looseObject({
   number: PrNumberSchema,
   author: ActorSchema,
-  createdAt: z29.string(),
-  mergedAt: z29.string().nullish(),
-  closedAt: z29.string().nullish(),
+  createdAt: z34.string(),
+  mergedAt: z34.string().nullish(),
+  closedAt: z34.string().nullish(),
   mergedBy: ActorSchema,
-  baseRefName: z29.string().nullish(),
-  headRefName: z29.string().nullish(),
-  isDraft: z29.boolean().nullish(),
-  body: z29.string().nullish(),
-  additions: z29.number().nullish(),
-  deletions: z29.number().nullish(),
-  labels: z29.looseObject({ nodes: z29.array(z29.looseObject({ name: z29.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z29.looseObject({
-    totalCount: z29.number(),
-    nodes: z29.array(
-      z29.looseObject({
-        commit: z29.looseObject({ message: z29.string().nullish(), committedDate: z29.string().nullish() }).nullish()
+  baseRefName: z34.string().nullish(),
+  headRefName: z34.string().nullish(),
+  isDraft: z34.boolean().nullish(),
+  body: z34.string().nullish(),
+  additions: z34.number().nullish(),
+  deletions: z34.number().nullish(),
+  labels: z34.looseObject({ nodes: z34.array(z34.looseObject({ name: z34.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z34.looseObject({
+    totalCount: z34.number(),
+    nodes: z34.array(
+      z34.looseObject({
+        commit: z34.looseObject({ message: z34.string().nullish(), committedDate: z34.string().nullish() }).nullish()
       })
     )
   }).nullish(),
-  reviews: z29.looseObject({ nodes: z29.array(z29.looseObject({ author: ActorSchema, submittedAt: z29.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z29.looseObject({
-    nodes: z29.array(
-      z29.looseObject({ createdAt: z29.string().nullish(), label: z29.looseObject({ name: z29.string().nullish() }).nullish() }).nullish()
+  reviews: z34.looseObject({ nodes: z34.array(z34.looseObject({ author: ActorSchema, submittedAt: z34.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z34.looseObject({
+    nodes: z34.array(
+      z34.looseObject({ createdAt: z34.string().nullish(), label: z34.looseObject({ name: z34.string().nullish() }).nullish() }).nullish()
     ).nullish()
   }).nullish()
 });
-var PullDetailsSchema = z29.looseObject({ repository: z29.record(z29.string(), z29.unknown()) });
-var PullCommentsSchema = z29.looseObject({
-  comments: z29.looseObject({ nodes: z29.array(z29.looseObject({ body: z29.string().nullish() }).nullish()).nullish() }).nullish()
+var PullDetailsSchema = z34.looseObject({ repository: z34.record(z34.string(), z34.unknown()) });
+var PullCommentsSchema = z34.looseObject({
+  comments: z34.looseObject({ nodes: z34.array(z34.looseObject({ body: z34.string().nullish() }).nullish()).nullish() }).nullish()
 }).nullish();
-var TrackedRowSchema = z29.looseObject({
-  workspace_id: z29.string(),
-  full_name: z29.string(),
-  collected_until: z29.string().nullish(),
-  workspaces: z29.looseObject({ github_installation_id: z29.union([z29.number(), z29.string()]) })
+var TrackedRowSchema = z34.looseObject({
+  workspace_id: z34.string(),
+  full_name: z34.string(),
+  collected_until: z34.string().nullish(),
+  workspaces: z34.looseObject({ github_installation_id: z34.union([z34.number(), z34.string()]) })
 });
-var FailureSchema2 = z29.looseObject({
-  errors: z29.array(z29.looseObject({ type: z29.unknown().optional(), message: z29.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z29.unknown().optional(),
-  status: z29.unknown().optional()
+var FailureSchema2 = z34.looseObject({
+  errors: z34.array(z34.looseObject({ type: z34.unknown().optional(), message: z34.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z34.unknown().optional(),
+  status: z34.unknown().optional()
 });
 function parseAnswer(schema, value, what) {
   return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
@@ -9579,24 +10055,24 @@ function parsedOr2(schema, value, context) {
   if (parsed2.success) return parsed2.data;
   throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
 }
-var BudgetSchema = z29.object({
-  limit: z29.number().exactOptional(),
-  remaining: z29.number().exactOptional(),
-  resetAt: z29.string().nullable().exactOptional()
+var BudgetSchema = z34.object({
+  limit: z34.number().exactOptional(),
+  remaining: z34.number().exactOptional(),
+  resetAt: z34.string().nullable().exactOptional()
 });
-var TrackedRepositorySchema = z29.object({
-  workspaceId: z29.string(),
-  installationId: z29.number(),
-  fullName: z29.string(),
-  collectedUntil: z29.string().nullable()
+var TrackedRepositorySchema = z34.object({
+  workspaceId: z34.string(),
+  installationId: z34.number(),
+  fullName: z34.string(),
+  collectedUntil: z34.string().nullable()
 });
-var TrackedRepositoriesSchema = z29.array(TrackedRepositorySchema);
-var BatchOutSchema = z29.object({
-  saved: z29.number(),
-  cursor: z29.string(),
-  more: z29.boolean(),
-  paused: z29.literal(true).exactOptional(),
-  error: z29.string().exactOptional(),
+var TrackedRepositoriesSchema = z34.array(TrackedRepositorySchema);
+var BatchOutSchema = z34.object({
+  saved: z34.number(),
+  cursor: z34.string(),
+  more: z34.boolean(),
+  paused: z34.literal(true).exactOptional(),
+  error: z34.string().exactOptional(),
   budget: BudgetSchema
 });
 
@@ -9951,7 +10427,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
 
 // apps/omni-app/src/retro/retro.ts
 import { internalEvents } from "inngest";
-import { z as z37 } from "zod";
+import { z as z42 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -10149,8 +10625,8 @@ var REFUSED_PATTERNS = REFUSED_WORDS.map((word) => ({
   word,
   pattern: new RegExp(`\\b${word.replaceAll(" ", "[\\s-]*")}\\b`, "i")
 }));
-function refusedWordsIn(text8) {
-  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text8)).map(({ word }) => word);
+function refusedWordsIn(text10) {
+  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text10)).map(({ word }) => word);
 }
 function rankOf(kind) {
   const index = FINDING_ORDER.findIndex((rank) => rank.includes(kind));
@@ -10168,100 +10644,100 @@ function rulesSheet() {
 }
 
 // apps/omni-app/src/retro/kinds/schema.ts
-import { z as z30 } from "zod";
-var IssueEventSchema = z30.looseObject({
-  event: z30.string(),
-  created_at: z30.string(),
-  label: z30.looseObject({ name: z30.string().nullish() }).nullish()
+import { z as z35 } from "zod";
+var IssueEventSchema = z35.looseObject({
+  event: z35.string(),
+  created_at: z35.string(),
+  label: z35.looseObject({ name: z35.string().nullish() }).nullish()
 });
-var WorkflowRunSchema = z30.looseObject({
-  id: z30.number(),
-  name: z30.string().nullish(),
-  head_sha: z30.string().nullish()
+var WorkflowRunSchema = z35.looseObject({
+  id: z35.number(),
+  name: z35.string().nullish(),
+  head_sha: z35.string().nullish()
 });
-var WorkflowRunsPageSchema = z30.looseObject({ workflow_runs: z30.array(WorkflowRunSchema).nullish() });
-var JobSchema = z30.looseObject({
-  id: z30.number(),
-  run_id: z30.number().nullish(),
-  workflow_name: z30.string().nullish(),
-  name: z30.string(),
-  head_sha: z30.string().nullish(),
-  run_attempt: z30.number().nullish(),
-  status: z30.string().nullish(),
-  conclusion: z30.string().nullish(),
-  html_url: z30.string().nullish(),
-  completed_at: z30.string().nullish()
+var WorkflowRunsPageSchema = z35.looseObject({ workflow_runs: z35.array(WorkflowRunSchema).nullish() });
+var JobSchema = z35.looseObject({
+  id: z35.number(),
+  run_id: z35.number().nullish(),
+  workflow_name: z35.string().nullish(),
+  name: z35.string(),
+  head_sha: z35.string().nullish(),
+  run_attempt: z35.number().nullish(),
+  status: z35.string().nullish(),
+  conclusion: z35.string().nullish(),
+  html_url: z35.string().nullish(),
+  completed_at: z35.string().nullish()
 });
-var JobsPageSchema = z30.looseObject({ jobs: z30.array(JobSchema).nullish() });
-var IssueSchema2 = z30.looseObject({
+var JobsPageSchema = z35.looseObject({ jobs: z35.array(JobSchema).nullish() });
+var IssueSchema2 = z35.looseObject({
   number: IssueNumberSchema,
-  title: z30.string().nullish(),
-  body: z30.string().nullish(),
-  html_url: z30.string(),
-  created_at: z30.string(),
-  closed_at: z30.string().nullish(),
-  pull_request: z30.unknown().optional()
+  title: z35.string().nullish(),
+  body: z35.string().nullish(),
+  html_url: z35.string(),
+  created_at: z35.string(),
+  closed_at: z35.string().nullish(),
+  pull_request: z35.unknown().optional()
 });
-var ClosedPullSchema = z30.looseObject({
+var ClosedPullSchema = z35.looseObject({
   number: PrNumberSchema,
-  title: z30.string().nullish(),
-  body: z30.string().nullish(),
-  html_url: z30.string(),
-  merged_at: z30.string().nullish(),
-  updated_at: z30.string().nullish(),
-  closed_at: z30.string().nullish()
+  title: z35.string().nullish(),
+  body: z35.string().nullish(),
+  html_url: z35.string(),
+  merged_at: z35.string().nullish(),
+  updated_at: z35.string().nullish(),
+  closed_at: z35.string().nullish()
 });
-var ChangedFileSchema = z30.looseObject({
-  filename: z30.string(),
-  previous_filename: z30.string().nullish(),
-  status: z30.string().nullish(),
-  additions: z30.number().nullish(),
-  deletions: z30.number().nullish(),
-  patch: z30.string().nullish()
+var ChangedFileSchema = z35.looseObject({
+  filename: z35.string(),
+  previous_filename: z35.string().nullish(),
+  status: z35.string().nullish(),
+  additions: z35.number().nullish(),
+  deletions: z35.number().nullish(),
+  patch: z35.string().nullish()
 });
-var PullCommitSchema = z30.looseObject({
-  sha: z30.string(),
-  parents: z30.array(z30.unknown()).nullish()
+var PullCommitSchema = z35.looseObject({
+  sha: z35.string(),
+  parents: z35.array(z35.unknown()).nullish()
 });
-var CommitPageSchema = z30.looseObject({
-  html_url: z30.string().nullish(),
-  files: z30.array(ChangedFileSchema).nullish()
+var CommitPageSchema = z35.looseObject({
+  html_url: z35.string().nullish(),
+  files: z35.array(ChangedFileSchema).nullish()
 });
-var IssueCommentSchema = z30.looseObject({
-  body: z30.string().nullish(),
-  html_url: z30.string().nullish(),
-  created_at: z30.string().nullish()
+var IssueCommentSchema = z35.looseObject({
+  body: z35.string().nullish(),
+  html_url: z35.string().nullish(),
+  created_at: z35.string().nullish()
 });
-var UserSchema = z30.looseObject({ login: z30.string().nullish(), type: z30.string().nullish() });
-var ReviewSchema = z30.looseObject({
-  html_url: z30.string().nullish(),
+var UserSchema = z35.looseObject({ login: z35.string().nullish(), type: z35.string().nullish() });
+var ReviewSchema = z35.looseObject({
+  html_url: z35.string().nullish(),
   user: UserSchema.nullish(),
-  state: z30.string().nullish(),
-  body: z30.string().nullish()
+  state: z35.string().nullish(),
+  body: z35.string().nullish()
 });
-var ThreadCommentSchema = z30.looseObject({
-  url: z30.string().nullish(),
-  body: z30.string().nullish(),
-  author: z30.looseObject({ login: z30.string().nullish(), __typename: z30.string().nullish() }).nullish()
+var ThreadCommentSchema = z35.looseObject({
+  url: z35.string().nullish(),
+  body: z35.string().nullish(),
+  author: z35.looseObject({ login: z35.string().nullish(), __typename: z35.string().nullish() }).nullish()
 });
-var ReviewThreadSchema = z30.looseObject({
-  isResolved: z30.boolean().nullish(),
-  isOutdated: z30.boolean().nullish(),
-  path: z30.string().nullish(),
-  comments: z30.looseObject({ nodes: z30.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
+var ReviewThreadSchema = z35.looseObject({
+  isResolved: z35.boolean().nullish(),
+  isOutdated: z35.boolean().nullish(),
+  path: z35.string().nullish(),
+  comments: z35.looseObject({ nodes: z35.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
 });
-var ReviewThreadsAnswerSchema = z30.looseObject({
-  data: z30.looseObject({
-    repository: z30.looseObject({
-      pullRequest: z30.looseObject({
-        reviewThreads: z30.looseObject({
-          pageInfo: z30.looseObject({ hasNextPage: z30.boolean().nullish(), endCursor: z30.string().nullish() }).nullish(),
-          nodes: z30.array(ReviewThreadSchema).nullish()
+var ReviewThreadsAnswerSchema = z35.looseObject({
+  data: z35.looseObject({
+    repository: z35.looseObject({
+      pullRequest: z35.looseObject({
+        reviewThreads: z35.looseObject({
+          pageInfo: z35.looseObject({ hasNextPage: z35.boolean().nullish(), endCursor: z35.string().nullish() }).nullish(),
+          nodes: z35.array(ReviewThreadSchema).nullish()
         }).nullish()
       }).nullish()
     }).nullish()
   }).nullish(),
-  errors: z30.array(z30.looseObject({ type: z30.string().nullish(), message: z30.string().nullish() })).nullish()
+  errors: z35.array(z35.looseObject({ type: z35.string().nullish(), message: z35.string().nullish() })).nullish()
 }).nullish();
 
 // apps/omni-app/src/retro/kinds/jobs.ts
@@ -10393,104 +10869,104 @@ function statusOf4(error) {
 }
 
 // apps/omni-app/src/retro/kinds/records.ts
-import { z as z31 } from "zod";
-var text5 = z31.string();
-var maybeText = z31.string().nullable();
-var BlockSchema = z31.tuple([z31.number(), z31.number(), z31.number(), z31.number()]);
-var TimelineRecordsSchema = z31.object({ readyAt: maybeText });
-var StuckCommentSchema = z31.object({ url: maybeText, at: maybeText, attempts: z31.number(), text: z31.string().nullish() });
-var ReviewRecordSchema = z31.object({
+import { z as z36 } from "zod";
+var text7 = z36.string();
+var maybeText = z36.string().nullable();
+var BlockSchema = z36.tuple([z36.number(), z36.number(), z36.number(), z36.number()]);
+var TimelineRecordsSchema = z36.object({ readyAt: maybeText });
+var StuckCommentSchema = z36.object({ url: maybeText, at: maybeText, attempts: z36.number(), text: z36.string().nullish() });
+var ReviewRecordSchema = z36.object({
   url: maybeText,
   author: maybeText,
-  bot: z31.boolean(),
+  bot: z36.boolean(),
   state: maybeText,
-  red: z31.boolean(),
-  text: z31.string().nullish()
+  red: z36.boolean(),
+  text: z36.string().nullish()
 });
-var ThreadRecordSchema = z31.object({
+var ThreadRecordSchema = z36.object({
   url: maybeText,
   author: maybeText,
-  bot: z31.boolean(),
+  bot: z36.boolean(),
   path: maybeText,
-  resolved: z31.boolean(),
-  outdated: z31.boolean(),
-  red: z31.boolean(),
+  resolved: z36.boolean(),
+  outdated: z36.boolean(),
+  red: z36.boolean(),
   text: maybeText
 });
-var PullReadsSchema = z31.object({
-  files: z31.array(text5).nullable().exactOptional(),
-  stuck: z31.array(StuckCommentSchema).nullable().exactOptional(),
-  needsFix: z31.array(text5).nullable().exactOptional(),
-  reviews: z31.array(ReviewRecordSchema).nullable().exactOptional(),
-  threads: z31.array(ThreadRecordSchema).nullable().exactOptional()
+var PullReadsSchema = z36.object({
+  files: z36.array(text7).nullable().exactOptional(),
+  stuck: z36.array(StuckCommentSchema).nullable().exactOptional(),
+  needsFix: z36.array(text7).nullable().exactOptional(),
+  reviews: z36.array(ReviewRecordSchema).nullable().exactOptional(),
+  threads: z36.array(ThreadRecordSchema).nullable().exactOptional()
 });
-var DeliveryRecordsSchema = z31.object({ pulls: z31.record(z31.string(), PullReadsSchema.optional()) });
-var JobRecordSchema = z31.object({
-  id: z31.number(),
-  run: z31.number(),
+var DeliveryRecordsSchema = z36.object({ pulls: z36.record(z36.string(), PullReadsSchema.optional()) });
+var JobRecordSchema = z36.object({
+  id: z36.number(),
+  run: z36.number(),
   workflow: maybeText,
-  check: text5,
+  check: text7,
   slice: SliceIdSchema,
-  sha: z31.string().nullish(),
-  attempt: z31.number(),
-  status: z31.string().nullish(),
+  sha: z36.string().nullish(),
+  attempt: z36.number(),
+  status: z36.string().nullish(),
   conclusion: maybeText,
   url: maybeText,
   completedAt: maybeText
 });
-var CiRecordsSchema = z31.object({
-  slices: z31.array(SliceIdSchema),
-  unread: z31.array(z31.object({ slice: SliceIdSchema, run: z31.number().exactOptional(), status: z31.number() })),
-  jobs: z31.array(JobRecordSchema),
-  logs: z31.record(z31.string(), z31.object({ tail: maybeText, status: z31.number().exactOptional() }).optional())
+var CiRecordsSchema = z36.object({
+  slices: z36.array(SliceIdSchema),
+  unread: z36.array(z36.object({ slice: SliceIdSchema, run: z36.number().exactOptional(), status: z36.number() })),
+  jobs: z36.array(JobRecordSchema),
+  logs: z36.record(z36.string(), z36.object({ tail: maybeText, status: z36.number().exactOptional() }).optional())
 });
-var CommitFileSchema = z31.object({
-  path: text5,
+var CommitFileSchema = z36.object({
+  path: text7,
   previous: maybeText,
-  status: z31.string().nullish(),
-  additions: z31.number(),
-  deletions: z31.number(),
-  blocks: z31.array(BlockSchema).nullable()
+  status: z36.string().nullish(),
+  additions: z36.number(),
+  deletions: z36.number(),
+  blocks: z36.array(BlockSchema).nullable()
 });
-var PullRecordSchema = z31.object({
+var PullRecordSchema = z36.object({
   number: PrNumberSchema,
   url: maybeText,
-  headRef: text5,
+  headRef: text7,
   mergedAt: maybeText,
-  commits: z31.array(z31.object({ sha: text5, url: maybeText, files: z31.array(CommitFileSchema).nullable() })).nullable()
+  commits: z36.array(z36.object({ sha: text7, url: maybeText, files: z36.array(CommitFileSchema).nullable() })).nullable()
 });
-var ChurnRecordsSchema = z31.object({
+var ChurnRecordsSchema = z36.object({
   gitattributes: maybeText,
-  final: z31.array(z31.object({ path: text5, additions: z31.number().nullish(), deletions: z31.number().nullish() })).nullable(),
-  pulls: z31.array(PullRecordSchema)
+  final: z36.array(z36.object({ path: text7, additions: z36.number().nullish(), deletions: z36.number().nullish() })).nullable(),
+  pulls: z36.array(PullRecordSchema)
 });
-var RangeSchema = z31.object({ path: text5, from: z31.number(), to: z31.number() });
-var AfterMergeRecordsSchema = z31.object({
-  window: z31.object({ from: text5, to: text5 }),
-  bugs: z31.array(z31.object({ number: IssueNumberSchema, url: text5, createdAt: text5, closedAt: maybeText })),
-  fixes: z31.array(
-    z31.object({
+var RangeSchema = z36.object({ path: text7, from: z36.number(), to: z36.number() });
+var AfterMergeRecordsSchema = z36.object({
+  window: z36.object({ from: text7, to: text7 }),
+  bugs: z36.array(z36.object({ number: IssueNumberSchema, url: text7, createdAt: text7, closedAt: maybeText })),
+  fixes: z36.array(
+    z36.object({
       number: PrNumberSchema,
-      url: text5,
-      mergedAt: text5,
-      closes: z31.array(IssueNumberSchema),
-      files: z31.array(z31.object({ path: text5, previous: maybeText, blocks: z31.array(BlockSchema).nullable() })).nullable()
+      url: text7,
+      mergedAt: text7,
+      closes: z36.array(IssueNumberSchema),
+      files: z36.array(z36.object({ path: text7, previous: maybeText, blocks: z36.array(BlockSchema).nullable() })).nullable()
     })
   ),
-  checks: z31.object({
-    commit: text5,
-    status: z31.number().nullable(),
-    jobs: z31.array(z31.object({ name: text5, workflow: maybeText, conclusion: maybeText, url: maybeText }))
+  checks: z36.object({
+    commit: text7,
+    status: z36.number().nullable(),
+    jobs: z36.array(z36.object({ name: text7, workflow: maybeText, conclusion: maybeText, url: maybeText }))
   }),
-  ranges: z31.array(RangeSchema),
-  unread: z31.array(
-    z31.object({ read: z31.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z31.number().exactOptional(), status: z31.number() })
+  ranges: z36.array(RangeSchema),
+  unread: z36.array(
+    z36.object({ read: z36.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z36.number().exactOptional(), status: z36.number() })
   )
 });
-var ChurnAtMergeSchema = z31.object({ ranges: z31.array(RangeSchema).exactOptional() }).nullish();
+var ChurnAtMergeSchema = z36.object({ ranges: z36.array(RangeSchema).exactOptional() }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-import { z as z32 } from "zod";
+import { z as z37 } from "zod";
 
 // kit/lib/care/list.ts
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
@@ -10505,10 +10981,10 @@ function rowPr(line) {
   return slug && number ? { slug, pr: parsePr(number) } : null;
 }
 function fixPlanRows(body) {
-  const text8 = body ?? "";
-  if (!text8.includes(FIX_PLAN_MARKER)) return [];
+  const text10 = body ?? "";
+  if (!text10.includes(FIX_PLAN_MARKER)) return [];
   const rows = [];
-  for (const line of text8.split("\n")) {
+  for (const line of text10.split("\n")) {
     const found = line.trim().startsWith("|") ? rowPr(line) : null;
     if (found && !rows.some((row) => row.slug === found.slug && row.pr === found.pr)) rows.push(found);
   }
@@ -10602,29 +11078,29 @@ function slicesOf(plan) {
 }
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-var text6 = z32.string();
-var BlockSchema2 = z32.tuple([z32.number(), z32.number(), z32.number(), z32.number()]);
-var RangeSchema2 = z32.object({ path: text6, from: z32.number(), to: z32.number() });
-var PlannedSchema = z32.object({
+var text8 = z37.string();
+var BlockSchema2 = z37.tuple([z37.number(), z37.number(), z37.number(), z37.number()]);
+var RangeSchema2 = z37.object({ path: text8, from: z37.number(), to: z37.number() });
+var PlannedSchema = z37.object({
   bug: IssueNumberSchema,
-  repo: text6,
+  repo: text8,
   number: PrNumberSchema,
-  url: text6,
-  mergedAt: z32.string().nullable(),
-  files: z32.array(z32.object({ path: text6, previous: z32.string().nullable(), blocks: z32.array(BlockSchema2).nullable() })).nullable()
+  url: text8,
+  mergedAt: z37.string().nullable(),
+  files: z37.array(z37.object({ path: text8, previous: z37.string().nullable(), blocks: z37.array(BlockSchema2).nullable() })).nullable()
 });
-var MegaUnreadSchema = z32.object({
-  read: z32.enum(["bugs", "fix-plan", "fix", "files"]),
-  repo: text6,
-  number: z32.number().exactOptional(),
-  status: z32.number()
+var MegaUnreadSchema = z37.object({
+  read: z37.enum(["bugs", "fix-plan", "fix", "files"]),
+  repo: text8,
+  number: z37.number().exactOptional(),
+  status: z37.number()
 });
-var MegaRecordsSchema = z32.object({
-  plan: text6,
-  bugs: z32.array(IssueNumberSchema),
-  planned: z32.array(PlannedSchema),
-  targets: z32.array(z32.object({ repo: text6, name: text6, ranges: z32.array(RangeSchema2) })),
-  unread: z32.array(MegaUnreadSchema)
+var MegaRecordsSchema = z37.object({
+  plan: text8,
+  bugs: z37.array(IssueNumberSchema),
+  planned: z37.array(PlannedSchema),
+  targets: z37.array(z37.object({ repo: text8, name: text8, ranges: z37.array(RangeSchema2) })),
+  unread: z37.array(MegaUnreadSchema)
 });
 var ISSUES = "GET /repos/{owner}/{repo}/issues";
 var COMMENTS = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
@@ -10820,11 +11296,11 @@ async function closingFixes(octokit, { owner, repo, base, window, featurePr, bug
   const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base, since: window.from }));
   if (merged.status) unread.push({ read: "fixes", status: merged.status });
   const found = (merged.value ?? []).filter((pull) => pull.number !== featurePr && within(window, pull.merged_at)).map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ""}
-${pull.body ?? ""}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) })).filter(({ closes }) => closes.length > 0).sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
-  for (const { pull, closes } of found) {
+${pull.body ?? ""}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) })).filter(({ closes: closes2 }) => closes2.length > 0).sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
+  for (const { pull, closes: closes2 } of found) {
     const files = await readOrRefused(() => listFiles(octokit, { owner, repo, number: pull.number }));
     if (files.status) unread.push({ read: "files", pr: pull.number, status: files.status });
-    fixes.push({ number: pull.number, url: pull.html_url, mergedAt: pull.merged_at, closes, files: files.value });
+    fixes.push({ number: pull.number, url: pull.html_url, mergedAt: pull.merged_at, closes: closes2, files: files.value });
   }
   return fixes;
 }
@@ -10928,11 +11404,11 @@ function overlaps([oldStart, oldCount], { from, to }) {
 }
 function namesPrd(prd, slug) {
   const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape2(slug)})#${prd}(?!\\d)`, "i");
-  return (text8) => pattern.test(text8);
+  return (text10) => pattern.test(text10);
 }
-function closedBy(text8, slug) {
+function closedBy(text10, slug) {
   const numbers = [];
-  for (const match of text8.matchAll(CLOSING)) {
+  for (const match of text10.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match;
     const repo = urlRepo ?? refRepo;
     if (repo && repo.toLowerCase() !== slug.toLowerCase()) continue;
@@ -10979,8 +11455,8 @@ function plural4(count2, noun) {
 function and(items, last = " and ") {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}${last}${items.at(-1)}`;
 }
-function escape2(text8) {
-  return text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape2(text10) {
+  return text10.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/kinds/churn-generated.ts
@@ -11378,16 +11854,16 @@ var COUNT_KEYS = Object.freeze({
   errors: "errors",
   total: "total"
 });
-function cleanLog(text8) {
-  return plainText(text8).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
+function cleanLog(text10) {
+  return plainText(text10).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
-function tailOf(text8, count2) {
-  const lines = plainText(text8).split("\n");
+function tailOf(text10, count2) {
+  const lines = plainText(text10).split("\n");
   if (lines.at(-1) === "") lines.pop();
   return lines.slice(-count2).join("\n");
 }
-function readTestLog(text8) {
-  const lines = cleanLog(text8).split("\n");
+function readTestLog(text10) {
+  const lines = cleanLog(text10).split("\n");
   for (const reader of READERS) {
     if (!reader.detects(lines)) continue;
     const { tests, counts } = reader.read(lines);
@@ -11489,13 +11965,13 @@ function vitestCrosses(lines) {
   return tests;
 }
 var READERS = Object.freeze([pytest, playwright, jest, vitest]);
-function countsIn(text8) {
+function countsIn(text10) {
   const counts = {};
-  for (const [, number, word] of text8.matchAll(/(\d+) ([a-z]+)/g)) {
+  for (const [, number, word] of text10.matchAll(/(\d+) ([a-z]+)/g)) {
     const key = word === void 0 ? void 0 : COUNT_KEYS[word];
     if (key && !(key in counts)) counts[key] = Number(number);
   }
-  const total = /\((\d+)\)\s*$/.exec(text8.trim());
+  const total = /\((\d+)\)\s*$/.exec(text10.trim());
   if (total && !("total" in counts)) counts.total = Number(total[1]);
   return Object.keys(counts).length > 0 ? counts : null;
 }
@@ -11779,8 +12255,8 @@ function short(sha) {
 function count(n, noun) {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
-function cell2(text8) {
-  return text8.replaceAll("|", "\\|");
+function cell2(text10) {
+  return text10.replaceAll("|", "\\|");
 }
 function uniqueBy(items, key) {
   const seen = /* @__PURE__ */ new Set();
@@ -12463,22 +12939,22 @@ function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) })
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z34 } from "zod";
+import { z as z39 } from "zod";
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z33 } from "zod";
-var ReplyFindingSchema = z33.object({
-  title: z33.string().exactOptional(),
-  whyItMatters: z33.string().exactOptional(),
-  lesson: z33.string().exactOptional(),
-  keep: z33.boolean().exactOptional(),
-  why: z33.string().exactOptional()
+import { z as z38 } from "zod";
+var ReplyFindingSchema = z38.object({
+  title: z38.string().exactOptional(),
+  whyItMatters: z38.string().exactOptional(),
+  lesson: z38.string().exactOptional(),
+  keep: z38.boolean().exactOptional(),
+  why: z38.string().exactOptional()
 });
-var ModelReplySchema = z33.object({
-  summary: z33.string(),
-  findings: z33.record(z33.string(), ReplyFindingSchema),
-  lessons: z33.array(z33.object({ text: z33.string(), findings: z33.array(z33.string()) })),
-  verdict: z33.object({ worthIt: z33.boolean(), reason: z33.string() }).nullable()
+var ModelReplySchema = z38.object({
+  summary: z38.string(),
+  findings: z38.record(z38.string(), ReplyFindingSchema),
+  lessons: z38.array(z38.object({ text: z38.string(), findings: z38.array(z38.string()) })),
+  verdict: z38.object({ worthIt: z38.boolean(), reason: z38.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -12526,7 +13002,7 @@ function modelInput({
       }))
     })),
     knowledge: knowledgeLines(knowledge),
-    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text8) => typeof text8 === "string").map((text8) => maskSecrets(text8))
+    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text10) => typeof text10 === "string").map((text10) => maskSecrets(text10))
   };
   capInput(input, findings.map((finding) => finding.source), LIMITS.modelInputTokens * CHARS_PER_TOKEN - SYSTEM2.length);
   return { system: SYSTEM2, user: JSON.stringify(input) };
@@ -12541,8 +13017,8 @@ function knowledgeLines(summary2) {
   }));
   return [...entries, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
-function firstLineOf(text8) {
-  return text8.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+function firstLineOf(text10) {
+  return text10.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 }
 var EXCERPT_KEY = ',"excerpt":';
 var CUT_MARK = "[earlier lines cut]\n";
@@ -12551,7 +13027,7 @@ var HUNKS = "churn";
 function capInput(input, sources, budget) {
   let size = JSON.stringify(input).length;
   if (size <= budget) return;
-  const cost = (text8) => EXCERPT_KEY.length + JSON.stringify(text8).length;
+  const cost = (text10) => EXCERPT_KEY.length + JSON.stringify(text10).length;
   const excerpts = input.findings.flatMap(
     (finding, i) => finding.evidence.flatMap((item, j) => item.excerpt === void 0 ? [] : [{ i, j, item, source: sources[i] }])
   );
@@ -12570,14 +13046,14 @@ function capInput(input, sources, budget) {
   }
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
-    const text8 = entry.item.excerpt ?? "";
-    let keep = Math.max(0, text8.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text8, keep);
-    while (keep > 0 && size - cost(text8) + cost(next) > budget) {
-      keep = Math.max(0, keep - (size - cost(text8) + cost(next) - budget));
-      next = lastLines(text8, keep);
+    const text10 = entry.item.excerpt ?? "";
+    let keep = Math.max(0, text10.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text10, keep);
+    while (keep > 0 && size - cost(text10) + cost(next) > budget) {
+      keep = Math.max(0, keep - (size - cost(text10) + cost(next) - budget));
+      next = lastLines(text10, keep);
     }
-    size += cost(next) - cost(text8);
+    size += cost(next) - cost(text10);
     entry.item.excerpt = next;
   }
   while (size > budget && input.earlierLessons.length > 0) {
@@ -12594,8 +13070,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text8, keep) {
-  let tail = keep > 0 ? text8.slice(-keep) : "";
+function lastLines(text10, keep) {
+  let tail = keep > 0 ? text10.slice(-keep) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -12615,9 +13091,9 @@ function checkReply2(value) {
       const kept3 = {};
       findings[id] = kept3;
       for (const name of ["title", "whyItMatters", "lesson"]) {
-        const text8 = words[name];
-        if (text8 === void 0) continue;
-        if (typeof text8 === "string") kept3[name] = text8;
+        const text10 = words[name];
+        if (text10 === void 0) continue;
+        if (typeof text10 === "string") kept3[name] = text10;
         else errors.push(`findings[${JSON.stringify(id)}].${name} must be a string`);
       }
       if (words.keep !== void 0) {
@@ -12678,153 +13154,153 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text7 = z34.string();
-var maybeText2 = z34.string().nullable();
-var RunSchema = z34.enum(["merge", "day-14"]);
+var text9 = z39.string();
+var maybeText2 = z39.string().nullable();
+var RunSchema = z39.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
-  title: text7,
+  title: text9,
   url: maybeText2,
-  merged: z34.boolean(),
-  baseRef: text7,
-  headRef: text7,
-  headSha: text7,
+  merged: z39.boolean(),
+  baseRef: text9,
+  headRef: text9,
+  headSha: text9,
   openedAt: maybeText2,
   mergedAt: maybeText2,
   mergeSha: maybeText2,
-  labels: z34.array(text7)
+  labels: z39.array(text9)
 };
-var PullSchema3 = z34.object(pullFields);
-var FeaturePullSchema = z34.object({ ...pullFields, mergeSha: text7 });
-var PullIntoSchema = z34.object({
+var PullSchema3 = z39.object(pullFields);
+var FeaturePullSchema = z39.object({ ...pullFields, mergeSha: text9 });
+var PullIntoSchema = z39.object({
   number: PrNumberSchema,
-  title: text7,
+  title: text9,
   url: maybeText2,
-  state: text7,
-  draft: z34.boolean(),
-  headRef: text7,
-  headSha: text7,
-  openedAt: text7,
+  state: text9,
+  draft: z39.boolean(),
+  headRef: text9,
+  headSha: text9,
+  openedAt: text9,
   closedAt: maybeText2,
   mergedAt: maybeText2,
-  labels: z34.array(text7)
+  labels: z39.array(text9)
 });
-var PrdFactsSchema = z34.object({
+var PrdFactsSchema = z39.object({
   number: PrdNumberSchema,
-  topic: text7,
-  title: text7,
-  problem: text7,
-  state: z34.enum(["shipped", "inbox"]),
-  folder: text7,
+  topic: text9,
+  title: text9,
+  problem: text9,
+  state: z39.enum(["shipped", "inbox"]),
+  folder: text9,
   plan: maybeText2,
   settled: maybeText2
 });
-var QualifiedSchema2 = z34.union([
-  z34.object({ skip: z34.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z34.object({ skip: text7, pr: PullSchema3.exactOptional() })
+var QualifiedSchema2 = z39.union([
+  z39.object({ skip: z39.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z39.object({ skip: text9, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z34.array(PullIntoSchema);
-var EvidenceSchema = z34.object({ label: text7, url: maybeText2, excerpt: text7.exactOptional() });
-var FindingSchema2 = z34.object({ id: text7, kind: text7, title: text7, happened: text7, evidence: z34.array(EvidenceSchema) });
-var SheetFindingSchema = z34.object({ ...FindingSchema2.shape, source: text7, ref: text7, repo: text7.exactOptional() });
-var TargetReadSchema = z34.discriminatedUnion("read", [
-  z34.object({
-    name: text7,
-    repo: text7,
-    read: z34.literal(true),
-    installationId: z34.number(),
-    featurePrs: z34.array(FeaturePullSchema).min(1),
-    pulls: z34.array(PullIntoSchema)
+var PullsIntoSchema = z39.array(PullIntoSchema);
+var EvidenceSchema = z39.object({ label: text9, url: maybeText2, excerpt: text9.exactOptional() });
+var FindingSchema2 = z39.object({ id: text9, kind: text9, title: text9, happened: text9, evidence: z39.array(EvidenceSchema) });
+var SheetFindingSchema = z39.object({ ...FindingSchema2.shape, source: text9, ref: text9, repo: text9.exactOptional() });
+var TargetReadSchema = z39.discriminatedUnion("read", [
+  z39.object({
+    name: text9,
+    repo: text9,
+    read: z39.literal(true),
+    installationId: z39.number(),
+    featurePrs: z39.array(FeaturePullSchema).min(1),
+    pulls: z39.array(PullIntoSchema)
   }),
-  z34.object({ name: text7, repo: text7, read: z34.literal(false), reason: text7 })
+  z39.object({ name: text9, repo: text9, read: z39.literal(false), reason: text9 })
 ]);
-var RepositoryFactsSchema = z34.object({
-  repo: text7,
-  name: text7,
-  plan: z34.boolean(),
-  read: z34.boolean(),
-  reason: text7.exactOptional(),
-  featurePrs: z34.array(z34.object({ number: PrNumberSchema, url: maybeText2 })),
-  kinds: z34.record(z34.string(), z34.unknown()).exactOptional()
+var RepositoryFactsSchema = z39.object({
+  repo: text9,
+  name: text9,
+  plan: z39.boolean(),
+  read: z39.boolean(),
+  reason: text9.exactOptional(),
+  featurePrs: z39.array(z39.object({ number: PrNumberSchema, url: maybeText2 })),
+  kinds: z39.record(z39.string(), z39.unknown()).exactOptional()
 });
-var RulesSheetSchema = z34.object({
-  version: z34.number(),
-  findingOrder: z34.array(z34.array(text7)),
-  issuesPerRun: z34.number(),
-  thresholds: z34.object({
-    slowSliceFactor: z34.number(),
-    repeatedRedCommits: z34.number(),
-    repeatedRedSlices: z34.number(),
-    failingTestRuns: z34.number(),
-    churnRangeCommits: z34.number(),
-    churnFilePercent: z34.number(),
-    churnFileLines: z34.number(),
-    afterMergeDays: z34.number()
+var RulesSheetSchema = z39.object({
+  version: z39.number(),
+  findingOrder: z39.array(z39.array(text9)),
+  issuesPerRun: z39.number(),
+  thresholds: z39.object({
+    slowSliceFactor: z39.number(),
+    repeatedRedCommits: z39.number(),
+    repeatedRedSlices: z39.number(),
+    failingTestRuns: z39.number(),
+    churnRangeCommits: z39.number(),
+    churnFilePercent: z39.number(),
+    churnFileLines: z39.number(),
+    afterMergeDays: z39.number()
   }),
-  limits: z34.object({ logTailLines: z34.number(), modelInputTokens: z34.number() }),
-  fieldCaps: z34.object({
-    summary: z34.number(),
-    title: z34.number(),
-    whyItMatters: z34.number(),
-    lesson: z34.number(),
-    reason: z34.number(),
-    why: z34.number()
+  limits: z39.object({ logTailLines: z39.number(), modelInputTokens: z39.number() }),
+  fieldCaps: z39.object({
+    summary: z39.number(),
+    title: z39.number(),
+    whyItMatters: z39.number(),
+    lesson: z39.number(),
+    reason: z39.number(),
+    why: z39.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z34.object({ number: PrdNumberSchema, title: text7, topic: text7, state: text7, folder: text7 }),
-  featurePr: z34.object({ number: PrNumberSchema, title: text7, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text7 }),
+  prd: z39.object({ number: PrdNumberSchema, title: text9, topic: text9, state: text9, folder: text9 }),
+  featurePr: z39.object({ number: PrNumberSchema, title: text9, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text9 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z34.record(z34.string(), z34.unknown()),
-  findings: z34.array(SheetFindingSchema),
+  kinds: z39.record(z39.string(), z39.unknown()),
+  findings: z39.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z34.array(RepositoryFactsSchema).exactOptional()
+  repositories: z39.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z34.object(factSheetFields);
-var DroppedSchema = z34.object({ dropped: text7 });
-var ProseFieldSchema = z34.union([text7, DroppedSchema]);
-var ProseFindingSchema = z34.object({
+var FactSheetSchema = z39.object(factSheetFields);
+var DroppedSchema = z39.object({ dropped: text9 });
+var ProseFieldSchema = z39.union([text9, DroppedSchema]);
+var ProseFindingSchema = z39.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z34.boolean().exactOptional(),
-  why: text7.exactOptional()
+  keep: z39.boolean().exactOptional(),
+  why: text9.exactOptional()
 });
-var LessonSchema = z34.object({ text: text7, findings: z34.array(text7) });
-var VerdictSchema3 = z34.union([z34.object({ worthIt: z34.boolean(), reason: text7 }), DroppedSchema]);
-var ProseSchema = z34.object({
+var LessonSchema = z39.object({ text: text9, findings: z39.array(text9) });
+var VerdictSchema3 = z39.union([z39.object({ worthIt: z39.boolean(), reason: text9 }), DroppedSchema]);
+var ProseSchema = z39.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z34.record(z34.string(), ProseFindingSchema),
-  lessons: z34.array(LessonSchema),
+  findings: z39.record(z39.string(), ProseFindingSchema),
+  lessons: z39.array(LessonSchema),
   verdict: VerdictSchema3.optional()
 });
-var DroppedFieldSchema = z34.object({ field: text7, reason: text7 });
-var GuardedSchema = z34.object({ prose: ProseSchema.nullable(), dropped: z34.array(DroppedFieldSchema) });
-var NarratedSchema = z34.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
-var NarrationSchema = z34.object({ model: maybeText2, reason: maybeText2, dropped: z34.array(DroppedFieldSchema) });
-var IssueLinkSchema = z34.object({ number: IssueNumberSchema, url: text7, state: z34.enum(["open", "closed"]) });
-var IssueLinksSchema = z34.record(z34.string(), IssueLinkSchema);
-var RunRecordSchema = z34.object({
+var DroppedFieldSchema = z39.object({ field: text9, reason: text9 });
+var GuardedSchema = z39.object({ prose: ProseSchema.nullable(), dropped: z39.array(DroppedFieldSchema) });
+var NarratedSchema = z39.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
+var NarrationSchema = z39.object({ model: maybeText2, reason: maybeText2, dropped: z39.array(DroppedFieldSchema) });
+var IssueLinkSchema = z39.object({ number: IssueNumberSchema, url: text9, state: z39.enum(["open", "closed"]) });
+var IssueLinksSchema = z39.record(z39.string(), IssueLinkSchema);
+var RunRecordSchema = z39.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema3.nullable().exactOptional(),
-  lessons: z34.array(LessonSchema).exactOptional(),
+  lessons: z39.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional()
 });
-var KnownSchema = z34.object({
-  knowledge: z34.object({ principles: z34.array(z34.unknown()), laws: z34.array(z34.unknown()), decisions: z34.array(z34.unknown()) }),
-  lessons: z34.array(text7)
+var KnownSchema = z39.object({
+  knowledge: z39.object({ principles: z39.array(z39.unknown()), laws: z39.array(z39.unknown()), decisions: z39.array(z39.unknown()) }),
+  lessons: z39.array(text9)
 });
-var PublishedSchema2 = z34.object({
-  branch: text7,
-  committed: z34.boolean(),
-  commit: text7,
-  pr: z34.object({ number: PrNumberSchema, url: text7, created: z34.boolean() }).nullable()
+var PublishedSchema2 = z39.object({
+  branch: text9,
+  committed: z39.boolean(),
+  commit: text9,
+  pr: z39.object({ number: PrNumberSchema, url: text9, created: z39.boolean() }).nullable()
 });
-var CommentedSchema2 = z34.object({ commentId: CommentIdSchema, created: z34.boolean() });
-var ClockSchema = z34.number();
+var CommentedSchema2 = z39.object({ commentId: CommentIdSchema, created: z39.boolean() });
+var ClockSchema = z39.number();
 
 // apps/omni-app/src/retro/guard.ts
 var DROPPED = Object.freeze({
@@ -12896,7 +13372,7 @@ function judge(reply, findings, prose, evidence, dropped) {
     dropped.push({ field: field3, reason: reason2 });
     return { dropped: reason2 };
   };
-  const head = verdictOf(reply.verdict, evidence);
+  const head = verdictOf2(reply.verdict, evidence);
   if (!head.ok) return failed2(head);
   const judged3 = {};
   let keptOne = false;
@@ -12911,7 +13387,7 @@ function judge(reply, findings, prose, evidence, dropped) {
   for (const [id, marks] of Object.entries(judged3)) Object.assign(prose.findings[id] ?? {}, marks);
   return { worthIt: head.worthIt, reason: head.reason };
 }
-function verdictOf(verdict, evidence) {
+function verdictOf2(verdict, evidence) {
   if (!isObject2(verdict)) return { ok: false, field: "verdict", reason: DROPPED.noVerdict };
   if (typeof verdict.worthIt !== "boolean") return { ok: false, field: "verdict.worthIt", reason: DROPPED.notYesOrNo };
   const reasonRefused = refusal3(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
@@ -12943,15 +13419,15 @@ function refusal3(value, cap, evidence, { digits = false } = {}) {
   if (!digits && /\d/.test(setAside(value, evidence))) return DROPPED.digit;
   return null;
 }
-function setAside(text8, evidence) {
-  const spans = text8.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
+function setAside(text10, evidence) {
+  const spans = text10.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
   return spans.replace(LINK, (link) => evidence.urls.has(link.replace(TRAILING, "")) ? " " : link);
 }
-function linksIn(text8) {
-  return (text8.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
+function linksIn(text10) {
+  return (text10.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
 }
-function findingIdsIn(text8) {
-  return (text8.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
+function findingIdsIn(text10) {
+  return (text10.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
 }
 function evidenceOf(sheet) {
   const findings = isList(sheet?.findings) ? sheet.findings : [];
@@ -12961,16 +13437,16 @@ function evidenceOf(sheet) {
   for (const finding of findings) {
     for (const item of finding.evidence ?? []) {
       if (typeof item?.url === "string") urls.add(item.url);
-      for (const text8 of [item?.label, item?.url, item?.excerpt]) if (typeof text8 === "string") texts.push(text8);
+      for (const text10 of [item?.label, item?.url, item?.excerpt]) if (typeof text10 === "string") texts.push(text10);
     }
   }
-  return { ids, urls, holds: (span) => texts.some((text8) => text8.includes(span)) };
+  return { ids, urls, holds: (span) => texts.some((text10) => text10.includes(span)) };
 }
 function isObject2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function escape4(text8) {
-  return text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape4(text10) {
+  return text10.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/issues.ts
@@ -13089,8 +13565,8 @@ function field(value) {
 var PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
 var RESERVED = /^(?:true|false|yes|no|on|off|null|[-+]?\.?\d|\.inf|\.nan)/i;
 function scalar(value) {
-  const text8 = String(value);
-  return PLAIN.test(text8) && !RESERVED.test(text8) ? text8 : JSON.stringify(text8);
+  const text10 = String(value);
+  return PLAIN.test(text10) && !RESERVED.test(text10) ? text10 : JSON.stringify(text10);
 }
 async function listLabelled(octokit, { owner, repo, label: label2 }) {
   const items = await paginate(
@@ -13117,12 +13593,12 @@ async function findRetroPull(octokit, { owner, repo, branch }) {
 }
 
 // apps/omni-app/src/retro/render.ts
-import { z as z35 } from "zod";
+import { z as z40 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z35.object({
-  featurePr: z35.object({ minutes: z35.number().nullish() }).nullish(),
-  sliceCount: z35.number().exactOptional(),
-  waves: z35.object({ merged: z35.number(), planned: z35.number().nullable() })
+var TimelineFactsSchema = z40.object({
+  featurePr: z40.object({ minutes: z40.number().nullish() }).nullish(),
+  sliceCount: z40.number().exactOptional(),
+  waves: z40.object({ merged: z40.number(), planned: z40.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -13131,7 +13607,7 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z35.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z40.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? record : run);
@@ -13202,8 +13678,8 @@ function field2(value) {
   return value;
 }
 function summary(prose, latest) {
-  const text8 = field2(prose?.summary);
-  if (text8) return text8;
+  const text10 = field2(prose?.summary);
+  if (text10) return text10;
   return `Facts only: ${latest.narration?.reason ?? "no prose"}`;
 }
 function titleOf3(finding, prose) {
@@ -13354,8 +13830,8 @@ function minutesBetween2(from, to) {
   const ms2 = Date.parse(to) - Date.parse(from);
   return Number.isFinite(ms2) ? Math.round(ms2 / 6e4) : null;
 }
-function oneLine3(text8) {
-  return text8.replace(/\s+/g, " ").trim() || "no reason given";
+function oneLine3(text10) {
+  return text10.replace(/\s+/g, " ").trim() || "no reason given";
 }
 
 // apps/omni-app/src/retro/publish.ts
@@ -13418,11 +13894,11 @@ async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
   return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: parseGitHub(RefSchema2, data, REF).object.sha };
 }
 function withRuns(existing, records) {
-  let text8 = existing;
+  let text10 = existing;
   let doc = null;
   for (const record of records) {
-    doc = mergeRuns(text8, record);
-    text8 = JSON.stringify(doc);
+    doc = mergeRuns(text10, record);
+    text10 = JSON.stringify(doc);
   }
   return defined(doc, "the retro.json of the records published");
 }
@@ -13522,11 +13998,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z36 } from "zod";
+import { z as z41 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z36.union([
-  z36.object({ comments: z36.array(z36.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z36.boolean() })) }),
-  z36.object({ refused: z36.number() })
+var TargetCommentedSchema = z41.union([
+  z41.object({ comments: z41.array(z41.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z41.boolean() })) }),
+  z41.object({ refused: z41.number() })
 ]);
 function targetComment({
   prd,
@@ -13552,12 +14028,12 @@ function targetComment({
     ...lines.length > 0 ? lines : ["No finding for this repository."]
   ].join("\n");
 }
-async function commentTargets({ step, octokitFor, id, targets, prefix, ...text8 }) {
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text10 }) {
   const out = {};
   for (const target2 of targets) {
     if (!target2.read) continue;
     const [owner = "", repo = ""] = target2.repo.split("/");
-    const body = targetComment({ ...text8, repo: target2.repo });
+    const body = targetComment({ ...text10, repo: target2.repo });
     out[target2.name] = await savedStep(
       step,
       id(`comment-target-${target2.name}`),
@@ -13604,21 +14080,21 @@ var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroEventSchema = z37.object({
-  installationId: z37.number(),
-  owner: z37.string(),
-  repo: z37.string(),
+var RetroEventSchema = z42.object({
+  installationId: z42.number(),
+  owner: z42.string(),
+  repo: z42.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z37.string(),
-  mergedAt: z37.string().nullish()
+  mergeSha: z42.string(),
+  mergedAt: z42.string().nullish()
 });
-var FailedEventSchema = z37.object({
-  installationId: z37.number().optional().catch(void 0),
-  owner: z37.string().optional().catch(void 0),
-  repo: z37.string().optional().catch(void 0),
+var FailedEventSchema = z42.object({
+  installationId: z42.number().optional().catch(void 0),
+  owner: z42.string().optional().catch(void 0),
+  repo: z42.string().optional().catch(void 0),
   prNumber: PrNumberSchema.optional().catch(void 0)
 }).catch({});
-var TickSchema = z37.looseObject({ ts: z37.number().exactOptional() }).nullable();
+var TickSchema = z42.looseObject({ ts: z42.number().exactOptional() }).nullable();
 function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false }) {
   return client.createFunction(
     {
@@ -13722,7 +14198,7 @@ async function judgeSheet({ step, github, openrouter, fetch: fetch2, owner, repo
   );
   const guarded = await savedStep(step, id("guard"), GuardedSchema, () => guard({ reply: narrated.reply ?? null, sheet: whole }));
   const prose = guarded.prose ?? earlier?.prose ?? null;
-  return { whole, prose, known, verdict: verdictOf2(prose, narrated.reason), base: recordOf2(sheet, prose, narrated, guarded) };
+  return { whole, prose, known, verdict: verdictOf3(prose, narrated.reason), base: recordOf2(sheet, prose, narrated, guarded) };
 }
 function recordOf2(sheet, prose, narrated, guarded) {
   const narration = {
@@ -13766,7 +14242,7 @@ async function publishRun({ step, github, owner, repo, pr, prd, config, earlier 
   );
   return { sheet, prose, known, record, published, comment: null, verdict };
 }
-function verdictOf2(prose, narrationReason) {
+function verdictOf3(prose, narrationReason) {
   const verdict = prose?.verdict;
   if (!prose) return { worthIt: false, judged: false, reason: narrationReason ?? "the prose was refused" };
   if (!verdict || !("worthIt" in verdict) || typeof verdict.worthIt !== "boolean") {
@@ -13814,10 +14290,10 @@ async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
 function lessonsIn(texts) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
-  for (const text8 of texts) {
+  for (const text10 of texts) {
     let doc = null;
     try {
-      doc = text8 ? JSON.parse(text8) : null;
+      doc = text10 ? JSON.parse(text10) : null;
     } catch {
       doc = null;
     }
@@ -13890,7 +14366,13 @@ function appFunctions(env, { octokitFor = installationOctokitFor(env.githubApp, 
       lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(env.galaxyUrl), secret: env.lawJudge.secret }) : null
     }),
     prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
-    canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl })
+    canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
+    approvedCheck: createApprovedCheck({
+      client: inngest,
+      octokitFor,
+      ask: (repo, prd) => askJudge(repo, prd, { galaxyUrl: env.galaxyUrl, secret: env.stageEvents?.secret })
+    }),
+    approvedRerun: createApprovedRerun({ client: inngest, octokitFor })
   };
 }
 

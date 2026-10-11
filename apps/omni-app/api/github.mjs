@@ -1237,14 +1237,27 @@ function forwardTouch(touch, post) {
 
 // apps/omni-app/src/webhook/webhook.ts
 import { Webhooks } from "@octokit/webhooks";
-import { z as z13 } from "zod";
+import { z as z14 } from "zod";
+
+// apps/omni-app/src/approved-check/events.ts
+import { z as z12 } from "zod";
+var APPROVED_LABEL_EVENT = "omni-loop/approved.label.changed";
+var SourceSchema2 = z12.looseObject({
+  installationId: z12.number(),
+  owner: z12.string(),
+  repo: z12.string(),
+  repository: z12.string(),
+  trigger: z12.string().optional()
+});
+var ApprovedCheckDataSchema = SourceSchema2.extend({ prNumber: PrNumberSchema, headSha: z12.string().optional() });
+var ApprovedLabelDataSchema = SourceSchema2.extend({ prd: PrdNumberSchema });
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z12 } from "zod";
+import { z as z13 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
-var MarkerSchema = z12.looseObject({ prd: z12.unknown(), persona: z12.unknown(), claims: z12.unknown() });
+var MarkerSchema = z13.looseObject({ prd: z13.unknown(), persona: z13.unknown(), claims: z13.unknown() });
 function readCanonMarker(summary) {
   const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed(summary));
   if (!match2) return null;
@@ -1279,45 +1292,50 @@ var RETRO_ACTIONS = Object.freeze({
 var CANON_ACTIONS = Object.freeze({
   check_run: Object.freeze(["requested_action"])
 });
+var APPROVED_LABEL_ACTIONS = Object.freeze({
+  issues: Object.freeze(["labeled", "unlabeled"])
+});
+var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z13.looseObject({
+var PullRefSchema = z14.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z13.looseObject({ sha: z13.string().nullish() }).nullish(),
-  base: z13.looseObject({ ref: z13.string().nullish() }).nullish()
+  head: z14.looseObject({ sha: z14.string().nullish() }).nullish(),
+  base: z14.looseObject({ ref: z14.string().nullish() }).nullish()
 });
-var PayloadSchema = z13.looseObject({
-  action: z13.unknown(),
+var PayloadSchema = z14.looseObject({
+  action: z14.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z13.looseObject({ id: z13.number().nullish() }).nullish(),
-  repository: z13.looseObject({
-    name: z13.string(),
-    full_name: z13.string().nullish(),
-    owner: z13.looseObject({ login: z13.string().nullish() }).nullish(),
-    default_branch: z13.string().nullish()
+  installation: z14.looseObject({ id: z14.number().nullish() }).nullish(),
+  repository: z14.looseObject({
+    name: z14.string(),
+    full_name: z14.string().nullish(),
+    owner: z14.looseObject({ login: z14.string().nullish() }).nullish(),
+    default_branch: z14.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    merged: z13.boolean().nullish(),
-    merge_commit_sha: z13.string().nullish(),
-    merged_at: z13.string().nullish()
+    merged: z14.boolean().nullish(),
+    merge_commit_sha: z14.string().nullish(),
+    merged_at: z14.string().nullish()
   }).nullish(),
-  check_run: z13.looseObject({
-    id: z13.number().nullish(),
-    external_id: z13.string().nullish(),
-    head_sha: z13.string().nullish(),
-    pull_requests: z13.array(PullRefSchema).nullish(),
-    output: z13.looseObject({ summary: z13.unknown() }).nullish()
+  check_run: z14.looseObject({
+    id: z14.number().nullish(),
+    external_id: z14.string().nullish(),
+    head_sha: z14.string().nullish(),
+    pull_requests: z14.array(PullRefSchema).nullish(),
+    output: z14.looseObject({ summary: z14.unknown() }).nullish()
   }).nullish(),
-  requested_action: z13.looseObject({ identifier: z13.unknown() }).nullish()
+  requested_action: z14.looseObject({ identifier: z14.unknown() }).nullish()
 });
 async function receiveWebhook({
   body,
   headers,
   secret,
   send,
+  sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve()
 }) {
@@ -1347,13 +1365,15 @@ async function receiveWebhook({
     }
   }));
   const events = toEvents(event, payload);
-  if (events.length === 0) return reply(200, "ignored");
+  const approved = toApprovedLabelRequests(event, payload);
+  if (events.length + approved.length === 0) return reply(200, "ignored");
   try {
-    await send(events);
+    if (events.length > 0) await send(events);
+    if (approved.length > 0) await sendApproved(approved);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
-  return reply(200, `sent ${events.length}`);
+  return reply(200, `sent ${events.length + approved.length}`);
 }
 function toEvents(event, payload) {
   const action = readPayload(payload)?.action;
@@ -1404,6 +1424,20 @@ function toHarvestRequests(event, payload) {
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber }
   }));
+}
+var LabelEventSchema = z14.looseObject({
+  label: z14.looseObject({ name: z14.string() }),
+  issue: z14.looseObject({ number: PrdNumberSchema, pull_request: z14.unknown().optional() })
+});
+function toApprovedLabelRequests(event, delivery) {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(APPROVED_LABEL_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const read = LabelEventSchema.safeParse(delivery);
+  if (!source || !read.success) return [];
+  const { label, issue } = read.data;
+  if (label.name !== APPROVED_LABEL || issue.pull_request !== void 0) return [];
+  return [{ name: APPROVED_LABEL_EVENT, data: { ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` } }];
 }
 var BUTTONS = Object.values(CANON_ACTION);
 function toCanonActionRequests(event, delivery) {
@@ -1470,6 +1504,7 @@ function githubRoute(env, { send = (events) => inngest.send(events) } = {}) {
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
+        sendApproved: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });
