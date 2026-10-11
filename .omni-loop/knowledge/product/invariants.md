@@ -5,7 +5,7 @@
 The kit runs only inside a repository under git; tracked files always come from version control, and there is no fallback that walks plain folders.
 
 Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s3-01-tracked-files-need-git, PRD #3
-Enforced by: pending #1538
+Enforced by: kit/lib/check-report.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
