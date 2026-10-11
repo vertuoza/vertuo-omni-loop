@@ -5,7 +5,6 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
-import type { FetchInit } from '../test/fixture.ts';
 import { sha256 } from '../lib/dossier/folder.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 import { main } from './omni.ts';
@@ -31,7 +30,7 @@ function checkout(plan: string) {
 async function omni(args: string[], { root, tokens }: ReturnType<typeof checkout>, body: unknown) {
   const out: string[] = [];
   const err: string[] = [];
-  const fetch = (_url: string, _init: FetchInit) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+  const fetch = () => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
   const code = await main(['approval', ...args], {
     cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) }, tokens, env: {}, fetch,
   });

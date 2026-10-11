@@ -63,7 +63,7 @@ describe('restoreDrift', () => {
   });
 
   it('says approve again when the pinned version cannot be read', async () => {
-    const { content: _content, ...unread } = pinned('plan', PLAN);
+    const unread = { ...pinned('plan', PLAN), content: undefined };
     const { result, read } = await restore({ [`${INBOX}/spec.md`]: SPEC, [`${INBOX}/plan.md`]: 'another plan' }, reply([pinned('spec', SPEC), unread]));
     expect(result).toEqual({ ok: false, lines: [`cannot restore ${INBOX}/plan.md · the pinned version cannot be read · approve again: ${URL_}`] });
     expect(read(`${INBOX}/plan.md`)).toBe('another plan');
