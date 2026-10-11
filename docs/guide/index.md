@@ -77,7 +77,9 @@ to the repository: that is all. Setting the loop up on a repository, you also ne
    [laws and their tests](/docs/loop#laws-and-their-tests): what a law is, `/omni:enforce` and the
    sweep.
 6. **Your first PRD**: from an idea to a merged feature and its release note.
-7. **Use cases**: what to type for each thing you want to do.
-8. **When something goes wrong**: the errors a first run meets, and their fix.
+7. **Design craft**, opt-in: the loop checks every screen it builds against your product's own
+   look, and `/omni:pixel-perfect` brings design commands you can type on any screen.
+8. **Use cases**: what to type for each thing you want to do.
+9. **When something goes wrong**: the errors a first run meets, and their fix.
 
 [Next → Install](/docs/install)

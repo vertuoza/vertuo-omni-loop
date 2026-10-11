@@ -62,6 +62,9 @@ Everything it writes is under `.omni-loop/knowledge/`, plus a proposed change to
   `TODO(human):` line with a question you can answer in one line, instead of a guess.
 - **The config:** a separate commit proposing what it learned, such as the test commands that
   really run here, or turning the knowledge registers on as the loop's laws.
+- **Your product's look:** when your repository has screens, the config commit may propose turning
+  [design craft](/docs/design) on. With it already on, invade also fills the playbook's `design`
+  form from your tokens, components and screens, and proposes `design.paths`.
 
 Every entry it writes carries a `Proposed:` line. **A proposed entry is not a law yet:** the loop
 reads it to understand your product, but it never stops the loop's work. It becomes a law when a

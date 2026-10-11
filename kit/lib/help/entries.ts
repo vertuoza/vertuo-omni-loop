@@ -873,6 +873,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
+    name: 'design',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni design touched [<base>]'],
+    summary: 'whether a branch touches a screen, so its design review starts',
+    detail:
+      'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
+      "design form, omni kb show design (the product, where its design system lives, what it does on " +
+      'purpose and how to look at a screen), and the product wins over the craft floor and the refuse ' +
+      'list. touched reads what the branch changed since its merge base with <base> (by default the ' +
+      "slice's feature branch, else the default branch) and prints design: off while the flag is off, " +
+      'ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: ' +
+      'unknown when design.paths is empty or the base cannot be read, for the agent to judge from the ' +
+      "diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
+      'design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave ' +
+      'or a gate, it only reports, and touched exits 0 whatever it finds.',
+  },
+  {
     name: 'e2e',
     kind: 'command',
     who: 'skills',
@@ -1566,6 +1584,41 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
   },
 
   // Skills other skills run.
+  {
+    name: 'pixel-perfect',
+    kind: 'skill',
+    who: 'you',
+    usage: [
+      '/omni:pixel-perfect critique [target]',
+      '/omni:pixel-perfect audit [target]',
+      '/omni:pixel-perfect polish [target]',
+      '/omni:pixel-perfect harden [target]',
+      '/omni:pixel-perfect typeset [target]',
+      '/omni:pixel-perfect layout [target]',
+      '/omni:pixel-perfect adapt [target]',
+      '/omni:pixel-perfect clarify [target]',
+      '/omni:pixel-perfect review',
+    ],
+    label: '/omni:pixel-perfect',
+    summary: 'design craft on a screen, following the product',
+    detail:
+      'Design craft imported from impeccable (Apache-2.0) and tailored. It runs only when the config ' +
+      'sets design.enabled to true (off, it says how to turn it on and stops), then reads the design ' +
+      'form, omni kb show design. The product wins: the form\'s product, system and deliberate ' +
+      'sections override the craft floor and the refuse list. critique and audit review a screen, ' +
+      'polish and harden finish it, typeset, layout, adapt and clarify fix one side of it, and every ' +
+      'edit first reads the craft floor. review is the bounded auto-review /omni:do-work and ' +
+      '/omni:visual-fix follow on UI work: critique, audit, the design lint (commands.design, when ' +
+      'set), screenshots at the form\'s widths (390 and 1440 by default) beside the mockup, then one ' +
+      'batch of polish and one confirming look. Fixes stay inside the slice\'s territory; what it ' +
+      'leaves becomes an outbox item. It never blocks a slice, a wave or a gate.',
+    group: 'everyday',
+    when: 'Use it when a screen should look and read like your product, before or after it is built.',
+    example: {
+      type: '/omni:pixel-perfect polish the quote page',
+      result: 'one batch of fixes in your tokens and components, checked at mobile and desktop widths',
+    },
+  },
   {
     name: 'dossier-open',
     kind: 'skill',

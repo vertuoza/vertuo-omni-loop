@@ -221,7 +221,7 @@ describe('omni — flags, lookups and guards', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const s = io();
     expect(await main(['check', 'kb'], { cwd: root, ...s })).toBe(0);
-    expect(s.out.join('')).toBe('check kb — 14 form(s): 14 missing; 14 warning(s).\n');
+    expect(s.out.join('')).toBe('check kb — 15 form(s): 15 missing; 15 warning(s).\n');
     expect(s.err.join('')).toMatch(/^warning: \.omni-loop\/knowledge\/playbook\/briefing\.md: missing/);
   });
 

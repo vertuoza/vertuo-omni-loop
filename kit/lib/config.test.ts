@@ -61,6 +61,25 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nreleaseNotes:\n  on: true\n')).toThrow(/releaseNotes.*on/s);
   });
 
+  it('keeps design craft off with no screen paths unless the file switches it on, and refuses a bad switch or path (PRD 1369)', () => {
+    expect(parseConfig('kit: 1\n').design).toEqual({ enabled: false, paths: [] });
+    expect(parseConfig('kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/**, "**/*.css"]\n').design).toEqual({
+      enabled: true,
+      paths: ['src/ui/**', '**/*.css'],
+    });
+    expect(() => parseConfig('kit: 1\ndesign:\n  enabled: yes please\n', 'c.yml')).toThrow(/c\.yml.*design\.enabled/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  enabled: "true"\n')).toThrow(/design\.enabled/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  paths: src/ui\n')).toThrow(/design\.paths/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  paths: [""]\n')).toThrow(/design\.paths/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  on: true\n')).toThrow(/design.*on/s);
+  });
+
+  it('has no design lint command unless the config sets one (PRD 1369)', () => {
+    expect(parseConfig('kit: 1\n').commands.design).toBeNull();
+    expect(parseConfig('kit: 1\ncommands:\n  design: npx impeccable detect src\n').commands.design).toBe('npx impeccable detect src');
+    expect(() => parseConfig('kit: 1\ncommands:\n  design: ""\n')).toThrow(/commands\.design/);
+  });
+
   it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
     expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
     expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
@@ -360,6 +379,23 @@ describe('omni config', () => {
     }
   });
 
+  it('prints design.enabled, design.paths and commands.design, off, empty and null by default (PRD 1369)', async () => {
+    const cases = [
+      [files['.omni-loop/config.yml'], ['false', '[]', 'null']],
+      ['kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/]\ncommands:\n  design: lint-ui\n', ['true', '["src/ui/"]', 'lint-ui']],
+    ] as const;
+    for (const [text, values] of cases) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const printed: string[] = [];
+      for (const key of ['design.enabled', 'design.paths', 'commands.design']) {
+        const s = io();
+        expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+        printed.push(s.out.join('').replace(/\s/g, ''));
+      }
+      expect(printed).toEqual(values);
+    }
+  });
+
   it('exits 2 for a key the schema does not hold', async () => {
     const { root } = makeRepo({ git: true, files });
     expect(await main(['config', 'paths.playbooks'], { cwd: root, ...io() })).toBe(2);
@@ -431,7 +467,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
     ]);
   });
 

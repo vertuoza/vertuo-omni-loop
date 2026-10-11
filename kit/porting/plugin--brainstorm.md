@@ -215,3 +215,23 @@ kit's sources and none of the skills.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/` and `pnpm test`, green.
+
+## PRD #1369, slice s5 — the before/after reads the design form
+
+- **Step 0** reads the design flag once, `omni config design.enabled`, after the birthplace and
+  before `--concept`, so **Rework** sees it too. Anything but `true`: nothing below changes.
+- **Step 5:** with the flag on, a change with a screen draws its "after" from the product's tokens
+  and components as `omni kb show design` names them in its `system` section; what its
+  `deliberate` section says the product does on purpose holds over any rule of craft, and a
+  `[hole]` is filled from what the "today" screen already uses, never invented, and said under the
+  mockup. The form, its slots and the craft floor are `/omni:pixel-perfect`'s and the form's own:
+  the skill points at them and restates none.
+
+### Tests
+
+`kit/test/plugin.test.ts`: step 0 reads the flag before step 5, and step 5 reads
+`omni kb show design` and builds the "after" from the form's tokens and components.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green.

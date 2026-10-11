@@ -37,6 +37,11 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one l
 is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.landing`, `worktrees`,
 `paths.*`, `labels.*`, `prLinks.feature` and `acceptance.*` from it.
 
+Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and, when it
+prints `true`, `node .omni-loop/bin/omni.mjs config design.paths`. Keep both. Anything but `true`
+(or a failure) means design craft is off here: step 4 marks no slice `ui: yes`, and nothing else in
+this skill changes.
+
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
@@ -173,6 +178,20 @@ require. These four parts are the whole shape:
    slices, and how the waves keep them apart. A generated path is never in it.
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
    as a bullet list.
+
+**UI slices.** Only when step 0 read the design flag as `true` and `design.paths` lists globs: a
+slice whose territory meets `design.paths` (a territory prefix holds a path one glob matches, or a
+glob reaches into the prefix) is marked `ui: yes` on its done-when heading, after its id, so
+`/omni:do-work` starts its design review on it without asking:
+
+```markdown
+**s3** (`ui: yes`)
+- <its observable conditions>
+```
+
+A slice no glob meets is not marked. With the flag off, or `design.paths` empty, mark nothing:
+`/omni:do-work` then reads `omni design touched` on the built diff and judges for itself. The mark
+never changes a slice's territory, blockers or wave, and `omni plan check` does not read it.
 
 **Landings.** A PRD reaches the default branch in one pull request unless something in it must be
 deployed apart from the rest: a database migration the code needs in place first, or a contract

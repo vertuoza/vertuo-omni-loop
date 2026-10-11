@@ -13,6 +13,7 @@ or in Claude Code with `!` before them. In the examples, `7` stands for your PRD
 | [explore a vast idea before any PRD](#explore-a-vast-idea) | `/omni:think-big <the idea>` |
 | [deliver a milestone of several PRDs](#deliver-a-milestone-of-several-prds) | `/omni:roadmap <your plan>`, then `/loop /omni:drive --roadmap 1200` |
 | [make a small visual change](#make-a-small-visual-change) | `/omni:visual-fix <the change>` |
+| [polish or check a screen](#polish-or-check-a-screen) | `/omni:pixel-perfect polish <the screen>` |
 | [fix a bug](#fix-a-bug) | `/omni:bug-fix <the bug>` or `/omni:bug-fix 612` |
 | [build an approved PRD](#build-an-approved-prd) | `/omni:yolo 7` |
 | [answer the agents' questions](#answer-the-agents-questions) | a comment on the feature pull request, then `/omni:yolo-fix 7` |
@@ -130,6 +131,23 @@ When the change turns out to need data, a route, an API or a new screen, it stop
 issue, and gives you the `/omni:brainstorm` line to run instead.
 
 **Then:** open the pull request's preview, and merge it if it looks right. It never merges itself.
+
+### Polish or check a screen
+
+A screen that works but does not quite look like your product: uneven spacing, a missing empty
+state, copy that is not in your words. With [design craft](/docs/design) turned on:
+
+```text agent
+/omni:pixel-perfect polish the quote page
+```
+
+It reads what your product looks like from the playbook's `design` form, looks at the screen once,
+fixes what it found in one batch and looks once more. `critique` and `audit` only report; `harden`,
+`typeset`, `layout`, `adapt` and `clarify` each fix one side of the screen. Your product's own
+choices win over its general rules. With design craft off, it says how to turn it on and stops.
+
+**Then:** read its report, and commit the fixes you keep. A redesign is not its job: start it with
+`/omni:brainstorm`.
 
 ### Fix a bug
 

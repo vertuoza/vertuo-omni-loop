@@ -2257,6 +2257,226 @@ describe('generated files in the skills that build, plan and finish', () => {
   });
 });
 
+// PRD 1369, s3: /omni:pixel-perfect is impeccable's craft, imported at a pinned commit and tailored.
+// It reads the flag, then the design form; the product wins over the craft floor and the refuse
+// list; its review is bounded and never blocks; and none of its files names impeccable's engine,
+// its context files or a path only one agent has.
+describe('the pixel-perfect skill in this repository', () => {
+  const DIR = join(repoRoot, PLUGIN_DIR, 'skills', 'pixel-perfect');
+  const SOURCE = 'pbakaus/impeccable@d631a8827f99414d2b6daba4ef08b7f8701751d7';
+  const IMPORTED = ['critique', 'audit', 'polish', 'harden', 'typeset', 'layout', 'adapt', 'clarify', 'craft-floor'];
+  const COMMANDS = [...IMPORTED, 'review'];
+  const read = (path = 'SKILL.md') => readFileSync(join(DIR, path), 'utf8');
+  const ref = (name: string) => read(join('reference', `${name}.md`));
+  const allFiles = () => ['SKILL.md', ...readdirSync(join(DIR, 'reference')).map((name: string) => join('reference', name))];
+
+  it('is named pixel-perfect, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('pixel-perfect');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:pixel-perfect/);
+  });
+
+  it('holds critique, audit, polish, harden, typeset, layout, adapt, clarify, craft-floor and review, each imported one naming the commit', () => {
+    expect(readdirSync(join(DIR, 'reference')).sort()).toEqual(COMMANDS.map((name: string) => `${name}.md`).sort());
+    for (const name of IMPORTED) expect(ref(name), name).toContain(`Imported from ${SOURCE}`);
+    expect(read()).toContain(`Imported from ${SOURCE}`);
+    for (const name of COMMANDS) expect(read(), name).toContain(`[reference/${name}.md](reference/${name}.md)`);
+  });
+
+  it('reads omni config design.enabled first, says how to turn it on and stops when it is off, then reads omni kb show design', () => {
+    const text = read();
+    const flag = text.indexOf('omni.mjs config design.enabled');
+    const form = text.indexOf('omni.mjs kb show design');
+    expect(flag).toBeGreaterThan(0);
+    expect(form).toBeGreaterThan(flag);
+    expect(skillSection(text, 'Step 0')).toContain('design: off — set design.enabled: true in .omni-loop/config.yml to turn design craft on');
+    expect(skillSection(text, 'Step 0')).toMatch(/and stop\b/);
+  });
+
+  it('states the precedence itself: the product wins over the craft floor and the refuse list', () => {
+    expect(read()).toMatch(/\*\*The product wins\.\*\*/);
+    expect(read()).toMatch(/`product`, `system` and `deliberate`[^.]*override\s+the\s+craft\s+floor\s+and\s+the\s+refuse\s+list/);
+    expect(ref('craft-floor')).toMatch(/The design form wins/);
+  });
+
+  it('keeps fixes inside the territory, and sends what it leaves to the outbox', () => {
+    expect(read()).toMatch(/inside the slice's territory/);
+    expect(read()).toMatch(/outbox item/);
+  });
+
+  it("review is bounded, runs commands.design when set, screenshots at the form's widths, and never blocks", () => {
+    const review = ref('review');
+    expect(review).toMatch(/one look, one batch of fixes, at most one confirming look/);
+    expect(review).toContain('omni.mjs config commands.design');
+    expect(review).toContain('Design lint: not set here');
+    expect(review).toMatch(/390 and 1440/);
+    expect(review).toMatch(/\*\*Never blocking\.\*\*/);
+    expect(review).toMatch(/never stops the slice, the wave or the gate, and never turns a check\s+red/);
+    expect(review).toContain('**Design review**');
+    expect(review).toMatch(/nothing is reported as seen/);
+  });
+
+  it('names no impeccable engine, no context file of its own, and no path only one agent has', () => {
+    const banned = [/scripts\/impeccable/, /PRODUCT\.md/, /\.impeccable\//, /\.claude\//, /CLAUDE\.md/, /AskUserQuestion/, /(?:^|[\s`])\/impeccable\b/m, /critique-storage/, /impeccable detect/];
+    for (const file of allFiles()) {
+      const text = read(file);
+      for (const pattern of banned) expect(text, `${file} names ${pattern.source}`).not.toMatch(pattern);
+    }
+  });
+
+  it('the porting note names the source commit, what was left out and every change; the NOTICE credits both under Apache-2.0', () => {
+    const note = readFileSync(join(repoRoot, 'kit/porting/plugin--pixel-perfect.md'), 'utf8');
+    expect(note).toContain(SOURCE);
+    for (const heading of ['## Left out', '## Changed']) expect(note, heading).toContain(heading);
+    for (const name of COMMANDS) expect(note, name).toContain(`\`${name}\``);
+    const notice = readFileSync(join(repoRoot, 'kit/NOTICE.md'), 'utf8');
+    for (const phrase of ['impeccable', 'Paul Bakaus', 'frontend-design', 'Anthropic', 'Apache License, Version 2.0', SOURCE, 'modified']) {
+      expect(notice, phrase).toContain(phrase);
+    }
+    expect(read()).toMatch(/kit\/NOTICE\.md/);
+  });
+
+  it('omni help pixel-perfect lists its commands, and names the craft floor every edit reads', () => {
+    const run = spawnSync(process.execPath, [join(repoRoot, '.omni-loop/bin/omni.mjs'), 'help', 'pixel-perfect'], { cwd: repoRoot, encoding: 'utf8' });
+    expect(run.status).toBe(0);
+    for (const name of COMMANDS.filter((command: string) => command !== 'craft-floor')) expect(run.stdout, name).toContain(`/omni:pixel-perfect ${name}`);
+    expect(run.stdout).toContain('craft floor');
+    expect(run.stdout).toMatch(/never blocks/);
+  });
+});
+
+// PRD 1369, s4: the skills that drive screen work start the design review on their own, behind the
+// flag, and it never blocks. do-work follows /omni:pixel-perfect review on a UI slice and writes a
+// Design review section; visual-fix follows it at its real check against the pick; plan marks the
+// slices whose territory meets design.paths.
+describe('the design review in the skills that drive screen work (PRD 1369)', () => {
+  const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', name, 'SKILL.md'), 'utf8');
+  const FLAG = 'omni.mjs config design.enabled';
+  const gaps = (text: string, mentions: string[]) => {
+    const out: string[] = [];
+    let at = -1;
+    mentions.forEach((mention: string, index: number) => {
+      const next = text.indexOf(mention, at + 1);
+      if (next < 0) out.push(`${mention}, after ${mentions[index - 1] ?? 'the start'}`);
+      else at = next;
+    });
+    return out;
+  };
+
+  it('each skill reads omni config design.enabled in its step 0, and off, runs no review', () => {
+    for (const name of ['do-work', 'visual-fix', 'plan']) expect(skillSection(read(name), 'Step 0'), name).toContain(FLAG);
+    expect(skillSection(read('do-work'), 'Step 0')).toMatch(/no \*\*Design review\*\* section/);
+    expect(skillSection(read('visual-fix'), 'Step 0')).toMatch(/no \*\*Design review\*\* section/);
+  });
+
+  it("do-work's review step runs omni design touched, and follows /omni:pixel-perfect review on ui: yes from the plan or the check", () => {
+    const review = skillSection(read('do-work'), '4.');
+    expect(gaps(review, ['**Design review.**', 'omni.mjs design touched', '`ui: yes`', '/omni:pixel-perfect review', 'omni.mjs check coverage'])).toEqual([]);
+    expect(review).toMatch(/marked `ui: yes` in the plan's done-when, or the check prints\s+`ui: yes`/);
+    expect(review).toContain('reference/review.md');
+  });
+
+  it('on ui: unknown, do-work judges from the diff whether a screen changed, and says that it judged', () => {
+    const review = skillSection(read('do-work'), '4.');
+    expect(review).toMatch(/`ui: unknown`[^|]*\|\s*judges from the diff/);
+    expect(review).toMatch(/says that it judged/);
+  });
+
+  it('the review never fails the slice, the wave or the gate: what it did not fix becomes an outbox item', () => {
+    const text = read('do-work');
+    const review = skillSection(text, '4.');
+    expect(review).toMatch(/never fails the slice, the wave or the\s+gate/);
+    expect(review).toMatch(/what it did not fix[^.]*outbox\s+item/i);
+    expect(review).toMatch(/never\s+the\s+\*\*stop\*\*\s+or\s+the\s+\*\*blocked\*\*\s+outcome/);
+    expect(skillSection(text, '3.')).toMatch(/A design review finding is never a\s+stop/);
+  });
+
+  it('the sub-PR body carries a Design review section, one ✓, ✗ or — line per step', () => {
+    const text = read('do-work');
+    expect(skillSection(text, '4.')).toMatch(/one ✓, ✗ or — line per step/);
+    expect(skillSection(text, '5.')).toContain('**Design review** section');
+  });
+
+  it('visual-fix follows the same review at its real check, against the picked variation, never blocking', () => {
+    const text = read('visual-fix');
+    const check = skillSection(text, '7.');
+    expect(gaps(check, ['/omni:pixel-perfect review', 'the variation the person picked'])).toEqual([]);
+    expect(check).toMatch(/never blocks/);
+    expect(check).toContain('**The boundary**');
+    expect(skillSection(text, '9.')).toContain('## Design review');
+  });
+
+  it('plan writes ui: yes in the done-when of a slice whose territory meets design.paths', () => {
+    const text = read('plan');
+    expect(skillSection(text, '4.')).toMatch(/territory\s+meets\s+`design\.paths`/);
+    expect(skillSection(text, '4.')).toContain('**s3** (`ui: yes`)');
+  });
+});
+
+// PRD 1369, s5: the skills that read the product's look read the design form, behind the flag.
+// invade fills it from the product's own evidence and proposes the flag, design.paths and
+// commands.design; think-big's Craft critic judges against it and the craft floor; brainstorm's
+// before/after draws its "after" from the form's tokens and components. None invents a direction.
+describe('the design form in invade, think-big and brainstorm (PRD 1369)', () => {
+  const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', name, 'SKILL.md'), 'utf8');
+  const FLAG = 'omni.mjs config design.enabled';
+  const tableRow = (text: string, start: string) => text.split('\n').find((line: string) => line.startsWith(start)) ?? '';
+
+  it('each skill reads omni config design.enabled in its step 0, and off, does not read or fill the form', () => {
+    for (const name of ['invade', 'think-big', 'brainstorm']) expect(skillSection(read(name), 'Step 0'), name).toContain(FLAG);
+    expect(skillSection(read('invade'), 'Step 0')).toMatch(/step 7 proposes no `design\.paths`/);
+    expect(skillSection(read('think-big'), 'Step 0')).toMatch(/step 2 reads no design\s+form/);
+    expect(skillSection(read('brainstorm'), 'Step 0')).toMatch(/step 5 reads no design form/);
+  });
+
+  it("invade's per-form table has a design row naming what answers it", () => {
+    const row = tableRow(read('invade'), '| design |');
+    for (const source of ['token', 'CSS custom properties', 'Tailwind', 'theme config', 'component library', 'stories', 'fonts', 'global styles', '`DESIGN.md`', 'screens', 'copy']) {
+      expect(row, source).toContain(source);
+    }
+  });
+
+  it('invade fills the form with path@hash from the product, leaves TODO(human) where evidence is missing, and never invents a direction', () => {
+    const fill = skillSection(read('invade'), '5.');
+    expect(fill).toContain('### The design form');
+    expect(fill).toContain('`<path>@<hex>`');
+    expect(fill).toContain('TODO(human)');
+    expect(fill).toContain('**Never invent a visual direction.**');
+    expect(fill).toMatch(/A pattern\s+that merely looks deliberate[^.]*is a question for a person/);
+    expect(fill).toContain('`See: <path>`');
+    expect(skillSection(read('invade'), 'Guardrails')).toMatch(/Never invents a visual direction/);
+  });
+
+  it('invade proposes the flag when there are screens, and design.paths and commands.design only with the flag on', () => {
+    const config = skillSection(read('invade'), '7.');
+    expect(tableRow(config, '| `design.enabled` |')).toMatch(/found screens/);
+    expect(tableRow(config, '| `design.enabled` |')).toMatch(/nothing else of design is proposed/);
+    expect(tableRow(config, '| `design.paths` |')).toMatch(/the flag is `true` and the list is empty/);
+    expect(tableRow(config, '| `commands.design` |')).toMatch(/the flag is `true`.*a design linter is already among the dependencies/);
+    expect(skillSection(read('invade'), '--refresh')).toContain('the `design` form');
+  });
+
+  it("think-big's Today's product reads omni kb show design, and the Craft critic judges against it and the craft floor", () => {
+    const text = read('think-big');
+    const fuel = skillSection(text, '2.');
+    expect(fuel.indexOf('omni.mjs kb show design')).toBeGreaterThan(fuel.indexOf("**Today's product.**"));
+    expect(fuel).toContain('`reference/craft-floor.md`');
+    expect(fuel).toMatch(/never a direction this run invents/);
+    const studio = skillSection(text, 'The studio');
+    expect(studio).toContain('**Craft, with the design flag on.**');
+    expect(studio).toMatch(/fuel sheet's `design` section first, then its `craft-floor` section/);
+    expect(studio).toMatch(/The product wins/);
+  });
+
+  it("brainstorm's before/after builds the after from the form's tokens and components, never invented", () => {
+    const page = skillSection(read('brainstorm'), '5.');
+    expect(page).toContain('omni.mjs kb show design');
+    expect(page).toMatch(/build the "after" from the product's own tokens and components/);
+    expect(page).toMatch(/never\s+invented/);
+    expect(page).toMatch(/`deliberate` section says the\s+product does on purpose holds/);
+  });
+});
+
 // PRD 1342, s8: `/omni:enforce` turns one law issue into one PR whose test was seen red with the law
 // broken and green restored, and the two fix skills raise one `high` item per change to a law their
 // range makes, in the fix's own outbox.

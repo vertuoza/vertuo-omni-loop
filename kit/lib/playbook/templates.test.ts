@@ -14,9 +14,24 @@ const kitRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = join(kitRoot, 'dist/omni.mjs');
 const PROVENANCE = /^<!-- Ported from vertuo-ai-domain@db67fd9da:(.+) — changes in (kit\/porting\/templates--[a-z-]+\.md) -->$/m;
 
-/** Every template's text, keyed by its path under the templates folder: the fourteen forms, then the front door. */
-/** The templates the kit wrote itself, with no upstream page to port from (PRD 790: the review form). */
-const KIT_ORIGINAL = new Set(['playbook/review.md']);
+/** The templates the kit wrote itself, with no upstream page to port from (PRD 790: the review form; PRD 1369: the design form). */
+const KIT_ORIGINAL = new Set(['playbook/review.md', 'playbook/design.md']);
+
+/** The slots whose kit default is a question, not doctrine: only the repository can answer them (PRD 1369). */
+const KIT_HOLES = new Set(['design#product', 'design#system']);
+
+/** The optional slots the kit leaves empty: there is no default worth shipping (PRD 1369). */
+const KIT_EMPTY = new Set(['design#deliberate', 'design#review']);
+
+/** What a template's slot holds: a question, nothing, or else a kit default. */
+const kitKind = (formId: string, slotId: string): string => {
+  const key = `${formId}#${slotId}`;
+  if (KIT_HOLES.has(key)) return 'holes';
+  if (KIT_EMPTY.has(key)) return 'empty';
+  return 'text';
+};
+
+/** Every template's text, keyed by its path under the templates folder: the fifteen forms, then the front door. */
 
 const ALL = (): [string, string][] => [...FORM_IDS.map((id): [string, string] => [templatePath(id), formTemplate(id)]), [FRONT_DOOR_TEMPLATE, frontDoorTemplate()]];
 
@@ -47,13 +62,15 @@ describe('each form template — the forms table, as the one parser reads it', (
       expect(parsed.form.slots.every((slot) => slot.by === null && slot.verified === null)).toBe(true);
     });
 
-    it(`${form.id}: has a title and an opener, and a kit default in every slot`, () => {
+    it(`${form.id}: has a title and an opener, and a kit default in every slot but a question or an empty optional one`, () => {
       const parsed = parseForm(formTemplate(form.id)).form;
       assertDefined(parsed, 'parsed');
       expect(parsed.title).toMatch(/\S/);
       expect(parsed.opener).toMatch(/^Use this page when /);
       for (const slot of parsed.slots) {
-        expect({ slot: slot.id, kind: slot.body.kind, questions: slot.body.questions }).toEqual({ slot: slot.id, kind: 'text', questions: [] });
+        const kind = kitKind(form.id, slot.id);
+        expect({ slot: slot.id, kind: slot.body.kind, questions: slot.body.questions.length > 0 }).toEqual({ slot: slot.id, kind, questions: kind === 'holes' });
+        if (kind === 'empty') expect(slot.required, `${form.id}#${slot.id} is empty, so optional`).toBe(false);
       }
     });
   }
