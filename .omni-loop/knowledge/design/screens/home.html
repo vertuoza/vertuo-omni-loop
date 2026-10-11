@@ -87,7 +87,7 @@
           <rect x="2" y="10" width="4" height="12" fill="#ff3ea5"/><rect x="18" y="8" width="6" height="3" fill="#ffd8b0"/>
           <rect x="7" y="20" width="4" height="7" fill="#2f3fc4"/><rect x="13" y="20" width="4" height="7" fill="#2f3fc4"/>
         </svg>
-        <button type="button" class="home-signup" data-primary aria-label="Sign up with GitHub"><b>SIGN UP WITH GITHUB</b></button>
+        <button type="button" class="home-signup" data-part="sign-up-button" data-primary aria-label="Sign up with GitHub"><b>SIGN UP WITH GITHUB</b></button>
       </div>
     </div>
     <div class="home-sky">
@@ -134,7 +134,7 @@
       <h2 id="home-order" class="home-spread-head">Join <em>the loop!</em></h2>
       <p>To join instantly: sign up with GitHub</p>
       <div class="home-order-row">
-        <button type="button" class="home-signup"><b>SIGN UP WITH GITHUB</b></button>
+        <button type="button" class="home-signup" data-part="sign-up-button"><b>SIGN UP WITH GITHUB</b></button>
         <a class="home-start" href="/play">PRESS START</a>
         <a class="home-start" href="/docs">GETTING STARTED</a>
       </div>
@@ -145,5 +145,6 @@
 </main>
 
 <p class="mock-note">Open on this draft: which of SIGN UP WITH GITHUB and PRESS START is the one primary action. The mockup marks SIGN UP WITH GITHUB on the poster, the action the poster's own quote asks for; the screen's Open questions keep the choice open until a person locks it.</p>
+<p class="mock-note"><b>Parts not on the list (DESIGN.md):</b> <code>sign-up-button</code>, SIGN UP WITH GITHUB, drawn by HOME's poster and wired by <code>Controls.tsx</code>. DESIGN.md lists the app pages' parts; whether HOME has a list of its own is an outbox item of PRD 1559.</p>
 </body>
 </html>

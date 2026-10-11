@@ -66,7 +66,7 @@
         <span class="xp-next">120 XP to LV 4</span>
       </div>
       <div class="cabinets">
-        <button type="button" class="cabinet lit active">
+        <button type="button" class="cabinet lit active" data-part="cabinet">
           <span class="marquee">ENTROPY INVADERS</span>
           <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
             <g fill="#ff3ea5"><rect x="6" y="3" width="6" height="4"/><rect x="18" y="3" width="6" height="4"/><rect x="30" y="3" width="6" height="4"/><rect x="42" y="3" width="6" height="4"/><rect x="54" y="3" width="6" height="4"/><rect x="66" y="3" width="6" height="4"/></g>
@@ -78,14 +78,14 @@
           </span>
           <span class="cab-play" data-primary>A · PLAY</span>
         </button>
-        <button type="button" class="cabinet lit">
+        <button type="button" class="cabinet lit" data-part="cabinet">
           <span class="marquee">SUPER OMNI WORLD</span>
           <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
             <rect width="84" height="30" fill="#2f3fc4"/><rect y="24" width="84" height="6" fill="#1d8f55"/><rect x="50" y="14" width="10" height="4" fill="#d99a14"/><rect x="20" y="17" width="5" height="7" fill="#ff9b30"/></svg></span>
           <span class="cab-scores"><b>CREW TOP 5</b><span class="cab-none">NO SCORES YET</span></span>
           <span class="cab-play">A · PLAY</span>
         </button>
-        <button type="button" class="cabinet lit">
+        <button type="button" class="cabinet lit" data-part="cabinet">
           <span class="marquee">OMNI KART</span>
           <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
             <rect width="84" height="30" fill="#0e0d33"/><polygon points="30,8 54,8 80,30 4,30" fill="#5b5f80"/><rect x="38" y="22" width="8" height="5" fill="#ff9b30"/></svg></span>
@@ -101,5 +101,6 @@
 </div>
 
 <p class="mock-note">Not drawn: the tall grid (320×288, one cabinet a page with PAGE n/N), a locked cabinet (dark, REACH LV n TO PLAY on A) and the SOON cabinet, which the room stands only while it has fewer than three games. The primary mark sits on the cabinet under the cursor's A · PLAY.</p>
+<p class="mock-note"><b>Parts not on the list (DESIGN.md):</b> <code>cabinet</code>, drawn inside the game room's scene (<code>games.tsx</code>) and nowhere else. DESIGN.md lists the app pages' parts; whether the arcade has a list of its own is an outbox item of PRD 1559.</p>
 </body>
 </html>
