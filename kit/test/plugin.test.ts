@@ -2820,3 +2820,16 @@ describe('the front matter /omni:invade gives a form', () => {
     expect(fill).toContain('A form left wholly empty stays `state: blank`, `evidence: []`, `invaded: null`.');
   });
 });
+
+describe('/omni:pr when only the outbox check is red', () => {
+  // Law BR-PRODUCT-3 (.omni-loop/knowledge/product/rules.md, #1465).
+  it('law BR-PRODUCT-3: only person-answered outbox items red is reported in the status comment and stops, never an attempt, never labels.outboxGo', () => {
+    const text = readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/pr/SKILL.md'), 'utf8');
+    const row = skillSection(text, 'The lifecycle').split('\n').find((line) => line.startsWith('| only `ci.outboxContext` red |')) ?? '';
+    expect(row).toContain('Not a failure to fix');
+    expect(row).toContain('Red only for items a person must answer is the gate doing its job; say so in the status comment and stop.');
+    expect(row).toContain('never by adding `labels.outboxGo`');
+    expect(row).not.toMatch(/attempt/i);
+    expect(skillSection(text, 'Labels')).toContain("Never add `labels.outboxGo`; it is a person's override.");
+  });
+});
