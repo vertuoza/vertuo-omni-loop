@@ -176,6 +176,7 @@ Restricting it later is one change to the database function, and a refusal the p
 - Slice: s3
 - Wave: 1
 - Became: BR-PRODUCT-82
+- Stays here: not worth a law (classifier), was BR-PRODUCT-82
 
 ### The answer, as it was given
 
