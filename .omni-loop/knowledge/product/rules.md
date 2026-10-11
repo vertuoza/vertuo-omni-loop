@@ -259,7 +259,7 @@ When any gh search for omni credits fails, the run prints one line and exits 2 w
 
 Serves: P-PRODUCT-22
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s3-02-credits-other-github-failures, PRD #99
-Enforced by: pending #1485
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
