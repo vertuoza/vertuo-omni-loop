@@ -1,5 +1,5 @@
 -- A repository's products are its links alone (PRD 1364 s14, docs:
--- .omni-loop/delivery/inbox/1364-product-home/spec.md §1). The contract step of
+-- .omni-loop/delivery/shipped/1364-product-home/spec.md §1). The contract step of
 -- 20261129090000_product_repositories.sql: nothing reads repositories.product_id any more, so it goes,
 -- with everything that kept it.
 --
