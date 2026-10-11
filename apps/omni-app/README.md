@@ -3,7 +3,9 @@
 `apps/omni-app` is the webhook server of **omni-loop**, a public GitHub App owned by the vertuoza org
 (PRD 28; public since PRD 359, so anyone can install it and a workspace is born from the installation).
 It does four jobs: the **outbox check** on every pull request, the **inbox check** on every phase-0
-pull request (PRD 675), and, after every feature pull request merges, a **retro** (PRD 72) and a **knowledge harvest** (PRD 82), below. Once the app is
+pull request (PRD 675), and, after every feature pull request merges, a **retro** (PRD 72) and a **knowledge harvest** (PRD 82), below. On a
+product PRD's target feature pull requests it also posts **omni/approved** (PRD 1548,
+[A product PRD's checks](#a-product-prds-checks-prd-1548)). Once the app is
 installed on a repository that has the loop (a `.omni-loop/config.yml` on the base branch), every pull
 request carries one check run named **outbox** (shown as **omni-loop · outbox**):
 
@@ -34,6 +36,57 @@ leaves the change unaccounted and the check red.
 | a fix PR touching a law | `branches.fix` | `failure`, its title naming each law, until the fix's folder (`<paths.delivery>/bugs/<n>-…/` or `visual/<n>-…/`, found from the number the branch's topic starts with) holds an `outbox/` with a `high` item and an account per change, and a person answered each on the PR; its outbox comment is posted as a feature PR's is |
 | a knowledge PR | `branches.knowledge` | `success`, never blocked: a person merging it answers every change it holds; the summary lists the laws it touches |
 | an enforce PR (`/omni:enforce`) | `branches.law` | `success`, the same |
+
+## A product PRD's checks (PRD 1548)
+
+A **product PRD** (`mobile-12`) lives on its product on the server, in no repository
+([`docs/guide/products.md`](../../docs/guide/products.md#a-product-prd)). Its code lands as one
+feature PR per target repository, whose body says `Part of mobile-12`. On such a PR the app posts two
+checks, both read from the database as the service role (`SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`), and only for a product that holds the PR's repository: a body naming a
+PRD of another product reads as no such PRD.
+
+**`omni/approved`** (`ci.approvedContext`; `null` turns it off), the function `approved-check`
+(`src/approved-check/`): whether what the PR builds is what was approved. It compares the approval in
+force with the dossier's latest versions.
+
+| state | conclusion | line |
+|---|---|---|
+| building | `success` | `building · 4 of 4 pinned`: an approval in force, its approver a member today, every pinned hash matching |
+| drifted | `failure` | `drifted · ≠ plan.md in <commit> · content` (or `· whitespace only`, `· missing`, `· voided by <login>'s push`) |
+| held | `neutral` | `held · server unreachable since <time> · held, not failed`: the record could not be read |
+| pending | `failure` | `pending · mobile-12 waits for approval` |
+| refused | `failure` | `refused · approver <login> is not a workspace member` |
+| unknown | `failure` | `unknown · no product PRD mobile-12 holds this repository` |
+
+Its **Details** opens the PRD page's attestation on galaxy, `/prd/<dossier>#attestation`. A PR whose
+body names no product PRD, or whose base has no loop config, gets nothing, not even `skipped`.
+
+**The outbox check** keeps its name (`ci.outboxContext`), so no branch-protection rule breaks. On a
+product PRD's PR it reads the PRD's outbox rows (`outbox_items`, each with its `outbox_settlements`;
+`src/outbox-check/product-outbox.ts`), never a plan PR, and posts no comment. Only open items hold the
+gate.
+
+| reading | conclusion | line |
+|---|---|---|
+| no open item | `success` | `0 open · one gate on Mobile` |
+| `k` open items | `failure` | `<k> open · answer on Mobile › Questions` |
+| no such PRD for this repository | `failure` | `unknown · no product PRD mobile-12 holds this repository` |
+| the server could not be read | `neutral` | `held · server unreachable since <time> · held, not failed` |
+
+Its **Details** opens the product's Questions tab, `/app/products/<id>/questions`.
+
+**The server event.** Both checks run on every PR event the outbox check runs on, and again when
+galaxy says the server changed the PRD, so nothing polls. Galaxy POSTs `{ event, dossier, at }` to
+`/api/server-event` (`src/server-event/`), signed with an HMAC-SHA256 of the body under
+`STAGE_EVENT_SECRET` in `x-omni-signature-256`, for four events: `approved`, `voided` (a push changed a
+pinned file), `item-opened` and `item-settled` (an item answered, or adopted as it was raised). A bad
+or missing signature is 401, a body that is not a server event 400, and a good one 202. The function
+`server-event`, debounced per PRD, reads the PRD's open PRs from the `pull_requests` table the
+collector keeps ([below](#the-engineering-boards-collector-prd-612)), reads each one once from GitHub,
+keeps those whose body names the PRD, and sends each the outbox check's event, which re-runs the
+outbox, approved and inbox checks. A PR the collector has not read yet gets both checks on its next
+webhook.
 
 ## The inbox check (PRD 675)
 
@@ -305,8 +358,10 @@ None of these is taken by the code; a person does each once.
    - `INNGEST_EVENT_KEY`
    - `INNGEST_SIGNING_KEY`
    - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — the same project and service key as galaxy's,
-     for the pr-stats collector (PRD 612) and the inbox check's canon gate (PRD 839). With either
-     unset the collector logs one line and writes nothing, and the canon gate is neutral.
+     for the pr-stats collector (PRD 612), the inbox check's canon gate (PRD 839) and a product PRD's
+     two checks (PRD 1548, [below](#a-product-prds-checks-prd-1548)). With either unset the collector
+     logs one line and writes nothing, the canon gate is neutral, and a product PRD's checks read as
+     held.
    - `OPENROUTER_API_KEY` — the small model of the canon gate (and the retro's and the harvest's
      model, below). Unset, the canon gate is neutral, "model not configured".
    - `CONSTITUENT_JUDGE_SECRET` — the secret the canon gate signs its call to galaxy's constituent
@@ -318,7 +373,8 @@ None of these is taken by the code; a person does each once.
    - `OPENROUTER_MODEL`, optional — another model than the default for the retro and the harvest
      (below).
    - `STAGE_EVENT_SECRET` — the secret stage events are signed with on their way to galaxy
-     ([Stage events](#stage-events-prd-587)), the same value as in galaxy's project.
+     ([Stage events](#stage-events-prd-587)), the same value as in galaxy's project. Galaxy signs its
+     server events to `/api/server-event` with it too (PRD 1548); unset, every server event is refused.
    - `GALAXY_URL`, optional — galaxy's host for the stage events and the judge, when it is not
      `https://www.omni-loop.xyz`.
    - `INNGEST_DEV`, locally only — `1` points the Inngest SDK at the Inngest dev server; never set
@@ -336,8 +392,8 @@ None of these is taken by the code; a person does each once.
    the Vercel variable, redeploy, then delete the old key.
 3. **Inngest.** Create (or reuse) the Inngest account and sync the app at
    `https://<production domain>/api/inngest`. A deploy does not resync it: after a deploy that adds a
-   function (pr-stats, PRD 612, and inbox-check, PRD 675, are two), press **Resync** on the app in Inngest, or the new function
-   never runs.
+   function (pr-stats, PRD 612, inbox-check, PRD 675, approved-check and server-event, PRD 1548, are
+   some), press **Resync** on the app in Inngest, or the new function never runs.
 4. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
    default branch.
 
