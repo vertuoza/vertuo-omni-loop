@@ -15,7 +15,7 @@ Merged: @pierrederval, 2026-09-25, PR #4
 A raised item is graded by the same check the outbox gate uses before anything is written or adopted, so a bad option or a below-floor rank is refused at the source.
 
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s13-01-item-new-json-shape-and-input-flag-rename, PRD #7
-Enforced by: pending #1539
+Enforced by: kit/bin/item.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
