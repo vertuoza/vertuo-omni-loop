@@ -44,7 +44,7 @@ export function readGrid(entries: Readonly<Record<string, unknown>>): GridPlayer
   return players;
 }
 
-// ── The race's messages (PRD 1572, slice 4): start, state and leave. `item`, `hit` and `finish` join them later.
+// ── The race's messages (PRD 1572): start, state, leave (slice 4) and finish (slice 5). `item` and `hit` join them later.
 
 const RaceId = z.string().min(1).max(64);
 
@@ -74,7 +74,10 @@ const State = z.object({
 /** A player leaves the race. */
 const Leave = z.object({ kind: z.literal('leave'), race: RaceId });
 
-const Message = z.discriminatedUnion('kind', [Start, State, Leave]);
+/** A player crossed the line at the end of the last lap: their race time in tenths of a second, the one that is sent to the score. */
+const Finish = z.object({ kind: z.literal('finish'), race: RaceId, tenths: z.number().int().positive() });
+
+const Message = z.discriminatedUnion('kind', [Start, State, Leave, Finish]);
 export type RaceMessage = z.infer<typeof Message>;
 export type StateMessage = z.infer<typeof State>;
 

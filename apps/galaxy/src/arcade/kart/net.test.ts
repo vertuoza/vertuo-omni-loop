@@ -110,3 +110,16 @@ describe('a remote kart between two states', () => {
     expect(carried(kart, -1)).toEqual(kart);
   });
 });
+
+describe('the finish message (PRD 1572, slice 5)', () => {
+  it('reads back what was sent: the race and the time in tenths', () => {
+    expect(readMessage({ kind: 'finish', race: 'r', tenths: 1234 })).toEqual({ kind: 'finish', race: 'r', tenths: 1234 });
+  });
+
+  it('reads as nothing with a time that is missing, not whole or not positive, and for another race', () => {
+    for (const tenths of [undefined, 0, -3, 12.5, '1234']) expect(readMessage({ kind: 'finish', race: 'r', tenths })).toBeNull();
+    expect(readMessage({ kind: 'finish', tenths: 10 })).toBeNull();
+    expect(readMessage({ kind: 'finish', race: 'other', tenths: 10 }, 'r')).toBeNull();
+    expect(readMessage({ kind: 'finish', race: 'r', tenths: 10 }, 'r')).not.toBeNull();
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import type { GridPlayer, StateMessage } from './net';
-import { away, dropOut, hear, hudOf, newRace, pause, press, step, type Race } from './race';
+import { away, dropOut, finishOf, hear, hudOf, newRace, pause, press, step, type Race } from './race';
 import { RULES } from './rules';
 import { parseTrack } from './track';
 
@@ -224,5 +224,55 @@ describe('a silent player', () => {
     expect(r.rivals.map((x) => x.id)).toEqual(['c']);
     expect(r.gone).toEqual(['b']);
     expect(dropOut(r, 'b')).toEqual(r);
+  });
+});
+
+describe('the finish of a MULTI race (PRD 1572, slice 5)', () => {
+  /** The player drives to the line while the players named in `heard` keep sending their state. */
+  const cross = (race: Race, heard: readonly string[] = []): Race => {
+    let r = race;
+    for (let i = 0; i < 6000 && r.phase !== 'finish'; i += 1) r = heard.reduce((x, id) => hear(x, id, state()), step(r, GAS, 0.05).race);
+    return r;
+  };
+
+  it('a player who crossed the line leaves the circuit and stands ahead of the player still racing', () => {
+    const r = finishOf(racing(), 'b', 1100);
+    expect(r.rivals.map((x) => x.id)).toEqual(['c']);
+    expect(r.finished).toEqual({ b: 1100 });
+    expect(hudOf(r).run?.place).toBe(2);
+  });
+
+  it('ignores a finish told twice, from a stranger, or before the race', () => {
+    const r = finishOf(racing(), 'b', 1100);
+    expect(finishOf(r, 'b', 900)).toBe(r);
+    expect(finishOf(r, 'z', 900)).toBe(r);
+    expect(finishOf(multi(), 'b', 900).finished).toEqual({});
+    expect(finishOf(away(racing()), 'b', 900).finished).toEqual({});
+  });
+
+  it('lists the results by finish time, then who still races, then who is OUT, and fills in', () => {
+    let r = cross(racing(), ['b']);
+    const rows = () => (hudOf(r).results?.rows ?? []).map((x) => [x.name, x.tenths === null ? null : 'time', x.out === true]);
+    expect(rows()).toEqual([['YOU', 'time', false], ['B', null, false], ['C', null, true]]);
+    r = finishOf(r, 'b', 1);
+    expect(rows()).toEqual([['B', 'time', false], ['YOU', 'time', false], ['C', null, true]]);
+    expect(hudOf(r).results?.place).toBe(2);
+    expect(hudOf(r).results?.live).toBe(true);
+  });
+
+  it('puts the player behind another who crossed at the same tenth', () => {
+    let r = cross(racing(), ['b', 'c']);
+    r = finishOf(r, 'b', r.finish?.tenths ?? 0);
+    expect(hudOf(r).results?.rows.map((x) => x.name)).toEqual(['B', 'YOU', 'C']);
+  });
+
+  it('on the results, hears the others on, and takes a player silent for too long as OUT, never one who finished', () => {
+    let r = finishOf(cross(racing(), ['b', 'c']), 'b', 5000);
+    r = play(r, NONE, RULES.outAfter - 1);
+    expect(r.rivals.map((x) => x.id)).toEqual(['c']);
+    r = play(r, NONE, 2);
+    expect(r.rivals).toEqual([]);
+    expect(r.gone).toEqual(['c']);
+    expect(r.finished).toEqual({ b: 5000 });
   });
 });

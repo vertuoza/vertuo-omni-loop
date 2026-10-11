@@ -259,6 +259,19 @@ describe('the results and the score (slice 4)', () => {
     expect(t).toContain('TIME 1:40.0');
   });
 
+  it('fills a MULTI table in live: the time of whoever finished, a dash for whoever races, OUT for whoever left', () => {
+    const live = (): KartHud => ({ phase: 'finish', beat: null, results: { rows: [
+      { place: 1, name: 'YOU', tenths: 1000, you: true }, { place: 2, name: 'ALPHA', tenths: 1042, you: false },
+      { place: 3, name: 'BRAVO', tenths: null, you: false }, { place: 4, name: 'CHARLIE', tenths: null, you: false, out: true },
+    ], place: 1, tenths: 1000, live: true } });
+    expect(text('ready', WIDE, 'full', live())).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:44.2 3RD BRAVO — -- CHARLIE OUT');
+    expect(sameKartHud(live(), live())).toBe(true);
+    const first = live();
+    const later = live();
+    if (first.results && later.results) later.results = { ...first.results, rows: first.results.rows.map((r) => (r.name === 'BRAVO' ? { ...r, tenths: 1100 } : r)) };
+    expect(sameKartHud(first, later)).toBe(false);
+  });
+
   it('shows A to race again and B to the room when nothing is being retried', () => {
     expect(text('ready', WIDE, 'full', results())).toContain('A RACE AGAIN');
     expect(text('ready', WIDE, 'full', results())).toContain('GAME ROOM');

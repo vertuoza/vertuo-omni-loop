@@ -92,7 +92,7 @@ function ResultsScreen({ results, send, back }: { results: NonNullable<KartHud['
         <ol className="kt-table">
           {results.rows.map((r) => (
             <li key={r.place} className={r.you ? 'kt-you' : undefined}>
-              <span>{ordinal(r.place)}</span><span>{r.name}</span><span>{r.tenths === null ? '--' : raceTime(r.tenths)}</span>
+              <span>{r.out ? '--' : ordinal(r.place)}</span><span>{r.name}</span><span>{r.out ? 'OUT' : r.tenths === null ? (results.live ? '—' : '--') : raceTime(r.tenths)}</span>
             </li>
           ))}
         </ol>

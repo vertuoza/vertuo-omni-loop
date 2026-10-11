@@ -18,8 +18,11 @@ export const GRID_LINES = Object.freeze({
   out: GRID_OUT_LINE,
 });
 
-/** How long a race is still on after the last state heard from it, in ms: a late arrival reads RACE ON for as long as karts are heard. */
-const RACE_ON_MS = 3000;
+/**
+ * How long a race is still on after the last word heard from a player of it, in ms: a player silent for as long as that is OUT
+ * (RULES.outAfter), so the grid's next race waits until every player of the last one finished, left or was OUT (PRD 1572).
+ */
+const RACE_ON_MS = RULES.outAfter * 1000;
 
 /** The line for the player `me` among `players`: who they wait for, or that they start; `racers` karts heard racing, when any, is a race on and the player waits. */
 function lineFor(players: readonly GridPlayer[], me: GridPlayer, racers: number): string {
@@ -81,15 +84,23 @@ export function openGrid(link: KartLink, me: GridPlayer, onChange: (view: KartGr
     if (expiry) clearTimeout(expiry);
     expiry = setTimeout(() => { expiry = null; tell(); }, RACE_ON_MS);
   };
+  // A race starts: every player it names, but this one, is racing from now, and is heard to be until they finish, leave or fall silent.
+  const raced = (order: readonly GridPlayer[]) => {
+    heard.clear();
+    for (const p of order) if (p.id !== me.id) heard.set(p.id, Date.now());
+    watch();
+  };
   const hear = (from: string, body: unknown) => {
     for (const fn of listeners) fn(from, body);
     const message = readMessage(body);
     if (!message) return;
     if (message.kind === 'state') { heard.set(from, Date.now()); watch(); tell(); return; }
-    if (message.kind === 'leave') { heard.delete(from); tell(); return; }
+    // A player who left, or who crossed the line, is racing no more.
+    if (message.kind === 'leave' || message.kind === 'finish') { heard.delete(from); tell(); return; }
     // A start: whoever it names takes it, from a player who holds a place, and nobody else.
-    if (!message.order.some((p) => p.id === me.id) || !message.order.some((p) => p.id === from)) return;
-    heard.clear();
+    if (!message.order.some((p) => p.id === from)) return;
+    raced(message.order);
+    if (!message.order.some((p) => p.id === me.id)) { tell(); return; }
     onStart({ race: message.race, seed: message.seed, order: message.order });
   };
   const join = () => {
@@ -114,7 +125,7 @@ export function openGrid(link: KartLink, me: GridPlayer, onChange: (view: KartGr
       const seed = Math.floor(Math.random() * 2 ** 31);
       const start: RaceStart = { race: `${me.id.slice(0, 24)}-${Date.now().toString(36)}`, seed, order: startingOrder(seated) };
       link.send({ kind: 'start', ...start });
-      heard.clear();
+      raced(start.order);
       return start;
     },
     send(body) { if (!gone) link.send(body); },

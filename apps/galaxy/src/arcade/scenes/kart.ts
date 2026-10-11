@@ -30,10 +30,10 @@ export interface KartHud {
 }
 
 /** One line of the results table: a place, the driver and the time in tenths of a second (none for a kart still racing). */
-export interface KartRow { place: number; name: string; tenths: number | null; you: boolean }
+export interface KartRow { place: number; name: string; tenths: number | null; you: boolean; /** MULTI (PRD 1572): the player left, or went silent, before the line. */ out?: boolean }
 
 /** The finish: the six places, the player's place and time, and the race time that is sent. */
-export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number }
+export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number; /** MULTI: the table fills in as each player finishes, so a text layer reads it afresh. */ live?: true }
 
 /** The items a kart holds. */
 export type KartItem = 'boost' | 'blob' | 'orb';
@@ -246,7 +246,12 @@ export function kartPress(status: KartStatus, action: Action, phase: KartHud['ph
 
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
 export const sameKartHud = (a: KartHud | null, b: KartHud | null): boolean =>
-  a === b || (!!a && !!b && a.phase === b.phase && a.menu === b.menu && a.beat === b.beat && a.results === b.results && sameRun(a.run, b.run));
+  a === b || (!!a && !!b && a.phase === b.phase && a.menu === b.menu && a.beat === b.beat && sameResults(a.results, b.results) && sameRun(a.run, b.run));
+
+/** The same results table: one object, or, for a MULTI race's live table, the same rows. */
+const sameResults = (a: KartResults | undefined, b: KartResults | undefined): boolean =>
+  a === b || (!!a && !!b && !!a.live && !!b.live && a.place === b.place && a.tenths === b.tenths && a.rows.length === b.rows.length
+    && a.rows.every((r, i) => { const o = b.rows[i]; return !!o && r.place === o.place && r.name === o.name && r.tenths === o.tenths && r.you === o.you && r.out === o.out; }));
 
 const sameRun = (a: KartRun | undefined, b: KartRun | undefined): boolean =>
   a === b || (!!a && !!b && a.place === b.place && a.lap === b.lap && a.laps === b.laps && a.tenths === b.tenths && a.final === b.final && a.item === b.item);

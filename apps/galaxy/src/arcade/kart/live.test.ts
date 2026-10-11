@@ -204,14 +204,18 @@ describe('the race over the link', () => {
     expect(t.game('p0').hud().run?.place).toBe(2);
   });
 
-  it('sends nothing to the score at the finish: a MULTI time is a later slice\'s', () => {
+  it('hands the time to the score at the finish, once, and tells the others', () => {
     const t = setup(['p0', 'p1']);
     t.go();
     t.play(RULES.countdown + 0.5);
     const g = t.game('p0');
     const scores: (number | null)[] = [];
-    for (let i = 0; i < 4000; i += 1) scores.push(g.step(new Set<Action>(['a']), 0.05));
-    expect(scores.every((s) => s === null)).toBe(true);
+    for (let i = 0; i < 4000 && g.hud().phase !== 'finish'; i += 1) scores.push(g.step(new Set<Action>(['a']), 0.05));
+    expect(g.hud().phase).toBe('finish');
+    const sent = scores.filter((s) => s !== null);
+    expect(sent).toHaveLength(1);
+    expect(g.hud().results?.tenths).toBe(sent[0]);
+    expect(g.step(NONE, 0.05)).toBeNull();
   });
 });
 
