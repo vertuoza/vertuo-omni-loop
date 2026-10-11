@@ -877,7 +877,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]', 'omni design parts'],
+    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]', 'omni design parts [--check <page.html | ref>]'],
     summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, the gallery, and the parts DESIGN.md lists',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
@@ -938,7 +938,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'copies): one line per part with its variants, states and code paths, then the count, the file and ' +
       'its reference screens, then each thing in the file that does not read, a token reference that ' +
       'does not resolve among them. With no file it prints parts: no DESIGN.md (run /omni:pixel-perfect ' +
-      'init), design: off while the flag is off, and parts exits 0 whatever it finds.',
+      'init), design: off while the flag is off, and parts exits 0 whatever it finds. parts --check ' +
+      '<page.html> is the parts check over a mockup: it reads only the marked screens, as words does ' +
+      '(an unmarked page says no screen marked: skipped), counts the parts each tags with ' +
+      'data-part="<name>" (case, spaces and dashes aside, EmptyState and empty-state are one part), and ' +
+      'prints off-list: for a tag the list does not hold and untagged: for a control (a button, an ' +
+      'input but a hidden one, a select, a textarea, an element with a control role, a link classed btn ' +
+      'or button, or any element design.words.primary matches) that carries no tag, itself or on an ' +
+      'element around it; what design.words.content marks is content, never a part and never untagged, ' +
+      'and a screen with neither finding says parts: all listed. parts --check <ref> reads what the ' +
+      'branch changed since its merge base with <ref>, design.ignore dropped: parts changed: names each ' +
+      'part whose Code paths a change matches, and off-list: names each component file (.tsx, .jsx, ' +
+      '.vue, .svelte or .astro) the diff adds under design.paths that no part names and no screen ' +
+      'implements; it prints parts: unknown when the ref does not read or design.paths is empty, and ' +
+      'never guesses. Both exit 0 whatever they find.',
   },
   {
     name: 'e2e',
