@@ -55,6 +55,9 @@ export interface Race {
   /** MULTI: the player's own place on the grid, 0 on pole. */
   readonly slot: number;
   readonly gone: readonly string[];
+  /** MULTI: the players who crossed the line, by id, with their time in tenths (never the player at this screen), and every other player's name by id. */
+  readonly finished: Readonly<Record<string, number>>;
+  readonly names: Readonly<Record<string, string>>;
   /** The results, once the player crossed the line at the end of the last lap; null before. */
   readonly finish: KartResults | null;
 }
@@ -102,7 +105,7 @@ export function newRace({ seed, track = parseTrack(), cast = [], field }: { seed
     const trait = traits[i] ?? { skill: 1, offset: 0 };
     return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: 0, gone: [], finish: null };
+  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: 0, gone: [], finished: {}, names: {}, finish: null };
 }
 
 /** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
@@ -133,13 +136,13 @@ function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
     return [{ id: p.id, slot: i, driver: driverOf(p), kart, pace: START_PACE, fx: NO_FX, skill: 1, offset: 0, heard: { kart, fx: NO_FX, at: 0 } }];
   });
   const mine = place(index);
-  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: index, gone: [], finish: null };
+  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: index, gone: [], finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
 }
 
 /** A state heard from player `id`: their kart, laps and spin-out or fall stand as they say, at the race clock it came at (before GO, at 0). Not a MULTI race on its way, a player not in it, or a player gone: nothing changes. */
 export function hear(race: Race, id: string, s: StateMessage): Race {
-  if (race.mode !== 'multi' || (race.phase !== 'countdown' && race.phase !== 'race')) return race;
-  const at = race.phase === 'race' ? race.clock : 0;
+  if (race.mode !== 'multi' || (race.phase !== 'countdown' && race.phase !== 'race' && race.phase !== 'finish')) return race;
+  const at = race.phase === 'countdown' ? 0 : race.clock;
   const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer };
   const fx: Fx = { ...NO_FX, spin: s.spin, fall: s.fall };
   return { ...race, rivals: race.rivals.map((r) => (r.id === id ? { ...r, kart, fx, pace: { laps: s.laps, passed: s.passed }, heard: { kart, fx, at } } : r)) };
@@ -148,6 +151,17 @@ export function hear(race: Race, id: string, s: StateMessage): Race {
 /** Player `id` is OUT: they left, or nothing came from them for `RULES.outAfter` seconds. Their kart is gone from the circuit. */
 export function dropOut(race: Race, id: string): Race {
   return race.rivals.some((r) => r.id === id) ? { ...race, rivals: race.rivals.filter((r) => r.id !== id), gone: [...race.gone, id] } : race;
+}
+
+/**
+ * Player `id` crossed the line, with `tenths` for their time (PRD 1572, slice 5): their kart leaves the circuit and they stand
+ * on the results, ahead of a player still racing. Not a MULTI race on its way or finished, a player not in it, or one who
+ * finished already: nothing changes. A player who was OUT and finishes after all is back among the finishers.
+ */
+export function finishOf(race: Race, id: string, tenths: number): Race {
+  if (race.mode !== 'multi' || race.phase === 'ready' || race.phase === 'left' || race.phase === 'paused') return race;
+  if (!(id in race.names) || id in race.finished) return race;
+  return { ...race, rivals: race.rivals.filter((r) => r.id !== id), gone: race.gone.filter((g) => g !== id), finished: { ...race.finished, [id]: tenths } };
 }
 
 /** The race left from outside because the tab is hidden: a MULTI race on its way is left at once, a SINGLE one pauses. */
@@ -269,7 +283,8 @@ export function placeOf(race: Race): number {
   const mine = progressOf(track, race.pace, race.player);
   // A MULTI grid is three across: side by side, whoever stood ahead on it is ahead.
   const ahead = (r: Rival) => { const p = progressOf(track, r.pace, r.kart); return race.mode === 'multi' ? p > mine || (p === mine && (r.slot ?? 0) < race.slot) : p >= mine; };
-  return 1 + race.rivals.filter(ahead).length;
+  // A player who crossed the line is ahead of everyone still racing.
+  return 1 + race.rivals.filter(ahead).length + Object.keys(race.finished).length;
 }
 
 /** The race clock's tenths of a second, as the clock shows them. */
@@ -291,6 +306,39 @@ function resultsOf(race: Race, clock: number): KartResults {
   return { rows, place, tenths: tenthsOf(clock) };
 }
 
+/**
+ * The results of a MULTI race (PRD 1572, slice 5), read afresh each time because they fill in live: the players who crossed the
+ * line by their time (the player at this screen behind one who crossed at the same tenth), then the ones still racing by how far
+ * along the circuit they are, with no time, and last the ones who are OUT.
+ */
+function multiResults(race: Race, mine: number): KartResults {
+  const { track } = race;
+  const crossed = [
+    { name: 'YOU', you: true, tenths: mine },
+    ...Object.entries(race.finished).map(([id, tenths]) => ({ name: race.names[id] ?? id, you: false, tenths })),
+  ].sort((a, b) => a.tenths - b.tenths || Number(a.you) - Number(b.you) || a.name.localeCompare(b.name));
+  const racing = [...race.rivals].sort((a, b) => progressOf(track, b.pace, b.kart) - progressOf(track, a.pace, a.kart));
+  const out = race.gone.filter((id) => !(id in race.finished));
+  const rows: KartRow[] = [
+    ...crossed.map((e) => ({ name: e.name, tenths: e.tenths, you: e.you })),
+    ...racing.map((r) => ({ name: r.driver.name ?? 'RACER', tenths: null, you: false })),
+    ...out.map((id) => ({ name: race.names[id] ?? id, tenths: null, you: false, out: true })),
+  ].map((r, i) => ({ place: i + 1, ...r }));
+  return { rows, place: rows.findIndex((r) => r.you) + 1, tenths: mine, live: true };
+}
+
+/** `t` seconds of the race itself: the karts move, the laps count, FINAL LAP shows, and the line at the end of the last lap makes the results. */
+function stepRace(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
+  const clock = race.clock + t;
+  const { events, ...moved } = race.mode === 'multi' ? driveMulti(race, held, t, clock) : drive(race, held, t);
+  const { rivals, gone } = settle(race, moved.rivals, clock);
+  const next: Race = { ...race, ...moved, rivals, gone, clock, finalAt: race.finalAt ?? (moved.pace.laps >= LAPS - 1 ? clock : null) };
+  if (race.finalAt === null && next.finalAt !== null && moved.pace.laps < LAPS) events.push({ kind: 'finalLap' });
+  if (moved.pace.laps < LAPS) return { race: next, events };
+  const finish = race.mode === 'multi' ? multiResults(next, tenthsOf(clock)) : resultsOf(next, clock);
+  return { race: { ...next, phase: 'finish', finish }, events: [...events, { kind: 'finish', tenths: finish.tenths }] };
+}
+
 /** Plays `dt` seconds (no more than `RULES.maxDt` of them) with the buttons held. Before GO, and paused, nothing moves. */
 export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped {
   const t = Math.min(Math.max(dt, 0), RULES.maxDt);
@@ -305,17 +353,15 @@ export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped
     const rivals = race.rivals.map((r) => (r.heard ? { ...r, heard: { ...r.heard, at: 0 } } : r));
     return { race: { ...race, phase: 'race', clock: 0, rivals }, events: [{ kind: 'go' }] };
   }
-  if (race.phase === 'race') {
-    const clock = race.clock + t;
-    const { events, ...moved } = race.mode === 'multi' ? driveMulti(race, held, t, clock) : drive(race, held, t);
-    const { rivals, gone } = settle(race, moved.rivals, clock);
-    const next: Race = { ...race, ...moved, rivals, gone, clock, finalAt: race.finalAt ?? (moved.pace.laps >= LAPS - 1 ? clock : null) };
-    if (race.finalAt === null && next.finalAt !== null && moved.pace.laps < LAPS) events.push({ kind: 'finalLap' });
-    if (moved.pace.laps < LAPS) return { race: next, events };
-    const finish = resultsOf(next, clock);
-    return { race: { ...next, phase: 'finish', finish }, events: [...events, { kind: 'finish', tenths: finish.tenths }] };
-  }
-  return { race, events: [] };
+  if (race.phase === 'race') return stepRace(race, held, t);
+  return { race: race.phase === 'finish' && race.mode === 'multi' ? waitOnResults(race, t) : race, events: [] };
+}
+
+/** On the results of a MULTI race the others race on: a player silent for too long is OUT, and the results fill in. */
+function waitOnResults(race: Race, t: number): Race {
+  const clock = race.clock + t;
+  const { rivals, gone } = settle(race, race.rivals, clock);
+  return { ...race, clock, rivals, gone };
 }
 
 /** START: the ready screen starts the countdown (and tells its first number), a pause resumes, the countdown and the race pause, the results do nothing. */
@@ -358,7 +404,7 @@ export function pause(race: Race): Race {
 /** What the text layer shows of the race: its phase, and the countdown's number or the GO that follows it. */
 export function hudOf(race: Race): KartHud {
   const { phase } = race;
-  if (race.phase === 'finish' && race.finish) return { phase, beat: null, results: race.finish };
+  if (race.phase === 'finish' && race.finish) return { phase, beat: null, results: race.mode === 'multi' ? multiResults(race, race.finish.tenths) : race.finish };
   if (race.phase === 'left') return { phase, beat: null };
   if (race.phase === 'countdown') return { phase, beat: BEATS[Math.min(BEATS.length - 1, Math.floor(race.clock))] ?? '1' };
   const beat = race.phase === 'race' && race.clock < RULES.goBanner ? 'GO' : null;

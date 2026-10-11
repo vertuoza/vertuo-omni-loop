@@ -15,7 +15,7 @@ import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } 
 import { chaseCamera, depthAt, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
 import type { GridSession, RaceStart } from './hub';
 import { rateFor, readMessage, type GridPlayer } from './net';
-import { away, cuesOf, dropOut, hear, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
+import { away, cuesOf, dropOut, finishOf, hear, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
 import { BEYOND, paintTrack } from './texture';
@@ -347,7 +347,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live }: Kart
     for (const e of events) told.push(...cuesOf(e, 'racer' in e ? tilesTo(e.racer) : 0));
   };
 
-  // A MULTI race (PRD 1572) talks over the grid's session: it hears the others' states and their leaving, sends its own state at the
+  // A MULTI race (PRD 1572) talks over the grid's session: it hears the others' states, their leaving and their finish, sends its own state at the
   // send rate and its `leave`, and starts its countdown at once, for the start has sent everyone to it. A message of another race is ignored.
   let sinceSent = 0;
   const onTheTrack = () => race.phase === 'countdown' || race.phase === 'race';
@@ -359,11 +359,31 @@ export function createKart({ seed, cast = [], track = parseTrack(), live }: Kart
       const m = readMessage(body, id);
       if (m?.kind === 'state') race = hear(race, from, m);
       else if (m?.kind === 'leave') race = dropOut(race, from);
+      else if (m?.kind === 'finish') race = finishOf(race, from, m.tenths);
     });
     const began = press(race, 'start');
     race = began.race;
     tell(began.events);
   }
+
+  /** What a live step says over the link, and the time it hands the arcade: its state at the send rate, and at the line its finish. */
+  const speak = (link: LiveRace, was: Race['phase'], dt: number, events: readonly RaceEvent[]): number | null => {
+    // The state goes out at the rate the number of players allows, once a step at most.
+    if (was === 'race' && race.phase === 'race') {
+      const every = 1 / rateFor(race.rivals.length + 1);
+      sinceSent += dt;
+      if (sinceSent >= every - 1e-9) {
+        sinceSent = Math.min(sinceSent - every, every);
+        const { player, pace, fx } = race;
+        link.session.send({ kind: 'state', race: link.start.race, x: player.x, y: player.y, angle: player.angle, speed: player.speed, steer: player.steer, laps: pace.laps, passed: pace.passed, spin: fx.spin, fall: fx.fall });
+      }
+    }
+    // Crossing the line at the end of the last lap tells the others the time, and gives it to the arcade for the score, as a solo race does.
+    const done = events.find((e) => e.kind === 'finish');
+    if (done?.kind !== 'finish') return null;
+    link.session.send({ kind: 'finish', race: link.start.race, tenths: done.tenths });
+    return done.tenths;
+  };
 
   return {
     step(held: ReadonlySet<Action>, dt: number): number | null {
@@ -372,19 +392,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live }: Kart
       race = r.race;
       if (before.phase === 'race') particles = stepParticles(particles, spawnsOf(before, race, r.events), dt);
       tell(r.events);
-      if (live) {
-        // The state goes out at the rate the number of players allows, once a step at most.
-        if (before.phase === 'race' && race.phase === 'race') {
-          const every = 1 / rateFor(race.rivals.length + 1);
-          sinceSent += dt;
-          if (sinceSent >= every - 1e-9) {
-            sinceSent = Math.min(sinceSent - every, every);
-            const { player, pace, fx } = race;
-            live.session.send({ kind: 'state', race: live.start.race, x: player.x, y: player.y, angle: player.angle, speed: player.speed, steer: player.steer, laps: pace.laps, passed: pace.passed, spin: fx.spin, fall: fx.fall });
-          }
-        }
-        return null; // a MULTI time is sent to the score once its finish does (a later slice of PRD 1572)
-      }
+      if (live) return speak(live, before.phase, dt, r.events);
       const done = r.events.find((e) => e.kind === 'finish');
       return done?.kind === 'finish' ? done.tenths : null;
     },

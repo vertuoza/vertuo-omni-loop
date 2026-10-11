@@ -204,14 +204,18 @@ describe('the race over the link', () => {
     expect(t.game('p0').hud().run?.place).toBe(2);
   });
 
-  it('sends nothing to the score at the finish: a MULTI time is a later slice\'s', () => {
+  it('hands the time to the score at the finish, once, and tells the others', () => {
     const t = setup(['p0', 'p1']);
     t.go();
     t.play(RULES.countdown + 0.5);
     const g = t.game('p0');
     const scores: (number | null)[] = [];
-    for (let i = 0; i < 4000; i += 1) scores.push(g.step(new Set<Action>(['a']), 0.05));
-    expect(scores.every((s) => s === null)).toBe(true);
+    for (let i = 0; i < 4000 && g.hud().phase !== 'finish'; i += 1) scores.push(g.step(new Set<Action>(['a']), 0.05));
+    expect(g.hud().phase).toBe('finish');
+    const sent = scores.filter((s) => s !== null);
+    expect(sent).toHaveLength(1);
+    expect(g.hud().results?.tenths).toBe(sent[0]);
+    expect(g.step(NONE, 0.05)).toBeNull();
   });
 });
 
@@ -261,5 +265,98 @@ describe('a player who arrives during a race', () => {
     t.game('p1').away();
     expect(late.view().line).toBe('WAITING FOR P0');
     late.leave();
+  });
+});
+
+// The finish and the results (PRD 1572, slice 5).
+describe('the finish and the results', () => {
+  /** Drives `id` round the circuit, holding A, until it crosses the line; the others stand and send their state. */
+  const finish = (t: ReturnType<typeof table>, id: string) => {
+    for (let i = 0; i < 6000 && t.game(id).hud().phase !== 'finish'; i += 1) {
+      t.game(id).step(new Set<Action>(['a']), 0.05);
+      for (const other of t.games.keys()) if (other !== id) t.game(other).step(NONE, 0.05);
+      t.hub.advance(50);
+    }
+  };
+  const rowsOf = (t: ReturnType<typeof table>, id: string) => sure(t.game(id).hud().results, 'results').rows.map((r) => [r.name, r.out ? 'OUT' : r.tenths === null ? null : 'time']);
+
+  it('fills the results in live: a finisher by time, a player still racing without one, then it fills in', () => {
+    const t = setup(['p0', 'p1']);
+    t.go();
+    t.play(RULES.countdown + 0.5);
+    finish(t, 'p0');
+    t.hub.advance(100);
+    expect(rowsOf(t, 'p0')).toEqual([['YOU', 'time'], ['P1', null]]);
+    finish(t, 'p1');
+    t.play(0.2, ['p0']);
+    expect(rowsOf(t, 'p0').map((r) => r[1])).toEqual(['time', 'time']);
+    expect(t.game('p1').hud().results?.rows.map((r) => r.you)).toEqual([false, true]);
+  });
+
+  it('reads OUT for a player who left before the line, and for one gone silent', () => {
+    const t = setup(['p0', 'p1', 'p2']);
+    t.go();
+    t.play(RULES.countdown + 0.5);
+    t.game('p1').away();
+    finish(t, 'p0');
+    t.hub.advance(100);
+    expect(rowsOf(t, 'p0')).toEqual([['YOU', 'time'], ['P2', null], ['P1', 'OUT']]);
+    t.play(RULES.outAfter + 1, ['p0']);
+    expect(rowsOf(t, 'p0')).toEqual([['YOU', 'time'], ['P1', 'OUT'], ['P2', 'OUT']]);
+  });
+
+  it('keeps a player who finished off the OUT list however long they stay silent', () => {
+    const t = setup(['p0', 'p1']);
+    t.go();
+    t.play(RULES.countdown + 0.5);
+    finish(t, 'p1');
+    finish(t, 'p0');
+    t.play(RULES.outAfter + 2, ['p0']);
+    expect(rowsOf(t, 'p0').map((r) => r[1])).toEqual(['time', 'time']);
+  });
+
+  it('A goes back to the grid, which cannot start a race while a player of the last one still races', () => {
+    const t = setup(['p0', 'p1']);
+    t.go();
+    t.play(RULES.countdown + 0.5);
+    finish(t, 'p0');
+    expect(t.game('p0').press('a')).toEqual({ quit: false, again: false, grid: true });
+    t.hub.advance(100);
+    const grid = sure(t.sessions.get('p0'), 'session');
+    expect(grid.view().line).toBe('RACE ON · 1 RACERS');
+    expect(grid.start()).toBeNull();
+    finish(t, 'p1');
+    t.hub.advance(100);
+    expect(grid.view().line).toBe('START RACE');
+    expect(grid.start()).not.toBeNull();
+  });
+
+  it('lets the grid start again once the last race is left', () => {
+    const t = setup(['p0', 'p1']);
+    t.go();
+    t.play(RULES.countdown + 0.5);
+    finish(t, 'p0');
+    const grid = sure(t.sessions.get('p0'), 'session');
+    expect(grid.start()).toBeNull();
+    t.game('p1').away();
+    t.hub.advance(100);
+    expect(grid.start()).not.toBeNull();
+  });
+
+  it('sends nothing to the score when the player leaves before the line, by any route', () => {
+    const t = setup(['p0', 'p1', 'p2']);
+    t.go();
+    t.play(RULES.countdown + 0.5);
+    const scores: (number | null)[] = [];
+    const menu = t.game('p0');
+    menu.press('start');
+    menu.press('select');
+    scores.push(menu.step(NONE, 0.05));
+    t.game('p1').away();
+    scores.push(t.game('p1').step(new Set<Action>(['a']), 0.05));
+    t.game('p2').close();
+    scores.push(t.game('p2').step(new Set<Action>(['a']), 0.05));
+    expect(scores.every((s) => s === null)).toBe(true);
+    expect(['p0', 'p1', 'p2'].map((id) => t.game(id).hud().phase)).toEqual(['left', 'left', 'left']);
   });
 });
