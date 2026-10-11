@@ -261,6 +261,16 @@ describe('delivery — territory', () => {
     );
   });
 
+  // Law BR-PRODUCT-20 (.omni-loop/knowledge/product/rules.md, #1482).
+  it('law BR-PRODUCT-20: shared ground is only what two slices both declare in the table, never what the sharing note mentions', async () => {
+    const plan = `${PLAN}\n\`README.md\` and \`src/store/colour.mjs\` are shared ground too: any slice may touch them.\n`;
+    const { facts, findings } = await run({ prd: { ...basePrd, plan } });
+    expect(facts.territory.sharedGround).toEqual(['src/registry.mjs']);
+    expect(byId(findings, 'territory:s3')?.happened).toBe(
+      'Slice s3 changed 2 paths outside its territory and off the plan’s shared ground: `src/store/colour.mjs`, `README.md`.',
+    );
+  });
+
   it('grades nothing, and says why, when the plan holds no slice table', async () => {
     const { facts, findings } = await run({ prd: { ...basePrd, plan: '# A plan with no table\n' } });
     expect(facts.territory).toMatchObject({ reason: 'no slice table was found in this plan', counts: { graded: 0 } });

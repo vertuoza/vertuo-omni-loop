@@ -215,7 +215,7 @@ When the retro grades a territory breach, shared ground is only the prefixes tha
 
 Serves: P-PRODUCT-18
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s5-01-shared-ground-is-computed, PRD #72
-Enforced by: pending #1482
+Enforced by: apps/omni-app/src/retro/kinds/delivery.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
