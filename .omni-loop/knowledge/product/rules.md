@@ -777,7 +777,7 @@ When a pull request waits on another that was closed without merging, it is no l
 
 Serves: P-PRODUCT-63
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-01-waits-on-closed-or-unreadable, PRD #1118
-Enforced by: pending #1532
+Enforced by: kit/lib/care/decide.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
