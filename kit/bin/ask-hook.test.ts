@@ -314,6 +314,37 @@ describe('omni ask hook, with the mode on', () => {
   });
 });
 
+describe('where the ask hooks send calls', () => {
+  // Law N-PRODUCT-8 (.omni-loop/knowledge/product/invariants.md, #1543).
+  it('law N-PRODUCT-8: the hooks call only under ask.url, only when its host is the saved host, and stop once ask.url is emptied', async () => {
+    const { root, write, tokens } = await modeOn({ answer: answerFirst });
+    const pre = async () => {
+      const s = io();
+      expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin: PRE, tokens })).toBe(0);
+      return s.out.join('');
+    };
+
+    // ask.url set, its host the one saved in the session: the hook calls, every call under ask.url.
+    expect(await pre()).not.toBe('');
+    expect(server.calls.length).toBeGreaterThan(0);
+    const under = new URL(server.url).pathname.replace(/\/?$/, '/');
+    for (const call of server.calls) expect(call.path.startsWith(under)).toBe(true);
+
+    // The session saved another host than ask.url's, signed in there too: no call.
+    server.calls.splice(0);
+    tokens.write('elsewhere.example.com', { access_token: 'access-1', refresh_token: 'refresh-1' });
+    writeMode(root, { host: 'elsewhere.example.com' });
+    expect(await pre()).toBe('');
+    expect(server.calls).toEqual([]);
+
+    // ask.url emptied, the session's host left as it was: the mode is off at once, no call.
+    writeMode(root, { host: server.host });
+    write('.omni-loop/config.yml', 'kit: 1\nask:\n  url:\n');
+    expect(await pre()).toBe('');
+    expect(server.calls).toEqual([]);
+  });
+});
+
 describe('omni ask usage', () => {
   it('refuses anything but hook pre, post, prompt or end', async () => {
     for (const args of [['ask'], ['ask', 'hook'], ['ask', 'hook', 'later'], ['ask', 'hook', 'pre', 'extra'], ['ask', 'dance']]) {

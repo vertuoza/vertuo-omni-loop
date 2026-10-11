@@ -55,7 +55,7 @@ Merged: @pierrederval, 2026-09-26, PR #73
 The ask hooks send no call unless ask.url is set in the repository's config and its host equals the host saved in the session. Every call goes to a path under ask.url, and emptying the setting switches the mode off at once.
 
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s1-04-where-the-hooks-send-calls, PRD #71
-Enforced by: pending #1543
+Enforced by: kit/bin/ask-hook.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
