@@ -2,6 +2,7 @@
 // `/omni:do-work` reads to start `/omni:pixel-perfect review`. Pure: the caller hands it the config's
 // `design` section and the changed paths. It only reports: no answer here ever blocks anything.
 import { matchesGlob } from './glob.ts';
+import type { Screen } from './screens.ts';
 
 /** The config's `design` section, as this module reads it. */
 export type DesignSection = { readonly enabled: boolean; readonly paths: readonly string[] };
@@ -38,4 +39,27 @@ export function formatTouched(touched: Touched): string[] {
     case 'yes':
       return ['ui: yes', ...touched.paths.map((path) => `  ${path}`)];
   }
+}
+
+/** A library screen as the `screens:` line reads it. */
+export type ScreenTouch = Pick<Screen, 'screen' | 'status' | 'routes' | 'implements'>;
+
+/**
+ * PRD 1407: the library screens whose `implements` entries a changed path matches, with the path
+ * semantics `design.paths` uses, in the library's order. `design.paths` plays no part here: a screen
+ * names its own paths.
+ */
+export function screensTouched<T extends ScreenTouch>(screens: readonly T[], changed: readonly string[]): T[] {
+  return screens.filter((screen) => screen.implements.some((glob) => changed.some((path) => matchesGlob(glob, path))));
+}
+
+/** One screen on the `screens:` line: a lock when locked, else its status, then its routes. */
+function screenLabel({ screen, status, routes }: ScreenTouch): string {
+  const mark = status === 'locked' ? ' 🔒' : ` (${status})`;
+  return `${screen}${mark}${routes.length ? ` (${routes.join(', ')})` : ''}`;
+}
+
+/** The `screens:` line `omni design touched` adds below its answer; no line when no screen is touched. */
+export function formatScreensTouched(screens: readonly ScreenTouch[]): string[] {
+  return screens.length ? [`screens: ${screens.map(screenLabel).join(' · ')}`] : [];
 }

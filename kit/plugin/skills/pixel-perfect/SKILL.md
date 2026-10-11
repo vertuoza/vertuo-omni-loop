@@ -1,6 +1,6 @@
 ---
 name: pixel-perfect
-description: Design craft on a screen, imported from impeccable and tailored so the product wins — reads the design flag first (off, it says how to turn it on and stops), then the repository's design form, whose product, system and deliberate sections override the craft floor and the refuse list. Its commands review a screen (critique, audit), finish it (polish, harden) or fix one side of it (typeset, layout, adapt, clarify), and review is the bounded auto-review /omni:do-work and /omni:visual-fix follow on UI work — one look, one batch of fixes, one confirming look, never blocking. Fixes stay inside the slice's territory; anything else becomes an outbox item. Triggers on "polish this screen", "audit the quote page", "critique this page", "does this look like our product", "/omni:pixel-perfect polish", "/omni:pixel-perfect review".
+description: Design craft on a screen, imported from impeccable and tailored so the product wins — reads the design flag first (off, it says how to turn it on and stops), then the repository's design form, whose product, system, deliberate and language sections override the craft floor and the refuse list, and its screen library, where a locked screen is built as written. Its commands review a screen (critique, audit), finish it (polish, harden) or fix one side of it (typeset, layout, adapt, clarify), and review is the bounded auto-review /omni:do-work and /omni:visual-fix follow on UI work — one look, one batch of fixes, one confirming look, never blocking, save that a change to a locked screen or law is a high outbox item for whoever locked it. lock, typed by a person, records their lock on a screen or a law in their own words; no skill locks on its own. Fixes stay inside the slice's territory; anything else becomes an outbox item. Triggers on "polish this screen", "audit the quote page", "critique this page", "does this look like our product", "/omni:pixel-perfect polish", "/omni:pixel-perfect review", "lock this screen", "/omni:pixel-perfect lock".
 ---
 
 <!-- Imported from pbakaus/impeccable@d631a8827f99414d2b6daba4ef08b7f8701751d7 (the impeccable skill's SKILL.md, version 4.5.2, Apache-2.0) and modified — every change in kit/porting/plugin--pixel-perfect.md, the attribution in kit/NOTICE.md -->
@@ -27,6 +27,7 @@ branch shape or command you can read with `omni config <key>`.
 |---|---|---|
 | a command and a target | `/omni:pixel-perfect polish the quote page` | runs that command on that screen |
 | `review`, from a skill | `/omni:pixel-perfect review` | the bounded auto-review of a slice or a visual fix: [reference/review.md](reference/review.md) |
+| `lock <screen>`, or `lock law "<law>"`, typed by a person | `/omni:pixel-perfect lock quote-editor` | locks a library screen, or a law of the form's `language` section, in that person's own words: [reference/lock.md](reference/lock.md). Never followed by a skill |
 | a request that names no command | `/omni:pixel-perfect does this look like our product?` | picks the one command that fits; when two fit, asks which |
 | nothing | `/omni:pixel-perfect` | shows the commands below and asks which, as one question through the session's question tool; never runs one unasked |
 
@@ -44,12 +45,23 @@ branch shape or command you can read with `omni config <key>`.
 2. **The product.** Run `node .omni-loop/bin/omni.mjs kb show design`. It prints the repository's
    design form section by section: `product` (who uses it, where, under what light, its voice and
    words), `system` (where its tokens, type scale, spacing, colours and components live),
-   `deliberate` (what it does on purpose) and `review` (how to look at a screen). A section that
+   `deliberate` (what it does on purpose), `review` (how to look at a screen) and `language` (its
+   screen grammar: the laws, each with the lock line of the person who decided it and any dated
+   amendments below it). A section that
    points at a file (`See: DESIGN.md`, or any file) is that file: read it. A `[hole]` is a question
    for a person, never a reason to stop: work from what the code shows (the tokens and components
    in use, the screens around the target), never invent a direction to fill it, and say in your
-   report which section was a hole.
-3. **The command.** Load the command's reference below and follow it. Before any edit to a screen,
+   report which section was a hole. An empty `language` is no hole: the product has no law yet.
+3. **The library.** Run `node .omni-loop/bin/omni.mjs design screens`: every screen of the
+   repository's screen library, with its status, who locked it and when, and its routes (it says
+   so when the library is empty). Each screen is a file in the folder
+   `node .omni-loop/bin/omni.mjs config design.screens` prints, its mockup beside it when its `mock`
+   names one. Read the screens the target is or touches: their **Purpose**, **Regions**,
+   **States**, **Words**, **Refusals** and **Open questions**, and the mockup. A locked screen is
+   built as written and never redesigned: its file and its mockup are the reference, and a
+   departure from them is a defect or a change its owner decides (**Locked decisions**, below). A
+   draft is a starting point, free to change.
+4. **The command.** Load the command's reference below and follow it. Before any edit to a screen,
    small ones included, read [reference/craft-floor.md](reference/craft-floor.md); planning or a
    review with no edit does not need it.
 
@@ -58,8 +70,8 @@ branch shape or command you can read with `omni config <key>`.
 `omni kb show design` does not print the form's opening paragraph, so the precedence is stated
 here, and it binds every command and every reference:
 
-- **The product wins.** The design form's `product`, `system` and `deliberate` sections override
-  the craft floor and the refuse list. A rule of either that the form sets aside, by saying the
+- **The product wins.** The design form's `product`, `system`, `deliberate` and `language`
+  sections (the last, the laws a person locked) override the craft floor and the refuse list. A rule of either that the form sets aside, by saying the
   product does otherwise on purpose, is set aside here: never fix it, never report it as a finding.
   Where the form says nothing, the craft floor holds. Your own habit overrides neither.
 - **Refinement preserves.** Every command here refines what exists: it keeps the product's visual
@@ -102,6 +114,7 @@ not the product: a tool's landing page is still Persuade, a docs index is still 
 | `adapt [target]` | fix | mobile and desktop, touch targets, breakpoints | [reference/adapt.md](reference/adapt.md) |
 | `clarify [target]` | fix | labels, errors and empty-state copy, in the product's words | [reference/clarify.md](reference/clarify.md) |
 | `review` | the loop's | critique, audit, the lint, screenshots, then polish, bounded and never blocking | [reference/review.md](reference/review.md) |
+| `lock <screen>` | the person's | records a person's lock on a library screen or a law, in their own words: who, when, and their quote, committed | [reference/lock.md](reference/lock.md) |
 | — | shared | the quality floor and the refuse list, read before any edit to a screen | [reference/craft-floor.md](reference/craft-floor.md) |
 
 A redesign, a new screen, a new visual world, motion or colour added for its own sake are not
@@ -136,5 +149,12 @@ here: they are product decisions, and start at `/omni:brainstorm`. A screen on a
   becomes an outbox item.
 - **Never blocking.** No finding of any command stops a slice, a wave or a gate, or turns a check
   red. What is fixed is listed; what is not becomes a decision.
+- **Locked decisions.** A locked screen of the library and a locked law of the form's `language`
+  section are a person's decisions. No command edits a locked screen's body or a locked law: a fix
+  on a locked screen brings the built screen back to its file and mockup, never away from them.
+  A change to one is decided by the person who locked it, through a dated amendment line, and,
+  followed by a skill, it is the one finding that is a **high** outbox item, held until that person
+  answers ([reference/review.md](reference/review.md)). Only `lock`, typed by a person, locks
+  anything: no command and no skill locks a screen or a law on its own.
 - **The product's words.** Never change a factual claim, a price, a legal phrase or a term of the
   product's glossary to make a screen read better: ask, or record it.

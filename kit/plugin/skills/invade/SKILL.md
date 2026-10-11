@@ -1,6 +1,6 @@
 ---
 name: invade
-description: Set up a repository's knowledge base from what the repository can prove — explore it read-only in four facets (its domains, the truth it writes down, the truth its code enforces, its decisions and words), show one map and take every answer in one message, then write proposed register entries (an index entry pointing at each rule a page already states, a drafted entry for each truth only the code enforces), fill the playbook forms from evidence with every command run green, leave an honest TODO(human) question where proof is missing, propose the config the exploration learned — and end with one docs-only pull request a person merges. Every entry it writes is proposed, never a law until a person confirms it. With --refresh it redoes only what went stale. Never rewrites what a person wrote, never merges. Triggers on "invade this repository", "set up the knowledge base", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:invade".
+description: Set up a repository's knowledge base from what the repository can prove — explore it read-only in four facets (its domains, the truth it writes down, the truth its code enforces, its decisions and words), show one map and take every answer in one message, then write proposed register entries (an index entry pointing at each rule a page already states, a drafted entry for each truth only the code enforces), fill the playbook forms from evidence with every command run green, leave an honest TODO(human) question where proof is missing, with design craft on draft one screen of the screen library per screen it can prove (never locked, never a law, every undecided point an open question, the drafts listed for their owner), propose the config the exploration learned — and end with one docs-only pull request a person merges. Every entry it writes is proposed, never a law until a person confirms it. With --refresh it redoes only what went stale. Never rewrites what a person wrote, never merges. Triggers on "invade this repository", "set up the knowledge base", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:invade".
 ---
 
 # Invade: explore a repository, set up its knowledge base
@@ -184,7 +184,8 @@ The same holds for the registers: an entry is this skill's only while it carries
    prints. Anything but `true` (or a failure) means design craft is off here: the `design` form is
    left as it is, blank unless a person filled it (step 5), step 7 proposes no `design.paths` and no
    `commands.design`, and it may propose turning the flag on, only when facet 4's `design` row found
-   screens (**The design form**).
+   screens (**The design form**). Off, no screen is drafted either: facet 4 lists none, the map asks
+   about none, and **The screen library** of step 5 does not run.
 5. Run `node .omni-loop/bin/omni.mjs kb status --json` and keep it: the map, derived every time.
 
    ```text
@@ -271,6 +272,12 @@ that reads it looks, and in any letter case. Facet 4 also reads:
 Its report notes, per form: the page that answers it (if any), each fact with the file it came
 from, each command to run, and each question left.
 
+**The screens,** only when step 0 read the design flag as `true`: facet 4 also reports each screen
+it can prove exists, from the router's routes and the files that render a page or a view, each with
+its route or routes, the files it is made of, the copy it shows, and what it could not tell. A
+screen the library already holds (`node .omni-loop/bin/omni.mjs design screens`) is reported by its
+name, as already there.
+
 ## 2. The map: one checkpoint
 
 The one place this skill asks. From the four reports, print **one map** in chat: the domains; every
@@ -283,6 +290,7 @@ and how many register entries each would produce. Then ask, as **one numbered li
 | each **truth page** | **index** it (one index entry per statement it holds) or **context only** (added to `paths.context`, no ids) | index |
 | the **decision-record folder**, when it is outside the front door's `adr/` | **point** at it (`paths.adr` names it, the decisions form is a pointer) or **repatriate** it (copied into the front door's `adr/`, `paths.adr` left there, the originals never deleted) | point |
 | **drafting from code** | on (one drafted entry per truth the code enforces and no page states) or off | on |
+| each **screen**, with the design flag on | **draft** it in the screen library, or **skip** it | draft, for each screen the library does not hold yet |
 
 Say under each default what it produces ("index: 12 entries in `domains/quote/rules.md`"), so a
 person sees the size of the proposal before anything is written.
@@ -419,8 +427,59 @@ blank, flag on or off. What each slot holds, and what the opener says about whic
   (`TODO(human): the screens use … everywhere. Is that on purpose?`), never a line. What the product
   deliberately does wins over every rule of the craft floor and the refuse list, so it is a
   person's to say.
+- **`language` is a person's.** The laws of the product's screen grammar are decided by a person,
+  each with their lock line, and the slot is never written here: leave it as it is, empty or as a
+  person wrote it. Never write a law, a lock line or an amendment in it. A pattern every screen seems
+  to follow (one primary action per screen, a label shape) is a question for a person in that slot
+  (`TODO(human): every screen holds one primary action. Is that a law?`), never a law. An empty
+  `language` is no hole: the product has no law yet.
 - **Holes over guesses.** A required slot the evidence cannot fill holds a `TODO(human)` question
   (step 6); an optional one stays empty, and `review` then reads its kit default widths.
+
+### The screen library
+
+Only when step 0 read the design flag as `true`. One draft per screen the map answered **draft**,
+in the folder `node .omni-loop/bin/omni.mjs config design.screens` prints, from the evidence alone:
+
+  ```markdown
+  ---
+  screen: <name>
+  status: draft
+  mock: null
+  implements: [<the files the screen is made of>]
+  routes: [<its routes, as the router declares them>]
+  supersedes: null
+  ---
+
+  ## Purpose
+  ## Regions
+  ## States
+  ## Words
+  ## Refusals
+  ## Open questions
+  ## Source
+  ```
+
+- `<name>` is the screen's short kebab-case name, the file `<name>.md`. **Purpose** says what the
+  screen is for, from its code and its copy; **Regions**, **States** and **Words** what the files
+  show: each part and where its data comes from, the empty, loading and error states the code
+  renders, the labels it shows. **Refusals** stays empty unless a page or a comment says what the
+  screen deliberately does not do.
+- **Every undecided point goes under Open questions**, one line each, saying what was read and what
+  it could not tell: a state the code does not render, a region whose purpose the copy does not
+  say, a direction the screens do not settle. Never invent a direction to fill one.
+- **Source** names the evidence, one `<path>@<hex>` line per file it was written from, and the line
+  `/omni:invade <today>`.
+- **No mockup.** `mock: null`: invade draws nothing. The front matter holds only the fields above:
+  the library's reader refuses any other.
+- **Drafts only.** Never lock a screen and never write `locked-by`, `locked-on` or `quote`: only a
+  person locks, through `/omni:pixel-perfect lock`. A screen the library already holds is never
+  rewritten, draft or locked: a draft invade wrote is redone only by `--refresh`.
+
+Then run `node .omni-loop/bin/omni.mjs check design` and
+`node .omni-loop/bin/omni.mjs design screens`: every draft lists, and a refusal that names one is
+fixed in it. Commit the drafts as their own commit, so a person can drop them alone:
+`docs(design): draft the screen library from the repository`.
 
 ## 6. Leave holes
 
@@ -491,13 +550,14 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
 ## 8. One docs-only pull request
 
 1. **Docs-only.** `git diff --name-only <remote>/<repo.defaultBranch>...HEAD` names only files
-   under the front door (the registers, the forms, repatriated records) and the config file.
-   Anything else leaves the branch.
+   under the front door (the registers, the forms, repatriated records), the draft screens of the
+   screen library, and the config file. Anything else leaves the branch.
 2. **Checks,** all green before the pull request is opened (warnings allowed):
    `node .omni-loop/bin/omni.mjs check knowledge` exits `0`, with one warning per proposed entry;
    `node .omni-loop/bin/omni.mjs check kb` exits `0`: no error, and one warning per question (a blank
    required slot of a core form would warn too, and should not remain). Fix every error either
-   names. Then `node .omni-loop/bin/omni.mjs check all`, green.
+   names. With the design flag on, `node .omni-loop/bin/omni.mjs check design` exits `0`. Then
+   `node .omni-loop/bin/omni.mjs check all`, green.
 3. **Commits,** Conventional Commits, each ending with the co-author trailer your session requires,
    then the `omni sign trailer` line:
    the registers as step 3 names them, the forms as
@@ -543,10 +603,22 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
 
    - [ ] `<form>#<slot>` — <question> (`<file>`)
 
+   ## Draft screens
+
+   | Screen | Routes | Open questions |
+   |---|---|---|
+   | `<the draft's path>` | <its routes> | <n> |
+
+   Each is a draft for its owner, never locked: read it, change it, then lock it with
+   `/omni:pixel-perfect lock <screen>`, in your own words. Merging locks nothing.
+
    ## Config
 
    - `<key>`: `<old>` → `<new>`, because <the file that shows it>
    ````
+
+   The **Draft screens** section is there only when step 5 drafted a screen; otherwise leave it
+   out.
 
    **Every hole is a checkbox**, one per entry in `questions` of
    `node .omni-loop/bin/omni.mjs kb status --json`, never typed from memory; "none" when there are
@@ -571,13 +643,17 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
   changed; **enforced truth** when a test, a schema, a migration or a file an `Enforced by:` line
   names changed; **decisions and words** when a record, a glossary, a context file or a form's
   evidence changed (a token, theme or style file the `design` form names included), and, with the
-  design flag on, when the `design` form is still blank. No facet re-runs: no map is asked, and no register is touched.
+  design flag on, when the `design` form is still blank or the screen library holds no screen. No facet re-runs: no map is asked, and no register is touched.
 - **The map** (step 2) holds only what the re-run facets found that the registers and the config do
   not already say: a new domain, a new page, a new truth. Nothing new: no question is asked.
 - **Registers** (step 3): only new entries, numbered on from each file's highest, and the proposed
   entries this skill wrote whose `Source:` or `Enforced by:` changed or is gone, fixed or removed.
   **A confirmed entry is never touched** (one without a `Proposed:` line): when the evidence now
   contradicts it, keep it as written and say so under **Reviewer focus**.
+- **Draft screens,** with the design flag on: only a screen the re-run facets found that the
+  library does not hold, asked at the map, and the drafts whose **Source** names `/omni:invade` and
+  that are still `status: draft`, whose evidence changed or is gone: redone from it, or removed. A
+  screen a person changed, locked or wrote is never touched.
 - **Forms:** only the forms `omni kb status` reports stale or blank: in the map from step 0, a form
   whose `state` is `blank`, or whose `stale` list is not empty. Every other form is left as it is,
   whatever the exploration finds. For each form picked, steps 4 to 6 run on its question alone, and
@@ -595,6 +671,11 @@ Report the pull request, the map as answered, the proposed entries per register 
 `omni kb status` map, the number of open questions, the config keys proposed, each command run with
 its result, and every check that ran or did not.
 
+With the design flag on, end that report with **the list of drafts for the owner**: each draft
+screen written, by its path, with its routes and its open questions counted, and the line that none
+is locked, that a person reads each one and locks the screens they choose with
+`/omni:pixel-perfect lock <screen>`, in their own words.
+
 End with one line on the business: what the repository sells, to whom and against whom is not
 invade's to write. The Omni page drafts it from the repositories and the web pages a person points it
 at, at Settings › Business › Draft from my repos, and every drafted claim waits for a person's ✓.
@@ -605,10 +686,12 @@ at, at Settings › Business › Draft from my repos, and every drafted claim wa
   a question belongs.
 - Never invents a visual direction: the `design` form describes the product's own look from its
   files, and what it does on purpose is a person's to confirm.
+- Never locks a screen or a law, and never writes a law: every screen it drafts is a draft from
+  evidence, every undecided point an open question, and the `language` slot a person's.
 - Asks once, at the map; writes nothing before the answer.
 - Every register entry it writes is proposed: `Proposed: invade <today>`. It never removes a
   `Proposed:` line, and never touches a confirmed entry.
-- Writes only under the front door and the config file: never a `CLAUDE.md`, a README, a workflow or
+- Writes only under the front door, the screen library and the config file: never a `CLAUDE.md`, a README, a workflow or
   source code. Repatriating decision records copies them; the originals are never deleted.
 - Never rewrites a `by: human` section, nor any section a person wrote.
 - Never copies a kit default into a form, and never copies a page a pointer or an index entry can

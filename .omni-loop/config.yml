@@ -52,3 +52,14 @@ generated:
   - path: apps/omni-app/api/
     from: [apps/omni-app/src/, apps/omni-app/entries/, apps/omni-app/build.ts, kit/lib/, packages/design/, packages/github/]
     build: node apps/omni-app/build.ts
+# Design craft (PRD 1369, dogfooded by PRD 1407): the skills read the design form and the screen
+# library (.omni-loop/knowledge/design/screens/), and a slice whose diff meets these globs gets its
+# design review. apps/galaxy/app/ holds the routes and layouts the screens are mounted by;
+# apps/omni-app/src/ holds no screen but writes the check runs and comments people read on GitHub.
+design:
+  enabled: true
+  paths:
+    - apps/galaxy/src/
+    - apps/galaxy/app/
+    - apps/omni-app/src/
+    - packages/design/

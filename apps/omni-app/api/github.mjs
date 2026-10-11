@@ -329,6 +329,32 @@ function messageOf(error) {
   return typeof message === "string" ? message : String(error);
 }
 
+// kit/lib/design/words/selector.ts
+var NAME = String.raw`[A-Za-z_][\w-]*`;
+var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
+var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
+function parseCompound(text3) {
+  const compound = COMPOUND.exec(text3.trim());
+  if (!compound || compound[0] === "") return null;
+  const [, tag, parts = ""] = compound;
+  const matched = [...parts.matchAll(new RegExp(PART, "g"))];
+  return {
+    tag: tag === void 0 || tag === "*" ? null : tag.toLowerCase(),
+    ids: matched.flatMap(([, id]) => id === void 0 ? [] : [id]),
+    classes: matched.flatMap(([, , className]) => className === void 0 ? [] : [className]),
+    attributes: matched.flatMap(([, , , name, doubled, single, bare]) => name === void 0 ? [] : [{ name: name.toLowerCase(), value: doubled ?? single ?? bare ?? null }])
+  };
+}
+function parseSelector(source) {
+  const compounds = [];
+  for (const piece of source.split(",")) {
+    const compound = parseCompound(piece);
+    if (!compound) return null;
+    compounds.push(compound);
+  }
+  return { source, compounds };
+}
+
 // kit/lib/flow/schema.ts
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -510,6 +536,7 @@ var proofUrl = z7.string().refine((value) => {
   }
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
+var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
   repo: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -740,10 +767,23 @@ var ConfigSchema = z7.object({
   // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
   // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
   // repository paths where the screens, styles, tokens and components live; `omni design touched`
-  // matches a diff against them (`kit/lib/design/`).
+  // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
+  // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
+  // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in. `words` tunes the word
+  // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
+  // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
+  // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
+  // `product` section lists.
   design: section({
     enabled: z7.boolean().default(false),
-    paths: z7.array(text2).default([])
+    paths: z7.array(text2).default([]),
+    screens: nullableText.default(null),
+    words: section({
+      sentence: z7.number().int().positive().default(7),
+      screen: wordSelector.default("[data-screen]"),
+      primary: wordSelector.default("[data-primary]"),
+      avoid: z7.array(text2).default([])
+    })
   }),
   markers: section({ prefix: z7.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
@@ -773,6 +813,9 @@ var ConfigSchema = z7.object({
     });
   }
 });
+function designScreensDir({ paths, design }) {
+  return design.screens ?? `${paths.knowledge.replace(/\/+$/, "")}/design/screens/`;
+}
 var isRecord = (value) => value !== null && typeof value === "object";
 var RENAMED = Object.freeze([{ section: "branches", from: "terraform", to: "invade" }]);
 function renamedKey(raw) {
@@ -836,7 +879,8 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknow
 ${others.map((line) => `  - ${line}`).join("\n")}` : "";
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
-  return result.data;
+  const config = result.data;
+  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
 }
 
 // apps/omni-app/src/outbox-check/github-schema.ts
@@ -1057,7 +1101,7 @@ var FORMS = Object.freeze([
   form("releasing", "extended", [req("publishes"), opt("how"), opt("rollback"), opt("notes")]),
   form("bug-fixing", "extended", [req("steps"), opt("guard")]),
   form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
-  form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review")]),
+  form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review"), opt("language")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
 var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
