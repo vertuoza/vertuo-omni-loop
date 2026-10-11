@@ -11,7 +11,7 @@ describe('the registry', () => {
   it('lists Entropy Invaders, Super Omni World, OMNI KART then OMNI DUET, each keyed as the rulebook unlocks it', () => {
     expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET']]);
     expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time' });
-    expect(GAMES[3]).toEqual({ id: 'duet', title: 'OMNI DUET', scene: null, measure: 'points' });
+    expect(GAMES[3]).toEqual({ id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' });
     expect(XP_RULES.unlocks).toEqual({ invaders: 1, platformer: 2, kart: 3, duet: 4 });
     expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time'], ['duet', 'points']]);
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
@@ -178,7 +178,7 @@ describe('OMNI KART\'s cabinet (PRD 1359)', () => {
 });
 
 describe('OMNI DUET\'s cabinet (PRD 1633)', () => {
-  it('is the fourth cabinet: refused at LV 3 with REACH LV 4 TO PLAY, and coming soon at LV 4 until its scene lands', () => {
+  it('is the fourth cabinet: refused at LV 3 with REACH LV 4 TO PLAY, and opening the duet scene at LV 4', () => {
     const lv3 = xpStatus(true, row(150, 3, ['invaders', 'platformer', 'kart']));
     const room3 = cabinets(lv3);
     expect(room3).toHaveLength(4);
@@ -190,7 +190,7 @@ describe('OMNI DUET\'s cabinet (PRD 1633)', () => {
     const duet4 = cabinets(lv4)[3];
     assertDefined(duet4, 'duet4');
     expect(duet4).toMatchObject({ unlocked: true, level: 4 });
-    expect(cabinetDoor(duet4, lv4)).toEqual({ refused: 'OMNI DUET · COMING SOON' });
+    expect(cabinetDoor(duet4, lv4)).toEqual({ scene: 'duet' });
   });
 });
 

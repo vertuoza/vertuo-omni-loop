@@ -1,0 +1,21 @@
+/* The duet group: OMNI DUET's loading and failure lines and its ready screen (PRD 1633), over the
+   arcade's canvas. Laid out on the wide grid (640×360) first, where the playfield is the middle 400
+   pixels; the rules at the end rearrange it for the tall grid (320×288), which the playfield fills.
+   A screen's title is Entropy Invaders' own (`.inv-title`, invaders.css). */
+
+.dt { position: absolute; inset: 0; }
+.dt-notice {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0;
+  font-size: 8px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; white-space: nowrap;
+}
+.dt-back { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+/* The ready screen: over the top of the playfield, clear of the crest and its orbs in the lower third. */
+.dt-panel {
+  left: 50%; top: 30%; transform: translate(-50%, -50%); gap: 6px; justify-items: center; text-align: center;
+  line-height: 1.4; width: 340px;
+}
+.dt-panel .inv-title { font-size: 8px; }
+.dt-panel .hint { font-size: 8px; }
+
+/* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .dt-panel { padding: 8px 10px; width: 280px; }
