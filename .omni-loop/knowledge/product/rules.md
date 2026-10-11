@@ -61,7 +61,7 @@ The live outbox check passes the pull request's changed files to the gate, so a 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s5-01-check-grades-changed-files, PRD #28
-Enforced by: pending #1468
+Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29

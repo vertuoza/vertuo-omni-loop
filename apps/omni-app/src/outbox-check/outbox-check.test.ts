@@ -375,3 +375,21 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
     expect(result).toMatchObject({ conclusion: 'failure' });
   });
 });
+
+describe('outbox-check — the live gate grades the pull request', () => {
+  /** The check run the live function completes for a feature PR at `head`, the range changing `files`. */
+  async function liveCheck(head: string, files: { filename: string; status: string }[] = []) {
+    const github = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture(head) }, files });
+    await engine(github).execute();
+    return checkRunAt(github.state, -1);
+  }
+
+  // Law BR-PRODUCT-6 (.omni-loop/knowledge/product/rules.md, #1468).
+  it('law BR-PRODUCT-6: the live check passes the changed files to the gate, so an unexplained risky change turns it red, as do open questions and unfinished rework', async () => {
+    expect(await liveCheck('head-clear')).toMatchObject({ conclusion: 'success' });
+    expect(await liveCheck('head-clear', [{ filename: 'src/widget.test.ts', status: 'removed' }]))
+      .toMatchObject({ conclusion: 'failure', output: { title: '1 unaccounted risky change' } });
+    expect(await liveCheck('head-open')).toMatchObject({ conclusion: 'failure', output: { title: '1 open outbox item' } });
+    expect(await liveCheck('head-drift')).toMatchObject({ conclusion: 'failure', output: { title: 'unreworked drift' } });
+  });
+});
