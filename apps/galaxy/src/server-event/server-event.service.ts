@@ -1,5 +1,6 @@
 import 'server-only';
 import { createHmac } from 'node:crypto';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { OutboxItemsService } from '../outbox-items/outbox-items.service';
 
 // Telling the GitHub App that the server changed a product PRD (PRD 1548 s4 and s8): one signed POST to
@@ -105,7 +106,7 @@ export type OutboxTellDeps = { dossierOf: DossierOf; send: (event: ServerEvent) 
 async function tellAppOfItem(
   { dossierOf, send, now = () => new Date(), log }: OutboxTellDeps,
   event: 'item-opened' | 'item-settled',
-  request: { product: string; prd: number; repo?: string | undefined },
+  request: { product: string; prd: PrdNumber; repo?: string | undefined },
 ): Promise<void> {
   const id = `${request.product}-${request.prd}`;
   try {
