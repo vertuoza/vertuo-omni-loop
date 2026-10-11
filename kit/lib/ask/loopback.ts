@@ -49,7 +49,7 @@ function page(title: string, text: string): string {
 /** What a listener catches from a good callback's query, the pages it answers, and how it names what
  * it waits for in its errors. */
 type Catch<T> = {
-  take(params: URLSearchParams): T | null;
+  take: (params: URLSearchParams) => T | null;
   pages: { done: string; notOurs: string; incomplete: string };
   what: string;
 };
@@ -68,7 +68,7 @@ const SIGN_IN: Catch<string> = {
 const KIT_TOKEN = /^omk_[A-Za-z0-9_-]{43}$/;
 
 const TOKEN: Catch<MadeToken> = {
-  take(params) {
+  take: (params) => {
     const token = params.get('token') ?? '';
     const expiresAt = params.get('expires_at') ?? '';
     return KIT_TOKEN.test(token) && !Number.isNaN(Date.parse(expiresAt)) ? { token, expiresAt } : null;
