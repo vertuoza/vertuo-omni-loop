@@ -281,7 +281,7 @@ With signing off, omni credits prints PRD issues as a bare count and omits the a
 
 Serves: P-PRODUCT-24
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-03-credits-lines-not-looked-for, PRD #99
-Enforced by: pending #1487
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103

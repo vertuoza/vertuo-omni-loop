@@ -221,6 +221,24 @@ describe('omni credits', () => {
     ].join('\n'));
   });
 
+  // Law BR-PRODUCT-26 (.omni-loop/knowledge/product/rules.md, #1487).
+  it('law BR-PRODUCT-26: a total that was not looked for is left out of the text and null under --json, never zero', async () => {
+    const off = { config: `${CONFIG}signature: null\n`, routes: WORLD };
+    const offText = (await omni(['credits'], off)).out.split('\n');
+    expect(offText).toContain('PRD issues 1');
+    expect(offText.some((line) => line.startsWith('Opened by the app') || line.startsWith('Co-authored commits'))).toBe(false);
+    const offDoc = JSON.parse((await omni(['credits', '--json'], off)).out) as { totals: { byTheApp: unknown; commits: unknown } };
+    expect(offDoc.totals).toMatchObject({ byTheApp: null, commits: null });
+
+    const noBot = { config: `${CONFIG}signature:\n  name: Robo\n  email: robo@example.com\n`, routes: WORLD };
+    const noBotText = (await omni(['credits'], noBot)).out.split('\n');
+    expect(noBotText.some((line) => line.startsWith('Opened by the app'))).toBe(false);
+    expect(noBotText.some((line) => line.startsWith('Co-authored commits on default branches: '))).toBe(true);
+    const noBotDoc = JSON.parse((await omni(['credits', '--json'], noBot)).out) as { totals: { byTheApp: unknown; commits: unknown } };
+    expect(noBotDoc.totals.byTheApp).toBeNull();
+    expect(noBotDoc.totals.commits).toEqual(expect.any(Number));
+  });
+
   it('at the 1,000-result cap, prints the report and a warning naming the query (AC 10)', async () => {
     const full = Array.from({ length: 1000 }, (_, index) => searched(index + 1, { labels: ['omni:sub'] }));
     const { code, out, err } = await omni(['credits'], { routes: [['search prs --owner acme --label omni:sub', full]] });
