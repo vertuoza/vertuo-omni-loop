@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design system agents build from · before and after</title>
+<style>
+/* Layout: two columns, today beside after, each the same four moments of a UI slice in a target repository. */
+:root {
+  --bg: #f5f6f3; --panel: #ffffff; --ink: #1c1f22; --muted: #5a6168; --line: #d9ddd6;
+  --term: #16191c; --term-ink: #dbe0e4; --term-dim: #8b939b;
+  --ok: #1d7448; --warn: #985a00; --accent: #2d5a8c;
+  --mock-bg: #fbfbfa; --mock-line: #d7d9d4;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141719; --panel: #1c2023; --ink: #e5e8ea; --muted: #a0a8ae; --line: #30363b;
+  --term: #0d0f11; --ok: #5cc48d; --warn: #e2a74a; --accent: #8db6e3; --mock-bg: #22272b; --mock-line: #3a4147;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141719; --panel: #1c2023; --ink: #e5e8ea; --muted: #a0a8ae; --line: #30363b;
+  --term: #0d0f11; --ok: #5cc48d; --warn: #e2a74a; --accent: #8db6e3; --mock-bg: #22272b; --mock-line: #3a4147;
+  color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+main { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 48px; display: grid; gap: 28px; }
+h1 { font-size: 26px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h3 { font-size: 16px; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+.col { min-width: 0; display: grid; gap: 14px; align-content: start; }
+.col > header { display: flex; align-items: baseline; gap: 10px; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+.col.after > header { border-color: var(--accent); }
+.tag { font: 600 12px var(--mono); color: var(--muted); }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 8px; min-width: 0; }
+.step .n { font: 600 12px var(--mono); color: var(--muted); }
+pre { margin: 0; background: var(--term); color: var(--term-ink); font: 12.5px/1.55 var(--mono); padding: 12px; border-radius: 4px; overflow-x: auto; }
+pre .d { color: var(--term-dim); } pre .ok { color: #6fd39c; } pre .w { color: #f0b85c; }
+.mock { background: var(--mock-bg); border: 1px solid var(--mock-line); border-radius: 4px; padding: 12px; display: grid; gap: 10px; }
+.mock .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mock .title { font-weight: 600; }
+.row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--mock-line); font-size: 14px; }
+/* today's invented parts */
+.t-btn { border: 0; color: #fff; padding: 8px 16px; border-radius: 999px; font: 600 13px var(--sans); background: linear-gradient(90deg, #7b4bd6, #3b6fe0); }
+.t-card { border-radius: 14px; box-shadow: 0 6px 18px rgba(60,40,140,.18); padding: 10px; background: var(--panel); }
+.t-pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #efe6ff; color: #5a2fb0; }
+/* after: the repository's listed parts */
+.a-btn { border: 1px solid var(--accent); background: var(--accent); color: var(--panel); padding: 7px 14px; border-radius: 4px; font: 600 13px var(--sans); }
+.a-badge { font: 600 11px var(--mono); padding: 1px 6px; border-radius: 3px; border: 1px solid var(--ok); color: var(--ok); }
+.a-badge.w { border-color: var(--warn); color: var(--warn); }
+.note { font-size: 13px; color: var(--muted); }
+.flag { font: 600 12px var(--mono); color: var(--warn); }
+.good { font: 600 12px var(--mono); color: var(--ok); }
+.same { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 6px; }
+.same ul { margin: 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <div style="display:grid;gap:8px">
+    <h1>A design system agents build from</h1>
+    <p class="lead">PRD 1559. One UI slice in a target repository with design craft on, today and after: a quotes list with a "New quote" button. Mockups show the look; the terminals show what the agent reads and reports.</p>
+  </div>
+
+  <section class="cols">
+    <div class="col">
+      <header><h2>Today</h2><span class="tag">design form + screen library</span></header>
+
+      <div class="step"><span class="n">1 · what the agent has</span>
+<pre><span class="d">$ omni kb show design</span>
+## System
+Tokens in src/styles/, components in src/ui/  <span class="d">← paths only</span>
+<span class="d"># a repo with no system:</span>
+TODO(human): Where do the design tokens … live?</pre>
+        <p class="note">No list of parts. The agent picks colours, radius and shapes itself.</p>
+      </div>
+
+      <div class="step"><span class="n">2 · the mockup on the before/after page</span>
+        <div class="mock" data-screen="quotes-today">
+          <div class="bar"><span class="title">Quotes</span><button class="t-btn" data-primary>+ New quote</button></div>
+          <div class="t-card"><div class="row" style="border:0"><span>Renovation, Lyon</span><span class="t-pill">Draft</span></div></div>
+          <div class="t-card"><div class="row" style="border:0"><span>Roof, Namur</span><span class="t-pill">Sent</span></div></div>
+        </div>
+        <p class="note">Gradient pill button, floating cards, purple chips: the model's defaults, not the product's.</p>
+      </div>
+
+      <div class="step"><span class="n">3 · building the slice</span>
+<pre><span class="d">do-work reads the form, then writes</span>
+src/quotes/QuoteList.tsx   <span class="w">new &lt;Card&gt; markup, hex colours</span>
+src/quotes/NewQuote.tsx    <span class="w">its own button styles</span></pre>
+      </div>
+
+      <div class="step"><span class="n">4 · the Design review on the sub-PR</span>
+<pre>## Design review
+✓ Critique — 2 fixed
+✓ Screenshots — 390 and 1440
+✓ Polish — one batch            <span class="d">← one look, then stop</span></pre>
+        <p class="note">Nothing notices the new card and button that duplicate src/ui/.</p>
+      </div>
+    </div>
+
+    <div class="col after">
+      <header><h2>After</h2><span class="tag">DESIGN.md + parts check</span></header>
+
+      <div class="step"><span class="n">1 · what the agent has</span>
+<pre><span class="d">$ omni design parts</span>
+Button      primary · secondary · ghost   states: default hover focus-visible active disabled loading
+Table       dense · comfortable           states: default loading empty error
+Badge       neutral · ok · warn           states: default
+EmptyState  —                             states: default
+<span class="d">… 9 parts · DESIGN.md · reference screens: quotes-list, quote-form</span>
+<span class="d"># a repo with no system: /omni:pixel-perfect init → 3 starters → pick → docs-only PR</span></pre>
+        <p class="note">Semantic tokens only, a closed list of parts, and the screens to copy.</p>
+      </div>
+
+      <div class="step"><span class="n">2 · the mockup on the before/after page</span>
+        <div class="mock" data-screen="quotes-after">
+          <div class="bar"><span class="title">Quotes</span><button class="a-btn" data-part="button" data-primary>New quote</button></div>
+          <div data-part="table">
+            <div class="row"><span>Renovation, Lyon</span><span class="a-badge w" data-part="badge">DRAFT</span></div>
+            <div class="row"><span>Roof, Namur</span><span class="a-badge" data-part="badge">SENT</span></div>
+          </div>
+        </div>
+<pre><span class="d">$ omni design parts --check before-after.html</span>
+<span class="ok">parts: button, table, badge — all listed · untagged: none</span></pre>
+      </div>
+
+      <div class="step"><span class="n">3 · building the slice</span>
+<pre><span class="d">plan: s2 · ui: yes · parts: Button, Table, Badge · copies: quotes-list</span>
+<span class="d">do-work reads DESIGN.md + quotes-list.md + quotes-list.png first</span>
+src/quotes/QuoteList.tsx   <span class="ok">uses src/ui/Table, src/ui/Badge</span>
+src/quotes/NewQuote.tsx    <span class="ok">uses src/ui/Button</span></pre>
+      </div>
+
+      <div class="step"><span class="n">4 · the Design review on the sub-PR</span>
+<pre>## Design review
+✓ Critique — reads as the product
+✓ Rounds — 2 of 3: round 1 fixed the empty state, round 2 clean
+✗ Parts — 1 new: DateRangePicker (item s2-01: add it to DESIGN.md?)
+✓ Screenshots — 390 and 1440, beside quotes-list.png</pre>
+        <p class="note">A new part is a medium outbox question, never a red check.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="same">
+    <h3>What stays the same</h3>
+    <ul>
+      <li>With <code>design.enabled</code> off, nothing above runs.</li>
+      <li>Nothing a design finding says blocks a slice; only a change to a locked screen asks its owner (PRD 1407).</li>
+      <li>The kit writes only Markdown in a target repository; turning DESIGN.md's tokens into CSS is an ordinary slice.</li>
+      <li>The product still wins: the form's Deliberate section overrides any rule of craft.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
