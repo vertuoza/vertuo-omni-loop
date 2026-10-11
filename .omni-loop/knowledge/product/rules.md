@@ -6,7 +6,7 @@ In a phase-0 pull request, a path under the delivery folder, the knowledge root 
 
 Serves: P-PRODUCT-1
 Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s13-01-phase-0-docs-kind, PRD #3
-Enforced by: pending #1463
+Enforced by: kit/lib/policy/phase-0.test.ts
 Stated: 2026-09-25
 Decided: @claude-code-session (delegated by pierre-derval) via PRD issue #3, 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
