@@ -33,7 +33,9 @@ ledger holds drifted entries. Re-running is safe, as for `/omni:yolo-fix`.
 ## Step 0
 
 Given a product PRD's id (`<key>-<n>`, as `mobile-12`), follow **From a product** below from here
-on, a plan section or not. Otherwise, as `/omni:yolo-fix` step 0. The config must have a `plan` section and
+on, a plan section or not.
+
+As `/omni:yolo-fix` step 0. The config must have a `plan` section and
 `node .omni-loop/bin/omni.mjs prd <prd>` must print a `repos:` line; otherwise stop in one line,
 `PRD <prd> is an ordinary PRD: /omni:yolo-fix <prd>`.
 

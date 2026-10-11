@@ -421,8 +421,8 @@ with these differences.
   no folder: `/omni:ultra-wave`'s **From a product** runs this slice from any kitted checkout of a
   repository the product holds, and every `omni` command above runs there, with the PRD's id for its
   number. What differs:
-  - **Where.** The clone is `<worktrees>/targets/<name>@<key>-<n>`, and the slice and feature
-    branches are `branches.slice` and `branches.feature` filled with `<key>-<n>` as the topic.
+  - **Where.** The clone is `<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`, and
+    the slice and feature branches are `branches.slice` and `branches.feature` filled with `<key>-<n>` as the topic.
   - **Reading.** Step 1's `omni prd <key>-<n>` prints where the PRD stands (`state: inbox`, its
     `approval:` lines), not a folder. Take the plan and the spec from the server:
     `node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan` and `… spec`, each writing a scratch

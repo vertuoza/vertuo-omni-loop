@@ -98,7 +98,7 @@ It always exits 0 on a PRD the page holds: gate on its `state:` line, which a pr
 |---|---|
 | `inbox` | approved on its page, every pinned file as approved: go on |
 | `prd` | **it waits on approval.** Print its `approval:` line once, then read `omni prd <key>-<n>` again once a minute (a background `sleep 60` between reads), up to 60 minutes or the `--timeout` the person gave. `inbox`: go on, without being typed again. Still `prd`: end held on `held: PRD <key>-<n> still waits for approval after <minutes> min: <page link>`, nothing built. Never approve it: an approver of the product does, on its page |
-| `drifted` | **refuse:** stop on its `approval:` lines (`≠ <file> · … · ✗ refuse · restore it, or approve again: <link>`). No slice is claimed and nothing is built while the PRD is drifted |
+| `drifted` | **refuse:** stop on its `approval:` lines (`≠ <file> · voided by <login>'s push … · ✗ refuse · approve again: <link>`). No slice is claimed and nothing is built while the PRD is drifted |
 | `unreachable` | **park on held:** stop on `server unreachable · held, not failed`. Nothing is built on a copy the run cannot verify; run this again once the server answers |
 | `refused` | stop on its `approval:` line |
 
@@ -132,8 +132,9 @@ node .omni-loop/bin/omni.mjs product phase0 <slug>…
 ```
 
 A target that is not `phase0: server` is **held**, its line printed as is. Each clone is
-`<worktrees>/targets/<name>@<key>-<n>`, under the `<worktrees>` of this checkout, and every branch
-shape (`branches.feature`, `branches.slice`) is filled with the PRD's id, `<key>-<n>`, as its topic.
+`<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`, under the `<worktrees>` of this
+checkout, and every branch shape (`branches.feature`, `branches.slice`) is filled with the PRD's id,
+`<key>-<n>`, as its topic.
 Item 3's empty commit names `<key>-<n>` in place of `<plan slug>#<n>`, and item 4's body starts
 with exactly one line,
 

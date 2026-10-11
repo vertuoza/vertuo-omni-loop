@@ -77,7 +77,7 @@ target feature PR,
 the feature branch being `branches.feature` filled with `<key>-<n>` as its topic, kept only when its
 body's first line is `Part of <key>-<n> · <page link>`; in the plan's merge order. Bugs linked to a
 product PRD are not looked after here, and there is no plan PR. The clones are
-`<worktrees>/targets/<name>@<key>-<n>`.
+`<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`.
 
 **Step 2, a round,** reads each target PR's state with `gh pr view <pr> --repo <slug> --json
 mergeable,mergeStateStatus,statusCheckRollup,isDraft,state,headRefOid` and acts on it as

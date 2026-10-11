@@ -75,12 +75,14 @@ node .omni-loop/bin/omni.mjs prd <key>-<n>
 ```
 
 `state: inbox` goes on. `state: drifted` **refuses** the wave: no slice is claimed, and the report
-carries its `approval:` lines (`≠ <file> · … · ✗ refuse · restore it, or approve again: <link>`).
+carries its `approval:` lines
+(`≠ <file> · voided by <login>'s push … · ✗ refuse · approve again: <link>`).
 `state: unreachable` **parks it on held**: nothing is claimed, the report says
 `server unreachable · held, not failed`. `state: prd` (still waiting for approval) claims nothing
 and names `/omni:ultra-yolo <key>-<n>`, which waits on it. The targets, their clones
-(`<worktrees>/targets/<name>@<key>-<n>`), feature branches and target feature PRs are the ones
-`/omni:ultra-yolo`'s **From a product** set up; there is no plan PR to find.
+(`<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`), feature branches and target
+feature PRs are the ones `/omni:ultra-yolo`'s **From a product** set up; there is no plan PR to
+find.
 
 **Step 1, the board,** is read from the plan, since `omni board` reads a repository's PRD only. Take
 the plan with `node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan` (it prints the scratch
