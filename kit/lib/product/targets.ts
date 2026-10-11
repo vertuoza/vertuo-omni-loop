@@ -12,12 +12,23 @@
 //   `no targets: the server is unreachable and nothing was read yet`.
 // - A refusal (a 4xx: no sign-in, not a member, no such product) is never hidden behind the copy: the
 //   read stops with the server's reason.
+//
+// `withProductTargets` (PRD 1548, s10) is that read for the commands that walk a plan repository's
+// targets (`omni board`, `omni next`, `omni care`, `omni flow`): the context they run in, its
+// `plan.targets` filled with the product's, so every reader of `plan.targets` sees the product's
+// targets unchanged. A config with `plan.targets[]` keeps its context as it is, and nothing is called.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { AskCallError } from '../ask/client.ts';
+import type { Fetch, TokenStore } from '../ask/client.ts';
+import { credentialsHost, signedInClient } from '../ask/credentials.ts';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import { TARGET_KNOWLEDGE } from '../config.ts';
+import { createContext } from '../context.ts';
+import type { Context, ExecText } from '../context.ts';
+import { mainCheckout } from '../dossier/local.ts';
+import { messageOf } from '../narrow.ts';
 import type { Config } from '../types.ts';
 
 /** One target, as `plan.targets` holds it. */
@@ -131,4 +142,58 @@ export async function productTargets({ product, root, now, fetchTargets }: {
 /** The line that says the targets are the last read's, and when it was. */
 export function lastReadLine(readAt: string): string {
   return `targets from the last read, ${readAt.slice(0, 10)} ${readAt.slice(11, 16)} UTC · server unreachable`;
+}
+
+/** What reading a product's targets takes beyond the context: where the command runs, and the
+ * sign-in, the app and the clock a test hands in. */
+export type ProductTargetsIo = {
+  cwd: string;
+  exec: ExecText;
+  tokens?: TokenStore | undefined;
+  home?: string | undefined;
+  fetch?: Fetch | undefined;
+  callMs?: number | undefined;
+  now?: (() => Date) | undefined;
+};
+
+/**
+ * The targets of `product`, read from the server for the repository `repo` with the terminal's sign-in
+ * and kept in the main checkout (`productTargets`); when the last copy answers, its line goes to
+ * `note`. Returns the one line saying why there are none otherwise: no Omni page, no sign-in, no
+ * repository slug, or what `productTargets` refused. Shared with `omni targets`.
+ */
+export async function productTargetList(
+  { ctx, product, repo }: { ctx: Context; product: string; repo: string | null },
+  io: ProductTargetsIo,
+  note: { write(text: string): unknown },
+): Promise<ProductTarget[] | string> {
+  const askUrl = ctx.config.ask.url;
+  if (!askUrl) return 'no targets: plan.product reads them from the Omni page, and ask.url is not set';
+  const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (client === null) return `no targets: no sign-in for ${credentialsHost(askUrl)} (omni signin)`;
+  if (!repo) return 'no targets: no repository slug — set repo.slug in the config';
+  try {
+    const read = await productTargets({
+      product,
+      root: mainCheckout(io.cwd, io.exec) ?? ctx.root,
+      now: io.now ?? (() => new Date()),
+      fetchTargets: () => client.readProductTargets({ repo, product }),
+    });
+    if (read.from === 'copy') note.write(`${lastReadLine(read.readAt)}\n`);
+    return read.targets;
+  } catch (error) {
+    return messageOf(error);
+  }
+}
+
+/**
+ * `ctx` with the targets of the product `plan.product` names as its `plan.targets`
+ * (`productTargetList`); `ctx` itself, calling nothing, when the config names no product. Returns the
+ * one line saying why there are no targets when they cannot be read.
+ */
+export async function withProductTargets(ctx: Context, io: ProductTargetsIo, note: { write(text: string): unknown }): Promise<Context | string> {
+  const plan = ctx.config.plan;
+  if (plan?.product === undefined) return ctx;
+  const targets = await productTargetList({ ctx, product: plan.product, repo: ctx.config.repo.slug }, io, note);
+  return typeof targets === 'string' ? targets : createContext(ctx.root, { ...ctx.config, plan: { ...plan, targets } });
 }

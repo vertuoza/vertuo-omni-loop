@@ -12,7 +12,9 @@
 // - `show` alone prints what this repository changes from the kit's defaults, area by area.
 // - `show --repo <target>`, in a plan repository, reads an imported target's copied flow instead
 //   (`kit/lib/plan-repo/copy-flow.ts`), its hook files from the copy: what that target's flow is at
-//   planning time. A target with no copied flow is a usage error.
+//   planning time. A target with no copied flow is a usage error. With `plan: { product }` (PRD 1548,
+//   s10), a target's short name is looked up among the product's targets, read from the Omni page
+//   (`contextWithTargets`, `./board.ts`) only when `--repo` names one by its short name.
 // - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
 //   exit 1; output that does not end with the point's verdict line is `not ok … no verdict`.
 // - `check merge --pr <n> [--repo <target>]` reads the sub-PR from GitHub (`../github.ts`), finds its
@@ -33,8 +35,9 @@ import { COPY_FLOW_FILE, copyFlowFolder, readCopyFlow } from '../../lib/plan-rep
 import { parseFolderName, prdFoldersIn } from '../../lib/layout.ts';
 import { errorMessage, parseArgs, type Flags, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
 import { openPullRequestsInto, subPrFor } from '../github.ts';
-import type { Command, CommandIo } from '../io.ts';
-import { synchronous } from '../synchronous.ts';
+import type { CommandIo, FreeCommand } from '../io.ts';
+import { runWithTargets } from './board.ts';
+import type { TargetsIo, TargetsSubcommand } from './board.ts';
 import type { PrNumber } from '../../lib/ids.ts';
 
 const USAGE =
@@ -297,12 +300,21 @@ function checkMerge(args: string[], io: CommandIo): number {
   return verdict.ok ? 0 : 1;
 }
 
-export const flow: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
-    const [sub, ...rest] = args;
-    if (sub === 'show') return show(rest, io);
-    if (sub === 'verdict') return verdict(rest, io);
-    if (sub === 'check') return checkMerge(rest, io);
-    throw usageError(USAGE);
-  }),
+/** Whether `args` name a target by its short name (`--repo back`), which only `plan.targets` resolves. */
+function namesTarget(args: readonly string[]): boolean {
+  const at = args.indexOf('--repo');
+  const value = at === -1 ? undefined : args[at + 1];
+  return value !== undefined && !value.startsWith('--') && !value.includes('/');
+}
+
+/** The subcommands of `omni flow`: `show` and `check` read the targets only for a short `--repo`. */
+const SUBCOMMANDS: Record<string, TargetsSubcommand> = {
+  show: { run: show, targets: namesTarget },
+  verdict: { run: verdict, targets: () => false },
+  check: { run: checkMerge, targets: namesTarget },
+};
+
+export const flow: FreeCommand = {
+  withoutContext: true,
+  run: (args: string[], io: TargetsIo): Promise<number> => runWithTargets('flow', USAGE, SUBCOMMANDS, args, io),
 };

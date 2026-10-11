@@ -15,14 +15,11 @@
 // It runs before a context exists, like `roadmap`, so that a test can hand it `tokens`, `home`,
 // `fetch`, `callMs` and `now`; it loads the context itself.
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
-import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
-import { mainCheckout } from '../../lib/dossier/local.ts';
 import { readTargets, targetsTable } from '../../lib/plan-repo/targets.ts';
 import type { Target } from '../../lib/plan-repo/targets.ts';
-import { lastReadLine, productTargets } from '../../lib/product/targets.ts';
-import { messageOf } from '../../lib/narrow.ts';
+import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
@@ -45,24 +42,9 @@ async function targetList(
   io: FreeIo & TargetsOptions,
   note: Out,
 ): Promise<readonly Target[] | string> {
-  const askUrl = ctx.config.ask.url;
-  if (!askUrl) return 'no targets: plan.product reads them from the Omni page, and ask.url is not set';
-  const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
-  if (client === null) return `no targets: no sign-in for ${credentialsHost(askUrl)} (omni signin)`;
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError('omni targets: no repository slug — set repo.slug in the config.');
-  try {
-    const read = await productTargets({
-      product,
-      root: mainCheckout(io.cwd, io.exec) ?? ctx.root,
-      now: io.now ?? (() => new Date()),
-      fetchTargets: () => client.readProductTargets({ repo, product }),
-    });
-    if (read.from === 'copy') println(note, lastReadLine(read.readAt));
-    return read.targets;
-  } catch (error) {
-    return messageOf(error);
-  }
+  return productTargetList({ ctx, product, repo }, io, note);
 }
 
 export const targets: FreeCommand = {
