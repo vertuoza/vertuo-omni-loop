@@ -512,7 +512,7 @@ A new fleet's key is its label lowercased, with each run of non-letters and non-
 
 Serves: P-PRODUCT-44
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
-Enforced by: pending #1508
+Enforced by: apps/galaxy/src/fleets/fleet-key-sql.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
