@@ -6,7 +6,8 @@
 // law-worth`, whose answer counts when Jev's does. A "yes" has its law issue opened through `gh`,
 // then is written `Enforced by: pending #<n>`; a "no" leaves its register for its ledger. Once every
 // one is judged, `laws.requireProof: true`. Writes into the working tree, stages and commits nothing.
-// Exit 0 once it ran; 1 when `laws.source` is not `knowledge`; 2 on a usage error or with no
+// `omni knowledge judge <id>` judges that one law alone, the same way. Exit 0 once it ran; 1 when
+// `laws.source` is not `knowledge`, or `<id>` names no unenforced law; 2 on a usage error or with no
 // OPENROUTER_API_KEY, with nothing written.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -33,7 +34,7 @@ import { parseArgs, println, usageError } from '../args.ts';
 import { askLawWorth, openLawIssue, prdTitle } from './harvest.ts';
 import type { Command, CommandIo } from '../io.ts';
 
-const USAGE = 'usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge';
+const USAGE = 'usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge [<id>]';
 
 function describe(id: string, { ctx, stdout, stderr }: Pick<CommandIo, 'ctx' | 'stdout' | 'stderr'>): number {
   const text = describeEntry(readKnowledge({ ctx }), id);
@@ -129,23 +130,34 @@ function lawLine(entry: KnowledgeEntry, judged: Judged | undefined, result: Swee
   return `  ${entry.id} → ${worthText(worth)}, recorded in ${removed?.ledger ?? 'no ledger: its source names no entry there'}`;
 }
 
-function report({ ctx, laws, judged, result }: { ctx: CommandIo['ctx']; laws: readonly KnowledgeEntry[]; judged: ReadonlyMap<string, Judged>; result: SweepResult }): string {
+function report({ ctx, laws, judged, result, undecided }: { ctx: CommandIo['ctx']; laws: readonly KnowledgeEntry[]; judged: ReadonlyMap<string, Judged>; result: SweepResult; undecided: number }): string {
   const outcomes = [...judged.values()];
-  const notJudged = outcomes.filter((one) => 'notJudged' in one).length;
   return [
     `omni knowledge judge — ${laws.length} unenforced law(s):`,
     ...laws.map((entry) => lawLine(entry, judged.get(entry.id), result)),
     ...outcomes.flatMap((one) => ('opened' in one && one.opened !== null ? [one.opened] : [])),
     ...result.citations.map(({ id, citedBy, file }) => `  ${id} is still cited by ${citedBy === null ? file : `${citedBy} (${file})`}`),
     ...result.writes.map(({ path }) => `  wrote ${path}`),
-    requireProofLine(result, notJudged),
+    requireProofLine(result, undecided),
     result.writes.length === 0
       ? 'Nothing changed.'
       : `Review the diff, fix what still cites a removed entry, then open its knowledge PR from a branch shaped like ${ctx.config.branches.knowledge}.`,
   ].join('\n');
 }
 
-async function sweep(io: CommandIo): Promise<number> {
+/** The laws to judge: every unenforced one, or the one `id` names; a line saying why when it names none. */
+function lawsToJudge(entries: readonly KnowledgeEntry[], id: string | undefined): KnowledgeEntry[] | string {
+  const laws = unenforcedLaws(entries);
+  if (id === undefined) return laws;
+  const law = laws.find((entry) => entry.id === id);
+  if (law) return [law];
+  const entry = entries.find((one) => one.id === id);
+  if (entry === undefined) return `omni knowledge judge: nothing in the knowledge folder claims ${id}.`;
+  if (entry.kind !== 'rule' && entry.kind !== 'invariant') return `omni knowledge judge: ${id} is a ${entry.kind}, not a law — only rules and invariants are judged.`;
+  return `omni knowledge judge: ${id} is not unenforced (Enforced by: ${entry.enforcedBy ?? 'none'}) — there is nothing to judge.`;
+}
+
+async function sweep(id: string | undefined, io: CommandIo): Promise<number> {
   const { ctx, stdout, stderr, vars } = io;
   if (ctx.config.laws.source !== 'knowledge') {
     println(stderr, `omni knowledge judge: laws.source is ${ctx.config.laws.source}, not knowledge — there are no laws in the knowledge base to judge.`);
@@ -154,7 +166,11 @@ async function sweep(io: CommandIo): Promise<number> {
   if (!vars.openrouter) throw usageError(`omni knowledge judge: ${KEY_VAR} is not set — the sweep asks a model whether each law is worth one.`);
 
   const { entries } = readKnowledge({ ctx });
-  const laws = unenforcedLaws(entries);
+  const laws = lawsToJudge(entries, id);
+  if (typeof laws === 'string') {
+    println(stderr, laws);
+    return 1;
+  }
   const judged = new Map<string, Judged>();
   for (const entry of laws) judged.set(entry.id, await judgeLaw(entry, entries, io));
   const verdicts = Object.fromEntries([...judged].flatMap(([id, one]) => ('verdict' in one ? [[id, one.verdict]] : [])));
@@ -169,15 +185,17 @@ async function sweep(io: CommandIo): Promise<number> {
     config: configText === null ? null : { file: CONFIG_FILE, text: configText },
   });
   applyKnowledgeWrites({ ctx, writes: result.writes });
-  println(stdout, report({ ctx, laws, judged, result }));
+  const undecided = unenforcedLaws(entries).length - Object.keys(verdicts).length;
+  println(stdout, report({ ctx, laws, judged, result, undecided }));
   return 0;
 }
 
 export const knowledge: Command = {
   async run(args: string[], io: CommandIo) {
     const { positional } = parseArgs('knowledge', args);
-    if (positional.length !== 1) throw usageError(USAGE);
-    const [verb = ''] = positional;
-    return verb === 'judge' ? sweep(io) : describe(verb, io);
+    const [verb = '', id] = positional;
+    if (positional.length === 1) return verb === 'judge' ? sweep(undefined, io) : describe(verb, io);
+    if (positional.length === 2 && verb === 'judge') return sweep(id, io);
+    throw usageError(USAGE);
   },
 };

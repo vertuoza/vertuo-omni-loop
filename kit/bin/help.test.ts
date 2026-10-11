@@ -223,8 +223,9 @@ describe('omni --help, omni -h and a bare omni', () => {
     const { code, out } = await run(['help', 'knowledge'], root);
     expect(code).toBe(0);
     expect(out).toMatch(/^omni knowledge <id> +for you$/m);
-    expect(out).toMatch(/^omni knowledge judge$/m);
+    expect(out).toMatch(/^omni knowledge judge \[<id>\]$/m);
     const flat = out.replace(/\s+/g, ' ');
+    expect(flat).toMatch(/judge <id> judges that one law alone/);
     expect(flat).toMatch(/every rule and invariant whose Enforced by: is unenforced/);
     expect(flat).toMatch(/pending #<n>/);
     expect(flat).toMatch(/settled\.md/);
