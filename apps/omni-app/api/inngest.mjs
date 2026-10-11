@@ -7156,6 +7156,9 @@ function optionsViolations(file, options) {
     )
   );
 }
+function removedBySweep(fields, id) {
+  return fields["Stays here"]?.endsWith(`, was ${id}`) ?? false;
+}
 function findOutboxViolations({ ctx }) {
   const laws = lawsFor(ctx);
   const violations = [];
@@ -7172,6 +7175,7 @@ function findOutboxViolations({ ctx }) {
     if (!existsSync22(join26(ctx.root, settledFile))) continue;
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
       for (const id of entry.became) {
+        if (removedBySweep(entry.fields, id)) continue;
         const resolved = isPlaybookId(id) ? resolvePlaybookId(id, { ctx }) : laws.resolve(id);
         if (!resolved.ok) {
           violations.push(
