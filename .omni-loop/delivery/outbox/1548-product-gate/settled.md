@@ -1802,3 +1802,469 @@ Moving the file access out of the library later is a refactor of each wrapped fu
 ```
 
 <!-- /omni-outbox-settled: s6-02-the-git-store-wraps-the-library-in-place -->
+
+<!-- omni-outbox-settled: s7-01-a-product-item-names-its-prd -->
+
+## s7-01-a-product-item-names-its-prd — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-a-product-item-names-its-prd
+prd: 1548
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+How does a question of a product PRD say which PRD it belongs to, and how does someone point at one to settle it?
+
+## The decision, in plain words
+
+A question names its product PRD the way people write it, like mobile-12, in the same place a repository's question writes its number. To settle or adopt one, you give its name and the PRD, since there is no file to point at.
+
+## The intro, for fun
+
+A question with no file still needs an address on its door.
+
+## The punchline, for fun
+
+So it got one: the PRD's name, a slash, and its own name.
+
+## The options, in plain words
+
+A. Name the product PRD in the question's text, and a question by its PRD and its own name, the option built.
+B. Keep a number in the question's text and let the stored row alone say which product PRD it is.
+C. Name a question by its own name only, and look up which PRD holds it.
+
+## What I had to decide
+
+Which PRD a stored question belongs to, in the question's own text, and how the terminal names one question of a product PRD.
+
+## What I did meanwhile
+
+The question's text names the product PRD by its name, which the one reader of questions now accepts beside a number, and a question is named by its PRD and its own name together.
+
+## What it costs to change later
+
+Before any product PRD exists, a constant and the reader; after, the stored questions would have to be rewritten.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the page that lists questions, in a later slice, wants another way to name one.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-a-product-item-names-its-prd -->
+
+<!-- omni-outbox-settled: s7-02-a-terminal-answer-is-the-signed-in-persons -->
+
+## s7-02-a-terminal-answer-is-the-signed-in-persons — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-a-terminal-answer-is-the-signed-in-persons
+prd: 1548
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+When an answer to a product PRD's question is typed in the terminal, who does the record say gave it, and where?
+
+## The decision, in plain words
+
+The record says it was answered in the terminal, by whoever is signed in. Who approved it and when can still be given, and are checked as before, but the server keeps its own name and time.
+
+## The intro, for fun
+
+The terminal does not know who is typing, but the sign-in does.
+
+## The punchline, for fun
+
+So the sign-in signs for it.
+
+## The options, in plain words
+
+A. The signed-in person, in the terminal, the option built.
+B. Keep the name and time given by hand beside the signed-in person.
+C. Refuse an answer that does not say who gave it.
+
+## What I had to decide
+
+What an answer given through the terminal records on the server: its channel, and who and when.
+
+## What I did meanwhile
+
+The channel is the terminal, the person is the one signed in and the time is when it was saved; a name or a time given by hand is checked, then left to the server's own record.
+
+## What it costs to change later
+
+One small change on the server's record if a hand-given name must be kept too.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether an agent relaying a person's answer should record that person rather than itself.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-a-terminal-answer-is-the-signed-in-persons -->
+
+<!-- omni-outbox-settled: s7-03-the-server-outbox-counts-open-questions-only -->
+
+## s7-03-the-server-outbox-counts-open-questions-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-the-server-outbox-counts-open-questions-only
+prd: 1548
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+What does the gate of a product PRD look at, now that its questions live on the server?
+
+## The decision, in plain words
+
+Only the questions still open. A question answered with a change does not hold the gate until the change is made, the server keeps no account of risky changes yet, so one handed over stays where it was, and nothing is posted on GitHub: answers come from the Questions tab or the terminal.
+
+## The intro, for fun
+
+The server's outbox is younger than the one in the repository, and it shows.
+
+## The punchline, for fun
+
+It knows open from answered, and that is all it knows so far.
+
+## The options, in plain words
+
+A. Count open questions only, refuse accounts, post nothing, the option built.
+B. Also hold the gate on every answer that asked for a change until someone marks it reworked.
+C. Keep accounts and changed answers in the repository beside the questions on the server.
+
+## What I had to decide
+
+Which of the checks the repository's gate makes also hold a product PRD's gate.
+
+## What I did meanwhile
+
+The gate is green when no question is open or a person waved it through; a handed-over account is refused with its reason and left in its folder; the comments and the replies on GitHub do nothing for a product PRD.
+
+## What it costs to change later
+
+Adding each missing check later is its own change on the server and in the kit, with no stored data to move.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a later slice gives the server a place for accounts and for the rework of a changed answer.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-the-server-outbox-counts-open-questions-only -->
+
+<!-- omni-outbox-settled: s7-04-a-product-prds-questions-are-numbered-afresh -->
+
+## s7-04-a-product-prds-questions-are-numbered-afresh — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-04-a-product-prds-questions-are-numbered-afresh
+prd: 1548
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+How are a product PRD's questions numbered when someone answers them in the terminal, with no pull request comment to keep the numbers?
+
+## The decision, in plain words
+
+Each time, the open questions are numbered from one, the most pressing first, as the comment would list them, and the picks settle them on the server straight away.
+
+## The intro, for fun
+
+Without a comment to remember the numbers, the numbers have to be worked out again.
+
+## The punchline, for fun
+
+Luckily, counting from one is a well known skill.
+
+## The options, in plain words
+
+A. Number afresh each time and settle at once, the option built.
+B. Keep each question's number on the server, so it never moves.
+C. Answer by the question's name instead of a number.
+
+## What I had to decide
+
+Where the numbers of a product PRD's questions come from, and what answering them does.
+
+## What I did meanwhile
+
+The numbers are worked out from the open questions on every call; answering settles each one at once; printing the reply instead is refused, and the switch that turns the terminal door off is not read for a product PRD.
+
+## What it costs to change later
+
+Keeping numbers on the server would be a small new column and one change here.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether two people answering at once could see the numbers move between asking and answering.
+
+```
+
+<!-- /omni-outbox-settled: s7-04-a-product-prds-questions-are-numbered-afresh -->
+
+<!-- omni-outbox-settled: s7-05-held-since-the-call-that-failed -->
+
+## s7-05-held-since-the-call-that-failed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-05-held-since-the-call-that-failed
+prd: 1548
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+When the server cannot be reached, since when does the terminal say it has been unreachable?
+
+## The decision, in plain words
+
+Since the call that just failed: the terminal keeps no memory of an earlier failure, so the time is now.
+
+## The intro, for fun
+
+Held since when is an easy question with an awkward answer.
+
+## The punchline, for fun
+
+Since just now, every time.
+
+## The options, in plain words
+
+A. The time of the failed call, the option built.
+B. The time of the first failure in a row, kept on this computer until a call works.
+
+## What I had to decide
+
+The time the held line names.
+
+## What I did meanwhile
+
+The time of the failed call, printed in the held line, and the command exits as held, not failed.
+
+## What it costs to change later
+
+Remembering the first failure would be a small local note and one change here.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the page's own held line, in a later slice, wants the two times to agree.
+
+```
+
+<!-- /omni-outbox-settled: s7-05-held-since-the-call-that-failed -->
+
+<!-- omni-outbox-settled: s7-06-changes-outside-the-slice -->
+
+## s7-06-changes-outside-the-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-06-changes-outside-the-slice
+prd: 1548
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+This slice changed a few places outside the area it was given. Are those changes all right to keep?
+
+## The decision, in plain words
+
+Yes, kept, each as small as it could be: the terminal commands that answer and record questions learned to name a product PRD and to sign in, the terminal's connection to the Omni page learned the three new calls, the help names the new forms, the reader of questions accepts a product PRD's name, and the tests got a stand-in for the new routes.
+
+## The intro, for fun
+
+The slice was told to stay in its garden, and it mostly did.
+
+## The punchline, for fun
+
+It only borrowed a few tools from the shed next door.
+
+## The options, in plain words
+
+A. Keep the changes, the option built.
+B. Move the command changes into a slice of their own.
+
+## What I had to decide
+
+Whether the commands, the connection to the Omni page, the help, the question reader and a test helper may change for this slice.
+
+## What I did meanwhile
+
+Each one changed only as far as a product PRD needs; every command and question of a repository's PRD reads and writes exactly as before, and its tests pass unchanged.
+
+## What it costs to change later
+
+Each change undoes on its own, with no stored data involved.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the plan should have listed the commands in this slice's area.
+
+```
+
+<!-- /omni-outbox-settled: s7-06-changes-outside-the-slice -->
