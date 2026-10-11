@@ -72,7 +72,7 @@ function world() {
   const members = new Set<string>([ADA.id, BOB.id]);
   const revoked: string[] = [];
   const calls = { refresh: [] as string[], make: [] as string[], join: [] as string[], claim: 0, sleep: 0 };
-  const state = { authDown: false, joinFails: false, makeError: null as { message: string; code?: string } | null, claimFails: false };
+  const state = { authDown: false, joinFails: false, makeError: null as { message: string; code?: string } | null, claimFails: false, revokeWhileRenewing: false };
   let issued = 0;
   let leases = 0;
 
@@ -132,6 +132,8 @@ function world() {
     },
     renewed(id, lease, sealed) {
       const row = [...rows.values()].find((r) => r.id === id);
+      // Revoked on the profile page while Auth was renewing the session.
+      if (row && state.revokeWhileRenewing) Object.assign(row, { revoked: true, session: null });
       if (!row || row.lease !== lease || row.revoked) return Promise.resolve(false);
       Object.assign(row, { session: sealed, lease: null, leaseUntil: 0, lastUsed: clock.now });
       return Promise.resolve(true);
@@ -506,11 +508,7 @@ describe('POST /api/ask/token {omni_token}', () => {
   it('says revoked, and ends the new session, when the token was revoked during the exchange', async () => {
     const w = world();
     const token = await w.tokenFor(ADA);
-    const renewed = w.store.renewed;
-    w.store.renewed = (id, lease, sealed) => {
-      Object.assign(present(w.rows.get(sha256(token)), 'row'), { revoked: true, session: null });
-      return renewed(id, lease, sealed);
-    };
+    w.state.revokeWhileRenewing = true;
     const reply = await w.trade({ omni_token: token });
     expect(reply).toMatchObject({ status: 401, body: { reason: 'revoked' } });
     expect(w.revoked).toEqual(['access-2']);

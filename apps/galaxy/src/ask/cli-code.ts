@@ -264,7 +264,8 @@ export async function renewSession(client: TokenClient, refreshToken: string): P
   if (authDown(error)) return 'down';
   const session = data?.session;
   if (error || !session || !isText(session.access_token) || !isText(session.refresh_token)) {
-    return `refused: ${String(propertyOf(error, 'message') ?? 'no session')}`;
+    const message = propertyOf(error, 'message');
+    return `refused: ${typeof message === 'string' ? message : 'no session'}`;
   }
   return session;
 }

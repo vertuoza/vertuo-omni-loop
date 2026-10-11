@@ -75,7 +75,7 @@ const BACK = /^\/app(?:\/[A-Za-z0-9_-]+)+$/;
 function nameOf(raw: string | null, today: Date): string | null {
   const name = (raw ?? '').trim();
   if (name === '') return `terminal ${today.toISOString().slice(0, 10)}`;
-  const control = [...name].some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127);
+  const control = Array.from({ length: name.length }, (_, at) => name.charCodeAt(at)).some((code) => code < 32 || code === 127);
   return name.length <= 40 && !control ? name : null;
 }
 
@@ -155,7 +155,9 @@ const SAID_BY_DATABASE = new Set(['42501', '22023', '54000']);
 /** The token made for `session`, its session sealed in its row; or the reason it was not. */
 async function makeToken(session: CliSession, request: TokenRequest, deps: KitMakeDeps): Promise<MadeToken | { failed: string }> {
   if (!deps.box) return { failed: NOT_SET_UP };
-  await deps.join?.(session).catch((error: unknown) => console.error(`kit token sign-in: joining workspaces: ${messageOf(error)}`));
+  await deps.join?.(session).catch((error: unknown) => {
+    console.error(`kit token sign-in: joining workspaces: ${messageOf(error)}`);
+  });
   const token = `omk_${newCode()}`;
   const { expiresAt, error } = await deps.make(session, {
     workspace: request.workspace, name: request.name, hash: hashCode(token), lastFour: token.slice(-4), days: request.days,
@@ -360,7 +362,9 @@ export function kitExchange(kit: KitExchangeDeps): KitExchange {
 
     const session = await renew(kit, held, client);
     if (session instanceof Response) {
-      await kit.store.release(held.id, held.lease).catch((error: unknown) => console.error(`ask token: kit token release: ${messageOf(error)}`));
+      await kit.store.release(held.id, held.lease).catch((error: unknown) => {
+        console.error(`ask token: kit token release: ${messageOf(error)}`);
+      });
       return session;
     }
     const refused = await writeBack(kit, held, session);
