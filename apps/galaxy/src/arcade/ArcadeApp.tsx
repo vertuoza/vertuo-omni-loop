@@ -34,7 +34,7 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { KartOverlay } from './scenes/kart.tsx';
-import { kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartHud } from './scenes/kart.ts';
+import { choicePress, FIRST_CHOICE, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartHud } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -411,9 +411,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     held.clear();
     runRef.current += 1;
     showSend(null);
-    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null });
+    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null, choice: FIRST_CHOICE, multi: !!account.kartGrid?.() });
     go({ scene: 'kart' }, 'start');
-  }, [go, held, showSend]);
+  }, [go, held, showSend, account]);
 
   /**
    * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
@@ -843,6 +843,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         const press = kartPress(k.status, action, k.hud?.phase);
         if (press === 'back') { setKart(null); go({ scene: 'games' }, 'back'); return; }
         if (press === 'retry') { setKart({ ...k, status: 'loading', retry: k.retry + 1 }); return; }
+        if (k.status === 'ready' && k.game && k.choice.step === 'choose' && k.hud?.phase === 'ready') {
+          // The choice before the race (PRD 1572): ▲ ▼ and A or START are its own; nothing reaches the race until SINGLE is picked.
+          const next = choicePress(k.choice, action, k.multi);
+          if (next !== k.choice) setKart({ ...k, choice: next });
+          return;
+        }
         if (k.status === 'ready' && k.game) {
           // START starts the countdown and pauses; SELECT on the pause leaves, and sends nothing.
           const pressed = k.game.press(action);
@@ -1061,7 +1067,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
-      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

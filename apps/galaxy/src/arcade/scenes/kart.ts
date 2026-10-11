@@ -138,7 +138,40 @@ export interface KartGame extends KartDraw {
 export type KartStatus = 'loading' | 'ready' | 'failed';
 
 /** What the arcade holds while the kart scene is up: where the import stands, the retries asked for, the grid it started on and the game once loaded. */
-export interface ArcadeKart { status: KartStatus; retry: number; grid: Grid; game: KartGame | null; hud: KartHud | null }
+export interface ArcadeKart {
+  status: KartStatus; retry: number; grid: Grid; game: KartGame | null; hud: KartHud | null;
+  /** The ready screen's choice (PRD 1572): still choosing, or SINGLE picked, which is today's ready line and today's race. */
+  choice: KartChoice;
+  /** Whether MULTI can be picked: the account gave a link to the grid. */
+  multi: boolean;
+}
+
+/** Where the ready screen stands: choosing between SINGLE and MULTI (the cursor on one), or SINGLE picked. */
+export type KartChoice = { step: 'choose'; cursor: 'single' | 'multi' } | { step: 'single' };
+
+/** The ready screen's first state: the cursor on SINGLE. */
+export const FIRST_CHOICE: KartChoice = { step: 'choose', cursor: 'single' };
+
+/** The line under COMET RING · 3 LAPS for the circuit, before the choice. */
+export const CHOICE_LINE = 'COMET RING · 3 LAPS';
+/** The two ways to race. */
+export const SINGLE_LINE = 'SINGLE';
+export const MULTI_LINE = 'MULTI';
+/** MULTI when the account has no link to the grid: it cannot be picked. */
+export const MULTI_CLOSED_LINE = 'MULTI · SIGN IN TO RACE';
+
+/**
+ * What a press does on the choice: ▲ ▼ move the cursor (MULTI is skipped when it cannot be picked),
+ * A or START picks. B is the room's, through `kartPress`. A pick of MULTI is the grid's, slice 3's:
+ * until then it leaves the choice as it is.
+ */
+export function choicePress(choice: KartChoice, action: Action, multi: boolean): KartChoice {
+  if (choice.step !== 'choose') return choice;
+  if (action === 'up') return { step: 'choose', cursor: 'single' };
+  if (action === 'down') return multi ? { step: 'choose', cursor: 'multi' } : choice;
+  if ((action === 'a' || action === 'start') && choice.cursor === 'single') return { step: 'single' };
+  return choice;
+}
 
 /** The line over the screen when the import failed. */
 export const NOT_LOADED = 'GAME DID NOT LOAD · A TO RETRY';

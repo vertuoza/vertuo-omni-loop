@@ -81,6 +81,12 @@ export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>
 export interface Session { id: string; email: string; givenName: string; crew: boolean; github: string | null }
 
 /**
+ * The live link to a workspace's OMNI KART grid (PRD 1572). Its shape is slice 3's to widen; the
+ * choice only needs to know whether an account can give one.
+ */
+export interface KartLink { leave(): void }
+
+/**
  * Sign-in and saving, behind one interface: Supabase in production, the browser's own storage in the
  * demo galaxy (and the single-file artifact), so the arcade never imports Supabase itself.
  */
@@ -101,6 +107,8 @@ export interface Account {
   /** A game's crew table: its top five with names, and the signed-in player's own best. */
   scores(game: string): Promise<ScoreBoard>;
   signOut(): Promise<void>;
+  /** OMNI KART's grid link (PRD 1572). Absent, or null (the demo, the closed arcade, a Supabase account until its link exists): MULTI cannot be picked. */
+  kartGrid?: () => KartLink | null;
   /** The demo's remembered guest; Supabase answers from the server render instead. */
   restore?: () => { session: Session | null; me: Player | null };
 }
