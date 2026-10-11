@@ -1033,3 +1033,27 @@ Enforced by: kit/lib/knowledge/check-knowledge.test.ts
 Stated: 2026-10-10
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-10, PR #1343
+
+## BR-PRODUCT-101
+
+In the arcade duet game, quitting from the pause or pressing B on a ready screen once play has started ends the run at its game over, which sends the score once and shows whether it was saved; B from there returns to the game room.
+
+Serves: P-PRODUCT-54
+Source: .omni-loop/delivery/shipped/1633-omni-duet/outbox/settled.md, entry s4-01-quitting-shows-the-game-over, PRD #1633
+Enforced by: apps/galaxy/src/arcade/duet/run.test.ts, apps/galaxy/src/arcade/scenes/duet.test.ts
+Stated: 2026-10-11
+Decided: nobody — adopted when raised (medium), 2026-10-11
+Merged: @martl-vertuoza, 2026-10-11, PR #1636
+Proposed: harvest 2026-10-11
+
+## BR-PRODUCT-102
+
+In Duet's endless mode, each wave is one to three of the last chapter's own rows drawn from a fixed seed, at a speed starting just above that chapter's fastest that rises slowly and then stops at a ceiling, so every endless wave stays passable.
+
+Serves: P-PRODUCT-86
+Source: .omni-loop/delivery/shipped/1633-omni-duet/outbox/settled.md, entry s4-02-endless-waves-from-chapter-four-rows, PRD #1633
+Enforced by: apps/galaxy/src/arcade/duet/waves.test.ts, apps/galaxy/src/arcade/duet/waves.ts
+Stated: 2026-10-11
+Decided: nobody — adopted when raised (medium), 2026-10-11
+Merged: @martl-vertuoza, 2026-10-11, PR #1636
+Proposed: harvest 2026-10-11

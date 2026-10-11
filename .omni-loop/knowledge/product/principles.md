@@ -719,3 +719,12 @@ Why: An entry nobody has confirmed is not a law yet, and a copied knowledge base
 Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s1-01-require-proof-skips-proposed-and-copies, PRD #1342
 Decided: @pierrederval, 2026-10-10
 Merged: @pierrederval, 2026-10-10, PR #1343
+
+## P-PRODUCT-86
+
+In the arcade games, an endless mode never becomes impossible; every wave a player meets can be passed, however long the run lasts.
+
+Why: A run that grows unbeatable ends unfairly, and a ceiling is the only way a check can prove every wave stays passable.
+Source: .omni-loop/delivery/shipped/1633-omni-duet/outbox/settled.md, entry s4-02-endless-waves-from-chapter-four-rows, PRD #1633
+Merged: @martl-vertuoza, 2026-10-11, PR #1636
+Proposed: harvest 2026-10-11
