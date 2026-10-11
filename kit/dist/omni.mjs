@@ -27854,7 +27854,8 @@ var ConfigSchema = external_exports.object({
   // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
   // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
   // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
-  // drops nothing.
+  // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
+  // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
   design: section({
     enabled: external_exports.boolean().default(false),
     paths: external_exports.array(text2).default([]),
@@ -27864,6 +27865,7 @@ var ConfigSchema = external_exports.object({
       sentence: external_exports.number().int().positive().default(7),
       screen: wordSelector.default("[data-screen]"),
       primary: wordSelector.default("[data-primary]"),
+      content: wordSelector.optional(),
       avoid: external_exports.array(text2).default([])
     })
   }),
@@ -41245,6 +41247,13 @@ function avoidedWords(product2) {
   });
 }
 
+// kit/lib/design/words/content.ts
+init_define_OMNI_BUNDLE();
+var DEFAULT_WORDS_CONTENT = "[data-content]";
+function wordsContent(words4) {
+  return words4.content ?? DEFAULT_WORDS_CONTENT;
+}
+
 // kit/lib/design/words/pass.ts
 init_define_OMNI_BUNDLE();
 
@@ -41404,6 +41413,7 @@ var BLOCK = /* @__PURE__ */ new Set([
   "tr",
   "ul"
 ]);
+var PHRASING = /* @__PURE__ */ new Set(["a", "abbr", "b", "cite", "code", "em", "i", "kbd", "mark", "q", "s", "small", "span", "strong", "sub", "sup", "time", "u", "var"]);
 var CONTROL_ROLES = /* @__PURE__ */ new Set(["button", "link", "menuitem", "tab", "option", "switch", "checkbox", "radio"]);
 var INPUT_CONTROLS = /* @__PURE__ */ new Set(["submit", "button", "reset"]);
 var WORD = /[\p{L}\p{N}]/u;
@@ -41412,12 +41422,18 @@ function countWords(text13) {
 }
 var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
 var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
+var wordsOf = (count4) => `${count4} ${count4 === 1 ? "word" : "words"}`;
 var squash = (text13) => text13.replace(/\s+/g, " ").trim();
-function textOf3(node3) {
+function textOf3(node3, spaced) {
   if (node3.kind === "text") return node3.text;
   if (isHidden(node3)) return "";
   const own2 = node3.tag === "input" ? ` ${node3.attributes.get("value") ?? ""} ` : "";
-  return own2 + node3.children.map(textOf3).join(BLOCK.has(node3.tag) ? " " : "");
+  const block = BLOCK.has(node3.tag);
+  return node3.children.reduce((text13, child, index) => {
+    const before2 = node3.children[index - 1];
+    const apart = block || spaced && before2?.kind === "element" && child.kind === "element";
+    return text13 + (index > 0 && apart ? " " : "") + textOf3(child, spaced);
+  }, own2);
 }
 function phraseOf(text13, control) {
   const squashed = squash(text13);
@@ -41429,26 +41445,38 @@ function flush(walk2) {
   walk2.run = "";
 }
 var skipped2 = (element, walk2, top2) => isHidden(element) || !top2 && matches(walk2.rules.screen, element);
-function visitElement(element, walk2, top2) {
-  if (skipped2(element, walk2, top2)) return;
-  if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element)));
-  flush(walk2);
-  if (isControl(element, walk2.rules.primary)) {
-    walk2.phrases.push(...phraseOf(textOf3(element), true));
-    return;
-  }
-  for (const child of element.children) visit2(child, walk2);
-  flush(walk2);
+var hasRunningText = (element) => element.children.some((child) => child.kind === "text" && WORD.test(child.text));
+var runsOn = (child, running) => running && child.kind === "element" && PHRASING.has(child.tag);
+function readContent2(element, walk2, inline) {
+  if (!inline) flush(walk2);
+  walk2.content += countWords(textOf3(element, true));
 }
-function visit2(node3, walk2) {
+function readControl(element, walk2) {
+  flush(walk2);
+  walk2.phrases.push(...phraseOf(textOf3(element, true), true));
+}
+function visitChildren(element, walk2, inline) {
+  if (!inline) flush(walk2);
+  const running = inline || hasRunningText(element);
+  for (const child of element.children) visit2(child, walk2, runsOn(child, running));
+  if (!inline) flush(walk2);
+}
+function visitElement(element, walk2, top2, inline) {
+  if (skipped2(element, walk2, top2)) return;
+  if (!top2 && matches(walk2.rules.content, element)) return readContent2(element, walk2, inline);
+  if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element, true)));
+  if (isControl(element, walk2.rules.primary)) return readControl(element, walk2);
+  visitChildren(element, walk2, inline);
+}
+function visit2(node3, walk2, inline) {
   if (node3.kind === "text") walk2.run += node3.text;
-  else visitElement(node3, walk2, false);
+  else visitElement(node3, walk2, false, inline);
 }
 function readScreen(screen, rules) {
-  const walk2 = { rules, phrases: [], primaries: [], run: "" };
-  visitElement(screen, walk2, true);
+  const walk2 = { rules, phrases: [], primaries: [], run: "", content: 0 };
+  visitElement(screen, walk2, true, false);
   flush(walk2);
-  return { phrases: walk2.phrases, primaries: walk2.primaries };
+  return { phrases: walk2.phrases, primaries: walk2.primaries, content: walk2.content };
 }
 function screenName(screen, rules, index) {
   const named4 = [...namingAttributes(rules.screen), "id", "aria-label"].map((name3) => screen.attributes.get(name3)?.trim()).find(Boolean);
@@ -41479,11 +41507,12 @@ function screensUnder(node3, rules) {
 function wordPass(html, rules) {
   const marked = screensUnder(parseHtml(html), rules);
   const screens2 = marked.map((screen, index) => {
-    const { phrases, primaries } = readScreen(screen, rules);
+    const { phrases, primaries, content } = readScreen(screen, rules);
     return {
       name: screenName(screen, rules, index),
       phrases,
       words: phrases.reduce((sum, phrase) => sum + phrase.words, 0),
+      content,
       findings: findings(phrases, primaries, rules)
     };
   });
@@ -41493,8 +41522,9 @@ function formatPage(page2, { skipped: skipped3, screens: screens2 }, rules) {
   const lines2 = [page2];
   if (skipped3) lines2.push(`  no screen marked: skipped (${rules.screen.source})`);
   for (const screen of screens2) {
-    lines2.push(`  screen ${screen.name} \xB7 ${screen.words} ${screen.words === 1 ? "word" : "words"}`);
+    lines2.push(`  screen ${screen.name} \xB7 ${wordsOf(screen.words)}`);
     for (const phrase of screen.phrases) lines2.push(`    ${phrase.control ? "[control] " : ""}${phrase.text} (${phrase.words})`);
+    if (screen.content > 0) lines2.push(`    content \xB7 ${wordsOf(screen.content)}`);
     if (screen.findings.length === 0) lines2.push("    findings: none");
     for (const finding of screen.findings) lines2.push(`    ! ${finding.rule}: ${finding.message}`);
   }
@@ -41618,6 +41648,7 @@ function words(io, pages) {
     sentence: config3.words.sentence,
     screen: checked(config3.words.screen),
     primary: checked(config3.words.primary),
+    content: checked(wordsContent(config3.words)),
     avoid: [...fromForm, ...config3.words.avoid.filter((term) => !known2.has(term.toLowerCase()))]
   };
   return pages.flatMap((page2) => {
@@ -43551,7 +43582,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["omni design touched [<base>]", "omni design screens", "omni design words <page.html>\u2026", "omni design gallery [--out <file>]"],
     summary: "whether a branch touches a screen, the screen library, the word pass over a mockup, and the gallery",
-    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. It first drops every changed path a design.ignore glob matches (by default the test shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change made only of tests reads ui: no. Its screens: line names each library screen whose implements the change touches, and as reads <screen> each one it reaches only through its reads, the code behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements (the files it is drawn from), the optional reads list (the code it only depends on), its routes, and an optional kind: page, the default, or shared, structure several pages show (an app shell, notifications, a sign-in page), a screen of its own whose files each page it appears on lists in reads, and any other kind is refused by name; omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, with shared beside a shared screen, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings, two sibling elements always two strings, each control's marked (a button, a link, or any element design.words.primary matches), and its word count, then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no script, no remote asset): each screen with its status, who locked it and when, its routes, and its mockup inline or no mockup, locked screens first, then drafts, then superseded, and the shared screens in a group of their own after the pages. It writes to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; the page is generated each time and never committed. An empty library prints no screen yet and writes nothing, design: off while the flag is off, and gallery exits 0."
+    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. It first drops every changed path a design.ignore glob matches (by default the test shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change made only of tests reads ui: no. Its screens: line names each library screen whose implements the change touches, and as reads <screen> each one it reaches only through its reads, the code behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements (the files it is drawn from), the optional reads list (the code it only depends on), its routes, and an optional kind: page, the default, or shared, structure several pages show (an app shell, notifications, a sign-in page), a screen of its own whose files each page it appears on lists in reads, and any other kind is refused by name; omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, with shared beside a shared screen, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings (two sibling blocks, or a layout of spans with no running text, are two strings, while a phrasing element such as code, em or span inside running text keeps its sentence whole, and inside a control two sibling elements are joined with a space), each control's marked (a button, a link, or any element design.words.primary matches), and its word count; text inside an element design.words.content matches (by default [data-content]) is content the screen shows, not words it wrote: it prints content \xB7 <n> words apart and raises no finding. Then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no script, no remote asset): each screen with its status, who locked it and when, its routes, and its mockup inline or no mockup, locked screens first, then drafts, then superseded, and the shared screens in a group of their own after the pages. It writes to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; the page is generated each time and never committed. An empty library prints no screen yet and writes nothing, design: off while the flag is off, and gallery exits 0."
   },
   {
     name: "e2e",
@@ -50725,7 +50756,7 @@ function fileOf(dir, name3) {
   if (size > PITCH_FILE_MAX_BYTES) refuse2(`${name3}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name3, path, bytes: size, type: PITCH_FILES[name3] };
 }
-function wordsOf(sent) {
+function wordsOf2(sent) {
   const word = (key2) => {
     const value = sent[key2];
     const max = WORD_MAX[key2];
@@ -50744,7 +50775,7 @@ function readPitchRun(dir, prd2) {
   if (!isOneOf(AUDIENCES, audience)) return refuse2(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
   if (!isOneOf(LOOKS, look)) return refuse2(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
   if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse2(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
-  const words4 = wordsOf(sent);
+  const words4 = wordsOf2(sent);
   const files = keysOf(PITCH_FILES).map((name3) => fileOf(dir, name3));
   return { audience, look, commit, ...words4, files };
 }
@@ -50914,7 +50945,7 @@ function syncErrors({ meta: meta3, scenes }) {
   return [{ path: "meta.music.sync.at", message: `${sync2.at} s is past the end of scene ${sync2.scene + 1}, ${scene2.duration} s long` }];
 }
 function sceneWarnings(scene2, index) {
-  const words4 = wordsOf2(scene2, `scenes.${index}`);
+  const words4 = wordsOf3(scene2, `scenes.${index}`);
   const warnings = words4.flatMap(overLimit);
   const count4 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
   if (count4 / READ_WORDS_PER_SECOND > scene2.duration) {
@@ -50947,7 +50978,7 @@ function textsAt(value, path, at2) {
   if (key2 !== "*") return textsAt(propertyOf(value, key2), rest, `${at2}.${key2}`);
   return Array.isArray(value) ? value.flatMap((item2, n) => textsAt(item2, rest, `${at2}.${n}`)) : [];
 }
-function wordsOf2(scene2, at2) {
+function wordsOf3(scene2, at2) {
   return WORD_FIELDS.flatMap(([field2, limit]) => textsAt(scene2, field2.split("."), at2).map((piece) => ({ ...piece, limit })));
 }
 function lengthWarnings(seconds4) {
