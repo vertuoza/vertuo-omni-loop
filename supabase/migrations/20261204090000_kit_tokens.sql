@@ -199,8 +199,8 @@ end;
 $$;
 
 -- Makes a kit token for the caller: the sign-in round trip calls it acting as the fresh session whose
--- sealed refresh token is `p_session`. `p_workspace` is a workspace's slug, or null for the caller's
--- first workspace. Galaxy's server draws the token and sends only its SHA-256 hash and last four.
+-- sealed refresh token is `p_session`. `p_workspace` is a workspace's slug, or null or empty for the
+-- caller's first workspace. Galaxy's server draws the token and sends only its SHA-256 hash and last four.
 create function public.kit_token_make(p_workspace text, p_name text, p_hash text, p_last_four text, p_days integer, p_session text)
 returns jsonb
 language plpgsql
@@ -215,7 +215,7 @@ begin
   if auth.uid() is null then
     raise exception 'Sign in first.' using errcode = '42501';
   end if;
-  if p_workspace is null then
+  if coalesce(btrim(p_workspace), '') = '' then
     select m.workspace_id into ws from public.workspace_members m
      where m.user_id = auth.uid() order by m.joined_at, m.workspace_id limit 1;
   else

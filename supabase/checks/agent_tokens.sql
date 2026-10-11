@@ -394,7 +394,8 @@ begin
   if (made->>'expiresAt')::timestamptz <> now() + interval '30 days' then raise exception 'FAIL: 30 days answered %', made; end if;
   insert into kept values ('kai-b', tok, (made->>'id')::uuid, null);
   tok := 'omk_KaiThirdTokenCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCk003';
-  made := public.kit_token_make('vertuoza', 'cloud', pg_temp.hash(tok), right(tok, 4), 365, 'sealed-kai-3');
+  -- An empty slug is no slug: the first workspace again.
+  made := public.kit_token_make('', 'cloud', pg_temp.hash(tok), right(tok, 4), 365, 'sealed-kai-3');
   if (made->>'expiresAt')::timestamptz <> now() + interval '365 days' then raise exception 'FAIL: 365 days answered %', made; end if;
   insert into kept values ('kai-c', tok, (made->>'id')::uuid, null);
 

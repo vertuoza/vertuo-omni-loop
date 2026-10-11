@@ -7,6 +7,8 @@
 //   POST /api/ask/token {code, repo?}     → {access_token, refresh_token, expires_at, login, workspace,
 //                                            reason?, email?}
 //   POST /api/ask/token {refresh_token}   → the same, renewed
+//   POST /api/ask/token {omni_token, repo?}  → the same with refresh_token null: a kit token traded for
+//                                            a short session of its maker's (PRD 1628, ./kit-token.ts)
 //
 // `repo` (owner/name, the checkout's repo.slug) asks where that repository's calls go (PRD 459):
 // `workspace` is {slug, name}, or null with the database's `reason` (the App's install link after its
@@ -99,6 +101,21 @@ export type CliCallbackDeps = {
 const UNFINISHED = 'That sign-in could not be finished. Start again from this browser.';
 const NOT_HANDED = 'The sign-in could not be handed to the terminal. Run omni signin again.';
 
+/** The provider's answer on the auth callback turned into a fresh session no browser keeps, or the
+ * reason to show on the sign-in page: the provider's own refusal, or that it could not be finished. */
+export async function freshSession(url: URL, exchange: CliCallbackDeps['exchange'], label: string): Promise<{ session: CliSession } | { failed: string }> {
+  const refused = url.searchParams.get('error_description') ?? url.searchParams.get('error');
+  if (refused) return { failed: refused };
+  const code = url.searchParams.get('code');
+  if (!code || !exchange) return { failed: UNFINISHED };
+  const { session, error } = await exchange(code);
+  if (error || !session) {
+    console.error(`${label}: ${error?.message ?? 'no session'}`);
+    return { failed: UNFINISHED };
+  }
+  return { session };
+}
+
 /** Where the ask-cli branch of the auth callback sends the browser: the terminal's loopback address
  * with a fresh one-time code, or back to the sign-in page with the reason it failed. Nothing leaves
  * this site without a valid port and state. */
@@ -107,16 +124,9 @@ export async function cliSignInReturn(url: URL, origin: string, deps: CliCallbac
   if (!signIn) return new URL('/ask/signin', origin).toString();
   const back = (error: string) => new URL(cliSignInPath(signIn, error), origin).toString();
 
-  const refused = url.searchParams.get('error_description') ?? url.searchParams.get('error');
-  if (refused) return back(refused);
-  const googleCode = url.searchParams.get('code');
-  if (!googleCode || !deps.exchange) return back(UNFINISHED);
-
-  const { session, error } = await deps.exchange(googleCode);
-  if (error || !session) {
-    console.error(`ask cli sign-in: ${error?.message ?? 'no session'}`);
-    return back(UNFINISHED);
-  }
+  const fresh = await freshSession(url, deps.exchange, 'ask cli sign-in');
+  if ('failed' in fresh) return back(fresh.failed);
+  const { session } = fresh;
   const end = () => deps.revoke(session).catch(() => {});
   const code = newCode();
   let { error: issueError } = await deps.issue(session, hashCode(code));
@@ -141,9 +151,18 @@ export type TokenClient = CodeRedeemer & {
   auth: { refreshSession(current: { refresh_token: string }): Promise<Refreshed> };
 };
 
+/** A kit token's grant, as the body carried it. */
+export type KitGrant = { omni_token: string; repo: string | null };
+
+/** Trades a kit token (./kit-token.ts), on the client acting as nobody that Auth renews sessions with. */
+export type KitExchange = (given: KitGrant, client: TokenClient, deps: TokenDeps) => Promise<Response>;
+
 export type TokenDeps = {
   /** A client acting as nobody, or null when no database is configured. */
   connect: (() => TokenClient) | null;
+  /** Trades `{omni_token}`; null or absent when this deployment has no key to seal kit tokens' sessions
+   * with (KIT_TOKEN_KEY) or no service role to read them. */
+  kit?: KitExchange | null;
   now?: () => number;
   /** Ends a session handed out by mistake. Best effort. */
   revoke?: (accessToken: string) => Promise<void>;
@@ -157,14 +176,16 @@ export type TokenDeps = {
 /** Where a repository's calls go: a workspace, or why none. */
 export type Placement = { workspace: { slug: string; name: string } | null; reason: string | null };
 
-const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-const refuse = (status: number, error: string) => reply(status, { error });
+/** An answer of the token exchange: never cached. */
+export const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+export const refuse = (status: number, error: string) => reply(status, { error });
 
 const CODE_INVALID = 'This sign-in code is not valid: it was used already, or never issued. Run omni signin again.';
 const CODE_EXPIRED = 'This sign-in code has expired. Run omni signin again.';
 const CODE_ELSEWHERE = 'This sign-in code was issued to another account. Run omni signin again.';
 const REFRESH_REFUSED = 'This sign-in is not valid any more. Run omni signin again.';
-const AUTH_DOWN = 'The sign-in service could not be reached. Try again.';
+export const AUTH_DOWN = 'The sign-in service could not be reached. Try again.';
+const KIT_NOT_SET_UP = 'Kit tokens are not set up here: this deployment has no key to keep them with.';
 
 /** A failure of the Auth server itself (unreachable: status 0, or 5xx), not a verdict on a token. */
 function authDown(error: unknown) {
@@ -172,12 +193,13 @@ function authDown(error: unknown) {
   return typeof status === 'number' && (status === 0 || status >= 500);
 }
 
-const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
+export const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
-type Grant = ({ code: string } | { refresh_token: string }) & { repo: string | null };
+type Grant = ({ code: string } | { refresh_token: string } | { omni_token: string }) & { repo: string | null };
 
-/** `{code}` or `{refresh_token}`, exactly one, maybe with `repo`, or the Response that refuses the body. */
+/** `{code}`, `{refresh_token}` or `{omni_token}`, exactly one, maybe with `repo`, or the Response that
+ * refuses the body. */
 async function grant(request: Request): Promise<Grant | Response> {
   const tooLarge = () => refuse(413, `A call to /api/ask/token carries ${MAX_TOKEN_BODY_BYTES / 1024} KiB at most.`);
   if (Number(request.headers.get('content-length') ?? 0) > MAX_TOKEN_BODY_BYTES) return tooLarge();
@@ -189,18 +211,20 @@ async function grant(request: Request): Promise<Grant | Response> {
   } catch {
     body = null;
   }
-  const wrong = () => refuse(400, 'The body must be {"code": "…"} or {"refresh_token": "…"}, with "repo": "owner/name" if you like.');
+  const wrong = () => refuse(400, 'The body must be {"code": "…"}, {"refresh_token": "…"} or {"omni_token": "…"}, with "repo": "owner/name" if you like.');
   if (!isRecord(body)) return wrong();
-  const { code, refresh_token: refreshToken, repo, ...rest } = body;
-  if (Object.keys(rest).length > 0 || (code === undefined) === (refreshToken === undefined)) return wrong();
+  const { code, refresh_token: refreshToken, omni_token: omniToken, repo, ...rest } = body;
+  const given = [code, refreshToken, omniToken].filter((value) => value !== undefined);
+  if (Object.keys(rest).length > 0 || given.length !== 1) return wrong();
   if (repo !== undefined && (typeof repo !== 'string' || !REPO.test(repo))) return wrong();
   const named = { repo: typeof repo === 'string' ? repo : null };
   if (code !== undefined) return isText(code) ? { code, ...named } : wrong();
+  if (omniToken !== undefined) return isText(omniToken) ? { omni_token: omniToken, ...named } : wrong();
   return isText(refreshToken) ? { refresh_token: refreshToken, ...named } : wrong();
 }
 
 /** The account's GitHub login, as Supabase recorded it from GitHub, or null. */
-function loginOf(user: CliSession['user']): string | null {
+export function loginOf(user: CliSession['user']): string | null {
   const meta = user.user_metadata ?? {};
   const login = meta.user_name ?? meta.preferred_username;
   return isText(login) ? login : null;
@@ -208,7 +232,7 @@ function loginOf(user: CliSession['user']): string | null {
 
 /** Where `repo`'s calls go for this person, never failing the sign-in: nothing is said when it
  * cannot be looked up. */
-async function placement(deps: TokenDeps, userId: string, repo: string | null): Promise<Placement> {
+export async function placement(deps: TokenDeps, userId: string, repo: string | null): Promise<Placement> {
   const none: Placement = { workspace: null, reason: null };
   if (!repo || !deps.place) return none;
   try {
@@ -233,17 +257,31 @@ async function redeem(client: TokenClient, code: string) {
   return { owner, refresh_token: refreshToken, expires_at: Date.parse(expiresAt) };
 }
 
+/** A refresh token renewed by Auth: the new session; `down` when Auth itself failed; or why Auth
+ * refused it. */
+export async function renewSession(client: TokenClient, refreshToken: string): Promise<CliSession | 'down' | `refused: ${string}`> {
+  const { data, error } = await client.auth.refreshSession({ refresh_token: refreshToken });
+  if (authDown(error)) return 'down';
+  const session = data?.session;
+  if (error || !session || !isText(session.access_token) || !isText(session.refresh_token)) {
+    return `refused: ${String(propertyOf(error, 'message') ?? 'no session')}`;
+  }
+  return session;
+}
+
 /** The contract's token exchange: a one-time code or a refresh token in, the account's tokens out,
  * with the GitHub login and where `repo` goes. A sign-in is never refused for where that is.
  * 400 for a body of any other shape, 413 when too large; 401 for a code unknown, used, expired or
  * issued to another account, or a refresh token refused; 503 with no database
- * or Auth down; 500 when the code table fails. */
+ * or Auth down; 500 when the code table fails. A kit token goes to `deps.kit` (./kit-token.ts), and
+ * answers 503 when this deployment cannot trade one. */
 export async function exchangeToken(request: Request, deps: TokenDeps): Promise<Response> {
   const given = await grant(request);
   if (given instanceof Response) return given;
   if (!deps.connect) return refuse(503, 'Ask mode is not available here: this deployment has no database.');
   const client = deps.connect();
   const now = deps.now ?? Date.now;
+  if ('omni_token' in given) return deps.kit ? deps.kit(given, client, deps) : refuse(503, KIT_NOT_SET_UP);
 
   let refreshToken: string;
   let owner: string | null = null;
@@ -264,10 +302,10 @@ export async function exchangeToken(request: Request, deps: TokenDeps): Promise<
     refreshToken = given.refresh_token;
   }
 
-  const { data, error } = await client.auth.refreshSession({ refresh_token: refreshToken });
-  if (authDown(error)) return refuse(503, AUTH_DOWN);
-  const session = data?.session;
-  if (error || !session || !isText(session.access_token) || !isText(session.refresh_token)) return refuse(401, REFRESH_REFUSED);
+  const renewed = await renewSession(client, refreshToken);
+  if (renewed === 'down') return refuse(503, AUTH_DOWN);
+  if (typeof renewed === 'string') return refuse(401, REFRESH_REFUSED);
+  const session = renewed;
   const end = () => deps.revoke?.(session.access_token).catch(() => {});
   if (owner !== null && session.user.id !== owner) {
     await end();

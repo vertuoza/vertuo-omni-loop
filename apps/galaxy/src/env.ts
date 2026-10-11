@@ -109,6 +109,22 @@ const RESEND = envGroup({
   variables: { key: 'RESEND_API_KEY', from: 'RESEND_FROM' },
 });
 
+/** 32 bytes, as base64: an AES-256 key. */
+const KEY_32 = z.string()
+  .regex(/^[A-Za-z0-9+/]+={0,2}$/, 'base64')
+  .transform((value) => Buffer.from(value, 'base64'))
+  .refine((key) => key.length === 32, '32 bytes of base64 (openssl rand -base64 32)');
+
+/**
+ * Kit tokens (PRD 1628): the key that seals each token's Supabase session before it is stored
+ * (AES-256-GCM, `./ask/kit-token-live.ts`). Unset, a token can be neither made nor traded here.
+ */
+const KIT_TOKENS = envGroup({
+  label: 'the kit tokens\' key',
+  schema: z.object({ key: KEY_32 }),
+  variables: { key: 'KIT_TOKEN_KEY' },
+});
+
 /** A build that asks for the demo by name (`OMNI_LOOP_DEMO=1`, ./data/mode.ts). */
 const DEMO = envGroup({
   label: 'the demo',
@@ -130,7 +146,7 @@ const GALAXY = envGroup({
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
   STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND,
-  DEMO, GALAXY,
+  KIT_TOKENS, DEMO, GALAXY,
 ]);
 
 /**
@@ -154,6 +170,7 @@ export function readEnv(raw: EnvSource) {
   const production = source.NODE_ENV === 'production';
   const building = source.NEXT_PHASE === PRODUCTION_BUILD;
   const reader = envReader(source, { production });
+  const secretOf = (group: typeof STAGES_SYNC) => reader.group(group)?.secret ?? null;
   const env = {
     production,
     building,
@@ -163,14 +180,15 @@ export function readEnv(raw: EnvSource) {
     githubAppSlug: reader.group(GITHUB_APP_SLUG)?.slug ?? null,
     githubOAuth: reader.group(GITHUB_OAUTH),
     openrouter: reader.group(OPENROUTER),
-    stagesSyncSecret: reader.group(STAGES_SYNC)?.secret ?? null,
-    stageEventSecret: reader.group(STAGE_EVENT)?.secret ?? null,
-    secretsMasterKey: reader.group(SECRETS_MASTER)?.secret ?? null,
-    constituentJudgeSecret: reader.group(CONSTITUENT_JUDGE)?.secret ?? null,
-    lawJudgeSecret: reader.group(LAW_JUDGE)?.secret ?? null,
-    businessRecheckSecret: reader.group(BUSINESS_RECHECK)?.secret ?? null,
+    stagesSyncSecret: secretOf(STAGES_SYNC),
+    stageEventSecret: secretOf(STAGE_EVENT),
+    secretsMasterKey: secretOf(SECRETS_MASTER),
+    constituentJudgeSecret: secretOf(CONSTITUENT_JUDGE),
+    lawJudgeSecret: secretOf(LAW_JUDGE),
+    businessRecheckSecret: secretOf(BUSINESS_RECHECK),
     webPush: reader.group(WEB_PUSH),
     resend: reader.group(RESEND),
+    kitTokenKey: reader.group(KIT_TOKENS)?.key ?? null,
     demo: reader.group(DEMO)?.flag ?? null,
     galaxyUrl: reader.group(GALAXY)?.url ?? null,
   };
