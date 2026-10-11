@@ -25,7 +25,7 @@ Merged: @pierrederval, 2026-09-25, PR #9
 The outbox gate reads its settings from the base branch, so a pull request can never change the rules it is judged by, such as the override label. From the pull request's head it reads only what is judged: the delivery folder, and the knowledge folder as data compared with the base's, so a law that loses its test is seen (PRD 1342).
 
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s1-01-evaluate-reads-two-snapshots, PRD #28
-Enforced by: pending #1540
+Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
