@@ -9,7 +9,9 @@
 // server. It runs before a context exists, like `omni approval`, so that a test can hand it `tokens`,
 // `home`, `fetch` and `callMs`; it loads the context itself.
 //
-// PRD 1548, slice s6: the gate reads the PRD's outbox through its outbox store.
+// PRD 1548, slice s6: the gate reads the PRD's outbox through its outbox store. Slice s7: `omni status
+// <key>-<n>` is a product PRD's gate, read from its rows on the Omni page; while the server cannot be
+// reached it holds, exit 1, with the held line.
 import { appendFileSync } from 'node:fs';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
@@ -17,12 +19,14 @@ import { gateApproval } from '../../lib/delivery/prd.ts';
 import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
 import { formatReport } from '../../lib/outbox/status.ts';
+import { serverFailure } from '../../lib/outbox/server-store.ts';
 import { outboxStore } from '../../lib/outbox/stores.ts';
+import type { OutboxSignIn } from '../../lib/outbox/stores.ts';
 import { baseNames, fetchRemote, readFacts } from '../../lib/status/facts.ts';
 import { formatOverview } from '../../lib/status/format.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
 import { serverPrds } from '../../lib/status/server.ts';
-import { errorMessage, list, parseArgs, prdArg, println, usageError } from '../args.ts';
+import { errorMessage, list, parseArgs, prdIdArg, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo, Out, Vars } from '../io.ts';
 
 const USAGE = 'usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]';
@@ -45,8 +49,8 @@ async function overview({ ctx, stdout, exec, fetch, gate }: { ctx: Context; stdo
 }
 
 /** The outbox gate of PRD `prd`: exit 0 green, 1 red. */
-async function outboxGate({ number, labels: named, base }: { number: string | undefined; labels: string | undefined; base: string | null }, { ctx, stdout, exec, vars }: { ctx: Context; stdout: Out; exec: Exec; vars: Vars }): Promise<number> {
-  const prd = prdArg('status', '<prd>', number);
+async function outboxGate({ number, labels: named, base }: { number: string | undefined; labels: string | undefined; base: string | null }, { ctx, stdout, stderr, exec, vars, gate }: { ctx: Context; stdout: Out; stderr: Out; exec: Exec; vars: Vars; gate: OutboxSignIn }): Promise<number> {
+  const prd = prdIdArg('status', '<prd>', number);
   const labels = list(named);
 
   let changes = null;
@@ -60,7 +64,8 @@ async function outboxGate({ number, labels: named, base }: { number: string | un
     // The knowledge folder at the range's base grades law-demoted (PRD 1342).
     knowledge = baseKnowledge({ ctx, base, exec });
   }
-  const result = await outboxStore(ctx).gate(prd, { labels, changes, base: knowledge });
+  const result = await outboxStore(ctx, prd, gate).gate(prd, { labels, changes, base: knowledge }).catch((error: unknown) => serverFailure('status', error, stderr));
+  if (typeof result === 'number') return result;
   const report = formatReport(prd, result);
   println(stdout, report);
 
@@ -81,13 +86,13 @@ async function outboxGate({ number, labels: named, base }: { number: string | un
 
 export const status = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, exec, vars, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & GateOptions) {
+  async run(args: string[], { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now }: FreeIo & GateOptions & { now?: () => number }) {
     const { positional, flags } = parseArgs('status', args, { values: ['labels', 'base'], booleans: ['changes', 'fetch'] });
     const gateFlags = flags.labels !== undefined || flags.base !== undefined || flags.changes === true;
     const ctx = loadContext(cwd, { exec });
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens, home, fetch, callMs } });
     if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
-    return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, exec, vars });
+    return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, stderr, exec, vars, gate: { tokens, home, fetch, callMs, now } });
   },
 } satisfies FreeCommand;

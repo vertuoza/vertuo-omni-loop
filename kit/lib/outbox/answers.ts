@@ -21,7 +21,7 @@ import type { OutboxItem, OutboxOption } from '../types.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 import { parseItem } from './settle.ts';
 import { plainText } from './plain-text.ts';
-import type { OutboxItemId, PrdNumber } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, ProductPrdId } from '../ids.ts';
 
 /** The longest a reason or a prose answer may be, once made one line. */
 export const REASON_MAX_LENGTH = 500;
@@ -137,7 +137,7 @@ export function writeReply({
   questions,
   picks,
 }: {
-  prd: PrdNumber;
+  prd: PrdNumber | ProductPrdId;
   door: Door;
   questions: readonly ReplyQuestion[] | null | undefined;
   picks: unknown;

@@ -1,10 +1,10 @@
 // Every `omni` subcommand, by name. Each is `{ run(args, { ctx, stdout, stderr, exec, env }) → exit code }`;
-// one marked `withoutContext` (approval, wait, init, ask, heartbeat, signin, signout, whoami, dossier, idea, loop, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product)
+// one marked `withoutContext` (approval, wait, init, ask, heartbeat, signin, signout, whoami, dossier, idea, loop, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product, status, prd, item, adopt, settle, answers)
 // gets `{ cwd, stdout, stderr, exec, env }` instead, plus whatever a caller injects (init's `stdin`, `bundle`
 // and `ask`; ask's `stdin`, `tokens` and `limits`; heartbeat's `stdin`, `tokens`, `fetch` and `now`; signin's `home`, `openBrowser`, `fetch` and `waitMs`;
 // signout's and whoami's `home`; dossier's and loop's `tokens`, `home`, `fetch`, `callMs` and `now`; idea's and proof's `tokens`, `home`, `fetch` and `callMs`;
 // pitch's `tokens`, `home`, `fetch`, `callMs`, `now`, `launch`, `openBrowser` and `studioUntil`;
-// business's, decide's, approval's and product's `tokens`, `home`, `fetch` and `callMs`; wait's `tokens`, `home`, `fetch`, `callMs`, `sleep`, `now`, `idleMs` and `deadline`; constituents' `tokens`, `home`, `fetch`, `now` and `budgetMs`;
+// business's, decide's, approval's, product's and status's `tokens`, `home`, `fetch` and `callMs`; item's, adopt's, settle's and answers' `tokens`, `home`, `fetch`, `callMs` and `now`; wait's `tokens`, `home`, `fetch`, `callMs`, `sleep`, `now`, `idleMs` and `deadline`; constituents' `tokens`, `home`, `fetch`, `now` and `budgetMs`;
 // version's `kit`; update's `kit` and `bundle`; statusline's `stdin`, `now`, `readFacts` and `spawn`; now's `stdin` and `now`).
 import type { Command, FreeCommand } from '../io.ts';
 import { adopt } from './adopt.ts';
