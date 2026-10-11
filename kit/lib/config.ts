@@ -229,6 +229,9 @@ export const ConfigSchema = z
       outboxContext: text.default('outbox'),
       // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
       inboxContext: text.default('inbox'),
+      // PRD 1548: the name of the check run the omni-loop App posts on a target feature PR of a product
+      // PRD, saying whether what it builds is what was approved; `null` posts none.
+      approvedContext: nullableText.default('omni/approved'),
       aggregateCheck: nullableText.default(null),
       branchProtection: z.boolean().default(false),
       runner: text.default('ubuntu-latest'),
