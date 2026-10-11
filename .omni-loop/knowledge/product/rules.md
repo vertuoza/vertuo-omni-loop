@@ -94,7 +94,7 @@ A form section holding repository text beside TODO(human) lines reads as text: t
 
 Serves: P-PRODUCT-8
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s1-02-section-with-text-and-open-questions, PRD #45
-Enforced by: pending #1471
+Enforced by: kit/lib/playbook/resolve.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -105,7 +105,7 @@ Invade rewrites a knowledge-page section only when it is empty, holds nothing bu
 
 Serves: P-PRODUCT-9
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-03-terraform-treats-an-unmarked-section-as-a-persons, PRD #45
-Enforced by: pending #1472
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -116,7 +116,7 @@ Invade marks a form state: filled with invaded: <today> when any section holds t
 
 Serves: P-PRODUCT-10
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-05-terraform-marks-a-form-holding-only-questions-filled, PRD #45
-Enforced by: pending #1473
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
@@ -160,7 +160,7 @@ omni ask on opens no session and closes none, so switching it on in one terminal
 
 Serves: P-PRODUCT-14
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s5-02-switching-when-the-page-is-away, PRD #71
-Enforced by: pending #1477
+Enforced by: kit/bin/ask.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -226,7 +226,7 @@ In retro prose, a backtick span is set aside only when it holds a letter and app
 
 Serves: P-PRODUCT-19
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s6-03-what-the-guard-counts-as-copied, PRD #72
-Enforced by: pending #1483
+Enforced by: apps/omni-app/src/retro/guard.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
@@ -259,7 +259,7 @@ When any gh search for omni credits fails, the run prints one line and exits 2 w
 
 Serves: P-PRODUCT-22
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s3-02-credits-other-github-failures, PRD #99
-Enforced by: pending #1485
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
@@ -281,7 +281,7 @@ With signing off, omni credits prints PRD issues as a bare count and omits the a
 
 Serves: P-PRODUCT-24
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-03-credits-lines-not-looked-for, PRD #99
-Enforced by: pending #1487
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
@@ -446,7 +446,7 @@ The share list and the already-answered note name each workspace member by their
 
 Serves: P-PRODUCT-38
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
-Enforced by: pending #1502
+Enforced by: apps/galaxy/src/ask/members-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -810,7 +810,7 @@ Parking a PRD records who it waits on and the loop keeps running; a later round 
 
 Serves: P-PRODUCT-65
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
-Enforced by: pending #1535
+Enforced by: apps/galaxy/src/loop/migration.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
@@ -832,7 +832,7 @@ omni loop push counts as off, printing off and exiting 1, only when ask.url is n
 
 Serves: P-PRODUCT-67
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
-Enforced by: pending #1537
+Enforced by: kit/bin/loop.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142

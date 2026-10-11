@@ -224,3 +224,28 @@ describe('law BR-PRODUCT-8 — a kit default never shows a guessed config value'
     ]);
   });
 });
+
+// Law BR-PRODUCT-9 (.omni-loop/knowledge/product/rules.md, #1471).
+describe('law BR-PRODUCT-9 — a section with text beside TODO(human) lines reads as text', () => {
+  it('law BR-PRODUCT-9: shows the text as written, labelled [repo], lists each TODO(human) question, and reads an HTML-comment-only section as empty', () => {
+    const body = 'Fixtures live under `test/fixtures/`.\nTODO(human): is there a naming rule for fixture repositories?\n- TODO(human): who owns the seed data?';
+    const result = resolved({
+      [FILE]: repoForm([
+        { id: 'data', body },
+        { id: 'levels', body: '<!-- say how to choose the level -->\n<!-- another note -->' },
+      ]),
+    });
+    expect(section(result, 'data')).toMatchObject({
+      source: 'repo',
+      label: '[repo]',
+      text: body,
+      questions: ['is there a naming rule for fixture repositories?', 'who owns the seed data?'],
+    });
+    expect(section(result, 'levels')).toMatchObject({
+      source: 'kit',
+      label: '[kit default]',
+      text: 'Start from the behaviour or risk the change creates.',
+      questions: [],
+    });
+  });
+});

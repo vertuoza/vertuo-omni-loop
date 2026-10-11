@@ -224,6 +224,27 @@ describe('guard — an id, a link, a length, a word', () => {
     }
   });
 
+  // Law BR-PRODUCT-21 (.omni-loop/knowledge/product/rules.md, #1483).
+  it('law BR-PRODUCT-21: sets aside only a backtick span with a letter copied verbatim from the evidence or a finding id, passes only evidence links, and replaces a refused field by a fixed reason line', () => {
+    const titleOf = (text: string) => guard({ reply: withTitle(text), sheet }).prose.findings['repeated-red:e2e']?.title;
+    // Set aside: a span holding a letter, verbatim in the evidence; a finding id; an evidence URL.
+    for (const text of ['The test `test/cart.spec.ts > adds 2 items` failed', 'Worse than `slow-slice:s3` shows', `See ${RUN_7001} for the log`]) {
+      expect(titleOf(text), text).toBe(text);
+    }
+    // Not set aside: a span the evidence does not hold, a span with no letter, a link that is not evidence.
+    const refused = [
+      { text: 'The test `adds 3 items` failed', reason: DROPPED.digit, words: 'adds 3 items' },
+      { text: 'Run `7001` failed', reason: DROPPED.digit, words: '7001' },
+      { text: 'See https://example.com/ci/log for the log', reason: DROPPED.foreignLink, words: 'example.com' },
+    ];
+    for (const { text, reason, words } of refused) {
+      const title = titleOf(text);
+      expect(title, text).toEqual({ dropped: reason });
+      expect(Object.values(DROPPED), text).toContain((title as { dropped: string }).dropped);
+      expect(JSON.stringify(title), text).not.toContain(words);
+    }
+  });
+
   it('never repeats the refused words or text in a reason', () => {
     for (const reason of Object.values(DROPPED)) {
       expect(reason).not.toMatch(/\d/);
