@@ -193,7 +193,7 @@ Retro churn counts only commits of pull requests merged into the feature branch,
 
 Serves: P-PRODUCT-17
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s4-01-churn-counts-merged-work, PRD #72
-Enforced by: pending #1480
+Enforced by: apps/omni-app/src/retro/kinds/churn.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75

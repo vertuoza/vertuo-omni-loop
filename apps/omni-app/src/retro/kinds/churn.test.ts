@@ -278,6 +278,27 @@ describe('churn — detect', () => {
   });
 });
 
+describe('churn — the law', () => {
+  // Law BR-PRODUCT-18 (.omni-loop/knowledge/product/rules.md, #1480).
+  it('law BR-PRODUCT-18: counts only commits of merged pull requests, in merge order, skipping merge commits; a range is churned at 3 commits, its first writing included', async () => {
+    const { stub, records, facts } = await run();
+    const reads = stub.state.requests;
+    // Only the merged sub-PRs are read: #16, closed without merging, is never walked, only named.
+    expect(reads.filter((r) => r.route === LIST_COMMITS).map((r) => r.pull_number)).toEqual([13, 14, 15]);
+    expect(facts.notCounted).toEqual([16]);
+    // The merge commit m1 is skipped.
+    expect(reads.filter((r) => r.route === GET_COMMIT && r.ref === sha('m1'))).toEqual([]);
+    expect(records.pulls.flatMap((pull) => (pull.commits ?? []).map((commit) => commit.sha))).not.toContain(sha('m1'));
+    // Lines 8-11 of colour.js were written by c1 (its first writing), then c2 and c4: three commits, churned.
+    // The lines of at.js, written in c5 and rewritten in c6 (two commits), are not.
+    const churned = [{ path: 'src/store/colour.js', from: 8, to: 11, commits: [short('c1'), short('c2'), short('c4')], slices: ['s1', 's2'] }];
+    expect(facts.ranges).toEqual(churned);
+    // The walk follows merge order, whatever order the records list the pull requests in.
+    const listedBackwards = { ...records, pulls: [...records.pulls].reverse() };
+    expect(detect(listedBackwards, { pr, prd, config, pulls: [] }).facts.ranges).toEqual(churned);
+  });
+});
+
 describe('churn — its section', () => {
   it('adds up the delivery and names what it left out, what it counted by totals and what it did not count', async () => {
     const { facts } = await run();
