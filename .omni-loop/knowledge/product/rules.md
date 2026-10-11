@@ -799,7 +799,7 @@ A loop that has not yet said when it will wake next reads live until one hour af
 
 Serves: P-PRODUCT-2
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
-Enforced by: pending #1534
+Enforced by: apps/galaxy/src/loop/api.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
