@@ -40,7 +40,7 @@ function Pins({ attestation }: { attestation: Attestation }) {
             {pins.map((pin) => (
               <li key={pin.path}>
                 <span className="attestation-mark" data-mark={MARKS[pin.mark]} aria-label={MARKS[pin.mark]}>{pin.mark}</span>
-                <span className="attestation-path">{pin.path}</span>
+                <span className="attestation-path" title={pin.path}>{pin.path.slice(pin.path.lastIndexOf('/') + 1)}</span>
                 <small>{pin.now ? `${pin.pinned ?? '?'} → ${pin.now}` : pin.pinned ?? '?'}{pin.how ? ` · ${pin.how}` : ''}</small>
               </li>
             ))}
