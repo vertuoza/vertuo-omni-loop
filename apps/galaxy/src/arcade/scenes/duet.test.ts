@@ -9,7 +9,7 @@ import { allowed } from '../onboarding';
 import type { Session } from '../types';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
-  duetPress, loadDuet, NOT_LOADED, PAGES, playfield, readyLine, sameDuetHud, TALL_SCENES, type ArcadeDuet, type DuetGame, type DuetHud, type DuetStatus,
+  duetPress, loadDuet, NOT_LOADED, PAGES, playfield, readyLine, readyParts, sameDuetHud, TALL_SCENES, type ArcadeDuet, type DuetGame, type DuetHud, type DuetStatus,
 } from './duet.ts';
 import { DuetOverlay } from './duet.tsx';
 import { duetDrawOf, loadedDuet, pressedDuet } from './duet.live';
@@ -73,6 +73,12 @@ describe('the duet text layer', () => {
     expect(readyLine(READY)).toBe('CHAPTER I · DRIFT · LIVES ×3 · PRESS START');
     expect(text('ready')).toBe('CHAPTER I · DRIFT · LIVES ×3 · PRESS START B GAME ROOM');
     expect(text('ready', TALL, 'handheld')).toBe('CHAPTER I · DRIFT · LIVES ×3 · PRESS START B GAME ROOM');
+  });
+
+  it('breaks the ready line between the chapter and the call, never inside either', () => {
+    expect(readyParts(READY)).toEqual(['CHAPTER I · DRIFT ·', 'LIVES ×3 · PRESS START']);
+    const markup = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(DuetOverlay, { status: 'ready', hud: READY })));
+    expect(markup).toContain('<span class="dt-half">CHAPTER I · DRIFT ·</span> <span class="dt-half">LIVES ×3 · PRESS START</span>');
   });
 
   it('says the chapter and the lives left on the ready screen', () => {

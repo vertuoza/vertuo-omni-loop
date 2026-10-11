@@ -60,9 +60,14 @@ export const NOT_LOADED = 'GAME DID NOT LOAD · A TO RETRY';
 /** The line while the game's code is on its way. */
 export const LOADING_LINE = 'LOADING…';
 
+/** A ready screen's line in its two halves, the chapter and then the lives and the call: the screen breaks it between them, never inside one. */
+export function readyParts(hud: DuetHud): readonly [string, string] {
+  return [`CHAPTER ${hud.chapter.numeral} · ${hud.chapter.name} ·`, `LIVES ×${hud.lives} · PRESS START`];
+}
+
 /** What a ready screen says: the chapter, the lives left and what starts play. */
 export function readyLine(hud: DuetHud): string {
-  return `CHAPTER ${hud.chapter.numeral} · ${hud.chapter.name} · LIVES ×${hud.lives} · PRESS START`;
+  return readyParts(hud).join(' ');
 }
 
 /** The game, loaded: what `import('arcade/duet/index')` gives. */

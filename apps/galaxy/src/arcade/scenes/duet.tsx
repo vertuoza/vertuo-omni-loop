@@ -4,7 +4,7 @@
 // started the playfield is left clear; later slices add the HUD, the banners, the pause and the game
 // over screen. Laid out for the grid the game is drawn on (duet.css).
 import { Hint } from '../hint';
-import { LOADING_LINE, NOT_LOADED, readyLine, type DuetHud, type DuetStatus } from './duet.ts';
+import { LOADING_LINE, NOT_LOADED, readyParts, type DuetHud, type DuetStatus } from './duet.ts';
 import './common.css';
 import './invaders.css';
 import './duet.css';
@@ -29,10 +29,11 @@ export function DuetOverlay({ status, hud = null, back = 'GAME ROOM' }: {
 }) {
   if (status !== 'ready' || !hud) return <Notice line={status === 'failed' ? NOT_LOADED : LOADING_LINE} back={back} />;
   if (hud.phase !== 'ready') return null;
+  const [chapter, call] = readyParts(hud);
   return (
     <div className="dt">
       <div className="j-panel dt-panel">
-        <p className="inv-title">{readyLine(hud)}</p>
+        <p className="inv-title"><span className="dt-half">{chapter}</span> <span className="dt-half">{call}</span></p>
         <p className="hint"><Hint k="B">{back}</Hint></p>
       </div>
     </div>
