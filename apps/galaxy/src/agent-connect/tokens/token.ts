@@ -21,7 +21,8 @@ export type RandomFill = (bytes: Uint8Array) => Uint8Array;
 
 const fillRandom: RandomFill = (bytes) => globalThis.crypto.getRandomValues(bytes);
 
-function base64url(bytes: Uint8Array): string {
+/** `bytes` in base64url, unpadded: a token's random part (here, and a kit token drawn by the demo). */
+export function base64url(bytes: Uint8Array): string {
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

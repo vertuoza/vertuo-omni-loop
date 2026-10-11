@@ -70,6 +70,7 @@
   .shown .hint { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
   .shown .hint code { font-family: var(--mono); color: var(--ink); }
   .ghost { color: var(--muted); font-size: 15px; border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 22px; }
+  .rows .confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -90,7 +91,7 @@
             <ul class="rows">
               <li><span class="name">claude-cloud <span class="four">··9fKa</span></span>
                 <span class="meta"><span>Made 11 Oct</span> · <span>Used 2 min ago</span> · <span>Expires 9 Jan</span></span>
-                <button class="quiet" type="button">Revoke</button></li>
+                <span class="confirm">Revoke ··9fKa? <button class="quiet" type="button">Revoke</button> <button class="quiet" type="button">Keep</button></span></li>
               <li><span class="name">ci-laptop <span class="four">··Lm2Q</span></span>
                 <span class="meta"><span>Made 2 Sep</span> · <span>Never used</span> · <span>Expires 1 Dec</span></span>
                 <button class="quiet" type="button">Revoke</button></li>
@@ -101,7 +102,7 @@
               <button class="primary" type="button" data-primary>Make a token</button>
             </div>
             <div class="shown">
-              <p><b>claude-cloud</b> · shown once</p>
+              <p><b>claude-cloud</b> · shown once · Expires 9 Jan</p>
               <div class="copy"><code>omk_Q3vXc8yR1pTz0bWnE4kJ7uHs2aDfGh6iLo5mN9fKa</code><button class="quiet" type="button">Copy</button></div>
               <p class="hint">Paste as <code>OMNI_TOKEN=</code> in your environment.</p>
             </div>
