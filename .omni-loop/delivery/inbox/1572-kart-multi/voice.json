@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-11",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A hub test races four players in one process and an ORB from one spins another out on both screens: the netcode I feared is something I can run. Arrival order still trusts each browser's clock.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "One migration of policies and a function, and its check is now a step of the supabase job. It was proven only on a stand-in database and the types were edited by hand, so I read that first real run before I merge.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "SINGLE is untouched, MULTI sits on the same ready screen, and a MULTI time lands on the crew table: the release note says it in two sentences anyone reads.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Six slices, one fix in a wave, the send rate and the four places still two constants, and the three trade-offs adopted in the open. A race between real browsers on the preview is what is left to see.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Scope held: no rooms, no CPU karts in MULTI, SINGLE unchanged. Colleagues can race each other the day it merges.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
     }
   ]
 }
