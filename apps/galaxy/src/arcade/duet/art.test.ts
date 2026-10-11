@@ -17,7 +17,7 @@ function recorder() {
   const ctx = new Proxy(state, {
     get(target, prop) {
       if (prop in target) return target[prop];
-      if (prop === 'translate' || prop === 'rotate' || prop === 'scale' || prop === 'setTransform') return () => { moves.push(String(prop)); };
+      if (prop === 'translate' || prop === 'rotate' || prop === 'scale' || prop === 'setTransform') return () => { moves.push(prop); };
       return () => {};
     },
     set(target, prop, value) {
