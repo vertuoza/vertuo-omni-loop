@@ -810,7 +810,7 @@ Parking a PRD records who it waits on and the loop keeps running; a later round 
 
 Serves: P-PRODUCT-65
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
-Enforced by: pending #1535
+Enforced by: apps/galaxy/src/loop/migration.test.ts
 Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1142
