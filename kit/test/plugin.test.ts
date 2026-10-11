@@ -648,6 +648,23 @@ describe('the release note in the skills that ship', () => {
     for (const mention of NOTE) expect(step.slice(red), `the red gate names ${mention}`).not.toContain(mention);
   });
 
+  // Law BR-PRODUCT-5 (.omni-loop/knowledge/product/rules.md, #1467).
+  it('law BR-PRODUCT-5: the feature PR stays draft with every open question posted, and is marked ready only after ship, commit and push', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    expect(red, 'the red gate').toBeGreaterThan(-1);
+    const green = step.slice(0, red);
+    const gateRed = step.slice(red);
+    // Whatever the gate reads, the open questions are posted on the feature PR first.
+    expectInOrder(step, ['omni.mjs comment --prd <prd> --pr <feature PR>', '**Gate green**']);
+    // Red: the PR stays a draft, nothing ships, nothing marks it ready.
+    expect(gateRed).toMatch(/Leave the feature PR in \*\*draft\*\*; do not ship\./);
+    expect(gateRed).toMatch(/holds every open\s+question/);
+    expect(gateRed).not.toMatch(/\bgh pr ready\b/);
+    // Green: shipped, committed, pushed, and only then marked ready.
+    expectInOrder(green, ['omni.mjs ship <prd>', 'chore(delivery): ship PRD <prd>', 'git push <remote> HEAD:<feature branch>', 'Only now, `gh pr ready <feature PR>`']);
+  });
+
   it('/omni:yolo resumes a shipped draft at the item that marks it ready', () => {
     const yolo = read('yolo');
     const [, item] = /go to step 5, green path,\s+item (\d+)/.exec(yolo) ?? [];

@@ -50,7 +50,7 @@ A feature pull request stays a draft while any question is open, with each open 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s9-01-gate-red-stays-draft, PRD #7
-Enforced by: pending #1467
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
