@@ -34,7 +34,13 @@ function inOrder(text: string, mentions: string[]) {
   });
 }
 
-const RULE = 'a file whose change can change what a person sees on this screen goes in `implements`; a file the screen only depends on goes in `reads`.';
+/** The rule that splits a screen's two lists, in its four lines (PRD 1584): each screen-writing skill states every one. */
+const RULE_LINES = [
+  'A file whose change can change what a person sees on this screen goes in `implements`, the data files that hold its words included.',
+  'A file the screen only depends on goes in `reads`.',
+  'Structure several pages share is a shared screen of its own (`kind: shared`); each page lists its files in `reads`.',
+  'A view file two pages share, and that is not structure, goes in `reads` on each.',
+];
 const MOCK = 'pixel-perfect/mock.md';
 
 describe('/omni:pixel-perfect mock (PRD 1550)', () => {
@@ -109,11 +115,12 @@ describe('the drawing skills keep the explanation outside every marked screen (P
   }
 });
 
-describe('every screen-writing skill states the implements/reads rule (PRD 1550)', () => {
-  const WRITERS = ['visual-fix/SKILL.md', 'brainstorm/SKILL.md', 'think-big/SKILL.md', 'invade/SKILL.md', 'pixel-perfect/reference/lock.md', MOCK];
+const WRITERS = ['visual-fix/SKILL.md', 'brainstorm/SKILL.md', 'think-big/SKILL.md', 'invade/SKILL.md', 'pixel-perfect/reference/lock.md', MOCK];
+
+describe('every screen-writing skill states the implements/reads rule (PRD 1550, its four lines PRD 1584)', () => {
   for (const path of WRITERS) {
-    it(`${path} states the rule`, () => {
-      expect(read(path)).toContain(RULE);
+    it(`${path} states the rule's four lines, in order`, () => {
+      expect(inOrder(read(path), RULE_LINES)).toEqual([]);
     });
   }
 
@@ -140,6 +147,152 @@ describe('the porting notes record the slice (PRD 1550)', () => {
   for (const note of ['plugin--pixel-perfect.md', 'plugin--brainstorm.md', 'plugin--do-work.md']) {
     it(note, () => {
       expect(readFileSync(new URL(note, PORTING), 'utf8')).toContain('PRD #1550, slice s4');
+    });
+  }
+});
+
+// PRD 1584, s3: design memory, round 3 in the skills — only what a change touches holds it, a fault
+// seen in an untouched part goes under `Seen, not touched`, a shared screen is a screen of its own,
+// the mock skill's **Standing in**, and the before/after's Functional and Pixel perfect parts.
+
+describe('review: only what the work touches can hold it (PRD 1584)', () => {
+  const REVIEW = 'pixel-perfect/reference/review.md';
+
+  it("a lock trips only on a change to the screen's own implements", () => {
+    const touched = section(REVIEW, 'Only what the work touches');
+    expect(touched).toMatch(/A lock trips only when the diff changes that screen's own `implements`/);
+    expect(touched).toMatch(/never trips a page's lock/);
+  });
+
+  it('a fault in an untouched part goes under Seen, not touched: never against the work, never fixed, never an item, never a block, suggested as a bug', () => {
+    const seen = section(REVIEW, 'Seen, not touched');
+    expect(seen).not.toBe('');
+    for (const rule of ['never a finding against the work', 'never fixed in the work', 'never an outbox item', 'never a block', 'names the screen it sits on', 'a bug of its own']) {
+      expect(seen, rule).toContain(rule);
+    }
+    expect(seen).toMatch(/another screen's `implements`/);
+    expect(seen).toMatch(/a shared screen the diff did not touch/);
+  });
+
+  it('reports Seen, not touched under its own heading, apart from the findings', () => {
+    const report = section(REVIEW, 'What it reports');
+    expect(report).toContain('### Seen, not touched');
+    expect(report).toMatch(/apart from the work's findings/);
+  });
+
+  it('screenshots a touched shared screen in place, on one page it appears on, as well as on its own', () => {
+    expect(section(REVIEW, 'Steps')).toMatch(
+      /A shared screen \(`kind: shared`\) the work touched is screenshotted \*\*in place\*\*: on one page it appears on, as well as on its own/,
+    );
+  });
+});
+
+describe('lock and do-work write the touched-only rule down (PRD 1584)', () => {
+  it('lock: a locked shared screen holds only a change to its own implements', () => {
+    const text = read('pixel-perfect/reference/lock.md');
+    expect(text).toMatch(/A lock trips only when a change touches that screen's own `implements`/);
+    expect(text).toMatch(/locking a shared screen guards it alone/);
+  });
+
+  it("do-work: a lock trips only on the screen's own implements, and Seen, not touched is never an item of the slice", () => {
+    const text = skill('do-work');
+    expect(text).toMatch(/A lock trips only when the slice's diff changes that screen's own `implements`/);
+    expect(text).toMatch(/`Seen, not touched`[^.]*never an outbox item of this slice/);
+  });
+
+  it('do-work runs no pixel-perfect work for a PRD whose before/after says Pixel perfect: no screen changes', () => {
+    const review = section('do-work/SKILL.md', '4.');
+    expect(review).toContain('`Pixel perfect: no screen changes`');
+    expect(review).toMatch(/runs no pixel-perfect work/);
+    expect(review).toContain('`— Design review: no screen changes (Pixel perfect: no screen changes)`');
+  });
+});
+
+describe('the mock skill stands in for what a mockup cannot carry (PRD 1584)', () => {
+  const standing = () => section(MOCK, 'Standing in');
+
+  it('has a Standing in section with its six rules, in order', () => {
+    expect(
+      inOrder(standing(), ['**Fonts:**', '**Pixel art and images:**', '**Example data:**', '**No screenshot:**', '**No gallery yet:**', '**An undecided primary action:**']),
+    ).toEqual([]);
+  });
+
+  it('names the product faces first and never loads a font; an image is a labelled inline SVG at its real size', () => {
+    expect(standing()).toMatch(/product's faces first in each `font-family`[^.]*never load a font/);
+    expect(standing()).toMatch(/inline SVG placeholder at the image's real size, labelled with what it stands for/);
+  });
+
+  it('example data is allowed and expected, realistic, from the demo data, inside data-content, said outside the mark', () => {
+    const text = standing();
+    for (const rule of ['allowed, and expected for a screen that shows data', 'demo data or fixtures', 'realistic', '`data-content`', 'outside the marked screen']) {
+      expect(text, rule).toContain(rule);
+    }
+  });
+
+  it('no screenshot, no gallery, and an undecided primary action', () => {
+    const text = standing();
+    expect(text).toMatch(/\*\*No screenshot:\*\* draw from the source and say so outside the mark/);
+    expect(text).toMatch(/\*\*No gallery yet:\*\* open the `\.html` file directly/);
+    expect(text).toMatch(
+      /mark the one the screen's own words point to, say so outside the mark, and keep the question in the screen's \*\*Open questions\*\*/,
+    );
+  });
+
+  it('the steps point at Standing in', () => {
+    expect(section(MOCK, 'Steps')).toContain('**Standing in**');
+  });
+});
+
+describe('the screen-writing skills know kind: shared (PRD 1584)', () => {
+  for (const path of WRITERS) {
+    it(`${path} names kind: shared`, () => {
+      expect(read(path)).toContain('`kind: shared`');
+    });
+  }
+
+  it("each draft screen's front matter carries kind before implements", () => {
+    for (const name of ['visual-fix', 'brainstorm', 'think-big', 'invade']) {
+      expect(skill(name), name).toMatch(/status: draft [^\n]*?kind: <[^>]*shared[^>]*> [^\n]*?implements: \[/);
+    }
+  });
+
+  it('a shared screen names the pages it appears on in routes when it has none of its own', () => {
+    for (const path of ['brainstorm/SKILL.md', 'invade/SKILL.md', MOCK]) {
+      expect(read(path), path).toMatch(/names the pages it appears on in `routes` when it has none of its own/);
+    }
+  });
+
+  it("pixel-perfect's step 0 says what a shared screen is", () => {
+    expect(section('pixel-perfect/SKILL.md', 'Step 0')).toMatch(/A shared screen \(`kind: shared`\)/);
+  });
+});
+
+describe('the before/after has a Functional part and a Pixel perfect part (PRD 1584)', () => {
+  const page = () => section('brainstorm/SKILL.md', '5.');
+
+  it('brainstorm, with design on, writes the Functional part, then the Pixel perfect part', () => {
+    expect(
+      inOrder(page(), ['**Two parts,** with the design flag on', '**Functional:**', '**Pixel perfect:**', 'screens: quote-list · app-shell', '`Pixel perfect: no screen changes`']),
+    ).toEqual([]);
+    expect(page()).toMatch(/the part review and the word pass read/);
+    expect(page()).toMatch(/With the design flag off, the page is written as before/);
+  });
+
+  it('visual-fix keeps its page as the Pixel perfect part alone', () => {
+    expect(skill('visual-fix')).toMatch(/the Pixel perfect part alone/);
+  });
+
+  it("/omni:pr's feature body carries a Pixel perfect line: the screens, or none", () => {
+    const body = section('pr/SKILL.md', 'The body');
+    expect(body).toContain('**Pixel perfect:** <the screens to look at closely, or `none`>');
+    expect(body).toMatch(/only when `design\.enabled` is `true`/);
+  });
+});
+
+describe('the porting notes record the slice (PRD 1584)', () => {
+  for (const note of ['plugin--pixel-perfect.md', 'plugin--brainstorm.md', 'plugin--do-work.md', 'plugin--pr.md']) {
+    it(note, () => {
+      expect(readFileSync(new URL(note, PORTING), 'utf8')).toContain('PRD #1584, slice s3');
     });
   }
 });
