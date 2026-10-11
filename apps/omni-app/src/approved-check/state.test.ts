@@ -98,8 +98,9 @@ describe('approvedVerdict', () => {
     expect(approvedVerdict(MOBILE_12, { reachable: false, since: '2026-10-11T10:00:00.000Z' })).toMatchObject({
       state: 'held',
       conclusion: 'neutral',
-      title: 'held · server unreachable since 2026-10-11T10:00:00.000Z',
+      title: 'held · server unreachable since 2026-10-11 10:00 UTC · held, not failed',
       dossierId: null,
     });
+    expect(approvedVerdict(MOBILE_12, { reachable: false, since: 'a moment ago' }).title).toBe('held · server unreachable since a moment ago · held, not failed');
   });
 });

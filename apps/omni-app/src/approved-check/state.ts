@@ -129,10 +129,16 @@ function pinsTable(approval: ApprovalInForce, latest: readonly LatestVersion[]):
   return ['| file | approved | today | |', '|---|---|---|---|', ...rows];
 }
 
+/** An ISO time to the minute, as a check's line says it: `2026-10-11 10:05 UTC`; any other text as it is. */
+function minuteOf(iso: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso);
+  return match ? `${match[1] ?? ''} ${match[2] ?? ''} UTC` : iso;
+}
+
 /** The approved check's verdict for PRD `prd`, from what reading its record gave. */
 export function approvedVerdict(prd: ProductPrdRef, reading: RecordReading): ApprovedVerdict {
   if (!reading.reachable) {
-    const title = `held · server unreachable since ${reading.since}`;
+    const title = `held · server unreachable since ${minuteOf(reading.since)} · held, not failed`;
     const summary = `The record of ${prd.id} could not be read: held, not failed. It is posted again on the next push or approval, or when this check is re-run.`;
     return { state: 'held', conclusion: 'neutral', title, summary, dossierId: null, drift: [] };
   }

@@ -113,7 +113,7 @@ describe('approved-check — a target feature PR of a product PRD (acceptance 6)
     const run = setUp({ record: new Error('fetch failed') });
     await deliver(run, 'pull_request', pullRequest('synchronize'));
     const { run: check, created } = posted(run);
-    expect(check).toMatchObject({ conclusion: 'neutral', output: { title: 'held · server unreachable since 2026-10-11T10:00:00.000Z' } });
+    expect(check).toMatchObject({ conclusion: 'neutral', output: { title: 'held · server unreachable since 2026-10-11 10:00 UTC · held, not failed' } });
     expect(created).not.toHaveProperty('details_url');
     expect(run.logged).toEqual(['approved check of acme/widgets for mobile-12 is held: fetch failed']);
   });
