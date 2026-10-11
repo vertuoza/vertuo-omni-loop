@@ -1334,3 +1334,471 @@ A restoring push is a new action and route in galaxy calling dossier_push with t
 ```
 
 <!-- /omni-outbox-settled: s4-04-restore-and-ask-again-are-links -->
+
+<!-- omni-outbox-settled: s5-01-an-item-takes-one-settlement -->
+
+## s5-01-an-item-takes-one-settlement — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-an-item-takes-one-settlement
+prd: 1548
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+Once a question of a product PRD has an answer, or was adopted when it was raised, can anyone record a second answer for it later, for instance to object to an adoption?
+
+## The decision, in plain words
+
+A question takes one answer and the server refuses any second one, as the spec asks; an objection to an adopted question has no place on the server yet.
+
+## The intro, for fun
+
+Every question gets one answer, and the server writes it in pen.
+
+## The punchline, for fun
+
+Second thoughts will need a fresh page we have not printed yet.
+
+## The options, in plain words
+
+A. A. One settlement per item, refused in the RPCs (built).
+B. B. Let a drifted objection follow an adoption, and nothing else.
+C. C. Let any later answer append, the latest one in force, as the git ledger reads.
+
+## What I had to decide
+
+Confirm that outbox_settle() and outbox_item_adopt() refuse an item that already has a settlement, even though the git ledger lets an objection append a drifted entry after an adoption.
+
+## What I did meanwhile
+
+The settlements table holds no uniqueness constraint: the refusal lives in the two RPCs, under the item's row lock, so allowing a later objection is a change to a function body, not to stored data. supabase/checks/outbox_items.sql proves a second settle is refused for an agreed and for an adopted item.
+
+## What it costs to change later
+
+Allowing an objection after an adoption is one condition in outbox_settle() and its check; no migration of rows.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Acceptance 9 says an item already settled cannot be settled again; the git outbox lets an objection append a drifted entry for an adopted item, and the spec does not say whether a product PRD keeps that path.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-an-item-takes-one-settlement -->
+
+<!-- omni-outbox-settled: s5-02-a-non-member-finds-no-prd -->
+
+## s5-02-a-non-member-finds-no-prd — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-a-non-member-finds-no-prd
+prd: 1548
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+When someone outside a product's workspace tries to answer or raise one of its questions, should the server say they are not allowed, or that there is no such PRD?
+
+## The decision, in plain words
+
+It says there is no such PRD in their workspaces, the same answer as for a PRD that does not exist, so nobody learns what another workspace is building.
+
+## The intro, for fun
+
+A stranger knocks on a door that, as far as they can tell, is not there.
+
+## The punchline, for fun
+
+No door, no doorbell, no clue what is behind the wall.
+
+## The options, in plain words
+
+A. A. No such PRD, as for one that does not exist (built).
+B. B. Not allowed, which tells them the PRD exists elsewhere.
+
+## What I had to decide
+
+Confirm that outbox_settle(), outbox_item_put() and outbox_item_adopt() refuse a non-member with P0002 'No PRD <key>-<n> in your workspaces.' rather than 42501.
+
+## What I did meanwhile
+
+The three RPCs find the PRD with prd_dossier(), which only looks among the caller's workspaces, as s1's approval_request() and dossier_push() do; a signed-out caller gets 42501. The check proves another workspace's owner and an account in no workspace are refused and write nothing.
+
+## What it costs to change later
+
+Answering 42501 instead is a lookup outside the caller's workspaces in outbox_prd_of(); no stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Acceptance 9 says a non-member's answer is refused, not with what answer; s1 settled the same shape for approvals.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-a-non-member-finds-no-prd -->
+
+<!-- omni-outbox-settled: s5-03-the-workflow-runs-the-new-check -->
+
+## s5-03-the-workflow-runs-the-new-check — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-the-workflow-runs-the-new-check
+prd: 1548
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+This slice was meant to touch only the database files. The new database check also had to be added to the automatic checks run on every pull request: may that one change stay?
+
+## The decision, in plain words
+
+Yes, kept. The database workflow now runs the new outbox check, as the repository's rules ask of every new check, the same change the first slice made for its own.
+
+## The intro, for fun
+
+A brand new test is no use if nobody ever sits it.
+
+## The punchline, for fun
+
+So we put its name on the exam timetable too.
+
+## The options, in plain words
+
+A. A. Keep the step in this slice (built).
+B. B. Move it to a later slice and leave the check unrun until then.
+
+## What I had to decide
+
+Confirm the one change outside the territory: a step in .github/workflows/supabase.yml that runs supabase/checks/outbox_items.sql.
+
+## What I did meanwhile
+
+The step sits right after the product_prd_ids step, worded like its neighbours (conventions: a new database check runs in CI, PRD 902 s1-02).
+
+## What it costs to change later
+
+Five lines to remove; without them the check proves nothing in CI.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for s5 does not list the workflow, and conventions require the step in the pull request that adds the check.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-the-workflow-runs-the-new-check -->
+
+<!-- omni-outbox-settled: s5-04-what-an-item-row-keeps -->
+
+## s5-04-what-an-item-row-keeps — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-what-an-item-row-keeps
+prd: 1548
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+Besides the question's text, what does the server keep about each question of a product PRD, and about each answer?
+
+## The decision, in plain words
+
+Each question keeps its name, its slice, its rank, what it bears on, when and in which wave it was raised, and the repository it came from. Each answer keeps its verdict, why, the words given, where and by whom, and who a question is for is read from its rank.
+
+## The intro, for fun
+
+A filing cabinet is only as good as the labels on its drawers.
+
+## The punchline, for fun
+
+We labelled seven drawers and left the rest in the folder itself.
+
+## The options, in plain words
+
+A. A. Front matter as columns, the repository, and the body as written (built).
+B. B. Also store who the item is for as its own column.
+C. C. Store only the body and parse it on every read.
+
+## What I had to decide
+
+Confirm the typed columns: outbox_items (item, slice, rank, bears_on, raised, wave, repository, body, raised_by) and outbox_settlements (verdict, basis, answer, channel questions or terminal, settled_by, settler_login), with no column for who an item is for.
+
+## What I did meanwhile
+
+The typed columns copy the item's front matter as the kit's one parser reads it; the body keeps the markdown as written, so the plain-words sections and the options stay in it. An adoption carries no answer and no channel, and settled_by is whoever raised it. The Questions tab (s9) can read who an item is for from its rank.
+
+## What it costs to change later
+
+A new column later is an additive migration; renaming or dropping one before any product PRD exists is a follow-up migration with no data to move.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the PRD, the repository and who it is for on the Questions tab, but not which of them the rows store; the git ledger's 'Approved by' is a login string, here it is the caller's account.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-what-an-item-row-keeps -->
+
+<!-- omni-outbox-settled: s6-01-the-store-holds-the-outbox-not-every-file -->
+
+## s6-01-the-store-holds-the-outbox-not-every-file — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s6
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-the-store-holds-the-outbox-not-every-file
+prd: 1548
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+Every outbox command now reads and writes the outbox through one door. Must the files a command is handed or told to write, which are not the outbox, go through that door too?
+
+## The decision, in plain words
+
+Only the outbox itself goes through the door: the open questions, the ledger of answers and the accounts. A file a person hands a command, a result it is told to write, and the summary it leaves for the automated checks stay with the command, as before.
+
+## The intro, for fun
+
+One door now leads into the outbox, and every command was asked to use it.
+
+## The punchline, for fun
+
+The doormat and the post slot stayed where they were.
+
+## The options, in plain words
+
+A. A. Only the outbox goes through the door; a command's own input and output files stay with it (built).
+B. B. Every file a command touches goes through the door, the outbox and the rest alike.
+C. C. Leave the reading commands outside the door, and send only the writing ones through it.
+
+## What I had to decide
+
+Confirm the reading of the done-when line 'no outbox verb reads or writes the filesystem except through the store': the store owns outbox state (open items, settled.md, accounts, the --out scratch folder and the relay's source folder), while a verb's own arguments stay outside it — the --file JSON of item new, settle's --answer-file and answers' --answers (read through readUserFile), comment's --result, --pr-comment and --slack-note files, and status's GITHUB_OUTPUT and step summary.
+
+## What I did meanwhile
+
+kit/lib/outbox/store.ts defines OutboxStore; kit/lib/outbox/git-store.ts holds every outbox read and write the commands made (adopt's read and rmSync of the item, item new's spent ids and item file, the relay's folder check). kit/lib/outbox/git-store.test.ts guards it: item, adopt, settle, answers and replies import nothing from node:fs, status only appendFileSync (the Actions output) and comment only writeFileSync (--result), and none imports a library function the store wraps.
+
+## What it costs to change later
+
+Moving a verb's own files behind the store is a method or two on OutboxStore and a line in the guard per file; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec and the plan say every outbox verb is on the seam but not whether a verb's input and output files count as the outbox.
+- (author) A server store has no use for a person's input file or the Actions output, which is why they stayed with the command.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-the-store-holds-the-outbox-not-every-file -->
+
+<!-- omni-outbox-settled: s6-02-the-git-store-wraps-the-library-in-place -->
+
+## s6-02-the-git-store-wraps-the-library-in-place — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s6
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-the-git-store-wraps-the-library-in-place
+prd: 1548
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+The outbox kept in the repository now sits behind one door. Should the code that reads and writes those files physically move behind the door, or stay where it was with the door calling it?
+
+## The decision, in plain words
+
+The code stays where it was and the door calls it, so every existing test runs untouched. The door offers whole tasks, like grading the gate or writing the comment, which the next slice builds again for the outbox kept on the server.
+
+## The intro, for fun
+
+We built a new front door and had to decide whether to carry the furniture through it.
+
+## The punchline, for fun
+
+The furniture stayed put; the door just learned where everything is.
+
+## The options, in plain words
+
+A. A. The door calls the code where it is, and offers whole tasks (built).
+B. B. Move the file reading and writing out of the library into the door, rewriting the tests that call it.
+C. C. Offer only raw reads and writes at the door, and run the gate and the comments above it for both outboxes.
+
+## What I had to decide
+
+Confirm the shape of the seam: gitOutboxStore wraps settleItem, adoptItem, relayFolder, gateResult, openItemsForPrd, adoptedEntriesForPrd, readReplies and the two comment upserts in place, with async methods at the level of a verb (gate, replies, prComment, issueComment) beside the item reads and writes; an item reference is a repository path for git; outboxStore(ctx) in kit/lib/outbox/stores.ts returns the git store for every PRD, and s7 adds the pick by birthplace there and its server store as a second row of the contract suite in kit/lib/outbox/store.contract.test.ts.
+
+## What I did meanwhile
+
+Acceptance 5 asks every existing test in kit/lib/outbox and of the moved commands to pass unchanged; they import the library functions directly, so the library keeps its signatures and its file access. The commands now call only the store. The contract suite runs twelve cases through the store's methods alone; git-store.test.ts covers the git store's own ground.
+
+## What it costs to change later
+
+Moving the file access out of the library later is a refactor of each wrapped function and its tests, behind the same interface; switching to raw reads and writes changes the interface s7 builds on, so it is cheapest decided before s7 starts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan says the git store is today's code moved but not whether moved means relocated or put behind the seam.
+- (author) Verb-level methods mean the server store must grade the gate and write comments itself; s7 may prefer to make gateResult pure over rows instead.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-the-git-store-wraps-the-library-in-place -->
