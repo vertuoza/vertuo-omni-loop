@@ -29,7 +29,7 @@ section { border-top: 1px solid var(--line); padding: 20px 0; }
 h2 { font-size: 18px; margin: 0; }
 .meta { color: var(--muted); margin: 4px 0 12px; }
 .locked .status { color: var(--lock); font-weight: 600; }
-iframe { width: 100%; height: 480px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+iframe { display: block; width: 100%; height: 80vh; min-height: 360px; resize: vertical; overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
 .none { color: var(--muted); font-style: italic; }
 .problems { color: var(--muted); }
 `;
