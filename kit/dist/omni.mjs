@@ -123,7 +123,7 @@ var require_visit = __commonJS({
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP = /* @__PURE__ */ Symbol("skip children");
     var REMOVE = /* @__PURE__ */ Symbol("remove node");
-    function visit3(node3, visitor) {
+    function visit4(node3, visitor) {
       const visitor_ = initVisitor(visitor);
       if (identity.isDocument(node3)) {
         const cd = visit_(null, node3.contents, visitor_, Object.freeze([node3]));
@@ -132,9 +132,9 @@ var require_visit = __commonJS({
       } else
         visit_(null, node3, visitor_, Object.freeze([]));
     }
-    visit3.BREAK = BREAK;
-    visit3.SKIP = SKIP;
-    visit3.REMOVE = REMOVE;
+    visit4.BREAK = BREAK;
+    visit4.SKIP = SKIP;
+    visit4.REMOVE = REMOVE;
     function visit_(key2, node3, visitor, path) {
       const ctrl = callVisitor(key2, node3, visitor, path);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
@@ -268,7 +268,7 @@ var require_visit = __commonJS({
         throw new Error(`Cannot replace node with ${pt} parent`);
       }
     }
-    exports.visit = visit3;
+    exports.visit = visit4;
     exports.visitAsync = visitAsync;
   }
 });
@@ -279,7 +279,7 @@ var require_directives = __commonJS({
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
-    var visit3 = require_visit();
+    var visit4 = require_visit();
     var escapeChars = {
       "!": "%21",
       ",": "%2C",
@@ -423,7 +423,7 @@ var require_directives = __commonJS({
         let tagNames;
         if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
           const tags = {};
-          visit3.visit(doc.contents, (_key, node3) => {
+          visit4.visit(doc.contents, (_key, node3) => {
             if (identity.isNode(node3) && node3.tag)
               tags[node3.tag] = true;
           });
@@ -451,7 +451,7 @@ var require_anchors = __commonJS({
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
-    var visit3 = require_visit();
+    var visit4 = require_visit();
     function anchorIsValid(anchor2) {
       if (/[\x00-\x19\s,[\]{}]/.test(anchor2)) {
         const sa = JSON.stringify(anchor2);
@@ -462,7 +462,7 @@ var require_anchors = __commonJS({
     }
     function anchorNames(root) {
       const anchors = /* @__PURE__ */ new Set();
-      visit3.visit(root, {
+      visit4.visit(root, {
         Value(_key, node3) {
           if (node3.anchor)
             anchors.add(node3.anchor);
@@ -646,7 +646,7 @@ var require_Alias = __commonJS({
     "use strict";
     init_define_OMNI_BUNDLE();
     var anchors = require_anchors();
-    var visit3 = require_visit();
+    var visit4 = require_visit();
     var identity = require_identity();
     var Node = require_Node();
     var toJS = require_toJS();
@@ -672,7 +672,7 @@ var require_Alias = __commonJS({
           nodes = ctx.aliasResolveCache;
         } else {
           nodes = [];
-          visit3.visit(doc, {
+          visit4.visit(doc, {
             Node: (_key, node3) => {
               if (identity.isAlias(node3) || identity.hasAnchor(node3))
                 nodes.push(node3);
@@ -5652,15 +5652,15 @@ var require_cst_visit = __commonJS({
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP = /* @__PURE__ */ Symbol("skip children");
     var REMOVE = /* @__PURE__ */ Symbol("remove item");
-    function visit3(cst, visitor) {
+    function visit4(cst, visitor) {
       if ("type" in cst && cst.type === "document")
         cst = { start: cst.start, value: cst.value };
       _visit(Object.freeze([]), cst, visitor);
     }
-    visit3.BREAK = BREAK;
-    visit3.SKIP = SKIP;
-    visit3.REMOVE = REMOVE;
-    visit3.itemAtPath = (cst, path) => {
+    visit4.BREAK = BREAK;
+    visit4.SKIP = SKIP;
+    visit4.REMOVE = REMOVE;
+    visit4.itemAtPath = (cst, path) => {
       let item2 = cst;
       for (const [field2, index] of path) {
         const tok = item2?.[field2];
@@ -5671,8 +5671,8 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit3.parentCollection = (cst, path) => {
-      const parent = visit3.itemAtPath(cst, path.slice(0, -1));
+    visit4.parentCollection = (cst, path) => {
+      const parent = visit4.itemAtPath(cst, path.slice(0, -1));
       const field2 = path[path.length - 1][0];
       const coll = parent?.[field2];
       if (coll && "items" in coll)
@@ -5703,7 +5703,7 @@ var require_cst_visit = __commonJS({
       }
       return typeof ctrl === "function" ? ctrl(item2, path) : ctrl;
     }
-    exports.visit = visit3;
+    exports.visit = visit4;
   }
 });
 
@@ -7425,7 +7425,7 @@ var require_dist = __commonJS({
     var lineCounter = require_line_counter();
     var parser = require_parser();
     var publicApi = require_public_api();
-    var visit3 = require_visit();
+    var visit4 = require_visit();
     exports.Composer = composer.Composer;
     exports.Document = Document.Document;
     exports.Schema = Schema.Schema;
@@ -7453,8 +7453,8 @@ var require_dist = __commonJS({
     exports.parseAllDocuments = publicApi.parseAllDocuments;
     exports.parseDocument = publicApi.parseDocument;
     exports.stringify = publicApi.stringify;
-    exports.visit = visit3.visit;
-    exports.visitAsync = visit3.visitAsync;
+    exports.visit = visit4.visit;
+    exports.visitAsync = visit4.visitAsync;
   }
 });
 
@@ -12709,14 +12709,14 @@ var memo = {
       const base = inst._zod.parse;
       const wrapped = (payload, ctx) => {
         if (isRecursiveInst === void 0) {
-          const walked = isRecursive(inst, /* @__PURE__ */ new Set(), false);
-          if (walked === NONE) {
+          const walked2 = isRecursive(inst, /* @__PURE__ */ new Set(), false);
+          if (walked2 === NONE) {
             inst._zod.parse = base;
             if (inst._zod.run === wrapped)
               inst._zod.run = base;
             return base(payload, ctx);
           }
-          if (walked === PROVEN || rechecked)
+          if (walked2 === PROVEN || rechecked)
             isRecursiveInst = true;
           else
             rechecked = true;
@@ -29068,7 +29068,7 @@ import { readdirSync as readdirSync4, readFileSync as readFileSync5 } from "node
 import { join as join7, posix as posix2 } from "node:path";
 import { fileURLToPath } from "node:url";
 var BundledTemplatesSchema = external_exports.record(external_exports.string(), external_exports.string());
-var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit\'s own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/design.md":"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product\'s screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\"while you\u2019re here\\" changes outside the pull request\'s scope;\\n- a rewrite to the reviewer\'s preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}'));
+var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit\'s own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/design.md":"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n<!-- With a DESIGN.md (the file `design.system` names, DESIGN.md unless set), this slot is the one\\nline that points at it:\\n\\n  See: DESIGN.md\\n\\n/omni:pixel-perfect init writes that file and this line, from the design system the repository\\nhas, or from a starter a person picks. -->\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product\'s screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\"while you\u2019re here\\" changes outside the pull request\'s scope;\\n- a rewrite to the reviewer\'s preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}'));
 var FRONT_DOOR_TEMPLATE = "README.md";
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -30019,18 +30019,18 @@ function validateSections(body) {
   const errors = [];
   const presentPlain = PLAIN_SECTIONS.filter((heading2) => foundHeadings.includes(heading2));
   if (presentPlain.length === 1) {
-    const [present] = presentPlain;
-    const other = PLAIN_SECTIONS.find((heading2) => heading2 !== present);
+    const [present2] = presentPlain;
+    const other = PLAIN_SECTIONS.find((heading2) => heading2 !== present2);
     errors.push(
-      `carries "## ${present}" without "## ${other}" \u2014 the two plain-words sections come together, or neither does`
+      `carries "## ${present2}" without "## ${other}" \u2014 the two plain-words sections come together, or neither does`
     );
   }
   const presentFun = FUN_SECTIONS.filter((heading2) => foundHeadings.includes(heading2));
   if (presentFun.length === 1) {
-    const [present] = presentFun;
-    const other = FUN_SECTIONS.find((heading2) => heading2 !== present);
+    const [present2] = presentFun;
+    const other = FUN_SECTIONS.find((heading2) => heading2 !== present2);
     errors.push(
-      `carries "## ${present}" without "## ${other}" \u2014 the intro and the punchline come together, or neither does`
+      `carries "## ${present2}" without "## ${other}" \u2014 the intro and the punchline come together, or neither does`
     );
   }
   if (presentFun.length === 2 && presentPlain.length === 0) {
@@ -35357,9 +35357,9 @@ function sectionFaults(sections2) {
     if (!position.has(section6.name)) position.set(section6.name, index);
   });
   const faults = CONCEPT_SECTIONS.filter((name3) => !position.has(name3)).map((name3) => `sections: no "## ${name3}" section.`);
-  const present = CONCEPT_SECTIONS.filter((name3) => position.has(name3));
-  for (let index = 1; index < present.length; index += 1) {
-    const [before2, after] = [at(present, index - 1, "a section"), at(present, index, "a section")];
+  const present2 = CONCEPT_SECTIONS.filter((name3) => position.has(name3));
+  for (let index = 1; index < present2.length; index += 1) {
+    const [before2, after] = [at(present2, index - 1, "a section"), at(present2, index, "a section")];
     const placeOf2 = (name3) => defined(position.get(name3), `the place of "## ${name3}"`);
     if (placeOf2(after) < placeOf2(before2)) {
       faults.push(`sections: "## ${before2}" comes after "## ${after}"; the order is ${CONCEPT_SECTIONS.join(", ")}.`);
@@ -38911,7 +38911,7 @@ var bug = branchVerdictCommand({
 // kit/bin/commands/check.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync40 } from "node:fs";
-import { join as join50 } from "node:path";
+import { join as join51 } from "node:path";
 
 // kit/lib/inbox/check-inbox.ts
 init_define_OMNI_BUNDLE();
@@ -39687,8 +39687,47 @@ function describeUnaccounted(prd2, change) {
 
 // kit/lib/design/check-design.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync38, readdirSync as readdirSync17, readFileSync as readFileSync35 } from "node:fs";
-import { join as join48 } from "node:path";
+import { existsSync as existsSync38, readdirSync as readdirSync17, readFileSync as readFileSync36 } from "node:fs";
+import { join as join49 } from "node:path";
+
+// kit/lib/design/glob.ts
+init_define_OMNI_BUNDLE();
+var WILDCARD = /[*?{]/;
+var WILDCARDS = Object.freeze({ "**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]" });
+var TOKEN = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
+function source(pattern) {
+  return pattern.replace(TOKEN, (token, alternatives) => {
+    if (alternatives !== void 0) return `(?:${alternatives.split(",").map(source).join("|")})`;
+    return WILDCARDS[token] ?? token.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  });
+}
+function matchesGlob(pattern, path) {
+  const glob = pattern.startsWith("./") ? pattern.slice(2) : pattern;
+  if (glob.endsWith("/") || !WILDCARD.test(glob)) {
+    const folder = glob.replace(/\/+$/, "");
+    return path === folder || path.startsWith(`${folder}/`);
+  }
+  return new RegExp(`^${source(glob)}$`).test(path);
+}
+
+// kit/lib/design/ignore.ts
+init_define_OMNI_BUNDLE();
+var DEFAULT_DESIGN_IGNORE = Object.freeze(["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**"]);
+function designIgnore(design2) {
+  return design2.ignore ?? DEFAULT_DESIGN_IGNORE;
+}
+function dropIgnored(ignore, changed) {
+  return changed.filter((path) => !ignore.some((glob) => matchesGlob(glob, path)));
+}
+
+// kit/lib/design/parts/names.ts
+init_define_OMNI_BUNDLE();
+var partKey = (name3) => name3.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+function isListed(listed3, name3) {
+  const key2 = partKey(name3);
+  return key2 !== "" && listed3.some((part) => partKey(part) === key2);
+}
+var isComponentFile = (path) => /\.(?:tsx|jsx|vue|svelte|astro)$/.test(path);
 
 // kit/lib/design/screens.ts
 init_define_OMNI_BUNDLE();
@@ -39791,6 +39830,207 @@ function formatScreens({ screens: screens2, problems }, dir) {
   const width = (column) => Math.max(...rows2.map((row) => row[column].length));
   const [name3, status5, locker] = [width("name"), width("status"), width("locker")];
   return [...rows2.map((row) => `${row.name.padEnd(name3)}  ${row.status.padEnd(status5)}  ${row.locker.padEnd(locker)}  ${row.routes}`), ...unread];
+}
+
+// kit/lib/design/system/load.ts
+init_define_OMNI_BUNDLE();
+import { readFileSync as readFileSync35 } from "node:fs";
+import { join as join48 } from "node:path";
+
+// kit/lib/design/system/read.ts
+init_define_OMNI_BUNDLE();
+var import_yaml6 = __toESM(require_dist(), 1);
+var FRONT_MATTER4 = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
+var SECTION2 = /^##\s+(.+?)\s*#*\s*$/;
+var PART2 = /^###\s+(.+?)\s*#*\s*$/;
+var FENCE2 = /^\s*(```|~~~)/;
+var BULLET = /^\s*[-*]\s+(.*)$/;
+var SUB_ITEM = /^\s+[-*]\s+(.*)$/;
+var LINE = /^\*{0,2}([A-Za-z][A-Za-z'’ ]*?)\*{0,2}\s*:\s*\*{0,2}\s*(.*)$/;
+var REFERENCE3 = /\{([A-Za-z0-9_.-]+)\}/g;
+var NOTHING2 = /* @__PURE__ */ new Set(["", "\u2014", "-", "none"]);
+var FIELDS3 = {
+  summary: "summary",
+  variants: "variants",
+  states: "states",
+  tokens: "tokens",
+  accessibility: "accessibility",
+  do: "do",
+  "don't": "dont",
+  dont: "dont",
+  code: "code"
+};
+var COMMA_LISTS = /* @__PURE__ */ new Set(["variants", "states", "tokens", "code"]);
+var isMap = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+var clean = (entry3) => entry3.replace(/`/g, "").trim().replace(/^\{(.*)\}$/, "$1").trim();
+function splitList(value) {
+  return value.split(/[,·]/).map(clean).filter((entry3) => !NOTHING2.has(entry3.toLowerCase()));
+}
+function readFrontMatter2(text13) {
+  const match = FRONT_MATTER4.exec(text13);
+  if (!match) return { tokens: {}, body: text13, problems: ["no front matter of design tokens"], read: false };
+  const body = text13.slice(match[0].length);
+  let value;
+  try {
+    value = (0, import_yaml6.parse)(match[1] ?? "");
+  } catch (error62) {
+    return { tokens: {}, body, problems: [`front matter does not read: ${messageOf(error62).split("\n")[0]}`], read: false };
+  }
+  if (!isMap(value)) return { tokens: {}, body, problems: ["front matter is not a map of token groups"], read: false };
+  return { tokens: value, body, problems: [], read: true };
+}
+function sections(body) {
+  const found2 = /* @__PURE__ */ new Map();
+  let current = null;
+  let fenced = false;
+  for (const line of body.split(/\r?\n/)) {
+    if (FENCE2.test(line)) fenced = !fenced;
+    const heading2 = fenced ? null : SECTION2.exec(line);
+    if (heading2 && !line.startsWith("###")) {
+      const key2 = (heading2[1] ?? "").toLowerCase();
+      current = found2.get(key2) ?? [];
+      found2.set(key2, current);
+      continue;
+    }
+    current?.push(line);
+  }
+  return found2;
+}
+var draft = (name3) => ({ name: name3, summary: [], accessibility: [], variants: [], states: [], tokens: [], do: [], dont: [], code: [] });
+function finish(part) {
+  const text13 = (lines2) => lines2.length ? lines2.join(" ") : null;
+  return {
+    name: part.name,
+    summary: text13(part.summary),
+    variants: part.variants,
+    states: part.states,
+    tokens: part.tokens,
+    accessibility: text13(part.accessibility),
+    do: part.do,
+    dont: part.dont,
+    code: part.code
+  };
+}
+function add(part, field2, value, inline) {
+  const entries5 = inline && COMMA_LISTS.has(field2) ? splitList(value) : [clean(value)].filter((entry3) => !NOTHING2.has(entry3.toLowerCase()));
+  part[field2].push(...entries5);
+}
+function unfenced(lines2) {
+  let fenced = false;
+  return lines2.filter((line) => {
+    if (FENCE2.test(line)) fenced = !fenced;
+    return !fenced && !FENCE2.test(line);
+  });
+}
+function entries(lines2) {
+  const found2 = [];
+  for (const line of unfenced(lines2)) {
+    const heading2 = PART2.exec(line);
+    if (heading2) found2.push({ name: heading2[1] ?? "", lines: [] });
+    else found2.at(-1)?.lines.push(line);
+  }
+  return found2;
+}
+function fieldOf2(label2) {
+  const key2 = label2.toLowerCase().replace(/’/g, "'").trim();
+  return (Object.hasOwn(FIELDS3, key2) ? FIELDS3[key2] : void 0) ?? null;
+}
+function labelled(line) {
+  const bullet = BULLET.exec(line);
+  const match = LINE.exec(bullet ? String(bullet[1]) : line.trim());
+  return match ? { label: String(match[1]), value: String(match[2]) } : null;
+}
+function readEntry(name3, lines2) {
+  const part = draft(name3);
+  const problems = [];
+  let field2 = null;
+  for (const line of lines2) {
+    const sub = field2 && SUB_ITEM.exec(line);
+    if (field2 && sub) {
+      add(part, field2, String(sub[1]), false);
+      continue;
+    }
+    const read2 = labelled(line);
+    if (!read2) continue;
+    field2 = fieldOf2(read2.label);
+    if (field2) add(part, field2, read2.value, true);
+    else problems.push(`part ${name3}: unknown line "${read2.label}"`);
+  }
+  return { part: finish(part), problems };
+}
+function readParts(lines2) {
+  const parts2 = [];
+  const problems = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const entry3 of entries(lines2)) {
+    const key2 = entry3.name.toLowerCase();
+    if (seen.has(key2)) {
+      problems.push(`part ${entry3.name} is listed twice: the second is skipped`);
+      continue;
+    }
+    seen.add(key2);
+    const read2 = readEntry(entry3.name, entry3.lines);
+    parts2.push(read2.part);
+    problems.push(...read2.problems);
+  }
+  return { parts: parts2, problems };
+}
+var QUOTED_SCREEN = /^`([^`]+)`\s*(?:[—–:-]\s*)?(.*)$/;
+var PLAIN_SCREEN = /^(\S+?)(?::\s+|\s+[—–-]\s+)(.*)$/;
+function referenceScreen(item2) {
+  const match = QUOTED_SCREEN.exec(item2) ?? PLAIN_SCREEN.exec(item2);
+  const screen = (match?.[1] ?? item2).trim();
+  return { screen, note: match?.[2]?.trim() || null };
+}
+function readReferenceScreens(lines2) {
+  return lines2.flatMap((line) => {
+    const item2 = BULLET.exec(line)?.[1]?.trim();
+    return item2 ? [referenceScreen(item2)] : [];
+  });
+}
+function lookup(tokens, path) {
+  let value = tokens;
+  for (const key2 of path.split(".")) {
+    if (!isMap(value) || !Object.hasOwn(value, key2)) return void 0;
+    value = value[key2];
+  }
+  return value;
+}
+function frontMatterReferences(value, where) {
+  if (typeof value === "string") return [...value.matchAll(REFERENCE3)].map((match) => ({ reference: match[1] ?? "", where }));
+  if (Array.isArray(value)) return value.flatMap((entry3, index) => frontMatterReferences(entry3, `${where}.${index}`));
+  if (isMap(value)) return Object.entries(value).flatMap(([key2, entry3]) => frontMatterReferences(entry3, where ? `${where}.${key2}` : key2));
+  return [];
+}
+function parseDesignSystem(text13) {
+  const front = readFrontMatter2(text13);
+  const body = sections(front.body);
+  const components = body.get("components");
+  const { parts: parts2, problems: partProblems } = components ? readParts(components) : { parts: [], problems: ["no Components section: no part is listed"] };
+  const referenceScreens = readReferenceScreens(body.get("reference screens") ?? []);
+  const unresolved = front.read ? [
+    ...frontMatterReferences(front.tokens, ""),
+    ...parts2.flatMap((part) => part.tokens.filter((token) => token.includes(".")).map((reference) => ({ reference, where: `part ${part.name}` })))
+  ].filter(({ reference }) => lookup(front.tokens, reference) === void 0) : [];
+  return {
+    tokens: front.tokens,
+    parts: parts2,
+    referenceScreens,
+    unresolved,
+    problems: [...front.problems, ...partProblems, ...unresolved.map(({ reference, where }) => `unresolved reference {${reference}} in ${where}`)]
+  };
+}
+
+// kit/lib/design/system/load.ts
+function loadDesignSystem(root, design2) {
+  const path = designSystemPath(design2);
+  let text13;
+  try {
+    text13 = readFileSync35(join48(root, path), "utf8");
+  } catch {
+    return { path, system: null };
+  }
+  return { path, system: parseDesignSystem(text13) };
 }
 
 // kit/lib/design/check-design.ts
@@ -39900,20 +40140,77 @@ function folderWarnings(screens2) {
     ({ screen, implements: paths }) => paths.filter((entry3) => FOLDER2.test(entry3)).map((entry3) => `${screen}: implements names a folder (${entry3}) \u2014 a lock trips on every file in it; put the code behind the screen in reads`)
   );
 }
+function driftWarnings(dir, drift, screens2) {
+  const { path, system, componentFiles, gone } = drift;
+  const codes = system.parts.flatMap((part) => part.code);
+  const claims = screens2.flatMap((screen) => screen.implements);
+  const claimed2 = (file2) => [...codes, ...claims].some((glob) => matchesGlob(glob, file2));
+  const library = new Set(screens2.map((screen) => screen.screen));
+  return [
+    ...gone.map(({ part, path: code }) => `part ${part}: its code path ${code} is gone`),
+    ...componentFiles.filter((file2) => !claimed2(file2)).map((file2) => `${file2} is a component file no part names and no screen implements \u2014 list it under a part's Code, or in a screen's implements`),
+    ...system.unresolved.map(({ reference, where }) => `unresolved reference {${reference}} in ${where}`),
+    ...system.referenceScreens.filter(({ screen }) => !library.has(screen)).map(({ screen }) => `the reference screen "${screen}" is not in the library (${dir.replace(/\/*$/, "/")})`)
+  ].map((warning) => `${path}: ${warning}`);
+}
 function gradeDesign({ dir, formFile, head, base }) {
   const screens2 = gradeScreens(dir, head.screens, base?.screens ?? null);
   const laws = gradeLaws(formFile, head.form, base?.form ?? null);
   return {
     violations: [...screens2.violations, ...laws.violations],
-    warnings: folderWarnings(screens2.screens),
+    warnings: [...folderWarnings(screens2.screens), ...head.drift ? driftWarnings(dir, head.drift, screens2.screens) : []],
     screens: screens2.screens.length,
     lockedScreens: screens2.screens.filter((entry3) => entry3.status === "locked").length,
     lockedLaws: laws.locked
   };
 }
-function headSnapshot({ root, dir, formFile }) {
-  const read2 = (path) => existsSync38(path) ? readFileSync35(path, "utf8") : null;
-  const folder = join48(root, dir);
+var WILDCARD2 = /[*?{]/;
+var globBase = (glob) => {
+  const segments = glob.replace(/^\.\//, "").split("/");
+  const cut5 = segments.findIndex((segment) => WILDCARD2.test(segment));
+  return (cut5 === -1 ? segments : segments.slice(0, cut5)).filter(Boolean).join("/");
+};
+function entriesOf(path) {
+  try {
+    return readdirSync17(path, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+}
+var walked = (name3) => name3 !== "node_modules" && !name3.startsWith(".");
+function filesUnder2(root, base) {
+  const entries5 = entriesOf(join49(root, base));
+  if (entries5 === null) return base && existsSync38(join49(root, base)) ? [base] : [];
+  const at2 = (name3) => base ? `${base}/${name3}` : name3;
+  return entries5.flatMap((entry3) => {
+    if (entry3.isDirectory()) return walked(entry3.name) ? filesUnder2(root, at2(entry3.name)) : [];
+    return entry3.isFile() ? [at2(entry3.name)] : [];
+  });
+}
+var matching = (root, glob) => filesUnder2(root, globBase(glob)).filter((file2) => matchesGlob(glob, file2));
+var present = (root, code) => WILDCARD2.test(code) ? matching(root, code).length > 0 : existsSync38(join49(root, code.replace(/^\.\//, "").replace(/\/+$/, "")));
+function driftFacts(root, design2) {
+  if (!design2?.enabled) return null;
+  const { path, system } = loadDesignSystem(root, design2);
+  if (!system) return null;
+  const components = design2.paths.flatMap((glob) => matching(root, glob)).filter(isComponentFile);
+  return {
+    path,
+    system,
+    componentFiles: dropIgnored(designIgnore(design2), [...new Set(components)].sort()),
+    gone: system.parts.flatMap((part) => part.code.filter((code) => !present(root, code)).map((code) => ({ part: part.name, path: code })))
+  };
+}
+function designOf(root) {
+  try {
+    return loadConfig(root).design;
+  } catch {
+    return null;
+  }
+}
+function headSnapshot({ root, dir, formFile, design: design2 }) {
+  const read2 = (path) => existsSync38(path) ? readFileSync36(path, "utf8") : null;
+  const folder = join49(root, dir);
   let names = [];
   try {
     names = readdirSync17(folder, { withFileTypes: true }).filter((entry3) => entry3.isFile() && entry3.name.endsWith(".md")).map((entry3) => entry3.name);
@@ -39921,8 +40218,8 @@ function headSnapshot({ root, dir, formFile }) {
     names = [];
   }
   const screens2 = {};
-  for (const name3 of names) screens2[name3] = readFileSync35(join48(folder, name3), "utf8");
-  return { screens: screens2, form: read2(join48(root, formFile)) };
+  for (const name3 of names) screens2[name3] = readFileSync36(join49(folder, name3), "utf8");
+  return { screens: screens2, form: read2(join49(root, formFile)), drift: driftFacts(root, design2 ?? designOf(root)) };
 }
 function snapshotAt({ root, ref, dir, formFile, exec }) {
   const git7 = (args) => exec("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -39945,8 +40242,8 @@ function snapshotAt({ root, ref, dir, formFile, exec }) {
 
 // kit/lib/generated/check.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync39, readFileSync as readFileSync36 } from "node:fs";
-import { join as join49 } from "node:path";
+import { existsSync as existsSync39, readFileSync as readFileSync37 } from "node:fs";
+import { join as join50 } from "node:path";
 var SCRIPT_RUNNERS = /* @__PURE__ */ new Set(["pnpm", "npm", "yarn", "bun"]);
 var RUN_WORDS = /* @__PURE__ */ new Set(["run", "run-script"]);
 var NODE = "node";
@@ -39984,9 +40281,9 @@ function entryViolations(entry3, index, ground) {
 }
 var PACKAGE_FILE = "package.json";
 function rootScripts(root) {
-  const file2 = join49(root, PACKAGE_FILE);
+  const file2 = join50(root, PACKAGE_FILE);
   if (!existsSync39(file2)) return [];
-  const manifest = JSON.parse(readFileSync36(file2, "utf8"));
+  const manifest = JSON.parse(readFileSync37(file2, "utf8"));
   const scripts = manifest !== null && typeof manifest === "object" && "scripts" in manifest ? manifest.scripts : null;
   return scripts !== null && typeof scripts === "object" ? Object.keys(scripts) : [];
 }
@@ -40030,7 +40327,7 @@ function checkOutbox({ ctx, stdout }) {
 function checkKnowledge({ ctx, stdout, stderr }) {
   const root = ctx.layout.knowledgeRoot;
   const title = "check knowledge \u2014 the knowledge folder does not hold what it claims:";
-  if (!existsSync40(join50(ctx.root, root))) {
+  if (!existsSync40(join51(ctx.root, root))) {
     if (ctx.config.laws.source === "knowledge") {
       return report2(stdout, title, [`${root}: missing \u2014 laws.source is "knowledge", so the laws are read from here.`], "");
     }
@@ -40287,8 +40584,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/constituents/cache.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync37, writeFileSync as writeFileSync14 } from "node:fs";
-import { join as join51 } from "node:path";
+import { readFileSync as readFileSync38, writeFileSync as writeFileSync14 } from "node:fs";
+import { join as join52 } from "node:path";
 
 // kit/lib/constituents/read.ts
 init_define_OMNI_BUNDLE();
@@ -40339,11 +40636,11 @@ function printed(read2, repo, synced) {
 }
 
 // kit/lib/constituents/cache.ts
-var CONSTITUENTS_FILE = join51(LOCAL_DIR, "constituents.json");
+var CONSTITUENTS_FILE = join52(LOCAL_DIR, "constituents.json");
 function readCache(root, repo) {
   let value;
   try {
-    value = JSON.parse(readFileSync37(join51(root, CONSTITUENTS_FILE), "utf8"));
+    value = JSON.parse(readFileSync38(join52(root, CONSTITUENTS_FILE), "utf8"));
   } catch {
     return null;
   }
@@ -40354,7 +40651,7 @@ function readCache(root, repo) {
 }
 function writeCache(root, { repo, syncedAt, read: read2 }) {
   ensureLocalDir(root);
-  writeFileSync14(join51(root, CONSTITUENTS_FILE), `${JSON.stringify({ repo, syncedAt, read: read2 }, null, 2)}
+  writeFileSync14(join52(root, CONSTITUENTS_FILE), `${JSON.stringify({ repo, syncedAt, read: read2 }, null, 2)}
 `);
 }
 
@@ -40460,8 +40757,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/concept/verdict.ts
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync18, readFileSync as readFileSync38 } from "node:fs";
-import { join as join52 } from "node:path";
+import { readdirSync as readdirSync18, readFileSync as readFileSync39 } from "node:fs";
+import { join as join53 } from "node:path";
 var RECORD4 = "concept.md";
 var VISION = "vision.html";
 var DEBATE = "debate.md";
@@ -40516,7 +40813,7 @@ function pageFaults(ctx, page2) {
   const faults = [];
   const size = beforeAfterViolation(page2, ctx);
   if (size) faults.push(size);
-  const html = readFileSync38(join52(ctx.root, page2), "utf8");
+  const html = readFileSync39(join53(ctx.root, page2), "utf8");
   faults.push(...rasterFaults(page2, html));
   const loads = networkLoads(html);
   if (loads.length) {
@@ -40526,7 +40823,7 @@ function pageFaults(ctx, page2) {
 }
 function recordFaults(ctx, folder, concept2) {
   const file2 = `${folder}/${RECORD4}`;
-  const parsed2 = parseConcept(readFileSync38(join52(ctx.root, file2), "utf8"));
+  const parsed2 = parseConcept(readFileSync39(join53(ctx.root, file2), "utf8"));
   if (!parsed2.ok) return parsed2.errors.map((error62) => `${file2}: ${error62}`);
   return parsed2.record.concept === concept2 ? [] : [`${file2}: concept is ${parsed2.record.concept}, not ${concept2}.`];
 }
@@ -40540,7 +40837,7 @@ function entryKind(entry3) {
 }
 function folderEntries(ctx, folder) {
   const sorted = { present: /* @__PURE__ */ new Set(), rounds: [], misnamed: [], others: [] };
-  for (const entry3 of readdirSync18(join52(ctx.root, folder), { withFileTypes: true })) {
+  for (const entry3 of readdirSync18(join53(ctx.root, folder), { withFileTypes: true })) {
     const found2 = entryKind(entry3);
     const { kind } = found2;
     if (found2.kind === "round") sorted.rounds.push({ name: entry3.name, k: found2.k });
@@ -40558,12 +40855,12 @@ function roundFaults(folder, rounds) {
   return Array.from({ length: last - 1 }, (_, index) => index + 1).filter((k) => !shown6.has(k)).map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
 }
 function folderFaults(ctx, folder, concept2) {
-  const { present, rounds, misnamed, others } = folderEntries(ctx, folder);
-  const pages = [...present.has(VISION) ? [VISION] : [], ...rounds.map((round2) => round2.name)];
+  const { present: present2, rounds, misnamed, others } = folderEntries(ctx, folder);
+  const pages = [...present2.has(VISION) ? [VISION] : [], ...rounds.map((round2) => round2.name)];
   return [
-    ...REQUIRED2.filter((name3) => !present.has(name3)).map((name3) => `${folder}/${name3}: missing.`),
+    ...REQUIRED2.filter((name3) => !present2.has(name3)).map((name3) => `${folder}/${name3}: missing.`),
     ...roundFaults(folder, rounds),
-    ...present.has(RECORD4) ? recordFaults(ctx, folder, concept2) : [],
+    ...present2.has(RECORD4) ? recordFaults(ctx, folder, concept2) : [],
     ...pages.flatMap((page2) => pageFaults(ctx, `${folder}/${page2}`)),
     ...misnamed.sort(byName).map((name3) => `${folder}/${name3}: a round's board is named board-r<k>.html, k from 1.`),
     ...others.sort(byName).map((name3) => `${folder}/${name3}: not part of a concept; the folder holds ${HOLDS}.`)
@@ -41188,300 +41485,34 @@ ${problems}</main>
 `;
 }
 
-// kit/lib/design/ignore.ts
+// kit/lib/design/parts/diff.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/design/glob.ts
-init_define_OMNI_BUNDLE();
-var WILDCARD = /[*?{]/;
-var WILDCARDS = Object.freeze({ "**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]" });
-var TOKEN = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
-function source(pattern) {
-  return pattern.replace(TOKEN, (token, alternatives) => {
-    if (alternatives !== void 0) return `(?:${alternatives.split(",").map(source).join("|")})`;
-    return WILDCARDS[token] ?? token.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  });
+var matchesAny = (globs, path) => globs.some((glob) => matchesGlob(glob, path));
+function partsOfDiff(changes, { parts: parts2, claimed: claimed2, paths }) {
+  const changed = parts2.filter((part) => changes.some(({ path }) => matchesAny(part.code, path))).map(({ name: name3 }) => name3);
+  if (paths.length === 0) return { changed, offList: null };
+  const named4 = parts2.flatMap(({ code }) => code);
+  const offList = changes.filter(({ path, added }) => added && isComponentFile(path) && matchesAny(paths, path) && !matchesAny(named4, path) && !matchesAny(claimed2, path)).map(({ path }) => path);
+  return { changed, offList };
 }
-function matchesGlob(pattern, path) {
-  const glob = pattern.startsWith("./") ? pattern.slice(2) : pattern;
-  if (glob.endsWith("/") || !WILDCARD.test(glob)) {
-    const folder = glob.replace(/\/+$/, "");
-    return path === folder || path.startsWith(`${folder}/`);
+function formatDiffParts({ changed, offList }) {
+  const lines2 = [`parts changed: ${changed.length ? changed.join(", ") : "none"}`];
+  if (offList === null) return [...lines2, "parts: unknown \u2014 design.paths is empty: judge from the diff whether a new file is a part"];
+  if (offList.length === 0) return [...lines2, "parts: all listed"];
+  return [...lines2, ...offList.map((path) => `off-list: ${path} (added: no part names it, no screen implements it)`)];
+}
+function parseNameStatus2(output2) {
+  const fields = output2.split("\0").filter(Boolean);
+  const changes = [];
+  for (let index = 0; index + 1 < fields.length; index += 2) {
+    const status5 = fields[index] ?? "";
+    const path = fields[index + 1] ?? "";
+    changes.push({ path, added: status5.startsWith("A") });
   }
-  return new RegExp(`^${source(glob)}$`).test(path);
+  return changes;
 }
 
-// kit/lib/design/ignore.ts
-var DEFAULT_DESIGN_IGNORE = Object.freeze(["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**"]);
-function designIgnore(design2) {
-  return design2.ignore ?? DEFAULT_DESIGN_IGNORE;
-}
-function dropIgnored(ignore, changed) {
-  return changed.filter((path) => !ignore.some((glob) => matchesGlob(glob, path)));
-}
-
-// kit/lib/design/system/format.ts
-init_define_OMNI_BUNDLE();
-var listed = (entries5) => entries5.length ? entries5.join(", ") : "none";
-function formatParts({ path, system }) {
-  if (!system) return [`parts: no ${path} (run /omni:pixel-perfect init)`];
-  const count4 = system.parts.length === 1 ? "1 part" : `${system.parts.length} parts`;
-  return [
-    ...system.parts.map((part) => `${part.name} \u2014 variants: ${listed(part.variants)} \xB7 states: ${listed(part.states)} \xB7 code: ${listed(part.code)}`),
-    `${count4} \xB7 ${path} \xB7 reference screens: ${listed(system.referenceScreens.map(({ screen }) => screen))}`,
-    ...system.problems.map((problem) => `${path}: ${problem}`)
-  ];
-}
-
-// kit/lib/design/system/load.ts
-init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync39 } from "node:fs";
-import { join as join53 } from "node:path";
-
-// kit/lib/design/system/read.ts
-init_define_OMNI_BUNDLE();
-var import_yaml6 = __toESM(require_dist(), 1);
-var FRONT_MATTER4 = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
-var SECTION2 = /^##\s+(.+?)\s*#*\s*$/;
-var PART2 = /^###\s+(.+?)\s*#*\s*$/;
-var FENCE2 = /^\s*(```|~~~)/;
-var BULLET = /^\s*[-*]\s+(.*)$/;
-var SUB_ITEM = /^\s+[-*]\s+(.*)$/;
-var LINE = /^\*{0,2}([A-Za-z][A-Za-z'’ ]*?)\*{0,2}\s*:\s*\*{0,2}\s*(.*)$/;
-var REFERENCE3 = /\{([A-Za-z0-9_.-]+)\}/g;
-var NOTHING2 = /* @__PURE__ */ new Set(["", "\u2014", "-", "none"]);
-var FIELDS3 = {
-  summary: "summary",
-  variants: "variants",
-  states: "states",
-  tokens: "tokens",
-  accessibility: "accessibility",
-  do: "do",
-  "don't": "dont",
-  dont: "dont",
-  code: "code"
-};
-var COMMA_LISTS = /* @__PURE__ */ new Set(["variants", "states", "tokens", "code"]);
-var isMap = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-var clean = (entry3) => entry3.replace(/`/g, "").trim().replace(/^\{(.*)\}$/, "$1").trim();
-function splitList(value) {
-  return value.split(/[,·]/).map(clean).filter((entry3) => !NOTHING2.has(entry3.toLowerCase()));
-}
-function readFrontMatter2(text13) {
-  const match = FRONT_MATTER4.exec(text13);
-  if (!match) return { tokens: {}, body: text13, problems: ["no front matter of design tokens"], read: false };
-  const body = text13.slice(match[0].length);
-  let value;
-  try {
-    value = (0, import_yaml6.parse)(match[1] ?? "");
-  } catch (error62) {
-    return { tokens: {}, body, problems: [`front matter does not read: ${messageOf(error62).split("\n")[0]}`], read: false };
-  }
-  if (!isMap(value)) return { tokens: {}, body, problems: ["front matter is not a map of token groups"], read: false };
-  return { tokens: value, body, problems: [], read: true };
-}
-function sections(body) {
-  const found2 = /* @__PURE__ */ new Map();
-  let current = null;
-  let fenced = false;
-  for (const line of body.split(/\r?\n/)) {
-    if (FENCE2.test(line)) fenced = !fenced;
-    const heading2 = fenced ? null : SECTION2.exec(line);
-    if (heading2 && !line.startsWith("###")) {
-      const key2 = (heading2[1] ?? "").toLowerCase();
-      current = found2.get(key2) ?? [];
-      found2.set(key2, current);
-      continue;
-    }
-    current?.push(line);
-  }
-  return found2;
-}
-var draft = (name3) => ({ name: name3, summary: [], accessibility: [], variants: [], states: [], tokens: [], do: [], dont: [], code: [] });
-function finish(part) {
-  const text13 = (lines2) => lines2.length ? lines2.join(" ") : null;
-  return {
-    name: part.name,
-    summary: text13(part.summary),
-    variants: part.variants,
-    states: part.states,
-    tokens: part.tokens,
-    accessibility: text13(part.accessibility),
-    do: part.do,
-    dont: part.dont,
-    code: part.code
-  };
-}
-function add(part, field2, value, inline) {
-  const entries5 = inline && COMMA_LISTS.has(field2) ? splitList(value) : [clean(value)].filter((entry3) => !NOTHING2.has(entry3.toLowerCase()));
-  part[field2].push(...entries5);
-}
-function unfenced(lines2) {
-  let fenced = false;
-  return lines2.filter((line) => {
-    if (FENCE2.test(line)) fenced = !fenced;
-    return !fenced && !FENCE2.test(line);
-  });
-}
-function entries(lines2) {
-  const found2 = [];
-  for (const line of unfenced(lines2)) {
-    const heading2 = PART2.exec(line);
-    if (heading2) found2.push({ name: heading2[1] ?? "", lines: [] });
-    else found2.at(-1)?.lines.push(line);
-  }
-  return found2;
-}
-function fieldOf2(label2) {
-  const key2 = label2.toLowerCase().replace(/’/g, "'").trim();
-  return (Object.hasOwn(FIELDS3, key2) ? FIELDS3[key2] : void 0) ?? null;
-}
-function labelled(line) {
-  const bullet = BULLET.exec(line);
-  const match = LINE.exec(bullet ? String(bullet[1]) : line.trim());
-  return match ? { label: String(match[1]), value: String(match[2]) } : null;
-}
-function readEntry(name3, lines2) {
-  const part = draft(name3);
-  const problems = [];
-  let field2 = null;
-  for (const line of lines2) {
-    const sub = field2 && SUB_ITEM.exec(line);
-    if (field2 && sub) {
-      add(part, field2, String(sub[1]), false);
-      continue;
-    }
-    const read2 = labelled(line);
-    if (!read2) continue;
-    field2 = fieldOf2(read2.label);
-    if (field2) add(part, field2, read2.value, true);
-    else problems.push(`part ${name3}: unknown line "${read2.label}"`);
-  }
-  return { part: finish(part), problems };
-}
-function readParts(lines2) {
-  const parts2 = [];
-  const problems = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const entry3 of entries(lines2)) {
-    const key2 = entry3.name.toLowerCase();
-    if (seen.has(key2)) {
-      problems.push(`part ${entry3.name} is listed twice: the second is skipped`);
-      continue;
-    }
-    seen.add(key2);
-    const read2 = readEntry(entry3.name, entry3.lines);
-    parts2.push(read2.part);
-    problems.push(...read2.problems);
-  }
-  return { parts: parts2, problems };
-}
-var QUOTED_SCREEN = /^`([^`]+)`\s*(?:[—–:-]\s*)?(.*)$/;
-var PLAIN_SCREEN = /^(\S+?)(?::\s+|\s+[—–-]\s+)(.*)$/;
-function referenceScreen(item2) {
-  const match = QUOTED_SCREEN.exec(item2) ?? PLAIN_SCREEN.exec(item2);
-  const screen = (match?.[1] ?? item2).trim();
-  return { screen, note: match?.[2]?.trim() || null };
-}
-function readReferenceScreens(lines2) {
-  return lines2.flatMap((line) => {
-    const item2 = BULLET.exec(line)?.[1]?.trim();
-    return item2 ? [referenceScreen(item2)] : [];
-  });
-}
-function lookup(tokens, path) {
-  let value = tokens;
-  for (const key2 of path.split(".")) {
-    if (!isMap(value) || !Object.hasOwn(value, key2)) return void 0;
-    value = value[key2];
-  }
-  return value;
-}
-function frontMatterReferences(value, where) {
-  if (typeof value === "string") return [...value.matchAll(REFERENCE3)].map((match) => ({ reference: match[1] ?? "", where }));
-  if (Array.isArray(value)) return value.flatMap((entry3, index) => frontMatterReferences(entry3, `${where}.${index}`));
-  if (isMap(value)) return Object.entries(value).flatMap(([key2, entry3]) => frontMatterReferences(entry3, where ? `${where}.${key2}` : key2));
-  return [];
-}
-function parseDesignSystem(text13) {
-  const front = readFrontMatter2(text13);
-  const body = sections(front.body);
-  const components = body.get("components");
-  const { parts: parts2, problems: partProblems } = components ? readParts(components) : { parts: [], problems: ["no Components section: no part is listed"] };
-  const referenceScreens = readReferenceScreens(body.get("reference screens") ?? []);
-  const unresolved = front.read ? [
-    ...frontMatterReferences(front.tokens, ""),
-    ...parts2.flatMap((part) => part.tokens.filter((token) => token.includes(".")).map((reference) => ({ reference, where: `part ${part.name}` })))
-  ].filter(({ reference }) => lookup(front.tokens, reference) === void 0) : [];
-  return {
-    tokens: front.tokens,
-    parts: parts2,
-    referenceScreens,
-    unresolved,
-    problems: [...front.problems, ...partProblems, ...unresolved.map(({ reference, where }) => `unresolved reference {${reference}} in ${where}`)]
-  };
-}
-
-// kit/lib/design/system/load.ts
-function loadDesignSystem(root, design2) {
-  const path = designSystemPath(design2);
-  let text13;
-  try {
-    text13 = readFileSync39(join53(root, path), "utf8");
-  } catch {
-    return { path, system: null };
-  }
-  return { path, system: parseDesignSystem(text13) };
-}
-
-// kit/lib/design/words/avoid.ts
-init_define_OMNI_BUNDLE();
-var LABEL2 = /^(?:words?\s+(?:we|it|they|the\s+product)\s+avoids?|words?\s+to\s+avoid|avoided\s+words?|avoid)$/i;
-var BULLET2 = /^\s*[-*+]\s+(.*)$/;
-function cleanTerm(raw) {
-  return raw.trim().replace(/[.]+$/, "").replace(/^[`"'“‘«]+|[`"'”’»]+$/g, "").trim();
-}
-var indent = (line) => /^\s*/.exec(line)?.[0].length ?? 0;
-function labelled2(line) {
-  const bare = line.replace(/^\s*(?:[-*+]\s+)?/, "").replace(/[*_]/g, "");
-  const colon = bare.indexOf(":");
-  if (colon === -1) return null;
-  return { label: bare.slice(0, colon).trim(), rest: bare.slice(colon + 1).trim() };
-}
-function avoidedWords(product2) {
-  const lines2 = product2.split(/\r?\n/);
-  const terms = [];
-  lines2.forEach((line, index) => {
-    const read2 = labelled2(line);
-    if (!read2 || !LABEL2.test(read2.label)) return;
-    if (read2.rest !== "") {
-      terms.push(...read2.rest.split(/[,;]/).map(cleanTerm));
-      return;
-    }
-    const floor = BULLET2.test(line) ? indent(line) : -1;
-    for (const next2 of lines2.slice(index + 1)) {
-      const bullet = BULLET2.exec(next2)?.[1];
-      if (bullet === void 0 || indent(next2) <= floor) break;
-      terms.push(cleanTerm(bullet));
-    }
-  });
-  const seen = /* @__PURE__ */ new Set();
-  return terms.filter((term) => {
-    const key2 = term.toLowerCase();
-    if (term === "" || seen.has(key2)) return false;
-    seen.add(key2);
-    return true;
-  });
-}
-
-// kit/lib/design/words/content.ts
-init_define_OMNI_BUNDLE();
-var DEFAULT_WORDS_CONTENT = "[data-content]";
-function wordsContent(words4) {
-  return words4.content ?? DEFAULT_WORDS_CONTENT;
-}
-
-// kit/lib/design/words/pass.ts
+// kit/lib/design/parts/page.ts
 init_define_OMNI_BUNDLE();
 
 // kit/lib/design/words/html.ts
@@ -41591,7 +41622,136 @@ function parseHtml(html) {
   return root;
 }
 
+// kit/lib/design/parts/page.ts
+var PART_ATTRIBUTE = "data-part";
+var CONTROL_TAGS = /* @__PURE__ */ new Set(["button", "select", "textarea"]);
+var CONTROL_ROLES = /* @__PURE__ */ new Set(["button", "checkbox", "combobox", "menuitem", "option", "radio", "slider", "switch", "tab", "textbox"]);
+var BUTTON_CLASS = /^(?:btn|button)(?:[-_].*)?$/;
+var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
+var isButtonLink = ({ attributes }) => (attributes.get("class") ?? "").split(/\s+/).some((name3) => BUTTON_CLASS.test(name3));
+function isControl(element, primary) {
+  const { tag, attributes } = element;
+  if (CONTROL_TAGS.has(tag) || CONTROL_ROLES.has(attributes.get("role") ?? "") || matches(primary, element)) return true;
+  if (tag === "input") return (attributes.get("type") ?? "").toLowerCase() !== "hidden";
+  return tag === "a" && isButtonLink(element);
+}
+function textUnder(element) {
+  return element.children.map((child) => {
+    if (child.kind === "text") return child.text;
+    return isHidden(child) ? "" : ` ${textUnder(child)} `;
+  }).join("").replace(/\s+/g, " ").trim();
+}
+function controlLabel(element) {
+  const { attributes } = element;
+  const label2 = [textUnder(element), attributes.get("aria-label"), attributes.get("placeholder"), attributes.get("value"), attributes.get("name")].map((text13) => text13?.trim()).find(Boolean);
+  return label2 ? `${element.tag} "${label2}"` : element.tag;
+}
+var leftOut = (element, rules, top2) => isHidden(element) || !top2 && (matches(rules.screen, element) || matches(rules.content, element));
+function recordTag(walk2, tag) {
+  walk2.tagged += 1;
+  if (!isListed(walk2.rules.parts, tag) && !walk2.offList.includes(tag)) walk2.offList.push(tag);
+}
+function visit2(element, walk2, covered, top2) {
+  if (leftOut(element, walk2.rules, top2)) return;
+  const tag = element.attributes.get(PART_ATTRIBUTE)?.trim() ?? "";
+  if (tag !== "") recordTag(walk2, tag);
+  else if (!covered && isControl(element, walk2.rules.primary)) walk2.untagged.push(controlLabel(element));
+  const inside = covered || tag !== "";
+  for (const child of element.children) if (child.kind === "element") visit2(child, walk2, inside, false);
+}
+function screensUnder(node3, screen) {
+  if (isHidden(node3)) return [];
+  const own2 = matches(screen, node3) ? [node3] : [];
+  return [...own2, ...node3.children.flatMap((child) => child.kind === "element" ? screensUnder(child, screen) : [])];
+}
+function screenName(screen, rules, index) {
+  const named4 = [...namingAttributes(rules.screen), "id", "aria-label"].map((name3) => screen.attributes.get(name3)?.trim()).find(Boolean);
+  return named4 ?? `#${index + 1}`;
+}
+function partsOfPage(html, rules) {
+  const marked = screensUnder(parseHtml(html), rules.screen);
+  const screens2 = marked.map((screen, index) => {
+    const walk2 = { rules, tagged: 0, offList: [], untagged: [] };
+    visit2(screen, walk2, false, true);
+    return { name: screenName(screen, rules, index), tagged: walk2.tagged, offList: walk2.offList, untagged: walk2.untagged };
+  });
+  return { skipped: marked.length === 0, screens: screens2 };
+}
+var partsTagged = (count4) => `${count4} ${count4 === 1 ? "part" : "parts"} tagged`;
+function formatPageParts(page2, { skipped: skipped3, screens: screens2 }, rules) {
+  const lines2 = [page2];
+  if (skipped3) lines2.push(`  no screen marked: skipped (${rules.screen.source})`);
+  for (const screen of screens2) {
+    lines2.push(`  screen ${screen.name} \xB7 ${partsTagged(screen.tagged)}`);
+    if (screen.offList.length === 0 && screen.untagged.length === 0) lines2.push("    parts: all listed");
+    for (const name3 of screen.offList) lines2.push(`    off-list: ${name3}`);
+    for (const control of screen.untagged) lines2.push(`    untagged: ${control}`);
+  }
+  return lines2;
+}
+
+// kit/lib/design/system/format.ts
+init_define_OMNI_BUNDLE();
+var listed = (entries5) => entries5.length ? entries5.join(", ") : "none";
+function formatParts({ path, system }) {
+  if (!system) return [`parts: no ${path} (run /omni:pixel-perfect init)`];
+  const count4 = system.parts.length === 1 ? "1 part" : `${system.parts.length} parts`;
+  return [
+    ...system.parts.map((part) => `${part.name} \u2014 variants: ${listed(part.variants)} \xB7 states: ${listed(part.states)} \xB7 code: ${listed(part.code)}`),
+    `${count4} \xB7 ${path} \xB7 reference screens: ${listed(system.referenceScreens.map(({ screen }) => screen))}`,
+    ...system.problems.map((problem) => `${path}: ${problem}`)
+  ];
+}
+
+// kit/lib/design/words/avoid.ts
+init_define_OMNI_BUNDLE();
+var LABEL2 = /^(?:words?\s+(?:we|it|they|the\s+product)\s+avoids?|words?\s+to\s+avoid|avoided\s+words?|avoid)$/i;
+var BULLET2 = /^\s*[-*+]\s+(.*)$/;
+function cleanTerm(raw) {
+  return raw.trim().replace(/[.]+$/, "").replace(/^[`"'“‘«]+|[`"'”’»]+$/g, "").trim();
+}
+var indent = (line) => /^\s*/.exec(line)?.[0].length ?? 0;
+function labelled2(line) {
+  const bare = line.replace(/^\s*(?:[-*+]\s+)?/, "").replace(/[*_]/g, "");
+  const colon = bare.indexOf(":");
+  if (colon === -1) return null;
+  return { label: bare.slice(0, colon).trim(), rest: bare.slice(colon + 1).trim() };
+}
+function avoidedWords(product2) {
+  const lines2 = product2.split(/\r?\n/);
+  const terms = [];
+  lines2.forEach((line, index) => {
+    const read2 = labelled2(line);
+    if (!read2 || !LABEL2.test(read2.label)) return;
+    if (read2.rest !== "") {
+      terms.push(...read2.rest.split(/[,;]/).map(cleanTerm));
+      return;
+    }
+    const floor = BULLET2.test(line) ? indent(line) : -1;
+    for (const next2 of lines2.slice(index + 1)) {
+      const bullet = BULLET2.exec(next2)?.[1];
+      if (bullet === void 0 || indent(next2) <= floor) break;
+      terms.push(cleanTerm(bullet));
+    }
+  });
+  const seen = /* @__PURE__ */ new Set();
+  return terms.filter((term) => {
+    const key2 = term.toLowerCase();
+    if (term === "" || seen.has(key2)) return false;
+    seen.add(key2);
+    return true;
+  });
+}
+
+// kit/lib/design/words/content.ts
+init_define_OMNI_BUNDLE();
+var DEFAULT_WORDS_CONTENT = "[data-content]";
+function wordsContent(words4) {
+  return words4.content ?? DEFAULT_WORDS_CONTENT;
+}
+
 // kit/lib/design/words/pass.ts
+init_define_OMNI_BUNDLE();
 var BLOCK = /* @__PURE__ */ new Set([
   "address",
   "article",
@@ -41641,19 +41801,19 @@ var BLOCK = /* @__PURE__ */ new Set([
   "ul"
 ]);
 var PHRASING = /* @__PURE__ */ new Set(["a", "abbr", "b", "cite", "code", "em", "i", "kbd", "mark", "q", "s", "small", "span", "strong", "sub", "sup", "time", "u", "var"]);
-var CONTROL_ROLES = /* @__PURE__ */ new Set(["button", "link", "menuitem", "tab", "option", "switch", "checkbox", "radio"]);
+var CONTROL_ROLES2 = /* @__PURE__ */ new Set(["button", "link", "menuitem", "tab", "option", "switch", "checkbox", "radio"]);
 var INPUT_CONTROLS = /* @__PURE__ */ new Set(["submit", "button", "reset"]);
 var WORD = /[\p{L}\p{N}]/u;
 function countWords(text13) {
   return text13.split(/\s+/).filter((token) => WORD.test(token)).length;
 }
-var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
-var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
+var isControl2 = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES2.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
+var isHidden2 = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
 var wordsOf = (count4) => `${count4} ${count4 === 1 ? "word" : "words"}`;
 var squash = (text13) => text13.replace(/\s+/g, " ").trim();
 function textOf3(node3, spaced) {
   if (node3.kind === "text") return node3.text;
-  if (isHidden(node3)) return "";
+  if (isHidden2(node3)) return "";
   const own2 = node3.tag === "input" ? ` ${node3.attributes.get("value") ?? ""} ` : "";
   const block = BLOCK.has(node3.tag);
   return node3.children.reduce((text13, child, index) => {
@@ -41671,7 +41831,7 @@ function flush(walk2) {
   walk2.phrases.push(...phraseOf(walk2.run, false));
   walk2.run = "";
 }
-var skipped2 = (element, walk2, top2) => isHidden(element) || !top2 && matches(walk2.rules.screen, element);
+var skipped2 = (element, walk2, top2) => isHidden2(element) || !top2 && matches(walk2.rules.screen, element);
 var hasRunningText = (element) => element.children.some((child) => child.kind === "text" && WORD.test(child.text));
 var runsOn = (child, running) => running && child.kind === "element" && PHRASING.has(child.tag);
 function readContent2(element, walk2, inline) {
@@ -41685,7 +41845,7 @@ function readControl(element, walk2) {
 function visitChildren(element, walk2, inline) {
   if (!inline) flush(walk2);
   const running = inline || hasRunningText(element);
-  for (const child of element.children) visit2(child, walk2, runsOn(child, running));
+  for (const child of element.children) visit3(child, walk2, runsOn(child, running));
   if (!inline) flush(walk2);
 }
 function visitElement(element, walk2, top2, inline) {
@@ -41695,13 +41855,13 @@ function visitElement(element, walk2, top2, inline) {
     return;
   }
   if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element, true)));
-  if (isControl(element, walk2.rules.primary)) {
+  if (isControl2(element, walk2.rules.primary)) {
     readControl(element, walk2);
     return;
   }
   visitChildren(element, walk2, inline);
 }
-function visit2(node3, walk2, inline) {
+function visit3(node3, walk2, inline) {
   if (node3.kind === "text") walk2.run += node3.text;
   else visitElement(node3, walk2, false, inline);
 }
@@ -41711,7 +41871,7 @@ function readScreen(screen, rules) {
   flush(walk2);
   return { phrases: walk2.phrases, primaries: walk2.primaries, content: walk2.content };
 }
-function screenName(screen, rules, index) {
+function screenName2(screen, rules, index) {
   const named4 = [...namingAttributes(rules.screen), "id", "aria-label"].map((name3) => screen.attributes.get(name3)?.trim()).find(Boolean);
   return named4 ?? `#${index + 1}`;
 }
@@ -41727,10 +41887,10 @@ function avoidedWord(phrases, { avoid }) {
 function findings(phrases, primaries, rules) {
   return [...sentenceOnControl(phrases, rules), ...twoPrimaries(primaries), ...explainsAtRest(phrases, rules), ...avoidedWord(phrases, rules)];
 }
-function screensUnder(node3, rules) {
+function screensUnder2(node3, rules) {
   const found2 = [];
   const walk2 = (element) => {
-    if (isHidden(element)) return;
+    if (isHidden2(element)) return;
     if (matches(rules.screen, element)) found2.push(element);
     for (const child of element.children) if (child.kind === "element") walk2(child);
   };
@@ -41738,11 +41898,11 @@ function screensUnder(node3, rules) {
   return found2;
 }
 function wordPass(html, rules) {
-  const marked = screensUnder(parseHtml(html), rules);
+  const marked = screensUnder2(parseHtml(html), rules);
   const screens2 = marked.map((screen, index) => {
     const { phrases, primaries, content } = readScreen(screen, rules);
     return {
-      name: screenName(screen, rules, index),
+      name: screenName2(screen, rules, index),
       phrases,
       words: phrases.reduce((sum, phrase) => sum + phrase.words, 0),
       content,
@@ -41810,7 +41970,7 @@ function formatScreensTouched(screens2, read2 = []) {
 }
 
 // kit/bin/commands/design.ts
-var USAGE13 = "usage: omni design touched [<base>] | omni design screens | omni design words <page.html>\u2026 | omni design gallery [--out <file>] | omni design parts";
+var USAGE13 = "usage: omni design touched [<base>] | omni design screens | omni design words <page.html>\u2026 | omni design gallery [--out <file>] | omni design parts [--check <page.html | ref>]";
 function currentBranch2({ ctx, exec }) {
   try {
     const name3 = exec("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -41861,9 +42021,50 @@ function gallery({ ctx }, out) {
   writeFileSync15(path, galleryPage(library, readMock));
   return [path];
 }
-function parts({ ctx }) {
+function changesSince({ ctx, exec }, ref) {
+  try {
+    const output2 = exec("git", ["diff", "--name-status", "-z", "--no-renames", "--no-ext-diff", `${ref}...HEAD`, "--"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return parseNameStatus2(output2);
+  } catch {
+    return null;
+  }
+}
+function checkDiff(io, system, ref) {
+  const changes = changesSince(io, ref);
+  if (!changes) return [`parts: unknown \u2014 cannot read ${ref}: fetch it or pass another ref`];
+  const { design: config3 } = io.ctx.config;
+  const ignore = designIgnore(config3);
+  const kept = new Set(dropIgnored(ignore, changes.map(({ path }) => path)));
+  const { screens: library } = readScreens(join54(io.ctx.root, designScreensDir(io.ctx.config)));
+  return formatDiffParts(partsOfDiff(changes.filter(({ path }) => kept.has(path)), {
+    parts: system.parts,
+    claimed: library.flatMap((screen) => screen.implements),
+    paths: config3.paths
+  }));
+}
+function checkPage(io, system, page2) {
+  const { words: config3 } = io.ctx.config.design;
+  let html;
+  try {
+    html = readFileSync40(resolve3(io.ctx.root, page2), "utf8");
+  } catch (error62) {
+    return [`${page2}: cannot read \u2014 ${messageOf(error62).split("\n")[0]}`];
+  }
+  const rules = {
+    screen: checked(config3.screen),
+    primary: checked(config3.primary),
+    content: checked(wordsContent(config3)),
+    parts: system.parts.map(({ name: name3 }) => name3)
+  };
+  return formatPageParts(page2, partsOfPage(html, rules), rules);
+}
+var PAGE = /\.html?$/i;
+function parts(io, check4) {
+  const { ctx } = io;
   if (!ctx.config.design.enabled) return ["design: off"];
-  return formatParts(loadDesignSystem(ctx.root, ctx.config.design));
+  const loaded = loadDesignSystem(ctx.root, ctx.config.design);
+  if (check4 === void 0 || !loaded.system) return formatParts(loaded);
+  return PAGE.test(check4) ? checkPage(io, loaded.system, check4) : checkDiff(io, loaded.system, check4);
 }
 function checked(source2) {
   const selector = parseSelector(source2);
@@ -41902,15 +42103,15 @@ var VERBS = {
   touched: (io, operands2) => operands2.length > 1 ? null : touched(io, operands2[0]),
   screens: (io, operands2) => operands2.length > 0 ? null : screens(io),
   words: (io, operands2) => operands2.length === 0 ? null : words(io, operands2),
-  gallery: (io, operands2, out) => operands2.length > 0 ? null : gallery(io, out),
-  parts: (io, operands2) => operands2.length > 0 ? null : parts(io)
+  gallery: (io, operands2, { out }) => operands2.length > 0 ? null : gallery(io, out),
+  parts: (io, operands2, { check: check4 }) => operands2.length > 0 ? null : parts(io, check4)
 };
 var design = {
   run: synchronous((args, io) => {
-    const { positional, flags } = parseArgs("design", args, { values: ["out"] });
+    const { positional, flags } = parseArgs("design", args, { values: ["out", "check"] });
     const [verb2 = "", ...operands2] = positional;
-    if (flags.out !== void 0 && verb2 !== "gallery") throw usageError(USAGE13);
-    const lines2 = Object.hasOwn(VERBS, verb2) ? VERBS[verb2]?.(io, operands2, flags.out) : null;
+    if (flags.out !== void 0 && verb2 !== "gallery" || flags.check !== void 0 && verb2 !== "parts") throw usageError(USAGE13);
+    const lines2 = Object.hasOwn(VERBS, verb2) ? VERBS[verb2]?.(io, operands2, flags) : null;
     if (!lines2) throw usageError(USAGE13);
     for (const line of lines2) println(io.stdout, line);
     return 0;
@@ -42198,7 +42399,7 @@ function walk(root, dir, out) {
     else out.push(path);
   }
 }
-function filesUnder2(root, dir) {
+function filesUnder3(root, dir) {
   const out = [];
   walk(root, dir.replace(/\/+$/, ""), out);
   return out;
@@ -42275,7 +42476,7 @@ function parseRecording(file2, text13) {
     })
   };
 }
-function filesUnder3(folder, extensions) {
+function filesUnder4(folder, extensions) {
   let entries5;
   try {
     entries5 = readdirSync20(folder, { withFileTypes: true });
@@ -42284,13 +42485,13 @@ function filesUnder3(folder, extensions) {
   }
   return entries5.filter((entry3) => entry3.name !== "node_modules").flatMap((entry3) => {
     const path = join56(folder, entry3.name);
-    if (entry3.isDirectory()) return filesUnder3(path, extensions);
+    if (entry3.isDirectory()) return filesUnder4(path, extensions);
     return extensions.some((extension) => entry3.name.endsWith(extension)) ? [path] : [];
   }).sort();
 }
 var posix6 = (path) => path.split(sep).join("/");
 function readRecordings(root, dir) {
-  return filesUnder3(join56(root, dir, ".e2e", "cache"), [".json"]).map((path) => {
+  return filesUnder4(join56(root, dir, ".e2e", "cache"), [".json"]).map((path) => {
     const name3 = posix6(relative3(root, path));
     let text13;
     try {
@@ -42304,7 +42505,7 @@ function readRecordings(root, dir) {
 function readTaggedTests(root, dir, prd2) {
   const tag = new RegExp(`(?<![\\w-])prd-${prd2}(?![\\w-])`);
   const base = join56(root, dir);
-  return filesUnder3(base, [".ts", ".tsx", ".js", ".mjs", ".cjs"]).filter((path) => !relative3(base, path).split(sep).includes(".e2e")).filter((path) => tag.test(readFileSync42(path, "utf8"))).map((path) => ({ id: posix6(relative3(base, path)), file: posix6(relative3(root, path)) }));
+  return filesUnder4(base, [".ts", ".tsx", ".js", ".mjs", ".cjs"]).filter((path) => !relative3(base, path).split(sep).includes(".e2e")).filter((path) => tag.test(readFileSync42(path, "utf8"))).map((path) => ({ id: posix6(relative3(base, path)), file: posix6(relative3(root, path)) }));
 }
 
 // kit/lib/e2e/heals.ts
@@ -42605,7 +42806,7 @@ function guard(args, io) {
     println(stderr, "omni e2e: e2e.enabled is false in the config, so nothing was read");
     return 1;
   }
-  const files = new Set(filesUnder2(ctx.root, dir));
+  const files = new Set(filesUnder3(ctx.root, dir));
   const lines2 = (...gitArgs) => {
     try {
       return exec("git", gitArgs, gitOptions2(ctx.root)).split("\n").filter((l) => l !== "");
@@ -43818,9 +44019,9 @@ var ENTRIES = deepFreeze([
     name: "design",
     kind: "command",
     who: "skills",
-    usage: ["omni design touched [<base>]", "omni design screens", "omni design words <page.html>\u2026", "omni design gallery [--out <file>]", "omni design parts"],
+    usage: ["omni design touched [<base>]", "omni design screens", "omni design words <page.html>\u2026", "omni design gallery [--out <file>]", "omni design parts [--check <page.html | ref>]"],
     summary: "whether a branch touches a screen, the screen library, the word pass over a mockup, the gallery, and the parts DESIGN.md lists",
-    detail: "Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. It first drops every changed path a design.ignore glob matches (by default the test shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change made only of tests reads ui: no. Its screens: line names each library screen whose implements the change touches, and as reads <screen> each one it reaches only through its reads, the code behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements (the files it is drawn from), the optional reads list (the code it only depends on), its routes, and an optional kind: page, the default, or shared, structure several pages show (an app shell, notifications, a sign-in page), a screen of its own whose files each page it appears on lists in reads, and any other kind is refused by name; omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, with shared beside a shared screen, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings (two sibling blocks, or a layout of spans with no running text, are two strings, while a phrasing element such as code, em or span inside running text keeps its sentence whole, and inside a control two sibling elements are joined with a space), each control's marked (a button, a link, or any element design.words.primary matches), and its word count; text inside an element design.words.content matches (by default [data-content]) is content the screen shows, not words it wrote: it prints content \xB7 <n> words apart and raises no finding. Then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no script, no remote asset): each screen with its status, who locked it and when, its routes, and its mockup inline or no mockup, locked screens first, then drafts, then superseded, and the shared screens in a group of their own after the pages. It writes to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; the page is generated each time and never committed. An empty library prints no screen yet and writes nothing, design: off while the flag is off, and gallery exits 0. parts lists the closed list of parts the repository's DESIGN.md holds, the file design.system names (by default DESIGN.md at the root, in Google's DESIGN.md format: token groups in its front matter, one ### entry per part under Components with its Summary, Variants, States, Tokens, Accessibility, Do, Don't and Code lines, and the Reference screens section naming the library screens a builder copies): one line per part with its variants, states and code paths, then the count, the file and its reference screens, then each thing in the file that does not read, a token reference that does not resolve among them. With no file it prints parts: no DESIGN.md (run /omni:pixel-perfect init), design: off while the flag is off, and parts exits 0 whatever it finds."
+    detail: `Design craft is off until the config sets design.enabled to true: then the skills read the design form, omni kb show design (the product, where its design system lives, what it does on purpose and how to look at a screen), and the product wins over the craft floor and the refuse list. touched reads what the branch changed since its merge base with <base> (by default the slice's feature branch, else the default branch) and prints design: off while the flag is off, ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: unknown when design.paths is empty or the base cannot be read, for the agent to judge from the diff. It first drops every changed path a design.ignore glob matches (by default the test shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change made only of tests reads ui: no. Its screens: line names each library screen whose implements the change touches, and as reads <screen> each one it reaches only through its reads, the code behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen library, the folder design.screens names (by default design/screens/ under the knowledge folder): one Markdown file per screen, its front matter saying its status (draft, locked or superseded), who locked it, when and in which words, its mockup, the paths it implements (the files it is drawn from), the optional reads list (the code it only depends on), its routes, and an optional kind: page, the default, or shared, structure several pages show (an app shell, notifications, a sign-in page), a screen of its own whose files each page it appears on lists in reads, and any other kind is refused by name; omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and when, and its routes, with shared beside a shared screen, then each file that does not read, says so when the library is empty, and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 whatever it finds. words is the word pass: it reads each mockup page given, structure never style, and prints every screen (an element design.words.screen matches, by default [data-screen]; an unmarked page, one with none, is skipped with no finding, and says no screen marked: skipped) with its visible strings (two sibling blocks, or a layout of spans with no running text, are two strings, while a phrasing element such as code, em or span inside running text keeps its sentence whole, and inside a control two sibling elements are joined with a space), each control's marked (a button, a link, or any element design.words.primary matches), and its word count; text inside an element design.words.content matches (by default [data-content]) is content the screen shows, not words it wrote: it prints content \xB7 <n> words apart and raises no finding. Then its findings: sentence-on-control, a button or link whose label holds design.words.sentence words or more (default 7); two-primaries, more than one primary action (design.words.primary, by default [data-primary]) in one screen; explains-at-rest, a string outside any control longer than design.words.sentence; and avoided-word, a word or phrase in design.words.avoid or in the explicit list the design form's product section holds, one line labelled Words we avoid:, Words to avoid:, Avoided words: or Avoid: with the words after it or one bullet each below it (prose is never read as a list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no combinator. A page it cannot read is named and the next is read; it prints design: off while the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no script, no remote asset): each screen with its status, who locked it and when, its routes, and its mockup inline or no mockup, locked screens first, then drafts, then superseded, and the shared screens in a group of their own after the pages. It writes to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; the page is generated each time and never committed. An empty library prints no screen yet and writes nothing, design: off while the flag is off, and gallery exits 0. parts lists the closed list of parts the repository's DESIGN.md holds, the file design.system names (by default DESIGN.md at the root, in Google's DESIGN.md format: token groups in its front matter, one ### entry per part under Components with its Summary, Variants, States, Tokens, Accessibility, Do, Don't and Code lines, and the Reference screens section naming the library screens a builder copies): one line per part with its variants, states and code paths, then the count, the file and its reference screens, then each thing in the file that does not read, a token reference that does not resolve among them. With no file it prints parts: no DESIGN.md (run /omni:pixel-perfect init), design: off while the flag is off, and parts exits 0 whatever it finds. parts --check <page.html> is the parts check over a mockup: it reads only the marked screens, as words does (an unmarked page says no screen marked: skipped), counts the parts each tags with data-part="<name>" (case, spaces and dashes aside, EmptyState and empty-state are one part), and prints off-list: for a tag the list does not hold and untagged: for a control (a button, an input but a hidden one, a select, a textarea, an element with a control role, a link classed btn or button, or any element design.words.primary matches) that carries no tag, itself or on an element around it; what design.words.content marks is content, never a part and never untagged, and a screen with neither finding says parts: all listed. parts --check <ref> reads what the branch changed since its merge base with <ref>, design.ignore dropped: parts changed: names each part whose Code paths a change matches, and off-list: names each component file (.tsx, .jsx, .vue, .svelte or .astro) the diff adds under design.paths that no part names and no screen implements; it prints parts: unknown when the ref does not read or design.paths is empty, and never guesses. Both exit 0 whatever they find.`
   },
   {
     name: "e2e",
@@ -44876,8 +45077,8 @@ function enableHud(root) {
   const file2 = join64(root, SETTINGS_FILE);
   const settings = loadSettings(file2);
   if (!settings) return { path: SETTINGS_FILE, outcome: "invalid" };
-  const present = Object.hasOwn(settings, ENABLED_PLUGINS_KEY);
-  const plugins = present ? JsonObjectSchema.safeParse(settings[ENABLED_PLUGINS_KEY]) : { success: true, data: {} };
+  const present2 = Object.hasOwn(settings, ENABLED_PLUGINS_KEY);
+  const plugins = present2 ? JsonObjectSchema.safeParse(settings[ENABLED_PLUGINS_KEY]) : { success: true, data: {} };
   if (!plugins.success) return { path: SETTINGS_FILE, outcome: "theirs" };
   if (Object.hasOwn(plugins.data, HUD_PLUGIN)) return { path: SETTINGS_FILE, outcome: plugins.data[HUD_PLUGIN] === true ? "kept" : "theirs" };
   settings[ENABLED_PLUGINS_KEY] = { ...plugins.data, [HUD_PLUGIN]: true };
@@ -44948,8 +45149,8 @@ function setupLines({ slug, files, forms, settings, hud, labels: labels2 }) {
   const done = [];
   if (labels2.created.length) done.push(`created ${labels2.created.join(", ")}`);
   if (labels2.present.length) {
-    const present = `already there: ${labels2.present.join(", ")}`;
-    done.push(labels2.created.length ? `   (${present})` : present);
+    const present2 = `already there: ${labels2.present.join(", ")}`;
+    done.push(labels2.created.length ? `   (${present2})` : present2);
   }
   if (done.length) lines2.push(`  labels  ${done.join("")}`);
   if (labels2.byHand.length) lines2.push(`  labels  gh could not create ${labels2.byHand.join(", ")} \u2014 see step ${LABELS_STEP} below`);
@@ -46742,7 +46943,7 @@ init_define_OMNI_BUNDLE();
 var keyOf2 = (prds) => [...new Set(prds)].sort((a, b) => a - b).join(",");
 function roadmapDriving(ctx, prds) {
   const wanted = keyOf2(prds);
-  const matching = roadmapFiles(ctx).filter((entry3) => {
+  const matching2 = roadmapFiles(ctx).filter((entry3) => {
     try {
       const parsed2 = parseRoadmap(readRepoFile(ctx, entry3.file));
       return parsed2.ok && parsed2.roadmap.roadmap === entry3.number && keyOf2(parsed2.roadmap.prds.map((row) => row.prd)) === wanted;
@@ -46750,7 +46951,7 @@ function roadmapDriving(ctx, prds) {
       return false;
     }
   });
-  return matching.length === 1 ? matching[0]?.number ?? null : null;
+  return matching2.length === 1 ? matching2[0]?.number ?? null : null;
 }
 
 // kit/lib/next/store.ts
@@ -48383,7 +48584,7 @@ function changedOutside(ctx, exec, range2) {
   const delivery = `${ctx.config.paths.delivery}/`;
   return entries3(git3(ctx, exec, ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", ...range2, "--"])).filter((path) => !path.startsWith(delivery));
 }
-function filesUnder4(ctx, exec, ref, dir) {
+function filesUnder5(ctx, exec, ref, dir) {
   return entries3(git3(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${dir}/`])).map((path) => path.slice(dir.length + 1));
 }
 function userEmail(ctx, exec) {
@@ -48449,7 +48650,7 @@ function featuresOf(ctx, exec, base, inbox, remote) {
           ...landing ? { landing } : {},
           forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
           differs: changedOutside(ctx, exec, [base, ref]),
-          outbox: filesUnder4(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name3}`),
+          outbox: filesUnder5(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name3}`),
           ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd2),
           authors: authorsOf(beyond),
           touched: touchedBy(ctx, beyond)
@@ -49934,7 +50135,7 @@ function readFacts3(input2, { cwd, exec, now: now2 = Date.now(), spawn: spawn2 =
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync57, readdirSync as readdirSync29, readFileSync as readFileSync66 } from "node:fs";
 import { join as join81 } from "node:path";
-var PAGE = "before-after.html";
+var PAGE2 = "before-after.html";
 var OUTBOX2 = "outbox";
 var ROUND3 = /^variations-r([1-9]\d*)\.html$/;
 var ROUND_LIKE2 = /^variations/i;
@@ -49950,7 +50151,7 @@ function pageViolations(ctx, page2) {
   return violations;
 }
 function belongs(entry3) {
-  return entry3.isFile() ? entry3.name === PAGE : entry3.isDirectory() && entry3.name === OUTBOX2;
+  return entry3.isFile() ? entry3.name === PAGE2 : entry3.isDirectory() && entry3.name === OUTBOX2;
 }
 function folderViolations(ctx, folder) {
   const rounds = [];
@@ -49968,7 +50169,7 @@ function folderViolations(ctx, folder) {
   return [
     ...rounds.sort((a, b) => a.k - b.k).flatMap(({ name: name3 }) => pageViolations(ctx, `${folder}/${name3}`)),
     ...misnamed.sort(byName2).map((name3) => `${folder}/${name3}: a round of variations is named variations-r<k>.html, k from 1.`),
-    ...others.sort(byName2).map((name3) => `${folder}/${name3}: not part of a visual fix; the folder holds ${PAGE} and variations-r<k>.html only.`)
+    ...others.sort(byName2).map((name3) => `${folder}/${name3}: not part of a visual fix; the folder holds ${PAGE2} and variations-r<k>.html only.`)
   ];
 }
 function visualVerdict({ ctx, issue: issue2, commits, laws }) {
@@ -49979,7 +50180,7 @@ function visualVerdict({ ctx, issue: issue2, commits, laws }) {
     root: visualRoot(ctx),
     prefix: issuePrefix(issue2),
     folders: numberedFolders(ctx, visualRoot(ctx), issuePrefix(issue2)),
-    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder), ...laws?.(folder) ?? []]
+    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE2}`), ...folderViolations(ctx, folder), ...laws?.(folder) ?? []]
   });
 }
 
