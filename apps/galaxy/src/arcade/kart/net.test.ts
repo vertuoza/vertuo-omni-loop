@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { presenceOf, readGrid, readPresence, type GridPlayer } from './net';
+import { carried, presenceOf, rateFor, readGrid, readMessage, readPresence, type GridPlayer } from './net';
+import { RULES } from './rules';
 
 // The grid's Presence entry on the wire (PRD 1572, slice 3).
 
@@ -37,5 +38,75 @@ describe('everyone Presence holds', () => {
     const entries = { u1: presenceOf(player()), u2: presenceOf(player({ id: 'u2' })), u3: { id: 'u3' }, u4: presenceOf(player({ id: 'u9' })) };
     expect(readGrid(entries).map((p) => p.id)).toEqual(['u1', 'u2']);
     expect(readGrid({})).toEqual([]);
+  });
+});
+
+// The race's messages (PRD 1572, slice 4).
+
+const state = { kind: 'state', race: 'r1', x: 10, y: 20, angle: 1.5, speed: 60, steer: 1, laps: 1, passed: 3, spin: 0, fall: 0 } as const;
+const start = { kind: 'start', race: 'r1', seed: 42, order: [presenceOf(player({ id: 'a' })), presenceOf(player({ id: 'b' }))] };
+
+describe('the race\'s messages', () => {
+  it('reads each one back from what was sent', () => {
+    expect(readMessage(state)).toEqual(state);
+    expect(readMessage({ kind: 'leave', race: 'r1' })).toEqual({ kind: 'leave', race: 'r1' });
+    const read = readMessage(start);
+    expect(read?.kind).toBe('start');
+    expect(read?.kind === 'start' ? read.order.map((p) => p.id) : []).toEqual(['a', 'b']);
+  });
+
+  it('reads a message with a missing or wrong field as nothing', () => {
+    for (const key of Object.keys(state)) {
+      expect(readMessage(Object.fromEntries(Object.entries(state).filter(([name]) => name !== key))), `without ${key}`).toBeNull();
+    }
+    expect(readMessage({ ...state, x: 'far' })).toBeNull();
+    expect(readMessage({ ...state, speed: Number.POSITIVE_INFINITY })).toBeNull();
+    expect(readMessage({ ...state, steer: 2 })).toBeNull();
+    expect(readMessage({ ...state, laps: 4 })).toBeNull();
+    expect(readMessage({ ...state, fall: -1 })).toBeNull();
+    expect(readMessage({ kind: 'nope', race: 'r1' })).toBeNull();
+    expect(readMessage(null)).toBeNull();
+    expect(readMessage('state')).toBeNull();
+  });
+
+  it('refuses a start with one player, with more than the places, or with a player twice', () => {
+    expect(readMessage({ ...start, order: start.order.slice(0, 1) })).toBeNull();
+    expect(readMessage({ ...start, order: [...start.order, ...start.order] })).toBeNull();
+    const five = ['a', 'b', 'c', 'd', 'e'].map((id) => presenceOf(player({ id })));
+    expect(readMessage({ ...start, order: five })).toBeNull();
+    expect(readMessage({ ...start, order: [...start.order.slice(0, 1), { id: 'b' }] })).toBeNull();
+  });
+
+  it('ignores a message that is from another race', () => {
+    expect(readMessage(state, 'r1')).toEqual(state);
+    expect(readMessage(state, 'r2')).toBeNull();
+    expect(readMessage({ kind: 'leave', race: 'r1' }, 'r2')).toBeNull();
+  });
+});
+
+describe('the send rate', () => {
+  it('is 10 a second at two players, 8 at three and 5 at four', () => {
+    expect([2, 3, 4].map(rateFor)).toEqual([10, 8, 5]);
+  });
+
+  it('keeps n² × rate inside the budget for every number of players, from 1 to the places', () => {
+    for (let n = 1; n <= RULES.places; n += 1) expect(n * n * rateFor(n), `${n} players`).toBeLessThanOrEqual(RULES.messageBudget);
+  });
+});
+
+describe('a remote kart between two states', () => {
+  const kart = { x: 100, y: 50, angle: 0, speed: 40, steer: 0 } as const;
+
+  it('is carried forward along its speed and heading', () => {
+    expect(carried(kart, 0.25)).toEqual({ ...kart, x: 110, y: 50 });
+    const north = carried({ ...kart, angle: Math.PI / 2 }, 0.25);
+    expect(north.x).toBeCloseTo(100);
+    expect(north.y).toBeCloseTo(60);
+  });
+
+  it('is never carried more than half a second', () => {
+    expect(carried(kart, 0.5)).toEqual(carried(kart, 3));
+    expect(carried(kart, 3).x).toBeCloseTo(100 + 40 * RULES.carry);
+    expect(carried(kart, -1)).toEqual(kart);
   });
 });

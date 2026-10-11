@@ -7,9 +7,11 @@
 // blurred window and a hidden tab pause it too, and only START resumes) -> finish (the player crossed the
 // line at the end of the last lap: the results table and the race time, given once; A races again, B leaves).
 import { fleetSprite, MASCOTS } from '@omni/design';
+import { crewLook, heroOf } from '../fleets';
 import type { Action } from '../keys';
 import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
-import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart } from './kart';
+import { carried, type GridPlayer, type StateMessage } from './net';
+import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES } from './rules';
 import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
@@ -21,10 +23,17 @@ const EPSILON = 1e-9;
 /** The countdown's numbers, one a second. */
 const BEATS: readonly ('3' | '2' | '1')[] = ['3', '2', '1'];
 
-export type Phase = 'ready' | 'countdown' | 'race' | 'paused' | 'finish';
+/** No button held. */
+const NONE: ReadonlySet<Action> = new Set();
+
+export type Phase = 'ready' | 'countdown' | 'race' | 'paused' | 'finish' | 'left';
+
+/** A SINGLE race against the CPU karts, or a MULTI race against the players of the workspace's grid (PRD 1572). */
+export type Mode = 'single' | 'multi';
 
 export interface Race {
   readonly seed: number;
+  readonly mode: Mode;
   readonly track: Track;
   readonly phase: Phase;
   /** Where a pause resumes: the phase it interrupted. */
@@ -36,11 +45,16 @@ export interface Race {
   readonly fx: Fx;
   /** The item boxes, BLOBs and ORBs on the circuit. */
   readonly items: World;
-  /** The player's laps and waypoints, and the five rivals on the grid. */
+  /** The player's laps and waypoints, and the rivals on the grid: the five CPU karts, or in a MULTI race the other players, who are never driven here. */
   readonly pace: Pace;
   readonly rivals: readonly Rival[];
   /** The race clock at which the player's last lap began: FINAL LAP shows from there; null before it. */
   readonly finalAt: number | null;
+  /** MULTI: whether the race's menu is open over the race (the race goes on), and the players gone OUT or left, by id. */
+  readonly menu: boolean;
+  /** MULTI: the player's own place on the grid, 0 on pole. */
+  readonly slot: number;
+  readonly gone: readonly string[];
   /** The results, once the player crossed the line at the end of the last lap; null before. */
   readonly finish: KartResults | null;
 }
@@ -56,7 +70,7 @@ export type RaceEvent =
   | { kind: 'item'; racer: number; item: Item } | { kind: 'box'; racer: number }
   | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean }
   | { kind: 'fell'; racer: number } | { kind: 'finalLap' }
-  | { kind: 'finish'; tenths: number } | { kind: 'quit' } | { kind: 'again' };
+  | { kind: 'finish'; tenths: number } | { kind: 'quit' } | { kind: 'again' } | { kind: 'leave' };
 
 export interface Stepped { race: Race; events: RaceEvent[] }
 
@@ -76,7 +90,8 @@ function fillers(used: readonly Driver[], count: number): Driver[] {
  * others, all facing the way the line runs; nothing moves until START. Fewer than five rivals in the
  * cast: the next mascots fill the places.
  */
-export function newRace({ seed, track = parseTrack(), cast = [] }: { seed: number; track?: Track; cast?: readonly Driver[] }): Race {
+export function newRace({ seed, track = parseTrack(), cast = [], field }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field }): Race {
+  if (field) return newMultiRace(seed, track, field);
   const start = track.places[track.places.length - 1];
   if (!start) throw new Error('a circuit with no starting place');
   const drivers = [...cast.slice(0, PLACES - 1)];
@@ -87,11 +102,81 @@ export function newRace({ seed, track = parseTrack(), cast = [] }: { seed: numbe
     const trait = traits[i] ?? { skill: 1, offset: 0 };
     return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, finish: null };
+  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: 0, gone: [], finish: null };
+}
+
+/** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
+export interface Field { me: string; order: readonly GridPlayer[] }
+
+/** A player of the grid as a driver: their hero in the seat, their fleet's colour on the kart, their name on the results. */
+function driverOf(p: GridPlayer): Driver {
+  const look = heroOf(p.hero, p.fleet);
+  return { sprite: look.sprite, tint: look.tint, color: crewLook(p.fleet).color, name: p.name.toUpperCase() };
+}
+
+/**
+ * A MULTI race (PRD 1572): the players, and only them, stand on the first places of the circuit in
+ * their starting order, pole first, facing the way the line runs. No CPU kart. Each other player is a
+ * rival that is never driven here: its kart is read from the last state heard from it.
+ */
+function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
+  const index = order.findIndex((p) => p.id === me);
+  const place = (i: number) => {
+    const p = track.places[i];
+    if (!p) throw new Error('a circuit with no starting place');
+    return p;
+  };
+  if (index < 0) throw new Error('a MULTI race the player is not in');
+  const rivals = order.flatMap((p, i): Rival[] => {
+    if (p.id === me) return [];
+    const kart = kartAt(place(i).x, place(i).y, track.heading);
+    return [{ id: p.id, slot: i, driver: driverOf(p), kart, pace: START_PACE, fx: NO_FX, skill: 1, offset: 0, heard: { kart, fx: NO_FX, at: 0 } }];
+  });
+  const mine = place(index);
+  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: index, gone: [], finish: null };
+}
+
+/** A state heard from player `id`: their kart, laps and spin-out or fall stand as they say, at the race clock it came at (before GO, at 0). Not a MULTI race on its way, a player not in it, or a player gone: nothing changes. */
+export function hear(race: Race, id: string, s: StateMessage): Race {
+  if (race.mode !== 'multi' || (race.phase !== 'countdown' && race.phase !== 'race')) return race;
+  const at = race.phase === 'race' ? race.clock : 0;
+  const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer };
+  const fx: Fx = { ...NO_FX, spin: s.spin, fall: s.fall };
+  return { ...race, rivals: race.rivals.map((r) => (r.id === id ? { ...r, kart, fx, pace: { laps: s.laps, passed: s.passed }, heard: { kart, fx, at } } : r)) };
+}
+
+/** Player `id` is OUT: they left, or nothing came from them for `RULES.outAfter` seconds. Their kart is gone from the circuit. */
+export function dropOut(race: Race, id: string): Race {
+  return race.rivals.some((r) => r.id === id) ? { ...race, rivals: race.rivals.filter((r) => r.id !== id), gone: [...race.gone, id] } : race;
+}
+
+/** The race left from outside because the tab is hidden: a MULTI race on its way is left at once, a SINGLE one pauses. */
+export function away(race: Race): Race {
+  if (race.mode === 'single') return pause(race);
+  return race.phase === 'countdown' || race.phase === 'race' ? { ...race, phase: 'left', menu: false } : race;
+}
+
+/** Every remote kart read from its last state, carried forward `RULES.carry` seconds at most (and its spin-out and fall run down meanwhile), at race clock `clock`. */
+function carryRemotes(rivals: readonly Rival[], clock: number): Rival[] {
+  return rivals.map((r) => {
+    if (!r.heard) return r;
+    const age = Math.max(0, clock - r.heard.at);
+    const { fx } = r.heard;
+    return { ...r, kart: carried(r.heard.kart, age), fx: { ...fx, spin: Math.max(0, fx.spin - age), fall: Math.max(0, fx.fall - age) } };
+  });
 }
 
 /** How a rival that holds an item sees the road: it is facing where it goes when it needs hardly any turn to aim at its waypoint. */
 const STRAIGHT = 0.1;
+
+/** A kart's own short step: it drives with the pad, its pace follows, and a fall that ends brings it back on the line (the jump is never passed to `advance()`). */
+function roll(track: Track, own: { player: Kart; fx: Fx; pace: Pace }, pad: Pad, dt: number): { player: Kart; fx: Fx; pace: Pace } {
+  const moved = stepFx(track.map, own.player, pad, dt, 1, own.fx);
+  const pace = advance(track, own.pace, own.player, moved.kart);
+  if (!moved.landed) return { player: moved.kart, fx: moved.fx, pace };
+  const back = comeBack(track, pace, moved.kart, moved.fx);
+  return { player: back.kart, fx: back.fx, pace };
+}
 
 /** `dt` seconds of the race with the buttons held, played in the same short steps whatever the frame took: the player, the rivals, the karts pushed apart, the items and the laps counted. */
 function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'player' | 'fx' | 'items' | 'pace' | 'rivals'> & { events: RaceEvent[] } {
@@ -101,13 +186,8 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
   let { player, fx, items, pace, rivals } = race;
   const events: RaceEvent[] = [];
   for (let i = 0; i < steps; i++) {
-    const was = player;
     const falling = [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)];
-    const moved = stepFx(track.map, player, pad, dt / steps, 1, fx);
-    player = moved.kart;
-    fx = moved.fx;
-    pace = advance(track, pace, was, player);
-    if (moved.landed) ({ kart: player, fx } = comeBack(track, pace, player, fx)); // the jump is never passed to advance()
+    ({ player, fx, pace } = roll(track, { player, fx, pace }, pad, dt / steps));
     const ahead = progressOf(track, pace, player);
     rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead));
     const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
@@ -142,11 +222,54 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
   return { player, fx, items, pace, rivals, events };
 }
 
+/**
+ * `dt` seconds of a MULTI race (PRD 1572), played like `drive` for the player alone: the other players
+ * are read from their last states at race clock `clock`, never driven, never pushed, never dropped and
+ * never given a box. They are in the player's way: the whole push falls on the player, who gets out of
+ * it. The menu is open over a race that goes on, and the kart rolls on with nothing pressed.
+ */
+function driveMulti(race: Race, held: ReadonlySet<Action>, dt: number, clock: number): Pick<Race, 'player' | 'fx' | 'items' | 'pace' | 'rivals'> & { events: RaceEvent[] } {
+  const { track } = race;
+  const pad = padOf(race.menu ? NONE : held);
+  const steps = Math.max(1, Math.ceil(dt / RULES.subStep));
+  const rivals = carryRemotes(race.rivals, clock);
+  let { player, fx, items, pace } = race;
+  const events: RaceEvent[] = [];
+  for (let i = 0; i < steps; i++) {
+    const fell = fx.fall > 0;
+    ({ player, fx, pace } = roll(track, { player, fx, pace }, pad, dt / steps));
+    const [pushed] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
+    if (pushed) player = { ...pushed, x: player.x + (pushed.x - player.x) * 2, y: player.y + (pushed.y - player.y) * 2 };
+    const dropped = fallIfOver(track.map, player, fx);
+    player = dropped.kart;
+    fx = dropped.fx;
+    // Only the player's own kart takes a box; the item it draws is by its place among the players.
+    const mine = progressOf(track, pace, player);
+    const place = 1 + rivals.filter((r) => progressOf(track, r.pace, r.kart) > mine).length;
+    const acted = stepItems(track.map, items, [{ kart: player, fx }], [place], dt / steps);
+    items = acted.world;
+    events.push(...acted.events);
+    const [self] = acted.racers;
+    if (self) { player = self.kart; fx = self.fx; }
+    if (fx.fall > 0 && !fell) events.push({ kind: 'fell', racer: 0 });
+  }
+  return { player, fx, items, pace, rivals, events };
+}
+
+/** The rivals after a step at race clock `clock`: a MULTI player nothing has come from for `RULES.outAfter` seconds is OUT (their kart is gone), and a rival that crossed the line is marked with its time. */
+function settle(race: Race, rivals: readonly Rival[], clock: number): { rivals: Rival[]; gone: string[] } {
+  const silent = rivals.filter((r) => r.id !== undefined && clock - (r.heard?.at ?? 0) > RULES.outAfter);
+  const kept = rivals.filter((r) => !silent.includes(r)).map((r) => (r.pace.laps >= LAPS && r.doneAt == null ? { ...r, doneAt: clock } : r));
+  return { rivals: kept, gone: [...race.gone, ...silent.flatMap((r) => (r.id === undefined ? [] : [r.id]))] };
+}
+
 /** The player's place, 1 to 6: one more than the karts as far along the racing line or further (side by side on the grid, the player is behind: it stands on the last place). */
 export function placeOf(race: Race): number {
   const { track } = race;
   const mine = progressOf(track, race.pace, race.player);
-  return 1 + race.rivals.filter((r) => progressOf(track, r.pace, r.kart) >= mine).length;
+  // A MULTI grid is three across: side by side, whoever stood ahead on it is ahead.
+  const ahead = (r: Rival) => { const p = progressOf(track, r.pace, r.kart); return race.mode === 'multi' ? p > mine || (p === mine && (r.slot ?? 0) < race.slot) : p >= mine; };
+  return 1 + race.rivals.filter(ahead).length;
 }
 
 /** The race clock's tenths of a second, as the clock shows them. */
@@ -178,13 +301,15 @@ export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped
       const events = BEATS.flatMap((beat, i): RaceEvent[] => (i > 0 && race.clock < i - EPSILON && clock >= i - EPSILON ? [{ kind: 'beat', beat }] : []));
       return { race: { ...race, clock }, events };
     }
-    return { race: { ...race, phase: 'race', clock: 0 }, events: [{ kind: 'go' }] };
+    // GO: the race clock starts at this player's own GO, so what is heard before it is heard at 0.
+    const rivals = race.rivals.map((r) => (r.heard ? { ...r, heard: { ...r.heard, at: 0 } } : r));
+    return { race: { ...race, phase: 'race', clock: 0, rivals }, events: [{ kind: 'go' }] };
   }
   if (race.phase === 'race') {
     const clock = race.clock + t;
-    const { events, ...moved } = drive(race, held, t);
-    const rivals = moved.rivals.map((r) => (r.pace.laps >= LAPS && r.doneAt == null ? { ...r, doneAt: clock } : r));
-    const next: Race = { ...race, ...moved, rivals, clock, finalAt: race.finalAt ?? (moved.pace.laps >= LAPS - 1 ? clock : null) };
+    const { events, ...moved } = race.mode === 'multi' ? driveMulti(race, held, t, clock) : drive(race, held, t);
+    const { rivals, gone } = settle(race, moved.rivals, clock);
+    const next: Race = { ...race, ...moved, rivals, gone, clock, finalAt: race.finalAt ?? (moved.pace.laps >= LAPS - 1 ? clock : null) };
     if (race.finalAt === null && next.finalAt !== null && moved.pace.laps < LAPS) events.push({ kind: 'finalLap' });
     if (moved.pace.laps < LAPS) return { race: next, events };
     const finish = resultsOf(next, clock);
@@ -195,7 +320,11 @@ export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped
 
 /** START: the ready screen starts the countdown (and tells its first number), a pause resumes, the countdown and the race pause, the results do nothing. */
 function pressStart(race: Race): Stepped {
-  if (race.phase === 'finish') return { race, events: [] };
+  if (race.phase === 'finish' || race.phase === 'left') return { race, events: [] };
+  if (race.mode === 'multi' && race.phase !== 'ready') {
+    // There is no pause in a MULTI race: ENTER opens the menu over a race that goes on, and ENTER closes it.
+    return race.phase === 'race' ? { race: { ...race, menu: !race.menu }, events: [] } : { race, events: [] };
+  }
   if (race.phase === 'ready') return { race: { ...race, phase: 'countdown', clock: 0 }, events: [{ kind: 'beat', beat: '3' }] };
   if (race.phase === 'paused') return { race: { ...race, phase: race.resume }, events: [] };
   return { race: { ...race, phase: 'paused', resume: race.phase }, events: [] };
@@ -211,14 +340,18 @@ function pressItem(race: Race): Stepped {
 /** A press: B uses the item held, START starts the countdown, pauses it or the race, and resumes a pause; SELECT on the pause leaves. */
 export function press(race: Race, action: Action): Stepped {
   if (action === 'start') return pressStart(race);
-  if (action === 'b' && race.phase === 'race') return pressItem(race);
+  if (action === 'b' && race.phase === 'race' && !race.menu) return pressItem(race);
   if (action === 'select' && race.phase === 'paused') return { race, events: [{ kind: 'quit' }] };
-  if (action === 'a' && race.phase === 'finish') return { race, events: [{ kind: 'again' }] };
+  // MULTI: LEAVE RACE (TAB) on the menu leaves the race for the grid.
+  if (action === 'select' && race.mode === 'multi' && race.phase === 'race' && race.menu) return { race: { ...race, phase: 'left', menu: false }, events: [{ kind: 'leave' }] };
+  if (action === 'a' && (race.phase === 'finish' || race.phase === 'left')) return { race, events: [{ kind: 'again' }] };
   return { race, events: [] };
 }
 
 /** The race paused from outside (a blurred window, a hidden tab, leaving the scene): the countdown and the race pause, the rest stays. */
 export function pause(race: Race): Race {
+  // In a MULTI race a window that loses focus opens the menu over a race that goes on.
+  if (race.mode === 'multi') return race.phase === 'race' ? { ...race, menu: true } : race;
   return race.phase === 'countdown' || race.phase === 'race' ? { ...race, phase: 'paused', resume: race.phase } : race;
 }
 
@@ -226,11 +359,12 @@ export function pause(race: Race): Race {
 export function hudOf(race: Race): KartHud {
   const { phase } = race;
   if (race.phase === 'finish' && race.finish) return { phase, beat: null, results: race.finish };
+  if (race.phase === 'left') return { phase, beat: null };
   if (race.phase === 'countdown') return { phase, beat: BEATS[Math.min(BEATS.length - 1, Math.floor(race.clock))] ?? '1' };
   const beat = race.phase === 'race' && race.clock < RULES.goBanner ? 'GO' : null;
   if (race.phase !== 'race' && race.phase !== 'paused') return { phase, beat };
   const final = race.finalAt !== null && race.clock - race.finalAt < RULES.finalBanner;
-  return { phase, beat, run: { place: placeOf(race), lap: lapOf(race.pace), laps: LAPS, tenths: Math.floor(race.clock * 10 + EPSILON), final, item: race.fx.item } };
+  return { phase, beat, ...(race.mode === 'multi' ? { menu: race.menu } : {}), run: { place: placeOf(race), lap: lapOf(race.pace), laps: LAPS, tenths: Math.floor(race.clock * 10 + EPSILON), final, item: race.fx.item } };
 }
 
 /** One kind of race event, as the cues the arcade hears; `tiles` is how far the racer it names stands from the player. */
@@ -246,6 +380,7 @@ const CUES: { [K in RaceEvent['kind']]: CueOf<K> } = {
   finish: () => [],
   quit: () => [],
   again: () => [],
+  leave: () => [],
 };
 
 /** The cues an event makes, in order: a hit on the player is also a spin-out, a rival's box or fall is no one's business. */

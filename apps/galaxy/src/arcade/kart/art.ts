@@ -13,7 +13,9 @@ import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import { NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
 import { chaseCamera, depthAt, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
-import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
+import type { GridSession, RaceStart } from './hub';
+import { rateFor, readMessage, type GridPlayer } from './net';
+import { away, cuesOf, dropOut, hear, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
 import { BEYOND, paintTrack } from './texture';
@@ -309,11 +311,14 @@ function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, part
 }
 
 /** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets); the circuit is COMET RING unless a test hands it another. */
-export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track }
+export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace }
+
+/** A MULTI race (PRD 1572): the grid's session the race talks over, the start that began it and the player at this screen. */
+export interface LiveRace { session: Pick<GridSession, 'send' | 'listen'>; start: RaceStart; me: GridPlayer }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed, cast = [], track = parseTrack() }: KartOptions = { seed: 1359 }): KartGame {
-  let race = newRace({ seed, track, cast });
+export function createKart({ seed, cast = [], track = parseTrack(), live }: KartOptions = { seed: 1359 }): KartGame {
+  let race = newRace({ seed, track, cast, ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
   let texture: Texture | null = null;
   let particles = newParticles(seed);
   const floors = new Map<string, Floor>();
@@ -342,6 +347,24 @@ export function createKart({ seed, cast = [], track = parseTrack() }: KartOption
     for (const e of events) told.push(...cuesOf(e, 'racer' in e ? tilesTo(e.racer) : 0));
   };
 
+  // A MULTI race (PRD 1572) talks over the grid's session: it hears the others' states and their leaving, sends its own state at the
+  // send rate and its `leave`, and starts its countdown at once, for the start has sent everyone to it. A message of another race is ignored.
+  let sinceSent = 0;
+  const onTheTrack = () => race.phase === 'countdown' || race.phase === 'race';
+  const sendLeave = () => { if (live) live.session.send({ kind: 'leave', race: live.start.race }); };
+  let stop: (() => void) | null = null;
+  if (live) {
+    const { race: id } = live.start;
+    stop = live.session.listen((from, body) => {
+      const m = readMessage(body, id);
+      if (m?.kind === 'state') race = hear(race, from, m);
+      else if (m?.kind === 'leave') race = dropOut(race, from);
+    });
+    const began = press(race, 'start');
+    race = began.race;
+    tell(began.events);
+  }
+
   return {
     step(held: ReadonlySet<Action>, dt: number): number | null {
       const before = race;
@@ -349,6 +372,19 @@ export function createKart({ seed, cast = [], track = parseTrack() }: KartOption
       race = r.race;
       if (before.phase === 'race') particles = stepParticles(particles, spawnsOf(before, race, r.events), dt);
       tell(r.events);
+      if (live) {
+        // The state goes out at the rate the number of players allows, once a step at most.
+        if (before.phase === 'race' && race.phase === 'race') {
+          const every = 1 / rateFor(race.rivals.length + 1);
+          sinceSent += dt;
+          if (sinceSent >= every - 1e-9) {
+            sinceSent = Math.min(sinceSent - every, every);
+            const { player, pace, fx } = race;
+            live.session.send({ kind: 'state', race: live.start.race, x: player.x, y: player.y, angle: player.angle, speed: player.speed, steer: player.steer, laps: pace.laps, passed: pace.passed, spin: fx.spin, fall: fx.fall });
+          }
+        }
+        return null; // a MULTI time is sent to the score once its finish does (a later slice of PRD 1572)
+      }
       const done = r.events.find((e) => e.kind === 'finish');
       return done?.kind === 'finish' ? done.tenths : null;
     },
@@ -356,9 +392,22 @@ export function createKart({ seed, cast = [], track = parseTrack() }: KartOption
       const r = press(race, action);
       race = r.race;
       tell(r.events);
-      return { quit: r.events.some((e) => e.kind === 'quit'), again: r.events.some((e) => e.kind === 'again') };
+      const left = r.events.some((e) => e.kind === 'leave');
+      if (left) sendLeave();
+      const again = r.events.some((e) => e.kind === 'again');
+      return { quit: r.events.some((e) => e.kind === 'quit'), again: again && !live, ...(live ? { grid: left || again } : {}) };
     },
     pause() { race = pause(race); },
+    away() {
+      const was = onTheTrack();
+      race = away(race);
+      if (was && race.phase === 'left') sendLeave();
+    },
+    close() {
+      if (onTheTrack() && live) { sendLeave(); race = { ...race, phase: 'left', menu: false }; }
+      stop?.();
+      stop = null;
+    },
     cues() { const out = told; told = []; return out; },
     speed: () => Math.min(1, Math.max(0, race.player.speed / RULES.topSpeed)),
     hud: () => hudOf(race),

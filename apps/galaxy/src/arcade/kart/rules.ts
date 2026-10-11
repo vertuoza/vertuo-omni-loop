@@ -67,4 +67,8 @@ export const RULES = Object.freeze({
   /** MULTI (PRD 1572): how many players of a workspace hold a place on the grid, and the Realtime messages a second a race may cost (sent and delivered both count). */
   places: 4,
   messageBudget: 80,
+  /** The most `state` messages a player sends a second (when few race), how long a remote kart is carried forward on its last state at most (seconds), and how long a player may stay silent before they are OUT (seconds). */
+  sendMax: 10,
+  carry: 0.5,
+  outAfter: 10,
 } as const);
