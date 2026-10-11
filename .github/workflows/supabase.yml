@@ -273,6 +273,11 @@ jobs:
         # and a new approval is in force again. approval_voids_of_push() names the caller's last push's
         # voids only; only the service role reads how the approver is reached (PRD 1322).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approval_voiding.sql
+      - name: Who may race on a workspace's kart grid
+        # Only a player of the workspace with OMNI KART unlocked receives or sends Broadcast and
+        # Presence on kart:<workspace id>; another workspace, no kart unlocked, no player row, anon,
+        # or a topic that is not kart:<uuid>, nothing (PRD 1572, ADR-0101).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/kart_grid.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
