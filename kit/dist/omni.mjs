@@ -36868,23 +36868,51 @@ var LoopbackError = class extends Error {
 function page(title, text14) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:17px/1.6 system-ui,sans-serif;max-width:34rem;margin:15vh auto;padding:0 1rem"><h1 style="font-size:1.3rem">${title}</h1><p>${text14}</p></body></html>`;
 }
-var SIGNED_IN = page("Back to the terminal", "The terminal is finishing the sign-in. You can close this tab.");
-var NOT_OURS = page("Sign-in refused", "This sign-in was not started by this terminal. Run <code>omni signin</code> again.");
-var NO_CODE = page("Sign-in incomplete", "The sign-in came back without its code. Run <code>omni signin</code> again.");
+var SIGN_IN = {
+  take: (params) => params.get("code") || null,
+  pages: {
+    done: page("Back to the terminal", "The terminal is finishing the sign-in. You can close this tab."),
+    notOurs: page("Sign-in refused", "This sign-in was not started by this terminal. Run <code>omni signin</code> again."),
+    incomplete: page("Sign-in incomplete", "The sign-in came back without its code. Run <code>omni signin</code> again.")
+  },
+  what: "sign-in"
+};
+var KIT_TOKEN = /^omk_[A-Za-z0-9_-]{43}$/;
+var TOKEN = {
+  take: (params) => {
+    const token = params.get("token") ?? "";
+    const expiresAt = params.get("expires_at") ?? "";
+    return KIT_TOKEN.test(token) && !Number.isNaN(Date.parse(expiresAt)) ? { token, expiresAt } : null;
+  },
+  pages: {
+    done: page("Back to the terminal", "The terminal has your token. You can close this tab."),
+    notOurs: page("Token refused", "This token was not asked for by this terminal. Run <code>omni setup-token</code> again."),
+    incomplete: page("Token incomplete", "The token came back incomplete. Run <code>omni setup-token</code> again.")
+  },
+  what: "token"
+};
 var sameText = (a, b) => {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
 };
-async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
+async function startLoopback(options) {
+  const { caught, ...rest } = await listen(options, SIGN_IN);
+  return { ...rest, code: caught };
+}
+async function startTokenLoopback(options) {
+  const { caught, ...rest } = await listen(options, TOKEN);
+  return { ...rest, token: caught };
+}
+async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, what }) {
   if (typeof state !== "string" || state.length === 0) throw new LoopbackError("the listener needs a state to compare with.");
   let settle3 = { resolve: () => {
   }, reject: () => {
   } };
-  const code = new Promise((resolve9, reject2) => {
+  const caught = new Promise((resolve9, reject2) => {
     settle3 = { resolve: resolve9, reject: reject2 };
   });
-  code.catch(() => {
+  caught.catch(() => {
   });
   let done = false;
   const server = createServer((request2, response) => {
@@ -36898,12 +36926,12 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
       return;
     }
     if (!sameText(url2.searchParams.get("state") ?? "", state)) {
-      answer(400, NOT_OURS);
+      answer(400, pages.notOurs);
       return;
     }
-    const given = url2.searchParams.get("code");
-    if (!given) {
-      answer(400, NO_CODE);
+    const given = take(url2.searchParams);
+    if (given === null) {
+      answer(400, pages.incomplete);
       return;
     }
     done = true;
@@ -36912,7 +36940,7 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
         settle3.resolve(given);
       });
     });
-    answer(200, SIGNED_IN);
+    answer(200, pages.done);
   });
   let closedResolve = () => {
   };
@@ -36946,7 +36974,7 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   timer = setTimeout(
     () => {
       finish(() => {
-        settle3.reject(new LoopbackError(`no sign-in came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`));
+        settle3.reject(new LoopbackError(`no ${what} came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`));
       });
     },
     timeoutMs
@@ -36955,12 +36983,12 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
     port,
     address,
     redirectUri: `http://${HOST}:${port}${PATH}`,
-    code,
+    caught,
     closed,
     async close() {
       if (server.listening) {
         finish(() => {
-          settle3.reject(new LoopbackError("the listener was stopped before a sign-in came back."));
+          settle3.reject(new LoopbackError(`the listener was stopped before a ${what} came back.`));
         });
       }
       await closed;
@@ -41383,9 +41411,9 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var WILDCARD = /[*?{]/;
 var WILDCARDS = Object.freeze({ "**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]" });
-var TOKEN = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
+var TOKEN2 = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
 function source(pattern) {
-  return pattern.replace(TOKEN, (token, alternatives) => {
+  return pattern.replace(TOKEN2, (token, alternatives) => {
     if (alternatives !== void 0) return `(?:${alternatives.split(",").map(source).join("|")})`;
     return WILDCARDS[token] ?? token.replace(/[.+^${}()|[\]\\]/g, "\\$&");
   });
@@ -43635,6 +43663,15 @@ var ENTRIES = deepFreeze([
     label: "omni signin",
     summary: "sign in to the Omni page, once per computer",
     detail: "Signs you in to the Omni page, the one the config's ask.url names: it opens the page in your browser, then keeps the sign-in in your home folder, for that host. Ask mode and dossiers both use it. Once per computer is enough; omni whoami says who is signed in, omni signout forgets it."
+  },
+  {
+    name: "setup-token",
+    kind: "command",
+    who: "you",
+    usage: ["omni setup-token [--name <name>] [--days 30|90|365]"],
+    label: "omni setup-token",
+    summary: "make a token for a cloud session",
+    detail: "Makes a token that signs the kit in where no browser opens, such as a Claude Code cloud session: it opens the Omni page in your browser, as omni signin does, then prints the token once, the day it expires, and the line to paste it by, OMNI_TOKEN=<token>, in your cloud environment's variables. It keeps the token nowhere. --name defaults to terminal and today's date; --days is 30, 90 or 365, 90 by default. Revoke a token on your profile page."
   },
   {
     name: "dossier",
@@ -54349,6 +54386,69 @@ var settle2 = {
   })
 };
 
+// kit/bin/commands/setup-token.ts
+init_define_OMNI_BUNDLE();
+import { randomBytes as randomBytes2 } from "node:crypto";
+var USAGE33 = "usage: omni setup-token [--name <name>] [--days 30|90|365]";
+var DAYS = ["30", "90", "365"];
+var DEFAULT_DAYS = "90";
+var NAME_MAX = 40;
+function nameOf2(given, today2) {
+  if (given === void 0) return `terminal ${today2.toISOString().slice(0, 10)}`;
+  const name3 = given.trim();
+  const control = Array.from(name3).some((char) => {
+    const code = char.charCodeAt(0);
+    return code < 32 || code === 127;
+  });
+  if (name3 === "" || name3.length > NAME_MAX || control) throw usageError(`omni setup-token: --name must be 1 to ${NAME_MAX} characters on one line.`);
+  return name3;
+}
+function daysOf(given) {
+  if (given === void 0) return DEFAULT_DAYS;
+  if (!DAYS.includes(given)) throw usageError(`omni setup-token: --days must be 30, 90 or 365, got "${given}".`);
+  return given;
+}
+var setupToken = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, openBrowser = openInBrowser, waitMs = LOOPBACK_WAIT_MS, now: now2 = () => /* @__PURE__ */ new Date() }) {
+    const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"] });
+    if (positional.length > 0) throw usageError(USAGE33);
+    const name3 = nameOf2(flags.name, now2());
+    const days = daysOf(flags.days);
+    const askUrl2 = loadContext(cwd, { exec }).config.ask.url;
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const state = randomBytes2(32).toString("base64url");
+    const listener = await startTokenLoopback({ state, timeoutMs: waitMs });
+    try {
+      const page2 = new URL(askEndpoint(askUrl2, "/ask/signin"));
+      page2.searchParams.set("purpose", "token");
+      page2.searchParams.set("name", name3);
+      page2.searchParams.set("days", days);
+      page2.searchParams.set("port", String(listener.port));
+      page2.searchParams.set("state", state);
+      println(stdout, `Make the token in your browser: ${page2}`);
+      try {
+        await openBrowser(page2.toString());
+      } catch {
+      }
+      const made = await listener.token;
+      println(stdout, made.token);
+      println(stdout, `It expires on ${new Date(made.expiresAt).toISOString().slice(0, 10)}.`);
+      println(stdout, `Paste it as OMNI_TOKEN=${made.token} in your cloud environment's variables.`);
+      return 0;
+    } catch (error62) {
+      if (!(error62 instanceof LoopbackError)) throw error62;
+      println(stderr, `omni setup-token: ${error62.message}`);
+      return 1;
+    } finally {
+      await listener.close();
+    }
+  }
+};
+
 // kit/bin/commands/ship.ts
 init_define_OMNI_BUNDLE();
 var ship = {
@@ -54375,13 +54475,13 @@ var ship = {
 
 // kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
-var USAGE33 = "usage: omni sign trailer|footer";
+var USAGE34 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional } = parseArgs("sign", args);
     const [which = ""] = positional;
-    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE33);
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE34);
     const line = LINES2[which](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -54542,7 +54642,7 @@ function formatOverview(overview2, { now: now2 }) {
 }
 
 // kit/bin/commands/status.ts
-var USAGE34 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE35 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 async function overview({ ctx, stdout, exec, fetch, gate }) {
   if (fetch) {
     const failure6 = fetchRemote({ ctx, exec });
@@ -54594,7 +54694,7 @@ var status4 = {
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     const ctx = loadContext(cwd, { exec });
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens, home, fetch, callMs } });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE34);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE35);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
     return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, exec, vars });
   }
@@ -54686,7 +54786,7 @@ function lastReadLine(readAt) {
 }
 
 // kit/bin/commands/targets.ts
-var USAGE35 = "usage: omni targets [--json]";
+var USAGE36 = "usage: omni targets [--json]";
 async function targetList(ctx, product2, io, note) {
   const askUrl2 = ctx.config.ask.url;
   if (!askUrl2) return "no targets: plan.product reads them from the Omni page, and ask.url is not set";
@@ -54712,7 +54812,7 @@ var targets = {
   async run(args, io) {
     const { stdout, stderr, exec, env } = io;
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE35);
+    if (positional.length) throw usageError(USAGE36);
     const ctx = loadContext(io.cwd, { exec });
     const plan2 = ctx.config.plan;
     if (!plan2) {
@@ -54785,7 +54885,7 @@ function whichLines(reply) {
 }
 
 // kit/bin/commands/product.ts
-var USAGE36 = "usage: omni product import --product <name> | omni product which";
+var USAGE37 = "usage: omni product import --product <name> | omni product which";
 function failure5(error62, what) {
   if (!(error62 instanceof AskCallError)) return { ok: false, lines: [messageOf(error62)] };
   if (error62.status === null) return { ok: false, lines: [`${what}: the server is unreachable`] };
@@ -54819,7 +54919,7 @@ function verbOf(args) {
     return { verb: verb2, product: flags.product };
   }
   if (rest.length === 0 && verb2 === "which" && flags.product === void 0) return { verb: verb2 };
-  throw usageError(USAGE36);
+  throw usageError(USAGE37);
 }
 async function said(call, verb2, ctx, io) {
   if (typeof call === "string") return { ok: false, lines: [call] };
@@ -54911,7 +55011,7 @@ var TOPIC_FLOOR = 8;
 var BUILDING2 = "building";
 var RESET = "\x1B[0m";
 var COLOURS = { green: "\x1B[32m", yellow: "\x1B[33m", red: "\x1B[31m" };
-var TOKEN2 = /\x1b\[[0-9;]*m|[\s\S]/gu;
+var TOKEN3 = /\x1b\[[0-9;]*m|[\s\S]/gu;
 var SGR = /^\x1b\[[0-9;]*m$/;
 var paint = (text14, colour2, color) => color ? `${COLOURS[colour2]}${text14}${RESET}` : text14;
 function contextColour(percent) {
@@ -54940,7 +55040,7 @@ function sessionLine({ model, contextPercent, fiveHour, askOn }, { now: now2, co
 }
 function visibleLength(line) {
   let length = 0;
-  for (const [token] of line.matchAll(TOKEN2)) if (!SGR.test(token)) length += 1;
+  for (const [token] of line.matchAll(TOKEN3)) if (!SGR.test(token)) length += 1;
   return length;
 }
 function fit2(line, width) {
@@ -54948,7 +55048,7 @@ function fit2(line, width) {
   let out = "";
   let shown6 = 0;
   let open3 = false;
-  for (const [token] of line.matchAll(TOKEN2)) {
+  for (const [token] of line.matchAll(TOKEN3)) {
     if (SGR.test(token)) {
       out += token;
       open3 = token !== RESET;
@@ -55215,7 +55315,7 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.ts
-var USAGE37 = "usage: omni update [--to <version>]";
+var USAGE38 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
   const dir = mkdtempSync5(join105(tmpdir5(), "omni-update-"));
   try {
@@ -55267,7 +55367,7 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE37);
+    if (positional.length) throw usageError(USAGE38);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -55318,10 +55418,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.ts
-var COMMAND_TABLE = Object.freeze({ config: config2, prd, approval: approval2, wait: wait2, status: status4, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask4, heartbeat, signin, signout, whoami, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, now, targets, product });
+var COMMAND_TABLE = Object.freeze({ config: config2, prd, approval: approval2, wait: wait2, status: status4, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask4, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, now, targets, product });
 
 // kit/bin/omni.ts
-var USAGE38 = `usage: omni <command> [args]
+var USAGE39 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -55429,7 +55529,7 @@ async function main(argv, {
   const name3 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command2 = Object.hasOwn(COMMAND_TABLE, name3) ? COMMAND_TABLE[name3] : void 0;
   if (!command2) {
-    stderr.write(USAGE38);
+    stderr.write(USAGE39);
     return 2;
   }
   try {
