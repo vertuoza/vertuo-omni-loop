@@ -105,4 +105,31 @@ describe('the pass', () => {
     const page = wordPass('<div data-screen id="a"><p>x</p></div><div data-screen aria-label="B"><p>y</p></div><div data-screen><p>z</p></div>', rules());
     expect(page.screens.map((screen) => screen.name)).toEqual(['a', 'B', '#3']);
   });
+
+  it('skips a page with no marked screen, with no finding (PRD 1550)', () => {
+    expect(wordPass('<h1>Hello</h1><p>A caption that explains the whole page at length to its reader.</p>', rules())).toEqual({ skipped: true, screens: [] });
+  });
+
+  it('reads two marked screens apart (PRD 1550)', () => {
+    const page = wordPass('<p>Caption outside every screen, never read by the pass at all.</p><div data-screen="a"><p>One</p></div><div data-screen="b"><p>Two</p></div>', rules());
+    expect(page.skipped).toBe(false);
+    expect(page.screens.map((screen) => [screen.name, screen.phrases.map((phrase) => phrase.text)])).toEqual([
+      ['a', ['One']],
+      ['b', ['Two']],
+    ]);
+  });
+
+  it('keeps sibling elements as two strings, and the text runs of one element as one (PRD 1550)', () => {
+    const page = wordPass('<div data-screen="s"><span>ask.client.ts</span><span>POST</span><p>one <!-- c -->run &amp; more</p></div>', rules());
+    expect(page.screens[0]?.phrases.map((phrase) => phrase.text)).toEqual(['ask.client.ts', 'POST', 'one run & more']);
+  });
+
+  it('reads an element the primary selector matches as a control, whatever its tag (PRD 1550)', () => {
+    const page = wordPass('<div data-screen="s"><span data-primary>Save</span><div data-primary>Send it</div></div>', rules());
+    expect(page.screens[0]?.phrases).toEqual([
+      { text: 'Save', words: 1, control: true },
+      { text: 'Send it', words: 2, control: true },
+    ]);
+    expect(page.screens[0]?.findings.map((finding) => finding.rule)).toEqual(['two-primaries']);
+  });
 });

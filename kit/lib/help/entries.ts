@@ -898,8 +898,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 ' +
       'whatever it finds. words is the word pass: it reads each mockup page given, structure never ' +
       'style, and prints every screen (an element design.words.screen matches, by default ' +
-      '[data-screen]; a page with none is read whole and says so) with its visible strings, each ' +
-      "control's marked, and its word count, then its findings: sentence-on-control, a button or link " +
+      '[data-screen]; an unmarked page, one with none, is skipped with no finding, and says no ' +
+      'screen marked: skipped) with its visible strings, two sibling elements always two strings, ' +
+      "each control's marked (a button, a link, or any element design.words.primary matches), and " +
+      'its word count, then its findings: sentence-on-control, a button or link ' +
       'whose label holds design.words.sentence words or more (default 7); two-primaries, more than one ' +
       'primary action (design.words.primary, by default [data-primary]) in one screen; ' +
       'explains-at-rest, a string outside any control longer than design.words.sentence; and ' +
