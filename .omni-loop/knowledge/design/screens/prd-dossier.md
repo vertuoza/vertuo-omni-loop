@@ -1,8 +1,9 @@
 ---
 screen: prd-dossier
 status: draft
-mock: null
-implements: ["apps/galaxy/app/prd/[id]/", apps/galaxy/src/dossier/page/]
+mock: prd-dossier.html
+implements: ["apps/galaxy/app/prd/[id]/page.tsx", "apps/galaxy/app/prd/[id]/not-found.tsx", "apps/galaxy/app/prd/[id]/loading.tsx", "apps/galaxy/src/dossier/page/*.tsx", apps/galaxy/src/dossier/page/dossier.css, apps/galaxy/src/dossier/page/view.ts, apps/galaxy/src/dossier/page/stage.ts]
+reads: ["apps/galaxy/app/prd/[id]/", apps/galaxy/src/dossier/page/]
 routes: [/prd/<id>]
 supersedes: null
 ---

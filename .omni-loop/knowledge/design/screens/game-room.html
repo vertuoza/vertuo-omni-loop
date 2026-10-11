@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game room mockup</title>
+<style>
+  /* Tokens copied from packages/design/tokens.css. */
+  :root {
+    --void: #07061c; --deep: #0e0d33; --navy: #2f3fc4; --navy-dark: #1a2170; --white: #f2f4ff;
+    --plasma: #a45cff; --yellow: #ffd84a; --red: #ff3b5c; --cyan: #6ff0ff; --dim: #8a90d6;
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+    --txt: "Jersey 10", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: var(--white); font-family: var(--font-pixel); }
+  .mock-note { max-width: 1280px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--dim); }
+  .mock-note b { color: var(--white); }
+
+  /* The wide grid, 640×360, drawn at 2× (whole-number scales only). */
+  .stage { width: 1280px; max-width: 100%; margin: 0 auto; overflow-x: auto; }
+  .screen { position: relative; width: 640px; height: 360px; transform: scale(2); transform-origin: 0 0; margin-bottom: 360px; background: var(--void); overflow: hidden; }
+
+  /* scenes/games.css, as written. */
+  .games { position: absolute; inset: 0; padding: 26px 34px 0; }
+  .games h2 { margin: 0; font-size: 16px; font-weight: 400; }
+  .j-badge { position: absolute; top: 18px; right: 18px; padding: 5px 6px 4px; font-size: 8px; color: #0b0a26; background: var(--fc, var(--dim)); }
+  .xp { display: flex; align-items: center; gap: 8px; height: 18px; margin-top: 12px; }
+  .xp-level { padding: 5px 6px 4px; font-size: 8px; line-height: 1; color: #0b0a26; background: var(--yellow); }
+  .xp-bar { flex: none; width: 240px; height: 10px; padding: 2px; background: var(--navy-dark); box-shadow: inset 0 0 0 2px var(--navy); }
+  .xp-bar i { display: block; height: 100%; width: 60%; background: linear-gradient(90deg, var(--cyan), var(--plasma)); }
+  .xp-count { font-size: 7px; white-space: nowrap; }
+  .xp-next { font-family: var(--txt); font-size: 15px; color: var(--dim); white-space: nowrap; }
+  .cabinets { position: absolute; left: 34px; right: 34px; top: 86px; display: flex; justify-content: space-between; }
+  .cabinet { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 180px; height: 232px; padding: 4px;
+    font: inherit; color: inherit; text-align: center; background: #0e0d2a; border: 2px solid #2a2766; }
+  .cabinet.lit { background: #14123a; }
+  .cabinet.active { border-color: var(--yellow); }
+  .marquee { display: grid; place-items: center; height: 36px; padding: 0 20px; font-size: 8px; line-height: 14px; color: var(--yellow); letter-spacing: 1px;
+    background: linear-gradient(180deg, #2a1f6e, #151045); border: 2px solid var(--navy); }
+  .cab-screen { position: relative; height: 66px; margin: 0 4px; background: var(--void); border: 2px solid #2a2766; }
+  .cab-screen svg { display: block; width: 100%; height: 100%; }
+  .cab-scores { display: grid; gap: 8px; margin: 6px 8px 0; font-size: 7px; text-align: left; }
+  .cab-scores b { font-weight: 400; color: var(--cyan); }
+  .cab-top { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .cab-top li { display: flex; justify-content: space-between; gap: 6px; line-height: 1; white-space: nowrap; }
+  .cab-top li.mine { color: var(--yellow); }
+  .cab-none { font-family: var(--txt); font-size: 15px; color: var(--dim); }
+  .cab-play { align-self: center; margin: auto 0 6px; padding: 5px 12px 4px; font-size: 7px; color: #fff; background: var(--red); }
+  .games-foot { position: absolute; left: 34px; bottom: 10px; margin: 0; font-size: 7px; color: var(--dim); }
+  .j-key { color: var(--yellow); }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>The game room at /play#games, on the wide grid, for a player at LV 3 with every cabinet lit.</b> Drawn from the source (apps/galaxy/src/arcade/scenes/games.tsx, games.css), not from a screenshot: the room opens only from the arcade's menu. The badge and XP figures are the screen file's own example; the cabinet screens stand in for the stills, and the scores are examples.</p>
+
+<div class="stage">
+  <div class="screen">
+    <div class="games" data-screen="game-room">
+      <h2>GAME ROOM</h2>
+      <span class="j-badge" style="--fc:#ff9b30">P1 INKY · OCTOPOD · LV 3</span>
+      <div class="xp">
+        <span class="xp-level">LV 3</span>
+        <span class="xp-bar" role="img" aria-label="60% of the way to the next level"><i></i></span>
+        <span class="xp-count">180 / 300 XP</span>
+        <span class="xp-next">120 XP to LV 4</span>
+      </div>
+      <div class="cabinets">
+        <button type="button" class="cabinet lit active">
+          <span class="marquee">ENTROPY INVADERS</span>
+          <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
+            <g fill="#ff3ea5"><rect x="6" y="3" width="6" height="4"/><rect x="18" y="3" width="6" height="4"/><rect x="30" y="3" width="6" height="4"/><rect x="42" y="3" width="6" height="4"/><rect x="54" y="3" width="6" height="4"/><rect x="66" y="3" width="6" height="4"/></g>
+            <g fill="#ffd84a"><rect x="6" y="10" width="6" height="4"/><rect x="18" y="10" width="6" height="4"/><rect x="30" y="10" width="6" height="4"/><rect x="42" y="10" width="6" height="4"/><rect x="54" y="10" width="6" height="4"/><rect x="66" y="10" width="6" height="4"/></g>
+            <g fill="#6ff0ff"><rect x="6" y="17" width="6" height="4"/><rect x="18" y="17" width="6" height="4"/><rect x="30" y="17" width="6" height="4"/><rect x="42" y="17" width="6" height="4"/><rect x="54" y="17" width="6" height="4"/><rect x="66" y="17" width="6" height="4"/></g>
+            <rect x="39" y="24" width="6" height="6" fill="#ff9b30"/></svg></span>
+          <span class="cab-scores"><b>CREW TOP 5</b>
+            <ol class="cab-top"><li><span>1 KAI</span><span>4210</span></li><li class="mine"><span>2 INKY</span><span>3980</span></li><li><span>3 PAUL</span><span>2750</span></li><li><span>4 MIA</span><span>1900</span></li><li><span>5 NOOR</span><span>820</span></li></ol>
+          </span>
+          <span class="cab-play" data-primary>A · PLAY</span>
+        </button>
+        <button type="button" class="cabinet lit">
+          <span class="marquee">SUPER OMNI WORLD</span>
+          <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
+            <rect width="84" height="30" fill="#2f3fc4"/><rect y="24" width="84" height="6" fill="#1d8f55"/><rect x="50" y="14" width="10" height="4" fill="#d99a14"/><rect x="20" y="17" width="5" height="7" fill="#ff9b30"/></svg></span>
+          <span class="cab-scores"><b>CREW TOP 5</b><span class="cab-none">NO SCORES YET</span></span>
+          <span class="cab-play">A · PLAY</span>
+        </button>
+        <button type="button" class="cabinet lit">
+          <span class="marquee">OMNI KART</span>
+          <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
+            <rect width="84" height="30" fill="#0e0d33"/><polygon points="30,8 54,8 80,30 4,30" fill="#5b5f80"/><rect x="38" y="22" width="8" height="5" fill="#ff9b30"/></svg></span>
+          <span class="cab-scores"><b>CREW TOP 5</b>
+            <ol class="cab-top"><li class="mine"><span>1 INKY</span><span>1:42.3</span></li><li><span>2 KAI</span><span>1:45.0</span></li><li><span>3 MIA</span><span>1:51.8</span></li></ol>
+          </span>
+          <span class="cab-play">A · PLAY</span>
+        </button>
+      </div>
+      <p class="games-foot"><span class="j-key">◀ ▶</span> CHOOSE <span class="j-key">A</span> PLAY <span class="j-key">B</span> MENU</p>
+    </div>
+  </div>
+</div>
+
+<p class="mock-note">Not drawn: the tall grid (320×288, one cabinet a page with PAGE n/N), a locked cabinet (dark, REACH LV n TO PLAY on A) and the SOON cabinet, which the room stands only while it has fewer than three games. The primary mark sits on the cabinet under the cursor's A · PLAY.</p>
+</body>
+</html>

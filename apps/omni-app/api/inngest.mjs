@@ -1411,10 +1411,13 @@ var ConfigSchema = z8.object({
   // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
   // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
   // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
-  // `product` section lists.
+  // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
+  // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
+  // drops nothing.
   design: section({
     enabled: z8.boolean().default(false),
     paths: z8.array(text3).default([]),
+    ignore: z8.array(text3).optional(),
     screens: nullableText.default(null),
     words: section({
       sentence: z8.number().int().positive().default(7),

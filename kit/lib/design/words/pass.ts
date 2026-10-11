@@ -1,8 +1,11 @@
 // PRD 1407, s4: the word pass — the visible words of each screen of a mockup, and four rules over
 // them. A screen is an element the screen selector matches (`design.words.screen`, by default
-// `[data-screen]`); a page with none is read whole and says so. A primary action is one the primary
-// selector matches (`design.words.primary`, by default `[data-primary]`). It reads structure, never
-// style, and only reports: what it finds is fixed in the screen, never silenced.
+// `[data-screen]`); a page with none is skipped and says so (PRD 1550: read whole, a page's own
+// captions were all it found). A primary action is one the primary selector matches
+// (`design.words.primary`, by default `[data-primary]`), and is a control whatever its tag. Every
+// element ends a string, so two sibling elements are two strings, while the text runs of one element
+// stay one. It reads structure, never style, and only reports: what it finds is fixed in the screen,
+// never silenced.
 //
 //   sentence-on-control  a control whose label holds `sentence` words or more
 //   two-primaries        more than one primary action in one screen
@@ -21,8 +24,8 @@ export type Finding = { readonly rule: 'sentence-on-control' | 'two-primaries' |
 
 export type ScreenWords = { readonly name: string; readonly phrases: readonly Phrase[]; readonly words: number; readonly findings: readonly Finding[] };
 
-/** A page read: its screens, and whether none was marked so the page was read whole. */
-export type PageWords = { readonly whole: boolean; readonly screens: readonly ScreenWords[] };
+/** A page read: its screens, and whether none was marked so the page was skipped. */
+export type PageWords = { readonly skipped: boolean; readonly screens: readonly ScreenWords[] };
 
 const BLOCK = new Set([
   'address', 'article', 'aside', 'blockquote', 'body', 'br', 'caption', 'dd', 'details', 'dialog', 'div', 'dl', 'dt', 'fieldset',
@@ -38,8 +41,9 @@ export function countWords(text: string): number {
   return text.split(/\s+/).filter((token) => WORD.test(token)).length;
 }
 
-const isControl = ({ tag, attributes }: Element): boolean =>
-  tag === 'button' || (tag === 'a' && attributes.has('href')) || CONTROL_ROLES.has(attributes.get('role') ?? '') ||
+/** Whether an element is a control: by its tag or role, or because the primary selector marks it. */
+const isControl = ({ tag, attributes }: Element, primary: Selector): boolean =>
+  matches(primary, { tag, attributes }) || tag === 'button' || (tag === 'a' && attributes.has('href')) || CONTROL_ROLES.has(attributes.get('role') ?? '') ||
   (tag === 'input' && INPUT_CONTROLS.has((attributes.get('type') ?? '').toLowerCase()));
 
 /** Whether an element is out of sight by its own markup: `hidden`, `aria-hidden="true"`, or the page's head. */
@@ -76,15 +80,13 @@ const skipped = (element: Element, walk: Walk, top: boolean): boolean => isHidde
 function visitElement(element: Element, walk: Walk, top: boolean): void {
   if (skipped(element, walk, top)) return;
   if (matches(walk.rules.primary, element)) walk.primaries.push(squash(textOf(element)));
-  if (isControl(element)) {
-    flush(walk);
+  flush(walk);
+  if (isControl(element, walk.rules.primary)) {
     walk.phrases.push(...phraseOf(textOf(element), true));
     return;
   }
-  const block = BLOCK.has(element.tag);
-  if (block) flush(walk);
   for (const child of element.children) visit(child, walk);
-  if (block) flush(walk);
+  flush(walk);
 }
 
 function visit(node: Node, walk: Walk): void {
@@ -149,25 +151,23 @@ function screensUnder(node: Element, rules: WordRules): Element[] {
 
 /** The word pass over one page's HTML. */
 export function wordPass(html: string, rules: WordRules): PageWords {
-  const root = parseHtml(html);
-  const marked = screensUnder(root, rules);
-  const whole = marked.length === 0;
-  const screens = (whole ? [root] : marked).map((screen, index) => {
+  const marked = screensUnder(parseHtml(html), rules);
+  const screens = marked.map((screen, index) => {
     const { phrases, primaries } = readScreen(screen, rules);
     return {
-      name: whole ? '(whole page)' : screenName(screen, rules, index),
+      name: screenName(screen, rules, index),
       phrases,
       words: phrases.reduce((sum, phrase) => sum + phrase.words, 0),
       findings: findings(phrases, primaries, rules),
     };
   });
-  return { whole, screens };
+  return { skipped: marked.length === 0, screens };
 }
 
 /** The lines `omni design words` prints for one page, under its name. */
-export function formatPage(page: string, { whole, screens }: PageWords, rules: Pick<WordRules, 'screen'>): string[] {
+export function formatPage(page: string, { skipped, screens }: PageWords, rules: Pick<WordRules, 'screen'>): string[] {
   const lines = [page];
-  if (whole) lines.push(`  no screen marked (${rules.screen.source}): the page read whole`);
+  if (skipped) lines.push(`  no screen marked: skipped (${rules.screen.source})`);
   for (const screen of screens) {
     lines.push(`  screen ${screen.name} · ${screen.words} ${screen.words === 1 ? 'word' : 'words'}`);
     for (const phrase of screen.phrases) lines.push(`    ${phrase.control ? '[control] ' : ''}${phrase.text} (${phrase.words})`);

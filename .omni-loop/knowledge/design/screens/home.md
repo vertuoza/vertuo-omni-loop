@@ -1,8 +1,9 @@
 ---
 screen: home
 status: draft
-mock: null
-implements: [apps/galaxy/app/page.tsx, apps/galaxy/src/home/]
+mock: home.html
+implements: [apps/galaxy/app/page.tsx, "apps/galaxy/src/home/**/*.tsx", "apps/galaxy/src/home/**/*.css", apps/galaxy/src/home/lingo.ts, apps/galaxy/src/home/poster/art.ts, apps/galaxy/src/home/spreads/cards.ts, apps/galaxy/src/home/spreads/fleets.ts]
+reads: [apps/galaxy/src/home/]
 routes: [/]
 supersedes: null
 ---

@@ -30,7 +30,11 @@ caller's **Design review** section is that `—` line alone) and the design form
    Its `screens:` line names each library screen whose `implements` the work's diff touches, with
    its status and its routes (`quote-editor 🔒 (/quotes/:id) · quote-list (draft) (/quotes)`); no
    such line, no library screen is touched. Read each one's file and mockup (step 0 of the skill
-   listed them). The screens the review looks at are those, by their routes, and any other screen
+   listed them). A screen the line names as `reads <screen>` is one whose `reads`, the code behind
+   it, the work touched: read it for context; it is no change to that screen, and never trips its
+   lock. A `mock may be stale: <screen>` line names a screen whose `implements` the work touched
+   while its mockup stayed as it was: it is a **note** for the report (**What it reports**), never
+   a block, never an outbox item, and never a reason to redraw the mockup here. The screens the review looks at are those, by their routes, and any other screen
    the work changed. For a locked screen (`🔒`), its file and mockup are the reference picture,
    ahead of the before/after page: it is built as written. A draft is compared with the reference
    picture the caller gave, and its file is a starting point.
@@ -104,6 +108,10 @@ one line per step, and a **Locked** line when a locked screen or law changed, ea
 - ✓ Screenshots — 390 and 1440, beside the before/after page's "after" and quote-editor's mock
 - ✓ Polish — one batch, confirmed at 390 and 1440
 ```
+
+When `omni design touched` printed `mock may be stale`, one more line, opening on —, says it as a
+note, never a block: `- — Mock may be stale: quote-list (its implements changed, its mockup did not;
+/omni:pixel-perfect mock quote-list redraws it)`. A draft with no mockup is no note.
 
 The screenshots go with it when there are any (attached to the pull request, or committed where
 the calling skill keeps its record); a screenshot never lands in the slice's territory. Then the

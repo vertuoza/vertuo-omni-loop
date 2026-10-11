@@ -264,3 +264,16 @@ drafts.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/` and `pnpm test`, green.
+
+## PRD #1550, slice s4 — marked screens and the two lists
+
+- **Step 5's marks:** the page's own explanation (its title, the PRD line, the captions) sits
+  outside every marked screen, since the word pass now reads only marked screens and skips a page
+  with none.
+- **Step 5's draft screens** gain `reads`, and the rule that splits the two lists: a file whose
+  change can change what a person sees on this screen goes in `implements`; a file the screen only
+  depends on goes in `reads`. Never a whole folder in `implements`.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

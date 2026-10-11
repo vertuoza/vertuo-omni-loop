@@ -13,6 +13,7 @@ locked-on: 2026-10-10
 quote: "this is the editor, build it"
 mock: quote-editor.html
 implements: [src/quotes/editor/]
+reads: [src/quotes/engine/, src/quotes/rules.ts]
 routes: [/quotes/:id]
 supersedes: null
 ---
@@ -56,6 +57,7 @@ describe('parseScreen', () => {
         quote: 'this is the editor, build it',
         mock: 'quote-editor.html',
         implements: ['src/quotes/editor/'],
+        reads: ['src/quotes/engine/', 'src/quotes/rules.ts'],
         routes: ['/quotes/:id'],
         supersedes: null,
         amendments: ['> Amended 2026-11-02 · @login · "a total line": the footer shows the total'],
@@ -75,7 +77,7 @@ describe('parseScreen', () => {
     const read = parseScreen(DRAFT, 'quote-list.md');
     expect(read).toMatchObject({
       ok: true,
-      screen: { screen: 'quote-list', status: 'draft', lockedBy: null, lockedOn: null, quote: null, mock: null, implements: [], routes: ['/quotes', '/quotes/archived'], supersedes: null, amendments: [], sections: { Purpose: 'Every quote.' } },
+      screen: { screen: 'quote-list', status: 'draft', lockedBy: null, lockedOn: null, quote: null, mock: null, implements: [], reads: [], routes: ['/quotes', '/quotes/archived'], supersedes: null, amendments: [], sections: { Purpose: 'Every quote.' } },
     });
   });
 
@@ -91,6 +93,7 @@ describe('parseScreen', () => {
     expect(problem('---\nscreen: a\nstatus: done\n---\n')).toMatch(/^x\.md: status must be one of: draft, locked, superseded/);
     expect(problem('---\nscreen: a\nstatus: draft\nowner: me\n---\n')).toMatch(/^x\.md: .*owner/);
     expect(problem('---\nscreen: a\nstatus: draft\nroutes: /a\n---\n')).toMatch(/^x\.md: routes/);
+    expect(problem('---\nscreen: a\nstatus: draft\nreads: src/engine/\n---\n')).toMatch(/^x\.md: reads must be a bracketed list/);
     expect(problem('---\nscreen: a\nstatus: draft\nlocked-on: 10/10/2026\n---\n')).toMatch(/^x\.md: locked-on must be a YYYY-MM-DD date/);
   });
 
@@ -133,6 +136,12 @@ describe('readScreens', () => {
 });
 
 describe('formatScreens', () => {
+  it('prints a screen with reads exactly as one without (PRD 1550)', () => {
+    const without = LOCKED.replace('reads: [src/quotes/engine/, src/quotes/rules.ts]\n', '');
+    expect(without).not.toContain('reads:');
+    expect(formatScreens(readScreens(library({ 'b.md': LOCKED })), 'kb/')).toEqual(formatScreens(readScreens(library({ 'b.md': without })), 'kb/'));
+  });
+
   it('lists name, status, locker, date and routes, one aligned line each, then the files that do not read', () => {
     const dir = library({ 'a.md': DRAFT, 'b.md': LOCKED, 'z.md': 'nope' });
     expect(formatScreens(readScreens(dir), 'kb/design/screens/')).toEqual([
