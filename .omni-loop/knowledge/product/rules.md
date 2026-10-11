@@ -72,7 +72,7 @@ The install sets laws.source to knowledge only when the knowledge registers hold
 
 Serves: P-PRODUCT-6
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-02-laws-source-from-register-entries, PRD #45
-Enforced by: pending #1469
+Enforced by: kit/bin/init.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
