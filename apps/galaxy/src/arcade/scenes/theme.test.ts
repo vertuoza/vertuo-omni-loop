@@ -6,6 +6,8 @@ import { DEFAULT_THEME, resolveTheme, stripesOf, TOKENS, type Theme, type Token 
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
+import { createDuet } from '../duet/index';
+import { FIELD, playfield } from './duet.ts';
 import { sure } from '../test/sure';
 
 // The canvas in a workspace's theme: every sprite drawn, with the options it was drawn with, and
@@ -50,7 +52,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .sort((a, b) => a.sort - b.sort);
 const SCENES: SceneName[] = [
   'boot', 'title', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'coin', 'away', 'gate', 'intro',
-  'select', 'name', 'hero', 'ready', 'welcome', 'outsider', 'kart',
+  'select', 'name', 'hero', 'ready', 'welcome', 'outsider', 'kart', 'duet',
 ];
 
 /** A theme that overrides every token, each with a colour no default has: #1000xx. */
@@ -116,5 +118,52 @@ describe('the canvas in a workspace\'s theme', () => {
       expect(colours.has(TOKENS[t]) || drawn.some((s) => s.glow === TOKENS[t]), t).toBe(true);
     }
     expect([...colours].filter((c) => c.startsWith('#1000'))).toEqual([]);
+  });
+});
+
+/** A 2D context that keeps every colour it is given, and how it was placed: its translations, scales and clips. */
+function placed() {
+  const colours = new Set<string>();
+  const moves: string[] = [];
+  const ctx = recorder(colours) as unknown as Record<string, unknown>;
+  ctx.translate = (x: number, y: number) => { moves.push(`translate ${x} ${y}`); };
+  ctx.scale = (x: number, y: number) => { moves.push(`scale ${x} ${y}`); };
+  ctx.rect = (x: number, y: number, w: number, h: number) => { moves.push(`clip ${x} ${y} ${w} ${h}`); };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, colours, moves };
+}
+
+describe('OMNI DUET\'s playfield on both grids, in a workspace\'s theme (PRD 1633)', () => {
+  const duet = createDuet({ seed: 1633 });
+  duet.press('start');
+  duet.step(new Set(['left']), 0.05);
+
+  it('fills the tall grid with the 320×288 playfield', () => {
+    const { ctx, moves } = placed();
+    drawFrame(ctx, { ...frame('duet', TALL, EVERY, 1), duet }, 'title');
+    expect(playfield(TALL)).toEqual({ x: 0, y: 0, scale: 1 });
+    expect(moves).toEqual(['translate 0 0', 'scale 1 1', `clip 0 0 ${FIELD.w} ${FIELD.h}`]);
+  });
+
+  it('centres it on the wide grid, scaled to its height, with the Omni sky on its sides', () => {
+    const { ctx, colours, moves } = placed();
+    drawFrame(ctx, { ...frame('duet', WIDE, EVERY, 1), duet }, 'title');
+    expect(moves).toEqual(['translate 120 0', 'scale 1.25 1.25', `clip 0 0 ${FIELD.w} ${FIELD.h}`]);
+    expect(colours.has(EVERY.void)).toBe(true); // the sky, then the field's dark
+  });
+
+  it('draws the circle and the cool orb in the theme\'s colours, on both grids', () => {
+    for (const grid of [WIDE, TALL]) {
+      const { ctx, colours } = placed();
+      drawFrame(ctx, { ...frame('duet', grid, EVERY, 1), duet }, 'title');
+      expect(colours.has(EVERY.dim), `${grid.name} dim`).toBe(true);
+      expect(colours.has(EVERY.cyan), `${grid.name} cyan`).toBe(true);
+      expect(colours.has(EVERY.void), `${grid.name} void`).toBe(true);
+    }
+  });
+
+  it('draws only the Omni sky while the game\'s code is on its way', () => {
+    const { ctx, moves } = placed();
+    drawFrame(ctx, { ...frame('duet', WIDE, EVERY, 1), duet: null }, 'title');
+    expect(moves).toEqual([]);
   });
 });

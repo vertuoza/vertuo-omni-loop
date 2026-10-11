@@ -34,6 +34,9 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { KartOverlay } from './scenes/kart.tsx';
+import { DuetOverlay } from './scenes/duet.tsx';
+import { duetDrawOf, useDuet } from './scenes/duet.live';
+import type { ArcadeDuet } from './scenes/duet.ts';
 import { BACK_TO_CHOICE, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartHud } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
@@ -80,7 +83,7 @@ const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platforme
 // OMNI KART's key in the registry: its scores are sent under it (PRD 1359).
 const KART = GAMES.find((g) => g.scene === 'kart')?.id ?? 'kart';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
-const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart']);
+const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart', 'duet']);
 
 // How long the FINAL LAP jingle rings before the faster tune starts.
 const FINAL_LAP_JINGLE_MS = 800;
@@ -127,10 +130,11 @@ function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySe
 }
 
 /** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
-function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null): Grid {
+function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null, duet: ArcadeDuet | null): Grid {
   if (scene === 'invaders' && hud) return GAME_GRID[hud.layout];
   if (scene === 'platformer' && pf) return pf.grid;
   if (scene === 'kart' && kart) return kart.grid;
+  if (scene === 'duet' && duet) return duet.grid;
   return gridFor(form, scene);
 }
 
@@ -392,6 +396,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     showKartHud(game);
   }, [showKartHud]);
 
+  // OMNI DUET (PRD 1633): imported when its cabinet opens, never before, as OMNI KART is; the arcade
+  // holds where the import stands, the grid it started on, the game once loaded and its text layer.
+  const { duet, duetRef, openDuet, closeDuet, pressDuet, stepDuet } = useDuet(() => import('./duet/index'));
+
   // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
   const seen = useMemo(() => createSeen(LOCAL), []);
   const loginOf = () => meRef.current?.github_login ?? sessionRef.current?.github ?? null;
@@ -458,6 +466,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null, choice: FIRST_CHOICE, multi: !!account.kartGrid?.(), lobby: null });
     go({ scene: 'kart' }, 'start');
   }, [go, held, showSend, account]);
+
+  /** A on OMNI DUET's unlocked cabinet: the game's code is imported now, on the grid the cabinet is shown on. */
+  const playDuet = useCallback(() => {
+    held.clear();
+    runRef.current += 1;
+    showSend(null);
+    openDuet(gridFor(formRef.current, 'duet'));
+    go({ scene: 'duet' }, 'start');
+  }, [go, held, showSend, openDuet]);
 
   /**
    * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
@@ -553,7 +570,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (ui.scene !== 'platformer' && pfRef.current) setPf(null);
     if (ui.scene === 'kart' && !kartRef.current) go({ scene: 'games' });
     if (ui.scene !== 'kart' && kartRef.current) setKart(null);
-  }, [ui.scene, go, showHud, pfRef, setPf, kartRef]);
+    if (ui.scene === 'duet' && !duetRef.current) go({ scene: 'games' });
+    if (ui.scene !== 'duet' && duetRef.current) closeDuet();
+  }, [ui.scene, go, showHud, pfRef, setPf, kartRef, duetRef, closeDuet]);
   // A window that loses focus or a hidden tab never hears its keys and fingers go up: nothing stays
   // held, and a game pauses.
   useEffect(() => {
@@ -821,6 +840,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           if (!('scene' in door)) { go({ toast: door.refused }, 'buzz'); return; }
           if (door.scene === 'platformer') { playPlatformer(); return; }
           if (door.scene === 'kart') { playKart(); return; }
+          if (door.scene === 'duet') { playDuet(); return; }
           if (door.scene === 'invaders') playInvaders(); else go({ scene: door.scene }, 'select');
           return;
         }
@@ -840,6 +860,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         }
         if (game?.scene === 'platformer') { playPlatformer(); return; }
         if (game?.scene === 'kart') { playKart(); return; }
+        if (game?.scene === 'duet') { playDuet(); return; }
         if (game?.scene) { go({ scene: game.scene }, 'start'); return; }
         open('menu', {}, action === 'b' ? 'back' : 'select'); return;
       }
@@ -913,6 +934,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         }
         return;
       }
+      case 'duet': {
+        // ◀ ▶ are read held, by the canvas loop; a press answers START, B and the screens. Silent, as the other new games are.
+        if (pressDuet(action)) go({ scene: 'games' }, 'back');
+        return;
+      }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
         if (!view || !n) { if (action === 'b') go({ scene: 'menu' }, 'back'); return; }
@@ -935,7 +961,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, playDuet, pressDuet, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -996,7 +1022,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // ── Canvas loop ──
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const grid = sceneGrid(ui.scene, form, hud, pf, kart);
+  const grid = sceneGrid(ui.scene, form, hud, pf, kart, duet);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
   const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
@@ -1023,6 +1049,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (game.over && !sendRef.current) sendScoreRef.current(INVADERS, game.score); // once a game: sendRef is set at once
       }
       stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud, (score) => { sendScoreRef.current(KART, score); });
+      stepDuet(u.scene, held.buttons(), dt);
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
         scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, logo: f.logo, theme: f.theme,
@@ -1034,13 +1061,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         chart: { source: f.knowledge, layout: f.chart, system: f.system, sun: u.sun, world: u.world },
         game,
         kart: kartDrawOf(u.scene, kartRef.current),
+        duet: duetDrawOf(u.scene, duetRef.current),
       };
       const phase = titlePhaseAt(t - u.since);
       drawFrame(ctx, frame, !f.view && phase === 'hiscore' ? 'title' : phase); // no high scores without the galaxy
     };
     raf = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(raf); };
-  }, [held, showHud, showKartHud]);
+  }, [held, showHud, showKartHud, stepDuet, duetRef]);
 
   // A click on a key hint ("[A] SIGN IN WITH GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
@@ -1121,6 +1149,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
+      case 'duet': return duet ? <DuetOverlay status={duet.status} hud={duet.hud} /> : null;
       case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
