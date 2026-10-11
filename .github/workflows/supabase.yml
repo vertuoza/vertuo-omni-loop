@@ -40,6 +40,13 @@ jobs:
         with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
+      - name: Every new migration is dated after the newest on main
+        # `supabase db push` refuses a migration dated before the newest one production applied (PRD
+        # 1364, 2026-10-11): re-date it after the one this names. main is read as it is now, not as the
+        # pull request found it.
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          node scripts/migration-order.ts --base origin/main
       - run: pnpm install --frozen-lockfile
       - name: The database's types are what the migrations generate
         # `supabase gen types --local`, by the pinned CLI above, against the database just started;
@@ -282,4 +289,7 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase link --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"
-      - run: supabase db push       # migrations only; the demo seed never reaches production
+      # --include-all: a migration dated before one production already applied still goes in, rather than
+      # blocking every deploy after it. The `check` job refuses one, but only against the main it saw: a
+      # later migration that merges after it ran is applied here (PRD 1364, 2026-10-11).
+      - run: supabase db push --include-all   # migrations only; the demo seed never reaches production
