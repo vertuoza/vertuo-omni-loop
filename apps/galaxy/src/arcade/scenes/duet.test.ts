@@ -5,6 +5,8 @@ import { gridFor, TALL, WIDE, type Grid } from '../grid';
 import { ScreenContext } from '../Screen';
 import { GAMES } from '../games';
 import { cabinetDoor, cabinets, xpStatus } from '../games/room';
+import { allowed } from '../onboarding';
+import type { Session } from '../types';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   duetPress, loadDuet, NOT_LOADED, PAGES, playfield, readyLine, sameDuetHud, TALL_SCENES, type ArcadeDuet, type DuetGame, type DuetHud, type DuetStatus,
@@ -37,6 +39,14 @@ describe('the cabinet', () => {
     expect(cabinetDoor(at(cabinets(lv4), 3, 'the fourth cabinet'), lv4)).toEqual({ scene: 'duet' });
     const lv3 = xpStatus(true, row(3, ['invaders', 'platformer', 'kart']));
     expect(cabinetDoor(at(cabinets(lv3), 3, 'the fourth cabinet'), lv3)).toEqual({ refused: 'REACH LV 4 TO PLAY' });
+  });
+
+  it('is a signed-in scene: a signed-out player is bounced to INSERT COIN, as from the other games', () => {
+    const crew = { crew: true } as unknown as Session;
+    for (const scene of ['invaders', 'platformer', 'kart', 'duet'] as const) {
+      expect(allowed(scene, null), scene).toBe('coin');
+      expect(allowed(scene, crew), scene).toBe(scene);
+    }
   });
 });
 
