@@ -710,7 +710,7 @@ When an agent sends a question naming a code project that does not belong to the
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s3-01-report-repo-must-be-the-workspaces, PRD #855
-Enforced by: pending #1526
+Enforced by: apps/galaxy/src/agent-connect/questions/report-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
