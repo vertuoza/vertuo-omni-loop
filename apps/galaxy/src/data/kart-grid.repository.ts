@@ -4,7 +4,7 @@
 // themselves, with their own session, never the service key (ADR-0051): Presence is keyed by their
 // id, and Broadcast comes back to everyone but the sender. This file tracks, sends and unsubscribes
 // and holds no rule: who starts, the places and the order are the game's (arcade/kart/grid.ts).
-import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import { REALTIME_SUBSCRIBE_STATES, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
 import type { KartLink } from '../arcade/types';
 
 /** The part of the Supabase client the grid uses. */
@@ -22,8 +22,7 @@ function entriesOf(state: Record<string, readonly object[]>): Record<string, unk
   for (const [key, metas] of Object.entries(state)) {
     const latest = metas.at(-1);
     if (!latest) continue;
-    const { presence_ref: _ref, ...entry } = latest as Record<string, unknown>;
-    entries[key] = entry;
+    entries[key] = Object.fromEntries(Object.entries(latest).filter(([name]) => name !== 'presence_ref'));
   }
   return entries;
 }
@@ -31,7 +30,8 @@ function entriesOf(state: Record<string, readonly object[]>): Record<string, unk
 /** A broadcast payload read: who sent it and what, or null when it is not one of ours. */
 function messageOf(payload: unknown): { from: string; body: unknown } | null {
   if (typeof payload !== 'object' || payload === null) return null;
-  const { from, body } = payload as { from?: unknown; body?: unknown };
+  const from = 'from' in payload ? payload.from : undefined;
+  const body = 'body' in payload ? payload.body : undefined;
   return typeof from === 'string' ? { from, body } : null;
 }
 
@@ -70,15 +70,16 @@ export function kartGridRepository(db: KartGridDb, workspace: string, user: () =
           })
           .subscribe((status) => {
             if (mine !== turn) return;
-            if (status === 'SUBSCRIBED') {
+            if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
               joined = true;
               void open.track(who);
               on.status('joined');
-            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-              if (joined) { on.status('reconnecting'); return; }
-              close();
-              on.status('refused');
+              return;
             }
+            // CHANNEL_ERROR, TIMED_OUT or CLOSED: a drop once joined, a refusal before.
+            if (joined) { on.status('reconnecting'); return; }
+            close();
+            on.status('refused');
           });
       })();
     },

@@ -117,7 +117,7 @@ describe('the grid over the hub', () => {
     const seen: KartGridView[] = [];
     const spy = { ...link, join: (w: Record<string, unknown>, on: KartLinkEvents) => { held.on = on; link.join(w, on); } };
     const session = openGrid(spy, who('a', 1), (v) => { seen.push(v); });
-    hub.link('b').join(who('b', 2) as unknown as Record<string, unknown>, { presence: () => {}, message: () => {}, status: () => {} });
+    hub.link('b').join(who('b', 2), { presence: () => {}, message: () => {}, status: () => {} });
     expect(session.view().rows).toHaveLength(2);
     held.on?.status('reconnecting');
     expect(session.view().line).toBe('RECONNECTING…');

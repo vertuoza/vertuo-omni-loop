@@ -14,7 +14,7 @@ const Entry = z.object({
   hero: StoredHero,
   fleet: z.string().nullable(),
   best: z.number().int().positive().nullable(),
-  arrival: z.number().finite(),
+  arrival: z.number(),
 });
 export type GridPlayer = z.infer<typeof Entry>;
 

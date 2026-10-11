@@ -19,7 +19,7 @@ describe('a Presence entry', () => {
   it('reads as nothing when a field is missing or wrong', () => {
     const sent = presenceOf(player());
     for (const key of Object.keys(sent)) {
-      const { [key]: _gone, ...without } = sent;
+      const without = Object.fromEntries(Object.entries(sent).filter(([name]) => name !== key));
       expect(readPresence(without), `without ${key}`).toBeNull();
     }
     const wrong: Record<string, unknown> = { id: 7, name: '', hero: 'x', fleet: 3, best: 0, arrival: 'now' };
