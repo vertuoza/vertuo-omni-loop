@@ -1673,7 +1673,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'edit first reads the craft floor. review is the bounded auto-review /omni:do-work and ' +
       '/omni:visual-fix follow on UI work: critique, audit, the design lint (commands.design, when ' +
       'set), screenshots at the form\'s widths (390 and 1440 by default) beside the mockup, then one ' +
-      'batch of polish and one confirming look. Fixes stay inside the slice\'s territory; what it ' +
+      'batch of polish and one confirming look; with a DESIGN.md, up to three rounds of looking and ' +
+      'fixing, and the parts check. Fixes stay inside the slice\'s territory; what it ' +
       'leaves becomes an outbox item. It never blocks a slice, a wave or a gate.',
     group: 'everyday',
     when: 'Use it when a screen should look and read like your product, before or after it is built.',
