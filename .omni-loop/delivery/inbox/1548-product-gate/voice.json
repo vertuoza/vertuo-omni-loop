@@ -1,0 +1,119 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-11",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "One check that says whether what I build was approved beats a plan PR I never open. Three new tables and a new check is a lot of moving parts to trust, though.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "The spec and plan I build from now live in no repository I can grep. When the server is down I can't even read what I'm building.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "No plan repository, no phase-0 PR, no plan PR: I brainstorm on Mobile and ship into every repository from one page.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One omni/approved check on every target PR, with the same three words everywhere, gives my teams one rule to follow.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I answer every repository's questions on Mobile › Questions, without a GitHub comment syntax to learn.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "The spec and plan I build from now live in no repository I can grep. When the server is down I can't even read what I'm building.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · offering#316 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-11",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The store seam keeps today's files byte-identical for every other PRD, and a contract suite runs both stores. Still a big surface for one PRD.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "omni prd --show gives me the spec in my terminal, and a gate never trusts a stale copy. Better, still more tool than I'd pick.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Acceptance 10 and 11 are my day: brainstorm from vertuo-mobile, approve, ultra-yolo, no PR in a plan repository.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Plan repositories keep working for what is in flight, and targets on pr are refused by name. That's a rollout I can explain.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Answering on the Questions tab settles the outbox and turns the check green, as the before/after shows.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
+    }
+  ]
+}
