@@ -2,7 +2,9 @@
 # `pnpm typecheck` (PRD 725), `lint` runs `pnpm lint` (PRD 976) and `fallow` runs `pnpm fallow:audit`, each against
 # its own gate, side by side. `test` and `lint` each run as shards (PRD 1042), gathered into one check
 # of that name; scripts/checks-workflow.test.ts holds that shape. A draft runs nothing, and neither does
-# a sub-PR into a feature branch (its base is not main) nor a pull request that changes only docs.
+# a sub-PR into a feature branch (its base is not main). A pull request that changes only docs runs
+# `settle` alone, which answers stale at once: its checks report as skipped, never missing, so a
+# required check on main lets it merge.
 # Marking a feature PR ready is what grades it, then every push after.
 #
 # `settle` waits first (scripts/settle-head.sh carries the numbers): a newer push cancels this run
@@ -17,9 +19,9 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore: ['**/*.md', 'docs/**']
 permissions:
   contents: read
+  pull-requests: read
 # A draft run has a group of its own (issue 1167): a push and `gh pr ready` seconds apart start a
 # draft `synchronize` run, which runs nothing, beside the `ready_for_review` run, and in one shared
 # group either could cancel the other, leaving the ready PR green with no check run at all.
@@ -39,6 +41,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SETTLE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SETTLE_PR: ${{ github.event.pull_request.number }}
         run: bash scripts/settle-head.sh
 
   # `pnpm test` in 3 shards side by side (PRD 1042): each runs a third of the files through vitest's own

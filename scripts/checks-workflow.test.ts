@@ -15,6 +15,7 @@ type Job = {
 };
 
 const workflow = parse(readFileSync(fileURLToPath(new URL('../.github/workflows/checks.yml', import.meta.url)), 'utf8')) as {
+  on: { pull_request: Record<string, unknown> };
   concurrency: { group: string; 'cancel-in-progress': boolean };
   jobs: Record<string, Job>;
 };
@@ -111,5 +112,17 @@ describe('the unsharded checks', () => {
       expect(needs(job(name))).toEqual(['settle']);
       expect(job(name).strategy).toBeUndefined();
     }
+  });
+});
+
+describe('a docs-only pull request', () => {
+  it('still runs the workflow, so its checks report as skipped rather than missing', () => {
+    expect(workflow.on.pull_request).not.toHaveProperty('paths-ignore');
+    expect(workflow.on.pull_request).not.toHaveProperty('paths');
+  });
+
+  it('hands settle the pull request number, so it can answer stale for docs alone', () => {
+    const gate = (job('settle').steps ?? []).find((step) => step.run === 'bash scripts/settle-head.sh') as { env?: Record<string, string> } | undefined;
+    expect(gate?.env?.SETTLE_PR).toBe('${{ github.event.pull_request.number }}');
   });
 });
