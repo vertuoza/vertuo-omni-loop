@@ -6,7 +6,7 @@ import { z } from 'zod';
 // Browser-safe: the page's server and its browser part both read them.
 
 /** A kit token as listed: never its hash, never its session. */
-export const KitTokenSchema = z.object({
+const KitTokenSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(40),
   lastFour: z.string().length(4),
@@ -31,4 +31,3 @@ export const MadeTokenSchema = z.object({
   name: z.string().min(1).max(40),
   expires_at: z.string(),
 });
-export type MadeTokenAnswer = z.infer<typeof MadeTokenSchema>;

@@ -25,8 +25,7 @@
    cannot take phone alerts, why, beneath them. The switch draws as Settings › Repositories' does. */
 .profile-alerts { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
 .profile-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; overflow-wrap: anywhere; }
-.profile-alert-hint, .profile-alert-message { flex-basis: 100%; margin: 0; color: var(--ask-muted); font-size: 14px; }
-.profile-alert-message { margin-top: 8px; }
+.profile-alert-hint, .profile-alert-message, .profile-alert-message { margin-top: 8px; }
 .profile-alert-toggle {
   position: relative; flex: none; width: 44px; height: 24px; padding: 0; border-radius: 12px;
   border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); cursor: pointer;
@@ -57,7 +56,6 @@
 .terminal-make { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 10px; }
 .terminal-make label { display: grid; gap: 2px; min-width: 0; font-size: 14px; color: var(--ask-muted); }
 .terminal-make label:first-of-type { flex: 1 1 180px; max-width: 320px; }
-.terminal-limit { flex-basis: 100%; margin: 0; color: var(--ask-muted); font-size: 14px; }
 .terminal-shown {
   display: grid; gap: 6px; margin-top: 12px; padding: 10px 12px; min-width: 0;
   border: 1.5px solid var(--ask-plasma); border-radius: 8px; background: var(--ask-plasma-soft);

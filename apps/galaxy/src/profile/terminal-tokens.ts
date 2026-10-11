@@ -45,13 +45,7 @@ export const tokenFormFields = (workspace: string, back: string) => ({ purpose: 
 
 /** The sign-in page for a token named `name`, of `days` days, in `workspace`, coming back to `back`. */
 export function tokenSignInHref(name: string, days: TokenDays, workspace: string, back: string): string {
-  const { purpose } = tokenFormFields(workspace, back);
-  return `${SIGNIN_PATH}?${new URLSearchParams({ purpose, name, days: String(days), workspace, back }).toString()}`;
-}
-
-/** Whether `value` is one of the expiries a token may have. */
-export function daysOf(value: string): TokenDays | null {
-  return TOKEN_DAYS.find((d) => String(d) === value) ?? null;
+  return `${SIGNIN_PATH}?${new URLSearchParams({ ...tokenFormFields(workspace, back), name, days: String(days) }).toString()}`;
 }
 
 const DAY_MONTH = new Intl.DateTimeFormat('en-GB', { timeZone: BOARD_ZONE, day: 'numeric', month: 'short' });

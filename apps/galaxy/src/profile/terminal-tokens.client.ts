@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { base64url } from '../agent-connect/tokens/token';
 import { MadeTokenSchema, type KitToken } from './terminal-tokens.contract';
 import type { ShownToken, TokenDays } from './terminal-tokens';
 
@@ -55,12 +56,6 @@ export function httpTerminalPort(workspace: string, fetch: typeof globalThis.fet
 }
 
 const DAY = 24 * 3_600_000;
-
-function base64url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
 
 /** The demo's port: a token drawn in the page, `omk_` and 32 random bytes, listed as yours. */
 export function demoTerminalPort(now: () => number = Date.now, fill: (bytes: Uint8Array) => Uint8Array = (b) => globalThis.crypto.getRandomValues(b)): TerminalPort {
