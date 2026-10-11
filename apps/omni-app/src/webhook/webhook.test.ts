@@ -2,7 +2,7 @@ import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { type AppEvent, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
+import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
   CANON_ACTIONS,
@@ -22,7 +22,7 @@ import { appFunctions } from '../functions.ts';
 import { readEnv } from '../env.ts';
 
 /** The functions the app serves, bound to an empty environment. */
-const { inboxCheck } = appFunctions(readEnv({}));
+const { inboxCheck, approvedCheck } = appFunctions(readEnv({}));
 
 const SECRET = 'shh-test-secret';
 
@@ -187,17 +187,26 @@ describe('webhook — the event and action filter', () => {
     expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: INBOX_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
   });
 
+  it('turns a re-run of an approved check run into the approved check event only (PRD 1548)', async () => {
+    const payload = rerequestedPayload(RERUN_PULLS, { name: 'omni/approved', external_id: APPROVED_EXTERNAL_ID });
+    const { send } = await deliver({ event: 'check_run', payload });
+    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
+    expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: APPROVED_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
+  });
+
   it('keeps a re-run of any other check run the outbox check event, whatever its name', () => {
     const payload = rerequestedPayload(RERUN_PULLS, { name: 'inbox', external_id: 'someone-else' });
     expect(toCheckRequests('check_run', payload).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
   });
 
-  it('sends, for every handled pull request action, the one event the outbox and inbox checks both run on', () => {
+  it('sends, for every handled pull request action, the one event the outbox, inbox and approved checks all run on', () => {
     for (const action of CHECK_ACTIONS.pull_request) {
       expect(toEvents('pull_request', pullRequestPayload(action)).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
     }
     expect(inboxCheck.opts.triggers).toContainEqual({ event: OUTBOX_CHECK_EVENT });
     expect(inboxCheck.opts.triggers).toContainEqual({ event: INBOX_CHECK_EVENT });
+    expect(approvedCheck.opts.triggers).toContainEqual({ event: OUTBOX_CHECK_EVENT });
+    expect(approvedCheck.opts.triggers).toContainEqual({ event: APPROVED_CHECK_EVENT });
   });
 
   it('answers 200 and sends nothing to a rerequested check run tied to no pull request', async () => {
