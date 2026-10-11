@@ -10,7 +10,7 @@ import { fleetSprite, MASCOTS } from '@omni/design';
 import { crewLook, heroOf } from '../fleets';
 import type { Action } from '../keys';
 import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
-import { carried, type GridPlayer, type StateMessage } from './net';
+import { carried, type GridPlayer, type ItemMessage, type StateMessage } from './net';
 import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES } from './rules';
@@ -55,6 +55,9 @@ export interface Race {
   /** MULTI: the player's own place on the grid, 0 on pole. */
   readonly slot: number;
   readonly gone: readonly string[];
+  /** MULTI: the player's own id, and how many BLOBs and ORBs they have sent: the next one's id is the two together. */
+  readonly self: string;
+  readonly thrown: number;
   /** MULTI: the players who crossed the line, by id, with their time in tenths (never the player at this screen), and every other player's name by id. */
   readonly finished: Readonly<Record<string, number>>;
   readonly names: Readonly<Record<string, string>>;
@@ -71,8 +74,9 @@ export interface Race {
 export type RaceEvent =
   | { kind: 'beat'; beat: '3' | '2' | '1' } | { kind: 'go' }
   | { kind: 'item'; racer: number; item: Item } | { kind: 'box'; racer: number }
-  | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean }
+  | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean; id?: string }
   | { kind: 'fell'; racer: number } | { kind: 'finalLap' }
+  | { kind: 'throw'; id: string; item: 'blob' | 'orb'; x: number; y: number; angle: number }
   | { kind: 'finish'; tenths: number } | { kind: 'quit' } | { kind: 'again' } | { kind: 'leave' };
 
 export interface Stepped { race: Race; events: RaceEvent[] }
@@ -105,7 +109,7 @@ export function newRace({ seed, track = parseTrack(), cast = [], field }: { seed
     const trait = traits[i] ?? { skill: 1, offset: 0 };
     return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: 0, gone: [], finished: {}, names: {}, finish: null };
+  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
 }
 
 /** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
@@ -136,7 +140,7 @@ function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
     return [{ id: p.id, slot: i, driver: driverOf(p), kart, pace: START_PACE, fx: NO_FX, skill: 1, offset: 0, heard: { kart, fx: NO_FX, at: 0 } }];
   });
   const mine = place(index);
-  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: index, gone: [], finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
+  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: index, gone: [], self: me, thrown: 0, finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
 }
 
 /** A state heard from player `id`: their kart, laps and spin-out or fall stand as they say, at the race clock it came at (before GO, at 0). Not a MULTI race on its way, a player not in it, or a player gone: nothing changes. */
@@ -146,6 +150,35 @@ export function hear(race: Race, id: string, s: StateMessage): Race {
   const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer };
   const fx: Fx = { ...NO_FX, spin: s.spin, fall: s.fall };
   return { ...race, rivals: race.rivals.map((r) => (r.id === id ? { ...r, kart, fx, pace: { laps: s.laps, passed: s.passed }, heard: { kart, fx, at } } : r)) };
+}
+
+/** The BLOB or ORB `id` on the circuit, if it is there. */
+const thrownOf = (items: World, id: string) => items.blobs.find((b) => b.id === id) ?? items.orbs.find((o) => o.id === id);
+
+/**
+ * A BLOB or an ORB sent by another player (PRD 1572, slice 6) appears on this circuit under the id it was sent with, an ORB flying the way its
+ * sender fired it. Not a MULTI race on its way, an item that is on the circuit already, or one of the player's own: nothing changes. Whether
+ * it hits a remote kart is that player's word (their `hit`), never this screen's.
+ */
+export function plant(race: Race, from: string, m: ItemMessage): Race {
+  if (race.mode !== 'multi' || (race.phase !== 'race' && race.phase !== 'finish') || from === race.self || thrownOf(race.items, m.id)) return race;
+  const { items } = race;
+  if (m.item === 'blob') return { ...race, items: { ...items, blobs: [...items.blobs, { x: m.x, y: m.y, id: m.id }].slice(-RULES.blobMax) } };
+  return { ...race, items: { ...items, orbs: [...items.orbs, { x: m.x, y: m.y, angle: m.angle, bounces: 0, age: 0, id: m.id }] } };
+}
+
+/** The item `id` was hit, by the player it hit: it is gone from this circuit. */
+export function lift(race: Race, id: string): Race {
+  if (race.mode !== 'multi' || !thrownOf(race.items, id)) return race;
+  return { ...race, items: { ...race.items, blobs: race.items.blobs.filter((b) => b.id !== id), orbs: race.items.orbs.filter((o) => o.id !== id) } };
+}
+
+/** Where the item `id` lies or flies, and what it is, for the sound of its end. */
+export function whereIs(race: Race, id: string): { x: number; y: number; item: 'blob' | 'orb' } | null {
+  const blob = race.items.blobs.find((b) => b.id === id);
+  if (blob) return { x: blob.x, y: blob.y, item: 'blob' };
+  const orb = race.items.orbs.find((o) => o.id === id);
+  return orb ? { x: orb.x, y: orb.y, item: 'orb' } : null;
 }
 
 /** Player `id` is OUT: they left, or nothing came from them for `RULES.outAfter` seconds. Their kart is gone from the circuit. */
@@ -376,11 +409,26 @@ function pressStart(race: Race): Stepped {
   return { race: { ...race, phase: 'paused', resume: race.phase }, events: [] };
 }
 
+/** The list with its last item given `id`: the one the player just dropped or fired. */
+const tagLast = <T extends { id?: string }>(list: readonly T[], id: string): T[] => list.map((x, i) => (i === list.length - 1 ? { ...x, id } : x));
+
+/** MULTI: a BLOB dropped or an ORB fired takes an id of its own (this player's and a count) and is told to the others; a BOOST stays the player's own. */
+function throwOf(race: Race, used: { world: World; racer: { fx: Fx } }, item: 'blob' | 'orb'): Stepped {
+  const id = `${race.self}:${race.thrown + 1}`;
+  const items: World = item === 'blob' ? { ...used.world, blobs: tagLast(used.world.blobs, id) } : { ...used.world, orbs: tagLast(used.world.orbs, id) };
+  const at = (item === 'blob' ? items.blobs : items.orbs).at(-1) ?? race.player;
+  // An ORB leaves the way the kart faces, so the angle the others fly it at is the kart's.
+  const thrown: RaceEvent = { kind: 'throw', id, item, x: at.x, y: at.y, angle: race.player.angle };
+  return { race: { ...race, items, fx: used.racer.fx, thrown: race.thrown + 1 }, events: [{ kind: 'item', racer: 0, item }, thrown] };
+}
+
 /** B in the race: the player uses what it holds, and the use is told (a spinning kart, or one holding nothing, uses nothing). */
 function pressItem(race: Race): Stepped {
   const used = spendItem(race.items, { kart: race.player, fx: race.fx });
   const { item } = race.fx;
-  return { race: { ...race, items: used.world, fx: used.racer.fx }, events: item && race.fx.spin <= 0 && race.fx.fall <= 0 ? [{ kind: 'item', racer: 0, item }] : [] };
+  const spent = item && race.fx.spin <= 0 && race.fx.fall <= 0 ? item : null;
+  if (race.mode === 'multi' && (spent === 'blob' || spent === 'orb')) return throwOf(race, used, spent);
+  return { race: { ...race, items: used.world, fx: used.racer.fx }, events: spent ? [{ kind: 'item', racer: 0, item: spent }] : [] };
 }
 
 /** A press: B uses the item held, START starts the countdown, pauses it or the race, and resumes a pause; SELECT on the pause leaves. */
@@ -427,6 +475,7 @@ const CUES: { [K in RaceEvent['kind']]: CueOf<K> } = {
   quit: () => [],
   again: () => [],
   leave: () => [],
+  throw: () => [],
 };
 
 /** The cues an event makes, in order: a hit on the player is also a spin-out, a rival's box or fall is no one's business. */

@@ -922,6 +922,28 @@ off, no row exists, and every player sees NO XP YET.
   (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
   that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
   still and no particle is drawn; the shadows stay.
+  **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
+  `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
+  reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase
+  Realtime channel `kart:<workspace id>` (ADR in `.omni-loop/knowledge/adr/`; the migration lets only a
+  player of the workspace with OMNI KART unlocked in), with Presence keyed by the player's id. The grid
+  lists the players in **starting order by best time**: the fastest on pole, then by best time, no
+  time behind, a tie by arrival. **Four places**: the first four to arrive hold them and a fifth reads
+  `GRID FULL · 4 RACERS` until one frees; the first to arrive starts the race (`START RACE`, the
+  others `WAITING FOR <NAME>`), and a player who arrives during a race reads `RACE ON · <n> RACERS`.
+  A refused or unreachable grid reads `GRID OUT OF REACH · A TO RETRY` and SINGLE still plays. In the
+  race **each browser drives its own kart** and sends its state at 10, 8 or 5 a second at two, three or
+  four players (`n² × rate` stays inside 80 messages a second, `kart/rules.ts`); the others are drawn
+  from their last state for at most half a second, in your way and never moved, with no CPU kart and
+  only your own kart taking a box. A BLOB dropped and an ORB fired are sent with an id of their own
+  (the sender's id and a count) and appear on every circuit; **the player hit alone decides**: it spins
+  out and sends a `hit`, which takes the item off every circuit. A BOOST stays your own. There is **no
+  pause**: ENTER opens `BACK TO RACE` / `LEAVE RACE` (and a window losing focus opens it) while the race
+  goes on; `LEAVE RACE` goes back to the grid and sends nothing to the score. A **hidden tab** leaves
+  the race at once (`YOU LEFT THE RACE`), and a player silent for 10 seconds is **OUT**. RESULTS fills in
+  live, `—` while racing and `OUT` for one who left; the finish time is sent through `submit_score()` as a
+  solo time is, so the cabinet keeps the better of the two, and the grid's next race waits until every
+  player of the last one finished or is OUT.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a

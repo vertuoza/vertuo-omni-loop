@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import type { GridPlayer, StateMessage } from './net';
-import { away, dropOut, finishOf, hear, hudOf, newRace, pause, press, step, type Race } from './race';
+import type { GridPlayer, ItemMessage, StateMessage } from './net';
+import { away, dropOut, finishOf, hear, hudOf, lift, newRace, plant, pause, press, step, type Race } from './race';
 import { RULES } from './rules';
 import { parseTrack } from './track';
 
@@ -274,5 +274,64 @@ describe('the finish of a MULTI race (PRD 1572, slice 5)', () => {
     expect(r.rivals).toEqual([]);
     expect(r.gone).toEqual(['c']);
     expect(r.finished).toEqual({ b: 5000 });
+  });
+});
+
+describe('items between players (PRD 1572, slice 6)', () => {
+  const sent = (over: Partial<ItemMessage> = {}): ItemMessage => ({ kind: 'item', race: 'r', id: 'b:1', item: 'blob', x: 0, y: 0, angle: 0, ...over });
+  const holding = (item: 'blob' | 'orb' | 'boost'): Race => { const r = racing(); return { ...r, fx: { ...r.fx, item } }; };
+
+  it('sends a BLOB dropped and an ORB fired with an id of their own: the sender\'s id and a count', () => {
+    const dropped = press(holding('blob'), 'b');
+    expect(dropped.events).toContainEqual(expect.objectContaining({ kind: 'throw', id: 'a:1', item: 'blob' }));
+    expect(dropped.race.items.blobs.at(-1)?.id).toBe('a:1');
+    const r = { ...dropped.race, fx: { ...dropped.race.fx, item: 'orb' as const } };
+    const fired = press(r, 'b');
+    expect(fired.events).toContainEqual(expect.objectContaining({ kind: 'throw', id: 'a:2', item: 'orb', angle: r.player.angle }));
+    expect(fired.race.items.orbs.at(-1)?.id).toBe('a:2');
+  });
+
+  it('keeps a BOOST its own: nothing is sent', () => {
+    const used = press(holding('boost'), 'b');
+    expect(used.events.some((e) => e.kind === 'throw')).toBe(false);
+    expect(used.race.fx.boost).toBeGreaterThan(0);
+  });
+
+  it('shows a BLOB or an ORB another player sent on this circuit, under its id, once', () => {
+    let r = plant(racing(), 'b', sent({ x: 300, y: 300 }));
+    expect(r.items.blobs.map((x) => x.id)).toEqual(['b:1']);
+    r = plant(r, 'b', sent({ x: 300, y: 300 }));
+    expect(r.items.blobs).toHaveLength(1);
+    r = plant(r, 'b', sent({ id: 'b:2', item: 'orb', x: 200, y: 200, angle: 1 }));
+    expect(r.items.orbs.map((x) => [x.id, x.angle])).toEqual([['b:2', 1]]);
+    expect(plant(r, 'a', sent({ id: 'a:9' }))).toBe(r);
+    const early = multi();
+    expect(plant(early, 'b', sent())).toBe(early);
+  });
+
+  it('lets the player hit decide: a remote BLOB on the player\'s kart spins it and gives the hit, which takes it off the circuit', () => {
+    const r0 = racing();
+    const r = plant(r0, 'b', sent({ x: r0.player.x, y: r0.player.y }));
+    const { race, events } = step(r, NONE, 0.05);
+    expect(events).toContainEqual({ kind: 'hit', racer: 0, item: 'blob', spun: true, id: 'b:1' });
+    expect(race.fx.spin).toBeGreaterThan(0);
+  });
+
+  it('leaves an item on a remote kart\'s way until that player\'s hit or its own end', () => {
+    let r = hear(racing(), 'b', state({ x: 500, y: 500 }));
+    r = plant(r, 'c', sent({ id: 'c:1', x: 500, y: 500 }));
+    r = play(r, NONE, 0.5);
+    expect(r.items.blobs.map((x) => x.id)).toEqual(['c:1']);
+    expect(lift(r, 'c:1').items.blobs).toEqual([]);
+    expect(lift(r, 'nope')).toBe(r);
+  });
+
+  it('flies a remote ORB along its way, and ends it with its life', () => {
+    let r = plant(racing(), 'b', sent({ item: 'orb', x: 100, y: 100, angle: 0 }));
+    const x0 = r.items.orbs[0]?.x ?? 0;
+    r = play(r, NONE, 0.2);
+    expect(r.items.orbs[0]?.x).toBeGreaterThan(x0);
+    r = play(r, NONE, RULES.orbLife);
+    expect(r.items.orbs).toEqual([]);
   });
 });

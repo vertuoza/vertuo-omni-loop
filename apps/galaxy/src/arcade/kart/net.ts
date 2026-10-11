@@ -44,7 +44,7 @@ export function readGrid(entries: Readonly<Record<string, unknown>>): GridPlayer
   return players;
 }
 
-// ── The race's messages (PRD 1572): start, state, leave (slice 4) and finish (slice 5). `item` and `hit` join them later.
+// ── The race's messages (PRD 1572): start, state, leave (slice 4), finish (slice 5), and item and hit (slice 6).
 
 const RaceId = z.string().min(1).max(64);
 
@@ -77,9 +77,24 @@ const Leave = z.object({ kind: z.literal('leave'), race: RaceId });
 /** A player crossed the line at the end of the last lap: their race time in tenths of a second, the one that is sent to the score. */
 const Finish = z.object({ kind: z.literal('finish'), race: RaceId, tenths: z.number().int().positive() });
 
-const Message = z.discriminatedUnion('kind', [Start, State, Leave, Finish]);
+/** A BLOB dropped or an ORB fired: its id (the sender's id and a count), where it starts and, for an ORB, the way it flies. Never a BOOST, which stays the sender's own. */
+const Item = z.object({
+  kind: z.literal('item'),
+  race: RaceId,
+  id: z.string().min(1).max(96),
+  item: z.enum(['blob', 'orb']),
+  x: z.number(),
+  y: z.number(),
+  angle: z.number(),
+});
+
+/** The player hit by an item says so: the item's id, which takes it off every circuit. */
+const Hit = z.object({ kind: z.literal('hit'), race: RaceId, id: z.string().min(1).max(96) });
+
+const Message = z.discriminatedUnion('kind', [Start, State, Leave, Finish, Item, Hit]);
 export type RaceMessage = z.infer<typeof Message>;
 export type StateMessage = z.infer<typeof State>;
+export type ItemMessage = z.infer<typeof Item>;
 
 /**
  * What a message says, read back from what crossed the wire: null when it does not read, when its
