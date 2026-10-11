@@ -215,8 +215,8 @@ var SECRETS = Object.freeze([
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
-function maskSecrets(text9) {
-  let out = plainText(text9);
+function maskSecrets(text10) {
+  let out = plainText(text10);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -372,9 +372,9 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text9) => {
-    if (!text9.startsWith("data:")) return false;
-    const data = text9.slice(5).trim();
+  const line = (text10) => {
+    if (!text10.startsWith("data:")) return false;
+    const data = text10.slice(5).trim();
     if (data === "[DONE]") return true;
     let raw;
     try {
@@ -393,9 +393,9 @@ async function readContent(response) {
     buffer += decoder.decode(value, { stream: true });
     let newline = buffer.indexOf("\n");
     while (newline !== -1) {
-      const text9 = buffer.slice(0, newline).replace(/\r$/, "");
+      const text10 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text9)) {
+      if (line(text10)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -406,12 +406,12 @@ async function readContent(response) {
   line(buffer + decoder.decode());
   return content;
 }
-function parseJson(text9) {
-  const start = text9.indexOf("{");
-  const end = text9.lastIndexOf("}");
+function parseJson(text10) {
+  const start = text10.indexOf("{");
+  const end = text10.lastIndexOf("}");
   if (start === -1 || end < start) return void 0;
   try {
-    return JSON.parse(text9.slice(start, end + 1));
+    return JSON.parse(text10.slice(start, end + 1));
   } catch {
     return void 0;
   }
@@ -730,10 +730,10 @@ var CANON_SPEC_LIMIT = 4e4;
 var MAX_QUOTE = 300;
 var CACHE_LIMIT = 200;
 var JUDGE_NOT_CONFIGURED = "no-secret";
-var plain = (text9) => (text9 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-function quoted2(text9, quote) {
+var plain = (text10) => (text10 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+function quoted2(text10, quote) {
   const q = plain(quote);
-  return q.length > 0 && plain(text9).includes(q);
+  return q.length > 0 && plain(text10).includes(q);
 }
 var SYSTEM = [
   "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), the business claims its team confirmed, and its personas.",
@@ -971,8 +971,8 @@ function keysOf(record) {
 var NAME = String.raw`[A-Za-z_][\w-]*`;
 var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
 var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
-function parseCompound(text9) {
-  const compound = COMPOUND.exec(text9.trim());
+function parseCompound(text10) {
+  const compound = COMPOUND.exec(text10.trim());
   if (!compound || compound[0] === "") return null;
   const [, tag, parts = ""] = compound;
   const matched = [...parts.matchAll(new RegExp(PART, "g"))];
@@ -1922,14 +1922,14 @@ function readHead(head) {
   return { title: head[at3]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
-  const text9 = raw.replace(COMMENT, "").trim();
-  const lines = text9.split("\n").map((line) => line.trim()).filter(Boolean);
+  const text10 = raw.replace(COMMENT, "").trim();
+  const lines = text10.split("\n").map((line) => line.trim()).filter(Boolean);
   const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text9, see: null, questions };
+  if (questions.length === lines.length) return { kind: "holes", text: text10, see: null, questions };
   const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
-  if (see) return { kind: "pointer", text: text9, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text9, see: null, questions };
+  if (see) return { kind: "pointer", text: text10, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
+  return { kind: "text", text: text10, see: null, questions };
 }
 function readSection(heading, lines) {
   const at3 = lines.findIndex((line) => line.trim() !== "");
@@ -1971,8 +1971,8 @@ function readSlots(sections, { file, errors, oldSpellings }) {
   }
   return { slots, unmarked };
 }
-function parseForm(text9, { file = null } = {}) {
-  const block = text9.match(FRONT_MATTER_BLOCK);
+function parseForm(text10, { file = null } = {}) {
+  const block = text10.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
@@ -2108,7 +2108,7 @@ function foldersLayout(root, paths) {
 }
 
 // kit/lib/markers.ts
-var escape = (text9) => text9.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var escape = (text10) => text10.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape(prefix);
   return Object.freeze({
@@ -2214,8 +2214,8 @@ var FIELD_KEY = {
   "Glossary term": "glossaryTerm"
 };
 var FIELD_NAMES = keysOf(FIELD_KEY);
-function idsCitedIn(text9) {
-  return [...new Set(text9.match(ID_TOKEN) ?? [])];
+function idsCitedIn(text10) {
+  return [...new Set(text10.match(ID_TOKEN) ?? [])];
 }
 function codeOf(name) {
   return name.replace(/-/g, "").toUpperCase();
@@ -2283,10 +2283,10 @@ function readPending(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
   };
 }
-function splitEntries(text9) {
+function splitEntries(text10) {
   const entries = [];
   let current = null;
-  for (const line of text9.split("\n")) {
+  for (const line of text10.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries.push(current);
@@ -2301,8 +2301,8 @@ function splitEntries(text9) {
   if (current) entries.push(current);
   return entries;
 }
-function parseEntryFile(file, text9, place) {
-  return splitEntries(text9).map(({ id, lines }) => {
+function parseEntryFile(file, text10, place) {
+  return splitEntries(text10).map(({ id, lines }) => {
     const { fields, counts, fieldAt } = readFields(lines);
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
@@ -2346,8 +2346,8 @@ function diskSource(root) {
     read: (file) => readFileSync4(join7(root, file), "utf8")
   };
 }
-function glossaryTermOf(text9) {
-  return readFields(text9.split("\n")).fields.glossaryTerm ?? null;
+function glossaryTermOf(text10) {
+  return readFields(text10.split("\n")).fields.glossaryTerm ?? null;
 }
 function productDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/product`;
@@ -2512,9 +2512,9 @@ var PUNCHLINES = Object.freeze([
   "Small print, big relief once it is settled."
 ]);
 var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
-function stableHash(text9) {
+function stableHash(text10) {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(text9)) {
+  for (const byte of new TextEncoder().encode(text10)) {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
@@ -2771,8 +2771,8 @@ function validateSections(body) {
   );
   return { errors, sections };
 }
-function parseOutboxItem(text9, { file = null } = {}) {
-  const read = readFrontMatterBlock(text9, file, OutboxItemFrontMatterSchema);
+function parseOutboxItem(text10, { file = null } = {}) {
+  const read = readFrontMatterBlock(text10, file, OutboxItemFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const errors = [...read.errors];
   const { errors: sectionErrors, sections } = validateSections(read.body);
@@ -2804,8 +2804,8 @@ function parseOutboxItem(text9, { file = null } = {}) {
   };
   return { ok: true, item };
 }
-function readFrontMatterBlock(text9, file, schema) {
-  const blockMatch = text9.match(FRONT_MATTER_BLOCK2);
+function readFrontMatterBlock(text10, file, schema) {
+  const blockMatch = text10.match(FRONT_MATTER_BLOCK2);
   if (!blockMatch) {
     return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
@@ -2861,17 +2861,17 @@ var REGISTER_OR_ADR_ID = /\bN\d+\b|\bBR-[A-Z0-9]+-\d+\b|\bADR-\d{4}\b/g;
 var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
-function countSentences(text9) {
-  const trimmed = (text9 ?? "").trim();
+function countSentences(text10) {
+  const trimmed = (text10 ?? "").trim();
   if (!trimmed) return 0;
   const matches = trimmed.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
-function uniqueMatches(text9, pattern) {
-  return [...new Set(text9.match(pattern) ?? [])];
+function uniqueMatches(text10, pattern) {
+  return [...new Set(text10.match(pattern) ?? [])];
 }
-function plainWordsProblems(text9) {
-  const value = text9 ?? "";
+function plainWordsProblems(text10) {
+  const value = text10 ?? "";
   const problems = [];
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -2908,8 +2908,8 @@ function plainWordsProblems(text9) {
   }
   return problems;
 }
-function funLineProblems(text9) {
-  const value = (text9 ?? "").trim();
+function funLineProblems(text10) {
+  const value = (text10 ?? "").trim();
   const problems = plainWordsProblems(value);
   const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
@@ -2959,8 +2959,8 @@ function outboxItemFiles({ ctx }) {
 import { existsSync as existsSync8, mkdirSync, readFileSync as readFileSync6, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute as isAbsolute2, join as join10, relative } from "node:path";
 import { z as z16 } from "zod";
-function parseItem(text9, file) {
-  return parseOutboxItem(text9, { file });
+function parseItem(text10, file) {
+  return parseOutboxItem(text10, { file });
 }
 var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
@@ -3061,8 +3061,8 @@ function renderSettledEntry({
   );
   return lines.join("\n");
 }
-function parseSettledEntries(text9, markers) {
-  return latestPerId(rawSettledEntries(text9, markers));
+function parseSettledEntries(text10, markers) {
+  return latestPerId(rawSettledEntries(text10, markers));
 }
 function latestPerId(entries) {
   const byId = /* @__PURE__ */ new Map();
@@ -3078,8 +3078,8 @@ function closedEntry({ id, fields, blocks }) {
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
-function rawSettledEntries(text9, markers) {
-  const lines = text9.split("\n");
+function rawSettledEntries(text10, markers) {
+  const lines = text10.split("\n");
   const entries = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
@@ -3194,8 +3194,8 @@ function validateBody(body) {
   errors.push(...entryErrors);
   return { errors, entries };
 }
-function parseAccount(text9, { file = null } = {}) {
-  const read = readFrontMatterBlock(text9, file, AccountFrontMatterSchema);
+function parseAccount(text10, { file = null } = {}) {
+  const read = readFrontMatterBlock(text10, file, AccountFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const { errors: bodyErrors, entries } = validateBody(read.body);
   const errors = [...read.errors, ...bodyErrors.map((message) => withFile2(file, message))];
@@ -3230,8 +3230,8 @@ function readAccounts(prd, { ctx }) {
   const names = readdirSync5(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text9 = readRepoFile(ctx, file);
-    const parsed2 = parseAccount(text9, { file });
+    const text10 = readRepoFile(ctx, file);
+    const parsed2 = parseAccount(text10, { file });
     if (!parsed2.ok) return parsed2;
     const unresolved = parsed2.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
@@ -3374,8 +3374,8 @@ function openItemFiles(prd, { ctx }) {
   return outboxItemFiles({ ctx }).filter((file) => file.startsWith(prefix));
 }
 function describeItem(file, { ctx }) {
-  const text9 = readRepoFile(ctx, file);
-  const parsed2 = parseOutboxItem(text9, { file });
+  const text10 = readRepoFile(ctx, file);
+  const parsed2 = parseOutboxItem(text10, { file });
   return parsed2.ok ? { file, id: parsed2.item.id, rank: parsed2.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
@@ -3606,8 +3606,8 @@ function readSettledEntries(prd, { ctx }) {
   if (!existsSync11(`${ctx.root}/${settledFile}`)) return [];
   return parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
 }
-function firstSentence(text9) {
-  const trimmed = (text9 ?? "").trim();
+function firstSentence(text10) {
+  const trimmed = (text10 ?? "").trim();
   const match = trimmed.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match ? match[0] : trimmed).trim();
 }
@@ -3623,8 +3623,8 @@ function answeredOutcome(entry) {
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
-function quoteReply(text9) {
-  const oneLine4 = (text9 ?? "").replace(/\s+/g, " ").trim();
+function quoteReply(text10) {
+  const oneLine4 = (text10 ?? "").replace(/\s+/g, " ").trim();
   const truncated = oneLine4.length > 120 ? `${oneLine4.slice(0, 117)}\u2026` : oneLine4;
   return `"${truncated}"`;
 }
@@ -3648,14 +3648,14 @@ function formatApprovedAt(approvedAt) {
   const [, , month, day3] = match;
   return `${Number(day3)} ${MONTH_NAMES[Number(month) - 1]}`;
 }
-function tableCell(text9) {
-  return (text9 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
+function tableCell(text10) {
+  return (text10 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
-function quoted3(text9) {
-  return (text9 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+function quoted3(text10) {
+  return (text10 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
-function funLine(text9) {
-  return `_${(text9 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+function funLine(text10) {
+  return `_${(text10 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
 }
 function formatOptionsTable(options, mark) {
   return [
@@ -3948,8 +3948,8 @@ function unrecognizedKeyMessage(key) {
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
   return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
-function parseSpec(text9, { file = null } = {}) {
-  const blockMatch = text9.match(FRONT_MATTER_BLOCK3);
+function parseSpec(text10, { file = null } = {}) {
+  const blockMatch = text10.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
@@ -4227,8 +4227,8 @@ function prerequisitesOf(section4) {
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
 }
-function parseRoadmap(text9) {
-  const block = FRONT_MATTER_BLOCK4.exec(text9);
+function parseRoadmap(text10) {
+  const block = FRONT_MATTER_BLOCK4.exec(text10);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
   const front = frontMatter(raw);
@@ -4496,8 +4496,8 @@ var VoiceRoundSchema = z19.object({
 var VoiceSchema = z19.object({ rounds: z19.array(VoiceRoundSchema) });
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
-function countSentences2(text9) {
-  return text9.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+function countSentences2(text10) {
+  return text10.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
 function citationProblems(citations, field3) {
   if (!Array.isArray(citations) || citations.length === 0) {
@@ -4507,9 +4507,9 @@ function citationProblems(citations, field3) {
     (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text9, field3) {
-  if (!isText(text9)) return [`${field3} must be a sentence.`];
-  const count2 = countSentences2(text9);
+function lineProblems(text10, field3) {
+  if (!isText(text10)) return [`${field3} must be a sentence.`];
+  const count2 = countSentences2(text10);
   return count2 > MAX_SENTENCES ? [`${field3} holds ${count2} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
@@ -4553,10 +4553,10 @@ function roundProblems(round) {
     ...fitProblems(round.fit)
   ];
 }
-function parseVoice(text9) {
+function parseVoice(text10) {
   let voice;
   try {
-    voice = JSON.parse(text9);
+    voice = JSON.parse(text10);
   } catch {
     return { ok: false, voice: null, errors: ["not valid JSON."] };
   }
@@ -4589,8 +4589,8 @@ function knownAreas(ctx) {
     readdirSync6(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
 }
-function violationsForFile(file, folder, text9, ctx) {
-  const parsed2 = parseSpec(text9, { file });
+function violationsForFile(file, folder, text10, ctx) {
+  const parsed2 = parseSpec(text10, { file });
   if (!parsed2.ok) {
     return { record: null, violations: parsed2.errors };
   }
@@ -4644,8 +4644,8 @@ function gradeFolder(specFile, ctx) {
   if (!existsSync14(join13(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
-    const text9 = readRepoFile(ctx, specFile);
-    const graded = violationsForFile(specFile, folder, text9, ctx);
+    const text10 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text10, ctx);
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
@@ -5170,14 +5170,14 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
-  let text9;
+  let text10;
   try {
-    text9 = readFileSync11(join18(folder, CONFIG_FILE), "utf8");
+    text10 = readFileSync11(join18(folder, CONFIG_FILE), "utf8");
   } catch {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text9, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
+    return { folder, config: parseConfig(text10, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -6129,20 +6129,20 @@ function targetFlows({ root, config }) {
 
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text9) {
-  const id = WorkSliceIdSchema.safeParse(text9);
-  if (!id.success) throw new Error(`This plan's slice table names "${text9}", which is no slice id like s1.`);
+function sliceIdOf(text10) {
+  const id = WorkSliceIdSchema.safeParse(text10);
+  if (!id.success) throw new Error(`This plan's slice table names "${text10}", which is no slice id like s1.`);
   return id.data;
 }
 function blockedByCell(cell3) {
-  const text9 = (cell3 ?? "").trim();
-  if (NOTHING.test(text9)) return [];
-  return text9.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+  const text10 = (cell3 ?? "").trim();
+  if (NOTHING.test(text10)) return [];
+  return text10.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell3) {
-  const text9 = (cell3 ?? "").trim();
-  if (NOTHING.test(text9)) return [];
-  return [...text9.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
+  const text10 = (cell3 ?? "").trim();
+  if (NOTHING.test(text10)) return [];
+  return [...text10.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -6211,8 +6211,8 @@ function parsePlanSlices(markdown) {
   return slices;
 }
 function landingCell(cell3) {
-  const text9 = plainCell(cell3);
-  return NOTHING.test(text9) ? 1 : Number(text9);
+  const text10 = plainCell(cell3);
+  return NOTHING.test(text10) ? 1 : Number(text10);
 }
 function plainCell(cell3) {
   return (cell3 ?? "").replace(/`/g, "").trim();
@@ -7164,7 +7164,7 @@ var FORBIDDEN = [
   { pattern: /`/, what: () => "a backtick" },
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), what: () => `a path under ${KIT_FOLDER}` }
 ];
-var characters = (text9) => Array.from(text9).length;
+var characters = (text10) => Array.from(text10).length;
 function unquote(value) {
   const trimmed = value.trim();
   const first = trimmed[0];
@@ -7192,8 +7192,8 @@ ${line.trim()}`;
   }
   return { fields, errors };
 }
-function splitNote(text9) {
-  const match = text9.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
+function splitNote(text10) {
+  const match = text10.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
@@ -7210,8 +7210,8 @@ function notePrd(fields, errors) {
   errors.push(`prd "${prd}" is not a PRD number`);
   return null;
 }
-function parseReleaseNote(text9) {
-  const parts = splitNote(text9);
+function parseReleaseNote(text10) {
+  const parts = splitNote(text10);
   if (!parts) return { ok: false, errors: ['no front matter \u2014 a release note opens with a "---" fenced header holding prd and title'] };
   const { fields, errors } = readFields2(parts.front);
   for (const key of Object.keys(fields)) {
@@ -7253,14 +7253,14 @@ function descriptionViolations(lines, description) {
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
-function contentViolations(name, text9) {
+function contentViolations(name, text10) {
   return FORBIDDEN.flatMap(({ pattern, what }) => {
-    const match = text9.match(pattern);
+    const match = text10.match(pattern);
     return match ? [`${name} holds ${what(match[0])}`] : [];
   });
 }
-function gradeReleaseNote(text9, { prd }) {
-  const parsed2 = parseReleaseNote(text9);
+function gradeReleaseNote(text10, { prd }) {
+  const parsed2 = parseReleaseNote(text10);
   if (!parsed2.ok) return parsed2.errors;
   const { note } = parsed2;
   const out = [];
@@ -7269,7 +7269,7 @@ function gradeReleaseNote(text9, { prd }) {
     out.push(`version ${note.version === "" ? '""' : note.version} is not ${INITIAL_VERSION} \u2014 only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text9)?.body ?? ""), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text10)?.body ?? ""), note.description));
   out.push(...contentViolations("title", note.title), ...contentViolations("description", note.description));
   return out;
 }
@@ -7327,8 +7327,8 @@ import { join as join26 } from "node:path";
 import { existsSync as existsSync21, readdirSync as readdirSync10, readFileSync as readFileSync16 } from "node:fs";
 import { join as join25 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text9, heading) {
-  const lines = text9.split("\n");
+function invariantAdrs(text10, heading) {
+  const lines = text10.split("\n");
   const start = lines.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
@@ -7395,8 +7395,8 @@ var FUN_SECTION_FIELDS = [
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
-function checkItemText(file, text9, { laws }) {
-  const parsed2 = parseItem(text9, file);
+function checkItemText(file, text10, { laws }) {
+  const parsed2 = parseItem(text10, file);
   if (!parsed2.ok) return parsed2.errors;
   const { item } = parsed2;
   const violations = [];
@@ -7606,8 +7606,8 @@ import { join as join28 } from "node:path";
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail, text: text9 }) {
-  return text9 ?? `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text10 }) {
+  return text10 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -7758,11 +7758,11 @@ function idShapeViolations(entry) {
     )
   ];
 }
-function headingAnchors(text9) {
+function headingAnchors(text10) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line of text9.split("\n")) {
+  for (const line of text10.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
@@ -7926,8 +7926,8 @@ function proofViolations(ctx, entry, requireProof) {
   if (meansPending(entry.enforcedBy)) return [];
   return missingPathViolations(ctx, entry, "Enforced by", entry.enforcedBy, { onlyPathLike: false });
 }
-function findUnresolvedCitations(file, text9, resolve) {
-  return idsCitedIn(text9).filter((id) => !resolve(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text10, resolve) {
+  return idsCitedIn(text10).filter((id) => !resolve(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries) {
   return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
@@ -7950,9 +7950,9 @@ function gradeKnowledge({
 }) {
   const knowledge = readKnowledge({ ctx });
   const resolve = (id) => knowledge.entries.find((entry) => entry.id === id);
-  const text9 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
+  const text10 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
-    ...findLayoutViolations(ctx, knowledge, { glossaryText: text9 }),
+    ...findLayoutViolations(ctx, knowledge, { glossaryText: text10 }),
     ...findOwningLibraryViolations(ctx, knowledge),
     ...findCrossDomainFileViolations(knowledge),
     ...findReusedIds(knowledge.entries),
@@ -8136,9 +8136,9 @@ function classificationJsonSchema(summary2) {
   };
 }
 function section2(heading, body) {
-  const text9 = plainText(body).trim();
-  if (text9 === "") return [];
-  return [`### ${heading}`, "", text9, ""];
+  const text10 = plainText(body).trim();
+  if (text10 === "") return [];
+  return [`### ${heading}`, "", text10, ""];
 }
 function itemSections(candidate) {
   const sections = candidate.item?.sections;
@@ -8246,8 +8246,8 @@ function toCandidate(entry, ledgerFile) {
     rank: entry.fields.Rank ?? (parsed2.ok ? parsed2.item.rank : null) ?? null
   };
 }
-function candidatesFromLedger(text9, { markers, ledgerFile = null }) {
-  const entries = parseSettledEntries(text9, markers);
+function candidatesFromLedger(text10, { markers, ledgerFile = null }) {
+  const entries = parseSettledEntries(text10, markers);
   return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd }) {
@@ -8362,8 +8362,8 @@ function makeFiles(ctx) {
       }
       return texts.get(path) ?? null;
     },
-    write(path, text9) {
-      texts.set(path, text9);
+    write(path, text10) {
+      texts.set(path, text10);
       this.changed.add(path);
     },
     changed: /* @__PURE__ */ new Set(),
@@ -8372,8 +8372,8 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text9, entry, { heading }) {
-  let base = text9 ?? `# ${heading}
+function appendEntry(text10, entry, { heading }) {
+  let base = text10 ?? `# ${heading}
 `;
   if (!/^## /m.test(base)) {
     const lines = base.split("\n");
@@ -8432,8 +8432,8 @@ function renderRecord({
     ""
   ].join("\n");
 }
-function addLedgerLine(text9, { id, line, markers }) {
-  const lines = text9.split("\n");
+function addLedgerLine(text10, { id, line, markers }) {
+  const lines = text10.split("\n");
   const open = lines.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
   const close = lines.indexOf(markers.settledClose(id), open);
@@ -8691,15 +8691,15 @@ function applyHarvestEdits({ root, edits }) {
     mkdirSync5(dirname8(join33(root, to)), { recursive: true });
     renameSync(join33(root, from), join33(root, to));
   }
-  for (const { path, text: text9 } of edits.writes) {
+  for (const { path, text: text10 } of edits.writes) {
     mkdirSync5(dirname8(join33(root, path)), { recursive: true });
-    writeFileSync6(join33(root, path), text9);
+    writeFileSync6(join33(root, path), text10);
   }
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
   for (const write of writes) byPath.set(write.path, write.text);
-  return [...byPath].map(([path, text9]) => ({ path, text: text9 }));
+  return [...byPath].map(([path, text10]) => ({ path, text: text10 }));
 }
 function prepareHarvest({
   ctx,
@@ -8725,7 +8725,7 @@ function prepareHarvest({
       const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync22(join33(scratch.root, file), "utf8") });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
-      rewrites = plan.rewrites.map(({ file, text: text9 }) => ({ path: movedPath(moves, file), text: text9 }));
+      rewrites = plan.rewrites.map(({ file, text: text10 }) => ({ path: movedPath(moves, file), text: text10 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
@@ -9092,9 +9092,9 @@ function parseSaved(schema, value, id) {
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
 import { z as z26 } from "zod";
-async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text9 }) {
+async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text10 }) {
   const body = `${marker2}
-${String(text9).trimEnd()}
+${String(text10).trimEnd()}
 `;
   const comments = await listComments(octokit, { owner, repo, prNumber });
   const existing = comments.find((comment) => comment.body.includes(marker2));
@@ -9376,7 +9376,7 @@ ${commitMarker(merge.pr)} Merged by @${bare(merge.by)}.`;
 }
 var bare = (who) => (who ?? "").replace(/^@/, "");
 var day2 = (value) => (value ?? "").slice(0, 10);
-var cell = (text9) => (text9 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+var cell = (text10) => (text10 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
@@ -9384,9 +9384,9 @@ function landedAs(entry) {
   return `${entry.landedAs.join(", ")} (new, ${standing})`;
 }
 function decidedShort(decided) {
-  const text9 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
-  if (text9.startsWith("nobody")) return "nobody \u2014 adopted";
-  return text9;
+  const text10 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
+  if (text10.startsWith("nobody")) return "nobody \u2014 adopted";
+  return text10;
 }
 function enforcedText(paths, issue) {
   if (issue !== null) return `pending #${issue}`;
@@ -9464,7 +9464,7 @@ function toCommit(edits, filesBefore) {
     }
   }
   return {
-    files: edits.writes.map(({ path, text: text9 }) => ({ path, content: text9 })),
+    files: edits.writes.map(({ path, text: text10 }) => ({ path, content: text10 })),
     moves,
     deletes
   };
@@ -9659,9 +9659,9 @@ function createHarvestFailureHandler({ octokitFor }) {
     const { installationId, owner, repo, prNumber } = failed2.success ? failed2.data : {};
     if (!installationId || !prNumber) return { skipped: "not a merge" };
     const reason2 = firstLine(error?.message ?? event.data.error?.message);
-    const text9 = `The knowledge harvest could not run: ${reason2}`;
+    const text10 = `The knowledge harvest could not run: ${reason2}`;
     return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
-      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text9 });
+      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text10 });
       return { ...posted, reason: reason2 };
     });
   };
@@ -10403,8 +10403,8 @@ var REFUSED_PATTERNS = REFUSED_WORDS.map((word) => ({
   word,
   pattern: new RegExp(`\\b${word.replaceAll(" ", "[\\s-]*")}\\b`, "i")
 }));
-function refusedWordsIn(text9) {
-  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text9)).map(({ word }) => word);
+function refusedWordsIn(text10) {
+  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text10)).map(({ word }) => word);
 }
 function rankOf(kind) {
   const index = FINDING_ORDER.findIndex((rank) => rank.includes(kind));
@@ -10759,10 +10759,10 @@ function rowPr(line) {
   return slug && number ? { slug, pr: parsePr(number) } : null;
 }
 function fixPlanRows(body) {
-  const text9 = body ?? "";
-  if (!text9.includes(FIX_PLAN_MARKER)) return [];
+  const text10 = body ?? "";
+  if (!text10.includes(FIX_PLAN_MARKER)) return [];
   const rows = [];
-  for (const line of text9.split("\n")) {
+  for (const line of text10.split("\n")) {
     const found = line.trim().startsWith("|") ? rowPr(line) : null;
     if (found && !rows.some((row) => row.slug === found.slug && row.pr === found.pr)) rows.push(found);
   }
@@ -11182,11 +11182,11 @@ function overlaps([oldStart, oldCount], { from, to }) {
 }
 function namesPrd(prd, slug) {
   const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape2(slug)})#${prd}(?!\\d)`, "i");
-  return (text9) => pattern.test(text9);
+  return (text10) => pattern.test(text10);
 }
-function closedBy(text9, slug) {
+function closedBy(text10, slug) {
   const numbers = [];
-  for (const match of text9.matchAll(CLOSING)) {
+  for (const match of text10.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match;
     const repo = urlRepo ?? refRepo;
     if (repo && repo.toLowerCase() !== slug.toLowerCase()) continue;
@@ -11233,8 +11233,8 @@ function plural4(count2, noun) {
 function and(items, last = " and ") {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}${last}${items.at(-1)}`;
 }
-function escape2(text9) {
-  return text9.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape2(text10) {
+  return text10.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/kinds/churn-generated.ts
@@ -11632,16 +11632,16 @@ var COUNT_KEYS = Object.freeze({
   errors: "errors",
   total: "total"
 });
-function cleanLog(text9) {
-  return plainText(text9).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
+function cleanLog(text10) {
+  return plainText(text10).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
-function tailOf(text9, count2) {
-  const lines = plainText(text9).split("\n");
+function tailOf(text10, count2) {
+  const lines = plainText(text10).split("\n");
   if (lines.at(-1) === "") lines.pop();
   return lines.slice(-count2).join("\n");
 }
-function readTestLog(text9) {
-  const lines = cleanLog(text9).split("\n");
+function readTestLog(text10) {
+  const lines = cleanLog(text10).split("\n");
   for (const reader of READERS) {
     if (!reader.detects(lines)) continue;
     const { tests, counts } = reader.read(lines);
@@ -11743,13 +11743,13 @@ function vitestCrosses(lines) {
   return tests;
 }
 var READERS = Object.freeze([pytest, playwright, jest, vitest]);
-function countsIn(text9) {
+function countsIn(text10) {
   const counts = {};
-  for (const [, number, word] of text9.matchAll(/(\d+) ([a-z]+)/g)) {
+  for (const [, number, word] of text10.matchAll(/(\d+) ([a-z]+)/g)) {
     const key = word === void 0 ? void 0 : COUNT_KEYS[word];
     if (key && !(key in counts)) counts[key] = Number(number);
   }
-  const total = /\((\d+)\)\s*$/.exec(text9.trim());
+  const total = /\((\d+)\)\s*$/.exec(text10.trim());
   if (total && !("total" in counts)) counts.total = Number(total[1]);
   return Object.keys(counts).length > 0 ? counts : null;
 }
@@ -12033,8 +12033,8 @@ function short(sha) {
 function count(n, noun) {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
-function cell2(text9) {
-  return text9.replaceAll("|", "\\|");
+function cell2(text10) {
+  return text10.replaceAll("|", "\\|");
 }
 function uniqueBy(items, key) {
   const seen = /* @__PURE__ */ new Set();
@@ -12780,7 +12780,7 @@ function modelInput({
       }))
     })),
     knowledge: knowledgeLines(knowledge),
-    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text9) => typeof text9 === "string").map((text9) => maskSecrets(text9))
+    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text10) => typeof text10 === "string").map((text10) => maskSecrets(text10))
   };
   capInput(input, findings.map((finding) => finding.source), LIMITS.modelInputTokens * CHARS_PER_TOKEN - SYSTEM2.length);
   return { system: SYSTEM2, user: JSON.stringify(input) };
@@ -12795,8 +12795,8 @@ function knowledgeLines(summary2) {
   }));
   return [...entries, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
-function firstLineOf(text9) {
-  return text9.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+function firstLineOf(text10) {
+  return text10.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 }
 var EXCERPT_KEY = ',"excerpt":';
 var CUT_MARK = "[earlier lines cut]\n";
@@ -12805,7 +12805,7 @@ var HUNKS = "churn";
 function capInput(input, sources, budget) {
   let size = JSON.stringify(input).length;
   if (size <= budget) return;
-  const cost = (text9) => EXCERPT_KEY.length + JSON.stringify(text9).length;
+  const cost = (text10) => EXCERPT_KEY.length + JSON.stringify(text10).length;
   const excerpts = input.findings.flatMap(
     (finding, i) => finding.evidence.flatMap((item, j) => item.excerpt === void 0 ? [] : [{ i, j, item, source: sources[i] }])
   );
@@ -12824,14 +12824,14 @@ function capInput(input, sources, budget) {
   }
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
-    const text9 = entry.item.excerpt ?? "";
-    let keep = Math.max(0, text9.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text9, keep);
-    while (keep > 0 && size - cost(text9) + cost(next) > budget) {
-      keep = Math.max(0, keep - (size - cost(text9) + cost(next) - budget));
-      next = lastLines(text9, keep);
+    const text10 = entry.item.excerpt ?? "";
+    let keep = Math.max(0, text10.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text10, keep);
+    while (keep > 0 && size - cost(text10) + cost(next) > budget) {
+      keep = Math.max(0, keep - (size - cost(text10) + cost(next) - budget));
+      next = lastLines(text10, keep);
     }
-    size += cost(next) - cost(text9);
+    size += cost(next) - cost(text10);
     entry.item.excerpt = next;
   }
   while (size > budget && input.earlierLessons.length > 0) {
@@ -12848,8 +12848,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text9, keep) {
-  let tail = keep > 0 ? text9.slice(-keep) : "";
+function lastLines(text10, keep) {
+  let tail = keep > 0 ? text10.slice(-keep) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -12869,9 +12869,9 @@ function checkReply2(value) {
       const kept3 = {};
       findings[id] = kept3;
       for (const name of ["title", "whyItMatters", "lesson"]) {
-        const text9 = words[name];
-        if (text9 === void 0) continue;
-        if (typeof text9 === "string") kept3[name] = text9;
+        const text10 = words[name];
+        if (text10 === void 0) continue;
+        if (typeof text10 === "string") kept3[name] = text10;
         else errors.push(`findings[${JSON.stringify(id)}].${name} must be a string`);
       }
       if (words.keep !== void 0) {
@@ -13197,15 +13197,15 @@ function refusal3(value, cap, evidence, { digits = false } = {}) {
   if (!digits && /\d/.test(setAside(value, evidence))) return DROPPED.digit;
   return null;
 }
-function setAside(text9, evidence) {
-  const spans = text9.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
+function setAside(text10, evidence) {
+  const spans = text10.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
   return spans.replace(LINK, (link) => evidence.urls.has(link.replace(TRAILING, "")) ? " " : link);
 }
-function linksIn(text9) {
-  return (text9.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
+function linksIn(text10) {
+  return (text10.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
 }
-function findingIdsIn(text9) {
-  return (text9.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
+function findingIdsIn(text10) {
+  return (text10.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
 }
 function evidenceOf(sheet) {
   const findings = isList(sheet?.findings) ? sheet.findings : [];
@@ -13215,16 +13215,16 @@ function evidenceOf(sheet) {
   for (const finding of findings) {
     for (const item of finding.evidence ?? []) {
       if (typeof item?.url === "string") urls.add(item.url);
-      for (const text9 of [item?.label, item?.url, item?.excerpt]) if (typeof text9 === "string") texts.push(text9);
+      for (const text10 of [item?.label, item?.url, item?.excerpt]) if (typeof text10 === "string") texts.push(text10);
     }
   }
-  return { ids, urls, holds: (span) => texts.some((text9) => text9.includes(span)) };
+  return { ids, urls, holds: (span) => texts.some((text10) => text10.includes(span)) };
 }
 function isObject2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function escape4(text9) {
-  return text9.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape4(text10) {
+  return text10.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/issues.ts
@@ -13343,8 +13343,8 @@ function field(value) {
 var PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
 var RESERVED = /^(?:true|false|yes|no|on|off|null|[-+]?\.?\d|\.inf|\.nan)/i;
 function scalar(value) {
-  const text9 = String(value);
-  return PLAIN.test(text9) && !RESERVED.test(text9) ? text9 : JSON.stringify(text9);
+  const text10 = String(value);
+  return PLAIN.test(text10) && !RESERVED.test(text10) ? text10 : JSON.stringify(text10);
 }
 async function listLabelled(octokit, { owner, repo, label: label2 }) {
   const items = await paginate(
@@ -13456,8 +13456,8 @@ function field2(value) {
   return value;
 }
 function summary(prose, latest) {
-  const text9 = field2(prose?.summary);
-  if (text9) return text9;
+  const text10 = field2(prose?.summary);
+  if (text10) return text10;
   return `Facts only: ${latest.narration?.reason ?? "no prose"}`;
 }
 function titleOf3(finding, prose) {
@@ -13608,8 +13608,8 @@ function minutesBetween2(from, to) {
   const ms2 = Date.parse(to) - Date.parse(from);
   return Number.isFinite(ms2) ? Math.round(ms2 / 6e4) : null;
 }
-function oneLine3(text9) {
-  return text9.replace(/\s+/g, " ").trim() || "no reason given";
+function oneLine3(text10) {
+  return text10.replace(/\s+/g, " ").trim() || "no reason given";
 }
 
 // apps/omni-app/src/retro/publish.ts
@@ -13672,11 +13672,11 @@ async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
   return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: parseGitHub(RefSchema2, data, REF).object.sha };
 }
 function withRuns(existing, records) {
-  let text9 = existing;
+  let text10 = existing;
   let doc = null;
   for (const record of records) {
-    doc = mergeRuns(text9, record);
-    text9 = JSON.stringify(doc);
+    doc = mergeRuns(text10, record);
+    text10 = JSON.stringify(doc);
   }
   return defined(doc, "the retro.json of the records published");
 }
@@ -13806,12 +13806,12 @@ function targetComment({
     ...lines.length > 0 ? lines : ["No finding for this repository."]
   ].join("\n");
 }
-async function commentTargets({ step, octokitFor, id, targets, prefix, ...text9 }) {
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text10 }) {
   const out = {};
   for (const target2 of targets) {
     if (!target2.read) continue;
     const [owner = "", repo = ""] = target2.repo.split("/");
-    const body = targetComment({ ...text9, repo: target2.repo });
+    const body = targetComment({ ...text10, repo: target2.repo });
     out[target2.name] = await savedStep(
       step,
       id(`comment-target-${target2.name}`),
@@ -14068,10 +14068,10 @@ async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
 function lessonsIn(texts) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
-  for (const text9 of texts) {
+  for (const text10 of texts) {
     let doc = null;
     try {
-      doc = text9 ? JSON.parse(text9) : null;
+      doc = text10 ? JSON.parse(text10) : null;
     } catch {
       doc = null;
     }
@@ -14131,6 +14131,117 @@ The retro could not run: ${reason2}
   };
 }
 
+// apps/omni-app/src/server-event/recheck.ts
+import { RetryAfterError as RetryAfterError3 } from "inngest";
+
+// apps/omni-app/src/server-event/server-event.ts
+import { createHmac as createHmac2, timingSafeEqual } from "node:crypto";
+import { z as z39 } from "zod";
+var SERVER_EVENT = "omni-loop/server.event.received";
+var SERVER_EVENT_KINDS = ["approved", "voided"];
+var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var ServerEventSchema = z39.object({
+  event: z39.enum(SERVER_EVENT_KINDS),
+  dossier: z39.string().regex(UUID),
+  at: z39.string().refine((at3) => !Number.isNaN(Date.parse(at3)))
+});
+
+// apps/omni-app/src/server-event/recheck.ts
+var SERVER_EVENT_FUNCTION_ID = "server-event";
+var SERVER_EVENT_TRIGGER = "server-event";
+var SERVER_EVENT_DEBOUNCE = Object.freeze({ key: "event.data.dossier", period: "5s", timeout: "1m" });
+var NONE = Object.freeze([]);
+function refusalIn2(error, depth = 0) {
+  if (error instanceof GithubPaused || error instanceof GithubDeferred) return error;
+  return error instanceof Error && depth < 3 ? refusalIn2(error.cause, depth + 1) : null;
+}
+async function keptOf(octokit, pull, prdId) {
+  const [owner = "", repo = ""] = pull.repository.split("/");
+  const read = await readPull2(octokit, { owner, repo, prNumber: parsePr(pull.number) });
+  return productPrdOf(read.body)?.id === prdId ? { ...pull, headSha: read.headSha } : null;
+}
+function createServerEventRecheck({
+  client,
+  octokitFor,
+  readTargets: readTargets2,
+  log = (line) => {
+    console.error(line);
+  }
+}) {
+  return client.createFunction(
+    { id: SERVER_EVENT_FUNCTION_ID, name: "omni-loop \xB7 server event", triggers: [{ event: SERVER_EVENT }], debounce: SERVER_EVENT_DEBOUNCE, retries: 3 },
+    async ({ event, step }) => {
+      const { event: what, dossier } = ServerEventSchema.parse(event.data);
+      if (!readTargets2) {
+        log(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
+        return { rechecked: NONE };
+      }
+      const targets = await step.run("targets", () => readTargets2(dossier));
+      if (!targets) return { rechecked: NONE };
+      const kept3 = [];
+      for (const pull of targets.pulls) {
+        const where = `${pull.repository}#${pull.number}`;
+        const found = await step.run(`pull ${where}`, async () => {
+          try {
+            return await keptOf(await octokitFor(targets.installationId), pull, targets.prdId);
+          } catch (error) {
+            const refused4 = refusalIn2(error);
+            if (!refused4) throw error;
+            log(`server event: ${where} waits for the GitHub budget: ${refused4.message}`);
+            throw new RetryAfterError3(refused4.message, new Date(refused4.until), { cause: refused4 });
+          }
+        });
+        if (found) kept3.push(found);
+      }
+      if (kept3.length === 0) return { prd: targets.prdId, rechecked: NONE };
+      const events = kept3.map(({ repository, number, headSha }) => {
+        const [owner = "", repo = ""] = repository.split("/");
+        return {
+          name: APPROVED_CHECK_EVENT,
+          data: { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER }
+        };
+      });
+      await step.sendEvent("recheck", events);
+      return { prd: targets.prdId, rechecked: kept3.map((pull) => `${pull.repository}#${pull.number}`) };
+    }
+  );
+}
+
+// apps/omni-app/src/server-event/targets.ts
+import { createClient as createClient5 } from "@supabase/supabase-js";
+import { z as z40 } from "zod";
+var text9 = z40.string().min(1);
+var DossierRowSchema2 = z40.object({ workspace_id: text9, product_id: text9.nullable(), product_seq: z40.number().int().positive().nullable() });
+var ProductRowSchema = z40.object({ key: text9.nullable() });
+var WorkspaceRowSchema = z40.object({ github_installation_id: z40.number().int().positive().nullable() });
+var LinkRowSchema = z40.object({ repository: text9 });
+var PullRowSchema = z40.object({ repo: text9, number: z40.number().int().positive() });
+function rowsOf2(schema, answer) {
+  if (answer.error) throw new Error(`the database refused: ${answer.error.message}${answer.error.code ? ` (${answer.error.code})` : ""}`);
+  return z40.array(schema).parse(answer.data ?? []);
+}
+function targetsReader({ url, key, fetch: fetch2 }) {
+  const db = createClient5(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...fetch2 ? { global: { fetch: fetch2 } } : {}
+  });
+  return async (dossier) => {
+    const [row] = rowsOf2(DossierRowSchema2, await db.from("dossiers").select("workspace_id, product_id, product_seq").eq("id", dossier).eq("kind", "prd").limit(1));
+    if (!row?.product_id || row.product_seq === null) return null;
+    const [product] = rowsOf2(ProductRowSchema, await db.from("products").select("key").eq("id", row.product_id).limit(1));
+    if (!product?.key) return null;
+    const [workspace] = rowsOf2(WorkspaceRowSchema, await db.from("workspaces").select("github_installation_id").eq("id", row.workspace_id).limit(1));
+    if (!workspace?.github_installation_id) return null;
+    const repositories = rowsOf2(LinkRowSchema, await db.from("product_repositories").select("repository").eq("product_id", row.product_id)).map((link) => link.repository);
+    const pulls = repositories.length === 0 ? [] : rowsOf2(PullRowSchema, await db.from("pull_requests").select("repo, number").eq("workspace_id", row.workspace_id).in("repo", repositories).is("merged_at", null).is("closed_at", null).order("repo", { ascending: true }).order("number", { ascending: true }));
+    return {
+      prdId: `${product.key}-${row.product_seq}`,
+      installationId: workspace.github_installation_id,
+      pulls: pulls.map((pull) => ({ repository: pull.repo, number: pull.number }))
+    };
+  };
+}
+
 // apps/omni-app/src/functions.ts
 function appFunctions(env, { octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase) })) } = {}) {
   return {
@@ -14145,7 +14256,8 @@ function appFunctions(env, { octokitFor = installationOctokitFor(env.githubApp, 
       lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(env.galaxyUrl), secret: env.lawJudge.secret }) : null
     }),
     prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
-    canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl })
+    canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
+    serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null })
   };
 }
 
