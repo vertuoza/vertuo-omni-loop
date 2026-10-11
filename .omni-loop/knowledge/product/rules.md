@@ -721,7 +721,7 @@ Jev judges an agent's question only on the report that first stores it; a repeat
 
 Serves: P-PRODUCT-37
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s4-02-jev-judges-first-report-bring-back-final, PRD #855
-Enforced by: pending #1527
+Enforced by: apps/galaxy/src/agent-connect/mcp/server.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
