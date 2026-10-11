@@ -1,6 +1,6 @@
 ---
 name: ultra-wave
-description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch), dispatch one worktree subagent per slice following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
+description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch), dispatch one worktree subagent per slice following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. With a product PRD's id (<key>-<n>) it reads the approval first and claims nothing while it is drifted or the server is held, takes the plan through omni dossier get and relays every item to the PRD's outbox on the server, with no plan PR. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
 ---
 
 # Ultra-wave: one wave, across repositories
@@ -45,6 +45,8 @@ feature branch and a draft target feature PR each. Re-running picks up where the
 
 As `/omni:wave` step 0, with these differences:
 
+- Given a product PRD's id (`<key>-<n>`, as `mobile-12`), follow **From a product** below from
+  here on, a plan section or not.
 - The config must have a `plan` section, and `node .omni-loop/bin/omni.mjs prd <prd>` must print a
   `repos:` line; otherwise stop in one line, `PRD <prd> is an ordinary PRD: /omni:wave <prd>`.
 - Find the plan PR (the plan repository's feature PR) as `/omni:wave` finds the feature PR. For each
@@ -58,6 +60,66 @@ As `/omni:wave` step 0, with these differences:
   target's own chain, each with its `repo`, `branch`, `pr` and `current`. A slice's feature branch is
   the `branch` of the row of its `repo` whose `slices` hold it, and its target feature PR that row's
   PR; wherever this skill says "the target's feature branch", it means that branch.
+
+## From a product (`<key>-<n>`)
+
+A **product PRD** (◆, PRD 1548) has no plan repository: its plan is its dossier's latest version on
+the Omni page, and its outbox is rows on the server (see `/omni:ultra-yolo`'s **From a product**).
+This wave runs from any kitted checkout of a repository the product holds, commits nothing in that
+checkout and opens no plan PR. Every step below runs as written, with these differences.
+
+**Step 0.** Read the approval first, and claim nothing unless it is in force:
+
+```bash
+node .omni-loop/bin/omni.mjs prd <key>-<n>
+```
+
+`state: inbox` goes on. `state: drifted` **refuses** the wave: no slice is claimed, and the report
+carries its `approval:` lines (`≠ <file> · … · ✗ refuse · restore it, or approve again: <link>`).
+`state: unreachable` **parks it on held**: nothing is claimed, the report says
+`server unreachable · held, not failed`. `state: prd` (still waiting for approval) claims nothing
+and names `/omni:ultra-yolo <key>-<n>`, which waits on it. The targets, their clones
+(`<worktrees>/targets/<name>@<key>-<n>`), feature branches and target feature PRs are the ones
+`/omni:ultra-yolo`'s **From a product** set up; there is no plan PR to find.
+
+**Step 1, the board,** is read from the plan, since `omni board` reads a repository's PRD only. Take
+the plan with `node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan` (it prints the scratch
+path, then `sha256 <hash>`; `held · server unreachable · held, not failed` parks the wave as above),
+then grade each row as `omni board` grades one, from its target's pull requests
+(`gh pr list --repo <slug> --base <feature branch> --state all --json number,state,headRefName,isDraft,updatedAt`):
+`merged` when its slice branch's sub-PR merged into the target's feature branch, `claimed` while it
+is open with a claim younger than `limits.claimStaleMinutes`, `claimed-stale` past it, `runnable`
+when every slice it is blocked by is merged and it sits in the lowest wave still open, `blocked`
+otherwise. A target that cannot be read holds its rows, as an `unreadable` one.
+
+**Step 3, the prompt,** names the PRD by its id: `Build slice <id> of PRD <key>-<n>, …`. The
+subagent's `/omni:do-work --in-wave --target <repo>` reads the plan and the spec through
+`omni dossier get` (its **A product PRD**), and writes its items to its scratch folder.
+
+**Step 4 item 6, the relay,** sends the items to the server, from this checkout, with no plan
+feature branch and no worktree of one:
+
+```bash
+node .omni-loop/bin/omni.mjs item relay <out> --prd <key>-<n>
+```
+
+It prints `moved <file> → <key>-<n>/<item>` per item, each now a row of the PRD's outbox. An account
+is refused (`refused <file> — PRD <key>-<n>'s outbox is on the Omni page, which keeps no account yet:
+it stays here`): keep `<out>` and name it and each account in the report, never dropped. Any other
+refusal is reworded and relayed again, as written. `held · server unreachable since <time> · held,
+not failed` keeps `<out>` whole: the wave ends **held**, naming it, and a re-run relays it.
+
+**Step 5, the check,** adopts each relayed medium item on the server, by its id, and commits
+nothing:
+
+```bash
+node .omni-loop/bin/omni.mjs adopt <item> --prd <key>-<n>
+```
+
+The plan repository's check (item 2) does not run: no plan repository holds the PRD. Item 3 runs as
+written, in each touched target. Item 4 ticks each merged slice in its target PR's **Slices**
+checklist only, keeping the `Part of <key>-<n>` line first; never mark any feature PR ready. The
+report (step 6) opens with `PRD <key>-<n>: <page link>`, the `page:` line `omni prd` printed.
 
 ## 1. The board
 

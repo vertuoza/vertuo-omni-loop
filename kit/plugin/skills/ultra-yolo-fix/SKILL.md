@@ -1,6 +1,6 @@
 ---
 name: ultra-yolo-fix
-description: Bring a multi-repository PRD back in line with what a person answered on its plan PR — settle the replies in the plan repository, rework every drifted decision in the repository it was taken in (one sub-PR each into that target's feature branch, through /omni:do-work --target, inside the bound the item stated), relay what the reworks write, check each touched target and follow its target PR's CI, then run /omni:ultra-yolo's gate and ship before ready. Raises no question of its own and never merges into any default branch. Triggers on "ultra-yolo-fix this PRD", "rework what I answered across the repositories", "/omni:ultra-yolo-fix".
+description: Bring a multi-repository PRD back in line with what a person answered on its plan PR — settle the replies in the plan repository, rework every drifted decision in the repository it was taken in (one sub-PR each into that target's feature branch, through /omni:do-work --target, inside the bound the item stated), relay what the reworks write, check each touched target and follow its target PR's CI, then run /omni:ultra-yolo's gate and ship before ready. With a product PRD's id (<key>-<n>) it reads the approval first, refuses on drifted, parks on held, reworks the answers settled on the server and marks the target PRs ready once omni status <key>-<n> is green, with no plan PR. Raises no question of its own and never merges into any default branch. Triggers on "ultra-yolo-fix this PRD", "rework what I answered across the repositories", "/omni:ultra-yolo-fix".
 ---
 
 # Ultra-yolo fix: replies in one place, reworks where they belong
@@ -32,9 +32,49 @@ ledger holds drifted entries. Re-running is safe, as for `/omni:yolo-fix`.
 
 ## Step 0
 
-As `/omni:yolo-fix` step 0. The config must have a `plan` section and
+Given a product PRD's id (`<key>-<n>`, as `mobile-12`), follow **From a product** below from here
+on, a plan section or not. Otherwise, as `/omni:yolo-fix` step 0. The config must have a `plan` section and
 `node .omni-loop/bin/omni.mjs prd <prd>` must print a `repos:` line; otherwise stop in one line,
 `PRD <prd> is an ordinary PRD: /omni:yolo-fix <prd>`.
+
+## From a product (`<key>-<n>`)
+
+A **product PRD** (◆, PRD 1548) has no plan PR and no ledger file: its answers are settlements on
+the server, given on the product's **Questions** tab or through `omni answers post`, each settled
+the moment it is given (see `/omni:ultra-yolo`'s **From a product**). This run starts from any
+kitted checkout of a repository the product holds, commits nothing there and opens no plan PR.
+Every step below runs as written, with these differences.
+
+**Step 0, the approval,** as `/omni:ultra-yolo`'s **From a product** reads it, with
+`node .omni-loop/bin/omni.mjs prd <key>-<n>`: `inbox` goes on, `drifted` **refuses** (stop on its
+`approval:` lines, no rework claimed), `unreachable` **parks on held** (`server unreachable · held,
+not failed`), `prd` stops on its waiting line.
+
+**Steps 1 to 3** find no plan PR and settle nothing locally: each answer is already a settlement on
+the server. Adopt any medium item still open, by its id:
+`node .omni-loop/bin/omni.mjs adopt <item> --prd <key>-<n>`. `omni replies` is not run.
+
+**Step 4, the reworks.** `omni rework plan` reads a repository's ledger only. The reworks are the
+items `omni answers post --prd <key>-<n>` printed as `settled as "drifted"` in this run, when
+`/omni:ultra-yolo`'s **Answer here** carried on into it: each keeps the question, its options and the
+answer `omni answers ask <key>-<n>` printed before the picks were posted, its bound being the option
+picked, its `repo` and territory the plan row of the slice it was raised on (`omni dossier get
+<key>-<n> plan`). Answers given on the Questions tab outside this run are not read here: name each
+as held, `PRD <key>-<n>: its drifted answers are on <product> › Questions, which no omni verb reads
+yet · held`, and rework none of them.
+
+**Step 5, each wave of reworks,** runs as written, with `/omni:ultra-wave`'s **From a product**
+for every rework: the clones and branches of `<key>-<n>`, the relay with
+`node .omni-loop/bin/omni.mjs item relay <out> --prd <key>-<n>` (a rework raises no item; its
+account stays in `<out>`, named), and no plan repository's check.
+
+**Step 6** closes nothing in a ledger file (`omni rework close` reads a repository's PRD only): the
+report names each rework as `<slug>#<sub-PR>` beside its item.
+
+**Step 7, finish and gate,** is `/omni:ultra-yolo`'s **From a product**, steps 4 and 5: the gate is
+`omni status <key>-<n>`, and the target feature PRs are marked ready only once it is green, with no
+`omni ship` and no plan PR. **Step 8** hands off as its step 6 does, the held ending's command being
+`/omni:ultra-yolo-fix <key>-<n>`.
 
 ## 1. Find the plan PR
 
