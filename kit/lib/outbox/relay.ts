@@ -30,7 +30,7 @@ export type RelayMove = { from: string; to: string };
 export type RelayRefusal = { file: string; reason: string };
 
 /** The `*.md` file names directly under `dir`, sorted; `[]` when `dir` does not exist. */
-function markdownFiles(dir: string): string[] {
+export function markdownFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((name) => name.endsWith('.md') && statSync(join(dir, name)).isFile())
@@ -38,7 +38,7 @@ function markdownFiles(dir: string): string[] {
 }
 
 /** The ids the PRD's settled ledger already carries. */
-function settledIds(ctx: RelayContext, outboxDir: string): Set<string> {
+export function settledIds(ctx: RelayContext, outboxDir: string): Set<string> {
   const file = join(ctx.root, outboxDir, SETTLED_FILE);
   if (!existsSync(file)) return new Set();
   return new Set(parseSettledEntries(readFileSync(file, 'utf8'), ctx.markers).map((entry): string => entry.id));

@@ -12,8 +12,11 @@
 //   fails (the reply is printed, to paste).
 //
 // Exit 2 is a usage error, or the kit not installed here.
+//
+// The open items and the adopted entries are read through the PRD's outbox store (PRD 1548, s6).
 import { CONFIG_FILE } from '../../lib/config.ts';
-import { adoptedEntriesForPrd, findPrMarkerComment, openItemsForPrd, parseNumbersMarker } from '../../lib/outbox/comment.ts';
+import { findPrMarkerComment, parseNumbersMarker } from '../../lib/outbox/comment.ts';
+import { outboxStore } from '../../lib/outbox/stores.ts';
 import { answerableQuestions, askBatches, writeReply } from '../../lib/outbox/answers.ts';
 import { propertyOf } from '../../lib/narrow.ts';
 import { githubClientFor } from '../github.ts';
@@ -21,7 +24,6 @@ import { parseArgs, prArg, prdArg, println, readUserFile, repoSlug, usageError }
 import type { Command, CommandIo, Out } from '../io.ts';
 import type { CommentClient } from '../../lib/outbox/comment.ts';
 import type { Context } from '../../lib/context.ts';
-import { synchronous } from '../synchronous.ts';
 
 const USAGE =
   'usage: omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json] | ' +
@@ -59,7 +61,7 @@ function printBatches(stdout: Out, batches: ReturnType<typeof askBatches>): void
   });
 }
 
-function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
+async function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): Promise<number> {
   const { positional, flags } = parseArgs('answers', args, { values: ['pr', 'repo'], booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = prdArg('answers', '<prd>', positional[0]);
@@ -78,7 +80,7 @@ function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): num
   if (numbering === null) {
     return fail(stderr, `pull request #${pr} carries no outbox comment yet — nothing to ask.`);
   }
-  const batches = askBatches({ numbering, items: openItemsForPrd(prd, { ctx }) });
+  const batches = askBatches({ numbering, items: await outboxStore(ctx).openItems(prd) });
   if (batches.length === 0) {
     return fail(stderr, `nothing to ask on PRD ${prd} — no open human-action or high question.`);
   }
@@ -87,7 +89,7 @@ function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): num
   return 0;
 }
 
-function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
+async function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): Promise<number> {
   const { positional, flags } = parseArgs('answers', args, {
     values: ['prd', 'pr', 'repo', 'answers'],
     booleans: ['print'],
@@ -113,10 +115,11 @@ function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): nu
   } catch (error) {
     return fail(stderr, `could not read the comments of pull request #${pr} (${firstLine(error)}).`);
   }
+  const store = outboxStore(ctx);
   const questions = answerableQuestions({
     numbering: numbering ?? [],
-    items: openItemsForPrd(prd, { ctx }),
-    adopted: adoptedEntriesForPrd(prd, { ctx }),
+    items: await store.openItems(prd),
+    adopted: await store.adoptedEntries(prd),
   });
   const written = writeReply({ prd, door: 'terminal', questions, picks });
   if (!written.ok) return fail(stderr, `refused — ${written.reason}`);
@@ -138,10 +141,10 @@ function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): nu
 }
 
 export const answers: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
+  async run(args: string[], io: CommandIo): Promise<number> {
     const [verb, ...rest] = args;
     if (verb === 'ask') return ask(rest, io);
     if (verb === 'post') return post(rest, io);
     throw usageError(USAGE);
-  }),
+  },
 };

@@ -8,13 +8,16 @@
 // unreachable or refused are held with their lines. A ◇ PRD reads as before and never calls the
 // server. It runs before a context exists, like `omni approval`, so that a test can hand it `tokens`,
 // `home`, `fetch` and `callMs`; it loads the context itself.
+//
+// PRD 1548, slice s6: the gate reads the PRD's outbox through its outbox store.
 import { appendFileSync } from 'node:fs';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { gateApproval } from '../../lib/delivery/prd.ts';
 import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
-import { formatReport, gateResult } from '../../lib/outbox/status.ts';
+import { formatReport } from '../../lib/outbox/status.ts';
+import { outboxStore } from '../../lib/outbox/stores.ts';
 import { baseNames, fetchRemote, readFacts } from '../../lib/status/facts.ts';
 import { formatOverview } from '../../lib/status/format.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
@@ -42,7 +45,7 @@ async function overview({ ctx, stdout, exec, fetch, gate }: { ctx: Context; stdo
 }
 
 /** The outbox gate of PRD `prd`: exit 0 green, 1 red. */
-function outboxGate({ number, labels: named, base }: { number: string | undefined; labels: string | undefined; base: string | null }, { ctx, stdout, exec, vars }: { ctx: Context; stdout: Out; exec: Exec; vars: Vars }): number {
+async function outboxGate({ number, labels: named, base }: { number: string | undefined; labels: string | undefined; base: string | null }, { ctx, stdout, exec, vars }: { ctx: Context; stdout: Out; exec: Exec; vars: Vars }): Promise<number> {
   const prd = prdArg('status', '<prd>', number);
   const labels = list(named);
 
@@ -57,7 +60,7 @@ function outboxGate({ number, labels: named, base }: { number: string | undefine
     // The knowledge folder at the range's base grades law-demoted (PRD 1342).
     knowledge = baseKnowledge({ ctx, base, exec });
   }
-  const result = gateResult(prd, { ctx, labels, changes, base: knowledge });
+  const result = await outboxStore(ctx).gate(prd, { labels, changes, base: knowledge });
   const report = formatReport(prd, result);
   println(stdout, report);
 
