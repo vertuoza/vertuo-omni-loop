@@ -548,3 +548,240 @@ Undoing it is moving one line in the menu file and two lines in each test.
 ```
 
 <!-- /omni-outbox-settled: s6-01-guide-tests-pin-pages -->
+
+<!-- omni-outbox-settled: s1-01-init-test-lists-the-design-form -->
+
+## s1-01-init-test-lists-the-design-form — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-11T05:20:59Z
+- Channel: feature pull request #1371
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1371#issuecomment-6105785696
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-13
+- Raised: 2026-10-11
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+A — yes, approve: the change only adds to the law's proof file; no test proving the law was removed or weakened.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-01-init-test-lists-the-design-form
+prd: 1369
+slice: s1
+rank: high
+bears-on: N-PRODUCT-13
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+The test file that proves how the kit sets up a repository also lists the files it writes, and this work added the new design form to that list. Is it all right to change that file?
+
+## The decision, in plain words
+
+Yes: one file added to the list; the checks proving the setup were left as they were.
+
+## The intro, for fun
+
+A rulebook got one more line, and the referee wants it signed.
+
+## The punchline, for fun
+
+Nothing old was crossed out, so the signature is quick.
+
+## The options, in plain words
+
+A. A. Add to the file the plan names, leaving the law's own tests untouched (built).
+B. B. Move this PRD's lines to a test file of their own, so the law's proof file does not change.
+
+## What I had to decide
+
+Whether this PRD's tests go in kit/bin/init.test.ts, the file N-PRODUCT-13 names as its proof, or in a test file of their own.
+
+## What I did meanwhile
+
+The change only adds to that file; no line of the tests proving N-PRODUCT-13 was removed or weakened, and the whole file passes.
+
+## What it costs to change later
+
+A constant: move the added lines to a test file of their own, which no law names.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None: the change was raised after the merge of main brought in the rule that a law proof file changes only on a person's yes (PRD 1342) (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-01-init-test-lists-the-design-form -->
+
+<!-- omni-outbox-settled: s1-02-omni-test-counts-fifteen-forms -->
+
+## s1-02-omni-test-counts-fifteen-forms — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-11T05:20:59Z
+- Channel: feature pull request #1371
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1371#issuecomment-6105785696
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-12
+- Raised: 2026-10-11
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+A — yes, approve: the change only adds to the law's proof file; no test proving the law was removed or weakened.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-omni-test-counts-fifteen-forms
+prd: 1369
+slice: s1
+rank: high
+bears-on: N-PRODUCT-12
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+The test file that proves how the omni command starts also counts the playbook forms, and this work moved that count from 14 to 15. Is it all right to change that file?
+
+## The decision, in plain words
+
+Yes: one count changed for the new design form; the checks proving how the command starts were left as they were.
+
+## The intro, for fun
+
+A rulebook got one more line, and the referee wants it signed.
+
+## The punchline, for fun
+
+Nothing old was crossed out, so the signature is quick.
+
+## The options, in plain words
+
+A. A. Add to the file the plan names, leaving the law's own tests untouched (built).
+B. B. Move this PRD's lines to a test file of their own, so the law's proof file does not change.
+
+## What I had to decide
+
+Whether this PRD's tests go in kit/bin/omni.test.ts, the file N-PRODUCT-12 names as its proof, or in a test file of their own.
+
+## What I did meanwhile
+
+The change only adds to that file; no line of the tests proving N-PRODUCT-12 was removed or weakened, and the whole file passes.
+
+## What it costs to change later
+
+A constant: move the added lines to a test file of their own, which no law names.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None: the change was raised after the merge of main brought in the rule that a law proof file changes only on a person's yes (PRD 1342) (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-02-omni-test-counts-fifteen-forms -->
+
+<!-- omni-outbox-settled: s3-02-plugin-test-gains-pixel-perfect-tests -->
+
+## s3-02-plugin-test-gains-pixel-perfect-tests — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-11T05:20:59Z
+- Channel: feature pull request #1371
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1371#issuecomment-6105785696
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-89
+- Raised: 2026-10-11
+- Slice: s3
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+A — yes, approve: the change only adds to the law's proof file; no test proving the law was removed or weakened.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-plugin-test-gains-pixel-perfect-tests
+prd: 1369
+slice: s3
+rank: high
+bears-on: BR-PRODUCT-89
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+The test file that proves the loop never starts too many agents at once also checks how every skill is written, and this work added checks for the new pixel-perfect skill. Is it all right to add to that file?
+
+## The decision, in plain words
+
+Yes: one new block of checks for the new skill; the checks proving the agent limit were left as they were.
+
+## The intro, for fun
+
+A rulebook got one more line, and the referee wants it signed.
+
+## The punchline, for fun
+
+Nothing old was crossed out, so the signature is quick.
+
+## The options, in plain words
+
+A. A. Add to the file the plan names, leaving the law's own tests untouched (built).
+B. B. Move this PRD's lines to a test file of their own, so the law's proof file does not change.
+
+## What I had to decide
+
+Whether this PRD's tests go in kit/test/plugin.test.ts, the file BR-PRODUCT-89 names as its proof, or in a test file of their own.
+
+## What I did meanwhile
+
+The change only adds to that file; no line of the tests proving BR-PRODUCT-89 was removed or weakened, and the whole file passes.
+
+## What it costs to change later
+
+A constant: move the added lines to a test file of their own, which no law names.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None: the change was raised after the merge of main brought in the rule that a law proof file changes only on a person's yes (PRD 1342) (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-plugin-test-gains-pixel-perfect-tests -->
