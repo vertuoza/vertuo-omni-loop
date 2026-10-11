@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.307" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.308" };
   }
 });
 
@@ -42356,10 +42356,10 @@ var ENTRIES = deepFreeze([
     name: "knowledge",
     kind: "command",
     who: "you",
-    usage: ["omni knowledge <id>", "omni knowledge judge"],
+    usage: ["omni knowledge <id>", "omni knowledge judge [<id>]"],
     label: "omni knowledge <id>",
     summary: "one rule of the knowledge base",
-    detail: "One entry of the knowledge base, a principle, a rule or an invariant, by its id (such as P-PRODUCT-1), with every entry that serves it. A proposed entry says who proposed it and when: it describes the product, but it is no law until a person confirms it. judge is the sweep: it asks of every rule and invariant whose Enforced by: is unenforced whether it is worth a law, the model first, then omni decide law-worth. A yes opens its law issue and reads pending #<n>; a no leaves its register for its PRD's settled.md, and every entry still citing it is named. Once each one is judged it sets laws.requireProof: true. It writes the working tree only, for a knowledge PR a person opens; a second run changes nothing. It needs gh and OPENROUTER_API_KEY."
+    detail: "One entry of the knowledge base, a principle, a rule or an invariant, by its id (such as P-PRODUCT-1), with every entry that serves it. A proposed entry says who proposed it and when: it describes the product, but it is no law until a person confirms it. judge is the sweep: it asks of every rule and invariant whose Enforced by: is unenforced whether it is worth a law, the model first, then omni decide law-worth. A yes opens its law issue and reads pending #<n>; a no leaves its register for its PRD's settled.md, and every entry still citing it is named. judge <id> judges that one law alone, the same way. Once each one is judged it sets laws.requireProof: true. It writes the working tree only, for a knowledge PR a person opens; a second run changes nothing. It needs gh and OPENROUTER_API_KEY."
   },
   {
     name: "signin",
@@ -45411,7 +45411,7 @@ function sweepEdits({
 }
 
 // kit/bin/commands/knowledge.ts
-var USAGE22 = "usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge";
+var USAGE22 = "usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge [<id>]";
 function describe4(id, { ctx, stdout, stderr }) {
   const text13 = describeEntry(readKnowledge({ ctx }), id);
   if (text13 === null) {
@@ -45486,20 +45486,29 @@ function lawLine(entry3, judged2, result) {
   const removed = result.removed.find((gone) => gone.id === entry3.id);
   return `  ${entry3.id} \u2192 ${worthText(worth)}, recorded in ${removed?.ledger ?? "no ledger: its source names no entry there"}`;
 }
-function report4({ ctx, laws, judged: judged2, result }) {
+function report4({ ctx, laws, judged: judged2, result, undecided }) {
   const outcomes = [...judged2.values()];
-  const notJudged = outcomes.filter((one) => "notJudged" in one).length;
   return [
     `omni knowledge judge \u2014 ${laws.length} unenforced law(s):`,
     ...laws.map((entry3) => lawLine(entry3, judged2.get(entry3.id), result)),
     ...outcomes.flatMap((one) => "opened" in one && one.opened !== null ? [one.opened] : []),
     ...result.citations.map(({ id, citedBy, file: file2 }) => `  ${id} is still cited by ${citedBy === null ? file2 : `${citedBy} (${file2})`}`),
     ...result.writes.map(({ path }) => `  wrote ${path}`),
-    requireProofLine(result, notJudged),
+    requireProofLine(result, undecided),
     result.writes.length === 0 ? "Nothing changed." : `Review the diff, fix what still cites a removed entry, then open its knowledge PR from a branch shaped like ${ctx.config.branches.knowledge}.`
   ].join("\n");
 }
-async function sweep(io) {
+function lawsToJudge(entries4, id) {
+  const laws = unenforcedLaws(entries4);
+  if (id === void 0) return laws;
+  const law = laws.find((entry4) => entry4.id === id);
+  if (law) return [law];
+  const entry3 = entries4.find((one) => one.id === id);
+  if (entry3 === void 0) return `omni knowledge judge: nothing in the knowledge folder claims ${id}.`;
+  if (entry3.kind !== "rule" && entry3.kind !== "invariant") return `omni knowledge judge: ${id} is a ${entry3.kind}, not a law \u2014 only rules and invariants are judged.`;
+  return `omni knowledge judge: ${id} is not unenforced (Enforced by: ${entry3.enforcedBy ?? "none"}) \u2014 there is nothing to judge.`;
+}
+async function sweep(id, io) {
   const { ctx, stdout, stderr, vars } = io;
   if (ctx.config.laws.source !== "knowledge") {
     println(stderr, `omni knowledge judge: laws.source is ${ctx.config.laws.source}, not knowledge \u2014 there are no laws in the knowledge base to judge.`);
@@ -45507,10 +45516,14 @@ async function sweep(io) {
   }
   if (!vars.openrouter) throw usageError(`omni knowledge judge: ${KEY_VAR} is not set \u2014 the sweep asks a model whether each law is worth one.`);
   const { entries: entries4 } = readKnowledge({ ctx });
-  const laws = unenforcedLaws(entries4);
+  const laws = lawsToJudge(entries4, id);
+  if (typeof laws === "string") {
+    println(stderr, laws);
+    return 1;
+  }
   const judged2 = /* @__PURE__ */ new Map();
   for (const entry3 of laws) judged2.set(entry3.id, await judgeLaw(entry3, entries4, io));
-  const verdicts = Object.fromEntries([...judged2].flatMap(([id, one]) => "verdict" in one ? [[id, one.verdict]] : []));
+  const verdicts = Object.fromEntries([...judged2].flatMap(([id2, one]) => "verdict" in one ? [[id2, one.verdict]] : []));
   const configText = readOrNull(ctx.root, CONFIG_FILE);
   const result = sweepEdits({
     entries: entries4,
@@ -45521,15 +45534,17 @@ async function sweep(io) {
     config: configText === null ? null : { file: CONFIG_FILE, text: configText }
   });
   applyKnowledgeWrites({ ctx, writes: result.writes });
-  println(stdout, report4({ ctx, laws, judged: judged2, result }));
+  const undecided = unenforcedLaws(entries4).length - Object.keys(verdicts).length;
+  println(stdout, report4({ ctx, laws, judged: judged2, result, undecided }));
   return 0;
 }
 var knowledge = {
   async run(args, io) {
     const { positional } = parseArgs("knowledge", args);
-    if (positional.length !== 1) throw usageError(USAGE22);
-    const [verb2 = ""] = positional;
-    return verb2 === "judge" ? sweep(io) : describe4(verb2, io);
+    const [verb2 = "", id] = positional;
+    if (positional.length === 1) return verb2 === "judge" ? sweep(void 0, io) : describe4(verb2, io);
+    if (positional.length === 2 && verb2 === "judge") return sweep(id, io);
+    throw usageError(USAGE22);
   }
 };
 
