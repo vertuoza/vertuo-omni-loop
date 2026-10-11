@@ -2747,7 +2747,7 @@ A filter in the product home's service: hiding the open medium questions is one 
 - Channel: feature pull request #1552
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1552#issuecomment-6109528023
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #1602, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: ADR-0095
 - Raised: 2026-10-11
