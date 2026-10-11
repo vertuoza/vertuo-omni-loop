@@ -40,7 +40,7 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber, type SliceId } from '../../kit/lib/ids.ts';
 import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, parsePlanRepos, deliveryOf, prdOfFolder, type PlanSlice, type SettledEntry } from './parsers.ts';
 import type { GameConfig } from '../config.ts';
-import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet } from '../types.ts';
+import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet, SnapshotStop } from '../types.ts';
 
 /** How the game calls gh: its arguments in, its stdout out. */
 export type Exec = (args: string[]) => Promise<string>;
@@ -114,7 +114,17 @@ type SpecOf = (prd: PrdNumber) => Promise<{ blockedBy: PrdNumber[] }>;
 const RAW = ['-H', 'Accept: application/vnd.github.raw'];
 const lines = (s: string): string[] => s.split('\n').map((l) => l.trim()).filter(Boolean);
 const json = (s: string): unknown => (s.trim() ? JSON.parse(s) : []);
-const soft = (p: Promise<string>): Promise<string> => p.catch(() => ''); // a 404 (no outbox dir yet, no plan yet) is an empty read
+// A refusal for the token's rate limit, primary or secondary. It is never an empty read: an empty read
+// of a shipped PRD's folder decommissions its planet in the ledger for good.
+export function isRateLimit(err: unknown): boolean {
+  const stderr = err instanceof Error && 'stderr' in err ? String(err.stderr) : '';
+  return /rate limit|HTTP 429/i.test(`${err instanceof Error ? err.message : String(err)} ${stderr}`);
+}
+// A 404 (no outbox dir yet, no plan yet) is an empty read; a rate limit is thrown on (buildSnapshot stops).
+const soft = (p: Promise<string>): Promise<string> => p.catch((err: unknown) => {
+  if (isRateLimit(err)) throw err;
+  return '';
+});
 const OUTBOX_RANKS = new Set<string | undefined>(['medium', 'high', 'human-action']); // spec §8: a malformed outbox file is ignored
 
 // F4: every timestamp read from GitHub or a delivery file goes through here, so one malformed value
@@ -131,48 +141,75 @@ const firstIso = (out: string): string | null => toIso(lines(out)[0]);
 
 /**
  * `prds` keeps only those PRD numbers (in every home) and the PRDs their specs name as blockers.
+ * `deadline` (epoch ms) stops reading before a planet once it has passed.
+ *
+ * The planets are read most recent first: the open ones, then the closed ones by when they closed. A
+ * read stopped by the deadline or by the token's rate limit keeps every planet read in full before it,
+ * drops the one it was reading, and says why in `stopped`: the next poll reads the rest again.
  */
 export async function buildSnapshot(
-  { config, exec = ghExec, now = new Date(), prds }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly PrdNumber[] },
+  { config, exec = ghExec, now = new Date(), prds, deadline }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly PrdNumber[]; deadline?: number },
 ): Promise<Snapshot> {
   const teams = { ...(config.roster ?? {}) };
   const wanted = prds ? new Set(prds) : null;
   const tracked = config.tracked ?? [];
   const planets: SnapshotPlanet[] = [];
-  const homes: Array<{ home: string; issues: IssueRow[] }> = [];
-  for (const home of tracked) {
-    const issues = IssueRows.parse(json(await soft(exec(['issue', 'list', '-R', home, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,author,createdAt,closedAt']))));
-    if (issues.length) homes.push({ home, issues });
-  }
-  const regionsOf = partOfRegions(exec, tracked);
-  for (const { home, issues } of homes) {
-    const repo = await readRepository(exec, home);
-    const specs = new Map<PrdNumber, { blockedBy: PrdNumber[] }>(); // prd → { blockedBy }, read once
-    const specOf: SpecOf = async (prd) => {
-      if (!specs.has(prd)) {
-        const folder = repo.folders.get(prd);
-        specs.set(prd, folder ? parseSpec(await soft(exec(['api', `repos/${home}/contents/${folder.dir}/spec.md`, ...RAW]))) : { blockedBy: [] });
-      }
-      return specs.get(prd) ?? { blockedBy: [] };
-    };
-
-    // A single-planet read (game:banner <prd>) must not pay for the whole workspace: keep only those
-    // PRDs plus what their specs name as a blocker (one level is enough — the banner only needs to
-    // know a region is locked, not to walk the whole blocker chain).
-    let chosen = issues;
-    if (wanted) {
-      const keep = new Set<PrdNumber>();
-      for (const issue of issues.filter((i) => wanted.has(i.number))) {
-        keep.add(issue.number);
-        for (const blocker of (await specOf(issue.number)).blockedBy) keep.add(blocker);
-      }
-      chosen = issues.filter((i) => keep.has(i.number));
+  const snapshot = (stopped?: SnapshotStop): Snapshot => ({ at: now.toISOString(), teams, planets, ...(stopped ? { stopped } : {}) });
+  const queue: Array<{ issue: IssueRow; read: () => Promise<SnapshotPlanet> }> = [];
+  try {
+    const homes: Array<{ home: string; issues: IssueRow[] }> = [];
+    for (const home of tracked) {
+      const issues = IssueRows.parse(json(await soft(exec(['issue', 'list', '-R', home, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,author,createdAt,closedAt']))));
+      if (issues.length) homes.push({ home, issues });
     }
+    const regionsOf = partOfRegions(exec, tracked);
+    for (const { home, issues } of homes) {
+      const repo = await readRepository(exec, home);
+      const specs = new Map<PrdNumber, { blockedBy: PrdNumber[] }>(); // prd → { blockedBy }, read once
+      const specOf: SpecOf = async (prd) => {
+        if (!specs.has(prd)) {
+          const folder = repo.folders.get(prd);
+          specs.set(prd, folder ? parseSpec(await soft(exec(['api', `repos/${home}/contents/${folder.dir}/spec.md`, ...RAW]))) : { blockedBy: [] });
+        }
+        return specs.get(prd) ?? { blockedBy: [] };
+      };
 
-    for (const issue of chosen) planets.push(await readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }));
+      // A single-planet read (game:banner <prd>) must not pay for the whole workspace: keep only those
+      // PRDs plus what their specs name as a blocker (one level is enough — the banner only needs to
+      // know a region is locked, not to walk the whole blocker chain).
+      let chosen = issues;
+      if (wanted) {
+        const keep = new Set<PrdNumber>();
+        for (const issue of issues.filter((i) => wanted.has(i.number))) {
+          keep.add(issue.number);
+          for (const blocker of (await specOf(issue.number)).blockedBy) keep.add(blocker);
+        }
+        chosen = issues.filter((i) => keep.has(i.number));
+      }
+
+      for (const issue of chosen) queue.push({ issue, read: () => readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }) });
+    }
+  } catch (err) {
+    if (isRateLimit(err)) return snapshot({ by: 'rate-limit', message: `GitHub rate limit before any planet was read: ${firstLine(err)}` });
+    throw err;
   }
-  return { at: now.toISOString(), teams, planets };
+  queue.sort((a, b) => { const [x, y] = [recency(a.issue), recency(b.issue)]; return x < y ? 1 : x > y ? -1 : 0; }); // code points, not a locale: `~` above every digit
+  for (const { read } of queue) {
+    if (deadline !== undefined && Date.now() >= deadline) return snapshot({ by: 'budget', message: `read budget spent: ${planets.length} of ${queue.length} planets read` });
+    try {
+      planets.push(await read());
+    } catch (err) {
+      if (isRateLimit(err)) return snapshot({ by: 'rate-limit', message: `GitHub rate limit: ${planets.length} of ${queue.length} planets read: ${firstLine(err)}` });
+      throw err;
+    }
+  }
+  return snapshot();
 }
+
+// The order planets are read in: an open PRD first (its work is going on), then a closed one by its
+// close, then by its birth. ISO times sort as text; an open PRD's sorts above every date.
+const recency = (issue: IssueRow): string => `${issue.closedAt ? toIso(issue.closedAt) ?? '' : '~'} ${toIso(issue.createdAt) ?? ''}`;
+const firstLine = (err: unknown): string => (err instanceof Error ? err.message : String(err)).split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('Command failed')).at(0) ?? 'refused';
 
 // Multi-repository PRDs (PRD 728): in each tracked repository, the feature PRs into its default branch
 // whose body starts `Part of <owner>/<home>#<n>`. Each is one more region of that PRD. A repository is
@@ -512,7 +549,8 @@ async function readJson<T>(read: () => Promise<string>, schema: z.ZodType<T>): P
   let value: unknown;
   try {
     value = JSON.parse(await read());
-  } catch {
+  } catch (err) {
+    if (isRateLimit(err)) throw err;
     return null;
   }
   const parsed = schema.safeParse(value);

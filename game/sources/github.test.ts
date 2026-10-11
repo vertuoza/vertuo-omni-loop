@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configFrom } from '../config.ts';
-import { buildSnapshot, toIso, type Exec } from './github.ts';
+import { buildSnapshot, isRateLimit, toIso, type Exec } from './github.ts';
 
 // A gh read the fake answers: the start of its joined arguments, and its output (an Error is thrown).
 type Fixture = readonly [string, unknown];
@@ -479,7 +479,7 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     ]);
     const all: Exec = async (args) => (args.join(' ').includes(other) ? twin(args) : exec(args));
     const s = await buildSnapshot({ config: both, exec: all, now });
-    expect(s.planets.map((p) => [p.home, p.prd, p.ownerTeam])).toEqual([[PLAN_REPO, 88, 'beaver'], [other, 88, 'octopod']]);
+    expect(s.planets.map((p) => [p.home, p.prd, p.ownerTeam])).toEqual([[other, 88, 'octopod'], [PLAN_REPO, 88, 'beaver']]); // the PRD closed last first
     const events = projectEvents(s, { config: both, now });
     const ids = events.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -571,5 +571,47 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
     expect(s.planets.map((p) => `${p.home}#${p.prd}`)).toEqual([`${PLAN_REPO}#88`]);
     expect(nth(s.planets, 0, 'the planet').regions.map((r) => present(r.featurePr, 'the feature PR').number)).toEqual([89, 284, 40]);
     expect(projectEvents(s, { config: cfg, now }).filter((e) => JSON.stringify(e).includes('old-plan'))).toEqual([]);
+  });
+});
+
+// What gh throws when the token's rate limit refuses a call.
+const rateLimited = (): Error => Object.assign(new Error('Command failed: gh api repos/x\ngh: API rate limit exceeded for user ID 1.'), { stderr: 'gh: API rate limit exceeded for user ID 1.' });
+
+describe('a read the token\'s rate limit refuses', () => {
+  it('is a rate limit, primary or secondary; a 404 is not', () => {
+    expect(isRateLimit(rateLimited())).toBe(true);
+    expect(isRateLimit(new Error('gh: You have exceeded a secondary rate limit.'))).toBe(true);
+    expect(isRateLimit(new Error('gh: Not Found (HTTP 404)'))).toBe(false);
+  });
+
+  it('never reads as empty: a shipped PRD\'s folder refused is no decommissioned planet', async () => {
+    const closed = { ...ISSUE, closedAt: '2026-09-23T10:00:00Z' };
+    const refused = await snap([[`issue list -R ${R} --label omni:prd`, [closed]], [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, rateLimited()]]);
+    expect(refused.planets).toEqual([]);
+    expect(refused.stopped?.by).toBe('rate-limit');
+    expect(refused.stopped?.message).toContain('API rate limit exceeded');
+    expect(projectEvents(refused, { config, now: NOW }).filter((e) => e.type === 'PLANET_DECOMMISSIONED')).toEqual([]);
+    // A 404 there still reads as no folder, as before.
+    const missing = await snap([[`issue list -R ${R} --label omni:prd`, [closed]], [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, new Error('gh: Not Found (HTTP 404)')]]);
+    expect(missing.stopped).toBeUndefined();
+    expect(missing.planets.map((p) => p.prd)).toEqual([2332]);
+  });
+
+  it('keeps every planet read in full before it, and drops the one it was reading', async () => {
+    const other = { ...ISSUE, number: 2333, title: 'Other', closedAt: '2026-09-23T10:00:00Z' };
+    const s = await snap([
+      [`issue list -R ${R} --label omni:prd`, [other, ISSUE]],
+      [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, '2332-generic-import\n2333-other\n'],
+      [`api repos/${R}/commits?path=.omni-loop/delivery/inbox/2333-other/`, rateLimited()],
+    ]);
+    expect(s.planets.map((p) => p.prd)).toEqual([2332]); // the open PRD is read first
+    expect(s.stopped?.by).toBe('rate-limit');
+    expect(s.stopped?.message).toContain('1 of 2 planets read');
+  });
+
+  it('stops before a planet once the read budget is spent', async () => {
+    const s = await snap([], { deadline: 0 });
+    expect(s.planets).toEqual([]);
+    expect(s.stopped).toEqual({ by: 'budget', message: 'read budget spent: 0 of 1 planets read' });
   });
 });
