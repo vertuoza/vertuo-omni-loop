@@ -9,16 +9,18 @@ import { allowed } from '../onboarding';
 import type { Session } from '../types';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
-  duetPress, loadDuet, NOT_LOADED, PAGES, playfield, readyLine, readyParts, sameDuetHud, TALL_SCENES, type ArcadeDuet, type DuetGame, type DuetHud, type DuetStatus,
+  bannerLine, duetPress, loadDuet, NOT_LOADED, PAGES, playfield, readyLine, readyParts, sameDuetHud, TALL_SCENES, waveLine,
+  type ArcadeDuet, type DuetGame, type DuetHud, type DuetStatus,
 } from './duet.ts';
 import { DuetOverlay } from './duet.tsx';
 import { duetDrawOf, loadedDuet, pressedDuet } from './duet.live';
 import { createDuet } from '../duet/index';
 
-// OMNI DUET's scene (PRD 1633, slice 2): the cabinet that opens it, the loader, the loading and failure
-// lines, the ready screen, what a press does before play and where the playfield sits on each grid.
+// OMNI DUET's scene (PRD 1633): the cabinet that opens it, the loader, the loading and failure lines,
+// the ready screen, what a press does before play and where the playfield sits on each grid (slice 2);
+// the HUD, the chapter's banner and the line a run ends on (slice 3).
 
-const READY: DuetHud = { phase: 'ready', chapter: { numeral: 'I', name: 'DRIFT' }, lives: 3, score: 0 };
+const READY: DuetHud = { phase: 'ready', chapter: { numeral: 'I', name: 'DRIFT' }, wave: 1, waves: 10, lives: 3, score: 0 };
 
 const text = (status: DuetStatus, grid: Grid = WIDE, form: 'full' | 'handheld' = 'full', hud: DuetHud | null = READY) =>
   renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid, page: 0, pages: 1 } }, createElement(DuetOverlay, { status, hud })))
@@ -97,12 +99,34 @@ describe('the duet text layer', () => {
     expect(text('failed', TALL, 'handheld', null)).toBe('GAME DID NOT LOAD · A TO RETRY B GAME ROOM');
   });
 
-  it('leaves the playfield clear once play has started', () => {
-    expect(text('ready', WIDE, 'full', { ...READY, phase: 'play' })).toBe('');
-    expect(text('ready', TALL, 'handheld', { ...READY, phase: 'play' })).toBe('');
+  it('shows only the HUD in play: the score, the chapter and wave, and the lives left, on both grids', () => {
+    const playing: DuetHud = { ...READY, phase: 'play', chapter: { numeral: 'II', name: 'SLIDE' }, wave: 4, lives: 2, score: 130 };
+    expect(waveLine(playing)).toBe('CH II · 4/10');
+    expect(text('ready', WIDE, 'full', playing)).toBe('SCORE 130 WAVE CH II · 4/10 LIVES ×2');
+    expect(text('ready', TALL, 'handheld', playing)).toBe('SCORE 130 WAVE CH II · 4/10 LIVES ×2');
   });
 
-  it('tells two text layers apart by their phase, chapter, lives and score', () => {
+  it('shows the next chapter\'s banner over the HUD between two chapters', () => {
+    const banner: DuetHud = { ...READY, phase: 'chapter', chapter: { numeral: 'III', name: 'SPIN' }, score: 200 };
+    expect(bannerLine(banner)).toBe('CHAPTER III · SPIN');
+    expect(text('ready', WIDE, 'full', banner)).toBe('SCORE 200 WAVE CH III · 1/10 LIVES ×3 CHAPTER III · SPIN');
+    expect(text('ready', TALL, 'handheld', banner)).toBe('SCORE 200 WAVE CH III · 1/10 LIVES ×3 CHAPTER III · SPIN');
+  });
+
+  it('says the ready screen\'s chapter and lives again after a life lost, with no HUD over it', () => {
+    const again: DuetHud = { ...READY, chapter: { numeral: 'III', name: 'SPIN' }, lives: 1, score: 200 };
+    expect(text('ready', WIDE, 'full', again)).toBe('CHAPTER III · SPIN · LIVES ×1 · PRESS START B GAME ROOM');
+  });
+
+  it('ends on the score reached, with A to play again and B to the room', () => {
+    const over: DuetHud = { ...READY, phase: 'over', lives: 0, score: 70 };
+    expect(text('ready', WIDE, 'full', over)).toBe('GAME OVER SCORE 70 A PLAY AGAIN B GAME ROOM');
+    expect(text('ready', TALL, 'handheld', over)).toBe('GAME OVER SCORE 70 A PLAY AGAIN B GAME ROOM');
+  });
+
+  it('tells two text layers apart by their phase, chapter, wave, lives and score', () => {
+    expect(sameDuetHud(READY, { ...READY, wave: 2 })).toBe(false);
+    expect(sameDuetHud(READY, { ...READY, waves: 9 })).toBe(false);
     expect(sameDuetHud(null, null)).toBe(true);
     expect(sameDuetHud(null, READY)).toBe(false);
     expect(sameDuetHud(READY, { ...READY, chapter: { numeral: 'I', name: 'DRIFT' } })).toBe(true);
@@ -188,6 +212,13 @@ describe('the duet scene in the arcade shell', () => {
     expect(pressedDuet(loaded(createDuet({ seed: 1 })), 'start')).toMatchObject({ hud: { phase: 'play' } });
     const same = loaded(createDuet({ seed: 1 }));
     expect(pressedDuet(same, 'a')).toBe(same);
+  });
+
+  it('goes back to the room on B once the run is over, as the game says', () => {
+    const over: DuetHud = { ...READY, phase: 'over', lives: 0 };
+    const game: DuetGame = { ...stubGame(), hud: () => over, press: (a) => ({ leave: a === 'b' }) };
+    expect(pressedDuet(loaded(game), 'b')).toBe('back');
+    expect(pressedDuet(loaded(game), 'start')).toEqual(loaded(game));
   });
 
   it('leaves B to the game once play has started', () => {

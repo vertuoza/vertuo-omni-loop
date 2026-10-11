@@ -26,10 +26,12 @@ export function playfield(grid: Grid): Placement {
   return { x: (grid.w - FIELD.w * scale) / 2, y: 0, scale };
 }
 
-/** What the text layer shows of the run: its phase, the chapter, the lives left and the score. */
+/** What the text layer shows of the run: its phase, the chapter, the wave of the chapter (from 1) and how many it has, the lives left and the score. */
 export interface DuetHud {
-  phase: 'ready' | 'play';
+  phase: 'ready' | 'play' | 'chapter' | 'over';
   chapter: { numeral: string; name: string };
+  wave: number;
+  waves: number;
   lives: number;
   score: number;
 }
@@ -70,6 +72,12 @@ export function readyLine(hud: DuetHud): string {
   return readyParts(hud).join(' ');
 }
 
+/** The HUD's chapter and wave: `CH II · 4/10`. */
+export const waveLine = (hud: DuetHud): string => `CH ${hud.chapter.numeral} · ${hud.wave}/${hud.waves}`;
+
+/** The banner a chapter opens with: `CHAPTER III · SPIN`. */
+export const bannerLine = (hud: DuetHud): string => `CHAPTER ${hud.chapter.numeral} · ${hud.chapter.name}`;
+
 /** The game, loaded: what `import('arcade/duet/index')` gives. */
 export type DuetModule = typeof import('../duet/index');
 
@@ -99,6 +107,7 @@ export function duetPress(status: DuetStatus, action: Action, phase: DuetHud['ph
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
 export const sameDuetHud = (a: DuetHud | null, b: DuetHud | null): boolean =>
   a === b || (!!a && !!b && a.phase === b.phase && a.lives === b.lives && a.score === b.score
+    && a.wave === b.wave && a.waves === b.waves
     && a.chapter.numeral === b.chapter.numeral && a.chapter.name === b.chapter.name);
 
 /** The Omni sky over the whole grid, then the loaded game's playfield, placed for the grid and clipped to it. */
