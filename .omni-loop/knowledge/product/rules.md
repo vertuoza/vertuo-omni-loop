@@ -435,7 +435,7 @@ The model's guessed category is written only while no person has set one, throug
 
 Serves: P-PRODUCT-37
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
-Enforced by: pending #1501
+Enforced by: apps/galaxy/src/ask/category-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
