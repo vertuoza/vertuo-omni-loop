@@ -9,7 +9,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartHud, type KartStatus } from './kart.ts';
+import { choicePress, FIRST_CHOICE, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { sending, type ScoreSend } from './invaders-score';
@@ -343,5 +343,32 @@ describe('the race\'s music and engine (PRD 1427)', () => {
   it('hums during the countdown and the race only', () => {
     expect(['ready', 'countdown', 'race', 'paused', 'finish'].map((p) => kartEngineOn(hud(p as KartHud['phase'])))).toEqual([false, true, true, false, false]);
     expect(kartEngineOn(null)).toBe(false);
+  });
+});
+
+describe('the choice on the ready screen (PRD 1572)', () => {
+  const choose = (choice: KartChoice, multi: boolean) =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice, multi })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('shows the circuit, then SINGLE and MULTI, the cursor on SINGLE', () => {
+    expect(choose(FIRST_CHOICE, true)).toBe('COMET RING · 3 LAPS ▶ SINGLE MULTI B GAME ROOM');
+  });
+  it('reads MULTI · SIGN IN TO RACE without a link, and the cursor skips it', () => {
+    expect(choose(FIRST_CHOICE, false)).toContain(MULTI_CLOSED_LINE);
+    expect(choicePress(FIRST_CHOICE, 'down', false)).toBe(FIRST_CHOICE);
+  });
+  it('moves with up and down, and picks SINGLE with A or START', () => {
+    const multi = choicePress(FIRST_CHOICE, 'down', true);
+    expect(multi).toEqual({ step: 'choose', cursor: 'multi' });
+    expect(choicePress(multi, 'up', true)).toEqual(FIRST_CHOICE);
+    expect(choicePress(FIRST_CHOICE, 'a', true)).toEqual({ step: 'single' });
+    expect(choicePress(FIRST_CHOICE, 'start', true)).toEqual({ step: 'single' });
+  });
+  it('picking SINGLE shows today\'s ready line', () => {
+    expect(choose({ step: 'single' }, true)).toContain(READY_LINE);
+  });
+  it('B goes back to the game room', () => {
+    expect(kartPress('ready', 'b', 'ready')).toBe('back');
   });
 });
