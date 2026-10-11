@@ -1,7 +1,9 @@
 import { createHmac } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { productVoidRepository } from './server-event.repository';
 import { OMNI_APP_URL, SERVER_EVENT_PATH, SERVER_SIGNATURE_HEADER, sendServerEvent, tellAppOfVoid, type ServerEvent } from './server-event.service';
+
+vi.mock('server-only', () => ({}));
 
 const SECRET = 'shared-secret';
 const DOSSIER = '0b9f8a1e-3c4d-4e5f-8a9b-0c1d2e3f4a5b';
@@ -27,10 +29,10 @@ describe('sendServerEvent — one signed POST to the App (PRD 1548 s4)', () => {
     const [{ url, init }] = http.calls as [{ url: string; init: RequestInit }];
     expect(url).toBe('https://omni-loop.vercel.app/api/server-event');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual(EVENT);
+    expect(JSON.parse(init.body as string)).toEqual(EVENT);
     const headers = init.headers as Record<string, string>;
     expect(headers['content-type']).toBe('application/json');
-    expect(headers[SERVER_SIGNATURE_HEADER]).toBe(`sha256=${createHmac('sha256', SECRET).update(String(init.body)).digest('hex')}`);
+    expect(headers[SERVER_SIGNATURE_HEADER]).toBe(`sha256=${createHmac('sha256', SECRET).update(init.body as string).digest('hex')}`);
     expect(logged).toEqual([]);
   });
 

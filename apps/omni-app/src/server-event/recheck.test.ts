@@ -60,7 +60,7 @@ async function post(event: 'approved' | 'voided'): Promise<ServerEventRequest[]>
   return sent;
 }
 
-function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/x', targets = TARGETS as PrdTargets | null, refuse = false } = {}) {
+function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/x', targets = TARGETS, refuse = false }: { body?: string; targets?: PrdTargets | null; refuse?: boolean } = {}) {
   const github = fakeGitHub({ commits: { base1: configCommit() }, pull: { number: 446, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/offline-upload', sha: 'head9' }, labels: [], body } as never });
   const reads: string[] = [];
   const logged: string[] = [];

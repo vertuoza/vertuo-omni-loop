@@ -29,6 +29,9 @@ export const SERVER_EVENT_TRIGGER = 'server-event';
 
 const SERVER_EVENT_DEBOUNCE = Object.freeze({ key: 'event.data.dossier', period: '5s', timeout: '1m' });
 
+/** What a run re-checked when it re-checked nothing. */
+const NONE: readonly string[] = Object.freeze([]);
+
 /** A pull request kept: it names the PRD, at this head. */
 type Kept = { repository: string; number: number; headSha: string };
 
@@ -63,10 +66,10 @@ export function createServerEventRecheck({
       const { event: what, dossier } = ServerEventSchema.parse(event.data);
       if (!readTargets) {
         log(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
-        return { rechecked: [] as string[] };
+        return { rechecked: NONE };
       }
       const targets = await step.run('targets', () => readTargets(dossier));
-      if (!targets) return { rechecked: [] as string[] };
+      if (!targets) return { rechecked: NONE };
 
       const kept: Kept[] = [];
       for (const pull of targets.pulls) {
@@ -83,7 +86,7 @@ export function createServerEventRecheck({
         });
         if (found) kept.push(found);
       }
-      if (kept.length === 0) return { prd: targets.prdId, rechecked: [] as string[] };
+      if (kept.length === 0) return { prd: targets.prdId, rechecked: NONE };
 
       const events: CheckRequest[] = kept.map(({ repository, number, headSha }) => {
         const [owner = '', repo = ''] = repository.split('/');

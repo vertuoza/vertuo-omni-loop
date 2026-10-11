@@ -1,3 +1,4 @@
+import 'server-only';
 import { createHmac } from 'node:crypto';
 
 // Telling the GitHub App that the server changed a product PRD (PRD 1548 s4): one signed POST to
