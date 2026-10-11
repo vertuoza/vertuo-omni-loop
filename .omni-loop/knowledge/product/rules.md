@@ -105,7 +105,7 @@ Invade rewrites a knowledge-page section only when it is empty, holds nothing bu
 
 Serves: P-PRODUCT-9
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-03-terraform-treats-an-unmarked-section-as-a-persons, PRD #45
-Enforced by: pending #1472
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46

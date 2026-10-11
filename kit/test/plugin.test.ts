@@ -2798,3 +2798,16 @@ describe('laws born with their test, in the skills (PRD 1342)', () => {
     });
   }
 });
+
+describe('whose section /omni:invade may rewrite', () => {
+  // Law BR-PRODUCT-10 (.omni-loop/knowledge/product/rules.md, #1472).
+  it('law BR-PRODUCT-10: invade rewrites only an empty, TODO(human)-only or by: invade section; any other written section is a person\'s', () => {
+    const rule = skillSection(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8'), 'Whose section it is')
+      .replace(/\s+/g, ' ');
+    expect(rule).toContain(
+      "A section is this skill's to write only when it is **empty**, holds **nothing but `TODO(human)` lines**, or its marker says **`by: invade`**.",
+    );
+    expect(rule).toContain("Every other section is a person's: `by: human`, and also text or a `See:` line whose marker has no `by:`.");
+    expect(rule).toContain("nor any other section that is a person's, on any run, with or without `--refresh`");
+  });
+});
