@@ -163,6 +163,47 @@ export function through(wave: Wave, from: Uint8Array): { reach: Uint8Array; pass
 }
 
 /**
+ * One way through `wave` for orbs that stand at `angle` as it begins: the turn of each sub-step (1
+ * anticlockwise, ◀; -1 clockwise, ▶; 0 still) until it is passed, or null when there is none. The
+ * check's own search, kept: a test plays a run through its waves with it.
+ */
+export function route(wave: Wave, angle: number): (-1 | 0 | 1)[] | null {
+  const { bins, move } = ring();
+  const start = ((Math.round((angle / (Math.PI * 2)) * bins) % bins) + bins) % bins;
+  // came[t][b]: the bin the orbs stood at the sub-step before, when they stand at `b` after sub-step t + 1; -1 when unreachable.
+  const came: Int16Array[] = [];
+  let reach = new Uint8Array(bins);
+  reach[start] = 1;
+  for (let tick = 1; tick <= LONGEST; tick++) {
+    const blocks = blocksAt(wave, tick);
+    const from = new Int16Array(bins).fill(-1);
+    const next = new Uint8Array(bins);
+    let any = false;
+    for (let b = 0; b < bins; b++) {
+      const prev = [b, (b - move + bins) % bins, (b + move) % bins].find((p) => reach[p]);
+      if (prev === undefined || struck((b / bins) * Math.PI * 2, blocks)) continue;
+      from[b] = prev;
+      next[b] = 1;
+      any = true;
+    }
+    if (!any) return null;
+    came.push(from);
+    reach = next;
+    if (passedAt(wave, tick)) {
+      let b = reach.indexOf(1);
+      const turns: (-1 | 0 | 1)[] = [];
+      for (let t = came.length - 1; t >= 0; t--) {
+        const p = came[t]?.[b] ?? -1;
+        turns.unshift(p === b ? 0 : (p + move) % bins === b ? 1 : -1);
+        b = p;
+      }
+      return turns;
+    }
+  }
+  return null;
+}
+
+/**
  * Every wave no way of turning the orbs gets through, named by its chapter and number. Each chapter
  * is checked from every angle (a chapter starts after a ready screen or a banner, where the orbs may
  * stand anywhere), each wave from where the wave before it can leave them.
@@ -171,7 +212,7 @@ export function waveProblems(chapters: readonly Chapter[]): string[] {
   const { bins } = ring();
   const problems: string[] = [];
   for (const chapter of chapters) {
-    let reach = new Uint8Array(bins).fill(1);
+    let reach: Uint8Array = new Uint8Array(bins).fill(1);
     chapter.waves.forEach((wave, i) => {
       const out = through(wave, reach);
       if (out.passed) { reach = out.reach; return; }
