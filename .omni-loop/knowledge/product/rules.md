@@ -237,7 +237,7 @@ A bug counts against a request when it has the bug label, was opened within 14 d
 
 Serves: P-PRODUCT-20
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s8-05-what-ties-a-bug-to-the-prd, PRD #72
-Enforced by: pending #1484
+Enforced by: apps/omni-app/src/retro/kinds/after-merge.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75

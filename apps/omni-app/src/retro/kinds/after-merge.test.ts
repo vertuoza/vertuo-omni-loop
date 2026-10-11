@@ -320,3 +320,22 @@ describe('after-merge — its section', () => {
     expect(refusedWordsIn(written)).toEqual([]);
   });
 });
+
+// Law BR-PRODUCT-22 (.omni-loop/knowledge/product/rules.md, #1484).
+describe('law BR-PRODUCT-22 — what ties a bug to the PRD', () => {
+  it('law BR-PRODUCT-22: a `bug` issue naming #<prd> opened within 14 days counts, fixed by a PR merged to the default branch in that window that closes it, tied to churn by overlapping lines or by file without a patch', async () => {
+    const { facts } = await run();
+    // Counted: labelled `bug`, opened within the 14 days, naming #7. Not #39 (enhancement), #42 (after),
+    // #43 (names #70) or #44 (before the merge).
+    expect(facts.days).toBe(14);
+    expect(facts.bugs.map((bug) => bug.number)).toEqual([40, 41]);
+    // Fixed: by #45 and #47, merged within the window and closing #40. Not #46 (merged after the window),
+    // #48 (closes nothing) or #49 (never merged).
+    expect(facts.bugs.map((bug) => [bug.number, bug.fixes])).toEqual([[40, [45, 47]], [41, []]]);
+    // Tied to churn: #45 by its lines overlapping 8-11, #47 by its file, GitHub having sent no patch.
+    expect(at(facts.bugs, 0, 'bug #40').linked.map(({ fix, finding, byFile }) => ({ fix, finding, byFile }))).toEqual([
+      { fix: 45, finding: 'churn:src/store/colour.js:8-11', byFile: false },
+      { fix: 47, finding: 'churn:src/show/table.js:61-90', byFile: true },
+    ]);
+  });
+});
