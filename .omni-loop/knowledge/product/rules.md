@@ -303,7 +303,7 @@ link_github() answers only a caller who has at least one workspace_members row; 
 
 Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-03-link-github-needs-a-workspace, PRD #100
-Enforced by: pending #1489
+Enforced by: apps/galaxy/src/data/link-github-sql.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
