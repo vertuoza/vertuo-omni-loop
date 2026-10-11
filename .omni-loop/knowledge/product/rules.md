@@ -788,7 +788,7 @@ The care list reads a bug's fix pull requests from its fix-plan table, one per r
 
 Serves: P-PRODUCT-64
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
-Enforced by: pending #1533
+Enforced by: kit/bin/care.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
