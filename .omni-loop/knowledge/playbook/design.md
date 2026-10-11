@@ -70,32 +70,7 @@ form, or one section of it, at that page with a `See:` line.
 
 ## System
 <!-- slot: system · required · by: invade -->
-- **One package holds the look:** `@omni/design` (`packages/design/`, its README). Colours are
-  `:root` custom properties in `packages/design/tokens.css`, generated from
-  `packages/design/src/palette.ts` and `src/tokens.ts` (`pnpm --filter @omni/design tokens`). The
-  four font roles, their faces and the type scale (`display-xl`…`display-s`, `pixel-l`…`pixel-s`,
-  `body-l`…`body-s`, `mono`) are `packages/design/src/fonts.ts`, written to `fonts.css`, with the
-  woff2 files in `packages/design/fonts/`. The crest is `src/logo.ts`, the product brand
-  `src/brand.ts`, the sprites `src/sprites.ts` and the sprite forge `src/forge.ts`; planets, suns
-  and starfields are drawn by `src/draw.ts`.
-- **Two surfaces read it differently.** The arcade and HOME use the named colours as they are
-  (`apps/galaxy/src/arcade/arcade.css`, `apps/galaxy/src/home/home.css`); a workspace's theme
-  overrides them on the arcade's root element, never on `:root`
-  (`apps/galaxy/src/arcade/theme.ts`). The app pages use Ask's reading tokens instead, in three
-  themes, Omni (the default), Light and Dark (`ASK` in `packages/design/src/tokens.ts`, named for
-  the page by `apps/galaxy/src/ask/theme-tokens.ts`, picked by `apps/galaxy/src/ask/theme.ts`), with
-  every text and edge pair tested for WCAG AA. `apps/galaxy/src/ask/ask.css` names no colour of its
-  own.
-- **Components live by area,** in `apps/galaxy/src/`: the arcade's scenes in `arcade/scenes/` (one
-  `.tsx` and one `.css` each), HOME in `home/` (the poster in `home/poster/`, the spreads in
-  `home/spreads/`), the app shell in `nav/`, the reading-surface parts in `ask/page/` (`Notice`,
-  the sign-in card), the dashboard in `dashboard/`, the dossier page in `dossier/page/`.
-- **Guards.** `apps/galaxy/src/design-system.test.ts` fails when a galaxy stylesheet declares its
-  own colour on `:root`, a page links Google Fonts, or a file imports the old `@omni/sprites`.
-  `apps/galaxy/src/page-width.test.ts` holds the app pages' width: every app page but the PRD page
-  uses the full width, prose keeps a 900 px column, a form field is never wider than 900 px.
-- **The system shown:** `/design` renders the whole package, every logo form, colour, type step and
-  sprite (`apps/galaxy/app/design/page.tsx`).
+See: DESIGN.md
 
 ## Deliberate
 <!-- slot: deliberate · optional · by: invade -->
