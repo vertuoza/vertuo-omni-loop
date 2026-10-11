@@ -578,7 +578,7 @@ When the PRD list is narrowed to one person, it shows only the PRDs that person 
 
 Serves: P-PRODUCT-50
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
-Enforced by: pending #1514
+Enforced by: apps/galaxy/src/dossier/page/history.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
