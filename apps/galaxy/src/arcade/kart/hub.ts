@@ -97,6 +97,8 @@ export function openGrid(link: KartLink, me: GridPlayer, onChange: (view: KartGr
     if (message.kind === 'state') { heard.set(from, Date.now()); watch(); tell(); return; }
     // A player who left, or who crossed the line, is racing no more.
     if (message.kind === 'leave' || message.kind === 'finish') { heard.delete(from); tell(); return; }
+    // An item or a hit is the race's business, heard by the race (listeners), not the grid's.
+    if (message.kind !== 'start') return;
     // A start: whoever it names takes it, from a player who holds a place, and nobody else.
     if (!message.order.some((p) => p.id === from)) return;
     raced(message.order);

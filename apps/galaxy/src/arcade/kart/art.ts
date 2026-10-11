@@ -14,8 +14,9 @@ import { NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
 import { chaseCamera, depthAt, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
 import type { GridSession, RaceStart } from './hub';
-import { rateFor, readMessage, type GridPlayer } from './net';
-import { away, cuesOf, dropOut, finishOf, hear, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
+import type { Item } from './items';
+import { rateFor, readMessage, type GridPlayer, type ItemMessage, type RaceMessage } from './net';
+import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, plant, press, step, whereIs, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
 import { BEYOND, paintTrack } from './texture';
@@ -311,14 +312,15 @@ function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, part
 }
 
 /** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets); the circuit is COMET RING unless a test hands it another. */
-export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace }
+export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace; /** Tests only: what the player holds from the start, so a test need not drive to a box. */ held?: Item }
 
 /** A MULTI race (PRD 1572): the grid's session the race talks over, the start that began it and the player at this screen. */
 export interface LiveRace { session: Pick<GridSession, 'send' | 'listen'>; start: RaceStart; me: GridPlayer }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed, cast = [], track = parseTrack(), live }: KartOptions = { seed: 1359 }): KartGame {
-  let race = newRace({ seed, track, cast, ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
+export function createKart({ seed, cast = [], track = parseTrack(), live, held }: KartOptions = { seed: 1359 }): KartGame {
+  const first = newRace({ seed, track, cast, ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
+  let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
   let particles = newParticles(seed);
   const floors = new Map<string, Floor>();
@@ -343,6 +345,8 @@ export function createKart({ seed, cast = [], track = parseTrack(), live }: Kart
     const rival = race.rivals[i - 1];
     return i === 0 || !rival ? 0 : Math.hypot(rival.kart.x - race.player.x, rival.kart.y - race.player.y) / TILE;
   };
+  /** How far a point of the circuit is from the player, in tiles. */
+  const tilesFrom = (x: number, y: number): number => Math.hypot(x - race.player.x, y - race.player.y) / TILE;
   const tell = (events: readonly RaceEvent[]) => {
     for (const e of events) told.push(...cuesOf(e, 'racer' in e ? tilesTo(e.racer) : 0));
   };
@@ -353,21 +357,50 @@ export function createKart({ seed, cast = [], track = parseTrack(), live }: Kart
   const onTheTrack = () => race.phase === 'countdown' || race.phase === 'race';
   const sendLeave = () => { if (live) live.session.send({ kind: 'leave', race: live.start.race }); };
   let stop: (() => void) | null = null;
+  /** An item another player sent appears on the circuit, and is heard; the item that hit someone is gone from it, and the hit is heard. */
+  const plantItem = (from: string, m: ItemMessage) => {
+    const planted = plant(race, from, m);
+    if (planted !== race) told.push({ kind: 'item', item: m.item, you: false, tiles: tilesFrom(m.x, m.y) });
+    race = planted;
+  };
+  const liftItem = (id: string) => {
+    const at = whereIs(race, id);
+    if (at) told.push({ kind: 'hit', item: at.item, you: false, tiles: tilesFrom(at.x, at.y) });
+    race = lift(race, id);
+  };
+  /** What a message of this race does to it, from the player who sent it (a `start` is the grid's business). */
+  const onMessage = (from: string, m: RaceMessage) => {
+    switch (m.kind) {
+      case 'state': race = hear(race, from, m); break;
+      case 'leave': race = dropOut(race, from); break;
+      case 'finish': race = finishOf(race, from, m.tenths); break;
+      case 'item': plantItem(from, m); break;
+      case 'hit': liftItem(m.id); break;
+      case 'start': break;
+    }
+  };
   if (live) {
     const { race: id } = live.start;
     stop = live.session.listen((from, body) => {
       const m = readMessage(body, id);
-      if (m?.kind === 'state') race = hear(race, from, m);
-      else if (m?.kind === 'leave') race = dropOut(race, from);
-      else if (m?.kind === 'finish') race = finishOf(race, from, m.tenths);
+      if (m) onMessage(from, m);
     });
     const began = press(race, 'start');
     race = began.race;
     tell(began.events);
   }
 
+  /** A BLOB dropped or an ORB fired is told to the others under its id; the player hit by one says so, which takes it off every circuit. */
+  const relay = (link: LiveRace, events: readonly RaceEvent[]) => {
+    for (const e of events) {
+      if (e.kind === 'throw') link.session.send({ kind: 'item', race: link.start.race, id: e.id, item: e.item, x: e.x, y: e.y, angle: e.angle });
+      else if (e.kind === 'hit' && e.racer === 0 && e.id !== undefined) link.session.send({ kind: 'hit', race: link.start.race, id: e.id });
+    }
+  };
+
   /** What a live step says over the link, and the time it hands the arcade: its state at the send rate, and at the line its finish. */
   const speak = (link: LiveRace, was: Race['phase'], dt: number, events: readonly RaceEvent[]): number | null => {
+    relay(link, events);
     // The state goes out at the rate the number of players allows, once a step at most.
     if (was === 'race' && race.phase === 'race') {
       const every = 1 / rateFor(race.rivals.length + 1);
@@ -400,6 +433,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live }: Kart
       const r = press(race, action);
       race = r.race;
       tell(r.events);
+      if (live) relay(live, r.events);
       const left = r.events.some((e) => e.kind === 'leave');
       if (left) sendLeave();
       const again = r.events.some((e) => e.kind === 'again');

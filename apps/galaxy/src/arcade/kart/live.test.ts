@@ -3,6 +3,7 @@ import type { Action } from '../keys';
 import type { KartGame } from '../scenes/kart.ts';
 import { sure } from '../test/sure';
 import { createKart } from './art';
+import type { Item } from './items';
 import { createHub } from './hub.fake';
 import { GRID_LINES, openGrid, type GridSession, type RaceStart } from './hub';
 import { rateFor, readMessage, type GridPlayer } from './net';
@@ -23,10 +24,13 @@ function table(ids: readonly string[], bests: Readonly<Record<string, number>> =
   const games = new Map<string, KartGame>();
   const entered = new Map<string, RaceStart>();
   const people = new Map<string, GridPlayer>();
+  /** What a player holds when their race starts. */
+  const holding = new Map<string, Item>();
   const enter = (id: string, start: RaceStart) => {
     const me = sure(people.get(id), `player ${id}`);
     entered.set(id, start);
-    games.set(id, createKart({ seed: start.seed, live: { session: sure(sessions.get(id), `session ${id}`), start, me } }));
+    const held = holding.get(id);
+    games.set(id, createKart({ seed: start.seed, live: { session: sure(sessions.get(id), `session ${id}`), start, me }, ...(held ? { held } : {}) }));
   };
   ids.forEach((id, i) => {
     const me = who(id, i + 1, bests[id] ?? null);
@@ -41,13 +45,13 @@ function table(ids: readonly string[], bests: Readonly<Record<string, number>> =
   };
   const game = (id: string) => sure(games.get(id), `game ${id}`);
   /** Plays `seconds` in 50 ms frames, every game stepped and the hub's time moving with them. */
-  const play = (seconds: number, only: readonly string[] = [...games.keys()]) => {
+  const play = (seconds: number, only?: readonly string[]) => {
     for (let t = 0; t < seconds - 1e-9; t += 0.05) {
-      for (const id of only) game(id).step(NONE, 0.05);
+      for (const id of only ?? [...games.keys()]) game(id).step(NONE, 0.05);
       hub.advance(50);
     }
   };
-  return { hub, sessions, games, entered, go, game, play, people };
+  return { hub, sessions, games, entered, go, game, play, people, holding };
 }
 
 const live: ReturnType<typeof table>[] = [];
@@ -265,5 +269,69 @@ describe('a player who arrives during a race', () => {
     t.game('p1').away();
     expect(late.view().line).toBe('WAITING FOR P0');
     late.leave();
+  });
+});
+
+describe('items between players (slice 6)', () => {
+  const ids = ['a', 'b', 'c', 'd'];
+  /** Four players: `a` has no time so starts last, on the place right behind `b`, who is on pole. */
+  const table4 = () => {
+    const t = setup(ids, { b: 500, c: 600, d: 700 });
+    t.hub.delay = 100;
+    return t;
+  };
+  const heard = (t: ReturnType<typeof table>) => {
+    const bodies: unknown[] = [];
+    t.hub.link('observer').join({}, { presence: () => undefined, message: (_id, body) => { bodies.push(body); }, status: () => undefined });
+    return bodies;
+  };
+
+  it('an ORB fired by A spins B out on both screens, and the item is gone on both', () => {
+    const t = table4();
+    t.holding.set('a', 'orb');
+    t.go('a');
+    t.play(RULES.countdown + 0.2);
+    const bodies = heard(t);
+    t.game('a').cues();
+    t.game('b').cues();
+    t.game('a').press('b');
+    t.play(1.5);
+    const messages = bodies.flatMap((b) => { const m = readMessage(b); return m ? [m] : []; });
+    expect(messages.filter((m) => m.kind === 'item')).toEqual([expect.objectContaining({ kind: 'item', id: 'a:1', item: 'orb' })]);
+    expect(messages.filter((m) => m.kind === 'hit')).toEqual([expect.objectContaining({ kind: 'hit', id: 'a:1' })]);
+    // B's screen: the ORB arrived, hit B, and spun B out.
+    const mine = t.game('b').cues();
+    expect(mine).toContainEqual({ kind: 'hit', item: 'orb', you: true, tiles: 0 });
+    expect(mine).toContainEqual({ kind: 'spin' });
+    // A's screen: the hit on B was seen, and the item is off its circuit.
+    expect(t.game('a').cues().some((c) => c.kind === 'hit' && !c.you)).toBe(true);
+    // Taken off every circuit, the ORB hits no one else, however long it would have flown.
+    t.play(RULES.orbLife);
+    for (const id of ['a', 'c', 'd']) expect(t.game(id).cues().some((c) => c.kind === 'spin'), id).toBe(false);
+  });
+
+  it('a BLOB dropped by A reaches every circuit', () => {
+    const t = table4();
+    t.holding.set('a', 'blob');
+    t.go('a');
+    t.play(RULES.countdown + 0.2);
+    const bodies = heard(t);
+    t.game('a').press('b');
+    t.play(0.5);
+    const dropped = bodies.flatMap((b) => { const m = readMessage(b); return m?.kind === 'item' ? [m] : []; });
+    expect(dropped).toEqual([expect.objectContaining({ id: 'a:1', item: 'blob' })]);
+    for (const id of ['b', 'c', 'd']) expect(t.game(id).cues().some((c) => c.kind === 'item' && !c.you && c.item === 'blob'), id).toBe(true);
+    expect(bodies.some((b) => readMessage(b)?.kind === 'hit')).toBe(false);
+  });
+
+  it('a BOOST stays the player\'s own: nothing is sent', () => {
+    const t = table4();
+    t.holding.set('a', 'boost');
+    t.go('a');
+    t.play(RULES.countdown + 0.2);
+    const bodies = heard(t);
+    t.game('a').press('b');
+    t.play(0.5);
+    expect(bodies.some((b) => { const k = readMessage(b)?.kind; return k === 'item' || k === 'hit'; })).toBe(false);
   });
 });

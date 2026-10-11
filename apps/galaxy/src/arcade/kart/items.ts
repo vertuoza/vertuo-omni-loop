@@ -12,15 +12,15 @@ export type { Item };
 /** An item box: where it stands, and the seconds left before it is back (0 when it can be taken). */
 export interface Box { x: number; y: number; back: number }
 /** A BLOB lying on the road. */
-export interface Blob { x: number; y: number }
+export interface Blob { x: number; y: number; /** MULTI: the id it was sent with (its sender's id and a count). */ id?: string }
 /** An ORB in flight: where, the way it flies, how many times it turned back at the road's edge and how long it has flown. */
-export interface Orb { x: number; y: number; angle: number; bounces: number; age: number }
+export interface Orb { x: number; y: number; angle: number; bounces: number; age: number; id?: string }
 
 /** The items on the circuit, and the seeded generator the draws come from. */
 export interface World { boxes: readonly Box[]; blobs: readonly Blob[]; orbs: readonly Orb[]; rng: number }
 
 /** What an item step reports, by racer (0 is the player): a box taken, and a BLOB or an ORB that hit (`spun`: the hit started a spin-out). */
-export type ItemEvent = { kind: 'box'; racer: number } | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean };
+export type ItemEvent = { kind: 'box'; racer: number } | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean; /** The id of the item that hit, in a MULTI race. */ id?: string };
 
 /** A kart with what it holds and what is on it. */
 export interface Racer { kart: Kart; fx: Fx }
@@ -43,6 +43,9 @@ export function itemFor(place: number, roll: number): Item {
   const at = roll * total;
   return at < w.boost ? 'boost' : at < w.boost + w.blob ? 'blob' : 'orb';
 }
+
+/** An item's id as a field, when it has one (MULTI). */
+const idOf = ({ id }: { id?: string }): { id?: string } => (id === undefined ? {} : { id });
 
 const near = (a: { x: number; y: number }, b: { x: number; y: number }, reach: number) => Math.hypot(a.x - b.x, a.y - b.y) < reach;
 
@@ -78,7 +81,7 @@ function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
   if (off(o.x + dx, o.y + dy)) { dx = -dx; dy = -dy; bounces++; }
   const age = o.age + dt;
   if (bounces >= RULES.orbBounces || age >= RULES.orbLife) return null;
-  return { x: o.x + dx, y: o.y + dy, angle: Math.atan2(dy, dx), bounces, age };
+  return { x: o.x + dx, y: o.y + dy, angle: Math.atan2(dy, dx), bounces, age, ...idOf(o) };
 }
 
 /**
@@ -107,7 +110,7 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
     const i = out.findIndex((r) => r.fx.spin <= 0 && r.fx.fall <= 0 && near(r.kart, blob, RULES.blobReach));
     const hit = out[i];
     if (!hit) continue;
-    events.push({ kind: 'hit', racer: i, item: 'blob', spun: true });
+    events.push({ kind: 'hit', racer: i, item: 'blob', spun: true, ...idOf(blob) });
     out[i] = spun(hit);
     blobs = blobs.filter((b) => b !== blob);
   }
@@ -117,7 +120,7 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
     if (!flown) continue;
     const i = out.findIndex((r) => r.fx.fall <= 0 && near(r.kart, flown, RULES.orbReach));
     const hit = out[i];
-    if (hit) { events.push({ kind: 'hit', racer: i, item: 'orb', spun: hit.fx.spin <= 0 }); out[i] = spun(hit); } // the orb is gone with the hit
+    if (hit) { events.push({ kind: 'hit', racer: i, item: 'orb', spun: hit.fx.spin <= 0, ...idOf(orb) }); out[i] = spun(hit); } // the orb is gone with the hit
     else orbs.push(flown);
   }
   return { world: { boxes, blobs, orbs, rng }, racers: out, events };

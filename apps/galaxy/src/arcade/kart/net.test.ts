@@ -123,3 +123,23 @@ describe('the finish message (PRD 1572, slice 5)', () => {
     expect(readMessage({ kind: 'finish', race: 'r', tenths: 10 }, 'r')).not.toBeNull();
   });
 });
+
+describe('the item and hit messages (PRD 1572, slice 6)', () => {
+  const item = { kind: 'item', race: 'r', id: 'u1:3', item: 'orb', x: 10, y: 20, angle: 1.5 } as const;
+
+  it('read back what was sent: the item with its id, where it starts and the way it flies, and the hit with the id it takes off', () => {
+    expect(readMessage(item)).toEqual(item);
+    expect(readMessage({ ...item, item: 'blob' })).toEqual({ ...item, item: 'blob' });
+    expect(readMessage({ kind: 'hit', race: 'r', id: 'u1:3' })).toEqual({ kind: 'hit', race: 'r', id: 'u1:3' });
+  });
+
+  it('read as nothing with a field missing or wrong, a BOOST (it is never sent), or from another race', () => {
+    for (const key of ['race', 'id', 'item', 'x', 'y', 'angle']) expect(readMessage(Object.fromEntries(Object.entries(item).filter(([k]) => k !== key))), `without ${key}`).toBeNull();
+    expect(readMessage({ ...item, item: 'boost' })).toBeNull();
+    expect(readMessage({ ...item, x: 'far' })).toBeNull();
+    expect(readMessage({ kind: 'hit', race: 'r' })).toBeNull();
+    expect(readMessage({ kind: 'hit', race: 'r', id: '' })).toBeNull();
+    expect(readMessage(item, 'other')).toBeNull();
+    expect(readMessage({ kind: 'hit', race: 'other', id: 'u1:3' }, 'r')).toBeNull();
+  });
+});
