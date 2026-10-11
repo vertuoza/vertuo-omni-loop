@@ -136,6 +136,41 @@ describe('omni design touched', () => {
     });
   });
 
+  describe('design.ignore, reads and the stale mockup (PRD 1550)', () => {
+    const LIB = '.omni-loop/knowledge/design/screens';
+    const GAMES =
+      '---\nscreen: game-room\nstatus: locked\nlocked-by: "@ana"\nlocked-on: 2026-10-10\nquote: "build it"\nmock: game-room.html\n' +
+      'implements: [src/ui/Games.tsx]\nreads: [src/engine/]\nroutes: [/play]\n---\n';
+
+    it('prints ui: no for a change made only of ignored test files, and ui: yes with design.ignore: []', async () => {
+      const tests = ['src/ui/Button.test.tsx', 'src/ui/__tests__/a.tsx', 'src/ui/test/b.css'];
+      expect(await touched(repoChanging(HEAD + ON, tests).root, ['main'])).toEqual({ code: 0, out: 'ui: no\n', err: '' });
+      const none = await touched(repoChanging(HEAD + ON + '  ignore: []\n', tests).root, ['main']);
+      expect(none).toEqual({ code: 0, out: 'ui: yes\n  src/ui/Button.test.tsx\n  src/ui/__tests__/a.tsx\n  src/ui/test/b.css\n', err: '' });
+    });
+
+    it("names a change under a screen's reads apart, and no locked screen", async () => {
+      const repo = repoChanging(HEAD + ON, ['src/engine/physics.ts']);
+      repo.write(`${LIB}/game-room.md`, GAMES);
+      expect(await touched(repo.root, ['main'])).toEqual({ code: 0, out: 'ui: no\nscreens: reads game-room\n', err: '' });
+    });
+
+    it("adds mock may be stale: <screen> for a change to a screen's implements that leaves its mockup alone", async () => {
+      const stale = repoChanging(HEAD + ON, ['src/ui/Games.tsx', 'src/engine/physics.ts']);
+      stale.write(`${LIB}/game-room.md`, GAMES);
+      expect((await touched(stale.root, ['main'])).out).toBe('ui: yes\n  src/ui/Games.tsx\nscreens: game-room 🔒 (/play)\nmock may be stale: game-room\n');
+      const fresh = repoChanging(HEAD + ON, ['src/ui/Games.tsx', `${LIB}/game-room.html`]);
+      fresh.write(`${LIB}/game-room.md`, GAMES);
+      expect((await touched(fresh.root, ['main'])).out).toBe('ui: yes\n  src/ui/Games.tsx\nscreens: game-room 🔒 (/play)\n');
+    });
+
+    it('drops ignored files before it matches the library too', async () => {
+      const repo = repoChanging(HEAD + ON, ['src/ui/Games.test.tsx', 'src/engine/physics.spec.ts']);
+      repo.write(`${LIB}/game-room.md`, GAMES.replace('src/ui/Games.tsx', 'src/ui/'));
+      expect((await touched(repo.root, ['main'])).out).toBe('ui: no\n');
+    });
+  });
+
   it('prints the screen library: name, status, locker, date and routes, sorted, then each file that does not read, exit 0', async () => {
     const lib = '.omni-loop/knowledge/design/screens';
     const files = {
@@ -153,6 +188,12 @@ describe('omni design touched', () => {
         `does not read: ${lib}/zz.md: no front matter — a screen starts with a --- block\n`,
       err: '',
     });
+  });
+
+  it('prints shared beside a shared screen (PRD 1584)', async () => {
+    const lib = '.omni-loop/knowledge/design/screens';
+    const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': HEAD + ON, [`${lib}/home.md`]: '---\nscreen: home\nstatus: draft\nroutes: [/]\n---\n', [`${lib}/shell.md`]: '---\nscreen: app-shell\nstatus: draft\nkind: shared\nroutes: [/]\n---\n' } });
+    expect(await screens(repo.root)).toEqual({ code: 0, out: 'app-shell  draft · shared  —  /\nhome       draft           —  /\n', err: '' });
   });
 
   it("reads the library from design.screens, says so when it is empty, and prints design: off while the flag is off", async () => {
@@ -176,6 +217,7 @@ describe('omni design touched', () => {
     expect(out).toMatch(/^omni design touched \[<base>\] +run by the skills /);
     expect(out).toContain('omni design screens');
     for (const words of ['design.screens', 'screen library', 'draft', 'locked', 'superseded', 'does not read']) expect(out).toContain(words);
+    for (const words of ['design.ignore', 'reads <screen>', 'never trips a lock', 'mock may be stale: <screen>', 'names a folder']) expect(out).toContain(words);
     for (const words of ['omni kb show design', 'design.enabled', 'design.paths', 'commands.design', 'design: off', 'ui: yes', 'ui: no', 'ui: unknown', 'the product wins', 'never blocks', 'exits 0']) {
       expect(out).toContain(words);
     }

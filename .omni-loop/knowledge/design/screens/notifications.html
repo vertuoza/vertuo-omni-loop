@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notifications mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  .mock-note { max-width: 960px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--ask-muted); }
+  .mock-note b { color: var(--ask-ink); }
+
+  /* A strip of the app shell's top bar, for the bell to hang from (the app-shell screen). */
+  .bar-strip { max-width: 960px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 10px 16px;
+    background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); }
+
+  /* nav/bell.css, as written. */
+  .bell { position: relative; display: inline-flex; }
+  .bell-button { position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0;
+    border: 1.5px solid var(--ask-ink); border-radius: 6px; background: var(--ask-surface); color: var(--ask-ink); }
+  .bell-badge { position: absolute; top: -7px; right: -7px; min-width: 18px; padding: 3px 5px; border-radius: 999px;
+    font: 700 11px/1 var(--ask-body); text-align: center; color: var(--ask-ground); background: var(--ask-red); }
+  .bell-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; display: grid; gap: 10px; width: 360px;
+    max-width: calc(100vw - 32px); padding: 10px; border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-surface); }
+  .bell-group { display: grid; gap: 4px; margin: 0; }
+  .bell-group-label { margin: 0; padding: 0 8px; font: 700 12px/1.3 var(--ask-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ask-muted); }
+  .bell-problem { margin: 0; padding: 0 8px; font: 400 13px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bell-lines { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  a.bell-line { display: grid; gap: 2px; padding: 8px; border-radius: 6px; color: var(--ask-ink); text-decoration: none; }
+  a.bell-line:hover { background: var(--ask-sunk); }
+  .bell-line-head { font: 700 13px/1.3 var(--ask-body); }
+  .bell-line-text { overflow: hidden; font: 400 14px/1.3 var(--ask-body); white-space: nowrap; text-overflow: ellipsis; }
+  .bell-line-meta { font: 400 12px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+  .bell-alerts { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 8px 8px 2px; border-top: 1px solid var(--ask-line-strong); }
+  .bell-switch { display: inline-flex; align-items: center; gap: 6px; font: 400 13px/1.3 var(--ask-body); color: var(--ask-ink); }
+  .bell-switch input { margin: 0; accent-color: var(--ask-red); }
+  .stage { max-width: 960px; margin: 0 auto; min-height: 560px; }
+  @media (max-width: 899.98px) {
+    .bell { position: static; }
+    .bar-strip { position: relative; }
+    .bell-panel { top: 100%; left: 0; right: 0; width: auto; max-width: none; border-radius: 0; border-width: 1px 0; }
+  }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>The bell in the app shell's top bar, open, signed in, theme Omni.</b> A shared screen (<code>kind: shared</code>): it appears on every app page. Drawn from the source (apps/galaxy/src/nav/Bell.tsx, bell.ts), not from a screenshot: the app was not run here. The lines are example data: the question is the demo's shared one in shape, the PRDs are this repository's own; their titles, times and ranks are examples. The person chip's face is stood in for by a 16 px square.</p>
+
+<div class="stage">
+  <div class="bar-strip">
+    <div class="bell" data-screen="notifications">
+      <button type="button" class="bell-button" aria-label="Waiting for you: 3" aria-expanded="true" aria-controls="bell-panel">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span class="bell-badge" aria-hidden="true">3</span>
+      </button>
+      <div id="bell-panel" class="bell-panel" role="region" aria-label="Waiting for you">
+        <section class="bell-group" aria-label="Questions">
+          <h2 class="bell-group-label">Questions</h2>
+          <ul class="bell-lines"><li><a class="bell-line" href="/ask/q/r1">
+            <span class="bell-line-head" data-content>Quote list: totals row</span>
+            <span class="bell-line-text" data-content>Should the totals row stay pinned while the list scrolls?</span>
+            <span class="bell-line-meta"><span data-content>2 min</span> · shared by <span class="chip"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#a45cff"/></svg><span data-content>KAI</span></span></span>
+          </a></li></ul>
+        </section>
+        <section class="bell-group" aria-label="Approvals">
+          <h2 class="bell-group-label">Approvals</h2>
+          <ul class="bell-lines"><li><a class="bell-line" href="/prd/1584">
+            <span class="bell-line-head">PRD <span data-content>1584 · Design memory, round 3</span></span>
+            <span class="bell-line-text">Waits for your approval</span>
+            <span class="bell-line-meta" data-content>1 h</span>
+          </a></li></ul>
+        </section>
+        <section class="bell-group" aria-label="Outbox">
+          <h2 class="bell-group-label">Outbox</h2>
+          <ul class="bell-lines"><li><a class="bell-line" href="/prd/1550?tab=outbox">
+            <span class="bell-line-head">PRD <span data-content>1550 · Design memory, round 2</span></span>
+            <span class="bell-line-text" data-content>Should the gallery be published with the app?</span>
+            <span class="bell-line-meta" data-content>medium</span>
+          </a></li></ul>
+        </section>
+        <section class="bell-group" aria-label="New documents">
+          <h2 class="bell-group-label">New documents</h2>
+          <ul class="bell-lines"><li><a class="bell-line" href="/prd/1584">
+            <span class="bell-line-head">PRD <span data-content>1584 · Design memory, round 3</span></span>
+            <span class="bell-line-text">New spec, plan</span>
+            <span class="bell-line-meta" data-content>3 h</span>
+          </a></li></ul>
+        </section>
+        <footer class="bell-alerts">
+          <label class="bell-switch"><input type="checkbox" checked> <span class="bell-switch-label">Desktop alerts</span></label>
+          <label class="bell-switch"><input type="checkbox"> <span class="bell-switch-label">Chime</span></label>
+        </footer>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="mock-note">No primary action is marked: every line is a link of equal weight (the screen's open question). Not drawn: the bell closed (only the button and its badge), Nothing waiting for you., a group that could not be read, the Business line, Desktop alerts blocked by the browser, and the phone's full-width panel.</p>
+</body>
+</html>

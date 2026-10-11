@@ -264,3 +264,29 @@ drafts.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/` and `pnpm test`, green.
+
+## PRD #1550, slice s4 — marked screens and the two lists
+
+- **Step 5's marks:** the page's own explanation (its title, the PRD line, the captions) sits
+  outside every marked screen, since the word pass now reads only marked screens and skips a page
+  with none.
+- **Step 5's draft screens** gain `reads`, and the rule that splits the two lists: a file whose
+  change can change what a person sees on this screen goes in `implements`; a file the screen only
+  depends on goes in `reads`. Never a whole folder in `implements`.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.
+
+## PRD #1584, slice s3 — two parts, and shared screens
+
+- **Step 5**, with the design flag on, writes the before/after in two parts: **Functional** (what
+  the change does, today beside after), then **Pixel perfect** (the marked screens and a
+  `screens:` line naming the library screens), or the one line `Pixel perfect: no screen changes`
+  for a PRD that changes no screen. Design off, the page is written as before.
+- **Step 5's draft screens** carry `kind`, and the rule that splits the two lists is stated in its
+  four lines; shared structure is drafted once, as a `kind: shared` screen.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

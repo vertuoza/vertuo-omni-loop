@@ -35,7 +35,7 @@ import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/
 import { isList, plainText } from '../outbox/plain-text.ts';
 import { isOneOf } from '../narrow.ts';
 import type { Laws } from '../laws.ts';
-import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, ProductPrdId, WorkSliceId } from '../ids.ts';
 import type { Layout } from '../layout.ts';
 import type { Rank } from '../types.ts';
 
@@ -101,7 +101,7 @@ export type Consultation = {
 /** The fields {@link renderOutboxItem} renders an item from. */
 export type OutboxItemFields = {
   id: OutboxItemId;
-  prd: PrdNumber;
+  prd: PrdNumber | ProductPrdId;
   slice: WorkSliceId;
   wave: number | string;
   raised: string;

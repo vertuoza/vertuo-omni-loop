@@ -82,7 +82,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     usage: ['omni status [--fetch]', 'omni status <prd> [--labels a,b] [--base <ref> | --changes]'],
     label: 'omni status',
     summary: 'your PRDs, the inbox, the outbox, what has shipped',
-    also: [['omni status <n>', 'the outbox gate for PRD n (exit 0 green, 1 red)']],
+    also: [['omni status <n>', 'the outbox gate for PRD n (exit 0 green, 1 red)'], ['omni status <key>-<n>', 'a product PRD\'s gate, read from the Omni page']],
     detail:
       'With no PRD number, the overview of this repository, read from git only: how many PRDs sit ' +
       'at each stage of the loop (PRD, inbox, building, outbox, shipped, retro; an idea is a draft ' +
@@ -96,7 +96,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'prd',
     kind: 'command',
     who: 'you',
-    usage: ['omni prd <n>'],
+    usage: ['omni prd <n>', 'omni prd <key>-<n> [--show <kind>]'],
     label: 'omni prd <n>',
     summary: 'where PRD n lives and its files',
     detail:
@@ -105,7 +105,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'one lookup the skills run before following any delivery path. Where dossiers are on, its last ' +
       'line is the product its dossier on the Omni page names, product: <name> or product: none, or ' +
       'product: unknown with why when the page cannot tell. Exit 1 when the PRD is in ' +
-      'neither {inbox} nor {shipped}.',
+      'neither {inbox} nor {shipped}. A product PRD, as mobile-12, is read from the Omni page: its stage ' +
+      'from its approval, birthplace: server, its approval lines, its page and its product; --show <kind> ' +
+      'prints its latest spec, plan, before-after or voice, read-only, as of when it was read, and the ' +
+      'last copy read while the server is down. mobile, 12-mobile and Mobile-12 are refused by name.',
   },
   {
     name: 'board',
@@ -284,7 +287,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'dossier',
     kind: 'command',
     who: 'you',
-    usage: ['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status'],
+    usage: [
+      'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+    ],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
     detail:
@@ -297,7 +303,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'work on concept n, its issue\'s number: its page under Work › Concepts, filled from its ' +
       'concept.md, vision tour, boards and debate. With --product <name>, a PRD\'s push names the product ' +
       'the brainstorm asked for, for a repository in several products: the first push makes it the ' +
-      'PRD\'s product, and a repository in one product or none decides alone. It never holds up the ' +
+      'PRD\'s product, and a repository in one product or none decides alone. A product PRD, as mobile-12, ' +
+      'lives on the Omni page and in no repository: push --product <key> --new creates the product\'s next ' +
+      'PRD from the files of --from and prints its id; push <key>-<n> saves the edited files of --from as ' +
+      'new versions; get <key>-<n> <kind> writes the latest spec, plan, before-after or voice to a scratch ' +
+      'file and prints its path and its sha256, and holds while the server is down. It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
@@ -571,23 +581,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '  --channel prd-issue|feature-pull-request --number <n>',
       '  (--answer "<text>" | --answer-file <path>) [--url <u>]',
       '  [--verdict agreed|drifted]',
+      'omni settle <item-id> --prd <key>-<n>',
+      '  (--answer "<text>" | --answer-file <path>)',
+      '  [--verdict agreed|drifted]',
     ],
     summary: 'settle one answered outbox item',
     detail:
       "Settles one open outbox item with the answer a person gave: appends the question and the " +
       "answer, word for word, to the PRD's settled ledger, then deletes the open file. The ledger " +
-      'is append-only: nothing in it is ever rewritten.',
+      'is append-only: nothing in it is ever rewritten. With --prd <key>-<n>, settles a product PRD\'s ' +
+      'open item on the Omni page, as answered in the terminal.',
   },
   {
     name: 'adopt',
     kind: 'command',
     who: 'skills',
-    usage: ['omni adopt <item-text-file>'],
+    usage: ['omni adopt <item-text-file>', 'omni adopt <item-id> --prd <key>-<n>'],
     summary: 'adopt a medium outbox item',
     detail:
       "Adopts a medium outbox item, as it is raised or once it is open: appends its entry to the PRD's " +
       'settled ledger and removes the open file. An adopted decision stands unless someone objects ' +
-      "later. /omni:wave adopts a wave's medium items once the wave has merged.",
+      "later. /omni:wave adopts a wave's medium items once the wave has merged. With --prd <key>-<n>, " +
+      "adopts a product PRD's open medium item on the Omni page.",
   },
   {
     name: 'replies',
@@ -607,12 +622,15 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json]',
       'omni answers post --prd <n> --pr <n> --answers <file>',
       '  [--repo <owner/name>] [--print]',
+      'omni answers ask <key>-<n> [--json]',
+      'omni answers post --prd <key>-<n> --answers <file>',
     ],
     summary: 'answer the outbox from the terminal',
     detail:
       'With ask, prints the open human-action and high questions of the feature PR, in its numbering, ' +
       'at most four at a time. With post, writes the picks as one reply and posts it on the feature ' +
-      'PR, where omni replies reads it; --print only prints it. /omni:yolo runs it when its gate ends red.',
+      'PR, where omni replies reads it; --print only prints it. /omni:yolo runs it when its gate ends red. ' +
+      "On a product PRD, ask needs no PR, and post settles each answered question on the Omni page.",
   },
   {
     name: 'comment',
@@ -664,6 +682,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni item new --prd <n> --slice <id> --file <file>',
       '  [--adopt | --out <dir>] [--json]',
       'omni item relay <dir> --prd <n>',
+      'omni item new --prd <key>-<n> … · omni item relay <dir> --prd <key>-<n>',
     ],
     summary: 'record a decision an agent took alone',
     detail:
@@ -673,7 +692,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'straight to the settled ledger. --out writes the item to a folder instead of the outbox, ' +
       'for a slice built in another repository, and never adopts. relay moves every item and ' +
       "account of such a folder into PRD n's outbox, checked as new items are; a refused file " +
-      'stays in the folder with its reason, exit 2.',
+      'stays in the folder with its reason, exit 2. On a product PRD (--prd <key>-<n>) the outbox is ' +
+      'its rows on the Omni page: a checked item becomes a row, and while the server cannot be reached ' +
+      'it holds, exit 1.',
   },
   {
     name: 'plan',
@@ -877,8 +898,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…'],
-    summary: 'whether a branch touches a screen, the screen library, and the word pass over a mockup',
+    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]'],
+    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, and the gallery',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
       "design form, omni kb show design (the product, where its design system lives, what it does on " +
@@ -887,19 +908,34 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "slice's feature branch, else the default branch) and prints design: off while the flag is off, " +
       'ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: ' +
       'unknown when design.paths is empty or the base cannot be read, for the agent to judge from the ' +
-      "diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
+      'diff. It first drops every changed path a design.ignore glob matches (by default the test ' +
+      'shapes **/*.test.*, **/*.spec.*, **/__tests__/** and **/test/**; [] drops nothing), so a change ' +
+      'made only of tests reads ui: no. Its screens: line names each library screen whose implements ' +
+      'the change touches, and as reads <screen> each one it reaches only through its reads, the code ' +
+      'behind the screen, which never trips a lock; and mock may be stale: <screen> names a screen ' +
+      "whose implements changed while its mockup did not, a note only. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
       'design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave ' +
       'or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen ' +
       'library, the folder design.screens names (by default design/screens/ under the knowledge ' +
       'folder): one Markdown file per screen, its front matter saying its status (draft, locked or ' +
-      'superseded), who locked it, when and in which words, its mockup, the paths it implements and ' +
-      'its routes. It prints one line per screen, sorted by name, with its status, who locked it and ' +
-      'when, and its routes, then each file that does not read, says so when the library is empty, ' +
+      'superseded), who locked it, when and in which words, its mockup, the paths it implements (the ' +
+      'files it is drawn from), the optional reads list (the code it only depends on), its routes, and ' +
+      'an optional kind: page, the default, or shared, structure several pages show (an app shell, ' +
+      'notifications, a sign-in page), a screen of its own whose files each page it appears on lists in ' +
+      'reads, and any other kind is refused by name; ' +
+      'omni check design warns, and still passes, on an implements entry that names a folder. It prints one line per screen, sorted by name, with its status, who locked it and ' +
+      'when, and its routes, with shared beside a shared screen, then each file that does not read, says so when the library is empty, ' +
       'and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 ' +
       'whatever it finds. words is the word pass: it reads each mockup page given, structure never ' +
       'style, and prints every screen (an element design.words.screen matches, by default ' +
-      '[data-screen]; a page with none is read whole and says so) with its visible strings, each ' +
-      "control's marked, and its word count, then its findings: sentence-on-control, a button or link " +
+      '[data-screen]; an unmarked page, one with none, is skipped with no finding, and says no ' +
+      'screen marked: skipped) with its visible strings (two sibling blocks, or a layout of spans with no ' +
+      'running text, are two strings, while a phrasing element such as code, em or span inside running ' +
+      'text keeps its sentence whole, and inside a control two sibling elements are joined with a space), ' +
+      "each control's marked (a button, a link, or any element design.words.primary matches), and " +
+      'its word count; text inside an element design.words.content matches (by default [data-content]) ' +
+      'is content the screen shows, not words it wrote: it prints content · <n> words apart and raises ' +
+      'no finding. Then its findings: sentence-on-control, a button or link ' +
       'whose label holds design.words.sentence words or more (default 7); two-primaries, more than one ' +
       'primary action (design.words.primary, by default [data-primary]) in one screen; ' +
       'explains-at-rest, a string outside any control longer than design.words.sentence; and ' +
@@ -909,7 +945,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'list). The selectors are tags, #ids, .classes and [attributes], comma-separated, with no ' +
       'combinator. A page it cannot read is named and the next is read; it prints design: off while ' +
       'the flag is off, and words exits 0 whatever it finds: a finding is fixed in the screen, never ' +
-      'silenced.',
+      'silenced. gallery writes one self-contained HTML page of the whole library (inline styles, no ' +
+      'script, no remote asset): each screen with its status, who locked it and when, its routes, and ' +
+      'its mockup inline or no mockup, locked screens first, then drafts, then superseded, and the shared ' +
+      'screens in a group of their own after the pages. It writes ' +
+      'to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; ' +
+      'the page is generated each time and never committed. An empty library prints no screen yet ' +
+      'and writes nothing, design: off while the flag is off, and gallery exits 0.',
   },
   {
     name: 'e2e',

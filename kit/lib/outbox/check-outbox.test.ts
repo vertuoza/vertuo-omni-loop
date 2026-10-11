@@ -482,6 +482,29 @@ describe('findOutboxViolations', () => {
       });
       expect(findOutboxViolations({ ctx })).toEqual([]);
     });
+
+    it('accepts a Became: id the sweep removed, whose Stays here: line says it was that id (PRD 1342)', () => {
+      const m = makeMarkers('omni-outbox');
+      const settled = (staysHere: string) => [
+        m.settledOpen('s1-01-x'),
+        '## s1-01-x — agreed',
+        '- Verdict: agreed',
+        '- Closed: yes',
+        '- Became: BR-PRODUCT-9',
+        `- Stays here: ${staysHere}`,
+        m.settledClose('s1-01-x'),
+        '',
+      ].join('\n');
+      const violations = (staysHere: string) =>
+        findOutboxViolations({
+          ctx: makeRepo({
+            config: { laws: { source: 'knowledge' } },
+            files: { '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', '.omni-loop/delivery/outbox/0042-a/settled.md': settled(staysHere) },
+          }).ctx,
+        });
+      expect(violations('not worth a law (classifier), was BR-PRODUCT-9')).toEqual([]);
+      expect(violations('not worth a law (classifier), was BR-PRODUCT-1').join('\n')).toMatch(/s1-01-x Became: BR-PRODUCT-9/);
+    });
   });
 
   describe('Became: a playbook section (PRD 45)', () => {

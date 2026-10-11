@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1584 · Design memory, round 3</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1f24; --muted: #5d6270; --line: #dcdad3;
+  --term: #15171c; --term-ink: #d9dde6; --term-dim: #8a91a3;
+  --ok: #1f7a4d; --warn: #9a5b00; --accent: #2f5bd3; --chip: #eceae4; --pp: #7a3fd1;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --panel: #1c1f25; --ink: #e8eaef; --muted: #a2a8b6; --line: #2e323b;
+    --term: #0d0f12; --term-ink: #d9dde6; --term-dim: #7d8496;
+    --ok: #5cc28d; --warn: #e0a548; --accent: #7d9cf0; --chip: #262a32; --pp: #b48cf2; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161a; --panel: #1c1f25; --ink: #e8eaef; --muted: #a2a8b6; --line: #2e323b;
+  --term: #0d0f12; --term-ink: #d9dde6; --term-dim: #7d8496;
+  --ok: #5cc28d; --warn: #e0a548; --accent: #7d9cf0; --chip: #262a32; --pp: #b48cf2; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 40px; }
+header h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; max-width: 70ch; color: var(--muted); }
+.kicker { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+.part { display: grid; gap: 22px; }
+.part > h2 { margin: 0; font: 700 .8rem/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+.part.pp > h2 { color: var(--pp); border-color: var(--pp); }
+section { display: grid; gap: 10px; }
+section > h3 { font-size: 1.05rem; margin: 0; }
+section > p { margin: 0; max-width: 72ch; color: var(--muted); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.label { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.label.after { color: var(--ok); }
+.term { background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 14px 16px; font: 12.5px/1.6 var(--mono); overflow-x: auto; white-space: pre; margin: 0; }
+.dim { color: var(--term-dim); } .ok { color: #6fd39c; } .warn { color: #f0b860; } .bad { color: #ff8f86; }
+.note { font-size: .86rem; color: var(--muted); margin: 0; }
+.screens { font: 12px var(--mono); color: var(--pp); }
+/* the app mock */
+.app { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); display: grid; grid-template-columns: 116px 1fr; min-height: 220px; }
+.shell { background: #0e0d33; color: #c9ccf5; padding: 12px 10px; display: grid; gap: 6px; align-content: start; font-size: 12px; }
+.shell b { color: #ffd84a; font: 600 10px var(--mono); letter-spacing: .08em; }
+.shell .on { background: #2a2870; border-radius: 4px; padding: 3px 6px; color: #fff; }
+.shell span { padding: 3px 6px; }
+.shell .bugged { outline: 2px dashed #ff8f86; outline-offset: 1px; }
+.page { padding: 14px; display: grid; gap: 8px; align-content: start; }
+.page h4 { margin: 0; font-size: 1rem; }
+.row { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-block: 6px; font-size: 13px; }
+.row em { font-style: normal; color: var(--muted); }
+.btn { justify-self: start; background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; font: 600 12px var(--sans); }
+.tag { justify-self: start; font: 600 10px/1 var(--mono); padding: 4px 6px; border-radius: 4px; background: var(--chip); color: var(--muted); }
+footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">PRD 1584 · today beside after</div>
+  <h1>Design memory, round 3: shared screens, holds only on what you touch, copy apart from content, and a Pixel perfect part</h1>
+  <p>This page is written in the shape it introduces: a Functional part first, then a Pixel perfect part with the screens to look at closely.</p>
+</header>
+
+<div class="part">
+  <h2>① Functional</h2>
+
+  <section>
+    <h3>Only what a change touches can hold it</h3>
+    <p>Fixing the quote list while the menu has a bug of its own: today the review lists the menu bug among the slice's findings. After, it is reported apart, never against the work.</p>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today</div>
+<pre class="term"><span class="dim">/omni:pixel-perfect review · slice s2 (quote-list)</span>
+Findings
+  <span class="warn">✗</span> quote-list: totals column misaligned at 390
+  <span class="bad">✗ menu: "Quotes" item overlaps its badge</span>
+<span class="dim">→ the slice is asked about a menu it never touched</span></pre>
+      </div>
+      <div class="side">
+        <div class="label after">After</div>
+<pre class="term"><span class="dim">/omni:pixel-perfect review · slice s2 (quote-list)</span>
+Findings
+  <span class="warn">✗</span> quote-list: totals column misaligned at 390
+Seen, not touched
+  <span class="dim">· app-shell: "Quotes" item overlaps its badge</span>
+  <span class="dim">  not this slice's · never blocks · file it as a bug</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>The word pass reads like a person</h3>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today</div>
+<pre class="term"><span class="dim">$ omni design words prd-dossier.html</span>
+  <span class="bad">! explains-at-rest:</span> "The word pass is mostly noise…"  <span class="dim">(the PRD's text)</span>
+  "on" (1) · "main" (1) · "(2026-10-11)" (1)
+  "CREW TOP 5NO SCORES YET" (5)</pre>
+      </div>
+      <div class="side">
+        <div class="label after">After</div>
+<pre class="term"><span class="dim">$ omni design words prd-dossier.html</span>
+  content · 412 words  <span class="dim">(data-content: shown, not judged)</span>
+  "on main (2026-10-11)" (3)
+  "CREW TOP 5 NO SCORES YET" (6)
+  <span class="ok">no finding</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>The before/after splits; a fix with no screen skips pixel-perfect</h3>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today</div>
+<pre class="term"><span class="dim"># before-after.html of a database fix</span>
+one page, flows and mockups mixed
+<span class="dim">→ reviewers hunt for what to look at closely</span></pre>
+      </div>
+      <div class="side">
+        <div class="label after">After</div>
+<pre class="term"><span class="dim"># before-after.html of a database fix</span>
+① Functional   the query, today beside after
+<span class="ok">Pixel perfect: no screen changes</span>
+<span class="dim"># feature PR body</span>
+Pixel perfect: none</pre>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="part pp">
+  <h2>② Pixel perfect</h2>
+  <p class="screens">screens: app-shell (shared) · dashboard</p>
+
+  <section>
+    <h3>The app shell becomes a shared screen of its own</h3>
+    <p>Today the sidebar and top bar are context nobody owns. After, <code>app-shell</code> is a screen with <code>kind: shared</code>: its own mockup, lock and review; every page lists its files in <code>reads</code>.</p>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today · dashboard</div>
+        <div class="app" data-screen="dashboard-today">
+          <div class="shell"><b>OMNI LOOP</b><span class="on">Home</span><span>Fleet</span><span>PRDs</span><span>Questions</span></div>
+          <div class="page"><h4>DAM-DEV</h4><div class="row" data-content><span>PRs merged</span><em>14</em></div><div class="row" data-content><span>Questions answered</span><em>9</em></div><button class="btn" data-primary>Open the waiting PR</button></div>
+        </div>
+        <p class="note">One screen, <code>dashboard</code>, claims nothing of the shell; nobody owns the sidebar.</p>
+      </div>
+      <div class="side">
+        <div class="label after">After · app-shell (shared) + dashboard</div>
+        <div class="app" data-screen="dashboard-after">
+          <div class="shell" data-screen="app-shell"><b>OMNI LOOP</b><span class="on">Home</span><span>Fleet</span><span>PRDs</span><span>Questions</span></div>
+          <div class="page"><span class="tag">dashboard · reads app-shell</span><h4>DAM-DEV</h4><div class="row" data-content><span>PRs merged</span><em>14</em></div><div class="row" data-content><span>Questions answered</span><em>9</em></div><button class="btn" data-primary>Open the waiting PR</button></div>
+        </div>
+        <p class="note"><code>app-shell</code> is drawn and tested on its own and in place on the dashboard; the dashboard's figures are <code>data-content</code>, examples.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>What stays the same: <code>design.enabled</code> (off by default), the one deliberate block (a change to a locked screen's own files asks its owner), and every screen written before this PRD, which reads as a page. The figures above are examples.</footer>
+
+</div>
+</body>
+</html>

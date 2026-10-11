@@ -13,7 +13,15 @@ const selector = (source: string): Selector => {
   return parsed;
 };
 const markup = (tag: string, attributes: Record<string, string>) => ({ tag, attributes: new Map(Object.entries(attributes)) });
-const rules = (over: Partial<WordRules> = {}): WordRules => ({ sentence: 7, screen: selector('[data-screen]'), primary: selector('[data-primary]'), avoid: [], ...over });
+const rules = (over: Partial<WordRules> = {}): WordRules => ({
+  sentence: 7,
+  screen: selector('[data-screen]'),
+  primary: selector('[data-primary]'),
+  content: selector('[data-content]'),
+  avoid: [],
+  ...over,
+});
+const texts = (html: string): string[] => wordPass(`<div data-screen="s">${html}</div>`, rules()).screens[0]?.phrases.map((phrase) => phrase.text) ?? [];
 
 describe('the word pass selectors', () => {
   it('reads tags, ids, classes, bare and valued attributes, and comma lists', () => {
@@ -104,5 +112,70 @@ describe('the pass', () => {
   it('names a screen by its id or its label when its own attribute is empty, else by its place', () => {
     const page = wordPass('<div data-screen id="a"><p>x</p></div><div data-screen aria-label="B"><p>y</p></div><div data-screen><p>z</p></div>', rules());
     expect(page.screens.map((screen) => screen.name)).toEqual(['a', 'B', '#3']);
+  });
+
+  it('skips a page with no marked screen, with no finding (PRD 1550)', () => {
+    expect(wordPass('<h1>Hello</h1><p>A caption that explains the whole page at length to its reader.</p>', rules())).toEqual({ skipped: true, screens: [] });
+  });
+
+  it('reads two marked screens apart (PRD 1550)', () => {
+    const page = wordPass('<p>Caption outside every screen, never read by the pass at all.</p><div data-screen="a"><p>One</p></div><div data-screen="b"><p>Two</p></div>', rules());
+    expect(page.skipped).toBe(false);
+    expect(page.screens.map((screen) => [screen.name, screen.phrases.map((phrase) => phrase.text)])).toEqual([
+      ['a', ['One']],
+      ['b', ['Two']],
+    ]);
+  });
+
+  it('keeps sibling elements as two strings, and the text runs of one element as one (PRD 1550)', () => {
+    const page = wordPass('<div data-screen="s"><span>ask.client.ts</span><span>POST</span><p>one <!-- c -->run &amp; more</p></div>', rules());
+    expect(page.screens[0]?.phrases.map((phrase) => phrase.text)).toEqual(['ask.client.ts', 'POST', 'one run & more']);
+  });
+
+  it('reads an element the primary selector matches as a control, whatever its tag (PRD 1550)', () => {
+    const page = wordPass('<div data-screen="s"><span data-primary>Save</span><div data-primary>Send it</div></div>', rules());
+    expect(page.screens[0]?.phrases).toEqual([
+      { text: 'Save', words: 1, control: true },
+      { text: 'Send it', words: 2, control: true },
+    ]);
+    expect(page.screens[0]?.findings.map((finding) => finding.rule)).toEqual(['two-primaries']);
+  });
+
+  it('keeps a sentence whole across the phrasing elements inside its running text (PRD 1584)', () => {
+    expect(texts('<p>on <code>main</code> (2026-10-11)</p>')).toEqual(['on main (2026-10-11)']);
+    expect(texts('<p>Saved <em>two <b>quotes</b></em> for <time>today</time>, <span>see</span> below</p>')).toEqual(['Saved two quotes for today, see below']);
+    expect(texts('<p>Read <a href="#">the guide</a> first</p>')).toEqual(['Read', 'the guide', 'first']);
+  });
+
+  it('keeps sibling blocks, and a layout of spans with no running text, as separate strings (PRD 1584)', () => {
+    expect(texts('<div><p>One</p><p>Two</p></div>')).toEqual(['One', 'Two']);
+    expect(texts('<div>\n  <span>ask.client.ts</span>\n  <span>POST</span> · <span>200</span>\n</div>')).toEqual(['ask.client.ts', 'POST', '200']);
+    expect(texts('<p>Lead <span>one</span><div>Block</div> tail</p>')).toEqual(['Lead one', 'Block', 'tail']);
+  });
+
+  it("joins a control's sibling parts with a space (PRD 1584)", () => {
+    const page = wordPass('<div data-screen="s"><button data-primary><b>CREW TOP 5</b><span>NO SCORES YET</span></button><a href="#">Re<b>try</b></a></div>', rules());
+    expect(page.screens[0]?.phrases).toEqual([
+      { text: 'CREW TOP 5 NO SCORES YET', words: 6, control: true },
+      { text: 'Retry', words: 1, control: true },
+    ]);
+  });
+
+  it('counts the text inside a content mark apart and raises no finding on it (PRD 1584)', () => {
+    const page = wordPass(
+      '<div data-screen="s"><h1>Spec</h1><article data-content><p>This PRD explains at great length what the screen should show to its reader.</p><button data-primary>Not ours</button></article><p>Updated <span data-content>three days</span> ago</p></div>',
+      rules({ avoid: ['explains'] }),
+    );
+    const [screen] = page.screens;
+    expect(screen?.phrases.map((phrase) => phrase.text)).toEqual(['Spec', 'Updated ago']);
+    expect(screen?.words).toBe(3);
+    expect(screen?.content).toBe(18);
+    expect(screen?.findings).toEqual([]);
+  });
+
+  it('reads the content mark from the rules, so a repository may set its own (PRD 1584)', () => {
+    const page = wordPass('<div data-screen="s"><p data-content>Kept as content here</p><p class="data">This long sentence is now read as words of the screen itself</p></div>', rules({ content: selector('.data') }));
+    expect(page.screens[0]?.content).toBe(12);
+    expect(page.screens[0]?.phrases.map((phrase) => phrase.text)).toEqual(['Kept as content here']);
   });
 });

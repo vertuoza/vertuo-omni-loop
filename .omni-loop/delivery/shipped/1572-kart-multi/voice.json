@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-11",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A live netcode across browsers is the kind of change agents get subtly wrong: karts that freeze, a grid that never empties, and nothing in the first section says how any of it is tested without two people at two keyboards.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "No server and no host is the right call for a toy: each browser owns its kart and the database only checks who may join. I still read it as a gimmick until I race a colleague on it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Racing the colleagues of my workspace live, with my best time putting me on pole: that is the delight that keeps a team coming back to the arcade.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Browser Realtime is a new pattern in this app, and its quota is shared with the approvals stream. I want the budget written down and an ADR, not a guess in the frame loop.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "SINGLE stays exactly as players know it, so nobody loses anything; MULTI is the visible win players asked for.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A live netcode written by agents is exactly where the bugs nobody can reproduce by hand are born: frozen karts, ghost grids that never empty. And if an arcade game saturates Realtime, the approvals stream, the heart of the product, goes down with it.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✗ · persona:F-E Developer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-11",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "An in-memory hub that races two to four players in one test process, drops and OUT included, and a budget a test holds for every number of players: my objection is answered with seams I can run.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The migration only adds policies, mirrors the check submit_score already makes, and has its own check file. The repository holds no rule, so I would review it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Twenty-three criteria anyone can watch on two screens, SINGLE untouched and MULTI times on the same crew table: ready to build.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Four places and 80 messages a second as two constants, the quota risk named with its numbers, an ADR for the new pattern and a rollback that is a revert plus a drop: the cohesion I asked for.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Scope held: no rooms, no CPU in MULTI, no change to SINGLE. A first live race players can try the day it ships.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-11",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A hub test races four players in one process and an ORB from one spins another out on both screens: the netcode I feared is something I can run. Arrival order still trusts each browser's clock.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "One migration of policies and a function, and its check is now a step of the supabase job. It was proven only on a stand-in database and the types were edited by hand, so I read that first real run before I merge.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "SINGLE is untouched, MULTI sits on the same ready screen, and a MULTI time lands on the crew table: the release note says it in two sentences anyone reads.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Six slices, one fix in a wave, the send rate and the four places still two constants, and the three trade-offs adopted in the open. A race between real browsers on the preview is what is left to see.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Scope held: no rooms, no CPU karts in MULTI, SINGLE unchanged. Colleagues can race each other the day it merges.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    }
+  ]
+}

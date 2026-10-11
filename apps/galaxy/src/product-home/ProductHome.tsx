@@ -26,7 +26,8 @@ const PRODUCTS_HOME_HREF = '/app/products';
 export type { ProductHomeTab };
 export { productHomeTabs };
 
-export type ProductHomeView = Situation | { kind: 'not-found' } | { kind: 'home'; home: Home };
+/** The page's view; a home drawn from the demo answers its questions in memory (PRD 1548 s9). */
+export type ProductHomeView = Situation | { kind: 'not-found' } | { kind: 'home'; home: Home; demo?: boolean };
 
 const LANES: readonly { id: LaneId; title: string; empty: string }[] = [
   { id: 'on-you', title: 'On you', empty: 'Nothing waits on you.' },
@@ -79,7 +80,22 @@ export function demoProductHome(id: string): Home | null {
     ],
     bugs: [{ dossier: 'demo-bug-1', repo: 'acme/widgets', title: 'Totals round twice', created: '2026-10-03T09:00:00Z' }],
     visuals: [],
-    questions: [{ ...question, id: 's2-01', rank: 'high', question: 'Round per line or on the total?' }],
+    questions: [
+      {
+        dossier: approval.dossier, prdLabel: 'widgets-12', title: approval.title, repo: 'acme/mobile', id: 's2-01-upload-network', rank: 'high',
+        question: 'Photos taken offline: send them on Wi-Fi only, or on any network?', forWhom: 'for you', answerOn: 'widgets-12',
+        options: [{ letter: 'A', text: 'On Wi-Fi only (built).' }, { letter: 'B', text: 'On any network, mobile data included.' }],
+      },
+      {
+        dossier: approval.dossier, prdLabel: 'widgets-12', title: approval.title, repo: 'acme/api', id: 's3-02-keep-originals', rank: 'medium',
+        question: 'Keep the full-size photo once the site report has its copy?', forWhom: 'for irisa', answerOn: 'widgets-12',
+        options: [{ letter: 'A', text: 'Keep it for 30 days (built).' }, { letter: 'B', text: 'Keep it for good.' }, { letter: 'C', text: 'Delete it at once.' }],
+      },
+      {
+        dossier: question.dossier, prdLabel: String(question.prd), title: question.title, repo: question.repo, id: 's2-01', rank: 'high',
+        question: 'Round per line or on the total?', forWhom: 'for you', options: [], answerOn: null,
+      },
+    ],
   };
 }
 
@@ -153,11 +169,11 @@ function Prds({ home }: { home: Home }) {
   );
 }
 
-const PANELS: Readonly<Record<ProductHomeTab, (props: { home: Home }) => ReactNode>> = {
+const PANELS: Readonly<Record<ProductHomeTab, (props: { home: Home; demo: boolean }) => ReactNode>> = {
   ledger: Ledger, prds: Prds, ideas: IdeasTab, roadmap: RoadmapTab, bugs: BugsTab, visual: VisualTab, questions: QuestionsTab,
 };
 
-function HomeScreen({ home, tab }: { home: Home; tab: ProductHomeTab }) {
+function HomeScreen({ home, tab, demo }: { home: Home; tab: ProductHomeTab; demo: boolean }) {
   const Panel = PANELS[tab];
   return (
     <div className="ask-col products product-home">
@@ -167,13 +183,13 @@ function HomeScreen({ home, tab }: { home: Home; tab: ProductHomeTab }) {
         <p className="ask-muted">{ledeOf(tab)}</p>
       </section>
       <SectionTabs label={home.product.name} tabs={productHomeTabs(home)} current={productHomeTabHref(home, tab)} />
-      <Panel home={home} />
+      <Panel home={home} demo={demo} />
     </div>
   );
 }
 
 export function ProductHome({ view, tab }: { view: ProductHomeView; tab: ProductHomeTab }) {
-  if (view.kind === 'home') return <HomeScreen home={view.home} tab={tab} />;
+  if (view.kind === 'home') return <HomeScreen home={view.home} tab={tab} demo={view.demo === true} />;
   if (view.kind === 'not-found') {
     return (
       <Notice title="No such product">

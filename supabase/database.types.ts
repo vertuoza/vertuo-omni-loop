@@ -1131,13 +1131,14 @@ export type Database = {
           birthplace: string | null
           claude_session_id: string | null
           created_at: string
-          home_repo: string
+          home_repo: string | null
           id: string
           kind: string
           numbered_at: string | null
           opened_by: string | null
           prd: number | null
           product_id: string | null
+          product_seq: number | null
           title: string
           workspace_id: string
         }
@@ -1145,13 +1146,14 @@ export type Database = {
           birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
-          home_repo: string
+          home_repo?: string | null
           id?: string
           kind?: string
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
           product_id?: string | null
+          product_seq?: number | null
           title: string
           workspace_id: string
         }
@@ -1159,13 +1161,14 @@ export type Database = {
           birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
-          home_repo?: string
+          home_repo?: string | null
           id?: string
           kind?: string
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
           product_id?: string | null
+          product_seq?: number | null
           title?: string
           workspace_id?: string
         }
@@ -1653,6 +1656,62 @@ export type Database = {
           },
         ]
       }
+      outbox_items: {
+        Row: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id: string
+          item: string
+          raised: string
+          raised_at: string
+          raised_by: string
+          rank: string
+          repository: string | null
+          slice: string
+          updated_at: string
+          wave: number
+        }
+        Insert: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id?: string
+          item: string
+          raised: string
+          raised_at?: string
+          raised_by: string
+          rank: string
+          repository?: string | null
+          slice: string
+          updated_at?: string
+          wave: number
+        }
+        Update: {
+          bears_on?: string
+          body?: string
+          dossier_id?: string
+          id?: string
+          item?: string
+          raised?: string
+          raised_at?: string
+          raised_by?: string
+          rank?: string
+          repository?: string | null
+          slice?: string
+          updated_at?: string
+          wave?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbox_items_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outbox_sends: {
         Row: {
           comment_url: string | null
@@ -1702,6 +1761,50 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outbox_settlements: {
+        Row: {
+          answer: string | null
+          basis: string
+          channel: string | null
+          id: string
+          item_id: string
+          settled_at: string
+          settled_by: string
+          settler_login: string
+          verdict: string
+        }
+        Insert: {
+          answer?: string | null
+          basis: string
+          channel?: string | null
+          id?: string
+          item_id: string
+          settled_at?: string
+          settled_by: string
+          settler_login: string
+          verdict: string
+        }
+        Update: {
+          answer?: string | null
+          basis?: string
+          channel?: string | null
+          id?: string
+          item_id?: string
+          settled_at?: string
+          settled_by?: string
+          settler_login?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbox_settlements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "outbox_items"
             referencedColumns: ["id"]
           },
         ]
@@ -2115,10 +2218,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         Insert: {
@@ -2126,10 +2231,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          key?: string | null
           name: string
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          prd_count?: number
           workspace_id: string
         }
         Update: {
@@ -2137,10 +2244,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          key?: string | null
           name?: string
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          prd_count?: number
           workspace_id?: string
         }
         Relationships: [
@@ -3050,7 +3159,7 @@ export type Database = {
       approval_people: { Args: { p_dossier: string }; Returns: Json }
       approval_recipients: { Args: { p_request: string }; Returns: Json }
       approval_request: {
-        Args: { p_prd: number; p_repo: string }
+        Args: { p_prd: number; p_product?: string; p_repo: string }
         Returns: Json
       }
       approval_requests_waiting: { Args: never; Returns: Json }
@@ -3267,10 +3376,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -3615,7 +3726,7 @@ export type Database = {
         Returns: number
       }
       dossier_approval: {
-        Args: { p_prd: number; p_repo: string }
+        Args: { p_prd: number; p_product?: string; p_repo: string }
         Returns: Json
       }
       dossier_approve: { Args: { p_dossier: string }; Returns: Json }
@@ -3653,6 +3764,7 @@ export type Database = {
           p_kind?: string
           p_prd: number
           p_product?: string
+          p_product_key?: string
           p_repo: string
           p_title: string
         }
@@ -3734,6 +3846,7 @@ export type Database = {
         Args: { p_logins: string[]; p_user_id: string }
         Returns: string[]
       }
+      kart_grid_allows: { Args: { p_topic: string }; Returns: boolean }
       link_github: { Args: never; Returns: Json }
       lookup_product: {
         Args: { p_prd?: number; p_repo: string; p_workspace: string }
@@ -3758,6 +3871,94 @@ export type Database = {
           github_login: string
         }[]
       }
+      outbox_item_adopt: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_raised: string
+          p_rank: string
+          p_repository?: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: Json
+      }
+      outbox_item_of: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_dossier: string
+          p_item: string
+          p_raised: string
+          p_rank: string
+          p_repository: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id: string
+          item: string
+          raised: string
+          raised_at: string
+          raised_by: string
+          rank: string
+          repository: string | null
+          slice: string
+          updated_at: string
+          wave: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "outbox_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      outbox_item_put: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_raised: string
+          p_rank: string
+          p_repository?: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: Json
+      }
+      outbox_prd_of: {
+        Args: { p_prd: number; p_product: string; p_repo: string }
+        Returns: {
+          birthplace: string | null
+          claude_session_id: string | null
+          created_at: string
+          home_repo: string | null
+          id: string
+          kind: string
+          numbered_at: string | null
+          opened_by: string | null
+          prd: number | null
+          product_id: string | null
+          product_seq: number | null
+          title: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dossiers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       outbox_send_done: {
         Args: {
           p_comment_url?: string
@@ -3767,6 +3968,19 @@ export type Database = {
           p_send: string
         }
         Returns: undefined
+      }
+      outbox_settle: {
+        Args: {
+          p_answer: string
+          p_basis: string
+          p_channel: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_repo?: string
+          p_verdict: string
+        }
+        Returns: Json
       }
       persona_add: {
         Args: {
@@ -3953,6 +4167,31 @@ export type Database = {
         Returns: Json
       }
       plan_repository_names: { Args: { p_plan: string }; Returns: string[] }
+      prd_dossier: {
+        Args: { p_prd: number; p_product?: string; p_repo: string }
+        Returns: {
+          birthplace: string | null
+          claude_session_id: string | null
+          created_at: string
+          home_repo: string | null
+          id: string
+          kind: string
+          numbered_at: string | null
+          opened_by: string | null
+          prd: number | null
+          product_id: string | null
+          product_seq: number | null
+          title: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dossiers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      prd_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -3960,10 +4199,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -3981,6 +4222,29 @@ export type Database = {
         Args: { p_member: string; p_product: string; p_state: string }
         Returns: Json
       }
+      product_of_key: {
+        Args: { p_key: string; p_repo?: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          prd_count: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_prd_ids_rollback_guard: { Args: never; Returns: undefined }
       product_rename: {
         Args: { p_name: string; p_product: string; p_workspace: string }
         Returns: {
@@ -3988,10 +4252,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4037,10 +4303,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4053,6 +4321,10 @@ export type Database = {
       product_repository_unlink: {
         Args: { p_product: string; p_repository: string }
         Returns: boolean
+      }
+      product_set_key: {
+        Args: { p_key: string; p_product: string }
+        Returns: Json
       }
       proof_criteria_valid: { Args: { c: Json }; Returns: boolean }
       proof_file_name_valid: { Args: { name: string }; Returns: boolean }
@@ -4176,10 +4448,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4196,10 +4470,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {

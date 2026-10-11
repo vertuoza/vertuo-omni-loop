@@ -2,8 +2,9 @@ import { approveDossier, answerApproval } from '../../../../src/approval/approva
 import { approvalDeps } from '../../../../src/approval/approval-live';
 
 // GET /api/dossiers/approval?repo=<owner/name>&prd=<n> → 200 {url, approval}: the approval in force of a
-// PRD born on the server, for `omni approval`. POST /api/dossiers/approval {dossier} → 201 {url, approval}:
-// a member approves it, and its issue gets the approved label (src/approval/approval-api.ts, PRD 1299).
+// PRD born on the server, for `omni approval`; a product PRD is named by its id, `?prd=mobile-12`
+// (PRD 1548). POST /api/dossiers/approval {dossier} → 201 {url, approval}: a member approves it, and its
+// issue, when it has one, gets the approved label (src/approval/approval-api.ts, PRD 1299).
 export const maxDuration = 60;
 
 export function GET(request: Request) {

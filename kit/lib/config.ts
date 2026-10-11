@@ -229,6 +229,9 @@ export const ConfigSchema = z
       outboxContext: text.default('outbox'),
       // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
       inboxContext: text.default('inbox'),
+      // PRD 1548: the name of the check run the omni-loop App posts on a target feature PR of a product
+      // PRD, saying whether what it builds is what was approved; `null` posts none.
+      approvedContext: nullableText.default('omni/approved'),
       aggregateCheck: nullableText.default(null),
       branchProtection: z.boolean().default(false),
       runner: text.default('ubuntu-latest'),
@@ -335,15 +338,20 @@ export const ConfigSchema = z
     // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
     // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
     // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
-    // `product` section lists.
+    // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
+    // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
+    // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
+    // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
     design: section({
       enabled: z.boolean().default(false),
       paths: z.array(text).default([]),
+      ignore: z.array(text).optional(),
       screens: nullableText.default(null),
       words: section({
         sentence: z.number().int().positive().default(7),
         screen: wordSelector.default('[data-screen]'),
         primary: wordSelector.default('[data-primary]'),
+        content: wordSelector.optional(),
         avoid: z.array(text).default([]),
       }),
     }),
