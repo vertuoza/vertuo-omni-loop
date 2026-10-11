@@ -224,3 +224,15 @@ the library read in step 1, the locked screen built as written, and the high ite
 ### Tests
 
 `kit/test/design-skills.test.ts`.
+
+## PRD #1584, slice s3 — touched-only holds and no screen changes
+
+- **Step 1, item 6** writes the rule down: a lock trips only when the slice's diff changes that
+  screen's own `implements`; a page lists a shared screen's files in `reads`.
+- **Step 4's design review** runs no pixel-perfect work for a PRD whose before/after says
+  `Pixel perfect: no screen changes`, and a fault under `Seen, not touched` is never fixed in the
+  slice nor an outbox item of it.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

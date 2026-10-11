@@ -3,7 +3,7 @@ screen: prd-dossier
 status: draft
 mock: prd-dossier.html
 implements: ["apps/galaxy/app/prd/[id]/page.tsx", "apps/galaxy/app/prd/[id]/not-found.tsx", "apps/galaxy/app/prd/[id]/loading.tsx", "apps/galaxy/src/dossier/page/*.tsx", apps/galaxy/src/dossier/page/dossier.css, apps/galaxy/src/dossier/page/view.ts, apps/galaxy/src/dossier/page/stage.ts]
-reads: ["apps/galaxy/app/prd/[id]/", apps/galaxy/src/dossier/page/]
+reads: ["apps/galaxy/app/prd/[id]/", apps/galaxy/src/dossier/page/, apps/galaxy/app/prd/layout.tsx, apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/Bell.tsx, apps/galaxy/src/nav/bell.ts]
 routes: [/prd/<id>]
 supersedes: null
 ---
@@ -13,7 +13,10 @@ supersedes: null
 The page to share for one PRD: its stage on top, then a tab per artifact (the before/after page, the
 spec, the plan, the User voice) and the tabs where people act on it (Questions, Outbox, PR care,
 Proof, Pitch, Retro). Rendered per request as the signed-in person, so row-level security decides
-what each read returns (`apps/galaxy/src/dossier/page/DossierRoute.tsx`).
+what each read returns (`apps/galaxy/src/dossier/page/DossierRoute.tsx`). It sits inside the app
+shell (`apps/galaxy/app/prd/layout.tsx`), a shared screen of its own, `app-shell`, with the bell its
+own `notifications`: their files are in `reads` here. The PRD's own text the page shows (its title,
+its spec, its plan) is content, marked `data-content` in the mockup.
 
 ## Regions
 

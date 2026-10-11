@@ -1413,7 +1413,8 @@ var ConfigSchema = z8.object({
   // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
   // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
   // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
-  // drops nothing.
+  // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
+  // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
   design: section({
     enabled: z8.boolean().default(false),
     paths: z8.array(text3).default([]),
@@ -1423,6 +1424,7 @@ var ConfigSchema = z8.object({
       sentence: z8.number().int().positive().default(7),
       screen: wordSelector.default("[data-screen]"),
       primary: wordSelector.default("[data-primary]"),
+      content: wordSelector.optional(),
       avoid: z8.array(text3).default([])
     })
   }),
