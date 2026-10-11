@@ -2,19 +2,16 @@ import 'server-only';
 import { viewer } from '../data/viewer';
 import { outboxItemsRepository } from '../outbox-items/outbox-items.repository';
 import { outboxItemsService } from '../outbox-items/outbox-items.service';
-import { liveSendServerEvent } from '../server-event/server-event-live';
+import { withOutboxAppTold } from '../server-event/server-event-live';
 import type { QuestionsHandlerDeps } from './questions.controller';
-import { questionsRepository } from './questions.repository';
-import { questionsService, tellSettled } from './questions.service';
+import { questionsService } from './questions.service';
 
 // The Questions tab's answer route's real dependencies (PRD 1548 s9), for /api/outbox/answer: the
 // signed-in person's client from the request's cookies, as viewer() reads it, so row-level security and
-// outbox_settle() decide what it reads and writes. The question is read through the outbox's own service
-// (src/outbox-items), the answer settled through the tab's repository, and the App then told
-// `item-settled` (src/server-event, s8), as the outbox's own settle route tells it. With no database here,
-// closed; the demo and a signed-out request, nobody.
-
-const log = (line: string) => { console.error(line); };
+// outbox_settle() decide what it reads and writes. The question is read and settled through the outbox's
+// own service (src/outbox-items), wrapped as the outbox's own routes wrap it, so the App is told
+// `item-settled` once (src/server-event, s8). With no database here, closed; the demo and a signed-out
+// request, nobody.
 
 export function questionsDeps(): QuestionsHandlerDeps {
   return {
@@ -23,14 +20,9 @@ export function questionsDeps(): QuestionsHandlerDeps {
       if (seen.kind === 'closed') return 'closed';
       if (seen.kind !== 'signed-in') return null;
       const outbox = outboxItemsRepository(seen.db);
-      const items = outboxItemsService(outbox);
-      const answers = questionsRepository(seen.db);
-      return questionsService({
-        items: (query) => items.items(query),
-        settle: (prd, settlement) => answers.settle(prd, settlement),
-        settled: tellSettled({ dossierOf: (prd) => outbox.dossier(prd), send: liveSendServerEvent, now: () => new Date(), log }),
-      });
+      const items = withOutboxAppTold(outboxItemsService(outbox), outbox.dossier);
+      return questionsService({ items: (query) => items.items(query), settle: (request) => items.settle(request) });
     },
-    log,
+    log: (line) => { console.error(line); },
   };
 }

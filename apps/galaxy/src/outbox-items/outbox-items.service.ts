@@ -6,9 +6,16 @@ import type { ItemColumns, OutboxItemsRepository, PrdOnProduct, Stored, StoredIt
 // A product PRD's outbox rules (PRD 1548 s7; ADR-0095), on its repository, for the kit's `server` outbox
 // store. An item's columns are read from its body by the kit's one item parser, so a row can never say
 // other than its markdown, and a body that is not an item of the PRD it is sent to is refused before the
-// database is asked. An answer given through the kit is recorded as given in the terminal. The database
+// database is asked. An answer is recorded where it was given: through the kit, in the terminal (the
+// default); from the product's Questions tab (src/questions, PRD 1548 s9), there. The database
 // has the last word on the rest: who is a member, a PRD of another workspace (no such PRD), an item
 // already settled, a rank other than medium adopted.
+
+/** Where an answer was given: in the terminal, through the kit, or on the product's Questions tab. */
+export type SettleChannel = 'questions' | 'terminal';
+
+/** A settlement to store: the request, and where its answer was given (the terminal when it names none). */
+export type Settlement = SettleRequest & { channel?: SettleChannel };
 
 /** A service answer: its value, or why it was refused, in plain words. */
 type Served<T> = { ok: true; value: T } | { ok: false; kind: OutboxRefusal; error: string };
@@ -76,11 +83,11 @@ export function outboxItemsService(repo: OutboxItemsRepository) {
       return stored.ok ? stored : writeRefusal(stored, prd.id);
     },
 
-    /** Settles an open item with an answer given in the terminal. */
-    settle: async (request: SettleRequest): Promise<Served<unknown>> => {
+    /** Settles an open item with an answer given at `channel`: the terminal, unless it says otherwise. */
+    settle: async (request: Settlement): Promise<Served<unknown>> => {
       const prd = prdOf(request);
-      const { item, verdict, basis, answer } = request;
-      const stored = await repo.settle(prd, { item, verdict, basis, answer, channel: 'terminal' });
+      const { item, verdict, basis, answer, channel = 'terminal' } = request;
+      const stored = await repo.settle(prd, { item, verdict, basis, answer, channel });
       return stored.ok ? stored : writeRefusal(stored, prd.id);
     },
   };
