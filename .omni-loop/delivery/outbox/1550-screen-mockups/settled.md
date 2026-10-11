@@ -160,3 +160,159 @@ Moving it later is one file move and three link changes, plus one name added to 
 ```
 
 <!-- /omni-outbox-settled: s4-01-mock-command-file-place -->
+
+<!-- omni-outbox-settled: s2-01-design-ignore-default-unset -->
+
+## s2-01-design-ignore-default-unset — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-design-ignore-default-unset
+prd: 1550
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+Should the setting that leaves tests out of the design check show its default list when someone asks the config for it, or only the list a repository wrote itself?
+
+## The decision, in plain words
+
+The default test shapes apply whenever a repository writes no list of its own, but asking the config for the setting says it is not set until the repository writes one.
+
+## The intro, for fun
+
+A setting with a default that it keeps to itself.
+
+## The punchline, for fun
+
+It works quietly; it just will not say so when asked.
+
+## The options, in plain words
+
+A. Leave the key unset when the file does not name it, and apply the default where it is read (built).
+B. Fill the default when the config is read, and update the law's proof in a law change of its own.
+C. Fill the default and make omni config print defaults for optional keys in general.
+
+## What I had to decide
+
+Whether design.ignore is filled with its four default globs when the config is read, so omni config design.ignore prints them.
+
+## What I did meanwhile
+
+design.ignore is optional in the schema; kit/lib/design/ignore.ts reads an unset key as the four test globs, and omni config design.ignore prints no key until a repository sets one.
+
+## What it costs to change later
+
+Filling the default is a one-line schema change (a .default), plus updating the design section's expected value in kit/lib/config.test.ts, a law's proof this slice may not touch.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The proof kit/lib/config.test.ts compares the whole parsed design section, so a filled default would turn it red; this slice was told not to edit it (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-01-design-ignore-default-unset -->
+
+<!-- omni-outbox-settled: s2-02-check-design-warning-print -->
+
+## s2-02-check-design-warning-print — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-check-design-warning-print
+prd: 1550
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+The design check now warns about screens that claim a whole folder; the line that prints those warnings sits in a file outside this slice's agreed area. Is that fine?
+
+## The decision, in plain words
+
+One line was added to the shared check command so the folder warnings reach the person, printed like the warnings of the other checks, and the check still passes.
+
+## The intro, for fun
+
+A warning nobody prints is a very polite warning.
+
+## The punchline, for fun
+
+So it borrowed one line next door to be heard.
+
+## The options, in plain words
+
+A. Print the warnings below the check, as the other checks print theirs (built).
+B. Print them on stdout above the pass line instead.
+C. Count them in the pass line only, without the lines.
+
+## What I had to decide
+
+Whether the one line printing check design's warnings may live in kit/bin/commands/check.ts, outside s2's territory.
+
+## What I did meanwhile
+
+gradeDesign returns warnings; check.ts prints each as 'warning: <line>' on stderr, as check kb does, and the guard's verdict is unchanged.
+
+## What it costs to change later
+
+Moving it is a one-line change: the grading already returns the warnings.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None: the plan lists check-design.ts but not the command that prints its result (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-02-check-design-warning-print -->
