@@ -174,11 +174,13 @@ Unit tests, next to each module, as `omni kb show testing` says; no test reaches
 - **Touched** (`touched.test.ts`, `kit/bin/design.test.ts`): a test-only change reads `ui: no`;
   `design.ignore: []` reads it `ui: yes`; a change under `reads` names `reads <screen>` and no locked
   screen; a change to `implements` without the mockup adds `mock may be stale`.
-- **Config** (`config.test.ts`): `design.ignore` defaults to the four globs and accepts `[]`.
+- **Config** (`kit/lib/design/ignore.test.ts`, a new file, so `kit/lib/config.test.ts`, a law's
+  proof, stays as it is): `design.ignore` defaults to the four globs and accepts `[]`.
 - **Gallery** (`gallery/*.test.ts`): a fixture library (locked, draft, superseded, one with no
   mockup) gives one self-contained page in that order, with `no mockup` where there is none; an empty
   library writes nothing; the flag off prints `design: off`.
-- **Skills** (`kit/test/plugin.test.ts`, a describe block of its own): `pixel-perfect` has
+- **Skills** (`kit/test/design-skills.test.ts`, a new file, so `kit/test/plugin.test.ts`, a law's
+  proof, stays as it is): `pixel-perfect` has
   `reference/mock.md` and names `data-screen` and `data-primary`; brainstorm and visual-fix tell the
   agent to mark screens; each screen-writing skill states the `implements`/`reads` rule.
 - **Docs** (`apps/galaxy/src/docs/*.test.ts`): the guide page still builds and links.
