@@ -160,7 +160,7 @@ omni ask on opens no session and closes none, so switching it on in one terminal
 
 Serves: P-PRODUCT-14
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s5-02-switching-when-the-page-is-away, PRD #71
-Enforced by: pending #1477
+Enforced by: kit/bin/ask.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
