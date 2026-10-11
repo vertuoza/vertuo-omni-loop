@@ -236,3 +236,24 @@ the library read in step 1, the locked screen built as written, and the high ite
 ### Tests
 
 `kit/test/design-skills.test.ts`.
+
+## PRD #1559, slice s5 — the design system before the first line, and the rounds
+
+- **Step 1, item 7,** under item 6's condition (design on, a slice that builds or changes a
+  screen), before the first line of the slice: `omni design parts`; with
+  `parts: no DESIGN.md (run /omni:pixel-perfect init)` nothing more is read. Otherwise DESIGN.md (the
+  file `omni config design.system` names) in full, then the reference screen the plan names on the
+  slice (`Reference screen:`), or the one of DESIGN.md's reference screens nearest what the slice
+  builds: its file and its mockup. The plan's `Parts:` are the parts the slice builds from.
+- **Step 2, build from the list:** a screen is built from listed parts, through their `Code`
+  paths, and semantic tokens, never a hex value or a one-off component; a part the list lacks is
+  built inside the territory and raised by step 4's parts check, never invented.
+- **Step 4's design review,** with a DESIGN.md, looks in up to three rounds, each holding only on
+  what the diff changed, then runs the parts check on the diff: one medium item per off-list part
+  the diff adds ("add `<part>` to DESIGN.md?", with the entry it would add), recorded through step 3
+  with `hardToRevert`, `breaksNamedLaw` and `needsHumanAction` all false, never a stop or a block.
+  The section gains the `Rounds — <n> of 3` and `Parts — …` lines.
+
+### Tests
+
+`kit/test/design-review-rounds.test.ts`, never `kit/test/plugin.test.ts`, a law's proof.
