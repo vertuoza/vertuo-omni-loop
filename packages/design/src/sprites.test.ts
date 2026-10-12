@@ -61,6 +61,9 @@ const FORGED: Record<string, string> = {
   'code-mark': 'ece31e0c07fdde23', 'arcade-cabinet': '7ccdd5e5b8ec8405',
   // OMNI KART's kart (PRD 1359), seen from behind: straight, leaning left, leaning right, pinned as first drawn.
   kart: '35afa0f7192d15fa', 'kart-left': '6be5ee4133dc3f94', 'kart-right': 'e8f72f74d8a0c11f',
+  // OMNI KART's other two designs (PRD 1762), straight and leaning, pinned as first drawn.
+  'kart-rocket': '983b7f07aeb1ebb3', 'kart-rocket-left': '234be03e3bcda862', 'kart-rocket-right': 'a4858d4c1d47ac92',
+  'kart-racer': '0fab972e7832cd7c', 'kart-racer-left': '462528ead5df9818', 'kart-racer-right': '1f00e783057b2b4b',
   // OMNI KART's ORB (PRD 1359, slice 5): the thrown item, pinned as first drawn.
   orb: 'fbe45272efb3d549',
   // OMNI KART's props and the start arch (PRD 1427, slice 3), pinned as first drawn.
@@ -427,6 +430,31 @@ describe('the platformer\'s tiles (PRD 817)', () => {
     assertDefined(white, 'the flat white');
     expect(block.has(white)).toBe(true);
     expect([...new Set(spritePixels('tile-block-empty').pixels)].some((p) => RAMPS.Y.includes(p))).toBe(false);
+  });
+});
+
+describe('OMNI KART\'s kart designs (PRD 1762)', () => {
+  const NAMES = ['kart-rocket', 'kart-rocket-left', 'kart-rocket-right', 'kart-racer', 'kart-racer-left', 'kart-racer-right'];
+
+  it.each(NAMES)('%s is 28x18, drawn in the kart\'s materials, on both frames', (name) => {
+    expect([SPRITE_DEFS[name]?.w, SPRITE_DEFS[name]?.h]).toEqual([28, 18]);
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual([28, 18]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(100);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('draws each design apart from the others and from its own leaning frames', () => {
+    const hashes = ['kart', ...NAMES].map((n) => digest(n));
+    expect(new Set(hashes).size).toBe(hashes.length);
+  });
+
+  it('takes the body tint like the classic kart does', () => {
+    const tint = { W: ['#111111', '#222222', '#333333', '#444444'] };
+    for (const name of ['kart', 'kart-rocket', 'kart-racer']) expect(digest(name, { tint }), name).not.toBe(digest(name));
   });
 });
 
