@@ -611,7 +611,7 @@ When the hero loses a life with lives left, the stage waits on its ready screen 
 
 Serves: P-PRODUCT-53
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
-Enforced by: pending #1517
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818

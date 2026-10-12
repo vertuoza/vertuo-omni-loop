@@ -133,3 +133,21 @@ describe('the end of a game', () => {
     expect(scoreToSend({ ...play, lives: 1 }, hearEvent({ ...play, lives: 1 }, 'pit'))).toBe(0);
   });
 });
+
+// BR-PRODUCT-56: when the hero loses a life with lives left, the stage waits on its ready screen with
+// the stage and lives left until the player presses start, as a new game does; play then resumes
+// from the stage's start with the score kept.
+describe('law BR-PRODUCT-56: a life lost with lives left waits on the stage\'s ready screen', () => {
+  it.each(['hurt', 'pit', 'second'] as const)('after a %s, waits for START on the stage\'s ready screen, then plays the stage from its start, the score kept', (e) => {
+    const playing: Session = { ...play, stage: '1-2', score: 900, coins: 3, lives: 3, time: e === 'second' ? 1 : 40 };
+    const lost = hearEvent(playing, e);
+    expect(lost.phase).toBe(newSession().phase);
+    expect(lost).toMatchObject({ stage: '1-2', lives: 2, score: 900 });
+
+    for (const a of ['a', 'left', 'right', 'up', 'down', 'select'] as const) expect(pressSession(lost, a, 'ready').session, a).toBe(lost);
+    for (const ev of ['coin', 'stomp', 'hurt', 'pit', 'flag', 'second'] as const) expect(hearEvent(lost, ev), ev).toBe(lost);
+
+    const resumed = pressSession(lost, 'start', 'ready').session;
+    expect(resumed).toEqual({ ...playing, lives: 2, time: STAGE_SECONDS, phase: 'play' });
+  });
+});
