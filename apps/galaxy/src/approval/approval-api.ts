@@ -85,7 +85,7 @@ const PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 const KEY_MAX = 40;
 
 /** Which PRD a call names: a repository's by its number, or a product's by its key and number. */
-type PrdKey = { repo: string; prd: PrdNumber; product: null } | { repo: string; seq: number; product: string };
+export type PrdKey = { repo: string; prd: PrdNumber; product: null } | { repo: string; seq: number; product: string };
 
 /** A product PRD's key and number, from its id; null when the id is out of shape. */
 function productPrdOf(id: string): { product: string; seq: number } | null {
@@ -132,8 +132,10 @@ function refusalOf(error: { code?: string; message?: string }, deps: ApprovalDep
 /** The PRD `key` names, as a person reads it. */
 const nameOf = (key: PrdKey): string => (key.product === null ? `#${key.prd} of ${key.repo}` : `${key.product}-${key.seq}`);
 
-/** The approval in force of the PRD `key` names, as `db`'s caller reads it, or the Response that says why not. */
-async function inForce(request: Request, db: ApprovalDb, key: PrdKey, deps: ApprovalDeps): Promise<Response> {
+/** The approval in force of the PRD `key` names, as `db`'s caller reads it, or the Response that says why not
+ * (`key` itself, when the query was refused). */
+async function inForce(request: Request, db: ApprovalDb, key: PrdKey | Response, deps: ApprovalDeps): Promise<Response> {
+  if (key instanceof Response) return key;
   const args = key.product === null ? { p_repo: key.repo, p_prd: key.prd } : { p_repo: key.repo, p_prd: key.seq, p_product: key.product };
   const answer = await db.rpc('dossier_approval', args);
   if (answer.error) return refusalOf(answer.error, deps, NOT_READ);
@@ -153,11 +155,10 @@ function prdOf(value: string | null): PrdNumber | null {
   return parsed.success && parsed.data <= PRD_MAX ? parsed.data : null;
 }
 
-/** GET: the approval in force, for the kit's `omni approval`. */
-export async function answerApproval(request: Request, deps: ApprovalDeps): Promise<Response> {
-  if (!deps.connect) return refuse(503, NO_DATABASE);
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
-  if (!auth.ok) return refuse(auth.status, auth.error);
+/** The PRD a GET's query names, `?repo=<owner/name>&prd=<n>` or `?prd=<key>-<n>[&repo=…]`, its
+ * repository in lower case; or the 400 that refuses it. Shared with the App's judge route
+ * (src/approvals/judge.controller.ts, PRD 1612), which reads a repository's PRD only. */
+export function prdQueryOf(request: Request): PrdKey | Response {
   const query = new URL(request.url).searchParams;
   const repo = query.get('repo') ?? '';
   const named = query.get('prd') ?? '';
@@ -165,13 +166,21 @@ export async function answerApproval(request: Request, deps: ApprovalDeps): Prom
   const badRepo = () => refuse(400, '`repo` must be the repository as owner/name.');
   if (product) {
     if (repo !== '' && (repo.length > 200 || !REPO.test(repo))) return badRepo();
-    return inForce(request, deps.connect(auth.caller.token), { repo: repo.toLowerCase(), ...product }, deps);
+    return { repo: repo.toLowerCase(), ...product };
   }
   if (/[^\d.]/.test(named)) return refuse(400, NOT_A_PRD);
   if (repo.length > 200 || !REPO.test(repo)) return badRepo();
   const prd = prdOf(named === '' ? null : named);
   if (prd === null) return refuse(400, "`prd` is the PRD's number.");
-  return inForce(request, deps.connect(auth.caller.token), { repo: repo.toLowerCase(), prd, product: null }, deps);
+  return { repo: repo.toLowerCase(), prd, product: null };
+}
+
+/** GET: the approval in force, for the kit's `omni approval`. */
+export async function answerApproval(request: Request, deps: ApprovalDeps): Promise<Response> {
+  if (!deps.connect) return refuse(503, NO_DATABASE);
+  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
+  if (!auth.ok) return refuse(auth.status, auth.error);
+  return inForce(request, deps.connect(auth.caller.token), prdQueryOf(request), deps);
 }
 
 /** The caller of a POST: its bearer token's client when it carries one, else the page's session. */

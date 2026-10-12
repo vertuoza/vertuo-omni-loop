@@ -5,20 +5,23 @@ import { workPath } from '../dossier/page/work';
 import { brainstormLine } from '../ideas/members/members';
 import { boardPath, LANES } from '../ideas/model';
 import { IDEAS } from '../ideas/words';
+import type { QuestionView } from '../questions/questions.contract';
+import { EMPTY_QUESTIONS, QuestionsList } from '../questions/QuestionsList';
 import type { HomeFix, HomeIdea, HomeQuestion, HomeRoadmap, ProductHome as Home } from './product-home.service';
 
 // The product home's other tabs, drawn (PRD 1364 s10): each lists only the product's own. Ideas: each idea
 // with its repository's board, its lane there, the PRD it became and its /omni:brainstorm line. Roadmap:
 // each roadmap with its milestone and target date, opening /roadmaps/<id>. Bug fixes and Visual fixes:
-// each fix opening its page. Questions: each outbox question waiting on a person, with its PRD, linking to
-// where it is answered today, the PRD page's Outbox tab. Each tab says so when it has nothing.
+// each fix opening its page. Questions: each open outbox question, with its PRD, its repository and who it
+// is for (PRD 1548 s9, src/questions/QuestionsList.tsx): a product PRD's answered there, a repository
+// PRD's on its PRD page's Outbox tab. Each tab says so when it has nothing.
 
 export const EMPTY = {
   ideas: 'No idea carries this product yet. An idea takes its product when it is added to a board of the product’s repository.',
   roadmap: 'No roadmap carries this product yet.',
   bugs: 'No bug fix carries this product yet.',
   visual: 'No visual fix carries this product yet.',
-  questions: 'No outbox question of the product’s PRDs waits on a person.',
+  questions: EMPTY_QUESTIONS,
 } as const;
 
 /** An idea's lane as its board names it: Now, Next or Later; a lane no board has, as stored. */
@@ -90,23 +93,8 @@ function Fix({ fix, kind }: { fix: HomeFix; kind: 'bug' | 'visual' }) {
   );
 }
 
-function Question({ q }: { q: HomeQuestion }) {
-  return (
-    <Row
-      data="question"
-      mark={q.prd}
-      title={<span className="product-home-title">{q.question}</span>}
-      meta={(
-        <>
-          <span className="products-chip">{q.repo}</span>
-          <span>{q.title}</span>
-          <Link href={outboxTabPath(q.dossier)}>Answer on its Outbox tab →</Link>
-        </>
-      )}
-      end={q.rank}
-    />
-  );
-}
+/** A question as the Questions tab draws it, with the addresses of its PRD's page. */
+const viewOf = (q: HomeQuestion): QuestionView => ({ ...q, prdHref: workPath('prd', q.dossier), outboxHref: outboxTabPath(q.dossier) });
 
 export const IdeasTab = ({ home }: { home: Home }) => (
   <List label={`${home.product.name}'s ideas`} empty={EMPTY.ideas}>{home.ideas.map((i) => <Idea key={i.id} idea={i} />)}</List>
@@ -124,8 +112,6 @@ export const VisualTab = ({ home }: { home: Home }) => (
   <List label={`${home.product.name}'s visual fixes`} empty={EMPTY.visual}>{home.visuals.map((f) => <Fix key={f.dossier} fix={f} kind="visual" />)}</List>
 );
 
-export const QuestionsTab = ({ home }: { home: Home }) => (
-  <List label={`${home.product.name}'s questions`} empty={EMPTY.questions}>
-    {home.questions.map((q) => <Question key={`${q.dossier}:${q.id}`} q={q} />)}
-  </List>
+export const QuestionsTab = ({ home, demo = false }: { home: Home; demo?: boolean }) => (
+  <QuestionsList label={`${home.product.name}'s questions`} questions={home.questions.map(viewOf)} demo={demo} />
 );

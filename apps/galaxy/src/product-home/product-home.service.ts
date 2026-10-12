@@ -1,9 +1,12 @@
 import { currentStage, STAGE_LABELS, type StoredStage } from '../stages/stage';
 import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
+import { sortItems } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
+import type { QuestionView } from '../questions/questions.contract';
 import {
   productHomeRepository, type ProductHomeDb, type ProductHomeRepository, type StoredApproval, type StoredHomePrd,
-  type StoredFix, type StoredIdea, type StoredOutbox, type StoredPull, type StoredRoadmap, type StoredStageRow, type StoredTopic,
-  type StoredVoid,
+  type StoredFix, type StoredIdea, type StoredItem, type StoredOutbox, type StoredPlayer, type StoredProductPrd, type StoredPull,
+  type StoredRoadmap, type StoredStageRow, type StoredTopic, type StoredVoid,
 } from './product-home.repository';
 
 // The product home's rules (PRD 1364 s9; ADR-0095): /app/products/<id> opens on the Ledger, what waits
@@ -30,7 +33,10 @@ import {
 // Its other tabs (s10) list only the product's own: its ideas still on a board (ideas.product_id), its
 // roadmaps (roadmaps.product_id), its bug fixes and visual fixes (dossiers of kind `bug` and `visual`),
 // each newest first, and its Questions: every outbox item waiting on a person (prd_outbox.waiting) of a
-// PRD of the product not yet shipped, newest PRD first, in the order its outbox lists them.
+// PRD of the product not yet shipped, newest PRD first, in the order its outbox lists them. Since PRD 1548
+// s9 they include the open items of the product's product PRDs (`mobile-12`, its outbox on the server),
+// the worst first, each with the repository it was raised in, its options and the PRD it is answered on;
+// and every question says who it is for, read from its rank.
 
 /** Where a PRD was born: `server` (◆, approved on its page) or `repo` (◇, by its phase-0 pull request). */
 export type Birthplace = 'server' | 'repo';
@@ -112,16 +118,9 @@ export interface HomeFix {
   created: string;
 }
 
-/** An outbox question of one of the product's PRDs that waits on a person (s10). */
-export interface HomeQuestion {
-  dossier: string;
-  repo: string;
-  prd: PrdNumber;
-  title: string;
-  id: string;
-  rank: string;
-  question: string;
-}
+/** An outbox question of one of the product's PRDs that waits on a person (s10), as the Questions tab
+ * draws it (PRD 1548 s9), but for the addresses of its PRD's page, which the page adds. */
+export type HomeQuestion = Omit<QuestionView, 'prdHref' | 'outboxHref'>;
 
 /** Everything the product home draws. */
 export interface ProductHome {
@@ -153,6 +152,13 @@ export interface ProductHomeRows {
   ideas: readonly StoredIdea[];
   roadmaps: readonly StoredRoadmap[];
   fixes: readonly StoredFix[];
+  /** The product's key, which names its product PRDs (`mobile-12`); null before it is set. */
+  key: string | null;
+  /** The product's product PRDs, newest first, and their outbox items, oldest first (PRD 1548 s9). */
+  productPrds: readonly StoredProductPrd[];
+  items: readonly StoredItem[];
+  /** The players of the PRDs' authors: their GitHub logins. */
+  players: readonly StoredPlayer[];
   /** Who reads: their user id. */
   me: string;
 }
@@ -280,9 +286,58 @@ const roadmapOf = (r: StoredRoadmap): HomeRoadmap =>
 const fixesOf = (fixes: readonly StoredFix[], kind: StoredFix['kind']): HomeFix[] =>
   fixes.filter((f) => f.kind === kind).map((f) => ({ dossier: f.id, repo: f.home_repo, title: f.title, created: f.created_at }));
 
-/** The questions of one PRD still open: each item its outbox holds waiting on a person. */
-const questionsOf = (prd: HomePrd, waiting: StoredOutbox['waiting']): HomeQuestion[] =>
-  waiting.map((w) => ({ dossier: prd.dossier, repo: prd.repo, prd: prd.prd, title: prd.title, id: w.id, rank: w.rank, question: w.question }));
+/** Who a question is for, in a few words, from its rank and its PRD's author. */
+type WhoIsFor = (rank: string, author: string | null) => string;
+
+/** Who a question is for, read from its rank (PRD 1548 s5-04): one that asks a person to act is for
+ * whoever can do it; any other is for its PRD's author: you, their GitHub login, or its author when the
+ * login is unknown. */
+function whoIsFor(rows: ProductHomeRows): WhoIsFor {
+  const logins = new Map(rows.players.flatMap((p) => (p.github_login === null ? [] : [[p.user_id, p.github_login] as const])));
+  return (rank, author) => {
+    if (rank === 'human-action') return 'for a person who can do it';
+    if (author !== null && author === rows.me) return 'for you';
+    const login = author === null ? undefined : logins.get(author);
+    return login === undefined ? 'for its author' : `for ${login}`;
+  };
+}
+
+/** A PRD's questions, and when the PRD was made, for the tab's newest-first order. */
+type QuestionGroup = { created: string; questions: HomeQuestion[] };
+
+/** The questions of one repository's PRD still open: each item its outbox holds waiting on a person,
+ * answered on its PRD page. */
+const repoQuestionsOf = (prd: HomePrd, author: string | null, waiting: StoredOutbox['waiting'], who: WhoIsFor): HomeQuestion[] =>
+  waiting.map((w) => ({
+    dossier: prd.dossier, prdLabel: String(prd.prd), title: prd.title, repo: prd.repo, id: w.id, rank: w.rank, question: w.question,
+    forWhom: who(w.rank, author), options: [], answerOn: null,
+  }));
+
+/** One open item of a product PRD, as a question answered here: its plain words and options read from
+ * its body by the kit's one item parser. */
+function itemQuestion(item: StoredItem, prd: StoredProductPrd, prdId: string | null, who: WhoIsFor): HomeQuestion {
+  const parsed = parseOutboxItem(item.body);
+  const sections = parsed.ok ? parsed.item.sections : {};
+  return {
+    dossier: prd.id, prdLabel: prdId ?? String(prd.product_seq), title: prd.title, repo: item.repository, id: item.item, rank: item.rank,
+    question: sections.questionPlain ?? item.item, forWhom: who(item.rank, prd.opened_by), options: sections.options ?? [], answerOn: prdId,
+  };
+}
+
+/** The open questions of the product's product PRDs (PRD 1548 s9): every item not yet settled, the
+ * worst first, as the outbox gate counts them (s7-03). */
+function productQuestionsOf(rows: ProductHomeRows, who: WhoIsFor): QuestionGroup[] {
+  const open = groupBy(rows.items.filter((i) => i.outbox_settlements.length === 0), (i) => i.dossier_id);
+  return rows.productPrds.map((prd) => {
+    const prdId = rows.key === null ? null : `${rows.key}-${String(prd.product_seq)}`;
+    const ranked = sortItems((open.get(prd.id) ?? []).map((item) => ({ id: item.item, rank: item.rank, item })));
+    return { created: prd.created_at, questions: ranked.map(({ item }) => itemQuestion(item, prd, prdId, who)) };
+  });
+}
+
+/** Every PRD's questions, newest PRD first. */
+const newestFirst = (groups: QuestionGroup[]): HomeQuestion[] =>
+  [...groups].sort((a, b) => Date.parse(b.created) - Date.parse(a.created)).flatMap((g) => g.questions);
 
 /** The product home from the rows read. */
 export function productHomeOf(rows: ProductHomeRows): ProductHome {
@@ -290,12 +345,13 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
   const lanes: Record<LaneId, LedgerRow[]> = { 'on-you': [], 'on-review': [], 'on-agent': [] };
   const summary: LedgerSummary = { building: 0, waitingOnPerson: 0, drifted: 0 };
   const prds: PrdsTabRow[] = [];
-  const questions: HomeQuestion[] = [];
+  const who = whoIsFor(rows);
+  const groups: QuestionGroup[] = productQuestionsOf(rows, who);
   for (const stored of rows.prds) {
     const { tab, stage, place, row, waiting } = readPrd(stored, index, rows);
     prds.push(tab);
     if (place === null) continue;
-    questions.push(...questionsOf(tab, waiting));
+    groups.push({ created: stored.created_at, questions: repoQuestionsOf(tab, stored.opened_by, waiting, who) });
     count(summary, stage, place);
     if (place.lane !== null) lanes[place.lane].push(row(place.state));
   }
@@ -307,7 +363,7 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
     roadmaps: rows.roadmaps.map(roadmapOf),
     bugs: fixesOf(rows.fixes, 'bug'),
     visuals: fixesOf(rows.fixes, 'visual'),
-    questions,
+    questions: newestFirst(groups),
   };
 }
 
@@ -323,12 +379,14 @@ export function productHomeService(store: ProductHomeRepository) {
     /** The product home, as the reader sees it; null when the workspace holds no such product. Throws when a
      * read fails. */
     async home({ product: id, workspace, me }: HomeRequest): Promise<ProductHome | null> {
-      const product = await store.product(workspace, id);
-      if (product === null) return null;
-      const prds = await store.prds(workspace, id);
+      const found = await store.product(workspace, id);
+      if (found === null) return null;
+      const product = { id: found.id, name: found.name };
+      const [prds, productPrds] = await Promise.all([store.prds(workspace, id), store.productPrds(workspace, id)]);
       const repos = [...new Set(prds.map((p) => p.home_repo))];
       const dossiers = prds.map((p) => p.id);
-      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes] = await Promise.all([
+      const authors = [...new Set([...prds, ...productPrds].flatMap((p) => (p.opened_by === null ? [] : [p.opened_by])))];
+      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players] = await Promise.all([
         store.stages(workspace, repos),
         store.outbox(workspace, repos),
         store.topics(workspace, repos),
@@ -339,8 +397,12 @@ export function productHomeService(store: ProductHomeRepository) {
         store.ideas(workspace, id),
         store.roadmaps(workspace, id),
         store.fixes(workspace, id),
+        store.items(productPrds.map((p) => p.id)),
+        store.players(workspace, authors),
       ]);
-      return productHomeOf({ product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, me });
+      return productHomeOf({
+        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, me,
+      });
     },
   };
 }

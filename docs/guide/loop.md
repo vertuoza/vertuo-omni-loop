@@ -95,7 +95,7 @@ on its row. It is off (`pr`) by default, and only an owner can flip it, both way
   |---|---|---|
   | waiting | `PRD <n> waits for approval: <link>` | approve it on its page |
   | approved | `approved by <login> · <time>` | nothing: building may start |
-  | drifted | `≠ plan.md · content`, or `· whitespace only` | restore the file, or approve again: the page shows **drifted · approve again** |
+  | drifted | `≠ plan.md · content`, or `· whitespace only` | run `omni approval restore <n>` ([below](#restore-a-drifted-file)), or approve again: the page shows **drifted · approve again** |
   | unreachable | `server unreachable · held, not failed` | wait: the PRD carries on once the page answers |
   | refused | `approver <login> is not a workspace member` | approve again, as a member |
 
@@ -135,6 +135,76 @@ approval, and waits for it, instead of stopping.
   waiting terminal prints `✗ approval voided by <pusher>'s push` and asks again.
 - **`/loop /omni:drive` never waits.** It parks a PRD waiting for approval, as it parks one whose
   phase-0 pull request is open, and a later tick builds it once it is approved.
+
+### The omni/approved check
+
+A ◆ PRD's approval also shows where the code is reviewed: the omni-loop App posts one check, named
+`omni/approved`, on its pull requests. It reads the approval in force on the Omni page and compares
+each pinned file with the same file at the pull request's head, with the same judge as
+`omni approval <n>`: the terminal and the check never disagree. A repository may rename the check
+with `ci.approvedContext` in its config.
+
+- **Which pull requests get it.** The feature pull request of a PRD born on the server (◆), and every
+  target pull request whose body starts `Part of <owner/repo>#<n>`, for PRD n of that
+  repository (a plan repository's PRD that lands in several). A product's PRD gets it too, on each
+  target pull request that is `Part of <key>-<n>` ([Products](products.md)): one check, one set of
+  states, whichever kind of PRD it is.
+  A sub-PR never gets it, nor the pull request of a PRD born in its repository (◇: its merged phase-0
+  pull request was its approval), nor a pull request that names no PRD.
+- **Its states**, the same for every PRD. Each title is shown here for a ◆ PRD, judged at the pull
+  request's head:
+
+  | state | conclusion | the check's title |
+  |---|---|---|
+  | building | success | `building · <k> of <k> pinned`: every pinned file is the one approved |
+  | pending | failure | `pending · PRD <n> waits for approval` |
+  | drifted | failure | `drifted · ≠ <file> in <head> · content` (or `· whitespace only`, `· missing`, `· voided by <pusher>'s push`); its summary says to run `omni approval restore <n>`, or approve again |
+  | refused | failure | `refused · approver <login> is not a workspace member` |
+  | held | neutral | `held · server unreachable · held, not failed` |
+
+  A drift is a failure: a pull request built on plan files nobody approved must not look fine. A
+  server that cannot be read, or that answered an error, is never one: the check is held, neutral,
+  and reruns.
+- **When it runs: webhooks only, no poll.** It reruns on a pull request when it is opened, pushed
+  to, reopened, edited or marked ready. It reruns on every open pull request of a PRD when the PRD's
+  issue gains or loses the `omni:approved` label: the Omni page adds it when a member approves, and
+  removes it when the approval is voided. So approving turns every target's pull request green at
+  once, and a void turns them back. Runs are debounced per pull request and spend the App's GitHub
+  budget like its other checks.
+
+#### The Details
+
+The check's **Details** open the PRD's page on the Omni page, `/prd/<id>`, at the proof behind the
+check: a ◆ PRD's approval (`#approval`), with who approved it and when, and each pinned file; a
+product's PRD's attestation (`#attestation`, [Products](products.md)). The check's own summary says
+which head it read, and names each file that drifted.
+
+#### Restore a drifted file
+
+A push that changed a pinned file by mistake, or only its whitespace, needs nobody's approval:
+
+```bash terminal
+omni approval restore <n>
+```
+
+It reads the approval in force, as `omni approval <n>` does, and writes each drifted file back from
+the version that was approved, after checking that its content hashes to the pinned sha256. It
+prints one line per file, `restored <file> · <how> · sha256 <hash>`. It writes nothing for a version
+whose content does not hash as pinned, a version the page cannot send, or an approval a push voided:
+each says `approve again: <PRD page>`. It never commits and never pushes: review the diff, commit,
+push, and the check turns green. Only a content change you want to keep needs a member to approve
+the PRD again.
+
+#### Make it a required check
+
+The check is a signal: it blocks nothing until a repository asks it to. To enforce the gate on a
+repository, an admin adds it to the default branch's required checks on GitHub: **Settings ›
+Branches** (or **Settings › Rules › Rulesets**), the rule of the default branch, **Require status
+checks to pass before merging**, then add `omni/approved` (or the name `ci.approvedContext` gives).
+The check must have run once on a pull request of the repository for GitHub to offer it. From then
+on, a check that failed (pending, drifted, refused) blocks the merge. A held check is neutral and
+never blocks a merge, even when required. A repository that leaves it out keeps the check as a
+signal.
 
 ## The pull requests you will see
 

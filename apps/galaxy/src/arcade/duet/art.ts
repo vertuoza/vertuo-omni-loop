@@ -1,9 +1,9 @@
 // OMNI DUET's playfield on the canvas (PRD 1633): the 320×288 field, the circle with nothing at its
 // centre, the two orbs on it, each with its short trail (the warm one in the orange ramp, the
-// cool one in the theme's cyan), and the wave's Entropy blocks falling through it, in Entropy's ramp
-// with spikes along their edges. The scene places the field on the grid (scenes/duet.ts); this file
-// draws in the field's own game pixels. Every colour equal to a theme token is read from the frame's
-// theme (ADR-0046).
+// cool one in the theme's cyan), and the wave's obstacles falling through it as Entropy blocks, in
+// Entropy's ramp with spikes along their long edges. The scene places the field on the grid
+// (scenes/duet.ts); this file draws in the field's own game pixels. Every colour equal to a theme
+// token is read from the frame's theme (ADR-0046).
 import { RAMPS, rampFrom } from '@omni/design';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Action } from '../keys';

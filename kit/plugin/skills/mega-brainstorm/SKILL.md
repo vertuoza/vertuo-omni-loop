@@ -1,6 +1,6 @@
 ---
 name: mega-brainstorm
-description: The brainstorm of a plan repository — turns one idea into one PRD whose plan says which slice lands in which target repository. Surveys the targets through omni targets, designs with the person (which repository does what is asked, never assumed), reads each repository the design touches from a shallow read-only clone in the scratch folder (nothing runs in it), then writes the PRD issue, the spec with its Repositories section, a before/after page grouped by repository, a multi-repository plan graded by omni plan check, the draft feature PR and one phase-0 PR with a What lands where table, all in the plan repository. Writes nothing in any target, merges nothing. Ends with the /omni:ultra-yolo line. Triggers on "mega-brainstorm", "brainstorm across repositories", "one PRD for the back-end and the front-end", "plan this across the targets", "/omni:mega-brainstorm".
+description: The brainstorm of a plan repository — turns one idea into one PRD whose plan says which slice lands in which target repository. Surveys the targets through omni targets, designs with the person (which repository does what is asked, never assumed), reads each repository the design touches from a shallow read-only clone in the scratch folder (nothing runs in it), then writes the PRD issue, the spec with its Repositories section, a before/after page grouped by repository, a multi-repository plan graded by omni plan check, the draft feature PR and one phase-0 PR with a What lands where table, all in the plan repository. Writes nothing in any target, merges nothing. With --product <key>, runs instead from any kitted checkout of a product's repository, remembers the product, and ends with a product PRD on its page, no issue and no PR. Ends with the /omni:ultra-yolo line. Triggers on "mega-brainstorm", "brainstorm across repositories", "one PRD for the back-end and the front-end", "plan this across the targets", "/omni:mega-brainstorm".
 ---
 
 # Mega-brainstorm: one idea into one PRD across repositories
@@ -39,7 +39,9 @@ test, no script, no hook, no command from its README or its package manifest. On
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the
    repository is not installed. Keep the JSON: everything `/omni:brainstorm` step 0 keeps, plus
    `plan`.
-2. **A plan repository only.** When the JSON has no `plan` section, stop in exactly one line:
+2. **A plan repository only,** unless this is a product run: with `--product <key>`, or with a
+   product this checkout remembers, follow **From a product** below from here on. Otherwise, when the
+   JSON has no `plan` section, stop in exactly one line:
 
    ```text
    not a plan repository: run /omni:mega-invade first, or /omni:brainstorm for this repository alone
@@ -49,6 +51,79 @@ test, no script, no hook, no command from its README or its package manifest. On
    as `/omni:brainstorm` step 0 runs them.
 4. **The scratch folder:** `mktemp -d`, outside the plan repository and outside its worktrees. Every
    clone of step 3 goes there, and the folder is deleted when the skill ends, whatever the outcome.
+
+## From a product (`--product <key>`)
+
+A **product PRD** (◆, PRD 1548) lives on its product on the Omni page, and in no repository: its
+id is the product's key and a counter, `mobile-12`, and its spec, plan, before/after page and voice
+are its dossier's versions. This run starts from any checkout of a repository the product holds that
+has the kit installed, a plan repository or not, and writes nothing in any repository: no PRD issue,
+no feature branch, no commit, no phase-0 PR, no feature PR and no plan PR. Everything else runs as
+the steps below say, with these differences.
+
+**Which product.** With `--product <key>`, run `node .omni-loop/bin/omni.mjs product use <key>`: it
+prints `product <key> remembered in this checkout`, and every worktree of the checkout reads it from
+then on. Exit 2 means the key is not one (lowercase kebab-case, as `mobile`): print its line and stop.
+Without `--product`, run `node .omni-loop/bin/omni.mjs product which`: a first line
+`remembered: <key>` makes this a run for the remembered product, said in one line before anything
+else (`from product <key>, remembered in this checkout`). Without `--product` and with nothing
+remembered, the skill runs as written, in a plan repository only (step 0).
+
+**Step 1, the targets,** are the product's repositories. When the config has `plan.product`,
+`omni targets --json` reads them, as step 1 says. Otherwise the design names them: this checkout's
+repository and each one the person names, asked and never assumed, as step 2 says. The guide and the
+imported copies of step 1 are read when this checkout has them.
+
+**Step 2, the design,** asks no product question: the product is `<key>`.
+
+**Every target is `phase0: server`.** Once the design is approved, and before step 3 clones
+anything, run `node .omni-loop/bin/omni.mjs product phase0 <owner/name>…` with every repository
+the design touches. It prints one line each, exit 0 only when all are on server. A target on `pr`
+is refused by name, with the line as printed:
+
+```text
+<repo> is phase0: pr · switch it to server on its Omni page, or leave it out
+```
+
+Take each refused target back to step 2: the person leaves it out or switches it and asks again.
+A `<repo>: its phase0 could not be read: <why>` line holds the run: print it and stop, since a
+target whose flag cannot be read is never assumed to be on server.
+
+**Steps 4 to 9: the files go to the server.** Write the PRD's files, as steps 5 and 6 and the plan
+of step 8 write them, into one folder of the scratch folder, `<prd folder>`, under their own names
+(`spec.md`, `plan.md`, `before-after.html`, `voice.json` when the brainstorm writes one). The
+spec's front matter says `phase0: server`, and its `prd:` line is filled once the PRD has an id.
+
+1. **Create it** once the spec and the before/after page are written:
+   `node .omni-loop/bin/omni.mjs dossier push --product <key> --new --from <prd folder>`. It prints
+   the new id, `<key>-<n>`, then the PRD's page link and the versions added. A refusal (no such
+   product, no sign-in, the server unreachable) is printed as is, and the run stops there: nothing
+   was created.
+2. **Plan it** as step 8 says, writing `plan.md` into `<prd folder>`, its `## Repositories` table
+   from the clones of step 3. `omni plan check` reads a repository's PRD only: the hand-off names it
+   as not run.
+3. **Save each edit** with `node .omni-loop/bin/omni.mjs dossier push <key>-<n> --from <prd folder>`:
+   the filled `prd:` line, the plan, any change after a review. A file that did not change adds no
+   version.
+4. **Read it back** with `node .omni-loop/bin/omni.mjs prd <key>-<n>`: `birthplace: server` and its
+   approval, pending until an approver of the product approves it on its page.
+
+Step 4's issue, step 7's commit and `check inbox`, step 8's feature PR and step 9's phase-0 PR are
+not made. The scratch folder, `<prd folder>` with it, is deleted when the skill ends, as step 0
+says: the server holds every file.
+
+**Step 10, the hand-off,** reports the PRD's id, its page (the link `dossier push` printed), the
+waves the plan holds, every check that ran or did not, and each refused target. Its **What is
+next?** block reads:
+
+```markdown
+**What is next?**
+
+1. Review and approve PRD <key>-<n> on its page: <page link>
+2. Once it is approved, type /clear (or open a new terminal), then run:
+
+/omni:ultra-yolo <key>-<n>
+```
 
 ## 1. Survey the targets
 

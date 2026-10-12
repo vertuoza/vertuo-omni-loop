@@ -1,12 +1,15 @@
 // `/api/server-event` (PRD 1548 s4): galaxy tells the App that the server changed a product PRD, so the
-// App re-posts its checks on that PRD's open target pull requests without waiting for a webhook.
+// App re-posts both its checks, `omni/approved` and the outbox check, on that PRD's open target pull
+// requests without waiting for a webhook.
 //
 // Galaxy POSTs `{ event, dossier, at }` here, signed with an HMAC-SHA256 over the exact body under
 // `STAGE_EVENT_SECRET`, the secret both apps already share for the stage events, in the same
 // `x-omni-signature-256: sha256=<hex>` header (../stage-forward/stage-forward.ts):
 //
-//   - `event`    `approved` (a member approved the PRD on its page) or `voided` (a push changed a file
-//                the approval in force pinned);
+//   - `event`    `approved` (a member approved the PRD on its page), `voided` (a push changed a file
+//                the approval in force pinned), `item-opened` (an outbox item was raised or rewritten
+//                while open) or `item-settled` (an item was answered, or adopted as it was raised;
+//                PRD 1548 s8);
 //   - `dossier`  the product PRD's dossier, its id;
 //   - `at`       when it happened, ISO 8601.
 //
@@ -28,7 +31,7 @@ export const SERVER_EVENT = 'omni-loop/server.event.received';
 export const SERVER_SIGNATURE_HEADER = STAGE_SIGNATURE_HEADER;
 
 /** What the server says changed a product PRD. */
-const SERVER_EVENT_KINDS = ['approved', 'voided'] as const;
+const SERVER_EVENT_KINDS = ['approved', 'voided', 'item-opened', 'item-settled'] as const;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
