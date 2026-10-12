@@ -35,27 +35,27 @@ form wins.
 ## Setup
 
 - Node >= 22.18 (`engines` in `package.json`).
-- **pnpm 9.** CI installs pnpm 9 and nothing in the repository pins it. pnpm 12 refuses this
-  lockfile ("node_modules are out of sync with your lockfile ... the "pnpm" field in package.json
-  is no longer read"), so every `pnpm` script fails with it. Run scripts as `npx -y pnpm@9 <script>`,
-  or activate pnpm 9 through `corepack`.
-- Install once, from the root: `npx -y pnpm@9 install --frozen-lockfile` (the whole workspace).
+- **pnpm 12**, pinned by `packageManager` in `package.json`. Any pnpm 10 or later on the PATH hands
+  off to the pinned version by itself; pnpm 9 and older refuse the lockfile ("expected a single
+  document in the stream"). Settings live in `pnpm-workspace.yaml`, not in `package.json`.
+- Install once, from the root: `pnpm install --frozen-lockfile` (the whole workspace). A dependency
+  whose install script must run is listed under `allowBuilds` in `pnpm-workspace.yaml`.
 - `apps/galaxy/.env.local` (copied from `apps/galaxy/.env.example`) is only for the game's scripts
   and the arcade. The tests never need it and never call GitHub.
 
 ## Commands
 
-From the root, with pnpm 9 (`pnpm` below means `npx -y pnpm@9`). Times measured on a developer
-laptop from a clean worktree; each command exited 0 there.
+From the root. Times measured on a developer laptop from a clean worktree, with pnpm 12; each
+command exited 0 there.
 
 | Command | What it does | Time | Needs |
 |---|---|---|---|
 | `node .omni-loop/bin/omni.mjs kb show briefing` | prints the rules every change follows | < 1s | nothing |
-| `pnpm test` | the preflight: one vitest run over the whole workspace | ~2 min | install |
-| `pnpm lint` | typescript-eslint `strictTypeChecked` over every tracked TS file; any finding fails | ~70s | install |
+| `pnpm test` | the preflight: one vitest run over the whole workspace | ~2.5 min | install |
+| `pnpm lint` | typescript-eslint `strictTypeChecked` over every tracked TS file; any finding fails | ~80s | install |
 | `pnpm lint <path>...` | the same lint, only the files under those paths | ~5s for one file | install |
-| `pnpm typecheck` | `tsgo` over the root project and the pitch engine, then the arcade's typecheck | ~6s | install |
-| `pnpm check:changed --base origin/<branch>` | while iterating: typecheck, lint, related tests, fallow audit of the files changed since the merge-base | ~10s for a docs-only change | install, the base fetched |
+| `pnpm typecheck` | `tsgo` over the root project and the pitch engine, then the arcade's typecheck | ~5s | install |
+| `pnpm check:changed --base origin/<branch>` | while iterating: typecheck, lint, related tests, fallow audit of the files changed since the merge-base | ~10s for a docs-only change; ~2 min when `package.json` or the lockfile changes (the whole test run) | install, the base fetched |
 | `pnpm mutation:changed --base origin/<branch>` | Stryker on the delivery-core files changed; says so and exits when there are none | ~3s with none; minutes per core file | install |
 | `pnpm kit:build` | rebuilds `kit/dist/omni.mjs` | ~1s | install |
 | `node apps/omni-app/build.ts` | rebuilds `apps/omni-app/api/` | ~1s | install |

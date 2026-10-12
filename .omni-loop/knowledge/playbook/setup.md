@@ -22,8 +22,9 @@ Use this page when getting a checkout ready to build, test, and run locally.
 <!-- slot: prerequisites · required · by: terraform -->
 - Node 22 or later: the `engines` field of `package.json`, and the version the `game` workflow
   sets up.
-- pnpm: the lockfile is `pnpm-lock.yaml`, lockfile version 9.0; the `game` workflow installs
-  pnpm 9.
+- pnpm 12: `packageManager` in `package.json` pins it, every workflow's `pnpm/action-setup` reads
+  that pin, and any pnpm 10 or later hands off to it. Its settings (`allowBuilds`,
+  `ignoredOptionalDependencies`) live in `pnpm-workspace.yaml`.
 - The GitHub CLI, logged in, as the README's prerequisites ask. The tests do not need it: they
   never call GitHub.
 
