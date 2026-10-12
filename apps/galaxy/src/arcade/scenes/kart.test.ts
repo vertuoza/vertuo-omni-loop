@@ -9,7 +9,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { defaultOptions, optionsKey, optionsPress, type OptionsView } from '../kart/options';
@@ -41,6 +41,15 @@ describe('the kart text layer', () => {
     expect(READY_LINE).toContain(`${LAPS} LAPS`);
     expect(text('ready')).toBe('COMET RING · 3 LAPS · PRESS START B GAME ROOM');
     expect(text('ready', TALL, 'handheld')).toBe('COMET RING · 3 LAPS · PRESS START B GAME ROOM');
+  });
+
+  it('names the player\'s laps on the ready screen and before the choice', () => {
+    expect(readyLine(5)).toBe('COMET RING · 5 LAPS · PRESS START');
+    const five = { ...defaultOptions(), laps: 5 as const };
+    const render = (choice: KartChoice | null) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', choice, options: five })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    expect(render({ step: 'single' })).toBe('COMET RING · 5 LAPS · PRESS START B GAME ROOM');
+    expect(render(FIRST_CHOICE)).toContain('COMET RING · 5 LAPS ▶ SINGLE');
   });
 
   it('shows LOADING… and only the way back while the game\'s code is on its way', () => {
@@ -124,6 +133,12 @@ describe('loadKart', () => {
     const createKart = vi.fn(() => stubGame());
     await loadKart(() => Promise.resolve({ createKart }), 42);
     expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [] });
+  });
+
+  it('hands the game the laps and difficulty of the options', async () => {
+    const createKart = vi.fn(() => stubGame());
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 5, difficulty: 'hard' });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 5, difficulty: 'hard' });
   });
 
   it('answers null and logs the error with console.error when the import fails', async () => {
@@ -249,7 +264,7 @@ describe('the cast of the race', () => {
 
 describe('the results and the score (slice 4)', () => {
   const rows = ['YOU', 'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO'].map((name, i) => ({ place: i + 1, name, tenths: i < 3 ? 1000 + i * 25 : null, you: i === 0 }));
-  const results = (): KartHud => ({ phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1000 } });
+  const results = (): KartHud => ({ phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1000, threeLap: 1000 } });
   const sendOf = (s: ScoreSend | null) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: results(), send: s })))
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -257,14 +272,19 @@ describe('the results and the score (slice 4)', () => {
     const t = text('ready', WIDE, 'full', results());
     expect(t).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:42.5 3RD BRAVO 1:45.0 4TH CHARLIE -- 5TH DELTA -- 6TH ECHO --');
     expect(text('ready', TALL, 'handheld', results())).toContain('6TH ECHO --');
-    expect(t).toContain('TIME 1:40.0');
+    expect(t).toContain('3-LAP TIME 1:40.0');
+  });
+
+  it('says the time sent is the three-lap one when the race was longer', () => {
+    const long: KartHud = { phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1700, threeLap: 1000 } };
+    expect(text('ready', WIDE, 'full', long)).toContain('3-LAP TIME 1:40.0');
   });
 
   it('fills a MULTI table in live: the time of whoever finished, a dash for whoever races, OUT for whoever left', () => {
     const live = (): KartHud => ({ phase: 'finish', beat: null, results: { rows: [
       { place: 1, name: 'YOU', tenths: 1000, you: true }, { place: 2, name: 'ALPHA', tenths: 1042, you: false },
       { place: 3, name: 'BRAVO', tenths: null, you: false }, { place: 4, name: 'CHARLIE', tenths: null, you: false, out: true },
-    ], place: 1, tenths: 1000, live: true } });
+    ], place: 1, tenths: 1000, threeLap: 1000, live: true } });
     expect(text('ready', WIDE, 'full', live())).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:44.2 3RD BRAVO — -- CHARLIE OUT');
     expect(sameKartHud(live(), live())).toBe(true);
     const first = live();

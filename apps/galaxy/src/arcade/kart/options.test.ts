@@ -32,7 +32,7 @@ describe('reading the store back', () => {
   });
 
   it('lets a store that throws on write leave the game playable', () => {
-    expect(() => saveOptions(defaultOptions(), () => { throw new Error('full'); })).not.toThrow();
+    expect(() => { saveOptions(defaultOptions(), () => { throw new Error('full'); }); }).not.toThrow();
   });
 
   it('falls back on an invalid field alone, keeping the others', () => {

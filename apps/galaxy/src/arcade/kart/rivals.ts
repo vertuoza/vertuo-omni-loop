@@ -110,8 +110,8 @@ function throughCorner(track: Track, i: number, from: { x: number; y: number }, 
   return Math.hypot(from.x + (to.x - from.x) * k - w.x, from.y + (to.y - from.y) * k - w.y) < RULES.cornerGate;
 }
 
-/** The lap a kart is on, 1 to `LAPS`: the one it is racing, and the third one once two are done. */
-export const lapOf = (pace: Pace): number => Math.min(pace.laps + 1, LAPS);
+/** The lap a kart is on, 1 to `laps` (3 unless the race runs more): the one it is racing, and the last one once the rest are done. */
+export const lapOf = (pace: Pace, laps: number = LAPS): number => Math.min(pace.laps + 1, laps);
 
 const turn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 

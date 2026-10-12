@@ -354,15 +354,19 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   activeRef.current = active;
   // The options module, once imported: the panel's moves, the keys' lookup and the store.
   const optionsApi = useRef<typeof import('./kart/options') | null>(null);
+  // The laps and difficulty the loaded game was made with: a SINGLE pick after OPTIONS changed them makes the game again.
+  const kartRules = useRef<{ laps: number; difficulty: string } | null>(null);
   const kartTry = kart?.status === 'loading' ? kart.retry : -1;
   useEffect(() => {
     if (kartTry < 0) return undefined;
     let gone = false;
     // The options are read in the browser with the game: dynamic, as the game is (guard.test.ts).
-    void Promise.all([
-      loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null)),
-      import('./kart/options').then((api) => { optionsApi.current = api; return api.loadOptions(); }).catch((err: unknown) => { console.error(err); return null; }),
-    ]).then(([game, options]) => {
+    // The options come first: a SINGLE race is made with the player's laps and difficulty (PRD 1762).
+    void import('./kart/options').then((api) => { optionsApi.current = api; return kartRef.current?.options ?? api.loadOptions(); }).catch((err: unknown) => { console.error(err); return null; }).then(async (options) => {
+      kartRules.current = options && { laps: options.laps, difficulty: options.difficulty };
+      const game = await loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null), options);
+      return [game, options] as const;
+    }).then(([game, options]) => {
       if (gone) return;
       setKart((k) => loadedInto(k, game, options));
     });
@@ -975,6 +979,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           // The choice before the race (PRD 1572): ▲ ▼ and A or START are its own; nothing reaches the race until SINGLE is picked.
           const next = choicePress(k.choice, action, k.multi);
           if (next.step === 'grid') { setKart({ ...k, choice: next, lobby: null }); openLobby(); return; }
+          if (next.step === 'single' && k.options && kartRules.current && (kartRules.current.laps !== k.options.laps || kartRules.current.difficulty !== k.options.difficulty)) {
+            setKart({ ...k, choice: next, status: 'loading', retry: k.retry + 1, game: null, hud: null });
+            return;
+          }
           if (next !== k.choice) setKart({ ...k, choice: next });
           return;
         }
