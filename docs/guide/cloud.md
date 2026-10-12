@@ -1,6 +1,6 @@
 ---
 title: Cloud sessions
-description: Sign the loop in where no browser opens — Claude Code on the web or the app — with one token, made once and pasted in your cloud environment.
+description: Run the loop from Claude Code on the web or the app, step by step — one token, one cloud environment, then the loop as on your laptop.
 ---
 
 A Claude Code cloud session, on the web or in the app on your phone, starts in a fresh container
@@ -10,8 +10,19 @@ silent.
 
 A **token** fixes that. You make it once, on your laptop or on your profile page, and paste it in
 your cloud environment as `OMNI_TOKEN`. From then on, every session started in that environment is
-signed in as you, with the same rights you have on the Omni page and nothing more. Three steps,
-once per cloud environment; [Install](/docs/install) on your laptop comes first.
+signed in as you, with the same rights you have on the Omni page and nothing more. This page walks
+you through it step by step, once per cloud environment, then shows what changes when you run the loop
+from there.
+
+## Before you start
+
+- **You are a member of the workspace** on the Omni page: you signed in there once with GitHub
+  ([Install](/docs/install), step 3, or [Join a team](/docs/join)).
+- **The repository runs the loop:** it has a `.omni-loop/` folder at its root.
+- **Claude Code reaches it on GitHub:** in Claude Code on the web or the app, your GitHub account is
+  connected and the repository shows in the list when you start a session.
+- **A laptop with `omni` installed helps,** for step 1. Without one, make the token on your profile
+  page instead.
 
 ## 1. Make a token
 
@@ -60,17 +71,35 @@ but your cloud environment.
 
 ## 2. Set up the cloud environment
 
-In Claude Code on the web or the app, create a cloud environment, or edit the one you use, and fill
-two of its settings.
+A cloud environment is the settings every session started in it gets: its network, its variables and
+a setup script. Make one for the loop, or edit the one you use.
 
-- **Environment variables:** one line, `OMNI_TOKEN=omk_…`, with the token you made. Add any optional
-  variable the repository's README lists under its environment variables, such as
-  `OPENROUTER_API_KEY`, when you want what it turns on in the cloud too.
-- **Network access:** **Custom**, allowing the host of the repository's `ask.url` (read it with
-  `omni config ask.url`; for the Omni Loop's own repository it is `www.omni-loop.xyz`), and
-  `openrouter.ai` too when `OPENROUTER_API_KEY` is set. Or **Full**, which allows every host.
+1. **Open the environment's settings.** In Claude Code on the web or the app, start a new session and
+   open the cloud environment menu in the session's title bar: **New cloud environment** makes one,
+   **Edit** changes the one selected.
+2. **Name** it, so you pick it again: `omni loop`, for example.
+3. **Network access:** a session must reach the Omni page. Allow the host of the repository's
+   `ask.url` (read it with `omni config ask.url`; for the Omni Loop's own repository it is
+   `www.omni-loop.xyz`), and `openrouter.ai` too when you set `OPENROUTER_API_KEY` below:
+   - **Limited**, with those hosts added under **Allowed domains**, and **Allow package managers**
+     left ticked, so the setup script can install. An app that has not updated shows the same thing as
+     **Custom**, with a box to include the default list of package managers: tick it.
+   - Or **Full**, which allows every host.
 
-Each session started in that environment reads the variables when it starts. A session already open
+   The default, **Trusted network access**, does not allow the Omni page: a session then stops on
+   `OMNI_TOKEN: cannot reach <host>`.
+4. **Environment variables:** one line per variable, in `.env` format: `OMNI_TOKEN=omk_…`, with
+   the token you made in step 1. Add any optional variable the repository's README lists under
+   its environment variables, such as `OPENROUTER_API_KEY`, when you want what it turns on in the
+   cloud too. Nothing for GitHub: see [What needs no setting up](#what-needs-no-setting-up).
+5. **Setup script,** only for the Omni Loop's own repository: its `omni` runs the kit's source, which
+   needs the repository's dependencies, so the session must install them before it starts. The
+   script is one line: `pnpm install --frozen-lockfile`. Without it, `omni` and the briefing the
+   session prints when it starts both stop on `Cannot find package 'yaml'`. A repository the kit was set up in carries a bundled `omni` in
+   `.omni-loop/bin/` that needs nothing installed: leave its setup script as it is.
+6. **Create environment** (or **Save**).
+
+Each session started in that environment reads its settings when it starts. A session already open
 keeps what it started with: start a new one.
 
 ## 3. Check it
@@ -93,6 +122,28 @@ That is it. Ask mode, dossiers, approvals, `omni signin` and the status line now
 status line shows `token ··<last four>` where your laptop shows your sign-in, and `omni signin` prints
 `signed in by OMNI_TOKEN as <login> — <owner/repo> goes to <workspace>` and opens no browser.
 
+## 4. Run the loop from the session
+
+Start a session on the repository in that environment, and work as on your laptop: type the loop's
+commands, such as `/omni:status`, `/omni:brainstorm '<your idea>'` or `/omni:yolo <n>`, and answer
+Claude's questions there. Ask mode, PRD pages and approvals go through the token.
+
+**When a `/omni:` command is not found.** A cloud session may start without the `omni` plugin's
+commands: Claude then says no command has that name. The skills are still there to follow. In the
+Omni Loop's own repository, ask Claude to follow the skill file itself, which is the same skill:
+
+```text agent
+Follow kit/plugin/skills/brainstorm/SKILL.md for this idea: <your idea>
+```
+
+**What is slower in the cloud.** A cloud session reaches GitHub through Claude's GitHub connection,
+which allows GitHub's REST API but not its GraphQL API. The `omni` commands that list pull requests
+through `gh pr` stop on `HTTP 403: GitHub GraphQL is not available`: `omni board`, and the merge
+gate `/omni:wave` asks (`omni flow check merge`). `/omni:yolo` still builds a PRD there: Claude reads
+the waves from the plan, opens and merges each sub-PR through the GitHub connection, and checks by
+hand what the board and the gate check (the base, the slice's ground, its checks). Say so when you
+start, so Claude does not stop on the first 403.
+
 ## What needs no setting up
 
 - **GitHub.** The session reaches your repositories, branches and pull requests through
@@ -114,6 +165,8 @@ Each failure stops the command with one line, naming the variable and never its 
 | `OMNI_TOKEN: cannot reach <host>: allow it in your environment's network access` | the environment's network access does not allow the Omni page | allow `<host>` under **Custom**, or choose **Full** (step 2), then start a new session |
 | `environment: OMNI_TOKEN is not valid: it is not a kit token: make one with omni setup-token` | the value is not a token: cut short, a space too many, or something else pasted | paste the whole `omk_…` line again |
 | `OMNI_TOKEN is set in this environment: revoke it on your profile page` | `omni signout` ran under a token, and deleted nothing | revoke the token under **Terminal tokens** to stop it |
+| `Cannot find package 'yaml'` | the session started without the repository's dependencies (Omni Loop's own repository) | add `pnpm install --frozen-lockfile` as the environment's setup script (step 2), then start a new session |
+| `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` | an `omni` command listed pull requests through `gh pr`, which a cloud session cannot | nothing to fix in your settings: Claude carries on through the GitHub connection (step 4) |
 
 Other troubles with the sign-in are in [When something goes wrong](/docs/troubleshooting).
 
