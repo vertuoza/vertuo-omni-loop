@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
-import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, parseTrack, TILE, tileAt, trackProblems, type TrackSource } from './track';
+import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, legHeight, LEVEL, parseTrack, RELIEF_SPAN, TILE, tileAt, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, waypoints: TrackSource['waypoints'] = COMET_RING.waypoints): TrackSource {
@@ -256,5 +256,61 @@ describe('the arch (PRD 1427)', () => {
     for (let y = Math.max(...ys) + 1; y < botY; y++) expect(tileAt(COMET_RING.rows, col, y)).not.toBe('~');
     expect(topY).toBeLessThan(Math.min(...ys));
     expect(botY).toBeGreaterThan(Math.max(...ys));
+  });
+});
+
+describe('the relief (PRD 1698)', () => {
+  const n = COMET_RING.waypoints.length;
+  const heights = COMET_RING.relief?.heights ?? [];
+  const bumps = COMET_RING.relief?.bumps ?? [];
+  const reliefed = (relief: unknown): TrackSource => ({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints, relief: relief as NonNullable<TrackSource['relief']> });
+
+  it('is one height a waypoint and one bump a leg, the road level in every corner', () => {
+    expect(heights).toHaveLength(n);
+    expect(bumps).toHaveLength(n);
+    expect(parseTrack().relief).toEqual({ heights, bumps });
+  });
+
+  it('is a flat road for a circuit that has none', () => {
+    const track = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints });
+    expect(track.relief.heights.every((h) => h === 0) && track.relief.bumps.every((b) => b === 0)).toBe(true);
+  });
+
+  it('eases a leg from one height to the next with its bump at the middle, and no step anywhere', () => {
+    const relief = { heights: [0, 10], bumps: [6, 0] };
+    const length = 20 * TILE;
+    expect(legHeight(relief, 0, 0, length)).toBeCloseTo(0, 9);
+    expect(legHeight(relief, 0, LEVEL, length)).toBeCloseTo(0, 9);
+    expect(legHeight(relief, 0, length / 2, length)).toBeCloseTo(5 + 6, 9);
+    expect(legHeight(relief, 0, length - LEVEL, length)).toBeCloseTo(10, 9);
+    expect(legHeight(relief, 0, length, length)).toBeCloseTo(10, 9);
+  });
+
+  it('passes the circuit\'s checks and spans 26 at most', () => {
+    expect(trackProblems(reliefed({ heights, bumps }))).toEqual([]);
+    expect(RELIEF_SPAN).toBe(26);
+  });
+
+  it('is refused when a height or a bump is missing, or one too many, naming why', () => {
+    expect(trackProblems(reliefed({ heights: heights.slice(1), bumps }))).toEqual([expect.stringContaining(`needs ${n} heights and ${n} bumps`)]);
+    expect(trackProblems(reliefed({ heights, bumps: [...bumps, 0] }))).toEqual([expect.stringContaining(`needs ${n} heights and ${n} bumps`)]);
+  });
+
+  it('is refused when a height or a bump is not a number', () => {
+    expect(trackProblems(reliefed({ heights: heights.map((h, i) => (i === 3 ? Number.NaN : h)), bumps }))).toEqual([expect.stringContaining('not a number')]);
+    expect(trackProblems(reliefed({ heights, bumps: bumps.map((b, i) => (i === 2 ? '5' : b)) }))).toEqual([expect.stringContaining('not a number')]);
+    expect(trackProblems(reliefed({ heights, bumps: bumps.map((b, i) => (i === 2 ? Infinity : b)) }))).toEqual([expect.stringContaining('not a number')]);
+  });
+
+  it('is refused when it spans more than 26, naming how much', () => {
+    const tall = heights.map((h, i) => (i === 3 ? 40 : h));
+    expect(trackProblems(reliefed({ heights: tall, bumps }))).toEqual([expect.stringMatching(/rises \d+(\.\d)? over its lowest point, more than 26/)]);
+    const deep = bumps.map((b, i) => (i === 0 ? -30 : b));
+    expect(trackProblems(reliefed({ heights, bumps: deep }))).toEqual([expect.stringContaining('more than 26')]);
+  });
+
+  it('accepts a relief spanning exactly 26', () => {
+    const zero = Array.from({ length: n }, () => 0);
+    expect(trackProblems(reliefed({ heights: zero.map((h, i) => (i === 3 ? 26 : h)), bumps: zero }))).toEqual([]);
   });
 });

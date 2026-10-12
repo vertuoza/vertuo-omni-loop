@@ -1,8 +1,10 @@
 // OMNI KART on the arcade's canvas (PRD 1359): the Omni sky over the circuit in Mode 7, seen from
 // behind the player's kart, which is drawn over it with its driver in the seat. The one file under
 // arcade/kart/ that draws: everything it draws from is pure (track.ts, mode7.ts, texture.ts, race.ts).
-// The circuit's texture is painted once, the first time a race is drawn, and the floor goes through
-// one pixel buffer per grid, allocated once and reused. It also holds the race the arcade steps.
+// The circuit's texture and the ground's heights are painted once, the first time a race is drawn, and the
+// floor goes through one pixel buffer per grid, allocated once and reused. The road rises and falls
+// (relief.ts, PRD 1698): the camera rides the ground under the player's kart, a sprite stands on the ground
+// under it, and a hill's crest hides what is behind it. It also holds the race the arcade steps.
 import { drawPlanet, drawStarfield, fleetSprite, spriteImage, spriteSize, woundTint } from '@omni/design';
 import type { Action } from '../keys';
 import { heroOf } from '../fleets';
@@ -12,18 +14,63 @@ import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import { NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
-import { chaseCamera, depthAt, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
+import { chaseCamera, depthAt, project, renderTerrain, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
+import { groundAt, heightsOf, reliefRange } from './relief';
 import type { GridSession, RaceStart } from './hub';
 import type { Item } from './items';
 import { rateFor, readMessage, type GridPlayer, type ItemMessage, type RaceMessage } from './net';
 import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, plant, press, step, whereIs, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
-import { BEYOND, paintTrack } from './texture';
+import { deckOf, paintTrack } from './texture';
 import { parseTrack, type PropKind, type Track } from './track';
 
-/** A buffer the floor is rendered into, and the canvas it is drawn from. */
-interface Floor { image: ImageData; pixels: Uint32Array; canvas: HTMLCanvasElement }
+/** A buffer the floor is rendered into, how far each of its pixels is (Infinity where it shows no road), and the canvas it is drawn from. */
+interface Floor { image: ImageData; pixels: Uint32Array; depth: Float32Array; canvas: HTMLCanvasElement }
+
+/** The circuit's ground, once painted: its texture, the height under each of its pixels, the lowest and highest of them, and the side of its deck. */
+interface Ground { texture: Texture; heights: Float32Array; range: { low: number; high: number }; deck: Deck }
+
+/**
+ * Where the part of a sprite `z` away, in the screen box `box`, is covered by nearer road: for each column of the box,
+ * the first row from the top where the floor is nearer than it (the box's bottom where none is), or null when no column
+ * is covered. What a crest hides is what is under the row it covers from.
+ */
+export function coverOf(depth: Float32Array, w: number, h: number, box: { left: number; top: number; right: number; bottom: number }, z: number): Int16Array | null {
+  const left = Math.max(0, Math.floor(box.left)), right = Math.min(w, Math.ceil(box.right));
+  const top = Math.max(0, Math.floor(box.top)), bottom = Math.min(h, Math.ceil(box.bottom));
+  if (left >= right || top >= bottom) return null;
+  const nearer = z * 0.96 - 2;
+  const cut = new Int16Array(right - left);
+  let any = false;
+  for (let col = left; col < right; col++) {
+    let row = top;
+    while (row < bottom && (depth[row * w + col] ?? Infinity) >= nearer) row++;
+    cut[col - left] = row;
+    if (row < bottom) any = true;
+  }
+  return any ? cut : null;
+}
+
+/**
+ * Clips what is drawn next to the part of a sprite that no nearer road covers (`coverOf`). Saves the context when it
+ * clips and says so, for the caller to restore it; clips nothing when no road covers the box.
+ */
+function hideBehind(ctx: CanvasRenderingContext2D, floor: Floor, w: number, h: number, box: { left: number; top: number; right: number; bottom: number }, z: number): boolean {
+  const cut = coverOf(floor.depth, w, h, box, z);
+  if (!cut) return false;
+  const left = Math.max(0, Math.floor(box.left)), top = Math.max(0, Math.floor(box.top));
+  ctx.save();
+  ctx.beginPath();
+  for (let start = 0, col = 1; col <= cut.length; col++) {
+    const at = cut[start] ?? top;
+    if (col < cut.length && cut[col] === at) continue;
+    if (at > top) ctx.rect(left + start, top, col - start, at - top);
+    start = col;
+  }
+  ctx.clip();
+  return true;
+}
 
 /** The sky's panorama, in screens: a full turn of the camera, for a field of view of 60° across one screen. */
 const PANORAMA = 6;
@@ -139,6 +186,9 @@ const KART_FOOT = 6;
 /** The camera behind the player's kart on `grid`: as far back as puts the floor under the kart's centre where its sprite's wheels touch, so it is drawn where it stands. */
 export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: number; y: number; angle: number } => chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT));
 
+/** The camera's view of the race on `grid`: behind the player's kart, its eye 28 over the ground under it. */
+export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'waypoints' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y));
+
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
 
@@ -204,8 +254,8 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
 }
 
-/** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. */
-type Thing = { x: number; y: number } & (
+/** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. `g` is the ground's height under it. */
+type Thing = { x: number; y: number; g: number } & (
   { kind: 'rival'; rival: Rival } | { kind: 'box' } | { kind: 'blob' } | { kind: 'orb' }
   | { kind: 'prop'; prop: PropKind } | { kind: 'arch'; leg: 0 | 1 }
 );
@@ -249,7 +299,7 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
   ctx.imageSmoothingEnabled = false;
   const top = at.sy - h * scale;
   const other = track.arch[leg === 0 ? 1 : 0];
-  const beyond = project(v, other.x, other.y);
+  const beyond = project(v, other.x, other.y, groundAt(track, other.x, other.y));
   if (leg === 0 && beyond) {
     const beam = spriteSize(ARCH_BEAM);
     const left = Math.min(at.sx, beyond.sx), right = Math.max(at.sx, beyond.sx);
@@ -298,9 +348,9 @@ const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 
 };
 
 /** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen trail is noise. */
-function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles) {
+function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles, track: Track) {
   if (s.reduced) return;
-  const seen = spritesInView(v, particles.list);
+  const seen = spritesInView(v, particles.list, (p) => groundAt(track, p.x, p.y));
   for (const { sprite: p, at } of seen) {
     const look = PARTICLE[p.kind];
     const size = Math.max(1, Math.round(look.size * at.scale));
@@ -323,6 +373,18 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
   let particles = newParticles(seed);
+  let ground: Ground | null = null;
+  const groundOf = (): Ground => {
+    if (ground) return ground;
+    texture ??= paintTrack(track);
+    ground = { texture, heights: heightsOf(track, texture), range: reliefRange(track), deck: deckOf() };
+    return ground;
+  };
+  // What stands still on the circuit stands on the ground under it, measured once.
+  const standing = [
+    ...track.props.map(({ kind, x, y }): Thing => ({ kind: 'prop', prop: kind, x, y, g: groundAt(track, x, y) })),
+    ...track.arch.map(({ x, y }, leg): Thing => ({ kind: 'arch', leg: leg === 0 ? 0 : 1, x, y, g: groundAt(track, x, y) })),
+  ];
   const floors = new Map<string, Floor>();
   const floorFor = (v: View): Floor => {
     const key = `${v.w}x${v.h}`;
@@ -332,7 +394,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
       canvas.width = v.w;
       canvas.height = v.h;
       const image = new ImageData(v.w, v.h);
-      floor = { image, pixels: new Uint32Array(image.data.buffer), canvas };
+      floor = { image, pixels: new Uint32Array(image.data.buffer), depth: new Float32Array(v.w * v.h), canvas };
       floors.set(key, floor);
     }
     return floor;
@@ -454,30 +516,33 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
     speed: () => Math.min(1, Math.max(0, race.player.speed / RULES.topSpeed)),
     hud: () => hudOf(race),
     draw(ctx, s) {
-      texture ??= paintTrack(track);
-      const v = viewOf(s.grid, cameraFor(s.grid, race.player));
+      const { texture, heights, range, deck } = groundOf();
+      const v = viewFor(s.grid, track, race.player);
       skyOf(ctx, s, v, seed);
       const floor = floorFor(v);
-      renderFloor(v, texture, floor.pixels, BEYOND);
+      renderTerrain(v, texture, heights, range, deck, floor.pixels, floor.depth);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);
       ctx.drawImage(floor.canvas, 0, 0);
       const things: Thing[] = [
-        ...race.items.boxes.filter((b) => b.back <= 0).map((b): Thing => ({ kind: 'box', x: b.x, y: b.y })),
-        ...race.items.blobs.map((b): Thing => ({ kind: 'blob', x: b.x, y: b.y })),
-        ...race.items.orbs.map((o): Thing => ({ kind: 'orb', x: o.x, y: o.y })),
-        ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y })),
-        ...track.props.map(({ kind, x, y }): Thing => ({ kind: 'prop', prop: kind, x, y })),
-        ...track.arch.map(({ x, y }, leg): Thing => ({ kind: 'arch', leg: leg === 0 ? 0 : 1, x, y })),
+        ...race.items.boxes.filter((b) => b.back <= 0).map((b): Thing => ({ kind: 'box', x: b.x, y: b.y, g: groundAt(track, b.x, b.y) })),
+        ...race.items.blobs.map((b): Thing => ({ kind: 'blob', x: b.x, y: b.y, g: groundAt(track, b.x, b.y) })),
+        ...race.items.orbs.map((o): Thing => ({ kind: 'orb', x: o.x, y: o.y, g: groundAt(track, o.x, o.y) })),
+        ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y, g: groundAt(track, rival.kart.x, rival.kart.y) })),
+        ...standing,
       ];
-      // The farthest first, so a near kart covers a far item.
-      for (const { sprite: thing, at } of spritesInView(v, things)) {
+      // The farthest first, so a near kart covers a far item; a hill's crest nearer than a thing hides it.
+      for (const { sprite: thing, at } of spritesInView(v, things, (t) => t.g)) {
+        // The arch spans the flat start straight and stays on top; the rest is hidden where the road in front covers it.
+        const reach = at.scale * 40;
+        const hid = thing.kind !== 'arch' && hideBehind(ctx, floor, v.w, v.h, { left: at.sx - reach, right: at.sx + reach, top: at.sy - reach * 1.5, bottom: at.sy + 2 }, at.z);
         if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at);
         else if (thing.kind === 'box') itemBox(ctx, s, at);
         else if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
         else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
         else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
+        if (hid) ctx.restore();
       }
-      particlesOn(ctx, s, v, particles);
+      particlesOn(ctx, s, v, particles, track);
       playerKart(ctx, s, race);
     },
   };

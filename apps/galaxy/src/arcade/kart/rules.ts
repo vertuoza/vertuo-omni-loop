@@ -14,6 +14,8 @@ export const RULES = Object.freeze({
   reverseAccel: 50,
   /** A kart faster than the top speed it is at (once a BOOST is over) slows to it at this rate. */
   overspeedDrag: 220,
+  /** The slope on the top speed (PRD 1698): the share of it a unit of slope takes off uphill and adds downhill, within a third either way (kart.ts). */
+  climb: 1.2,
   /** The turn rate at best grip, the speed it is reached at, and the part of it that is left at the top speed. */
   steer: 2.6,
   gripSpeed: 25,

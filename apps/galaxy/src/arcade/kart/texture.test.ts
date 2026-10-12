@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { rampFrom } from '@omni/design';
 import { TOKENS } from '../theme';
 import { sure } from '../test/sure';
-import { BEYOND, pack, paintTrack, SURFACE, VOID } from './texture';
+import { BEYOND, DECK_DEPTH, DECK_GLOW, deckOf, pack, paintTrack, SURFACE, VOID } from './texture';
 import { cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
 
 describe('pack', () => {
@@ -153,5 +153,33 @@ describe('paintTrack', () => {
       const perTile = chevronsOf(sure(corners[0], 'a corner').x - sure(corners[0], 'a corner').into[0] * 2, sure(corners[0], 'a corner').y - sure(corners[0], 'a corner').into[1] * 2).length;
       expect(n).toBe(perTile * corners.length * 3);
     });
+  });
+});
+
+describe('the deck (PRD 1698)', () => {
+  const deck = deckOf();
+
+  it('is 12 deep, with a glow of 18 under it', () => {
+    expect([DECK_DEPTH, DECK_GLOW]).toEqual([12, 18]);
+    expect([deck.thickness, deck.glow]).toEqual([12, 18]);
+  });
+
+  it('shades its side from a light lip down to a magenta neon line at its foot, every other panel a shade darker', () => {
+    const lum = (p: number) => (p & 0xff) + ((p >>> 8) & 0xff) + ((p >>> 16) & 0xff);
+    expect(deck.wall.at(-1)).toBe(pack(SURFACE.neonMagenta));
+    expect(deck.stripe.at(-1)).toBe(pack(SURFACE.neonMagenta));
+    expect(lum(sure(deck.wall[0], 'the lip'))).toBeGreaterThan(lum(sure(deck.wall[4], 'the metal')));
+    expect(lum(sure(deck.wall[2], 'a panel'))).toBeGreaterThan(lum(sure(deck.wall[7], 'a panel lower down')));
+    for (let i = 1; i < deck.wall.length - 1; i++) expect(lum(sure(deck.stripe[i], 'a darker panel')), `level ${i}`).toBeLessThan(lum(sure(deck.wall[i], 'a panel')));
+    for (const p of [...deck.wall, ...deck.stripe]) expect(p >>> 24).toBe(0xff);
+  });
+
+  it('glows magenta, half opaque at most and fading away from the deck', () => {
+    expect(deck.glowPx.length).toBeGreaterThan(1);
+    const alphas = Array.from(deck.glowPx, (p) => p >>> 24);
+    expect(Math.max(...alphas)).toBeLessThanOrEqual(0x80);
+    expect(alphas).toEqual([...alphas].sort((a, b) => b - a));
+    expect(new Set(alphas).size).toBe(alphas.length);
+    for (const p of deck.glowPx) expect(p & 0xffffff).toBe(pack(SURFACE.neonMagenta) & 0xffffff);
   });
 });

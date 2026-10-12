@@ -46,9 +46,12 @@ function speedAfter(speed: number, pad: Pad, top: number, dt: number): number {
   return next > top ? Math.max(top, next - RULES.overspeedDrag * dt) : next;
 }
 
-/** One short step of the kart's motion: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. */
-function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean): Kart {
-  const top = boost ? RULES.topSpeed * RULES.boostFactor * pace : RULES.topSpeed * pace;
+/** What a slope does to the top speed: less uphill, more downhill, never under 0.67 nor over 1.33 of the flat one. */
+const climbOf = (slope: number): number => Math.min(1.33, Math.max(0.67, 1 - RULES.climb * slope));
+
+/** One short step of the kart's motion: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `slope` is how much the ground rises a unit ahead of it. */
+function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean, slope = 0): Kart {
+  const top = (boost ? RULES.topSpeed * RULES.boostFactor * pace : RULES.topSpeed * pace) * climbOf(slope);
   const speed = speedAfter(k.speed, boost ? { ...pad, accel: true, brake: false } : pad, top, dt);
   const dir = (pad.right ? 1 : 0) - (pad.left ? 1 : 0);
   const angle = k.angle + dir * Math.sign(speed) * turnRate(speed) * dt;
@@ -56,9 +59,9 @@ function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean): 
   return { x, y, angle, speed, steer: dir === 0 ? 0 : dir > 0 ? 1 : -1 };
 }
 
-/** One short step of a kart: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `pace` scales its top speed (a rival's skill). */
-export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false): Kart {
-  return moveKart(k, pad, dt, pace, boost);
+/** One short step of a kart: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `pace` scales its top speed (a rival's skill), `slope` the ground's rise a unit ahead. */
+export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false, slope = 0): Kart {
+  return moveKart(k, pad, dt, pace, boost, slope);
 }
 
 /** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left, the seconds of falling left (PRD 1447) and the seconds it still blinks after the way back. */
@@ -94,17 +97,17 @@ export function fallIfOver<T extends { x: number; y: number; speed: number; stee
 
 /**
  * One short step of a kart with what is on it: a fall takes the input and holds the kart where it is, a spin-out takes the input and turns the kart on itself
- * (the speed it dropped to wears off like any other), a BOOST drives faster, and the timers run down. A kart that tips over the edge starts to fall.
+ * (the speed it dropped to wears off like any other), a BOOST drives faster, a slope changes the top speed, and the timers run down. A kart that tips over the edge starts to fall.
  * The kart's `fx` after the step is returned with it, and whether its fall ended in this step (`landed`):
  * the way back is the race's to place (rivals.ts), never this step's.
  */
-export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pace: number, fx: Fx): { kart: Kart; fx: Fx; landed: boolean } {
+export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pace: number, fx: Fx, slope = 0): { kart: Kart; fx: Fx; landed: boolean } {
   if (fx.fall > 0) {
     const fall = Math.max(0, fx.fall - dt);
     return { kart: k, landed: fall === 0, fx: { ...fx, fall, blink: Math.max(0, fx.blink - dt) } };
   }
   const spinning = fx.spin > 0;
-  const moved = moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0);
+  const moved = moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0, slope);
   const kart = spinning ? { ...moved, angle: moved.angle + RULES.spinRate * dt, steer: 0 as const } : moved;
   const ran: Fx = { ...fx, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };
   return { ...fallIfOver(map, kart, ran), landed: false };
