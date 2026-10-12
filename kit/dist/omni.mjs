@@ -37347,6 +37347,30 @@ function knownRepositories(ctx, planSlug) {
   known2.set(shortName4(planSlug), planSlug);
   return known2;
 }
+function branchOnDefault(ctx, built) {
+  const { slices, result } = built;
+  if (slices.some((slice) => slice.repo !== null)) return null;
+  if (result.landings === void 0) return fillBranch(ctx.config.branches.feature, { topic: result.prd.topic });
+  const index = result.landings.findIndex((landing) => landing.current);
+  const current = result.landings[index];
+  if (current === void 0) return null;
+  return index === 0 || current.pr.base === ctx.config.repo.defaultBranch ? current.branch : null;
+}
+function ancestry(ctx, exec, onto, head) {
+  try {
+    exec("git", ["merge-base", "--is-ancestor", onto, head], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return false;
+  } catch (error62) {
+    return propertyOf(error62, "status") === 1 ? true : null;
+  }
+}
+function baseOf(ctx, exec, built) {
+  const branch = branchOnDefault(ctx, built);
+  if (branch === null) return null;
+  const { remote, defaultBranch } = ctx.config.repo;
+  const onto = `${remote}/${defaultBranch}`;
+  return { branch, onto, behind: ancestry(ctx, exec, onto, `${remote}/${branch}`) };
+}
 function printRows(stdout, result) {
   const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? "").length));
   if (result.landings === void 0) {
@@ -37406,8 +37430,9 @@ var board = {
       return 1;
     }
     const { slices, result, unreadable: unreadable2 } = built;
+    const base = baseOf(ctx, io.exec, built);
     if (flags.json) {
-      println(stdout, JSON.stringify(result, null, 2));
+      println(stdout, JSON.stringify({ ...result, base }, null, 2));
       return 0;
     }
     println(stdout, `omni board \u2014 PRD ${prd2}: ${slices.length} slice(s).`);
@@ -37416,6 +37441,9 @@ var board = {
       println(stdout, `omni board \u2014 cannot read ${slug ?? repo}: ${reason2} \u2014 its slices are unreadable.`);
     }
     printFrontier(stdout, result);
+    if (base?.behind === true) {
+      println(stdout, `omni board \u2014 ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
+    }
     return 0;
   }
 };
@@ -44862,7 +44890,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni board <prd> [--json] [--repo <owner/name>]"],
     label: "omni board <n>",
     summary: "PRD n's slices and what can run next",
-    detail: "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state (merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints it as one document, the one /omni:wave acts on. Needs gh logged in."
+    detail: "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state (merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints it as one document, the one /omni:wave acts on, with base: whether the branch the next wave builds on is behind the default branch (a phase-0 merged after the plan), so the wave merges it in first. Needs gh logged in."
   },
   {
     name: "care",
@@ -51049,7 +51077,7 @@ function attempt10(fn, fallback4) {
     return fallback4;
   }
 }
-function baseOf(ctx, exec) {
+function baseOf2(ctx, exec) {
   const { remote, defaultBranch } = ctx.config.repo;
   const refs2 = [`refs/remotes/${remote}/${defaultBranch}`, `refs/heads/${defaultBranch}`];
   return refs2.find((ref) => attempt10(() => exec("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], { cwd: ctx.root, ...QUIET12 }) !== "", false)) ?? null;
@@ -51244,7 +51272,7 @@ function readNow({ cwd, folder, sessionId, exec, now: now2 }) {
     const where = folder ?? cwd;
     const ctx = contextOf2(where, exec);
     if (!ctx) return NOTHING2;
-    const answer = readSession(ctx, { folder: where, sessionId, exec, now: now2, base: baseOf(ctx, exec) });
+    const answer = readSession(ctx, { folder: where, sessionId, exec, now: now2, base: baseOf2(ctx, exec) });
     const main2 = attempt10(() => mainCheckout(where, exec), null);
     const withLinks = linked(answer, (kind, n) => main2 ? readLinks(main2, kind, n, now2) : []);
     return withWait(withLinks, readWait(ctx.root, answer.work?.kind === "prd" ? answer.work.number : null, now2));
@@ -55865,7 +55893,7 @@ import { spawn as spawnProcess } from "node:child_process";
 init_define_OMNI_BUNDLE();
 var isOpen = (change) => change.state === "open" || change.state === "draft";
 function topicOf4(ctx, dirs, n, exec) {
-  const base = baseOf(ctx, exec);
+  const base = baseOf2(ctx, exec);
   for (const dir of dirs) {
     const { checkout, base: onBase } = foldersAt2(ctx, dir, base, exec);
     const parsed2 = [...checkout, ...onBase].map(parseFolderName).find((folder) => folder?.prd === n);

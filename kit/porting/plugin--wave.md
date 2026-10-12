@@ -149,3 +149,18 @@ sub-PR's threads before the gate and holds an asked one).
 
 `pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
 kit's sources.
+
+## Issue 1179 — never a wave on a branch behind the default branch
+
+Step 1 gained **Behind the default branch**: when `omni board --json`'s new `base.behind` is `true`,
+the wave follows `/omni:yolo`'s **Meet the default branch** before any claim, then reads the board
+again. The guardrails gained "Never claim on a branch behind the default branch".
+
+### Tests
+
+`kit/test/plugin.test.ts`, `the default branch met before the plan, the board and the first wave
+(issue 1179)`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.ts kit/bin/board.test.ts` and `pnpm test`, green.

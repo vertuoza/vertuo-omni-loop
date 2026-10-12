@@ -16,6 +16,11 @@
 // landing branch (`branches.landing`) for its sub-PRs, and one by head for the landing's own change;
 // the board then names the current landing and prints a line per landing.
 //
+// The command also says whether the branch the next wave builds on carries the default branch
+// (issue 1179): `base` checks the feature branch, or the current landing's when its base is the
+// default branch, with `git merge-base --is-ancestor <remote>/<default> <remote>/<branch>`. A plan cut
+// while its phase-0 PR was open is otherwise built against the spec and plan before review.
+//
 // With `plan: { product }` (PRD 1548, s10), the targets the slices name are the product's, read from
 // the Omni page (`withProductTargets`, `kit/lib/product/targets.ts`) before the board is built;
 // `contextWithTargets` is that read for `omni board`, `omni next`, `omni care` and `omni flow`.
@@ -41,8 +46,8 @@ import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
 import { boardReads, holdsOneRepository, LoopReadError } from '../../lib/loop-reads/port.ts';
 import type { BoardReads, LoopReads } from '../../lib/loop-reads/port.ts';
 import { errorCode, errorMessage, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
-import { defined } from '../../lib/narrow.ts';
-import type { CommandIo, FreeCommand, FreeIo, Out } from '../io.ts';
+import { defined, propertyOf } from '../../lib/narrow.ts';
+import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
@@ -255,6 +260,44 @@ function knownRepositories(ctx: Context, planSlug: string): Map<string, string> 
   return known;
 }
 
+/** Whether the branch the next wave builds on carries `onto`, the default branch on the remote:
+ * `behind` true when it does not, false when it does, null when git cannot say (a branch not
+ * pushed yet, a ref not fetched). */
+type BoardBase = { branch: string; onto: string; behind: boolean | null };
+
+/** The branch the next wave builds on, when its base is the default branch: the feature branch, or
+ * the current landing's — landing 1, or a later one whose pull request is based on the default
+ * branch (retargeted once the landing before it merged). Null in a plan repository's board, with
+ * every landing merged, or while the current landing is stacked on the one before. */
+function branchOnDefault(ctx: Context, built: Built): string | null {
+  const { slices, result } = built;
+  if (slices.some((slice) => slice.repo !== null)) return null;
+  if (result.landings === undefined) return fillBranch(ctx.config.branches.feature, { topic: result.prd.topic });
+  const index = result.landings.findIndex((landing) => landing.current);
+  const current = result.landings[index];
+  if (current === undefined) return null;
+  return index === 0 || current.pr.base === ctx.config.repo.defaultBranch ? current.branch : null;
+}
+
+/** Status 1 is git's own "not an ancestor"; anything else is a question git could not answer. */
+function ancestry(ctx: Context, exec: Exec, onto: string, head: string): boolean | null {
+  try {
+    exec('git', ['merge-base', '--is-ancestor', onto, head], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return false;
+  } catch (error) {
+    return propertyOf(error, 'status') === 1 ? true : null;
+  }
+}
+
+/** The board's `base`: see `BoardBase`. */
+function baseOf(ctx: Context, exec: Exec, built: Built): BoardBase | null {
+  const branch = branchOnDefault(ctx, built);
+  if (branch === null) return null;
+  const { remote, defaultBranch } = ctx.config.repo;
+  const onto = `${remote}/${defaultBranch}`;
+  return { branch, onto, behind: ancestry(ctx, exec, onto, `${remote}/${branch}`) };
+}
+
 /** The board's rows, under a line per landing when it has more than one. */
 function printRows(stdout: Out, result: Built['result']): void {
   const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? '').length));
@@ -343,9 +386,10 @@ export const board = {
       return 1;
     }
     const { slices, result, unreadable } = built;
+    const base = baseOf(ctx, io.exec, built);
 
     if (flags.json) {
-      println(stdout, JSON.stringify(result, null, 2));
+      println(stdout, JSON.stringify({ ...result, base }, null, 2));
       return 0;
     }
 
@@ -355,6 +399,9 @@ export const board = {
       println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
     }
     printFrontier(stdout, result);
+    if (base?.behind === true) {
+      println(stdout, `omni board — ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
+    }
     return 0;
   },
 } satisfies FreeCommand;
