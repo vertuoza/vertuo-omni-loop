@@ -79,6 +79,31 @@ const OMNI_TOKEN = envGroup({
   variables: { token: 'OMNI_TOKEN' },
 });
 
+/**
+ * The session a command runs in, which `omni signin` reads to choose its flow (PRD 1660): the markers
+ * of a terminal on another machine than the person's browser (a Claude Code cloud session, an SSH
+ * login, a Codespace), and the display a browser could open on.
+ */
+const SESSION = envGroup({
+  label: 'the session',
+  schema: z.object({
+    claudeCodeRemote: z.string().optional(),
+    sshConnection: z.string().optional(),
+    sshTty: z.string().optional(),
+    codespaces: z.string().optional(),
+    display: z.string().optional(),
+    waylandDisplay: z.string().optional(),
+  }),
+  variables: {
+    claudeCodeRemote: 'CLAUDE_CODE_REMOTE',
+    sshConnection: 'SSH_CONNECTION',
+    sshTty: 'SSH_TTY',
+    codespaces: 'CODESPACES',
+    display: 'DISPLAY',
+    waylandDisplay: 'WAYLAND_DISPLAY',
+  },
+});
+
 /** The package manager that runs a script, which `pnpm check:changed` runs its steps with. */
 const PACKAGE_MANAGER = envGroup({
   label: 'the package manager',
@@ -97,9 +122,10 @@ export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABAS
 
 /**
  * The variables the platform sets, read here but never set by a person, so no docs list names them:
- * Claude Code's session, the terminal, the GitHub Actions runner and the package manager.
+ * Claude Code's session, the terminal, the GitHub Actions runner, the package manager and the session
+ * a sign-in reads.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -111,6 +137,17 @@ function terminalOf(group: z.output<typeof TERMINAL.schema> | null): Terminal {
   const raw = group?.columns;
   const columns = raw !== undefined && raw.trim() !== '' ? Number(raw) : Number.NaN;
   return { columns: Number.isInteger(columns) && columns > 0 ? columns : DEFAULT_COLUMNS, color: group?.noColor === undefined };
+}
+
+/** Where the terminal runs: on another machine than the person's browser (`remote`), and whether a
+ * browser could open on a display here (`display`). */
+export type Session = { remote: boolean; display: boolean };
+
+/** `remote` when any of the remote-session variables is set, `display` when either display is. */
+function sessionOf(group: z.output<typeof SESSION.schema> | null): Session {
+  const remote = [group?.claudeCodeRemote, group?.sshConnection, group?.sshTty, group?.codespaces].some((value) => value !== undefined);
+  const display = [group?.display, group?.waylandDisplay].some((value) => value !== undefined);
+  return { remote, display };
 }
 
 /** Every group of the kit, the game and the scripts, read from `source`; throws one `EnvError` naming every problem. */
@@ -126,6 +163,7 @@ export function readEnv(source: EnvSource) {
     supabase: reader.group(SUPABASE),
     packageManager: reader.group(PACKAGE_MANAGER),
     omniToken: reader.group(OMNI_TOKEN),
+    session: sessionOf(reader.group(SESSION)),
   };
   reader.done();
   return env;
