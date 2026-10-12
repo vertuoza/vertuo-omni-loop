@@ -102,6 +102,19 @@ a setup script. Make one for the loop, or edit the one you use.
    the token you made in step 1. Add any optional variable the repository's README lists under
    its environment variables, such as `OPENROUTER_API_KEY`, when you want what it turns on in the
    cloud too. Nothing for GitHub: see [What needs no setting up](#what-needs-no-setting-up).
+
+   Which variable goes where, when your team shares one environment and each member keeps their own:
+
+   | Variable | Where | Why |
+   |---|---|---|
+   | `OMNI_TOKEN` | your own environment | it signs the session in as you |
+   | `VERCEL_TOKEN` | your own environment | the `vercel` command acts as you with it, to deploy or read logs |
+   | `OPENROUTER_API_KEY`, and optionally `OPENROUTER_MODEL` | your own environment | a key is a secret, and a shared environment shows its variables to every member |
+   | `OMNI_LOOP_WORKSPACE` | the shared environment | not a secret: the workspace the `game:*` commands play for, `vertuoza` here |
+
+   A shared environment's variables are read by every member's sessions: put no token or key there.
+   Each member who wants a token in the cloud keeps their own environment, with the shared one's
+   network access and setup script, and their own variables.
 5. **Setup script,** only for the Omni Loop's own repository: its `omni` runs the kit's source, which
    needs the repository's dependencies, so the session must install them before it starts. The
    script is one line: `pnpm install --frozen-lockfile`. Without it, `omni` and the briefing the
