@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { questionSignInReturn, requestOrigin } from '../../../../../src/ask/page/sign-in';
-import { supabaseEnv, supabaseServer } from '../../../../../src/data/supabase-server';
+import { questionSignInReturn, requestOrigin } from '../../../../../../src/ask/page/sign-in';
+import { supabaseEnv, supabaseServer } from '../../../../../../src/data/supabase-server';
 
 // Where Google sends the person back after signing in on a shared question: the code becomes the
 // session cookie, then back to the same question (src/ask/page/sign-in.ts).

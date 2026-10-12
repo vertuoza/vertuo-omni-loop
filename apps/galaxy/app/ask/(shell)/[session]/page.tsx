@@ -1,4 +1,4 @@
-import { AskRoute, type AskQuery } from '../../../src/ask/page/AskRoute';
+import { AskRoute, type AskQuery } from '../../../../src/ask/page/AskRoute';
 
 // /ask/<session>: the person's page with that session's tab selected. The links PRD 71's
 // `omni ask on` printed keep working; a closed session opens read-only as the last tab; another

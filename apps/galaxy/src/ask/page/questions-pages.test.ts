@@ -30,8 +30,8 @@ vi.mock('./source', () => ({
 const { QuestionsTabs } = await import('./QuestionsTabs');
 const { AskSession } = await import('./AskSession');
 const { AskRoute } = await import('./AskRoute');
-const { default: ForMePage } = await import('../../../app/ask/for-me/page.tsx');
-const { default: HistoryPage } = await import('../../../app/ask/history/page.tsx');
+const { default: ForMePage } = await import('../../../app/ask/(shell)/for-me/page.tsx');
+const { default: HistoryPage } = await import('../../../app/ask/(shell)/history/page.tsx');
 
 const query = { searchParams: Promise.resolve({}) };
 /** The page's children, in order. */

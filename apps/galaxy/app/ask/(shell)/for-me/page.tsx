@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { ForMe } from '../../../src/ask/page/ForMe';
-import { readForMeLive } from '../../../src/ask/page/for-me-live';
-import { AskNotOpen, AskUnreachable } from '../../../src/ask/page/Notice';
-import { QuestionsTabs } from '../../../src/ask/page/QuestionsTabs';
-import { SignInCard } from '../../../src/ask/page/SignInCard';
-import { FOR_ME_CALLBACK } from '../../../src/ask/page/sign-in';
+import { ForMe } from '../../../../src/ask/page/ForMe';
+import { readForMeLive } from '../../../../src/ask/page/for-me-live';
+import { AskNotOpen, AskUnreachable } from '../../../../src/ask/page/Notice';
+import { QuestionsTabs } from '../../../../src/ask/page/QuestionsTabs';
+import { SignInCard } from '../../../../src/ask/page/SignInCard';
+import { FOR_ME_CALLBACK } from '../../../../src/ask/page/sign-in';
 
 // /ask/for-me (PRD 144): the open questions a teammate shared with the signed-in person, with their
 // time left, each opening /ask/q/<round>. Rendered per request; signed out, a sign-in card that comes

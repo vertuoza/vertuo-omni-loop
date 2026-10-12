@@ -1,9 +1,9 @@
 import 'server-only';
 import type { Metadata } from 'next';
-import { DevicePage } from '../../../src/ask/device-card';
-import { deviceView, readDeviceQuery } from '../../../src/ask/device-card.controller';
-import { deviceLive } from '../../../src/ask/device.live';
-import { serverEnv } from '../../../src/env';
+import { DevicePage } from '../../../../src/ask/device-card';
+import { deviceView, readDeviceQuery } from '../../../../src/ask/device-card.controller';
+import { deviceLive } from '../../../../src/ask/device.live';
+import { serverEnv } from '../../../../src/env';
 
 // /ask/device?user_code=<c>: the page a device sign-in's link opens (PRD 1660), for `omni signin` or
 // `omni setup-token` running where this browser cannot reach them. It shows the code and asks whether

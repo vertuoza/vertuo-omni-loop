@@ -1,0 +1,16 @@
+/* The device code (PRD 1705): the one arcade touch inside the doorway's card, in the pixel face on the
+   sunk panel. Press Start 2P is drawn on an 8 px grid, so it is set at whole multiples of it: 24 px,
+   16 px below 900 px. The box a person types a code in keeps the mono face. */
+
+.ask-device-code {
+  font: 24px/1 var(--ask-px);
+  letter-spacing: 0;
+  padding: 18px 20px;
+  border-radius: 8px;
+  background: var(--ask-sunk);
+  color: var(--ask-ink);
+}
+
+@media (max-width: 899px) {
+  .ask-device-code { font-size: 16px; }
+}
