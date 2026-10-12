@@ -82,7 +82,7 @@ Merged: @pierrederval, 2026-09-27, PR #161
 
 ## N-PRODUCT-11
 
-The front page forwards every link that names an arcade screen to /play, reading the list from the arcade's DEEP_LINKS table, so no game-screen link ever lands on HOME.
+The front page forwards to /play every link that names a screen in the arcade's DEEP_LINKS table, reading the list from that table, and every link to a planet by its PRD number (#planet-<n>), so none of them ever lands on HOME.
 
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s1-01-forward-every-arcade-link, PRD #261
 Enforced by: apps/galaxy/src/home/forward.test.ts

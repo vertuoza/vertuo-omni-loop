@@ -321,7 +321,7 @@ Merged: @pierrederval, 2026-09-26, PR #101
 
 ## BR-PRODUCT-30
 
-When the arcade cannot read a signed-in person's memberships, domain join or loaders, it treats them as crew: it shows the galaxy-out-of-reach message and never the wrong-account screen.
+When the arcade cannot read a signed-in person's memberships or loaders, it treats them as crew: it shows the galaxy-out-of-reach message and never the wrong-account screen.
 
 Serves: P-PRODUCT-28
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
