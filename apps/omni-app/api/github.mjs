@@ -208,8 +208,8 @@ var Thrown = z2.object({ name: z2.unknown().optional(), message: z2.unknown().op
 var DEFAULT_GALAXY_URL = "https://www.omni-loop.xyz";
 var VERCEL = envGroup({
   label: "the Vercel environment",
-  schema: z3.object({ name: z3.string().optional() }),
-  variables: { name: "VERCEL_ENV" }
+  schema: z3.object({ name: z3.string().optional(), commit: z3.string().optional() }),
+  variables: { name: "VERCEL_ENV", commit: "VERCEL_GIT_COMMIT_SHA" }
 });
 var secretGroup = (label, variable, required) => envGroup({ label, schema: z3.object({ secret: z3.string() }), variables: { secret: variable }, ...required ? { required } : {} });
 var WEBHOOK = secretGroup("the webhook secret", "GITHUB_WEBHOOK_SECRET", "production");
