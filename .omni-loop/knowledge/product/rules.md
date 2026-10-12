@@ -369,7 +369,7 @@ In the arcade invaders game, alien rows are ordered by what each Entropy kind pa
 
 Serves: P-PRODUCT-32
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
-Enforced by: pending #1495
+Enforced by: apps/galaxy/src/arcade/games/invaders.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
