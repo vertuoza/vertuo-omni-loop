@@ -5,7 +5,7 @@ import type { Tint } from '@omni/design';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { slopeAt } from './relief';
-import { RULES } from './rules';
+import { RULES, type Difficulty } from './rules';
 import { LAPS, type Track } from './track';
 
 /** Who drives a rival's kart: its sprite and its tint, as `fleetSprite` gives them, and its fleet's colour, which the kart takes. */
@@ -15,7 +15,7 @@ export interface Driver { sprite: string; tint: Tint | null; color: string | nul
 export interface Pace { laps: number; passed: number }
 
 /** A rival: its driver, its kart, where it is in the race, how fast it can go (a share of the player's top speed) and how far it drives off the line. */
-export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number; /** What it holds and what is on it (items.ts); none while it is plain. */ fx?: Fx; /** The race clock at which it crossed the line at the end of the last lap; none while it races. */ doneAt?: number | null;
+export interface Rival { driver: Driver; kart: Kart; pace: Pace; skill: number; offset: number; /** How long it has held its item, in seconds (items.ts `wantsToUse`). */ held?: number; /** What it holds and what is on it (items.ts); none while it is plain. */ fx?: Fx; /** The race clock at which it crossed the line at the end of the last lap; none while it races. */ doneAt?: number | null;
   /** A remote player in a MULTI race (PRD 1572): who they are, and the state last heard from them (their kart and what is on it) with the race clock it came at. Their kart is read from it, carried forward, and never driven. */
   id?: string; /** Their place on the grid, 0 on pole: a tie in progress goes to the one who started ahead. */ slot?: number; heard?: { kart: Kart; fx: Fx; at: number } }
 
@@ -30,14 +30,15 @@ export function draw(state: number): [number, number] {
 }
 
 /** `count` skills and offsets for the rivals, from the seed: the same seed, the same rivals. */
-export function rivalTraits(seed: number, count: number): { skill: number; offset: number }[] {
+export function rivalTraits(seed: number, count: number, level: Difficulty = 'normal'): { skill: number; offset: number }[] {
+  const L = RULES.levels[level];
   let state = seed | 0;
   const out: { skill: number; offset: number }[] = [];
   for (let i = 0; i < count; i++) {
     const [a, s1] = draw(state);
     const [b, s2] = draw(s1);
     state = s2;
-    out.push({ skill: RULES.skillMin + (1 - RULES.skillMin) * a, offset: (b * 2 - 1) * RULES.lineOffset });
+    out.push({ skill: L.skillMin + (L.skillMax - L.skillMin) * a, offset: (b * 2 - 1) * L.lineOffset });
   }
   return out;
 }
@@ -147,9 +148,9 @@ function rivalPad(track: Track, r: Rival): Pad {
 }
 
 /** The rubber band: a rival behind the player speeds up and one far ahead slows down, by at most `RULES.rubber` of its pace. */
-export function rubber(rivalProgress: number, playerProgress: number): number {
+export function rubber(rivalProgress: number, playerProgress: number, level: Difficulty = 'normal'): number {
   const gap = Math.max(-1, Math.min(1, (playerProgress - rivalProgress) / RULES.rubberRange));
-  return 1 + RULES.rubber * gap;
+  return 1 + RULES.levels[level].rubber * gap;
 }
 
 /**
@@ -167,8 +168,8 @@ export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: 
 }
 
 /** One short step of a rival, the player being `playerProgress` along: it drives its kart at its own pace, and its pace follows. A rival whose fall ends comes back on the line. */
-export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number): Rival {
-  const band = rubber(progressOf(track, r.pace, r.kart), playerProgress);
+export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number, level: Difficulty = 'normal'): Rival {
+  const band = rubber(progressOf(track, r.pace, r.kart), playerProgress, level);
   const stepped = stepFx(track.map, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX, slopeAt(track, r.kart.x, r.kart.y, r.kart.angle));
   const pace = advance(track, r.pace, r.kart, stepped.kart);
   if (!stepped.landed) return { ...r, kart: stepped.kart, fx: stepped.fx, pace };
