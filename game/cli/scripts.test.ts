@@ -104,6 +104,28 @@ describe('the game scripts name their workspace', () => {
     expect(server.calls).toEqual([]);
   });
 
+  // Law N-PRODUCT-9 (#1544): every game/cli script parses its own arguments in openWorkspace() before any
+  // read, and an argument it does not understand exits 2 with its usage line before Supabase or GitHub is
+  // called. The scripts are found by reading game/cli, so a new script is held to the law too.
+  it('law N-PRODUCT-9: every script that opens a workspace refuses a stray argument with exit 2 and its usage, calling nothing', async () => {
+    const positional: Record<string, string[]> = { banner: ['12'], export: ['backup'] };
+    const scripts = readdirSync(here)
+      .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
+      .flatMap((f) => {
+        const usage = /openWorkspace\(\{ usage: '([^']+)'/.exec(readFileSync(join(here, f), 'utf8'))?.[1];
+        return usage ? [{ script: f.slice(0, -'.ts'.length), usage }] : [];
+      });
+    expect(scripts.map((s) => s.script).sort()).toEqual(['banner', 'contributions', 'dossiers', 'export', 'project', 'score', 'xp']);
+    const runs = await Promise.all(scripts.map(({ script }) => game(script, [...(positional[script] ?? []), '--stray', '--workspace', 'vertuoza'])));
+    scripts.forEach(({ script, usage }, i) => {
+      const run = present(runs[i], script);
+      expect(run.code, `${script}: ${run.stderr}`).toBe(2);
+      expect(run.stderr, script).toContain(`usage: ${usage}`);
+    });
+    expect(server.calls).toEqual([]);
+    expect(ghCalls()).toEqual([]);
+  });
+
   it('game:project reads the workspace\'s tracked repositories, and appends rows carrying its workspace and each PRD\'s home', async () => {
     const run = await game('project', ['--workspace', 'acme']);
     expect(run.code, run.stderr).toBe(0);
