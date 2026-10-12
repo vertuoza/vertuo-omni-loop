@@ -10,6 +10,11 @@
 //        and handed back once:
 //          http://127.0.0.1:<p>/callback?state=<s>&token=<omk_…>&expires_at=<ISO date>
 //          or the page, with the token kept for it in a cookie that POST /api/ask/token/made reads once
+//   the same branch with device=<user code>&purpose=token (PRD 1660): `omni setup-token` waiting where the
+//        browser cannot reach it. The token asked for is the device request's (its name, days and
+//        workspace); made as above, it is attached to that request sealed with the server's key, and the
+//        terminal's next poll takes it, unsealed, once (./device.service.ts); the browser goes on to
+//        /ask/device?done=1
 //   POST /api/ask/token {omni_token, repo?} → {access_token, refresh_token: null, expires_at, login,
 //        workspace, reason?, email?}, as the other two bodies answer (./cli-code.ts), or 401
 //        {error, reason}: `revoked`, `expired` (with expires_at), `not-a-member` (with login and
@@ -26,9 +31,11 @@ import { z } from 'zod';
 import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { openSecret, sealSecret } from '../jev/secret-box';
 import {
-  AUTH_DOWN, freshSession, hashCode, isText, loginOf, newCode, placement, readCliSignIn, refuse, renewSession, reply,
+  AUTH_DOWN, devicePagePath, freshSession, hashCode, isText, loginOf, newCode, placement, readCliSignIn, refuse, renewSession, reply,
   type CliCallbackDeps, type CliSession, type CliSignIn, type KitExchange, type TokenClient,
 } from './cli-code';
+import { USER_CODE_ALPHABET, USER_CODE_LENGTH } from './device.contract';
+import type { DeviceService } from './device.service';
 
 /** A kit token: `omk_` and 32 random bytes, base64url, stored as its SHA-256 as a code is. */
 export const KIT_TOKEN = /^omk_[A-Za-z0-9_-]{43}$/;
@@ -63,9 +70,12 @@ export function kitBox(key: Buffer | null): KitBox | null {
 /** Where a made token goes back: the terminal's loopback listener, or a page of the app. */
 export type TokenTarget = CliSignIn | { back: string };
 
-/** A token asked for: its name, its expiry, the workspace it acts in (its slug; null for the person's
- * first one), and where it goes back. */
-export type TokenRequest = { name: string; days: KitDays; workspace: string | null; to: TokenTarget };
+/** A token as asked: its name, its expiry and the workspace it acts in (its slug; null for the person's
+ * first one). */
+export type TokenAsked = { name: string; days: KitDays; workspace: string | null };
+
+/** A token asked for on a round trip, and where it goes back. */
+export type TokenRequest = TokenAsked & { to: TokenTarget };
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,62}$/;
 /** A page of the app, same site, with no query, no dot segment and no double slash. */
@@ -153,7 +163,7 @@ const NOT_MADE = 'The token could not be made. Try again.';
 const SAID_BY_DATABASE = new Set(['42501', '22023', '54000']);
 
 /** The token made for `session`, its session sealed in its row; or the reason it was not. */
-async function makeToken(session: CliSession, request: TokenRequest, deps: KitMakeDeps): Promise<MadeToken | { failed: string }> {
+async function makeToken(session: CliSession, request: TokenAsked, deps: KitMakeDeps): Promise<MadeToken | { failed: string }> {
   if (!deps.box) return { failed: NOT_SET_UP };
   await deps.join?.(session).catch((error: unknown) => {
     console.error(`kit token sign-in: joining workspaces: ${messageOf(error)}`);
@@ -187,6 +197,87 @@ export async function tokenSignInReturn(url: URL, origin: string, deps: KitMakeD
   }
   if ('back' in request.to) return { location: new URL(request.to.back, origin).toString(), made };
   return { location: tokenLoopbackUrl(request.to, made.token, made.expiresAt), made: null };
+}
+
+// ── The round trip of a device request (PRD 1660) ───────────────────────────
+
+/** The device request a token goes to, as the callback needs it: the token asked for under a user code
+ * while it waits, and attaching the token to it, sealed, once. Both throw when the store fails. */
+export type DeviceTokenPort = {
+  asked(userCode: string): Promise<TokenAsked | null>;
+  attach(userCode: string, sealed: string, expiresAt: string): Promise<boolean>;
+};
+
+/** The device sign-in's requests, as a token's round trip uses them: a pending `token` request only. */
+export function deviceTokenPort(devices: Pick<DeviceService, 'find' | 'approve'>): DeviceTokenPort {
+  return {
+    async asked(userCode) {
+      const found = await devices.find(userCode);
+      if (found?.request.purpose !== 'token') return null;
+      const { name, days, workspace } = found.request;
+      return { name, days, workspace };
+    },
+    attach: (userCode, sealed, expiresAt) => devices.approve(userCode, 'token', sealed, expiresAt),
+  };
+}
+
+export type DeviceTokenDeps = KitMakeDeps & {
+  /** The device requests; null when this deployment has no device sign-in. */
+  device: DeviceTokenPort | null;
+};
+
+const DEVICE_CODE = new RegExp(`^[${USER_CODE_ALPHABET}]{${USER_CODE_LENGTH}}$`);
+const NOT_HANDED = 'The token could not be handed to the terminal. Run omni setup-token again.';
+
+/** The user code a device link carries, as shown (XXXX-XXXX), read without case or dash; or null. */
+function deviceCodeOf(raw: string | null): string | null {
+  const code = (raw ?? '').replace(/[\s-]/g, '').toUpperCase();
+  return DEVICE_CODE.test(code) ? `${code.slice(0, 4)}-${code.slice(4)}` : null;
+}
+
+/** The callback's device=…&purpose=token branch: the fresh sign-in becomes the kit token the pending
+ * request asked for, attached to it sealed for the terminal's next poll, then the device page's done
+ * state. A request no longer pending (or one that asked for a sign-in) gets nothing and the page shows
+ * its state; a refusal comes back to the device page's sign-in card with its reason. The token is never
+ * in a URL, a log line or a cookie, and whatever fails, the fresh session is ended. */
+export async function deviceTokenReturn(url: URL, origin: string, deps: DeviceTokenDeps): Promise<string> {
+  const page = (params: Record<string, string> = {}) => new URL(devicePagePath(params), origin).toString();
+  const userCode = deviceCodeOf(url.searchParams.get('device'));
+  if (!userCode) return page();
+  const back = (error: string) => page({ user_code: userCode, yes: '1', signin_error: error });
+
+  const fresh = await freshSession(url, deps.exchange, 'kit token device sign-in');
+  if ('failed' in fresh) return back(fresh.failed);
+  const { session } = fresh;
+  const ended = async (location: string) => {
+    await deps.revoke(session).catch(() => {});
+    return location;
+  };
+  const { box, device } = deps;
+  if (!box) return ended(back(NOT_SET_UP));
+  if (!device) return ended(back(NOT_HANDED));
+
+  let asked: TokenAsked | null;
+  try {
+    asked = await device.asked(userCode);
+  } catch (error) {
+    console.error(`kit token device sign-in: ${messageOf(error)}`);
+    return ended(back(NOT_HANDED));
+  }
+  if (!asked) return ended(page({ user_code: userCode }));
+  const made = await makeToken(session, asked, deps);
+  if ('failed' in made) return ended(back(made.failed));
+
+  let attached: boolean;
+  try {
+    attached = await device.attach(userCode, box.seal(made.token), made.expiresAt);
+  } catch (error) {
+    console.error(`kit token device sign-in: ${messageOf(error)}`);
+    return ended(back(NOT_HANDED));
+  }
+  // A token nobody will be handed: ending its session leaves it unusable (the exchange says revoked).
+  if (!attached) return ended(page({ user_code: userCode }));
+  return page({ done: '1' });
 }
 
 // ── The token shown once on the page ────────────────────────────────────────
