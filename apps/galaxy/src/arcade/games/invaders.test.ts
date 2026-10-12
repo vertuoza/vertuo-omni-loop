@@ -243,3 +243,31 @@ describe('pause', () => {
     expect(hudOf(pause(over)).phase).toBe('over');
   });
 });
+
+// Law BR-PRODUCT-34 (.omni-loop/knowledge/product/rules.md, #1495).
+describe('the formation\'s rows', () => {
+  it('law BR-PRODUCT-34: are ordered by what each kind pays, highest on top, a tie kept in the spec\'s order, whatever the values', () => {
+    const spec: WoundKind[] = ['beacon', 'fault-line', 'unconfirmed-ground', 'under-fire', 'transmission'];
+    const cases: Record<WoundKind, number>[] = [
+      VALUES,
+      { ...VALUES, beacon: 1, 'fault-line': 2, 'unconfirmed-ground': 3, 'under-fire': 4, transmission: 5 },
+      { ...VALUES, beacon: 5, 'fault-line': 5, 'unconfirmed-ground': 5, 'under-fire': 5, transmission: 5 },
+      { ...VALUES, beacon: 2, 'fault-line': 9, 'unconfirmed-ground': 2, 'under-fire': 9, transmission: 0 },
+    ];
+    for (const values of cases) {
+      for (const layout of ['wide', 'tall'] as const) {
+        const g = newGame({ layout, values, seed: 1 });
+        expect([...g.kinds].sort(), layout).toEqual([...spec].sort());
+        expect(g.values, layout).toEqual(g.kinds.map((k) => values[k]));
+        expect(g.values[0], layout).toBe(Math.max(...spec.map((k) => values[k])));
+        for (let r = 1; r < g.kinds.length; r++) {
+          const above = sure(g.kinds[r - 1], 'above'), below = sure(g.kinds[r], 'below');
+          expect(values[above], `${above} over ${below}`).toBeGreaterThanOrEqual(values[below]);
+          if (values[above] === values[below]) expect(spec.indexOf(above), `${above} over ${below}`).toBeLessThan(spec.indexOf(below));
+        }
+      }
+    }
+    expect(newGame({ layout: 'wide', values: cases[3] ?? VALUES, seed: 1 }).kinds)
+      .toEqual(['fault-line', 'under-fire', 'beacon', 'unconfirmed-ground', 'transmission']);
+  });
+});

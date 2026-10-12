@@ -132,7 +132,7 @@ function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySe
 }
 
 /** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
-function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null, duet: ArcadeDuet | null): Grid {
+export function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null, duet: ArcadeDuet | null): Grid {
   if (scene === 'invaders' && hud) return GAME_GRID[hud.layout];
   if (scene === 'platformer' && pf) return pf.grid;
   if (scene === 'kart' && kart) return kart.grid;

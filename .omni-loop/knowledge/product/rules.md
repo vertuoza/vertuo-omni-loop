@@ -138,7 +138,7 @@ The ask page offers to send an answer only while the newest round is open, reada
 
 Serves: P-PRODUCT-12
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s4-02-question-moves-on-time, PRD #71
-Enforced by: pending #1475
+Enforced by: apps/galaxy/src/ask/page/view.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -325,7 +325,7 @@ When the arcade cannot read a signed-in person's memberships, domain join or loa
 
 Serves: P-PRODUCT-28
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
-Enforced by: pending #1491
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -336,7 +336,7 @@ The public /design page dresses its heroes only in the six built-in fleets of th
 
 Serves: P-PRODUCT-29
 Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
-Enforced by: pending #1492
+Enforced by: apps/galaxy/src/design/render.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #153
@@ -347,7 +347,7 @@ The arcade shows only the XP earned in the workspace it plays for a person, the 
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s2-01-xp-read-in-the-workspace-played, PRD #160
-Enforced by: pending #1493
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -358,7 +358,7 @@ When the phone turns during an invaders game, the game keeps the field it starte
 
 Serves: P-PRODUCT-31
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
-Enforced by: pending #1494
+Enforced by: apps/galaxy/src/arcade/game-field.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -369,7 +369,7 @@ In the arcade invaders game, alien rows are ordered by what each Entropy kind pa
 
 Serves: P-PRODUCT-32
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
-Enforced by: pending #1495
+Enforced by: apps/galaxy/src/arcade/games/invaders.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -391,7 +391,7 @@ The arcade reads high scores only for players who linked GitHub, separately from
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-04-scores-read-on-their-own, PRD #160
-Enforced by: pending #1497
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -402,7 +402,7 @@ The level-up screen names the first registry game whose unlock level is above th
 
 Serves: P-PRODUCT-35
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
-Enforced by: pending #1498
+Enforced by: apps/galaxy/src/arcade/levelup.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -457,7 +457,7 @@ Whenever a player enters the arcade menu, including through the #menu link, with
 
 Serves: P-PRODUCT-39
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
-Enforced by: pending #1503
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
@@ -468,7 +468,7 @@ When a signed-in person with no galaxy on their page follows a link to the game'
 
 Serves: P-PRODUCT-40
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
-Enforced by: pending #1504
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
