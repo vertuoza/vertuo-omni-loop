@@ -34,7 +34,7 @@ export interface KartHud {
 export interface KartRow { place: number; name: string; tenths: number | null; you: boolean; /** MULTI (PRD 1572): the player left, or went silent, before the line. */ out?: boolean }
 
 /** The finish: the six places, the player's place and time, and the race time that is sent. */
-export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number; /** MULTI: the table fills in as each player finishes, so a text layer reads it afresh. */ live?: true }
+export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number; /** The clock at the player's third crossing, in tenths: the time sent to the board, shown as 3-LAP TIME (the race time in a 3-lap race). */ threeLap: number; /** MULTI: the table fills in as each player finishes, so a text layer reads it afresh. */ live?: true }
 
 /** The items a kart holds. */
 export type KartItem = 'boost' | 'blob' | 'orb';
@@ -200,8 +200,9 @@ export const KEY_RESERVED = 'KEY USED BY THE ARCADE';
 /** The OPTIONS panel as it opens: on KEYS. */
 export const OPTIONS_OPEN: KartChoice = { step: 'options', view: { screen: 'menu', cursor: 'keys' } };
 
-/** The line under COMET RING · 3 LAPS for the circuit, before the choice. */
-export const CHOICE_LINE = 'COMET RING · 3 LAPS';
+/** The line for the circuit before the choice, with the player's laps (PRD 1762): COMET RING · 5 LAPS. */
+export const choiceLine = (laps: number): string => `COMET RING · ${laps} LAPS`;
+export const CHOICE_LINE = choiceLine(3);
 /** The two ways to race. */
 export const SINGLE_LINE = 'SINGLE';
 export const MULTI_LINE = 'MULTI';
@@ -237,8 +238,11 @@ function pickChoice(choice: Extract<KartChoice, { step: 'choose' }>, multi: bool
 /** The line over the screen when the import failed. */
 export const NOT_LOADED = 'GAME DID NOT LOAD · A TO RETRY';
 
-/** What the ready screen says: the circuit, its laps and what starts the race. Its laps are `LAPS` of kart/track.ts. */
-export const READY_LINE = 'COMET RING · 3 LAPS · PRESS START';
+/** What the ready screen says: the circuit, its laps and what starts the race. Its laps are the player's (3 unless the options say otherwise). */
+/** The laps the player's options ask for: 3 before they have loaded. */
+export const lapsOf = (options: { laps: number } | null | undefined): number => options?.laps ?? 3;
+export const readyLine = (laps: number): string => `${choiceLine(laps)} · PRESS START`;
+export const READY_LINE = readyLine(3);
 
 /** The game, loaded: what `import('arcade/kart/index')` gives. */
 export type KartModule = typeof import('../kart/index');
@@ -247,9 +251,9 @@ export type KartModule = typeof import('../kart/index');
  * Imports the game and makes it. A failed import (offline, or a chunk gone after a deploy) is logged
  * with `console.error` and answers null, so the screen can say so and A can try again.
  */
-export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = []): Promise<KartGame | null> {
+export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = [], rules: Pick<KartOptions, 'laps' | 'difficulty'> | null = null): Promise<KartGame | null> {
   try {
-    return (await load()).createKart({ seed, cast });
+    return (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty } : {}) });
   } catch (err) {
     console.error(err);
     return null;

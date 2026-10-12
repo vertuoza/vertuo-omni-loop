@@ -9,7 +9,7 @@ import { HeroSprite } from '../Sprite';
 import { driveLine, keyLabel } from '../keys';
 import { useScreen } from '../Screen';
 import type { KartOptions, OptionsView } from '../kart/options';
-import { CHOICE_LINE, GRID_JOINING_LINE, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, READY_LINE, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
+import { choiceLine, GRID_JOINING_LINE, lapsOf, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, readyLine, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
@@ -40,11 +40,11 @@ function ItemFrame({ item, itemKey }: { item: KartItem | null; itemKey?: string 
 }
 
 /** The ready screen before the pick: the circuit, then SINGLE and MULTI with the cursor on one. */
-function ChoicePanel({ choice, multi, back }: { choice: Extract<KartChoice, { step: 'choose' }>; multi: boolean; back: string }) {
+function ChoicePanel({ choice, multi, back, laps }: { choice: Extract<KartChoice, { step: 'choose' }>; multi: boolean; back: string; laps: number }) {
   return (
     <div className="kt">
       <div className="j-panel kt-panel">
-        <p className="inv-title">{CHOICE_LINE}</p>
+        <p className="inv-title">{choiceLine(laps)}</p>
         <ul className="kt-choice">
           <li data-cursor={choice.cursor === 'single'}>{choice.cursor === 'single' ? '▶ ' : ''}{SINGLE_LINE}</li>
           <li data-cursor={choice.cursor === 'multi'} aria-disabled={!multi}>{choice.cursor === 'multi' ? '▶ ' : ''}{multi ? MULTI_LINE : MULTI_CLOSED_LINE}</li>
@@ -144,7 +144,7 @@ function ResultsScreen({ results, send, back }: { results: NonNullable<KartHud['
             </li>
           ))}
         </ol>
-        <p className="kt-score">TIME {raceTime(results.tenths)}</p>
+        <p className="kt-score">3-LAP TIME {raceTime(results.threeLap)}</p>
         {line && send && <p className={`inv-send inv-${sendTone(send)}`} role="status">{line}</p>}
         {canRetry(send)
           ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">{back}</Hint></p>
@@ -223,11 +223,11 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   if (hud?.results) return <ResultsScreen results={hud.results} send={send} back={back} />;
   if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} keys={options?.keys} />;
   if (choice?.step === 'options' && options) return <OptionsPanel view={choice.view} options={options} />;
-  if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} />;
+  if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} laps={lapsOf(options)} />;
   return (
     <div className="kt">
       <div className="j-panel kt-panel">
-        <p className="inv-title">{READY_LINE}</p>
+        <p className="inv-title">{readyLine(lapsOf(options))}</p>
         <p className="hint"><Hint k="B">{back}</Hint></p>
       </div>
     </div>

@@ -508,3 +508,72 @@ describe('the rivals\' difficulty (PRD 1762)', () => {
     expect(mean('normal')).toBeGreaterThan(mean('hard'));
   });
 });
+
+describe('the laps of a SINGLE race (PRD 1762, slice 4)', () => {
+  const ahead = (laps: 3 | 5 | 7, done: number, clock: number): Race => {
+    const r = play(started(newRace({ seed: 7, laps })), NONE, RULES.countdown + 0.05);
+    const [fx, fy] = track.forward;
+    const player: Race['player'] = { ...r.player, x: track.line.x - fx * 3, y: track.line.y - fy * 3, angle: track.heading, speed: 100, steer: 0 };
+    return { ...r, clock, player, pace: { laps: done, passed: track.waypoints.length }, threeAt: done >= 3 ? 80 : null, finalAt: done >= laps - 1 ? 1 : null };
+  };
+  const run = (r: Race) => {
+    let s = r;
+    const events: RaceEvent[] = [];
+    for (let i = 0; i < 40 && s.phase === 'race'; i++) { const o = step(s, GAS, 0.05); s = o.race; events.push(...o.events); }
+    return { s, events };
+  };
+
+  it('races 3 laps when none is given, and counts the laps given on the HUD', () => {
+    expect(fresh().laps).toBe(3);
+    for (const laps of [3, 5, 7] as const) {
+      const r = play(started(newRace({ seed: 7, laps })), NONE, RULES.countdown + 0.05);
+      expect(r.laps).toBe(laps);
+      expect(hudOf(r).run?.laps).toBe(laps);
+    }
+  });
+
+  it('does not finish at the third crossing of a 5-lap race, and keeps the clock of that crossing', () => {
+    const { s, events } = run(ahead(5, 2, 70));
+    expect(s.phase).toBe('race');
+    expect(s.pace.laps).toBe(3);
+    expect(s.threeAt).not.toBeNull();
+    expect(events.some((e) => e.kind === 'finish')).toBe(false);
+    expect(hudOf(s).run?.lap).toBe(4);
+  });
+
+  it('shows FINAL LAP when the last lap of a 5-lap race begins, not before', () => {
+    const early = play(started(newRace({ seed: 7, laps: 5 })), NONE, RULES.countdown + 0.05);
+    expect(early.finalAt).toBeNull();
+    const [fx, fy] = track.forward;
+    const at = (done: number): Race => ({ ...early, clock: 90, player: { ...early.player, x: track.line.x - fx * 3, y: track.line.y - fy * 3, angle: track.heading, speed: 100, steer: 0 }, pace: { laps: done, passed: track.waypoints.length } });
+    expect(run(at(2)).events.some((e) => e.kind === 'finalLap')).toBe(false);
+    expect(run(at(3)).events.some((e) => e.kind === 'finalLap')).toBe(true);
+  });
+
+  it('finishes a 5-lap race at the fifth crossing, sending the clock of the third and listing the whole race', () => {
+    const { s, events } = run(ahead(5, 4, 120));
+    expect(s.phase).toBe('finish');
+    expect(s.finish?.tenths).toBeGreaterThan(s.finish?.threeLap ?? 0);
+    expect(s.finish?.threeLap).toBe(800);
+    expect(events.filter((e) => e.kind === 'finish')).toEqual([{ kind: 'finish', tenths: 800 }]);
+    expect(s.finish?.rows.find((x) => x.you)?.tenths).toBe(s.finish?.tenths);
+  });
+
+  it('sends today\'s race time in a 3-lap race', () => {
+    const { s, events } = run(ahead(3, 2, 70));
+    expect(s.phase).toBe('finish');
+    expect(s.finish?.threeLap).toBe(s.finish?.tenths);
+    expect(events.filter((e) => e.kind === 'finish')).toEqual([{ kind: 'finish', tenths: s.finish?.tenths }]);
+  });
+
+  it('counts the same laps for the rivals', () => {
+    const base = ahead(5, 2, 70);
+    const withRival = (laps: number): Race => ({ ...base, rivals: base.rivals.map((v, i) => (i === 0 ? { ...v, pace: { laps, passed: 0 } } : v)) });
+    expect(step(withRival(3), NONE, 0.05).race.rivals[0]?.doneAt).toBeUndefined();
+    expect(step(withRival(5), NONE, 0.05).race.rivals[0]?.doneAt).toBeDefined();
+  });
+
+  it('runs the difficulty it is given', () => {
+    expect(newRace({ seed: 7, difficulty: 'hard' }).difficulty).toBe('hard');
+  });
+});

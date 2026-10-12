@@ -223,6 +223,7 @@ describe('laps', () => {
 
   it('shows the lap being raced, 1 to 3, and stays on the third', () => {
     expect([0, 1, 2, 3, 4].map((laps) => lapOf({ laps, passed: 0 }))).toEqual([1, 2, 3, 3, 3]);
+    expect([0, 1, 4, 5, 6].map((laps) => lapOf({ laps, passed: 0 }, 5))).toEqual([1, 2, 5, 5, 5]);
   });
 
   it('counts the player\'s laps in the race: none at the start, for the line it starts behind', () => {

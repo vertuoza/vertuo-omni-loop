@@ -20,7 +20,7 @@ import type { GridSession, RaceStart } from './hub';
 import type { Item } from './items';
 import { rateFor, readMessage, type GridPlayer, type ItemMessage, type RaceMessage } from './net';
 import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, plant, press, step, whereIs, type Race, type RaceEvent } from './race';
-import { RULES } from './rules';
+import { RULES, type Difficulty } from './rules';
 import type { Driver, Rival } from './rivals';
 import { deckOf, paintTrack } from './texture';
 import { isRoad, parseTrack, tileAt, type PropKind, type Track } from './track';
@@ -464,14 +464,14 @@ function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, part
 }
 
 /** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets); the circuit is COMET RING unless a test hands it another. */
-export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace; /** Tests only: what the player holds from the start, so a test need not drive to a box. */ held?: Item }
+export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace; /** A SINGLE race's laps and the rivals' difficulty (PRD 1762): the player's options. */ laps?: number; difficulty?: Difficulty; /** Tests only: what the player holds from the start, so a test need not drive to a box. */ held?: Item }
 
 /** A MULTI race (PRD 1572): the grid's session the race talks over, the start that began it and the player at this screen. */
 export interface LiveRace { session: Pick<GridSession, 'send' | 'listen'>; start: RaceStart; me: GridPlayer }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed, cast = [], track = parseTrack(), live, held }: KartOptions = { seed: 1359 }): KartGame {
-  const first = newRace({ seed, track, cast, ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
+export function createKart({ seed, cast = [], track = parseTrack(), live, held, laps, difficulty }: KartOptions = { seed: 1359 }): KartGame {
+  const first = newRace({ seed, track, cast, ...(laps !== undefined ? { laps } : {}), ...(difficulty ? { difficulty } : {}), ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
   let particles = newParticles(seed);
