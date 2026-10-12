@@ -10,7 +10,7 @@ import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
 const flatCtx = (root: string, overrides: Record<string, unknown> = {}): Context =>
   untypedFlatCtx(root, overrides) as unknown as Context;
 import { memorySource } from '../knowledge/registers.ts';
-import { enforcedByPaths, riskyChanges } from './decision-coverage.ts';
+import { enforcedByPaths, LAW_LOCKED, lawsAwaitingOwners, lockedLawChanges, riskyChanges, RULE_IDS } from './decision-coverage.ts';
 
 function change(path: string, status = 'M') {
   return { path, status };
@@ -413,5 +413,170 @@ describe('enforcedByPaths — pending names no path (PRD 1342)', () => {
   it('fires law-proof on no change named after a pending line', () => {
     seed(INVARIANTS, invariantsText([['N1', 'pending #12']]));
     expect(rulesFiredOn('pending #12')).toEqual([]);
+  });
+});
+
+describe('lockedLawChanges — law-locked (PRD 1726)', () => {
+  const PROOF = 'src/widget.test.ts';
+  const LOCK = 'Locked: @ann, 2026-10-12';
+
+  /** One invariant entry: its id, statement, `Enforced by:` and any more field lines. */
+  function entry(id: string, statement: string, enforcedBy: string, ...lines: string[]): string[] {
+    return [`## ${id}`, '', statement, '', `Enforced by: ${enforcedBy}`, ...lines, ''];
+  }
+
+  /** The invariants file holding these entries. */
+  const file = (...entries: string[][]) => entries.flat().join('\n');
+
+  /** The law-locked firings, as `law path status rule`, over `changes` against a base holding `baseText`. */
+  function firedOver(baseText: string | null, changes = [change(INVARIANTS)], options: { ctx?: Context } = {}) {
+    const base = baseText === null ? null : memorySource({ [INVARIANTS]: baseText });
+    return lockedLawChanges(changes, { ctx: options.ctx ?? ctx, base }).map((one) => `${one.law} ${one.path} ${one.status} ${one.rule}`);
+  }
+
+  it('fires when a Locked: line is added', () => {
+    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF, LOCK)));
+    expect(firedOver(file(entry('N1', 'A law.', PROOF)))).toEqual([`N1 ${INVARIANTS} M law-locked`]);
+  });
+
+  it('fires when a Locked: line is removed', () => {
+    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF)));
+    expect(firedOver(file(entry('N1', 'A law.', PROOF, LOCK)))).toEqual([`N1 ${INVARIANTS} M law-locked`]);
+  });
+
+  it('fires when a locked entry’s text is edited, a field as much as its statement', () => {
+    seed(INVARIANTS, file(entry('N1', 'A law, reworded.', PROOF, LOCK)));
+    expect(firedOver(file(entry('N1', 'A law.', PROOF, LOCK)))).toEqual([`N1 ${INVARIANTS} M law-locked`]);
+    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF, LOCK, 'Governs: src/**')));
+    expect(firedOver(file(entry('N1', 'A law.', PROOF, LOCK)))).toEqual([`N1 ${INVARIANTS} M law-locked`]);
+  });
+
+  it('fires when a locked entry is deleted, naming the file it sat in, and when one is added already locked', () => {
+    seed(INVARIANTS, '');
+    expect(firedOver(file(entry('N1', 'A law.', 'unenforced', LOCK)))).toEqual([`N1 ${INVARIANTS} M law-locked`]);
+    seed(INVARIANTS, file(entry('N1', 'A law.', 'unenforced', LOCK)));
+    expect(firedOver('')).toEqual([`N1 ${INVARIANTS} M law-locked`]);
+  });
+
+  it('fires on a file its Enforced by: names, at the head or at the base, with that change’s status', () => {
+    seed(INVARIANTS, file(entry('N1', 'A law.', `${PROOF}, src/b.test.ts`, LOCK)));
+    const same = file(entry('N1', 'A law.', `${PROOF}, src/b.test.ts`, LOCK));
+    expect(firedOver(same, [change(PROOF, 'D'), change('src/b.test.ts'), change('src/widget.ts')])).toEqual([
+      `N1 ${PROOF} D law-locked`,
+      'N1 src/b.test.ts M law-locked',
+    ]);
+    seed(INVARIANTS, file(entry('N1', 'A law.', 'src/new.test.ts', LOCK)));
+    expect(firedOver(file(entry('N1', 'A law.', PROOF, LOCK)), [change(PROOF, 'D')])).toEqual([`N1 ${PROOF} D law-locked`]);
+  });
+
+  it('fires once per law and file, however many reasons it has', () => {
+    seed(INVARIANTS, file(entry('N1', 'Reworded.', PROOF, LOCK), entry('N2', 'Another.', PROOF, LOCK)));
+    const base = file(entry('N1', 'A law.', PROOF, LOCK), entry('N2', 'Another.', PROOF, LOCK));
+    expect(firedOver(base, [change(INVARIANTS), change(PROOF)])).toEqual([
+      `N1 ${INVARIANTS} M law-locked`,
+      `N1 ${PROOF} M law-locked`,
+      `N2 ${PROOF} M law-locked`,
+    ]);
+  });
+
+  it('never fires on a rule or an invariant no one locked: edited, deleted, added or its test changed', () => {
+    seed(INVARIANTS, file(entry('N1', 'Reworded.', PROOF), entry('N3', 'New.', PROOF)));
+    expect(firedOver(file(entry('N1', 'A rule.', PROOF), entry('N2', 'Gone.', PROOF)), [change(INVARIANTS), change(PROOF, 'D')])).toEqual([]);
+    const RULES_FILE = 'docs/knowledge/product/rules.md';
+    seed(RULES_FILE, ['## BR-PRODUCT-1', '', 'A rule, reworded.', '', 'Serves: P-PRODUCT-1', `Enforced by: ${PROOF}`, ''].join('\n'));
+    const base = memorySource({ [RULES_FILE]: ['## BR-PRODUCT-1', '', 'A rule.', '', 'Serves: P-PRODUCT-1', `Enforced by: ${PROOF}`, ''].join('\n') });
+    expect(lockedLawChanges([change(RULES_FILE), change(PROOF)], { ctx, base })).toEqual([]);
+  });
+
+  it('never fires on a locked entry left alone, nor when only the base moved on', () => {
+    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF, LOCK)));
+    expect(firedOver(file(entry('N1', 'A law.', PROOF, LOCK)))).toEqual([]);
+    expect(firedOver(file(entry('N1', 'The base reworded it.', PROOF, LOCK)), [change('src/widget.ts')])).toEqual([]);
+  });
+
+  it('a locked entry moved to another register file, its words kept, fires on both files', () => {
+    const DOMAIN = 'docs/knowledge/domains/advisor/invariants.md';
+    const kept = file(entry('N1', 'A law.', 'unenforced', LOCK));
+    seed(INVARIANTS, '');
+    seed(DOMAIN, kept);
+    expect(firedOver(kept, [change(INVARIANTS), change(DOMAIN, 'A')])).toEqual([`N1 ${INVARIANTS} M law-locked`, `N1 ${DOMAIN} A law-locked`]);
+  });
+
+  it('a locked rule counts as much as a locked invariant; a "locked" principle is never a law', () => {
+    const RULES_FILE = 'docs/knowledge/product/rules.md';
+    const PRINCIPLES = 'docs/knowledge/product/principles.md';
+    seed(RULES_FILE, ['## BR-PRODUCT-1', '', 'A rule.', '', `Enforced by: ${PROOF}`, LOCK, ''].join('\n'));
+    seed(PRINCIPLES, ['## P-PRODUCT-1', '', 'A principle.', '', 'Why: because.', LOCK, ''].join('\n'));
+    const base = memorySource({ [PRINCIPLES]: ['## P-PRODUCT-1', '', 'A principle.', '', 'Why: because.', ''].join('\n') });
+    const fired = lockedLawChanges([change(RULES_FILE), change(PRINCIPLES)], { ctx, base }).map((one) => one.law);
+    expect(fired).toEqual(['BR-PRODUCT-1']);
+  });
+
+  it('without a base, reads only the head laws’ proofs', () => {
+    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF, LOCK)));
+    expect(firedOver(null, [change(INVARIANTS), change(PROOF)])).toEqual([`N1 ${PROOF} M law-locked`]);
+  });
+
+  it('never fires when laws.source is not "knowledge"', () => {
+    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF, LOCK)));
+    const noLawsCtx = flatCtx(root, { risk: RISK, laws: { source: 'none' } });
+    expect(firedOver('', [change(INVARIANTS), change(PROOF)], { ctx: noLawsCtx })).toEqual([]);
+  });
+
+  it('is no rule of riskyChanges: no account ever covers it', () => {
+    expect(RULE_IDS).not.toContain(LAW_LOCKED);
+    expect(LAW_LOCKED).toBe('law-locked');
+  });
+});
+
+describe('lawsAwaitingOwners — only a CODEOWNER’s approval clears law-locked (PRD 1726)', () => {
+  const fired = (law: string, path: string) => ({ path, status: 'M', rule: LAW_LOCKED, law });
+  const OWNERS: Record<string, string[]> = {
+    'a.md': ['@ann', '@acme/core'],
+    'a.test.ts': ['@ann'],
+    'b.test.ts': ['@bob'],
+    'team.test.ts': ['@acme/core', 'core@acme.com'],
+  };
+  const ownersOf = (path: string) => OWNERS[path] ?? [];
+
+  it('no approval holds every law, naming the files and the persons who own them', () => {
+    expect(lawsAwaitingOwners([fired('N1', 'a.md'), fired('N1', 'a.test.ts')], { ownersOf, approvers: [] })).toEqual({
+      awaiting: [{ law: 'N1', reason: 'no-approval', paths: ['a.md', 'a.test.ts'], owners: ['@ann'] }],
+      approvedBy: [],
+    });
+  });
+
+  it('a non-owner’s approval holds it; an owner’s clears it, without case', () => {
+    expect(lawsAwaitingOwners([fired('N1', 'a.md')], { ownersOf, approvers: ['bob'] }).awaiting).toHaveLength(1);
+    expect(lawsAwaitingOwners([fired('N1', 'a.md')], { ownersOf, approvers: ['bob', 'ANN'] })).toEqual({ awaiting: [], approvedBy: ['ANN'] });
+  });
+
+  it('every file must be approved by one of its own owners', () => {
+    const both = [fired('N1', 'a.test.ts'), fired('N1', 'b.test.ts')];
+    expect(lawsAwaitingOwners(both, { ownersOf, approvers: ['ann'] })).toEqual({
+      awaiting: [{ law: 'N1', reason: 'no-approval', paths: ['b.test.ts'], owners: ['@ann', '@bob'] }],
+      approvedBy: ['ann'],
+    });
+    expect(lawsAwaitingOwners(both, { ownersOf, approvers: ['ann', 'bob'] })).toEqual({ awaiting: [], approvedBy: ['ann', 'bob'] });
+  });
+
+  it('a file no person owns holds its law closed, whatever was approved — a team or an e-mail is no person', () => {
+    const laws = [fired('N1', 'a.test.ts'), fired('N1', 'nobody.ts'), fired('N2', 'team.test.ts')];
+    expect(lawsAwaitingOwners(laws, { ownersOf, approvers: ['ann', 'core'] }).awaiting).toEqual([
+      { law: 'N1', reason: 'no-codeowner', paths: ['nobody.ts'], owners: ['@ann'] },
+      { law: 'N2', reason: 'no-codeowner', paths: ['team.test.ts'], owners: [] },
+    ]);
+  });
+
+  it('each law is judged alone', () => {
+    const laws = [fired('N1', 'a.test.ts'), fired('N2', 'b.test.ts')];
+    expect(lawsAwaitingOwners(laws, { ownersOf, approvers: ['bob'] })).toEqual({
+      awaiting: [{ law: 'N1', reason: 'no-approval', paths: ['a.test.ts'], owners: ['@ann'] }],
+      approvedBy: ['bob'],
+    });
+  });
+
+  it('nothing fired, nothing awaits', () => {
+    expect(lawsAwaitingOwners([], { ownersOf, approvers: [] })).toEqual({ awaiting: [], approvedBy: [] });
   });
 });
