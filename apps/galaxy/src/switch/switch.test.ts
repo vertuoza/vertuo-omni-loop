@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { hrefOf, SETTINGS, SIDEBAR } from '../nav/sidebar.ts';
 import { APP_HOME, GAME_HOME } from './switch';
@@ -8,7 +8,26 @@ import { APP_HOME, GAME_HOME } from './switch';
 // PRD 733), and the pages under them, each name a page on disk, so a renamed route fails here before an
 // entry or a tab leads nowhere.
 
-const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.meta.url);
+const APP = new URL('../../app/', import.meta.url);
+
+/** The page.tsx a path opens, looked for through route groups too (`app/ask/(shell)/for-me/`, PRD 1705),
+ * which Next.js leaves out of the URL. */
+const pageOf = (path: string): URL => {
+  const find = (dir: URL, segments: string[]): URL | null => {
+    const [head, ...rest] = segments;
+    if (head === undefined && existsSync(new URL('page.tsx', dir))) return new URL('page.tsx', dir);
+    if (head !== undefined && existsSync(new URL(`${head}/`, dir))) {
+      const found = find(new URL(`${head}/`, dir), rest);
+      if (found) return found;
+    }
+    for (const group of readdirSync(dir).filter((name) => name.startsWith('('))) {
+      const found = find(new URL(`${group}/`, dir), segments);
+      if (found) return found;
+    }
+    return null;
+  };
+  return find(APP, path.split('/').filter(Boolean)) ?? new URL(`.${path}/page.tsx`, APP);
+};
 
 describe('the app\'s sections', () => {
   it('are the sidebar\'s Dashboard and Work entries and Settings, and their pages, each opening a page that exists', () => {

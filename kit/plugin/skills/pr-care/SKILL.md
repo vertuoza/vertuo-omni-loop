@@ -10,7 +10,7 @@ branch shape or command you can read with `omni config <key>`. `<remote>` is `re
 
 This skill looks after the **feature PR** only: the one pull request PRD n sends to the default
 branch. For a PRD of several landings, that is the first **landing PR** still open (the one
-`care state` names), and the chain of landing PRs behind it, kept stacked as each one merges. Phase-0 PRs, sub-PRs, retro, knowledge and fix PRs are out of its scope. A person runs it in
+`care state` names), and the chain of landing PRs behind it, kept stacked as each one merges. Phase-0 PRs, sub-PRs, retro, knowledge and fix PRs are out of its scope; a sub-PR's review threads are judged by `/omni:wave` before it merges the sub-PR, with **3. Review threads** below. A person runs it in
 a terminal and leaves it running: it watches on this machine, needs no new secret or runner, and
 stops when the terminal does, which the PRD page's watcher line makes visible.
 

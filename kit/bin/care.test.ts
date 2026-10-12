@@ -246,6 +246,38 @@ describe('omni care state', () => {
     expect(changeReads(reads.reads)).toEqual(['acme/widgets#12']);
   });
 
+  // Issue #1178: a reviewer bot reviews every pull request, sub-PRs too. Before `/omni:wave` merges a
+  // sub-PR, its threads are judged as a feature PR's are, while the wave's own claims stand.
+  const readySub = () => openSub('s2', { state: 'open' });
+  /** The single repository's fake, sub-PR 22 (s2) open and ready, read with `threads` (`REVIEW`'s by default). */
+  const withSub = (threads: LoopChangeDetail['review']['threads'] = REVIEW.threads) =>
+    fakeLoopReads({
+      changes: { 'acme/widgets': [subPr('s1'), readySub(), pr(9)] },
+      details: { 'acme/widgets#22': { review: { ...REVIEW, threads } } },
+      comments: { 'acme/widgets#22': [] },
+    });
+
+  it("judges a sub-PR's review threads while the wave holds claims: no CI, no merge-base, no status", async () => {
+    const root = repo();
+    const { code, out } = await run(['care', 'state', '7', '--pr', '22'], root, withSub());
+    expect(code).toBe(0);
+    const state: unknown = JSON.parse(out);
+    expect(dig(state, 'round')).toEqual({ mode: 'act', actions: [{ kind: 'judge', thread: 'T1' }] });
+    expect(dig(state, 'slice')).toBe('s2');
+    expect(dig(state, 'wave')).toEqual({ holdsClaims: true, claimed: ['s2'] });
+  });
+
+  it('holds a sub-PR whose thread was left asked, and clears one whose threads are all handled', async () => {
+    const root = repo();
+    const asked = [
+      { author: 'rev', body: 'Drop the column?', createdAt: NOW },
+      { author: 'bot', body: 'The PM decides.\n\n<!-- omni-care: asked -->', createdAt: NOW },
+    ];
+    const held = withSub([{ id: 'T3', resolved: false, path: 'b/x.mjs', line: 1, comments: asked }]);
+    expect(dig(JSON.parse((await run(['care', 'state', '7', '--pr', '22'], root, held)).out), 'round')).toEqual({ mode: 'hold', actions: [], held: ['T3'] });
+    expect(dig(JSON.parse((await run(['care', 'state', '7', '--pr', '22'], root, withSub([]))).out), 'round')).toEqual({ mode: 'clear', actions: [] });
+  });
+
   it('prefers the open feature PR over a closed one', async () => {
     const root = repo();
     const reads = widgets({ features: [pr(3, 'closed'), pr(9)] });

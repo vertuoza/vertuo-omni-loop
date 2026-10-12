@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () =>
 const { default: AppLayout } = await import('../../app/app/layout.tsx');
 const { default: DossierLayout } = await import('../../app/prd/layout.tsx');
 const { default: RoadmapsLayout } = await import('../../app/roadmaps/layout.tsx');
-const { default: AskLayout } = await import('../../app/ask/layout.tsx');
+const { default: AskLayout } = await import('../../app/ask/(shell)/layout.tsx');
 const { default: KnowledgeLayout } = await import('../../app/knowledge/layout.tsx');
 const { default: ReleasesLayout } = await import('../../app/releases/layout.tsx');
 const { default: DocsLayout } = await import('../../app/docs/layout.tsx');
@@ -153,7 +153,7 @@ describe('the public pages', () => {
 describe('the layouts', () => {
   const source = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
 
-  it.each(['app/app/layout.tsx', 'app/prd/layout.tsx', 'app/ask/layout.tsx', 'app/knowledge/layout.tsx'])(
+  it.each(['app/app/layout.tsx', 'app/prd/layout.tsx', 'app/ask/(shell)/layout.tsx', 'app/knowledge/layout.tsx'])(
     '%s renders the app shell with the viewer, and no header of its own',
     (file) => {
       expect(source(file)).toMatch(/<AppShell viewer=\{await viewerLive\(\)\}/);
