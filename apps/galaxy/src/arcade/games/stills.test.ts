@@ -247,9 +247,9 @@ function duet({ w, h }: { w: number; h: number }): Canvas {
   const reach = DUET_RULES.centre.y - DUET_RULES.radius / 2;
   let tick = 0;
   while (Math.max(...blocksAt(wave, tick).map((b) => b.cy)) < reach) tick++;
-  // The angle nearest DUET_ANGLE where neither orb, nor its trail a little behind, touches a block.
+  // The angle nearest DUET_ANGLE where neither orb, nor its trail a little behind, comes within 4 pixels of a block.
   const blocks = blocksAt(wave, tick);
-  const clear = (a: number) => [0, -0.25, 0.25].every((d) => !struck(a + d, blocks));
+  const clear = (a: number) => [0, -0.25, 0.25].every((d) => !struck(a + d, blocks, DUET_RULES.orbRadius + 4));
   const angle = sure(Array.from({ length: 126 }, (_, i) => DUET_ANGLE + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.05).find(clear), 'an angle clear of the wave');
   const trail = Array.from({ length: DUET_RULES.trail }, (_, i) => angle - (i + 1) * 0.08);
   const run = { ...newRun({ seed: 1 }), phase: 'play' as const, chapter: DUET_CHAPTER, wave: DUET_WAVE, tick, angle, trail, started: true };
