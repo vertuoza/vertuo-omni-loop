@@ -1,15 +1,21 @@
 import { z } from 'zod';
-import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
-import { ChangeDetailSchema, ChangesQuerySchema, ChangesSchema, RepoSchema } from './loop.contract';
+import {
+  ChangeDetailSchema, ChangesQuerySchema, ChangesSchema, CommentsQuerySchema, CommentsSchema, IssueDetailSchema, IssuesQuerySchema,
+  IssuesSchema, RepoSchema,
+} from './loop.contract';
 import { HostSpent, HostUnreadable, type LoopRead, type LoopService } from './loop.service';
 
-// The loop's read routes for the kit (PRD 1665, s1; ADR-0095), as plain functions of a Request, so they
-// are tested with a fake service and each route stays one line:
+// The loop's read routes for the kit (PRD 1665, s1 and s2; ADR-0095), as plain functions of a Request,
+// so they are tested with a fake service and each route stays one line:
 //
 //   GET /api/loop/changes?repo=<owner/name>&base|head|label&state=all|open  → 200 {changes: [Change]}
 //   GET /api/loop/changes/<n>?repo=<owner/name>                            → 200 ChangeDetail
+//   GET /api/loop/comments?repo=<owner/name>&on=<n>                        → 200 {comments: [Comment]}
+//   GET /api/loop/issues?repo=<owner/name>&label&state=all|open|closed     → 200 {issues: [Issue]}
+//   GET /api/loop/issues/<n>?repo=<owner/name>                             → 200 IssueDetail
 //
 // The kit calls them with the terminal's sign-in (a bearer token, `omni signin` or a traded
 // OMNI_TOKEN). The sign-in is checked first: signed out, 401, and nothing else runs. The service then
@@ -32,16 +38,25 @@ const NO_DATABASE = 'The loop cannot be read here: this deployment has no databa
 const NO_APP = 'The loop cannot be read here: this deployment has no app to read a repository with.';
 const BAD_QUERY = 'Name the repository as `repo=owner/name`, and filter by `base`, `head` or `label`, with `state=all` or `state=open`.';
 const BAD_NUMBER = 'Name the change by its number: /api/loop/changes/<n>?repo=owner/name.';
+const BAD_COMMENTS = 'Name the repository as `repo=owner/name`, and the issue or change as `on=<n>`.';
+const BAD_ISSUES = 'Name the repository as `repo=owner/name`, and filter by `label`, with `state=all`, `state=open` or `state=closed`.';
+const BAD_ISSUE = 'Name the issue by its number: /api/loop/issues/<n>?repo=owner/name.';
 const NOT_READ = 'The loop could not be read. Try again.';
 
-const NumberSchema = z.string().regex(/^[1-9]\d{0,9}$/).transform(Number).pipe(PrNumberSchema);
+const NumberSchema = z.string().regex(/^[1-9]\d{0,9}$/).transform(Number);
 
 /** The query's parameters, each named once; null when one is repeated or unknown, or a value is malformed. */
-function listQueryOf(params: URLSearchParams) {
+function queryOf<T>(params: URLSearchParams, schema: z.ZodType<T>): T | null {
   const seen = [...params.keys()];
   if (new Set(seen).size !== seen.length) return null;
-  const parsed = ChangesQuerySchema.safeParse(Object.fromEntries(params));
+  const parsed = schema.safeParse(Object.fromEntries(params));
   return parsed.success ? parsed.data : null;
+}
+
+/** The one repository a single read's query names, and nothing else; null otherwise. */
+function repoOf(params: URLSearchParams): string | null {
+  const repo = RepoSchema.safeParse(params.get('repo'));
+  return repo.success && params.getAll('repo').length === 1 && [...params.keys()].length === 1 ? repo.data : null;
 }
 
 /** A refusal for the host's errors; anything else is logged and answered 500. */
@@ -73,34 +88,70 @@ async function callerOf(request: Request, deps: LoopReadsDeps) {
   return auth.ok ? auth.caller : refuse(auth.status, auth.error);
 }
 
-/** GET /api/loop/changes: a repository's changes, filtered. */
-export async function readChanges(request: Request, deps: LoopReadsDeps): Promise<Response> {
-  const caller = await callerOf(request, deps);
-  if (caller instanceof Response) return caller;
-  const query = listQueryOf(new URL(request.url).searchParams);
-  if (!query) return refuse(400, BAD_QUERY);
+/** What one read answers, once its caller and query are known. */
+type Served<T> = { repo: string; read: (service: LoopService) => Promise<LoopRead<T>>; schema: z.ZodType<T>; missing: string };
+
+/** A read the service answers, in the contract's shape; the host's errors as their refusals. */
+async function serve<T>({ repo, read, schema, missing }: Served<T>, deps: LoopReadsDeps): Promise<Response> {
   if (!deps.service) return refuse(503, NO_APP);
   try {
-    return answerOf(await deps.service.changes(caller.id, query), query.repo, ChangesSchema, deps, NOT_READ);
+    return answerOf(await read(deps.service), repo, schema, deps, missing);
   } catch (error) {
-    return hostRefusal(error, query.repo, deps);
+    return hostRefusal(error, repo, deps);
   }
 }
 
-/** GET /api/loop/changes/<n>: one change of a repository. */
-export async function readChange(request: Request, number: string, deps: LoopReadsDeps): Promise<Response> {
+/** A list's read: the caller, then its query, then the service. */
+async function serveList<Q extends { repo: string }, T>(request: Request, deps: LoopReadsDeps, query: { schema: z.ZodType<Q>; bad: string }, served: (caller: string, query: Q) => Omit<Served<T>, 'repo'>): Promise<Response> {
   const caller = await callerOf(request, deps);
   if (caller instanceof Response) return caller;
-  const parsedNumber = NumberSchema.safeParse(number);
-  if (!parsedNumber.success) return refuse(400, BAD_NUMBER);
-  const params = new URL(request.url).searchParams;
-  const repo = RepoSchema.safeParse(params.get('repo'));
-  if (!repo.success || params.getAll('repo').length !== 1 || [...params.keys()].length !== 1) return refuse(400, BAD_QUERY);
-  if (!deps.service) return refuse(503, NO_APP);
-  try {
-    const read = await deps.service.change(caller.id, repo.data, parsedNumber.data);
-    return answerOf(read, repo.data, ChangeDetailSchema, deps, `No change ${parsedNumber.data} in ${repo.data}.`);
-  } catch (error) {
-    return hostRefusal(error, repo.data, deps);
-  }
+  const parsed = queryOf(new URL(request.url).searchParams, query.schema);
+  if (!parsed) return refuse(400, query.bad);
+  return serve({ repo: parsed.repo, ...served(caller.id, parsed) }, deps);
+}
+
+/** One numbered thing's read: the caller, then its number and its repository, then the service. */
+async function serveOne<N, T>(request: Request, number: string, deps: LoopReadsDeps, numbered: { schema: z.ZodType<N, string>; bad: string }, served: (caller: string, repo: string, n: N) => Omit<Served<T>, 'repo'>): Promise<Response> {
+  const caller = await callerOf(request, deps);
+  if (caller instanceof Response) return caller;
+  const parsedNumber = numbered.schema.safeParse(number);
+  if (!parsedNumber.success) return refuse(400, numbered.bad);
+  const repo = repoOf(new URL(request.url).searchParams);
+  if (repo === null) return refuse(400, BAD_QUERY);
+  return serve({ repo, ...served(caller.id, repo, parsedNumber.data) }, deps);
+}
+
+/** GET /api/loop/changes: a repository's changes, filtered. */
+export function readChanges(request: Request, deps: LoopReadsDeps): Promise<Response> {
+  return serveList(request, deps, { schema: ChangesQuerySchema, bad: BAD_QUERY }, (caller, query) => ({
+    read: (service) => service.changes(caller, query), schema: ChangesSchema, missing: NOT_READ,
+  }));
+}
+
+/** GET /api/loop/changes/<n>: one change of a repository, with its review. */
+export function readChange(request: Request, number: string, deps: LoopReadsDeps): Promise<Response> {
+  return serveOne(request, number, deps, { schema: NumberSchema.pipe(PrNumberSchema), bad: BAD_NUMBER }, (caller, repo, n) => ({
+    read: (service) => service.change(caller, repo, n), schema: ChangeDetailSchema, missing: `No change ${n} in ${repo}.`,
+  }));
+}
+
+/** GET /api/loop/comments: the conversation of one issue or change. */
+export function readComments(request: Request, deps: LoopReadsDeps): Promise<Response> {
+  return serveList(request, deps, { schema: CommentsQuerySchema, bad: BAD_COMMENTS }, (caller, query) => ({
+    read: (service) => service.comments(caller, query), schema: CommentsSchema, missing: `No issue or change ${query.on} in ${query.repo}.`,
+  }));
+}
+
+/** GET /api/loop/issues: a repository's issues, filtered. */
+export function readIssues(request: Request, deps: LoopReadsDeps): Promise<Response> {
+  return serveList(request, deps, { schema: IssuesQuerySchema, bad: BAD_ISSUES }, (caller, query) => ({
+    read: (service) => service.issues(caller, query), schema: IssuesSchema, missing: NOT_READ,
+  }));
+}
+
+/** GET /api/loop/issues/<n>: one issue of a repository, with its comments and what closes it. */
+export function readIssue(request: Request, number: string, deps: LoopReadsDeps): Promise<Response> {
+  return serveOne(request, number, deps, { schema: NumberSchema.pipe(IssueNumberSchema), bad: BAD_ISSUE }, (caller, repo, n) => ({
+    read: (service) => service.issue(caller, repo, n), schema: IssueDetailSchema, missing: `No issue ${n} in ${repo}.`,
+  }));
 }
