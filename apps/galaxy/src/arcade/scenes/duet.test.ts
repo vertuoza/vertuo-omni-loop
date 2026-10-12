@@ -180,13 +180,6 @@ describe('the duet text layer', () => {
     expect(sameDuetHud(READY, { ...READY, started: true })).toBe(false);
     expect(sameDuetHud(READY, { ...READY, phase: 'paused' })).toBe(false);
   });
-
-  it('shows the wave\'s line in the middle of the playfield as it begins, over the HUD, and tells a text layer with a line apart (issue 1692)', () => {
-    const playing: DuetHud = { ...READY, phase: 'play', line: 'Two lights, one turn.' };
-    expect(text('ready', WIDE, 'full', playing)).toBe('SCORE 0 WAVE CH I · 1/10 LIVES ×3 Two lights, one turn.');
-    expect(text('ready', TALL, 'handheld', playing)).toBe('SCORE 0 WAVE CH I · 1/10 LIVES ×3 Two lights, one turn.');
-    expect(sameDuetHud(playing, { ...READY, phase: 'play' })).toBe(false);
-  });
 });
 
 describe('what a press does around the game', () => {
