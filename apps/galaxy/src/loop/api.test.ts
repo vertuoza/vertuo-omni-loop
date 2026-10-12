@@ -102,6 +102,26 @@ describe('POST /api/loops start: a loop opens', () => {
     await w.start();
     expect((await w.start({}, { token: 'bob-token' })).status).toBe(201);
   });
+
+  // Law BR-PRODUCT-73 (.omni-loop/knowledge/product/rules.md, #1534).
+  it('law BR-PRODUCT-73: a loop with no wake yet reads live until an hour after its last push, only then silent and taken over', async () => {
+    const w = world();
+    const reader = loopReader(w.fake.client('ada-token') as never);
+    const first = await w.start();
+    const state = async () => {
+      const row = await reader.loop(first.loopId);
+      if (!row) throw new Error('the loop is gone');
+      return loopState(row, w.clock.now);
+    };
+    w.clock.now += 60 * 60 * 1000 - 1;
+    expect(await state()).toBe('live');
+    expect((await w.start({ takeOver: true })).status).toBe(409);
+    w.clock.now += 1;
+    expect(await state()).toBe('silent');
+    const taken = await w.start({ takeOver: true });
+    expect(taken.status).toBe(201);
+    expect(w.loop(first.loopId)?.state).toBe('stopped');
+  });
 });
 
 describe('POST /api/loops tick, park and stop', () => {

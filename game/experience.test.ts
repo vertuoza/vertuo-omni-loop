@@ -225,6 +225,13 @@ describe('unlockedFor', () => {
     expect(unlockedFor(3, ['invaders', 'kart', 'platformer'], later)).toEqual(['invaders', 'kart', 'platformer']);
   });
 
+  it('opens OMNI DUET at LV 4 under the rulebook, and keeps it after a rule change moves it later (PRD 1633)', () => {
+    expect(unlockedFor(3, [])).toEqual(['invaders', 'kart', 'platformer']);
+    expect(unlockedFor(4, [])).toEqual(['duet', 'invaders', 'kart', 'platformer']);
+    const later = rules({ unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 9 } });
+    expect(unlockedFor(4, ['duet', 'invaders', 'kart', 'platformer'], later)).toEqual(['duet', 'invaders', 'kart', 'platformer']);
+  });
+
   it('adds to the games already stored, and never takes one away', () => {
     const later = rules({ unlocks: { invaders: 5 } });
     expect(unlockedFor(3, ['invaders'], later)).toEqual(['invaders']);

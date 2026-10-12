@@ -198,6 +198,28 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(verdict.carries.docs).toEqual([concept]);
   });
 
+  // Law BR-PRODUCT-1 (.omni-loop/knowledge/product/rules.md, #1463).
+  it('law BR-PRODUCT-1: delivery, knowledge, decision records, glossary and context files are documentation; any other path is source', () => {
+    const { ctx } = docsOnlyRepo({ config: { paths: { glossary: 'docs/glossary.md', context: ['CLAUDE.md', 'AGENTS.md'] } } });
+    const documentation = [
+      '.omni-loop/delivery/shipped/0001-other/notes.md',
+      `${ctx.layout.knowledgeRoot}/product/rules.md`,
+      `${ctx.layout.adrDir}/0001-a-decision.md`,
+      'docs/glossary.md',
+      'CLAUDE.md',
+      'AGENTS.md',
+    ];
+    for (const path of documentation) {
+      expect(classifyPhase0Path(path, { ctx, prd: PRD }), path).toBe('docs');
+    }
+    expect(isDocsOnly(documentation, { ctx })).toBe(true);
+
+    for (const path of ['kit/lib/a.ts', 'docs/other.md', 'package.json', 'README.md']) {
+      expect(classifyPhase0Path(path, { ctx, prd: PRD }), path).toBe('source');
+      expect(isDocsOnly([path], { ctx }), path).toBe(false);
+    }
+  });
+
   it('names the three required kinds once, in the order a reviewer wants them', () => {
     expect(PHASE_0_REQUIRED_KINDS).toEqual(['spec', 'plan', 'before-after']);
   });

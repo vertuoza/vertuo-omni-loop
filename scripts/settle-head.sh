@@ -13,16 +13,32 @@
 # cancelled while waiting, so 180 seconds (4 billed minutes a run) cost about 217 minutes to save about
 # 37. 30 seconds bills one minute and still absorbs a push straight after another.
 #
-# Reads SETTLE_SECONDS (default 30), GITHUB_HEAD_REF, SETTLE_HEAD_SHA (else GITHUB_SHA) and
-# GITHUB_REPOSITORY; writes stale=<true|false> to $GITHUB_OUTPUT. Needs GH_TOKEN with contents: read.
-# If gh cannot read the tip, it says so on one stderr line and answers stale=false: a settle that
-# cannot look never skips the checks.
+# A pull request that changes only docs (every file a `.md` or under `docs/`) has nothing for the
+# checks to grade: it answers stale=true at once, without waiting, so every job behind the gate skips.
+# The workflow runs on every pull request into main, never filtered by path, so that a docs-only one
+# still reports its checks, skipped, which a required check on main counts as passed.
+#
+# Reads SETTLE_SECONDS (default 30), GITHUB_HEAD_REF, SETTLE_HEAD_SHA (else GITHUB_SHA),
+# GITHUB_REPOSITORY and SETTLE_PR (the pull request's number; unset, the docs-only test is not made);
+# writes stale=<true|false> to $GITHUB_OUTPUT. Needs GH_TOKEN with contents: read and
+# pull-requests: read. If gh cannot read the tip or the files, it says so on one stderr line and runs
+# the checks: a settle that cannot look never skips them.
 set -euo pipefail
 
 wait_s="${SETTLE_SECONDS:-30}"
 branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:?}}"
 sha="${SETTLE_HEAD_SHA:-${GITHUB_SHA:?}}"
 out="${GITHUB_OUTPUT:?}"
+
+if [ -n "${SETTLE_PR:-}" ]; then
+  if ! files="$(gh api "repos/${GITHUB_REPOSITORY:?}/pulls/${SETTLE_PR}/files" --paginate --jq '.[].filename' 2>&1)"; then
+    echo "settle: could not read the files of #${SETTLE_PR} ($(echo "$files" | tr '\n' ' ' | sed 's/ *$//')), running the checks anyway" >&2
+  elif [ -n "$files" ] && ! grep -vqE '(\.md$|^docs/)' <<< "$files"; then
+    echo "::notice::settle: #${SETTLE_PR} changes only docs: nothing to check, skipping the checks behind the gate."
+    echo "stale=true" >> "$out"
+    exit 0
+  fi
+fi
 
 echo "settle: waiting ${wait_s}s before spending runners on ${branch}@${sha:0:7}"
 sleep "$wait_s"

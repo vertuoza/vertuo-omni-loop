@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { faceOf } from './face';
 import { FleetChip } from './FleetChip';
+import { peopleOf } from './load';
 import { nestedLinks } from './nested-links';
 import { PersonChip } from './PersonChip';
 
@@ -123,5 +124,18 @@ describe('the chips as links (PRD 698)', () => {
     expect(css).toMatch(/a\.person-chip, a\.fleet-chip \{[^}]*text-decoration: none/);
     expect(css).toContain('a.person-chip:hover .person-chip-name, a.person-chip:focus-visible .person-chip-name,\na.fleet-chip:hover .fleet-chip-label, a.fleet-chip:focus-visible .fleet-chip-label { text-decoration: underline; }');
     expect(css).toMatch(/a\.person-chip:focus-visible, a\.fleet-chip:focus-visible \{[^}]*outline: 2px solid/);
+  });
+});
+
+// Law BR-PRODUCT-51 (.omni-loop/knowledge/product/rules.md, #1512).
+describe('the chip of someone outside the workspace', () => {
+  it('law BR-PRODUCT-51: a member\'s name links to their profile, an outsider\'s name is shown without a link', () => {
+    const people = peopleOf([{ user_id: 'u-ada', name: 'ADA', github_login: 'ada-gh', avatar_url: null, fleet: null, hero: null }], []);
+    const chip = (who: ReturnType<typeof people.byLogin>) => renderToStaticMarkup(createElement(PersonChip, { person: who }));
+    expect(chip(people.byLogin('ada-gh'))).toContain('href="/app/people/ada-gh"');
+    const outsider = chip(people.byLogin('outside-contributor'));
+    expect(outsider).not.toContain('<a');
+    expect(outsider).not.toContain('href');
+    expect(text(outsider)).toBe('outside-contributor');
   });
 });

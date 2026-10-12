@@ -835,10 +835,12 @@ off, no row exists, and every player sees NO XP YET.
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
   highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
-  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`). A visitor sees every cabinet locked and
-  "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
-  could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
-  choosing; the tall grid shows one a page.
+  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`; OMNI DUET: `REACH LV 4 TO PLAY`). A visitor
+  sees every cabinet locked and "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE
+  YOUR FIRST POINT", and XP that could not be read "XP OUT OF REACH". The wide grid stands a window of
+  three cabinets side by side, ◀ ▶ choosing, which scrolls by one so the cabinet under the cursor is
+  always in it (cabinets 1–3 with the cursor on 1 to 3, 2–4 on the fourth); the tall grid shows one a
+  page.
 - **`levelup`** (`src/arcade/levelup.ts`): arriving at the menu by any route, a player whose level
   is higher than the one last celebrated on this device (`omni-loop:level-seen:<login>` in browser
   storage) sees LEVEL UP! first. When a level climbed since then opened a game their row holds
@@ -944,6 +946,27 @@ off, no row exists, and every player sees NO XP YET.
   live, `—` while racing and `OUT` for one who left; the finish time is sent through `submit_score()` as a
   solo time is, so the cabinet keeps the better of the two, and the grid's next race waits until every
   player of the last one finished or is OUT.
+- **`duet`**, OMNI DUET (PRD 1633), opened at LV 4 (`xp.unlocks.duet` in the rulebook): an original
+  two-orb dodge game. Its code is `src/arcade/duet/`, imported only when the cabinet opens (`LOADING…`
+  meanwhile; a failed import says `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder
+  imports it at run time (`duet/guard.test.ts`). Two orbs, one warm and one cool, ride a circle around
+  the Omni Loop crest, always opposite: ◀ held turns them anticlockwise, ▶ clockwise, both or neither
+  hold them still. Waves of Entropy blocks fall through them, still, sliding or turning, over four
+  chapters of about ten waves written as text in `duet/waves.ts`: **I · DRIFT**, **II · SLIDE**,
+  **III · SPIN** and **IV · STORM**. After chapter IV, `ENDLESS · ×2`: waves drawn from one fixed seed
+  (`ENDLESS_SEED`, the same for every player), faster and never ending. `waveProblems` proves every
+  chapter wave and the first 200 endless waves passable. A wave passed scores 10, 20 in endless mode;
+  nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
+  began with (in endless mode, the wave hit with the score it began with), on a ready screen that
+  waits for START, so no death ever earns a point. START pauses, and so does a blurred window, a
+  hidden tab or OPEN THE APP?; only START resumes. The game ends at the last life lost, on SELECT on
+  the pause, or on B on a ready screen once play has started (B on the first one leaves with no
+  score), and every way shows the game over: the score, the waves passed and where the run got to.
+  The score reached is sent once under `duet`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or
+  SCORE NOT SAVED (A retries once) as Invaders; otherwise A plays again from chapter I and B goes back
+  to the room. The run is a pure phase machine in fixed 1/60 s steps (`duet/run.ts`), so it plays the
+  same at any frame rate, in one 320×288 playfield on both grids; its numbers are one block,
+  `duet/rules.ts`. It is silent.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
@@ -1088,7 +1111,7 @@ the outbox check ([`apps/omni-app/README.md`](../omni-app/README.md#a-product-pr
   posts the checks anyway.
 - **The outbox, on the server.** Its items are rows of `outbox_items`, and each answer one row of the
   append-only `outbox_settlements`, written only through RPCs
-  (`supabase/migrations/20261204090000_outbox_items.sql`, proven by `supabase/checks/outbox_items.sql`). An item
+  (`supabase/migrations/20261204100000_outbox_items.sql`, proven by `supabase/checks/outbox_items.sql`). An item
   keeps its markdown as written, checked by the kit's own parser before any write. An item takes one
   settlement, and a second is refused. The kit reaches them through `src/outbox-items/`:
   `GET /api/outbox/items?product=&prd=` (every item, with its settlement), `POST /api/outbox/items`
@@ -1491,6 +1514,8 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
      `CONSTITUENT_JUDGE_SECRET`, `LAW_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
    - the approval alerts: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push), `RESEND_API_KEY`,
      `RESEND_FROM` (email)
+   - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each
+     token's stored sign-in; without it no token is made or traded
    - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
@@ -1519,6 +1544,49 @@ works on the vercel.app host as before.
    and set its Setup URL to `https://www.omni-loop.xyz/signup/installed`.
 3. **Vercel** › the galaxy project › Domains: keep both `www.omni-loop.xyz` and
    `vertuo-omni-loop-galaxy.vercel.app`, with no redirect between them.
+
+### 8. When Vercel builds
+
+Both projects build only what can change them (PRD 1646). Build CPU minutes were nearly the whole
+Vercel bill: every merge built both projects twice, and every push on every branch built both.
+
+- **On `main`,** a merge commit is skipped: the `release` workflow's `chore(release): v0.0.N` commit
+  follows within minutes and carries it. That commit builds each project whose inputs changed since
+  the project's last production deploy (`scripts/vercel-inputs.ts` holds the rules): galaxy unless
+  every change is on its never list (the delivery folder, the playbook and the ADRs, the GitHub App,
+  CI and tooling, tests, the release's version stamps), the GitHub App only for `apps/omni-app/`, the
+  lockfile, or a `package.json` change beyond its version. A merge of documents builds nothing, and
+  the sidebar's version then lags until the next merge that changes galaxy. When the `release`
+  workflow fails or is cancelled, the `release-fallback` workflow marks `main` and calls each
+  project's Deploy Hook.
+- **On any other branch,** a push builds nothing. A ready pull request into `main` gets one preview
+  per project it changes, about 150 seconds after its last push (`.github/workflows/preview-debounce.yml`):
+  a newer push restarts the wait. Drafts, sub-PRs into a feature branch, changes only under
+  `.omni-loop/` and dependabot never preview.
+- **The escape hatch:** `VERCEL_FORCE_BUILD` = `1` in a project's environment variables builds every
+  deployment of it, at once, without a revert. Every build log says why it built or skipped, on one
+  `vercel-ignore:` line.
+
+Set once, for both projects (`apps/omni-app` is the GitHub App's):
+
+1. **Vercel › each project › Settings › Git › Deploy Hooks:** one for branch `main`. Store the URLs
+   as GitHub secrets `VERCEL_DEPLOY_HOOK_GALAXY_MAIN` and `VERCEL_DEPLOY_HOOK_OMNI_APP_MAIN`.
+2. **Vercel › Account › Tokens:** a token scoped to the team, as the GitHub secret `VERCEL_TOKEN`;
+   the team id as `VERCEL_TEAM_ID`; each project's id (Settings › General) as
+   `VERCEL_PROJECT_ID_GALAXY` and `VERCEL_PROJECT_ID_OMNI_APP`; and the repository's numeric id
+   (`gh api repos/vertuoza/vertuo-omni-loop --jq .id`) as the GitHub variable `VERCEL_GITHUB_REPO_ID`.
+3. **Nothing to add for GitHub:** the ignore step reads the `vercel/preview/<project>` and
+   `vercel/production-fallback` check runs as the omni-loop GitHub App, with the `GITHUB_APP_ID` and
+   `GITHUB_APP_PRIVATE_KEY` both projects already hold (`scripts/vercel-github-token.ts` mints a
+   token from them for each build). Check both projects have the two, for Production and Preview:
+   without them no preview builds.
+4. **Vercel › each project › Settings › Build and Deployment:** the GitHub App's Build Machine on
+   Standard; galaxy's on Standard unless its last production builds show Standard more than twice as
+   slow as the machine it has (build CPU minutes are vCPUs × minutes). On-Demand Concurrent Builds
+   off, Prioritize Production Builds on. The Ignored Build Step stays the `vercel.json` one.
+
+To see the effect: Vercel › Usage › Build CPU Minutes, per day, against the month before (about
+2,190 a day in October 2026).
 
 ### In production
 

@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { XP_RULES, type XpRules } from '@omni/galaxy';
+import { playerXp, XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES } from './index';
-import { barFill, cabinetDoor, cabinets, gamesHint, levelTag, ROOM_CABINETS, XP_LINE, xpStatus, type Cabinet } from './room';
+import { barFill, cabinetDoor, cabinets, gamesHint, levelTag, ROOM_CABINETS, roomWindow, WIDE_WINDOW, XP_LINE, xpStatus, type Cabinet } from './room';
 import { sure } from '../test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 
 describe('the registry', () => {
-  it('lists Entropy Invaders, Super Omni World then OMNI KART, each keyed as the rulebook unlocks it', () => {
-    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART']]);
+  it('lists Entropy Invaders, Super Omni World, OMNI KART then OMNI DUET, each keyed as the rulebook unlocks it', () => {
+    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET']]);
     expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time' });
-    expect(XP_RULES.unlocks).toMatchObject({ invaders: 1, platformer: 2, kart: 3 });
-    expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time']]);
+    expect(GAMES[3]).toEqual({ id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' });
+    expect(XP_RULES.unlocks).toEqual({ invaders: 1, platformer: 2, kart: 3, duet: 4 });
+    expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time'], ['duet', 'points']]);
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
   });
 });
@@ -95,7 +96,7 @@ describe('cabinets', () => {
     const room = cabinets(xpStatus(true, row(180, 3)), XP_RULES, GAMES.slice(0, 2));
     expect(room).toHaveLength(ROOM_CABINETS);
     expect(room.map((c) => c.kind)).toEqual(['game', 'game', 'soon']);
-    expect(cabinets(xpStatus(true, row(180, 3))).map((c) => c.kind)).toEqual(['game', 'game', 'game']);
+    expect(cabinets(xpStatus(true, row(180, 3))).map((c) => c.kind)).toEqual(['game', 'game', 'game', 'game']);
     expect(room[0]).toEqual({ kind: 'game', game: GAMES[0], unlocked: true, level: 1 });
     expect(room[1]).toEqual({ kind: 'game', game: GAMES[1], unlocked: false, level: 2 });
   });
@@ -163,7 +164,7 @@ describe('OMNI KART\'s cabinet (PRD 1359)', () => {
   it('is the third cabinet, in place of SOON: refused at LV 2 with REACH LV 3 TO PLAY, and open at LV 3', () => {
     const lv2 = xpStatus(true, row(60, 2, ['invaders', 'platformer']));
     const room2 = cabinets(lv2);
-    expect(room2).toHaveLength(ROOM_CABINETS);
+    expect(room2).toHaveLength(GAMES.length);
     expect(room2.some((c) => c.kind === 'soon')).toBe(false);
     const kart2 = room2[2];
     assertDefined(kart2, 'kart2');
@@ -173,5 +174,67 @@ describe('OMNI KART\'s cabinet (PRD 1359)', () => {
     const kart3 = cabinets(lv3)[2];
     assertDefined(kart3, 'kart3');
     expect(cabinetDoor(kart3, lv3)).toEqual({ scene: 'kart' });
+  });
+});
+
+describe('OMNI DUET\'s cabinet (PRD 1633)', () => {
+  it('is the fourth cabinet: refused at LV 3 with REACH LV 4 TO PLAY, and opening the duet scene at LV 4', () => {
+    const lv3 = xpStatus(true, row(150, 3, ['invaders', 'platformer', 'kart']));
+    const room3 = cabinets(lv3);
+    expect(room3).toHaveLength(4);
+    const duet3 = room3[3];
+    assertDefined(duet3, 'duet3');
+    expect(duet3).toMatchObject({ kind: 'game', game: { id: 'duet', title: 'OMNI DUET' }, unlocked: false, level: 4 });
+    expect(cabinetDoor(duet3, lv3)).toEqual({ refused: 'REACH LV 4 TO PLAY' });
+    const lv4 = xpStatus(true, row(300, 4, ['invaders', 'platformer', 'kart', 'duet']));
+    const duet4 = cabinets(lv4)[3];
+    assertDefined(duet4, 'duet4');
+    expect(duet4).toMatchObject({ unlocked: true, level: 4 });
+    expect(cabinetDoor(duet4, lv4)).toEqual({ scene: 'duet' });
+  });
+});
+
+describe('roomWindow, the cabinets the wide grid shows', () => {
+  it('shows three cabinets, today\'s room minimum', () => {
+    expect(WIDE_WINDOW).toBe(3);
+    expect(ROOM_CABINETS).toBe(3);
+  });
+
+  it.each([
+    [0, [0, 1, 2]],
+    [1, [0, 1, 2]],
+    [2, [0, 1, 2]],
+    [3, [1, 2, 3]],
+  ])('holds the cabinet under the cursor in its window of four: cursor on %i shows %o', (at, shown) => {
+    expect(roomWindow(at, 4)).toEqual(shown);
+  });
+
+  it('scrolls by one per cabinet past the third, and comes back to the start when the cursor does', () => {
+    expect(roomWindow(4, 6)).toEqual([2, 3, 4]);
+    expect(roomWindow(5, 6)).toEqual([3, 4, 5]);
+    expect(roomWindow(0, 6)).toEqual([0, 1, 2]);
+  });
+
+  it('shows every cabinet when the room holds no more than the window, and keeps a cursor past the end on the last', () => {
+    expect(roomWindow(1, 3)).toEqual([0, 1, 2]);
+    expect(roomWindow(0, 2)).toEqual([0, 1]);
+    expect(roomWindow(9, 4)).toEqual([1, 2, 3]);
+    expect(roomWindow(-2, 4)).toEqual([0, 1, 2]);
+  });
+});
+
+// Law N-PRODUCT-10 (.omni-loop/knowledge/product/invariants.md, #1545).
+describe('a player with no level', () => {
+  it('law N-PRODUCT-10: is stored with level 0, never an empty value, and every screen reads 0 as no level and shows none', () => {
+    const [stored] = playerXp([], { now: new Date('2026-10-01T00:00:00Z'), logins: ['newcomer'] });
+    assertDefined(stored, 'stored');
+    expect(stored.level).toBe(0);
+    expect(stored.xp).toBe(0);
+    const status = xpStatus(true, stored);
+    expect(status).toEqual({ kind: 'none' });
+    expect(levelTag(status)).toBeNull();
+    expect(gamesHint(status)).not.toMatch(/LV/);
+    expect(barFill(status)).toBe(0);
+    expect(Object.values(XP_LINE).join(' ')).not.toMatch(/LV/);
   });
 });

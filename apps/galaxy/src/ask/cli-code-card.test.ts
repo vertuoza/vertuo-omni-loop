@@ -18,6 +18,18 @@ describe('the terminal\'s sign-in card, /ask/signin (PRD 359)', () => {
     expect(html).toContain('>Try again with GitHub</button>');
   });
 
+  it('names the token it makes, and where it is shown once, for purpose=token (PRD 1628)', () => {
+    const card = (toTerminal: boolean) => renderToStaticMarkup(createElement(CliSignInCard, {
+      supabase: SUPABASE, returnPath: '/x', purpose: { kind: 'token', name: 'laptop', days: 90, toTerminal },
+    }));
+    expect(card(true)).toContain('Make a terminal token');
+    expect(card(true)).toContain('<strong>laptop</strong>, for 90 days.');
+    expect(card(true)).toContain('<code>omni setup-token</code>');
+    expect(card(false)).toContain('back on your profile page.');
+    expect(card(false)).not.toContain('Sign the terminal in');
+    expect(card(false)).toContain('>Sign in with GitHub</button>');
+  });
+
   it('starts the sign-in through githubSignIn, which asks for read:org', () => {
     const source = readFileSync(new URL('./cli-code-card.tsx', import.meta.url), 'utf8');
     const shared = readFileSync(new URL('./page/GithubSignInCard.tsx', import.meta.url), 'utf8');

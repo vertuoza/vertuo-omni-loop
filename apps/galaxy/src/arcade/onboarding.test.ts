@@ -223,3 +223,25 @@ describe('the one door', () => {
     expect(afterReturn({ kind: 'signin' }, null, null, FLEETS)).toBe('coin');
   });
 });
+
+// Law BR-PRODUCT-49 (.omni-loop/knowledge/product/rules.md, #1510).
+describe('a player whose fleet was retired', () => {
+  it('law BR-PRODUCT-49: picks a fleet only while one is active, and otherwise plays on under the retired fleet', () => {
+    const retired = fleet('invincible-team', true);
+    const me = Object.freeze(player({ team: 'invincible-team' }));
+
+    // At least one fleet is active: sent to pick one.
+    const flying = [fleet('pirates'), retired];
+    expect(isReady(me, flying)).toBe(false);
+    expect(afterStart(crew, me, flying)).toBe('gate');
+    expect(afterGate(me, flying)).toBe('select');
+
+    // No fleet is active: ready, straight to the menu, their stored fleet unchanged.
+    const grounded = [retired, fleet('pirates', true)];
+    expect(isReady(me, grounded)).toBe(true);
+    expect(afterStart(crew, me, grounded)).toBe('welcome');
+    expect(afterGate(me, grounded)).toBe('welcome');
+    expect(nextStep('welcome', 'onboard', grounded)).toBe('menu');
+    expect(me.team).toBe('invincible-team');
+  });
+});

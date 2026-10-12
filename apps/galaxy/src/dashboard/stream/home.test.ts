@@ -89,3 +89,44 @@ describe('Home\'s parts, each on its own', () => {
     expect((await parts.you).name).toBe('ADA');
   });
 });
+
+// Law BR-PRODUCT-50 (.omni-loop/knowledge/product/rules.md, #1511).
+describe('Waiting for you and the sidebar\'s list', () => {
+  it('law BR-PRODUCT-50: the tile counts the questions the sidebar lists, each once, and says it could not load alone when that list cannot be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA } = await import('../../data/galaxy.fake');
+    const { fakeCountsDb } = await import('../counts/ask.fake');
+    const { readWaitingQuestions } = await import('../../waiting/source');
+    const { ada, both } = PEOPLE;
+    const session = (id: string, owner: string) => ({
+      id, owner, workspace_id: VERTUOZA, title: `Session ${id}`, status: 'open', created_at: '2026-09-28T08:00:00Z',
+      last_seen_at: '2026-09-28T09:55:00Z', repo: null, branch: null,
+    });
+    const round = (id: string, session_id: string, created_at: string) => ({
+      id, session_id, questions: [{ header: 'Access', question: 'Who reads it?', options: [] }], answers: null, answered_via: null,
+      status: 'open', created_at, answered_at: null, answered_by: null, category: null, category_by: null,
+    });
+    const share = (round_id: string) => ({ round_id, shared_with: ada.id, shared_by: both.id, created_at: '2026-09-28T09:56:00Z' });
+    const game = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
+    const ask = fakeCountsDb(game, {
+      ask_sessions: [session('s-ada', ada.id), session('s-both', both.id)],
+      // ADA's own open round, also shared with her; and BOTH's, shared with her.
+      ask_rounds: [round('r-ada', 's-ada', '2026-09-28T09:55:00Z'), round('r-both', 's-both', '2026-09-28T09:52:00Z')],
+      ask_shares: [share('r-ada'), share('r-both')],
+    });
+    const db = ask.client(ada) as unknown as SupabaseClient<Database>;
+
+    // The sidebar's list, as the layout reads it once per request.
+    const sidebar = await readWaitingQuestions(db, ada.id, NOW.getTime());
+    expect(sidebar.map((q) => q.id).sort()).toEqual(['r-ada', 'r-both']);
+    const parts = homeParts(db, { ...USER, id: ada.id }, VERTUOZA, '7d', NOW, () => Promise.resolve(sidebar));
+    expect(await parts.waiting).toMatchObject({ count: sidebar.length });
+    expect(await parts.waiting).toMatchObject({ count: 2 });
+
+    // The list out of reach: the tile alone says it could not load, the rest of the dashboard shows.
+    const down = homeParts(DB, USER, 'w1', '7d', NOW, () => Promise.reject(new Error('down')));
+    expect(await down.waiting).toBe('unreadable');
+    expect((await down.you).name).toBe('ADA');
+    expect(await down.board).toEqual({ board: 'the board', solo: false });
+  });
+});

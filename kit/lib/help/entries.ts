@@ -284,6 +284,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'forgets it.',
   },
   {
+    name: 'setup-token',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni setup-token [--name <name>] [--days 30|90|365]'],
+    label: 'omni setup-token',
+    summary: 'make a token for a cloud session',
+    detail:
+      "Makes a token that signs the kit in where no browser opens, such as a Claude Code cloud session: " +
+      'it opens the Omni page in your browser, as omni signin does, then prints the token once, the ' +
+      'day it expires, and the line to paste it by, OMNI_TOKEN=<token>, in your cloud environment\'s ' +
+      'variables. It keeps the token nowhere. --name defaults to terminal and today\'s date; --days ' +
+      'is 30, 90 or 365, 90 by default. Revoke a token on your profile page.',
+  },
+  {
     name: 'dossier',
     kind: 'command',
     who: 'you',

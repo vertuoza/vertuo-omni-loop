@@ -20,7 +20,10 @@ import type { DossierListRow } from '../dossier/store';
 import { stageStore } from '../stages/store';
 import { serverEnv } from '../env';
 import { alertStore } from '../push/store';
-import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './load';
+import { loadProfile, profileOf, type ProfileReads, type ProfileTerminal, type ProfileValue } from './load';
+import type { KitToken } from './terminal-tokens.contract';
+import { terminalTokensRepository } from './terminal-tokens.repository';
+import { readTerminalTokens } from './terminal-tokens.service';
 import { PR_COLUMNS, readTracked, REVIEW_COLUMNS, StoredPullRequest, StoredReview } from './stored';
 
 // A person's profile (PRD 698 s3), as the signed-in person, in the workspace they joined first (the
@@ -93,7 +96,16 @@ async function withAlerts(value: ProfileValue, db: SupabaseClient<Database>, use
   return { ...value, alerts: { channels, email: user.email?.trim() || null, publicKey: serverEnv().webPush?.publicKey ?? null } };
 }
 
-/** The profile of `login` in the workspace the viewer joined first; on your own, your alert switches. */
+/** Your terminal tokens (PRD 1628 s4), added to your own profile only: kit_tokens_mine() answers your
+ * own, as you, and nobody else's. */
+async function terminalOf(value: ProfileValue, db: SupabaseClient<Database>, workspace: Workspace, now: Date): Promise<ProfileTerminal | null> {
+  if (value.kind !== 'profile' || !value.own) return null;
+  const mine = await readTerminalTokens(terminalTokensRepository(db), workspace.id);
+  return { source: { kind: 'database', workspace: workspace.id }, slug: workspace.slug, mine, now: now.getTime() };
+}
+
+/** The profile of `login` in the workspace the viewer joined first; on your own, your alert switches
+ * and your terminal tokens. */
 export async function loadProfileBoard(db: SupabaseClient<Database>, user: Pick<User, 'id' | 'email'>, login: string, period: Period, now: Date): Promise<ProfileBoard> {
   let workspace: Workspace | null;
   try {
@@ -105,16 +117,32 @@ export async function loadProfileBoard(db: SupabaseClient<Database>, user: Pick<
   if (!workspace) return { kind: 'no-workspace' };
   const id = workspace.id;
   const value = await loadProfile(supabaseProfileReads(db, id, once(() => loadGalaxy(db, id, now))), { login, viewerId: user.id, period, now });
-  return withAlerts(value, db, user);
+  const [alerted, terminal] = await Promise.all([withAlerts(value, db, user), terminalOf(value, db, workspace, now)]);
+  return terminal && alerted.kind === 'profile' ? { ...alerted, terminal } : alerted;
 }
 
 const DEMO_TRACKED = ['vertuoza/vertuo-core', 'vertuoza/vertuo-api', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-web', 'vertuoza/vertuo-mobile'];
 const DAY = 24 * 3_600_000;
 
+/** The demo's terminal tokens, on the demo's *you*'s own profile: one used a moment ago, one never. */
+function demoTerminal(now: Date): ProfileTerminal {
+  const at = (days: number) => new Date(now.getTime() + days * DAY).toISOString();
+  const tokens: KitToken[] = [
+    { id: 'demo-kit-cloud', name: 'claude-cloud', lastFour: '9fKa', createdAt: at(-2), lastUsedAt: new Date(now.getTime() - 120_000).toISOString(), expiresAt: at(88) },
+    { id: 'demo-kit-ci', name: 'ci-laptop', lastFour: 'Lm2Q', createdAt: at(-40), lastUsedAt: null, expiresAt: at(50) },
+  ];
+  return { source: { kind: 'demo' }, slug: 'demo', mine: { tokens, live: tokens.length, limit: 20 }, now: now.getTime() };
+}
+
 /** The demo's profile of `login`, seen by the demo's *you*: the demo world's members, their made-up
  * merges as their pull requests (each opened a day before it merged), and each third merge of someone
- * else as one of their reviews. */
+ * else as one of their reviews; on the demo's *you*'s own, their terminal tokens. */
 export function demoProfile(login: string, period: Period, now: Date, galaxy: GalaxyView = demoGalaxy(now)): ProfileValue {
+  const value = demoProfileOf(login, period, now, galaxy);
+  return value.kind === 'profile' && value.own ? { ...value, terminal: demoTerminal(now) } : value;
+}
+
+function demoProfileOf(login: string, period: Period, now: Date, galaxy: GalaxyView): ProfileValue {
   const roster = demoRoster(galaxy);
   const activity = demoActivity(roster, now);
   const merges = activity.filter((a) => a.kind === MERGED && roster.some((m) => m.login === a.login));

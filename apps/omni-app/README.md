@@ -306,6 +306,13 @@ every `import './x.ts'` as written, so a function served from TypeScript fails t
 After changing anything the app runs, rebuild them with `node apps/omni-app/build.ts`;
 `src/vercel-functions.test.ts` fails while they are stale.
 
+Its Vercel project installs only the npm packages those bundles import
+(`pnpm install --frozen-lockfile --prod --filter @omni/omni-app...`, in `vercel.json`), so each one
+is a dependency of this package, which `scripts/vercel-ignore.test.ts` checks. It builds only when
+`apps/omni-app/`, the lockfile or a `package.json` change beyond its version reaches it, and previews
+only for a ready pull request into `main` (PRD 1646): galaxy's README, [When Vercel
+builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
+
 | Unit | Where |
 |---|---|
 | `webhook` — verify and filter a delivery | `src/webhook/`, served at `api/github.mjs` (bundled from `entries/github.ts`) |

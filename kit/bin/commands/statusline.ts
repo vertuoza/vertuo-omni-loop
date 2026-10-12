@@ -12,7 +12,8 @@
 //
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to
 // stderr, never fetches, never runs `gh` and writes no file; what it cannot read leaves its part out.
-// JSON that cannot be read prints `omni`; a reader that fails prints line 1 from the JSON alone. The
+// JSON that cannot be read prints `omni`; a reader that fails prints line 1 from the JSON alone. Under
+// `OMNI_TOKEN` (PRD 1628), line 1 ends on `token ··<last four>`, read from the variable alone. The
 // board comes from a file in the main checkout (`board-cache.mjs`): when it is missing or a minute
 // old, the status line starts its refresh, detached, and never waits for it. It runs before a
 // context exists, like `init` and `ask`, so that no checkout, config or folder can turn it into an
@@ -39,6 +40,7 @@ import { loadContext } from '../../lib/context.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { AskCallError, type askClient } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { omniTokenTail } from '../../lib/ask/client-tokens.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { field } from '../../lib/ask/schema.ts';
 import { dossierSwitch } from '../../lib/config.ts';
@@ -263,6 +265,13 @@ function issueNumber(value: string | undefined): IssueNumber | null {
   }
 }
 
+/** `lines` with line 1 ending on the kit token's last four when `OMNI_TOKEN` signs the kit in. */
+function withToken(lines: string[], token: string | undefined): string[] {
+  if (!token) return lines;
+  const [first = '', ...rest] = lines;
+  return [`${first} · token ··${omniTokenTail(token)}`, ...rest];
+}
+
 export const statusline = {
   withoutContext: true,
   async run(
@@ -273,7 +282,7 @@ export const statusline = {
       await refresh(args, { cwd, exec, env, now, tokens, home, ...(fetch ? { fetch } : {}), callMs });
       return 0;
     }
-    const lines = await statusLines({ cwd, exec, env, terminal: vars.terminal, script, stdin, now, readFacts, spawn });
+    const lines = withToken(await statusLines({ cwd, exec, env, terminal: vars.terminal, script, stdin, now, readFacts, spawn }), vars.omniToken?.token);
     try {
       stdout.write(`${lines.join('\n')}\n`);
     } catch {

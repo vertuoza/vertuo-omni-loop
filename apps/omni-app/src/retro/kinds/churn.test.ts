@@ -278,6 +278,27 @@ describe('churn — detect', () => {
   });
 });
 
+describe('churn — the law', () => {
+  // Law BR-PRODUCT-18 (.omni-loop/knowledge/product/rules.md, #1480).
+  it('law BR-PRODUCT-18: counts only commits of merged pull requests, in merge order, skipping merge commits; a range is churned at 3 commits, its first writing included', async () => {
+    const { stub, records, facts } = await run();
+    const reads = stub.state.requests;
+    // Only the merged sub-PRs are read: #16, closed without merging, is never walked, only named.
+    expect(reads.filter((r) => r.route === LIST_COMMITS).map((r) => r.pull_number)).toEqual([13, 14, 15]);
+    expect(facts.notCounted).toEqual([16]);
+    // The merge commit m1 is skipped.
+    expect(reads.filter((r) => r.route === GET_COMMIT && r.ref === sha('m1'))).toEqual([]);
+    expect(records.pulls.flatMap((pull) => (pull.commits ?? []).map((commit) => commit.sha))).not.toContain(sha('m1'));
+    // Lines 8-11 of colour.js were written by c1 (its first writing), then c2 and c4: three commits, churned.
+    // The lines of at.js, written in c5 and rewritten in c6 (two commits), are not.
+    const churned = [{ path: 'src/store/colour.js', from: 8, to: 11, commits: [short('c1'), short('c2'), short('c4')], slices: ['s1', 's2'] }];
+    expect(facts.ranges).toEqual(churned);
+    // The walk follows merge order, whatever order the records list the pull requests in.
+    const listedBackwards = { ...records, pulls: [...records.pulls].reverse() };
+    expect(detect(listedBackwards, { pr, prd, config, pulls: [] }).facts.ranges).toEqual(churned);
+  });
+});
+
 describe('churn — its section', () => {
   it('adds up the delivery and names what it left out, what it counted by totals and what it did not count', async () => {
     const { facts } = await run();
@@ -341,5 +362,42 @@ describe('churn — in the retro', () => {
     expect(markdown).toContain('— `churn:src/store/colour.js:8-11`');
     const held = new Set(defined(files[`${folder}/retro.json`], 'retro.json').match(/\d+/g));
     expect((markdown.match(/\d+/g) ?? []).filter((n: string) => !held.has(n))).toEqual([]);
+  });
+});
+
+describe('churn — what it leaves out and what it could not read', () => {
+  // Law BR-PRODUCT-19 (.omni-loop/knowledge/product/rules.md, #1481).
+  it('law BR-PRODUCT-19: churn leaves out lockfiles at any depth and linguist-generated paths, and with no commit read its section is left out and the facts name what was not read', () => {
+    const sub = at(SUB_PULLS, 0, 'the first sub-PR');
+    const file = (path: string) => ({ path, previous: null, status: 'added', additions: 4, deletions: 0, blocks: [[1, 0, 1, 4]] });
+    const read = {
+      gitattributes: 'gen/** linguist-generated\n',
+      final: null,
+      pulls: [
+        {
+          number: 13,
+          url: sub.html_url,
+          headRef: 'feat/widget--s1',
+          mergedAt: sub.merged_at,
+          commits: [{ sha: sha('l1'), url: commitUrl('l1'), files: ['apps/web/deep/yarn.lock', 'gen/api/client.ts', 'src/cart.ts'].map(file) }],
+        },
+      ],
+    };
+    const counted = detect(read, { pr, prd, config, pulls: [] }).facts;
+    expect(counted.leftOut).toMatchObject({ generated: ['gen/api/client.ts'], lockfile: ['apps/web/deep/yarn.lock'] });
+    expect(counted.added).toBe(4);
+
+    const unread = {
+      gitattributes: null,
+      final: null,
+      pulls: [
+        { number: 13, url: sub.html_url, headRef: 'feat/widget--s1', mergedAt: sub.merged_at, commits: null },
+        { number: 14, url: sub.html_url, headRef: 'feat/widget--s2', mergedAt: sub.merged_at, commits: [{ sha: sha('l2'), url: commitUrl('l2'), files: null }] },
+      ],
+    };
+    const nothing = detect(unread, { pr, prd, config, pulls: [] }).facts;
+    expect(nothing.commits).toBe(0);
+    expect(section(nothing)).toBeNull();
+    expect(nothing.unread).toEqual({ pulls: [13], commits: [short('l2')] });
   });
 });

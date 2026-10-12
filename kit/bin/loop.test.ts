@@ -176,6 +176,15 @@ describe('omni loop push never blocks: one line, exit 1', () => {
     expect(calls).toEqual([]);
   });
 
+  // Law BR-PRODUCT-76 (.omni-loop/knowledge/product/rules.md, #1537).
+  it('law BR-PRODUCT-76: only a missing ask.url turns a push off; the dossier switched off still sends the loop', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `${config()}dossier:\n  enabled: false\n` } });
+    writeLoopPlans(root, [plan()]);
+    const { calls, fetch } = stubFetch(answers());
+    expect(await omni(['push', 'start'], { root, fetch })).toEqual({ code: 0, out: `start: ${LOOP_ID} running · plan v1\n`, err: '' });
+    expect(calls).toHaveLength(1);
+  });
+
   it('no sign-in (omni signin) when this computer is not signed in', async () => {
     const { root } = checkout();
     const { calls, fetch } = stubFetch(answers());

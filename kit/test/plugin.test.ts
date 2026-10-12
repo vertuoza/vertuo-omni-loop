@@ -648,6 +648,23 @@ describe('the release note in the skills that ship', () => {
     for (const mention of NOTE) expect(step.slice(red), `the red gate names ${mention}`).not.toContain(mention);
   });
 
+  // Law BR-PRODUCT-5 (.omni-loop/knowledge/product/rules.md, #1467).
+  it('law BR-PRODUCT-5: the feature PR stays draft with every open question posted, and is marked ready only after ship, commit and push', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    expect(red, 'the red gate').toBeGreaterThan(-1);
+    const green = step.slice(0, red);
+    const gateRed = step.slice(red);
+    // Whatever the gate reads, the open questions are posted on the feature PR first.
+    expectInOrder(step, ['omni.mjs comment --prd <prd> --pr <feature PR>', '**Gate green**']);
+    // Red: the PR stays a draft, nothing ships, nothing marks it ready.
+    expect(gateRed).toMatch(/Leave the feature PR in \*\*draft\*\*; do not ship\./);
+    expect(gateRed).toMatch(/holds every open\s+question/);
+    expect(gateRed).not.toMatch(/\bgh pr ready\b/);
+    // Green: shipped, committed, pushed, and only then marked ready.
+    expectInOrder(green, ['omni.mjs ship <prd>', 'chore(delivery): ship PRD <prd>', 'git push <remote> HEAD:<feature branch>', 'Only now, `gh pr ready <feature PR>`']);
+  });
+
   it('/omni:yolo resumes a shipped draft at the item that marks it ready', () => {
     const yolo = read('yolo');
     const [, item] = /go to step 5, green path,\s+item (\d+)/.exec(yolo) ?? [];
@@ -2797,4 +2814,58 @@ describe('laws born with their test, in the skills (PRD 1342)', () => {
       expect(skillSection(text, step)).toContain('**A change to a law**');
     });
   }
+});
+
+describe('whose section /omni:invade may rewrite', () => {
+  // Law BR-PRODUCT-10 (.omni-loop/knowledge/product/rules.md, #1472).
+  it('law BR-PRODUCT-10: invade rewrites only an empty, TODO(human)-only or by: invade section; any other written section is a person\'s', () => {
+    const rule = skillSection(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8'), 'Whose section it is')
+      .replace(/\s+/g, ' ');
+    expect(rule).toContain(
+      "A section is this skill's to write only when it is **empty**, holds **nothing but `TODO(human)` lines**, or its marker says **`by: invade`**.",
+    );
+    expect(rule).toContain("Every other section is a person's: `by: human`, and also text or a `See:` line whose marker has no `by:`.");
+    expect(rule).toContain("nor any other section that is a person's, on any run, with or without `--refresh`");
+  });
+});
+
+describe('the front matter /omni:invade gives a form', () => {
+  // Law BR-PRODUCT-11 (.omni-loop/knowledge/product/rules.md, #1473).
+  it('law BR-PRODUCT-11: a form holding any text, See: line or TODO(human) question is filled and dated; only a wholly empty one stays blank with invaded: null', () => {
+    const fill = skillSection(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8'), '5.').replace(/\s+/g, ' ');
+    expect(fill).toContain('A form whose sections hold any text, `See:` line or question is `state: filled`, with `invaded: <today>`.');
+    expect(fill).toContain('A form left wholly empty stays `state: blank`, `evidence: []`, `invaded: null`.');
+  });
+});
+
+describe('/omni:pr when only the outbox check is red', () => {
+  // Law BR-PRODUCT-3 (.omni-loop/knowledge/product/rules.md, #1465).
+  it('law BR-PRODUCT-3: only person-answered outbox items red is reported in the status comment and stops, never an attempt, never labels.outboxGo', () => {
+    const text = readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/pr/SKILL.md'), 'utf8');
+    const row = skillSection(text, 'The lifecycle').split('\n').find((line) => line.startsWith('| only `ci.outboxContext` red |')) ?? '';
+    expect(row).toContain('Not a failure to fix');
+    expect(row).toContain('Red only for items a person must answer is the gate doing its job; say so in the status comment and stop.');
+    expect(row).toContain('never by adding `labels.outboxGo`');
+    expect(row).not.toMatch(/attempt/i);
+    expect(skillSection(text, 'Labels')).toContain("Never add `labels.outboxGo`; it is a person's override.");
+  });
+});
+
+describe('a slice is claimed before it is built', () => {
+  // Law BR-PRODUCT-4 (.omni-loop/knowledge/product/rules.md, #1466).
+  it('law BR-PRODUCT-4: the wave claims every slice before dispatch, and do-work run alone opens the claim itself before building', () => {
+    const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, `skills/${name}/SKILL.md`), 'utf8');
+    const wave = read('wave');
+    expect(skillSection(wave, '2. Claim every slice first').replace(/\s+/g, ' ')).toContain(
+      "Before any subagent starts, `git fetch <remote>`, then, for each takeable slice, in board order: - **`runnable`:** follow `/omni:pr`'s **Claim** mode",
+    );
+    expect(wave.indexOf('## 2. Claim every slice first')).toBeLessThan(wave.indexOf('## 3. Dispatch'));
+    const doWork = read('do-work');
+    const before = skillSection(doWork, '1. Read before you build').replace(/\s+/g, ' ');
+    expect(before).toContain('**Under `--in-wave`:** `/omni:wave` has already claimed the slice.');
+    expect(before).toContain(
+      "**Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the claimed status) before you build anything.",
+    );
+    expect(doWork.indexOf('## 1. Read before you build')).toBeLessThan(doWork.indexOf('## 2. Build'));
+  });
 });
