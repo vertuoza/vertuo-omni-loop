@@ -156,7 +156,7 @@ describe('the waves in play', () => {
 
 describe('a hit', () => {
   it('costs a life, restarts the chapter from its first wave, and shows the ready screen', () => {
-    const passedOne = holdStill(playing()).run; // wave 2 opens with a half bar from the left, across the cool orb held level
+    const passedOne = holdStill(playing()).run; // wave 2 is a block on the left, where the warm orb stands still
     const { run, events } = holdStill(passedOne);
     expect(events).toEqual(['hit']);
     expect(run).toMatchObject({ phase: 'ready', chapter: 0, wave: 0, tick: 0, lives: 2, score: 0, passed: 1, carry: 0 });
