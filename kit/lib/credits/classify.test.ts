@@ -282,6 +282,27 @@ describe('opened by the app (AC 8)', () => {
     const [item] = credit([], { sig: user, issues: [issue(1, { author: 'octocat' })] });
     expect(item).toMatchObject({ reasons: ['author'], signature: 'by the app' });
   });
+
+  // Law BR-PRODUCT-25 (.omni-loop/knowledge/product/rules.md, #1486).
+  it('law BR-PRODUCT-25: what the bot account opened is counted only on its own line, never in the PR or PRD issue counts, and never starts signing', () => {
+    const items = credit(
+      [
+        pr(1, { author: BOT, labels: ['omni:sub'], body: SIGNED_BODY, createdAt: '2026-08-01T09:00:00Z' }),
+        pr(3, { labels: ['omni:sub'], createdAt: '2026-08-05T09:00:00Z' }),
+      ],
+      {
+        issues: [
+          issue(2, { author: BOT, labels: ['omni:prd'], body: SIGNED_BODY, createdAt: '2026-08-02T09:00:00Z' }),
+          issue(4, { labels: ['omni:prd'], createdAt: '2026-08-06T09:00:00Z' }),
+        ],
+      },
+    );
+    expect(summarize(items, { app: true })).toMatchObject({
+      prs: { total: 1, signatures: { signed: 0, 'before signing': 1, missed: 0 } },
+      prdIssues: { total: 1, signatures: { signed: 0, 'before signing': 1, missed: 0 } },
+      byTheApp: { issues: 1, prs: 1 },
+    });
+  });
 });
 
 describe('creditCommits (AC 8)', () => {

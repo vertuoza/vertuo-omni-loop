@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boundaries } from './documents.boundary';
-import { DocumentRead } from './documents';
+import { DocumentRead } from './waiting.repository';
 
 // The versions the New documents part reads, parsed where they come in (PRD 1030).
 

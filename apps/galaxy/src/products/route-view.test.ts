@@ -6,7 +6,8 @@ import { DEMO_PRODUCTS } from './ProductsScreen';
 import { productViewOf } from './route-view';
 import { sure } from '../arcade/test/sure';
 
-// What one product's page draws (PRD 859 s1), for each kind of reader.
+// What one product's page draws (PRD 859 s1), for each kind of reader. Its Approvers list moved to the
+// product home (PRD 1364 s11), so the page reads none.
 
 const PRODUCT = { id: 'p-1', name: 'Omni Loop', look: 'keynote' } as unknown as Extract<ProductLoad, { kind: 'product' }>['product'];
 const SIGNED_IN = { kind: 'signed-in', db: {}, user: { id: 'u-1' }, env: { url: 'https://db', key: 'anon' } } as unknown as MemberSession;

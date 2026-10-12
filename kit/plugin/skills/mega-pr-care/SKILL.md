@@ -1,6 +1,6 @@
 ---
 name: mega-pr-care
-description: Looks after every pull request of one multi-repository PRD from its plan repository until each is merged or closed, or the person stops it — the plan PR, every target and target landing PR, and every bug-fix and record PR linked to the PRD — round by round, in merge order, as /omni:pr-care does for one feature PR. Reads each target PR against the target's own default branch, landings and wave claims, holds a CI fix while a PR waits on another repository's PR, judges review threads against each target's own review form, may fix a comment in another open PR of the list and names the commit, keeps the plan PR's target table and every PR's care line current. Runs nothing in a target but its own committed preflight, never merges, never marks ready, never creates a label in a target. Triggers on "look after every PR of PRD 1200", "keep the target PRs green", "handle the review comments across the repositories", "/omni:mega-pr-care".
+description: Looks after every pull request of one multi-repository PRD from its plan repository until each is merged or closed, or the person stops it — the plan PR, every target and target landing PR, and every bug-fix and record PR linked to the PRD — round by round, in merge order, as /omni:pr-care does for one feature PR. Reads each target PR against the target's own default branch, landings and wave claims, holds a CI fix while a PR waits on another repository's PR, judges review threads against each target's own review form, may fix a comment in another open PR of the list and names the commit, keeps the plan PR's target table and every PR's care line current. With a product PRD's id (<key>-<n>) it looks after the Part of <key>-<n> target PRs from any kitted checkout of the product, reading omni/approved and the outbox check from the server, with no plan PR. With --once it runs one round and returns, for a loop that calls it each tick (/omni:mega-drive). Runs nothing in a target but its own committed preflight, never merges, never marks ready, never creates a label in a target. Triggers on "look after every PR of PRD 1200", "keep the target PRs green", "handle the review comments across the repositories", "/omni:mega-pr-care".
 ---
 
 # Mega PR care: every pull request of a multi-repository PRD
@@ -35,14 +35,25 @@ target it means this one, or nothing.
 | input | example | what it is |
 |---|---|---|
 | a PRD number | `/omni:mega-pr-care 1200` | the multi-repository PRD whose pull requests to look after |
+| `--once` | `/omni:mega-pr-care 1200 --once` | run one round over the whole list, then return: no wait, no next round |
 
 Without a number, say that this skill takes the PRD number and stop.
+
+**`--once`** is for a loop that calls this skill each tick (`/omni:mega-drive`), which already
+decides when to look again, as `/omni:pr-care`'s `--once` is for `/omni:drive`. Everything below
+holds, with the same three differences: step 1 keeps the `watching since` each status comment's care
+line already carries, when it has one; after the round has rewritten every status comment and the
+plan PR's target table, the run **returns**, skipping **5. Wait for the next round**; and the
+worktrees under `<worktrees>/mega-pr-care-<n>/` stay for the next call, which reuses them, unless
+every pull request of the list is merged or closed (**6. Stop**). Say in one line what the round did
+across the list, and return.
 
 ## Step 0
 
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the
-   JSON, as `/omni:pr-care` step 0 keeps it, and its `plan` section. Without a `plan` section, stop
-   with exactly one line:
+   JSON, as `/omni:pr-care` step 0 keeps it, and its `plan` section. Given a product PRD's id
+   (`<key>-<n>`, as `mobile-12`), follow **From a product** below from here on, a plan section or
+   not. Otherwise, without a `plan` section, stop with exactly one line:
 
    ```text
    not a plan repository: /omni:pr-care <n>
@@ -51,6 +62,43 @@ Without a number, say that this skill takes the PRD number and stop.
 2. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then the `ci` and `verification`
    forms, as `/omni:pr-care` step 0. The `review` form is read per pull request, each round (**3.
    Review threads**).
+
+## From a product (`<key>-<n>`)
+
+A **product PRD** (◆, PRD 1548) has no plan PR: its pull requests are the one target feature PR per
+target that `/omni:ultra-yolo`'s **From a product** opened, each saying `Part of <key>-<n>`, and
+its gate is on the server. This run starts from any kitted checkout of a repository the product
+holds. Every step below runs as written, with these differences.
+
+**Step 1, the list.** `omni care list` and `omni care state` read a repository's PRD only. The list
+is, for each target of the plan (`node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan`), its
+target feature PR,
+`gh pr list --repo <slug> --head <feature branch> --state all --json number,state,isDraft,url,body`,
+the feature branch being `branches.feature` filled with `<key>-<n>` as its topic, kept only when its
+body's first line is `Part of <key>-<n> · <page link>`; in the plan's merge order. Bugs linked to a
+product PRD are not looked after here, and there is no plan PR. The clones are
+`<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`.
+
+**Step 2, a round,** reads each target PR's state with `gh pr view <pr> --repo <slug> --json
+mergeable,mergeStateStatus,statusCheckRollup,isDraft,state,headRefOid` and acts on it as
+`/omni:pr-care` step 2's modes and actions say: `merge-base` on a conflict, `fix-ci` on a red check
+of its own, the wave claims counted among the plan's slices in that target. Its two loop checks are
+never a `fix-ci`:
+
+- **`omni/approved`** reads the approval. `building` is green. `drifted` (`≠ <file> in <commit> ·
+  content`) means the PRD changed after its approval: push nothing to that PR, and say in its status
+  comment `drifted: approve again on its page, <page link>`; a person approves again.
+  `held · server unreachable since <time>` is neutral: wait for the next round, never a failure.
+- **The outbox check** reads the PRD's outbox on the server: `0 open · one gate on <product>` is
+  green; `<k> open · answer on <product> › Questions` waits on a person there, never on a fix.
+
+Before any push, read `node .omni-loop/bin/omni.mjs prd <key>-<n>`: `drifted` holds every push of
+the round, `unreachable` holds the round on held (`server unreachable · held, not failed`).
+
+**Steps 3 and 4** run as written on each target PR. There is no plan PR's target table to rewrite:
+the status comment of each target PR carries the care line.
+
+**Step 6** stops once every target PR is merged or closed: say one line per PR, in merge order.
 
 ## 1. Start the watch
 
@@ -63,8 +111,8 @@ Without a number, say that this skill takes the PRD number and stop.
    `bug-record`), `target`, `state` and `url`. An entry whose `state` is `unreadable` is named in the
    round line and skipped until a round reads it. Every entry already merged or closed: say so in
    one line and stop.
-2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>`
-   (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
+2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>@<prd>`,
+   the PRD's own (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
    does, its default branch the target's own
    (`gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`). Then, as
    `/omni:pr-care` step 1 item 2, one worktree per pull request, never the person's checkout:
@@ -72,7 +120,8 @@ Without a number, say that this skill takes the PRD number and stop.
    `<worktrees>/mega-pr-care-<n>/plan-<pr>` from the plan repository for the plan PR and a bug's
    record PR. A target that cannot be cloned or fetched is named in the round line and skipped,
    never a stop for the others.
-3. Note the time the watch starts, as `/omni:pr-care` step 1 item 3.
+3. Note the time the watch starts, as `/omni:pr-care` step 1 item 3 (under `--once`, keep the one
+   each care line already carries).
 4. Say, in one line,
    `Looking after <k> pull requests of PRD <n> until each is merged or closed. Stop me any time.`,
    then run the first round.
@@ -109,6 +158,9 @@ the order given. What differs:
   re-run the failed checks once (`gh run rerun <run id> --failed --repo <slug>`) and drop the
   `waits on` line. Still red after that run, `fix-ci` comes back, as `/omni:pr-care` counts it. A
   red that is the branch's own is never written as waiting.
+- **A target PR's outbox check** passes by deferring to the plan PR: the omni-loop App reads its
+  `Part of <plan slug>#<n>` line and links the plan PR (`/omni:pr --repo`). It is never a `fix-ci`;
+  the gate to read is the plan PR's.
 - **A bug-fix PR** goes into its target's default branch, not a feature branch: its round is the
   same, and a fix it makes stays inside the bug's fix plan.
 
@@ -159,7 +211,8 @@ body is kept as it is, the `omni sign footer` line last
 
 ## 5. Wait for the next round
 
-As `/omni:pr-care` step 5, over the whole list: a round runs when a CI run on any open pull request
+Under `--once`, there is no next round here: the round is done, so return (the caller wakes it
+again). Without it, as `/omni:pr-care` step 5, over the whole list: a round runs when a CI run on any open pull request
 of the list finishes, and otherwise every 5 minutes. Watch one running PR at a time in the
 background (`gh pr checks <pr> --repo <slug> --watch --interval 30`, `run_in_background: true`, a
 `timeout` of 300000 ms), or a background `sleep 300` when none runs.

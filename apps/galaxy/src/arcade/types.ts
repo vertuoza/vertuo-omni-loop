@@ -80,6 +80,27 @@ export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>
  */
 export interface Session { id: string; email: string; givenName: string; crew: boolean; github: string | null }
 
+/** Where a link to the grid stands: joined, dropped and trying again by itself, or refused (not a player of the workspace, KART not unlocked, or out of reach). */
+export type KartLinkStatus = 'joined' | 'reconnecting' | 'refused';
+
+/** What a link tells the game: who Presence holds (entries by player id, as sent), a message another player broadcast, and where the link stands. */
+export interface KartLinkEvents {
+  presence(entries: Readonly<Record<string, unknown>>): void;
+  message(from: string, body: unknown): void;
+  status(status: KartLinkStatus): void;
+}
+
+/**
+ * The live link to a workspace's OMNI KART grid (PRD 1572): one private channel, `kart:<workspace id>`.
+ * It holds no rule: it opens the channel, says who the player is (`who`, their Presence entry) again
+ * each time the channel is back, sends what it is given and closes. A message is not echoed to its sender.
+ */
+export interface KartLink {
+  join(who: Record<string, unknown>, on: KartLinkEvents): void;
+  send(body: unknown): void;
+  leave(): void;
+}
+
 /**
  * Sign-in and saving, behind one interface: Supabase in production, the browser's own storage in the
  * demo galaxy (and the single-file artifact), so the arcade never imports Supabase itself.
@@ -94,13 +115,15 @@ export interface Account {
   save(patch: PlayerPatch, current: Player | null): Promise<Player>;
   /**
    * Sends the signed-in player's score at a finished game; resolves with their best at that game as
-   * stored, the higher of the two. Supabase refuses a visitor, a game not unlocked and a score
+   * stored, the better of the two for that game (the higher score, the lower kart time). Supabase refuses a visitor, a game not unlocked and a score
    * outside 0 to 9,999,999.
    */
   submitScore(game: string, score: number): Promise<number>;
   /** A game's crew table: its top five with names, and the signed-in player's own best. */
   scores(game: string): Promise<ScoreBoard>;
   signOut(): Promise<void>;
+  /** OMNI KART's grid link (PRD 1572). Absent, or null (the demo, the closed arcade, a Supabase account until its link exists): MULTI cannot be picked. */
+  kartGrid?: () => KartLink | null;
   /** The demo's remembered guest; Supabase answers from the server render instead. */
   restore?: () => { session: Session | null; me: Player | null };
 }

@@ -376,4 +376,4 @@ drops. It never applies a flow, and never writes a hook.
 | `flow.on` | refused | reserved for events, which a later PRD defines |
 | `limits.hookMaxBytes` | `20480` | the largest a hook file may be |
 
-[Next → Use cases](/docs/use-cases)
+[Next → Design craft (opt-in)](/docs/design)

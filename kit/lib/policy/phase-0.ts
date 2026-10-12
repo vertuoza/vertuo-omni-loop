@@ -178,7 +178,9 @@ export function isDocsOnly(paths: readonly unknown[] | null | undefined, { ctx }
  * a phase-0 pull request; it is a docs change.
  *
  * A change with nothing to show — docs, a config — writes no before/after page and says so; pass
- * `needsBeforeAfter: false` for that case rather than inventing a page to satisfy the check.
+ * `needsBeforeAfter: false` for that case rather than inventing a page to satisfy the check. A
+ * roadmap's PRDs are planned when the loop reaches them (issue 1198): pass `needsPlan: false` for a
+ * row of a roadmap's phase-0 pull request.
  *
  * `commits` are the range's commits, `{ sha, message }` each: every one must carry the signature's
  * trailer, or the verdict is not ok and names it in `unsigned`. `signed` is `true` or `false` once
@@ -187,7 +189,13 @@ export function isDocsOnly(paths: readonly unknown[] | null | undefined, { ctx }
  */
 export function phase0Verdict(
   paths: readonly unknown[] | null | undefined,
-  { ctx, prd, needsBeforeAfter = true, commits }: { ctx: Phase0Ctx; prd: PrdNumber; needsBeforeAfter?: boolean; commits?: readonly Phase0Commit[] | undefined },
+  {
+    ctx,
+    prd,
+    needsBeforeAfter = true,
+    needsPlan = true,
+    commits,
+  }: { ctx: Phase0Ctx; prd: PrdNumber; needsBeforeAfter?: boolean; needsPlan?: boolean; commits?: readonly Phase0Commit[] | undefined },
 ): Phase0Verdict {
   const files = (paths ?? []).map(normalize).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
@@ -202,7 +210,7 @@ export function phase0Verdict(
 
   const offending = carries.source;
   const required: Phase0RequiredKind[] = PHASE_0_REQUIRED_KINDS.filter(
-    (kind) => kind !== 'before-after' || needsBeforeAfter,
+    (kind) => (kind !== 'before-after' || needsBeforeAfter) && (kind !== 'plan' || needsPlan),
   );
   const missing = required.filter((kind) => carries[kind].length === 0);
   const docsOnly = offending.length === 0;
@@ -220,7 +228,7 @@ export function phase0Verdict(
     signed,
     trailer,
     unsigned,
-    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }),
+    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, needsPlan }),
   };
 }
 
@@ -237,16 +245,18 @@ function gradeSignature(
   return { signed: unsigned.length === 0, trailer, unsigned };
 }
 
-function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }: {
+function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, needsPlan }: {
   ok: boolean;
   docsOnly: boolean;
   offending: readonly string[];
   missing: readonly string[];
   trailer: string | null;
   unsigned: readonly UnsignedCommit[];
+  needsPlan: boolean;
 }): string {
   if (ok) {
-    return 'docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve';
+    const carried = needsPlan ? 'the spec, the plan and the before/after' : 'the spec and the before/after';
+    return `docs-only, and it carries ${carried} a reviewer is being asked to approve`;
   }
   const faults: string[] = [];
   if (!docsOnly) {

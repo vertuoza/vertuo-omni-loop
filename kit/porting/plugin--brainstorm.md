@@ -171,3 +171,122 @@ SKILL.md names exists, signing) cover the two new skills, which make no commit a
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
 and `pnpm test`, green.
+
+## PRD #1299, slice s7 — a PRD born on the server
+
+- **Step 0** gains **Where its phase 0 is approved**: the repository's phase-0 flag, kept on the
+  Omni page (`GET /api/repositories/phase0`), is read once. `server` makes the PRD ◆ (born on the
+  server); `pr` makes it ◇ and the brainstorm runs as it always has. A flag that cannot be read
+  (no `omni` command reads it in this kit yet, no Omni page, no sign-in, no answer, a refusal) is
+  `pr`, said in one line. Until the kit has such a command, every brainstorm is ◇ (outbox item
+  `s7-01-brainstorm-cannot-read-the-flag`).
+- **Step 2:** a ◆ PRD's issue says `/omni:yolo <n>` waits for its approval on its page, not for a
+  phase-0 merge. The template's own line is unchanged.
+- **Step 4** writes `phase0: server` in a ◆ spec's front matter, the one value `omni check inbox`
+  accepts; a ◇ spec leaves it out.
+- **Step 7:** for a ◆ PRD, `omni prd` reads `birthplace: server` and a `state:` other than `inbox`
+  before the approval, which is expected; the first dossier push is what records the dossier's
+  birthplace on the server.
+- **Step 8:** `/omni:plan` plans a ◆ PRD while it waits for approval.
+- **Step 9:** a ◆ PRD opens no phase-0 PR and runs no `omni phase0`; its page is where it is
+  reviewed and approved.
+- **Step 10:** a ◆ hand-off links the PRD's page, says "approve it there, then `/omni:yolo <n>`",
+  and its **Where it is** block marks approval, not a merge, as the move into the inbox.
+- **Rework** item 6 opens no PR for a ◆ PRD: its new versions drift the approval until a member
+  approves again. **Guardrails:** never approve a ◆ PRD, never change a birthplace.
+
+### Tests
+
+No test changed: the existing rules on the skill (every `omni` command it names exists, signing,
+the hand-off's blocks, step 2's issue template, the dossier pushes after `git push -u`) still hold.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
+kit's sources and none of the skills.
+
+## PRD #1322, slice s8 — the approval handshake
+
+- **Intro** and **Step 10:** a ◆ PRD's hand-off names `omni wait approval <n>` beside the page link:
+  `/omni:yolo <n>` runs it, asks the product's approvers by phone and email, and starts wave 1 the
+  moment one approves. The Next command line says so in place of "once it is approved on its PRD
+  page", and the **What is next?** block no longer tells the person to wait before running it.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green.
+
+## PRD #1369, slice s5 — the before/after reads the design form
+
+- **Step 0** reads the design flag once, `omni config design.enabled`, after the birthplace and
+  before `--concept`, so **Rework** sees it too. Anything but `true`: nothing below changes.
+- **Step 5:** with the flag on, a change with a screen draws its "after" from the product's tokens
+  and components as `omni kb show design` names them in its `system` section; what its
+  `deliberate` section says the product does on purpose holds over any rule of craft, and a
+  `[hole]` is filled from what the "today" screen already uses, never invented, and said under the
+  mockup. The form, its slots and the craft floor are `/omni:pixel-perfect`'s and the form's own:
+  the skill points at them and restates none.
+
+### Tests
+
+`kit/test/plugin.test.ts`: step 0 reads the flag before step 5, and step 5 reads
+`omni kb show design` and builds the "after" from the form's tokens and components.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green.
+
+## PRD #1407, slice s7 — the before/after feeds the design memory
+
+- **Step 0:** the design flag read once also turns the design memory on or off. Off, nothing below
+  runs: no library read, no mark, no word pass, no draft screen.
+- **Step 5:** with the flag on, the form's `language` laws are read with the rest of it, and
+  `omni design screens` lists the library: a locked screen is drawn as written, and a change the
+  design makes to it is named in the spec's **Decisions** with who locked it, for the slice that
+  builds it to raise as the high item (`/omni:do-work`'s **A change to a locked screen or law**).
+  Every screen of the page carries `data-screen` and its primary action `data-primary`, and
+  `omni design words` runs over the page before anyone sees it; a finding is fixed in the "after",
+  never silenced, and one on "today" is said under it. Each screen the "after" draws is written to
+  the library as `status: draft`, with its mockup and a **Source** line naming the PRD; a draft
+  already there is brought up to it, and a locked one is never edited. With `--concept`, the drafts
+  `/omni:think-big` wrote are the starting point. No skill but `/omni:pixel-perfect lock` locks.
+- **Step 7** runs `omni check design` before the commit, and the drafts go in the same commit as
+  the folder; **step 9** carries them into the phase-0 PR, documents under the knowledge folder.
+  **Rework** writes them the same way.
+
+### Tests
+
+`kit/test/plugin.test.ts`: the flag, the library read, the marks, the word pass before the page is
+shown, the draft screens with their mockup and source, and the guardrail that nothing is locked.
+`kit/test/brainstorm-concept.test.ts`: step 5's `--concept` paragraph starts from think-big's
+drafts.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green.
+
+## PRD #1550, slice s4 — marked screens and the two lists
+
+- **Step 5's marks:** the page's own explanation (its title, the PRD line, the captions) sits
+  outside every marked screen, since the word pass now reads only marked screens and skips a page
+  with none.
+- **Step 5's draft screens** gain `reads`, and the rule that splits the two lists: a file whose
+  change can change what a person sees on this screen goes in `implements`; a file the screen only
+  depends on goes in `reads`. Never a whole folder in `implements`.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.
+
+## PRD #1584, slice s3 — two parts, and shared screens
+
+- **Step 5**, with the design flag on, writes the before/after in two parts: **Functional** (what
+  the change does, today beside after), then **Pixel perfect** (the marked screens and a
+  `screens:` line naming the library screens), or the one line `Pixel perfect: no screen changes`
+  for a PRD that changes no screen. Design off, the page is written as before.
+- **Step 5's draft screens** carry `kind`, and the rule that splits the two lists is stated in its
+  four lines; shared structure is drafted once, as a `kind: shared` screen.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

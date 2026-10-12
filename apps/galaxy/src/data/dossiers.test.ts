@@ -204,6 +204,17 @@ describe('workspaceDossiers', () => {
     ]);
   });
 
+  it('reads a concept\'s row (PRD 1272) without throwing, and leaves it out: the dashboard counts PRDs and fixes', async () => {
+    // dossier_list() returns a concept as it is stored: kind `concept`, its latest concept-record.
+    const concept = {
+      ...listed('d-concept', 1269), kind: 'concept', title: 'One Vertuoza, many products',
+      latest: { 'concept-record': { id: 'v-1', version: 1, source: 'kit', created_at: '2026-09-21T09:00:00Z' } },
+    } as unknown as DossierListRow;
+    const fake = withDossiers(fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE)), [...DOSSIERS, { row: concept, rounds: [] }]);
+    const db = fake.client(PEOPLE.both) as unknown as SupabaseClient<Database>;
+    expect((await workspaceDossiers(db, VERTUOZA)).map((d) => d.id)).toEqual(['d-12', 'd-draft']);
+  });
+
   it('lists nothing of a workspace its caller is not in', async () => {
     const { db } = world(PEOPLE.wile);
     expect(await workspaceDossiers(db, VERTUOZA)).toEqual([]);

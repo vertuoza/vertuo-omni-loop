@@ -1,0 +1,54 @@
+---
+screen: products
+status: draft
+kind: page
+mock: products.html
+implements: [apps/galaxy/app/app/products/page.tsx, apps/galaxy/src/products/ProductsHome.tsx, apps/galaxy/src/products/products-home.model.ts]
+reads: [apps/galaxy/src/products/products.css, apps/galaxy/src/products/products.service.ts, apps/galaxy/src/products/products.controller.ts, apps/galaxy/src/products/ProductsScreen.tsx, apps/galaxy/app/app/layout.tsx, apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/Bell.tsx]
+routes: [/app/products]
+supersedes: null
+---
+
+## Purpose
+
+What the workspace builds, at a glance: each product, how much is in it, and what waits on the person
+reading, so they open the right product first.
+
+## Regions
+
+- **The heading:** `Products`, alone; no boxed intro.
+- **The totals:** four figures across, two by two on a phone: products, repositories (each once),
+  PRDs, and waiting on you, the last in the signal when it is not zero.
+- **The tiles,** one per product in the workspace's order, all of one height: the name (a link to the
+  product home), one line `<n> PRDs · <n> repositories`, the repositories in mono with their shared
+  owner said once, a shared one tagged SHARED, six shown and the rest counted (`+7`), cut at three
+  lines; a foot with `<n> waiting on you` (or `Nothing waiting`) and Open. A tile something waits in
+  has a signal edge on its left.
+- **Repositories in no product,** below the tiles, each with Add to a product.
+
+## States
+
+- No product: the totals and tiles give way to `No products yet. Products are optional…` and a link
+  to Settings › Products; the unlinked repositories still list.
+- A product with no repository: `No repository yet` on its line, `Add a repository` in its foot.
+- Signed out, no workspace, no database, unreadable: the situation notices of `ProductsScreen.tsx`.
+
+## Words
+
+`Products`, `products`, `repositories`, `PRDs`, `waiting on you`, `Nothing waiting`, `No repository
+yet`, `Add a repository`, `Open`, `SHARED`, `Repositories in no product`, `Add to a product`.
+
+## Refusals
+
+- No card stretches to the tallest one: a long repository list is counted, never grown.
+- No boxed intro sentence above the totals.
+
+## Open questions
+
+- One primary action: the Open of the product waiting most leads, in the signal. Is that the page's
+  one primary, or should nothing lead when a person reads the page only to scan?
+- Should the order of the tiles follow what waits on you? It keeps the workspace's order today.
+
+## Source
+
+/omni:visual-fix #1598, pick D by @pierrederval on 2026-10-11: .omni-loop/delivery/visual/1598-products-page/before-after.html

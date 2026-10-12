@@ -23,14 +23,14 @@ import { NonRetriableError, type Inngest } from 'inngest';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { domainsDir } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { CheckRequestDataSchema, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { notRetriedPastBound, onFailedRun } from '../outbox-check/outbox-check.ts';
 import { readBaseConfig, readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { publish } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
-import { evaluateInbox, inboxPrd, phase0Topic, type CanonGrader, type InboxVerdict } from './evaluate-inbox.ts';
+import { evaluateInbox, phase0Prds, phase0Topic, type CanonGrader, type InboxVerdict, type IssueFacts } from './evaluate-inbox.ts';
 import { canonActions } from './canon-actions.ts';
 import { addCheckActions, compareFacts, completeInboxAsFailure, readIssue, startInboxCheck } from './github.ts';
 
@@ -136,8 +136,10 @@ async function evaluateAt(
     const ctx = createContext(head, config);
     const { dirs } = ctx.layout;
     await snapshot(octokit, { owner, repo, ref: headSha, paths: [dirs.inbox, dirs.shipped, domainsDir(ctx)], dest: head });
-    const prd = inboxPrd({ head, config, topic });
-    const issue = prd === null ? null : await readIssue(octokit, { owner, repo, number: prd });
+    const prds = phase0Prds({ head, config, topic });
+    const read = await Promise.all(prds.map(async (prd) => [prd, await readIssue(octokit, { owner, repo, number: prd })] as const));
+    const issues = new Map<PrdNumber, IssueFacts>(read);
+    const issue = (prd: PrdNumber): IssueFacts => issues.get(prd) ?? null;
     const { changes, commits } = await compareFacts(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
 
     return await evaluateInbox({ base, head, pr: { headRef: pr.headRef }, repo: `${owner}/${repo}`, changes, commits, issue, canon });

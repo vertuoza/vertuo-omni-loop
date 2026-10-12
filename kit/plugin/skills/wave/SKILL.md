@@ -56,6 +56,39 @@ never overrides this skill's rules.
 `PRD <prd> spans repositories: /omni:ultra-yolo <prd> builds it`, before any branch, claim or
 dispatch.
 
+**A PRD born on the server.** The same `omni prd <prd>` always exits 0: gate on its `state:` line,
+never on the exit code. When it prints `birthplace: server` (a ◆ PRD, approved on its page rather
+than by a phase-0 PR), its `state:` must be `inbox`. Otherwise stop, before any claim or dispatch,
+with the line its state gives, as printed after `approval: `:
+
+| `state:` | the line the wave stops on |
+|---|---|
+| `prd` | `PRD <prd> waits for approval: <link>`: a member approves it on its page first |
+| `drifted` | each `≠ <file> · content` (or `· whitespace only`) `· ✗ refuse · restore it, or approve again: <link>` |
+| `unreachable` | `server unreachable · held, not failed`: held, not failed; run the wave again once the server answers |
+| `refused` | `approver <login> is not a workspace member`, or `refused (<status>)` |
+
+A ◇ PRD (no `birthplace:` line) never reads any of the four, and the wave runs as written.
+
+**A read the loop cannot make.** `omni board` and `omni flow check merge` read the loop's state
+through the Omni page (`ask.url`), never through `gh`. When one cannot read, it exits `1` with one
+line alone on stderr:
+
+| line | what holds |
+|---|---|
+| `no sign-in (omni signin)` | every read: a person signs in on this machine, or sets `OMNI_TOKEN` |
+| `unreachable` | every read: the Omni page did not answer within 15 seconds |
+| `refused (403): <owner/repo> is not in your workspace` | that repository: it is not in the person's workspace |
+| `refused (424): the Omni app cannot read <owner/repo>: <install link>` | that repository: the Omni app is not installed on it |
+| `refused (429): GitHub's budget for <owner/repo> is spent until <time>` | that repository, until that time |
+| `refused (404): this Omni page cannot read the loop yet` | every read: the Omni page does not serve the loop |
+
+Each is **held, not failed**, as an unreachable approval is. Before any claim, stop with
+`<the line> · held, not failed: run the wave again once it reads`, and claim nothing. Later in the
+wave (the merge gate, a board read after a merge), merge nothing more, leave every sub-PR as it is,
+and end the wave on that line: no slice is marked failed or stuck for it, no attempt is spent, and
+nothing is read through `gh` instead. The next wave reads again.
+
 Find the feature PR by its head, whatever its base (it may be stacked on another PR's branch, as
 `/omni:pr` says): `gh pr list --head <feature branch> --state open --json number,body,baseRefName`.
 No feature branch or no feature PR: stop, and say to follow `/omni:plan` first.

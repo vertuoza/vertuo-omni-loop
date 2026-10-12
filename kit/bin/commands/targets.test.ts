@@ -1,5 +1,7 @@
 // `omni targets` (PRD 522, s1), through `main()` on a fixture repository with `gh` faked: the table in
 // config order, `--json`, the exit code, and a repository with no plan section. It never calls GitHub.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { dig } from '../dig.ts';
@@ -172,5 +174,103 @@ describe('omni targets', () => {
   it('refuses an argument or a flag it does not take, exit 2', async () => {
     expect((await targets(['acme/front'], { config: PLAN, world: ALL_OK })).code).toBe(2);
     expect((await targets(['--fetch'], { config: PLAN, world: ALL_OK })).code).toBe(2);
+  });
+});
+
+describe('omni targets with plan.product (PRD 1364, s4)', () => {
+  const HOST = 'omni.test';
+  const PRODUCT_PLAN = (url = 'https://omni.test') => `kit: 1\nrepo:\n  slug: acme/plan\nask:\n  url: ${url}\nplan:\n  guide: null\n  product: Mobile\n`;
+  const LINKS = {
+    product: { name: 'Mobile' },
+    targets: [
+      { repo: 'acme/front', role: 'front-end', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/legacy'] },
+      { repo: 'acme/legacy', role: 'legacy', knowledge: 'none', readAt: null, readOnly: true, consumes: [] },
+    ],
+  };
+  const TABLE = [
+    'repo         role       knowledge  loop           state',
+    'acme/front   front-end  own        v0.0.40        ok',
+    'acme/legacy  legacy     none       not installed  ok',
+  ];
+  type Tokens = { access_token: string; refresh_token: string };
+  const signedIn = () => ({ read: (host: string): Tokens | null => (host === HOST ? { access_token: 'a', refresh_token: 'r' } : null), write: () => {} });
+  const answering = (status: number, body: unknown) => {
+    const urls: string[] = [];
+    const fetch = (url: string) => {
+      urls.push(url);
+      return Promise.resolve(new Response(JSON.stringify(body), { status }));
+    };
+    return { urls, fetch };
+  };
+  const down = { fetch: () => Promise.reject(new TypeError('fetch failed')) };
+
+  async function run(root: string, args: string[], server: { fetch: unknown }, tokens: unknown = signedIn()) {
+    const out: string[] = [];
+    const err: string[] = [];
+    const { exec } = fakeGh(ALL_OK);
+    const code = await main(['targets', ...args], {
+      cwd: root, exec, env: {}, tokens, fetch: server.fetch, now: () => new Date('2026-10-10T09:30:00Z'),
+      stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
+    });
+    return { code, out: out.join(''), err: err.join('') };
+  }
+  const checkout = (config = PRODUCT_PLAN()) => makeRepo({ git: true, files: { '.omni-loop/config.yml': config } }).root;
+
+  it("prints the product's links as the targets table, read from the server, and keeps the read", async () => {
+    const root = checkout();
+    const server = answering(200, LINKS);
+    expect(await run(root, [], server)).toEqual({ code: 0, out: `${TABLE.join('\n')}\n`, err: '' });
+    expect(server.urls).toEqual(['https://omni.test/api/products/targets?repo=acme%2Fplan&product=Mobile']);
+    expect(JSON.parse(readFileSync(join(root, '.omni-loop/local/product-targets.json'), 'utf8'))).toMatchObject({
+      product: 'Mobile',
+      readAt: '2026-10-10T09:30:00.000Z',
+      targets: [{ repo: 'acme/front', consumes: ['legacy'] }, { repo: 'acme/legacy', readOnly: true }],
+    });
+  });
+
+  it('reads the last copy when the server is unreachable, saying so first', async () => {
+    const root = checkout();
+    await run(root, [], answering(200, LINKS));
+    expect(await run(root, [], down)).toEqual({
+      code: 0,
+      out: ['targets from the last read, 2026-10-10 09:30 UTC · server unreachable', ...TABLE, ''].join('\n'),
+      err: '',
+    });
+    const json = await run(root, ['--json'], down);
+    expect(json.err).toBe('targets from the last read, 2026-10-10 09:30 UTC · server unreachable\n');
+    expect(JSON.parse(json.out)).toHaveLength(2);
+  });
+
+  it('stops when the server is unreachable and nothing was read yet', async () => {
+    expect(await run(checkout(), [], down)).toEqual({ code: 1, out: 'no targets: the server is unreachable and nothing was read yet\n', err: '' });
+  });
+
+  it('refuses a link with no role, by name', async () => {
+    const noRole = { ...LINKS, targets: [{ ...LINKS.targets[0], role: null }] };
+    expect(await run(checkout(), [], answering(200, noRole))).toEqual({
+      code: 1,
+      out: 'acme/front has no role in product Mobile: set it on the product page\n',
+      err: '',
+    });
+  });
+
+  it("stops on the server's refusal, with its reason", async () => {
+    expect((await run(checkout(), [], answering(404, { error: 'No product Mobile in the workspace of acme/plan.' }))).out).toBe(
+      'the server refused the targets of product Mobile (404): No product Mobile in the workspace of acme/plan.\n',
+    );
+  });
+
+  it('needs an Omni page and a sign-in for it', async () => {
+    const noPage = PRODUCT_PLAN().replace('url: https://omni.test', 'url: null');
+    expect(await run(checkout(noPage), [], down)).toEqual({
+      code: 1,
+      out: 'no targets: plan.product reads them from the Omni page, and ask.url is not set\n',
+      err: '',
+    });
+    expect(await run(checkout(), [], down, { read: () => null, write: () => {} })).toEqual({
+      code: 1,
+      out: 'no targets: no sign-in for omni.test (omni signin)\n',
+      err: '',
+    });
   });
 });

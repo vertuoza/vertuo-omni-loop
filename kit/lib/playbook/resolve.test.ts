@@ -203,3 +203,49 @@ describe('fillConfig', () => {
     });
   });
 });
+
+// Law BR-PRODUCT-8 (.omni-loop/knowledge/product/rules.md): when a kit default names
+// {config:<key>} and the key is unknown, set to null, or holds a list or a section, the
+// placeholder stays in the text exactly as written and a problem line is reported.
+describe('law BR-PRODUCT-8 — a kit default never shows a guessed config value', () => {
+  it('keeps an unknown, null, list or section {config:<key>} exactly as written, and reports a problem line for each', () => {
+    const body = 'Unknown {config:nope.x}, null {config:commands.preflight}, list {config:commands.checks}, section {config:commands}.';
+    const template = formText({ slots: [{ id: 'commands', heading: 'Commands', required: true, body }] });
+    const { ctx } = makeRepo({ config: { commands: { test: 'pnpm test', preflight: null, checks: ['pnpm lint'] } } });
+    const result = resolveForm('testing', { ctx, template });
+    const commands = section(result, 'commands');
+    assertDefined(commands, 'the commands section');
+    expect(commands.text).toBe(body);
+    expect(result.problems).toEqual([
+      'kit default testing#commands: {config:nope.x} names no config key',
+      'kit default testing#commands: {config:commands.preflight} is not set in the config',
+      'kit default testing#commands: {config:commands.checks} holds no single value',
+      'kit default testing#commands: {config:commands} holds no single value',
+    ]);
+  });
+});
+
+// Law BR-PRODUCT-9 (.omni-loop/knowledge/product/rules.md, #1471).
+describe('law BR-PRODUCT-9 — a section with text beside TODO(human) lines reads as text', () => {
+  it('law BR-PRODUCT-9: shows the text as written, labelled [repo], lists each TODO(human) question, and reads an HTML-comment-only section as empty', () => {
+    const body = 'Fixtures live under `test/fixtures/`.\nTODO(human): is there a naming rule for fixture repositories?\n- TODO(human): who owns the seed data?';
+    const result = resolved({
+      [FILE]: repoForm([
+        { id: 'data', body },
+        { id: 'levels', body: '<!-- say how to choose the level -->\n<!-- another note -->' },
+      ]),
+    });
+    expect(section(result, 'data')).toMatchObject({
+      source: 'repo',
+      label: '[repo]',
+      text: body,
+      questions: ['is there a naming rule for fixture repositories?', 'who owns the seed data?'],
+    });
+    expect(section(result, 'levels')).toMatchObject({
+      source: 'kit',
+      label: '[kit default]',
+      text: 'Start from the behaviour or risk the change creates.',
+      questions: [],
+    });
+  });
+});

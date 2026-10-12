@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Layered Galaxy Data</title>
+<style>
+/* Layout: a two-column ledger, today on the left, after on the right; each row is one request's path. */
+:root {
+  --bg: #f6f7fb; --panel: #ffffff; --fg: #1b1f2e; --muted: #5d6478; --line: #d9dceb;
+  --today: #b4472f; --after: #2f6f62; --accent: #3b4fd8; --chip: #eceefa;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12141d; --panel: #1a1d29; --fg: #e7e9f3; --muted: #9aa0b8; --line: #2c3142;
+  --today: #e27a62; --after: #6cc3ad; --accent: #8c9bff; --chip: #242838; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12141d; --panel: #1a1d29; --fg: #e7e9f3; --muted: #9aa0b8; --line: #2c3142;
+  --today: #e27a62; --after: #6cc3ad; --accent: #8c9bff; --chip: #242838; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-block: 32px 56px; padding-inline: 20px; display: grid; gap: 28px; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.1rem; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 70ch; }
+.lede { color: var(--muted); }
+.eyebrow { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+section { display: grid; gap: 14px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+.side { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.side h3 { margin: 0; font-size: .95rem; display: flex; gap: 8px; align-items: center; }
+.tag { font: 600 .7rem/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 4px; color: var(--panel); }
+.tag.today { background: var(--today); }
+.tag.after { background: var(--after); }
+.path { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.path li { display: grid; grid-template-columns: 9.5rem 1fr; gap: 10px; align-items: baseline; padding: 7px 10px; background: var(--chip); border-radius: 6px; min-width: 0; }
+.path code, .mono { font-family: var(--mono); font-size: .82rem; overflow-wrap: anywhere; }
+.path .who { font: 600 .78rem/1.3 var(--mono); }
+.path li.stop { outline: 1.5px solid var(--after); }
+.path li.bad { outline: 1.5px solid var(--today); }
+.note { color: var(--muted); font-size: .88rem; }
+.diagram { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.diagram svg { display: block; min-width: 680px; width: 100%; height: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 .74rem/1.2 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+td code { font-family: var(--mono); font-size: .82rem; }
+.tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.num { font-variant-numeric: tabular-nums; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:10px">
+    <span class="eyebrow">PRD 1318 · before / after</span>
+    <h1>Client → controller → service → repository</h1>
+    <p class="lede">Nobody sees a new screen. What changes is how the galaxy app reaches its data: today nineteen browser files talk to Supabase themselves. After this PRD, the bell and the ask pages go through a controller, and a check keeps every new file on the same path.</p>
+  </header>
+
+  <section>
+    <span class="eyebrow">The shape</span>
+    <div class="diagram" role="img" aria-label="Today the browser calls Supabase directly. After, the browser calls a controller, which calls a service, which calls a repository, which is the only code that calls Supabase.">
+      <svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, monospace" font-size="13">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+        </defs>
+        <text x="20" y="28" fill="var(--today)" font-weight="700">TODAY</text>
+        <rect x="20" y="44" width="150" height="44" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="95" y="71" text-anchor="middle" fill="var(--fg)">browser</text>
+        <rect x="700" y="44" width="170" height="44" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="785" y="71" text-anchor="middle" fill="var(--fg)">Supabase</text>
+        <line x1="172" y1="66" x2="696" y2="66" stroke="var(--today)" stroke-width="2" marker-end="url(#a)"/>
+        <text x="434" y="58" text-anchor="middle" fill="var(--today)">.from() / .rpc() / .storage, public key</text>
+
+        <text x="20" y="140" fill="var(--after)" font-weight="700">AFTER</text>
+        <rect x="20" y="156" width="130" height="44" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="85" y="176" text-anchor="middle" fill="var(--fg)">browser</text>
+        <text x="85" y="192" text-anchor="middle" fill="var(--muted)" font-size="11">*.client.ts</text>
+        <rect x="190" y="156" width="140" height="44" rx="6" fill="var(--chip)" stroke="var(--after)"/>
+        <text x="260" y="176" text-anchor="middle" fill="var(--fg)">controller</text>
+        <text x="260" y="192" text-anchor="middle" fill="var(--muted)" font-size="11">session first</text>
+        <rect x="370" y="156" width="130" height="44" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="435" y="176" text-anchor="middle" fill="var(--fg)">service</text>
+        <text x="435" y="192" text-anchor="middle" fill="var(--muted)" font-size="11">the rules</text>
+        <rect x="540" y="156" width="140" height="44" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="610" y="176" text-anchor="middle" fill="var(--fg)">repository</text>
+        <text x="610" y="192" text-anchor="middle" fill="var(--muted)" font-size="11">only DB calls</text>
+        <rect x="720" y="156" width="150" height="44" rx="6" fill="var(--chip)" stroke="var(--line)"/>
+        <text x="795" y="182" text-anchor="middle" fill="var(--fg)">Supabase</text>
+        <line x1="152" y1="178" x2="186" y2="178" stroke="var(--after)" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="332" y1="178" x2="366" y2="178" stroke="var(--after)" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="502" y1="178" x2="536" y2="178" stroke="var(--after)" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="682" y1="178" x2="716" y2="178" stroke="var(--after)" stroke-width="2" marker-end="url(#a)"/>
+        <path d="M260 202 L260 232 L120 232" fill="none" stroke="var(--after)" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#a)"/>
+        <text x="270" y="228" fill="var(--after)" font-size="12">signed out → 401, nothing deeper</text>
+      </svg>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">A tab whose sign-in expired, on the bell</span>
+    <div class="cols">
+      <div class="side">
+        <h3><span class="tag today">Today</span> it asks the database forever</h3>
+        <ol class="path">
+          <li><span class="who">WaitingProvider</span><span class="mono">every 15 s, hidden tab</span></li>
+          <li><span class="who">browser client</span><span class="mono">no session → public key</span></li>
+          <li class="bad"><span class="who">Postgres</span><span class="mono">42501 permission denied for table ask_sessions</span></li>
+          <li class="bad"><span class="who">Postgres</span><span class="mono">42501 permission denied for table ask_shares</span></li>
+        </ol>
+        <p class="note">Bug #1316 stopped this for the bell only. The ask pages poll every 2 s the same way.</p>
+      </div>
+      <div class="side">
+        <h3><span class="tag after">After</span> it stops at the controller</h3>
+        <ol class="path">
+          <li><span class="who">waiting.client.ts</span><span class="mono">GET /api/waiting/questions</span></li>
+          <li class="stop"><span class="who">controller</span><span class="mono">getClaims(): none → 401 {"error":"signed-out"}</span></li>
+          <li><span class="who">waiting.client.ts</span><span class="mono">stops every poll, shows the sign-in card</span></li>
+        </ol>
+        <p class="note">No service runs and nothing reaches the database. The tab asks again only after a reload.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">A signed-in member answers a round on an ask page</span>
+    <div class="cols">
+      <div class="side">
+        <h3><span class="tag today">Today</span></h3>
+        <ol class="path">
+          <li><span class="who">AskSession</span><span class="mono">createBrowserClient(url, key)</span></li>
+          <li><span class="who">browser</span><span class="mono">storage.from('ask-attachments').upload(…) ≤ 5 MB</span></li>
+          <li><span class="who">browser</span><span class="mono">from('ask_rounds').update({ answers, … })</span></li>
+          <li><span class="who">row-level security</span><span class="mono">the only check</span></li>
+        </ol>
+      </div>
+      <div class="side">
+        <h3><span class="tag after">After</span></h3>
+        <ol class="path">
+          <li><span class="who">ask.client.ts</span><span class="mono">POST /api/ask/rounds/:id/answers, one screenshot per POST ≤ 4 MB</span></li>
+          <li class="stop"><span class="who">ask.controller.ts</span><span class="mono">session (cookie or terminal token) · zod-parse · call the service</span></li>
+          <li><span class="who">ask.service.ts</span><span class="mono">the round is open and yours to answer</span></li>
+          <li><span class="who">ask.repository.ts</span><span class="mono">upload · update ask_rounds, as you (row-level security stays)</span></li>
+        </ol>
+      </div>
+    </div>
+    <p class="note">What the member sees does not change, except that a screenshot over 4 MB is refused before it is sent. The bucket's own limit drops from 5 MB to 4 MB.</p>
+  </section>
+
+  <section>
+    <span class="eyebrow">The check</span>
+    <h2>scripts/layering-guard.test.ts and its baseline</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Rule</th><th>Refused</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><code>.from(</code>, <code>.rpc(</code> or <code>.storage</code> outside a <code>*.repository.ts</code></td></tr>
+          <tr><td class="num">2</td><td>a repository importing another repository or a service</td></tr>
+          <tr><td class="num">3</td><td>a service importing <code>@supabase/*</code> or the database module</td></tr>
+          <tr><td class="num">4</td><td>a controller, server page or <code>route.ts</code> importing a repository, <code>@supabase/*</code> or the database module</td></tr>
+          <tr><td class="num">5</td><td>a <code>'use client'</code> file importing a controller, service, repository or <code>@supabase/*</code> (the sign-in module aside)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="side">
+        <h3><span class="tag today">Today</span> no check</h3>
+        <p class="mono"><span class="num">19</span> browser files build a Supabase client</p>
+        <p class="note">The layering lives in habit and comments.</p>
+      </div>
+      <div class="side">
+        <h3><span class="tag after">After</span> a baseline that only shrinks</h3>
+        <p class="mono"><span class="num">14</span> browser files left on <code>layering/baseline.json</code></p>
+        <p class="note">A new breach fails the check, and so does a baseline line whose breach is gone. The waiting list and the ask pages are off the list. The arcade, business, fleets, products, repositories, ideas, the dossier page and the rest move in later PRDs.</p>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

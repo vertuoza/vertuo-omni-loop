@@ -45,15 +45,24 @@ type Extra = (params: Params) => { data: unknown } | null;
 const ActionsSchema = z.array(z.looseObject({ label: z.string(), identifier: z.string() }));
 
 /** The outbox check's fake GitHub, plus the compare's commits, the issues route and `external_id`. */
-function inboxGitHub({ base = 'inbox-base', head = 'inbox-head-complete', headRef = 'docs/phase-0-widget', files = COMPLETE_FILES, commits = SIGNED, issue = OPEN_ISSUE } = {}) {
+function inboxGitHub({
+  base = 'inbox-base',
+  head = 'inbox-head-complete',
+  headRef = 'docs/phase-0-widget',
+  files = COMPLETE_FILES,
+  commits = SIGNED,
+  issue = OPEN_ISSUE,
+  issues = [issue],
+}: { base?: string; head?: string; headRef?: string; files?: typeof COMPLETE_FILES; commits?: typeof SIGNED; issue?: typeof OPEN_ISSUE; issues?: (typeof OPEN_ISSUE)[] } = {}) {
   const pull = { number: parsePr(12), base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
   const github = fakeGitHub({ commits: { base1: fixture(base), head1: fixture(head) }, pull });
   const inner = github.octokit;
   const extra: Partial<Record<string, Extra>> = {
     'GET /repos/{owner}/{repo}/compare/{basehead}': (params) => ({ data: params.page === 1 ? { files, commits } : { files: [], commits: [] } }),
     'GET /repos/{owner}/{repo}/issues/{issue_number}': (params) => {
-      if (issue.number !== params.issue_number) throw Object.assign(new Error('Not Found'), { status: 404 });
-      return { data: issue };
+      const found = issues.find((candidate) => candidate.number === params.issue_number);
+      if (!found) throw Object.assign(new Error('Not Found'), { status: 404 });
+      return { data: found };
     },
     // The canon buttons (PRD 839): a PATCH carrying only the actions adds them to the run.
     'PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}': (params) => {
@@ -95,6 +104,30 @@ async function run(github: ReturnType<typeof inboxGitHub>, e: AppEvent | ReturnT
 }
 
 const failedEvent = (message: string) => ({ event: { name: 'inngest/function.failed', data: { event: event(), error: { message } } }, error: new Error(message) });
+
+describe('inbox-check — a roadmap\'s phase-0 PR (issue 1198)', () => {
+  const IN = '.omni-loop/delivery/inbox';
+  const files = [
+    ...['0010-alpha', '0011-beta'].flatMap((folder) => ['spec.md', 'before-after.html'].map((file) => ({ filename: `${IN}/${folder}/${file}`, status: 'added' }))),
+    { filename: `${IN}/roadmaps/0009-crew/roadmap.md`, status: 'added' },
+  ];
+  const rowIssue = (number: number) => ({ number, state: 'open', labels: [{ name: 'omni:prd' }] });
+
+  it('reads every row\'s issue and completes success, naming the roadmap', async () => {
+    const github = inboxGitHub({ head: 'inbox-head-roadmap', headRef: 'docs/phase-0-roadmap-crew', files, issues: [rowIssue(10), rowIssue(11)] });
+    const { result } = await run(github);
+    expect(result).toMatchObject({ name: 'inbox', conclusion: 'success', prd: null });
+    const issueReads = github.state.requests.filter((request) => request.route === 'GET /repos/{owner}/{repo}/issues/{issue_number}');
+    expect(issueReads.map((request) => request.issue_number).sort()).toEqual([10, 11]);
+    expect(outputOf(checkRunAt(github.state, 0)).title).toBe('Roadmap 9 complete: 2 PRDs in 2 waves, every gate ok · canon neutral');
+  });
+
+  it('a row whose issue is missing completes failure, naming it', async () => {
+    const github = inboxGitHub({ head: 'inbox-head-roadmap', headRef: 'docs/phase-0-roadmap-crew', files, issues: [rowIssue(10)] });
+    await run(github);
+    expect(github.state.checkRuns[0]).toMatchObject({ conclusion: 'failure', output: { title: 'Not ok: PRD issue (PRD 11)' } });
+  });
+});
 
 describe('inbox-check — a phase-0 PR gets the inbox check', () => {
   it('a complete phase-0 PR completes success, four gates ok, under the name ci.inboxContext', async () => {

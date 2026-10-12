@@ -15,9 +15,20 @@
   gap: 12px;
   flex-wrap: wrap;
   min-width: 0;
-  padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
   background: var(--ask-surface);
   border-bottom: 2px solid var(--ask-line-strong);
+}
+/* Under a phone's status bar, opened from the home screen (#1351): a strip of the bar's surface, as tall
+   as the status bar, so the page never scrolls under its clock. No status bar, no strip. */
+.app-bar::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--ask-surface);
+  pointer-events: none;
 }
 /* The section's sprite (issue 704), at 2× in a sunk tile, crisp: the bar shows where you are at a
    glance, as the sidebar does beside each section. */

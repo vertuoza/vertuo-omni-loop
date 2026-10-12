@@ -9,7 +9,9 @@
 //
 // The inbox check (PRD 675) listens to that same outbox check event, so every handled pull request
 // action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
-// the inbox check event alone; a re-run of any other check run stays the outbox check event.
+// the inbox check event alone, a re-run of an approved check run (PRD 1548) the approved check event
+// alone; a re-run of any other check run stays the outbox check event. The approved check listens to
+// the outbox check event too, so every handled pull request action re-evaluates it as well.
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
 // run, becomes one canon action event alone, carrying the button and the facts the check run's summary
@@ -25,18 +27,28 @@
 // (src/stage-forward/touch.ts), whether or not it also becomes an event. The app's `touch` POSTs each to
 // galaxy's `/api/github/touched`, signed as the stage event is. It never changes the reply either.
 //
+// The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
+// (`labels.approved`'s default, as the stage events read it) becomes one approved label event alone;
+// the `approved-rerun` function runs the `omni/approved` check again on every open pull request of that
+// PRD. Every handled pull request action also runs that check, on the outbox check's own event.
+//
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
 import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
-import { PrNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
+  APPROVED_CHECK_EVENT,
+  APPROVED_EXTERNAL_ID,
+  APPROVED_LABEL_EVENT,
   HARVEST_EVENT,
   INBOX_CHECK_EVENT,
   INBOX_EXTERNAL_ID,
   OUTBOX_CHECK_EVENT,
   RETRO_EVENT,
   type AppEvent,
+  type ApprovedLabelRequest,
   type CanonActionRequest,
   type CheckRequest,
   type HarvestRequest,
@@ -69,6 +81,15 @@ export const CANON_ACTIONS = Object.freeze({
   check_run: Object.freeze(['requested_action']),
 });
 
+/** The actions on an issue that may be the approved label added or removed (PRD 1612). The manifest
+ * already subscribes to `issues`, for the touches. */
+export const APPROVED_LABEL_ACTIONS = Object.freeze({
+  issues: Object.freeze(['labeled', 'unlabeled']),
+});
+
+/** The kit's approved label: a repository that renames it gets no rerun on its label. */
+const APPROVED_LABEL = parseConfig('kit: 1').labels.approved;
+
 /** Every event and action the app acts on. `app.yml` subscribes to exactly these events (its test says so). */
 export const HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
@@ -81,6 +102,7 @@ export const SUBSCRIBED = Object.freeze([...new Set([...Object.keys(HANDLED), ..
 const PullRefSchema = z.looseObject({
   number: PrNumberSchema.nullish(),
   head: z.looseObject({ sha: z.string().nullish() }).nullish(),
+  base: z.looseObject({ ref: z.string().nullish() }).nullish(),
 });
 
 /** The parts of a delivery the router reads; any of them may be missing. */
@@ -93,6 +115,7 @@ const PayloadSchema = z.looseObject({
       name: z.string(),
       full_name: z.string().nullish(),
       owner: z.looseObject({ login: z.string().nullish() }).nullish(),
+      default_branch: z.string().nullish(),
     })
     .nullish(),
   pull_request: PullRefSchema.extend({
@@ -123,6 +146,7 @@ export async function receiveWebhook({
   headers,
   secret,
   send,
+  sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
 }: {
@@ -130,6 +154,8 @@ export async function receiveWebhook({
   headers: HeadersIn;
   secret: string | undefined;
   send: (events: AppEvent[]) => Promise<unknown>;
+  /** Sends the approved label's events (PRD 1612); none given, they go nowhere. */
+  sendApproved?: (events: ApprovedLabelRequest[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -164,14 +190,16 @@ export async function receiveWebhook({
   }));
 
   const events = toEvents(event, payload);
-  if (events.length === 0) return reply(200, 'ignored');
+  const approved = toApprovedLabelRequests(event, payload);
+  if (events.length + approved.length === 0) return reply(200, 'ignored');
 
   try {
-    await send(events);
+    if (events.length > 0) await send(events);
+    if (approved.length > 0) await sendApproved(approved);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
-  return reply(200, `sent ${events.length}`);
+  return reply(200, `sent ${events.length + approved.length}`);
 }
 
 /**
@@ -189,8 +217,12 @@ export function toEvents(event: string, payload: unknown): AppEvent[] {
 
 /**
  * The checks' filter, pure: a check action becomes one check request per pull request it names —
- * the inbox check event for a re-run of an inbox check run, the outbox check event otherwise;
- * anything else — a `closed`, merged or not, included — becomes none.
+ * the inbox check event for a re-run of an inbox check run, the approved check event for a re-run of
+ * an approved check run, the outbox check event otherwise;
+ * anything else — a `closed`, merged or not, included — becomes none. A pull request into another
+ * branch than the repository's default, a sub-PR into its feature branch, becomes none either
+ * (#1413): no check of the loop grades it, and each event of one cost a run. A delivery naming no
+ * default branch is sent as before.
  */
 export function toCheckRequests(event: string, delivery: unknown): CheckRequest[] {
   const payload = readPayload(delivery);
@@ -200,25 +232,38 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
   if (!source) return [];
 
   const trigger = `${event}.${String(payload.action)}`;
-  const name = event === 'check_run' && payload.check_run?.external_id === INBOX_EXTERNAL_ID ? INBOX_CHECK_EVENT : OUTBOX_CHECK_EVENT;
+  const name = event === 'check_run' ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
   const pulls =
     event === 'pull_request'
-      ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha }]
+      ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }]
       : (payload.check_run?.pull_requests ?? []).map((pull) => ({
           number: pull.number,
           sha: pull.head?.sha ?? payload.check_run?.head_sha,
+          base: pull.base?.ref,
         }));
+  const defaultBranch = payload.repository?.default_branch;
+  const intoDefault = (pull: { base: string | null | undefined }) => !defaultBranch || pull.base === defaultBranch;
 
-  return pulls.filter(isNamed).map((pull) => ({
+  return pulls.filter(intoDefault).filter(isNamed).map((pull) => ({
     name,
     data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger },
   }));
 }
 
+/** The event a re-run of a check run asks for, by the `external_id` the check run carries. */
+function rerunEventOf(externalId: string | null | undefined): string {
+  if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
+  if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  return OUTBOX_CHECK_EVENT;
+}
+
 /**
- * The retro's filter, pure: a pull request closed by its merge becomes one retro request carrying
- * the merge SHA and time; an unmerged one becomes none. Whether it is a feature PR is not decided
- * here: the retro reads the config at the merge SHA to decide (its step "qualify").
+ * The retro's filter, pure: a pull request closed by its merge into the repository's default branch
+ * becomes one retro request carrying the merge SHA and time; an unmerged one, or one merged into
+ * another branch (a sub-PR into its feature branch), becomes none (#1409: every sub-PR's merge used
+ * to start a retro and a harvest, which spent the Inngest account). A delivery naming no default
+ * branch is sent as before. Whether it is a feature PR is not decided here: the retro reads the
+ * config at the merge SHA to decide (its step "qualify").
  */
 export function toRetroRequests(event: string, delivery: unknown): RetroRequest[] {
   const payload = readPayload(delivery);
@@ -227,6 +272,8 @@ export function toRetroRequests(event: string, delivery: unknown): RetroRequest[
   const source = sourceOf(payload);
   const pull = payload.pull_request;
   if (!source || pull?.merged !== true) return [];
+  const defaultBranch = payload.repository?.default_branch;
+  if (defaultBranch && pull.base?.ref !== defaultBranch) return [];
 
   const prNumber = pull.number ?? payload.number ?? undefined;
   if (prNumber === undefined || !pull.merge_commit_sha || !pull.merged_at) return [];
@@ -249,6 +296,28 @@ export function toHarvestRequests(event: string, payload: unknown): HarvestReque
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber },
   }));
+}
+
+/** The parts of an issue's label event the approved label reads. */
+const LabelEventSchema = z.looseObject({
+  label: z.looseObject({ name: z.string() }),
+  issue: z.looseObject({ number: PrdNumberSchema, pull_request: z.unknown().optional() }),
+});
+
+/**
+ * The approved label's filter, pure (PRD 1612): the approved label added to or removed from an issue
+ * (never a pull request) becomes one approved label event naming the issue as the PRD; any other label
+ * or action becomes none.
+ */
+export function toApprovedLabelRequests(event: string, delivery: unknown): ApprovedLabelRequest[] {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(APPROVED_LABEL_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const read = LabelEventSchema.safeParse(delivery);
+  if (!source || !read.success) return [];
+  const { label, issue } = read.data;
+  if (label.name !== APPROVED_LABEL || issue.pull_request !== undefined) return [];
+  return [{ name: APPROVED_LABEL_EVENT, data: { ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` } }];
 }
 
 /** The canon buttons' identifiers. */
@@ -292,7 +361,7 @@ function handles(table: ActionTable, event: string, action: unknown): boolean {
 }
 
 /** A pull request named by an integer number and a head SHA. */
-function isNamed(pull: { number: PrNumber | null | undefined; sha: string | null | undefined }): pull is { number: PrNumber; sha: string } {
+function isNamed<T extends { number: PrNumber | null | undefined; sha: string | null | undefined }>(pull: T): pull is T & { number: PrNumber; sha: string } {
   return pull.number !== null && pull.number !== undefined && Boolean(pull.sha);
 }
 

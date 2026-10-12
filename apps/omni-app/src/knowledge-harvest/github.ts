@@ -1,5 +1,5 @@
 // The GitHub reads of the knowledge harvest: the merge's facts from the pull request itself, the
-// default branch's tip, the loop's folders at a commit as a local tree the kit's units read, and the
+// files it changed (PRD 1171), the default branch's tip, the loop's folders at a commit as a local tree the kit's units read, and the
 // ids the open knowledge branches already take. Every call goes through the one Octokit seam the
 // app's units use, `octokit.request(route, params)`; files are read through `snapshot`, as text,
 // never run.
@@ -8,15 +8,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { PullFilesSchema } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { readKnowledge } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
 import { readDecisions } from 'vertuo-omni-plan/kit/lib/playbook/decisions.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { ChangedFile, LawIssue } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { ListSchema } from '../retro/github.schema.ts';
 import { topicOf } from '../retro/qualify.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
-import { OpenPullSchema, parsedOr, PullMergeSchema, RefSchema } from './schema.ts';
+import { ListedIssueSchema, OpenPullSchema, parsedOr, PullMergeSchema, RefSchema } from './schema.ts';
 
 /** The one seam of GitHub the harvest reads and writes through: a REST route and its parameters. */
 const OPEN_PULLS_UNEXPECTED = 'GitHub answered the open pull requests unexpectedly';
@@ -45,6 +47,23 @@ export async function readMerge(
   };
 }
 
+/**
+ * The files the pull request changed, every page (PRD 1171): each one's path, a rename's new one, and
+ * GitHub's status, removals included, for the harvest to tell a removed proof from one the pull
+ * request never changed.
+ */
+export async function pullFiles(
+  octokit: RequestOctokit,
+  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: PrNumber },
+): Promise<ChangedFile[]> {
+  const files = await paginate((page: number) =>
+    octokit
+      .request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page })
+      .then(({ data }) => parsedOr(ListSchema, data, `GitHub answered the files of #${prNumber} unexpectedly`)),
+  );
+  return parsedOr(PullFilesSchema, files, `GitHub answered the files of #${prNumber} unexpectedly`);
+}
+
 /** The commit a branch points at. */
 export async function tipOf(octokit: RequestOctokit, { owner, repo, branch }: { owner: string; repo: string; branch: string }): Promise<string> {
   const { data } = await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', { owner, repo, ref: `heads/${branch}` });
@@ -63,17 +82,18 @@ export function loopPaths(config: LoopPathsConfig): string[] {
 }
 
 /**
- * Runs `fn` with a kit context over the loop's paths at `sha`, snapshotted into a scratch folder that
- * is removed afterwards. The context's config is the one at `sha`; `config` only names what to read.
+ * Runs `fn` with a kit context over the loop's paths at `sha`, and the `also` paths beside them,
+ * snapshotted into a scratch folder that is removed afterwards. The context's config is the one at
+ * `sha`; `config` only names what to read.
  */
 export async function withTreeAt<T>(
   octokit: RequestOctokit,
-  { owner, repo, sha, config }: { owner: string; repo: string; sha: string; config: LoopPathsConfig },
+  { owner, repo, sha, config, also = [] }: { owner: string; repo: string; sha: string; config: LoopPathsConfig; also?: readonly string[] },
   fn: (ctx: Context, root: string) => T | Promise<T>,
 ): Promise<T> {
   const root = mkdtempSync(join(tmpdir(), 'omni-harvest-tree-'));
   try {
-    await snapshot(octokit, { owner, repo, ref: sha, paths: loopPaths(config), dest: root });
+    await snapshot(octokit, { owner, repo, ref: sha, paths: [...new Set([...loopPaths(config), ...also])], dest: root });
     return await fn(createContext(root, loadConfig(root)), root);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -132,4 +152,25 @@ export async function takenElsewhere(
     }
   }
   return { records: [...records].sort(), ids: [...ids].sort(), branches };
+}
+
+const LAW_ISSUES_UNEXPECTED = 'GitHub answered the open law issues unexpectedly';
+
+/**
+ * The law issue of `issue` (PRD 1342): the open one labelled `label` that already bears its title, so a
+ * replay never opens a second, else a new one, titled and labelled so.
+ */
+export async function openLawIssue(
+  octokit: RequestOctokit,
+  { owner, repo, label, issue }: { owner: string; repo: string; label: string; issue: Pick<LawIssue, 'title' | 'body'> },
+): Promise<{ number: IssueNumber; created: boolean }> {
+  const listed = await paginate((page: number) =>
+    octokit
+      .request('GET /repos/{owner}/{repo}/issues', { owner, repo, labels: label, state: 'open', per_page: PER_PAGE, page })
+      .then(({ data }) => parsedOr(ListSchema, data, LAW_ISSUES_UNEXPECTED)),
+  );
+  const open = parsedOr(ListedIssueSchema.array(), listed, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
+  if (open) return { number: open.number, created: false };
+  const { data } = await octokit.request('POST /repos/{owner}/{repo}/issues', { owner, repo, title: issue.title, body: issue.body, labels: [label] });
+  return { number: parsedOr(ListedIssueSchema, data, 'GitHub answered the new law issue unexpectedly').number, created: true };
 }

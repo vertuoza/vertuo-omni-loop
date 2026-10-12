@@ -10,15 +10,17 @@
 // is not its id, or when its name is already taken in the outbox (an open file, or an id the
 // settled ledger carries): a relay never overwrites. A refused file stays where it is; the others
 // still move.
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { Laws } from '../laws.ts';
 import { ACCOUNTS_DIR, parseAccount } from './account.ts';
 import { checkItemText } from './check-outbox.ts';
+import { markdownFiles } from './out-folder.ts';
 import { parseOutboxItem, SETTLED_FILE } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
 import type { PrdNumber } from '../ids.ts';
+import type { OutboxPrd } from './store.ts';
 
 /** The part of the context a relay reads: the root, the PRD's outbox directory and the markers. */
 type RelayContext = OutboxContext;
@@ -28,14 +30,6 @@ export type RelayMove = { from: string; to: string };
 
 /** One file a relay refused, left where it was, and why. */
 export type RelayRefusal = { file: string; reason: string };
-
-/** The `*.md` file names directly under `dir`, sorted; `[]` when `dir` does not exist. */
-function markdownFiles(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((name) => name.endsWith('.md') && statSync(join(dir, name)).isFile())
-    .sort();
-}
 
 /** The ids the PRD's settled ledger already carries. */
 function settledIds(ctx: RelayContext, outboxDir: string): Set<string> {
@@ -55,29 +49,27 @@ function move(from: string, to: string): void {
   }
 }
 
-/** Why one item file may not move, or `null` when it may. */
-function itemRefusal({
-  ctx,
+/** Why one item file may not move into PRD `prd`'s outbox, or `null` when it may: graded as `file`,
+ * where it would land. The `server` store (PRD 1548) grades a product PRD's relay with it too. */
+export function itemRefusal({
   laws,
   prd,
-  outboxDir,
+  file,
   name,
   text,
   taken,
 }: {
-  ctx: RelayContext;
   laws: Laws;
-  prd: PrdNumber;
-  outboxDir: string;
+  prd: OutboxPrd;
+  file: string;
   name: string;
   text: string;
   taken: ReadonlySet<string>;
 }): string | null {
-  const renderedFile = `${outboxDir}/${name}`;
-  const violations: string[] = checkItemText(renderedFile, text, { ctx, laws });
+  const violations: string[] = checkItemText(file, text, { laws });
   if (violations.length > 0) return violations.join('; ');
   // An item `checkItemText` passed always parses: its first check is this same parse.
-  const parsed = parseOutboxItem(text, { file: renderedFile });
+  const parsed = parseOutboxItem(text, { file });
   if (!parsed.ok) return parsed.errors.join('; ');
   const { item } = parsed;
   if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
@@ -132,7 +124,7 @@ export function relayFolder({
 
   for (const name of markdownFiles(dir)) {
     const from = join(dir, name);
-    const reason = itemRefusal({ ctx, laws, prd, outboxDir, name, text: readFileSync(from, 'utf8'), taken });
+    const reason = itemRefusal({ laws, prd, file: `${outboxDir}/${name}`, name, text: readFileSync(from, 'utf8'), taken });
     if (reason !== null) {
       refused.push({ file: from, reason });
       continue;

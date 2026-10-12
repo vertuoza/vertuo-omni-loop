@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1628 · Sign in from a cloud session</title>
+<style>
+  /* The app pages' Omni theme tokens (packages/design/src/tokens.ts, ASK.omni). */
+  :root {
+    --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --line-strong: #5a60c4;
+    --ink: #ffffff; --muted: #8a90d6; --plasma: #ffd23f; --plasma-soft: #2a2350; --on-plasma: #07061c;
+    --cyan: #3ee0ff; --green: #3ee08a; --red: #ff6b86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.6 var(--body); }
+  main { max-width: 1200px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; }
+  h2.part { font-size: 22px; margin: 48px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  h3 { font-size: 18px; margin: 24px 0 8px; }
+  .lede { color: var(--muted); margin: 0 0 8px; max-width: 900px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .col > .tag { display: inline-block; font: 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); border: 1px solid var(--line-strong); border-radius: 4px; padding: 4px 6px; margin-bottom: 8px; }
+  .col.after > .tag { color: var(--on-plasma); background: var(--plasma); border-color: var(--plasma); }
+  .caption { color: var(--muted); font-size: 15px; margin: 8px 0 0; }
+  pre { background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    font: 13px/1.55 var(--mono); overflow-x: auto; margin: 0; white-space: pre; }
+  pre .bad { color: var(--red); } pre .ok { color: var(--green); } pre .dim { color: var(--muted); } pre .sig { color: var(--plasma); }
+  .flow { background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  .flow svg { width: 100%; height: auto; display: block; }
+  table.same { border-collapse: collapse; width: 100%; max-width: 900px; font-size: 15px; }
+  table.same th, table.same td { text-align: left; border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: top; }
+  table.same th { color: var(--muted); font-weight: 600; }
+
+  /* The profile page mockups: the app shell's reading surface, /app/people/<login>. */
+  .screen { background: var(--ground); border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .bar .mark { font: 11px/1 var(--mono); color: var(--plasma); letter-spacing: .1em; }
+  .bar .crumb { color: var(--muted); font-size: 14px; }
+  .page { padding: 20px 20px 24px; }
+  .head h4 { font-size: 24px; margin: 0; }
+  .who { color: var(--muted); font-size: 15px; margin: 2px 0 0; }
+  .who a { color: var(--cyan); text-decoration: none; }
+  section.p { margin-top: 22px; }
+  section.p h5 { font-size: 18px; margin: 0 0 6px; }
+  .line { color: var(--muted); font-size: 15px; margin: 0 0 10px; }
+  .switch { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .toggle { width: 36px; height: 20px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--sunk); position: relative; flex: none; }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); }
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .rows li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .rows .name { font-weight: 600; }
+  .rows .meta { grid-column: 1; color: var(--muted); font-size: 14px; }
+  .rows .four { font-family: var(--mono); color: var(--ink); }
+  button { font: inherit; font-size: 15px; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  .primary { background: var(--plasma); color: var(--on-plasma); border: 1px solid var(--plasma); font-weight: 700; }
+  .quiet { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+  .rows .quiet { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+  .make { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 10px; }
+  .make label { display: grid; gap: 2px; font-size: 13px; color: var(--muted); }
+  .field { background: var(--sunk); border: 1px solid var(--line-strong); color: var(--ink); border-radius: 6px; padding: 6px 8px; font: 15px var(--body); min-width: 0; }
+  .shown { margin-top: 12px; border: 1px solid var(--plasma); background: var(--plasma-soft); border-radius: 8px; padding: 10px 12px; }
+  .shown p { margin: 0 0 6px; font-size: 15px; }
+  .copy { display: flex; gap: 8px; align-items: center; }
+  .copy code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 13px var(--mono);
+    background: var(--sunk); border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 8px; }
+  .shown .hint { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+  .shown .hint code { font-family: var(--mono); color: var(--ink); }
+  .ghost { color: var(--muted); font-size: 15px; border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 22px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sign in from a cloud session</h1>
+  <p class="lede">PRD 1628 · <code>.omni-loop/delivery/shipped/1628-cloud-sign-in/</code> · today beside after.
+    A Claude Code cloud session has no browser and starts empty every time, so the kit is never signed in there.
+    After this PRD, a member pastes one personal token, <code>OMNI_TOKEN</code>, into their cloud environment once.</p>
+
+  <h2 class="part">Functional</h2>
+
+  <h3>1. A command in a cloud session</h3>
+  <div class="pair">
+    <div class="col before"><span class="tag">Today</span>
+<pre><span class="dim">$ omni whoami</span>
+signed out
+
+<span class="dim">$ omni dossier push 1628</span>
+<span class="bad">omni dossier: no sign-in for www.omni-loop.xyz (omni signin)</span>
+
+<span class="dim">$ omni signin</span>
+Sign in in your browser: https://www.omni-loop.xyz/ask/signin?port=…
+<span class="bad">… waits for a callback on 127.0.0.1, which no browser can reach</span></pre>
+      <p class="caption">Ask mode, dossiers, approvals, the phase-0 flag, products and personas all stop here.</p>
+    </div>
+    <div class="col after"><span class="tag">After</span>
+<pre><span class="dim"># cloud environment variables, set once</span>
+<span class="sig">OMNI_TOKEN=omk_••••••••••••••••••••••••••••••••••9fKa</span>
+
+<span class="dim">$ omni whoami</span>
+<span class="ok">ada (OMNI_TOKEN ··9fKa)</span>
+
+<span class="dim">$ omni dossier push 1628</span>
+<span class="ok">pushed spec.md v1 · before-after.html v1</span>
+
+<span class="dim">$ omni signin</span>
+signed in by OMNI_TOKEN as ada — vertuoza/vertuo-omni-loop goes to vertuoza</pre>
+      <p class="caption">Every command that talks to the Omni page signs in from the token, with no browser.</p>
+    </div>
+  </div>
+
+  <h3>2. Making the token</h3>
+  <div class="pair">
+    <div class="col before"><span class="tag">Today</span>
+<pre><span class="dim">$ omni setup-token</span>
+<span class="bad">omni: unknown command setup-token</span></pre>
+      <p class="caption">The only sign-in is the laptop's <code>~/.config/omni/credentials.json</code>. Copying it elsewhere breaks both copies at the first renewal.</p>
+    </div>
+    <div class="col after"><span class="tag">After</span>
+<pre><span class="dim">$ omni setup-token --name claude-cloud</span>
+Sign in in your browser: https://www.omni-loop.xyz/ask/signin?purpose=token&amp;…
+<span class="ok">token claude-cloud made · expires 9 Jan 2027</span>
+<span class="sig">omk_Q3vX…9fKa</span>
+Paste it as OMNI_TOKEN=&lt;token&gt; in your cloud environment's variables.</pre>
+      <p class="caption">Or <b>Make a token</b> on your profile page (below). Either way: shown once, stored as a hash.</p>
+    </div>
+  </div>
+
+  <h3>3. The exchange</h3>
+  <div class="pair">
+    <div class="col before"><span class="tag">Today</span>
+      <div class="flow">
+        <svg viewBox="0 0 520 220" role="img" aria-label="Today: the laptop holds the rotating refresh token">
+          <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a90d6"/></marker></defs>
+          <rect x="10" y="20" width="150" height="70" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="85" y="48" fill="#fff" font-size="14" text-anchor="middle" font-family="sans-serif">Laptop</text>
+          <text x="85" y="70" fill="#8a90d6" font-size="11" text-anchor="middle" font-family="monospace">credentials.json</text>
+          <rect x="360" y="20" width="150" height="70" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="435" y="48" fill="#fff" font-size="14" text-anchor="middle" font-family="sans-serif">Omni page</text>
+          <text x="435" y="70" fill="#8a90d6" font-size="11" text-anchor="middle" font-family="monospace">/api/ask/token</text>
+          <line x1="160" y1="45" x2="358" y2="45" stroke="#8a90d6" marker-end="url(#a1)"/>
+          <text x="260" y="38" fill="#8a90d6" font-size="11" text-anchor="middle" font-family="monospace">{refresh_token}</text>
+          <line x1="358" y1="70" x2="162" y2="70" stroke="#8a90d6" marker-end="url(#a1)"/>
+          <text x="260" y="86" fill="#8a90d6" font-size="11" text-anchor="middle" font-family="monospace">new access + NEW refresh</text>
+          <rect x="10" y="130" width="150" height="70" rx="8" fill="#120f3a" stroke="#ff6b86" stroke-dasharray="4 3"/>
+          <text x="85" y="158" fill="#fff" font-size="14" text-anchor="middle" font-family="sans-serif">Cloud session</text>
+          <text x="85" y="180" fill="#ff6b86" font-size="11" text-anchor="middle" font-family="monospace">nothing to send</text>
+          <text x="260" y="170" fill="#ff6b86" font-size="12" text-anchor="middle" font-family="sans-serif">A copied refresh token dies</text>
+          <text x="260" y="186" fill="#ff6b86" font-size="12" text-anchor="middle" font-family="sans-serif">the first time either side renews</text>
+        </svg>
+      </div>
+    </div>
+    <div class="col after"><span class="tag">After</span>
+      <div class="flow">
+        <svg viewBox="0 0 520 220" role="img" aria-label="After: the server holds the session and renews it; containers only send the fixed token">
+          <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3ee08a"/></marker></defs>
+          <rect x="10" y="20" width="150" height="56" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="85" y="44" fill="#fff" font-size="14" text-anchor="middle" font-family="sans-serif">Cloud session 1</text>
+          <text x="85" y="63" fill="#ffd23f" font-size="11" text-anchor="middle" font-family="monospace">OMNI_TOKEN</text>
+          <rect x="10" y="130" width="150" height="56" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="85" y="154" fill="#fff" font-size="14" text-anchor="middle" font-family="sans-serif">Cloud session 2</text>
+          <text x="85" y="173" fill="#ffd23f" font-size="11" text-anchor="middle" font-family="monospace">same OMNI_TOKEN</text>
+          <rect x="330" y="50" width="180" height="110" rx="8" fill="#120f3a" stroke="#3ee08a"/>
+          <text x="420" y="76" fill="#fff" font-size="14" text-anchor="middle" font-family="sans-serif">Omni page</text>
+          <text x="420" y="98" fill="#8a90d6" font-size="11" text-anchor="middle" font-family="monospace">kit token row (locked)</text>
+          <text x="420" y="116" fill="#8a90d6" font-size="11" text-anchor="middle" font-family="monospace">holds + renews the</text>
+          <text x="420" y="132" fill="#8a90d6" font-size="11" text-anchor="middle" font-family="monospace">session's refresh token</text>
+          <line x1="160" y1="40" x2="328" y2="80" stroke="#3ee08a" marker-end="url(#a2)"/>
+          <line x1="160" y1="160" x2="328" y2="130" stroke="#3ee08a" marker-end="url(#a2)"/>
+          <text x="245" y="44" fill="#3ee08a" font-size="11" text-anchor="middle" font-family="monospace">{omni_token}</text>
+          <text x="245" y="200" fill="#3ee08a" font-size="11" text-anchor="middle" font-family="monospace">→ access_token (≤1 h), refresh: null</text>
+        </svg>
+      </div>
+      <p class="caption">Only the server holds the rotating refresh token, so any number of sessions share one token, and the laptop's sign-in is untouched.</p>
+    </div>
+  </div>
+
+  <h3>4. When the token stops working</h3>
+<pre><span class="bad">OMNI_TOKEN expired on 9 Jan 2027: make a new one with omni setup-token</span>
+<span class="bad">OMNI_TOKEN was revoked: make a new one with omni setup-token</span>
+<span class="bad">OMNI_TOKEN: ada is no longer a member of vertuoza</span>
+<span class="bad">OMNI_TOKEN: cannot reach www.omni-loop.xyz: allow it in your environment's network access</span></pre>
+
+  <h3>What stays the same</h3>
+  <table class="same">
+    <tr><th>On a laptop</th><td><code>omni signin</code> and <code>credentials.json</code> work as today, with <code>OMNI_TOKEN</code> unset.</td></tr>
+    <tr><th>Business links (PRD 855)</th><td>Still read-only, still <code>omb_</code>, still no expiry; a business link never signs the kit in.</td></tr>
+    <tr><th>GitHub</th><td>Unchanged: a cloud session reaches it through Claude's GitHub connection.</td></tr>
+  </table>
+
+  <h2 class="part">Pixel perfect</h2>
+  <p class="lede">screens: profile (new draft) · app-shell. Your own profile, <code>/app/people/&lt;login&gt;</code>: a <b>Terminal tokens</b> section under <b>Alerts</b>. Nobody else's profile shows it.</p>
+
+  <div class="pair">
+    <div class="col before"><span class="tag">Today</span>
+      <div class="screen" data-screen="profile">
+        <div class="bar"><span class="mark">OMNI LOOP</span><span class="crumb">People › ada</span></div>
+        <div class="page">
+          <div class="head"><h4>Ada Lovelace</h4><p class="who"><a href="#">@ada</a> · OCTOPOD</p></div>
+          <section class="p">
+            <h5>Alerts</h5>
+            <p class="line">How you are told a PRD waits for your approval. Both are off until you turn them on.</p>
+            <div class="switch"><span>Phone alerts on this device</span><span class="toggle" aria-hidden="true"></span></div>
+            <div class="switch"><span>Email · ada@vertuoza.com</span><span class="toggle" aria-hidden="true"></span></div>
+          </section>
+          <section class="p"><h5>PRDs</h5><p class="line">Nothing in this period</p></section>
+        </div>
+      </div>
+      <p class="caption">No way to sign a terminal in without a browser on the same machine. The word pass flags the Alerts intro (18 words at rest); it is today's copy (PRD 1322), left as is.</p>
+    </div>
+
+    <div class="col after"><span class="tag">After</span>
+      <div class="screen" data-screen="profile">
+        <div class="bar"><span class="mark">OMNI LOOP</span><span class="crumb">People › ada</span></div>
+        <div class="page">
+          <div class="head"><h4>Ada Lovelace</h4><p class="who"><a href="#">@ada</a> · OCTOPOD</p></div>
+          <section class="p">
+            <h5>Alerts</h5>
+            <p class="line">How you are told a PRD waits for your approval. Both are off until you turn them on.</p>
+            <div class="switch"><span>Phone alerts on this device</span><span class="toggle" aria-hidden="true"></span></div>
+            <div class="switch"><span>Email · ada@vertuoza.com</span><span class="toggle" aria-hidden="true"></span></div>
+          </section>
+          <section class="p">
+            <h5>Terminal tokens</h5>
+            <p class="line">Sign in where no browser opens.</p>
+            <ul class="rows">
+              <li><span class="name">claude-cloud <span class="four">··9fKa</span></span>
+                <span class="meta"><span>Made 11 Oct</span> · <span>Used 2 min ago</span> · <span>Expires 9 Jan</span></span>
+                <button class="quiet" type="button">Revoke</button></li>
+              <li><span class="name">ci-laptop <span class="four">··Lm2Q</span></span>
+                <span class="meta"><span>Made 2 Sep</span> · <span>Never used</span> · <span>Expires 1 Dec</span></span>
+                <button class="quiet" type="button">Revoke</button></li>
+            </ul>
+            <div class="make">
+              <label>Name<input class="field" value="claude-cloud" aria-label="Name"></label>
+              <label>Expires in<select class="field" aria-label="Expires in"><option>30 days</option><option selected>90 days</option><option>365 days</option></select></label>
+              <button class="primary" type="button" data-primary>Make a token</button>
+            </div>
+            <div class="shown">
+              <p><b>claude-cloud</b> · shown once</p>
+              <div class="copy"><code>omk_Q3vXc8yR1pTz0bWnE4kJ7uHs2aDfGh6iLo5mN9fKa</code><button class="quiet" type="button">Copy</button></div>
+              <p class="hint">Paste as <code>OMNI_TOKEN=</code> in your environment.</p>
+            </div>
+          </section>
+          <section class="p"><h5>PRDs</h5><p class="line">Nothing in this period</p></section>
+        </div>
+      </div>
+      <p class="caption">The panel under <b>Make a token</b> shows only right after the sign-in round trip comes back, and never again on a reload.</p>
+    </div>
+  </div>
+</main>
+</body>
+</html>

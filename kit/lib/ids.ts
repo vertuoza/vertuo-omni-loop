@@ -19,6 +19,25 @@ export type IssueNumber = z.infer<typeof IssueNumberSchema>;
 export const PrdNumberSchema = IssueNumberSchema.brand<'PrdNumber'>();
 export type PrdNumber = z.infer<typeof PrdNumberSchema>;
 
+/** The largest number a product PRD takes: the database's integer. */
+const PRODUCT_SEQ_MAX = 2 ** 31 - 1;
+
+/** A product PRD's id (PRD 1548): its product's key, lowercase kebab-case of at most 40 characters,
+ * each part starting with a letter, then `-` and its number on that product, `mobile-12`. A key never
+ * ends in `-<digits>`, so the id reads one way, and never looks like a GitHub number. */
+const PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
+
+export const ProductPrdIdSchema = z
+  .string()
+  .regex(PRODUCT_PRD)
+  .refine((id) => {
+    // The key is everything before the last hyphen, the number everything after it.
+    const cut = id.lastIndexOf('-');
+    return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
+  })
+  .brand<'ProductPrdId'>();
+export type ProductPrdId = z.infer<typeof ProductPrdIdSchema>;
+
 /** A pull request's number. GitHub counts it with issues, but it is a kind of its own here. */
 export const PrNumberSchema = z.number().int().positive().brand<'PrNumber'>();
 export type PrNumber = z.infer<typeof PrNumberSchema>;
@@ -71,6 +90,30 @@ export function parseIssue(value: number | string): IssueNumber {
 /** A PRD number, from a number or its digit string. */
 export function parsePrd(value: number | string): PrdNumber {
   return parseId(PrdNumberSchema, numeric(value), 'PRD number', value);
+}
+
+/** A product PRD's id: `mobile-12`. */
+export function parseProductPrdId(value: string): ProductPrdId {
+  return parseId(ProductPrdIdSchema, value, 'product PRD', value);
+}
+
+/** A PRD of either birth (PRD 1548): a repository's, by its issue's number (`12`), or a product's, by
+ * its key and its number (`mobile-12`). Anything else is refused by name. */
+export function parsePrdId(value: number | string): PrdNumber | ProductPrdId {
+  const product = ProductPrdIdSchema.safeParse(value);
+  if (product.success) return product.data;
+  const prd = PrdNumberSchema.safeParse(numeric(value));
+  if (prd.success) return prd.data;
+  throw new Error(`PRD ${JSON.stringify(value)}: a PRD is its number (12) or its product's key and its number (mobile-12).`);
+}
+
+/** Whether a PRD id is a product's. */
+export const isProductPrdId = (id: PrdNumber | ProductPrdId): id is ProductPrdId => typeof id === 'string';
+
+/** A product PRD's key and its number on that product: `mobile-12` is `{ key: 'mobile', seq: 12 }`. */
+export function productPrdParts(id: ProductPrdId): { key: string; seq: number } {
+  const cut = id.lastIndexOf('-');
+  return { key: id.slice(0, cut), seq: Number(id.slice(cut + 1)) };
 }
 
 /** A pull request number, from a number or its digit string. */

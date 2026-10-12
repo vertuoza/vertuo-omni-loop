@@ -117,11 +117,16 @@ differences.
   `gh pr edit` for labels, the status comment, and every call of the lifecycle (`gh pr view`,
   `gh pr checks`, `gh pr ready`, `gh pr merge`, `gh run view`, `gh run rerun`). In the status
   comment's recipe, `REPO` is `<slug>`, and `gh pr comment` takes `--repo "$REPO"` too.
-- **Git runs in the target's clone** (`<worktrees>/targets/<name>`, or the slice's worktree beside
-  it), and `<remote>` is the remote `git -C <clone> remote` prints, not `repo.remote`. The
+- **Git runs in the target's clone** (`<worktrees>/targets/<name>@<prd>`, the PRD's own, or the
+  slice's worktree beside it), and `<remote>` is the remote `git -C <clone> remote` prints, not `repo.remote`. The
   default branch is the target's, from
   `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`, never
   `repo.defaultBranch`: a merge checks `baseRefName` against it.
+- **The outbox check defers to the plan PR.** A target feature PR's `ci.outboxContext` check, posted
+  by the omni-loop GitHub App in the target, reads its `Part of <plan slug>#<n>` line and passes,
+  linking the plan PR that grades the PRD: it never grades the PRD in the target, and it does not
+  follow the plan PR's check. The gate that counts is the plan PR's. A red `gate` or `ci/outbox`
+  from a workflow the target wrote itself is not the kit's: name it as a human step, never fix it.
 - **Branches, labels and link lines are the plan repository's** config, filled as usual. A link
   line's `#<n>` points at the plan repository's PRD, so it is written in full:
   `<repo.slug of the plan repository>#<n>`.
@@ -193,6 +198,17 @@ are Conventional Commits for all three kinds. Every body, template or not, ends 
 
 - [x] <scenario title> — `<file under acceptance.dir>`
 ```
+
+**Pixel perfect,** only when `design.enabled` is `true` (`omni config design.enabled`): right after
+the link line, one line telling a reviewer where to look closely:
+
+```markdown
+**Pixel perfect:** <the screens to look at closely, or `none`>
+```
+
+The screens are the ones the `screens:` line of the PRD's before/after names, in its Pixel perfect
+part (`quote-list · app-shell`); a before/after that says `Pixel perfect: no screen changes`, or has
+no such part, gives `none`. Design off: no such line.
 
 Tick a slice when its sub-PR merges; tick a scenario when it passes. Without a template, follow the
 top with **Summary**, **Verified** (real commands and their result, or why a check was not run),

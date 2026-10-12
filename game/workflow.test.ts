@@ -13,20 +13,21 @@ const Package = z.object({ scripts: z.record(z.string(), z.string()) });
 
 type Step = { run?: string; uses?: string; name?: string; env?: Record<string, string>; with?: Record<string, unknown>; 'continue-on-error'?: boolean };
 type Job = { if?: string; needs?: unknown; concurrency: { group: string }; 'timeout-minutes'?: number; permissions: Record<string, string>; env: Record<string, string>; steps: Step[] };
-type Workflow = { on: { schedule: { cron: string }[]; workflow_dispatch: { inputs: Record<string, { type: string }> } }; env?: Record<string, string>; jobs: Record<string, Job> & { ledger: Job; rankings: Job; check: Job } };
+type Workflow = { on: { schedule: { cron: string }[]; workflow_dispatch: { inputs: Record<string, { type: string }> } }; env?: Record<string, string>; jobs: Record<string, Job> & { ledger: Job; xp: Job; rankings: Job; check: Job } };
 
 const wf = parse(readFileSync(new URL('../.github/workflows/game.yml', import.meta.url), 'utf8')) as Workflow;
 
 describe('game workflow', () => {
-  it('splits into a ledger job and a rankings job, each gated, bounded and serialised', () => {
-    expect(Object.keys(wf.jobs)).toEqual(['ledger', 'rankings']);
-    for (const job of Object.values(wf.jobs)) {
-      expect(job.if).toContain("vars.GAME_ENABLED == 'true'");
-      expect(job.needs).toBeUndefined();
-    }
+  it('splits into a ledger job, an XP job and a rankings job, each gated, bounded and serialised', () => {
+    expect(Object.keys(wf.jobs)).toEqual(['ledger', 'xp', 'rankings']);
+    for (const job of Object.values(wf.jobs)) expect(job.if).toContain("vars.GAME_ENABLED == 'true'");
+    expect(wf.jobs.ledger.needs).toBeUndefined();
+    expect(wf.jobs.rankings.needs).toBeUndefined();
     expect(wf.jobs.ledger['timeout-minutes']).toBe(30);
+    expect(wf.jobs.xp['timeout-minutes']).toBe(10);
     expect(wf.jobs.rankings['timeout-minutes']).toBe(20);
     expect(wf.jobs.ledger.concurrency.group).toBe('game-ledger');
+    expect(wf.jobs.xp.concurrency.group).toBe('game-xp');
     expect(wf.jobs.rankings.concurrency.group).toBe('game-rankings');
   });
 
@@ -75,11 +76,13 @@ describe('game workflow', () => {
 });
 
 describe('game workflow: XP (PRD 160)', () => {
-  it('recomputes XP as the ledger job\'s step right after pnpm game:project', () => {
-    const runs = wf.jobs.ledger.steps.map((s) => s.run ?? null);
-    const project = runs.indexOf('pnpm game:project');
-    expect(project).toBeGreaterThanOrEqual(0);
-    expect(runs[project + 1]).toBe('pnpm game:xp');
+  it('recomputes XP in its own job after the ledger job, whatever the ledger job ended on', () => {
+    // As the ledger job's step, a game:project that outlasted the job's 30 minutes left XP and every
+    // new unlock waiting for the next poll that finished (PRD 1359's kart waited hours).
+    expect(wf.jobs.xp.needs).toBe('ledger');
+    expect(wf.jobs.xp.if).toContain('always()');
+    expect(wf.jobs.xp.steps.map((s) => s.run).filter(Boolean)).toEqual(['pnpm install --frozen-lockfile', 'pnpm game:xp']);
+    expect(wf.jobs.ledger.steps.map((s) => s.run ?? '')).not.toContain('pnpm game:xp');
     expect(wf.jobs.rankings.steps.map((s) => s.run ?? '')).not.toContain('pnpm game:xp');
   });
 
@@ -92,12 +95,11 @@ describe('game workflow: XP (PRD 160)', () => {
 describe('game workflow: contributions (PRD 328)', () => {
   const read = (path: string): string => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-  it('records contributions as the ledger job\'s step right after pnpm game:xp, with the game token, and never fails the job', () => {
+  it('records contributions as the ledger job\'s step right after pnpm game:project, with the game token, and never fails the job', () => {
     const steps = wf.jobs.ledger.steps;
-    const xp = steps.findIndex((s) => s.run === 'pnpm game:xp');
     const project = steps.findIndex((s) => s.run === 'pnpm game:project');
-    expect(xp).toBeGreaterThanOrEqual(0);
-    const step = present(steps[xp + 1], 'the step after the XP step');
+    expect(project).toBeGreaterThanOrEqual(0);
+    const step = present(steps[project + 1], 'the step after the projection');
     expect(step.run).toBe('pnpm game:contributions');
     expect(step['continue-on-error']).toBe(true);
     expect(present(step.env, 'the step env').GH_TOKEN).toBe('${{ secrets.OMNI_GAME_TOKEN }}');
@@ -118,7 +120,7 @@ describe('game workflow: contributions (PRD 328)', () => {
     const section = readme.slice(readme.indexOf('## Contributions'), readme.indexOf('## Setup'));
     expect(section).toContain('40 days');
     expect(section).toContain('never writes the ledger');
-    expect(readme).toMatch(/`game:project`,\s+then `game:xp`,\s+then `game:contributions`,\s+then `game:dossiers`/);
+    expect(readme).toMatch(/`game:project`,\s+then `game:contributions`,\s+then `game:dossiers`/);
   });
 
   it('has its access proved by the supabase workflow, beside the other checks', () => {

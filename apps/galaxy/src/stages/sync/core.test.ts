@@ -127,6 +127,57 @@ describe('the stages a repository shows', () => {
   });
 });
 
+describe('a PRD born on the server (PRD 1299, s6)', () => {
+  const approved = (prd: number, at: string | null) => ({ prd: parsePrd(prd), approved_at: at });
+  const born = (snap: RepoSnapshot, approvals: Parameters<typeof stagesOfRepo>[2]) =>
+    stagesOfRepo(snap, SYNC, approvals).stages.map((s) => `${s.prd} ${s.stage} ${s.reached_at}`).sort();
+
+  it('dates its inbox at its approval, though its folder is on its feature branch only', () => {
+    const snap = snapshot({ issues: [{ number: parsePrd(42), created_at: '2026-09-18T08:00:00Z' }] });
+    expect(born(snap, [approved(42, '2026-09-19T09:30:00Z')])).toEqual(['42 inbox 2026-09-19T09:30:00Z', '42 prd 2026-09-18T08:00:00Z']);
+  });
+
+  it('dates its inbox at its approval, never at a phase-0 merge', () => {
+    const snap = snapshot({ inbox: ['0042-dark-mode'], pulls: [merged(5, 'docs/phase-0-dark-mode', '2026-09-19T09:00:00Z')] });
+    expect(born(snap, [approved(42, '2026-09-20T10:00:00Z')])).toEqual(['42 inbox 2026-09-20T10:00:00Z']);
+  });
+
+  it('gives no inbox while it waits for approval, neither at a phase-0 merge nor at the sync\'s time', () => {
+    const merged0 = snapshot({
+      inbox: ['0042-dark-mode'],
+      issues: [{ number: parsePrd(42), created_at: '2026-09-18T08:00:00Z' }],
+      pulls: [merged(5, 'docs/phase-0-dark-mode', '2026-09-19T09:00:00Z')],
+    });
+    expect(born(merged0, [approved(42, null)])).toEqual(['42 prd 2026-09-18T08:00:00Z']);
+    expect(born(snapshot({ inbox: ['0042-dark-mode'] }), [approved(42, null)])).toEqual([]);
+  });
+
+  it('keeps the stages after inbox read from GitHub as today', () => {
+    const snap = snapshot({
+      shipped: ['0042-dark-mode'],
+      pulls: [
+        merged(7, 'feat/dark-mode--s1', '2026-09-21T00:00:00Z', { base: 'feature/dark-mode' }),
+        merged(9, 'feature/dark-mode', '2026-09-25T10:00:00Z'),
+      ],
+    });
+    expect(born(snap, [approved(42, '2026-09-20T10:00:00Z')])).toEqual([
+      '42 building 2026-09-21T00:00:00Z', '42 inbox 2026-09-20T10:00:00Z', '42 shipped 2026-09-25T10:00:00Z',
+    ]);
+  });
+
+  it('leaves a PRD born in the repository dated at its phase-0 merge, beside one born on the server', () => {
+    const snap = snapshot({
+      inbox: ['0042-dark-mode', '0043-light-mode'],
+      pulls: [merged(5, 'docs/phase-0-dark-mode', '2026-09-19T09:00:00Z'), merged(6, 'docs/phase-0-light-mode', '2026-09-19T11:00:00Z')],
+    });
+    expect(born(snap, [approved(43, '2026-09-22T00:00:00Z')])).toEqual(['42 inbox 2026-09-19T09:00:00Z', '43 inbox 2026-09-22T00:00:00Z']);
+  });
+
+  it('gives nothing for a repository without an .omni-loop config', () => {
+    expect(stagesOfRepo(snapshot({ config: null }), SYNC, [approved(42, '2026-09-20T10:00:00Z')])).toEqual({ stages: [], topics: [] });
+  });
+});
+
 describe('the PRDs a sync saw change (PRD 902, s4)', () => {
   it('names each PRD whose issue changed, and each folder a changed pull request of its topic belongs to', () => {
     const snap = snapshot({

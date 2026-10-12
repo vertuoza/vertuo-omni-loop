@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { dig, digText } from '../../bin/dig.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { firstOptionAnswers, startFakeAskServer, type FakeAskServer } from '../../test/fake-ask-server.ts';
@@ -312,7 +312,8 @@ describe('the pre hook', () => {
     const [first] = sessionsList();
     expect(dig(first, 'status')).toBe('closed');
     expect(readTerminal(root, TERMINAL)).toBeNull();
-    expect(readRound(root, 'toolu_01')).toBeNull();
+    // Its round stays for the post hook, which records the terminal's answer on it (PRD 1180).
+    expect(readRound(root, 'toolu_01')).toEqual({ roundId: digText(firstRound(), 'id'), status: 'open' });
     expect(readMode(root)).toEqual({ host: server.host, sessionId: null });
     expect(readTerminal(root, 'term-b')).toEqual({ sessionId: 'sess-b', host: server.host });
     expect(readRound(root, 'toolu_b')).toEqual({ roundId: 'round-b', status: 'open' });
@@ -527,6 +528,14 @@ describe('the post hook', () => {
     tool_use_id: toolUseId,
   });
 
+  /** The lines the post hook printed, in this test. */
+  let warnings: string[] = [];
+  beforeEach(() => {
+    warnings = [];
+  });
+  const post = (root: string, client: Client, input: unknown) =>
+    postHook({ root, client, input, title: () => TITLE, warn: (line) => { warnings.push(line); } });
+
   /** A round on the server, in a session of its own, abandoned as a terminal takes it. */
   async function abandonedRound(client: Client) {
     const { id } = server.openSession(TITLE);
@@ -559,21 +568,92 @@ describe('the post hook', () => {
   it('never reads or deletes another tool call\'s round', async () => {
     const { root, client } = await modeOn();
     writeRound(root, 'toolu_00', { roundId: 'round-9', status: 'open' });
-    await postHook({ root, client, input: postInput({ [COLOUR.question]: 'Cyan' }, 'toolu_01') });
-    await postHook({ root, client, input: postInput({ [COLOUR.question]: 'Cyan' }, '../rounds/toolu_00') });
-    await postHook({ root, client, input: postInput({ [COLOUR.question]: 'Cyan' }, null) });
+    await post(root, client, postInput({ [COLOUR.question]: 'Cyan' }, '../rounds/toolu_00'));
+    await post(root, client, postInput({ [COLOUR.question]: 'Cyan' }, null));
     expect(server.calls).toEqual([]);
+    await post(root, client, postInput({ [COLOUR.question]: 'Cyan' }, 'toolu_01'));
+    expect(server.calls.map((call) => call.path)).not.toContain('/api/ask/rounds/round-9/answers');
     expect(readRound(root, 'toolu_00')).toEqual({ roundId: 'round-9', status: 'open' });
   });
 
-  it('does nothing without a round, and still deletes the round when the server is down', async () => {
+  it('records the answer when the pre hook could not open a round: one call opens it answered, via the terminal (PRD 1180)', async () => {
     const { root, client } = await modeOn();
-    await postHook({ root, client, input: postInput({ [COLOUR.question]: 'Cyan' }) });
+    await post(root, client, postInput({ [COLOUR.question]: 'Cyan' }));
+    expect(onlySession()).toMatchObject({ title: TITLE });
+    expect(firstRound()).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [COLOUR.question]: 'Cyan' }, questions: [COLOUR] });
+    expect(bodyOfCall((path) => path.endsWith('/rounds'))).toMatchObject({ questions: [COLOUR], answers: { [COLOUR.question]: 'Cyan' }, via: 'terminal' });
+    expect(readTerminal(root, TERMINAL)).toEqual({ sessionId: dig(onlySession(), 'id'), host: server.host });
+    expect(warnings).toEqual([]);
+  });
+
+  it('records it in the terminal\'s own session, or in a new one when that session no longer takes rounds (PRD 1180)', async () => {
+    const { root, client } = await modeOn();
+    const gone = server.openSession(TITLE);
+    server.closeSession(gone.id);
+    writeTerminal(root, TERMINAL, { sessionId: gone.id, host: server.host });
+    await post(root, client, postInput({ [COLOUR.question]: 'Cyan' }));
+    const opened = terminalOf(root, TERMINAL).sessionId;
+    expect(opened).not.toBe(gone.id);
+    expect(firstRound()).toMatchObject({ sessionId: opened, status: 'answered', answeredVia: 'terminal' });
+    await post(root, client, postInput({ [COLOUR.question]: 'Yellow (Recommended)' }, 'toolu_02'));
+    expect(roundsList().map((round) => dig(round, 'sessionId'))).toEqual([opened, opened]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('records the answer on the round that came back closed, after the pre hook (PRD 1180)', async () => {
+    const answer = (round: unknown) => {
+      setImmediate(() => {
+        server.closeSession(digText(round, 'sessionId'));
+      });
+      return null;
+    };
+    const { root, client, pre } = await modeOn({ answer });
+    expect(await pre(preInput([COLOUR]), { totalMs: 2000, callMs: 1000 })).toBeNull();
+    await post(root, client, postInput({ [COLOUR.question]: 'Cyan' }));
+    expect(roundsList()).toHaveLength(1);
+    expect(firstRound()).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [COLOUR.question]: 'Cyan' } });
+    expect(readRound(root, 'toolu_01')).toBeNull();
+    expect(warnings).toEqual([]);
+  });
+
+  it('records only the questions answered when one was left empty, on its round or on a new one (PRD 1180)', async () => {
+    const { root, client } = await modeOn();
+    const roundId = await abandonedRound(client);
+    writeRound(root, 'toolu_01', { roundId, status: 'abandoned' });
+    const partly = (toolUseId: string) => ({
+      ...postInput({ [COLOUR.question]: 'Cyan', [PLACES.question]: '' }, toolUseId),
+      tool_input: { questions: [COLOUR, PLACES] },
+      tool_response: { questions: [COLOUR, PLACES], answers: { [COLOUR.question]: 'Cyan', [PLACES.question]: '' } },
+    });
+    await post(root, client, partly('toolu_01'));
+    expect(server.rounds.get(roundId)).toMatchObject({ status: 'answered', answers: { [COLOUR.question]: 'Cyan' } });
+    await post(root, client, partly('toolu_02'));
+    expect(roundsList().at(-1)).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [COLOUR.question]: 'Cyan' }, questions: [COLOUR, PLACES] });
+    expect(warnings).toEqual([]);
+  });
+
+  it('posts nothing when no question was answered', async () => {
+    const { root, client } = await modeOn();
+    writeRound(root, 'toolu_01', { roundId: 'round-9', status: 'open' });
+    await post(root, client, postInput({ [COLOUR.question]: '' }));
+    await post(root, client, postInput({}, 'toolu_02'));
     expect(server.calls).toEqual([]);
+    expect(readRound(root, 'toolu_01')).toBeNull();
+    expect(warnings).toEqual([]);
+  });
+
+  it('prints exactly one line when the answer cannot be posted, deletes the round, and never throws (PRD 1180)', async () => {
+    const { root, client } = await modeOn();
     writeRound(root, 'toolu_01', { roundId: 'round-9', status: 'open' });
     await server.close();
-    await postHook({ root, client, input: postInput({ [COLOUR.question]: 'Cyan' }) });
+    await expect(post(root, client, postInput({ [COLOUR.question]: 'Cyan' }))).resolves.toBeUndefined();
     expect(readRound(root, 'toolu_01')).toBeNull();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^omni ask: /);
+    expect(warnings[0]).not.toContain('\n');
+    await post(root, client, postInput({ [COLOUR.question]: 'Cyan' }, 'toolu_02'));
+    expect(warnings).toHaveLength(2);
+    expect(warnings[1]).not.toContain('\n');
   });
 });
 

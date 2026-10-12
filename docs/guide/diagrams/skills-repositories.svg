@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 590" width="760" height="590">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 690" width="760" height="690">
   <title>Which skill runs which, across repositories</title>
-  <desc>In the plan repository you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo, /omni:ultra-yolo-fix, /omni:mega-pr-care and /omni:mega-bug-fix. Mega-invade sets up the targets. Mega-brainstorm runs the dossier skills and /omni:plan; ultra-yolo runs /omni:ultra-wave for each wave, which runs one /omni:do-work agent per slice, in the slice's target; ultra-yolo-fix runs one /omni:do-work agent per rework. /omni:mega-pr-care looks after every pull request of the PRD round by round, and /omni:mega-bug-fix fixes one bug in a linked pull request per target; both go through /omni:pr --repo. /omni:do-work (with --target) and /omni:pr (with --repo) are the same skills the single-repository loop runs.</desc>
+  <desc>In the plan repository you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo, /omni:ultra-yolo-fix, /omni:mega-pr-care and /omni:mega-bug-fix. Mega-invade sets up the targets. Mega-brainstorm runs the dossier skills and /omni:plan; ultra-yolo runs /omni:ultra-wave for each wave, which runs one /omni:do-work agent per slice, in the slice's target; ultra-yolo-fix runs one /omni:do-work agent per rework. /omni:mega-pr-care looks after every pull request of the PRD round by round, and /omni:mega-bug-fix fixes one bug in a linked pull request per target; both go through /omni:pr --repo. For a milestone of several PRDs, you type /omni:mega-roadmap, which writes every PRD of a roadmap, says where each lands, and opens its one phase-0 pull request, then, once it is merged, /loop /omni:mega-drive --roadmap, which builds each PRD across its targets once its blockers merged. /omni:do-work (with --target) and /omni:pr (with --repo) are the same skills the single-repository loop runs.</desc>
   <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
        tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
   <style>
@@ -114,8 +114,24 @@
   <polygon points="346,392 340.5,401 351.5,401" class="dg-head"/>
   <text x="16" y="484" class="dg-small dg-muted">every PR of the PRD, round by round</text>
   <text x="256" y="484" class="dg-small dg-muted">one bug, a linked PR per target</text>
+  <!-- a milestone of PRDs: a roadmap, then the loop that drives it -->
+  <text x="16" y="526" class="dg-tag dg-you">A MILESTONE OF PRDS</text>
+  <rect x="19" y="543" width="236" height="40" class="dg-shadow"/>
+  <rect x="16" y="540" width="236" height="40" class="dg-box dg-key"/>
+  <text x="134" y="565" class="dg-code dg-you" text-anchor="middle">/omni:mega-roadmap &lt;source&gt;</text>
+  <text x="134" y="602" class="dg-small dg-muted" text-anchor="middle">every PRD and where it lands</text>
+  <path d="M258 560 L325 560" class="dg-line"/>
+  <polygon points="334,560 325,565.5 325,554.5" class="dg-head"/>
+  <text x="294" y="550" class="dg-small dg-muted" text-anchor="middle">phase-0</text>
+  <text x="294" y="578" class="dg-small dg-muted" text-anchor="middle">merged</text>
+  <rect x="343" y="543" width="300" height="40" class="dg-shadow"/>
+  <rect x="340" y="540" width="300" height="40" class="dg-box dg-key"/>
+  <text x="490" y="565" class="dg-code dg-you" text-anchor="middle">/loop /omni:mega-drive --roadmap &lt;n&gt;</text>
+  <text x="490" y="602" class="dg-small dg-muted" text-anchor="middle">each PRD built once its blockers merged</text>
+  <text x="654" y="556" class="dg-small dg-muted">each tick runs</text>
+  <text x="654" y="572" class="dg-small dg-muted">a skill above</text>
   <!-- the two shared with the single-repository loop -->
-  <text x="20" y="534" class="dg-tag dg-agents">SHARED WITH ONE REPOSITORY</text>
-  <text x="20" y="556" class="dg-small dg-muted">/omni:do-work and /omni:pr are the skills /omni:wave and /omni:yolo run in one repository:</text>
-  <text x="20" y="574" class="dg-small dg-muted">--target builds a slice in its target, and --repo opens and follows its PR there.</text>
+  <text x="20" y="642" class="dg-tag dg-agents">SHARED WITH ONE REPOSITORY</text>
+  <text x="20" y="664" class="dg-small dg-muted">/omni:do-work and /omni:pr are the skills /omni:wave and /omni:yolo run in one repository:</text>
+  <text x="20" y="682" class="dg-small dg-muted">--target builds a slice in its target, and --repo opens and follows its PR there.</text>
 </svg>

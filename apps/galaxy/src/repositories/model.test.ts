@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addable, collectionLabel, hasNoAccess, initialState, repositoriesReducer, rowOf, type RepositoryRow,
+  addable, collectionLabel, hasNoAccess, initialState, phase0Of, repositoriesReducer, repositoryRowOf, SavedRepository, type RepositoryRow,
 } from './model';
 
 // Settings → Repositories as pure data (PRD 612 s1): a stored row as the page reads it, the
@@ -9,17 +9,44 @@ import {
 
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow => ({
-  fullName, tracked: true, collectedAt: null, collectError: null, product: null, ...over,
+  fullName, tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, ...over,
 });
 
 describe('a stored repository row', () => {
   it('reads as the page draws it', () => {
-    expect(rowOf({ full_name: 'vertuoza/vertuo-apps', tracked: false, collected_at: '2026-10-08T11:57:00Z', collect_error: null }))
-      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null });
+    expect(repositoryRowOf({ full_name: 'vertuoza/vertuo-apps', tracked: false, collected_at: '2026-10-08T11:57:00Z', collect_error: null }))
+      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr' });
   });
 
-  it('reads the product it serves (PRD 748 s4)', () => {
-    expect(rowOf({ full_name: 'a/b', tracked: true, product_id: 'p-2' }).product).toBe('p-2');
+  it('carries the products that link it, read beside the row (PRD 1364 s11)', () => {
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true }, [{ id: 'p-2', name: 'Omni Loop' }]).products).toEqual([{ id: 'p-2', name: 'Omni Loop' }]);
+  });
+
+  it('reads where its phase 0 is approved, pr when the row does not say (PRD 1299 s1)', () => {
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true, phase0: 'server' }).phase0).toBe('server');
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true, phase0: 'pr' }).phase0).toBe('pr');
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true }).phase0).toBe('pr');
+    expect(phase0Of(row('a/b'))).toBe('pr');
+    expect(phase0Of(row('a/b', { phase0: 'server' }))).toBe('server');
+  });
+
+  it('parses a saved row only with a phase 0 it knows (PRD 1299 s1)', () => {
+    const saved = {
+      workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'server',
+    };
+    expect(SavedRepository.safeParse(saved).success).toBe(true);
+    expect(SavedRepository.safeParse({ ...saved, phase0: 'both' }).success).toBe(false);
+    expect(SavedRepository.safeParse({ ...saved, phase0: undefined }).success).toBe(false);
+  });
+
+  it('parses a saved row with no product: its products are its links (PRD 1364)', () => {
+    const saved = {
+      workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr',
+    };
+    expect(SavedRepository.safeParse(saved).success).toBe(true);
+    expect(SavedRepository.safeParse({ ...saved, product_id: null }).success).toBe(false);
   });
 });
 
@@ -74,6 +101,12 @@ describe('the page\'s state', () => {
     const open = repositoriesReducer(start(), { type: 'pick' });
     expect(open.picking).toBe(true);
     expect(repositoriesReducer(open, { type: 'close' }).picking).toBe(false);
+  });
+
+  it('keeps a repository\'s products when a save answers its row, which carries none (PRD 1364 s11)', () => {
+    const chips = [{ id: 'p-1', name: 'Vertuoza' }];
+    const s = repositoriesReducer(initialState([row('vertuoza/a', { products: chips })]), { type: 'saved', repository: row('vertuoza/a', { tracked: false }) });
+    expect(s.repositories).toEqual([row('vertuoza/a', { tracked: false, products: chips })]);
   });
 
   it('adds a saved repository in its place, and closes the Add list', () => {

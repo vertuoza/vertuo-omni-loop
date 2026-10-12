@@ -15,7 +15,7 @@ shows the loop three ways: its stages, its pull requests, and its skills.
 | Stage | What it means | Where you see it | What moves it on |
 |---|---|---|---|
 | **idea** | talked through with Claude, nothing written yet | your Claude Code session | `/omni:brainstorm` writes the PRD; a vast idea goes through `/omni:think-big` first |
-| **PRD** | a spec, a plan and a before/after page, waiting for a person's approval | the PRD issue, the phase-0 pull request | you merge the phase-0 pull request |
+| **PRD** | a spec, a plan and a before/after page, waiting for a person's approval | the PRD issue, the phase-0 pull request, or the PRD's page when phase 0 is approved on the server | you merge the phase-0 pull request, or approve on the PRD's page |
 | **inbox** | approved, ready to build | `.omni-loop/delivery/inbox/` | `/omni:yolo` builds it |
 | **outbox** | being built; what the agents decided alone waits for you | the feature pull request, a draft | you answer the questions, then merge the feature pull request |
 | **shipped** | the change is on the default branch | `.omni-loop/delivery/shipped/` | the Omni App opens the retro and knowledge pull requests |
@@ -35,7 +35,8 @@ Three rules hold the loop together:
 
 1. **The phase-0 pull request.** Merging it approves the PRD and puts it in the inbox, on the
    default branch (why, below). It holds documents only, no code: this is the cheapest moment to
-   change your mind.
+   change your mind. In a repository whose phase 0 is approved on the server, there is no phase-0
+   pull request: you approve the PRD on its page instead ([below](#phase-0-approved-on-the-server)).
 2. **The outbox.** When the build is done, the feature pull request lists every question the agents
    met, in plain words, each with the option they built (always A) and the others. You answer them
    all in one comment, and `/omni:yolo-fix` rebuilds what you changed. The lighter decisions are
@@ -71,6 +72,140 @@ reasons:
   code, and the PRD's folder moving from `inbox/` to `shipped/`. You read the documents once, at
   phase 0, and the code once, at the end.
 
+### Phase 0 approved on the server
+
+A workspace owner can switch a repository so that its phase 0 is approved on the Omni page instead
+of through a phase-0 pull request: **Settings › Repositories**, the **Phase 0 on the server** switch
+on its row. It is off (`pr`) by default, and only an owner can flip it, both ways.
+
+- **Where a PRD is born.** `/omni:brainstorm` reads the switch once, with `omni approval flag`. On, the
+  PRD is born on the server (◆): its spec says `phase0: server`, its dossier records it, and no
+  phase-0 pull request is opened. Off, or when the switch cannot be read, the PRD is born in the
+  repository (◇) and runs as above. A PRD keeps its birthplace for life: flipping the switch later
+  changes no PRD that already exists.
+- **Approving.** A ◆ PRD is approved with **Approve** on its page, by a member allowed to approve it
+  ([the approval handshake](#the-approval-handshake) says who). The page records who and when, shows
+  the seal, and pins the hash of each approved file (spec, plan, before/after). The personas' voice is
+  not pinned: the loop adds their rounds after approval. The PRD's issue gets the `omni:approved`
+  label, for display only.
+- **What the loop trusts.** `/omni:plan`, `/omni:yolo`, `/omni:wave` and `/omni:drive` read the
+  approval through `omni prd`, never a label. `omni approval <n>` says where it stands:
+
+  | state | what you see | what to do |
+  |---|---|---|
+  | waiting | `PRD <n> waits for approval: <link>` | approve it on its page |
+  | approved | `approved by <login> · <time>` | nothing: building may start |
+  | drifted | `≠ plan.md · content`, or `· whitespace only` | run `omni approval restore <n>` ([below](#restore-a-drifted-file)), or approve again: the page shows **drifted · approve again** |
+  | unreachable | `server unreachable · held, not failed` | wait: the PRD carries on once the page answers |
+  | refused | `approver <login> is not a workspace member` | approve again, as a member |
+
+- **What stays the same.** The PRD's folder still lives on its feature branch, and reaches the
+  default branch when the feature pull request merges. Everything after the approval (building, the
+  outbox, shipping) runs as above.
+
+### The approval handshake
+
+In a repository whose phase 0 is approved on the server, there is no phase-0 pull request: a PRD
+born there (◆) is approved with **Approve** on its page on the Omni page. The loop asks for that
+approval, and waits for it, instead of stopping.
+
+- **Who approves: per product.** A workspace owner lists each product's **Approvers** on
+  **Settings › Products**: workspace members, each one *asked to approve* or *skipped*. Every member
+  reads the list. Once a product lists someone asked to approve, only those members may approve its
+  PRDs; a skipped member, or anyone outside the list, sees no **Approve**. A repository with no
+  product, or a product with nobody asked yet, keeps the earlier rule: any member of the workspace.
+- **Who is asked.** The product's members asked to approve, except the PRD's author. When that
+  leaves nobody, the author is asked.
+- **How each person is reached** is their own choice, on their profile page: **Phone alerts** (a
+  notification on this device, once the Omni page is installed on it; on an iPhone, added to the home
+  screen first) and **Email**, both off by default. Each request also shows in the page's bell.
+- **The wait.** `/omni:yolo <n>` on a ◆ PRD waiting for approval runs `omni wait approval <n>`: it
+  asks the approvers, prints `◌ PRD <n> · waiting for Irisa or Paul`, and follows the approval as it
+  happens. The moment someone approves, it prints `✓ PRD <n> approved by <login> · <time> · <k> files
+  pinned` and the build starts wave 1, with nothing typed again. The status line's band shows the same
+  lines. You can run `omni wait approval <n>` alone too: it exits 0 once approved.
+- **When it holds.** Signed out, it ends with `no sign-in (omni signin) · held`; past its
+  `--timeout` (60 minutes by default), with `held: still waiting for <names> after <minutes> min`.
+  Both exit 1, and `/omni:yolo` ends held on that line: run it again later. A lost connection is
+  resumed on its own; after three failed tries in a row it says `server unreachable · held, not
+  failed`, and keeps trying.
+- **A change voids the approval.** An `omni dossier push` that changes an approved file (spec, plan,
+  before/after) voids the approval: the approver is told by phone and email, the page shows
+  **voided · approve again** with only what changed, `omni approval <n>` reads `drifted`, and a
+  waiting terminal prints `✗ approval voided by <pusher>'s push` and asks again.
+- **`/loop /omni:drive` never waits.** It parks a PRD waiting for approval, as it parks one whose
+  phase-0 pull request is open, and a later tick builds it once it is approved.
+
+### The omni/approved check
+
+A ◆ PRD's approval also shows where the code is reviewed: the omni-loop App posts one check, named
+`omni/approved`, on its pull requests. It reads the approval in force on the Omni page and compares
+each pinned file with the same file at the pull request's head, with the same judge as
+`omni approval <n>`: the terminal and the check never disagree. A repository may rename the check
+with `ci.approvedContext` in its config.
+
+- **Which pull requests get it.** The feature pull request of a PRD born on the server (◆), and every
+  target pull request whose body starts `Part of <owner/repo>#<n>`, for PRD n of that
+  repository (a plan repository's PRD that lands in several). A product's PRD gets it too, on each
+  target pull request that is `Part of <key>-<n>` ([Products](products.md)): one check, one set of
+  states, whichever kind of PRD it is.
+  A sub-PR never gets it, nor the pull request of a PRD born in its repository (◇: its merged phase-0
+  pull request was its approval), nor a pull request that names no PRD.
+- **Its states**, the same for every PRD. Each title is shown here for a ◆ PRD, judged at the pull
+  request's head:
+
+  | state | conclusion | the check's title |
+  |---|---|---|
+  | building | success | `building · <k> of <k> pinned`: every pinned file is the one approved |
+  | pending | failure | `pending · PRD <n> waits for approval` |
+  | drifted | failure | `drifted · ≠ <file> in <head> · content` (or `· whitespace only`, `· missing`, `· voided by <pusher>'s push`); its summary says to run `omni approval restore <n>`, or approve again |
+  | refused | failure | `refused · approver <login> is not a workspace member` |
+  | held | neutral | `held · server unreachable · held, not failed` |
+
+  A drift is a failure: a pull request built on plan files nobody approved must not look fine. A
+  server that cannot be read, or that answered an error, is never one: the check is held, neutral,
+  and reruns.
+- **When it runs: webhooks only, no poll.** It reruns on a pull request when it is opened, pushed
+  to, reopened, edited or marked ready. It reruns on every open pull request of a PRD when the PRD's
+  issue gains or loses the `omni:approved` label: the Omni page adds it when a member approves, and
+  removes it when the approval is voided. So approving turns every target's pull request green at
+  once, and a void turns them back. Runs are debounced per pull request and spend the App's GitHub
+  budget like its other checks.
+
+#### The Details
+
+The check's **Details** open the PRD's page on the Omni page, `/prd/<id>`, at the proof behind the
+check: a ◆ PRD's approval (`#approval`), with who approved it and when, and each pinned file; a
+product's PRD's attestation (`#attestation`, [Products](products.md)). The check's own summary says
+which head it read, and names each file that drifted.
+
+#### Restore a drifted file
+
+A push that changed a pinned file by mistake, or only its whitespace, needs nobody's approval:
+
+```bash terminal
+omni approval restore <n>
+```
+
+It reads the approval in force, as `omni approval <n>` does, and writes each drifted file back from
+the version that was approved, after checking that its content hashes to the pinned sha256. It
+prints one line per file, `restored <file> · <how> · sha256 <hash>`. It writes nothing for a version
+whose content does not hash as pinned, a version the page cannot send, or an approval a push voided:
+each says `approve again: <PRD page>`. It never commits and never pushes: review the diff, commit,
+push, and the check turns green. Only a content change you want to keep needs a member to approve
+the PRD again.
+
+#### Make it a required check
+
+The check is a signal: it blocks nothing until a repository asks it to. To enforce the gate on a
+repository, an admin adds it to the default branch's required checks on GitHub: **Settings ›
+Branches** (or **Settings › Rules › Rulesets**), the rule of the default branch, **Require status
+checks to pass before merging**, then add `omni/approved` (or the name `ci.approvedContext` gives).
+The check must have run once on a pull request of the repository for GitHub to offer it. From then
+on, a check that failed (pending, drifted, refused) blocks the merge. A held check is neutral and
+never blocks a merge, even when required. A repository that leaves it out keeps the check as a
+signal.
+
 ## The pull requests you will see
 
 ![The pull requests of one PRD over time: the phase-0 pull request, the feature branch and its sub-pull requests wave by wave, the merge of the feature pull request, then the retro and knowledge pull requests](diagrams/pull-requests.svg)
@@ -80,7 +215,7 @@ Every PRD opens the same few issues and pull requests, each with its label:
 | Label | What it is | Opened by | Merged by |
 |---|---|---|---|
 | `omni:prd` | the PRD's issue: its number is the PRD's number | `/omni:brainstorm` | closed when the PRD ships |
-| `omni:phase-0` | the PRD's folder alone: spec, plan, before/after | `/omni:brainstorm` | you, into the default branch |
+| `omni:phase-0` | the PRD's folder alone: spec, plan, before/after; none when phase 0 is approved on the server | `/omni:brainstorm` | you, into the default branch |
 | `omni:feature` | the whole change: a draft until no question is open | `/omni:plan`, run by `/omni:brainstorm` | you, into the default branch |
 | `omni:sub` | one slice, or one rework | `/omni:wave`, `/omni:do-work` | the loop, into the feature branch |
 | `omni:retro` | how the delivery went | the Omni App, once shipped | you |
@@ -94,9 +229,102 @@ Three more labels say a state rather than a kind:
   a person must do.
 - **`omni:outbox-go`**: a person lets the outbox gate pass while questions are still open. The loop
   never adds it.
+- **`omni:approved`**: on a PRD's issue, once a member approved it on its page (phase 0 on the
+  server). For display: the loop reads the approval from the page, never from the label.
 
 Each of the loop's pull requests carries a status comment, kept current: where it is, and the steps
 left to a person.
+
+## Laws and their tests
+
+When your repository keeps its laws in the knowledge base (`laws.source: knowledge` in
+`.omni-loop/config.yml`), each rule and invariant there says what must stay true, and its
+`Enforced by:` line names how. A **law** is a decision worth a test, and it carries that test.
+Everything in this section is off unless `laws.source` is `knowledge`.
+
+`Enforced by:` reads one of three ways:
+
+| `Enforced by:` | What it means |
+|---|---|
+| a path, such as `src/quotes/total.test.ts` | the law's test: the outbox gate treats any change to it as a change to the law |
+| `pending #<n>` | a law that waits for its test: law issue `#<n>` is open, and agents respect the law already |
+| `unenforced` | a law with no test and no issue yet; refused once `laws.requireProof` is on, below |
+
+### Worth a law?
+
+When a feature pull request merges, the knowledge harvest writes back the decisions you settled.
+Each one it calls a rule or an invariant takes one of three paths:
+
+1. **The feature changed a test that proves it.** It becomes a law, with that test in its
+   `Enforced by:`.
+2. **No test, and not worth a law.** It stays out of the knowledge base. Its PRD's `settled.md` keeps
+   it, with the note `not worth a law`, and who decided.
+3. **No test, and worth a law.** The knowledge pull request writes it with `Enforced by: pending #<n>`,
+   and the harvest opens **law issue** `#<n>`, titled `Law: <statement>` and labelled `omni:law`
+   (`labels.law`). Its body names the entry, its register, its source and where its test would live.
+
+"Is this worth a law?" is answered by the model that classifies the decision. When your workspace
+turns the **`law-worth`** decision on in **Settings › Jev** on the Omni page, Jev's answer counts
+instead, whenever it is confident enough. It starts **Off** in every workspace; **Shadow** lets you
+read how often Jev agrees before you trust it. When Jev cannot answer, the model's answer stands, and
+the harvest still completes.
+
+### Give a law its test: `/omni:enforce`
+
+```text agent
+/omni:enforce 1400
+```
+
+It takes one law issue to one pull request. It writes one test of the law where your testing form
+says tests live, then **proves** it: it breaks the law in the code with the smallest change it can
+find and sees the test go red, then restores the code and sees it green. A test that cannot go red
+proves nothing. It then rewrites the entry's `pending #<n>` to the test's path, on a branch
+`test/law-<id>` (`branches.law`), and opens one pull request into the default branch that closes the
+issue, its description showing the red line and the green one. **You merge it.**
+
+When the test cannot be made to go red, or the law is already broken, it opens no pull request: it
+comments on the issue with what is stuck, and the law stays `pending`.
+
+### Move your repository onto it: the sweep
+
+A repository that kept laws before this has many `unenforced` ones. Once, from a terminal at its
+root, with `OPENROUTER_API_KEY` set:
+
+```bash terminal
+omni knowledge judge
+```
+
+It asks "worth a law?" of every `unenforced` rule and invariant, the model first, then
+`omni decide law-worth` with your sign-in, whose answer counts when your workspace turned `law-worth`
+on. A **yes** opens its law issue and turns the entry into `pending #<n>`; a **no** takes the entry
+out of its register and records it in its PRD's `settled.md` as not worth a law, and the report
+names every entry that cited it, for you to fix. Once every law is judged, it sets
+`laws.requireProof: true`. To judge one law alone, name it: `omni knowledge judge BR-PRODUCT-23`. It only writes files: commit them on a `docs/knowledge-<topic>` branch
+(`branches.knowledge`), open the knowledge pull request, review it and merge it.
+
+From then on, `omni check knowledge` refuses a rule or an invariant whose `Enforced by:` is
+`unenforced`: each one names a test, or `pending #<n>`. Until a repository runs its sweep,
+`laws.requireProof` stays `false` and nothing changes, so a kit update never turns your checks red.
+
+### A person answers every change to a law
+
+Four changes count as a change to a law:
+
+- **`law-proof`**: the law's test changes;
+- **`law-text`**: a register of the knowledge base, or a decision record, changes;
+- **`test-removed`**: a test file is deleted;
+- **`law-demoted`**: a law's test path turns back to `pending` or `unenforced`, or a law leaves the
+  knowledge base.
+
+Each needs a question ranked `high`, one a person answers on the pull request. An account that says
+`spec <where>`, or names a `medium` question the loop adopted by itself, does not count: the outbox
+check stays red. Which pull request gets which check:
+
+| Pull request | Its outbox check |
+|---|---|
+| a feature pull request | as always, with the four law changes answered only by `high` questions |
+| a fix (`/omni:bug-fix`, `/omni:visual-fix`) | `success` when it touches no law. One that does needs a small `outbox/` in the fix's folder, one `high` question per change: the fix skills raise them, and the check names the law and stays red until you answer |
+| a knowledge pull request, or one `/omni:enforce` opened | never blocked: merging it is your answer. The check lists the laws it touches |
 
 ## Slices and waves
 
@@ -112,6 +340,20 @@ pushed back with its reason, or left open for you. A comment left open for you h
 alone, unmerged, and the wave says which; the rest of the wave goes on. Only the comments posted
 when the wave reaches the slice count: it waits for no review still to come.
 
+When `/loop /omni:drive` drives several PRDs, their waves also run side by side: a **pool** of up to
+`limits.parallelSteps` steps at once, 3 by default, each step its own agent in its own worktree. A
+step joins the pool only when it passes four rules against every step running: it is of **another
+PRD**, its PRD has **no open blocker**, its slices share **no path in the same repository** with a
+running step's, and **the plan allows it** (the steps it comes after are done). A step kept back is
+held, with the rule and the step it waits on. Set `limits.parallelSteps: 1` in
+`.omni-loop/config.yml` to run one step per tick, as before ([Drive the loop](/docs/drive)).
+
+In a repository that turned [design craft](/docs/design) on, a slice that changes a screen is also
+looked at before its sub-pull request is marked ready: `/omni:do-work` runs `/omni:pixel-perfect
+review` on its own, fixes what it can in one batch, and writes a **Design review** section on the
+sub-pull request, one ✓, ✗ or — line per step. It never blocks: what it leaves becomes an outbox
+question like any other.
+
 A slice that stays red after its tries gets `omni:needs-fix`; it holds only the slices that wait for
 it, and the rest go on. To see a PRD's slices, which are merged, in flight, stuck, ready or waiting,
 and what can run next:
@@ -122,23 +364,27 @@ omni board 7
 
 ## Which skill runs which
 
-![Which skill runs which: you type /omni:brainstorm, /omni:yolo and /omni:yolo-fix; they run /omni:plan, /omni:wave, /omni:do-work and the dossier skills; every pull request goes through /omni:pr](diagrams/skills.svg)
+![Which skill runs which: you type /omni:brainstorm, /omni:yolo and /omni:yolo-fix; they run /omni:plan, /omni:wave, /omni:do-work and the dossier skills; every pull request goes through /omni:pr; for a milestone of several PRDs, you type /omni:roadmap, then /loop /omni:drive --roadmap](diagrams/skills.svg)
 
 | Skill | Type it when | It ends with |
 |---|---|---|
-| `/omni:think-big` | you have a vast idea, one that would take several PRDs, and want to see bold directions before any is cut | the concept pull request, with its vision tour and its areas; its last line is the `/omni:brainstorm --concept` line of the first area |
-| `/omni:brainstorm` | you have an idea | the PRD issue, the phase-0 pull request and the draft feature pull request; its last line is the `/omni:yolo` line |
-| `/omni:yolo <n>` | the phase-0 pull request is merged | every slice merged into the feature branch; the feature pull request ready, or questions for you |
+| `/omni:think-big` | you have a vast idea, one that would take several PRDs, and want to see bold directions before any is cut | the concept pull request, with its vision tour and its areas, and the concept's page under **Work › Concepts** on the Omni page; its last line is the `/omni:brainstorm --concept` line of the first area |
+| `/omni:brainstorm` | you have an idea | the PRD issue, the phase-0 pull request (none when phase 0 is approved on the server) and the draft feature pull request; its last line is the `/omni:yolo` line |
+| `/omni:yolo <n>` | the phase-0 pull request is merged, or the PRD is approved on its page | every slice merged into the feature branch; the feature pull request ready, or questions for you |
 | `/omni:yolo-fix <n>` | you answered the questions | what you changed rebuilt, and the feature pull request ready |
+| `/omni:roadmap <source>` | a milestone takes several PRDs, and you have its plan | every PRD's issue and spec, `roadmap.md`, and one phase-0 pull request; its last line is the `/loop /omni:drive --roadmap` line ([Roadmaps](/docs/roadmaps)) |
+| `/loop /omni:drive` | PRDs, or with `--roadmap <n>` a roadmap, are approved and you want them built without typing each next command | each PRD ready, or parked with what it waits on; up to `limits.parallelSteps` steps (3 by default) run at once when they share no ground, and the loop stops itself ([Drive the loop](/docs/drive)) |
 | `/omni:plan <n>` | a PRD has no plan yet; `/omni:yolo` runs it for you | `plan.md`, and the draft feature pull request |
 | `/omni:wave <n>` | you want one wave at a time; `/omni:yolo` runs it for you | the wave's slices merged into the feature branch |
 | `/omni:do-work <n> <slice>` | you want one slice alone; `/omni:wave` runs it for you | one sub-pull request into the feature branch |
+| `/omni:pixel-perfect <command> <screen>` | you want a screen critiqued, audited or polished; with [design craft](/docs/design) on, `/omni:do-work` and `/omni:visual-fix` run its `review` for you | the screen fixed in one bounded pass, and a report |
 | `/omni:pr` | a pull request of the loop is red or conflicts; the skills run it for you | the pull request green, or stuck, with the reason |
+| `/omni:enforce <issue>` | a law issue (`omni:law`) waits for its test ([Laws and their tests](#laws-and-their-tests)) | one pull request a person merges: the law's test, seen red with the law broken and green with it restored |
 | `/omni:invade` | once, after the install; with `--refresh` when the repository has changed a lot | one docs pull request: the knowledge base |
 | `/omni:status` | you want to see where the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |
 | `/omni:ask on` | you would rather answer Claude's questions on a web page | the page's link |
-| `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm`, `/omni:think-big` and `/omni:plan` run them | the PRD's page on the Omni page |
+| `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm`, `/omni:think-big` and `/omni:plan` run them | the PRD's page on the Omni page, or a concept's page under **Work › Concepts** |
 
 Every skill, what it does and when to use it: [Skills](/docs/skills).
 
@@ -147,7 +393,10 @@ Given a name, `/omni:help` explains one skill or command: `/omni:help yolo`.
 ## In a terminal
 
 A few `omni` commands are for you, in a terminal at the root of the repository or from Claude Code
-with `!` before them. None of them changes anything, except `omni signin` and `omni update`.
+with `!` before them. None of them changes anything, except `omni signin`, `omni update`, `omni knowledge judge`, which
+writes the sweep's edits into your working tree and opens law issues, and the last two:
+`omni roadmap answer` comments on the roadmap's issue, and `omni roadmap push` updates the roadmap's
+page.
 
 | Command | What it says |
 |---|---|
@@ -155,12 +404,16 @@ with `!` before them. None of them changes anything, except `omni signin` and `o
 | `omni status 7` | whether PRD 7 still has open questions: its outbox gate |
 | `omni prd 7` | where PRD 7 lives, and its files |
 | `omni board 7` | PRD 7's slices, and what can run next |
+| `omni roadmap check 1200` | whether roadmap 1200 holds together: its PRDs wave by wave, or what it refuses |
 | `omni kb show briefing` | one form of the playbook, as the agents read it: `briefing`, `testing`… |
 | `omni knowledge BR-QUOTE-1` | one rule of the knowledge base, by its id |
+| `omni knowledge judge [<id>]` | the sweep: asks "worth a law?" of every `unenforced` law, once per repository, or of the one law `<id>` names ([Laws and their tests](#laws-and-their-tests)) |
 | `omni signin` | signs this laptop in to the Omni page |
 | `omni version` | which kit the repository runs, and whether a newer one exists |
 | `omni update` | opens the pull request that brings the repository to the newer kit |
 | `omni help` | every command, on one screen |
+| `omni roadmap answer 1200 Q5 "…"` | answers question Q5 of roadmap 1200, in a comment on its issue |
+| `omni roadmap push 1200` | sends where each PRD of roadmap 1200 stands to its page; the drive runs it after every tick |
 
 The skills run the others themselves, such as `omni ship` or `omni adopt`: you never need to.
 

@@ -1,0 +1,177 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-08",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Knowing up front that the tests can't run here beats red CI loops that look like the AI wrote slop.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A checklist of what my machine lacks is useful, as long as the agent doesn't go installing things on my laptop.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Fewer stalls means more features shipped across the repositories while I sleep.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Prerequisites reviewed in the phase-0 PR give the team one shared list of what a roadmap needs.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A command I can copy helps, but permissions and GitHub setup aren't things I can do myself.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "I don't master the technical harness, so a 'permissions' or 'github' item that lands on me just sits there. Each one should say who on my team can do it, not only give me a command.",
+        "citations": [
+          "persona:Irisa"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ~ · persona:Irisa ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-08",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A check that can't run counts as not ok, so there's no false green: that's the right default.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The agent only fixes installs and .env copies, never my system or secrets. I can live with that.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Only the blocked PRDs wait, so the rest of the roadmap keeps moving.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Shell checks are reviewed in the phase-0 PR and time-limited; base fixes only. Cohesive enough to adopt.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Each card says why, what the command does and who on my team can do it, so I can forward it and move on.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-08",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A check that cannot run counts as not ok, and every fix is one I can undo, so it won't hide a broken setup from me.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Useful enough: it tells me Docker is off before the loop burns its attempts, though I still have to start it myself.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Only the blocked PRDs wait, so the rest of the roadmap keeps shipping while someone fixes the missing piece.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The prerequisites sit in the roadmap and get reviewed in the phase-0 PR, so the team shares one list of what a roadmap needs.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I can copy the command or forward the card to the person it names, but a permissions item still waits on someone else.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "Mark as done needs me to authorise the GitHub App first, an extra step I won't understand. A sentence on the button saying what it will do would help.",
+        "citations": [
+          "persona:Irisa"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ~ · persona:B-E DEv ~"
+    }
+  ]
+}

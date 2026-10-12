@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roadmap prerequisites</title>
+<style>
+/* Layout: three moments (the roadmap's page, the drive on a laptop without Docker, writing the roadmap), each today | after side by side, stacking at phone width. Look: PRD 1162 page tokens. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14123a;--termInk:#e6e8ff;--termMuted:#9aa0d8;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 var(--body)}
+main{max-width:1180px;margin:0 auto;padding-block:32px 64px;padding-inline:16px;display:grid;gap:40px}
+h1{font:400 clamp(32px,5vw,52px)/1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:68ch;margin:8px 0 0}
+section{display:grid;gap:14px}
+h2{font:400 26px/1.1 var(--display);letter-spacing:.03em;margin:0}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:820px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;min-width:0}
+.note{color:var(--muted);font-size:13.5px;margin:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs span{padding:6px 12px;font-weight:600;font-size:13.5px;color:var(--muted);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--plasma);border-color:var(--plasma)}
+.tabs .dot{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--amberSoft);color:var(--amber);font:600 11px/18px var(--mono);text-align:center}
+.card{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--sunk);font-size:13.5px}
+.card b{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.count{font:600 13px/1.4 var(--mono);display:flex;gap:12px;flex-wrap:wrap}
+.ok{color:var(--green)}.fx{color:var(--plasma)}.wt{color:var(--amber)}
+.cat{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+.row:first-of-type{border-top:0}
+.pill{font:600 11px/1 var(--mono);padding:4px 7px;border-radius:5px;white-space:nowrap}
+.pill.ok{background:var(--greenSoft)}.pill.fx{background:var(--plasmaSoft)}.pill.wt{background:var(--amberSoft)}
+.meta{color:var(--muted);font-size:12px}
+.prds{font:12px var(--mono);color:var(--muted);white-space:nowrap}
+.ask{grid-column:1/-1;border:1px solid var(--amber);background:var(--amberSoft);border-radius:8px;padding:12px;display:grid;gap:8px}
+.ask dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px}
+.ask dt{font-weight:700;font-size:12.5px}
+.ask dd{margin:0;min-width:0}
+.cmd{display:flex;gap:8px;align-items:center;background:var(--term);color:var(--termInk);border-radius:6px;padding:6px 6px 6px 10px;font:13px var(--mono);min-width:0}
+.cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap}
+.copy{font:600 12px var(--body);background:var(--plasma);color:var(--surface);border:0;border-radius:5px;padding:5px 10px}
+.done{justify-self:start;font:600 12.5px var(--body);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 10px}
+pre.term{margin:0;background:var(--term);color:var(--termInk);border-radius:8px;padding:12px 14px;font:12.5px/1.55 var(--mono);overflow-x:auto}
+.t-m{color:var(--termMuted)}.t-r{color:var(--red)}.t-a{color:var(--amber)}.t-g{color:var(--green)}.t-p{color:var(--plasma)}
+.stack{display:grid;gap:8px}
+.stub{height:46px;border-radius:6px;background:var(--sunk);border:1px dashed var(--line);display:flex;align-items:center;padding:0 12px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Roadmap prerequisites</h1>
+<p class="lede">PRD 1218. Today a roadmap only finds out what it needed once the loop is already stuck: a laptop without Docker, a repository that can't install a private npm package. After this change, the roadmap lists its prerequisites by category. The agent checks them and fixes what it safely can, and the author gets a plain checklist for the rest. Only the PRDs a missing item blocks wait.</p>
+</header>
+
+<section>
+<h2>The roadmap's page</h2>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="frame">
+<div class="stack">
+<div class="stub">Milestone · Crew v1 · target 2026-11-30</div>
+<div class="stub">Gantt · 6 PRDs in 3 waves</div>
+<div class="stub">Open questions · 1 waits on you</div>
+<div class="stub">PRDs · r2 building, r3 holds on r2</div>
+</div>
+<p class="note">One long page with no tabs. Nothing says the drive's laptop has no Docker or that <code>@vertuoza/ui</code> can't be installed. Those only show up as red checks, hours later.</p>
+</div></div>
+<div class="side"><span class="tag after">After</span>
+<div class="frame">
+<div class="tabs" role="tablist"><span>Overview</span><span class="on">Prerequisites<span class="dot">2</span></span></div>
+<div class="count"><span class="ok">6 ok</span><span class="fx">1 fixed by the agent</span><span class="wt">2 wait on you</span></div>
+<p class="meta">Last checked 4 minutes ago on pierre-mbp</p>
+
+<div class="cat">Local</div>
+<div class="row"><span class="pill wt">waits on you</span><div>Docker is running, for the database tests</div><span class="prds">r2, r3</span>
+<div class="ask">
+<dl>
+<dt>Why</dt><dd>The tests for this roadmap start a database in Docker. Without Docker running, they cannot run, and no slice can merge.</dd>
+<dt>Command</dt><dd><div class="cmd"><code>open -a Docker</code><button class="copy" type="button">Copy</button></div></dd>
+<dt>What it does</dt><dd>Starts the Docker app on your Mac. If it isn't installed, get it from docker.com/products/docker-desktop and open it once.</dd>
+<dt>Who can do it</dt><dd>Anyone with this laptop.</dd>
+</dl>
+</div></div>
+<div class="row"><span class="pill ok">ok</span><div>Node 22 or later</div><span class="prds">all</span></div>
+<div class="row"><span class="pill fx">fixed</span><div><code>.env</code> exists for <code>apps/galaxy</code><div class="meta">The agent copied it from .env.example</div></div><span class="prds">r4</span></div>
+
+<div class="cat">Access</div>
+<div class="row"><span class="pill ok">ok</span><div>The dependencies install from the lockfile</div><span class="prds">all</span></div>
+
+<div class="cat">Permissions</div>
+<div class="row"><span class="pill wt">waits on you</span><div>The Vercel preview has <code>DATABASE_URL</code></div><span class="prds">r4</span>
+<div class="ask">
+<dl>
+<dt>Why</dt><dd>PRD r4's preview page reads the database. Without this setting, the preview shows an error and its proof can't run.</dd>
+<dt>Command</dt><dd><div class="cmd"><code>vercel env add DATABASE_URL preview</code><button class="copy" type="button">Copy</button></div></dd>
+<dt>What it does</dt><dd>Adds the database address to the project's preview settings on Vercel. It asks you to paste the value.</dd>
+<dt>Who can do it</dt><dd>A member of the Vercel team who has the database address.</dd>
+</dl>
+<button class="done" type="button">Mark as done</button>
+</div></div>
+<div class="row"><span class="pill ok">ok</span><div>gh is signed in, with the repo scope</div><span class="prds">all</span></div>
+
+<div class="cat">GitHub</div>
+<div class="row"><span class="pill ok">ok</span><div>The loop's labels exist</div><span class="prds">all</span></div>
+</div></div>
+</div>
+</section>
+
+<section>
+<h2>The drive, on a laptop without Docker</h2>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<pre class="term"><span class="t-m">$ /loop /omni:drive --roadmap 9</span>
+tick 1  wave r2 s1 · preflight <span class="t-r">red</span>
+        <span class="t-m">Error: connect ENOENT /var/run/docker.sock</span>
+tick 2  pr-care r2 · fix attempt 1/3 <span class="t-r">red</span>
+tick 3  pr-care r2 · fix attempt 2/3 <span class="t-r">red</span>
+tick 4  pr-care r2 · fix attempt 3/3 <span class="t-r">red</span>
+        <span class="t-a">stuck: commented on #1301</span>
+tick 5  r3 holds on r2
+<span class="t-m">… the author finds out the next morning</span></pre>
+<p class="note">The agent spends its attempts on something no code change can fix.</p>
+</div>
+<div class="side"><span class="tag after">After</span>
+<pre class="term"><span class="t-m">$ /loop /omni:drive --roadmap 9</span>
+prereqs  <span class="t-m">omni roadmap prereqs 9 --fix</span>
+  local        p1 Docker running        <span class="t-a">waits on you</span>  open -a Docker
+  local        p4 .env for apps/galaxy  <span class="t-p">fixed</span>
+  access       p2 install               <span class="t-g">ok</span>
+  permissions  p3 Vercel DATABASE_URL   <span class="t-a">waits on you</span>
+tick 1  r2 <span class="t-a">holds</span>: waits on prerequisite p1 (local)
+        r1 wave 1 · s1 s2 claimed
+tick 2  r1 wave 2
+tick 3  prereqs again · p1 <span class="t-g">ok</span> → r2 starts</pre>
+<p class="note">The PRDs that don't need Docker keep building. Once Docker is running, the next tick starts r2 by itself.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2>Writing the roadmap</h2>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="frame">
+<pre class="term"><span class="t-m">## PRDs</span>
+| id | PRD | title | blocked by | why | wave |
+<span class="t-m">## Open questions</span>
+| id | question | recommendation | blocks | kind |</pre>
+<p class="note"><code>roadmap.md</code> has the PRDs and the questions. What the machine, GitHub or the registry must provide isn't written anywhere.</p>
+</div></div>
+<div class="side"><span class="tag after">After</span>
+<div class="frame">
+<pre class="term"><span class="t-m">## Prerequisites</span>
+| id | category    | need                      | check        | fix | blocks | who    |
+| p1 | local       | Docker is running         | base:docker  |     | r2, r3 | check  |
+| p2 | access      | @vertuoza/ui installs     | base:install | base:install | all | agent |
+| p3 | permissions | preview has DATABASE_URL  |              |     | r4     | person |
+
+<span class="t-m">### p1</span>
+- **Why:** …   - **Command:** `open -a Docker`
+- **What it does:** …   - **Who can do it:** …</pre>
+<p class="note"><code>/omni:roadmap</code> writes the base rows and the rows its PRDs need, and they're reviewed in the phase-0 PR. <code>omni roadmap check</code> refuses an item for the author that has no card.</p>
+</div></div>
+</div>
+</section>
+</main>
+</body>
+</html>

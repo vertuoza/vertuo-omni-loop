@@ -4,7 +4,7 @@
 import type { z } from 'zod';
 import type { PrdNumber, WorkSliceId } from './ids.ts';
 import type { ConfigSchema } from './schema/config.ts';
-import type { OutboxItemFrontMatterSchema, PROOF_VALUES, RANK_VALUES, SPEC_VALUES, SpecFrontMatterSchema } from './schema/front-matter.ts';
+import type { E2E_VALUES, OutboxItemFrontMatterSchema, PROOF_VALUES, RANK_VALUES, SPEC_VALUES, SpecFrontMatterSchema } from './schema/front-matter.ts';
 
 /** `.omni-loop/config.yml`, parsed: every key present, defaults filled in. */
 export type Config = z.infer<typeof ConfigSchema>;
@@ -52,6 +52,7 @@ export type Slice = {
 
 export type SpecSource = (typeof SPEC_VALUES)[number];
 export type Proof = (typeof PROOF_VALUES)[number];
+export type E2e = (typeof E2E_VALUES)[number];
 
 /** An inbox spec's front matter, parsed (`parseSpec`, `kit/lib/inbox/inbox.ts`), and its file. */
 export type InboxItem = {
@@ -61,6 +62,7 @@ export type InboxItem = {
   spec: SpecSource;
   areas?: string[];
   proof?: Proof;
+  e2e?: E2e;
   /** The spec's path, when it was read from one. */
   file: string | null;
 };

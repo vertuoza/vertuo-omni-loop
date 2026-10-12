@@ -4,7 +4,7 @@ import { assertDefined } from '../../test/assert.ts';
 import { startFakeAskServer, type FakeAskServer } from '../../test/fake-ask-server.ts';
 import { askClient as typedClient, AskCallError } from './client.ts';
 import type { Tokens } from './client.ts';
-import { parsePrd } from '../ids.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
 
 /** A request as the client builds it: its headers a plain object, its body JSON text. */
 type Init = { method: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal };
@@ -121,6 +121,17 @@ describe('the ask contract client', () => {
     await client.openRound(session, QUESTIONS, undefined, '');
     expect(bodyOf(server, 2)).toEqual({ questions: QUESTIONS });
     expect(bodyOf(server, 3)).toEqual({ questions: QUESTIONS });
+  });
+
+  it('opens a round already answered in the terminal in one call, with its context and lead (PRD 1180)', async () => {
+    const { client, server } = await setUp();
+    const session = digText(await client.openSession('acme/widgets · main'), 'id');
+    const context = { repo: 'acme/widgets', branch: 'main', prd: 7, claudeSessionId: 'c1', skill: null, model: null, tokens: null };
+    const answers = { 'Which colour?': 'Red' };
+    await client.openAnswered(session, QUESTIONS, answers, context, '## The design');
+    expect(bodyOf(server, 1)).toEqual({ questions: QUESTIONS, answers, via: 'terminal', context, lead: '## The design' });
+    await client.openAnswered(session, QUESTIONS, answers);
+    expect(bodyOf(server, 2)).toEqual({ questions: QUESTIONS, answers, via: 'terminal' });
   });
 
   it('keeps a path under ask.url, with or without a trailing slash', async () => {
@@ -309,6 +320,24 @@ describe('the dossier lookup (PRD 413)', () => {
       { repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', artifacts },
       { repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [] },
     ]);
+  });
+
+  it('asks GET /api/dossiers/approval by repository and number, with the bearer token (PRD 1299)', async () => {
+    const answer = { url: 'https://omni.example/prd/d-1', approval: null };
+    const { calls, client } = stubbed(() => new Response(JSON.stringify(answer), { status: 200 }));
+    expect(await client.readApproval({ repo: 'acme/widgets', prd: parsePrd(1299) })).toEqual(answer);
+    expect(calls).toEqual([
+      { url: 'https://omni.example/api/dossiers/approval?repo=acme%2Fwidgets&prd=1299', method: 'GET', authorization: 'Bearer access-1', body: undefined },
+    ]);
+  });
+
+  it('pushes and asks for a concept by its kind, keyed by its issue (PRD 1272)', async () => {
+    const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-4', url: 'https://omni.example/concepts/d-4', added: [], unchanged: [] }), { status: 200 }));
+    const artifacts = [{ kind: 'concept-record', content: '# concept' }, { kind: 'board', content: 'b1' }, { kind: 'board', content: 'b2' }];
+    await client.pushDossier({ repo: 'acme/widgets', prd: 1269, kind: 'concept', title: 'Products', artifacts });
+    await client.findDossier({ repo: 'acme/widgets', prd: parseIssue(1269), kind: 'concept' });
+    expect(sentJson(calls[0]?.body)).toEqual({ repo: 'acme/widgets', prd: 1269, kind: 'concept', title: 'Products', artifacts });
+    expect(calls[1]?.url).toBe('https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=1269&kind=concept');
   });
 });
 

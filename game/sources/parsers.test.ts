@@ -77,6 +77,14 @@ describe('parsers', () => {
     expect(entry('paul-w')).toBe('paul-w');
   });
 
+  it('reads who settled an item without the @ a merge over red wrote (PRD 1180)', () => {
+    const entry = (by: string) => present(parseSettled(`<!-- omni-outbox-settled: s1-01-a -->\n\n- Verdict: adopted\n- Approved by: ${by}\n- Approved at: 2026-09-29\n`).get('s1-01-a'), 'the settled item').by;
+    expect(entry('@octocat')).toBe('octocat');
+    expect(entry('claude-code-session (asked of @paul-w inline)')).toBe('paul-w');
+    expect(entry('claude-code-session (delegated by @pierrederval)')).toBe('pierrederval');
+    expect(entry('@')).toBeNull();
+  });
+
   it('reads the slice table of the kit\'s plan', () => {
     const text = `## Slices
 

@@ -10,6 +10,8 @@ import type { CurrentStages, HistoryItem } from '../dossier/page/history';
 import type { DossierListRow } from '../dossier/store';
 import { ofWork } from '../dossier/page/work';
 import type { FixFacts, FixItem } from '../fixes/list';
+import type { AlertChannels } from '../push/device';
+import type { KitTokensMine } from './terminal-tokens.contract';
 import {
   fixesOf, moreHref, prdsOf, profileStageLinks, pullRequestsOf, reviewsOf, seeAllHref, type Capped, type ProfilePullRequest, type ProfileReview,
 } from './select';
@@ -78,10 +80,37 @@ export interface ProfileLists {
   visual: DossierList<FixItem>;
 }
 
+/** Your own alert switches (PRD 1322 s9), on your own profile only: both channels, the address Email
+ * goes to (your GitHub sign-in's, null when it has none) and the VAPID public key this device subscribes
+ * with (null when the deployment has none). */
+export interface ProfileAlerts {
+  channels: Read<AlertChannels>;
+  email: string | null;
+  publicKey: string | null;
+}
+
+/** Your terminal tokens (PRD 1628 s4), on your own profile only: where they are read and revoked (the
+ * workspace's id, or the demo), the workspace's slug Make a token acts in, your live kit tokens with your
+ * live count (unreadable when they could not be read), and the moment they were read, in ms. */
+export interface ProfileTerminal {
+  source: { kind: 'demo' } | { kind: 'database'; workspace: string };
+  slug: string;
+  mine: Read<KitTokensMine>;
+  now: number;
+}
+
 export type ProfileValue =
   | { kind: 'not-member'; login: string }
   | { kind: 'unreadable'; login: string }
-  | { kind: 'profile'; person: ProfileHead; board: BoardValue; work: Read<ProfileWork>; lists: Read<ProfileLists> };
+  | {
+      kind: 'profile'; person: ProfileHead; board: BoardValue; work: Read<ProfileWork>; lists: Read<ProfileLists>;
+      /** The viewer's own profile. */
+      own: boolean;
+      /** Their alert switches, added by the page's server on their own profile (./profile.ts). */
+      alerts?: ProfileAlerts;
+      /** Their terminal tokens, added by the page's server on their own profile (./profile.ts). */
+      terminal?: ProfileTerminal;
+    };
 
 /** What a profile is drawn from: the board's reads, and the work of the period (unreadable when the
  * tracked repositories could not be read). */
@@ -157,6 +186,7 @@ export function profileOf(read: ProfileRead, request: ProfileRequest): ProfileVa
     board: { ...board, stageLinks: profileStageLinks(login) },
     work: workOf(read.work, request),
     lists: listsOf(read.dossiers, member, request),
+    own: member.userId === request.viewerId,
   };
 }
 

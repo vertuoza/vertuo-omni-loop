@@ -1,4 +1,5 @@
 import { reply as json } from '../business-api/reply';
+import { workspaceCount, type CountDb } from './waiting.repository';
 
 // GET /api/waiting/business (PRD 774, s5): for the signed-in person, how many things wait to be checked
 // in the business of their workspace (the one joined first, as Settings › Business reads it):
@@ -6,12 +7,12 @@ import { reply as json } from '../business-api/reply';
 // and since PRD 822 the proposed claims a person answered in a skill run (an overrule saved as a claim);
 // since PRD 855 (s3), agent_questions_open() adds the open questions agents couldn't answer.
 // Any member gets it, since any member can confirm (PRD 774, decision 4). With no workspace, 0. It
-// reads as the person (their cookie session), never with a service key (ADR-0032).
+// reads as the person (their cookie session), never with a service key (ADR-0032). The two counts are
+// the waiting repository's (src/waiting/waiting.repository.ts, PRD 1318 s4).
 
 /** What the route needs of the Supabase client: who is signed in, and one function call. */
-export type BusinessCountDb = {
+export type BusinessCountDb = CountDb & {
   auth: { getUser(): Promise<{ data: { user: { id: string } | null } }> };
-  rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>;
 };
 
 export type BusinessCountDeps<Db extends BusinessCountDb = BusinessCountDb> = {
@@ -43,12 +44,10 @@ export async function waitingBusiness<Db extends BusinessCountDb>(deps: Business
   try {
     const workspace = await deps.workspace(who.db, who.user);
     if (!workspace) return json(200, { count: 0 } satisfies BusinessCount);
-    const counted = async (fn: string) => {
-      const { data, error } = await who.db.rpc(fn, { p_workspace: workspace.id });
-      if (error) throw new Error(error.message);
-      return typeof data === 'number' && Number.isInteger(data) && data > 0 ? data : 0;
-    };
-    const [toCheck, questions] = await Promise.all([counted('business_to_check'), counted('agent_questions_open')]);
+    const [toCheck, questions] = await Promise.all([
+      workspaceCount(who.db, 'business_to_check', workspace.id),
+      workspaceCount(who.db, 'agent_questions_open', workspace.id),
+    ]);
     return json(200, { count: toCheck + questions } satisfies BusinessCount);
   } catch (error) {
     console.error(`Waiting business: the count could not be read: ${why(error)}`);

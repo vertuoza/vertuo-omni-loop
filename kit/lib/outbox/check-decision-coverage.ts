@@ -67,7 +67,12 @@ export function gradePrd(prd: PrdNumber, risky: readonly RiskyChange[], { ctx }:
   return { prd, malformed, accounted, unaccounted, stale };
 }
 
-/** One unaccounted change's line — names both the path and the rule that flagged it. */
-export function describeUnaccounted(prd: PrdNumber, change: Pick<RiskyChange, 'path' | 'rule'>): string {
-  return `PRD #${prd}: \`${change.path}\` is risky (${change.rule}) and no account names it.`;
+/** One unaccounted change's line — names both the path and the rule that flagged it, and, when an
+ * account named it but could not answer it (PRD 1342), why. */
+export function describeUnaccounted(
+  prd: PrdNumber,
+  change: Pick<RiskyChange, 'path' | 'rule'> & { refused?: string },
+): string {
+  const why = change.refused ?? 'no account names it';
+  return `PRD #${prd}: \`${change.path}\` is risky (${change.rule}) and ${why}.`;
 }

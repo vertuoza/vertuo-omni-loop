@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { GAMES } from '../arcade/games';
+import { measureOf } from '../arcade/measure';
 import type { ScoreBoard, ScoreLine, ScoresRead } from '../arcade/types';
 import { z } from 'zod';
 import { orThrow, parseRows } from './parse-rows';
@@ -33,7 +34,7 @@ const lineOf = (row: ScoreRow): ScoreLine => ({
 });
 
 /**
- * A game's crew table in the workspace: its top five, best first (the earlier of two equal scores
+ * A game's crew table in the workspace: its top five, best first (the lowest time first for a `time` game; the earlier of two equal scores
  * first), each under the player's arcade name and hero; and `userId`'s own best, wherever it ranks.
  */
 export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, workspace: string, game: string, userId: string | null): Promise<ScoreBoard> {
@@ -43,7 +44,7 @@ export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, wor
       .select(SCORE_COLUMNS)
       .eq('workspace_id', workspace)
       .eq('game', game)
-      .order('best', { ascending: false })
+      .order('best', { ascending: measureOf(game) === 'time' })
       .order('at', { ascending: true })
       .limit(TOP),
     userId ? table().select('best').eq('workspace_id', workspace).eq('game', game).eq('user_id', userId).maybeSingle() : null,

@@ -1,0 +1,245 @@
+<title>Products hold everything</title>
+<style>
+/* Layout: one band per screen, today on the left, after on the right; the concept tour's night-sky look, static. */
+:root{
+  --void:#07061c;--deep:#0e0d33;--deep2:#141346;--line:#23225a;--line2:#2f2e70;
+  --yel:#ffd84a;--cyan:#6ff0ff;--plasma:#a45cff;--grn:#4ee08a;--red:#ff3b5c;--txt:#f2f4ff;--dim:#8a90d6;
+  --paper:#f4f5fb;--ink:#1d2040;--ink2:#5d6290;--rule:#d9dcef;
+  --disp:Anton,Impact,"Arial Narrow Bold","Arial Narrow",sans-serif;
+  --body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--txt);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:28px 64px}
+h1,h2{font-family:var(--disp);font-weight:400;text-transform:uppercase;letter-spacing:.03em;margin:0;text-wrap:balance}
+h1{font-size:44px;line-height:1}
+h2{font-size:24px}
+.tag{font-size:11px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+.lede{color:var(--dim);max-width:70ch;margin:8px 0 0}
+.mono{font-family:var(--mono)}
+.dim{color:var(--dim)}
+.band{margin-top:40px;display:grid;gap:12px}
+.band>header p{margin:4px 0 0;color:var(--dim);max-width:75ch}
+.pair{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:16px;align-items:start}
+@media (max-width:860px){.pair{grid-template-columns:minmax(0,1fr)}}
+.side{display:grid;gap:8px;min-width:0}
+.side>.lbl{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.side.b>.lbl{color:var(--dim)}
+.side.a>.lbl{color:var(--yel)}
+/* today: the plain settings look */
+.today{background:var(--paper);color:var(--ink);border-radius:10px;padding:16px;display:grid;gap:12px;min-width:0}
+.today h3{margin:0;font-size:17px}
+.today .crumb{font-size:12px;color:var(--ink2)}
+.today .rowt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border-top:1px solid var(--rule);padding-top:10px;font-size:14px}
+.today select{font:inherit;font-size:13px;border:1px solid var(--rule);border-radius:6px;padding:3px 6px;background:#fff;color:var(--ink)}
+.today .sec{border:1px solid var(--rule);border-radius:8px;padding:10px 12px;display:grid;gap:6px}
+.today .sec b{font-size:13px}
+.today .note{font-size:12px;color:var(--ink2)}
+.today .pain{font-size:12px;color:#b3263f}
+/* after: the tour look */
+.after{background:linear-gradient(180deg,var(--deep),#0b0a2a);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:14px;min-width:0}
+.prods{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.prod{background:var(--deep2);border:1px solid var(--line2);border-radius:12px;padding:12px;display:grid;gap:6px}
+.prod .nm{font-family:var(--disp);font-size:22px;text-transform:uppercase;letter-spacing:.03em}
+.prod .rp{display:flex;flex-wrap:wrap;gap:4px}
+.prod .wt{font-size:12px;color:var(--yel)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;border-radius:999px;padding:2px 8px;border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+.chip.srv{color:var(--yel);border-color:#6b5a1c}
+.chip.rep{color:var(--dim);border-style:dashed}
+.chip.sh{color:var(--plasma);border-color:#4b2d80}
+.chip.y{color:var(--void);background:var(--yel);border-color:var(--yel)}
+.ones{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font:inherit;font-size:12px;color:var(--txt);background:var(--deep2);border:1px solid var(--line2);border-radius:8px;padding:4px 10px}
+.btn.y{background:var(--yel);color:var(--void);border-color:var(--yel);font-weight:700}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs span{padding:8px 10px;font-size:13px;color:var(--dim);white-space:nowrap;border-bottom:2px solid transparent}
+.tabs span.on{color:var(--txt);border-bottom-color:var(--yel)}
+.tabs em{font-style:normal;font-family:var(--mono);font-size:10px;margin-left:4px;color:var(--yel)}
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sum div{background:var(--deep2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.sum b{font-family:var(--disp);font-size:24px;font-weight:400;display:block;line-height:1}
+.sum span{font-size:11px;color:var(--dim)}
+.g2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px}
+@media (max-width:620px){.g2{grid-template-columns:minmax(0,1fr)}}
+.lane{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--deep);border:1px solid var(--line);border-radius:10px;padding:8px}
+.row .n{width:40px;height:40px;border-radius:50%;border:2px dashed var(--line2);display:grid;place-items:center;font-family:var(--disp);font-size:13px;color:var(--dim)}
+.row .n.seal{background:var(--yel);border:none;color:var(--void)}
+.row .t{font-size:14px}
+.row .m{font-size:11px;color:var(--dim)}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}
+.st i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.st.w i{background:var(--yel)}.st.b i{background:var(--grn)}.st.o i{background:var(--dim)}
+.panel{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:8px;min-width:0}
+.panel h4{margin:0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:400}
+.repo{display:grid;gap:3px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+.repo .nm{font-family:var(--mono);font-size:13px}
+.repo .sub{font-size:11px;color:var(--dim)}
+.av{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-weight:700;font-size:11px;color:var(--void)}
+.picker{display:grid;gap:6px;background:var(--deep2);border:1px solid var(--line2);border-radius:10px;padding:10px}
+.picker .opt{display:flex;gap:8px;align-items:center;font-size:13px}
+.picker .opt i{width:12px;height:12px;border-radius:50%;border:2px solid var(--dim);display:inline-block}
+.picker .opt.on i{border-color:var(--yel);background:var(--yel)}
+.lock{font-family:var(--mono);font-size:12px;color:var(--yel)}
+pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.55;background:#05041a;border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;color:var(--txt)}
+.today pre{background:#fff;border-color:var(--rule);color:var(--ink)}
+pre .k{color:var(--cyan)}pre .y{color:var(--yel)}pre .d{color:var(--dim)}pre .r{color:var(--red)}
+.today pre .d{color:var(--ink2)}
+.keep{margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.keep div{border:1px solid var(--line);border-radius:12px;padding:12px}
+.keep b{display:block;font-size:13px;margin-bottom:4px}
+.keep p{margin:0;font-size:13px;color:var(--dim)}
+</style>
+
+<div class="wrap">
+  <div class="tag">PRD 1364 · concept #1269, area product-home · ◆ born on the server</div>
+  <h1>Products hold everything</h1>
+  <p class="lede">Today a product is a name with Pitch and Approvers, and a repository belongs to exactly one product. After this PRD, products are optional and link to repositories many to many. Each product gets a home page with tabs, and a PRD carries its own product. Mobile, Estimates and the repositories below are examples.</p>
+
+  <!-- 1 PRODUCTS -->
+  <section class="band">
+    <header><h2>1 · Products</h2><p>Products move from Settings into the sidebar. A shared API shows up in every product that uses it, and a repository with no product just stays a repository.</p></header>
+    <div class="pair">
+      <div class="side b"><div class="lbl">Today · Settings › Repositories</div>
+        <div class="today">
+          <div class="crumb">Settings › Repositories</div>
+          <div class="rowt"><span class="mono">vertuoza/vertuo-mobile</span><select aria-label="product"><option>Mobile</option></select></div>
+          <div class="rowt"><span class="mono">vertuoza/vertuo-api</span><select aria-label="product"><option>Mobile</option></select></div>
+          <div class="rowt"><span class="mono">vertuoza/vertuo-estimates</span><select aria-label="product"><option>Estimates</option></select></div>
+          <div class="rowt"><span class="mono">vertuoza/vertuo-omni-loop</span><select aria-label="product"><option>Mobile</option></select></div>
+          <div class="pain">One product per repository: vertuo-api cannot also be in Estimates. Every new repository lands in the first product, here Mobile.</div>
+        </div>
+      </div>
+      <div class="side a"><div class="lbl">After · /app/products</div>
+        <div class="after">
+          <div><div class="tag">vertuoza · workspace</div><h2 style="font-size:30px">Products</h2></div>
+          <div class="prods">
+            <div class="prod"><div class="nm">Mobile</div><div class="rp"><span class="chip">vertuo-mobile</span><span class="chip sh">vertuo-api · shared</span></div><div class="dim" style="font-size:12px">6 PRDs · 2 ideas</div><div class="wt">● 2 wait on you</div></div>
+            <div class="prod"><div class="nm">Estimates</div><div class="rp"><span class="chip">vertuo-estimates</span><span class="chip sh">vertuo-api · shared</span></div><div class="dim" style="font-size:12px">4 PRDs · 1 idea</div><div class="dim" style="font-size:12px">nothing waits on you</div></div>
+          </div>
+          <div class="tag">Repositories in no product</div>
+          <div class="ones"><span class="chip rep">vertuo-omni-loop</span><button class="btn">Add to a product</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 PRODUCT HOME -->
+  <section class="band">
+    <header><h2>2 · A product's home</h2><p>Opening a product shows what waits on whom. Its tabs list only this product's PRDs, ideas, roadmap, fixes and questions, and its repositories carry what <span class="mono">plan.targets[]</span> holds today.</p></header>
+    <div class="pair">
+      <div class="side b"><div class="lbl">Today · Settings › Products › Mobile</div>
+        <div class="today">
+          <div class="crumb">Settings › Products</div>
+          <h3>Mobile</h3>
+          <div class="sec"><b>Pitch</b><span class="note">Look, voice and audience for launch videos.</span></div>
+          <div class="sec"><b>Approvers</b><span class="note">Irisa · asked &nbsp; Paul · asked &nbsp; B-E Dev · skipped</span></div>
+          <div class="pain">No PRDs, ideas, fixes or questions here. Those live on /prd, /ideas, /bugs, /visual and GitHub, unfiltered by product.</div>
+        </div>
+      </div>
+      <div class="side a"><div class="lbl">After · /app/products/mobile · Ledger</div>
+        <div class="after">
+          <div><div class="tag">Mobile</div><h2 style="font-size:28px">What waits on whom</h2></div>
+          <div class="tabs"><span class="on">Ledger<em>2</em></span><span>PRDs</span><span>Ideas</span><span>Roadmap</span><span>Bug fixes</span><span>Visual fixes</span><span>Questions<em>1</em></span><span>Repositories &amp; approvers</span></div>
+          <div class="sum"><div><b style="color:var(--grn)">3</b><span>building</span></div><div><b style="color:var(--yel)">2</b><span>waiting on a person</span></div><div><b style="color:var(--red)">0</b><span>drifted</span></div></div>
+          <div class="g2">
+            <div class="lane">
+              <div class="tag">Waits on you, Irisa</div>
+              <div class="row"><div class="n">918</div><div><div class="t">Offline photo upload</div><div class="m"><span class="chip srv">◆ 918</span> waits on Irisa or Paul · approval</div></div><span class="st w"><i></i>waiting</span></div>
+              <div class="row"><div class="n seal">912</div><div><div class="t">Quotes on the phone</div><div class="m">1 question · vertuo-api · round per line or on the total?</div></div><span class="st w"><i></i>question</span></div>
+              <div class="tag" style="margin-top:6px">Waits on the agent</div>
+              <div class="row"><div class="n seal">905</div><div><div class="t">Invoice reminders</div><div class="m">api #447 · mobile #94</div></div><span class="st b"><i></i>building</span></div>
+            </div>
+            <aside class="panel">
+              <h4>Repositories</h4>
+              <div class="repo"><span class="nm">vertuo-mobile</span><span class="sub">role mobile · own knowledge · consumes vertuo-api</span></div>
+              <div class="repo"><span class="nm">vertuo-api <span class="chip sh">also in Estimates</span></span><span class="sub">role api · own knowledge · added by PRD 905</span></div>
+              <button class="btn" style="justify-self:start">Add a repository</button>
+              <h4 style="margin-top:6px">Approvers</h4>
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip"><span class="av" style="background:var(--cyan)">I</span>Irisa</span><span class="chip"><span class="av" style="background:var(--yel)">P</span>Paul</span></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 PRD PRODUCT -->
+  <section class="band">
+    <header><h2>3 · A PRD picks its product</h2><p>When a PRD is born in a repository that is in one product, it takes that product. In a repository that is in none, it gets none. In a repository that is in several, the brainstorm asks once. The PRD's page can change the product until the PRD is approved.</p></header>
+    <div class="pair">
+      <div class="side b"><div class="lbl">Today · the PRD's product is implied</div>
+        <div class="today">
+          <pre><span class="d">PRD 905 · home vertuoza/vertuo-api</span>
+product      <span class="d">= vertuo-api's one product</span> → Mobile
+approvers    <span class="d">= Mobile's</span>
+claims, personas <span class="d">= Mobile's</span></pre>
+          <div class="pain">An Estimates PRD in vertuo-api gets Mobile's approvers and voice. A workspace with two products and a token that names no repository fails: "several products".</div>
+        </div>
+      </div>
+      <div class="side a"><div class="lbl">After · brainstorm in a shared repository, then the PRD page</div>
+        <div class="after">
+          <pre><span class="d">~/vertuo-api · /omni:brainstorm 'quote PDF in Estimates'</span>
+<span class="k">?</span> Which product is this PRD for?
+  <span class="y">▸ Estimates</span>
+    Mobile
+    No product</pre>
+          <div class="picker" aria-label="Product picker on PRD 1370's page">
+            <div class="tag">PRD 1370 · Product</div>
+            <div class="opt on"><i></i>Estimates</div>
+            <div class="opt"><i></i>Mobile</div>
+            <div class="opt"><i></i>No product</div>
+            <div class="dim" style="font-size:12px">Approvers, claims and personas follow Estimates. vertuo-api is already in Estimates, so no new link is needed.</div>
+          </div>
+          <div class="lock">product is locked: PRD 912 is approved</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 KIT -->
+  <section class="band">
+    <header><h2>4 · A plan repository names its product</h2><p><span class="mono">plan.product</span> replaces the hand-kept target list. <span class="mono">omni targets</span> prints the same table from the server, and keeps a local copy for when the server cannot be reached.</p></header>
+    <div class="pair">
+      <div class="side b"><div class="lbl">Today · .omni-loop/config.json</div>
+        <div class="today">
+          <pre>"plan": {
+  "guide": "README.md",
+  "targets": [
+    { "repo": "vertuoza/vertuo-api",
+      "role": "api", "knowledge": "own" },
+    { "repo": "vertuoza/vertuo-mobile",
+      "role": "mobile", "knowledge": "imported",
+      "readAt": "3e9a1c0…", "consumes": ["api"] }
+  ]
+}</pre>
+          <div class="pain">A second copy of what the product knows, edited by hand and drifting.</div>
+        </div>
+      </div>
+      <div class="side a"><div class="lbl">After · config, then the terminal</div>
+        <div class="after">
+          <pre>"plan": { "guide": "README.md", "product": "Mobile" }</pre>
+          <pre><span class="d">$ omni product import --product Mobile</span>
+added vertuoza/vertuo-api (api) · updated vertuoza/vertuo-mobile (mobile)
+
+<span class="d">$ omni targets</span>
+repo                     role    knowledge  read at   consumes
+vertuoza/vertuo-api      api     own        —         —
+vertuoza/vertuo-mobile   mobile  imported   3e9a1c0   api
+
+<span class="d">$ omni targets   # offline</span>
+<span class="y">targets from the last read, 2026-10-09 · server unreachable</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="keep" aria-label="What stays the same">
+    <div><b>No product still works</b><p>A repository or PRD with no product builds as it does today: any member approves, and the workspace's region claims apply.</p></div>
+    <div><b>Existing links kept</b><p>Every repository keeps the product it has today, so every existing lookup gives the same answer.</p></div>
+    <div><b>plan.targets[] still accepted</b><p>A plan repository that keeps its targets list works unchanged. Setting both is refused.</p></div>
+    <div><b>Not in this PRD</b><p>The omni/approved check and the skills running from a product (product-gate), roadmaps, bugs and knowledge moving onto the server (product-records), and the Constellation tab.</p></div>
+  </section>
+</div>

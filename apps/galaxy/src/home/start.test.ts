@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { isMuted, PLAY_HREF, pressStart, startsOnKey, type StartPorts } from './start';
 
@@ -107,5 +108,44 @@ describe('the keys that start the game', () => {
 
   it('leaves Enter to a focused control, which answers it itself', () => {
     expect(startsOnKey(key({ inControl: true }))).toBe(false);
+  });
+});
+
+// BR-PRODUCT-45 (#1506): on HOME, Enter runs PRESS START unless the focus is on a button, link or
+// field, which then does what that control does. PRESS START opens the app last picked, or SELECT
+// YOUR APP when none is remembered.
+describe('law BR-PRODUCT-45: Enter on HOME', () => {
+  const enter = (inControl: boolean) =>
+    ({ key: 'Enter', repeat: false, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, inControl });
+
+  /** The controls that keep Enter for themselves, as Controls.tsx lists them (no DOM is rendered here). */
+  function controls(): string[] {
+    const source = readFileSync(new URL('./Controls.tsx', import.meta.url), 'utf8');
+    const list = /const CONTROL = '([^']*)'/.exec(source)?.[1] ?? '';
+    return list.split(',').map((part) => part.trim());
+  }
+
+  it('runs PRESS START when the focus is on no control', () => {
+    expect(startsOnKey(enter(false))).toBe(true);
+  });
+
+  it('leaves Enter to a focused button, link or field', () => {
+    expect(startsOnKey(enter(true))).toBe(false);
+    expect(controls()).toEqual(expect.arrayContaining(['a[href]', 'button', 'input', 'textarea', 'select']));
+  });
+
+  it('opens the app last picked', async () => {
+    const arcade = ports('1', 'arcade');
+    await pressStart(arcade.at);
+    expect(arcade.calls).toEqual(['go /play']);
+    const app = ports(null, 'app');
+    await pressStart(app.at);
+    expect(app.calls).toEqual(['go /app']);
+  });
+
+  it('opens SELECT YOUR APP when no app is remembered', async () => {
+    const { at, calls } = ports(null, null);
+    await pressStart(at);
+    expect(calls).toEqual(['select your app']);
   });
 });

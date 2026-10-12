@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COLOURS, FLAT, spritePixels, tokensCss } from '@omni/design';
 import { markFor } from './mark';
-import { DEFAULT_THEME, parseTheme, resolveTheme, stripesOf, themeVars, TOKENS, type Token } from './theme';
+import { DEFAULT_THEME, parseTheme, resolveTheme, stripesOf, themeVars, ThemeSchema, TOKENS, type Token } from './theme';
 import { sure } from './test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
@@ -40,14 +40,20 @@ function rootColours(css: string): Record<string, string> {
   return Object.fromEntries(colours);
 }
 
-/** The token names `valid_theme()` accepts, in the latest migration that defines it. */
-function databaseTokens(): string[] {
+/** `valid_theme()` as the latest migration that defines it writes it, from its `function` on. */
+function validThemeSql(): string {
   const dir = new URL('../../../../supabase/migrations/', import.meta.url);
   const latest = sure(readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
     .map((f) => readFileSync(new URL(f, dir), 'utf8'))
     .filter((sql) => /function\s+public\.valid_theme\s*\(/.test(sql))
     .at(-1), 'readdirSync(dir).filter((f) => f.endsWith(".sql")).sort() .map((f) ...');
-  const body = latest.slice(latest.search(/function\s+public\.valid_theme\s*\(/));
+  const from = latest.slice(latest.search(/function\s+public\.valid_theme\s*\(/));
+  return from.slice(0, from.indexOf('$$;') + 3);
+}
+
+/** The token names `valid_theme()` accepts, in the latest migration that defines it. */
+function databaseTokens(): string[] {
+  const body = validThemeSql();
   const list = sure(/array\[([^\]]*)\]/.exec(body), '/array\[([^\]]*)\]/.exec(body)')[1];
   assertDefined(list, 'list');
   return [...list.matchAll(/'([^']+)'/g)].map(([, name]) => sure(name, 'name'));
@@ -176,4 +182,22 @@ describe('a workspace\'s theme', () => {
     expect(parseTheme({}, warn)).toEqual({});
     expect(warn).not.toHaveBeenCalled();
   });
+});
+
+// Law BR-PRODUCT-27 (.omni-loop/knowledge/product/rules.md, #1488).
+it('law BR-PRODUCT-27: a theme colour is accepted only as a lowercase #rrggbb, in the database and in the client schema alike', () => {
+  // The client schema: lowercase six digits pass, #A45CFF and every other form is refused.
+  expect(ThemeSchema.safeParse({ plasma: '#a45cff' }).success).toBe(true);
+  for (const colour of ['#A45CFF', '#a45cFF', '#abc', 'a45cff', '#a45cff0', 'purple']) {
+    expect(ThemeSchema.safeParse({ plasma: colour }).success, colour).toBe(false);
+  }
+  // The database: valid_theme() refuses, case-sensitively, any value off the fleets' own pattern.
+  const fleets = /teams_color_hex check \(color ~ '([^']+)'\)/.exec(
+    readFileSync(new URL('../../../../supabase/migrations/20260925150000_fleets_and_players.sql', import.meta.url), 'utf8'))?.[1];
+  expect(fleets).toBe('^#[0-9a-f]{6}$');
+  const refused = /\(e\.value #>> '\{\}'\) (!~\*?) '([^']+)'/.exec(validThemeSql());
+  expect(refused?.slice(1)).toEqual(['!~', fleets]);
+  for (const colour of ['#a45cff', '#A45CFF', '#abc']) {
+    expect(new RegExp(sure(fleets, 'fleets')).test(colour), colour).toBe(colour === '#a45cff');
+  }
 });

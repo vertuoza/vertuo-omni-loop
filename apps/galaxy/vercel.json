@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "ignoreCommand": "cd ../.. && bash scripts/vercel-ignore.sh",
+  "ignoreCommand": "cd ../.. && bash scripts/vercel-ignore.sh galaxy",
   "regions": [
     "fra1"
   ],

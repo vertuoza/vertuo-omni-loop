@@ -33,7 +33,7 @@ export const TALL: Grid = { name: 'tall', w: 320, h: 288 };
 export type SceneName =
   | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
   | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'ready' | 'welcome' | 'outsider'
-  | 'chart' | 'system' | 'games' | 'invaders' | 'platformer' | 'levelup';
+  | 'chart' | 'system' | 'games' | 'invaders' | 'platformer' | 'kart' | 'duet' | 'levelup';
 
 /** What the joining screens draw: the fleets to pick from, the player's fleet and hero. */
 export interface JoinFrame {
@@ -62,7 +62,21 @@ export interface FrameState {
   theme: Theme;         // the brand's theme, resolved: the colours the scenes draw with
   chart?: ChartFrame;   // the star chart (chart, system)
   game?: Game | null;   // the game being played (invaders), laid out for `grid`
+  kart?: KartDraw | null; // OMNI KART once its code has loaded (kart); null while it loads or when it did not
+  duet?: DuetDraw | null; // OMNI DUET once its code has loaded (duet); null while it loads or when it did not
 }
+
+/**
+ * OMNI KART as the canvas holds it once `arcade/kart/` has been imported (PRD 1359): the arcade's other
+ * scenes never import that folder, so the loaded game comes in as this value and draws itself.
+ */
+export interface KartDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): void }
+
+/**
+ * OMNI DUET as the canvas holds it once `arcade/duet/` has been imported (PRD 1633), as OMNI KART is:
+ * it draws its 320×288 playfield, which the scene places on the grid (`scenes/duet.ts`).
+ */
+export interface DuetDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): void }
 
 /** What the star chart's two scenes draw: the knowledge, its suns and the open system, laid out on the frame's grid. */
 export interface ChartFrame {

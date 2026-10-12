@@ -1,0 +1,12 @@
+kit: 1
+repo:
+  slug: acme/crew-plan
+plan:
+  targets:
+    - repo: acme/crew
+      role: back-end
+      knowledge: own
+    - repo: acme/backend-php
+      role: legacy
+      knowledge: none
+      readOnly: true

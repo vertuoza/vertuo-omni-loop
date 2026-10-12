@@ -165,3 +165,74 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #1369, slice s4 — the design review on UI work
+
+Not a re-port: upstream's skill never looks at a screen. A kit-local change to the prose, behind
+the `design.enabled` flag (default off), wired to `/omni:pixel-perfect review` and
+`omni design touched` rather than restating them.
+
+- **Step 0** reads `omni config design.enabled` after the config. Anything but `true` means no
+  design review runs and the sub-PR has no **Design review** section: the skill is as it was.
+- **Step 4, Design review,** inside point `do-work.review` and before the coverage grade (its fixes
+  are code the account must cover). It runs `omni design touched <remote>/<feature branch>` and
+  follows `/omni:pixel-perfect review` (that skill's step 0, then `reference/review.md`) when the
+  plan marks the slice `ui: yes` or the check prints `ui: yes`; on `ui: unknown` it judges from the
+  diff and says that it judged; on `ui: no` it skips, with one `—` line. It is given the PRD and
+  slice, the territory, the base and the before/after page's "after" screen.
+- **Never blocking.** A finding is never the stop or the blocked outcome, never turns a check red
+  and never holds the sub-PR draft; what it did not fix becomes an outbox item through step 3.
+  Step 3's "two ways a slice ends early" says so too.
+- **Step 5's hand-off** carries the **Design review** section in the sub-PR body when the flag is
+  on. Screenshots stay in a scratch folder, attached when the session can, never committed.
+- **Under `--target`** the review does not run (no target app runs from a plan repository): one
+  `—` line says so.
+
+### Tests
+
+`kit/test/plugin.test.ts`, the block "the design review in the skills that drive screen work (PRD
+1369)": the flag in step 0, `omni design touched` then `/omni:pixel-perfect review` before the
+coverage grade, the `ui: unknown` judgement, the never-blocking lines, and the section in step 5.
+
+## PRD #1407, slice s6 — the design memory
+
+Not a re-port: kit-local prose behind `design.enabled`, wired to `omni design screens`,
+`omni design touched`'s `screens:` line and `/omni:pixel-perfect`'s review, never restating them.
+
+- **Step 1** gains item 6, **The design memory**: on a slice that builds or changes a screen, read
+  `omni kb show design` with its `language` laws, then `omni design screens` and each library
+  screen the slice builds or touches, file and mockup. A locked screen is built as written, never
+  redesigned; a draft is a starting point.
+- **Step 3** gains **A change to a locked screen or law**: never edit a locked screen's body or a
+  locked law, never lock; build what the spec asks, and record it with `hardToRevert: true` by rule
+  (the Jev step skipped, so it is always high), naming the screen, the change and who locked it,
+  with the amendment line the owner would add left for their words. Never a stop, and the one
+  design finding that is high. **Exactly two ways a slice ends early** says so.
+- **Step 4's design review** reads the same check's `screens:` line, and a change it finds to a
+  locked screen is that high item, never a lock and never an edit of the locked file.
+
+### Tests
+
+`kit/test/plugin.test.ts`, the block "the design memory in pixel-perfect and do-work (PRD 1407)":
+the library read in step 1, the locked screen built as written, and the high item in step 3.
+
+## PRD #1550, slice s4 — a screen's `reads`
+
+- **Step 1, item 6** reads a library screen's `reads` too, when it has one: the code behind the
+  screen, for context. A change there is no change to the screen and never trips its lock.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.
+
+## PRD #1584, slice s3 — touched-only holds and no screen changes
+
+- **Step 1, item 6** writes the rule down: a lock trips only when the slice's diff changes that
+  screen's own `implements`; a page lists a shared screen's files in `reads`.
+- **Step 4's design review** runs no pixel-perfect work for a PRD whose before/after says
+  `Pixel perfect: no screen changes`, and a fault under `Seen, not touched` is never fixed in the
+  slice nor an outbox item of it.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

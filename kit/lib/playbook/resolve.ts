@@ -11,6 +11,10 @@
  * | in a form with `state: pointer`   | the whole target: a file's text; a folder's `index`, else its Markdown file list | `[→ <path>]` |
  * | in a form file that is missing    | the kit default for every slot                    | `[kit default]`                  |
  *
+ * A kit default made only of `TODO(human)` lines (PRD 1369: the design form's `product` and
+ * `system`, which only the repository can answer) is no default: a section that falls through to
+ * it is a `[hole]` holding the kit's questions, and a repository's own questions replace them.
+ *
  * The kit default is passed in: the text of the kit's template for the form, which parses with
  * the same parser and whose slot bodies are the defaults. This module reads no template itself.
  * The sections come in the template's order, under its headings; a slot the template does not
@@ -145,9 +149,11 @@ function resolveSlot(
   for (const { key, reason } of kit.unresolved) {
     problems.push(`kit default ${formId}#${kitSlot.id}: {config:${key}} ${reason}`);
   }
+  const kitHoles = kitSlot.body.kind === 'holes';
   if (body?.kind === 'holes') {
-    return { ...base, source: 'hole', label: '[hole]', text: kit.text, questions: body.questions };
+    return { ...base, source: 'hole', label: '[hole]', text: kitHoles ? '' : kit.text, questions: body.questions };
   }
+  if (kitHoles) return { ...base, source: 'hole', label: '[hole]', text: '', questions: kitSlot.body.questions };
   return { ...base, source: 'kit', label: '[kit default]', text: kit.text, questions: [] };
 }
 

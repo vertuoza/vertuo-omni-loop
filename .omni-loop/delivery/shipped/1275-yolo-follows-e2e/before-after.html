@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1275 — before and after</title>
+<style>:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d7dce1;--card:#f6f8fa}@media (prefers-color-scheme:dark){:root{--bg:#0f1317;--fg:#e8ecef;--muted:#9aa5ae;--line:#2b333b;--card:#161b21}}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}h1{font-size:1.25rem;margin:0 0 4px}p.lead{color:var(--muted);margin:0 0 20px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}.card h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}</style></head><body>
+<h1>The e2e skill is followed by /omni:yolo when the spec asks</h1><p class="lead">PRD 1275 · P3 of the roadmap "Validation e2e: de la bêta à la pratique"</p>
+<div class="cols"><section class="card" aria-label="Today"><h2>Today</h2><p>The e2e skill is a manual command. `/omni:yolo` follows `/omni:prove` by itself when a spec says `proof: video`, but nothing does the same for e2e, so each use depends on someone remembering to run it.</p></section>
+<section class="card" aria-label="After"><h2>After</h2><p>A spec front-matter field asks for the e2e validation, as `proof: video` asks for the proof, and `/omni:yolo` follows `/omni:validate-e2e` once the feature PR is ready and before it reports, whatever the skill prints, without changing the PR&#x27;s state. `/omni:brainstorm` asks the question when the repository has configured e2e.</p></section></div></body></html>

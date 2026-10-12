@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 import { AccountFrontMatterSchema, OutboxItemFrontMatterSchema, SpecFrontMatterSchema } from './front-matter.ts';
 import { KIT_MESSAGES } from './messages.ts';
-import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, ProductPrdId, WorkSliceId } from '../ids.ts';
 
 const firstIssue = (schema: z.ZodType, value: unknown) => schema.safeParse(value, { error: KIT_MESSAGES }).error?.issues[0];
 
@@ -45,6 +45,15 @@ describe('OutboxItemFrontMatterSchema', () => {
     expect(OutboxItemFrontMatterSchema.parse(item)).toEqual({ ...item, prd: 725, wave: 3 });
   });
 
+  it('reads a product PRD\'s item by its id, and refuses a PRD that is neither, naming it (PRD 1548)', () => {
+    expect(OutboxItemFrontMatterSchema.parse({ ...item, prd: 'mobile-12' }).prd).toBe('mobile-12');
+    for (const prd of ['mobile', '0', 'Mobile-12', '12-mobile']) {
+      const issue = firstIssue(OutboxItemFrontMatterSchema, { ...item, prd });
+      expect(issue?.path).toEqual(['prd']);
+      expect(issue?.message).toBe('prd must be a number, or a product PRD like mobile-12');
+    }
+  });
+
   it('refuses an unknown rank and a bad date, naming each', () => {
     const rank = firstIssue(OutboxItemFrontMatterSchema, { ...item, rank: 'low' });
     expect(rank?.path).toEqual(['rank']);
@@ -57,7 +66,7 @@ describe('OutboxItemFrontMatterSchema', () => {
   it('reads its id, its PRD and its slice into their brands, a rework\'s included (PRD 1049)', () => {
     const read = OutboxItemFrontMatterSchema.parse(item);
     expectTypeOf(read.id).toEqualTypeOf<OutboxItemId>();
-    expectTypeOf(read.prd).toEqualTypeOf<PrdNumber>();
+    expectTypeOf(read.prd).toEqualTypeOf<PrdNumber | ProductPrdId>();
     expectTypeOf(read.slice).toEqualTypeOf<WorkSliceId>();
     const rework = { ...item, id: 'fix-s3-01-zod-01-crew', slice: 'fix-s3-01-zod' };
     expect(OutboxItemFrontMatterSchema.parse(rework)).toMatchObject({ id: 'fix-s3-01-zod-01-crew', slice: 'fix-s3-01-zod' });

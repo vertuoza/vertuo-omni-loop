@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laws With Their Test</title>
+<style>
+/* Layout: a two-column ledger, today on the left, after on the right; each row is one moment in a law's life. */
+:root {
+  --bg: #f5f6f8; --panel: #ffffff; --fg: #1a1e27; --muted: #5b6272; --line: #d8dce4;
+  --today: #b0432c; --after: #2c6e5c; --accent: #3a4cc9; --chip: #eceef4;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121419; --panel: #1a1d25; --fg: #e6e8ef; --muted: #9ba1b3; --line: #2d313d;
+  --today: #e27b61; --after: #6ac2aa; --accent: #8e9cff; --chip: #242834; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121419; --panel: #1a1d25; --fg: #e6e8ef; --muted: #9ba1b3; --line: #2d313d;
+  --today: #e27b61; --after: #6ac2aa; --accent: #8e9cff; --chip: #242834; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-block: 32px 56px; padding-inline: 20px; display: grid; gap: 28px; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.05rem; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 70ch; }
+.lede { color: var(--muted); }
+code, pre { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+.heads, .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.heads span { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+.heads .t { color: var(--today); } .heads .a { color: var(--after); }
+.moment { display: grid; gap: 10px; }
+.cell { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
+.cell.t { border-top: 3px solid var(--today); } .cell.a { border-top: 3px solid var(--after); }
+.cell ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+pre { margin: 0; background: var(--chip); padding: 10px 12px; border-radius: 6px; overflow-x: auto; white-space: pre; line-height: 1.5; }
+.tag { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--chip); }
+.tag.red { color: var(--today); } .tag.green { color: var(--after); }
+.count { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.count b { font-size: 1.6rem; }
+.same { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.same ul { margin: 6px 0 0; padding-left: 18px; }
+@media (max-width: 720px) { .heads { display: none; } .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <h1>Laws are born with their test</h1>
+    <p class="lede">PRD 1342. Nothing on a screen changes besides one row on Settings › Jev. What changes is how a rule or an invariant enters the knowledge base, and who must answer when one is touched. Today on the left, after on the right.</p>
+  </header>
+
+  <div class="heads" aria-hidden="true"><span class="t">Today</span><span class="a">After</span></div>
+
+  <section class="moment">
+    <h2>1. The registers, read by every agent</h2>
+    <div class="row">
+      <div class="cell t">
+        <div class="count"><b>86</b><span>of 104 rules and invariants have no test</span></div>
+        <pre>## BR-PRODUCT-4
+Every slice is claimed by a draft pull request before it is built.
+Enforced by: unenforced</pre>
+        <p>Nothing stops the count from growing.</p>
+      </div>
+      <div class="cell a">
+        <div class="count"><b>0</b><span>laws without a test or an open law issue</span></div>
+        <pre>## BR-PRODUCT-4
+Every slice is claimed by a draft pull request before it is built.
+Enforced by: pending #1360</pre>
+        <p><code>laws.requireProof: true</code>: <code>omni check knowledge</code> refuses <code>unenforced</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <h2>2. The harvest, after a feature PR merges</h2>
+    <div class="row">
+      <div class="cell t">
+        <ul>
+          <li>The classifier calls a decision a rule.</li>
+          <li>It is written into <code>rules.md</code>, test or not.</li>
+        </ul>
+      </div>
+      <div class="cell a">
+        <ul>
+          <li>The PR changed a test that proves it: the law is written with that test.</li>
+          <li>Otherwise <b>worth a law?</b> Jev's <code>law-worth</code> decision, or the classifier's own answer when Jev is off.</li>
+          <li><span class="tag">no</span> it stays in <code>settled.md</code>: <i>not worth a law (Jev 0.21)</i>.</li>
+          <li><span class="tag green">yes</span> written as <code>pending #n</code>, and law issue <code>#n</code> opens.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <h2>3. Turning a law issue into a test</h2>
+    <div class="row">
+      <div class="cell t"><p>No step exists. A law without a test stays that way.</p></div>
+      <div class="cell a">
+        <pre>/omni:enforce 1360
+  test  kit/lib/wave/claim-first.test.ts
+  law broken  → red  ✓
+  restored    → green ✓
+  Enforced by: pending #1360 → kit/lib/wave/claim-first.test.ts
+  PR #1371 opened · closes #1360 · a person merges it</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <h2>4. A feature PR changes a law's test</h2>
+    <div class="row">
+      <div class="cell t">
+        <p><span class="tag">law-proof</span> fires; the account may be:</p>
+        <ul>
+          <li><code>spec &lt;where&gt;</code>, or</li>
+          <li>an item ranked <code>medium</code>, adopted by the wave.</li>
+        </ul>
+        <p><span class="tag green">outbox ✓</span> No person saw it.</p>
+      </div>
+      <div class="cell a">
+        <p><span class="tag">law-proof</span> <span class="tag">law-text</span> <span class="tag">test-removed</span> <span class="tag">law-demoted</span> are accounted only by an item ranked <code>high</code>.</p>
+        <p><span class="tag red">outbox ✗</span> until a person answers it on the PR.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <h2>5. A bug fix removes a law's test</h2>
+    <div class="row">
+      <div class="cell t">
+        <p><span class="tag">outbox: skipped</span> The server check grades only feature PRs.</p>
+      </div>
+      <div class="cell a">
+        <ul>
+          <li>No law touched: <span class="tag green">outbox ✓</span>, nothing new for the fixer.</li>
+          <li>A law touched: <span class="tag red">outbox ✗</span> naming the law, until <code>bugs/&lt;n&gt;/outbox/</code> holds a <code>high</code> item a person answered.</li>
+          <li>Knowledge PRs and enforce PRs: never red; a person merging them is the answer.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>Principles: still unenforced by design, served by the rules under them.</li>
+      <li>How a person answers an outbox item, and the <code>stored-shape</code> and <code>shared-contract</code> rules.</li>
+      <li>Every repository whose <code>laws.source</code> is not <code>knowledge</code>: nothing runs.</li>
+      <li>Every repository until its own sweep PR merges: <code>unenforced</code> is still accepted.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

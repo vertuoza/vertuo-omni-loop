@@ -121,3 +121,18 @@ describe('/app/loop/<id> decides once', () => {
     await expect(detailView(LOOP)).rejects.toThrow('not found');
   });
 });
+
+// Law BR-PRODUCT-75 (.omni-loop/knowledge/product/rules.md, #1536).
+it('law BR-PRODUCT-75: a signed-out visitor to the Loop page or one loop\'s page is asked to sign in, and the demo loops show only in demo mode', async () => {
+  given.session = { kind: 'sign-in' };
+  given.demo = LIST;
+  expect((await listView()).view).toEqual({ kind: 'sign-in' });
+  given.demo = ONE;
+  expect((await detailView(LOOP)).view).toEqual({ kind: 'sign-in' });
+  expect(demoLoopPage).not.toHaveBeenCalled();
+  expect(loadLoopPage).not.toHaveBeenCalled();
+  given.session = { kind: 'demo' };
+  expect((await listView()).view).toBe(ONE);
+  expect((await detailView(LOOP)).view).toBe(ONE);
+  expect(demoLoopPage).toHaveBeenCalledTimes(2);
+});

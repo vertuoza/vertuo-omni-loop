@@ -108,7 +108,7 @@ export function detailOf(row: LoopRow, ticks: readonly TickRow[], plans: readonl
     ...summaryOf(row, runners, now),
     versions,
     current,
-    ledger: ledgerOf(ticks, plans),
-    parked: row.parked.map((p) => ({ prd: p.prd, href: prdHref(p.prd), who: p.who, what: p.what, link: p.link, at: clockOf(p.at) })),
+    ledger: ledgerOf(ticks, plans, row.repo),
+    parked: row.parked.map((p) => ({ prd: p.prd, href: prdHref(row.repo, p.prd), who: p.who, what: p.what, link: p.link, at: clockOf(p.at) })),
   };
 }

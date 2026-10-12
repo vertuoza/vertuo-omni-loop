@@ -3,7 +3,7 @@ import { supabaseGithubStore, type GithubStore } from '@omni/github';
 import { serviceDb } from '../../data/sign-in-live';
 import { serverEnv, type GithubAppEnv } from '../../env';
 import { appCredentials } from '../../signup/github-app';
-import { githubReader, type FixReader, type GithubReader } from './reader';
+import { githubReader, type ConceptReader, type FixReader, type GithubReader } from './reader';
 
 // The one GitHub reader of this server (PRD 426), so its token and its 60-second cache are shared by
 // every request. It holds the App's existing GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY, set for
@@ -11,7 +11,7 @@ import { githubReader, type FixReader, type GithubReader } from './reader';
 // Its calls spend the installation's budget through the shared client (PRD 902, s1), whose ETags and
 // budget live in Supabase, written with the service role as prd_stages is.
 
-let reader: (GithubReader & FixReader) | null | undefined;
+let reader: (GithubReader & FixReader & ConceptReader) | null | undefined;
 let store: GithubStore | undefined;
 
 /** The budget's store on the service role's client, made at its first call: without the key, each call
@@ -36,7 +36,7 @@ export function githubStore(): GithubStore {
   return store;
 }
 
-export function dossierGithub(app: GithubAppEnv | null = serverEnv().githubApp): (GithubReader & FixReader) | null {
+export function dossierGithub(app: GithubAppEnv | null = serverEnv().githubApp): (GithubReader & FixReader & ConceptReader) | null {
   if (reader !== undefined) return reader;
   try {
     reader = githubReader(appCredentials(app), fetch, Date.now, githubStore());

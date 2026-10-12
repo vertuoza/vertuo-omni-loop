@@ -41,6 +41,16 @@ describe('starting a sign-in', () => {
     expect(signInWithOAuth).toHaveBeenCalledWith({ provider: 'github', options: { redirectTo: 'https://galaxy.example/ask/callback', scopes: 'read:org' } });
   });
 
+  it('for a voter (PRD 1246), asks for no read:org: a voter needs no workspace', async () => {
+    expect(githubSignIn('https://galaxy.example/auth/callback?next=ideas', { orgs: false })).toEqual({
+      provider: 'github',
+      options: { redirectTo: 'https://galaxy.example/auth/callback?next=ideas' },
+    });
+    signInWithOAuth.mockClear();
+    expect(await startGithubSignIn({ url: 'https://db.example.com', key: 'k' }, 'https://galaxy.example/auth/callback?next=ideas', { orgs: false })).toBeNull();
+    expect(signInWithOAuth).toHaveBeenCalledWith({ provider: 'github', options: { redirectTo: 'https://galaxy.example/auth/callback?next=ideas' } });
+  });
+
   it('says why when GitHub sign-in could not start', async () => {
     signInWithOAuth.mockResolvedValueOnce({ data: {}, error: { message: 'provider is not enabled' } });
     expect(await startGithubSignIn({ url: 'https://db.example.com', key: 'k' }, '/x')).toBe('GitHub sign-in could not start: provider is not enabled');

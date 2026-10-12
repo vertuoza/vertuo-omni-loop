@@ -55,12 +55,16 @@ the command with one line naming the variables, never a value (ADR-0057). Every 
 
 <!-- omni:env-variables -->
 - `OPENROUTER_API_KEY`, and optionally `OPENROUTER_MODEL`: the model `omni harvest` asks where each
-  decision belongs.
+  decision belongs, and whether a rule is worth a law; `omni knowledge judge`, the sweep of a
+  repository's untested laws, needs it ([Laws and their tests](docs/guide/loop.md#laws-and-their-tests)).
 - `PROOF_URL` and `PROOF_STORAGE_STATE`: the address `/omni:prove` films and the file
   `omni proof session` writes its sign-in to.
 - `OMNI_LOOP_WORKSPACE`: the workspace a game command plays for when `--workspace` names none.
 - `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY`: the game's
   database, for the `game:*` commands, `personas-import` and `schemas:verify --production`.
+- `OMNI_TOKEN`: a kit token (`omk_…`, made by `omni setup-token`) that signs every `omni` command in
+  to the Omni page where no browser can, a Claude Code cloud session; set, it wins over the sign-in
+  `omni signin` keeps, and `omni whoami` prints `(OMNI_TOKEN ··<last four>)`.
 <!-- /omni:env-variables -->
 
 The app and the arcade each list their own: [`apps/omni-app/README.md`](apps/omni-app/README.md),

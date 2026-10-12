@@ -1,21 +1,16 @@
 // `omni comment --prd <n> (--pr <n> [--result f] | --branch <b> [--ref] [--base] [--labels]
 // [--slack-note f] [--title] [--owner-slack-id] [--owner-login] [--pr-comment f]) [--repo]` — the two
-// outbox comments (the feature pull request's, then the PRD issue's) and the Slack note file.
+// outbox comments (the feature pull request's, then the PRD issue's) and the Slack note file. Each
+// comment reads the PRD's outbox through its outbox store (PRD 1548, s6).
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 import { writeFileSync } from 'node:fs';
 import { rangeChanges } from '../../lib/git.ts';
-import {
-  maybeWriteSlackNote,
-  readPrCommentResult,
-  slackOwner,
-  upsertOutboxComment,
-  upsertOutboxPrComment,
-} from '../../lib/outbox/comment.ts';
+import { maybeWriteSlackNote, readPrCommentResult, slackOwner } from '../../lib/outbox/comment.ts';
+import { outboxStore } from '../../lib/outbox/stores.ts';
 import { githubClientFor } from '../github.ts';
 import { errorMessage, inRoot, list, parseArgs, prArg, prdArg, println, repoSlug, usageError } from '../args.ts';
 import type { NameStatus } from '../../lib/git.ts';
 import type { Command, CommandIo } from '../io.ts';
-import { synchronous } from '../synchronous.ts';
 
 const USAGE =
   'usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] ' +
@@ -23,7 +18,7 @@ const USAGE =
   ' | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]';
 
 export const comment: Command = {
-  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
+  async run(args: string[], { ctx, stdout, exec, env }: CommandIo): Promise<number> {
     const { positional, flags } = parseArgs('comment', args, {
       values: ['prd', 'pr', 'repo', 'result', 'branch', 'ref', 'base', 'labels', 'slack-note', 'title', 'owner-slack-id', 'owner-login', 'pr-comment'],
     });
@@ -31,12 +26,13 @@ export const comment: Command = {
     const prd = prdArg('comment', '--prd', flags.prd);
     const repo = repoSlug('comment', ctx, flags.repo);
     const [owner = '', name = ''] = repo.split('/');
+    const store = outboxStore(ctx);
 
     // `--pr` writes the plain-words comment on the feature pull request itself; its absence writes
     // the PRD-issue comment.
     if (flags.pr !== undefined) {
       const pr = prArg('comment', '--pr', flags.pr);
-      const result = upsertOutboxPrComment({ prd, ctx }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
+      const result = await store.prComment(prd, githubClientFor(ctx, { repo, issue: pr, exec, env }));
       println(
         stdout,
         `omni comment: ${result.action} pull request comment #${result.id ?? '?'} on PR #${pr} — ` +
@@ -63,8 +59,8 @@ export const comment: Command = {
         throw usageError(errorMessage(error).split('\n')[0] ?? '');
       }
     }
-    const result = upsertOutboxComment(
-      { prd, owner, repo: name, branch, ref, ctx, changes, labels: list(flags.labels) },
+    const result = await store.issueComment(
+      { prd, owner, repo: name, branch, ref, changes, labels: list(flags.labels) },
       githubClientFor(ctx, { repo, issue: prd, exec, env }),
     );
     println(
@@ -84,5 +80,5 @@ export const comment: Command = {
       path: flags['slack-note'] ? inRoot(ctx, flags['slack-note']) : null,
     });
     return 0;
-  }),
+  },
 };

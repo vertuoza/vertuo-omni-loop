@@ -152,6 +152,7 @@ export type Database = {
       agent_tokens: {
         Row: {
           created_at: string
+          expires_at: string | null
           id: string
           last_four: string
           last_used_at: string | null
@@ -159,11 +160,16 @@ export type Database = {
           name: string
           revoked_at: string | null
           revoked_by: string | null
+          scope: string
+          session: string | null
+          session_lease: string | null
+          session_lease_until: string | null
           token_hash: string
           workspace_id: string
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           last_four: string
           last_used_at?: string | null
@@ -171,11 +177,16 @@ export type Database = {
           name: string
           revoked_at?: string | null
           revoked_by?: string | null
+          scope?: string
+          session?: string | null
+          session_lease?: string | null
+          session_lease_until?: string | null
           token_hash: string
           workspace_id: string
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           last_four?: string
           last_used_at?: string | null
@@ -183,6 +194,10 @@ export type Database = {
           name?: string
           revoked_at?: string | null
           revoked_by?: string | null
+          scope?: string
+          session?: string | null
+          session_lease?: string | null
+          session_lease_until?: string | null
           token_hash?: string
           workspace_id?: string
         }
@@ -192,6 +207,174 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_channels: {
+        Row: {
+          email: boolean
+          push: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email?: boolean
+          push?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          email?: boolean
+          push?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      approval_requests: {
+        Row: {
+          asked: string[]
+          asked_at: string
+          asked_by: string
+          dossier_id: string
+          id: string
+          kind: string
+          nobody_else: boolean
+          product_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          asked: string[]
+          asked_at?: string
+          asked_by: string
+          dossier_id: string
+          id?: string
+          kind: string
+          nobody_else: boolean
+          product_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          asked?: string[]
+          asked_at?: string
+          asked_by?: string
+          dossier_id?: string
+          id?: string
+          kind?: string
+          nobody_else?: boolean
+          product_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_voids: {
+        Row: {
+          approval_id: string
+          dossier_id: string
+          from_sha256: string
+          id: string
+          kind: string
+          pushed_by: string | null
+          pusher_login: string
+          to_sha256: string
+          version_id: string
+          voided_at: string
+        }
+        Insert: {
+          approval_id: string
+          dossier_id: string
+          from_sha256: string
+          id?: string
+          kind: string
+          pushed_by?: string | null
+          pusher_login: string
+          to_sha256: string
+          version_id: string
+          voided_at?: string
+        }
+        Update: {
+          approval_id?: string
+          dossier_id?: string
+          from_sha256?: string
+          id?: string
+          kind?: string
+          pushed_by?: string | null
+          pusher_login?: string
+          to_sha256?: string
+          version_id?: string
+          voided_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_voids_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_voids_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_voids_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "dossier_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          approver_login: string
+          dossier_id: string
+          files: Json
+          id: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          approver_login: string
+          dossier_id: string
+          files: Json
+          id?: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          approver_login?: string
+          dossier_id?: string
+          files?: Json
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approvals_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
             referencedColumns: ["id"]
           },
         ]
@@ -246,6 +429,51 @@ export type Database = {
           expires_at?: string
           owner?: string
           refresh_token?: string
+        }
+        Relationships: []
+      }
+      ask_cli_devices: {
+        Row: {
+          days: number | null
+          device_hash: string
+          expires_at: string
+          last_polled_at: string | null
+          name: string | null
+          payload: string | null
+          payload_expires_at: string | null
+          poll_interval: number
+          purpose: string
+          status: string
+          user_code: string
+          workspace: string | null
+        }
+        Insert: {
+          days?: number | null
+          device_hash: string
+          expires_at: string
+          last_polled_at?: string | null
+          name?: string | null
+          payload?: string | null
+          payload_expires_at?: string | null
+          poll_interval?: number
+          purpose: string
+          status?: string
+          user_code: string
+          workspace?: string | null
+        }
+        Update: {
+          days?: number | null
+          device_hash?: string
+          expires_at?: string
+          last_polled_at?: string | null
+          name?: string | null
+          payload?: string | null
+          payload_expires_at?: string | null
+          poll_interval?: number
+          purpose?: string
+          status?: string
+          user_code?: string
+          workspace?: string | null
         }
         Relationships: []
       }
@@ -960,42 +1188,58 @@ export type Database = {
       }
       dossiers: {
         Row: {
+          birthplace: string | null
           claude_session_id: string | null
           created_at: string
-          home_repo: string
+          home_repo: string | null
           id: string
           kind: string
           numbered_at: string | null
           opened_by: string | null
           prd: number | null
+          product_id: string | null
+          product_seq: number | null
           title: string
           workspace_id: string
         }
         Insert: {
+          birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
-          home_repo: string
+          home_repo?: string | null
           id?: string
           kind?: string
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
+          product_id?: string | null
+          product_seq?: number | null
           title: string
           workspace_id: string
         }
         Update: {
+          birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
-          home_repo?: string
+          home_repo?: string | null
           id?: string
           kind?: string
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
+          product_id?: string | null
+          product_seq?: number | null
           title?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "dossiers_product_id_workspace_id_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
           {
             foreignKeyName: "dossiers_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -1097,6 +1341,89 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      idea_votes: {
+        Row: {
+          created_at: string
+          idea_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          idea_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          idea_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_votes_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ideas: {
+        Row: {
+          added_by: string | null
+          archived: boolean
+          created_at: string
+          id: string
+          lane: string
+          pitch: string
+          prd: number | null
+          product_id: string | null
+          repo: string
+          title: string
+          workspace_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          archived?: boolean
+          created_at?: string
+          id?: string
+          lane?: string
+          pitch: string
+          prd?: number | null
+          product_id?: string | null
+          repo: string
+          title: string
+          workspace_id: string
+        }
+        Update: {
+          added_by?: string | null
+          archived?: boolean
+          created_at?: string
+          id?: string
+          lane?: string
+          pitch?: string
+          prd?: number | null
+          product_id?: string | null
+          repo?: string
+          title?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_product_id_workspace_id_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "ideas_workspace_id_repo_fkey"
+            columns: ["workspace_id", "repo"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
       }
       jev_calls: {
         Row: {
@@ -1291,6 +1618,7 @@ export type Database = {
           merged: number[]
           next_wake_at: string | null
           prd: number
+          repos: string[]
           result: string
           step: number
           steps: number
@@ -1305,6 +1633,7 @@ export type Database = {
           merged?: number[]
           next_wake_at?: string | null
           prd: number
+          repos?: string[]
           result: string
           step: number
           steps: number
@@ -1319,6 +1648,7 @@ export type Database = {
           merged?: number[]
           next_wake_at?: string | null
           prd?: number
+          repos?: string[]
           result?: string
           step?: number
           steps?: number
@@ -1386,6 +1716,62 @@ export type Database = {
           },
         ]
       }
+      outbox_items: {
+        Row: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id: string
+          item: string
+          raised: string
+          raised_at: string
+          raised_by: string
+          rank: string
+          repository: string | null
+          slice: string
+          updated_at: string
+          wave: number
+        }
+        Insert: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id?: string
+          item: string
+          raised: string
+          raised_at?: string
+          raised_by: string
+          rank: string
+          repository?: string | null
+          slice: string
+          updated_at?: string
+          wave: number
+        }
+        Update: {
+          bears_on?: string
+          body?: string
+          dossier_id?: string
+          id?: string
+          item?: string
+          raised?: string
+          raised_at?: string
+          raised_by?: string
+          rank?: string
+          repository?: string | null
+          slice?: string
+          updated_at?: string
+          wave?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbox_items_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outbox_sends: {
         Row: {
           comment_url: string | null
@@ -1435,6 +1821,50 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outbox_settlements: {
+        Row: {
+          answer: string | null
+          basis: string
+          channel: string | null
+          id: string
+          item_id: string
+          settled_at: string
+          settled_by: string
+          settler_login: string
+          verdict: string
+        }
+        Insert: {
+          answer?: string | null
+          basis: string
+          channel?: string | null
+          id?: string
+          item_id: string
+          settled_at?: string
+          settled_by: string
+          settler_login: string
+          verdict: string
+        }
+        Update: {
+          answer?: string | null
+          basis?: string
+          channel?: string | null
+          id?: string
+          item_id?: string
+          settled_at?: string
+          settled_by?: string
+          settler_login?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbox_settlements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "outbox_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1746,16 +2176,114 @@ export type Database = {
           },
         ]
       }
+      product_approvers: {
+        Row: {
+          product_id: string
+          set_at: string
+          set_by: string | null
+          state: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          product_id: string
+          set_at?: string
+          set_by?: string | null
+          state: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          product_id?: string
+          set_at?: string
+          set_by?: string | null
+          state?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_approvers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_approvers_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_members"
+            referencedColumns: ["workspace_id", "user_id"]
+          },
+        ]
+      }
+      product_repositories: {
+        Row: {
+          added_at: string
+          added_by: string
+          consumes: string[]
+          knowledge: string
+          product_id: string
+          read_at: string | null
+          read_only: boolean
+          repository: string
+          role: string | null
+          workspace_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          consumes?: string[]
+          knowledge?: string
+          product_id: string
+          read_at?: string | null
+          read_only?: boolean
+          repository: string
+          role?: string | null
+          workspace_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          consumes?: string[]
+          knowledge?: string
+          product_id?: string
+          read_at?: string | null
+          read_only?: boolean
+          repository?: string
+          role?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_repositories_product_id_workspace_id_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "product_repositories_workspace_id_repository_fkey"
+            columns: ["workspace_id", "repository"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
       products: {
         Row: {
           business_id: string
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         Insert: {
@@ -1763,10 +2291,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          key?: string | null
           name: string
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          prd_count?: number
           workspace_id: string
         }
         Update: {
@@ -1774,10 +2304,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          key?: string | null
           name?: string
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          prd_count?: number
           workspace_id?: string
         }
         Relationships: [
@@ -1947,6 +2479,36 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          device_label: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          device_label?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          device_label?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       releases: {
         Row: {
           description: string
@@ -1979,7 +2541,8 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
-          product_id: string | null
+          phase0: string
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -1990,7 +2553,8 @@ export type Database = {
           collected_at?: string | null
           collected_until?: string | null
           full_name: string
-          product_id?: string | null
+          phase0?: string
+          public_ideas?: boolean
           tracked?: boolean
           workspace_id: string
         }
@@ -2001,20 +2565,260 @@ export type Database = {
           collected_at?: string | null
           collected_until?: string | null
           full_name?: string
-          product_id?: string | null
+          phase0?: string
+          public_ideas?: boolean
           tracked?: boolean
           workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "repositories_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: "repositories_workspace_id_fkey"
+            columns: ["workspace_id"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      roadmap_human_work: {
+        Row: {
+          act: string | null
+          classified_at: string | null
+          done_at: string | null
+          first_seen_at: string
+          key: string
+          kind: string
+          kind_by: string
+          prd: number | null
+          repo: string
+          roadmap_id: string
+          source: string
+          state: string
+          text: string
+          url: string | null
+        }
+        Insert: {
+          act?: string | null
+          classified_at?: string | null
+          done_at?: string | null
+          first_seen_at?: string
+          key: string
+          kind: string
+          kind_by: string
+          prd?: number | null
+          repo: string
+          roadmap_id: string
+          source: string
+          state?: string
+          text: string
+          url?: string | null
+        }
+        Update: {
+          act?: string | null
+          classified_at?: string | null
+          done_at?: string | null
+          first_seen_at?: string
+          key?: string
+          kind?: string
+          kind_by?: string
+          prd?: number | null
+          repo?: string
+          roadmap_id?: string
+          source?: string
+          state?: string
+          text?: string
+          url?: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "repositories_workspace_id_fkey"
+            foreignKeyName: "roadmap_human_work_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_prds: {
+        Row: {
+          blockers: string[]
+          ended_at: string | null
+          position: number
+          prd: number
+          repos: string[]
+          roadmap_id: string
+          row_id: string
+          started_at: string | null
+          state: string
+          title: string
+          waits_on: string | null
+          waits_on_url: string | null
+          wave: number
+        }
+        Insert: {
+          blockers?: string[]
+          ended_at?: string | null
+          position: number
+          prd: number
+          repos?: string[]
+          roadmap_id: string
+          row_id: string
+          started_at?: string | null
+          state: string
+          title: string
+          waits_on?: string | null
+          waits_on_url?: string | null
+          wave: number
+        }
+        Update: {
+          blockers?: string[]
+          ended_at?: string | null
+          position?: number
+          prd?: number
+          repos?: string[]
+          roadmap_id?: string
+          row_id?: string
+          started_at?: string | null
+          state?: string
+          title?: string
+          waits_on?: string | null
+          waits_on_url?: string | null
+          wave?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_prds_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_prerequisites: {
+        Row: {
+          blocks: string[]
+          blocks_all: boolean
+          card: Json | null
+          category: string
+          check_with: string | null
+          detail: string | null
+          fix_with: string | null
+          need: string
+          position: number
+          repos: string[]
+          roadmap_id: string
+          row_id: string
+          state: string | null
+          who: string
+        }
+        Insert: {
+          blocks?: string[]
+          blocks_all?: boolean
+          card?: Json | null
+          category: string
+          check_with?: string | null
+          detail?: string | null
+          fix_with?: string | null
+          need: string
+          position: number
+          repos?: string[]
+          roadmap_id: string
+          row_id: string
+          state?: string | null
+          who: string
+        }
+        Update: {
+          blocks?: string[]
+          blocks_all?: boolean
+          card?: Json | null
+          category?: string
+          check_with?: string | null
+          detail?: string | null
+          fix_with?: string | null
+          need?: string
+          position?: number
+          repos?: string[]
+          roadmap_id?: string
+          row_id?: string
+          state?: string | null
+          who?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_prerequisites_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmaps: {
+        Row: {
+          created_at: string
+          document: string
+          id: string
+          milestone: string
+          number: number
+          prerequisites_checked_at: string | null
+          prerequisites_machine: string | null
+          product_id: string | null
+          pushed_at: string
+          pushed_by: string | null
+          questions: Json
+          repo: string
+          source: string | null
+          target_date: string | null
+          title: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          document: string
+          id?: string
+          milestone: string
+          number: number
+          prerequisites_checked_at?: string | null
+          prerequisites_machine?: string | null
+          product_id?: string | null
+          pushed_at?: string
+          pushed_by?: string | null
+          questions?: Json
+          repo: string
+          source?: string | null
+          target_date?: string | null
+          title: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          document?: string
+          id?: string
+          milestone?: string
+          number?: number
+          prerequisites_checked_at?: string | null
+          prerequisites_machine?: string | null
+          product_id?: string | null
+          pushed_at?: string
+          pushed_by?: string | null
+          questions?: Json
+          repo?: string
+          source?: string | null
+          target_date?: string | null
+          title?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmaps_product_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "roadmaps_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2288,7 +3092,8 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
-          product_id: string | null
+          phase0: string
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -2382,6 +3187,7 @@ export type Database = {
         Args: { p_hash: string }
         Returns: {
           created_at: string
+          expires_at: string | null
           id: string
           last_four: string
           last_used_at: string | null
@@ -2389,6 +3195,10 @@ export type Database = {
           name: string
           revoked_at: string | null
           revoked_by: string | null
+          scope: string
+          session: string | null
+          session_lease: string | null
+          session_lease_until: string | null
           token_hash: string
           workspace_id: string
         }
@@ -2404,6 +3214,7 @@ export type Database = {
         Returns: Json
       }
       agent_tokens_list: { Args: { p_workspace: string }; Returns: Json }
+      agent_tokens_live: { Args: { p_person: string }; Returns: number }
       answered_counts: {
         Args: { from_at: string; to_at: string; workspace: string }
         Returns: {
@@ -2411,6 +3222,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      approval_people: { Args: { p_dossier: string }; Returns: Json }
+      approval_recipients: { Args: { p_request: string }; Returns: Json }
+      approval_request: {
+        Args: { p_prd: number; p_product?: string; p_repo: string }
+        Returns: Json
+      }
+      approval_requests_waiting: { Args: never; Returns: Json }
+      approval_void_recipients: { Args: { p_void: string }; Returns: Json }
+      approval_voids_of_push: { Args: { p_dossier: string }; Returns: Json }
       ask_answers_valid: { Args: { a: Json }; Returns: boolean }
       ask_attachment_round: { Args: { path: string }; Returns: string }
       ask_attachments_valid: {
@@ -2427,6 +3247,71 @@ export type Database = {
           expires_at: string
           owner: string
           refresh_token: string
+        }[]
+      }
+      ask_cli_device_approve: {
+        Args: {
+          p_now: string
+          p_payload: string
+          p_payload_expires_at?: string
+          p_purpose: string
+          p_user_code: string
+        }
+        Returns: boolean
+      }
+      ask_cli_device_deny: {
+        Args: { p_now: string; p_user_code: string }
+        Returns: boolean
+      }
+      ask_cli_device_find: {
+        Args: { p_user_code: string }
+        Returns: {
+          days: number
+          expires_at: string
+          last_polled_at: string
+          name: string
+          poll_interval: number
+          purpose: string
+          status: string
+          workspace: string
+        }[]
+      }
+      ask_cli_device_issue: {
+        Args: {
+          p_days?: number
+          p_device_hash: string
+          p_expires_at: string
+          p_name?: string
+          p_now: string
+          p_purpose: string
+          p_user_code: string
+          p_workspace?: string
+        }
+        Returns: boolean
+      }
+      ask_cli_device_polled: {
+        Args: { p_device_hash: string; p_interval: number; p_polled_at: string }
+        Returns: undefined
+      }
+      ask_cli_device_read: {
+        Args: { p_device_hash: string }
+        Returns: {
+          days: number
+          expires_at: string
+          last_polled_at: string
+          name: string
+          poll_interval: number
+          purpose: string
+          status: string
+          workspace: string
+        }[]
+      }
+      ask_cli_device_take: {
+        Args: { p_device_hash: string }
+        Returns: {
+          payload: string
+          payload_expires_at: string
+          purpose: string
         }[]
       }
       ask_may_answer: { Args: { round: string }; Returns: boolean }
@@ -2570,10 +3455,13 @@ export type Database = {
         Args: { p_product: string; p_workspace: string }
         Returns: Json
       }
-      business_for_repo: { Args: { p_repo: string }; Returns: Json }
+      business_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: Json
+      }
       business_for_repo_app: { Args: { p_repo: string }; Returns: Json }
       business_for_token: {
-        Args: { p_hash: string; p_repo?: string }
+        Args: { p_hash: string; p_prd?: number; p_repo?: string }
         Returns: Json
       }
       business_member_only: {
@@ -2619,10 +3507,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -2668,6 +3558,7 @@ export type Database = {
       claim_answer: {
         Args: {
           p_kind: string
+          p_prd?: number
           p_ref: string
           p_repo: string
           p_state: string
@@ -2907,7 +3798,10 @@ export type Database = {
         Args: { p_kind: string; p_text: string }
         Returns: string
       }
-      constituents_for_repo: { Args: { p_repo: string }; Returns: Json }
+      constituents_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: Json
+      }
       constituents_for_repo_app: { Args: { p_repo: string }; Returns: Json }
       constituents_move_never_claims: { Args: never; Returns: number }
       constituents_of_product: { Args: { p_product: string }; Returns: Json }
@@ -2962,6 +3856,15 @@ export type Database = {
         }
         Returns: number
       }
+      dossier_approval: {
+        Args: { p_prd: number; p_product?: string; p_repo: string }
+        Returns: Json
+      }
+      dossier_approve: { Args: { p_dossier: string }; Returns: Json }
+      dossier_link_repositories: {
+        Args: { p_dossier: string }
+        Returns: undefined
+      }
       dossier_list: {
         Args: { p_dossier?: string; p_workspace?: string }
         Returns: {
@@ -2991,6 +3894,8 @@ export type Database = {
           p_draft: string
           p_kind?: string
           p_prd: number
+          p_product?: string
+          p_product_key?: string
           p_repo: string
           p_title: string
         }
@@ -3018,6 +3923,10 @@ export type Database = {
           status: string
         }[]
       }
+      dossier_set_product: {
+        Args: { p_dossier: string; p_product: string }
+        Returns: Json
+      }
       dossier_takes: {
         Args: { p_dossier_kind: string; p_version_kind: string }
         Returns: boolean
@@ -3034,8 +3943,24 @@ export type Database = {
       fleet_mascots: { Args: never; Returns: string[] }
       fleet_owner_only: { Args: { p_workspace: string }; Returns: undefined }
       fleet_room: { Args: { p_workspace: string }; Returns: undefined }
+      game_answered_rounds: {
+        Args: { since: string; workspace: string }
+        Returns: {
+          answered_at: string
+          home: string
+          login: string
+          prd: number
+          round_id: string
+        }[]
+      }
       has_workspace: { Args: never; Returns: boolean }
       hook_before_user_created: { Args: { event: Json }; Returns: Json }
+      idea_votable: { Args: { p_idea: string }; Returns: boolean }
+      ideas_board: { Args: { p_full_name: string }; Returns: Json }
+      ideas_public_board: {
+        Args: { p_repo: string; p_workspace: string }
+        Returns: boolean
+      }
       is_member: { Args: { workspace: string }; Returns: boolean }
       is_owner: { Args: { workspace: string }; Returns: boolean }
       jev_decision_names: { Args: never; Returns: string[] }
@@ -3052,7 +3977,33 @@ export type Database = {
         Args: { p_logins: string[]; p_user_id: string }
         Returns: string[]
       }
+      kart_grid_allows: { Args: { p_topic: string }; Returns: boolean }
+      kit_token_claim: { Args: { p_hash: string }; Returns: Json }
+      kit_token_make: {
+        Args: {
+          p_days: number
+          p_hash: string
+          p_last_four: string
+          p_name: string
+          p_session: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
+      kit_token_release: {
+        Args: { p_lease: string; p_token: string }
+        Returns: undefined
+      }
+      kit_token_renewed: {
+        Args: { p_lease: string; p_session: string; p_token: string }
+        Returns: boolean
+      }
+      kit_tokens_mine: { Args: { p_workspace: string }; Returns: Json }
       link_github: { Args: never; Returns: Json }
+      lookup_product: {
+        Args: { p_prd?: number; p_repo: string; p_workspace: string }
+        Returns: string
+      }
       loop_is_silent: {
         Args: { at: string; l: Database["public"]["Tables"]["loops"]["Row"] }
         Returns: boolean
@@ -3061,12 +4012,104 @@ export type Database = {
         Args: { p_body?: Json; p_event: string; p_loop?: string }
         Returns: Json
       }
+      member_login: {
+        Args: { p_user: string; p_workspace: string }
+        Returns: string
+      }
       my_github: {
         Args: never
         Returns: {
           github_id: number
           github_login: string
         }[]
+      }
+      outbox_item_adopt: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_raised: string
+          p_rank: string
+          p_repository?: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: Json
+      }
+      outbox_item_of: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_dossier: string
+          p_item: string
+          p_raised: string
+          p_rank: string
+          p_repository: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id: string
+          item: string
+          raised: string
+          raised_at: string
+          raised_by: string
+          rank: string
+          repository: string | null
+          slice: string
+          updated_at: string
+          wave: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "outbox_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      outbox_item_put: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_raised: string
+          p_rank: string
+          p_repository?: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: Json
+      }
+      outbox_prd_of: {
+        Args: { p_prd: number; p_product: string; p_repo: string }
+        Returns: {
+          birthplace: string | null
+          claude_session_id: string | null
+          created_at: string
+          home_repo: string | null
+          id: string
+          kind: string
+          numbered_at: string | null
+          opened_by: string | null
+          prd: number | null
+          product_id: string | null
+          product_seq: number | null
+          title: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dossiers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       outbox_send_done: {
         Args: {
@@ -3077,6 +4120,19 @@ export type Database = {
           p_send: string
         }
         Returns: undefined
+      }
+      outbox_settle: {
+        Args: {
+          p_answer: string
+          p_basis: string
+          p_channel: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_repo?: string
+          p_verdict: string
+        }
+        Returns: Json
       }
       persona_add: {
         Args: {
@@ -3236,7 +4292,10 @@ export type Database = {
       pitch_dossier_shipped: { Args: { p_dossier: string }; Returns: boolean }
       pitch_files: { Args: never; Returns: string[] }
       pitch_from_look: { Args: { p_look: string }; Returns: Json }
-      pitch_look_for_repo: { Args: { p_repo: string }; Returns: string }
+      pitch_look_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: string
+      }
       pitch_path_dossier: { Args: { path: string }; Returns: string }
       pitch_path_run: { Args: { path: string }; Returns: string }
       pitch_refusal: { Args: { p_pitch: Json }; Returns: string }
@@ -3255,7 +4314,36 @@ export type Database = {
         }
         Returns: string
       }
-      pitch_settings_for_repo: { Args: { p_repo: string }; Returns: Json }
+      pitch_settings_for_repo: {
+        Args: { p_prd?: number; p_repo: string }
+        Returns: Json
+      }
+      plan_repository_names: { Args: { p_plan: string }; Returns: string[] }
+      prd_dossier: {
+        Args: { p_prd: number; p_product?: string; p_repo: string }
+        Returns: {
+          birthplace: string | null
+          claude_session_id: string | null
+          created_at: string
+          home_repo: string | null
+          id: string
+          kind: string
+          numbered_at: string | null
+          opened_by: string | null
+          prd: number | null
+          product_id: string | null
+          product_seq: number | null
+          title: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dossiers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      prd_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -3263,10 +4351,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -3276,17 +4366,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      product_rename: {
-        Args: { p_name: string; p_product: string; p_workspace: string }
+      product_approver_remove: {
+        Args: { p_member: string; p_product: string }
+        Returns: boolean
+      }
+      product_approver_set: {
+        Args: { p_member: string; p_product: string; p_state: string }
+        Returns: Json
+      }
+      product_of_key: {
+        Args: { p_key: string; p_repo?: string }
         Returns: {
           business_id: string
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -3295,6 +4395,88 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      product_prd_ids_rollback_guard: { Args: never; Returns: undefined }
+      product_rename: {
+        Args: { p_name: string; p_product: string; p_workspace: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          prd_count: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_repository_link: {
+        Args: {
+          p_consumes?: string[]
+          p_knowledge?: string
+          p_product: string
+          p_read_at?: string
+          p_read_only?: boolean
+          p_repository: string
+          p_role?: string
+        }
+        Returns: {
+          added_at: string
+          added_by: string
+          consumes: string[]
+          knowledge: string
+          product_id: string
+          read_at: string | null
+          read_only: boolean
+          repository: string
+          role: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_repository_owned: {
+        Args: { p_product: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          prd_count: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_repository_unlink: {
+        Args: { p_product: string; p_repository: string }
+        Returns: boolean
+      }
+      product_set_key: {
+        Args: { p_key: string; p_product: string }
+        Returns: Json
       }
       proof_criteria_valid: { Args: { c: Json }; Returns: boolean }
       proof_file_name_valid: { Args: { name: string }; Returns: boolean }
@@ -3316,30 +4498,15 @@ export type Database = {
         Args: { person: string; repo: string }
         Returns: Record<string, unknown>
       }
+      repository_only_product: {
+        Args: { p_repo: string; p_workspace: string }
+        Returns: string
+      }
       repository_owner_only: {
         Args: { p_workspace: string }
         Returns: undefined
       }
-      repository_set_product: {
-        Args: { p_full_name: string; p_product: string; p_workspace: string }
-        Returns: {
-          added_at: string
-          added_by: string | null
-          collect_error: string | null
-          collected_at: string | null
-          collected_until: string | null
-          full_name: string
-          product_id: string | null
-          tracked: boolean
-          workspace_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "repositories"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      repository_phase0: { Args: { p_repo: string }; Returns: string }
       restore_fleet: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -3380,6 +4547,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      roadmap_human_work_claim: {
+        Args: { p_limit: number; p_roadmap: string }
+        Returns: Json
+      }
+      roadmap_human_work_set_kind: {
+        Args: { p_key: string; p_kind: string; p_roadmap: string }
+        Returns: boolean
+      }
+      roadmap_prerequisites_push: { Args: { p_body: Json }; Returns: Json }
+      roadmap_push: { Args: { p_body: Json }; Returns: Json }
       set_jev_decision: {
         Args: {
           p_decision: string
@@ -3423,10 +4600,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -3443,15 +4622,59 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
           from: "*"
           to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_repository_phase0: {
+        Args: { p_full_name: string; p_phase0: string; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          full_name: string
+          phase0: string
+          public_ideas: boolean
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_repository_public_ideas: {
+        Args: { p_full_name: string; p_public: boolean; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          full_name: string
+          phase0: string
+          public_ideas: boolean
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3465,7 +4688,8 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
-          product_id: string | null
+          phase0: string
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -3476,6 +4700,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      spec_says_server: { Args: { p_content: string }; Returns: boolean }
       submit_score: {
         Args: { game: string; score: number; workspace: string }
         Returns: number

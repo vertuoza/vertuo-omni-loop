@@ -376,4 +376,112 @@ flow:
     });
     expect(graded.violations).toEqual(["flow: back's imported flow at .omni-loop/knowledge/repos/back/flow/config.yml cannot be read — not valid YAML"]);
   });
+
+  // Law BR-PRODUCT-69 (.omni-loop/knowledge/product/rules.md, #1530).
+  it("law BR-PRODUCT-69: first means strictly before by landing then wave, a later landing already waits, the limit counts listed paths, and each repository's rows meet that repository's own rules", () => {
+    const kernel = parseConfig(`kit: 1
+repo:
+  slug: acme/widgets
+flow:
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan:
+          - slice: { maxFiles: 2 }
+          - wave: first
+          - blocks: all
+`);
+    const grade = (rows: string[]) => gradePlan(planMd(rows, LANDED), { config: kernel }).violations;
+    // Sharing the first wave is not sitting before.
+    expect(grade(['| s1 | K | `src/kernel/` | — | 1 | 1 |', '| s2 | A | `src/app/` | s1 | 1 | 1 |'])).toContainEqual(
+      expect.stringMatching(/^flow: s1 \(wave 1\) touches area kernel and does not sit before s2 \(wave 1\)/),
+    );
+    // An earlier landing is before, whatever the wave; a slice in a later landing already waits for it.
+    expect(grade(['| s1 | K | `src/kernel/` | — | 1 | 1 |', '| s2 | K | `src/kernel/x/` | s1 | 2 | 1 |', '| s3 | A | `src/app/` | — | 1 | 2 |'])).toEqual([]);
+    // The limit counts the paths a slice lists.
+    expect(grade(['| s1 | K | `src/kernel/` `src/kernel/a/` `src/kernel/b/` | — | 1 | 1 |'])).toEqual([
+      'flow: s1 touches 3 paths — kernel: slice maxFiles 2, at most 2 paths in a slice of this area.',
+    ]);
+    // In a plan repository, the same rows meet the plan repository's rules, back's copied rules, and the kit's defaults for legacy.
+    const graded = gradePlan(
+      plan(
+        [
+          '| s1 | plan | docs | `docs/a.md` `docs/b.md` | — | 1 |',
+          '| s2 | back | mixed | `src/db/x.sql` `docs/a.md` | — | 1 |',
+          '| s3 | legacy | mixed | `src/db/x.sql` `docs/a.md` `docs/b.md` | — | 1 |',
+        ],
+        ['plan', 'back', 'legacy'],
+      ),
+      { config: MULTI, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([
+      expect.stringMatching(/^flow \(plan\): s1 touches 2 paths — docs: slice maxFiles 1/),
+      expect.stringMatching(/^flow \(back\): s2 touches src\/db\/x\.sql \(area migrations\) .* — migrations: slice alone/),
+    ]);
+  });
+});
+
+describe('gradePlan — readOnly and consumes targets (PRD 1162)', () => {
+  const CONSUMING = parseConfig(
+    [
+      'kit: 1',
+      'repo:',
+      '  slug: acme/plan',
+      'plan:',
+      '  targets:',
+      '    - repo: acme/api',
+      '      role: back-end',
+      '      knowledge: none',
+      '    - repo: acme/web',
+      '      role: front-end',
+      '      knowledge: none',
+      '      consumes: [api]',
+      '    - repo: acme/legacy',
+      '      role: legacy',
+      '      knowledge: none',
+      '      readOnly: true',
+      '',
+    ].join('\n'),
+  );
+  const header = '| id | repo | slice | territory | blocked by | wave |';
+  const multi = (slices: string[]) => {
+    const repos = [...new Set(slices.map((row) => row.split('|')[2]?.trim()))];
+    return [
+      '## Repositories',
+      '',
+      '| repo | role | read at | knowledge |',
+      '| --- | --- | --- | --- |',
+      ...repos.map((repo) => `| ${repo} | target | ${'a'.repeat(40)} | none |`),
+      '',
+      '## Slices',
+      '',
+      planMd(slices, header),
+    ].join('\n');
+  };
+
+  it('refuses a slice in a readOnly target, naming the slice and the target', () => {
+    const graded = gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |', '| s2 | legacy | B | `b/` | — | 1 |']), { config: CONSUMING });
+    expect(graded.violations).toEqual(['readOnly: s2 lands in legacy, a read-only target — no slice may name it.']);
+  });
+
+  it('refuses a consumer slice blocked by a slice of a target it consumes, naming both slices', () => {
+    const graded = gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |', '| s2 | web | B | `b/` | s1 | 2 |']), { config: CONSUMING });
+    expect(graded.violations).toEqual([
+      'consumes: s2 (web) is blocked by s1 (api), and web consumes api — web installs what api publishes from its default branch, so the change it waits on is an earlier PRD of its own.',
+    ]);
+  });
+
+  it('passes a consumer slice blocked only by slices of its own repository, and a provider blocked by its consumer', () => {
+    const own = gradePlan(multi(['| s1 | web | A | `a/` | — | 1 |', '| s2 | web | B | `b/` | s1 | 2 |', '| s3 | api | C | `c/` | — | 1 |']), {
+      config: CONSUMING,
+    });
+    expect(own.violations).toEqual([]);
+    const reverse = gradePlan(multi(['| s1 | web | A | `a/` | — | 1 |', '| s2 | api | B | `b/` | s1 | 2 |']), { config: CONSUMING });
+    expect(reverse.violations).toEqual([]);
+  });
+
+  it('refuses nothing new in a plan repository whose targets carry neither field', () => {
+    expect(gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |']), { config: PLAN_REPO }).violations).toEqual([]);
+  });
 });

@@ -137,3 +137,15 @@ would be a new config key, a product decision for a later PRD.
 `kit/lib/care/decide.test.ts` (the sub-PR round's four modes), `kit/bin/care.test.ts` (`care state
 --pr` on a sub-PR while the wave holds claims) and `kit/test/plugin.test.ts` (the wave reads its
 sub-PR's threads before the gate and holds an asked one).
+
+## PRD #1299, slice s7 — the approval gate
+
+- **Step 0** gains **A PRD born on the server**: the `omni prd <prd>` it already runs is gated on its
+  `state:` line. A ◆ PRD (`birthplace: server`) must read `inbox`; `prd`, `drifted`, `unreachable`
+  and `refused` stop the wave before any claim or dispatch, on the same lines `/omni:yolo` names. A ◇
+  PRD runs as written.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
+kit's sources.

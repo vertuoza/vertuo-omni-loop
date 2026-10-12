@@ -48,6 +48,10 @@ const FORGED: Record<string, string> = {
   'menu-settings': '4d318dd6a80f7bbc',
   // The Loop entry (PRD 1139), pinned as first drawn.
   'menu-loop': '02a14d7f68dd07e7',
+  // The Roadmaps entry (PRD 1162), pinned as first drawn.
+  'menu-roadmaps': '9567df2dd6d75f43',
+  // The Concepts entry (PRD 1272), pinned as first drawn.
+  'menu-concepts': 'cb48dea0f79c5aad',
   // Super Omni World's tiles (PRD 817), pinned as first drawn.
   'tile-ground': 'edf856e91ad82ad1', 'tile-soil': 'd30e24cd67c0e2c4', 'tile-brick': '4a7786aef594b279',
   'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',
@@ -55,6 +59,16 @@ const FORGED: Record<string, string> = {
   'tile-stone': 'dd2d27c6129a5003',
   // SELECT YOUR APP's pedestals (PRD 932), pinned as first drawn.
   'code-mark': 'ece31e0c07fdde23', 'arcade-cabinet': '7ccdd5e5b8ec8405',
+  // OMNI KART's kart (PRD 1359), seen from behind: straight, leaning left, leaning right, pinned as first drawn.
+  kart: '35afa0f7192d15fa', 'kart-left': '6be5ee4133dc3f94', 'kart-right': 'e8f72f74d8a0c11f',
+  // OMNI KART's ORB (PRD 1359, slice 5): the thrown item, pinned as first drawn.
+  orb: 'fbe45272efb3d549',
+  // OMNI KART's props and the start arch (PRD 1427, slice 3), pinned as first drawn.
+  'prop-pylon': 'f36ff4afa0d6df51', 'prop-beacon': '4dc832db473f6805', 'prop-asteroid': '73d8bbc2c6137771', 'prop-satellite': 'a30ee8dab4deb24d', 'prop-wreck': '8d5fdfa090e4d08a', 'arch-leg': 'dfab7f7b9ad1ed5e', 'arch-beam': '14468439850ca3ab',
+  // OMNI KART's distant station in the sky (PRD 1427, slice 6), pinned as first drawn.
+  'sky-station': '2967f65def823c9b',
+  // OMNI KART's glowing item box (PRD 1427, slice 7), pinned as first drawn.
+  'item-box': 'a2e51adbe48f7ba2',
 };
 const FORGED_WOUNDED: Record<string, string> = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',

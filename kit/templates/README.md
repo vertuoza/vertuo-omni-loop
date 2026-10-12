@@ -14,7 +14,8 @@ pointer here.
   is built are decision records, in `{config:paths.adr}`.
 - **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent
   asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what
-  a pull request looks like; what a merge publishes; the rules that cost the most when broken.
+  a pull request looks like; what a merge publishes; what a screen of this product looks like; the
+  rules that cost the most when broken.
 
 ## How a form is read
 
@@ -28,5 +29,8 @@ section, and says where each section came from. Top wins:
 3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left
    blank here improves when the kit is upgraded.
 
-A question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.
+A question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some
+sections have no kit default, because only this repository can answer them, such as who the
+product is for and where its design system lives: until a person fills one, it shows the kit's own
+question.
 `omni kb status` lists every form, its state, and its open questions.

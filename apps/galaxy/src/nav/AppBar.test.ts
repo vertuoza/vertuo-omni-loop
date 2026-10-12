@@ -31,7 +31,7 @@ vi.mock('next/link', async () => {
 
 const { AppBar } = await import('./AppBar.tsx');
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', waiting: null };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: null, waiting: null };
 
 const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER) => {
   at.path = path;
@@ -111,6 +111,7 @@ describe('the top bar', () => {
     expect(tileOf(render('/app/workspace'))).toBe(sprite('menu-workspace'));
     expect(tileOf(render('/app'))).toBe(sprite('menu-home'));
     expect(tileOf(render('/prd/3f2a'))).toBe(sprite('menu-prds'));
+    expect(tileOf(render('/concepts'))).toBe(sprite('menu-concepts'));
     expect(render('/app', ADA)).not.toContain('app-bar-crest');
   });
 

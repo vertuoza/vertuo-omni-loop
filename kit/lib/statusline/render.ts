@@ -1,43 +1,40 @@
-// The status line's lines (PRD 324's spec, "Line 1", "Line 2" and "Width and colour"), drawn from
-// Claude Code's JSON (`input.ts`) and what was read beside it (`facts.ts`). Pure: the clock and the
-// environment come in as values.
+// The status line's lines (PRD 324's spec, "Line 1" and "Width and colour"; PRD 1208's spec, "The
+// status line's second line"), drawn from Claude Code's JSON (`input.ts`), what was read beside it
+// (`facts.ts`) and what `omni now` answers (`../now/`). Pure: the clock and the environment come in
+// as values.
 //
 // - Line 1: the model, the context bar, the 5-hour usage and `ask on`, joined by ` · `, each left out
 //   when it has nothing to say; the context always says something (`context —` without a
 //   percentage).
-// - Line 2, only where the loop is installed: the PRD this session works on,
-//   `PRD <n> <topic>[ · <slice>] · <stage>[ · <slices>][ · <k> open item(s)]` (the slices and the
-//   open items in the outbox only, the stage left out when there is none), `PRD <n> <topic> · shipped`
-//   and nothing after, or the no-PRD line.
-// - `<slices>`, from the board the status line shows: `wave <w> of <W> · <m>/<n> slices merged`,
-//   `<w>` the lowest wave holding a slice not merged and `<W>` the highest, followed by
-//   `, <i> in flight` (`in-flight` and `claimed-stale`) and `, <s> stuck`, each only when not zero;
-//   `all slices merged` when every slice is; left out without a board.
+// - Line 2, only where the loop is installed, drawn from `omni now`'s answer, for every kind:
+//   - a PRD: `PRD <n> <topic> · <stage>`, then, while `building`, `wave <w>/<W>` (`<w>` the lowest
+//     wave of its board holding a slice not merged, `<W>` the highest), `now <id> <name>, …` (its
+//     slices in flight) and `stuck <id> <name>, …`; in the `outbox`, `all slices merged` when its
+//     board shows every slice merged; in either, `<k> open item(s)` when there are any. The wave and
+//     the open items come from the facts of the same PRD (`BoardFacts`); without them, the part is
+//     left out. A PRD without a stage is its name alone; a shipped one, `· shipped` and nothing after;
+//   - a fix: `bug #<n> <topic> · <stage>`, `visual #<n> <topic> · <stage>`;
+//   - a loop or a roadmap above the work: the headline (`roadmap <r> · <m>/<k> merged`, `loop`), then
+//     `now PRD <n>` (`now bug #<n>` for a fix) and the id of its first slice in flight;
+//   - the session on nothing: `no PRD · /omni:brainstorm to start`.
 // - Every line fits `COLUMNS` (80 when it is unset or not a number), counting characters, never
-//   colour codes: a line too wide cuts its topic first, down to 8 characters ending in `…`, and a
-//   line still too wide is cut at its end with `…`.
-// - Colour is ANSI, on the context bar with its percentage and on the stuck count (red) only, and
+//   colour codes: a line too wide drops its slice names first (the ids stay), then cuts its topic,
+//   down to 8 characters ending in `…`, and a line still too wide is cut at its end with `…`.
+// - Colour is ANSI, on the context bar with its percentage and on the stuck slices (red) only, and
 //   none when `NO_COLOR` is set to anything but an empty string.
 import type { SessionInput } from './input.ts';
 import type { CachedSlice } from './schema.ts';
-import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.ts';
+import { IN_FLIGHT, MERGED, OUTBOX, STUCK } from './stage.ts';
 import { isList } from '../outbox/plain-text.ts';
 import type { Terminal } from '../env/read.ts';
-import type { PrdNumber, WorkSliceId } from '../ids.ts';
-
+import type { PrdNumber } from '../ids.ts';
+import type { Now, NowSlice, NowWork } from '../now/now.ts';
 
 /** The five-hour window, as `parseInput` reads it. */
 type FiveHour = { percent: number; resetsAt: number };
 
-/** What line 2 draws for a PRD: `slices` is the board shown. */
-export type PrdLineFacts = {
-  number: PrdNumber;
-  topic: string;
-  slice: WorkSliceId | null;
-  stage: string | null;
-  openItems: number;
-  slices?: readonly CachedSlice[] | null;
-};
+/** What line 2 reads of the PRD the facts name, beside `omni now`'s answer: its board's every slice, and its open items. */
+export type BoardFacts = { number: PrdNumber; slices: readonly CachedSlice[] | null; openItems: number };
 
 type Colour = 'green' | 'yellow' | 'red';
 
@@ -52,6 +49,8 @@ const CUT = '…';
 const MINUTE = 60_000;
 // The shortest a topic is cut to, its `…` included.
 const TOPIC_FLOOR = 8;
+// A PRD's stage while a slice of its board is not merged, as `omni now` words it.
+const BUILDING = 'building';
 
 const RESET = '\x1b[0m';
 const COLOURS: Record<Colour, string> = { green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m' };
@@ -131,61 +130,83 @@ export function itemsPart(count: number | null | undefined): string | null {
   return `${count} open item${count === 1 ? '' : 's'}`;
 }
 
-/**
- * `wave <w> of <W> · <m>/<n> slices merged[, <i> in flight][, <s> stuck]`, or `all slices merged`,
- * from the board's slices; `null` without a board, or with one of no slices. The stuck count is red
- * when `color` is on.
- */
-export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { color = false }: { color?: boolean } = {}): string | null {
+/** `wave <w>/<W>`, or `all slices merged`, from the board's every slice; `null` without a board, or with one of no slices. */
+export function wavePart(slices: readonly CachedSlice[] | null | undefined): string | null {
   if (!isList(slices) || slices.length === 0) return null;
-  const count = (test: (state: string) => boolean): number => slices.filter((slice) => test(slice.state)).length;
-  const merged = count((state) => state === MERGED);
-  if (merged === slices.length) return 'all slices merged';
-  const wave = Math.min(...slices.filter((slice) => slice.state !== MERGED).map((slice) => slice.wave));
-  const last = Math.max(...slices.map((slice) => slice.wave));
-  const inFlight = count((state) => IN_FLIGHT.includes(state));
-  const stuck = count((state) => state === STUCK);
-  return [
-    `wave ${wave} of ${last}${SEPARATOR}${merged}/${slices.length} slices merged`,
-    inFlight > 0 ? `, ${inFlight} in flight` : '',
-    stuck > 0 ? `, ${paint(`${stuck} stuck`, 'red', color)}` : '',
-  ].join('');
+  const open = slices.filter((slice) => slice.state !== MERGED);
+  if (open.length === 0) return 'all slices merged';
+  return `wave ${Math.min(...open.map((slice) => slice.wave))}/${Math.max(...slices.map((slice) => slice.wave))}`;
+}
+
+const inFlight = (slice: NowSlice): boolean => IN_FLIGHT.includes(slice.state);
+
+/** `<word> <id> <name>, …` for `slices`, each name left out when `names` is off; `null` for none. */
+function slicesNamed(word: string, slices: readonly NowSlice[], names: boolean): string | null {
+  const label = ({ id, name }: NowSlice): string => (names && name ? `${id} ${name}` : id);
+  return slices.length > 0 ? `${word} ${slices.map(label).join(', ')}` : null;
 }
 
 /** `text` cut to `length` characters, the last one `…`. */
 const cutTo = (text: string, length: number): string => `${Array.from(text).slice(0, length - 1).join('')}${CUT}`;
 
-/**
- * Line 2 for a PRD, within `width`: its topic cut first (never below 8 characters), then the line at
- * its end.
- */
-export function prdLine(
-  { number, topic, slice, stage, openItems, slices = null }: PrdLineFacts,
-  width: number = Number.POSITIVE_INFINITY,
-  { color = false }: { color?: boolean } = {},
-): string {
-  const inOutbox = stage === OUTBOX;
-  const draw = (shown: string): string => {
-    if (stage === SHIPPED) return `PRD ${number} ${shown}${SEPARATOR}${SHIPPED}`;
-    return [`PRD ${number} ${shown}`, slice, stage, inOutbox ? slicesPart(slices, { color }) : null, inOutbox ? itemsPart(openItems) : null]
-      .filter(Boolean)
-      .join(SEPARATOR);
-  };
-  const line = draw(topic);
-  const over = visibleLength(line) - width;
-  const length = Array.from(topic).length;
-  if (over <= 0 || length <= TOPIC_FLOOR) return fit(line, width);
-  return fit(draw(cutTo(topic, Math.max(TOPIC_FLOOR, length - over))), width);
+/** The work's name with `topic` shown: `PRD <n> <topic>`, or `<kind> #<n> <topic>` for a fix. */
+const workName = (work: NowWork, topic: string): string => (work.kind === 'prd' ? `PRD ${work.number} ${topic}` : `${work.kind} #${work.number} ${topic}`);
+
+/** The parts of the work's line after its name, slice names shown or not; `board` is its PRD's, when the facts read it. */
+function workParts(work: NowWork, board: BoardFacts | null, names: boolean, color: boolean): (string | null)[] {
+  if (work.kind !== 'prd' || (work.stage !== BUILDING && work.stage !== OUTBOX)) return [work.stage];
+  const wave = wavePart(board?.slices);
+  const items = itemsPart(board?.openItems);
+  if (work.stage === OUTBOX) return [work.stage, wave, items];
+  return [work.stage, wave, slicesNamed('now', work.slices.filter(inFlight), names), stuckPart(work.slices, names, color), items];
+}
+
+/** `stuck <id> <name>, …`, in red when `color` is on; `null` for none stuck. */
+function stuckPart(slices: readonly NowSlice[], names: boolean, color: boolean): string | null {
+  const stuck = slicesNamed(STUCK, slices.filter((slice) => slice.state === STUCK), names);
+  return stuck ? paint(stuck, 'red', color) : null;
 }
 
 /**
- * The lines to print. `input` is `parseInput`'s result (`null`: unreadable JSON); `facts` is
- * `readFacts`' (`null`: it could not read, so line 1 comes from the JSON alone), whose `prd` is the
- * PRD line's facts, or `null` for the no-PRD line.
+ * The work's line within `width`: its slice names dropped first, then its topic cut (never below 8
+ * characters), then the line at its end. `board` is its PRD's, or `null`.
+ */
+function workLine(work: NowWork, board: BoardFacts | null, width: number = Number.POSITIVE_INFINITY, { color = false }: { color?: boolean } = {}): string {
+  const draw = (topic: string, names: boolean): string => [workName(work, topic), ...workParts(work, board, names, color)].filter(Boolean).join(SEPARATOR);
+  const full = draw(work.topic, true);
+  if (visibleLength(full) <= width) return full;
+  const line = draw(work.topic, false);
+  const over = visibleLength(line) - width;
+  const length = Array.from(work.topic).length;
+  if (over <= 0 || length <= TOPIC_FLOOR) return fit(line, width);
+  return fit(draw(cutTo(work.topic, Math.max(TOPIC_FLOOR, length - over)), false), width);
+}
+
+/** The line of a session under a loop or a roadmap: the headline, then `now` the work and the id of its first slice in flight. */
+function headlineLine({ headline, work }: Now, width: number): string {
+  const head = headline ? [headline.number === undefined ? headline.kind : `${headline.kind} ${headline.number}`, headline.progress ?? null] : [];
+  const ref = work ? `now ${work.kind === 'prd' ? `PRD ${work.number}` : `${work.kind} #${work.number}`}` : null;
+  const first = work?.slices.find(inFlight)?.id ?? null;
+  return fit([...head, ref, first].filter(Boolean).join(SEPARATOR), width);
+}
+
+/** Line 2 from `omni now`'s answer, within `width`; `board` counts only for the PRD it names, under no headline. */
+export function secondLine(answer: Now, board: BoardFacts | null, width: number = Number.POSITIVE_INFINITY, { color = false }: { color?: boolean } = {}): string {
+  const { headline, work } = answer;
+  if (headline) return headlineLine(answer, width);
+  if (!work) return fit(NO_PRD_LINE, width);
+  return workLine(work, work.kind === 'prd' && board?.number === work.number ? board : null, width, { color });
+}
+
+/**
+ * The lines to print. `input` is `parseInput`'s result (`null`: unreadable JSON); `facts` is what was
+ * read beside it (`null`: it could not read, so line 1 comes from the JSON alone): whether the loop is
+ * installed, ask mode, `omni now`'s answer (`now`; none prints the no-PRD line) and the board of the
+ * PRD the status line's own facts name.
  */
 export function renderLines({ input, facts, terminal, now }: {
   input: Pick<SessionInput, 'model' | 'contextPercent' | 'fiveHour'> | null;
-  facts: { installed: boolean; askOn: boolean; prd?: PrdLineFacts | null } | null;
+  facts: { installed: boolean; askOn: boolean; now?: Now | null; board?: BoardFacts | null } | null;
   terminal: Terminal;
   now: number;
 }): string[] {
@@ -193,6 +214,7 @@ export function renderLines({ input, facts, terminal, now }: {
   if (!input) return [fit(UNREADABLE_LINE, width)];
   const color = terminal.color;
   const lines = [sessionLine({ ...input, askOn: facts?.askOn === true }, { now, color })];
-  if (facts?.installed) lines.push(facts.prd ? prdLine(facts.prd, width, { color }) : NO_PRD_LINE);
+  if (facts?.installed) lines.push(facts.now ? secondLine(facts.now, facts.board ?? null, width, { color }) : NO_PRD_LINE);
   return lines.map((line) => fit(line, width));
 }
+

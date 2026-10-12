@@ -1,7 +1,8 @@
 // The GitHub reads the `outbox-check` function needs beyond `snapshot` and `publish`: the pull
 // request's facts, its comments, its changed files, what the check is on it (its name from the base
 // branch's config, and whether the gate runs there), the skipped check of a pull request it does not
-// gate, and the fail-closed completion its failure handler performs. Every call goes through the one
+// gate, the passing check of a target feature PR and the plan PR it defers to, and the fail-closed
+// completion its failure handler performs. Every call goes through the one
 // Octokit seam the other units use, `octokit.request(route, params)`, so a test stubs one function.
 //
 // Nothing here runs repository code (PRD 28, decision 5): the base config is fetched through
@@ -12,10 +13,12 @@ import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import type { CommentId, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { featureTopic, NOT_ACTIVE_ON_PR, prdDirs, prdOfTopic } from '../evaluate/evaluate.ts';
+import { deferredOutput, NOT_ACTIVE_ON_PR, planPrdOf, prdDirs, prdOfTopic, pullKind, type PlanPrd } from '../evaluate/evaluate.ts';
+import { productPrdOf, type ProductPrdRef } from '../approved-check/state.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';
+import type { ProductOutboxVerdict } from './product-outbox.ts';
 import {
   CheckRunsSchema,
   CommentsPageSchema,
@@ -24,6 +27,7 @@ import {
   firstLine,
   labelName,
   PullSchema,
+  PullsPageSchema,
   TreeSchema,
   type GitHubClient,
   type Repo,
@@ -42,7 +46,7 @@ const STATUS: Readonly<Record<string, string>> = Object.freeze({
 });
 
 /** A pull request's facts, as the checks read them. */
-export type PullFacts = { baseRef: string; baseSha: string; headRef: string; headSha: string; labels: string[] };
+export type PullFacts = { baseRef: string; baseSha: string; headRef: string; headSha: string; labels: string[]; body: string };
 
 /** A changed path, in the shape the kit reads from `git diff --name-status`. */
 export type Change = { path: string; status: string };
@@ -64,6 +68,7 @@ export async function readPull(octokit: GitHubClient, { owner, repo, prNumber }:
     headRef: data.head.ref,
     headSha: data.head.sha,
     labels: (data.labels ?? []).map(labelName).filter((name) => name !== undefined),
+    body: data.body ?? '',
   };
 }
 
@@ -97,16 +102,27 @@ export async function readBaseConfig(
 
 /**
 /** What the check is on a pull request: see `checkTarget`. */
-export type CheckTarget = { active: boolean; name: string; gated: boolean; reason: string | null };
+export type CheckTarget = {
+  active: boolean;
+  name: string;
+  gated: boolean;
+  reason: string | null;
+  deferTo?: PlanPrd | null;
+  product?: ProductPrdRef | null;
+};
 
 /**
  * What the check is on this pull request, from its refs, the base branch's config and the folder
  * names under the head's delivery folder — never a blob of the head, its comments or its compare.
  * `active`: the base branch has the loop installed (PRD 359: the app posts nothing anywhere else).
  * `name`: `ci.outboxContext`, or the kit's default when the config is broken (the check still has to
- * appear, to say so). `gated`: an Omni Loop feature pull request, the only one the gate runs on
- * (issue 876); `reason` says why another is not. A broken config is gated, so its check says what is
- * wrong.
+ * appear, to say so). `gated`: an Omni Loop feature pull request (issue 876), or, with `laws.source:
+ * knowledge`, a fix, knowledge or enforce PR (PRD 1342, `pullKind`); `reason` says why another is not. A broken config is gated, so its check says what is
+ * wrong. `deferTo`: on a pull request into the default branch that is not gated here, the plan
+ * repository's PRD its body says it is part of (`planPrdOf`, issue 1202): a target feature PR, whose
+ * check passes and points to the plan PR. `product`: on a pull request into the default branch, the
+ * product PRD its body says it is part of (`Part of mobile-12`, PRD 1548 s8): a target feature PR of a
+ * PRD whose outbox is rows on the server, graded there (./product-outbox.ts), never deferred to a plan PR.
  */
 export async function checkTarget(
   octokit: GitHubClient,
@@ -125,13 +141,43 @@ export async function checkTarget(
   if (!config) return { active: true, name: DEFAULT_CHECK_NAME, gated: true, reason: null };
 
   const name = config.ci.outboxContext;
-  const feature = featureTopic(pr, config);
-  if ('skip' in feature) return { active: true, name, gated: false, reason: feature.skip };
+  const product = pr.baseRef === config.repo.defaultBranch ? productPrdOf(pr.body) : null;
+  if (product) return { active: true, name, gated: false, reason: null, deferTo: null, product };
+  const deferTo = pr.baseRef === config.repo.defaultBranch ? planPrdOf(pr.body, `${owner}/${repo}`) : null;
+  const feature = pullKind(pr, config);
+  if ('skip' in feature) return { active: true, name, gated: false, reason: feature.skip, deferTo };
+  // A fix, knowledge or enforce PR (PRD 1342) is graded on the laws it touches: its branch says so.
+  // A target's fix PR keeps its record in the plan repository, so it defers there instead.
+  if (feature.kind !== 'feature') {
+    return deferTo ? { active: true, name, gated: false, reason: null, deferTo } : { active: true, name, gated: true, reason: null };
+  }
   const ref = headSha ?? pr.headSha;
   const names: string[] = [];
   for (const dir of prdDirs(config)) names.push(...(await folderNamesAt(octokit, { owner, repo, ref, dir })));
   const prd = prdOfTopic(feature.topic, names, config);
-  return 'skip' in prd ? { active: true, name, gated: false, reason: prd.skip } : { active: true, name, gated: true, reason: null };
+  return 'skip' in prd ? { active: true, name, gated: false, reason: prd.skip, deferTo } : { active: true, name, gated: true, reason: null };
+}
+
+/**
+ * The open plan PR that grades `plan`'s PRD: the first open pull request of the plan repository whose
+ * body says `Closes #<prd>`. Null when there is none, or when the installation cannot read that
+ * repository (GitHub answers 403 or 404): the check then links the PRD issue instead, never fails.
+ */
+export async function planPrOf(octokit: GitHubClient, plan: PlanPrd): Promise<number | null> {
+  const [owner = '', repo = ''] = plan.repo.split('/');
+  const closes = new RegExp(`Closes #${plan.prd}(?!\\d)`);
+  try {
+    const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls', { owner, repo, state: 'open', per_page: PER_PAGE });
+    return PullsPageSchema.parse(data).find((pull) => closes.test(pull.body ?? ''))?.number ?? null;
+  } catch (error) {
+    if (statusOf(error) === 403 || statusOf(error) === 404) return null;
+    throw error;
+  }
+}
+
+/** The HTTP status a GitHub refusal carries, or null. */
+function statusOf(error: unknown): number | null {
+  return typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number' ? error.status : null;
 }
 
 /**
@@ -235,6 +281,30 @@ export async function completeAsSkipped(
   return completeOpen(octokit, { owner, repo, headSha, name, conclusion: 'skipped', output: skippedOutput(reason), create: true });
 }
 
+/**
+ * Pass the check of a target feature PR (issue 1202): completes its open check runs, or creates one,
+ * already `success`, pointing to the plan PR that grades its PRD (`planPr`), or to the PRD issue.
+ */
+export async function completeAsDeferred(
+  octokit: GitHubClient,
+  { owner, repo, headSha, name, plan, planPr }: Repo & { headSha: string; name: string; plan: PlanPrd; planPr: number | null },
+): Promise<number[]> {
+  return completeOpen(octokit, { owner, repo, headSha, name, conclusion: 'success', output: deferredOutput(plan, planPr), create: true });
+}
+
+/**
+ * Grade the check of a product PRD's target feature PR (PRD 1548 s8): completes its open check runs, or
+ * creates one, as the outbox rows on the server say (`productOutboxVerdict`), its Details on the
+ * product's Questions tab when the PRD was read.
+ */
+export async function completeAsProduct(
+  octokit: GitHubClient,
+  { owner, repo, headSha, name, verdict }: Repo & { headSha: string; name: string; verdict: ProductOutboxVerdict },
+): Promise<number[]> {
+  const output = { title: verdict.title, summary: verdict.summary };
+  return completeOpen(octokit, { owner, repo, headSha, name, conclusion: verdict.conclusion, output, create: true, detailsUrl: verdict.detailsUrl });
+}
+
 /** The output of a skipped check: the title `evaluate` gives a pull request it does not gate. */
 function skippedOutput(reason: string | null | undefined): { title: string; summary: string } {
   return { title: NOT_ACTIVE_ON_PR, summary: reason ?? NOT_ACTIVE_ON_PR };
@@ -252,16 +322,19 @@ async function completeOpen(
     output,
     create,
     externalId,
+    detailsUrl = null,
   }: Repo & {
     headSha: string;
     name: string;
-    conclusion: 'failure' | 'skipped';
+    conclusion: 'failure' | 'neutral' | 'skipped' | 'success';
     output: { title: string; summary: string };
     create: boolean;
     externalId?: string | undefined;
+    detailsUrl?: string | null;
   },
 ): Promise<number[]> {
   const completed_at = new Date().toISOString();
+  const details = detailsUrl === null ? {} : { details_url: detailsUrl };
 
   const { data } = await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', {
     owner,
@@ -282,6 +355,7 @@ async function completeOpen(
         status: 'completed',
         conclusion,
         completed_at,
+        ...details,
         output,
       });
       ids.push(run.id);
@@ -300,6 +374,7 @@ async function completeOpen(
     status: 'completed',
     conclusion,
     completed_at,
+    ...details,
     output,
   });
   return [CreatedSchema.parse(created).id];

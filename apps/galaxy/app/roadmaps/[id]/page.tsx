@@ -1,0 +1,35 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { firstParam as one } from '../../../src/data/member-session';
+import { supabaseEnv } from '../../../src/data/supabase-server';
+import { roadmapIdOf } from '../../../src/roadmap/page/load';
+import { roadmapTabOf } from '../../../src/roadmap/page/prerequisites';
+import { roadmapPageView } from '../../../src/roadmap/page/route';
+import { RoadmapsScreen } from '../../../src/roadmap/page/RoadmapsScreen';
+
+// /roadmaps/<id> (PRD 1162): one roadmap opened, its milestone, its Gantt, its open questions with an
+// answer box for a `person` one, and each PRD linking to its page; `?tab=prerequisites` (PRD 1218) opens
+// its Prerequisites tab instead, where `?ticked=` and `?tick_error=` say how a Mark as done went (s7). Rendered per request, as /roadmaps is, and it decides the same
+// situations once. A path that names no roadmap, or a roadmap of another
+// workspace, is not found.
+
+export const metadata: Metadata = {
+  title: 'Roadmap · OMNI LOOP',
+  description: 'One roadmap: its milestone, its Gantt, its open questions, its PRDs and its prerequisites.',
+  robots: { index: false, follow: false },
+};
+
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function RoadmapPage({ params, searchParams }: Props) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const roadmapId = roadmapIdOf(id);
+  if (!roadmapId) notFound();
+  const ask = { id: roadmapId, product: null, tab: roadmapTabOf(one(query.tab)), ticked: one(query.ticked), tickError: one(query.tick_error) };
+  const view = await roadmapPageView(ask, new Date());
+  if (view.kind === 'not-found') notFound();
+  return <RoadmapsScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} />;
+}

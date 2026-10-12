@@ -6,14 +6,21 @@
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
 //   DELETE /api/ask/sessions/:id                               → {id, deleted: true}
 //   POST /api/ask/sessions/:id/rounds     {questions, context?, lead?} → {roundId}
+//                                         {…, answers, via: "terminal"} → {roundId, status: "answered", via: "terminal"}
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?, attachments?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
+//                                         {answers, via: "page", attachments?} → {id, status: "answered", via: "page"}
+//   POST /api/ask/rounds/:id/attachments/:name   <one screenshot> → {path}
+//   DELETE /api/ask/rounds/:id/attachments/:name                → {path, removed: true}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
 //   PATCH /api/ask/rounds/:id/category    {category}           → {id, category, category_by}
 //   POST /api/ask/rounds/:id/shares       {member}             → {roundId, sharedWith, url}
 //   GET  /api/ask/workspace?repo=owner/name                    → {workspace: {slug, name} | null, reason: string | null}
 //
-// Every call is refused 401 without a valid bearer token. Any signed-in account is let through: what it
+// Every call is refused 401 without a valid bearer token or, from the app's own pages, the person's
+// sign-in cookie (PRD 1318, s3): a request with no Authorization header is read as the cookie session,
+// checked from its claims as every page checks it, so the browser and the terminal share these
+// handlers. An answer `via: "page"` is taken from the cookie session only. Any signed-in account is let through: what it
 // may do is the database's call, by workspace membership (PRD 459). Opening a session with no workspace
 // to go to — a repository another workspace owns, or none owns and the caller is in no workspace — is
 // 403 with the database's reason (and the App's install link after its install hint), never 500. A session or
@@ -36,6 +43,11 @@
 // anything else, an empty text or a longer one is refused with 400. It is stored with the round and
 // read back with it, and the classifier never reads it.
 //
+// A round may be opened already answered in the terminal (PRD 1180): `answers` and `via: "terminal"`,
+// as `POST /rounds/:id/answers` takes them, sent with the questions. The kit does it when its pre hook
+// could not open the round, so a terminal answer always reaches the page. Answers that are not that
+// shape are refused with 400, and nothing is asked. A body without `answers` opens the round as before.
+//
 // A round's category (PRD 144) is one of six (./classify.ts). Once a round is created, the model sorts
 // it after the response has gone (`later`, Next's after()), so asking never waits on it; any failure
 // leaves it unsorted, and nothing retries. Any member of the session's workspace sets, changes or
@@ -48,7 +60,11 @@
 // then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
 // 403 for a member who is not the owner, 400 for someone outside the workspace (or the owner themself).
 //
-// An answer given on the page may carry screenshots (PRD 620). `wait` then also hands back, per question,
+// An answer given on the page may carry screenshots (PRD 620), uploaded one per call before the answer
+// (PRD 1318, s3): at most SHOT_MAX_BYTES (4 MB, under Vercel's 4.5 MB request cap), refused with 413
+// `too-large` above it, each stored at `<round id>/<n>.<ext>` as the caller, so the bucket's rules decide;
+// one already there is 409. The answer then names their paths, each under its own round's folder.
+// `wait` then also hands back, per question,
 // each one's file name and a signed link valid 10 minutes, made as the caller (`{name, url}`, `url`
 // null for a link that could not be made); an answer without any carries no `attachments` field.
 //
@@ -58,13 +74,14 @@
 // this deployment cannot look it up (no service role), both are null and the terminal says nothing more.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Placement } from './cli-code';
+import { SHOT_MAX_BYTES, SHOT_TYPES } from './answer-model';
 import { authenticate, callerOrigin as origin, withInstallLink, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Classifier, type ClassifyInput } from './classify';
 import type { CategoryDecider } from './classify-jev';
 import { costUsd } from './prices';
 import {
   askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
-  type AskAnswers, type AskAttachmentFiles, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
+  type AskAnswers, type AskAttachmentFiles, type AskAttachments, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
 } from './store';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -83,9 +100,15 @@ export const LEAD_NOTE_BYTES = 256;
 /** A Supabase client acting as one access token: the Auth server's check, and the tables. */
 export type AskClient = TokenCheck & Pick<SupabaseClient, 'from' | 'rpc' | 'storage'>;
 
+/** The person a page's request is signed in as, from their sign-in cookie, and a client acting as them. */
+export type CookieSession = { caller: Pick<AskCaller, 'id' | 'email'>; client: AskClient };
+
 export type AskDeps = {
   /** A client acting as the given access token, or null when no database is configured. */
   connect: ((token: string) => AskClient) | null;
+  /** The cookie session of a request with no Authorization header (PRD 1318, s3), or null when signed
+   * out; absent, such a request is refused as before. */
+  cookie?: (() => Promise<CookieSession | null>) | undefined;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   waitMs?: number;
@@ -114,23 +137,37 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 type Signed = {
-  caller: AskCaller; store: AskStore; categories: AskCategories; shares: AskShares; files: AskAttachmentFiles; now: () => number;
+  caller: Pick<AskCaller, 'id' | 'email'>;
+  /** How the call was signed in: the terminal's bearer token, or a page's sign-in cookie. */
+  by: 'token' | 'cookie';
+  store: AskStore; categories: AskCategories; shares: AskShares; files: AskAttachmentFiles; now: () => number;
 };
 
-/** The caller and a store acting as them, or the Response that refuses them. */
+const SIGNED_OUT = 'Sign in first: this call needs an Authorization: Bearer token.';
+
+/** Everything a handler reaches, acting as `caller` on `client`. */
+const signed = (caller: Signed['caller'], by: Signed['by'], client: AskClient, deps: AskDeps): Signed => ({
+  caller,
+  by,
+  store: askStore(client),
+  categories: askCategories(client),
+  shares: askShares(client),
+  files: askAttachments(client),
+  now: deps.now ?? Date.now,
+});
+
+/** The caller and a store acting as them, or the Response that refuses them. A request with no
+ * Authorization header is a page's: its cookie session, when this deployment reads one. */
 async function signIn(request: Request, deps: AskDeps): Promise<Signed | Response> {
+  const header = request.headers.get('authorization');
+  if (header === null && deps.cookie) {
+    const session = await deps.cookie();
+    return session ? signed(session.caller, 'cookie', session.client, deps) : refuse(401, SIGNED_OUT);
+  }
   if (!deps.connect) return refuse(503, 'Ask mode is not available here: this deployment has no database.');
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
+  const auth = await authenticate(header, deps.connect);
   if (!auth.ok) return refuse(auth.status, auth.error);
-  const client = deps.connect(auth.caller.token);
-  return {
-    caller: auth.caller,
-    store: askStore(client),
-    categories: askCategories(client),
-    shares: askShares(client),
-    files: askAttachments(client),
-    now: deps.now ?? Date.now,
-  };
+  return signed(auth.caller, 'token', deps.connect(auth.caller.token), deps);
 }
 
 /** Runs a handler, turning a database failure into a 500 rather than a guess. */
@@ -307,18 +344,33 @@ function readLead(sent: Record<string, unknown>): { lead: string | null } | { pr
   return fine ? { lead } : { problem: `\`lead\`, when sent, must be the text Claude wrote before asking, up to ${LEAD_MAX_BYTES / 1024} KB, or null.` };
 }
 
+/** The terminal's answer a round body carries (PRD 1180) — null when it carries none — or why it is refused. */
+function readTerminalAnswer(sent: Record<string, unknown>): { answers: AskAnswers | null } | { problem: string } {
+  if (sent.answers === undefined && sent.via === undefined) return { answers: null };
+  if (sent.via !== 'terminal') return { problem: 'A round opened answered records an answer given in the terminal: `via` must be "terminal".' };
+  return isAnswers(sent.answers) ? { answers: sent.answers } : { problem: '`answers` must map each question\'s text to the answer text.' };
+}
+
+/** Everything a new round's request carries, or the first problem with it. */
+function readNewRound(sent: Record<string, unknown>) {
+  const sentQuestions = readQuestions(sent.questions);
+  if ('problem' in sentQuestions) return sentQuestions;
+  const read = readContext(sent, ROUND_KEYS);
+  if ('problem' in read) return read;
+  const sentLead = readLead(sent);
+  if ('problem' in sentLead) return sentLead;
+  const answered = readTerminalAnswer(sent);
+  if ('problem' in answered) return answered;
+  return { questions: sentQuestions.questions, context: read.context, sentLead, answered };
+}
+
 export function addRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const sent = await body(request);
     if (sent instanceof Response) return sent;
-    const sentQuestions = readQuestions(sent.questions);
-    if ('problem' in sentQuestions) return refuse(400, sentQuestions.problem);
-    const { questions } = sentQuestions;
-    const read = readContext(sent, ROUND_KEYS);
+    const read = readNewRound(sent);
     if ('problem' in read) return refuse(400, read.problem);
-    const { context } = read;
-    const sentLead = readLead(sent);
-    if ('problem' in sentLead) return refuse(400, sentLead.problem);
+    const { questions, context, sentLead, answered } = read;
     const session = await ownSession(who, id);
     if (!session) return notFound('session');
     if (sessionClosed(session, who.now())) return closedSession();
@@ -341,7 +393,9 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
         questions,
         context: { repo: context.repo ?? session.repo, branch: context.branch, prd: context.prd, skill: context.skill },
       });
-      return reply(200, { roundId: round.id });
+      if (!answered.answers) return reply(200, { roundId: round.id });
+      await who.store.moveRound(round.id, ['open'], { status: 'answered', answers: answered.answers, answered_via: 'terminal' });
+      return reply(200, { roundId: round.id, status: 'answered', via: 'terminal' });
     } catch (error) {
       // Closed between the read and the write: the database's policy refused the round.
       if (error instanceof AskStoreError && error.code === '42501') return closedSession();
@@ -434,7 +488,8 @@ export function answerRound(request: Request, id: string, deps: AskDeps): Promis
   return handle(request, deps, async (who) => {
     const sent = await body(request);
     if (sent instanceof Response) return sent;
-    // The page answers through the database; this call records only what the terminal took.
+    if (sent.via === 'page' && who.by === 'cookie') return answerOnPage(who, id, sent);
+    // A page answers through its cookie session; with a token, this call records only what the terminal took.
     if (sent.via !== 'terminal') return refuse(400, 'This call records an answer given in the terminal: `via` must be "terminal".');
     if (!isAnswers(sent.answers)) return refuse(400, '`answers` must map each question\'s text to the answer text.');
     const found = await ownRound(who, id);
@@ -448,6 +503,65 @@ export function answerRound(request: Request, id: string, deps: AskDeps): Promis
     if (!moved) return alreadyAnswered(who, found.round.id, found.session);
     await touch(who, found.session);
     return reply(200, { id: moved.id, status: 'answered', via: 'terminal' });
+  });
+}
+
+/** The screenshots an answer names (PRD 620): each question's paths, every one a file of this round's
+ * own folder — or why they are refused. */
+function readAttachments(roundId: string, value: unknown): { attachments: AskAttachments | null } | { problem: string } {
+  if (value === undefined || value === null) return { attachments: null };
+  const ofRound = (path: unknown) => typeof path === 'string' && path.startsWith(`${roundId}/`) && shotName(path.slice(roundId.length + 1)) !== null;
+  const isAttachments = (v: unknown): v is AskAttachments =>
+    isRecord(v) && Object.values(v).every((paths) => Array.isArray(paths) && paths.every(ofRound));
+  if (isAttachments(value)) return { attachments: value };
+  return { problem: `\`attachments\` must map each question's text to the paths of its screenshots, each \`${roundId}/<1-5>.<ext>\`.` };
+}
+
+/** An answer given on the page (PRD 1318, s3, as the page wrote it before): recorded only while the
+ * round is still open, with its screenshots; 409 when the terminal took it over or it was answered
+ * already. Who may answer (the owner, or a member it is shared with) is the database's call: a round
+ * the caller may not answer does not move, and reads 409 or 404. */
+async function answerOnPage(who: Signed, id: string, sent: Record<string, unknown>): Promise<Response> {
+  if (!isAnswers(sent.answers)) return refuse(400, '`answers` must map each question\'s text to the answer text.');
+  if (!UUID.test(id)) return notFound('round');
+  const read = readAttachments(id, sent.attachments);
+  if ('problem' in read) return refuse(400, read.problem);
+  const answer = { status: 'answered' as const, answers: sent.answers, answered_via: 'page' as const };
+  const moved = await who.store.moveRound(id, ['open'], read.attachments ? { ...answer, attachments: read.attachments } : answer);
+  if (moved) return reply(200, { id: moved.id, status: 'answered', via: 'page' });
+  const now = await who.store.round(id);
+  return now ? refuse(409, 'This round is no longer open.', { status: now.status }) : notFound('round');
+}
+
+/** A screenshot's file name in its round's folder (`<n>.<ext>`, n from 1 to 5), or null. */
+function shotName(name: string): string | null {
+  return /^[1-5]\.(png|jpg|jpeg|gif|webp)$/.test(name) ? name : null;
+}
+
+/** Stores one screenshot of an answer about to be sent, as the caller: one per call, at most
+ * SHOT_MAX_BYTES, refused 413 `too-large` above it, before the body is read when its length says so. */
+export function addAttachment(request: Request, id: string, name: string, deps: AskDeps): Promise<Response> {
+  return handle(request, deps, async (who) => {
+    if (Number(request.headers.get('content-length') ?? 0) > SHOT_MAX_BYTES) return refuse(413, 'too-large');
+    if (!UUID.test(id)) return notFound('round');
+    const type = request.headers.get('content-type') ?? '';
+    if (!shotName(name) || !SHOT_TYPES.includes(type)) return refuse(400, 'A screenshot is one PNG, JPEG, GIF or WebP file, named <1-5>.<ext>.');
+    const file = await request.blob();
+    if (file.size > SHOT_MAX_BYTES) return refuse(413, 'too-large');
+    const path = `${id}/${name}`;
+    const stored = await who.files.upload(path, file, type);
+    if (stored === 'stored') return reply(200, { path });
+    return stored === 'exists' ? refuse(409, 'This screenshot is already there.', { path }) : refuse(403, 'This round takes no screenshot from you.');
+  });
+}
+
+/** Removes one screenshot a page uploaded and then dropped, as the caller: the bucket's rules decide. */
+export function removeAttachment(request: Request, id: string, name: string, deps: AskDeps): Promise<Response> {
+  return handle(request, deps, async (who) => {
+    if (!UUID.test(id) || !shotName(name)) return notFound('round');
+    const path = `${id}/${name}`;
+    await who.files.remove([path]);
+    return reply(200, { path, removed: true });
   });
 }
 

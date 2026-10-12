@@ -62,3 +62,9 @@ export const pitchedOf = (row: StoredProduct): PitchedProduct => ({ ...rowOf(row
 export const PRODUCTS_HREF = '/app/settings/products';
 
 export const productHref = (id: string) => `${PRODUCTS_HREF}/${encodeURIComponent(id)}`;
+
+/** Products in the sidebar (PRD 1364 s8): the workspace's products as cards. */
+const PRODUCT_HOME_HREF = '/app/products';
+
+/** A product's home (PRD 1364 s9), under Products in the sidebar. */
+export const productHomeHref = (id: string) => `${PRODUCT_HOME_HREF}/${encodeURIComponent(id)}`;

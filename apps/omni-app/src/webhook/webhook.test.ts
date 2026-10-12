@@ -2,27 +2,30 @@ import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { type AppEvent, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
+import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
+  APPROVED_LABEL_ACTIONS,
   CANON_ACTIONS,
   CHECK_ACTIONS,
   HANDLED,
   RETRO_ACTIONS,
   receiveWebhook,
+  toApprovedLabelRequests,
   toCanonActionRequests,
   toCheckRequests,
   toEvents,
   toHarvestRequests,
   toRetroRequests,
 } from './webhook.ts';
+import { APPROVED_LABEL_EVENT } from '../inngest-client.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
 import type { Touch } from '../stage-forward/touch.ts';
 import { appFunctions } from '../functions.ts';
 import { readEnv } from '../env.ts';
 
 /** The functions the app serves, bound to an empty environment. */
-const { inboxCheck } = appFunctions(readEnv({}));
+const { inboxCheck, approvedCheck } = appFunctions(readEnv({}));
 
 const SECRET = 'shh-test-secret';
 
@@ -35,7 +38,7 @@ const forwarding = () => vi.fn<(event: StageEvent) => Promise<unknown>>(() => Pr
 
 const sign = (body: string, secret = SECRET) => `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 
-const REPOSITORY = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } };
+const REPOSITORY = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' }, default_branch: 'main' };
 const INSTALLATION = { id: 4242 };
 
 const pullRequestPayload = (action: string, over = {}): Record<string, unknown> => ({
@@ -187,17 +190,26 @@ describe('webhook — the event and action filter', () => {
     expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: INBOX_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
   });
 
+  it('turns a re-run of an approved check run into the approved check event only (PRD 1548)', async () => {
+    const payload = rerequestedPayload(RERUN_PULLS, { name: 'omni/approved', external_id: APPROVED_EXTERNAL_ID });
+    const { send } = await deliver({ event: 'check_run', payload });
+    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
+    expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: APPROVED_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
+  });
+
   it('keeps a re-run of any other check run the outbox check event, whatever its name', () => {
     const payload = rerequestedPayload(RERUN_PULLS, { name: 'inbox', external_id: 'someone-else' });
     expect(toCheckRequests('check_run', payload).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
   });
 
-  it('sends, for every handled pull request action, the one event the outbox and inbox checks both run on', () => {
+  it('sends, for every handled pull request action, the one event the outbox, inbox and approved checks all run on', () => {
     for (const action of CHECK_ACTIONS.pull_request) {
       expect(toEvents('pull_request', pullRequestPayload(action)).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
     }
     expect(inboxCheck.opts.triggers).toContainEqual({ event: OUTBOX_CHECK_EVENT });
     expect(inboxCheck.opts.triggers).toContainEqual({ event: INBOX_CHECK_EVENT });
+    expect(approvedCheck.opts.triggers).toContainEqual({ event: OUTBOX_CHECK_EVENT });
+    expect(approvedCheck.opts.triggers).toContainEqual({ event: APPROVED_CHECK_EVENT });
   });
 
   it('answers 200 and sends nothing to a rerequested check run tied to no pull request', async () => {
@@ -239,6 +251,19 @@ describe('toCheckRequests', () => {
   it('is the filter alone, pure: no signature, no send', () => {
     expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
     expect(toCheckRequests('pull_request', pullRequestPayload('closed'))).toEqual([]);
+  });
+
+  it('turns no event of a sub-PR, a pull request into another branch than the default, into an outbox check (#1413)', () => {
+    const subPr = { number: 28, head: { sha: 'abc123', ref: 'feat/x--s1' }, base: { ref: 'feat/x' } };
+    for (const action of CHECK_ACTIONS.pull_request) {
+      expect(toCheckRequests('pull_request', pullRequestPayload(action, { pull_request: subPr })), action).toEqual([]);
+    }
+    expect(toCheckRequests('check_run', rerequestedPayload([subPr]))).toEqual([]);
+  });
+
+  it('still turns a pull request into the default branch, and its check re-run, into the outbox check (#1413)', () => {
+    expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
+    expect(toCheckRequests('check_run', rerequestedPayload())).toHaveLength(1);
   });
 
   it('never turns a closed pull request into the outbox check, merged or not', () => {
@@ -310,9 +335,21 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(toRetroRequests('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
   });
 
-  it('leaves the qualifying to the functions: a merged sub-PR still becomes the retro and harvest events', () => {
-    const events = toEvents('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }));
+  it('turns a pull request merged into another branch than the default, a sub-PR, into no retro and no harvest event (#1409)', () => {
+    const subPr = mergedPayload({ head: { sha: 'abc123', ref: 'feat/retro--s1' }, base: { ref: 'feat/retro' } });
+    expect(toRetroRequests('pull_request', subPr)).toEqual([]);
+    expect(toHarvestRequests('pull_request', subPr)).toEqual([]);
+    expect(toEvents('pull_request', subPr)).toEqual([]);
+  });
+
+  it('leaves the rest of the qualifying to the functions: any pull request merged into the default branch becomes both events', () => {
+    const events = toEvents('pull_request', mergedPayload({ head: { sha: 'abc123', ref: 'docs/phase-0-retro' } }));
     expect(events.map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+  });
+
+  it('sends both events when the delivery names no default branch, as before (#1409)', () => {
+    const payload = { ...mergedPayload({ base: { ref: 'feat/retro' } }), repository: { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } } };
+    expect(toEvents('pull_request', payload).map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
   });
 
   it('turns a closed, unmerged pull request into no harvest event', () => {
@@ -500,5 +537,64 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     const { response, send } = await deliver({ event: 'check_run', payload });
     expect(response.status).toBe(200);
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe('webhook — the approved label (PRD 1612)', () => {
+  const labelPayload = (action: string, over: { label?: string; issue?: Record<string, unknown> } = {}) => ({
+    action,
+    installation: INSTALLATION,
+    repository: REPOSITORY,
+    label: { name: over.label ?? 'omni:approved' },
+    issue: { number: 1612, updated_at: '2026-10-11T10:00:00Z', ...over.issue },
+  });
+
+  it('handles the approved label added and removed on an issue', () => {
+    expect(APPROVED_LABEL_ACTIONS).toEqual({ issues: ['labeled', 'unlabeled'] });
+  });
+
+  it.each(['labeled', 'unlabeled'])('the approved label %s on a PRD issue is one approved label event naming the PRD', (action) => {
+    expect(toApprovedLabelRequests('issues', labelPayload(action))).toEqual([
+      {
+        name: APPROVED_LABEL_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prd: 1612,
+          trigger: `issues.${action}`,
+        },
+      },
+    ]);
+  });
+
+  it('another label, a pull request’s label, another action or another event is none', () => {
+    expect(toApprovedLabelRequests('issues', labelPayload('labeled', { label: 'bug' }))).toEqual([]);
+    expect(toApprovedLabelRequests('issues', labelPayload('labeled', { issue: { pull_request: {} } }))).toEqual([]);
+    expect(toApprovedLabelRequests('issues', labelPayload('opened'))).toEqual([]);
+    expect(toApprovedLabelRequests('pull_request', labelPayload('labeled'))).toEqual([]);
+  });
+
+  it('is not the outbox check’s event', () => {
+    expect(toEvents('issues', labelPayload('labeled'))).toEqual([]);
+  });
+
+  it('a signed delivery of the approved label hands the event to sendApproved, nothing to send', async () => {
+    const payload = labelPayload('unlabeled');
+    const body = JSON.stringify(payload);
+    const send = sending();
+    const sendApproved = vi.fn(() => Promise.resolve());
+    const response = await receiveWebhook({
+      body,
+      headers: { 'x-github-event': 'issues', 'x-hub-signature-256': sign(body) },
+      secret: SECRET,
+      send,
+      sendApproved,
+      forward: forwarding(),
+    });
+    expect(response).toEqual({ status: 200, body: 'sent 1' });
+    expect(send).not.toHaveBeenCalled();
+    expect(sendApproved).toHaveBeenCalledWith(toApprovedLabelRequests('issues', payload));
   });
 });

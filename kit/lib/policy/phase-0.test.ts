@@ -124,6 +124,25 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(verdict.ok, verdict.reason).toBe(true);
   });
 
+  it('a roadmap row is planned when the loop reaches it: with needsPlan false, no plan is missing (issue 1198)', () => {
+    const { ctx } = docsOnlyRepo();
+    const paths = phase0Paths(PRD, { ctx });
+
+    const verdict = phase0Verdict([paths.spec, paths.beforeAfter], { ctx, prd: PRD, needsPlan: false });
+    expect(verdict.ok, verdict.reason).toBe(true);
+    expect(verdict.missing).toEqual([]);
+    expect(verdict.reason).toBe('docs-only, and it carries the spec and the before/after a reviewer is being asked to approve');
+
+    const bare = phase0Verdict([paths.spec], { ctx, prd: PRD, needsPlan: false });
+    expect(bare.missing).toEqual(['before-after']);
+    expect(bare.reason).not.toContain('the plan');
+    expect(phase0Verdict([paths.spec, paths.beforeAfter], { ctx, prd: PRD }).missing).toEqual(['plan']);
+    expect(phase0Verdict([paths.spec], { ctx, prd: PRD, needsPlan: false, needsBeforeAfter: false }).missing).toEqual([]);
+    expect(phase0Verdict([paths.spec, paths.plan, paths.beforeAfter], { ctx, prd: PRD }).reason).toBe(
+      'docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve',
+    );
+  });
+
   // Restored to upstream's own assertion (fix round 1 — the controller's ruling on this task's
   // report): a `docs` kind survives in the folders layout too, checked AFTER the PRD-specific and
   // acceptance-pending kinds, exactly as upstream checked its specific kinds before falling back to
@@ -177,6 +196,28 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(verdict.ok, verdict.reason).toBe(true);
     expect(verdict.docsOnly).toBe(true);
     expect(verdict.carries.docs).toEqual([concept]);
+  });
+
+  // Law BR-PRODUCT-1 (.omni-loop/knowledge/product/rules.md, #1463).
+  it('law BR-PRODUCT-1: delivery, knowledge, decision records, glossary and context files are documentation; any other path is source', () => {
+    const { ctx } = docsOnlyRepo({ config: { paths: { glossary: 'docs/glossary.md', context: ['CLAUDE.md', 'AGENTS.md'] } } });
+    const documentation = [
+      '.omni-loop/delivery/shipped/0001-other/notes.md',
+      `${ctx.layout.knowledgeRoot}/product/rules.md`,
+      `${ctx.layout.adrDir}/0001-a-decision.md`,
+      'docs/glossary.md',
+      'CLAUDE.md',
+      'AGENTS.md',
+    ];
+    for (const path of documentation) {
+      expect(classifyPhase0Path(path, { ctx, prd: PRD }), path).toBe('docs');
+    }
+    expect(isDocsOnly(documentation, { ctx })).toBe(true);
+
+    for (const path of ['kit/lib/a.ts', 'docs/other.md', 'package.json', 'README.md']) {
+      expect(classifyPhase0Path(path, { ctx, prd: PRD }), path).toBe('source');
+      expect(isDocsOnly([path], { ctx }), path).toBe(false);
+    }
   });
 
   it('names the three required kinds once, in the order a reviewer wants them', () => {

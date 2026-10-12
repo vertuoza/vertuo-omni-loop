@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1274 — before and after</title>
+<style>:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d7dce1;--card:#f6f8fa}@media (prefers-color-scheme:dark){:root{--bg:#0f1317;--fg:#e8ecef;--muted:#9aa5ae;--line:#2b333b;--card:#161b21}}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}h1{font-size:1.25rem;margin:0 0 4px}p.lead{color:var(--muted);margin:0 0 20px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}.card h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}</style></head><body>
+<h1>Healed e2e steps are safe to accept</h1><p class="lead">PRD 1274 · P2 of the roadmap "Validation e2e: de la bêta à la pratique"</p>
+<div class="cols"><section class="card" aria-label="Today"><h2>Today</h2><p>The idea behind the beta says a healed step never passes silently: it becomes an outbox item with before and after screenshots, and the new recording is not committed until a person confirms it. The beta of PRD 1233 does less: the item holds the action before and after in words, and the sub-PR commits every recording from the start, so a healed one counts as accepted at merge.</p></section>
+<section class="card" aria-label="After"><h2>After</h2><p>A healed step&#x27;s outbox item carries the before and after screenshots, taken from the framework&#x27;s own artifacts. A healed recording is not committed with the rest: the sub-PR holds the recordings that are unchanged or new, and the healed ones wait for a person&#x27;s confirmation, then are committed by a follow-up step.</p></section></div></body></html>

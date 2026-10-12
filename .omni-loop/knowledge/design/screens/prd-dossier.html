@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD dossier mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-yellow: #ff3ea5; --ask-on-yellow: #07061c; --ask-cyan: #6ff0ff; --ask-green: #4ee08a;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --ask-gutter: 32px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  a { color: var(--ask-cyan); }
+  .mock-note { max-width: 960px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--ask-muted); }
+  .mock-note b { color: var(--ask-ink); }
+
+  /* The PRD page keeps a narrower column than the other app pages (page-width.test.ts). */
+  .ask { max-width: 960px; margin: 0 auto; padding: 28px var(--ask-gutter) 48px; display: grid; gap: 20px; }
+
+  /* dossier/page/dossier.css, as written. */
+  .dossier-head { display: grid; gap: 14px; margin: -28px calc(-1 * var(--ask-gutter)) 0; padding: 16px var(--ask-gutter) 0;
+    background: var(--ask-surface); border-bottom: 1.5px solid var(--ask-line-strong); }
+  .dossier-head-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+  .dossier-title { flex: 1 1 320px; margin: 0; font-size: 28px; line-height: 1.25; }
+  .dossier-number { color: var(--ask-plasma); white-space: nowrap; text-decoration: none; }
+  .dossier-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ask-button { display: inline-block; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk);
+    color: var(--ask-ink); font: 700 15px/1.2 var(--ask-body); text-decoration: none; }
+  .ask-button.stage-action { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .dossier-facts { display: flex; flex-wrap: wrap; gap: 10px 0; margin: 0 0 0 -19px; clip-path: inset(-4px -4px -4px 19px); }
+  .dossier-fact { display: grid; align-content: start; gap: 6px; padding: 0 18px; border-left: 1px solid var(--ask-line-strong); }
+  .dossier-fact dt { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .dossier-fact dd { margin: 0; font-size: 15px; }
+  .dossier-fact-stage dd { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; }
+  .stage-track { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; font: 600 12px/1 var(--ask-mono); }
+  .stage-stop { padding: 6px 9px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-muted); white-space: nowrap; }
+  .stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
+  .stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); font-weight: 800; }
+  .stage-badge { font-size: 13px; color: var(--ask-on-yellow); background: var(--ask-yellow); padding: 3px 8px; border-radius: 999px; text-decoration: none; }
+  .stage-words { margin: 0; }
+  .ask-hint { color: var(--ask-muted); }
+  .stage-links { list-style: none; margin: 0; padding: 0; display: flex; gap: 12px; flex-wrap: wrap; }
+  .dossier-tabs { display: flex; gap: 4px; margin: 0 calc(-1 * var(--ask-gutter)); padding: 0 calc(var(--ask-gutter) - 14px); border-top: 1px solid var(--ask-line-strong); overflow-x: auto; }
+  .dossier-tab { display: inline-flex; align-items: baseline; gap: 6px; padding: 10px 14px; color: var(--ask-ink); font-weight: 700; text-decoration: none; white-space: nowrap; border-bottom: 3px solid transparent; }
+  .dossier-tab[aria-current='page'] { border-bottom-color: var(--ask-plasma); }
+  .dossier-tab-empty { color: var(--ask-muted); }
+  .dossier-tab small { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+  .dossier-pane { display: grid; gap: 16px; }
+  .dossier-picker { display: flex; align-items: end; gap: 8px; margin: 0; font-size: 15px; }
+  .dossier-picker select { font: inherit; color: var(--ask-ink); background: var(--ask-sunk); border: 1.5px solid var(--ask-line-strong); border-radius: 8px; padding: 6px 10px; }
+  .dossier-front { margin: 0; font: 13px/1.5 var(--ask-mono); color: var(--ask-muted); }
+  .dossier-md h1 { font-size: 26px; margin: 0 0 8px; }
+  .dossier-md h2 { font-size: 20px; margin: 20px 0 6px; }
+  .dossier-md p { margin: 0 0 12px; max-width: 70ch; }
+  @media (max-width: 900px) { :root { --ask-gutter: 16px; } }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>A PRD's page at /prd/&lt;id&gt;, signed in, at building with one outbox question open, on its Spec tab.</b> Drawn from the source (apps/galaxy/src/dossier/page/), not from a screenshot, in theme Omni. PRD 1550 stands in for any PRD; its spec's text is abridged, and the PRD's own text (its title, its front matter, its spec) is marked <code>data-content</code>: content the page shows, not words it wrote. The app shell around the page is its own shared screen, <code>app-shell</code>, and is not drawn here.</p>
+
+<main class="ask" data-screen="prd-dossier">
+  <header class="dossier-head">
+    <div class="dossier-head-top">
+      <h1 class="dossier-title"><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/1550">PRD #1550 ↗</a> <span data-content>Design memory, round 2 — a quiet word pass, screens that claim what they show, mockups and a gallery</span></h1>
+      <div class="dossier-actions">
+        <a class="ask-button stage-action" href="#outbox" data-primary>Answer the outbox</a>
+        <button type="button" class="ask-button">Copy link</button>
+      </div>
+    </div>
+    <dl class="dossier-facts">
+      <div class="dossier-fact dossier-fact-stage"><dt>Stage</dt><dd>
+        <ol class="stage-track" aria-label="Stages">
+          <li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-passed">PRD</li><li class="stage-stop stage-passed">inbox</li>
+          <li class="stage-stop stage-current" aria-current="step">building</li><li class="stage-stop stage-ahead">outbox</li>
+          <li class="stage-stop stage-ahead">shipped</li><li class="stage-stop stage-ahead">retro</li>
+        </ol>
+        <a class="stage-badge" href="#outbox">1 question waiting →</a>
+        <p class="stage-words"><strong>Stage: building</strong></p>
+      </dd></div>
+      <div class="dossier-fact"><dt>Approval</dt><dd><strong>approved</strong><br><span class="ask-hint">by pierrederval · Oct 11</span></dd></div>
+      <div class="dossier-fact"><dt>Repo</dt><dd>vertuo-omni-loop</dd></div>
+      <div class="dossier-fact"><dt>On GitHub</dt><dd>
+        <ul class="stage-links"><li><a href="#">Issue</a> <span class="ask-hint">open</span></li><li><a href="#">Feature PR</a> <span class="ask-hint">open</span></li></ul>
+        <span class="ask-hint">GitHub as of 09:15 UTC</span>
+      </dd></div>
+      <div class="dossier-fact"><dt>Opened</dt><dd>pierrederval · Oct 11</dd></div>
+    </dl>
+    <nav class="dossier-tabs" aria-label="Tabs">
+      <a class="dossier-tab" href="?tab=questions">Questions <small>4/4</small></a>
+      <a class="dossier-tab" href="?tab=before-after">Before/after</a>
+      <a class="dossier-tab" href="?tab=spec" aria-current="page">Spec</a>
+      <a class="dossier-tab" href="?tab=plan">Plan</a>
+      <a class="dossier-tab" href="?tab=voice">User voice</a>
+      <a class="dossier-tab" href="?tab=outbox">Outbox</a>
+      <a class="dossier-tab" href="?tab=care">PR care</a>
+      <a class="dossier-tab dossier-tab-empty" href="?tab=retro">Retro</a>
+    </nav>
+  </header>
+
+  <section class="dossier-pane" aria-label="Spec">
+    <form class="dossier-picker" method="get"><label>Version <select name="v"><option>v3 · latest</option><option>v2</option><option>v1</option></select></label></form>
+    <p class="dossier-front" data-content>prd: 1550 · blocked-by: none · spec: file · phase0: server</p>
+    <article class="dossier-md" data-content>
+      <h1>Design memory, round 2</h1>
+      <h2>Problem</h2>
+      <p>PRD 1407 gave every repository a design memory: a screen library, locks, and a word pass. A simulation on <code>main</code> (2026-10-11), with omni-loop's own library and the last 60 merges, shows where it falls short:</p>
+      <h2>Solution</h2>
+      <h3>1. The word pass reads only marked screens</h3>
+      <h3>2. A screen claims what it is drawn from</h3>
+      <h3>3. <code>touched</code> leaves tests out</h3>
+      <h3>4. Mockups and the gallery</h3>
+      <h3>5. Dogfood on omni-loop</h3>
+    </article>
+  </section>
+</main>
+
+<p class="mock-note">Not drawn: the approve screen (shown under the head only while the PRD waits for approval or drifted, to a member who may approve), the other panes, the pinned head from 900 × 700, and the play dock. The primary mark is the stage's one button; whether it, Approve or an outbox answer leads stays the screen's open question.</p>
+</body>
+</html>

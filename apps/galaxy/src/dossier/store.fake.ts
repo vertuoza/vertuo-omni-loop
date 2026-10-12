@@ -16,7 +16,9 @@
 // Since PRD 627 a dossier has a kind (prd, visual or bug), keyed with the repository and the number: a push
 // names it (a PRD's when it does not), each kind takes only its own versions, a fix is never a draft, and
 // a round of variations is added unless one of the same content is there
-// (supabase/migrations/20261011090000_fix_dossiers.sql).
+// (supabase/migrations/20261011090000_fix_dossiers.sql). Since PRD 1272 a concept is a kind too, never a
+// draft, and a board round is added as a round of variations is
+// (supabase/migrations/20261119090000_concept_dossiers.sql).
 //
 // The repository is kept in lower case, as the migration keeps it. The page's reads (PRD 216's page to
 // share) run on the same tables under the migration's access rules on reading and deleting, written
@@ -42,12 +44,25 @@
 // a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
+//
+// A PRD's product (PRD 1364): each workspace's products and their repositories, seeded by a test
+// (seedProduct), and dossier_push()'s birth rule of supabase/migrations/20261129100000_prd_product.sql:
+// a PRD dossier with no product, in a repository of one product, takes it; in several, the one of them
+// its first push names (any case); in none, none. A later push never changes it, and the answer carries
+// the dossier's product, {id, name} or null. A member reads the workspace's products.
+//
+// A product PRD (PRD 1548): a product may carry a key (seedProduct's `key`), and dossier_push() with
+// p_product_key of supabase/migrations/20261203100000_product_prd_ids.sql is written here as the
+// migration writes it — the product's next PRD, with no home repository and born on the server, when
+// p_prd is null, else PRD p_prd of it, its answer carrying prdId; product_of_key() picks the caller's
+// product listing the repository first, then the oldest. dossier_approval() answers a product PRD's
+// dossier, with no approval (the approval route's tests prove those), null when the caller reads no such PRD.
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
-  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, KIND_ARTIFACTS, latestVersions, TITLE_MAX, WORK_KINDS, type ArtifactKind, type DossierListRow, type DossierRoundRow,
-  type RoundRule, type WorkKind,
+  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, isRoundKind, KIND_ARTIFACTS, latestVersions, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, WORK_KINDS, type DossierListRow,
+  type DossierRoundRow, type PushedArtifactKind, type PushKind, type RoundRule,
 } from './store';
 import { FAKE_WORKSPACE, userOf, type FakeAccount } from '../ask/store.fake';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -61,9 +76,19 @@ type Result = { data: unknown; error: Failure | null };
 export { FAKE_WORKSPACE, type FakeAccount };
 
 export type FakeDossier = {
-  id: string; workspace_id: string; home_repo: string; prd: PrdNumber | null; kind: WorkKind; title: string;
+  /** Null for a product PRD (PRD 1548), keyed by its product and its number instead. */
+  id: string; workspace_id: string; home_repo: string | null; prd: PrdNumber | null; kind: PushKind; title: string;
   opened_by: string | null; claude_session_id: string | null; created_at: string; numbered_at: string | null;
+  /** PRD 1364: its product, or none. */
+  product_id?: string | null;
+  /** PRD 1548: a product PRD's number on its product (12 in mobile-12); none for a dossier of a repository. */
+  product_seq?: number | null;
+  /** PRD 1299: where its phase 0 is approved; a product PRD is born on the server. */
+  birthplace?: 'server' | 'repo' | null;
 };
+/** A product of a workspace (PRD 1364), and the repositories linked to it, lower-cased; since PRD 1548 its
+ * key, once set, and its last PRD number. */
+type FakeProduct = { id: string; workspace_id: string; name: string; repos: string[]; key: string | null; prd_count: number; created_at: string };
 export type FakeVersion = {
   id: string; dossier_id: string; kind: string; content: string; sha256: string; bytes: number;
   source: 'kit' | 'github'; uploaded_by: string | null; commit_sha: string | null; git_blob: string | null; created_at: string;
@@ -106,19 +131,19 @@ const isPrdNumber = (value: unknown): value is PrdNumber => PrdNumberSchema.safe
 /** A Claude session id: none, or 1 to 200 characters. */
 const sessionFits = (session: unknown): session is string | null => session === null || (typeof session === 'string' && session.length >= 1 && session.length <= 200);
 
-type SentArtifact = { kind: ArtifactKind; content: string };
+type SentArtifact = { kind: PushedArtifactKind; content: string };
 /** dossier_push()'s arguments, checked. */
-type PushArgs = { repo: string; prd: PrdNumber; title: string; draftId: unknown; kind: WorkKind; sent: SentArtifact[] };
+type PushArgs = { repo: string; prd: PrdNumber; title: string; draftId: unknown; kind: PushKind; sent: SentArtifact[]; product: string };
 
 /** The artifacts a push sends to a `kind` dossier, each checked, or the refusal of the first that fails. */
-function sentArtifacts(artifacts: unknown, kind: WorkKind): Checked<SentArtifact[]> {
+function sentArtifacts(artifacts: unknown, kind: PushKind): Checked<SentArtifact[]> {
   if (!Array.isArray(artifacts)) return refused('22023', 'The artifacts are a list.');
   const seen = new Set<string>();
   const sent: SentArtifact[] = [];
   for (const item of artifacts) {
     const artifact = artifactOf(item);
-    if (!artifact) return refused('22023', `Each artifact is {kind, content}, its kind one of ${ARTIFACT_KINDS.join(', ')}.`);
-    if (artifact.kind !== 'variations' && seen.has(artifact.kind)) return refused('22023', 'Each kind is sent once.');
+    if (!artifact) return refused('22023', `Each artifact is {kind, content}, its kind one of ${PUSHED_ARTIFACT_KINDS.join(', ')}.`);
+    if (!isRoundKind(artifact.kind) && seen.has(artifact.kind)) return refused('22023', 'Each kind is sent once.');
     if (!KIND_ARTIFACTS[kind].includes(artifact.kind)) return refused('22023', `A ${kind} dossier takes no ${artifact.kind} version.`);
     seen.add(artifact.kind);
     if (Buffer.byteLength(artifact.content, 'utf8') > ARTIFACT_MAX_BYTES) return refused('54000', 'An artifact holds 512 KiB at most.');
@@ -130,7 +155,7 @@ function sentArtifacts(artifacts: unknown, kind: WorkKind): Checked<SentArtifact
 /** An artifact as a push sends it, `{kind, content}`, or null when it is not one. */
 function artifactOf(item: unknown): SentArtifact | null {
   const kind = propertyOf(item, 'kind'), content = propertyOf(item, 'content');
-  if (!item || typeof item !== 'object' || !isOneOf(ARTIFACT_KINDS, kind) || typeof content !== 'string') return null;
+  if (!item || typeof item !== 'object' || !isOneOf(PUSHED_ARTIFACT_KINDS, kind) || typeof content !== 'string') return null;
   return { kind, content };
 }
 
@@ -155,6 +180,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     /** Each member's GitHub login, avatar, fleet and hero (PRD 652), by workspace id then account id. */
     players: Record<string, Record<string, FakePlayer>>;
     teams: FakeFleet[];
+    products: FakeProduct[];
   } = {
     dossiers: [], dossier_versions: [],
     ask_sessions: [], ask_rounds: [], ask_shares: [],
@@ -162,6 +188,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     plan_repos: {},
     players: {},
     teams: [],
+    products: [],
   };
   /** `fail`: every read fails so. `rosterDown` (PRD 652): only the faces' reads (roster and fleets) fail. */
   const state: { fail: Failure | null; calls: number; rosterDown: boolean } = { fail: null, calls: 0, rosterDown: false };
@@ -183,7 +210,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   }
 
   /** dossier_add_version(): the version added, or null when the content equals the latest of its kind (for
-   * variations, any round of its kind: 20261011090000_fix_dossiers.sql). */
+   * variations and boards, any round of its kind: 20261011090000_fix_dossiers.sql, 20261119090000_concept_dossiers.sql). */
   function addVersion(
     dossier: FakeDossier, kind: string, content: string,
     { source, uploadedBy = null, commitSha = null }: { source: 'kit' | 'github'; uploadedBy?: string | null; commitSha?: string | null },
@@ -191,7 +218,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const hash = sha256(content);
     const ofKind = tables.dossier_versions.filter((v) => v.dossier_id === dossier.id && v.kind === kind);
     const latest = [...ofKind].sort((a, b) => a.created_at.localeCompare(b.created_at)).at(-1);
-    if (kind === 'variations' ? ofKind.some((v) => v.sha256 === hash) : latest?.sha256 === hash) return null;
+    if (kind === 'variations' || kind === 'board' ? ofKind.some((v) => v.sha256 === hash) : latest?.sha256 === hash) return null;
     tables.dossier_versions.push({
       id: newId(), dossier_id: dossier.id, kind, content, sha256: hash, bytes: Buffer.byteLength(content, 'utf8'),
       source, uploaded_by: uploadedBy, commit_sha: commitSha, git_blob: null, created_at: clock(),
@@ -223,18 +250,19 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const prd = args.p_prd;
     const title = trimmed(args.p_title);
     const kind = args.p_kind ?? 'prd';
-    if (!isOneOf(WORK_KINDS, kind)) return refused('22023', 'A dossier\'s kind is prd, visual or bug.');
+    if (!isOneOf(PUSH_KINDS, kind)) return refused('22023', 'A dossier\'s kind is prd, visual, bug or concept.');
     if (!REPO.test(repo)) return refused('22023', 'A dossier needs its repository as owner/name.');
     if (!isPrdNumber(prd)) return refused('22023', 'A PRD number is a positive whole number.');
     if (!titleFits(title)) return refused('22023', 'A dossier needs a title of 1 to 200 characters.');
     const sent = sentArtifacts(args.p_artifacts, kind);
     if (!sent.ok) return sent;
-    return { ok: true, value: { repo, prd, title, draftId: args.p_draft ?? null, kind, sent: sent.value } };
+    const product = trimmed(args.p_product).toLowerCase();
+    return { ok: true, value: { repo, prd, title, draftId: args.p_draft ?? null, kind, sent: sent.value, product } };
   }
 
   /** The draft named, numbered `prd`: merged into the dossier already keyed so, if there is one. */
   function numberedDraft(me: FakeAccount, { draftId, repo, prd, kind }: PushArgs): Checked<FakeDossier> {
-    if (kind !== 'prd') return refused('22023', 'A fix has no draft: push it by its number alone.');
+    if (kind !== 'prd') return refused('22023', `A ${kind} dossier has no draft: push it by its number alone.`);
     const draft = tables.dossiers.find((d) => d.id === draftId && isMember(me, d.workspace_id));
     if (!draft) return refused('P0002', 'No such draft dossier.');
     if (draft.home_repo !== repo) return refused('22023', `This draft belongs to ${draft.home_repo}.`);
@@ -273,8 +301,88 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return { ok: true, value: dossier };
   }
 
+  /** product_of_key(): the caller's product keyed `key`, the one listing `repo` first, then the oldest. */
+  function productOfKey(me: FakeAccount, key: string, repo: string): FakeProduct | null {
+    const keyed = tables.products
+      .filter((p) => p.key === key && isMember(me, p.workspace_id))
+      .sort((a, b) => Number(b.repos.includes(repo)) - Number(a.repos.includes(repo)) || a.created_at.localeCompare(b.created_at));
+    return keyed[0] ?? null;
+  }
+
+  /** prd_dossier()'s product half: PRD `seq` of the caller's product keyed `key`, or null. */
+  function productPrd(me: FakeAccount, key: string, seq: unknown, repo: string): FakeDossier | null {
+    const product = productOfKey(me, key, repo);
+    return tables.dossiers.find((d) => product !== null && d.product_id === product.id && d.product_seq === seq && d.kind === 'prd') ?? null;
+  }
+
+  /** Each sent artifact added as a version of `dossier`, unless it equals its kind's latest. */
+  function addAll(dossier: FakeDossier, sent: readonly SentArtifact[], uploadedBy: string) {
+    const added: Array<{ kind: string; version: number }> = [];
+    const unchanged: string[] = [];
+    for (const { kind, content } of sent) {
+      const version = addVersion(dossier, kind, content, { source: 'kit', uploadedBy });
+      if (version === null) unchanged.push(kind);
+      else added.push({ kind, version });
+    }
+    return { added, unchanged };
+  }
+
+  /** dossier_push()'s arguments with p_product_key, checked as the migration checks them, or its refusal. */
+  function productPushArgs(args: Row, key: string): Checked<{ repo: string; seq: PrdNumber | null; title: string; sent: SentArtifact[] }> {
+    const alone = (args.p_kind ?? 'prd') === 'prd' && (args.p_draft ?? null) === null && trimmed(args.p_product) === '';
+    if (!alone) return refused('22023', 'A product PRD is a PRD of its product alone: no draft, no other kind, no product name.');
+    if (!/^[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$/.test(key) || key.length > 40) return refused('22023', 'A product key is lowercase kebab-case, as mobile.');
+    const seq = args.p_prd ?? null;
+    if (seq !== null && !isPrdNumber(seq)) return refused('22023', 'A PRD number is a positive whole number.');
+    const title = trimmed(args.p_title);
+    if (!titleFits(title)) return refused('22023', 'A push carries a title of 1 to 200 characters.');
+    const sent = sentArtifacts(args.p_artifacts, 'prd');
+    return sent.ok ? { ok: true, value: { repo: trimmed(args.p_repo).toLowerCase(), seq, title, sent: sent.value } } : sent;
+  }
+
+  /** The product's next PRD, created with no home repository and born on the server. */
+  function nextProductPrd(me: FakeAccount, product: FakeProduct, title: string): FakeDossier {
+    product.prd_count += 1;
+    const dossier: FakeDossier = {
+      id: newId(), workspace_id: product.workspace_id, home_repo: null, prd: null, kind: 'prd', title, opened_by: me.id,
+      claude_session_id: null, created_at: stamp(), numbered_at: stamp(), product_id: product.id, product_seq: product.prd_count, birthplace: 'server',
+    };
+    tables.dossiers.push(dossier);
+    return dossier;
+  }
+
+  /** dossier_push() with p_product_key (supabase/migrations/20261203100000_product_prd_ids.sql): the
+   * product's next PRD when p_prd is null, else PRD p_prd of it; the answer carries prdId. */
+  function pushProduct(me: FakeAccount, args: Row, key: string): Result {
+    const checked = productPushArgs(args, key);
+    if (!checked.ok) return checked.refusal;
+    const { repo, seq, title, sent } = checked.value;
+    const product = productOfKey(me, key, repo);
+    if (!product) return refuse('P0002', `No product keyed ${key} in your workspaces.`);
+    const dossier = seq === null ? nextProductPrd(me, product, title) : productPrd(me, key, seq, repo);
+    if (!dossier) return refuse('P0002', `No PRD ${key}-${String(seq)} on ${product.name}.`);
+    dossier.title = title;
+    const { added, unchanged } = addAll(dossier, sent, me.id);
+    return {
+      data: { id: dossier.id, added, unchanged, product: { id: product.id, name: product.name }, prdId: `${key}-${String(dossier.product_seq)}` },
+      error: null,
+    };
+  }
+
+  /** dossier_approval() of a product PRD (p_product): {dossier, approval: null}, null when there is
+   * no such PRD the caller reads. A repository's PRD is the approval route's, not the dossier fake's. */
+  function approvalOf(me: FakeAccount | null, args: Row): Result {
+    if (!me) return refuse('42501', 'Sign in first.');
+    const key = trimmed(args.p_product);
+    if (key === '') return refuse('PGRST202', 'The dossier fake reads a product PRD\'s approval only.');
+    const dossier = productPrd(me, key, args.p_prd, trimmed(args.p_repo).toLowerCase());
+    return { data: dossier ? { dossier: dossier.id, approval: null } : null, error: null };
+  }
+
   function push(me: FakeAccount | null, args: Row): Result {
     if (!me) return refuse('42501', 'Sign in first.');
+    const key = trimmed(args.p_product_key);
+    if (key !== '') return pushProduct(me, args, key);
     const checked = pushArgs(args);
     if (!checked.ok) return checked.refusal;
     const pushed = checked.value;
@@ -282,15 +390,23 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     if (!found.ok) return found.refusal;
     const dossier = found.value;
     dossier.title = pushed.title;
+    if (pushed.kind === 'prd') bear(dossier, pushed.product);
 
-    const added: Array<{ kind: string; version: number }> = [];
-    const unchanged: string[] = [];
-    for (const { kind, content } of pushed.sent) {
-      const version = addVersion(dossier, kind, content, { source: 'kit', uploadedBy: me.id });
-      if (version === null) unchanged.push(kind);
-      else added.push({ kind, version });
-    }
-    return { data: { id: dossier.id, added, unchanged }, error: null };
+    const { added, unchanged } = addAll(dossier, pushed.sent, me.id);
+    const product = tables.products.find((p) => p.id === dossier.product_id);
+    return { data: { id: dossier.id, added, unchanged, product: product ? { id: product.id, name: product.name } : null }, error: null };
+  }
+
+  /** The birth rule (PRD 1364): a PRD dossier with no product takes its repository's only one, or, on its
+   * first push in a repository of several, the one of them `named` (lower-cased) names. */
+  function bear(dossier: FakeDossier, named: string): void {
+    if (dossier.product_id) return;
+    const first = !tables.dossier_versions.some((v) => v.dossier_id === dossier.id);
+    const home = dossier.home_repo;
+    const ofRepo = tables.products.filter((p) => p.workspace_id === dossier.workspace_id && home !== null && p.repos.includes(home));
+    const [only] = ofRepo;
+    if (ofRepo.length === 1 && only) dossier.product_id = only.id;
+    else if (first && named !== '') dossier.product_id = ofRepo.find((p) => p.name.toLowerCase() === named)?.id ?? null;
   }
 
   /**
@@ -299,7 +415,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
    * their own draft (its versions go with it), and no other delete removes a row. Only the steps the
    * page's reads and the lookup take: select, eq, order (nulls where Postgres puts them, or where `nullsFirst` says), limit, maybeSingle, delete.
    */
-  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams') {
+  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams' | 'products') {
     let columns: string[] | null = null;
     let removing = false;
     const filters: Array<(row: Row) => boolean> = [];
@@ -308,7 +424,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
     const readable = (row: Row): boolean => {
       if (!me) return false;
-      if (table === 'teams') return typeof row.workspace_id === 'string' && isMember(me, row.workspace_id);
+      if (table === 'teams' || table === 'products') return typeof row.workspace_id === 'string' && isMember(me, row.workspace_id);
       if (table === 'ask_shares') {
         // "a member reads the shares of their workspace's rounds" (20260927120000_ask_shares.sql).
         const round = tables.ask_rounds.find((r) => r.id === row.round_id);
@@ -411,8 +527,14 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   /** dossier_list(): each dossier `me` may read, or only `dossierId`'s, as the history lists it. */
   function list(me: FakeAccount | null, dossierId: unknown): DossierListRow[] {
     if (!me) return [];
+    // A concept (PRD 1272) is left out: the history's rows are of the kinds the pages read, and the
+    // concept's own list comes with its pages. The database's dossier_list() does list it.
     const dossiers = tables.dossiers.filter((d) => isMember(me, d.workspace_id) && (dossierId === null || dossierId === undefined || d.id === dossierId));
-    return dossiers.map((d): DossierListRow => {
+    return dossiers.flatMap((d): DossierListRow[] => {
+      const { kind, home_repo: home } = d;
+      // A product PRD (PRD 1548) is left out: the history's rows name a home repository, and the pages
+      // learn a product PRD's shape with their own slices.
+      if (!isOneOf(WORK_KINDS, kind) || home === null) return [];
       const asked = rounds(me, d.id);
       const versions = tables.dossier_versions.filter((v) => v.dossier_id === d.id).sort((a, b) => a.created_at.localeCompare(b.created_at));
       const latest = latestVersions(versions, ARTIFACT_KINDS);
@@ -427,15 +549,17 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         .filter((repo) => repo !== d.home_repo).sort();
       const times = [d.created_at, d.numbered_at, ...versions.map((v) => v.created_at), ...asked.flatMap((r) => [r.created_at, r.answered_at])]
         .filter((t): t is string => t !== null);
-      const row = omit(d, ['claude_session_id']);
-      return {
+      const row = omit(d, ['claude_session_id', 'product_seq']);
+      return [{
         ...row,
-        repos: [d.home_repo, ...others],
+        home_repo: home,
+        kind,
+        repos: [home, ...others],
         latest,
         asked: asked.length,
         answered: asked.filter((r) => r.status === 'answered').length,
         last_activity: new Date(Math.max(...times.map((t) => Date.parse(t)))).toISOString(),
-      };
+      }];
     }).sort((a, b) => Date.parse(b.last_activity) - Date.parse(a.last_activity) || a.id.localeCompare(b.id));
   }
 
@@ -443,6 +567,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   function call(me: FakeAccount | null, name: string, args: Row): Result {
     if (name === 'dossier_open') return open(me, args);
     if (name === 'dossier_push') return push(me, args);
+    if (name === 'dossier_approval') return approvalOf(me, args);
     const workspace = typeof args.workspace === 'string' ? args.workspace : '';
     if (name === 'ask_members') return { data: members(me, workspace), error: null };
     if (name === 'workspace_roster') {
@@ -457,7 +582,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   function client(token: string) {
     const me = accounts[token] ?? null;
     return {
-      from: (table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams') => query(me, table),
+      from: (table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams' | 'products') => query(me, table),
       rpc: (name: string, args: Row) => Promise.resolve().then((): Result => {
         state.calls += 1;
         if (state.fail) return { data: null, error: state.fail };
@@ -473,7 +598,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
   /** A dossier the fallback created (no opener, no Claude session), with versions read from GitHub. */
   function seedFromGithub({ workspace = FAKE_WORKSPACE, repo, prd, kind = 'prd', title, versions = [] }: {
-    workspace?: string; repo: string; prd: PrdNumber; kind?: WorkKind; title: string; versions?: Array<{ kind: string; content: string }>;
+    workspace?: string; repo: string; prd: PrdNumber; kind?: PushKind; title: string; versions?: Array<{ kind: string; content: string }>;
   }): FakeDossier {
     const dossier: FakeDossier = {
       id: newId(), workspace_id: workspace, home_repo: repo.toLowerCase(), prd, kind, title, opened_by: null,
@@ -523,5 +648,12 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     if (fleet) tables.teams.push({ workspace_id: workspace, ...fleet });
   }
 
-  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, sha256 };
+  /** A product of `workspace` named `name` (PRD 1364), its repositories linked to it; its id. */
+  function seedProduct(name: string, repos: string[], { workspace = FAKE_WORKSPACE, key = null }: { workspace?: string; key?: string | null } = {}): string {
+    const id = newId();
+    tables.products.push({ id, workspace_id: workspace, name, repos: repos.map((r) => r.toLowerCase()), key, prd_count: 0, created_at: clock() });
+    return id;
+  }
+
+  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, seedProduct, sha256 };
 }

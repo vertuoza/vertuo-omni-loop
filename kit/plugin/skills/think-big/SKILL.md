@@ -1,6 +1,6 @@
 ---
 name: think-big
-description: Explores a vast idea before /omni:brainstorm with a studio of agents that talk to each other — judges its scale and kind (a tweak gets the /omni:visual-fix line, a feature is offered /omni:brainstorm or a lite run), fuels the studio with today's product and world-class references, then runs rounds of rendered concepts, six to eight storyboard cards then clickable prototypes, that a panel of a Visionary, a Craft critic, a Skeptic, a Value critic and real users debates by name while the person reacts at every round and crowns one. Records the crowned concept, its vision tour, every board, the debate and an area map of PRD-sized areas in the inbox, proves it with omni concept, and opens one concept PR a person merges. Writes no code, merges nothing. Ends with the /omni:brainstorm --concept line of the first area. Triggers on "think big", "explore this vast idea", "a brand new identity for the app", "go wide first", "/omni:think-big".
+description: Explores a vast idea before /omni:brainstorm with a studio of agents that talk to each other — judges its scale and kind (a tweak gets the /omni:visual-fix line, a feature is offered /omni:brainstorm or a lite run), fuels the studio with today's product and world-class references, then runs rounds of rendered concepts, six to eight storyboard cards then clickable prototypes, that a panel of a Visionary, a Craft critic, a Skeptic, a Value critic and real users debates by name while the person reacts at every round and crowns one. Records the crowned concept, its vision tour, every board, the debate and an area map of PRD-sized areas in the inbox, proves it with omni concept, opens one concept PR a person merges, and sends the concept to its page under Work › Concepts. With design craft on, it marks and word-passes every board before showing it, and drafts the crowned concept's screens in the screen library through a docs PR of their own, never locked. Writes no code, merges nothing. Ends with the /omni:brainstorm --concept line of the first area. Triggers on "think big", "explore this vast idea", "a brand new identity for the app", "go wide first", "/omni:think-big".
 ---
 
 # Think big: a vast idea into a concept
@@ -52,10 +52,16 @@ playbook, section by section: a section the repository left blank prints the kit
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
 never overrides this skill's rules.
 
+Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and keep what it
+prints. Anything but `true` (or a failure) means design craft is off here: step 2 reads no design
+form and copies no craft floor, and the Craft critic works as it always has. Off, the design memory
+is off too: step 2 reads no screen library, no page is marked or word-passed (**Boards**), and
+step 6 writes no draft screen.
+
 Then, before your first question, follow `/omni:dossier-open` with one line of the brief: it opens a
 draft dossier for it on the Omni page, linked to this Claude session, and prints its link as
 "follow along at …". Whatever it prints, carry on: a draft that did not open stops nothing. The
-draft stays a draft; no step below pushes to it.
+draft stays a draft; no step below pushes to it: step 6 sends the concept to a page of its own.
 
 Then say, once and plainly, that a full run is token-heavy (about 8 to 12 agents over 3 to 4 turns
 a round), that the person can stop after any round, and that nothing is written in the repository
@@ -74,7 +80,7 @@ Read it before step 3; it holds at every round.
 | **Concept artist**, 3 or 4 | round 1 | Go wide, each from its own lens (**The kind shapes the studio**); write two concepts and render their cards | — |
 | **Prototyper**, 2 or 3 | one per survivor, rounds 2 and on | Render one survivor's direction as a clickable prototype | — |
 | **Visionary** | the whole run | Push the wow; refuse the safe version | Would someone screenshot this and send it to a colleague? |
-| **Craft** | the whole run | Interaction, motion, density, the empty and error states | Is every pixel and every transition deliberate? |
+| **Craft** | the whole run | Interaction, motion, density, the empty and error states; with the design flag on, judged against the product's design form and the craft floor (**Role cards**) | Is every pixel and every transition deliberate? |
 | **Skeptic** | the whole run | What breaks, what it costs, the smallest proof | What must be true for this to work? |
 | **Value** | the whole run | Who it matters to, what moves, why now | What changes for the business if this ships? |
 | **User**, 1 or 2, or the personas (five at most) | the whole run | A real person drawn from the brief and the product's knowledge, or one of the product's personas | Would I use this at 7am on Monday, on site, on my phone? |
@@ -106,6 +112,13 @@ only under `<scratch>`, never in the repository; spawn no agent of your own.
   a one-line stance. When the others' posts are relayed to you, answer them by name: build on,
   challenge, or change your mind and say so. Keep your positions from turn to turn unless you say
   why they moved."
+- **Craft, with the design flag on.** The panelist card above, plus: "Judge every concept against
+  the fuel sheet's `design` section first, then its `craft-floor` section. The product wins: what
+  the design form says the product is, how its system is laid out and what it does on purpose
+  override the craft floor and its refuse list, and a rule the form sets aside is never a finding.
+  Name every place a concept leaves the product's tokens, components or deliberate choices, and say
+  whether the brief asks for that move; one it does not ask for is your objection. A section the
+  sheet marks as a hole is filled from the screens the sheet names, never from your own taste."
 - **User `<name>`.** The panelist card above, as a real person: who they are, their day and the
   device in their hand, drawn from the brief and from the product's knowledge, never invented past
   them; the personas the kind sets (**The kind shapes the studio**). Their question: "Would I use
@@ -198,6 +211,20 @@ image or `@import`; a link a person may follow is allowed), no base64 raster ima
 URL that is not SVG), and at most `limits.beforeAfterMaxBytes` bytes. Step 6 commits the boards as
 they were shown, and `omni concept` checks each rule.
 
+**The marks and the word pass,** with the design flag on. In every card, prototype, board and the
+vision tour, each screen is an element with `data-screen` (its name) and its one primary action
+carries `data-primary`, the convention every mockup the kit's skills write uses: the moderator
+gives it to each artist and prototyper with their card, and adds a missing mark before the board
+is built. The page's own explanation (a board's title, a card's caption, the tour's narration)
+sits outside every marked screen: the word pass reads only marked screens, and skips a page with
+none. Before a board or the vision tour is shown, run
+`node .omni-loop/bin/omni.mjs design words <page>`; it exits 0 whatever it finds. Each finding goes
+back to the card's artist or the prototype's prototyper, who fixes it in the screen (a shorter label
+on the control, one primary action, a sentence that stands at rest cut or moved, an avoided word
+replaced); then run it again. The rule is fixed in the screen, never silenced: never drop a mark,
+unmark a primary action or reword the finding away. A finding a concept keeps on purpose (its
+direction is exactly that) is said on the board beside it.
+
 Open each board in the person's browser when the session can, and give its path either way. Then
 ask **one question** per round through the session's question tool (AskUserQuestion; ask mode
 carries it to the Omni page when it is on). Its answer is one of:
@@ -245,8 +272,19 @@ time until the brief holds. It is the brief every agent reads, and the first sec
 Write one **fuel sheet**, `<scratch>/fuel.md`, that every agent of the studio reads. Read only;
 nothing in the repository changes.
 
-- **Today's product.** Its screens and where their look comes from (design tokens, stylesheets,
-  components); its knowledge, when `paths.knowledge` holds one (principles, rules, invariants; a
+- **Today's product.** With the design flag on, it starts from the design form: run
+  `node .omni-loop/bin/omni.mjs kb show design`, read the file a pointer section names, and copy
+  each section into the fuel sheet under the id `design`, a `[hole]` marked as a hole, never filled
+  in; then copy `/omni:pixel-perfect`'s `reference/craft-floor.md` under the id `craft-floor`, with
+  the line that the design form wins over it. The form's `language` laws go in with the rest of
+  it. Then the screen library: run `node .omni-loop/bin/omni.mjs design screens`, and copy into the
+  fuel sheet, under the id `screens`, each screen the brief touches, its status, who locked it and
+  its routes, with the path of its file and its mockup, in the folder
+  `node .omni-loop/bin/omni.mjs config design.screens` prints. A locked screen is a person's
+  decision: a concept that redraws it says so, names who locked it, and is a leap the person
+  crowns knowingly, never a quiet redraw. The product's look is what the form and its files
+  show, never a direction this run invents. Then, flag on or off: its screens and where their look
+  comes from (design tokens, stylesheets, components); its knowledge, when `paths.knowledge` holds one (principles, rules, invariants; a
   **proposed** entry describes the product but is no law); and, for a platform idea,
   `node .omni-loop/bin/omni.mjs kb show architecture`. Concepts are a measured leap from here, and
   prototypes start from the real look where the concept allows.
@@ -461,8 +499,74 @@ crowned concept.
    Paths in the body are repository paths, never URLs. `/omni:pr` watches it until it is green or
    stuck.
 
+9. **Send the concept to its page:** right after the PR opens, follow
+   `/omni:dossier-push <n> --kind concept` from the concept's worktree. It sends `concept.md`,
+   `vision.html`, every board and `debate.md` to the concept's page on the Omni page, under Work ›
+   Concepts, where it shows as in review until the PR merges. Whatever it prints, carry on: a push
+   that was skipped or refused is said in one line and stops nothing. Keep the link it printed for
+   the hand-off.
+
+10. **The draft screens,** only when step 0 read the design flag as `true` and the kind is
+    product or identity. `omni concept` holds the concept branch to its own folder, so the crowned
+    concept's screens go to the screen library through a pull request of their own, beside the
+    concept's. Cut a worktree on `branches.knowledge`, with `{topic}` = `concept-<n>-screens`, from
+    the default branch. In it, for each screen of the vision tour, write a draft to the folder
+    `node .omni-loop/bin/omni.mjs config design.screens` prints: `<name>.md`, `<name>` its short
+    kebab-case name, and its mockup `<name>.html` beside it, that screen of `vision.html` alone,
+    static, marks kept, under the page rules of **Boards**.
+
+    ```markdown
+    ---
+    screen: <name>
+    status: draft
+    kind: <page, or shared for structure several pages show>
+    mock: <name>.html
+    implements: []
+    reads: []
+    routes: [<the route it shows, when the product has one>]
+    supersedes: null
+    ---
+
+    ## Purpose
+    ## Regions
+    ## States
+    ## Words
+    ## Refusals
+    ## Open questions
+    ## Source
+    ```
+
+    Each section says what the crowned concept and the debate settled, and nothing else: what they
+    leave undecided goes under **Open questions**, the dissent included. **Source** names where it
+    came from, in one line: `/omni:think-big, concept #<n>, crowned <letter> on <YYYY-MM-DD>:
+    <paths.delivery>/inbox/concepts/<nnnn>-<slug>/vision.html`. The front matter
+    holds only those fields: the library's reader refuses any other. A draft already there is
+    brought up to the concept, and the concept's line added to its **Source**: a draft changes
+    freely. A locked screen's file and mockup are never edited, and no agent writes an amendment
+    line, which needs its owner's words: the concept's screen goes in a new draft, `<name>-<n>.md`,
+    whose **Open questions** names the locked screen it would change and who locked it. Every draft
+    is a draft, never locked: only a person locks, through `/omni:pixel-perfect lock`. Both lists
+    start empty, since a concept has no code yet; whoever fills them follows one rule, in four
+    lines:
+    - A file whose change can change what a person sees on this screen goes in `implements`, the
+      data files that hold its words included.
+    - A file the screen only depends on goes in `reads`.
+    - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+      its files in `reads`.
+    - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+    Structure the tour shows on several screens (an app shell, notifications, a sign-in page) is
+    drafted once, as its own `kind: shared` screen, never redrawn inside each page's draft.
+
+    Run `node .omni-loop/bin/omni.mjs check design` and
+    `node .omni-loop/bin/omni.mjs design screens` until neither names a draft of this run, commit
+    as `docs(design): draft screens of concept #<n>`, signed (**Signing**), push, and open it
+    through `/omni:pr` as a standalone PR into `repo.defaultBranch`, `Refs #<n>`, listing each draft
+    for its owner to read, change or lock, and ending with the `omni sign footer` line. Whatever
+    happens to it, the concept PR stands: a refused push is said in one line.
+
 **A person merges it;** only then is the concept in the inbox, where `/omni:brainstorm --concept`
-reads it. Never merge it yourself.
+reads it. Never merge it yourself, nor the draft screens' PR.
 
 ## 7. Hand off
 
@@ -471,9 +575,15 @@ reads it. Never merge it yourself.
 boards shown, a line saying nothing was written in the repository or on GitHub and that a new run
 starts over, and the `/omni:think-big '<the brief>'` line to start again.
 
-**Recorded.** Report the concept's issue, its PR, the kind and scale, the rounds shown, and every
-check that ran or did not (`omni concept <n>`, whether the references were looked up or the session
-could not search). Then always end the reply with two blocks, in this order, written for someone
+**Recorded.** Report the concept's issue, its PR, the concept's page, the kind and scale, the rounds
+shown, the draft screens' PR and each draft in it (with the design flag on), and every check that
+ran or did not (`omni concept <n>`, the push, whether the references
+were looked up or the session could not search).
+
+The concept's page is the link step 6's push printed. When the push was skipped, run
+`node .omni-loop/bin/omni.mjs dossier link <n> --kind concept`; when it prints `none` or cannot
+reach the app, say the concept has no page yet and give its issue,
+`https://github.com/<repo.slug>/issues/<n>`. Then always end the reply with two blocks, in this order, written for someone
 who knows nothing about the loop and just does what it says. Fill every placeholder with a real
 path, number, id or link.
 
@@ -492,8 +602,8 @@ Concept <n>'s folder: on the concept PR now, in the inbox once it merges
 ```
 
 **2. What is next?** Three short numbered steps, then the wedge's command alone on the reply's last
-line. Step 1 links the concept PR, and its second line, in brackets, gives the concept's issue,
-`https://github.com/<repo.slug>/issues/<n>`. Step 3 lists one `/omni:brainstorm --concept` line per
+line. Step 1 links the concept PR, its second line, in brackets, gives the concept's issue,
+`https://github.com/<repo.slug>/issues/<n>`, and its third the concept's page, when it has one. Step 3 lists one `/omni:brainstorm --concept` line per
 area, in build order, the wedge first.
 
 ```markdown
@@ -501,6 +611,7 @@ area, in build order, the wedge first.
 
 1. Review the concept: https://github.com/<owner>/<repo>/pull/<concept PR>
    (its thread, where each area's PRD will be named: https://github.com/<owner>/<repo>/issues/<n>)
+   (its page, with the vision tour and every board: <concept page link>)
 2. Merge that PR. → concept <n> moves into the inbox.
 3. Once it's merged, type /clear (or open a new terminal), then brainstorm one area at a time, in
    this order, the wedge first:
@@ -525,5 +636,8 @@ needs is in the repository and on GitHub, so clearing the session loses nothing.
 - Never cite a reference that was not looked at, and never report a screen as seen that was not.
 - Never commit on `repo.defaultBranch`, and never change a board after it was shown, but for the
   reactions line at its top.
+- Never lock a screen or a law, never edit a locked screen's file or mockup, and never write an
+  amendment line: a crowned concept's screens are drafts, and only a person locks, through
+  `/omni:pixel-perfect lock`.
 - Never open a PRD, a spec, a plan, a phase-0 PR, a feature branch or an outbox item for a concept:
   each area's `/omni:brainstorm --concept` does that for its PRD.

@@ -14,11 +14,24 @@
  *   entry or a decision record ({@link PROMOTIONS}), it writes none of its own ledger lines
  *   (PRD #487): its edits are then only what prepare planned, none at all once the PRD is shipped.
  *
+ * **Worth a law?** (PRD 1342) A rule or an invariant no changed test proves takes the answer to
+ * `law-worth` that counts: {@link lawQuestions} lists the ones to ask, with the state Jev reads and
+ * the classifier's own `worthALaw`; the caller asks (`omni decide law-worth`, or the Omni page's law judge) and
+ * hands each answer that counted back as `worth`. A "no" stays in the ledger, `not worth a law`. A
+ * "yes" needs its law issue open first: {@link finishHarvest} returns it in `lawIssues` and writes no
+ * entry for it; the caller opens each one and calls it again with their numbers (`lawIssues` in), and
+ * each "yes" is then written `Enforced by: pending #<n>`.
+ *
  * **Both halves return edits as data and touch no file of the tree they read.** An edit set is
  * `{ deletes, moves, writes }`, applied in that order: `deletes` and `moves` name paths as the tree
  * holds them before, `writes` name paths as they are once the moves have run. The same tree and the
  * same input give the same edits, whichever caller. {@link applyHarvestEdits} applies them to a
  * working tree; the app commits them through its own writer.
+ *
+ * **The files the feature pull request changed** (PRD 1171) come in as data, `changed`, read by the
+ * caller ({@link PullFilesSchema} parses GitHub's list): the library makes no network call. The
+ * prompt lists the kept ones ({@link keptPaths}), and the writer keeps a proposed proof only when the
+ * pull request changed it and it is still in the tree.
  *
  * Each half works in a scratch tree: a copy of the loop's own folders (delivery, knowledge,
  * decision records, playbook, glossary), every other entry of the tree linked in place, so a
@@ -39,6 +52,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { z } from 'zod';
 import { createContext, type Context } from '../context.ts';
 import { movedPath, planShip } from '../delivery/ship.ts';
 import { findOutboxViolations } from '../outbox/check-outbox.ts';
@@ -51,14 +65,26 @@ import {
   classificationPrompt,
   classificationSchema,
   knowledgeSummary,
+  NEW_PRINCIPLE,
   type ClassificationReply,
   type KnowledgeSummary,
   type PromptCandidate,
 } from './classify.ts';
 import { defined } from '../narrow.ts';
 import { harvestCandidates, type Candidate } from './harvest.ts';
-import { writeKnowledge, type Classified, type Merge, type Placed, type Taken, type WriteResult } from './write.ts';
-import type { PrdNumber } from '../ids.ts';
+import {
+  KEPT_STATUSES,
+  writeKnowledge,
+  type ChangedFile,
+  type Classified,
+  type LawIssue,
+  type LawWorth,
+  type Merge,
+  type Placed,
+  type Taken,
+  type WriteResult,
+} from './write.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 /** A move of one path to another, as the tree holds them before and after. */
 export type Move = { from: string; to: string };
@@ -79,6 +105,8 @@ export type Prepared =
       shipped: Move[];
       candidates: Candidate[];
       summary: KnowledgeSummary;
+      /** The files the feature pull request changed, as the caller gave them. */
+      changed: ChangedFile[];
     }
   | { ok: false; errors: string[] };
 
@@ -94,6 +122,19 @@ export const NO_PLACE = 'this repository has no knowledge folder and no decision
 /** The system message of every classification call. */
 export const CLASSIFY_SYSTEM =
   'You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.';
+
+/**
+ * GitHub's list of a pull request's files (`GET /repos/{repo}/pulls/{n}/files`, every page joined),
+ * as the harvest reads it: each file's path, a rename's new one, and its status.
+ */
+export const PullFilesSchema = z
+  .array(z.looseObject({ filename: z.string().min(1), status: z.string() }))
+  .transform((files): ChangedFile[] => files.map((file) => ({ path: file.filename, status: file.status })));
+
+/** The paths the pull request left in the tree (added, modified or renamed), as the prompt lists them. */
+export function keptPaths(changed: readonly ChangedFile[]): string[] {
+  return changed.filter((file) => KEPT_STATUSES.includes(file.status)).map((file) => file.path);
+}
 
 // ── The scratch tree ──────────────────────────────────────────────────────────────────────────
 
@@ -180,7 +221,18 @@ function mergeWrites(writes: readonly Write[]): Write[] {
 // ── Prepare ───────────────────────────────────────────────────────────────────────────────────
 
 /** The first half: settle at merge, plan the ship, list the candidates. Touches no file of `ctx`'s tree. */
-export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: PrdNumber; merge: Merge }): Prepared {
+export function prepareHarvest({
+  ctx,
+  prd,
+  merge,
+  changed = [],
+}: {
+  ctx: Context;
+  prd: PrdNumber;
+  merge: Merge;
+  /** The files the feature pull request changed (PRD 1171). */
+  changed?: readonly ChangedFile[] | undefined;
+}): Prepared {
   const n = prd;
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch): Prepared => {
@@ -217,6 +269,7 @@ export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: PrdNumb
       shipped: moves,
       candidates: harvestCandidates({ ctx: scratch, prd: n }),
       summary: knowledgeSummary({ ctx: scratch }),
+      changed: changed.map((file) => ({ path: file.path, status: file.status })),
     };
   });
 }
@@ -229,9 +282,12 @@ export async function classifyCandidate({
   summary,
   openrouter,
   fetch,
+  changed = [],
 }: {
   candidate: PromptCandidate;
   summary: KnowledgeSummary;
+  /** The files the feature pull request changed (PRD 1171): the prompt lists the kept ones. */
+  changed?: readonly ChangedFile[] | undefined;
   /** OpenRouter's settings, as the runtime's env module reads them; `null` when it is off. */
   openrouter: OpenRouterSettings | null;
   fetch?: typeof globalThis.fetch | undefined;
@@ -242,7 +298,7 @@ export async function classifyCandidate({
   const check = classificationSchema(summary);
   const answer = await askModel({
     system: CLASSIFY_SYSTEM,
-    user: classificationPrompt({ candidate, summary }),
+    user: classificationPrompt({ candidate, summary, changed: keptPaths(changed) }),
     check,
     schema: { name: 'classification', schema: classificationJsonSchema(summary) },
     openrouter,
@@ -279,6 +335,56 @@ const newOnes = (after: readonly string[], before: readonly string[]): string[] 
 /** The kinds that make a candidate knowledge: a new register entry or a decision record. */
 export const PROMOTIONS: readonly string[] = Object.freeze(['adr', 'rule', 'invariant']);
 
+/** The state `law-worth` reads (the Omni page's `LawWorthInput`): exactly these five fields. */
+export type LawWorthState = { statement: string; why: string | null; principle: string | null; domain: string | null; prdTitle: string | null };
+
+/** One `law-worth` question: the candidate, the state Jev reads, and the classifier's own answer. */
+export type LawQuestion = { id: string; state: LawWorthState; old: boolean };
+
+/** The principle a rule serves, as Jev reads it: `<id>: <statement>`, or `new: <statement>`. */
+function servedPrinciple(reply: Extract<ClassificationReply, { kind: 'rule' }>, summary: KnowledgeSummary): string {
+  if (reply.serves === NEW_PRINCIPLE) return `${NEW_PRINCIPLE}: ${reply.principle?.statement ?? ''}`.trim();
+  const served = summary.principles.find((principle) => principle.id === reply.serves);
+  return served ? `${served.id}: ${served.statement}` : reply.serves;
+}
+
+/**
+ * The replies as a repository whose laws are not its knowledge reads them (PRD 1342): no `worthALaw`, so
+ * no rule or invariant is asked "worth a law?" and none opens a law issue; each is written as before.
+ */
+export function withoutWorth(classified: readonly Classification[]): Classification[] {
+  return classified.map((entry) => {
+    if (!entry.reply || !('worthALaw' in entry.reply)) return entry;
+    return { ...entry, reply: { ...entry.reply, worthALaw: undefined } };
+  });
+}
+
+/**
+ * The `law-worth` questions of a harvest (PRD 1342): one per rule or invariant whose reply carries
+ * `worthALaw` and that no path the pull request changed and the tree holds proves. `why` is the
+ * classifier's reason, `domain` the reply's place. Pure but for whether a proposed proof exists.
+ */
+export function lawQuestions({
+  ctx,
+  prepared,
+  classified,
+  prdTitle,
+}: {
+  ctx: { root: string };
+  prepared: { summary: KnowledgeSummary; changed?: readonly ChangedFile[] | undefined };
+  classified: readonly { id: string; reply?: ClassificationReply | null }[];
+  prdTitle: string | null;
+}): LawQuestion[] {
+  const kept = keptPaths(prepared.changed ?? []);
+  const proven = (paths: readonly string[] = []) => paths.some((path) => kept.includes(path.trim()) && existsSync(join(ctx.root, path.trim())));
+  return classified.flatMap(({ id, reply }): LawQuestion[] => {
+    if (!reply || (reply.kind !== 'rule' && reply.kind !== 'invariant')) return [];
+    if (reply.worthALaw === undefined || proven(reply.enforcedBy)) return [];
+    const principle = reply.kind === 'rule' ? servedPrinciple(reply, prepared.summary) : null;
+    return [{ id, old: reply.worthALaw, state: { statement: reply.statement, why: reply.reason, principle, domain: reply.place, prdTitle } }];
+  });
+}
+
 /**
  * The second half: apply what prepare planned, write the knowledge, run both checks, and drop every
  * entry that fails. Touches no file of `ctx`'s tree. `checks` holds what still fails on the result;
@@ -291,18 +397,25 @@ export function finishHarvest({
   merge,
   taken = {},
   date,
+  lawIssues,
 }: {
   ctx: Context;
-  prepared: { prd: PrdNumber; edits: HarvestEdits };
-  classified: readonly { id: string; reply?: ClassificationReply | null; reason?: string | null }[];
+  /** What prepare returned; `changed` absent keeps every proposed proof out (`unenforced`). */
+  prepared: { prd: PrdNumber; edits: HarvestEdits; changed?: readonly ChangedFile[] | undefined };
+  /** Each reply, why there is none, and the `law-worth` answer that counted when Jev decided. */
+  classified: readonly { id: string; reply?: ClassificationReply | null; reason?: string | null; worth?: LawWorth | null }[];
   merge: Merge;
   taken?: Taken;
   date: string;
+  /** The law issue opened for each "yes", by candidate id: the `lawIssues` a first call returned. */
+  lawIssues?: Readonly<Record<string, IssueNumber>> | undefined;
 }): {
   edits: HarvestEdits;
   placed: Placed[];
   notPlaced: { id: string; reason: string }[];
   checks: { knowledge: string[]; outbox: string[] };
+  /** The law issues to open before calling again: every "yes" with no issue given. */
+  lawIssues: LawIssue[];
 } {
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
@@ -317,7 +430,7 @@ export function finishHarvest({
         if (dropped.has(candidate.id)) return { candidate, reply: null, reason: dropped.get(candidate.id) };
         if (!given) return { candidate, reply: null, reason: 'not classified' };
         if (keep && !keep.includes(candidate.id)) return null;
-        return { candidate, reply: given.reply ?? null, reason: given.reason ?? undefined };
+        return { candidate, reply: given.reply ?? null, reason: given.reason ?? undefined, worth: given.worth ?? null };
       });
       return writeKnowledge({
         ctx: scratch,
@@ -325,6 +438,8 @@ export function finishHarvest({
         merge,
         taken,
         date,
+        changed: prepared.changed ?? [],
+        lawIssues,
       });
     };
 
@@ -349,8 +464,9 @@ export function finishHarvest({
       result = attempt(null);
     }
 
-    // No promotion, no notes: a harvest that made nothing knowledge writes none of its own lines.
-    const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind)) ? result.writes : [];
+    // No promotion, no notes: a harvest that made nothing knowledge writes none of its own lines. A
+    // "not worth a law" is a decision about the knowledge, so its note is written all the same.
+    const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind) || entry.law !== undefined) ? result.writes : [];
     applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes } });
     const checks = runChecks(scratch);
     const edits: HarvestEdits = {
@@ -358,7 +474,7 @@ export function finishHarvest({
       moves: prepared.edits.moves,
       writes: mergeWrites([...prepared.edits.writes, ...writes]),
     };
-    return { edits, placed: result.placed, notPlaced: result.notPlaced, checks };
+    return { edits, placed: result.placed, notPlaced: result.notPlaced, checks, lawIssues: result.lawIssues };
   });
 }
 

@@ -1,0 +1,77 @@
+/* /ideas/<owner>/<repo> (PRD 1246, s1): a repository's ideas board on the ask pages' reading surface.
+   Every colour is a token of src/ask/theme-tokens.ts (the --ask-* properties the ask root carries, per
+   theme); nothing here names a colour. The lanes stack on a phone, in the markup's order, Now first,
+   and stand side by side from 900px. Nothing is wider than the window, and a long word wraps. */
+
+.ask-col.idea-page { gap: 32px; }
+
+.idea-intro { display: grid; gap: 6px; }
+.idea-heading { margin: 0; font-size: 32px; line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; }
+.idea-lede { margin: 0; color: var(--ask-muted); }
+
+.idea-notice {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  background: var(--ask-surface);
+  color: var(--ask-muted);
+}
+
+/* ── The lanes ────────────────────────────────────────────────────────────── */
+
+.idea-lanes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+
+.idea-lane { display: grid; gap: 12px; min-width: 0; padding-top: 12px; border-top: 2px solid var(--ask-plasma); }
+.idea-lane-head {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font: 700 13px/1.4 var(--ask-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ask-ink);
+}
+.idea-lane-count { font-weight: 400; color: var(--ask-muted); }
+.idea-empty { margin: 0; color: var(--ask-muted); font-size: 15px; }
+
+/* ── A card ───────────────────────────────────────────────────────────────── */
+
+.idea-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  background: var(--ask-surface);
+}
+.idea-title { margin: 0; font-size: 18px; line-height: 1.3; text-wrap: balance; overflow-wrap: anywhere; }
+.idea-pitch { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ask-muted); overflow-wrap: anywhere; }
+.idea-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.idea-votes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 6px;
+  font: 700 13px/1.4 var(--ask-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ask-ink);
+}
+.ask a.idea-prd {
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: var(--ask-plasma-soft);
+  color: var(--ask-plasma);
+  font: 700 12px/1.4 var(--ask-mono);
+  text-decoration: none;
+}
+.ask a.idea-prd:hover { text-decoration: underline; }
+
+@media (min-width: 900px) {
+  .idea-heading { font-size: 40px; }
+  .idea-lanes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

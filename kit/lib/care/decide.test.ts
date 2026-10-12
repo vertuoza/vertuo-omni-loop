@@ -118,6 +118,18 @@ describe('decideRound — waits on another repository (PRD 1118)', () => {
     expect(kinds(decideRound(state({ checks: RED, waitsOn: waiting('closed') })))).toEqual(['fix-ci', 'status']);
   });
 
+  // Law BR-PRODUCT-71 (.omni-loop/knowledge/product/rules.md, #1532).
+  it('law BR-PRODUCT-71: a PR waiting on a closed unmerged PR is no longer held and goes back to fixing; an unreadable one stays held and spends no fix', () => {
+    const closed = decideRound(state({ checks: RED, waitsOn: waiting('closed') }));
+    expect(closed.waitsOn).toBeUndefined();
+    expect(closed.actions).toContainEqual({ kind: 'fix-ci', failed: RED.failed });
+
+    const unreadable = decideRound(state({ checks: RED, waitsOn: waiting('unreadable') }));
+    expect(unreadable.waitsOn).toBe('acme/backend#41');
+    expect(kinds(unreadable)).not.toContain('fix-ci');
+    expect(kinds(unreadable)).not.toContain('rerun');
+  });
+
   it('decides as today without the line', () => {
     expect(decideRound(state({ checks: RED, waitsOn: null }))).toEqual({ mode: 'act', actions: [{ kind: 'fix-ci', failed: RED.failed }, { kind: 'status' }] });
   });

@@ -129,7 +129,7 @@ describe('settleAtMerge — open items', () => {
 
     for (const { entry } of result.entries) {
       expect(entry).toContain('- Verdict: adopted\n');
-      expect(entry).toContain('- Approved by: @octocat\n');
+      expect(entry).toContain('- Approved by: octocat\n');
       expect(entry).toContain('- Approved at: 2026-09-26T10:30:00Z\n');
       expect(entry).toContain('- Channel: feature pull request #43\n');
       expect(entry).toContain('- Channel URL: https://github.com/acme/widgets/pull/43\n');
@@ -200,7 +200,7 @@ describe('settleAtMerge — open items', () => {
     const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: { ...MERGE, by: '@octocat' } });
     assert(result.ok);
     assertDefined(result.entries[0], 'result.entries[0]');
-    expect(result.entries[0].entry).toContain('- Approved by: @octocat\n');
+    expect(result.entries[0].entry).toContain('- Approved by: octocat\n');
   });
 
   it('refuses, writing nothing, an open item that does not parse', () => {
@@ -272,7 +272,7 @@ describe('settleAtMerge — drift never reworked', () => {
     assertDefined(result.entries[0], 'result.entries[0]');
     const entry = result.entries[0];
     expect(entry.entry).toContain('- Verdict: adopted\n');
-    expect(entry.entry).toContain('- Approved by: @octocat\n');
+    expect(entry.entry).toContain('- Approved by: octocat\n');
     expect(entry.entry).toContain('- Closed: yes — merged without rework, by @octocat\n');
     expect(entry.entry).toContain('- Basis: merged-over-red — ');
     expect(entry.entry).toContain('- Rank: high\n');

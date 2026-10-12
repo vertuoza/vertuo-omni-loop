@@ -7,8 +7,9 @@
 -- signed out are refused (42501), and nothing changes. Every member reads the workspace's
 -- repositories, pull requests and reviews; a stranger reads none of them. Nobody signed in or signed
 -- out writes any of the three tables directly. The seed of 20261008090000_repositories.sql gives
--- vertuoza its six tracked repositories, and no other workspace anything. One transaction, rolled back
--- at the end. Any `FAIL:` stops the run.
+-- vertuoza its six tracked repositories, and no other workspace anything. A repository's products are
+-- its product_repositories links alone: repositories.product_id and everything that wrote it are gone
+-- (PRD 1364). One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -29,6 +30,26 @@ begin
   -- 20261015090000_loop_health.sql resets every cursor, so the next run reads 90 days again (PRD 714).
   if exists (select 1 from public.repositories where collected_until is not null) then
     raise exception 'FAIL: a repository''s collected_until is not null after the loop-health migration';
+  end if;
+end $$;
+
+-- ── A repository's products are its links alone (PRD 1364, landing 3) ──
+-- repositories.product_id, the repositories_default_product trigger and repository_set_product() are
+-- gone, with the repositories_product_link trigger that kept the links in step with the column.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'repositories' and column_name = 'product_id') then
+    raise exception 'FAIL: repositories.product_id is still there';
+  end if;
+  if exists (select 1 from pg_trigger t where t.tgrelid = 'public.repositories'::regclass
+              and t.tgname in ('repositories_default_product', 'repositories_product_link')) then
+    raise exception 'FAIL: a trigger that wrote or followed repositories.product_id is still there';
+  end if;
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname = 'public'
+                and p.proname in ('repository_set_product', 'repositories_default_product', 'repositories_product_link')) then
+    raise exception 'FAIL: repository_set_product() or a trigger function of repositories.product_id is still there';
   end if;
 end $$;
 

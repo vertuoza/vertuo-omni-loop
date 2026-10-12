@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOME mockup</title>
+<style>
+  /* Tokens copied from packages/design/tokens.css (generated from src/tokens.ts). */
+  :root {
+    --void: #07061c; --deep: #0e0d33; --navy: #2f3fc4; --navy-dark: #1a2170; --white: #f2f4ff;
+    --plasma: #a45cff; --yellow: #ffd84a; --cyan: #6ff0ff; --green: #4ee08a; --highlight: #fff3a8;
+    --magenta: #ff3ea5; --ad-purple: #5b1a86; --starfield: #05040f; --cab: #120f3a; --dim: #8a90d6;
+    /* The product's faces are served from its own origin; a self-contained mockup names them and
+       falls back (packages/design/src/fonts.ts). */
+    --font-display: "Anton", "Impact", "Arial Narrow", sans-serif;
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+    --font-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font-family: var(--font-body); }
+  .mock-note { max-width: 1100px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--dim); }
+  .mock-note b { color: var(--white); }
+
+  .home { font-size: 17px; line-height: 1.6; overflow-x: clip; }
+  .home p, .home h1, .home h2, .home h3 { margin: 0; }
+
+  /* The poster: a text column in the ad's purple beside the starfield (home.css). */
+  .home-poster { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); min-height: 640px; background: var(--starfield); }
+  .home-col { background: var(--ad-purple); padding: 36px 32px; display: grid; gap: 16px; align-content: center; }
+  .home-kicker { font: italic 400 20px/1.05 var(--font-display); color: var(--cyan); }
+  .home-head { font: italic 400 64px/0.95 var(--font-display); color: var(--white); }
+  .home-dots { border-top: 5px dotted var(--yellow); }
+  .home-pitch { color: var(--highlight); max-width: 36ch; }
+  .home-promises { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; font: 400 18px/1.1 var(--font-display); letter-spacing: .02em; }
+  .home-glyph { color: var(--yellow); }
+  .home-quote { font: italic 400 24px/1.05 var(--font-display); color: var(--yellow); margin-top: 8px; }
+  .home-spokes { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: end; }
+  .home-omni { width: 96px; height: 112px; }
+  .home-signup { justify-self: start; align-self: center; font: 9px/1.5 var(--font-pixel); letter-spacing: .04em; color: var(--white);
+    background: var(--deep); border: 2px solid var(--yellow); box-shadow: 3px 3px 0 var(--magenta); padding: 10px 12px; }
+
+  .home-sky { position: relative; display: grid; align-content: center; justify-items: center; gap: 20px; padding: 28px 20px 36px; overflow: hidden; }
+  .home-stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .home-planet, .home-crest { position: relative; }
+  .home-planet { width: 224px; height: 224px; }
+  .home-crest { width: min(100%, 460px); height: 120px; }
+  .home-start { position: relative; font: 12px/1.5 var(--font-pixel); color: var(--void); background: var(--yellow); padding: 10px 14px; text-decoration: none; box-shadow: 3px 3px 0 var(--magenta); }
+
+  /* The spreads under the fold (spreads/*.css), drawn as their headings and the counts. */
+  .home-spreads { display: grid; gap: 0; }
+  .home-spread { padding: 48px 32px; border-top: 4px solid var(--navy-dark); max-width: 1100px; margin: 0 auto; width: 100%; }
+  .home-spread-head { font: italic 400 40px/1 var(--font-display); color: var(--white); margin-bottom: 12px; }
+  .home-spread-head em { color: var(--yellow); }
+  .home-lingo { display: inline-grid; gap: 6px; padding: 12px 14px; border: 2px solid var(--cyan); font-size: 15px; }
+  .home-lingo b { font: 10px/1.5 var(--font-pixel); color: var(--cyan); }
+  .home-scores { display: flex; gap: 24px; flex-wrap: wrap; font: 10px/1.6 var(--font-pixel); }
+  .home-score b { display: block; font: 400 36px/1 var(--font-display); color: var(--yellow); }
+  .home-order-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+  .home-fine { font-size: 13px; color: var(--dim); }
+
+  @media (max-width: 720px) {
+    .home-poster { grid-template-columns: 1fr; }
+    .home-head { font-size: 48px; }
+    .home-spread { padding: 32px 16px; }
+  }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>HOME at /, signed out, as a visitor first lands.</b> Drawn from the source (apps/galaxy/src/home/), not from a screenshot. The pixel art (planet, crest, OmniMan) is drawn as placeholders of its size; the counts are examples, counted at build time on the real page.</p>
+
+<main class="home" data-screen="home">
+  <section class="home-poster" aria-labelledby="home-headline">
+    <div class="home-col">
+      <p class="home-kicker">THE DELIVERY FRAMEWORK<br>FOR CODING AGENTS</p>
+      <h1 id="home-headline" class="home-head">AGENTS SHIP.<br>YOU STEER.</h1>
+      <div class="home-dots" role="presentation"></div>
+      <p class="home-pitch">Describe the feature once. Coding agents plan it, build it test-first and open the pull requests. Your team owns the product and the rules, and sees every decision the agents took.</p>
+      <ul class="home-promises">
+        <li><span class="home-glyph" aria-hidden="true">★</span> ONE FOLDER IN, ONE FOLDER OUT</li>
+        <li><span class="home-glyph" aria-hidden="true">★</span> EVERY DECISION WRITTEN DOWN</li>
+        <li><span class="home-glyph" aria-hidden="true">★</span> A PERSON ALWAYS MERGES</li>
+      </ul>
+      <p class="home-quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
+      <div class="home-spokes">
+        <svg class="home-omni" viewBox="0 0 24 28" aria-hidden="true" shape-rendering="crispEdges">
+          <rect x="8" y="2" width="8" height="8" fill="#ffd8b0"/><rect x="6" y="10" width="12" height="10" fill="#a45cff"/>
+          <rect x="2" y="10" width="4" height="12" fill="#ff3ea5"/><rect x="18" y="8" width="6" height="3" fill="#ffd8b0"/>
+          <rect x="7" y="20" width="4" height="7" fill="#2f3fc4"/><rect x="13" y="20" width="4" height="7" fill="#2f3fc4"/>
+        </svg>
+        <button type="button" class="home-signup" data-primary aria-label="Sign up with GitHub"><b>SIGN UP WITH GITHUB</b></button>
+      </div>
+    </div>
+    <div class="home-sky">
+      <svg class="home-stars" aria-hidden="true" preserveAspectRatio="none" viewBox="0 0 100 100">
+        <rect x="8" y="12" width=".6" height=".6" fill="#f2f4ff"/><rect x="31" y="6" width=".5" height=".5" fill="#6ff0ff"/>
+        <rect x="72" y="18" width=".6" height=".6" fill="#f2f4ff"/><rect x="88" y="44" width=".5" height=".5" fill="#ffd84a"/>
+        <rect x="15" y="70" width=".5" height=".5" fill="#f2f4ff"/><rect x="58" y="88" width=".6" height=".6" fill="#a45cff"/>
+        <rect x="93" y="81" width=".5" height=".5" fill="#f2f4ff"/><rect x="40" y="38" width=".4" height=".4" fill="#f2f4ff"/>
+      </svg>
+      <svg class="home-planet" viewBox="0 0 28 28" aria-hidden="true" shape-rendering="crispEdges">
+        <circle cx="14" cy="14" r="12" fill="#2f3fc4"/><rect x="6" y="8" width="8" height="5" fill="#4ee08a"/>
+        <rect x="15" y="15" width="7" height="4" fill="#4ee08a"/><rect x="9" y="17" width="4" height="3" fill="#ff3ea5"/>
+      </svg>
+      <svg class="home-crest" viewBox="0 0 120 30" aria-label="Omni Loop" role="img" shape-rendering="crispEdges">
+        <rect x="0" y="4" width="120" height="22" fill="#120f3a" stroke="#ffd84a" stroke-width="2"/>
+        <text x="60" y="20" text-anchor="middle" font-family="Press Start 2P, monospace" font-size="9" fill="#ffd84a">OMNI LOOP</text>
+      </svg>
+      <a class="home-start" href="/play">PRESS START</a>
+    </div>
+  </section>
+
+  <div class="home-spreads">
+    <section class="home-spread" aria-labelledby="home-guide">
+      <h2 id="home-guide" class="home-spread-head">Strategy guide: <em>the loop</em></h2>
+      <div class="home-lingo">
+        <b>LOOP LINGO</b>
+        <span>PRD</span><span>SLICE</span><span>OUTBOX</span>
+      </div>
+    </section>
+    <section class="home-spread" aria-labelledby="home-customers">
+      <h2 id="home-customers" class="home-spread-head">Built for <em>your customers</em></h2>
+    </section>
+    <section class="home-spread" aria-labelledby="home-fleets">
+      <h2 id="home-fleets" class="home-spread-head">The game: <em>build your fleet</em></h2>
+      <p>Ship value to your customers, and score for your fleet while you do.</p>
+      <h3 class="home-glyph" style="font: 10px/2 var(--font-pixel); margin-top: 16px">THE LOOP BUILT THIS</h3>
+      <div class="home-scores">
+        <div class="home-score"><span>FEATURES SHIPPED</span> <b>312</b></div>
+        <div class="home-score"><span>SLICES MERGED</span> <b>1,904</b></div>
+        <div class="home-score"><span>DECISIONS ADOPTED</span> <b>688</b></div>
+      </div>
+    </section>
+    <section class="home-spread" aria-labelledby="home-order">
+      <h2 id="home-order" class="home-spread-head">Join <em>the loop!</em></h2>
+      <p>To join instantly: sign up with GitHub</p>
+      <div class="home-order-row">
+        <button type="button" class="home-signup"><b>SIGN UP WITH GITHUB</b></button>
+        <a class="home-start" href="/play">PRESS START</a>
+        <a class="home-start" href="/docs">GETTING STARTED</a>
+      </div>
+      <p class="home-fine">Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.</p>
+      <p class="home-fine">Leave any time: delete one folder and commit. Nothing to migrate.</p>
+    </section>
+  </div>
+</main>
+
+<p class="mock-note">Open on this draft: which of SIGN UP WITH GITHUB and PRESS START is the one primary action. The mockup marks SIGN UP WITH GITHUB on the poster, the action the poster's own quote asks for; the screen's Open questions keep the choice open until a person locks it.</p>
+</body>
+</html>

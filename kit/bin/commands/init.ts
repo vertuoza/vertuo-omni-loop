@@ -10,7 +10,8 @@
 // person still has to take — the GitHub App, merging PR #N, /omni:invade — with a heads-up for an
 // older copy of the loop or a formatter that would reject the bin. The one command that runs before a
 // config exists, so `main()` hands it no context. It writes no file outside `.omni-loop/` but the
-// `statusLine` key of `.claude/settings.json` (N-PRODUCT-6).
+// `statusLine` key of `.claude/settings.json` (N-PRODUCT-6) and, in the same file, the band's line of
+// `enabledPlugins` (PRD 1208).
 // A repository already installed on its default branch (PRD 893) skips all of that but this computer:
 // no branch switch, no write, no commit, push or pull request, and only the forms left as a step —
 // or, when a form is filled there, the `omni update` and `/omni:invade --refresh` lines. `--force`
@@ -33,7 +34,7 @@ import { installPlugin, pluginLines } from '../../lib/init/plugin.ts';
 import { signInLines, signInStep } from '../../lib/init/signin-step.ts';
 import { installLines, openInstallPr, switchToInstallBranch } from '../../lib/init/install-pr.ts';
 import { findRoot, readRepo } from '../../lib/init/repo.ts';
-import { writeStatusLine } from '../../lib/init/settings.ts';
+import { enableHud, ownSettingsPaths, writeStatusLine } from '../../lib/init/settings.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { signin } from './signin.ts';
 import type { Config } from '../../lib/types.ts';
@@ -53,9 +54,6 @@ type InitOptions = {
 };
 
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
-
-// The status-line outcomes that leave the kit's own line in the settings file (settings.mjs).
-const OWN_STATUS_LINE = new Set(['wrote', 'kept']);
 
 const FLAGS = Object.freeze({ test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' });
 const QUESTIONS: Record<keyof InitCommands, string> = {
@@ -183,8 +181,11 @@ export const init = {
     const forms = outside ? [] : writeForms({ ctx });
 
     // Then the status line, the one key init writes outside its folder: it runs the bin just
-    // installed, and a line that is not the kit's, or a file that is not JSON, is left as it is.
+    // installed, and a line that is not the kit's, or a file that is not JSON, is left as it is. And,
+    // in the same file by the same rules, the band above the prompt (PRD 1208): one line of
+    // `enabledPlugins`, never over a value someone else set.
     const settings = writeStatusLine(root, { bin: BIN_FILE, force });
+    const hud = enableHud(root);
 
     // Last: the files are the install, the labels a convenience — a label gh cannot make is a human step.
     const labels = reconcileLabels(root, { exec, labels: config.labels });
@@ -193,11 +194,11 @@ export const init = {
     const slug = config.repo.slug ?? readRepo(root, { exec, remote: config.repo.remote }).slug;
     const filesWritten = [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }];
     const formsDone = { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside };
-    const out = setupLines({ slug, files: filesWritten, forms: formsDone, settings, labels });
+    const out = setupLines({ slug, files: filesWritten, forms: formsDone, settings, hud, labels });
 
     // Then the install pull request: only init's own paths are committed — the loop's folder, and the
-    // settings file while the kit's status line is in it.
-    const paths = [LOOP_DIR, ...(OWN_STATUS_LINE.has(settings.outcome) ? [settings.path] : [])];
+    // settings file while the kit's status line, or the band's line, is in it.
+    const paths = [LOOP_DIR, ...ownSettingsPaths([settings, hud])];
     const pr = { paths, remote: config.repo.remote, base: config.repo.defaultBranch, slug };
     const install = openInstallPr(root, { exec, branch, ...pr });
     out.push('', 'Install pull request:', ...installLines(install, pr));

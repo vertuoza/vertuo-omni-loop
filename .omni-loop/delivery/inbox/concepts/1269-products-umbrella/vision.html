@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Ledger Tour</title>
+<style>
+:root{--void:#07061c;--deep:#0e0d33;--deep2:#141346;--line:#23225a;--line2:#2f2e70;--navy:#2f3fc4;--plasma:#a45cff;--yel:#ffd84a;--cyan:#6ff0ff;--grn:#4ee08a;--red:#ff3b5c;--mag:#ff3ea5;--txt:#f2f4ff;--dim:#8a90d6;
+--disp:Anton,Impact,"Arial Narrow Bold","Arial Narrow",sans-serif;--body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--pix:"Press Start 2P","Jersey 10",ui-monospace,monospace}
+*{box-sizing:border-box}
+html{overflow-x:hidden}
+html,body{margin:0;background:var(--void);color:var(--txt);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;overflow-x:hidden;background:radial-gradient(1200px 520px at 85% -10%,#1a1350 0,transparent 60%),radial-gradient(800px 420px at -10% 110%,#0f1a4a 0,transparent 60%),var(--void)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+a{color:var(--cyan);text-decoration:none;cursor:pointer}
+a:hover{text-decoration:underline}
+.mono{font-family:var(--mono)}
+.disp{font-family:var(--disp);letter-spacing:.02em;text-transform:uppercase;font-weight:400}
+.dim{color:var(--dim)}
+.tag{font-size:11px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+.wrap{max-width:1140px;margin:0 auto;padding:0 16px 110px}
+.ex{display:flex;justify-content:center;gap:8px;align-items:center;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--void);background:repeating-linear-gradient(135deg,var(--yel) 0 14px,#f5cc3a 14px 28px);padding:5px 16px;text-align:center}
+
+/* tour caption */
+.cap{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:16px 0 12px}
+.cap .no{font-family:var(--disp);font-size:54px;line-height:.9;color:var(--yel)}
+.cap .no small{font-size:18px;color:var(--dim)}
+.cap h2{font-family:var(--disp);font-weight:400;font-size:24px;letter-spacing:.03em;text-transform:uppercase;margin:0}
+.cap p{margin:2px 0 0;font-size:14px;color:var(--dim);max-width:720px}
+.cap .try{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--yel)}
+.cap .try::before{content:"▸ "}
+.arrows{display:flex;gap:6px}
+.arr{width:40px;height:40px;border-radius:50%;border:1px solid var(--line2);background:var(--deep);font-size:20px;line-height:1}
+.arr:hover{border-color:var(--yel);color:var(--yel)}
+.arr[disabled]{opacity:.3;pointer-events:none}
+@media(max-width:640px){.cap{grid-template-columns:auto 1fr}.cap .arrows{grid-column:1/-1}.cap .no{font-size:40px}}
+
+/* app frame */
+.app{border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#0b0a28,#07061c 220px);overflow:hidden;box-shadow:0 30px 80px #0008}
+.abar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:8px;font-family:var(--disp);font-size:19px;letter-spacing:.04em}
+.crumbs{font-family:var(--mono);font-size:12px;color:var(--dim);min-width:0}
+.crumbs b{color:var(--yel);font-weight:600}
+.crumbs a{color:var(--dim)}
+.sp{flex:1}
+.who{display:flex;align-items:center;gap:8px;font-size:13px}
+.av{width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;font-weight:700;font-size:12px;color:var(--void);flex:none;font-style:normal}
+.av.i{background:var(--cyan)}.av.p{background:var(--plasma);color:var(--txt)}.av.j{background:var(--grn)}
+.asof{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.asof i{width:6px;height:6px;border-radius:50%;background:var(--grn)}
+.abody{padding:18px 16px 22px}
+@media(max-width:520px){.abar .asof{display:none}}
+
+/* product tabs */
+.ptabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;background:#0a0926}
+.ptabs::-webkit-scrollbar{display:none}
+.ptabs button{background:none;border:0;border-bottom:2px solid transparent;padding:11px 11px;font-size:14px;color:var(--dim);white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+.ptabs button:hover{color:var(--txt)}
+.ptabs button.on{color:var(--txt);border-color:var(--yel)}
+.ptabs .n{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--line2);color:var(--txt);font-size:11px;font-weight:700;text-align:center}
+.ptabs .n.y{background:var(--yel);color:var(--void)}
+.ptabs .cst{color:var(--cyan)}
+.ptabs .cst svg{flex:none}
+
+.scr{display:none}
+.scr.on{display:block;animation:enter .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+h1{font-family:var(--disp);font-weight:400;font-size:40px;line-height:1;margin:4px 0 6px;letter-spacing:.02em;text-transform:uppercase}
+h3{font-family:var(--disp);font-weight:400;font-size:20px;letter-spacing:.03em;text-transform:uppercase;margin:0 0 10px}
+.lede{font-size:14px;color:var(--dim);margin:0 0 16px;max-width:720px}
+.panel{background:linear-gradient(180deg,var(--deep),#0b0a2a);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.g2{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+.g2b{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g2>*,.g2b>*{min-width:0}
+@media(max-width:860px){.g2,.g2b{grid-template-columns:1fr}h1{font-size:32px}}
+
+/* chips & states */
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;border-radius:999px;padding:2px 8px;border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+.chip.srv{color:var(--yel);border-color:#ffd84a66}
+.chip.rep{border-style:dashed}
+.chip.vis{color:#c8b4ef;border-color:#a45cff66;border-style:dashed}
+.st{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.st i{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.st.b{color:var(--grn)}.st.b i{background:var(--grn);box-shadow:0 0 8px var(--grn)}
+.st.h{color:var(--cyan)}.st.h i{background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:blink 1.6s infinite}
+.st.d{color:var(--red)}.st.d i{background:var(--red);box-shadow:0 0 8px var(--red)}
+.st.w{color:var(--yel)}.st.w i{background:var(--yel);animation:ring 1.8s infinite}
+.st.o{color:var(--plasma)}.st.o i{background:var(--plasma)}
+@keyframes blink{50%{opacity:.25}}
+@keyframes ring{0%{box-shadow:0 0 0 0 #ffd84a99}80%,100%{box-shadow:0 0 0 9px #ffd84a00}}
+
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:9px 14px;font-weight:700;font-size:14px;border:1px solid var(--line2);background:var(--deep2);transition:transform .12s,box-shadow .2s}
+.btn:hover{border-color:var(--dim)}
+.btn:active{transform:scale(.97)}
+.btn.y{background:var(--yel);color:var(--void);border-color:var(--yel)}
+.btn.y:hover{box-shadow:0 0 0 4px #ffd84a33}
+.btn.ghost{background:none}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.btn.mono{font-family:var(--mono)}
+.btn[disabled]{opacity:.35;pointer-events:none}
+
+/* ---------- 1 products ---------- */
+.prods{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.prods{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.prods{grid-template-columns:1fr}}
+.pcard{position:relative;text-align:left;background:linear-gradient(180deg,var(--deep),#0b0a2a);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .2s,transform .2s}
+.pcard:hover{border-color:var(--yel);transform:translateY(-2px)}
+.pcard .pn{font-family:var(--disp);font-size:28px;letter-spacing:.03em;text-transform:uppercase;line-height:1}
+.pcard .mini{height:84px;border-radius:10px;background:radial-gradient(circle at 30% 40%,#1a1560,#07061c 70%);overflow:hidden}
+.pcard .mini svg{width:100%;height:100%}
+.pcard .rl{display:flex;flex-wrap:wrap;gap:4px}
+.pcard .nums{display:flex;gap:12px;font-size:12px;color:var(--dim);flex-wrap:wrap}
+.pcard .nums b{font-family:var(--disp);font-weight:400;font-size:20px;margin-right:3px}
+.pcard .lad{display:flex;gap:3px;align-items:center;font-size:11px;color:var(--dim)}
+.pcard .lad i{width:16px;height:4px;border-radius:2px;background:var(--line2)}
+.pcard .lad i.on{background:var(--yel)}
+.pcard.you{box-shadow:inset 0 3px 0 var(--yel)}
+.pcard .badge{position:absolute;top:12px;right:12px}
+.ones{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.one{display:flex;gap:8px;align-items:center;border:1px dashed var(--line2);border-radius:10px;padding:8px 12px;font-family:var(--mono);font-size:13px;background:none}
+.one:hover{border-color:var(--dim)}
+.newp{border:1px dashed var(--yel);color:var(--yel);background:none;border-radius:16px;min-height:120px;font-weight:700}
+
+/* ---------- 2 ledger ---------- */
+.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:640px){.sum{grid-template-columns:repeat(2,1fr)}}
+.sum div{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.sum b{display:block;font-family:var(--disp);font-weight:400;font-size:28px;line-height:1.05}
+.sum span{font-size:12px;color:var(--dim)}
+.lane{margin-bottom:16px}
+.lane-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.lane-h .tag{color:var(--txt)}
+.lane.you .lane-h .tag{color:var(--yel)}
+.row{display:grid;grid-template-columns:58px 1fr auto;gap:12px;align-items:center;background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;transition:border-color .2s,transform .2s}
+.row>*{min-width:0}
+.row.click{cursor:pointer}
+.row.click:hover{border-color:var(--line2);transform:translateX(2px)}
+.lane.you .row{border-color:#ffd84a55;box-shadow:inset 3px 0 0 var(--yel)}
+.row .ttl{font-weight:700}
+.row .meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:4px;font-size:12px;color:var(--dim)}
+.row .meta span{overflow-wrap:anywhere}
+.row .right{text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.prs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pr{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:6px;background:#0a0926;border:1px solid var(--line);max-width:100%}
+.pr .ok{color:var(--grn)}.pr .no{color:var(--red)}.pr .hd{color:var(--cyan)}.pr .wt{color:var(--yel)}
+.pr em{font-style:normal;color:var(--dim)}
+@media(max-width:640px){.row{grid-template-columns:46px 1fr}.row .right{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:center}}
+.unsealed{width:54px;height:54px;border-radius:50%;border:2px dashed var(--line2);display:grid;place-items:center;font-family:var(--disp);font-size:14px;color:var(--dim)}
+@media(max-width:640px){.unsealed{width:44px;height:44px}.row svg.seal{width:44px;height:44px}}
+.repo{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)}
+.repo>*{min-width:0}
+.repo:last-child{border:0}
+.repo .nm{font-family:var(--mono);font-size:13px}
+.repo .sub{font-size:11px;color:var(--dim);overflow-wrap:anywhere}
+.visit{opacity:.6}
+.tabview{animation:pop .25s ease-out}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:12px}
+.item>*{min-width:0}
+.item .k{font-family:var(--disp);font-size:18px;color:var(--dim);min-width:46px}
+.item .t{font-weight:700}
+.item .s{font-size:12px;color:var(--dim);overflow-wrap:anywhere}
+@media(max-width:600px){.item{grid-template-columns:auto 1fr}.item>:last-child{grid-column:1/-1}}
+.rm{display:grid;grid-template-columns:120px repeat(3,1fr);gap:8px;font-size:12px}
+.rm .h{font-size:11px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;padding:4px 0}
+.rm .lane2{font-family:var(--mono);font-size:12px;color:var(--dim);padding-top:8px}
+.rm .cell{min-height:54px;border:1px dashed var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:6px}
+.rm .card{background:var(--deep2);border:1px solid var(--line2);border-radius:8px;padding:6px 8px}
+.rm .card b{font-family:var(--disp);font-weight:400;font-size:14px;margin-right:4px}
+.rm .card.blk{border-color:#a45cff88}
+@media(max-width:640px){.rm{grid-template-columns:80px repeat(3,minmax(0,1fr));font-size:11px}}
+.vf{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:150px}
+.vf div{height:40px;border-radius:6px;border:1px solid var(--line2)}
+.qa{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ---------- 3 constellation ---------- */
+.skywrap{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:radial-gradient(ellipse at 55% 45%,#1d1666 0,#0d0b3a 40%,#05041a 80%)}
+.skywrap svg.sky{display:block;width:100%;height:auto}
+.skywrap .neb{position:absolute;inset:-20%;background:radial-gradient(closest-side at 30% 60%,#a45cff22,transparent),radial-gradient(closest-side at 75% 30%,#6ff0ff18,transparent),radial-gradient(closest-side at 60% 80%,#ff3ea514,transparent);animation:drift 40s ease-in-out infinite alternate;pointer-events:none}
+@keyframes drift{to{transform:translate(4%,-3%) rotate(4deg)}}
+.skywrap .stamp{position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap}
+.skywrap .ro{position:absolute;right:12px;top:12px;font-family:var(--mono);font-size:11px;color:var(--dim);background:#07061caa;border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+.tw{animation:tw 3.2s ease-in-out infinite}
+@keyframes tw{50%{opacity:.08}}
+.shoot{animation:shoot 11s linear infinite;opacity:0}
+@keyframes shoot{0%,88%{opacity:0;transform:translate(0,0)}90%{opacity:1}96%{opacity:0;transform:translate(-260px,120px)}100%{opacity:0}}
+svg .lbl{font-family:var(--mono);font-size:14px;fill:var(--txt);paint-order:stroke;stroke:#07061c;stroke-width:4px;stroke-linejoin:round}
+svg .sub{font-family:var(--mono);font-size:10.5px;fill:var(--dim);paint-order:stroke;stroke:#07061c;stroke-width:4px;stroke-linejoin:round}
+svg .elbl{font-family:var(--mono);font-size:10.5px;fill:#9aa0e6;paint-order:stroke;stroke:#07061c;stroke-width:4px;stroke-linejoin:round}
+svg .edge{fill:none;stroke:#4048a8;stroke-width:1.6;transition:opacity .4s,stroke .4s}
+svg .edge.lit{stroke:#d9dcff;stroke-width:2.4}
+svg .edge.red{stroke:var(--red);stroke-width:2.6}
+svg .edge.vis{stroke:#a45cff;stroke-dasharray:5 6}
+svg .fade{opacity:.15}
+svg .star{cursor:pointer;transition:opacity .4s}
+svg .star:hover .core{stroke-width:3.5}
+svg .star.sel .core{stroke:var(--yel);stroke-width:3.5}
+svg .spin{animation:spin 14s linear infinite;transform-box:fill-box;transform-origin:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+svg .breathe{animation:breathe 2.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes breathe{50%{transform:scale(1.18);opacity:.5}}
+.cg{grid-template-columns:2.3fr 1fr!important}@media(max-width:860px){.cg{grid-template-columns:1fr!important}}
+.skyscroll{position:relative;overflow-x:auto;scrollbar-width:thin}@media(max-width:700px){.skywrap svg.sky{width:680px!important;max-width:none}}
+.cfil{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.cfil button{background:var(--deep);border:1px solid var(--line2);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--dim);display:inline-flex;gap:6px;align-items:center}
+.cfil button.on{border-color:var(--yel);color:var(--txt);background:#ffd84a14}
+.cfil i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--dim);margin-top:10px}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.starcard{animation:pop .25s ease-out}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px;margin:8px 0 0}
+.kv dt{color:var(--dim);font-family:var(--mono);font-size:11.5px;padding-top:1px}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.pulse-card{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.pulse-card:last-child{border:0}
+
+/* ---------- 4 idea → prd ---------- */
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.steps button{display:flex;gap:8px;align-items:center;background:var(--deep);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 5px;font-size:13px;color:var(--dim)}
+.steps button b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--line2);color:var(--txt);font-family:var(--disp);font-weight:400;font-size:12px}
+.steps button.on{border-color:var(--yel);color:var(--txt)}
+.steps button.on b,.steps button.done b{background:var(--yel);color:var(--void)}
+.idea{border:1px solid var(--line2);border-radius:14px;padding:16px;background:linear-gradient(135deg,#1a1458,#0e0d33)}
+.idea .q{font-size:20px;font-weight:700;line-height:1.3}
+.files{list-style:none;margin:0;padding:0}
+.files li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-family:var(--mono);font-size:12px;animation:pop .3s ease-out both}
+.files li:last-child{border:0}
+.files .h{color:var(--cyan)}
+.eq{color:var(--grn);font-weight:700}.ne{color:var(--red);font-weight:700}
+.targets .t{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+.targets .t .tt{display:flex;justify-content:space-between;gap:8px;align-items:center;font-family:var(--mono);font-size:13px;flex-wrap:wrap}
+.targets .t ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--dim)}
+.targets .t.vis{border-style:dashed;opacity:.7}
+.ba1{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13px;background:#0a0926;border:1px solid var(--line);border-radius:10px;padding:10px}
+.ba1 .k1{color:var(--red);font-family:var(--mono);font-size:11px}.ba1 .k2{color:var(--grn);font-family:var(--mono);font-size:11px}
+
+/* terminal */
+.term{position:relative;background:#030212;border:1px solid var(--line2);border-radius:12px;overflow:hidden;font-family:var(--mono);font-size:12.5px;transition:box-shadow .4s}
+.term .tb{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px}
+.term .tb i{width:10px;height:10px;border-radius:50%;background:var(--line2)}
+.term .out{margin:0;padding:12px;white-space:pre-wrap;word-break:break-word;min-height:260px;max-height:440px;overflow:auto;color:var(--txt);line-height:1.6}
+.term .ln{animation:lin .25s ease-out both}
+@keyframes lin{from{opacity:0;transform:translateY(3px)}}
+.c{color:var(--cyan)}.g{color:var(--grn)}.y{color:var(--yel)}.r{color:var(--red)}.d{color:var(--dim)}.pl{color:var(--plasma)}
+.cursor{display:inline-block;width:7px;height:14px;background:var(--yel);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+.term.flash{animation:tflash 1.2s ease-out}
+.term.rflash{animation:rflash 1.2s ease-out}
+@keyframes tflash{30%{box-shadow:0 0 0 3px #4ee08a99,0 0 60px #4ee08a55}}
+@keyframes rflash{30%{box-shadow:0 0 0 3px #ff3b5c99,0 0 60px #ff3b5c55}}
+.tbtn{font-family:var(--mono);font-size:12px;background:var(--deep2);border:1px solid var(--yel);color:var(--yel);border-radius:6px;padding:2px 8px;margin:2px 6px 2px 0}
+.tbtn.red{border-color:var(--red);color:var(--red)}
+.tbtn[disabled]{opacity:.35;pointer-events:none}
+.pb{display:inline-block;width:80px;height:6px;border-radius:3px;background:var(--line);vertical-align:1px;overflow:hidden}
+.pb b{display:block;height:100%;width:0;background:var(--cyan);animation:grow 3s ease-out forwards}
+.pb.stop b{animation:none;background:var(--dim)}
+@keyframes grow{to{width:var(--w,60%)}}
+
+/* HUD */
+.hud{position:absolute;right:10px;top:42px;width:260px;max-width:calc(100% - 20px);background:#0e0d33f2;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;font-family:var(--body);font-size:12px;box-shadow:0 12px 40px #000a;transition:opacity .3s}
+.hud .hh{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.hud .main{font-weight:700;font-size:13px}
+.hud .body{color:var(--dim);margin-top:2px;font-family:var(--mono);font-size:11px;line-height:1.5}
+.hud.ok{border-color:var(--grn)}.hud.bad{border-color:var(--red)}.hud.wt{border-color:#ffd84a88}
+.hud.popin{animation:hpop .45s cubic-bezier(.2,1.5,.4,1)}
+@keyframes hpop{from{transform:translateY(-14px) scale(.92);opacity:0}}
+@media(max-width:560px){.hud{position:static;width:auto;max-width:none;margin:0 10px 10px}}
+
+/* ---------- 5 handshake ---------- */
+.hs{display:grid;grid-template-columns:minmax(0,1fr) 64px 300px;gap:0;align-items:stretch}
+#term5{display:flex;flex-direction:column}#term5 .out{flex:1;max-height:560px}
+@media(max-width:900px){#term5 .out{max-height:420px}}
+@media(max-width:900px){.hs{grid-template-columns:minmax(0,1fr)}.wire{height:46px!important;width:100%}.wire .ln2{left:50%!important;right:auto!important;top:0!important;bottom:0!important;width:2px!important;height:auto!important}}
+.wire{position:relative;height:100%;min-height:60px}
+.wire .ln2{position:absolute;left:0;right:0;top:50%;height:2px;background:repeating-linear-gradient(90deg,var(--line2) 0 6px,transparent 6px 11px)}
+.wire .puck{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;background:var(--deep);border:1px solid var(--yel);display:grid;place-items:center;color:var(--yel);font-size:14px}
+.wire.fire .puck{animation:fire .9s ease-out}
+.wire.firered .puck{animation:firer .9s ease-out;border-color:var(--red);color:var(--red)}
+@keyframes fire{40%{box-shadow:0 0 0 10px #ffd84a33,0 0 30px #ffd84a;transform:translate(-50%,-50%) scale(1.25)}}
+@keyframes firer{40%{box-shadow:0 0 0 10px #ff3b5c33,0 0 30px #ff3b5c;transform:translate(-50%,-50%) scale(1.25)}}
+.phone{justify-self:center;width:290px;max-width:100%;border-radius:40px;padding:10px;background:linear-gradient(160deg,#2a2960,#0e0d33);box-shadow:0 30px 80px #000a,inset 0 0 0 1px #3a3980}
+.pscr{position:relative;border-radius:31px;overflow:hidden;height:560px;background:radial-gradient(circle at 30% 0,#2f3fc455,transparent 60%),radial-gradient(circle at 90% 90%,#a45cff44,transparent 60%),#07061c}
+.notch{position:absolute;left:50%;top:8px;transform:translateX(-50%);width:86px;height:24px;border-radius:14px;background:#000;z-index:3}
+.sbar{display:flex;justify-content:space-between;padding:12px 22px 0;font-size:12px;font-weight:700}
+.homebar{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:110px;height:4px;border-radius:2px;background:#fff8}
+.pv{position:absolute;inset:40px 0 20px;overflow:auto;padding:0 12px;scrollbar-width:none}
+.pv::-webkit-scrollbar{display:none}
+.pview{animation:pop .3s ease-out}
+.clock{text-align:center;margin:26px 0 22px}
+.clock .dt{font-size:13px;color:#fffc}
+.clock .tm{font-family:var(--disp);font-size:72px;line-height:1}
+.notif{display:block;width:100%;text-align:left;background:#ffffff1f;backdrop-filter:blur(18px);border:1px solid #ffffff22;border-radius:18px;padding:10px 12px;color:var(--txt);animation:ndrop .55s cubic-bezier(.2,1.4,.4,1) both}
+.notif.red{border-color:#ff3b5c88;background:#ff3b5c22}
+.notif .nh{display:flex;align-items:center;gap:6px;font-size:11px;color:#fffb;text-transform:uppercase;letter-spacing:.06em}
+.notif .nh .ic{width:18px;height:18px;border-radius:5px;background:var(--yel);display:grid;place-items:center}
+.notif .nh time{margin-left:auto;text-transform:none;letter-spacing:0}
+.notif .nt{font-weight:700;font-size:14px;margin-top:4px}
+.notif .nb{font-size:12.5px;color:#fffd;margin-top:2px}
+@keyframes ndrop{from{opacity:0;transform:translateY(-30px)}}
+.hint{text-align:center;font-size:11px;color:#fff9;margin-top:10px;animation:blink 1.6s infinite}
+.apphd{display:flex;gap:6px;align-items:center;font-size:11px;font-family:var(--mono);color:var(--dim);margin:6px 0 8px}
+.apphd .pc{background:var(--yel);color:var(--void);font-weight:700;border-radius:6px;padding:1px 6px}
+.ptitle{font-family:var(--disp);font-size:24px;line-height:1.05;text-transform:uppercase}
+.plbl{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin:12px 0 4px}
+.prow{display:flex;justify-content:space-between;gap:6px;font-size:12px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.prow:last-child{border:0}
+.prow .nm{font-family:var(--mono)}
+.pins2{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.pins2 b{color:var(--cyan);font-weight:500}
+.appr{position:relative;overflow:hidden;width:100%;margin-top:14px;background:var(--yel);color:var(--void);border:0;border-radius:14px;padding:13px;font-weight:800;font-size:15px}
+.appr.ok{background:var(--grn)}
+.later{width:100%;background:none;border:0;color:var(--dim);font-size:12px;padding:8px}
+.rip{position:absolute;border-radius:50%;background:#fff8;transform:scale(0);animation:rip .6s ease-out;pointer-events:none}
+@keyframes rip{to{transform:scale(4);opacity:0}}
+.pseal{display:flex;gap:10px;align-items:center;background:var(--yel);color:var(--void);border-radius:14px;padding:10px;margin:8px 0}
+.pseal.void{background:var(--deep2);color:var(--txt);border:1px dashed var(--red)}
+.pseal.void svg{opacity:.35}
+.pseal .tx{font-size:11px;font-family:var(--mono);line-height:1.5}
+.pseal .tx b{font-family:var(--disp);font-weight:400;font-size:16px;letter-spacing:.03em}
+.stamp-in{animation:stamp .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes stamp{0%{transform:scale(2.2) rotate(-14deg);opacity:0}60%{opacity:1}100%{transform:none}}
+.pbanner{border-radius:10px;padding:8px 10px;font-size:12px;margin:4px 0 8px}
+.pbanner.red{background:#ff3b5c22;border:1px solid #ff3b5c66}
+.diff{background:#0a0926;border:1px solid var(--line);border-radius:10px;padding:8px;font-family:var(--mono);font-size:11px;overflow-x:auto}
+.diff div{white-space:pre;padding:1px 4px;border-radius:3px}
+.diff .del{background:#ff3b5c22;color:#ff9aab}.diff .add{background:#4ee08a1f;color:#a8f5c6}.diff .h{color:var(--dim)}
+.hsteps{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
+.hsteps span{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+.hsteps span.on{border-color:var(--yel);color:var(--yel)}
+.hsteps span.done{color:var(--grn);border-color:#4ee08a55}
+
+/* ---------- 6 github ---------- */
+.gh{background:#0d1117;border:1px solid #30363d;border-radius:12px;overflow:hidden;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;color:#c9d1d9}
+.gh .gh-top{padding:12px 14px;border-bottom:1px solid #30363d;background:#161b22}
+.gh .gh-top .rn{font-size:12px;color:#8b949e}
+.gh .gh-top .pt{font-size:18px;font-weight:600;margin-top:4px;color:#e6edf3}
+.gh .gh-top .pt span{color:#8b949e;font-weight:400}
+.gh .bdg{display:inline-flex;align-items:center;gap:4px;background:#8957e5;color:#fff;border-radius:999px;padding:2px 9px;font-size:12px;margin-top:6px}
+.gh .gh-r{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #21262d;font-size:13px}
+.gh .gh-r:last-child{border:0}
+.gh .gh-r .k{flex:1;min-width:0;overflow-wrap:anywhere}
+.gh .gh-r small{color:#8b949e}
+.gh .x{color:var(--red)}.gh .v{color:var(--grn)}.gh .hh{color:var(--cyan)}
+.gh .gh-r a{font-size:12px}
+.gh .gh-r.sel{background:#1f2937}
+.sseg{display:inline-flex;background:var(--deep);border:1px solid var(--line2);border-radius:999px;padding:2px;flex-wrap:wrap}
+.sseg button{background:none;border:0;padding:5px 12px;border-radius:999px;font-size:12px;color:var(--dim);font-family:var(--mono)}
+.sseg button.on{background:var(--yel);color:var(--void);font-weight:700}
+.same{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;align-items:center;font-size:13px}
+.same .wh{font-size:11px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.same .ln3{font-family:var(--mono);font-size:12px;background:#0a0926;border:1px solid var(--line);border-radius:8px;padding:6px 10px;overflow-wrap:anywhere}
+@media(max-width:600px){.same{grid-template-columns:1fr}}
+.sealbox{display:flex;gap:14px;align-items:center;background:var(--yel);color:var(--void);border-radius:14px;padding:12px 14px}
+.sealbox .disp{font-size:22px;line-height:1}
+.sealbox p{margin:3px 0 0;font-size:12px}
+.sealbox.void{background:var(--deep2);color:var(--txt);border:1px dashed var(--red)}
+.sealbox.void svg{opacity:.4}
+.sealbox.held{background:#6ff0ff1a;color:var(--txt);border:1px dashed var(--cyan)}
+.refuse{font-family:var(--mono);font-size:13px;line-height:1.8;background:#0a0926;border:1px solid #ff3b5c55;border-left:3px solid var(--red);border-radius:10px;padding:10px 12px}
+.refuse.okk{border-color:#4ee08a55;border-left-color:var(--grn)}
+.refuse.hld{border-color:#6ff0ff55;border-left-color:var(--cyan)}
+.verbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ddiff{background:#0a0926;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--mono);font-size:12px;overflow-x:auto;margin-top:10px}
+.ddiff div{white-space:pre;padding:1px 6px;border-radius:3px}
+.ddiff .del{background:#ff3b5c22;color:#ff9aab}.ddiff .add{background:#4ee08a1f;color:#a8f5c6}.ddiff .ws{background:#6ff0ff14;color:var(--dim)}
+.slideover{animation:slide .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes slide{from{opacity:0;transform:translateX(16px)}}
+
+/* ---------- 7 ladder ---------- */
+.mx{display:grid;grid-template-columns:150px repeat(5,minmax(0,1fr));gap:0;align-items:center}
+.mx .hd{font-size:11px;color:var(--dim);padding:6px 4px;text-align:center;line-height:1.25}
+.mx .rn{font-family:var(--mono);font-size:13px;padding:10px 0;border-top:1px dashed var(--line)}
+.mx .rn small{display:block;font-family:var(--body);font-size:11px;color:var(--dim)}
+.mx .cell{position:relative;display:flex;justify-content:center;align-items:center;padding:10px 0;border-top:1px dashed var(--line);min-height:62px}
+.mx .cell::before{content:"";position:absolute;left:0;right:50%;top:50%;height:2px;background:var(--line2)}
+.mx .cell::after{content:"";position:absolute;left:50%;right:0;top:50%;height:2px;background:var(--line2)}
+.mx .cell.first::before,.mx .cell.last::after{display:none}
+.mx .cell.on::before{background:var(--yel)}
+.mx .cell.on:not(.lead)::after{background:var(--yel)}
+.mx .dot{position:relative;z-index:1;width:34px;height:34px;border-radius:50%;border:2px solid var(--line2);background:var(--void);display:grid;place-items:center;font-family:var(--disp);font-size:15px;color:var(--dim);transition:all .3s}
+.mx .cell.on .dot{background:var(--yel);border-color:var(--yel);color:var(--void)}
+.mx .cell.nx .dot{border-color:var(--yel);color:var(--yel);animation:ring 1.8s infinite;cursor:pointer}
+.mx .cell.lead .dot{cursor:pointer}
+.mx .cell.lead .dot:hover{box-shadow:0 0 0 4px #ffd84a33}
+.mx .cell.nx .dot:hover{background:#ffd84a22}
+@media(max-width:680px){.mx{grid-template-columns:96px repeat(5,minmax(0,1fr))}.mx .hd{font-size:9.5px}.mx .dot{width:28px;height:28px;font-size:13px}.mx .rn{font-size:11px}}
+.stepnames{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:12px}
+.stepnames div{font-size:12px;color:var(--dim);border-left:2px solid var(--line2);padding-left:8px}
+.stepnames b{color:var(--txt);font-weight:700}
+.final{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;margin-top:16px;border:1px dashed var(--line2);border-radius:14px;padding:14px;transition:all .4s}
+.final>*{min-width:0}
+.final .num6{width:44px;height:44px;border-radius:50%;border:2px solid var(--line2);display:grid;place-items:center;font-family:var(--disp);font-size:20px;color:var(--dim)}
+.final.ready{border-color:var(--yel)}
+.final.ready .num6{border-color:var(--yel);color:var(--yel);animation:ring 1.8s infinite}
+.final.done{border-style:solid;border-color:var(--grn);background:#4ee08a0d}
+.final.done .num6{background:var(--grn);border-color:var(--grn);color:var(--void)}
+@media(max-width:600px){.final{grid-template-columns:auto 1fr}.final>:last-child{grid-column:1/-1}}
+.planrepo{position:relative;border:1px solid #30363d;background:#0d1117;border-radius:12px;padding:12px 14px;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;color:#c9d1d9;overflow:hidden}
+.planrepo .arch{position:absolute;right:10px;top:50%;transform:translateY(-50%) rotate(-10deg);font-family:var(--disp);font-size:30px;letter-spacing:.06em;color:var(--yel);border:3px solid var(--yel);border-radius:8px;padding:0 10px;opacity:0}
+.planrepo.archived .arch{opacity:1;animation:stamp2 .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes stamp2{0%{transform:translateY(-50%) rotate(-24deg) scale(2.4);opacity:0}100%{transform:translateY(-50%) rotate(-10deg)}}
+.planrepo.archived .pr-body{opacity:.4;filter:grayscale(1)}
+.gnums{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+@media(max-width:600px){.gnums{grid-template-columns:repeat(2,1fr)}}
+.gnums div{border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.gnums b{display:block;font-family:var(--disp);font-weight:400;font-size:26px;color:var(--yel)}
+.gnums s{color:var(--red);font-size:11px}
+.gnums span{font-size:11px;color:var(--dim)}
+
+/* toast + index */
+.toast{position:fixed;left:50%;bottom:74px;transform:translateX(-50%) translateY(20px);opacity:0;z-index:60;background:var(--deep2);border:1px solid var(--yel);border-radius:12px;padding:10px 14px;font-size:13px;max-width:calc(100vw - 32px);transition:all .3s cubic-bezier(.2,.8,.2,1);pointer-events:none;font-family:var(--mono)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.idx{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;z-index:40;display:flex;gap:2px;align-items:center;background:#0e0d33ee;border:1px solid var(--line2);border-radius:999px;padding:4px;backdrop-filter:blur(8px);max-width:calc(100vw - 24px)}
+.idx .lab{font-size:10px;letter-spacing:.14em;color:var(--dim);padding:0 6px 0 10px;text-transform:uppercase;white-space:nowrap}
+.idx button{width:30px;height:30px;border-radius:50%;border:0;background:none;font-family:var(--disp);font-size:14px;color:var(--dim);flex:none}
+.idx button.on{background:var(--yel);color:var(--void)}
+.idx button.seen:not(.on){color:var(--txt)}
+.idx button:hover:not(.on){background:var(--deep2);color:var(--txt)}
+.idx .nm{font-family:var(--mono);font-size:11px;color:var(--txt);padding:0 12px 0 6px;white-space:nowrap}
+@media(max-width:560px){.idx .lab,.idx .nm{display:none}}
+.note{font-size:12px;color:var(--dim);border-left:3px solid var(--yel);padding-left:10px;margin-top:14px}
+.hr{height:1px;background:var(--line);margin:14px 0}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="ex"><b>Example data</b> · vision tour of Direction C “The Ledger”, crowned · nothing here is live</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <radialGradient id="gY"><stop offset="0" stop-color="#fff6c8" stop-opacity=".95"/><stop offset=".3" stop-color="#ffd84a" stop-opacity=".4"/><stop offset="1" stop-color="#ffd84a" stop-opacity="0"/></radialGradient>
+ <radialGradient id="gC"><stop offset="0" stop-color="#e6fdff" stop-opacity=".9"/><stop offset=".35" stop-color="#6ff0ff" stop-opacity=".35"/><stop offset="1" stop-color="#6ff0ff" stop-opacity="0"/></radialGradient>
+ <radialGradient id="gP"><stop offset="0" stop-color="#e9d8ff" stop-opacity=".6"/><stop offset=".4" stop-color="#a45cff" stop-opacity=".22"/><stop offset="1" stop-color="#a45cff" stop-opacity="0"/></radialGradient>
+ <radialGradient id="gG"><stop offset="0" stop-color="#d0d2e6" stop-opacity=".45"/><stop offset="1" stop-color="#8a90d6" stop-opacity="0"/></radialGradient>
+ <radialGradient id="gR"><stop offset="0" stop-color="#ffd0d8" stop-opacity=".8"/><stop offset=".35" stop-color="#ff3b5c" stop-opacity=".35"/><stop offset="1" stop-color="#ff3b5c" stop-opacity="0"/></radialGradient>
+ <linearGradient id="shootG" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient>
+</defs></svg>
+
+<div class="wrap">
+  <div class="cap">
+    <div class="no" id="capNo">01<small>/07</small></div>
+    <div><h2 id="capT"></h2><p id="capP"></p><span class="try" id="capTry"></span></div>
+    <div class="arrows"><button class="arr" id="prev" aria-label="Previous screen">‹</button><button class="arr" id="next" aria-label="Next screen">›</button></div>
+  </div>
+
+  <div class="app">
+    <header class="abar">
+      <div class="logo"><svg width="24" height="24" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#ffd84a" stroke-width="2.5"/><circle cx="13" cy="13" r="4" fill="#ffd84a"/><circle cx="22" cy="6" r="2" fill="#6ff0ff"/></svg>OMNI</div>
+      <div class="crumbs" id="crumbs"></div>
+      <div class="sp"></div>
+      <span class="asof" id="asof"><i></i>live · webhooks</span>
+      <div class="who" id="who"></div>
+    </header>
+    <nav class="ptabs" id="ptabs" aria-label="Product tabs"></nav>
+    <div class="abody">
+
+<!-- ===== 1 PRODUCTS ===== -->
+<section class="scr" id="s1">
+  <div class="tag">vertuoza · workspace</div>
+  <h1>Products</h1>
+  <p class="lede">Each product holds its repositories, its PRDs, roadmap, ideas, bug and visual fixes, questions and approvers. A repository has one home product; another product that uses it shows it as a visitor.</p>
+  <div class="prods" id="prods"></div>
+  <div class="tag" style="margin-top:20px">Products of one · made automatically, shown as the repository</div>
+  <div class="ones" id="ones"></div>
+</section>
+
+<!-- ===== 2 PRODUCT HOME ===== -->
+<section class="scr" id="s2"><div id="tabbody"></div></section>
+
+<!-- ===== 3 CONSTELLATION ===== -->
+<section class="scr" id="s3">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end">
+    <div><div class="tag">Mobile · Constellation</div><h1 style="margin-bottom:0">How Mobile looks today</h1></div>
+    <span class="asof"><i></i>as of 14:22 · 23 PRs merged this week</span>
+  </div>
+  <div class="cfil" id="cfil"></div>
+  <div class="g2 cg">
+    <div>
+      <div class="skywrap"><div class="neb"></div><div class="skyscroll" id="sky"></div><div class="ro">read only · a view, not a picker</div></div>
+      <div class="legend"><span><i style="background:#fff3c2;box-shadow:0 0 8px #ffd84a"></i>Mobile's repository</span><span><i style="background:#6b4aa8"></i>visiting (home elsewhere)</span><span><i style="background:#4a4d78"></i>docked · flag off</span><span><i style="background:var(--grn)"></i>building ring</span><span><i style="background:var(--red)"></i>drifted</span><span><i style="background:var(--yel)"></i>waits on you · only this pulses</span></div>
+    </div>
+    <div id="cside"></div>
+  </div>
+</section>
+
+<!-- ===== 4 IDEA → PRD ===== -->
+<section class="scr" id="s4">
+  <div class="steps" id="steps4"></div>
+  <div id="st4"></div>
+</section>
+
+<!-- ===== 5 HANDSHAKE ===== -->
+<section class="scr" id="s5">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+    <div class="hsteps" id="hsteps"></div>
+    <button class="btn sm ghost" id="replay5">↺ replay</button>
+  </div>
+  <div class="hs">
+    <div class="term" id="term5"><div class="tb"><i></i><i></i><i></i><span style="margin-left:6px">claude · ~/vertuo-mobile · Paul's terminal</span></div><div class="hud" id="hud"></div><div class="out" id="out5"></div></div>
+    <div class="wire" id="wire"><div class="ln2"></div><div class="puck">◆</div></div>
+    <div class="phone" aria-label="Irisa's phone"><div class="pscr"><div class="notch"></div><div class="sbar"><span id="ptime">14:01</span><span>▴ ◔ ▮</span></div><div class="pv" id="pv"></div><div class="homebar"></div></div></div>
+  </div>
+</section>
+
+<!-- ===== 6 GITHUB ===== -->
+<section class="scr" id="s6">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <div class="sseg" id="sseg"><button data-s="building" class="on">building</button><button data-s="held">held</button><button data-s="drifted">drifted</button></div>
+    <span class="dim" style="font-size:12px">One word per state, the same on GitHub, in the terminal and on the ledger.</span>
+  </div>
+  <div class="g2b">
+    <div>
+      <div class="gh" id="ghbox"></div>
+      <div class="panel" style="margin-top:16px"><div class="tag" style="margin-bottom:8px">Same words everywhere</div><div class="same" id="same"></div></div>
+    </div>
+    <div id="attest"></div>
+  </div>
+</section>
+
+<!-- ===== 7 ROLLOUT ===== -->
+<section class="scr" id="s7">
+  <div class="tag">Mobile · Repos &amp; rollout</div>
+  <h1>Rollout, repository by repository</h1>
+  <p class="lede">Each repository climbs the same five steps in order, and any step can be stepped back down. Step 4 is the per-repository flag that decides where a new PRD is born. When every repository reaches step 5, the plan repository has nothing left to hold and is archived.</p>
+  <div class="panel">
+    <div class="mx" id="mx"></div>
+    <div class="stepnames" id="stepnames"></div>
+  </div>
+  <div class="final" id="final"></div>
+  <div class="gnums" id="gnums"></div>
+</section>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<nav class="idx" id="idx" aria-label="Screen index"></nav>
+
+<script>
+(function(){
+"use strict";
+var $=function(s){return document.querySelector(s)},$$=function(s){return [].slice.call(document.querySelectorAll(s))};
+var CAPS=[
+ ["Products","The umbrella is the product. The workspace lists its products; each one is a home for repositories and everything the loop makes for them.","open Mobile"],
+ ["A product's home: the Ledger","What waits on whom across Mobile's repositories. The other tabs (Roadmap, Ideas, PRDs, Bug fixes, Visual fixes, Questions) sit beside it.","switch tabs · switch the viewer · open Constellation"],
+ ["Constellation","A read-only view of how Mobile looks today: its repositories as stars, the edges Omni inferred from merged PRs, what is building, what is visiting and what is docked.","tap a star · light up one PRD"],
+ ["An idea becomes a PRD","Paul's idea goes through /omni:brainstorm and comes back as dossier 918, born on the server. No phase-0 PR is opened. The approve screen shows what each repository will get.","walk the three steps, then send it to the approvers"],
+ ["The handshake","Paul's terminal parks on omni wait approval. Irisa gets a push notification on her phone, taps it, and approves. The seal prints, the session HUD shows a toast, and wave 1 starts. A later push to a pinned file voids the seal, and she approves again.","tap the notification on the phone"],
+ ["The check and its attestation","Every target feature PR carries omni/approved. Its details link to the attestation: who signed, when, and the pinned hashes. It shows the same three states everywhere.","switch building / held / drifted · try restore and ask again"],
+ ["Rollout, through to the archive","Each repository climbs the ladder one step at a time. Once all of them are at step 5, the plan repository is archived.","climb vertuo-api and vertuo-web, then archive"]
+];
+var cur=1,seen={1:1};
+function toast(h,ms){var t=$("#toast");t.innerHTML=h;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove("on")},ms||2800)}
+var gen=0;function later(ms,fn){var g=gen;return setTimeout(function(){if(g===gen)fn()},ms)}
+
+/* ---------- seal ---------- */
+var sid=0;
+function seal(n,size,hash,color,ink){
+ size=size||54;color=color||"#ffd84a";ink=ink||"#07061c";var id="sp"+(++sid);
+ return '<svg class="seal" width="'+size+'" height="'+size+'" viewBox="0 0 100 100" aria-label="seal '+n+'" style="flex:none">'+
+ '<defs><path id="'+id+'" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0"/></defs>'+
+ '<circle cx="50" cy="50" r="47" fill="'+color+'"/><circle cx="50" cy="50" r="42" fill="none" stroke="'+ink+'" stroke-width="2"/>'+
+ '<circle cx="50" cy="50" r="29" fill="none" stroke="'+ink+'" stroke-width="1.2" stroke-dasharray="2 2"/>'+
+ '<text font-family="JetBrains Mono,ui-monospace,monospace" font-size="7.2" letter-spacing="1.2" fill="'+ink+'"><textPath href="#'+id+'">APPROVED · PINNED · '+hash+' · MOBILE ·</textPath></text>'+
+ '<text x="50" y="60" text-anchor="middle" font-family="Anton,Impact,Arial Narrow,sans-serif" font-size="'+(String(n).length>3?22:28)+'" fill="'+ink+'">'+n+'</text></svg>';
+}
+function unsealed(n){return '<div class="unsealed">'+n+'</div>'}
+
+/* ---------- chrome ---------- */
+var TABS=[["ledger","Ledger"],["constellation","Constellation"],["roadmap","Roadmap"],["ideas","Ideas"],["prds","PRDs"],["bugs","Bug fixes"],["visual","Visual fixes"],["questions","Questions"],["repos","Repos & rollout"]];
+var tab="ledger",viewer="irisa";
+function counts(){return {ledger:youCount(),ideas:3,prds:6,bugs:2,visual:1,questions:qOpen()}}
+function drawTabs(){
+ var c=counts(),on=cur===3?"constellation":cur===7?"repos":cur===4||cur===5?"prds":cur===6?"prds":tab;
+ $("#ptabs").innerHTML=TABS.map(function(t){
+  var n=c[t[0]],y=(t[0]==="ledger"||t[0]==="questions")&&n;
+  var ic=t[0]==="constellation"?'<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="3" cy="10" r="2" fill="#6ff0ff"/><circle cx="10" cy="4" r="2" fill="#ffd84a"/><circle cx="11" cy="11" r="1.4" fill="#a45cff"/><path d="M3 10L10 4L11 11" stroke="#8a90d6" stroke-width=".8" fill="none"/></svg>':"";
+  return '<button data-tab="'+t[0]+'" class="'+(t[0]===on?"on ":"")+(t[0]==="constellation"?"cst":"")+'">'+ic+t[1]+(n!=null?' <span class="n'+(y?" y":"")+'">'+n+'</span>':"")+'</button>'}).join("");
+}
+function chrome(){
+ var C=CAPS[cur-1];
+ $("#capNo").innerHTML=(cur<10?"0":"")+cur+"<small>/07</small>";$("#capT").textContent=C[0];$("#capP").textContent=C[1];$("#capTry").textContent=C[2];
+ $("#prev").disabled=cur===1;$("#next").disabled=cur===7;
+ $("#ptabs").style.display=cur===1?"none":"flex";
+ var crumbs={1:'vertuoza › <b>Products</b>',2:'vertuoza › <a data-go="1">Products</a> › <b>Mobile</b>',3:'vertuoza › <a data-go="1">Products</a> › Mobile › <b>Constellation</b>',4:'Mobile › PRDs › <b>918</b> <span class="chip srv">◆ server</span>',5:'Mobile › PRD <b>918</b> › handshake',6:'github.com/vertuoza/vertuo-api/pull/<b>446</b> › checks',7:'Mobile › <b>Repos &amp; rollout</b>'};
+ $("#crumbs").innerHTML=crumbs[cur];
+ var w=cur===4||cur===5?["p","P","Paul · PM"]:viewer==="paul"&&cur===2?["p","P","Paul · PM"]:["i","I","Irisa · PM"];
+ $("#who").innerHTML='<span class="tag">viewing as</span><span class="av '+w[0]+'">'+w[1]+'</span>'+(cur===2?'<button class="btn sm ghost" id="swv">switch</button>':w[2]);
+ $("#asof").innerHTML=cur===6&&s6==="held"?'<i style="background:var(--cyan)"></i>as of 14:02 (GitHub)':'<i></i>live · webhooks';
+ drawTabs();
+ $("#idx").innerHTML='<span class="lab">Tour</span>'+CAPS.map(function(c,i){var n=i+1;return '<button data-go="'+n+'" class="'+(n===cur?"on ":"")+(seen[n]?"seen":"")+'" title="'+c[0]+'">'+n+'</button>'}).join("")+'<span class="nm">'+C[0]+'</span>';
+}
+function go(n){n=+n;if(n<1||n>7)return;gen++;cur=n;seen[n]=1;
+ $$(".scr").forEach(function(s){s.classList.toggle("on",s.id==="s"+n)});
+ chrome();
+ ({1:r1,2:r2,3:r3,4:r4,5:r5,6:r6,7:r7})[n]();
+ try{history.replaceState(null,"","#"+n)}catch(e){}
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* ---------- mini sky for product cards ---------- */
+function mini(stars,edges,seed){var r=seed,s='<svg viewBox="0 0 200 84" preserveAspectRatio="xMidYMid slice">';
+ function rnd(){r=(r*9301+49297)%233280;return r/233280}
+ for(var i=0;i<26;i++)s+='<circle cx="'+(rnd()*200|0)+'" cy="'+(rnd()*84|0)+'" r="'+(rnd()*.8+.3).toFixed(1)+'" fill="#c9ccff" opacity="'+(rnd()*.5+.1).toFixed(2)+'"/>';
+ edges.forEach(function(e){var a=stars[e[0]],b=stars[e[1]];s+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+(e[2]||"#4048a8")+'" stroke-width="1.2"'+(e[3]?' stroke-dasharray="3 3"':"")+'/>'});
+ stars.forEach(function(p){var c=p[2]==="v"?"#6b4aa8":p[2]==="d"?"#4a4d78":"#fff3c2",g=p[2]==="v"?"gP":p[2]==="d"?"gG":"gY";
+  s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="16" fill="url(#'+g+')"/><circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(p[2]?3.5:5)+'" fill="'+c+'"/>';
+  if(p[3])s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="9" fill="none" stroke="'+p[3]+'" stroke-width="1.5"/>'});
+ return s+'</svg>'}
+
+/* ---------- 1 products ---------- */
+var PRODUCTS=[
+ {n:"Mobile",you:2,repos:[["vertuo-mobile","srv"],["vertuo-api","srv"],["vertuo-web","rep"],["vertuo-auth","vis"]],b:2,w:2,d:1,lad:4,people:"Irisa · Paul",
+  sky:mini([[50,52,"",'#4ee08a'],[110,30,"",'#4ee08a'],[80,20,"d"],[170,48,"v"]],[[0,1],[2,1],[1,3,"#a45cff",1]],5),go:2},
+ {n:"Platform",you:0,repos:[["vertuo-auth","rep"],["vertuo-infra","rep"]],b:1,w:0,d:0,lad:1,people:"Jonas",
+  sky:mini([[70,40,""],[140,50,"",'#4ee08a']],[[0,1]],11)},
+ {n:"Estimates",you:0,repos:[["vertuo-quotes","srv"],["vertuo-pdf","srv"],["vertuo-api","vis"]],b:3,w:1,d:0,lad:6,people:"Paul · Lea",
+  sky:mini([[40,30,"",'#4ee08a'],[100,58,"",'#4ee08a'],[165,30,"v"]],[[0,1],[1,2,"#a45cff",1]],23)}
+];
+function r1(){
+ $("#prods").innerHTML=PRODUCTS.map(function(p,i){
+  var lad="";for(var k=1;k<=6;k++)lad+='<i class="'+(k<=p.lad?"on":"")+'"></i>';
+  return '<button class="pcard'+(p.you?" you":"")+'" data-prod="'+i+'">'+(p.you?'<span class="badge st w"><i></i>'+p.you+' wait on you</span>':p.lad===6?'<span class="badge chip srv">plan repo archived</span>':'')+
+  '<div class="mini">'+p.sky+'</div><div class="pn">'+p.n+'</div>'+
+  '<div class="rl">'+p.repos.map(function(r){return '<span class="chip '+r[1]+'">'+(r[1]==="srv"?"◆ ":r[1]==="rep"?"◇ ":"↗ ")+r[0]+'</span>'}).join("")+'</div>'+
+  '<div class="nums"><span><b style="color:var(--grn)">'+p.b+'</b>building</span><span><b style="color:var(--yel)">'+p.w+'</b>waiting</span><span><b style="color:var(--red)">'+p.d+'</b>drifted</span></div>'+
+  '<div class="lad">rollout '+lad+' <span style="margin-left:4px">'+p.lad+'/6</span></div>'+
+  '<div class="dim" style="font-size:12px">approvers: '+p.people+'</div></button>'}).join("")+
+  '<button class="newp" id="newp">+ New product<br><span class="dim" style="font-weight:400;font-size:12px">pick repositories · Omni infers the edges · name it</span></button>';
+ $("#ones").innerHTML=["vertuo-docs","vertuo-design-tokens","vertuo-scripts"].map(function(r){return '<button class="one"><span style="color:var(--yel)">●</span>'+r+'<span class="dim" style="font-size:11px">1 PRD</span></button>'}).join("");
+}
+
+/* ---------- 2 product home ---------- */
+var approved918=false,restored905=false;
+function prds(){
+ var who=viewer==="irisa"?"Irisa":"Paul",L=[];
+ L.push({n:918,t:"Offline photo upload",born:"srv",lane:approved918?"agent":"you",seal:approved918?"9c41…e07b":null,
+  st:approved918?["b","building · wave 1"]:["w","waits on Irisa or Paul"],meta:approved918?"approved by Irisa · seal 918":"phase 0 ready · Paul waits in a terminal",
+  prs:approved918?[["vertuo-api","#446","ok","✓ approved","0"],["vertuo-mobile","#93","ok","✓ approved","0"]]:[],go:4});
+ L.push({n:905,t:"Invoice reminders",born:"srv",lane:restored905?"agent":"you",seal:"f02a…11c9",st:restored905?["b","building · wave 2"]:["d","drifted"],
+  meta:restored905?"plan.md restored to the pinned version":"≠ plan.md in f02a · content · ✗ refuse",
+  prs:[["vertuo-api","#440",restored905?"ok":"no",restored905?"✓ approved":"✗ drifted","3"],["vertuo-mobile","#91",restored905?"ok":"no",restored905?"✓ approved":"✗ drifted","1"]],go:6});
+ L.push({n:912,t:"Quotes on the phone",born:"srv",lane:"agent",seal:"a5d2…77f0",st:["b","building · wave 3"],meta:"approved by Irisa · 7 Oct · 2 open outbox items",
+  prs:[["vertuo-api","#431","ok","✓ approved","2"],["vertuo-mobile","#88","ok","✓ approved","1"],["vertuo-web","#207","ok","✓ approved","0"]],go:3});
+ L.push({n:899,t:"Dark mode tokens",born:"rep",lane:"gh",seal:null,st:["o","phase-0 PR in review"],meta:"born in vertuo-web, flag off · keeps its phase-0 PR for life",prs:[["vertuo-web","#201","wt","◇ review requested","—"]],go:7});
+ L.push({n:"B-77",t:"Crash on quote PDF",born:"srv",lane:"agent",seal:null,st:["b","building · fix"],meta:"bug fix · shows in vertuo-mobile, cause in vertuo-api",prs:[["vertuo-api","#447","ok","✓ red→green","0"],["vertuo-mobile","#94","wt","merge after #447","0"]]});
+ return L;
+}
+function youCount(){return prds().filter(function(p){return p.lane==="you"}).length}
+function prChip(p){return '<span class="pr"><span>'+p[0]+'</span><em>'+p[1]+'</em><span class="'+p[2]+'">'+p[3]+'</span><em>outbox '+p[4]+'</em></span>'}
+function rowHtml(p){return '<div class="row'+(p.go?" click":"")+'"'+(p.go?' data-go="'+p.go+'"':"")+'><div>'+(p.seal?seal(p.n,54,p.seal):unsealed(p.n))+'</div><div><div class="ttl">'+p.t+'</div><div class="meta"><span class="chip '+(p.born==="srv"?"srv":"rep")+'">'+(p.born==="srv"?"◆":"◇")+' '+p.n+'</span><span'+(p.st[0]==="d"?' class="mono" style="color:var(--red)"':"")+'>'+p.meta+'</span></div>'+(p.prs.length?'<div class="prs">'+p.prs.map(prChip).join("")+'</div>':"")+'</div><div class="right"><span class="st '+p.st[0]+'"><i></i>'+p.st[1]+'</span>'+(p.go?'<span class="dim" style="font-size:12px">open →</span>':"")+'</div></div>'}
+function vLedger(){
+ var L=prds(),who=viewer==="irisa"?"Irisa":"Paul";
+ var lanes=[["you","Waits on you, "+who],["gh","Waits on GitHub review"],["agent","Waits on the agent"]];
+ var lh=lanes.map(function(l){var r=L.filter(function(p){return p.lane===l[0]});
+  if(!r.length&&l[0]==="you")return '<div class="lane you"><div class="lane-h"><span class="tag">'+l[1]+'</span></div><div class="dim" style="font-size:13px;padding:4px 0 10px">Nothing waits on you.</div></div>';
+  if(!r.length)return "";return '<div class="lane '+(l[0]==="you"?"you":"")+'"><div class="lane-h"><span class="tag">'+l[1]+'</span><span class="mono dim" style="font-size:11px">'+r.length+'</span></div>'+r.map(rowHtml).join("")+'</div>'}).join("");
+ return '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap"><div><div class="tag">Mobile · Ledger</div><h1>What waits on whom</h1></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip srv">◆ born on the server</span><span class="chip rep">◇ born in a repo</span></div></div>'+
+ '<div class="sum"><div><b style="color:var(--grn)">'+L.filter(function(p){return p.st[0]==="b"}).length+'</b><span>building</span></div><div><b style="color:var(--yel)">'+L.filter(function(p){return p.st[0]==="w"||p.st[0]==="o"}).length+'</b><span>waiting on a person</span></div><div><b style="color:var(--red)">'+L.filter(function(p){return p.st[0]==="d"}).length+'</b><span>drifted</span></div><div><b>0</b><span>phase-0 PRs this week <s style="color:var(--red)">was 6</s></span></div></div>'+
+ '<div class="g2"><div>'+lh+'</div><aside><div class="panel"><h3>Repositories</h3>'+
+ repoRow("vertuo-mobile","read at 3e9a1c0 · own knowledge","srv")+repoRow("vertuo-api","read at b71d2f4 · own knowledge · also visits Estimates","srv")+repoRow("vertuo-web","read at 92c04aa · imported pack","rep")+
+ '<div class="repo visit"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#a45cff"/></svg><div><div class="nm">vertuo-auth</div><div class="sub">visiting · home: Platform · co-sign on the edge</div></div><span class="chip vis">↗ visits</span></div>'+
+ '<div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap"><a data-go="3">See it as a constellation →</a><a data-go="7">Rollout →</a></div></div>'+
+ '<div class="panel" style="margin-top:16px"><h3>Approvers</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="chip" style="font-size:13px;padding:3px 10px 3px 3px"><span class="av i">I</span>Irisa</span><span class="chip" style="font-size:13px;padding:3px 10px 3px 3px"><span class="av p">P</span>Paul</span></div><p class="dim" style="font-size:12px;margin:8px 0 0">Narrowed from the workspace members. Every repository inherits this list.</p></div></aside></div>';
+}
+function repoRow(n,s,k){return '<div class="repo"><svg width="12" height="12"><circle cx="6" cy="6" r="5" '+(k==="rep"?'fill="none" stroke="#8a90d6" stroke-dasharray="2 2"':'fill="#ffd84a"')+'/></svg><div><div class="nm">'+n+'</div><div class="sub">'+s+'</div></div><span class="chip '+k+'">'+(k==="srv"?"◆ on":"◇ off")+'</span></div>'}
+function vRoadmap(){
+ function c(n,t,b,blk){return '<div class="card'+(blk?" blk":"")+'"><b>'+n+'</b>'+t+(b?'<div class="dim" style="font-size:11px">'+b+'</div>':"")+'</div>'}
+ return '<div class="tag">Mobile · Roadmap</div><h1>Q4 · Field work</h1><p class="lede">One roadmap per goal, stored with the product, with no roadmap.md in any repository. Blockers come from the plan of each PRD.</p>'+
+ '<div class="panel"><div class="rm"><div></div><div class="h">Wave 1 · now</div><div class="h">Wave 2 · next</div><div class="h">Wave 3 · later</div>'+
+ '<div class="lane2">vertuo-api</div><div class="cell">'+c(912,"Quotes on the phone","building")+c(918,"Offline photos","waits on approval")+'</div><div class="cell">'+c(905,"Invoice reminders","drifted",1)+'</div><div class="cell"></div>'+
+ '<div class="lane2">vertuo-mobile</div><div class="cell">'+c(912,"Quotes on the phone")+'</div><div class="cell">'+c(918,"Offline photos","after api s1")+'</div><div class="cell">'+c(921,"Site check-in","idea → PRD")+'</div>'+
+ '<div class="lane2">vertuo-web</div><div class="cell">'+c(899,"Dark mode tokens","◇ phase-0 PR")+'</div><div class="cell"></div><div class="cell">'+c(918,"Gallery by taken-at")+'</div></div></div>';
+}
+function vIdeas(){
+ var I=[["Offline photo upload","Paul · from a site visit · 2 repos named","brainstorm"],["Site check-in by QR","Irisa · from 4 customer calls","brainstorm"],["Voice notes on a task","think-big concept · area 3 of 5","brainstorm"]];
+ return '<div class="tag">Mobile · Ideas</div><h1>Ideas</h1><p class="lede">An idea lives here until someone brainstorms it. It turns into a PRD with a dossier and never needs a GitHub issue to wait in.</p><div class="list">'+
+ I.map(function(x,i){return '<div class="item"><span class="k">💡</span><div><div class="t">'+x[0]+'</div><div class="s">'+x[1]+'</div></div>'+(i===0?'<button class="btn sm y" data-go="4" data-s4go="1">Brainstorm it →</button>':'<button class="btn sm" data-toast="Copied: /omni:brainstorm --idea '+(i+2)+'">/omni:brainstorm</button>')+'</div>'}).join("")+'</div>';
+}
+function vPrds(){
+ var R=[["◆",918,"Offline photo upload","w","waits on Irisa or Paul",4],["◆",905,"Invoice reminders",restored905?"b":"d",restored905?"building":"drifted",6],["◆",912,"Quotes on the phone","b","building",6],["◇",899,"Dark mode tokens","o","phase-0 PR in review",7],["◆",893,"Signature on delivery","b","shipped",0],["◆",921,"Site check-in","o","drafting",0]];
+ return '<div class="tag">Mobile · PRDs</div><h1>PRDs</h1><p class="lede">Every PRD of the product, its birthplace for life (◆ server / ◇ repo) and its one state word.</p><div class="list">'+
+ R.map(function(r){return '<div class="item'+(r[5]?'" data-go="'+r[5]+'"'+(r[5]===4?' data-s4go="2"':'')+' style="cursor:pointer':'')+'"><span class="k"><span class="chip '+(r[0]==="◆"?"srv":"rep")+'">'+r[0]+' '+r[1]+'</span></span><div><div class="t">'+r[2]+'</div></div><span class="st '+r[3]+'"><i></i>'+r[4]+'</span></div>'}).join("")+'</div>';
+}
+function vBugs(){
+ return '<div class="tag">Mobile · Bug fixes</div><h1>Bug fixes</h1><p class="lede">A bug that shows in one repository and is caused in another gets one record in the product, with one fix PR per repository. The Fixes table fills itself from merge webhooks.</p><div class="list">'+
+ '<div class="item"><span class="k">B-77</span><div><div class="t">Crash on quote PDF</div><div class="s">shows in vertuo-mobile · cause in vertuo-api · merge order: api#447 then mobile#94</div></div><span class="st b"><i></i>building · fix</span></div>'+
+ '<div class="item"><span class="k">B-74</span><div><div class="t">Photo upload stuck at 99%</div><div class="s">vertuo-mobile only · fixed, red→green proved · Fixes: mobile#86 ✓</div></div><span class="st o"><i></i>shipped</span></div></div>';
+}
+function vVisual(){
+ return '<div class="tag">Mobile · Visual fixes</div><h1>Visual fixes</h1><p class="lede">Small look changes, each with today next to its variations and the one that was picked.</p><div class="list">'+
+ '<div class="item"><span class="k">V-12</span><div><div class="t">Darker task sidebar</div><div class="s">vertuo-mobile · picked variation 3 of 5 · PR #95 waits on review</div></div><div class="vf"><div style="background:#2a2e66" title="today"></div><div style="background:#14143c;border-color:var(--yel)" title="picked"></div></div></div></div>';
+}
+var QS=[{n:912,r:"vertuo-api",q:"Quote totals: round per line or on the total?",a:["per line","on the total"],to:"Irisa",done:null},{n:912,r:"vertuo-mobile",q:"Show the VAT number on the phone quote?",a:["yes","no"],to:"Irisa",done:null},{n:905,r:"vertuo-api",q:"Stop reminders on a disputed invoice?",a:["stop","keep sending"],to:"Paul",done:null}];
+function qOpen(){return QS.filter(function(q){return !q.done}).length}
+function vQuestions(){
+ return '<div class="tag">Mobile · Questions</div><h1>Questions</h1><p class="lede">Outbox questions from every repository\'s slices, gathered into one gate for the product. There is no plan PR to comment on; you answer here.</p><div class="list">'+
+ QS.map(function(q,i){return '<div class="item"><span class="k"><span class="chip srv">◆ '+q.n+'</span></span><div><div class="t">'+q.q+'</div><div class="s">'+q.r+' · for '+q.to+'</div></div>'+(q.done?'<span class="st b"><i></i>settled · '+q.done+'</span>':'<div class="qa">'+q.a.map(function(a){return '<button class="btn sm" data-q="'+i+'" data-a="'+a+'">'+a+'</button>'}).join("")+'</div>')+'</div>'}).join("")+'</div>';
+}
+function r2(){
+ var V={ledger:vLedger,roadmap:vRoadmap,ideas:vIdeas,prds:vPrds,bugs:vBugs,visual:vVisual,questions:vQuestions}[tab]||vLedger;
+ $("#tabbody").innerHTML='<div class="tabview">'+V()+'</div>';drawTabs();
+}
+
+/* ---------- 3 constellation ---------- */
+var P={mobile:[190,390],api:[540,270],web:[330,120],auth:[820,130],infra:[890,330]};
+var SM={
+ mobile:{n:"vertuo-mobile",s:"React Native",kind:"own",flag:"◆ on",read:"3e9a1c0"},
+ api:{n:"vertuo-api",s:"Node · provider",kind:"own",flag:"◆ on",read:"b71d2f4"},
+ web:{n:"vertuo-web",s:"docked · flag off",kind:"dock",flag:"◇ off",read:"92c04aa"},
+ auth:{n:"vertuo-auth",s:"visiting · home: Platform",kind:"vis",flag:"Platform's",read:"55e0c21"}
+};
+var EDG={ma:["mobile","api",40,"mobile → api · 27 merged PRs"],wa:["web","api",-40,"web → api · 41 merged PRs",[46,4]],mw:["mobile","web",50,"ui-kit · 9 PRs"],aa:["api","auth",-40,"api → auth · 12 PRs · co-sign",[-30,22]]};
+var CPRD={all:{t:"Everything",stars:null},"912":{t:"912 · Quotes on the phone",stars:["mobile","api","web"],edges:["ma","wa"],col:"#4ee08a",st:"building"},918:{t:"918 · Offline photo upload",stars:["mobile","api","web"],edges:["ma","wa"],col:"#ffd84a",st:"waits"},905:{t:"905 · Invoice reminders",stars:["mobile","api"],edges:["ma"],col:"#ff3b5c",st:"drifted"},b77:{t:"B-77 · Crash on quote PDF",stars:["mobile","api"],edges:["ma"],col:"#4ee08a",st:"building"}};
+var cpf="all",csel=null;
+function geo(k){var e=EDG[k],a=P[e[0]],b=P[e[1]],o=e[2],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy),cx=mx-dy/L*o,cy=my+dx/L*o;
+ return {d:"M"+a[0]+" "+a[1]+" Q"+cx.toFixed(1)+" "+cy.toFixed(1)+" "+b[0]+" "+b[1],x:.25*a[0]+.5*cx+.25*b[0],y:.25*a[1]+.5*cy+.25*b[1]}}
+function field(seed,n,w,h){var s="",r=seed;function rnd(){r=(r*9301+49297)%233280;return r/233280}
+ for(var i=0;i<n;i++){var tw=rnd()<.25;s+='<circle'+(tw?' class="tw" style="animation-delay:-'+(rnd()*3).toFixed(1)+'s"':"")+' cx="'+(rnd()*w).toFixed(0)+'" cy="'+(rnd()*h).toFixed(0)+'" r="'+(rnd()*1.2+.3).toFixed(1)+'" fill="#d6d9ff" opacity="'+(rnd()*.55+.15).toFixed(2)+'"/>'}return s}
+function skySvg(){
+ var f=CPRD[cpf],has=function(k){return !f.stars||f.stars.indexOf(k)>=0};
+ var s='<svg class="sky" viewBox="0 0 960 500" role="img" aria-label="Constellation of Mobile">'+field(17,150,960,500);
+ s+='<g class="shoot"><line x1="820" y1="40" x2="880" y2="12" stroke="url(#shootG)" stroke-width="1.6"/></g>';
+ /* platform's own star, far and faint */
+ s+='<g opacity=".35"><circle cx="'+P.infra[0]+'" cy="'+P.infra[1]+'" r="3" fill="#8a90d6"/><text class="sub" x="'+P.infra[0]+'" y="'+(P.infra[1]+18)+'" text-anchor="middle">Platform ›</text></g>';
+ s+='<path class="edge vis" d="M'+P.auth[0]+' '+P.auth[1]+' L'+P.infra[0]+' '+P.infra[1]+'" style="opacity:.25"/>';
+ /* tether for docked web → phase-0 PR */
+ s+='<path class="edge" d="M'+P.web[0]+' '+P.web[1]+' L120 70" style="stroke:#c9c9d9;stroke-dasharray:4 5;opacity:'+(has("web")?.7:.12)+'"/><g opacity="'+(has("web")?1:.15)+'"><rect x="40" y="52" width="148" height="26" rx="6" fill="#0e0d33" stroke="#c9c9d9" stroke-dasharray="3 3"/><text class="lbl" x="114" y="70" text-anchor="middle" style="font-size:11px">◇ web#201 · phase 0</text></g>';
+ for(var k in EDG){var e=EDG[k],g=geo(k),c="edge",lit=f.edges&&f.edges.indexOf(k)>=0;
+  if(k==="aa")c+=" vis";if(k==="mw")c+="";
+  if(f.stars&&!lit)c+=" fade";
+  var st=lit?' style="stroke:'+f.col+';stroke-width:2.6"':"";
+  s+='<path id="e_'+k+'" class="'+c+'" d="'+g.d+'"'+st+'/>';
+  if(!f.stars||lit)var lo=e[4]||[0,0];s+='<text class="elbl" x="'+(g.x+lo[0]).toFixed(0)+'" y="'+(g.y-9+lo[1]).toFixed(0)+'" text-anchor="middle"'+(lit?' style="fill:'+f.col+'"':"")+'>'+e[3]+'</text>';
+  /* particles along building edges */
+  var bld=(cpf==="all"&&(k==="ma"||k==="wa"))||(lit&&f.st==="building");
+  if(bld)for(var j=0;j<3;j++)s+='<circle r="2.6" fill="#6ff0ff"><animateMotion dur="'+(3.2+j*.4)+'s" begin="-'+(j*1.2)+'s" repeatCount="indefinite" path="'+g.d+'"/></circle>';
+ }
+ var RING={mobile:{all:["#4ee08a",.68],912:["#4ee08a",.68],918:["#ffd84a",0],905:["#ff3b5c",1],b77:["#4ee08a",.4]},api:{all:["#4ee08a",.82],912:["#4ee08a",.82],918:["#ffd84a",0],905:["#ff3b5c",1],b77:["#4ee08a",.75]},web:{all:["#4ee08a",.3],912:["#4ee08a",.3],918:["#ffd84a",0]}};
+ ["web","mobile","api","auth"].forEach(function(k){var m=SM[k],p=P[k],c="star";if(!has(k))c+=" fade";if(csel===k)c+=" sel";
+  var r=m.kind==="dock"?10:m.kind==="vis"?11:k==="api"?17:15;
+  var glow=m.kind==="vis"?"gP":m.kind==="dock"?"gG":cpf==="905"&&has(k)?"gR":"gY";
+  s+='<g class="'+c+'" data-star="'+k+'" tabindex="0" role="button" aria-label="'+m.n+'">';
+  s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(r*4)+'" fill="url(#'+glow+')"'+(m.kind==="own"?' class="breathe" style="animation-duration:'+(k==="api"?5:6)+'s"':"")+'/>';
+  var rg=RING[k]&&RING[k][cpf];
+  if(rg&&has(k)){var R=r+11,C=2*Math.PI*R;
+   if(rg[1]===0){s+='<circle class="breathe" cx="'+p[0]+'" cy="'+p[1]+'" r="'+R+'" fill="none" stroke="#ffd84a" stroke-width="3"/>'}
+   else{s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+R+'" fill="none" stroke="'+rg[0]+'" stroke-opacity=".25" stroke-width="4"/><circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+R+'" fill="none" stroke="'+rg[0]+'" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+(C*rg[1]).toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 '+p[0]+' '+p[1]+')"/>'}}
+  if(m.kind==="vis")s+='<circle class="spin" cx="'+p[0]+'" cy="'+p[1]+'" r="'+(r+6)+'" fill="none" stroke="#a45cff" stroke-dasharray="3 5"/>';
+  s+='<circle class="core" cx="'+p[0]+'" cy="'+p[1]+'" r="'+r+'" fill="'+(m.kind==="dock"?"#4a4d78":m.kind==="vis"?"#6b4aa8":"#fff3c2")+'" stroke="'+(m.kind==="dock"?"#8a90d6":m.kind==="vis"?"#a45cff":"#ffd84a")+'" stroke-width="2"/>';
+  if(m.kind==="dock")s+='<text x="'+p[0]+'" y="'+(p[1]-24)+'" text-anchor="middle" style="font:8px var(--pix);fill:#c9c9d9;letter-spacing:1px">DOCKED</text>';
+  var ly=p[1]+r+(rg?28:22);
+  s+='<text class="lbl" x="'+p[0]+'" y="'+ly+'" text-anchor="middle"'+(m.kind==="vis"?' style="fill:#c8b4ef"':"")+'>'+m.n+'</text><text class="sub" x="'+p[0]+'" y="'+(ly+15)+'" text-anchor="middle">'+m.s+'</text></g>'});
+ return s+'</svg>';
+}
+function cside(){
+ if(csel){var m=SM[csel],ex={mobile:"912 wave 3 · s7 merged · 918 waits · 905 drifted",api:"912 wave 3 · 918 wave 1 queued · B-77 fix · 905 drifted",web:"912 wave 2 · 899 phase-0 PR in review",auth:"untouched by Mobile's PRDs this week"}[csel];
+  return '<div class="panel starcard"><div class="tag">'+(m.kind==="vis"?"visiting star":m.kind==="dock"?"docked star":"Mobile's star")+'</div><h3 class="mono" style="font-family:var(--mono);text-transform:none;font-size:18px;margin-top:4px">'+m.n+'</h3><dl class="kv">'+
+  '<dt>home</dt><dd>'+(m.kind==="vis"?"Platform · its approvers, its flag":"Mobile")+'</dd><dt>phase 0</dt><dd>'+m.flag+'</dd><dt>read at</dt><dd class="mono">'+m.read+'</dd><dt>now</dt><dd>'+ex+'</dd>'+
+  (m.kind==="vis"?'<dt>edge</dt><dd>api → auth · a Mobile PRD that changes this contract needs Platform\'s co-sign</dd>':"")+
+  (m.kind==="dock"?'<dt>tether</dt><dd>new PRDs open a docs-only phase-0 PR here until its flag is on</dd>':"")+'</dl><div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><a data-go="2">its rows in the Ledger →</a><a data-go="7">its rollout →</a></div></div>'+
+  '<p class="note">Read only. You don\'t pick or create anything here; this tab only shows how Mobile looks.</p>'}
+ return '<div class="panel"><div class="tag" style="margin-bottom:6px">Tonight in Mobile</div>'+
+ '<div class="pulse-card"><span class="st b"><i></i></span><div><b>912</b> building · 3 stars lit · wave 3 of 3</div></div>'+
+ '<div class="pulse-card"><span class="st w"><i></i></span><div><b>918</b> waits on you, Irisa · the only thing that pulses</div></div>'+
+ '<div class="pulse-card"><span class="st d"><i></i></span><div><b>905</b> drifted · ≠ plan.md in f02a</div></div>'+
+ '<div class="pulse-card"><span class="st o"><i></i></span><div><b>899</b> docked · ◇ phase-0 PR in vertuo-web</div></div>'+
+ '<div class="pulse-card"><span style="color:#c8b4ef">↗</span><div><b>vertuo-auth</b> visits from Platform</div></div></div>'+
+ '<p class="note">Edges are inferred from merged PRs and contracts. Nobody draws them by hand. Tap a star to see what it is.</p>';
+}
+function r3(){setTimeout(function(){var w=document.querySelector(".skyscroll");if(w&&w.scrollWidth>w.clientWidth&&!w._c){w._c=1;w.scrollLeft=(w.scrollWidth-w.clientWidth)/2}},50);
+ $("#cfil").innerHTML=["all","912","918","905","b77"].map(function(k){var c=CPRD[k];return '<button data-cp="'+k+'" class="'+(k===cpf?"on":"")+'">'+(c.col?'<i style="background:'+c.col+'"></i>':"✦ ")+c.t+'</button>'}).join("");
+ $("#sky").innerHTML=skySvg();$("#cside").innerHTML=cside();
+}
+
+/* ---------- 4 idea → PRD ---------- */
+var s4=0;
+var PINS=[["spec.md","v4","9c41…e07b"],["plan.md","v3","41b0…0cd2"],["before-after.html","v2","c77e…19fa"],["voice.json","v1","0a3d…e550"],["scenarios/","5","5be1…7704"]];
+function r4(){
+ $("#steps4").innerHTML=["The idea","/omni:brainstorm","Approve screen"].map(function(t,i){return '<button data-s4="'+i+'" class="'+(i===s4?"on":i<s4?"done":"")+'"><b>'+(i+1)+'</b>'+t+'</button>'}).join("");
+ var h="";
+ if(s4===0){h='<div class="g2"><div class="idea"><div class="tag">Mobile · Ideas · from Paul, 8 Oct</div><div class="q" style="margin:8px 0">“Site managers lose photos taken in basements with no signal. Queue them on the phone and upload when signal is back.”</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"><span class="chip">vertuo-mobile</span><span class="chip">vertuo-api</span><span class="chip">vertuo-web</span></div><button class="btn y" data-s4="1">Brainstorm it →</button></div>'+
+  '<div class="panel"><h3>Where it will live</h3><dl class="kv"><dt>product</dt><dd>Mobile</dd><dt>birthplace</dt><dd><span class="chip srv">◆ server</span>, because vertuo-mobile and vertuo-api have phase 0 on</dd><dt>vertuo-web</dt><dd><span class="chip rep">◇ flag off</span>, so its slice still needs a docs-only phase-0 PR there</dd><dt>approvers</dt><dd>Irisa or Paul, from Mobile</dd></dl></div></div>'}
+ else if(s4===1){h='<div class="g2b"><div class="term"><div class="tb"><i></i><i></i><i></i><span style="margin-left:6px">claude · Paul</span></div><div class="out" id="out4"></div></div><div class="panel"><h3>Dossier 918 · Mobile</h3><ul class="files" id="files4"></ul><p class="dim" style="font-size:12px;margin:10px 0 0" id="f4note">writing…</p></div></div>';}
+ else{h='<div class="g2"><div class="panel"><div class="tag">PRD 918 · phase 0 · v4 <span class="chip srv">◆ server</span></div><h1 style="font-size:34px">Offline photo upload</h1>'+
+  '<div class="ba1"><span class="k1">BEFORE</span><span>No signal: “Upload failed”, the photo is gone.</span><span class="k2">AFTER</span><span>“3 photos waiting for signal”, uploaded later with their taken-at time.</span></div>'+
+  '<div class="plbl" style="font-size:11px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin:14px 0 6px">What gets built, per repository · provider first</div><div class="targets">'+
+  '<div class="t"><div class="tt"><span>1 · vertuo-api</span><span class="chip srv">◆ 2 slices · wave 1</span></div><ul><li><code class="c">POST /photos/batch</code>, idempotent by client id</li><li>photos keep their taken-at time</li></ul></div>'+
+  '<div class="t"><div class="tt"><span>2 · vertuo-mobile</span><span class="chip srv">◆ 3 slices · waves 1–2</span></div><ul><li>offline queue, count badge on the camera</li><li>retry on signal; Wi-Fi-only setting</li></ul></div>'+
+  '<div class="t"><div class="tt"><span>3 · vertuo-web</span><span class="chip rep">◇ flag off · 1 slice</span></div><ul><li>gallery sorts by taken-at · phase-0 PR web#214 in that repo</li></ul></div>'+
+  '<div class="t vis"><div class="tt"><span>vertuo-auth</span><span class="chip vis">↗ visiting · untouched</span></div><ul><li>read only; Platform\'s co-sign not needed</li></ul></div></div></div>'+
+  '<div class="panel"><h3>Approve phase 0</h3><p style="font-size:13px;margin:0 0 8px">Approving pins these five files by hash, and <span class="mono">/omni:ultra-yolo</span> builds only while they match.</p><ul class="files">'+PINS.map(function(p){return '<li><span>'+p[0]+' <span class="dim">'+p[1]+'</span></span><span class="h">'+p[2]+'</span></li>'}).join("")+'</ul>'+
+  '<div style="display:flex;gap:8px;align-items:center;margin:12px 0;font-size:13px"><span class="av i">I</span><span class="av p">P</span>Irisa or Paul · the first tap wins</div>'+
+  '<button class="btn y" data-go="5" style="width:100%;justify-content:center">Ask Irisa or Paul to approve →</button><p class="dim" style="font-size:12px;margin:8px 0 0">Approvers can also tap Approve right here; on the next screen Irisa does it from her phone.</p></div></div>'}
+ $("#st4").innerHTML='<div class="tabview">'+h+'</div>';
+ if(s4===1)play4();
+}
+function play4(){
+ var L=['<span class="d">$</span> /omni:brainstorm --product mobile "offline photo upload"','<span class="c">●</span> reading Mobile · 3 repos · knowledge: 2 own, 1 imported pack','  asked Paul 4 questions · design approved','<span class="c">●</span> dossier 918 opened <span class="y">◆ server</span> · no phase-0 PR','  spec.md · plan.md (6 slices, 3 repos) · before-after · voice · 5 scenarios','  plan graded <span class="g">✓</span> · provider first','  <span class="d">vertuo-web flag off →</span> web#214 opened <span class="d">(docs-only, that repo only)</span>','<span class="g">✓</span> PRD 918 ready for approval · <span class="y">/omni:ultra-yolo 918</span>'];
+ var o=$("#out4"),i=0;o.innerHTML="";
+ (function t(){if(i<L.length){o.insertAdjacentHTML("beforeend",'<div class="ln">'+L[i]+'</div>');
+  if(i>=3&&i-3<PINS.length+1&&i<=7){var k=i-3;if(PINS[k])$("#files4").insertAdjacentHTML("beforeend",'<li><span>'+PINS[k][0]+' <span class="dim">'+PINS[k][1]+'</span></span><span class="h">'+PINS[k][2]+'</span></li>')}
+  i++;later(i<3?500:420,t)}else{while($("#files4").children.length<5){var k2=$("#files4").children.length;$("#files4").insertAdjacentHTML("beforeend",'<li><span>'+PINS[k2][0]+'</span><span class="h">'+PINS[k2][2]+'</span></li>')}
+  $("#f4note").innerHTML='Stored by hash, every version kept. Developers read it here, and no Markdown CI runs. <a data-s4="2">Open the approve screen →</a>';o.insertAdjacentHTML("beforeend",'<span class="cursor"></span>')}})();
+}
+
+/* ---------- 5 handshake ---------- */
+var hst=0,secs=37;
+var HST=["waiting","push","approve","wave 1","push voids","re-approve"];
+function pad(n){return (n<10?"0":"")+n}
+function tmr(){return pad(Math.floor(secs/60))+":"+pad(secs%60)}
+function put5(h){var o=$("#out5");o.insertAdjacentHTML("beforeend",'<div class="ln">'+h+'</div>');o.scrollTop=o.scrollHeight}
+function setHst(n){hst=n;$("#hsteps").innerHTML=HST.map(function(t,i){return '<span class="'+(i===n?"on":i<n?"done":"")+'">'+(i<n?"✓ ":"")+t+'</span>'}).join("")}
+function hud(kind,anim){var H={
+ wait:["wt","waiting",'◌ approval 918 · Mobile','asked Irisa, Paul · 14:01<br>safe to close the terminal'],
+ ok:["ok","approved",'<span class="g">✓</span> Irisa approved PRD 918','seal 918·1 · root 9c41<br>building · wave 1 · api s1 s2 · mobile s3'],
+ bad:["bad","voided",'<span class="r">✗</span> approval 918 voided','≠ plan.md in 7d3e · content<br>wave 1 stopped · nothing merges'],
+ wait2:["wt","waiting",'◌ re-approval 918 · round 2','Irisa sees plan.md only'],
+ ok2:["ok","approved",'<span class="g">✓</span> Irisa re-approved 918','seal 918·2 · root 7d3e<br>building · wave 1 resumes']}[kind];
+ var h=$("#hud");h.className="hud "+H[0];h.innerHTML='<div class="hh"><span>Claude session HUD</span><span>'+H[1]+'</span></div><div class="main">'+H[2]+'</div><div class="body">'+H[3]+'</div>';
+ if(anim){void h.offsetWidth;h.classList.add("popin")}}
+var OMNI_IC='<span class="ic"><svg width="11" height="11" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="#07061c" stroke-width="2"/></svg></span>';
+function pv(h){$("#pv").innerHTML='<div class="pview">'+h+'</div>'}
+function phLock(red){
+ $("#ptime").textContent=red?"14:19":"14:01";
+ pv('<div class="clock"><div class="dt">Thursday 8 October</div><div class="tm">'+(red?"14:19":"14:01")+'</div></div><div id="nslot"></div><div class="hint" id="nhint" style="visibility:hidden">▲ tap the notification</div>');
+ later(red?300:1100,function(){$("#nslot").innerHTML='<button class="notif'+(red?" red":"")+'" id="notif"><div class="nh">'+OMNI_IC+'OMNI · Mobile<time>now</time></div><div class="nt">'+(red?"Approve PRD 918 again?":"PRD 918 waits on your approval")+'</div><div class="nb">'+(red?"1 file changed since your tap: plan.md. Asked from Paul's terminal.":"Offline photo upload · 3 repos · Paul's session is parked on it. Paul can approve too.")+'</div></button>';$("#nhint").style.visibility="visible";if(!red)setHst(1)})}
+function phApprove(){
+ pv('<div class="apphd"><span class="pc">Mobile</span>PRD 918 <span class="y">◆ server</span></div><div class="ptitle">Offline photo upload</div><div class="plbl">In one line</div><div style="font-size:12.5px"><span class="r">✗</span> “Upload failed” → <span class="c">◌</span> “3 photos waiting for signal”</div>'+
+ '<div class="plbl">What gets built</div><div class="prow"><span class="nm">vertuo-api ◆</span><span class="dim">2 slices</span></div><div class="prow"><span class="nm">vertuo-mobile ◆</span><span class="dim">3 slices</span></div><div class="prow"><span class="nm">vertuo-web ◇</span><span class="dim">1 slice · PR</span></div>'+
+ '<div class="plbl">Your tap pins 5 files</div><div class="pins2">'+PINS.map(function(p){return '<span>'+p[0]+'</span><b>'+p[2].slice(0,4)+'</b>'}).join("")+'</div>'+
+ '<div class="plbl">Who waits</div><div style="font-size:12px">Paul\'s terminal, parked <span class="mono y" id="ptm">'+tmr()+'</span></div>'+
+ '<button class="appr" id="appr" data-v="1">Approve PRD 918</button><button class="later">Not now · ask a question</button>');setHst(2)}
+function phSealed(v,anim){
+ $("#ptime").textContent=v===2?"14:21":"14:02";
+ pv('<div class="apphd"><span class="pc">Mobile</span>PRD 918</div><div class="ptitle">Offline photo upload</div><div style="margin:6px 0"><span class="st b"><i></i>building · wave 1</span></div>'+
+ '<div class="pseal'+(anim?" stamp-in":"")+'">'+seal(918,64,v===2?"7d3e":"9c41")+'<div class="tx"><b>SEAL 918·'+v+'</b><br>Irisa · '+(v===2?"14:21":"14:02")+'<br>root '+(v===2?"7d3e40aa":"9c41e07b")+'<br>5 files pinned</div></div>'+
+ '<div class="plbl">Repositories</div><div class="prow"><span class="nm">vertuo-api #446</span><span class="g">✓ omni/approved</span></div><div class="prow"><span class="nm">vertuo-mobile #93</span><span class="g">✓ omni/approved</span></div><div class="prow"><span class="nm">vertuo-web #214</span><span class="pl">◇ phase-0 PR</span></div>')}
+function phVoided(){
+ $("#ptime").textContent="14:18";
+ pv('<div class="apphd"><span class="pc">Mobile</span>PRD 918</div><div class="pbanner red"><b class="r">✗ Approval voided</b><br>plan.md changed after you approved (content)</div><div class="ptitle">Offline photo upload</div><div style="margin:6px 0"><span class="st d"><i></i>drifted · ≠ plan.md in 7d3e</span></div>'+
+ '<div class="pseal void">'+seal(918,64,"9c41","#2f2e70","#8a90d6")+'<div class="tx"><b>SEAL 918·1</b><br>no longer matches<br>nothing merges</div></div>');
+ later(1600,function(){phLock(true);setHst(5)})}
+function phReapprove(){
+ pv('<div class="apphd"><span class="pc">Mobile</span>PRD 918 · round 2</div><div class="ptitle">Only what changed</div><div class="dim" style="font-size:11px;font-family:var(--mono)">since seal 918·1 · 9c41 → 7d3e</div>'+
+ '<div class="plbl">1 file changed</div><div class="diff"><div class="h">plan.md v3 → v4 · content</div><div class="del">- s4 mobile  retry + Wi-Fi only</div><div class="add">+ s4 mobile  retry on signal</div><div class="add">+ s5 mobile  Wi-Fi only setting</div></div>'+
+ '<div class="plbl">Still pinned</div><div class="pins2"><span>spec.md</span><b class="g">=</b><span>before-after.html</span><b class="g">=</b><span>voice.json</span><b class="g">=</b><span>scenarios/</span><b class="g">=</b></div>'+
+ '<button class="appr" id="appr" data-v="2">Approve again</button><button class="later">Not now · reply to Paul</button>')}
+function r5(){
+ gen++;$("#out5").innerHTML="";setHst(0);hud("wait");$("#wire").className="wire";$("#term5").className="term";
+ ['<span class="d">~/vertuo-mobile $</span> claude','<span class="y">&gt; /omni:ultra-yolo 918</span>','<span class="c">●</span> PRD 918 · Offline photo upload · product <span class="pl">Mobile</span>','  targets vertuo-api <span class="y">◆</span> · vertuo-mobile <span class="y">◆</span> · vertuo-web <span class="d">◇</span>','  feature PRs api<span class="d">#446</span> · mobile<span class="d">#93</span> <span class="d">(draft)</span>','<span class="d">$</span> omni wait approval 918'].forEach(put5);
+ put5('<span class="y" id="waitln">◐ Mobile · waiting for Irisa or Paul</span>  <span class="d tmr">'+tmr()+'</span>');
+ put5('  <span class="d">safe to close this terminal · the approval also lands in your session HUD</span>');
+ phLock(false);
+}
+function approve(btn,v){
+ gen++;var b=btn.getBoundingClientRect(),r=document.createElement("span");r.className="rip";var s=Math.max(b.width,b.height);r.style.width=r.style.height=s+"px";r.style.left=(b.width/2-s/2)+"px";r.style.top=(b.height/2-s/2)+"px";btn.appendChild(r);
+ btn.textContent="Signing over "+(v===2?"7d3e":"9c41")+"…";
+ later(400,function(){btn.classList.add("ok");btn.textContent="✓ Approved · seal 918·"+v;var w=$("#wire");w.className="wire";void w.offsetWidth;w.className="wire fire"});
+ later(1100,function(){var w=$("#waitln");if(w){w.removeAttribute("id");w.parentNode.innerHTML='<span class="g">● '+(v===2?"re-approved":"approved")+' by Irisa · seal 918·'+v+' · root '+(v===2?"7d3e":"9c41")+'</span> <span class="d">· member ✓</span>'}
+  var t=$("#term5");t.className="term";void t.offsetWidth;t.className="term flash";phSealed(v,true)});
+ later(1700,function(){hud(v===2?"ok2":"ok",true);toast('<span class="y">● seal 918·'+v+'</span> · Irisa approved · wave 1 '+(v===2?"resumes":"starts"))});
+ var W=['<span class="c">●</span> wave 1 '+(v===2?"resumes from its last green step":"starts")+' · <span class="d">provider first</span>','  s1 <span class="c">vertuo-api</span>    batch endpoint  <span class="pb" style="--w:64%"><b></b></span> <span class="g">building</span>','  s2 <span class="c">vertuo-api</span>    taken-at column <span class="pb" style="--w:41%"><b></b></span> <span class="g">building</span>','  s3 <span class="c">vertuo-mobile</span> offline queue   <span class="pb" style="--w:28%"><b></b></span> <span class="g">building</span>'];
+ W.forEach(function(h,i){later(2200+i*380,function(){put5(h);if(i===0)setHst(3)})});
+ later(2200+W.length*380+300,function(){
+  if(v===1)put5('<span class="d">$</span> <button class="tbtn" id="doPush">▸ edit plan.md and push</button>');
+  else{put5('<span class="g">✓</span> <span class="d">omni/approved on</span> api#446 · mobile#93 <span class="d">now points at seal 918·2</span>');setHst(6);toast("Loop closed · open screen 6 for the check",2400)}
+ });
+}
+function doPush(){
+ gen++;var b=$("#doPush");if(b)b.parentNode.remove();
+ ['<span class="d">$</span> omni dossier push 918 <span class="d"># split s4 in two</span>','  <span class="d">plan.md v3 → v4 · root</span> 9c41 → 7d3e','<span class="r">✗ omni/approved</span>  ≠ plan.md in 7d3e · <span class="r">content</span>','<span class="r">  approval voided by your push 9c41→7d3e · ask Irisa again?</span>','  <span class="r">drifted</span> · s1 s2 s3 stop at their next step · nothing merges'].forEach(function(h,i){later(i*380,function(){put5(h)})});
+ later(900,function(){setHst(4);$$("#out5 .pb").forEach(function(p){var w=getComputedStyle(p.firstChild).width;p.classList.add("stop");p.firstChild.style.width=w});var w=$("#wire");w.className="wire";void w.offsetWidth;w.className="wire firered";var t=$("#term5");t.className="term";void t.offsetWidth;t.className="term rflash";hud("bad",true);phVoided()});
+ later(5*380+300,function(){put5('  <button class="tbtn" id="askAgain">ask again</button><button class="tbtn red" id="restore5">restore plan.md v3</button>')});
+}
+function askAgain(){
+ $$("#out5 .tbtn").forEach(function(b){b.disabled=true});
+ put5('<span class="d">$</span> omni ask again 918 <span class="d">→ Irisa, Paul · diff only: plan.md</span>');
+ put5('<span class="y" id="waitln">◐ Mobile · waiting for Irisa or Paul · round 2</span>');hud("wait2",true);setHst(5);
+ if(!$("#notif"))phLock(true);
+}
+function restore5(){
+ $$("#out5 .tbtn").forEach(function(b){b.disabled=true});
+ put5('<span class="d">$</span> omni dossier restore 918 plan.md --to v3');put5('  root 7d3e → 9c41 <span class="g">= seal 918·1</span>');put5('<span class="g">✓ approval valid again · building</span> · no new tap needed');
+ hud("ok",true);phSealed(1,false);setHst(6);
+}
+
+/* ---------- 6 github + attestation ---------- */
+var s6="building",drift="content";
+function r6(){
+ $$("#sseg button").forEach(function(b){b.classList.toggle("on",b.dataset.s===s6)});
+ var chk={building:['<span class="v">✓</span>','building · 5 of 5 pinned hashes match · seal 918'],held:['<span class="hh">◌</span>','held · server unreachable since 14:05 · held, not failed'],drifted:['<span class="x">✗</span>','≠ plan.md in 7d3e · '+drift+' · ✗ refuse']}[s6];
+ $("#ghbox").innerHTML='<div class="gh-top"><div class="rn">vertuoza / vertuo-api</div><div class="pt">Offline photo upload: batch endpoint <span>#446</span></div><span class="bdg">⑂ Draft</span> <span class="rn" style="margin-left:6px">feature/918-offline-photo-upload ← 3 sub-PRs</span></div>'+
+ '<div class="gh-r sel">'+chk[0]+'<span class="k"><b>omni/approved</b> <small>— '+chk[1]+'</small></span><a data-att>Details</a></div>'+
+ '<div class="gh-r"><span class="v">✓</span><span class="k">ci / test <small>— 4m 12s</small></span></div>'+
+ '<div class="gh-r">'+(s6==="building"?'<span class="v">✓</span>':s6==="held"?'<span class="hh">◌</span>':'<span class="x">✗</span>')+'<span class="k">omni/outbox <small>— '+(s6==="held"?"held · as of 14:02":"0 open · one gate on Mobile")+'</small></span></div>'+
+ '<div class="gh-r"><span style="color:#8b949e">ⓘ</span><span class="k"><small>Issue #918 label “omni:approved” is display only; it is never proof.</small></span></div>';
+ var term={building:'<span class="g">● seal 918 · 5/5 =</span> · building · wave 1',held:'<span class="c">◌ held · server unreachable since 14:05 · held, not failed</span>',drifted:'<span class="r">≠ plan.md in 7d3e · '+drift+'</span> · <span class="r">✗ refuse</span>'}[s6];
+ var led={building:'<span class="st b"><i></i>building</span> · 918 Offline photo upload',held:'<span class="st h"><i></i>held</span> · 918 · last known wave 1 · as of 14:02 (GitHub)',drifted:'<span class="st d"><i></i>drifted</span> · 918 · waits on Irisa or Paul to approve again'}[s6];
+ $("#same").innerHTML='<span class="wh">GitHub check</span><span class="ln3">'+chk[0]+' omni/approved — '+chk[1]+'</span><span class="wh">Terminal</span><span class="ln3">'+term+'</span><span class="wh">Ledger</span><span class="ln3">'+led+'</span>';
+ var A='<div class="panel slideover"><div class="tag">omni/approved › details · attestation</div><h3 style="margin-top:4px">Attestation · PRD 918</h3>';
+ if(s6==="building")A+='<div class="sealbox">'+seal(918,78,"9c41")+'<div><div class="disp">Approved · pinned</div><p>Irisa · member of vertuoza ✓ · Mobile approver ✓</p><p class="mono">8 Oct 2026 14:02 CET · root 9c41e07b<br>trailer Omni-Seal: 9c41e07b</p></div></div>';
+ else if(s6==="held")A+='<div class="sealbox held">'+seal(918,78,"9c41","#6ff0ff")+'<div><div class="disp" style="color:var(--cyan)">Held</div><p>The record can\'t be read right now. The seal isn\'t doubted, and nothing is pushed until the server answers.</p></div></div>';
+ else A+='<div class="sealbox void">'+seal(918,78,"9c41","#2f2e70","#8a90d6")+'<div><div class="disp">Seal stands · build refused</div><p>Irisa · 14:02 · signed over root 9c41</p><p class="mono">files now hash to 7d3e</p></div></div>';
+ A+='<div class="tag" style="margin:14px 0 4px">Pinned vs now</div><ul class="files">'+PINS.map(function(p){var bad=s6==="drifted"&&p[0]==="plan.md";return '<li style="animation:none"><span>'+(s6==="held"?'<span class="c">?</span> ':bad?'<span class="ne">≠</span> ':'<span class="eq">=</span> ')+p[0]+'</span><span class="h">'+(bad?'<s class="dim">'+p[2]+'</s> <span class="r">d3f8…5a21</span>':p[2])+'</span></li>'}).join("")+'</ul>';
+ if(s6==="building")A+='<div class="refuse okk" style="margin-top:12px"><span class="g">= all five files match the seal</span><br><span class="st b"><i></i>building</span> <span class="dim">· ultra-yolo trusts only this record</span></div>';
+ if(s6==="held")A+='<div class="refuse hld" style="margin-top:12px"><span class="c">server unreachable since 14:05 · held, not failed</span><br><span class="dim">as of 14:02 (GitHub) · no local copy is trusted instead</span></div><div class="verbs"><button class="btn sm" data-s6="building">server back (simulate)</button></div>';
+ if(s6==="drifted"){var ws=drift==="whitespace only";
+  A+='<div style="margin-top:12px" class="sseg" id="dsw"><button data-dr="content" class="'+(ws?"":"on")+'">content</button><button data-dr="whitespace only" class="'+(ws?"on":"")+'">whitespace only</button></div>'+
+  '<div class="ddiff">'+(ws?'<div class="dim">  ## s4 retry</div><div class="ws">- Retry when signal returns··</div><div class="ws">+ Retry when signal returns</div>':'<div class="dim">  ## wave 2</div><div class="del">- s4 mobile  retry + Wi-Fi only</div><div class="add">+ s4 mobile  retry on signal</div><div class="add">+ s5 mobile  Wi-Fi only setting</div>')+'</div>'+
+  '<div class="refuse" style="margin-top:10px">≠ plan.md in 7d3e · '+drift+'<br><span class="r">✗ refuse</span> <span class="dim">· pushed by Paul\'s session, 9c41→7d3e</span><br><span class="st d"><i></i>drifted</span></div>'+
+  '<div class="verbs"><button class="btn sm mono" id="restore6">restore</button><button class="btn sm y mono" id="ask6">ask again</button></div><p class="dim" style="font-size:12px;margin:8px 0 0">'+(ws?"Whitespace only: restore puts the pinned bytes back, and nobody needs to re-read.":"Content changed: restore drops the edit, or ask again to have Irisa or Paul sign the new plan.")+'</p>'}
+ A+='<dl class="kv" style="margin-top:14px"><dt>policy</dt><dd>approvers of Mobile ⊂ members of vertuoza</dd><dt>targets</dt><dd>vertuo-api#446 · vertuo-mobile#93</dd></dl></div>';
+ $("#attest").innerHTML=A;chrome();
+}
+
+/* ---------- 7 rollout ---------- */
+var STEPS=["Approval on the page","omni/approved gate","Outbox on the server","Phase 0 born on the server","Roadmaps & bug records"];
+var LV={"vertuo-mobile":5,"vertuo-api":3,"vertuo-web":2},archived=false;
+var RSUB={"vertuo-mobile":"◆ flag on","vertuo-api":"◆ flag on","vertuo-web":"◇ flag off"};
+function r7(){
+ var h='<div></div>'+STEPS.map(function(s,i){return '<div class="hd"><b class="disp" style="font-size:14px;color:var(--txt)">'+(i+1)+'</b><br>'+s+'</div>'}).join("");
+ Object.keys(LV).forEach(function(r){var l=LV[r],flag=l>=4;
+  h+='<div class="rn">'+r+'<small>'+(flag?"◆ flag on · born on server":"◇ flag off · phase-0 PR")+'</small></div>';
+  for(var i=1;i<=5;i++){var c="cell"+(i===1?" first":"")+(i===5?" last":"")+(i<=l?" on":"")+(i===l?" lead":"")+(i===l+1&&!archived?" nx":"");
+   h+='<div class="'+c+'"><span class="dot" '+(archived?"":(i===l+1?'data-up="'+r+'" title="turn on" ':i===l?'data-down="'+r+'" title="step down" ':""))+'>'+(i<=l?"✓":i)+'</span></div>'}});
+ $("#mx").innerHTML=h;
+ $("#stepnames").innerHTML='<div><b>Click the ringed dot</b> to turn on a repository\'s next step. Click its highest ✓ to step back down.</div><div><b>Step 4 = the flag.</b> On: new PRDs are born ◆ on the server. Off: a docs-only phase-0 PR in that repository. A PRD keeps its birthplace for life.</div>';
+ var all=Object.keys(LV).every(function(r){return LV[r]===5});
+ var F=$("#final");F.className="final"+(archived?" done":all?" ready":"");
+ F.innerHTML='<span class="num6">'+(archived?"✓":"6")+'</span><div><div style="font-weight:700">Plan repository archived</div><div class="dim" style="font-size:12px">'+(archived?"vertuoza/vertuo-plan is read-only on GitHub. Mobile holds its PRDs, roadmaps, bug records and knowledge packs.":all?"Every repository is at step 5. Nothing is left in vertuo-plan that Mobile doesn't hold.":"Waits until every repository is at step 5 · "+Object.keys(LV).filter(function(r){return LV[r]<5}).join(", ")+" still climbing")+'</div>'+
+ '<div class="planrepo'+(archived?" archived":"")+'" style="margin-top:10px"><div class="pr-body"><div style="font-size:13px"><span style="color:#8b949e">vertuoza /</span> <b>vertuo-plan</b> <span style="border:1px solid #30363d;border-radius:999px;padding:0 7px;font-size:11px;color:#8b949e">'+(archived?"Public archive":"Private")+'</span></div><div style="font-size:12px;color:#8b949e;margin-top:4px">config.yml plan.targets[] · inbox/ · roadmaps/ · bugs/ · knowledge/repos/</div></div><span class="arch">ARCHIVED</span></div></div>'+
+ (archived?'<button class="btn sm ghost" id="unarch">undo</button>':'<button class="btn y" id="arch" '+(all?"":"disabled")+'>Archive vertuo-plan</button>');
+ var g=archived?[["0","was 11","phase-0 PRs / month"],["0","was 4","plan PRs / month"],["0","was 23","CI runs on .md"],["12%","was 61%","App API quota"]]:[["2","was 11","phase-0 PRs / month"],["1","was 4","plan PRs / month"],["3","was 23","CI runs on .md"],["24%","was 61%","App API quota"]];
+ $("#gnums").innerHTML=g.map(function(x){return '<div><b>'+x[0]+'</b><s>'+x[1]+'</s><br><span>'+x[2]+'</span></div>'}).join("");
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",function(e){
+ var t=e.target;
+ var g=t.closest("[data-go]");if(g){if(g.dataset.go==="4")s4=g.dataset.s4go?+g.dataset.s4go:0;go(g.dataset.go);return}
+ var pc=t.closest("[data-prod]");if(pc){var p=PRODUCTS[+pc.dataset.prod];if(p.go){tab="ledger";go(2)}else toast(p.n+" · drawn the same way · this tour follows Mobile");return}
+ if(t.closest("#newp")){toast("+ New product · pick repositories, Omni infers the edges, name it");return}
+ if(t.closest(".one")){toast("A product of one is shown as its repository name, with no empty product page");return}
+ var tb=t.closest("[data-tab]");if(tb){var k=tb.dataset.tab;if(k==="constellation"){go(3);return}if(k==="repos"){go(7);return}tab=k;if(cur!==2)go(2);else r2();return}
+ if(t.closest("#swv")){viewer=viewer==="irisa"?"paul":"irisa";chrome();r2();return}
+ var q=t.closest("[data-q]");if(q){QS[+q.dataset.q].done=q.dataset.a;r2();toast('<span class="g">settled</span> · '+q.dataset.a+' · relayed to '+QS[+q.dataset.q].r+"'s slice");return}
+ var dt=t.closest("[data-toast]");if(dt){toast(dt.dataset.toast);return}
+ var cp=t.closest("[data-cp]");if(cp){cpf=cp.dataset.cp;csel=null;r3();return}
+ var st=t.closest("[data-star]");if(st){csel=csel===st.dataset.star?null:st.dataset.star;r3();return}
+ var s4b=t.closest("[data-s4]");if(s4b){gen++;s4=+s4b.dataset.s4;r4();return}
+ if(t.closest("#notif")){if(hst>=4)phReapprove();else phApprove();return}
+ var ap=t.closest("#appr");if(ap&&!ap.classList.contains("ok")){approve(ap,+ap.dataset.v);if(+ap.dataset.v===1)approved918=true;return}
+ if(t.closest("#doPush")){doPush();return}
+ if(t.closest("#askAgain")){askAgain();return}
+ if(t.closest("#restore5")){restore5();return}
+ if(t.closest("#replay5")){r5();return}
+ var ss=t.closest("#sseg button");if(ss){s6=ss.dataset.s;r6();return}
+ var s6b=t.closest("[data-s6]");if(s6b){s6=s6b.dataset.s6;r6();toast('<span class="g">● server back</span> · 918 building');return}
+ var dr=t.closest("[data-dr]");if(dr){drift=dr.dataset.dr;r6();return}
+ if(t.closest("[data-att]")){var a=$("#attest .panel");if(a){a.classList.remove("slideover");void a.offsetWidth;a.classList.add("slideover");a.scrollIntoView({behavior:"smooth",block:"nearest"})}return}
+ if(t.closest("#restore6")){s6="building";r6();toast('<span class="g">= plan.md restored to 41b0…0cd2</span> · 918 building');return}
+ if(t.closest("#ask6")){toast('<span class="y">◌ asked Irisa again</span> · push notification sent · diff only');setTimeout(function(){go(5)},900);return}
+ var up=t.closest("[data-up]");if(up){var r=up.dataset.up;LV[r]++;r7();toast('<span class="y">'+r+' · step '+LV[r]+' on</span> · '+STEPS[LV[r]-1]+(LV[r]===4?" · new PRDs born ◆":""));return}
+ var dn=t.closest("[data-down]");if(dn){var r2_=dn.dataset.down;LV[r2_]--;r7();toast(r2_+" · step "+(LV[r2_]+1)+" off · "+STEPS[LV[r2_]]+(LV[r2_]===3?" · new PRDs open a phase-0 PR again":""));return}
+ if(t.closest("#arch")){archived=true;r7();toast('<span class="g">✓ vertuoza/vertuo-plan archived</span> · Mobile is the record now',3200);return}
+ if(t.closest("#unarch")){archived=false;r7();return}
+});
+document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.dataset&&e.target.dataset.star){e.target.dispatchEvent(new MouseEvent("click",{bubbles:true}))}
+ if(e.target.tagName==="BUTTON"&&(e.key==="Enter"||e.key===" "))return;if(e.key==="ArrowRight")go(cur+1);if(e.key==="ArrowLeft")go(cur-1)});
+$("#prev").onclick=function(){go(cur-1)};$("#next").onclick=function(){go(cur+1)};
+setInterval(function(){secs++;$$(".tmr,#ptm").forEach(function(x){x.textContent=tmr()});var w=$("#waitln");if(w){var f="◐◓◑◒"[(Date.now()/300|0)%4];w.textContent=f+w.textContent.slice(1)}},1000);
+var h0=parseInt((location.hash||"").slice(1),10);go(h0>=1&&h0<=7?h0:1);
+})();
+</script>
+</body>
+</html>

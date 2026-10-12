@@ -31,6 +31,16 @@ async function player() {
 }
 
 describe('the demo\'s high scores', () => {
+  it('keeps the lowest time for the kart, and the highest score for the others', async () => {
+    const a = await player();
+    expect(await a.submitScore('kart', 1200)).toBe(1200);
+    expect(await a.submitScore('kart', 1500)).toBe(1200);
+    expect(await a.submitScore('kart', 900)).toBe(900);
+    expect((await a.scores('kart')).mine).toBe(900);
+    expect(await a.submitScore('platformer', 100)).toBe(100);
+    expect(await a.submitScore('platformer', 50)).toBe(100);
+  });
+
   it('start empty: no table, and no best of the guest\'s', async () => {
     expect(await demoAccount().scores('invaders')).toEqual({ top: [], mine: null });
   });

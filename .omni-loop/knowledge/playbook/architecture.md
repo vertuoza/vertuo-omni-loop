@@ -67,6 +67,17 @@ Anything not listed is refused; a type-only import counts.
 - `scripts/import-guard.test.ts` enforces all of it on every tracked file, naming the file, the line
   and the rule (or the client chain), with no allowlist and no comment escape. A new dependency
   between zones changes this table, ADR-0058 and the guard together.
+- Inside the galaxy app, a request goes client → controller → service → repository → database
+  (ADR-0095, PRD 1318), five roles named by the file's suffix in each feature folder: a
+  `<area>.contract.ts` (zod schemas, browser-safe), a `<area>.client.ts` (fetches the area's routes,
+  never `@supabase/*`), a `<area>.controller.ts` (checks the session first, calls services; a server
+  page and an `app/api/**/route.ts` are controllers), a `<area>.service.ts` (the rules, never
+  `@supabase/*` or the database module) and a `<area>.repository.ts` (the only file that calls `.from`,
+  `.rpc` or `.storage`). Only repositories import the database module, `apps/galaxy/src/data/db.ts`;
+  the one browser module that builds a Supabase client is the sign-in module,
+  `apps/galaxy/src/data/sign-in.client.ts`. `scripts/layering-guard.test.ts` enforces it, naming the
+  file, the line and the rule, against `layering/baseline.json`, which lists today's breaches and only
+  shrinks: a breach it does not list fails, and so does a line whose breach is gone.
 
 - The game only reads the delivery layer: deleting `game/` and `.github/workflows/game.yml`
   removes it without touching delivery (README.md). It writes to no repository; its only outputs

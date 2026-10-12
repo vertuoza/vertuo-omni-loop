@@ -104,6 +104,28 @@ describe('the game scripts name their workspace', () => {
     expect(server.calls).toEqual([]);
   });
 
+  // Law N-PRODUCT-9 (#1544): every game/cli script parses its own arguments in openWorkspace() before any
+  // read, and an argument it does not understand exits 2 with its usage line before Supabase or GitHub is
+  // called. The scripts are found by reading game/cli, so a new script is held to the law too.
+  it('law N-PRODUCT-9: every script that opens a workspace refuses a stray argument with exit 2 and its usage, calling nothing', async () => {
+    const positional: Record<string, string[]> = { banner: ['12'], export: ['backup'] };
+    const scripts = readdirSync(here)
+      .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
+      .flatMap((f) => {
+        const usage = /openWorkspace\(\{ usage: '([^']+)'/.exec(readFileSync(join(here, f), 'utf8'))?.[1];
+        return usage ? [{ script: f.slice(0, -'.ts'.length), usage }] : [];
+      });
+    expect(scripts.map((s) => s.script).sort()).toEqual(['banner', 'contributions', 'dossiers', 'export', 'project', 'score', 'xp']);
+    const runs = await Promise.all(scripts.map(({ script }) => game(script, [...(positional[script] ?? []), '--stray', '--workspace', 'vertuoza'])));
+    scripts.forEach(({ script, usage }, i) => {
+      const run = present(runs[i], script);
+      expect(run.code, `${script}: ${run.stderr}`).toBe(2);
+      expect(run.stderr, script).toContain(`usage: ${usage}`);
+    });
+    expect(server.calls).toEqual([]);
+    expect(ghCalls()).toEqual([]);
+  });
+
   it('game:project reads the workspace\'s tracked repositories, and appends rows carrying its workspace and each PRD\'s home', async () => {
     const run = await game('project', ['--workspace', 'acme']);
     expect(run.code, run.stderr).toBe(0);
@@ -112,12 +134,33 @@ describe('the game scripts name their workspace', () => {
     const reads = server.calls.filter((c) => c.method === 'GET' && c.table !== 'workspaces');
     expect(reads.map((c) => c.table).sort()).toEqual(['players', 'repositories', 'sectors', 'teams']);
     for (const c of reads) expect(c.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
-    const append = present(server.calls.find((c) => c.method === 'POST'), 'the append');
-    expect(append.table).toBe('ledger_events');
+    const append = present(server.calls.find((c) => c.method === 'POST' && c.table === 'ledger_events'), 'the append');
     expect(append.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
     expect((append.body as Row[]).map((r) => r.workspace_id)).toEqual((append.body as Row[]).map(() => ACME));
     // Acme's PRD 12 is named by its home; Vertuoza's old planet:12:charted stays as it was.
     expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
+  });
+
+  it('game:project appends one QUESTION_ANSWERED per answered round, on its PRD or on none (PRD 1180)', async () => {
+    tables.game_answered_rounds = [
+      { round_id: 'r1', answered_at: '2026-09-02T10:00:00.5+00:00', prd: 12, home: 'acme-gh/acme-rockets', login: 'alice' },
+      { round_id: 'r2', answered_at: '2026-09-02T11:00:00+00:00', prd: null, home: 'acme-gh/acme-rockets', login: 'alice' },
+      { round_id: 'r3', answered_at: '2026-09-02T12:00:00+00:00', prd: null, home: null, login: 'alice' }, // nowhere to count
+    ];
+    const run = await game('project', ['--workspace', 'acme']);
+    expect(run.code, run.stderr).toBe(0);
+    const call = present(server.calls.find((c) => c.table === 'game_answered_rounds'), 'the read of the answered rounds');
+    expect(call.body).toEqual({ workspace: ACME, since: new Date(0).toISOString() });
+    expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.type === 'QUESTION_ANSWERED').map((r) => [r.workspace_id, r.id, r.at, r.planet, r.home, r.contributor]))
+      .toEqual([[ACME, 'ask:r1:answered', '2026-09-02T10:00:00Z', 12, 'acme-gh/acme-rockets', 'alice'], [ACME, 'ask:r2:answered', '2026-09-02T11:00:00Z', 0, 'acme-gh/acme-rockets', 'alice']]);
+  });
+
+  it('game:project keeps its GitHub events when the answered rounds cannot be read, and says why', async () => {
+    tables.game_answered_rounds = [{ round_id: 'r1', prd: null }];
+    const run = await game('project', ['--workspace', 'acme']);
+    expect(run.code, run.stderr).toBe(0);
+    expect(run.stderr).toMatch(/! answered rounds not read, so no answer is appended this poll: /);
+    expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.workspace_id === ACME).map((r) => r.id)).toEqual(['planet:acme-gh/acme-rockets#12:charted']);
   });
 
   it('game:project and game:banner refuse a workspace that names no GitHub organisation', async () => {

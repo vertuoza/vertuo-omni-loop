@@ -358,6 +358,21 @@ describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
     expect(historyItems(MIXED, ADA, 'u-ada', new Map(), new Map(), new Set())).toEqual([]);
   });
 
+  // Law BR-PRODUCT-53 (.omni-loop/knowledge/product/rules.md, #1514).
+  it('law BR-PRODUCT-53: one person\'s list keeps only the PRDs they started in the app; a PRD with no starter shows under nobody', () => {
+    // Ada filed the GitHub issue of PRD 302, but Bob started it in the app: only who started it counts.
+    const FILED_BY_ADA = row('00000000-0000-4000-8000-0000000000e3', { prd: parsePrd(302), title: 'Ada filed, Bob started', opened_by: 'u-bob' });
+    const rows = [BY_ADA, SYNCED, FILED_BY_ADA];
+    const titles = (login: string, ids: string[]) =>
+      historyItems(rows, { who: { login } }, 'u-pierre', new Map(), new Map(), new Set(ids)).map((i) => i.title);
+    expect(titles('ada-gh', ['u-ada'])).toEqual(['Ada\'s PRD']);
+    expect(titles('bob', ['u-bob'])).toEqual(['Ada filed, Bob started']);
+    expect(historyItems(rows, { who: 'mine' }, 'u-ada').map((i) => i.title)).toEqual(['Ada\'s PRD']);
+    for (const [login, ids] of [['ada-gh', ['u-ada']], ['bob', ['u-bob']], ['nobody-here', []]] as const) {
+      expect(titles(login, [...ids])).not.toContain('Synced');
+    }
+  });
+
   it('keeps Mine and All as they were', () => {
     expect(historyItems(MIXED, { who: 'mine' }, 'u-ada', new Map(), new Map(), new Set(['u-pierre'])).map((i) => i.title)).toEqual(['Ada\'s PRD']);
     expect(historyItems(MIXED, ALL, 'u-ada')).toHaveLength(5);

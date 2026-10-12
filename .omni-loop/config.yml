@@ -4,19 +4,26 @@ repo:
   slug: vertuoza/vertuo-omni-loop
   defaultBranch: main
 paths:
-  # No CLAUDE.md or AGENTS.md at the root; apps/galaxy/AGENTS.md is the arcade's own, scoped to its folder.
-  context: []
+  # The root AGENTS.md is this repository's agent instructions, for any coding agent; the root CLAUDE.md
+  # imports it (@AGENTS.md). apps/galaxy/AGENTS.md is the arcade's own, scoped to its folder.
+  context: [AGENTS.md]
 labels:
   autoCreate: false
 commands:
   preflight: pnpm test
   preflightFull: pnpm test
   test: pnpm test
+  # Run after the preflight by every slice, every wave check and every finish: lint and typecheck
+  # are CI checks too, and a slice that skipped them reached the finish red (PRD 1584).
+  checks:
+    - pnpm lint
+    - pnpm typecheck
   # PRD 1072: mutation testing of the delivery core files changed against origin/main (PRD 556's
   # meaning), run by the bug-fix skill after a fix. Never in the preflight or pull request CI.
   mutation: pnpm mutation:changed
 laws:
-  source: none
+  requireProof: true
+  source: knowledge
 # Ask mode (PRD #71, ADR-0002): questions answered on the page the galaxy app serves. The Vercel
 # project's default production address; `null` switches the mode off.
 ask:
@@ -52,3 +59,14 @@ generated:
   - path: apps/omni-app/api/
     from: [apps/omni-app/src/, apps/omni-app/entries/, apps/omni-app/build.ts, kit/lib/, packages/design/, packages/github/]
     build: node apps/omni-app/build.ts
+# Design craft (PRD 1369, dogfooded by PRD 1407): the skills read the design form and the screen
+# library (.omni-loop/knowledge/design/screens/), and a slice whose diff meets these globs gets its
+# design review. apps/galaxy/app/ holds the routes and layouts the screens are mounted by;
+# apps/omni-app/src/ holds no screen but writes the check runs and comments people read on GitHub.
+design:
+  enabled: true
+  paths:
+    - apps/galaxy/src/
+    - apps/galaxy/app/
+    - apps/omni-app/src/
+    - packages/design/

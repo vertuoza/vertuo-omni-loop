@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-07
 - Slice: s1
 - Wave: 1
+- Became: ADR-0080
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Small: one condition in the verdict and one extra read of the settled ledger. No
 - Raised: 2026-10-07
 - Slice: s1
 - Wave: 1
+- Became: ADR-0081
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ A constant each; parking versus waiting is one row of the verdict.
 - Raised: 2026-10-07
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-73
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ One interval in the migration and one constant in the page's state rule.
 - Raised: 2026-10-07
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-74, P-PRODUCT-65
 
 ### The answer, as it was given
 
@@ -331,6 +335,7 @@ The rules live in one database function and its fake; changing them is a new mig
 - Raised: 2026-10-07
 - Slice: s3
 - Wave: 2
+- Became: ADR-0082
 
 ### The answer, as it was given
 
@@ -410,6 +415,7 @@ Small: one file path and two conditions in the command. The loop push slice read
 - Raised: 2026-10-07
 - Slice: s3
 - Wave: 2
+- Became: ADR-0083
 
 ### The answer, as it was given
 
@@ -489,6 +495,7 @@ Small: the order is one sort key in the plan and one rule in following it; plans
 - Raised: 2026-10-07
 - Slice: s5
 - Wave: 2
+- Became: ADR-0084
 
 ### The answer, as it was given
 
@@ -567,6 +574,7 @@ A constant: the reader is one zod schema in `apps/galaxy/src/loop/page/view.ts` 
 - Raised: 2026-10-07
 - Slice: s5
 - Wave: 2
+- Became: BR-PRODUCT-75, P-PRODUCT-66
 
 ### The answer, as it was given
 
@@ -644,6 +652,7 @@ A constant: one branch of `viewOf` in `apps/galaxy/app/app/loop/page.tsx` and `[
 - Raised: 2026-10-07
 - Slice: s5
 - Wave: 2
+- Stays here: A one-off, one-line territory exception for this slice; ADR-0053 already covers shared test ground, and nothing lasting about the product follows from it.
 
 ### The answer, as it was given
 
@@ -721,6 +730,7 @@ A constant: one line of a test.
 - Raised: 2026-10-07
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-76, P-PRODUCT-67
 
 ### The answer, as it was given
 
@@ -799,6 +809,7 @@ A constant: reading `dossier.enabled` too, or a new `loop.enabled` key, is a few
 - Raised: 2026-10-07
 - Slice: s4
 - Wave: 3
+- Stays here: A local choice about where two small pieces of code sit in this slice; the import rule is already ADR-0058, and nothing lasting about product behaviour arises.
 
 ### The answer, as it was given
 
@@ -877,6 +888,7 @@ Low: moving the method into `kit/lib/loop/` means duplicating the token refresh;
 - Raised: 2026-10-07
 - Slice: s6
 - Wave: 4
+- Stays here: A documentation page-ordering and navigation choice, cheap to change, with no lasting product guarantee or design rationale to record.
 
 ### The answer, as it was given
 

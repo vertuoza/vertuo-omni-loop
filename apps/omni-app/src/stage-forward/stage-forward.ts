@@ -11,6 +11,13 @@
 //
 // The shapes are the kit's defaults: the webhook reads no GitHub API, so it cannot read the
 // repository's own config. A repository with other branch shapes gets its stages from the sync alone.
+//
+// PRD 1299 (s6): a PRD born on the server has no phase-0 PR. Its approval on the PRD page makes the App
+// add `labels.approved` to its issue, and that `issues` `labeled` event is its inbox, dated at the
+// issue's update (the label's, a moment after the approval; a missed one leaves the sync to date it at
+// the approval itself). The issue's number is its PRD; the event
+// names no folder, so its topic is that number, which galaxy never reads when the PRD is given. The
+// label is the kit's default, as the branch shapes are.
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
@@ -21,17 +28,19 @@ import { messageOf } from '../outbox-check/github-schema.ts';
 /** The header galaxy reads the signature from: `sha256=<hex>`. */
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
 
-/** The kit's default branch shapes and link lines. */
+/** The kit's default branch shapes, link lines and approved label. */
 const DEFAULT_SHAPES = (() => {
-  const { branches, prLinks } = parseConfig('kit: 1');
-  return Object.freeze({ branches, prLinks });
+  const { branches, prLinks, labels } = parseConfig('kit: 1');
+  return Object.freeze({ branches, prLinks, approved: labels.approved });
 })();
 
 export type EventStage = 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
 export type StageEvent = { repository: string; topic: string; prd: PrdNumber | null; stage: EventStage; at: string };
 /** The branch shapes the stages read, as the config names them: a shape, not a slice id. */
 type Branches = Pick<Config['branches'], 'phase0' | 'slice' | 'feature' | 'retro'>;
-export type Shapes = { branches: Branches; prLinks: Record<string, string> };
+/** The shapes a repository's moves are read by; `approved` is the label of a PRD approved on the server,
+ * the kit's default when not given. */
+export type Shapes = { branches: Branches; prLinks: Record<string, string>; approved?: string };
 
 /**
  * The parts of a pull request event the stages read: the repository's name, both branches, and the
@@ -56,8 +65,27 @@ type Pull = { pr: PullEvent['pull_request']; repository: string; head: string; b
 type Seen = { stage: EventStage; topic: string | undefined; at: string | null | undefined };
 type Recogniser = (pull: Pull, branches: Branches) => Seen | null;
 
-/** The stage a pull request event shows, pure; null for any other event, action or branch. */
+/** An issue's `labeled` event, as the approval reads it. */
+const LabeledEventSchema = z.looseObject({
+  action: z.literal('labeled'),
+  repository: z.looseObject({ full_name: z.string().min(1) }),
+  label: z.looseObject({ name: z.string() }),
+  issue: z.looseObject({ number: PrdNumberSchema, updated_at: z.string().min(1), pull_request: z.unknown().optional() }),
+});
+
+/** The inbox of a PRD approved on the server: its issue given the approved label; null for anything else. */
+function approvedStage(payload: unknown, approved: string): StageEvent | null {
+  const read = LabeledEventSchema.safeParse(payload);
+  if (!read.success) return null;
+  const { repository, label, issue } = read.data;
+  if (label.name !== approved || issue.pull_request !== undefined) return null;
+  return { repository: repository.full_name, topic: String(issue.number), prd: issue.number, stage: 'inbox', at: issue.updated_at };
+}
+
+/** The stage a pull request event, or an approved PRD's issue, shows, pure; null for any other event,
+ * action, branch or label. */
 export function toStageEvent(event: string, payload: unknown, shapes: Shapes = DEFAULT_SHAPES): StageEvent | null {
+  if (event === 'issues') return approvedStage(payload, shapes.approved ?? DEFAULT_SHAPES.approved);
   const read = event === 'pull_request' ? PullEventSchema.safeParse(payload) : null;
   if (!read?.success) return null;
   const pull = pullOf(read.data);

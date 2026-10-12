@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { messageOf } from './narrow.ts';
+import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
@@ -57,6 +58,9 @@ const proofUrl = z.string().refine((value) => {
 // The NAME of an environment variable, never its value.
 const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET');
 
+// PRD 1407: a selector the word pass reads — tags, ids, classes and attributes, no combinator.
+const wordSelector = text.refine((value) => parseSelector(value) !== null, 'a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator');
+
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
 
@@ -66,31 +70,72 @@ const target = z
     role: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'one kebab-case word, such as back-end'),
     knowledge: z.enum(TARGET_KNOWLEDGE),
     readAt: z.string().regex(/^[0-9a-f]{40}$/, 'the full 40-character commit the copy was read at').nullable().default(null),
+    // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
+    // and imported.
+    readOnly: z.boolean().optional(),
+    // PRD 1162: the short names of the targets whose default-branch packages this one installs.
+    consumes: z.array(z.string()).optional(),
   })
   .strict();
+
+/** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column and a target's
+ * `consumes` use. */
+function targetShortName(slug: string): string {
+  return slug.slice(slug.indexOf('/') + 1);
+}
 
 // A plan repository's own section (PRD 522): the page saying which repository does what, pointed at
 // and never copied, and its target repositories. Optional: a config without it is no plan repository,
 // and parses with no `plan` key at all.
+//
+// PRD 1364, s4: `product` names the product on the Omni page whose repository links are the targets,
+// in place of `targets`; one of the two, never both. With `product`, `targets` parses as `[]`: the
+// targets are the server's, read by `omni targets` (`kit/lib/product/`).
 const planSection = z
   .object({
     guide: nullableText.default(null),
-    targets: z.array(target).min(1, 'at least one target'),
+    targets: z.array(target).min(1, 'at least one target').optional(),
+    product: z.string().trim().min(1).optional(),
   })
   .strict()
-  .superRefine(({ targets }, issues) => {
-    const seen = new Set();
-    targets.forEach(({ repo, knowledge, readAt }, index) => {
-      if (seen.has(repo)) issues.addIssue({ code: 'custom', path: ['targets', index, 'repo'], message: `${repo} is listed twice` });
-      seen.add(repo);
-      if (knowledge === 'imported' && readAt === null) {
-        issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: 'required when knowledge is imported' });
-      }
-      if (knowledge !== 'imported' && readAt !== null) {
-        issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: `only an imported target has one, and this one is ${knowledge}` });
+  .superRefine(({ targets, product }, issues) => {
+    if (targets !== undefined && product !== undefined) {
+      issues.addIssue({
+        code: 'custom',
+        path: [],
+        message: 'product and targets cannot both be set — keep product to read the targets from the server, or targets to keep them here',
+      });
+    }
+    if (targets === undefined && product === undefined) issues.addIssue({ code: 'custom', path: ['targets'], message: 'at least one target, or a product' });
+    checkTargets(targets ?? [], issues);
+  })
+  .transform(({ targets, ...plan }) => ({ ...plan, targets: targets ?? [] }));
+
+/** The rules one list of `plan.targets` keeps: no target consumes itself or a stranger, none is
+ * listed twice, and only an imported one has a `readAt`, which it must. */
+function checkTargets(targets: ReadonlyArray<z.infer<typeof target>>, issues: z.core.$RefinementCtx) {
+  const seen = new Set();
+  const names = targets.map(({ repo }) => targetShortName(repo));
+  targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
+    const own = targetShortName(repo);
+    const others = names.filter((name) => name !== own);
+    consumes.forEach((name, at) => {
+      const path = ['targets', index, 'consumes', at];
+      if (name === own) issues.addIssue({ code: 'custom', path, message: `${name} is this target itself — a target never consumes itself` });
+      else if (!others.includes(name)) {
+        issues.addIssue({ code: 'custom', path, message: `${name} names no other target of plan.targets by its short name (${others.join(', ') || 'none'})` });
       }
     });
+    if (seen.has(repo)) issues.addIssue({ code: 'custom', path: ['targets', index, 'repo'], message: `${repo} is listed twice` });
+    seen.add(repo);
+    if (knowledge === 'imported' && readAt === null) {
+      issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: 'required when knowledge is imported' });
+    }
+    if (knowledge !== 'imported' && readAt !== null) {
+      issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: `only an imported target has one, and this one is ${knowledge}` });
+    }
   });
+}
 
 // PRD 1138: a file the repository builds rather than writes. `path` is a path prefix, written as a
 // territory entry is; `from` the prefixes whose change makes it stale; `build` the command that
@@ -131,6 +176,8 @@ export const ConfigSchema = z
       megaInvade: branchTemplate.default('docs/omni-mega-invade'),
       // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
       concept: branchTemplate.default('docs/concept-{topic}'),
+      // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
+      law: branchTemplate.default('test/law-{id}'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -161,6 +208,11 @@ export const ConfigSchema = z
       riskLow: labelName.default('omni:risk-low'),
       // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
       concept: labelName.default('omni:concept'),
+      // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
+      // display: nothing reads it.
+      approved: labelName.default('omni:approved'),
+      // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
+      law: labelName.default('omni:law'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -177,6 +229,10 @@ export const ConfigSchema = z
       outboxContext: text.default('outbox'),
       // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
       inboxContext: text.default('inbox'),
+      // PRD 1548 and PRD 1612: the name of the check run the omni-loop App posts on a target feature PR
+      // of a product PRD, and on a ◆ PRD's feature PR and its target PRs, saying whether what it builds
+      // is what was approved; `null` posts none.
+      approvedContext: nullableText.default('omni/approved'),
       aggregateCheck: nullableText.default(null),
       branchProtection: z.boolean().default(false),
       runner: text.default('ubuntu-latest'),
@@ -188,6 +244,8 @@ export const ConfigSchema = z
       test: nullableText.default(null),
       // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
       mutation: nullableText.default(null),
+      // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
+      design: nullableText.default(null),
     }),
     acceptance: z
       .object({
@@ -205,6 +263,10 @@ export const ConfigSchema = z
     laws: section({
       source: z.enum(['knowledge', 'claudeMdInvariants', 'none']).default('none'),
       claudeMdHeading: text.default('## Invariants'),
+      // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
+      // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
+      // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
+      requireProof: z.boolean().default(false),
     }),
     risk: section({
       storedShape: z.array(regexSource).default([]),
@@ -226,6 +288,9 @@ export const ConfigSchema = z
       attempts: z.number().int().positive().default(3),
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
+      // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
+      // was before, one step at a time.
+      parallelSteps: z.number().int().min(1).max(6).default(3),
       // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
       // and a config that does not set it parses exactly as before.
       hookMaxBytes: z.number().int().positive().optional(),
@@ -252,6 +317,44 @@ export const ConfigSchema = z
       setup: nullableText.default(null),
       bypassEnv: envName.nullable().default(null),
       maxSeconds: z.number().int().positive().default(60),
+    }),
+    // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
+    // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
+    // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
+    e2e: section({
+      enabled: z.boolean().default(false),
+      url: proofUrl.nullable().default(null),
+      deployment: nullableText.default(null),
+      setup: nullableText.default(null),
+      bypassEnv: envName.nullable().default(null),
+      dir: text.default('e2e'),
+      model: text.default('anthropic/claude-sonnet-5.5'),
+    }),
+    // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
+    // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
+    // repository paths where the screens, styles, tokens and components live; `omni design touched`
+    // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
+    // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
+    // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in. `words` tunes the word
+    // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
+    // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
+    // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
+    // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
+    // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
+    // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
+    // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
+    design: section({
+      enabled: z.boolean().default(false),
+      paths: z.array(text).default([]),
+      ignore: z.array(text).optional(),
+      screens: nullableText.default(null),
+      words: section({
+        sentence: z.number().int().positive().default(7),
+        screen: wordSelector.default('[data-screen]'),
+        primary: wordSelector.default('[data-primary]'),
+        content: wordSelector.optional(),
+        avoid: z.array(text).default([]),
+      }),
     }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
@@ -302,6 +405,11 @@ export function dossierSwitch(config: Pick<Config, 'dossier' | 'ask'>): { on: tr
 
 /** `.omni-loop/config.yml`, parsed: `Config` in `kit/lib/types.ts`. */
 type Config = z.infer<typeof ConfigSchema>;
+
+/** The screen library's folder (PRD 1407): `design.screens`, else `design/screens/` under `paths.knowledge`. */
+export function designScreensDir({ paths, design }: { paths: Pick<Config['paths'], 'knowledge'>; design: Pick<Config['design'], 'screens'> }): string {
+  return design.screens ?? `${paths.knowledge.replace(/\/+$/, '')}/design/screens/`;
+}
 
 /** One step from a `kit:` format to the next: a raw file in, the same file one `kit:` higher out. */
 type Migration = { from: number; migrate: (raw: Record<string, unknown>) => unknown };
@@ -399,7 +507,8 @@ export function parseConfig(
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
-  return result.data;
+  const config = result.data;
+  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
 }
 
 /** Reads `<root>/.omni-loop/config.yml`. */

@@ -302,6 +302,54 @@ describe('parseEntryFile — a proposed entry (PRD #68)', () => {
   });
 });
 
+describe('parseEntryFile — a law waiting for its test, "Enforced by: pending #<n>" (PRD 1342)', () => {
+  const ruleEnforcedBy = (value: string) =>
+    [
+      '## BR-ADVISOR-1',
+      '',
+      'A quote expires 30 days after it is sent.',
+      '',
+      'Serves: P-ADVISOR-1',
+      'Source: PRD #1342',
+      `Enforced by: ${value}`,
+      'Stated: 2026-10-09',
+    ].join('\n');
+
+  it('reads "pending #12" as pending on law issue 12: not enforced yet, and no problem', () => {
+    const [rule] = entriesOf('r.md', ruleEnforcedBy('pending #12'), DOMAIN_RULES);
+    expect(rule.enforcedBy).toBe('pending #12');
+    expect(rule.pending).toBe(12);
+    expect(rule.enforced).toBe(false);
+    expect(rule.problems).toEqual([]);
+  });
+
+  it('reads a path, and unenforced, as pending on no issue', () => {
+    for (const value of ['kit/lib/quote.test.ts', 'unenforced', 'pendingCheck.test.ts']) {
+      const [rule] = entriesOf('r.md', ruleEnforcedBy(value), DOMAIN_RULES);
+      expect(rule.pending).toBeNull();
+      expect(rule.problems).toEqual([]);
+    }
+    expect(entriesOf('r.md', ruleEnforcedBy('kit/lib/quote.test.ts'), DOMAIN_RULES)[0].enforced).toBe(true);
+  });
+
+  it('reads an entry with no Enforced by: line as pending on no issue', () => {
+    const [principle] = entriesOf('p.md', '## P-ADVISOR-1\n\nA decision.\n\nWhy: so.\n', { ...DOMAIN_RULES, kind: 'principle' });
+    expect(principle.pending).toBeNull();
+    expect(principle.problems).toEqual([]);
+  });
+
+  it('refuses a malformed pending, naming the file and the entry', () => {
+    for (const value of ['pending', 'pending 12', 'pending #', 'pending #0', 'pending #12a', 'pending #12, kit/lib/a.test.ts', 'Pending #12', 'pending#12', 'pending  #12']) {
+      const [rule] = entriesOf('docs/knowledge/domains/advisor/rules.md', ruleEnforcedBy(value), DOMAIN_RULES);
+      expect(rule.pending).toBeNull();
+      expect(rule.enforced).toBe(false);
+      expect(rule.problems).toEqual([
+        `docs/knowledge/domains/advisor/rules.md: BR-ADVISOR-1 — "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`,
+      ]);
+    }
+  });
+});
+
 describe('parseEntryFile — a harvested entry carries Merged: as its own field (PRD #82)', () => {
   const LEDGER = '.omni-loop/delivery/shipped/0050-question-intros/outbox/settled.md';
   const harvestedRule = (ledger = LEDGER) =>

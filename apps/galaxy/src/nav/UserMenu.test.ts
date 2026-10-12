@@ -9,7 +9,7 @@ import { item } from '../ask/test/test-item';
 // The end of the app's top bar (PRD 438) as the server renders it: signed in, the avatar button and
 // its menu (the name and login, then Sign out); signed out, Sign in with GitHub.
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: 'https://avatars.test/ada.png', heroSvg: null, workspaceName: 'Acme', waiting: null };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: 'https://avatars.test/ada.png', heroSvg: null, workspaceName: 'Acme', ideasBoard: null, waiting: null };
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 /** What the menu reads: everything inside its element. */

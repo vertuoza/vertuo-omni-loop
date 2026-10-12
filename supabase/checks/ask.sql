@@ -650,5 +650,16 @@ begin
   end if;
 end $$;
 
+-- ── The screenshots' bucket (PRD 620, PRD 1318): 4 MB a file, as the controller takes them ──
+do $$
+begin
+  if (select file_size_limit from storage.buckets where id = 'ask-attachments') is distinct from 4194304 then
+    raise exception 'FAIL: the ask-attachments bucket does not cap a screenshot at 4 MB (4194304 bytes)';
+  end if;
+  if (select public from storage.buckets where id = 'ask-attachments') is distinct from false then
+    raise exception 'FAIL: the ask-attachments bucket is not private';
+  end if;
+end $$;
+
 select 'ask checks passed' as result;
 rollback;
