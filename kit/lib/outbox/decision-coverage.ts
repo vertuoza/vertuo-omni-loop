@@ -241,7 +241,7 @@ export function lockedLawChanges(
 function lawPaths(before: KnowledgeEntry | undefined, after: KnowledgeEntry | undefined, { compared }: { compared: boolean }): string[] {
   const laws = [before, after].filter((entry) => entry !== undefined).filter(isLaw);
   const changed = compared && (before === undefined || after === undefined || entryText(before) !== entryText(after));
-  return [...(changed ? laws.map((entry) => entry.file) : []), ...laws.flatMap(proofPathsOf)];
+  return [...laws.filter(() => changed).map((entry) => entry.file), ...laws.flatMap(proofPathsOf)];
 }
 
 /** Why a law a range changed is not cleared yet: no person owns one of its files, or no owner approved. */

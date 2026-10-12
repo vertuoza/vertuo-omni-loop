@@ -410,6 +410,11 @@ describe('enforcedByPaths — pending names no path (PRD 1342)', () => {
     expect([...enforcedByPaths({ ctx })]).toEqual(['kit/lib/a.test.ts']);
   });
 
+  it('names no empty path for a stray comma', () => {
+    seed(INVARIANTS, invariantsText([['N1', 'kit/lib/a.test.ts, ,']]));
+    expect([...enforcedByPaths({ ctx })]).toEqual(['kit/lib/a.test.ts']);
+  });
+
   it('fires law-proof on no change named after a pending line', () => {
     seed(INVARIANTS, invariantsText([['N1', 'pending #12']]));
     expect(rulesFiredOn('pending #12')).toEqual([]);
@@ -524,7 +529,7 @@ describe('lockedLawChanges — law-locked (PRD 1726)', () => {
   });
 
   it('is no rule of riskyChanges: no account ever covers it', () => {
-    expect(RULE_IDS).not.toContain(LAW_LOCKED);
+    expect(RULE_IDS).toEqual(['stored-shape', 'law-proof', 'law-text', 'test-removed', 'shared-contract', 'law-demoted']);
     expect(LAW_LOCKED).toBe('law-locked');
   });
 });
