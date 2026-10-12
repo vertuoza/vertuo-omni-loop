@@ -23,7 +23,7 @@ import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, pla
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
 import { deckOf, paintTrack } from './texture';
-import { parseTrack, type PropKind, type Track } from './track';
+import { isRoad, parseTrack, tileAt, type PropKind, type Track } from './track';
 
 /** A buffer the floor is rendered into, how far each of its pixels is (Infinity where it shows no road), and the canvas it is drawn from. */
 interface Floor { image: ImageData; pixels: Uint32Array; depth: Float32Array; canvas: HTMLCanvasElement }
@@ -283,6 +283,68 @@ type Thing = { x: number; y: number; g: number } & (
   | { kind: 'prop'; prop: PropKind } | { kind: 'arch'; leg: 0 | 1 }
 );
 
+/** Where the minimap stands (PRD 1698): this far in from the right edge, and under the item panel of the race's line (its top at 8, about 24 high). */
+const MINIMAP_INSET = 8;
+export const MINIMAP_TOP = 36;
+const FRAME = 1;
+const MINIMAP_PANEL = 'rgba(11, 10, 38, 0.82)';
+
+/** The minimap's frame on a grid, and where its first tile is: one game pixel a tile, inside a frame of one. */
+export function minimapAt(grid: { w: number }, track: Pick<Track, 'cols' | 'rows'>): { x: number; y: number; w: number; h: number; mapX: number; mapY: number } {
+  const w = track.cols + 2 * FRAME, h = track.rows + 2 * FRAME;
+  const x = grid.w - MINIMAP_INSET - w;
+  return { x, y: MINIMAP_TOP, w, h, mapX: x + FRAME, mapY: MINIMAP_TOP + FRAME };
+}
+
+interface MinimapTile { x: number; y: number; colour: string }
+
+/** The road's tiles seen from above, each with its colour: the higher the ground, the lighter, the start line white. Measured once per circuit. */
+export function minimapTiles(track: Track, range: { low: number; high: number }): MinimapTile[] {
+  const out: MinimapTile[] = [];
+  const span = range.high - range.low;
+  for (let y = 0; y < track.rows; y++) {
+    for (let x = 0; x < track.cols; x++) {
+      const c = tileAt(track.map, x, y);
+      if (!isRoad(c)) continue;
+      if (c === 'S') { out.push({ x, y, colour: '#ffffff' }); continue; }
+      const t = span > 0 ? (groundAt(track, (x + 0.5) * TILE, (y + 0.5) * TILE) - range.low) / span : 0;
+      const k = Math.round(70 + 120 * Math.min(1, Math.max(0, t)));
+      out.push({ x, y, colour: `rgb(${k}, ${k + 20}, ${Math.min(255, k + 60)})` });
+    }
+  }
+  return out;
+}
+
+/** Whether the player's dot is lit this frame: always, but while the player falls it blinks, and with reduced motion it does not. */
+export const minimapLit = (s: { t: number; reduced: boolean }, fx: { fall: number }): boolean => s.reduced || fx.fall <= 0 || Math.floor(s.t * 6) % 2 === 0;
+
+/** The circuit from above in the top right corner: the road by height, the boxes to take, a dot per kart on the road, the player's dot last. */
+function minimap(ctx: CanvasRenderingContext2D, s: FrameState, track: Track, tiles: readonly MinimapTile[], race: Race) {
+  const at = minimapAt(s.grid, track);
+  ctx.fillStyle = s.theme.cyan;
+  ctx.fillRect(at.x, at.y, at.w, at.h);
+  ctx.fillStyle = MINIMAP_PANEL;
+  ctx.fillRect(at.x + FRAME, at.y + FRAME, at.w - 2 * FRAME, at.h - 2 * FRAME);
+  for (const t of tiles) { ctx.fillStyle = t.colour; ctx.fillRect(at.mapX + t.x, at.mapY + t.y, 1, 1); }
+  minimapDots(ctx, s, at, race);
+}
+
+/** The boxes to take, the karts on the road (none for one that falls), then the player, last. */
+function minimapDots(ctx: CanvasRenderingContext2D, s: FrameState, at: { mapX: number; mapY: number }, race: Race) {
+  const tile = (v: number, o: number) => o + Math.floor(v / TILE);
+  ctx.fillStyle = s.theme.gold;
+  for (const b of race.items.boxes.filter((x) => x.back <= 0)) ctx.fillRect(tile(b.x, at.mapX), tile(b.y, at.mapY), 1, 1);
+  for (const r of race.rivals.filter((x) => (x.fx?.fall ?? 0) <= 0)) {
+    ctx.fillStyle = r.driver.color ?? s.theme.white;
+    ctx.fillRect(tile(r.kart.x, at.mapX) - 1, tile(r.kart.y, at.mapY) - 1, 2, 2);
+  }
+  if (!minimapLit(s, race.fx)) return;
+  const { x, y, angle } = race.player;
+  ctx.fillStyle = s.theme.yellow;
+  ctx.fillRect(tile(x, at.mapX) - 1, tile(y, at.mapY) - 1, 3, 3);
+  ctx.fillRect(tile(x, at.mapX) + Math.round(Math.cos(angle) * 3), tile(y, at.mapY) + Math.round(Math.sin(angle) * 3), 1, 1);
+}
+
 /** A prop's sprite, and how wide it stands in the world, in game pixels: it is drawn this wide, scaled by its distance. */
 export const PROP_ART: Readonly<Record<PropKind, { sprite: string; world: number }>> = {
   pylon: { sprite: 'prop-pylon', world: 12 },
@@ -414,6 +476,8 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
   let texture: Texture | null = null;
   let particles = newParticles(seed);
   let ground: Ground | null = null;
+  let tiles: MinimapTile[] | null = null;
+  const tilesOf = (range: { low: number; high: number }): MinimapTile[] => (tiles ??= minimapTiles(track, range));
   const groundOf = (): Ground => {
     if (ground) return ground;
     texture ??= paintTrack(track);
@@ -584,6 +648,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
       }
       particlesOn(ctx, s, v, particles, track);
       playerKart(ctx, s, race);
+      minimap(ctx, s, track, tilesOf(range), race);
     },
   };
 }
