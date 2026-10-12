@@ -88,7 +88,9 @@ export interface Alert {
 export type AlertsRead = { kind: 'ok'; alerts: Alert[] } | { kind: 'disabled' } | { kind: 'unreadable'; why: string };
 
 function field(value: unknown, key: string): unknown {
-  return value && typeof value === 'object' ? (Reflect.get(value, key) as unknown) : undefined;
+  if (!value || typeof value !== 'object') return undefined;
+  const found: unknown = Reflect.get(value, key);
+  return found;
 }
 
 function readSettings(repo: string): SettingsRead {
