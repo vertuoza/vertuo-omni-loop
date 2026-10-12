@@ -11,6 +11,7 @@ vi.mock('../env', async (actual) => {
   return { ...env, serverEnv: () => env.readEnv({}) };
 });
 
+import { levelTag, XP_LINE, xpStatus } from '../arcade/games/room';
 import { present } from '../ask/test/test-item';
 import type { DossierListRow } from '../dossier/store';
 import { afterReturn, afterStart } from '../arcade/onboarding';
@@ -371,5 +372,30 @@ describe('the database out of reach', () => {
     const { data } = await page(PEOPLE.ada, (world) => { world.state.fail = { message: 'timeout' }; });
     expect(data.problem).toBe(OUT_OF_REACH);
     expect(afterStart(data.session, data.me ?? null, data.fleets)).not.toBe('outsider');
+  });
+});
+
+// Law BR-PRODUCT-32 (.omni-loop/knowledge/product/rules.md, #1493).
+describe('the XP the arcade shows', () => {
+  it('law BR-PRODUCT-32: is earned in the workspace played, the one joined first; a failed read shows XP out of reach with no level, and the galaxy, fleets and crew as read', async () => {
+    // A member of two workspaces sees only the XP earned in the one they joined first (Acme), never
+    // the other's (500 XP at level 5 in Vertuoza), and no XP row of the other is read.
+    const both = await page(PEOPLE.both);
+    expect(both.data.workspace).toBe(ACME);
+    expect(both.data.xp).toEqual({ xp: 60, level: 2, unlocked: ['invaders'] });
+    expect(both.reads.filter((c) => c.table === 'player_xp').map((c) => c.eq)).toEqual([{ workspace_id: ACME, github_login: 'both-gh' }]);
+
+    // The XP read fails: XP out of reach, with no level, while the galaxy, fleets and crew show as read.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'player_xp'; });
+    expect(data.xp).toBe('unreadable');
+    const status = xpStatus(true, present(data.xp, 'the XP read'));
+    expect(status).toEqual({ kind: 'unreadable' });
+    expect(levelTag(status)).toBeNull();
+    expect(XP_LINE.unreadable).toBe('XP OUT OF REACH');
+    expect(data.problem).toBeUndefined();
+    expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
+    expect(data.fleets.map((f) => f.name)).toEqual(['beaver', 'pirates', 'invincible-team']);
+    expect(data.crew?.map((p) => p.display_name)).toEqual(['ADA', 'BOTH']);
   });
 });

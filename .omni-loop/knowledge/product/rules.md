@@ -347,7 +347,7 @@ The arcade shows only the XP earned in the workspace it plays for a person, the 
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s2-01-xp-read-in-the-workspace-played, PRD #160
-Enforced by: pending #1493
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
