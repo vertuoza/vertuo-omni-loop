@@ -30,10 +30,10 @@
 // `omni board` does, from the reads they hand it; the command itself only prints what it returns.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardFor, fillBranch, landingBranches } from '../../lib/board.ts';
+import { boardFor, fillBranch, inlineSlicesIn, inlineWave, landingBranches } from '../../lib/board.ts';
 import type { BoardLanding, BoardPr, BoardRepos, BoardRow, LandingRow } from '../../lib/board.ts';
 import { loadContext } from '../../lib/context.ts';
-import type { Context } from '../../lib/context.ts';
+import type { Context, ExecText } from '../../lib/context.ts';
 import { gradedLandings } from '../../lib/inbox/plan-grade.ts';
 import { landingPlan } from '../../lib/landings/landing-plan.ts';
 import { withProductTargets } from '../../lib/product/targets.ts';
@@ -127,6 +127,31 @@ function landingLine(landing: LandingRow): string {
   return ` ${where}landing ${landing.landing} (${landing.name}) ${landing.branch} — ${counts} — ${pr}${landing.current ? ' — current' : ''}`;
 }
 
+/**
+ * The ids of the slices built inline (issue 1722): those a commit on one of `branches` (as the remote
+ * has them) names in an `Omni-Slice:` trailer. Read only when `wave.inlineBelow` is set and an `exec`
+ * is handed in, so a repository that never builds inline makes no git call here; a branch not yet
+ * pushed or fetched names no slice.
+ */
+function inlineSlicesBuilt(ctx: Context, exec: ExecText | undefined, branches: readonly string[]): Set<string> {
+  const built = new Set<string>();
+  if (exec === undefined || ctx.config.wave.inlineBelow <= 0) return built;
+  const { remote, defaultBranch } = ctx.config.repo;
+  for (const branch of branches) {
+    try {
+      const messages = exec('git', ['log', `${remote}/${defaultBranch}..${remote}/${branch}`, '--format=%B'], {
+        cwd: ctx.root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      for (const id of inlineSlicesIn(messages)) built.add(id);
+    } catch {
+      // The branch is not on the remote (yet): nothing was built on it.
+    }
+  }
+  return built;
+}
+
 /** What a board is built from beyond its plan. */
 type Built = { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[]; landings: BoardLanding[] };
 
@@ -134,7 +159,9 @@ type Built = { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unre
  * PRD `prd`'s board, built as `omni board` builds it: the plan's slices, this feature's own changes read
  * through `reads` (with a head commit date for each that could be `claimed-stale`), and `boardFor`.
  * Rejects with a `UsageError` for a PRD with no folder, no plan or a plan that cannot be read, and with
- * the `LoopReadError` of a read that cannot be made. `repo` is `--repo`'s value, when given.
+ * the `LoopReadError` of a read that cannot be made. `repo` is `--repo`'s value, when given. With an
+ * `exec`, and `wave.inlineBelow` set, a slice built inline on the feature branch reads as merged
+ * (`inlineSlicesBuilt`).
  *
  * In a plan repository whose plan has a `repo` column (PRD 563), it reads one list per repository a
  * slice names instead, and a repository refused alone (`holdsOneRepository`) makes only its own slices
@@ -143,7 +170,7 @@ type Built = { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unre
  */
 export async function buildBoard(
   prd: PrdNumber,
-  { ctx, reads, repo: repoFlag, now = Date.now() }: { ctx: Context; reads: BoardReads; repo?: string | undefined; now?: number },
+  { ctx, reads, repo: repoFlag, now = Date.now(), exec }: { ctx: Context; reads: BoardReads; repo?: string | undefined; now?: number; exec?: ExecText | undefined },
 ): Promise<Built> {
   const { markdown } = readPlan(prd, { ctx });
   let slices: Slice[];
@@ -165,11 +192,12 @@ export async function buildBoard(
     subLabel: ctx.config.labels.sub,
     staleMinutes: ctx.config.limits.claimStaleMinutes,
   };
-  const board = (prs: BoardPr[], more: { repos?: BoardRepos; landings: BoardLanding[] | null }) =>
+  const board = (prs: BoardPr[], more: { repos?: BoardRepos; landings: BoardLanding[] | null; inlineDone?: ReadonlySet<string> }) =>
     boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, ...more });
 
   if (slices.every((slice) => slice.repo === null)) {
-    return { slices, result: board(await readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
+    const inlineDone = inlineSlicesBuilt(ctx, exec, landings.map(({ branch }) => branch));
+    return { slices, result: board(await readPrs(repo, landed, reader), { landings: landed, inlineDone }), unreadable: [], landings };
   }
 
   // In a plan repository, each repository's own chain: only its landings, numbered within it.
@@ -328,6 +356,17 @@ function printFrontier(stdout: Out, result: Built['result']): void {
   }
 }
 
+/** What the board says last: that a wave builds it inline (`inlineBelow` is then the threshold), and that
+ * its branch is behind the default branch. */
+function printNotices(stdout: Out, { inlineBelow, base }: { inlineBelow: number | null; base: BoardBase | null }): void {
+  if (inlineBelow !== null) {
+    println(stdout, `omni board — inline: fewer than ${inlineBelow} slices (wave.inlineBelow) — a wave builds them on the feature branch, with no sub-PR.`);
+  }
+  if (base?.behind === true) {
+    println(stdout, `omni board — ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
+  }
+}
+
 /** What a command that reads a product's targets is handed: a free command's, what a test hands in for
  * the read (the sign-in, the app, the clock), and a test's own `LoopReads` for the loop's reads. */
 export type TargetsIo = FreeIo & Omit<ProductTargetsIo, 'cwd' | 'exec'> & { reads?: LoopReads | undefined };
@@ -379,7 +418,7 @@ export const board = {
 
     let built: Built;
     try {
-      built = await buildBoard(prd, { ctx, reads: boardReads(loop), repo: flags.repo });
+      built = await buildBoard(prd, { ctx, reads: boardReads(loop), repo: flags.repo, exec: io.exec });
     } catch (error) {
       if (!(error instanceof LoopReadError)) throw error;
       println(stderr, error.line);
@@ -388,8 +427,9 @@ export const board = {
     const { slices, result, unreadable } = built;
     const base = baseOf(ctx, io.exec, built);
 
+    const inline = inlineWave(result, ctx.config.wave.inlineBelow);
     if (flags.json) {
-      println(stdout, JSON.stringify({ ...result, base }, null, 2));
+      println(stdout, JSON.stringify({ ...result, base, inline }, null, 2));
       return 0;
     }
 
@@ -399,9 +439,7 @@ export const board = {
       println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
     }
     printFrontier(stdout, result);
-    if (base?.behind === true) {
-      println(stdout, `omni board — ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
-    }
+    printNotices(stdout, { inlineBelow: inline ? ctx.config.wave.inlineBelow : null, base });
     return 0;
   },
 } satisfies FreeCommand;

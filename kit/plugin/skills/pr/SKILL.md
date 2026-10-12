@@ -192,6 +192,7 @@ are Conventional Commits for all three kinds. Every body, template or not, ends 
 ## Slices
 
 - [x] #<sub-PR> <slice title>
+- [x] <slice title> — built inline, <short sha>   <!-- a plan built inline (`wave.inlineBelow`) has no sub-PR -->
 - [ ] <slice title> — not started
 
 ## Acceptance            <!-- only when acceptance.enabled is true -->

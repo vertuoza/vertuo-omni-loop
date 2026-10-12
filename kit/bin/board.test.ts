@@ -583,3 +583,63 @@ describe('omni board — a feature branch behind the default branch (issue 1179)
     expect(dig(JSON.parse(again.out.join('')), 'base')).toEqual({ branch: 'feat/widgets-2of2-code', onto: 'origin/main', behind: true });
   });
 });
+
+describe('omni board — slices built inline (issue 1722)', () => {
+  const PLAN = planMd(['| s1 | Alpha | `a/` | — | 1 |', '| s2 | Beta | `b/` | s1 | 2 |']);
+  const inlineConfig = (below: number) => ({ '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nwave:\n  inlineBelow: ${below}\n` });
+
+  /** A fake `exec` whose `git log <remote>/main..<remote>/<branch>` prints `messages`, or fails when it is null. */
+  function execWithLog(root: string, messages: string | null) {
+    const inner = fakeExec(root);
+    const exec = (file: string, args: readonly string[]) => {
+      if (file === 'git' && args[0] === 'log') {
+        inner.calls.push({ file, args });
+        if (messages === null) throw new Error('unknown revision');
+        return messages;
+      }
+      return inner.exec(file, args);
+    };
+    return { exec, calls: inner.calls };
+  }
+
+  async function boardWith(config: Record<string, string>, messages: string | null, args: string[] = ['--json']) {
+    const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN } });
+    const { exec, calls } = execWithLog(root, messages);
+    const s = io();
+    const code = await main(['board', '7', ...args], { cwd: root, exec, reads: fakeLoopReads({}), ...s });
+    return { code, out: s.out.join(''), calls };
+  }
+
+  const logCalls = (calls: ExecCall[]) => calls.filter((call) => call.file === 'git' && call.args[0] === 'log').map((call) => call.args.join(' '));
+
+  it('reads a slice with an Omni-Slice commit on the feature branch as merged, frees the next, and says the PRD is inline', async () => {
+    const { code, out, calls } = await boardWith(inlineConfig(3), 'feat(x): alpha\n\nOmni-Slice: s1\n');
+    expect(code).toBe(0);
+    const payload = JSON.parse(out) as BoardPayload & { inline: boolean };
+    expect(payload.slices.map(({ id, state }) => ({ id, state }))).toEqual([
+      { id: 's1', state: 'merged' },
+      { id: 's2', state: 'runnable' },
+    ]);
+    expect(payload.inline).toBe(true);
+    expect(logCalls(calls)).toEqual(['log origin/main..origin/feat/widgets --format=%B']);
+  });
+
+  it('prints the inline line in the table, and not when the plan has as many slices as wave.inlineBelow', async () => {
+    expect((await boardWith(inlineConfig(3), '', [])).out).toMatch(/omni board — inline: fewer than 3 slices \(wave\.inlineBelow\)/);
+    expect((await boardWith(inlineConfig(2), '', [])).out).not.toMatch(/inline/);
+  });
+
+  it('reads no commit and reports inline false with wave.inlineBelow at its default 0', async () => {
+    const { out, calls } = await boardWith(CONFIG, 'feat(x): alpha\n\nOmni-Slice: s1\n');
+    const payload = JSON.parse(out) as BoardPayload & { inline: boolean };
+    expect(payload.slices.map((row) => row.state)).toEqual(['runnable', 'blocked']);
+    expect(payload.inline).toBe(false);
+    expect(logCalls(calls)).toEqual([]);
+  });
+
+  it('reads a feature branch the remote does not have as built by nothing', async () => {
+    const { code, out } = await boardWith(inlineConfig(3), null);
+    expect(code).toBe(0);
+    expect((JSON.parse(out) as BoardPayload).slices.map((row) => row.state)).toEqual(['runnable', 'blocked']);
+  });
+});

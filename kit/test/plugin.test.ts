@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { COMMAND_TABLE } from '../bin/commands/index.ts';
+import { INLINE_SLICE_TRAILER } from '../lib/board.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../lib/status/format.ts';
 import { dig } from '../bin/dig.ts';
 import { assertDefined } from './assert.ts';
@@ -2929,5 +2930,58 @@ describe('a slice is claimed before it is built', () => {
       "**Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the claimed status) before you build anything.",
     );
     expect(doWork.indexOf('## 1. Read before you build')).toBeLessThan(doWork.indexOf('## 2. Build'));
+  });
+});
+
+// Issue 1722: a plan with fewer slices than `wave.inlineBelow` is built on its feature branch, one slice
+// after the other, with no claim and no sub-PR. The wave says so only when the board does, the slice
+// leaves the `Omni-Slice` trailer the board reads, and a slice that does not end `done` never pushes to
+// the feature branch.
+describe('the inline wave (issue 1722)', () => {
+  const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, `skills/${name}/SKILL.md`), 'utf8');
+  const flat = (text: string) => text.replace(/\s+/g, ' ');
+
+  it('/omni:wave goes inline only when the board says inline, and skips the claim, the dispatch and the merge', () => {
+    const wave = read('wave');
+    const board = flat(skillSection(wave, '1. The board'));
+    expect(board).toContain("The board's `inline` (`omni board <prd> --json`) is `true` when");
+    expect(board).toContain('skip steps 2, 3 and 4, follow **Inline wave** below, then steps 5 and 6');
+    expect(board).toContain('`wave.inlineBelow` at its default `0`): every step runs as written');
+    expect(wave.indexOf('## Inline wave')).toBeGreaterThan(wave.indexOf('## 1. The board'));
+    expect(wave.indexOf('## Inline wave')).toBeLessThan(wave.indexOf('## 2. Claim every slice first'));
+  });
+
+  it('/omni:wave builds the inline slices one at a time through do-work --inline, never side by side', () => {
+    const inline = flat(skillSection(read('wave'), 'Inline wave'));
+    expect(inline).toContain('**one slice at a time**');
+    expect(inline).toContain('`/omni:do-work --inline`');
+    expect(inline).toContain('no slice is claimed, none opens a sub-PR, and nobody merges one');
+    expect(inline).toContain('`Omni-Slice: <id>` trailer line');
+    expect(inline).toContain('its commits carry no `Omni-Slice` line, so the board still holds it');
+  });
+
+  it('/omni:wave never inlines a PRD that has a sub-PR, and still checks the wave together', () => {
+    const wave = read('wave');
+    expect(flat(skillSection(wave, 'Guardrails'))).toContain('never inline a PRD that already has a sub-PR');
+    expect(skillSection(wave, '5. Check the wave together')).toContain('(and `--inline`)');
+  });
+
+  it('/omni:do-work --inline builds on the feature branch, makes the built mark, pushes once and never opens a sub-PR', () => {
+    const doWork = read('do-work');
+    expect(doWork).toMatch(/^\| `--inline` \| — \| set by `\/omni:wave` only/m);
+    expect(flat(skillSection(doWork, '1. Read before you build'))).toContain(
+      '**Under `--inline`:** there is no claim and no slice branch. `git fetch <repo.remote>`, then `git switch --detach <repo.remote>/<feature branch>`',
+    );
+    const inline = flat(skillSection(doWork, 'Under `--inline`'));
+    expect(inline).toContain('`/omni:pr`\'s Claim mode never runs');
+    expect(inline).toContain('**Push once, at step 5**, with `git push <repo.remote> HEAD:<feature branch>`');
+    expect(inline).toContain('the line `Omni-Slice: <id>` first, then the co-author trailer your session requires, then the line `omni sign trailer` prints as the message\'s last line');
+    expect(inline).toContain('makes no built mark and pushes nothing to the feature branch');
+    expect(inline).toContain('and no pull request is opened');
+  });
+
+  it('the trailer the skills ask for is the one the board reads', () => {
+    expect(read('do-work')).toContain(`${INLINE_SLICE_TRAILER}: <id>`);
+    expect(read('wave')).toContain(`${INLINE_SLICE_TRAILER}: <id>`);
   });
 });

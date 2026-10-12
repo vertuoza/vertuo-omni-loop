@@ -236,3 +236,20 @@ the library read in step 1, the locked screen built as written, and the high ite
 ### Tests
 
 `kit/test/design-skills.test.ts`.
+
+## Issue 1722 — `--inline`, a slice built on the feature branch
+
+Not a re-port: a kit-local flag, set by `/omni:wave` only when `omni board --json` says `inline`
+(`wave.inlineBelow`; see `kit/porting/plugin--wave.md`). The slice is built on a detached head of
+`<repo.remote>/<feature branch>`, with no claim, no slice branch and no sub-PR (step 5's item 6 and
+the point `do-work.ready` do not run). It pushes once, at step 5, so the remote feature branch stays
+the base the coverage grade, the design check and the generated-files check read. Its last commit,
+empty when nothing is left, carries the trailer line `Omni-Slice: <id>` first in the trailer block,
+above the co-author trailer and the `omni sign trailer` line (which stays the message's last line):
+that is how `omni board` reads the slice as built. A slice that ends `red`, `stopped` or `blocked`
+makes no such commit and pushes only to its slice branch, so the feature branch stays green. Items
+are recorded as under `--in-wave`, never adopted here.
+
+### Tests
+
+`kit/test/plugin.test.ts`, the block "the inline wave (issue 1722)".

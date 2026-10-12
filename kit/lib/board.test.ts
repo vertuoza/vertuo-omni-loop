@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardFor, fillBranch, isClaimedStale, landingBranches, runnableFrontier } from './board.ts';
+import { boardFor, fillBranch, inlineSlicesIn, inlineWave, isClaimedStale, landingBranches, runnableFrontier } from './board.ts';
 import type { BoardLanding, BoardPr, BoardRepos, BoardSlice, FrontierRow } from './board.ts';
 import { assertDefined } from '../test/assert.ts';
 import { parsePr, parseWorkSliceId } from './ids.ts';
@@ -393,6 +393,85 @@ describe('runnableFrontier', () => {
     ];
     const result = board(slices, [pr({ headRefName: 'feat/widgets--s1', mergedAt: '2026-09-25T11:00:00Z' })]);
     expect(result.frontier).toEqual({ wave: 2, runnable: ['s2'], takeable: ['s2'], excluded: [], collisions: [] });
+  });
+});
+
+describe('boardFor — slices built inline on the feature branch (issue 1722)', () => {
+  const s1 = parseWorkSliceId('s1');
+  const s2 = parseWorkSliceId('s2');
+  const chain = () => [slice({ id: s1 }), slice({ id: s2, wave: 2, territory: ['b/'], blockedBy: [s1] })];
+
+  it('reads the slice ids named by the Omni-Slice trailer lines of commit messages, and nothing else', () => {
+    const messages = [
+      'feat(x): first slice\n\nCo-Authored-By: A <a@x>\nOmni-Slice: s1\n',
+      'chore: not a slice\n\nmentions Omni-Slice: s9 in the middle of a line\n',
+      'feat(x): second\n\nOmni-Slice: s2\n',
+      'feat(x): again\n\nOmni-Slice: s1\n',
+    ].join('\n');
+    expect([...inlineSlicesIn(messages)].sort()).toEqual(['s1', 's2']);
+    expect(inlineSlicesIn('').size).toBe(0);
+  });
+
+  it('reads a slice with no pull request and a commit of its own as merged, and frees what waited on it', () => {
+    const result = boardFor({ slices: chain(), prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, inlineDone: new Set(['s1']) });
+    expect(result.slices.map(({ id, state, pr }) => ({ id, state, pr }))).toEqual([
+      { id: 's1', state: 'merged', pr: null },
+      { id: 's2', state: 'runnable', pr: null },
+    ]);
+    expect(result.frontier).toMatchObject({ wave: 2, takeable: ['s2'] });
+  });
+
+  it('leaves every row as it was without inlineDone, and ignores a slice that has a pull request', () => {
+    expect(board(chain(), []).slices.map((row) => row.state)).toEqual(['runnable', 'blocked']);
+    const withPr = boardFor({ slices: [slice({ id: s1 })], prs: [pr()], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, inlineDone: new Set(['s1']) });
+    expect(firstRow(withPr).state).toBe('in-flight');
+  });
+
+  it('ignores inlineDone in a plan repository', () => {
+    const repos = { backend: { slug: 'acme/backend', readable: true } };
+    const result = boardFor({ slices: [slice({ id: s1, repo: 'backend' })], prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, repos, inlineDone: new Set(['s1']) });
+    expect(firstRow(result).state).toBe('runnable');
+  });
+
+  describe('inlineWave', () => {
+    const three = () => [slice({ id: s1 }), slice({ id: s2, territory: ['b/'] }), slice({ id: parseWorkSliceId('s3'), territory: ['c/'] })];
+
+    it('never builds inline with wave.inlineBelow at 0, its default', () => {
+      expect(inlineWave(board([slice()], []), 0)).toBe(false);
+    });
+
+    it('builds inline a plan with fewer slices than wave.inlineBelow, and no other', () => {
+      expect(inlineWave(board(three().slice(0, 1), []), 3)).toBe(true);
+      expect(inlineWave(board(three().slice(0, 2), []), 3)).toBe(true);
+      expect(inlineWave(board(three(), []), 3)).toBe(false);
+      expect(inlineWave(board(three().slice(0, 1), []), 1)).toBe(false);
+    });
+
+    it('stays inline once a slice is built, since a built slice has no pull request', () => {
+      const built = boardFor({ slices: three().slice(0, 2), prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, inlineDone: new Set(['s1']) });
+      expect(inlineWave(built, 3)).toBe(true);
+    });
+
+    it('never builds inline a PRD that already has a sub-PR: it finishes as it began', () => {
+      expect(inlineWave(board(three().slice(0, 2), [pr()]), 3)).toBe(false);
+    });
+
+    it('never builds inline across repositories', () => {
+      const repos = { backend: { slug: 'acme/backend', readable: true } };
+      expect(inlineWave(board([slice({ repo: 'backend' })], [], { repos }), 3)).toBe(false);
+    });
+
+    it('counts the current landing’s slices only, for a PRD of several landings', () => {
+      const slices = [slice({ id: s1, landing: 1 }), slice({ id: s2, territory: ['b/'], landing: 1 }), slice({ id: parseWorkSliceId('s3'), territory: ['c/'], landing: 2 })];
+      const landings = [
+        { landing: 1, name: 'first', branch: 'feat/widgets-1of2-first' },
+        { landing: 2, name: 'second', branch: 'feat/widgets-2of2-second' },
+      ];
+      const result = boardFor({ slices, prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, landings });
+      expect(result.currentLanding).toBe(1);
+      expect(inlineWave(result, 3)).toBe(true);
+      expect(inlineWave(result, 2)).toBe(false);
+    });
   });
 });
 

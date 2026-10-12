@@ -27812,6 +27812,10 @@ var ConfigSchema = external_exports.object({
     // and a config that does not set it parses exactly as before.
     hookMaxBytes: external_exports.number().int().positive().optional()
   }),
+  // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
+  // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
+  // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
+  wave: section({ inlineBelow: external_exports.number().int().min(0).default(0) }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
@@ -36174,6 +36178,11 @@ function collisionRows(slices, generated2 = []) {
 }
 
 // kit/lib/board.ts
+var INLINE_SLICE_TRAILER = "Omni-Slice";
+var INLINE_SLICE_LINE = new RegExp(`^${INLINE_SLICE_TRAILER}: (\\S+)\\s*$`, "gm");
+function inlineSlicesIn(messages2) {
+  return new Set([...messages2.matchAll(INLINE_SLICE_LINE)].map(([, id]) => String(id)));
+}
 function fillBranch(template, values) {
   return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole2, key2) => {
     const value = values[key2];
@@ -36284,7 +36293,8 @@ function boardFor({
   config: config3,
   prd: prd2,
   repos = null,
-  landings = null
+  landings = null,
+  inlineDone = /* @__PURE__ */ new Set()
 }) {
   const { topic } = prd2;
   const ordered = landings ?? [{ landing: 1, name: "landing-1", branch: fillBranch(config3.branches.feature, { topic }) }];
@@ -36303,10 +36313,11 @@ function boardFor({
     );
     return pickPr(candidates);
   });
+  const builtInline = (slice, pr) => !pr && !acrossRepos && inlineDone.has(slice.id);
   const mergedById = new Map(
     slices.map((slice, index) => {
       const pr = matched[index];
-      return [slice.id, Boolean(pr && isMerged(pr))];
+      return [slice.id, Boolean(pr && isMerged(pr)) || builtInline(slice, pr)];
     })
   );
   const rows2 = slices.map((slice, index) => {
@@ -36316,7 +36327,8 @@ function boardFor({
     delete rest.repo;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     if (!repo) {
-      return { ...rest, pr, state: stateFor({ pr, blockersMerged, now: now2, limits, needsFixLabel: config3.labels.needsFix }) };
+      const state2 = builtInline(slice, pr) ? "merged" : stateFor({ pr, blockersMerged, now: now2, limits, needsFixLabel: config3.labels.needsFix });
+      return { ...rest, pr, state: state2 };
     }
     const state = repo.readable ? stateFor({ pr, blockersMerged, now: now2, limits, needsFixLabel: config3.labels.needsFix }) : "unreadable";
     return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
@@ -36341,6 +36353,13 @@ function boardFor({
     landings: landingRows,
     currentLanding
   };
+}
+function inlineWave({ slices, landings, currentLanding }, inlineBelow) {
+  if (inlineBelow <= 0) return false;
+  if (slices.some((row) => row.pr !== null || (row.repo ?? null) !== null)) return false;
+  if (landings === void 0) return slices.length < inlineBelow;
+  const current = landings.find((landing) => landing.landing === currentLanding);
+  return current !== void 0 && current.slices.length < inlineBelow;
 }
 var OPEN_STATES = /* @__PURE__ */ new Set(["stuck", "claimed-stale", "in-flight"]);
 function landingRow(entry3, { rows: rows2, slices, live, slug, acrossRepos }) {
@@ -37265,7 +37284,24 @@ function landingLine(landing) {
   const where = landing.repo === void 0 || landing.repo === null ? "" : `${landing.repo} `;
   return ` ${where}landing ${landing.landing} (${landing.name}) ${landing.branch} \u2014 ${counts2} \u2014 ${pr}${landing.current ? " \u2014 current" : ""}`;
 }
-async function buildBoard(prd2, { ctx, reads, repo: repoFlag, now: now2 = Date.now() }) {
+function inlineSlicesBuilt(ctx, exec, branches) {
+  const built = /* @__PURE__ */ new Set();
+  if (exec === void 0 || ctx.config.wave.inlineBelow <= 0) return built;
+  const { remote, defaultBranch } = ctx.config.repo;
+  for (const branch of branches) {
+    try {
+      const messages2 = exec("git", ["log", `${remote}/${defaultBranch}..${remote}/${branch}`, "--format=%B"], {
+        cwd: ctx.root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"]
+      });
+      for (const id of inlineSlicesIn(messages2)) built.add(id);
+    } catch {
+    }
+  }
+  return built;
+}
+async function buildBoard(prd2, { ctx, reads, repo: repoFlag, now: now2 = Date.now(), exec }) {
   const { markdown } = readPlan(prd2, { ctx });
   let slices;
   try {
@@ -37288,7 +37324,8 @@ async function buildBoard(prd2, { ctx, reads, repo: repoFlag, now: now2 = Date.n
   };
   const board2 = (prs, more) => boardFor({ slices, prs, now: now2, limits: ctx.config.limits, config: ctx.config, prd: { topic }, ...more });
   if (slices.every((slice) => slice.repo === null)) {
-    return { slices, result: board2(await readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
+    const inlineDone = inlineSlicesBuilt(ctx, exec, landings.map(({ branch }) => branch));
+    return { slices, result: board2(await readPrs(repo, landed, reader), { landings: landed, inlineDone }), unreadable: [], landings };
   }
   const chainOf = (name3) => landed === null ? null : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name3 }).map(
     (step2) => ({ landing: step2.planLanding, name: step2.name, branch: step2.branch, repo: name3 })
@@ -37397,6 +37434,14 @@ function printFrontier(stdout, result) {
     println(stdout, `omni board \u2014 deferred by a same-wave territory collision (kept the earlier slice in plan order): ${frontier.excluded.join(", ")}`);
   }
 }
+function printNotices(stdout, { inlineBelow, base }) {
+  if (inlineBelow !== null) {
+    println(stdout, `omni board \u2014 inline: fewer than ${inlineBelow} slices (wave.inlineBelow) \u2014 a wave builds them on the feature branch, with no sub-PR.`);
+  }
+  if (base?.behind === true) {
+    println(stdout, `omni board \u2014 ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
+  }
+}
 function loopReadsFor(ctx, { reads, tokens, home, fetch, callMs }) {
   return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
 }
@@ -37423,7 +37468,7 @@ var board = {
     const loop2 = loopReadsFor(ctx, io);
     let built;
     try {
-      built = await buildBoard(prd2, { ctx, reads: boardReads(loop2), repo: flags.repo });
+      built = await buildBoard(prd2, { ctx, reads: boardReads(loop2), repo: flags.repo, exec: io.exec });
     } catch (error62) {
       if (!(error62 instanceof LoopReadError)) throw error62;
       println(stderr, error62.line);
@@ -37431,8 +37476,9 @@ var board = {
     }
     const { slices, result, unreadable: unreadable2 } = built;
     const base = baseOf(ctx, io.exec, built);
+    const inline = inlineWave(result, ctx.config.wave.inlineBelow);
     if (flags.json) {
-      println(stdout, JSON.stringify({ ...result, base }, null, 2));
+      println(stdout, JSON.stringify({ ...result, base, inline }, null, 2));
       return 0;
     }
     println(stdout, `omni board \u2014 PRD ${prd2}: ${slices.length} slice(s).`);
@@ -37441,9 +37487,7 @@ var board = {
       println(stdout, `omni board \u2014 cannot read ${slug ?? repo}: ${reason2} \u2014 its slices are unreadable.`);
     }
     printFrontier(stdout, result);
-    if (base?.behind === true) {
-      println(stdout, `omni board \u2014 ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
-    }
+    printNotices(stdout, { inlineBelow: inline ? ctx.config.wave.inlineBelow : null, base });
     return 0;
   }
 };
@@ -50166,7 +50210,7 @@ async function boardFacts(prd2, reader) {
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null || !existsSync56(join82(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
-    const { result } = await buildBoard(prd2, { ctx, reads: boardReads(reader.reads) });
+    const { result } = await buildBoard(prd2, { ctx, reads: boardReads(reader.reads), exec: reader.exec });
     const having = (state) => result.slices.filter((row) => row.state === state).map((row) => row.id);
     const { stallDays } = ctx.config.limits;
     const board2 = {
@@ -56182,7 +56226,7 @@ async function refreshPrdBoard(root, prd2, io, timed, instant2) {
   if (lockHeld(root, prd2, instant2)) return;
   const read2 = async () => {
     const ctx = loadContext(io.cwd, { exec: timed });
-    return (await buildBoard(prd2, { ctx, reads: boardReads(loopReadsOf2(ctx, io)), now: instant2 })).result.slices;
+    return (await buildBoard(prd2, { ctx, reads: boardReads(loopReadsOf2(ctx, io)), now: instant2, exec: timed })).result.slices;
   };
   const built = await read2().then((slices) => ({ slices }), (error62) => ({ error: error62 }));
   refreshBoard({
