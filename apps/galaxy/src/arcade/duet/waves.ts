@@ -1,6 +1,6 @@
-// OMNI DUET's waves (PRD 1633, issues 1672 and 1689): four chapters written by hand as text, one
+// OMNI DUET's waves (PRD 1633, issues 1672, 1689 and 1692): four chapters written by hand as text, one
 // wave per entry, and the checks that prove every wave passable. A wave is a few obstacles that fall
-// one behind the other, at the wave's speed and faster over its last stretch; it is passed once its
+// one behind the other, at the wave's speed and a little faster over its last stretch; it is passed once its
 // last obstacle is entirely below the circle. Every obstacle is a word of a small vocabulary set on
 // the circle, never on a grid: a still one is dodged by one clear pose of the pair, upright (12 and 6
 // o'clock) or level (3 and 9 o'clock), and hits the other; a moving one, a centre block sliding across
@@ -33,11 +33,21 @@ const R = RULES.radius;
  *   the pair, lying level as its middle crosses the centre's height: its ends reach past the level
  *   orbs and its middle runs down the upright ones, so every pose held still is struck, and turning
  *   the pair with it clears it (a shorter rod never reaches the level orbs; a slower one leaves no
- *   way round its ends at chapter IV's speeds).
+ *   way round its ends at chapter IV's speeds);
+ * - a gate (issue 1692), two bars `gate.bar` R long and `gate.thick` R thick at one height, either
+ *   side of a gap `gate.gap` R wide on the centre line (1.25 R × 17 px each, 34 px apart): upright,
+ *   the orbs pass through the gap 11 px clear of either bar; level, each orb is inside a bar;
+ * - an upright block, `upright.w` R wide and `upright.h` R tall (45 × 73 px) on the centre line: level,
+ *   the orbs stand 28 px clear of it; upright, they are inside it;
+ * - a short bar, `short.w` R long and `short.thick` R thick (56 × 18 px) on the centre line: level,
+ *   the orbs stand 22 px clear of its ends; upright, they are inside it.
  */
 export const SHAPE = Object.freeze({
   half: Object.freeze({ length: 2, thick: 0.3, short: 1 / 3 }),
   centre: Object.freeze({ side: 0.75 }),
+  gate: Object.freeze({ bar: 1.2, thick: 0.3, gap: 0.8 }),
+  upright: Object.freeze({ w: 0.8, h: 1.3 }),
+  short: Object.freeze({ w: 1, thick: 0.33 }),
   slide: Object.freeze({ reach: 1, across: 2 }),
   rod: Object.freeze({ length: 2.2, thick: 0.33 }),
   spinTurnsPerSecond: 0.6,
@@ -48,12 +58,13 @@ export const SHAPE = Object.freeze({
 /**
  * How each wave speeds up at its end: over its last `share` of its time, the fall speeds up evenly to
  * `gain` above the wave's speed, which stays the speed it is written at (the fall only: the pair turns
- * as fast as ever). Chapter I speeds up gently, the rest fully.
+ * as fast as ever). A light touch (issue 1692): Duet's own levels never speed up, so chapter I keeps
+ * its speed to the end (`gentle`) and the rest end only 10% faster (`full`).
  */
-export const RAMP = Object.freeze({ share: 0.35, gentle: 0.15, full: 0.3 });
+export const RAMP = Object.freeze({ share: 0.35, gentle: 0, full: 0.1 });
 
-/** The two obstacles. */
-export type Kind = 'half' | 'centre';
+/** The obstacles: the half bar, the centre block (which alone may move), the gate, the upright block and the short bar. */
+export type Kind = 'half' | 'centre' | 'gate' | 'upright' | 'short';
 
 /** How an obstacle moves as it falls: not at all, side to side, or turning about its middle. */
 export type Motion = 'still' | 'slide' | 'turn';
@@ -65,6 +76,9 @@ export type Pose = 'upright' | 'level';
 export const POSE: Readonly<Record<Kind, { pose: Pose; angle: number }>> = Object.freeze({
   half: { pose: 'upright', angle: Math.PI / 2 },
   centre: { pose: 'level', angle: 0 },
+  gate: { pose: 'upright', angle: Math.PI / 2 },
+  upright: { pose: 'level', angle: 0 },
+  short: { pose: 'level', angle: 0 },
 });
 
 /**
@@ -90,6 +104,9 @@ export interface Chapter { numeral: string; name: string; waves: readonly Wave[]
  *
  *   L half · 0          a half bar from the left (R from the right)
  *   centre · 2R         a centre block
+ *   gate · 2R           two bars either side of a gap on the centre line
+ *   upright · 2R        an upright block on the centre line
+ *   short · 2R          a short bar on the centre line
  *
  * after which a centre block may `slide` across the circle or `turn`, a rod, and `back` the other way
  * round: a slide sets off to the right and sweeps the circle's left half, top to bottom, the way ◀
@@ -106,17 +123,30 @@ const LEGEND = Object.freeze({
     ['L half', { kind: 'half', side: -1 }],
     ['R half', { kind: 'half', side: 1 }],
     ['centre', { kind: 'centre', side: 0 }],
+    ['gate', { kind: 'gate', side: 0 }],
+    ['upright', { kind: 'upright', side: 0 }],
+    ['short', { kind: 'short', side: 0 }],
   ]),
   motions: Object.freeze(['slide', 'turn'] as const),
   back: 'back',
   ghost: 'ghost',
 });
 
-/** An obstacle's size in game pixels, unturned: its width and its height. */
-function sizeOf(piece: Pick<Piece, 'kind' | 'motion'>): { w: number; h: number } {
-  if (piece.kind === 'half') return { w: SHAPE.half.length * R, h: SHAPE.half.thick * R };
-  if (piece.motion === 'turn') return { w: SHAPE.rod.length * R, h: SHAPE.rod.thick * R };
-  return { w: SHAPE.centre.side * R, h: SHAPE.centre.side * R };
+/** One block of an obstacle, unturned: its middle's offset across from the obstacle's anchor, its width and its height, in game pixels. */
+interface Part { dx: number; w: number; h: number }
+
+/** The blocks an obstacle is made of: one, or a gate's two bars either side of its gap. */
+function partsOf(piece: Pick<Piece, 'kind' | 'motion'>): readonly Part[] {
+  const { half, gate, upright, short, rod, centre } = SHAPE;
+  if (piece.kind === 'half') return [{ dx: 0, w: half.length * R, h: half.thick * R }];
+  if (piece.kind === 'gate') {
+    const dx = (gate.gap / 2 + gate.bar / 2) * R;
+    return [-dx, dx].map((d) => ({ dx: d, w: gate.bar * R, h: gate.thick * R }));
+  }
+  if (piece.kind === 'upright') return [{ dx: 0, w: upright.w * R, h: upright.h * R }];
+  if (piece.kind === 'short') return [{ dx: 0, w: short.w * R, h: short.thick * R }];
+  if (piece.motion === 'turn') return [{ dx: 0, w: rod.length * R, h: rod.thick * R }];
+  return [{ dx: 0, w: centre.side * R, h: centre.side * R }];
 }
 
 /** Where an obstacle's middle stands across the playfield, before it slides. */
@@ -127,8 +157,7 @@ function anchorOf(kind: Kind, side: number): number {
 
 /** How far an obstacle reaches above and below its middle: half its height, or for a rod the disc it sweeps. */
 export function reachOf(piece: Pick<Piece, 'kind' | 'motion'>): number {
-  const { w, h } = sizeOf(piece);
-  return piece.motion === 'turn' ? Math.hypot(w, h) / 2 : h / 2;
+  return Math.max(...partsOf(piece).map(({ w, h }) => (piece.motion === 'turn' ? Math.hypot(w, h) / 2 : h / 2)));
 }
 
 /**
@@ -146,9 +175,13 @@ const oneOf = <T extends string>(words: readonly T[], word: string | undefined):
 /** A word the legend does not know, or none where one was needed. */
 const unknown = (word: string | undefined) => new Error(word === undefined ? 'no obstacle named' : `"${word}" is not in the legend`);
 
+/** What a refusal calls each obstacle that stands on the centre line, and so has no side. */
+const CENTRED: ReadonlyMap<string, string> = new Map([['centre', 'a centre block'], ['gate', 'a gate'], ['upright', 'an upright block'], ['short', 'a short bar']]);
+
 /** Why the front of an obstacle's words names no obstacle: a side the kind cannot have, a side missing, or a word not in the legend. */
 function misnamed([first, second]: readonly string[]): Error {
-  if (first === 'L' || first === 'R') return second === 'centre' ? new Error('a centre block has no side') : unknown(second);
+  const centred = CENTRED.get(second ?? '');
+  if (first === 'L' || first === 'R') return centred ? new Error(`${centred} has no side`) : unknown(second);
   return first === 'half' ? new Error('a half bar needs its side, L or R') : unknown(first);
 }
 
@@ -166,6 +199,7 @@ function readMotion(kind: Kind, words: readonly string[]): { motion: Motion; bac
   if (moving === undefined) return { motion: 'still', back: false };
   if (!oneOf(LEGEND.motions, moving)) throw unknown(moving);
   if (kind === 'half') throw new Error('a half bar does not move');
+  if (kind !== 'centre') throw new Error(`${CENTRED.get(kind) ?? kind} does not move`);
   if (way !== undefined && way !== LEGEND.back) throw unknown(way);
   if (more.length) throw unknown(more[0]);
   return { motion: moving, back: way === LEGEND.back };
@@ -281,18 +315,25 @@ function slid(p: Piece, cy: number): number {
   return (p.back ? 1 : -1) * SHAPE.slide.reach * R * swing((cy - RULES.centre.y) / (SHAPE.slide.across * R));
 }
 
-/** The wave's obstacles `tick` sub-steps after it began to enter: fallen, slid and turned. */
-export function blocksAt(wave: Wave, tick: number): Block[] {
+/** One block of the wave where it is now, with the obstacle it belongs to: a gate is two. */
+export interface Placed { piece: Piece; block: Block }
+
+/** The wave's obstacles `tick` sub-steps after it began to enter, block by block: fallen, slid and turned. */
+export function placedAt(wave: Wave, tick: number): Placed[] {
   const t = tick * RULES.subStep;
   const down = fallen(wave, t);
-  return wave.pieces.map((p) => {
-    const { w, h } = sizeOf(p);
-    const cy = -p.above + down;
-    const cx = anchorOf(p.kind, p.side) + (p.motion === 'slide' ? slid(p, cy) : 0);
+  return wave.pieces.flatMap((piece) => {
+    const cy = -piece.above + down;
+    const cx = anchorOf(piece.kind, piece.side) + (piece.motion === 'slide' ? slid(piece, cy) : 0);
     // A rod lies level as its middle crosses the centre's height: there it reaches past the level orbs.
-    const angle = p.motion === 'turn' ? wayOf(p) * Math.PI * 2 * SHAPE.spinTurnsPerSecond * (t - timeAt(wave, RULES.centre.y + p.above)) : 0;
-    return { cx, cy, w, h, angle };
+    const angle = piece.motion === 'turn' ? wayOf(piece) * Math.PI * 2 * SHAPE.spinTurnsPerSecond * (t - timeAt(wave, RULES.centre.y + piece.above)) : 0;
+    return partsOf(piece).map(({ dx, w, h }) => ({ piece, block: { cx: cx + dx, cy, w, h, angle } }));
   });
+}
+
+/** The wave's blocks `tick` sub-steps after it began to enter: fallen, slid and turned. */
+export function blocksAt(wave: Wave, tick: number): Block[] {
+  return placedAt(wave, tick).map((p) => p.block);
 }
 
 /**
@@ -323,10 +364,13 @@ export function struck(angle: number, blocks: readonly Block[], r: number = RULE
  * The seconds the pair needs between two obstacles: none when both are still and ask the same pose,
  * else the time ◀ or ▶ held takes to turn from one pose to the other (a quarter turn; the pair looks
  * the same half a turn on, so no turn between two poses is longer) plus a person's reaction delay. A
- * moving obstacle asks a turn, so one before or after it asks that quarter turn and reaction too.
+ * moving obstacle asks a turn, so one before or after it asks that quarter turn and reaction too, but
+ * for a rod right behind a rod turning the same way (a chain, issue 1692): the turn held through the
+ * one carries on through the other, so they may follow closely; the passability check proves it.
  */
-export function turnSeconds(from: Pick<Piece, 'kind' | 'motion'>, to: Pick<Piece, 'kind' | 'motion'>): number {
+export function turnSeconds(from: Pick<Piece, 'kind' | 'motion' | 'back'>, to: Pick<Piece, 'kind' | 'motion' | 'back'>): number {
   const quarter = 0.25 / RULES.turnsPerSecond + RULES.reactionSeconds;
+  if (from.motion === 'turn' && to.motion === 'turn' && from.back === to.back) return 0;
   if (from.motion !== 'still' || to.motion !== 'still') return quarter;
   return POSE[from.kind].pose === POSE[to.kind].pose ? 0 : quarter;
 }
@@ -604,15 +648,18 @@ export function patternsOf(wave: Wave): Pattern[] {
 //
 // Written for a pair that turns slowly (0.6 turns a second), in Duet's way: each still obstacle asks
 // one pose, each moving one a turn, and a wave chains them so a person reads it as poses to hold and
-// turns to make. The waves fall about 2 R a second, as Duet's do, speeding up over their last 35%,
-// and are short: three to six obstacles, 8 seconds at most from the first entering to the last
-// passing the orbs, and none passed by holding the orbs still. Chapter I (95 to 113 px/s, +15% at
-// each wave's end) alternates still half bars and centre blocks 1.75 to 2.25 R apart, one idea a wave,
-// each asking two changes of pose at the least. II (105 to 123, +30% from here on) brings in the
-// sliding block, III (115 to 133) the rod, and IV (125 to 143) mixes all three, its moving obstacles
-// 2.4 R apart (room for a quarter turn and a reaction at endless mode's top speed, sped up), down to
-// 1.25 R within a run of one pose; its last four waves hide some obstacles (`ghost`), its eighth is
-// rods alone and its ninth ghosts alone. From chapter II, each chapter chains moving obstacles into
+// turns to make. The waves fall about 2 R a second, each at one speed as Duet's do, but for a light
+// speed-up over the last 35% of each wave after chapter I (+10%), and are short: three to six
+// obstacles, 8 seconds at most from the first entering to the last passing the orbs, and none passed
+// by holding the orbs still. Chapter I (95 to 113 px/s, no speed-up) alternates still half bars and
+// centre blocks 1.75 to 2.25 R apart, one idea a wave, each asking two changes of pose at the least,
+// and brings in the gate (2.5 R from a pose change: the pair holds upright while the gate crosses the
+// whole circle). II (105 to 123) brings in the sliding block and the short bar, III (115 to 133) the
+// rod and the upright block, and IV (125 to 143) mixes them all, its moving obstacles 2.4 R apart
+// (room for a quarter turn and a reaction at endless mode's top speed, sped up), down to 1.25 R within
+// a run of one pose, and chains rods two or three at a time, 1.25 to 1.4 R apart, out of phase, passed
+// holding one turn (issue 1692); its last four waves hide some obstacles (`ghost`), its eighth is rods
+// alone and its ninth ghosts alone. From chapter II, each chapter chains moving obstacles into
 // spirals, three or more that move the same way round, passed holding that one turn, and zigzags,
 // three or more each moving the other way round from the one before, which ask a change of turn at
 // every one (`patternsOf`).
@@ -633,10 +680,9 @@ const DRIFT = [
    centre · 2R
    L half · 2R`,
   `speed 101
-   centre · 0
-   centre · 1.5R
-   L half · 2R
-   centre · 2R`,
+   gate · 0
+   centre · 2.5R
+   gate · 2.5R`,
   `speed 103
    R half · 0
    centre · 1.75R
@@ -651,10 +697,9 @@ const DRIFT = [
    R half · 2R`,
   `speed 107
    centre · 0
-   R half · 1.75R
-   centre · 1.75R
-   L half · 1.75R
-   centre · 1.75R`,
+   gate · 2.5R
+   centre · 2.5R
+   L half · 1.75R`,
   `speed 109
    R half · 0
    L half · 1.5R
@@ -668,23 +713,24 @@ const DRIFT = [
    R half · 2R
    centre · 2R`,
   `speed 113
-   L half · 0
-   centre · 1.75R
+   gate · 0
+   centre · 2.5R
    R half · 1.75R
    centre · 1.75R
    L half · 1.75R`,
 ];
+
 const SLIDE = [
   `speed 105
    L half · 0
    centre slide · 2R
    R half · 2R
-   centre · 1.75R`,
+   short · 1.75R`,
   `speed 107
-   centre · 0
+   short · 0
    centre slide back · 2R
-   L half · 2R
-   centre slide · 2R`,
+   gate · 2.25R
+   centre slide · 2.25R`,
   `speed 109
    centre slide · 0
    centre slide · 2R
@@ -699,9 +745,9 @@ const SLIDE = [
    centre slide back · 0
    centre slide back · 2R
    centre slide back · 2R
-   centre · 2R`,
+   short · 2R`,
   `speed 115
-   L half · 0
+   gate · 0
    L half · 1.5R
    centre slide back · 2R
    centre slide · 2R
@@ -711,14 +757,14 @@ const SLIDE = [
    centre slide · 2R
    centre slide · 2R
    centre slide · 2R
-   R half · 2.25R`,
+   gate · 2.25R`,
   `speed 119
    centre slide back · 0
    centre slide · 2R
    centre slide back · 2R
    centre slide · 2R`,
   `speed 121
-   centre · 0
+   short · 0
    centre slide back · 2R
    centre slide back · 2R
    centre slide back · 2R
@@ -736,9 +782,9 @@ const SPIN = [
    L half · 0
    centre turn · 2R
    R half · 2R
-   centre · 1.75R`,
+   upright · 1.75R`,
   `speed 117
-   centre · 0
+   upright · 0
    centre turn back · 2R
    L half · 2R
    centre turn · 2R`,
@@ -754,15 +800,15 @@ const SPIN = [
   `speed 123
    centre turn back · 0
    centre turn back · 2R
-   centre turn back · 2R
-   centre · 2R`,
+   centre slide back · 2R
+   upright · 1.75R`,
   `speed 125
    centre slide · 0
    centre turn back · 2R
    centre turn · 2R
    centre turn back · 2R`,
   `speed 127
-   L half · 0
+   gate · 0
    R half · 1.5R
    centre turn · 2R
    centre slide · 2R
@@ -773,16 +819,15 @@ const SPIN = [
    centre turn · 2R
    centre slide back · 2R`,
   `speed 131
-   centre · 0
+   upright · 0
    centre turn back · 2R
    centre slide back · 2R
-   centre turn back · 2R
-   L half · 2.25R`,
+   centre turn back · 2R`,
   `speed 133
    centre turn · 0
    centre turn back · 2.25R
    centre turn · 2.25R
-   R half · 2.25R`,
+   gate · 2.25R`,
 ];
 
 const STORM = [
@@ -801,7 +846,7 @@ const STORM = [
    centre slide back · 0
    centre turn back · 2.4R
    centre slide back · 2.4R
-   L half · 2.4R
+   gate · 2.4R
    R half · 1.25R`,
   `speed 131
    R half · 0
@@ -810,11 +855,11 @@ const STORM = [
    centre turn · 2.4R`,
   `speed 133
    centre turn · 0
-   centre turn · 2.4R
-   centre slide · 2.4R
-   centre · 2.25R`,
+   centre turn · 1.25R
+   centre turn · 1.25R
+   short · 2.4R`,
   `speed 135
-   L half · 0
+   gate · 0
    L half · 1.25R
    centre slide back · 2.4R
    centre slide · 2.4R
@@ -824,24 +869,25 @@ const STORM = [
    centre slide ghost · 2.4R
    centre slide · 2.4R
    R half ghost · 2.4R
-   L half · 1.25R`,
+   gate · 1.25R`,
   `speed 139
-   centre turn · 0
-   centre turn back ghost · 2.4R
+   centre turn back · 0
+   centre turn back · 1.4R
+   centre turn back ghost · 1.4R
    centre turn · 2.4R`,
   `speed 141
-   L half ghost · 0
-   centre ghost · 2R
+   gate ghost · 0
+   upright ghost · 2.5R
    R half ghost · 2R
    centre slide back ghost · 2.4R`,
   `speed 143
    centre turn back · 0
-   centre turn back ghost · 2.4R
-   centre turn back · 2.4R
-   centre ghost · 2.4R`,
+   centre turn back ghost · 1.25R
+   centre turn back · 1.25R
+   short ghost · 2.4R`,
 ];
 
-/** The four chapters, in the order they are played: chapter I speeds up gently at each wave's end, the others fully. */
+/** The four chapters, in the order they are played: chapter I never speeds up at a wave's end, the others lightly. */
 export const CHAPTERS: readonly Chapter[] = Object.freeze([
   parseChapter('I', 'DRIFT', DRIFT, RAMP.gentle),
   parseChapter('II', 'SLIDE', SLIDE),
@@ -855,14 +901,18 @@ export const CHAPTERS: readonly Chapter[] = Object.freeze([
 export const ENDLESS_SEED = 0x1633;
 
 /**
- * How endless waves are drawn: one to `maxGroups` of `ENDLESS_GROUPS`, each `spacing` behind the one
- * before (2.5 R: at the top speed, sped up, room for a quarter turn and a person's reaction to
- * spare), the first `lead` above the playfield; the speed starts at `speed`, 145 px/s, just above
- * chapter IV's fastest (143), rises by one every `rise` waves and stops at `topSpeed`, 155 px/s, so
- * every wave stays passable for a person however long the run. Each speed is the wave's own, the one
- * it falls at until its speed-up, as a chapter wave's is; the speed-up is the chapters' own. A wave
- * whose groups would all ask one still pose draws its last group again, so none is passed held
- * still; one longer than `longest` seconds drops its last group, never its first.
+ * How endless waves are drawn: one to `maxGroups` of `ENDLESS_GROUPS`, the first `lead` above the
+ * playfield and each the least room behind the one before that the spacing rule allows at the wave's
+ * top speed (its speed-up counted), never closer than `closest` (1.25 R, as Duet's endless packs its
+ * obstacles), with `spare` R more (and `gate` R more beside a gate, which holds the pair upright
+ * while it crosses the whole circle), rounded up to a twentieth of R: 1.25 R between two groups of
+ * one pose, 2.35 R before a change of pose or a turn at the ceiling. The speed starts at `speed`,
+ * 145 px/s, just above chapter IV's fastest (143), rises by one every `rise` waves and stops at
+ * `topSpeed`, 170 px/s (about 3 R a second, Duet's endless pace) from the 51st wave on, so every wave
+ * stays passable for a person however long the run. Each speed is the wave's own, the one it falls at
+ * until its speed-up, as a chapter wave's is; the speed-up is the chapters' own. A wave whose groups
+ * would all ask one still pose draws its last group again, so none is passed held still; one longer
+ * than `longest` seconds drops its last group, never its first.
  *
  * From wave `ghosts.from` (counted from 0), each obstacle is a ghost by chance, `ghosts.start` at
  * first, `ghosts.rise` more each wave, never more than `ghosts.most`, and never every obstacle of a
@@ -870,10 +920,25 @@ export const ENDLESS_SEED = 0x1633;
  * themed as chapter IV's late waves are: rods alone, or every obstacle a ghost.
  */
 const ENDLESS = Object.freeze({
-  speed: 145, rise: 5, topSpeed: 155, maxGroups: 3, spacing: '2.5R', lead: '0.25R', longest: 8,
+  speed: 145, rise: 2, topSpeed: 170, maxGroups: 3, closest: 1.25, spare: 0.1, gate: 0.25, lead: '1R', longest: 8,
   ghosts: Object.freeze({ from: 10, start: 0.1, rise: 0.002, most: 0.4 }),
   themes: Object.freeze({ from: 10, every: 8 }),
 });
+
+/** The speed endless wave `n` (from 0) is written at: from `ENDLESS.speed`, one more every `rise` waves, up to `topSpeed`. */
+export function endlessSpeed(n: number): number {
+  return Math.min(ENDLESS.topSpeed, ENDLESS.speed + Math.floor(n / ENDLESS.rise));
+}
+
+/** The room, in R as the wave text writes it, an endless wave at `speed` leaves between a group ending in `before` and one starting with `after`. */
+function gapOf(before: string, after: string, speed: number): string {
+  const [from, to] = [readWords(before), readWords(after)];
+  const need = turnSeconds(from, to) * speed * (1 + RAMP.full) / R;
+  // A gate holds the pair upright while it crosses the whole circle: a change next to one asks a little more.
+  const gate = from.kind === 'gate' || to.kind === 'gate' ? ENDLESS.gate : 0;
+  const room = need > 0 ? Math.max(ENDLESS.closest, need + ENDLESS.spare + gate) : ENDLESS.closest;
+  return `${(Math.ceil(room * 20 - 1e-9) / 20).toFixed(2)}R`;
+}
 
 /** The pose a still obstacle asks, or `turning` for a moving one, which a turn of the pair dodges. */
 const askOf = (p: Pick<Piece, 'kind' | 'motion'>): Pose | 'turning' => (p.motion === 'still' ? POSE[p.kind].pose : 'turning');
@@ -926,10 +991,15 @@ export function secondsOf(wave: Wave): number {
 /** The groups of rods alone: a turning wave is drawn from them alone. */
 const TURNING_GROUPS = ENDLESS_GROUPS.filter((g) => g.every((line) => readWords(splitLine(line).words).motion === 'turn'));
 
+/** A group's line read back to its words alone. */
+const wordsOf = (line: string | undefined): string => splitLine(line ?? '').words;
+
 /** A wave of `groups`, at `speed`, each obstacle marked a ghost where `ghosts` says, group by group. */
 function endlessOf(groups: readonly (readonly string[])[], ghosts: readonly (readonly boolean[])[], speed: number, where: string): Wave {
   const lines = groups.flatMap((group, i) => group.map((line, k) => {
-    const written = k === 0 ? `${line} · ${i === 0 ? ENDLESS.lead : ENDLESS.spacing}` : line;
+    const before = groups[i - 1];
+    const space = before ? gapOf(wordsOf(before.at(-1)), wordsOf(line), speed) : ENDLESS.lead;
+    const written = k === 0 ? `${line} · ${space}` : line;
     return ghosts[i]?.[k] ? written.replace(' · ', ' ghost · ') : written;
   }));
   return parseWave([`speed ${speed}`, ...lines].join('\n'), where);
@@ -978,7 +1048,7 @@ export function endlessWave(n: number): Wave {
   const groups = drawGroups(theme === 'turning' ? TURNING_GROUPS : ENDLESS_GROUPS, random(seed));
   const chance = random(seed ^ 0x6057), share = ghostShare(n);
   const ghosts = groups.map((g) => g.map(() => theme === 'ghost' || chance() < share));
-  const speed = Math.min(ENDLESS.topSpeed, ENDLESS.speed + Math.floor(n / ENDLESS.rise));
+  const speed = endlessSpeed(n);
   const where = `endless, wave ${n + 1}`;
   trimmed(groups, ghosts, speed, where);
   if (theme !== 'ghost' && ghosts.flat().every(Boolean) && ghosts[0]) ghosts[0][0] = false;
