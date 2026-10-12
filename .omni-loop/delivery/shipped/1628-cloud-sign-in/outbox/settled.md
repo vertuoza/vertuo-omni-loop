@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Became: ADR-0106
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Changing the wait is a constant in galaxy; dropping the hold for something else 
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-103, P-PRODUCT-87
 
 ### The answer, as it was given
 
@@ -175,6 +177,7 @@ A rule in one database function and an optional field of the sign-in link; chang
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-104, P-PRODUCT-88
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ One condition in one database function; nothing stored changes.
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Became: ADR-0107
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ Ending it at the sign-in service too means revoking through galaxy's server inst
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Became: ADR-0108
 
 ### The answer, as it was given
 
@@ -408,6 +413,7 @@ Switching to the shared key is one line in galaxy; every token made under the ot
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Became: ADR-0109
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ Contained in galaxy's sign-in and one route; the two slices that read it follow 
 - Raised: 2026-10-11
 - Slice: s2
 - Wave: 1
+- Became: ADR-0110
 
 ### The answer, as it was given
 
@@ -563,6 +570,7 @@ Renaming a field is a one-line change on either side, before the feature merges.
 - Raised: 2026-10-11
 - Slice: s2
 - Wave: 1
+- Stays here: Where the marker sits is a layout choice, cheap to move within one function; no lasting product guarantee to record.
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ Moving it is a change to one function of the status line command.
 - Raised: 2026-10-11
 - Slice: s3
 - Wave: 2
+- Stays here: The choice is how many lines show the token, which is presentation only; it is one constant line in setup-token.ts with no lasting product guarantee to keep.
 
 ### The answer, as it was given
 
@@ -718,6 +727,7 @@ One constant line in kit/bin/commands/setup-token.ts and its test; the guide pag
 - Raised: 2026-10-11
 - Slice: s4
 - Wave: 2
+- Stays here: A local mechanism choice, cheap to change later behind a marker; it states no lasting product guarantee or architecture worth a record.
 
 ### The answer, as it was given
 
@@ -796,6 +806,7 @@ A constant: the call moves behind a marker in a few lines once the way back allo
 - Raised: 2026-10-11
 - Slice: s4
 - Wave: 2
+- Stays here: This is a choice of wording held in one constant. Entries never fix exact copy, and no lasting behaviour beyond the words needs keeping.
 
 ### The answer, as it was given
 
@@ -874,6 +885,7 @@ A constant: one string.
 - Raised: 2026-10-11
 - Slice: s5
 - Wave: 3
+- Stays here: This is a one-off choice about slice scope that is cheap to revert. No lasting product guarantee or build decision comes from it.
 
 ### The answer, as it was given
 

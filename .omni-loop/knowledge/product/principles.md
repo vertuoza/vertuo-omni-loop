@@ -719,3 +719,21 @@ Why: An entry nobody has confirmed is not a law yet, and a copied knowledge base
 Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s1-01-require-proof-skips-proposed-and-copies, PRD #1342
 Decided: @pierrederval, 2026-10-10
 Merged: @pierrederval, 2026-10-10, PR #1343
+
+## P-PRODUCT-87
+
+A terminal token always acts in exactly one workspace, chosen the same predictable way every time.
+
+Why: A person in several workspaces must be able to tell where their terminal acts, so its work never lands in an unexpected workspace.
+Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-02-token-workspace, PRD #1628
+Merged: @pierrederval, 2026-10-12, PR #1629
+Proposed: harvest 2026-10-12
+
+## P-PRODUCT-88
+
+A person's terminal sign-in is seen only by them and by those who may revoke it, never by the wider crew.
+
+Why: Terminal tokens are personal credentials, unlike shared business links, so showing them to every member would expose access that is not theirs.
+Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-03-who-sees-tokens, PRD #1628
+Merged: @pierrederval, 2026-10-12, PR #1629
+Proposed: harvest 2026-10-12
