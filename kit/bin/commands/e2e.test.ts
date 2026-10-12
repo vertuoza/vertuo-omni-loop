@@ -23,13 +23,14 @@ async function run(args: string[], config: string, files: Record<string, string>
   return { code, out: out.join(''), err: err.join('') };
 }
 
-const TEST = { 'e2e/rank.spec.ts': "test('rank', { tag: 'prd-7' }, () => {})" };
+const TEST = { 'e2e/rank.spec.ts': "test('rank', { tag: 'prd-7' }, async () => { await agent.act('click Rank') })" };
+const NO_AGENT = { 'e2e/rank.spec.ts': "test('rank', { tag: 'prd-7' }, async () => { await page.goto('/') })" };
 
 describe('omni e2e status', () => {
   it('prints the tagged tests with their recordings and exits 0 when all have one', async () => {
     const { code, out } = await run(['status', '7'], ON, { ...TEST, 'e2e/.e2e/cache/a.json': trace('rank.spec.ts') });
     expect(JSON.parse(out)).toEqual({
-      prd: 7, dir: 'e2e', tests: [{ id: 'rank.spec.ts', file: 'e2e/rank.spec.ts', recording: true, recordings: ['e2e/.e2e/cache/a.json'] }],
+      prd: 7, dir: 'e2e', tests: [{ id: 'rank.spec.ts', file: 'e2e/rank.spec.ts', recording: true, expected: true, recordings: ['e2e/.e2e/cache/a.json'] }],
     });
     expect(code).toBe(0);
   });
@@ -38,6 +39,12 @@ describe('omni e2e status', () => {
     const { code, out } = await run(['status', '7'], ON, TEST);
     expect(JSON.parse(out)).toMatchObject({ tests: [{ recording: false }] });
     expect(code).toBe(1);
+  });
+
+  it('exits 0 for a test with no agent step and no recording, saying none is expected', async () => {
+    const { code, out } = await run(['status', '7'], ON, NO_AGENT);
+    expect(JSON.parse(out)).toMatchObject({ tests: [{ recording: false, expected: false }] });
+    expect(code).toBe(0);
   });
 
   it('fails naming a recording that is not trace-1 or does not read', async () => {
