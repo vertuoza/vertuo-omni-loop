@@ -43360,7 +43360,7 @@ function guardFiles(root, files) {
   for (const file2 of [...new Set(files)].sort()) {
     if (inCache(file2)) continue;
     if (file2.split("/").pop() === SESSION_FILE) {
-      findings2.push({ file: file2, line: 1, kind: "saved session" });
+      findings2.push({ file: file2, line: 1, kind: "saved session file" });
       continue;
     }
     let text14;
@@ -43453,10 +43453,11 @@ function readRecordings(root, dir) {
     return parseRecording(name3, text14);
   });
 }
+var AGENT_CALL = /(?<![\w$.])agent\s*\.\s*\w+/;
 function readTaggedTests(root, dir, prd2) {
   const tag = new RegExp(`(?<![\\w-])prd-${prd2}(?![\\w-])`);
   const base = join62(root, dir);
-  return filesUnder3(base, [".ts", ".tsx", ".js", ".mjs", ".cjs"]).filter((path) => !relative3(base, path).split(sep).includes(".e2e")).filter((path) => tag.test(readFileSync47(path, "utf8"))).map((path) => ({ id: posix6(relative3(base, path)), file: posix6(relative3(root, path)) }));
+  return filesUnder3(base, [".ts", ".tsx", ".js", ".mjs", ".cjs"]).filter((path) => !relative3(base, path).split(sep).includes(".e2e")).map((path) => ({ path, text: readFileSync47(path, "utf8") })).filter(({ text: text14 }) => tag.test(text14)).map(({ path, text: text14 }) => ({ id: posix6(relative3(base, path)), file: posix6(relative3(root, path)), agent: AGENT_CALL.test(text14) }));
 }
 
 // kit/lib/e2e/heals.ts
@@ -43636,10 +43637,13 @@ function belongsTo(testId, id) {
   return testId === id || [":", ">", "#"].some((separator) => testId.startsWith(`${id}${separator}`));
 }
 function testStatus(tests, recordings) {
-  return tests.map(({ id, file: file2 }) => {
+  return tests.map(({ id, file: file2, agent }) => {
     const files = recordings.filter((recording) => belongsTo(recording.testId, id)).map((recording) => recording.file);
-    return { id, file: file2, recording: files.length > 0, recordings: files };
+    return { id, file: file2, recording: files.length > 0, expected: agent, recordings: files };
   });
+}
+function missingRecording(status5) {
+  return status5.some((test) => test.expected && !test.recording);
 }
 
 // kit/bin/commands/e2e.ts
@@ -43656,7 +43660,7 @@ function status(args, { ctx, stdout, stderr }) {
   try {
     const tests = testStatus(readTaggedTests(ctx.root, dir, prd2), readRecordings(ctx.root, dir));
     println(stdout, JSON.stringify({ prd: prd2, dir, tests }, null, 2));
-    return tests.some((test) => !test.recording) ? 1 : 0;
+    return missingRecording(tests) ? 1 : 0;
   } catch (error62) {
     if (!(error62 instanceof RecordingError)) throw error62;
     println(stderr, `omni e2e: ${messageOf(error62)}`);
@@ -45008,7 +45012,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["omni e2e status <prd>", "omni e2e heals <prd> [--head <ref>]", "omni e2e hold <prd>", "omni e2e confirm <prd>", "omni e2e reject <prd>", "omni e2e guard <prd>"],
     summary: "which e2e tests of a PRD have a recording, and which steps healed (beta)",
-    detail: "status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, reaches no network and calls no model. heals pairs the recordings steps, by test id and call index, at the merge-base of the default branch and the head, and at the head, which is the PRD feature branch unless --head names another ref (a sub-PR branch): a ref git does not know is a usage error naming it, and on a first pass, with no recordings at the merge-base, every step is new. It lists each as healed (old and new action, and the summary), new or removed, as JSON; an identical step is not listed. Each healed step carries screenshots, a before and an after: the framework keeps no screenshot per step, so each side says kept false and why. The same refusals hold for both sides. hold moves each healed recording of the working tree out of the branch, into a folder inside the git directory that no commit holds, and puts the committed recording back, so a commit of e2e.dir holds only unchanged or new recordings. confirm commits the held recordings and notes them in e2e.dir/.e2e/confirmed.json, so heals no longer lists them until the screen changes again. reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red. guard reads the files of e2e.dir (the .e2e/cache recordings apart) and the files this branch changed since the default branch, and exits 1 naming file:line and the kind, never the value, for a password, token, key or session-state shape; storage-state.json is refused by name. With e2e.enabled false it says so in one line and exits 1, reading no file."
+    detail: "status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each with whether a recording of it exists in .e2e/cache (recording) and whether one is expected (expected: false when the file holds no agent. call, since only an agent step records), and exits 1 when a test that expects a recording has none; a test with no agent step passes. A recording that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, reaches no network and calls no model. heals pairs the recordings steps, by test id and call index, at the merge-base of the default branch and the head, and at the head, which is the PRD feature branch unless --head names another ref (a sub-PR branch): a ref git does not know is a usage error naming it, and on a first pass, with no recordings at the merge-base, every step is new. It lists each as healed (old and new action, and the summary), new or removed, as JSON; an identical step is not listed. Each healed step carries screenshots, a before and an after: the framework keeps no screenshot per step, so each side says kept false and why. The same refusals hold for both sides. hold moves each healed recording of the working tree out of the branch, into a folder inside the git directory that no commit holds, and puts the committed recording back, so a commit of e2e.dir holds only unchanged or new recordings. confirm commits the held recordings and notes them in e2e.dir/.e2e/confirmed.json, so heals no longer lists them until the screen changes again. reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red. guard reads the files of e2e.dir (the .e2e/cache recordings apart) and the files this branch changed since the default branch, and exits 1 naming file:line and the kind, never the value, for a password, token, key or session-state shape; storage-state.json is refused by name. With e2e.enabled false it says so in one line and exits 1, reading no file."
   },
   {
     name: "statusline",
