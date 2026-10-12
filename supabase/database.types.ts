@@ -3153,7 +3153,7 @@ export type Database = {
         Args: {
           p_now: string
           p_payload: string
-          p_payload_expires_at: string | null
+          p_payload_expires_at: string
           p_purpose: string
           p_user_code: string
         }
@@ -3166,26 +3166,26 @@ export type Database = {
       ask_cli_device_find: {
         Args: { p_user_code: string }
         Returns: {
-          days: number | null
+          days: number
           expires_at: string
-          last_polled_at: string | null
-          name: string | null
+          last_polled_at: string
+          name: string
           poll_interval: number
           purpose: string
           status: string
-          workspace: string | null
+          workspace: string
         }[]
       }
       ask_cli_device_issue: {
         Args: {
-          p_days: number | null
+          p_days: number
           p_device_hash: string
           p_expires_at: string
-          p_name: string | null
+          p_name: string
           p_now: string
           p_purpose: string
           p_user_code: string
-          p_workspace: string | null
+          p_workspace: string
         }
         Returns: boolean
       }
@@ -3196,21 +3196,21 @@ export type Database = {
       ask_cli_device_read: {
         Args: { p_device_hash: string }
         Returns: {
-          days: number | null
+          days: number
           expires_at: string
-          last_polled_at: string | null
-          name: string | null
+          last_polled_at: string
+          name: string
           poll_interval: number
           purpose: string
           status: string
-          workspace: string | null
+          workspace: string
         }[]
       }
       ask_cli_device_take: {
         Args: { p_device_hash: string }
         Returns: {
           payload: string
-          payload_expires_at: string | null
+          payload_expires_at: string
           purpose: string
         }[]
       }

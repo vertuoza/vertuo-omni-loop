@@ -8,6 +8,7 @@ import type { DevicePayload, DeviceRow, DeviceStore } from './device.contract';
 // here: src/ask/device.service.ts decides, and each call throws when the database fails.
 
 type Db = SupabaseClient<Database>;
+type Args<F extends keyof Database['public']['Functions']> = Database['public']['Functions'][F]['Args'];
 
 const RowSchema = z.object({
   status: z.enum(['pending', 'approved', 'denied']),
@@ -47,7 +48,9 @@ export function deviceRepository(db: Db): DeviceStore {
         p_device_hash: device_hash, p_user_code: user_code, p_purpose: request.purpose,
         p_name: token?.name ?? null, p_days: token?.days ?? null, p_workspace: token?.workspace ?? null,
         p_now: now, p_expires_at: expires_at,
-      }));
+        // A signin request has no name, days or workspace: the SQL takes null there, which the generated
+        // types never say of a function's arguments.
+      } as Args<'ask_cli_device_issue'>));
       return stored === true ? 'issued' : 'taken';
     },
     async read(deviceHash) {
@@ -66,7 +69,8 @@ export function deviceRepository(db: Db): DeviceStore {
     async approve(userCode, purpose, payload, payloadExpiresAt, at) {
       const done = called('ask_cli_device_approve', await db.rpc('ask_cli_device_approve', {
         p_user_code: userCode, p_purpose: purpose, p_payload: payload, p_payload_expires_at: payloadExpiresAt, p_now: at,
-      }));
+        // A signin code has no payload expiry: null, as for the issue's token fields above.
+      } as Args<'ask_cli_device_approve'>));
       return done === true;
     },
     async deny(userCode, at) {
