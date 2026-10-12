@@ -2,11 +2,14 @@
 // (scripts/vercel-ignore.sh) and the preview debounce (scripts/preview-debounce.ts) both ask it.
 //
 // - galaxy builds unless every changed path is on its never list: a deny list, so a folder galaxy
-//   starts reading builds by default. The root package.json stays an input (the sidebar shows its
-//   version), and so do .omni-loop/config.yml and the knowledge registers it serves at runtime.
+//   starts reading builds by default. .omni-loop/config.yml and the knowledge registers it serves at
+//   runtime stay inputs. The release commit's stamps (kit/dist/, the plugin manifests) are not, and the
+//   root package.json counts only beyond its "version": the sidebar shows that version, so after a
+//   merge that changes nothing galaxy deploys, it lags until the next one that does (PRD 1646).
 // - omni-app builds only when a path on its list changed: an allow list, exact because its functions
 //   are the committed bundles under apps/omni-app/api/, which src/vercel-functions.test.ts keeps equal
-//   to a fresh build. The root package.json counts only when a line other than "version" changed.
+//   to a fresh build.
+// - For both, the root package.json counts only when a line other than "version" changed.
 // - On any branch but main, every path under .omni-loop/ is never an input, for both projects.
 //
 // It runs in Vercel's ignore step, before any install: Node built-ins only.
@@ -30,6 +33,8 @@ export const GALAXY_NEVER: readonly Rule[] = [
   '.omni-loop/knowledge/playbook/',
   '.omni-loop/knowledge/README.md',
   'apps/omni-app/',
+  'kit/dist/',
+  '*/.claude-plugin/plugin.json',
   '.github/',
   'mutation/',
   'fallow/',
@@ -46,7 +51,7 @@ export const GALAXY_NEVER: readonly Rule[] = [
   '*.test.mjs',
 ];
 
-/** Paths whose change can reach what omni-app deploys (the root package.json is judged apart). */
+/** Paths whose change can reach what omni-app deploys. */
 const OMNI_APP_INPUTS: readonly Rule[] = ['apps/omni-app/', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'];
 
 /** On a branch other than main, a change here never previews. */
@@ -86,14 +91,14 @@ export function affects(project: string, paths: readonly string[], options: Opti
   const changed = paths.map((p) => p.trim()).filter((p) => p !== '');
   if (changed.length === 0) return { affects: true, path: null };
   const relevant = options.branch ? changed.filter((p) => !onList(BRANCH_NEVER, p)) : changed;
+  const packageJsonCounts = options.packageJsonDiff === undefined || packageJsonChangesBeyondVersion(options.packageJsonDiff);
+  const counts = (p: string): boolean => (p === 'package.json' ? packageJsonCounts : true);
   if (project === 'galaxy') {
-    const hit = relevant.find((p) => !onList(GALAXY_NEVER, p));
+    const hit = relevant.find((p) => !onList(GALAXY_NEVER, p) && counts(p));
     return { affects: hit !== undefined, path: hit ?? null };
   }
   if (project === 'omni-app') {
-    const hit = relevant.find((p) =>
-      onList(OMNI_APP_INPUTS, p)
-      || (p === 'package.json' && (options.packageJsonDiff === undefined || packageJsonChangesBeyondVersion(options.packageJsonDiff))));
+    const hit = relevant.find((p) => (onList(OMNI_APP_INPUTS, p) || p === 'package.json') && counts(p));
     return { affects: hit !== undefined, path: hit ?? null };
   }
   return { affects: true, path: null };
