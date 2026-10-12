@@ -32,7 +32,14 @@ A merge to `main` ships:
   runs, and the plugin marketplace serves `kit/plugin` (`.claude-plugin/marketplace.json`): a merge
   changes what both hand out.
 
-TODO(human): the arcade (`apps/galaxy`) and the GitHub App (`apps/omni-app`) are Vercel projects imported from this repository (their READMEs). Does a merge to `main` deploy both to production?
+- **The arcade and the GitHub App.** `apps/galaxy` and `apps/omni-app` are Vercel projects imported
+  from this repository. A merge to `main` deploys each to production through the release commit
+  that follows it, and only the project whose inputs changed since its last production deploy
+  (PRD 1646, `scripts/vercel-ignore.sh`): a merge of documents alone deploys neither. When the
+  `release` workflow fails, the `release-fallback` workflow deploys `main` through each project's
+  Deploy Hook.
+  `VERCEL_FORCE_BUILD=1` on a project makes it build every deployment
+  ([apps/galaxy/README.md › When Vercel builds](../../../apps/galaxy/README.md#8-when-vercel-builds)).
 
 ## How a release happens
 <!-- slot: how · optional · by: terraform -->

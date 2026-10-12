@@ -1,0 +1,43 @@
+# The Vercel previews of a ready pull request into main (PRD 1646). Vercel's own Git deployments of a
+# branch are skipped by scripts/vercel-ignore.sh; this workflow is how a preview gets built. Once a
+# pull request is ready (and after each push to it), scripts/preview-debounce.sh waits for its pushes
+# to settle, then, for each project its files reach, adds the check run vercel/preview/<project> to
+# the head commit and asks Vercel to build that commit from Git. A newer push cancels a run still waiting (the
+# concurrency group), so a burst of agent pushes builds one preview. Drafts, pull requests into a
+# feature branch (slices, landings) and dependabot never preview.
+#
+# Needs the secrets VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID_GALAXY, VERCEL_PROJECT_ID_OMNI_APP
+# and the variable VERCEL_GITHUB_REPO_ID (the spec's Dashboard steps): without them a run that has a
+# preview to build fails, red on the pull request.
+name: preview-debounce
+on:
+  pull_request:
+    branches: [main]
+    types: [ready_for_review, synchronize]
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+concurrency:
+  group: preview-${{ github.head_ref }}
+  cancel-in-progress: true
+jobs:
+  preview:
+    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'dependabot/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          DEBOUNCE_PR: ${{ github.event.pull_request.number }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+          VERCEL_PROJECT_ID_GALAXY: ${{ secrets.VERCEL_PROJECT_ID_GALAXY }}
+          VERCEL_PROJECT_ID_OMNI_APP: ${{ secrets.VERCEL_PROJECT_ID_OMNI_APP }}
+          VERCEL_GITHUB_REPO_ID: ${{ vars.VERCEL_GITHUB_REPO_ID }}
+        run: bash scripts/preview-debounce.sh

@@ -6,6 +6,9 @@ import {
   cliCallbackPath,
   cliSignInPath,
   cliSignInReturn,
+  deviceCallbackPath,
+  devicePagePath,
+  deviceSignInReturn,
   exchangeToken,
   hashCode,
   loopbackUrl,
@@ -16,6 +19,8 @@ import {
   type TokenClient,
   type TokenDeps,
 } from './cli-code';
+import { fakeStore } from './device.fake';
+import { deviceService } from './device.service';
 import { present } from './test/test-item';
 
 vi.mock('server-only', () => ({}));
@@ -163,7 +168,16 @@ function world() {
     return { status: response.status, headers: response.headers, body: Token.parse(await response.json()) };
   };
 
-  return { clock, codes, revoked, calls, state, client, callbackDeps, tokenDeps, signIn, codeFor, newSession, token, post };
+  /** GitHub signs `account` in on the device page's card, and the callback's device= branch runs over
+   * `devices`: where the browser goes next. */
+  async function approveDevice(account: Account, devices: ReturnType<typeof deviceService> | null, query: string) {
+    const google = `google-${account.id}-${issued}`;
+    googleCodes.set(google, account);
+    const approve = devices ? (userCode: string, code: string) => devices.approve(userCode, 'signin', code) : null;
+    return new URL(await deviceSignInReturn(new URL(`${ORIGIN}/auth/callback${query}&code=${google}`), ORIGIN, { ...callbackDeps, approve }));
+  }
+
+  return { clock, codes, revoked, calls, state, client, callbackDeps, tokenDeps, signIn, codeFor, approveDevice, newSession, token, post };
 }
 
 describe('the link omni signin opens', () => {
@@ -455,5 +469,118 @@ describe('POST /api/ask/token', () => {
     w.state.authDown = false;
     w.state.rpcFails = true;
     expect((await w.token({ code })).status).toBe(500);
+  });
+});
+
+describe('the auth callback\'s device= branch, for a terminal the browser cannot reach (PRD 1660)', () => {
+  /** A device sign-in on a fake store, on the world's clock, with one pending signin request. */
+  async function pending(w: ReturnType<typeof world>) {
+    const { store, rows } = fakeStore();
+    // The spec's own example, WXYZ-4821, holds a Y and a 1, which the alphabet leaves out.
+    const devices = deviceService(store, { now: () => w.clock.now, userCode: () => 'WXTZ4825' });
+    const issued = await devices.issue({ purpose: 'signin' });
+    return { devices, rows, issued };
+  }
+
+  it('asks GitHub to come back through the callback with the user code in place of port and state', () => {
+    const path = new URL(`${ORIGIN}${deviceCallbackPath('WXTZ-4825')}`);
+    expect(path.pathname).toBe('/auth/callback');
+    expect(Object.fromEntries(path.searchParams)).toEqual({ next: 'ask-cli', device: 'WXTZ-4825' });
+    expect(Object.fromEntries(new URL(`${ORIGIN}${deviceCallbackPath('WXTZ-4825', 'token')}`).searchParams))
+      .toEqual({ next: 'ask-cli', device: 'WXTZ-4825', purpose: 'token' });
+    expect(devicePagePath({ user_code: 'WXTZ-4825', yes: '1' })).toBe('/ask/device?user_code=WXTZ-4825&yes=1');
+    expect(devicePagePath()).toBe('/ask/device');
+  });
+
+  it('issues the one-time code, attaches it to the pending request and sends the browser to done, never to 127.0.0.1', async () => {
+    const w = world();
+    const { devices, issued } = await pending(w);
+    const back = await w.approveDevice(ADA, devices, '?next=ask-cli&device=wxtz-4825');
+    expect(back.origin).toBe(ORIGIN);
+    expect(`${back.pathname}${back.search}`).toBe('/ask/device?done=1');
+    expect(back.toString()).not.toContain('127.0.0.1');
+    expect(back.searchParams.has('code')).toBe(false);
+    // The poll hands the code over once, and it redeems through /api/ask/token unchanged.
+    const answer = await devices.poll(issued.device_code);
+    expect(answer.status).toBe('approved');
+    const code = present('code' in answer ? answer.code : null, 'answer.code');
+    expect([...w.codes.keys()]).toEqual([hashCode(code)]);
+    expect(await devices.poll(issued.device_code)).toEqual({ status: 'expired' });
+    const redeemed = await w.token({ code, repo: 'vertuoza/api' });
+    expect(redeemed.status).toBe(200);
+    expect(redeemed.body).toMatchObject({ login: 'ada', workspace: { slug: 'vertuoza', name: 'Vertuoza' } });
+    expect(w.revoked).toEqual([]);
+  });
+
+  it('joins an account in no workspace as the port= branch does: the server issues its code', async () => {
+    const w = world();
+    const { devices, issued } = await pending(w);
+    const back = await w.approveDevice(NED, devices, '?next=ask-cli&device=WXTZ4825');
+    expect(back.pathname).toBe('/ask/device');
+    expect(back.searchParams.get('done')).toBe('1');
+    const answer = await devices.poll(issued.device_code);
+    const code = present('code' in answer ? answer.code : null, 'answer.code');
+    expect(w.calls.issue).toEqual([hashCode(code), `server:${hashCode(code)}`]);
+  });
+
+  it('attaches nothing to a request no longer pending, ends the sign-in, and shows the expired state', async () => {
+    const w = world();
+    const { devices, issued } = await pending(w);
+    expect(await devices.deny('WXTZ-4825')).toBe(true);
+    const back = await w.approveDevice(ADA, devices, '?next=ask-cli&device=WXTZ-4825');
+    expect(`${back.pathname}${back.search}`).toBe('/ask/device?user_code=WXTZ-4825');
+    expect(w.revoked).toEqual(['access-1']);
+    expect(await devices.poll(issued.device_code)).toEqual({ status: 'denied' });
+
+    const late = world();
+    const second = await pending(late);
+    late.clock.now += 11 * 60_000;
+    const after = await late.approveDevice(ADA, second.devices, '?next=ask-cli&device=WXTZ-4825');
+    expect(after.searchParams.get('user_code')).toBe('WXTZ-4825');
+    expect(after.searchParams.has('done')).toBe(false);
+  });
+
+  it('comes back to the confirmed device page with the reason when GitHub refuses or the code cannot be handed over', async () => {
+    const w = world();
+    const { devices } = await pending(w);
+    const refused = new URL(await deviceSignInReturn(
+      new URL(`${ORIGIN}/auth/callback?next=ask-cli&device=WXTZ-4825&error=access_denied&error_description=Not+today`),
+      ORIGIN, { ...w.callbackDeps, approve: (u, c) => devices.approve(u, 'signin', c) },
+    ));
+    expect(refused.pathname).toBe('/ask/device');
+    expect(Object.fromEntries(refused.searchParams)).toEqual({ user_code: 'WXTZ-4825', yes: '1', signin_error: 'Not today' });
+    expect(w.calls.exchange).toEqual([]);
+
+    w.state.issueFails = true;
+    const unstored = await w.approveDevice(ADA, devices, '?next=ask-cli&device=WXTZ-4825');
+    expect(unstored.searchParams.get('yes')).toBe('1');
+    expect(unstored.searchParams.get('signin_error')).toMatch(/omni signin/);
+    expect(w.revoked).toEqual(['access-1']);
+  });
+
+  it('ends the sign-in and says so when the request cannot be reached, or this deployment has no device sign-in', async () => {
+    const w = world();
+    const { store } = fakeStore();
+    const devices = deviceService(store, { now: () => w.clock.now, userCode: () => 'WXTZ4825' });
+    await devices.issue({ purpose: 'signin' });
+    const down = { ...devices, approve: () => Promise.reject(new Error('ask_cli_device: the database is down')) };
+    const back = await w.approveDevice(ADA, down, '?next=ask-cli&device=WXTZ-4825');
+    expect(back.searchParams.get('signin_error')).toMatch(/omni signin/);
+    expect(w.revoked).toEqual(['access-1']);
+    const none = await w.approveDevice(ADA, null, '?next=ask-cli&device=WXTZ-4825');
+    expect(none.searchParams.get('signin_error')).toMatch(/omni signin/);
+    expect(w.calls.issue).toHaveLength(1);
+  });
+
+  it('exchanges nothing for a malformed user code, and sends the browser to the device page that says so', async () => {
+    const w = world();
+    const { devices } = await pending(w);
+    for (const query of ['?next=ask-cli&device=', '?next=ask-cli&device=WXTZ-48', '?next=ask-cli&device=AEIO-4825', '?next=ask-cli&device=http%3A%2F%2Fevil.example']) {
+      const back = await w.approveDevice(ADA, devices, query);
+      expect(back.origin).toBe(ORIGIN);
+      expect(back.pathname).toBe('/ask/device');
+      expect(back.searchParams.has('done')).toBe(false);
+    }
+    expect(w.calls.exchange).toEqual([]);
   });
 });

@@ -62,7 +62,7 @@ export interface Run {
   readonly started: boolean;
   /** The phase a pause goes back to: play, or a chapter's banner. */
   readonly resume: 'play' | 'chapter';
-  /** The pair's angle, in radians, anticlockwise from the crest's right: the warm orb's; the cool one is opposite. */
+  /** The pair's angle, in radians, anticlockwise from the centre's right: the warm orb's; the cool one is opposite. */
   readonly angle: number;
   /** The time played that is shorter than a sub-step, carried to the next call. */
   readonly carry: number;

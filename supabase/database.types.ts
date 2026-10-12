@@ -432,6 +432,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ask_cli_devices: {
+        Row: {
+          days: number | null
+          device_hash: string
+          expires_at: string
+          last_polled_at: string | null
+          name: string | null
+          payload: string | null
+          payload_expires_at: string | null
+          poll_interval: number
+          purpose: string
+          status: string
+          user_code: string
+          workspace: string | null
+        }
+        Insert: {
+          days?: number | null
+          device_hash: string
+          expires_at: string
+          last_polled_at?: string | null
+          name?: string | null
+          payload?: string | null
+          payload_expires_at?: string | null
+          poll_interval?: number
+          purpose: string
+          status?: string
+          user_code: string
+          workspace?: string | null
+        }
+        Update: {
+          days?: number | null
+          device_hash?: string
+          expires_at?: string
+          last_polled_at?: string | null
+          name?: string | null
+          payload?: string | null
+          payload_expires_at?: string | null
+          poll_interval?: number
+          purpose?: string
+          status?: string
+          user_code?: string
+          workspace?: string | null
+        }
+        Relationships: []
+      }
       ask_rounds: {
         Row: {
           answered_at: string | null
@@ -3102,6 +3147,71 @@ export type Database = {
           expires_at: string
           owner: string
           refresh_token: string
+        }[]
+      }
+      ask_cli_device_approve: {
+        Args: {
+          p_now: string
+          p_payload: string
+          p_payload_expires_at: string | null
+          p_purpose: string
+          p_user_code: string
+        }
+        Returns: boolean
+      }
+      ask_cli_device_deny: {
+        Args: { p_now: string; p_user_code: string }
+        Returns: boolean
+      }
+      ask_cli_device_find: {
+        Args: { p_user_code: string }
+        Returns: {
+          days: number | null
+          expires_at: string
+          last_polled_at: string | null
+          name: string | null
+          poll_interval: number
+          purpose: string
+          status: string
+          workspace: string | null
+        }[]
+      }
+      ask_cli_device_issue: {
+        Args: {
+          p_days: number | null
+          p_device_hash: string
+          p_expires_at: string
+          p_name: string | null
+          p_now: string
+          p_purpose: string
+          p_user_code: string
+          p_workspace: string | null
+        }
+        Returns: boolean
+      }
+      ask_cli_device_polled: {
+        Args: { p_device_hash: string; p_interval: number; p_polled_at: string }
+        Returns: undefined
+      }
+      ask_cli_device_read: {
+        Args: { p_device_hash: string }
+        Returns: {
+          days: number | null
+          expires_at: string
+          last_polled_at: string | null
+          name: string | null
+          poll_interval: number
+          purpose: string
+          status: string
+          workspace: string | null
+        }[]
+      }
+      ask_cli_device_take: {
+        Args: { p_device_hash: string }
+        Returns: {
+          payload: string
+          payload_expires_at: string | null
+          purpose: string
         }[]
       }
       ask_may_answer: { Args: { round: string }; Returns: boolean }

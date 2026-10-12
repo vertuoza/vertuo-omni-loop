@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "ignoreCommand": "cd ../.. && bash scripts/vercel-ignore.sh",
+  "installCommand": "pnpm install --frozen-lockfile --prod --filter @omni/omni-app...",
+  "ignoreCommand": "cd ../.. && bash scripts/vercel-ignore.sh omni-app",
   "functions": {
     "api/github.mjs": {
       "maxDuration": 60
