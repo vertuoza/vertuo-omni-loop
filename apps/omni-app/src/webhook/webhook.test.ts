@@ -2,7 +2,7 @@ import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
+import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, BUDGETS_CHECK_EVENT, BUDGETS_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
   CANON_ACTIONS,
@@ -192,6 +192,13 @@ describe('webhook — the event and action filter', () => {
     const { send } = await deliver({ event: 'check_run', payload });
     expect(send.mock.calls[0]?.[0]).toHaveLength(1);
     expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: APPROVED_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
+  });
+
+  it('turns a re-run of a budgets check run into the budgets check event only (PRD 1679)', async () => {
+    const payload = rerequestedPayload(RERUN_PULLS, { name: 'omni / budgets', external_id: BUDGETS_EXTERNAL_ID });
+    const { send } = await deliver({ event: 'check_run', payload });
+    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
+    expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: BUDGETS_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
   });
 
   it('keeps a re-run of any other check run the outbox check event, whatever its name', () => {

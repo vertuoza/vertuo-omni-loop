@@ -1,5 +1,5 @@
 // The one Inngest client the omni-loop app sends and serves its events through. `/api/github` sends
-// on it, the `outbox-check`, `inbox-check`, `approved-check`, `retro` and `knowledge-harvest` functions are created on it, and `/api/inngest` serves it. The event key and
+// on it, the `outbox-check`, `inbox-check`, `approved-check`, `budgets-check`, `retro` and `knowledge-harvest` functions are created on it, and `/api/inngest` serves it. The event key and
 // the signing key come from the environment (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`), which the
 // SDK reads itself; nothing here names a secret.
 //
@@ -35,6 +35,16 @@ export const APPROVED_CHECK_EVENT = 'omni-loop/approved.check.requested';
 
 /** The `external_id` every approved check run carries, so the webhook tells a re-run of it, whatever `ci.approvedContext` names it. */
 export const APPROVED_EXTERNAL_ID = 'omni-loop/approved';
+
+/**
+ * The event `/api/github` sends when a person re-runs an `omni / budgets` check run (PRD 1679). Every
+ * other time, the `budgets-check` function runs on the outbox check's own event, which it also listens
+ * to: a pull request's actions, and the server event's re-check of a product PRD's pull requests.
+ */
+export const BUDGETS_CHECK_EVENT = 'omni-loop/budgets.check.requested';
+
+/** The `external_id` every budgets check run carries, so the webhook tells a re-run of it. */
+export const BUDGETS_EXTERNAL_ID = 'omni-loop/budgets';
 
 /** The event `/api/github` sends for a merged pull request; the `retro` function qualifies it (PRD 72). */
 export const RETRO_EVENT = 'omni-loop/retro.requested';
