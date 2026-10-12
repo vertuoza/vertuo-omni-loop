@@ -31,3 +31,4 @@
 .agent-row-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
 .agent-row-dead { font-size: 14px; color: var(--ask-muted); font-style: italic; }
 .business-agents { margin-top: 28px; }
+.agent-row-kind { color: var(--ask-ink); font-family: var(--ask-mono); }

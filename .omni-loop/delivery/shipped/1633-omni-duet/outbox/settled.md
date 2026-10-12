@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off test fix for a territory gap in this plan; it changes only expected lists and leaves no lasting rule or design choice to record.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ A constant: two expected lists in two test files. Undoing it is reverting those 
 - Raised: 2026-10-11
 - Slice: s2
 - Wave: 2
+- Stays here: A one-line local choice to touch a file outside the slice's territory; it leaves no lasting rule, invariant or design decision to keep.
 
 ### The answer, as it was given
 
@@ -254,6 +256,7 @@ A constant: the over phase stays, and slice 4 adds the send on entering it and w
 - Raised: 2026-10-11
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-101
 
 ### The answer, as it was given
 
@@ -331,6 +334,7 @@ A constant: one branch in the scene's press handling would send the score and le
 - Raised: 2026-10-11
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-102, P-PRODUCT-86
 
 ### The answer, as it was given
 
@@ -411,6 +415,7 @@ A constant: the numbers sit in one block and the rows in one list, so a follow-u
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off choice about how tests were edited for this feature; it adds no lasting product guarantee, and the laws it touches are already recorded.
 
 ### The answer, as it was given
 

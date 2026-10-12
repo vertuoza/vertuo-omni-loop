@@ -11,6 +11,7 @@ import type { DossierListRow } from '../dossier/store';
 import { ofWork } from '../dossier/page/work';
 import type { FixFacts, FixItem } from '../fixes/list';
 import type { AlertChannels } from '../push/device';
+import type { KitTokensMine } from './terminal-tokens.contract';
 import {
   fixesOf, moreHref, prdsOf, profileStageLinks, pullRequestsOf, reviewsOf, seeAllHref, type Capped, type ProfilePullRequest, type ProfileReview,
 } from './select';
@@ -88,6 +89,16 @@ export interface ProfileAlerts {
   publicKey: string | null;
 }
 
+/** Your terminal tokens (PRD 1628 s4), on your own profile only: where they are read and revoked (the
+ * workspace's id, or the demo), the workspace's slug Make a token acts in, your live kit tokens with your
+ * live count (unreadable when they could not be read), and the moment they were read, in ms. */
+export interface ProfileTerminal {
+  source: { kind: 'demo' } | { kind: 'database'; workspace: string };
+  slug: string;
+  mine: Read<KitTokensMine>;
+  now: number;
+}
+
 export type ProfileValue =
   | { kind: 'not-member'; login: string }
   | { kind: 'unreadable'; login: string }
@@ -97,6 +108,8 @@ export type ProfileValue =
       own: boolean;
       /** Their alert switches, added by the page's server on their own profile (./profile.ts). */
       alerts?: ProfileAlerts;
+      /** Their terminal tokens, added by the page's server on their own profile (./profile.ts). */
+      terminal?: ProfileTerminal;
     };
 
 /** What a profile is drawn from: the board's reads, and the work of the period (unreadable when the

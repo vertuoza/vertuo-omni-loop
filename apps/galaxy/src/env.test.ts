@@ -25,8 +25,19 @@ describe('readEnv, the arcade server\'s environment', () => {
       production: false, building: false, mode: 'demo',
       supabase: null, serviceRole: null, githubApp: null, githubAppSlug: null, githubOAuth: null, openrouter: null,
       stagesSyncSecret: null, stageEventSecret: null, secretsMasterKey: null, constituentJudgeSecret: null,
-      lawJudgeSecret: null, businessRecheckSecret: null, webPush: null, resend: null, demo: null, galaxyUrl: null,
+      lawJudgeSecret: null, businessRecheckSecret: null, webPush: null, resend: null, kitTokenKey: null, demo: null, galaxyUrl: null,
     });
+  });
+
+  it('gives the key that seals a kit token\'s session, 32 bytes of base64, or refuses it naming the variable (PRD 1628)', () => {
+    const key = Buffer.alloc(32, 7);
+    expect(readEnv({ KIT_TOKEN_KEY: key.toString('base64') }).kitTokenKey).toEqual(key);
+    expect(readEnv({ KIT_TOKEN_KEY: ' ' }).kitTokenKey).toBeNull();
+    for (const bad of [Buffer.alloc(16, 7).toString('base64'), 'not base64 at all!', FAKE_SECRET]) {
+      const error = thrown({ KIT_TOKEN_KEY: bad });
+      expect(error.problems.map((problem) => problem.variables)).toEqual([['KIT_TOKEN_KEY']]);
+      expect(error.message).not.toContain(bad);
+    }
   });
 
   it('gives each complete group typed, and the supabase mode', () => {
