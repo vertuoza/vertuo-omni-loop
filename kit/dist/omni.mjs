@@ -37145,6 +37145,31 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
   };
 }
 
+// kit/lib/ask/race.ts
+init_define_OMNI_BUNDLE();
+function firstOf(contenders) {
+  if (contenders.length === 0) return Promise.reject(new Error("a race needs at least one contender: no contender given"));
+  return new Promise((resolve9, reject2) => {
+    let won = false;
+    const failed4 = /* @__PURE__ */ new Set();
+    contenders.forEach((contender) => {
+      contender.result.then(
+        async (value) => {
+          if (won) return;
+          won = true;
+          await Promise.all(contenders.filter((other) => other !== contender && !failed4.has(other)).map(async (other) => other.close()));
+          resolve9(value);
+        },
+        (error62) => {
+          if (won) return;
+          failed4.add(contender);
+          if (failed4.size === contenders.length) reject2(error62 instanceof Error ? error62 : new Error(String(error62)));
+        }
+      ).catch(reject2);
+    });
+  });
+}
+
 // kit/bin/commands/signin.ts
 var ASK_URL_UNSET = "ask mode is not set up for this repository (ask.url)";
 function openInBrowser(url2, { platform = process.platform } = {}) {
@@ -37186,6 +37211,16 @@ var DEVICE_ENDINGS = {
   unreachable: "unreachable",
   closed: "the sign-in was stopped before it came back"
 };
+function endingOf(error62) {
+  if (error62 instanceof DeviceError) return DEVICE_ENDINGS[error62.reason === "unavailable" ? "unreachable" : error62.reason];
+  if (error62 instanceof LoopbackError || error62 instanceof SignInError) return error62.message;
+  return null;
+}
+async function codeOf2(device) {
+  const approval3 = await device.poll();
+  if (!("code" in approval3)) throw new DeviceError("unreachable");
+  return approval3.code;
+}
 async function finishSignIn({ askUrl: askUrl2, repo, fetch, home, stdout, onSignedIn }, code) {
   const { entry: entry3, ...where } = await exchangeCode({ askUrl: askUrl2, code, repo, fetch });
   credentials({ home }).write(credentialsHost(askUrl2), entry3);
@@ -37200,22 +37235,39 @@ async function openQuietly(openBrowser, url2) {
   } catch {
   }
 }
+async function fallbackDevice({ askUrl: askUrl2, fetch }) {
+  try {
+    return await startDevice({ askUrl: askUrl2, purpose: "signin", fetch });
+  } catch (error62) {
+    if (error62 instanceof DeviceError) return null;
+    throw error62;
+  }
+}
 async function signInByLoopback(run) {
   const { askUrl: askUrl2, stdout, stderr, openBrowser, waitMs } = run;
   const state = randomBytes(32).toString("base64url");
   const listener = await startLoopback({ state, timeoutMs: waitMs });
+  const issuing = fallbackDevice(run);
   try {
     const page2 = new URL(askEndpoint(askUrl2, "/ask/signin"));
     page2.search = new URLSearchParams({ port: String(listener.port), state }).toString();
     println(stdout, `Sign in in your browser: ${page2}`);
     await openQuietly(openBrowser, page2.toString());
-    return await finishSignIn(run, await listener.code);
+    const contenders = [{ result: listener.code, close: () => listener.close() }];
+    const device = await issuing;
+    if (device) {
+      println(stdout, `Browser didn't open, or it's on another machine? ${device.url}  (code ${device.userCode})`);
+      contenders.push({ result: codeOf2(device), close: () => device.close() });
+    }
+    return await finishSignIn(run, await firstOf(contenders));
   } catch (error62) {
-    if (!(error62 instanceof LoopbackError) && !(error62 instanceof SignInError)) throw error62;
-    println(stderr, `omni signin: ${error62.message}`);
+    const ending = endingOf(error62);
+    if (ending === null) throw error62;
+    println(stderr, `omni signin: ${ending}`);
     return 1;
   } finally {
     await listener.close();
+    await (await issuing)?.close();
   }
 }
 async function signInByDevice(run) {
@@ -37225,20 +37277,15 @@ async function signInByDevice(run) {
     try {
       println(stdout, `Sign in at ${device.url}`);
       println(stdout, `Check that the page shows ${device.userCode}. Waiting (${Math.max(1, Math.round(device.waitMs / 6e4))} min)\u2026`);
-      const approval3 = await device.poll();
-      if (!("code" in approval3)) throw new DeviceError("unreachable");
-      return await finishSignIn(run, approval3.code);
+      return await finishSignIn(run, await codeOf2(device));
     } finally {
       await device.close();
     }
   } catch (error62) {
-    if (error62 instanceof DeviceError) {
-      if (error62.reason === "unavailable") return null;
-      println(stderr, `omni signin: ${DEVICE_ENDINGS[error62.reason]}`);
-      return 1;
-    }
-    if (!(error62 instanceof SignInError)) throw error62;
-    println(stderr, `omni signin: ${error62.message}`);
+    if (error62 instanceof DeviceError && error62.reason === "unavailable") return null;
+    const ending = endingOf(error62);
+    if (ending === null) throw error62;
+    println(stderr, `omni signin: ${ending}`);
     return 1;
   }
 }
@@ -37258,8 +37305,8 @@ var signin = {
     onSignedIn,
     platform = process.platform
   }) {
-    const { positional, flags } = parseArgs("signin", args, { booleans: ["device"] });
-    if (positional.length > 0) throw usageError("usage: omni signin [--device]");
+    const { positional, flags } = parseArgs("signin", args, { booleans: ["device", "loopback"] });
+    if (positional.length > 0 || flags.device && flags.loopback) throw usageError("usage: omni signin [--device | --loopback]");
     const { askUrl: askUrl2, repo } = signInConfig(cwd, exec);
     if (!askUrl2) {
       println(stderr, ASK_URL_UNSET);
@@ -37275,7 +37322,8 @@ var signin = {
       });
     }
     const run = { askUrl: askUrl2, repo, stdout, stderr, home, openBrowser, fetch, waitMs, onSignedIn };
-    if (chooseFlow(vars.session, platform, flags.device ? "device" : null) === "device") {
+    const forced = flags.device ? "device" : flags.loopback ? "loopback" : null;
+    if (chooseFlow(vars.session, platform, forced) === "device") {
       const ended = await signInByDevice(run);
       if (ended !== null) return ended;
       println(stderr, NO_DEVICE_SIGN_IN);
