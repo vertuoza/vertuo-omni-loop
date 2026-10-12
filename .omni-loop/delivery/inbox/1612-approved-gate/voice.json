@@ -112,6 +112,66 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Still one judge for the terminal and the check, now inside the one approved check product PRDs use.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "omni approval restore shipped as promised; the check's summary tells me to run it on a drift.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Approving or voiding still reruns the check on every open PR, and there is one check, not two.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "No new table and no second function: the repository PRD path folds into PRD 1548's check.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Held stays neutral, but a PRD waiting for approval now fails its check instead of waiting.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "A pull request waiting for approval now fails its check instead of waiting in neutral; if a repository requires the check, that blocks the merge until someone approves.",
+        "citations": [
+          "persona:Irisa"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~"
     }
   ]
 }
