@@ -9,6 +9,7 @@
 // (PRD #149): its summary, or with `--json` the whole document. None of them
 // fails on what a form holds: a dead pointer or a kit default naming an unset config key is a
 // warning, and `omni check kb` grades.
+import { formShowText } from '../../lib/budgets/index.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
@@ -20,8 +21,6 @@ import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
-import type { Decisions } from '../../lib/playbook/decisions.ts';
-import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 import { synchronous } from '../synchronous.ts';
 
 /** The one flag every `omni kb` verb reads. */
@@ -41,29 +40,6 @@ function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo):
   return 0;
 }
 
-/** The decision records as text: one line each, every shared number flagged, the next free one. */
-function recordLines({ dir, records, shared, next }: Decisions): string[] {
-  const lines = [`## Records  [read live from ${dir}]`];
-  if (records.length === 0) lines.push('No decision records yet.');
-  lines.push(...records.map(({ number, file, title }) => `${number}  ${title ?? file}`));
-  lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(', ')}`));
-  lines.push(`Next free number: ${next}`);
-  return lines;
-}
-
-/** One resolved form as text: its title, its file and state, then each section under its label. */
-function showText(resolved: ResolvedForm, records: Decisions | null): string {
-  const lines = [`# ${resolved.title}`, `${resolved.file} · ${resolved.state}`];
-  for (const section of resolved.sections) {
-    lines.push('', section.slot === null ? section.label : `## ${section.heading}  ${section.label}`);
-    if (section.text) lines.push(section.text);
-    // A hole shows the kit default, then its questions; repository text already holds its own.
-    if (section.source === 'hole') lines.push(...section.questions.map((question) => `TODO(human): ${question}`));
-  }
-  if (records) lines.push('', ...recordLines(records));
-  return lines.join('\n');
-}
-
 function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
   const [id = ''] = positional;
   if (positional.length !== 1 || !FORM_IDS.includes(id)) {
@@ -72,7 +48,7 @@ function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: Com
   const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
   const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
   for (const problem of resolved.problems) println(stderr, `warning: ${problem}`);
-  println(stdout, flags.json ? JSON.stringify(records ? { ...resolved, records } : resolved, null, 2) : showText(resolved, records));
+  println(stdout, flags.json ? JSON.stringify(records ? { ...resolved, records } : resolved, null, 2) : formShowText(resolved, records));
   return 0;
 }
 

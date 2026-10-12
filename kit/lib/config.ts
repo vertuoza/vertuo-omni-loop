@@ -148,6 +148,9 @@ const generatedEntry = z
   })
   .strict();
 
+/** Where the context budget's ceilings live when `budgets.context.file` does not say (PRD 1679). */
+const CONTEXT_BUDGET_FILE = '.omni-loop/budgets/context.json';
+
 export const ConfigSchema = z
   .object({
     kit: z.literal(CONFIG_VERSION),
@@ -377,6 +380,11 @@ export const ConfigSchema = z
     // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
     // it has none, and parses with no `generated` key.
     generated: z.array(generatedEntry).optional(),
+    // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
+    // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
+    // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
+    // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
+    budgets: z.object({ context: section({ enabled: z.boolean().default(false), file: text.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
   })
   .strict()
   .superRefine(({ pr, flow }, issues) => {
@@ -408,6 +416,11 @@ type Config = z.infer<typeof ConfigSchema>;
 /** The screen library's folder (PRD 1407): `design.screens`, else `design/screens/` under `paths.knowledge`. */
 export function designScreensDir({ paths, design }: { paths: Pick<Config['paths'], 'knowledge'>; design: Pick<Config['design'], 'screens'> }): string {
   return design.screens ?? `${paths.knowledge.replace(/\/+$/, '')}/design/screens/`;
+}
+
+/** The context budget (PRD 1679): `budgets.context`, or off with its ceilings in the default file. */
+export function contextBudget({ budgets }: Pick<Config, 'budgets'>): { enabled: boolean; file: string } {
+  return budgets?.context ?? { enabled: false, file: CONTEXT_BUDGET_FILE };
 }
 
 /** One step from a `kit:` format to the next: a raw file in, the same file one `kit:` higher out. */
