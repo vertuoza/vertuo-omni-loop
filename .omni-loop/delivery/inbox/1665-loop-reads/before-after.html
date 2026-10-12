@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop reads · before/after</title>
+<style>
+:root {
+  --ground: #07061c; --surface: #120f3a; --line: #1a2170; --line-strong: #5a60c4;
+  --ink: #f2f4ff; --muted: #8a90d6; --plasma: #ffd84a; --cyan: #6ff0ff; --green: #4ee08a; --red: #ff6b86;
+  --read: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.6 var(--read); }
+main { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.25rem; margin: 44px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+h3 { font-size: 1rem; margin: 28px 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+p.lead, p.note { color: var(--muted); margin: 0 0 16px; max-width: 900px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 12px 0 8px; }
+@media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+.col { min-width: 0; }
+.tag { display: inline-block; font-size: .8rem; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; margin-bottom: 8px; }
+.tag.after { border-color: var(--plasma); color: var(--plasma); }
+.term { background: #000; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font: 13px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: #d7dae8; }
+.term .p { color: var(--green); } .term .bad { color: var(--red); } .term .dim { color: #7c80a6; } .term .ok { color: var(--green); }
+svg { width: 100%; height: auto; display: block; }
+.caption { color: var(--muted); font-size: .9rem; margin: 6px 0 0; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: 8px 0; }
+th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+code { font: .9em var(--mono); }
+</style>
+</head>
+<body>
+<main>
+  <h1>The kit reads the loop's state from the Omni page, not from gh</h1>
+  <p class="lead">PRD 1665 · today beside after.</p>
+
+  <h2>Functional</h2>
+
+  <h3>Where the deciding reads go</h3>
+  <div class="pair">
+    <div class="col">
+      <span class="tag">today</span>
+      <svg viewBox="0 0 520 260" role="img" aria-label="Today: each omni command shells out to gh, which calls GitHub's GraphQL API from the agent's machine">
+        <defs><marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a90d6"/></marker>
+        <marker id="m1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#ff6b86"/></marker></defs>
+        <rect x="10" y="20" width="150" height="190" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+        <text x="85" y="44" fill="#f2f4ff" font-size="14" text-anchor="middle">agent's machine</text>
+        <text x="85" y="76" fill="#8a90d6" font-size="12" text-anchor="middle">omni board · next</text>
+        <text x="85" y="94" fill="#8a90d6" font-size="12" text-anchor="middle">care · roadmap</text>
+        <text x="85" y="112" fill="#8a90d6" font-size="12" text-anchor="middle">statusline · dossier · flow</text>
+        <rect x="45" y="140" width="80" height="34" rx="6" fill="#0e0d33" stroke="#ff6b86"/><text x="85" y="162" fill="#ff6b86" font-size="13" text-anchor="middle">gh (GraphQL)</text>
+        <rect x="360" y="90" width="150" height="70" rx="8" fill="#120f3a" stroke="#5a60c4"/><text x="435" y="130" fill="#f2f4ff" font-size="14" text-anchor="middle">GitHub</text>
+        <line x1="127" y1="157" x2="356" y2="132" stroke="#ff6b86" marker-end="url(#m1r)"/>
+        <text x="245" y="178" fill="#ff6b86" font-size="12" text-anchor="middle">403 in claude.ai,</text>
+        <text x="245" y="194" fill="#ff6b86" font-size="12" text-anchor="middle">missing in other agents</text>
+      </svg>
+    </div>
+    <div class="col">
+      <span class="tag after">after</span>
+      <svg viewBox="0 0 520 260" role="img" aria-label="After: each omni command asks the Omni page for loop facts over HTTPS; only the page talks to GitHub, with the App's token">
+        <defs><marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a90d6"/></marker>
+        <marker id="m2g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#4ee08a"/></marker></defs>
+        <rect x="10" y="20" width="150" height="190" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+        <text x="85" y="44" fill="#f2f4ff" font-size="14" text-anchor="middle">any coding agent</text>
+        <text x="85" y="76" fill="#8a90d6" font-size="12" text-anchor="middle">omni board · next</text>
+        <text x="85" y="94" fill="#8a90d6" font-size="12" text-anchor="middle">care · roadmap</text>
+        <text x="85" y="112" fill="#8a90d6" font-size="12" text-anchor="middle">statusline · dossier · flow</text>
+        <rect x="35" y="140" width="100" height="34" rx="6" fill="#0e0d33" stroke="#4ee08a"/><text x="85" y="162" fill="#4ee08a" font-size="13" text-anchor="middle">LoopReads</text>
+        <rect x="200" y="100" width="130" height="90" rx="8" fill="#120f3a" stroke="#ffd84a"/><text x="265" y="130" fill="#f2f4ff" font-size="14" text-anchor="middle">Omni page</text>
+        <text x="265" y="150" fill="#8a90d6" font-size="12" text-anchor="middle">/api/loop/…</text>
+        <text x="265" y="168" fill="#8a90d6" font-size="12" text-anchor="middle">workspace check</text>
+        <rect x="380" y="100" width="130" height="90" rx="8" fill="#120f3a" stroke="#5a60c4"/><text x="445" y="140" fill="#f2f4ff" font-size="14" text-anchor="middle">GitHub</text>
+        <text x="445" y="160" fill="#8a90d6" font-size="12" text-anchor="middle">(later: any host)</text>
+        <line x1="137" y1="157" x2="196" y2="150" stroke="#4ee08a" marker-end="url(#m2g)"/>
+        <text x="166" y="210" fill="#4ee08a" font-size="12" text-anchor="middle">HTTPS + sign-in</text>
+        <line x1="332" y1="145" x2="376" y2="145" stroke="#8a90d6" marker-end="url(#m2)"/>
+        <text x="354" y="210" fill="#8a90d6" font-size="12" text-anchor="middle">App token, REST, ETags</text>
+      </svg>
+    </div>
+  </div>
+  <p class="caption">Only the reads move. Writes (pull requests, comments, labels) and git stay with the agent.</p>
+
+  <h3>A board read in a Claude Code cloud session</h3>
+  <div class="pair">
+    <div class="col">
+      <span class="tag">today</span>
+      <div class="term"><span class="p">$</span> omni board 1660 --json
+<span class="bad">HTTP 403: GitHub GraphQL is not available from Claude Code sessions; use the REST API …
+Error: Command failed: gh pr list --repo vertuoza/vertuo-omni-loop --json number,title,… --base feat/signin-device-1of2-server
+    at fetchPrList (kit/bin/commands/board.ts:84:15)</span></div>
+    </div>
+    <div class="col">
+      <span class="tag after">after</span>
+      <div class="term"><span class="p">$</span> omni board 1660 --json
+<span class="ok">{ "prd": 1660, "currentLanding": 1,
+  "slices": [ { "id": "s1", "state": "merged", "pr": 1663 }, … ],
+  "frontier": { "takeable": ["s2"] } }</span></div>
+      <p class="caption">The same board a local <code>gh</code> run prints.</p>
+    </div>
+  </div>
+
+  <h3>The contract</h3>
+  <table>
+    <tr><th>route</th><th>answers</th><th>replaces</th></tr>
+    <tr><td><code>GET /api/loop/changes?repo&amp;base|head|label&amp;state</code></td><td>the changes (pull requests) with head, base, state, labels, body</td><td><code>gh pr list</code></td></tr>
+    <tr><td><code>GET /api/loop/changes/&lt;n&gt;?repo</code></td><td>one change, its last commit, files and review (checks, mergeable, threads)</td><td><code>gh pr view</code>, <code>gh pr diff</code>, <code>gh api graphql</code></td></tr>
+    <tr><td><code>GET /api/loop/comments?repo&amp;on=&lt;n&gt;</code></td><td>a change's or an issue's comments</td><td><code>gh api …/comments</code> reads</td></tr>
+    <tr><td><code>GET /api/loop/issues…</code></td><td>issues by label, or one issue with its comments</td><td><code>gh issue list</code>, <code>gh issue view</code></td></tr>
+  </table>
+
+  <h3>When a read cannot be made</h3>
+  <table>
+    <tr><th>case</th><th>the command says (exit 1)</th></tr>
+    <tr><td>no sign-in</td><td><code>no sign-in (omni signin)</code></td></tr>
+    <tr><td>no answer in 15 s</td><td><code>unreachable</code></td></tr>
+    <tr><td>not your workspace's repository</td><td><code>refused (403): &lt;owner/repo&gt; is not in your workspace</code></td></tr>
+    <tr><td>the App cannot read it</td><td><code>refused (424): the Omni app cannot read &lt;owner/repo&gt;: &lt;install link&gt;</code></td></tr>
+    <tr><td>the rate budget is spent</td><td><code>refused (429): GitHub's budget for &lt;owner/repo&gt; is spent until &lt;time&gt;</code></td></tr>
+    <tr><td>an older Omni page</td><td><code>refused (404): this Omni page cannot read the loop yet</code></td></tr>
+  </table>
+  <p class="caption">What stays the same: every command's output, every decision (the board, next, care, the roadmap gate), every write, and git.</p>
+
+  <h2>Pixel perfect</h2>
+  <p class="note">Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>
