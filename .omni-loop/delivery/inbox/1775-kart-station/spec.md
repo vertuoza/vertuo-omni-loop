@@ -10,7 +10,7 @@ spec: file
 **Date:** 2026-10-12 · **PRD:** #1775
 **Touches:**
 - `apps/galaxy/src/arcade/kart/rules.ts` (the tip-over's grace and pull; the jump's launch, gravity
-  and steering in the air; the tunnel's roof)
+  and steering in the air)
 - `apps/galaxy/src/arcade/kart/kart.ts` (the grace before a kart tips over; boost pads; a kart's
   height over the ground, its take-off, flight and landing)
 - `apps/galaxy/src/arcade/kart/track.ts` (COMET RING's pads, ramps, gap, walkway, ramp spur, tunnel,
@@ -19,13 +19,14 @@ spec: file
 - `apps/galaxy/src/arcade/kart/rivals.ts`, `kart/race.ts` (shortcut gates in the lap count; rivals
   that drive the main line's jumps and never a shortcut; karts in the air)
 - `apps/galaxy/src/arcade/kart/net.ts` (a kart's height in MULTI's state message)
-- `apps/galaxy/src/arcade/kart/mode7.ts` (the tunnel's ceiling, walls and portals; the camera's eye
-  over a kart in the air)
+- `apps/galaxy/src/arcade/kart/mode7.ts` (the tunnel's roof, ceiling, walls and portals)
 - `apps/galaxy/src/arcade/kart/texture.ts` (pads, ramps, arrows, station plating, the walkway's
   grating)
-- `apps/galaxy/src/arcade/kart/art.ts` (karts in the air and their shadow; the stands' ships; the
+- `apps/galaxy/src/arcade/kart/art.ts` (karts in the air and their shadow; the camera's eye over a kart in the air; the stands' ships; the
   new props; the sky's convoys, asteroid belt and big planet; the minimap's tunnel)
 - `packages/design/src/sprites.ts` (the new props' sprites and the convoys' ships)
+- `apps/galaxy/src/arcade/games/stills.ts` (the cabinet's still, drawn again only if the new circuit
+  changes what it shows)
 - `apps/galaxy/README.md` (OMNI KART's section)
 
 ## Problem
@@ -109,7 +110,7 @@ Both shortcuts are hard to reach and leave the main line where it turns; rivals 
 ### The tunnel
 
 - **A new tile, roofed road.** It is road to the wheels. Over every roofed tile stands a roof
-  `RULES.roof` = 44 units over the ground, and a wall stands on every edge between a roofed tile and
+  44 units over the ground, and a wall stands on every edge between a roofed tile and
   a void tile, from the ground up to the roof.
 - **Where:** on the top leg `[56, 8]` → `[36, 8]`, 13 tiles long, between the corners `[56, 8]` and `[36, 8]`, right after the gap jump.
   Coming out of it, the walkway shows straight ahead and the main line turns south.
@@ -157,7 +158,8 @@ Both shortcuts are hard to reach and leave the main line where it turns; rivals 
   moves along its straight where a pad, a ramp or the gap takes its place); the gap, the pads,
   the ramps, the tunnel, the spur and the walkway are tiles of the same 64 × 64 map.
 - The best times stay: nothing changes in the database.
-- The cabinet's still (`apps/galaxy/src/arcade/games/stills.ts`) stays as it is.
+- The cabinet's still (`apps/galaxy/src/arcade/games/stills.ts`) shows no flight and no tunnel; it is
+  drawn again from the new circuit only if the circuit changes what it shows.
 
 ## Decisions
 
@@ -228,7 +230,7 @@ Both shortcuts are hard to reach and leave the main line where it turns; rivals 
 - drift boosts, new items, or a change to the items' own rules;
 - new sounds;
 - jumps or ramps inside the tunnel;
-- the cabinet's still.
+- a new cabinet still showing the tunnel, a jump or the stands.
 
 ## Test seams
 
