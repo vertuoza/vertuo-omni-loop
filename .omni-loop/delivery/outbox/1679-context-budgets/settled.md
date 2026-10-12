@@ -626,3 +626,165 @@ Changing it is editing three numbers in one file; nothing is migrated.
 ```
 
 <!-- /omni-outbox-settled: s5-01-ceilings-sized-for-what-lands-next -->
+
+<!-- omni-outbox-settled: s4-03-plugin-test-beside-law-proofs -->
+
+## s4-03-plugin-test-beside-law-proofs — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-12T16:11:02Z
+- Channel: feature pull request #1680
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1680#issuecomment-6128058090
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Stays here: agrees with this one placement of a test block; no rule or playbook practice changed
+- Rank: high
+- Bears on: BR-PRODUCT-10
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+A. A. Keep the block where it is: no rule changed.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-plugin-test-beside-law-proofs
+prd: 1679
+slice: s4
+rank: high
+bears-on: BR-PRODUCT-10
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The budget wording checks for three skills were added to the test file that proves four product rules, and no rule test changed. Do you agree those rules still hold as before?
+
+## The decision, in plain words
+
+The skill wording tests went into the existing skills test file, beside the rule proofs, and every rule proof was left as it was.
+
+## The intro, for fun
+
+Four rules share a test file, and a new neighbour just moved in.
+
+## The punchline, for fun
+
+The neighbour only checks the budget wording; the rules kept their keys.
+
+## The options, in plain words
+
+A. A. Keep the block where it is: no rule changed.
+B. B. Move the budget block to its own test file, away from the rule proofs.
+
+## What I had to decide
+
+The slice added one test block, 'the context budget in the skills (PRD 1679)', and one import to kit/test/plugin.test.ts, the file whose tests prove BR-PRODUCT-3, -5, -10 and -11. No law test changed. The spec's Test seams asks for these skill tests; the plan placed them in this file. invade's skill text changed (s4), which BR-PRODUCT-10 governs; its proof stays green.
+
+## What I did meanwhile
+
+The branch carries the new block; every law test is unchanged and green.
+
+## What it costs to change later
+
+Moving the block to its own file later is a file move, no behaviour change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a skill-wording test may share a file with law proofs is not written in the testing form (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-03-plugin-test-beside-law-proofs -->
+
+<!-- omni-outbox-settled: s5-02-raise-releasing-after-main -->
+
+## s5-02-raise-releasing-after-main — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-12T16:11:02Z
+- Channel: feature pull request #1680
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1680#issuecomment-6128058090
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Stays here: a temporary ceiling until the releasing pointer bug is fixed; the ceilings file already records it
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+A. A. Raise the releasing ceiling to 145 KB until the pointer bug is fixed.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-raise-releasing-after-main
+prd: 1679
+slice: s5
+rank: high
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+While this was being built, the main branch grew the page the releasing guide pulls in, so what agents read for releasing went from 133 KB to 145 KB. May its ceiling go up to 145 KB until the broken link that pulls in the whole page is fixed?
+
+## The decision, in plain words
+
+The releasing guide's ceiling was raised to its new size instead of trimming it, because trimming means fixing the link bug, which is its own fix.
+
+## The intro, for fun
+
+The releasing guide ate another 11 KB while nobody was looking.
+
+## The punchline, for fun
+
+This time a budget noticed, and it is asking you before letting it.
+
+## The options, in plain words
+
+A. A. Raise the releasing ceiling to 145 KB until the pointer bug is fixed.
+B. B. Do not raise it: fix the releasing pointer first, then ship this PRD.
+
+## What I had to decide
+
+Budget raise: `form:releasing` to 148480 bytes
+
+Merging origin/main into the feature branch brought a longer apps/galaxy/README.md; the releasing form's pointer [→ apps/galaxy/README.md#deploy-to-production] runs past its section to the end of that README, so form:releasing measures 148,031 bytes, over its 137,216 ceiling. Trimming it means fixing the pointer bug, which the spec keeps out of this PRD (D11). The ceiling goes to 145 KiB, today's size rounded up, as the spec rounds a first ceiling.
+
+## What I did meanwhile
+
+The ceiling is raised in .omni-loop/budgets/context.json; omni check context stays red until this item is answered.
+
+## What it costs to change later
+
+Undone by lowering one number in the ceilings file; the pointer fix lowers it for good.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the pointer bug fix should land before this PRD ships is not decided (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-raise-releasing-after-main -->
