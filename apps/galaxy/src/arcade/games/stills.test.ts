@@ -253,7 +253,7 @@ function duet({ w, h }: { w: number; h: number }): Canvas {
   const angle = sure(Array.from({ length: 126 }, (_, i) => DUET_ANGLE + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.05).find(clear), 'an angle clear of the wave');
   const trail = Array.from({ length: DUET_RULES.trail }, (_, i) => angle - (i + 1) * 0.08);
   const run = { ...newRun({ seed: 1 }), phase: 'play' as const, chapter: DUET_CHAPTER, wave: DUET_WAVE, tick, angle, trail, started: true };
-  drawField(ctx, { theme: DEFAULT_THEME, reduced: false } as unknown as FrameState, run);
+  drawField(ctx, { theme: DEFAULT_THEME, reduced: false, t: 0 } as unknown as FrameState, run);
   // The circle and its orbs fill the screen's height; the screen's middle is the circle's centre.
   const k = h / ((DUET_RULES.radius + DUET_RULES.orbRadius) * 2 + 4);
   const c = blank(w, h, DEFAULT_THEME.void);

@@ -2,9 +2,10 @@
 // OMNI DUET's text layer (PRD 1633), over the arcade's canvas: the loading line, the failure line with
 // its way back, the ready screen (CHAPTER I · DRIFT · LIVES ×3 · PRESS START, or ENDLESS ×2 after a life
 // lost in endless mode), the HUD in play (the score, CH II · 4/10 or ENDLESS ×2 · WAVE n, and the lives
-// left), a chapter's banner and ENDLESS · ×2, the pause, and the game over: the score, where the run
-// got to, and the score's send (saving, NEW BEST, the best, or not saved with A to retry). Laid out for
-// the grid the game is drawn on (duet.css).
+// left), the wave's line in the middle of the playfield as each wave begins, faded out (issue 1692), a
+// chapter's banner and ENDLESS · ×2, the pause, and the game over: the score, where the run got to,
+// and the score's send (saving, NEW BEST, the best, or not saved with A to retry). Laid out for the
+// grid the game is drawn on (duet.css).
 import { Hint } from '../hint';
 import {
   bannerLine, LOADING_LINE, NOT_LOADED, overLines, PAUSED_LINE, readyParts, waveLine, type ArcadeDuet, type DuetHud, type DuetStatus,
@@ -64,7 +65,14 @@ export function DuetOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   back?: string;
 }) {
   if (status !== 'ready' || !hud) return <Notice line={status === 'failed' ? NOT_LOADED : LOADING_LINE} back={back} />;
-  if (hud.phase === 'play') return <div className="dt"><Stats hud={hud} /></div>;
+  if (hud.phase === 'play') {
+    return (
+      <div className="dt">
+        <Stats hud={hud} />
+        {hud.line && <p key={`${hud.chapter.numeral} ${hud.endless ? 'E' : ''}${hud.wave}`} className="dt-line" aria-live="polite">{hud.line}</p>}
+      </div>
+    );
+  }
   if (hud.phase === 'chapter') {
     return (
       <div className="dt">
