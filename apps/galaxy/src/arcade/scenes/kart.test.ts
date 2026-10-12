@@ -443,6 +443,13 @@ describe('the grid (PRD 1572)', () => {
     expect(grid(view)).toBe('GRID Ada 1:05.3 Bo NO TIME WAITING FOR ADA B BACK');
   });
 
+  it("titles the grid with the laps it will run, and draws each kart in its look (PRD 1762)", () => {
+    const view: KartGridView = { state: 'joined', rows: [row('a', 'Ada', 653)], line: 'WAITING FOR RACERS', laps: 5 };
+    expect(grid(view)).toContain('GRID · 5 LAPS');
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'grid' }, multi: true, lobby: view, kartOf: () => ({ sprite: () => 'kart-rocket', tint: {} }) })));
+    expect(html).toContain('ADA&#x27;S KART');
+  });
+
   it('says each line of the grid as it is given', () => {
     for (const line of ['WAITING FOR RACERS', 'START RACE', 'WAITING FOR ADA', 'GRID FULL · 4 RACERS', 'RECONNECTING…', GRID_OUT_LINE]) {
       expect(grid({ state: 'joined', rows: [row('a', 'Ada', null, true)], line })).toContain(line);

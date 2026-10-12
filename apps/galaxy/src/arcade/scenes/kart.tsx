@@ -10,7 +10,7 @@ import { HeroSprite, Sprite } from '../Sprite';
 import { driveLine, keyLabel } from '../keys';
 import { useScreen } from '../Screen';
 import type { KartOptions, OptionsView } from '../kart/options';
-import { choiceLine, GRID_JOINING_LINE, lapsOf, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, readyLine, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
+import { choiceLine, GRID_JOINING_LINE, lapsOf, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, readyLine, SINGLE_LINE, type KartChoice, type KartGridRow, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
@@ -137,16 +137,23 @@ function OptionsPanel({ view, options, art }: { view: OptionsView; options: Kart
 /** The five actions the KEYS list names, in order. */
 const DRIVE_ROWS = [['gas', 'GAS'], ['brake', 'BRAKE'], ['left', 'LEFT'], ['right', 'RIGHT'], ['item', 'ITEM']] as const;
 
+/** A grid row's kart in its look, small, when the game's look is loaded to draw it. */
+function kartArt(kartOf: ((row: KartGridRow) => KartArt | null) | undefined, row: KartGridRow) {
+  const art = kartOf?.(row);
+  return art ? <Sprite name={art.sprite('kart')} tint={art.tint} scale={1} title={`${row.name.toUpperCase()}'S KART`} /> : null;
+}
+
 /** The workspace's grid (PRD 1572): the players in their starting order, each with hero, name and best time, then the line that says what happens next. */
-function GridPanel({ view }: { view: KartGridView }) {
+function GridPanel({ view, kartOf }: { view: KartGridView; kartOf?: ((row: KartGridRow) => KartArt | null) | undefined }) {
   return (
     <div className="kt">
       <div className="j-panel kt-panel kt-mid kt-grid">
-        <p className="inv-title">GRID</p>
+        <p className="inv-title">{view.laps === undefined ? 'GRID' : `GRID · ${view.laps} ${view.laps === 1 ? 'LAP' : 'LAPS'}`}</p>
         <ol className="kt-table kt-gridlist">
           {view.rows.map((r) => (
             <li key={r.id} className={r.you ? 'kt-you' : undefined} data-seat={r.seat}>
               <HeroSprite hero={r.hero} team={r.fleet} scale={0.5} />
+              {kartArt(kartOf, r)}
               <span>{r.name}</span>
               <span>{r.best === null ? 'NO TIME' : raceTime(r.best)}</span>
             </li>
@@ -238,7 +245,9 @@ function RaceScreen({ hud, back, keys }: { hud: KartHud; back: string; keys?: Ka
   );
 }
 
-export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null, art }: {
+export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null, art, kartOf }: {
+  /** A grid row's kart in its look (PRD 1762), drawn beside the player. */
+  kartOf?: (row: KartGridRow) => KartArt | null;
   /** The player's kart in its look, for the KART panel (PRD 1762). */
   art?: KartArt | null;
   /** The player's options (PRD 1762): their keys are named on the countdown and the item panel; the OPTIONS panel shows them. */
@@ -259,7 +268,7 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   back?: string;
 }) {
   // The grid needs nothing of the game: it shows while the game loads again behind it.
-  if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} />;
+  if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} kartOf={kartOf} />;
   if (status !== 'ready') return <Notice line={status === 'failed' ? NOT_LOADED : 'LOADING…'} back={back} />;
   if (hud?.results) return <ResultsScreen results={hud.results} send={send} back={back} />;
   if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} keys={options?.keys} />;

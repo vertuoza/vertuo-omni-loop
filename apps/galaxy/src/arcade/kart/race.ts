@@ -108,7 +108,7 @@ function fillers(used: readonly Driver[], count: number): Driver[] {
  * cast: the next mascots fill the places.
  */
 export function newRace({ seed, track = parseTrack(), cast = [], field, difficulty = 'normal', laps = LAPS, look }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field; difficulty?: Difficulty; laps?: number; look?: KartLook }): Race {
-  if (field) return newMultiRace(seed, track, field);
+  if (field) return newMultiRace(seed, track, field, look);
   const start = track.places[track.places.length - 1];
   if (!start) throw new Error('a circuit with no starting place');
   const drivers = [...cast.slice(0, PLACES - 1)];
@@ -123,12 +123,12 @@ export function newRace({ seed, track = parseTrack(), cast = [], field, difficul
 }
 
 /** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
-export interface Field { me: string; order: readonly GridPlayer[] }
+export interface Field { me: string; order: readonly GridPlayer[]; /** How many laps the grid runs (PRD 1762); 3 when not given. */ laps?: number }
 
 /** A player of the grid as a driver: their hero in the seat, their fleet's colour on the kart, their name on the results. */
 function driverOf(p: GridPlayer): Driver {
   const look = heroOf(p.hero, p.fleet);
-  return { sprite: look.sprite, tint: look.tint, color: crewLook(p.fleet).color, name: p.name.toUpperCase() };
+  return { sprite: look.sprite, tint: look.tint, color: crewLook(p.fleet).color, ...(p.look ? { look: p.look } : {}), name: p.name.toUpperCase() };
 }
 
 /**
@@ -136,7 +136,7 @@ function driverOf(p: GridPlayer): Driver {
  * their starting order, pole first, facing the way the line runs. No CPU kart. Each other player is a
  * rival that is never driven here: its kart is read from the last state heard from it.
  */
-function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
+function newMultiRace(seed: number, track: Track, { me, order, laps = LAPS }: Field, given?: KartLook): Race {
   const index = order.findIndex((p) => p.id === me);
   const place = (i: number) => {
     const p = track.places[i];
@@ -150,7 +150,8 @@ function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
     return [{ id: p.id, slot: i, driver: driverOf(p), kart, pace: START_PACE, fx: NO_FX, skill: 1, offset: 0, heard: { kart, fx: NO_FX, at: 0 } }];
   });
   const mine = place(index);
-  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty: 'normal', laps: LAPS, threeAt: null, finalAt: null, menu: false, slot: index, gone: [], self: me, thrown: 0, finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
+  const look = order[index]?.look ?? given;
+  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty: 'normal', laps, ...(look ? { look } : {}), threeAt: null, finalAt: null, menu: false, slot: index, gone: [], self: me, thrown: 0, finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
 }
 
 /** A state heard from player `id`: their kart, laps and spin-out or fall stand as they say, at the race clock it came at (before GO, at 0). Not a MULTI race on its way, a player not in it, or a player gone: nothing changes. */
@@ -367,7 +368,7 @@ function multiResults(race: Race, mine: number): KartResults {
     ...racing.map((r) => ({ name: r.driver.name ?? 'RACER', tenths: null, you: false })),
     ...out.map((id) => ({ name: race.names[id] ?? id, tenths: null, you: false, out: true })),
   ].map((r, i) => ({ place: i + 1, ...r }));
-  return { rows, place: rows.findIndex((r) => r.you) + 1, tenths: mine, threeLap: mine, live: true };
+  return { rows, place: rows.findIndex((r) => r.you) + 1, tenths: mine, threeLap: race.threeAt === null ? mine : tenthsOf(race.threeAt), live: true };
 }
 
 /** The clocks the laps mark: the player's third crossing (the time the board gets) and the start of the last lap (FINAL LAP), each kept once. */

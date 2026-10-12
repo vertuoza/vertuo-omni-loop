@@ -164,14 +164,14 @@ export type KartChoice = { step: 'choose'; cursor: KartCursor } | { step: 'singl
 export type KartCursor = 'single' | 'multi' | 'options';
 
 /** A player on the GRID screen: their hero, name and best time in tenths (none before a first race), whether it is the player at this screen and whether they hold a place. */
-export interface KartGridRow { id: string; name: string; hero: Hero; fleet: string | null; best: number | null; you: boolean; seat: boolean }
+export interface KartGridRow { id: string; name: string; hero: Hero; fleet: string | null; best: number | null; /** The player's kart's look (PRD 1762); none draws today's kart. */ look?: { color: string; design: string }; you: boolean; seat: boolean }
 
 /**
  * What the GRID screen shows (PRD 1572): where the link stands (`joining`, `joined`, `reconnecting`
  * or `out` of reach), the players in their starting order and the line under them: START RACE,
  * WAITING FOR <NAME>, WAITING FOR RACERS, GRID FULL · 4 RACERS, RECONNECTING… or GRID OUT OF REACH · A TO RETRY.
  */
-export interface KartGridView { state: 'joining' | 'joined' | 'reconnecting' | 'out'; rows: readonly KartGridRow[]; line: string }
+export interface KartGridView { state: 'joining' | 'joined' | 'reconnecting' | 'out'; rows: readonly KartGridRow[]; line: string; /** How many laps the grid will run (PRD 1762), when it says. */ laps?: number }
 
 /** The GRID's two lines the game's code does not say: while joining, and when the grid cannot be reached (or its code did not load). */
 export const GRID_JOINING_LINE = 'JOINING THE GRID…';

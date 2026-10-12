@@ -37,7 +37,7 @@ import { KartOverlay } from './scenes/kart.tsx';
 import { DuetLayer } from './scenes/duet.tsx';
 import { duetDrawOf, useDuet } from './scenes/duet.live';
 import { duetRetry, type ArcadeDuet } from './scenes/duet.ts';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartHud } from './scenes/kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -401,7 +401,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const best = mine !== null && Number.isInteger(mine) && mine > 0 ? mine : null;
     import('./kart/index').then(({ openGrid }) => {
       if (turn !== lobbyTurn.current) { link.leave(); return; }
-      const who = { id: m.id, name: m.display_name, hero: m.hero, fleet: m.team, best, arrival: Date.now() };
+      // The player's look and laps travel on their entry (PRD 1762): the grid reads the first arrival's laps and shows each kart.
+      const chosen = kartRef.current?.options ?? null;
+      const who = { id: m.id, name: m.display_name, hero: m.hero, fleet: m.team, best, arrival: Date.now(), ...(chosen ? { look: chosen.look, laps: chosen.laps } : {}) };
       whoRef.current = who;
       lobbyRef.current = openGrid(link, who, (lobby) => { setKart((k) => (k && k.choice.step === 'grid' ? { ...k, lobby } : k)); }, (start) => { startRef.current(start); });
     }).catch((err: unknown) => {
@@ -1219,6 +1221,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, heroOf(me?.hero ?? ui.hero, me?.team ?? null).tint) };
   })();
 
+  // A grid row's kart in its look, through the options module (guard.test.ts): a row with no look is today's kart.
+  const gridKart = (row: KartGridRow) => {
+    const api = optionsApi.current;
+    if (!api) return null;
+    const look = row.look ?? { color: 'FLEET', design: 'CLASSIC' };
+    return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, heroOf(row.hero, row.fleet).tint) };
+  };
+
   const overlay = (() => {
     switch (ui.scene) {
       case 'boot': return <BootOverlay brand={brand} />;
@@ -1248,7 +1258,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         </>
       ) : null;
       case 'duet': return <DuetLayer duet={duet} send={send} />;
-      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

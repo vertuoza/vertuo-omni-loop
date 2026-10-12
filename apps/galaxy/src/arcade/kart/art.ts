@@ -482,7 +482,7 @@ export interface LiveRace { session: Pick<GridSession, 'send' | 'listen'>; start
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
 export function createKart({ seed, cast = [], track = parseTrack(), live, held, laps, difficulty, look }: KartOptions = { seed: 1359 }): KartGame {
-  const first = newRace({ seed, track, cast, ...(laps !== undefined ? { laps } : {}), ...(difficulty ? { difficulty } : {}), ...(look ? { look } : {}), ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
+  const first = newRace({ seed, track, cast, ...(laps !== undefined ? { laps } : {}), ...(difficulty ? { difficulty } : {}), ...(look ? { look } : {}), ...(live ? { field: { me: live.me.id, order: live.start.order, laps: live.start.laps } } : {}) });
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
   let particles = newParticles(seed);
@@ -591,7 +591,8 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
     // Crossing the line at the end of the last lap tells the others the time, and gives it to the arcade for the score, as a solo race does.
     const done = events.find((e) => e.kind === 'finish');
     if (done?.kind !== 'finish') return null;
-    link.session.send({ kind: 'finish', race: link.start.race, tenths: done.tenths });
+    // The others place this player by the whole race's time; the board gets the three-lap time (PRD 1762).
+    link.session.send({ kind: 'finish', race: link.start.race, tenths: race.finish?.tenths ?? done.tenths });
     return done.tenths;
   };
 
