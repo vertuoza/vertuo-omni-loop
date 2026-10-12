@@ -633,7 +633,7 @@ On a stage clear screen, A or START goes on to the next stage's ready screen wit
 
 Serves: P-PRODUCT-54
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
-Enforced by: pending #1519
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818

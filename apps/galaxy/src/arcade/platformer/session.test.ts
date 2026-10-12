@@ -151,3 +151,31 @@ describe('law BR-PRODUCT-56: a life lost with lives left waits on the stage\'s r
     expect(resumed).toEqual({ ...playing, lives: 2, time: STAGE_SECONDS, phase: 'play' });
   });
 });
+
+// Law BR-PRODUCT-58 (.omni-loop/knowledge/product/rules.md, #1519).
+describe('a stage clear', () => {
+  it('law BR-PRODUCT-58: goes on to the next stage on A or START with score and lives kept, B does nothing, and the run ends only at game over or the world\'s end, where its score is saved', () => {
+    const cleared: Session = { ...clear, stage: '1-1', score: 1800, coins: 3, lives: 2, time: 40 };
+
+    // A or START: the next stage's ready screen, score and lives kept, the run not left, no score saved.
+    for (const a of ['a', 'start'] as const) {
+      const press = pressSession(cleared, a, 'ready');
+      expect(press.leave, a).toBeUndefined();
+      expect(press.session, a).toMatchObject({ stage: '1-2', phase: 'ready', score: 1800, lives: 2 });
+      expect(scoreToSend(cleared, press.session), a).toBeNull();
+    }
+
+    // B: nothing at all, the stage clear stays up.
+    expect(pressSession(cleared, 'b', 'ready')).toEqual({ session: cleared });
+
+    // The stage clear never ends the run, so no score is saved there.
+    expect(ended(cleared)).toBe(false);
+    expect(scoreToSend(play, cleared)).toBeNull();
+
+    // The run ends at the game over or the world's end, and its score is saved there.
+    const lastLife: Session = { ...play, lives: 1, score: 620 };
+    expect(scoreToSend(lastLife, hearEvent(lastLife, 'pit'))).toBe(620);
+    const lastFlag: Session = { ...play, stage: '1-3', score: 900, time: 0 };
+    expect(scoreToSend(lastFlag, hearEvent(lastFlag, 'flag'))).toBe(900);
+  });
+});
