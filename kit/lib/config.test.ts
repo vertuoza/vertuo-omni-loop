@@ -834,7 +834,7 @@ describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
 
   it('reads the values a repository sets', () => {
     const config = parseConfig('kit: 1\nlaws:\n  source: knowledge\n  requireProof: true\nlabels:\n  law: law\nbranches:\n  law: laws/{id}\n');
-    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true });
+    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true, max: 20, owners: [] });
     expect(config.labels.law).toBe('law');
     expect(config.branches.law).toBe('laws/{id}');
   });
@@ -845,6 +845,35 @@ describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
     ['an empty law label', "labels:\n  law: ''\n", /c\.yml.*labels\.law/],
     ['a law label that is no text', 'labels:\n  law: 3\n', /c\.yml.*labels\.law/],
     ['an empty law branch', "branches:\n  law: ''\n", /c\.yml.*branches\.law/],
+  ])('refuses %s, naming the key', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+});
+
+describe('laws.max and laws.owners (PRD 1726)', () => {
+  it('defaults to 20 laws and no owner', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.laws.max).toBe(20);
+    expect(config.laws.owners).toEqual([]);
+  });
+
+  it('reads a cap, logins and teams', () => {
+    const config = parseConfig('kit: 1\nlaws:\n  max: 5\n  owners: [pierrederval, vertuoza/core, a-b-1]\n');
+    expect(config.laws.max).toBe(5);
+    expect(config.laws.owners).toEqual(['pierrederval', 'vertuoza/core', 'a-b-1']);
+  });
+
+  it.each([
+    ['a max of zero', 'laws:\n  max: 0\n', /c\.yml.*laws\.max/],
+    ['a negative max', 'laws:\n  max: -3\n', /c\.yml.*laws\.max/],
+    ['a fractional max', 'laws:\n  max: 2.5\n', /c\.yml.*laws\.max/],
+    ['a max given as text', "laws:\n  max: '20'\n", /c\.yml.*laws\.max/],
+    ['owners given as one text', 'laws:\n  owners: pierrederval\n', /c\.yml.*laws\.owners/],
+    ['an owner written with @', "laws:\n  owners: ['@pierrederval']\n", /c\.yml.*laws\.owners\.0/],
+    ['an empty owner', "laws:\n  owners: ['']\n", /c\.yml.*laws\.owners\.0/],
+    ['an owner holding a space', "laws:\n  owners: ['pierre derval']\n", /c\.yml.*laws\.owners\.0/],
+    ['an owner ending in a hyphen', "laws:\n  owners: ['pierre-']\n", /c\.yml.*laws\.owners\.0/],
+    ['an owner that is no text', 'laws:\n  owners: [3]\n', /c\.yml.*laws\.owners\.0/],
   ])('refuses %s, naming the key', (_what, section, message) => {
     expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
   });

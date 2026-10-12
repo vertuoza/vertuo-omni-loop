@@ -13,6 +13,7 @@ import {
 } from '../outbox/settle.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import { harvestCandidates } from './harvest.ts';
+import { readKnowledge } from './registers.ts';
 import type { ClassificationReply } from './classify.ts';
 import {
   applyKnowledgeWrites,
@@ -657,5 +658,56 @@ describe('lawWorthNote', () => {
   it('names who decided, and the score when there is one', () => {
     expect(lawWorthNote({ worth: false, decidedBy: 'classifier', confidence: null })).toBe('not worth a law (classifier)');
     expect(lawWorthNote({ worth: false, decidedBy: 'Jev', confidence: 0.6 })).toBe('not worth a law (Jev 0.60)');
+  });
+});
+
+describe('writeKnowledge — a law and its lines are kept as written (PRD 1726)', () => {
+  const INVARIANTS = `${K}/domains/billing/invariants.md`;
+  const law = [
+    '# Billing invariants',
+    '',
+    '## N-BILLING-1',
+    '',
+    'An invoice is never sent twice.',
+    '',
+    'Source: PRD #3',
+    'Enforced by: kit/lib/billing.test.ts',
+    'Stated: 2026-09-01',
+    'Locked: @ada, 2026-10-14',
+    'Governs: `kit/lib/billing/**`,',
+    '  kit/lib/invoice.ts',
+    'Proposed law: a second invoice charges a customer twice, and they lose trust in the bill.',
+    '',
+  ].join('\n');
+
+  function harvest() {
+    const repo = makeRepo({ files: { ...FILES, [INVARIANTS]: law, 'kit/lib/billing.test.ts': '// a test\n' } });
+    const candidates = harvestCandidates({ ctx: repo.ctx, prd: parsePrd(28) });
+    const classified = candidates.map((candidate) => ({ candidate, reply: REPLIES[candidate.id] ?? null }));
+    return { repo, result: writeKnowledge({ ctx: repo.ctx, classified, merge: MERGE, date: DATE }) };
+  }
+
+  it('appends a harvested invariant after a locked one, leaving every line of it byte for byte', () => {
+    const { repo, result } = harvest();
+    const written = byPath(result)[INVARIANTS];
+    assertDefined(written, 'the billing invariants written');
+    expect(written.startsWith(`${law.trimEnd()}\n\n## N-BILLING-2\n`)).toBe(true);
+    applyKnowledgeWrites({ ctx: repo.ctx, writes: result.writes });
+    const entries = readKnowledge({ ctx: repo.ctx }).entries.filter((entry) => entry.file === INVARIANTS);
+    expect(entries.map(({ id, locked, governs, proposedLaw }) => ({ id, locked, governs, proposedLaw }))).toEqual([
+      {
+        id: 'N-BILLING-1',
+        locked: { by: 'ada', on: '2026-10-14' },
+        governs: ['kit/lib/billing/**', 'kit/lib/invoice.ts'],
+        proposedLaw: 'a second invoice charges a customer twice, and they lose trust in the bill.',
+      },
+      { id: 'N-BILLING-2', locked: null, governs: null, proposedLaw: null },
+    ]);
+  });
+
+  it('never writes a Locked: line: only a person locks a law', () => {
+    const { result } = harvest();
+    const locks = result.writes.flatMap((write) => write.text.split('\n').filter((line) => line.startsWith('Locked:')));
+    expect(locks).toEqual(['Locked: @ada, 2026-10-14']);
   });
 });
