@@ -35,6 +35,8 @@ describe('the rules, on fixtures', () => {
     expect(affects('galaxy', ['.omni-loop/delivery/inbox/1/spec.md', 'apps/omni-app/src/a.ts', 'kit/lib/a.test.ts']).affects).toBe(false);
     expect(affects('galaxy', ['.omni-loop/delivery/inbox/1/spec.md', 'kit/lib/a.ts'])).toEqual({ affects: true, path: 'kit/lib/a.ts' });
     expect(affects('galaxy', ['package.json']).affects).toBe(true);
+    expect(affects('galaxy', ['package.json', 'kit/dist/omni.mjs', 'kit/plugin/.claude-plugin/plugin.json'], { packageJsonDiff: VERSION_ONLY }).affects).toBe(false);
+    expect(affects('galaxy', ['package.json'], { packageJsonDiff: DEPS_TOO }).affects).toBe(true);
     expect(affects('galaxy', ['.omni-loop/config.yml']).affects).toBe(true);
     expect(affects('galaxy', ['.omni-loop/knowledge/product/a.md']).affects).toBe(true);
     expect(affects('galaxy', ['docs/guide/a.md']).affects).toBe(true);
