@@ -1233,6 +1233,7 @@ var generatedEntry = z8.object({
   from: z8.array(text3).min(1, "at least one source prefix"),
   build: z8.string().trim().min(1)
 }).strict();
+var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z8.object({
   kit: z8.literal(CONFIG_VERSION),
   repo: section({
@@ -1448,7 +1449,12 @@ var ConfigSchema = z8.object({
   flow: FlowSchema.optional(),
   // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
   // it has none, and parses with no `generated` key.
-  generated: z8.array(generatedEntry).optional()
+  generated: z8.array(generatedEntry).optional(),
+  // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
+  // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
+  // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
+  // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
+  budgets: z8.object({ context: section({ enabled: z8.boolean().default(false), file: text3.default(CONTEXT_BUDGET_FILE) }) }).strict().optional()
 }).strict().superRefine(({ pr, flow }, issues) => {
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
