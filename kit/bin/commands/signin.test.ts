@@ -77,7 +77,8 @@ describe('omni signin under OMNI_TOKEN', () => {
   it('opens the browser as it always has when OMNI_TOKEN is unset', async () => {
     const result = await run(['signin'], { env: {} });
     expect(result.opened).toHaveLength(1);
-    expect(result.sent).toEqual([]);
+    // Only the fallback device request (PRD 1660) is sent: nothing is traded.
+    expect(result.sent).toEqual([{ url: `${ASK_URL}/api/ask/device`, body: { purpose: 'signin' } }]);
   });
 });
 
