@@ -9,9 +9,10 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { BACK_TO_CHOICE, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
+import { defaultOptions, optionsKey, optionsPress, type OptionsView } from '../kart/options';
 import { sending, type ScoreSend } from './invaders-score';
 
 // OMNI KART's text layer and scene (PRD 1359, slice 1): the loading and failure lines, the ready
@@ -364,12 +365,12 @@ describe('the choice on the ready screen (PRD 1572)', () => {
     renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice, multi })))
       .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-  it('shows the circuit, then SINGLE and MULTI, the cursor on SINGLE', () => {
-    expect(choose(FIRST_CHOICE, true)).toBe('COMET RING · 3 LAPS ▶ SINGLE MULTI B GAME ROOM');
+  it('shows the circuit, then SINGLE, MULTI and OPTIONS, the cursor on SINGLE', () => {
+    expect(choose(FIRST_CHOICE, true)).toBe('COMET RING · 3 LAPS ▶ SINGLE MULTI OPTIONS B GAME ROOM');
   });
   it('reads MULTI · SIGN IN TO RACE without a link, and the cursor skips it', () => {
     expect(choose(FIRST_CHOICE, false)).toContain(MULTI_CLOSED_LINE);
-    expect(choicePress(FIRST_CHOICE, 'down', false)).toBe(FIRST_CHOICE);
+    expect(choicePress(FIRST_CHOICE, 'down', false)).toEqual(BACK_TO_OPTIONS);
   });
   it('moves with up and down, and picks SINGLE with A or START', () => {
     const multi = choicePress(FIRST_CHOICE, 'down', true);
@@ -377,6 +378,17 @@ describe('the choice on the ready screen (PRD 1572)', () => {
     expect(choicePress(multi, 'up', true)).toEqual(FIRST_CHOICE);
     expect(choicePress(FIRST_CHOICE, 'a', true)).toEqual({ step: 'single' });
     expect(choicePress(FIRST_CHOICE, 'start', true)).toEqual({ step: 'single' });
+  });
+  it('moves the cursor over the three lines and stops at the ends', () => {
+    const multi: KartChoice = { step: 'choose', cursor: 'multi' };
+    expect(choicePress(multi, 'down', true)).toEqual(BACK_TO_OPTIONS);
+    expect(choicePress(BACK_TO_OPTIONS, 'down', true)).toBe(BACK_TO_OPTIONS);
+    expect(choicePress(BACK_TO_OPTIONS, 'up', true)).toEqual(multi);
+    expect(choicePress(FIRST_CHOICE, 'up', true)).toBe(FIRST_CHOICE);
+  });
+  it('opens the OPTIONS panel on A or START at OPTIONS', () => {
+    expect(choicePress(BACK_TO_OPTIONS, 'a', true)).toEqual(OPTIONS_OPEN);
+    expect(choicePress(BACK_TO_OPTIONS, 'start', false)).toEqual(OPTIONS_OPEN);
   });
   it('picking SINGLE shows today\'s ready line', () => {
     expect(choose({ step: 'single' }, true)).toContain(READY_LINE);
@@ -476,5 +488,78 @@ describe('the live race on the text layer (PRD 1572, slice 4)', () => {
     const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'loading', hud: null, choice: { step: 'grid' }, multi: true })));
     expect(html).toContain('JOINING THE GRID…');
     expect(html).not.toContain('LOADING…');
+  });
+});
+
+describe('the OPTIONS panel (PRD 1762)', () => {
+  const panel = (view: OptionsView, options = defaultOptions(), form: 'full' | 'handheld' = 'full') =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'options', view }, multi: true, options })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('lists KEYS ›, LAPS, DIFFICULTY and DEFAULTS, with the cursor on KEYS and B to go back', () => {
+    expect(panel(OPTIONS_OPEN.step === 'options' ? OPTIONS_OPEN.view : { screen: 'menu', cursor: 'keys' })).toBe('OPTIONS ▶ KEYS › LAPS ◀ 3 ▶ DIFFICULTY ◀ NORMAL ▶ DEFAULTS B BACK');
+  });
+
+  it('shows what changed: LAPS 5, DIFFICULTY HARD', () => {
+    const view: OptionsView = { screen: 'menu', cursor: 'laps' };
+    const options = { ...defaultOptions(), laps: 5 as const, difficulty: 'hard' as const };
+    expect(panel(view, options)).toContain('▶ LAPS ◀ 5 ▶ DIFFICULTY ◀ HARD ▶');
+  });
+
+  it('moves, changes a value and puts DEFAULTS back, from the ready screen\'s press to the panel\'s', () => {
+    let view: OptionsView = { screen: 'menu', cursor: 'keys' };
+    let options = defaultOptions();
+    for (const a of ['down', 'right', 'down', 'right', 'right'] as const) ({ view, options } = optionsPress(view, options, a));
+    expect(options).toMatchObject({ laps: 5, difficulty: 'easy' });
+    for (const a of ['down', 'a'] as const) ({ view, options } = optionsPress(view, options, a));
+    expect(options).toEqual(defaultOptions());
+  });
+
+  it('lists the five actions with their keys, and says PRESS A KEY while it waits', () => {
+    const keys: OptionsView = { screen: 'keys', cursor: 'gas', capture: false, refused: false };
+    expect(panel(keys)).toBe('KEYS ▶ GAS ▲ BRAKE ▼ LEFT ◀ RIGHT ▶ ITEM SPACE A CHANGE B BACK');
+    expect(panel({ ...keys, capture: true })).toContain(`▶ GAS ${PRESS_A_KEY} BRAKE ▼`);
+  });
+
+  it('says KEY USED BY THE ARCADE after a reserved key, and keeps waiting', () => {
+    const waiting: OptionsView = { screen: 'keys', cursor: 'gas', capture: true, refused: false };
+    const { view } = optionsKey(waiting, defaultOptions(), 'Tab');
+    expect(panel(view)).toContain(KEY_RESERVED);
+    expect(KEY_RESERVED).toBe('KEY USED BY THE ARCADE');
+  });
+
+  it('shows a key the player bound', () => {
+    const { options } = optionsKey({ screen: 'keys', cursor: 'gas', capture: true, refused: false }, defaultOptions(), 'w');
+    expect(panel({ screen: 'keys', cursor: 'gas', capture: false, refused: false }, options)).toContain('GAS W');
+  });
+
+  it('goes back from the panel to the ready screen, the cursor on OPTIONS', () => {
+    expect(optionsPress({ screen: 'menu', cursor: 'keys' }, defaultOptions(), 'b').leave).toBe(true);
+    expect(BACK_TO_OPTIONS).toEqual({ step: 'choose', cursor: 'options' });
+  });
+});
+
+describe('the race names the player\'s keys (PRD 1762)', () => {
+  const race = (hud: KartHud, options = defaultOptions(), form: 'full' | 'handheld' = 'full') =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud, options })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('shows the keys on the countdown, default and own', () => {
+    expect(race({ phase: 'countdown', beat: '3' })).toContain('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM');
+    const own = { ...defaultOptions(), keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' } };
+    expect(race({ phase: 'countdown', beat: '3' }, own)).toContain('W GAS A D STEER S BRAKE E ITEM');
+  });
+
+  it('shows no keys line on the Game Boy, whose pad keeps A and B, nor once the race is on', () => {
+    expect(race({ phase: 'countdown', beat: '3' }, defaultOptions(), 'handheld')).not.toContain('GAS');
+    expect(race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 0, final: false, item: null } })).not.toContain('STEER');
+  });
+
+  it('names the ITEM key on the item panel, empty or holding one', () => {
+    const run = (item: KartItem | null) => race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item } });
+    expect(run(null)).toContain('SPACE');
+    expect(run('boost')).toContain('SPACE ITEM BOOST');
+    const own = { ...defaultOptions(), keys: { ...defaultOptions().keys, item: 'e' } };
+    expect(race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item: 'orb' } }, own)).toContain('E ITEM ORB');
   });
 });

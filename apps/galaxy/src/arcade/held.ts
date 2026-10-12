@@ -16,7 +16,8 @@ export interface HeldFingers {
 }
 
 export interface Held extends HeldFingers {
-  keyDown(key: string): void;
+  /** A key went down: the pad button it stands for, or the one `as` names (the player's own keys in a kart race). */
+  keyDown(key: string, as?: Action): void;
   keyUp(key: string): void;
   /** The window lost focus, or the tab was hidden: nothing is held any more. */
   clear(): void;
@@ -33,8 +34,8 @@ export function createHeld(): Held {
   let held: ReadonlySet<Action> = new Set();
   const update = () => { held = new Set([...keys.values(), ...fingers.values()]); };
   return {
-    keyDown(key) {
-      const action = keyAction(key);
+    keyDown(key, as) {
+      const action = as ?? keyAction(key);
       if (!action) return;
       keys.set(keyOf(key), action);
       update();

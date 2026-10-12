@@ -43,6 +43,9 @@
 .kt-place { color: var(--yellow); border-color: var(--yellow); }
 .kt-item { margin-left: auto; min-width: 26px; min-height: 16px; color: var(--cyan); border-color: var(--magenta, var(--cyan)); }
 .kt-empty { opacity: 0.6; }
+.kt-item-key { font-size: 7px; opacity: 0.8; margin-right: 3px; }
+/* The countdown names the player's keys (PRD 1762), under the number. */
+.kt-keys { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
 .kt-item-label { font-size: 7px; opacity: 0.8; }
 /* The icon of what is held, drawn in CSS: a chevron for BOOST, a drop for BLOB, a ring for ORB. */
 .kt-icon { display: inline-block; width: 10px; height: 10px; background: currentColor; }

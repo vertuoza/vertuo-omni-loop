@@ -6,29 +6,34 @@ import type { ReactNode } from 'react';
 import { Hint } from '../hint';
 import { ordinal } from '../fleets';
 import { HeroSprite } from '../Sprite';
-import { CHOICE_LINE, GRID_JOINING_LINE, LEFT_LINE, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
+import { driveLine, keyLabel } from '../keys';
+import { useScreen } from '../Screen';
+import type { KartOptions, OptionsView } from '../kart/options';
+import { CHOICE_LINE, GRID_JOINING_LINE, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, READY_LINE, SINGLE_LINE, type KartChoice, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
 import './kart.css';
 
 /** The place, the lap and the time in framed panels, and the held item as its icon in a frame of its own. */
-function RaceLine({ run }: { run: NonNullable<KartHud['run']> }) {
+function RaceLine({ run, item: itemKey }: { run: NonNullable<KartHud['run']>; item?: string | undefined }) {
   return (
     <div className="kt-run">
       <span className="kt-panelbox kt-place">{ordinal(run.place)}</span>
       <span className="kt-panelbox">LAP {run.lap}/{run.laps}</span>
       <span className="kt-panelbox">{raceTime(run.tenths)}</span>
-      <ItemFrame item={run.item} />
+      <ItemFrame item={run.item} itemKey={itemKey} />
     </div>
   );
 }
 
-function ItemFrame({ item }: { item: KartItem | null }) {
-  if (!item) return <span className="kt-panelbox kt-item kt-empty" data-item="none" />;
+function ItemFrame({ item, itemKey }: { item: KartItem | null; itemKey?: string | undefined }) {
+  // The panel names the key that fires the item (the player's own, PRD 1762) on a keyboard.
+  const key = itemKey === undefined ? null : <span className="kt-item-key">{keyLabel(itemKey)}</span>;
+  if (!item) return <span className="kt-panelbox kt-item kt-empty" data-item="none">{key}</span>;
   return (
     <span className="kt-panelbox kt-item" data-item={item}>
-      <span className="kt-icon" aria-hidden="true" />
+      {key}<span className="kt-icon" aria-hidden="true" />
       <span className="kt-item-label">ITEM</span> <span className="kt-item-name">{item.toUpperCase()}</span>
     </span>
   );
@@ -43,12 +48,55 @@ function ChoicePanel({ choice, multi, back }: { choice: Extract<KartChoice, { st
         <ul className="kt-choice">
           <li data-cursor={choice.cursor === 'single'}>{choice.cursor === 'single' ? '▶ ' : ''}{SINGLE_LINE}</li>
           <li data-cursor={choice.cursor === 'multi'} aria-disabled={!multi}>{choice.cursor === 'multi' ? '▶ ' : ''}{multi ? MULTI_LINE : MULTI_CLOSED_LINE}</li>
+          <li data-cursor={choice.cursor === 'options'}>{choice.cursor === 'options' ? '▶ ' : ''}{OPTIONS_LINE}</li>
         </ul>
         <p className="hint"><Hint k="B">{back}</Hint></p>
       </div>
     </div>
   );
 }
+
+/** The OPTIONS panel (PRD 1762): KEYS ›, LAPS ◀ 3 ▶, DIFFICULTY ◀ NORMAL ▶ and DEFAULTS; on KEYS, the five actions and the key each holds. */
+function OptionsPanel({ view, options }: { view: OptionsView; options: KartOptions }) {
+  if (view.screen === 'keys') {
+    return (
+      <div className="kt">
+        <div className="j-panel kt-panel kt-mid kt-options">
+          <p className="inv-title">KEYS</p>
+          <ul className="kt-choice">
+            {DRIVE_ROWS.map(([action, name]) => (
+              <li key={action} data-cursor={view.cursor === action}>
+                {view.cursor === action ? '▶ ' : ''}{name} {view.capture && view.cursor === action ? PRESS_A_KEY : keyLabel(options.keys[action])}
+              </li>
+            ))}
+          </ul>
+          {view.capture && view.refused && <p className="kt-score" role="status">{KEY_RESERVED}</p>}
+          <p className="hint">{view.capture ? <Hint k="B">CANCEL</Hint> : <><Hint k="A">CHANGE</Hint> <Hint k="B">BACK</Hint></>}</p>
+        </div>
+      </div>
+    );
+  }
+  const lines: [string, string][] = [
+    ['keys', 'KEYS ›'],
+    ['laps', `LAPS ◀ ${options.laps} ▶`],
+    ['difficulty', `DIFFICULTY ◀ ${options.difficulty.toUpperCase()} ▶`],
+    ['defaults', 'DEFAULTS'],
+  ];
+  return (
+    <div className="kt">
+      <div className="j-panel kt-panel kt-mid kt-options">
+        <p className="inv-title">{OPTIONS_LINE}</p>
+        <ul className="kt-choice">
+          {lines.map(([id, text]) => <li key={id} data-cursor={view.cursor === id}>{view.cursor === id ? '▶ ' : ''}{text}</li>)}
+        </ul>
+        <p className="hint"><Hint k="B">BACK</Hint></p>
+      </div>
+    </div>
+  );
+}
+
+/** The five actions the KEYS list names, in order. */
+const DRIVE_ROWS = [['gas', 'GAS'], ['brake', 'BRAKE'], ['left', 'LEFT'], ['right', 'RIGHT'], ['item', 'ITEM']] as const;
 
 /** The workspace's grid (PRD 1572): the players in their starting order, each with hero, name and best time, then the line that says what happens next. */
 function GridPanel({ view }: { view: KartGridView }) {
@@ -137,17 +185,23 @@ function RaceNotes({ hud, back }: { hud: KartHud; back: string }) {
 }
 
 /** The countdown, the race's line and the pause. */
-function RaceScreen({ hud, back }: { hud: KartHud; back: string }) {
+function RaceScreen({ hud, back, keys }: { hud: KartHud; back: string; keys?: KartOptions['keys'] | undefined }) {
+  const { form } = useScreen();
+  // The player's keys drive on a keyboard; the Game Boy's pad keeps A and B.
+  const own = form === 'full' ? keys : undefined;
   return (
     <div className="kt">
       {hud.beat && <p className={`kt-beat${hud.beat === 'GO' ? ' kt-go' : ''}`} key={hud.beat} role="status">{hud.beat}</p>}
-      {hud.run && <RaceLine run={hud.run} />}
+      {own && hud.phase === 'countdown' && <p className="kt-keys" data-keys="line">{driveLine(own)}</p>}
+      {hud.run && <RaceLine run={hud.run} item={own?.item} />}
       <RaceNotes hud={hud} back={back} />
     </div>
   );
 }
 
-export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null }: {
+export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null }: {
+  /** The player's options (PRD 1762): their keys are named on the countdown and the item panel; the OPTIONS panel shows them. */
+  options?: KartOptions | null;
   /** What the GRID shows once MULTI is picked (PRD 1572). */
   lobby?: KartGridView | null;
   /** The ready screen's choice (PRD 1572); none reads as SINGLE picked, today's ready line. */
@@ -167,7 +221,8 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} />;
   if (status !== 'ready') return <Notice line={status === 'failed' ? NOT_LOADED : 'LOADING…'} back={back} />;
   if (hud?.results) return <ResultsScreen results={hud.results} send={send} back={back} />;
-  if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} />;
+  if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} keys={options?.keys} />;
+  if (choice?.step === 'options' && options) return <OptionsPanel view={choice.view} options={options} />;
   if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} />;
   return (
     <div className="kt">
