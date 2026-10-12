@@ -32,7 +32,7 @@ const CODE_BOX: CSSProperties = {
   font: '600 18px/1 var(--ask-mono)',
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-  width: '12ch',
+  width: '9.5em',
   padding: '11px 12px',
   borderRadius: 8,
   border: '1.5px solid var(--ask-line-strong)',
