@@ -78,3 +78,4 @@
 @media (prefers-reduced-motion: reduce) {
   .kt-beat, .kt-final { animation: none; }
 }
+.kt-turn { display: flex; justify-content: center; margin: 2px 0 6px; }

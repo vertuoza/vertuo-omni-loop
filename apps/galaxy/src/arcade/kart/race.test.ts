@@ -577,3 +577,15 @@ describe('the laps of a SINGLE race (PRD 1762, slice 4)', () => {
     expect(newRace({ seed: 7, difficulty: 'hard' }).difficulty).toBe('hard');
   });
 });
+
+describe('the look a race carries (PRD 1762)', () => {
+  it('carries the player\'s look, and none when it is not given', () => {
+    expect(newRace({ seed: 1, look: { color: 'RED', design: 'RACER' } }).look).toEqual({ color: 'RED', design: 'RACER' });
+    expect(newRace({ seed: 1 }).look).toBeUndefined();
+  });
+
+  it('leaves the rivals as they were: a driver without a look has none', () => {
+    const race = newRace({ seed: 1, look: { color: 'RED', design: 'RACER' } });
+    expect(race.rivals.every((r) => r.driver.look === undefined)).toBe(true);
+  });
+});

@@ -5,7 +5,7 @@
 // floor goes through one pixel buffer per grid, allocated once and reused. The road rises and falls
 // (relief.ts, PRD 1698): the camera rides the ground under the player's kart, a sprite stands on the ground
 // under it, and a hill's crest hides what is behind it. It also holds the race the arcade steps.
-import { drawPlanet, drawStarfield, fleetSprite, spriteImage, spriteSize, woundTint } from '@omni/design';
+import { drawPlanet, drawStarfield, fleetSprite, spriteImage, spriteSize, woundTint, type Tint } from '@omni/design';
 import type { Action } from '../keys';
 import { heroOf } from '../fleets';
 import { stripesOf } from '../theme';
@@ -21,6 +21,7 @@ import type { Item } from './items';
 import { rateFor, readMessage, type GridPlayer, type ItemMessage, type RaceMessage } from './net';
 import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, plant, press, step, whereIs, type Race, type RaceEvent } from './race';
 import { RULES, type Difficulty } from './rules';
+import { COLORS, DEFAULT_LOOK, kartSprite, kartTint, type KartLook, type KartView } from './look';
 import type { Driver, Rival } from './rivals';
 import { deckOf, paintTrack } from './texture';
 import { isRoad, parseTrack, tileAt, type PropKind, type Track } from './track';
@@ -190,7 +191,7 @@ export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: numb
 export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'waypoints' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y));
 
 /** The kart's sprite for the way it is steered: leaning into the turn. */
-const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
+const viewOfKart = (k: Kart): KartView => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
 
 /** How far a kart's fall has gone, 0 (just over the edge) to 1 (gone): it is drawn smaller and lower as it grows. */
 export const fallenOf = (fx: { fall: number }): number => (fx.fall > 0 ? 1 - Math.min(1, fx.fall / RULES.fallTime) : 0);
@@ -243,7 +244,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
     const spin = race.fx.spin > 0 ? SPIN_VIEWS[Math.floor(s.t * 12) % SPIN_VIEWS.length] : undefined;
-    sprite(ctx, s, spin ?? viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
+    sprite(ctx, s, kartSprite(race.look ?? DEFAULT_LOOK, spin ?? viewOfKart(kart)), x, y, { scale, tint: kartTint(race.look ?? DEFAULT_LOOK, look.tint), frame });
   });
 }
 
@@ -251,7 +252,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
 export const KART_WORLD = 14;
 
 /** The kart's sprite for the way a rival faces, seen from the camera: the view closest to the angle it is seen from (the sprite is drawn from behind, leaning left or right). */
-export function viewFacing(rival: number, camera: number): string {
+export function viewFacing(rival: number, camera: number): KartView {
   const rel = Math.atan2(Math.sin(rival - camera), Math.cos(rival - camera));
   return rel < -LEAN ? 'kart-left' : rel > LEAN ? 'kart-right' : 'kart';
 }
@@ -265,7 +266,7 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   if (scale < 0.15) return;
   const frame = s.reduced ? 0 : Math.floor(s.t * Math.abs(r.kart.speed) * 0.12) % 2;
   const flat = stripesOf(s.theme);
-  const body = spriteImage(viewFacing(r.kart.angle, v.angle), { tint: fleetSprite(null, r.driver.color).tint, flat, frame });
+  const body = spriteImage(...bodyOf(r.driver, viewFacing(r.kart.angle, v.angle), flat, frame));
   const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
   const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale + fallen * 6 * at.scale;
   const half = scale / 2;
@@ -329,13 +330,23 @@ function minimap(ctx: CanvasRenderingContext2D, s: FrameState, track: Track, til
   minimapDots(ctx, s, at, race);
 }
 
+/** The tint a kart's body wears: the fleet's own (or none) for FLEET, else the look's colour over it. */
+const lookTint = (look: KartLook | undefined, fleet: Tint | null): Tint | null => (look && look.color !== 'FLEET' ? kartTint(look, fleet ?? {}) : fleet);
+
+/** What a driver's kart body is drawn with: its look's design in the view, and its colour over the fleet's. */
+const bodyOf = (driver: Driver, view: KartView, flat: ReturnType<typeof stripesOf>, frame: number) =>
+  [kartSprite(driver.look ?? DEFAULT_LOOK, view), { tint: lookTint(driver.look, fleetSprite(null, driver.color).tint), flat, frame }] as const;
+
+/** A kart's dot on the minimap: its look's colour when it has one that is not FLEET, else the fleet's colour (`fallback`). */
+export const dotColour = (look: KartLook | undefined, fallback: string): string => COLORS.find((c) => c.name === look?.color)?.hex ?? fallback;
+
 /** The boxes to take, the karts on the road (none for one that falls), then the player, last. */
 function minimapDots(ctx: CanvasRenderingContext2D, s: FrameState, at: { mapX: number; mapY: number }, race: Race) {
   const tile = (v: number, o: number) => o + Math.floor(v / TILE);
   ctx.fillStyle = s.theme.gold;
   for (const b of race.items.boxes.filter((x) => x.back <= 0)) ctx.fillRect(tile(b.x, at.mapX), tile(b.y, at.mapY), 1, 1);
   for (const r of race.rivals.filter((x) => (x.fx?.fall ?? 0) <= 0)) {
-    ctx.fillStyle = r.driver.color ?? s.theme.white;
+    ctx.fillStyle = dotColour(r.driver.look, r.driver.color ?? s.theme.white);
     ctx.fillRect(tile(r.kart.x, at.mapX) - 1, tile(r.kart.y, at.mapY) - 1, 2, 2);
   }
   if (!minimapLit(s, race.fx)) return;
@@ -464,14 +475,14 @@ function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, part
 }
 
 /** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets); the circuit is COMET RING unless a test hands it another. */
-export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace; /** A SINGLE race's laps and the rivals' difficulty (PRD 1762): the player's options. */ laps?: number; difficulty?: Difficulty; /** Tests only: what the player holds from the start, so a test need not drive to a box. */ held?: Item }
+export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace; /** A SINGLE race's laps and the rivals' difficulty (PRD 1762): the player's options. */ laps?: number; difficulty?: Difficulty; /** The player's kart's look (PRD 1762). */ look?: KartLook; /** Tests only: what the player holds from the start, so a test need not drive to a box. */ held?: Item }
 
 /** A MULTI race (PRD 1572): the grid's session the race talks over, the start that began it and the player at this screen. */
 export interface LiveRace { session: Pick<GridSession, 'send' | 'listen'>; start: RaceStart; me: GridPlayer }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed, cast = [], track = parseTrack(), live, held, laps, difficulty }: KartOptions = { seed: 1359 }): KartGame {
-  const first = newRace({ seed, track, cast, ...(laps !== undefined ? { laps } : {}), ...(difficulty ? { difficulty } : {}), ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
+export function createKart({ seed, cast = [], track = parseTrack(), live, held, laps, difficulty, look }: KartOptions = { seed: 1359 }): KartGame {
+  const first = newRace({ seed, track, cast, ...(laps !== undefined ? { laps } : {}), ...(difficulty ? { difficulty } : {}), ...(look ? { look } : {}), ...(live ? { field: { me: live.me.id, order: live.start.order } } : {}) });
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
   let particles = newParticles(seed);

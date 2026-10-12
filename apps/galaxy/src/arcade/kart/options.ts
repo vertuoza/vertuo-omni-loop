@@ -3,6 +3,9 @@
 // (guard.test.ts), and the browser's storage is handed in.
 import type { Action } from '../keys';
 
+// The look's sprites and tints reach the arcade through this module: it is the one loaded on demand.
+export { kartSprite, kartTint } from './look';
+
 /** The five things a player's hands do in a race. */
 export const DRIVE_ACTIONS = ['gas', 'brake', 'left', 'right', 'item'] as const;
 export type DriveAction = (typeof DRIVE_ACTIONS)[number];
@@ -121,12 +124,17 @@ export const HELD_AS: Record<Exclude<DriveAction, 'item'>, Action> = { gas: 'a',
 // ── The panel ──
 
 /** The lines of the OPTIONS panel. */
-export const OPTION_LINES = ['keys', 'laps', 'difficulty', 'defaults'] as const;
+export const OPTION_LINES = ['keys', 'kart', 'laps', 'difficulty', 'defaults'] as const;
 export type OptionLine = (typeof OPTION_LINES)[number];
 
-/** Where the panel stands: on its lines, or on KEYS (with the action under the cursor, waiting for a key or not). */
+/** The lines of the KART panel (PRD 1762): its colour, its design, and DEFAULTS, which puts the look back. */
+export const KART_LINES = ['color', 'design', 'defaults'] as const;
+export type KartLine = (typeof KART_LINES)[number];
+
+/** Where the panel stands: on its lines, on KEYS (with the action under the cursor, waiting for a key or not), or on KART. */
 export type OptionsView =
   | { screen: 'menu'; cursor: OptionLine }
+  | { screen: 'kart'; cursor: KartLine }
   | { screen: 'keys'; cursor: DriveAction; capture: boolean; refused: boolean };
 
 export const FIRST_OPTIONS: OptionsView = { screen: 'menu', cursor: 'keys' };
@@ -154,9 +162,10 @@ function pressKeys(view: KeysView, options: KartOptions, action: Action): Option
   return step(action === 'a' ? { ...view, capture: true, refused: false } : view, options);
 }
 
-/** A or START on a line: KEYS opens, DEFAULTS puts every option back. */
+/** A or START on a line: KEYS and KART open, DEFAULTS puts every option back. */
 function pressLine(view: MenuView, options: KartOptions): OptionsStep {
   if (view.cursor === 'keys') return step({ screen: 'keys', cursor: 'gas', capture: false, refused: false }, options);
+  if (view.cursor === 'kart') return step({ screen: 'kart', cursor: 'color' }, options);
   return step(view, view.cursor === 'defaults' ? defaultOptions() : options);
 }
 
@@ -167,9 +176,30 @@ function changeLine(view: MenuView, options: KartOptions, by: 1 | -1): OptionsSt
   return step(view, options);
 }
 
+type KartView = Extract<OptionsView, { screen: 'kart' }>;
+
+/** ◀ ▶ on KART: the colour or the design goes round its list; DEFAULTS has nothing to change. */
+function shiftLook(options: KartOptions, line: KartLine, by: 1 | -1): KartOptions {
+  if (line === 'color') return { ...options, look: { ...options.look, color: cycle(COLORS, options.look.color, by) } };
+  if (line === 'design') return { ...options, look: { ...options.look, design: cycle(DESIGNS, options.look.design, by) } };
+  return options;
+}
+
+/** A or START on KART: only DEFAULTS does anything, and puts the look back. */
+const pressLook = (options: KartOptions, line: KartLine): KartOptions => (line === 'defaults' ? { ...options, look: defaultOptions().look } : options);
+
+/** KART: ▲ ▼ move over COLOR, DESIGN and DEFAULTS, ◀ ▶ change the colour or the design, A on DEFAULTS puts the look back, B goes back to the lines. */
+function pressKart(view: KartView, options: KartOptions, action: Action): OptionsStep {
+  if (action === 'b') return step({ screen: 'menu', cursor: 'kart' }, options);
+  if (vertical(action)) return step({ screen: 'kart', cursor: move(KART_LINES, view.cursor, action) }, options);
+  if (action === 'left' || action === 'right') return step(view, shiftLook(options, view.cursor, action === 'right' ? 1 : -1));
+  return step(view, action === 'a' || action === 'start' ? pressLook(options, view.cursor) : options);
+}
+
 /** What a pad button does on the panel: ▲ ▼ move the cursor, ◀ ▶ change LAPS and DIFFICULTY, A opens KEYS, waits for a key or puts DEFAULTS back, B goes back. */
 export function optionsPress(view: OptionsView, options: KartOptions, action: Action): OptionsStep {
   if (view.screen === 'keys') return pressKeys(view, options, action);
+  if (view.screen === 'kart') return pressKart(view, options, action);
   if (action === 'b') return step(view, options, true);
   if (vertical(action)) return step({ screen: 'menu', cursor: move(OPTION_LINES, view.cursor, action) }, options);
   if (action === 'a' || action === 'start') return pressLine(view, options);

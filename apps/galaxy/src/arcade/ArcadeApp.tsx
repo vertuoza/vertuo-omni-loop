@@ -48,7 +48,7 @@ import {
 } from './games/invaders';
 import { measureOf } from './measure';
 import { hiOf, overPress, sending, submitSend, withBest, type ScoreSend } from './scenes/invaders-score';
-import { setFleets } from './fleets';
+import { heroOf, setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
 import { stripesOf, themeVars } from './theme';
 import { Stripes } from './Sprite';
@@ -86,6 +86,9 @@ const KART = GAMES.find((g) => g.scene === 'kart')?.id ?? 'kart';
 const DUET = GAMES.find((g) => g.scene === 'duet')?.id ?? 'duet';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
 /** Keys that are not an answer for KEYS: a modifier on its own. */
+/** A look as one word, to tell whether the race on the screen was made with the one the options hold now (PRD 1762). */
+const lookKey = (look: { color: string; design: string }): string => `${look.color}/${look.design}`;
+
 const NOT_A_KEY: ReadonlySet<string> = new Set(['Control', 'Alt', 'AltGraph', 'Meta', 'Dead', 'Unidentified', 'CapsLock']);
 
 const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart', 'duet']);
@@ -355,7 +358,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // The options module, once imported: the panel's moves, the keys' lookup and the store.
   const optionsApi = useRef<typeof import('./kart/options') | null>(null);
   // The laps and difficulty the loaded game was made with: a SINGLE pick after OPTIONS changed them makes the game again.
-  const kartRules = useRef<{ laps: number; difficulty: string } | null>(null);
+  const kartRules = useRef<{ laps: number; difficulty: string; look: string } | null>(null);
   const kartTry = kart?.status === 'loading' ? kart.retry : -1;
   useEffect(() => {
     if (kartTry < 0) return undefined;
@@ -363,7 +366,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // The options are read in the browser with the game: dynamic, as the game is (guard.test.ts).
     // The options come first: a SINGLE race is made with the player's laps and difficulty (PRD 1762).
     void import('./kart/options').then((api) => { optionsApi.current = api; return kartRef.current?.options ?? api.loadOptions(); }).catch((err: unknown) => { console.error(err); return null; }).then(async (options) => {
-      kartRules.current = options && { laps: options.laps, difficulty: options.difficulty };
+      kartRules.current = options && { laps: options.laps, difficulty: options.difficulty, look: lookKey(options.look) };
       const game = await loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null), options);
       return [game, options] as const;
     }).then(([game, options]) => {
@@ -979,7 +982,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           // The choice before the race (PRD 1572): ▲ ▼ and A or START are its own; nothing reaches the race until SINGLE is picked.
           const next = choicePress(k.choice, action, k.multi);
           if (next.step === 'grid') { setKart({ ...k, choice: next, lobby: null }); openLobby(); return; }
-          if (next.step === 'single' && k.options && kartRules.current && (kartRules.current.laps !== k.options.laps || kartRules.current.difficulty !== k.options.difficulty)) {
+          if (next.step === 'single' && k.options && kartRules.current && (kartRules.current.laps !== k.options.laps || kartRules.current.difficulty !== k.options.difficulty || kartRules.current.look !== lookKey(k.options.look))) {
             setKart({ ...k, choice: next, status: 'loading', retry: k.retry + 1, game: null, hud: null });
             return;
           }
@@ -1208,6 +1211,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const who = session
     ? `${account.kind === 'demo' ? 'DEMO · ' : ''}P1 ${displayName}`
     : account.kind === 'demo' ? 'DEMO GALAXY' : account.kind === 'closed' ? 'SIGN-IN NOT OPEN YET' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
+  // The KART panel draws the player's kart in the look the options hold: through the options module, loaded with the game (guard.test.ts).
+  const kartArt = (() => {
+    const api = optionsApi.current;
+    if (!api || !kart?.options || kart.choice.step !== 'options' || kart.choice.view.screen !== 'kart') return null;
+    const look = kart.options.look;
+    return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, heroOf(me?.hero ?? ui.hero, me?.team ?? null).tint) };
+  })();
+
   const overlay = (() => {
     switch (ui.scene) {
       case 'boot': return <BootOverlay brand={brand} />;
@@ -1237,7 +1248,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         </>
       ) : null;
       case 'duet': return <DuetLayer duet={duet} send={send} />;
-      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

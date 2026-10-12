@@ -11,6 +11,7 @@ import { crewLook, heroOf } from '../fleets';
 import type { Action } from '../keys';
 import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
 import { carried, type GridPlayer, type ItemMessage, type StateMessage } from './net';
+import type { KartLook } from './look';
 import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
@@ -53,6 +54,8 @@ export interface Race {
   readonly difficulty: Difficulty;
   /** How many laps the race runs (PRD 1762): 3, 5 or 7; always 3 in MULTI until the grid carries it. */
   readonly laps: number;
+  /** The player's kart's colour and design (PRD 1762); none draws the fleet's colour and CLASSIC. */
+  readonly look?: KartLook;
   /** The race clock at which the player crossed the line for the third time: the time the board gets; null before. */
   readonly threeAt: number | null;
   /** The race clock at which the player's last lap began: FINAL LAP shows from there; null before it. */
@@ -104,7 +107,7 @@ function fillers(used: readonly Driver[], count: number): Driver[] {
  * others, all facing the way the line runs; nothing moves until START. Fewer than five rivals in the
  * cast: the next mascots fill the places.
  */
-export function newRace({ seed, track = parseTrack(), cast = [], field, difficulty = 'normal', laps = LAPS }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field; difficulty?: Difficulty; laps?: number }): Race {
+export function newRace({ seed, track = parseTrack(), cast = [], field, difficulty = 'normal', laps = LAPS, look }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field; difficulty?: Difficulty; laps?: number; look?: KartLook }): Race {
   if (field) return newMultiRace(seed, track, field);
   const start = track.places[track.places.length - 1];
   if (!start) throw new Error('a circuit with no starting place');
@@ -116,7 +119,7 @@ export function newRace({ seed, track = parseTrack(), cast = [], field, difficul
     const trait = traits[i] ?? { skill: 1, offset: 0 };
     return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty, laps, threeAt: null, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
+  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty, laps, ...(look ? { look } : {}), threeAt: null, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
 }
 
 /** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
