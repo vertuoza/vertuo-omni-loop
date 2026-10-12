@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "My masking tests kept their values, and the guard tells me in my own run if I write a literal fake.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every red line names its fix and opens one issue; it's only proven once the read token is set.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Both settings are on today and the one alert from history is triaged: real secrets can't go public anymore.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Fixtures first, settings last, as planned; the daily watch still waits on its token.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing changes on my screen, and that's fine for this one.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓"
     }
   ]
 }
