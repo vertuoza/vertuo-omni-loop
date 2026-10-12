@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cpSync, existsSync as exists, mkdirSync as mkdir, mkdtempSync, readFileSync, realpathSync, symlinkSync } from 'node:fs';
+import { cpSync, existsSync as exists, mkdirSync as mkdir, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -485,6 +485,24 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     ];
     for (const [argv, env] of runs) await omni(argv, { root, env });
     expect(exists(join(root, '.omni-loop/local'))).toBe(false);
+  });
+
+  // PRD 1739: a session id any agent has.
+  it('records under OMNI_SESSION_ID over Claude\'s, else under the id stored for the checkout, from any worktree', async () => {
+    const { root, read } = makeRepo({ git: true, files: FILES });
+    await omni(['prd', '7'], { root, env: { OMNI_SESSION_ID: 'omni-1', CLAUDE_CODE_SESSION_ID: 'abc' } });
+    expect(dig(JSON.parse(read('.omni-loop/local/sessions/omni-1.json')), 'number')).toBe(7);
+    expect(exists(join(root, RECORD))).toBe(false);
+
+    writeFileSync(join(root, '.omni-loop/local/session.json'), `${JSON.stringify({ id: 'stored-1' })}\n`);
+    const worktree = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'feat/bravo--s2', worktree], { cwd: root, stdio: 'ignore' });
+    await omni(['bug', '1180'], { root, cwd: worktree });
+    expect(JSON.parse(read('.omni-loop/local/sessions/stored-1.json'))).toMatchObject({ kind: 'bug', number: 1180 });
+    await omni(['prd', '42'], { root, env: { CLAUDE_CODE_SESSION_ID: 'abc' } });
+    expect(JSON.parse(read('.omni-loop/local/sessions/stored-1.json'))).toMatchObject({ kind: 'bug', number: 1180 });
+    expect(JSON.parse(read(RECORD))).toMatchObject({ number: 42 });
+    expect(JSON.parse(read('.omni-loop/local/session.json'))).toEqual({ id: 'stored-1' });
   });
 
   it('runs the command exactly as before when the record cannot be written', async () => {
