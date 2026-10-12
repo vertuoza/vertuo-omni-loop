@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from './rules';
 import {
-  blocksAt, CHAPTERS, ENDLESS_SEED, endlessWave, endlessWaves, LEGEND, parseChapter, parseWave, passedAt, ring, SHAPE, struck, waveProblems, type Wave,
+  blocksAt, CHAPTERS, ENDLESS_ROWS, ENDLESS_SEED, endlessWave, endlessWaves, LEGEND, parseChapter, parseWave, passedAt, ring, route, SHAPE, struck, waveProblems, type Wave,
 } from './waves';
 
 // OMNI DUET's waves (PRD 1633, slice 3): the four chapters as text, the legend they are written in,
-// the blocks they become, and the check that proves every wave passable.
+// the blocks they become, and the check that proves every wave passable by a person (issue 1663).
 
 const at = (wave: Wave, seconds: number) => blocksAt(wave, Math.round(seconds / RULES.subStep));
 
@@ -125,25 +125,81 @@ describe('the blocks', () => {
   });
 });
 
-describe('every wave is passable', () => {
-  it('turns on a ring of 240 bins, 7 a step: the run\'s own angles, exactly', () => {
-    expect(ring()).toEqual({ bins: 240, move: 7 });
+describe('every wave is passable by a person', () => {
+  /** A person who reacts slower than the check's, with orbs 2 pixels wider: the room every wave keeps to spare. */
+  const SPARE = { reactionSeconds: 0.4, orbRadius: RULES.orbRadius + 2 };
+
+  it('turns on a ring of 100 bins, 1 a step: the run\'s own angles, exactly', () => {
+    expect(ring()).toEqual({ bins: 100, move: 1 });
   });
 
-  it('passes every chapter wave, each from where the wave before can leave the orbs', () => {
+  it('passes every chapter wave, from any angle, holding anything, each change of turn 0.25 s after the last', () => {
+    expect(RULES.reactionSeconds).toBe(0.25);
     expect(waveProblems(CHAPTERS)).toEqual([]);
+  });
+
+  it('keeps room to spare: every chapter wave passes for a person reacting in 0.4 s with orbs 2 pixels wider', () => {
+    expect(waveProblems(CHAPTERS, SPARE)).toEqual([]);
   });
 
   it('names a deliberately impassable wave: a wall across the circle', () => {
     const walled = parseChapter('V', 'WALL', ['speed 60\n....##....', 'speed 60\n##########', 'speed 60\n##......##']);
-    expect(waveProblems([walled])).toEqual(['chapter V · WALL, wave 2: no way through']);
+    expect(waveProblems([walled])).toEqual(['chapter V · WALL, wave 2: no human way through']);
   });
 
   it('names a wave whose rows ask for a quicker turn than the orbs can make', () => {
     // Two bars in one row leave a gap in the middle; the orbs must stand upright to pass it, and a bar
-    // right behind on one side asks them to lie flat within one block's height: too quick a turn.
+    // right behind on one side asks them to lie flat within one block's height: too quick a turn, even
+    // for perfect, instant inputs.
     const tight = parseChapter('V', 'TIGHT', ['speed 300\n####..####\n....##....']);
-    expect(waveProblems([tight])).toEqual(['chapter V · TIGHT, wave 1: no way through']);
+    expect(waveProblems([tight], { reactionSeconds: 0 })).toEqual(['chapter V · TIGHT, wave 1: no human way through']);
+  });
+
+  it('names a wave only perfect, instant inputs get through: two sweeps the other way round, too close for a person', () => {
+    const quick = parseChapter('II', 'SLIDE', ['speed 60\n....##....', 'speed 200\n######....\n..........\n..........\n..........\n....######']);
+    expect(waveProblems([quick], { reactionSeconds: 0 })).toEqual([]);
+    expect(waveProblems([quick])).toEqual(['chapter II · SLIDE, wave 2: no human way through']);
+  });
+
+  it('finds a way through each chapter wave that changes turn no sooner than the reaction delay', () => {
+    const react = Math.round(RULES.reactionSeconds / RULES.subStep);
+    for (const c of CHAPTERS) {
+      c.waves.forEach((w, i) => {
+        const turns = route(w, 0) ?? [];
+        expect(turns.length, `${c.name} wave ${i + 1}`).toBeGreaterThan(0);
+        let since = react;
+        turns.forEach((t, k) => {
+          if (k > 0 && t !== turns[k - 1]) { expect(since, `${c.name} wave ${i + 1}, sub-step ${k + 1}`).toBeGreaterThanOrEqual(react); since = 0; }
+          since++;
+        });
+      });
+    }
+  });
+});
+
+describe('what the waves ask of a person', () => {
+  /** Whether orbs held still at some angle get through `wave` untouched. */
+  const stillPasses = (wave: Wave) => {
+    const { bins } = ring();
+    let alive = Array.from({ length: bins }, (_, b) => (b / bins) * Math.PI * 2);
+    for (let tick = 1; alive.length && !passedAt(wave, tick); tick++) alive = alive.filter((a) => !struck(a, blocksAt(wave, tick)));
+    return alive.length > 0;
+  };
+
+  it('asks to turn the pair in every wave but a chapter\'s first: no angle held still gets through', () => {
+    const still = CHAPTERS.flatMap((c) => c.waves.flatMap((w, i) => (i > 0 && stillPasses(w) ? [`${c.name} wave ${i + 1}`] : [])));
+    expect(still).toEqual([]);
+  });
+
+  it('falls slower in chapter I than before the turn was slowed, at 70 pixels a second at most', () => {
+    expect(Math.max(...(CHAPTERS[0]?.waves ?? []).map((w) => w.speed))).toBeLessThanOrEqual(70);
+  });
+
+  it('spaces chapter I\'s rows generously: two rows of a wave stand six rows apart at least', () => {
+    for (const [i, w] of (CHAPTERS[0]?.waves ?? []).entries()) {
+      const rows = [...new Set(w.pieces.map((p) => p.row))].sort((a, b) => a - b);
+      rows.forEach((r, k) => { if (k > 0) expect(r - (rows[k - 1] ?? 0), `DRIFT wave ${i + 1}`).toBeGreaterThanOrEqual(6); });
+    }
   });
 });
 
@@ -178,12 +234,23 @@ describe('the endless waves', () => {
     expect(endlessWave(100_000).pieces.length).toBeGreaterThan(0);
   });
 
-  it('pass waveProblems for the first 200, each from where the wave before can leave the orbs', () => {
+  it('are built from chapter IV\'s own rows, and only those', () => {
+    const storm = new Set((CHAPTERS[3]?.waves ?? []).flatMap((w) => w.pieces.map((p) => `${p.kind} ${p.dir} ${p.col} ${p.len}`)));
+    expect(ENDLESS_ROWS.length).toBeGreaterThan(8);
+    for (const w of endlessWaves(60)) for (const p of w.pieces) expect(storm.has(`${p.kind} ${p.dir} ${p.col} ${p.len}`), JSON.stringify(p)).toBe(true);
+  });
+
+  it('stop rising at a ceiling: a slow rise, never past it', () => {
+    const speeds = endlessWaves(200).map((w) => w.speed);
+    expect(Math.max(...speeds)).toBe(speeds[199]);
+    expect(endlessWave(100_000).speed).toBe(speeds[199]);
+  });
+
+  it('pass for a person for the first 200, from any angle, holding anything: a hit begins the wave hit again from wherever the orbs stand', () => {
     expect(waveProblems(endless(endlessWaves(200)))).toEqual([]);
   });
 
-  it('can each be begun again from any angle, as a hit in endless mode begins the wave hit again', () => {
-    const stuck = endlessWaves(200).flatMap((w, i) => (waveProblems(endless([w])).length ? [i + 1] : []));
-    expect(stuck).toEqual([]);
+  it('keep the chapters\' room to spare for the first 200', () => {
+    expect(waveProblems(endless(endlessWaves(200)), { reactionSeconds: 0.4, orbRadius: RULES.orbRadius + 2 })).toEqual([]);
   });
 });

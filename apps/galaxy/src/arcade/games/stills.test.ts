@@ -1,7 +1,8 @@
 // Draws each game's still for its lit cabinet's screen (still.ts) from the game's own pieces, and
 // checks stills.ts holds them as they are drawn now: OMNI KART's race over its circuit, rendered by
 // its Mode 7 floor with its rivals, boxes, props and arch, and a slice of Super Omni World's stage 1-1
-// in its tiles. The player's own kart and hero are not in a still: the cabinet draws them over it.
+// in its tiles, and OMNI DUET's two orbs on their circle under a falling wave. The player's own kart
+// and hero are not in a still: the cabinet draws them over it.
 // After a game's art changes, `npx vitest run apps/galaxy/src/arcade/games/stills.test.ts -u` draws
 // them again.
 import { describe, expect, it } from 'vitest';
@@ -17,6 +18,11 @@ import { parseTrack } from '../kart/track';
 import { enemyTint, SKY, tileFrame } from '../platformer/art';
 import { STAGES } from '../platformer/stages';
 import { LETTERS, letterWidth, stillPixels, type Still, type Stills } from './still';
+import { drawField } from '../duet/art';
+import { RULES as DUET_RULES } from '../duet/rules';
+import { newRun } from '../duet/run';
+import { blocksAt, CHAPTERS as DUET_CHAPTERS, struck } from '../duet/waves';
+import type { FrameState } from '../scenes/common.ts';
 import { sure } from '../test/sure';
 
 /** The inside of a lit cabinet's screen on each grid, in grid pixels (games.css: `.cab-screen` less its border). */
@@ -221,10 +227,49 @@ function stage({ w, h }: { w: number; h: number }): Canvas {
   return c;
 }
 
+// ── OMNI DUET: the two orbs on their circle, a wave of chapter III falling on them ─
+
+/** The wave on the duet still (chapter III's, counted from 0), and the angle the pair is turned towards, clear of its blocks, a trail behind. */
+const DUET_CHAPTER = 2;
+const DUET_WAVE = 4;
+const DUET_ANGLE = 0.5;
+
+/** The playfield as the game draws it, through a 2D context that paints a still's canvas, then cut to the screen around the circle. */
+function duet({ w, h }: { w: number; h: number }): Canvas {
+  const field = blank(DUET_RULES.field.w, DUET_RULES.field.h, DEFAULT_THEME.void);
+  const pen = {
+    fillStyle: '',
+    globalAlpha: 1,
+    fillRect(x: number, y: number, rw: number, rh: number) { fill(field, x, y, rw, rh, pen.fillStyle, { alpha: pen.globalAlpha }); },
+  };
+  const ctx = pen as unknown as CanvasRenderingContext2D;
+  const wave = at(at(DUET_CHAPTERS, DUET_CHAPTER, 'chapter III').waves, DUET_WAVE, "chapter III's wave");
+  const reach = DUET_RULES.centre.y - DUET_RULES.radius / 2;
+  let tick = 0;
+  while (Math.max(...blocksAt(wave, tick).map((b) => b.cy)) < reach) tick++;
+  // The angle nearest DUET_ANGLE where neither orb, nor its trail a little behind, touches a block.
+  const blocks = blocksAt(wave, tick);
+  const clear = (a: number) => [0, -0.25, 0.25].every((d) => !struck(a + d, blocks));
+  const angle = sure(Array.from({ length: 126 }, (_, i) => DUET_ANGLE + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.05).find(clear), 'an angle clear of the wave');
+  const trail = Array.from({ length: DUET_RULES.trail }, (_, i) => angle - (i + 1) * 0.08);
+  const run = { ...newRun({ seed: 1 }), phase: 'play' as const, chapter: DUET_CHAPTER, wave: DUET_WAVE, tick, angle, trail, started: true };
+  drawField(ctx, { theme: DEFAULT_THEME, reduced: false } as unknown as FrameState, run);
+  // The circle and its orbs fill the screen's height; the screen's middle is the circle's centre.
+  const k = h / ((DUET_RULES.radius + DUET_RULES.orbRadius) * 2 + 4);
+  const c = blank(w, h, DEFAULT_THEME.void);
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const fx = Math.floor(DUET_RULES.centre.x + (px + 0.5 - w / 2) / k), fy = Math.floor(DUET_RULES.centre.y + (py + 0.5 - h / 2) / k);
+      if (fx >= 0 && fy >= 0 && fx < field.w && fy < field.h) c.px[py * w + px] = at(field.px, fy * field.w + fx, 'a field pixel');
+    }
+  }
+  return c;
+}
+
 // ── The stills as stills.ts keeps them ────────────────────────────────────────
 
 /** Each game's still, by its id: the games whose screen is not the Invaders formation. */
-const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, platformer: stage };
+const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, platformer: stage, duet };
 
 function encode(c: Canvas): Still {
   const palette = [...new Set(c.px)];
