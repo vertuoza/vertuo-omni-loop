@@ -60,18 +60,28 @@ As `/omni:prove` reaches it, with the `e2e` block in place of `proof`:
   not the preview.
 - **The bypass.** When `e2e.bypassEnv` names an environment variable, every request sends its value
   as the `x-vercel-protection-bypass` header. Never print the value, and never write it to a file.
-- **Signed in.** When `e2e.setup` is set, run that command once from the repository's root, with
-  `PROOF_STORAGE_STATE=<run dir>/storage-state.json` and `PROOF_URL=<the URL>` in its environment.
-  A setup that fails stops the run with `e2e setup failed: <its last line>`.
+- **Signed in, with the framework's own login.** This is the way in. The account goes in the
+  `credentials` of `e2e.config.ts`, read from environment variables, never typed in a file. A
+  `test.setup` file in `e2e.dir` fills the login form and calls `session.save('<name>')`, and each
+  generated test depends on that session by declaring `{ session: '<name>' }`. Look in `e2e.dir` for
+  an existing setup (a file that uses `test.setup`) and reuse its session name. When there is none,
+  write one (step 4b). The skill runs nothing else to sign in.
+- **Signed in, by hand (secondary, not verified).** Only for a login a person completes by hand,
+  when `e2e.setup` is set and no `test.setup` exists: run that command once from the repository's
+  root, with `PROOF_STORAGE_STATE=<run dir>/storage-state.json` and `PROOF_URL=<the URL>` in its
+  environment. This path is not verified until it is tried. A setup that fails stops the run with
+  `e2e setup failed: <its last line>`.
 - **Reachable, or stop.** Fetch the URL once. A 401, a 403, a 5xx or a timeout of 30 seconds stops
   the run: `preview not reachable: <status>` (`timeout` for a timeout).
 
 - **In a plan repository** (its config has a `plan` section), the target is the environment the plan
   repository builds from the target PRs together, not one target repository's preview. `e2e.url` and
   `e2e.setup` are read from config, never guessed, and name that environment.
-- **The session.** Here and elsewhere, the run signs in from the saved session `e2e.setup` writes
-  (`storage-state.json` in the run dir, outside `e2e.dir`), as `/omni:prove` does. The skill never prints, logs or commits a credential and never shows one to the model: the
-  tests load the session file, and no password, token or key is typed, echoed or written anywhere.
+- **The session.** Here and elsewhere, the run signs in through the framework's saved session
+  (`session.save`, written by the `test.setup`), and the tests load it with `{ session: '<name>' }`.
+  On the secondary path the run signs in from the saved session `e2e.setup` writes
+  (`storage-state.json` in the run dir, outside `e2e.dir`). The skill never prints, logs or commits a credential and never shows one to the model: no
+  password, token or key is typed, echoed or written anywhere.
 
 ## 3. The criteria, from the spec alone
 
@@ -109,9 +119,22 @@ recordings are all in the plan repository's `e2e.dir`, and the sub-PR is opened 
 writes a target repository: no test, recording, workspace entry or lockfile line goes into one.
 Outside a plan repository the skill runs exactly as before.
 
+## 4b. The login setup, when none exists
+
+Skip this when step 2 found a `test.setup` in `e2e.dir`. Otherwise write one `e2e.dir/auth.setup.ts`
+for a classic form (an email or user field, a password field, a submit button). Ask only for the
+account's label and the **names** of the two environment variables that hold the account's login and
+password, never a value. The file reads both from `process.env`, fills the form, waits for the
+signed-in page, and calls `session.save('<name>')`. Declare `credentials` in `e2e.config.ts` from the
+same variables. No login, password, token or cookie is written to any file. Then run
+`node .omni-loop/bin/omni.mjs e2e guard <n>`: it must stay green on the generated file; a value in
+clear makes it fail and no sub-PR opens. A login that is not a classic form (a third-party
+sign-in, a code by message) is not generated: stop and say so.
+
 ## 5. One test per filmable criterion
 
-Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`.
+Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`, each declaring
+`{ session: '<name>' }` so it depends on the setup's session.
 
 - Navigate with `agent.act`; pin every outcome with an exact `expect()`.
 - Use `agent.assert` only where nothing exact exists, with a comment line saying

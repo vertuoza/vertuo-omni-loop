@@ -53,7 +53,21 @@ describe('omni e2e guard', () => {
     const { code, err } = await run(ON, { 'e2e/.auth/storage-state.json': '{}' });
     expect(code).toBe(1);
     expect(err).toContain('e2e/.auth/storage-state.json:1');
-    expect(err).toContain('saved session');
+    expect(err).toContain('saved session file');
+  });
+
+  it('stays green on a native login setup that reads the account from the environment', async () => {
+    const setup = [
+      "import { test } from '@tester-army/e2e';",
+      "test.setup('sign in', async ({ page, session }) => {",
+      "  await page.fill('#email', process.env.QA_EMAIL ?? '');",
+      "  await page.fill('#password', process.env.QA_PASSWORD ?? '');",
+      "  await session.save('qa');",
+      '});',
+      '',
+    ].join('\n');
+    const { code } = await run(ON, { 'e2e/auth.setup.ts': setup });
+    expect(code).toBe(0);
   });
 
   it('leaves the ignored recording cache alone', async () => {

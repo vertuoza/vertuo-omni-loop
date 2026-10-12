@@ -63,7 +63,9 @@ e2e:
   feature pull request's head commit, as `proof.url` does. See **A fixed address** below when the
   preview has no data.
 - **`deployment`**: which deployment, when a commit has several previews.
-- **`setup`**: a command that signs the browser in, run once, as `proof.setup`.
+- **`setup`**: the secondary path (not verified): a command that signs the browser in by hand, run
+  once, as `proof.setup`. The native login (`credentials`, a `test.setup`, `session.save`) is the
+  first path and needs no `setup`.
 - **`bypassEnv`**: the name of the environment variable that holds the preview-protection bypass
   secret. It is sent as a header and never printed. The name must be a valid variable name.
 - **`dir`**: the folder, in this repository, where the tests and their recordings live. It may not be
@@ -119,10 +121,16 @@ several repositories, the skill works differently in four ways.
 - **A name unique to the run.** Every record a test creates carries a name built from a value that is
   new on every run (a timestamp or a random suffix), so two runs on the shared QA tenant do not
   collide. This holds outside a plan repository too, unless the PRD's answer says otherwise.
-- **A saved session.** Google refuses to sign in a browser an automated tool drives, so the run does
-  not type a password. `e2e.setup` writes a saved session (`storage-state.json`) in the run's own
-  folder, outside `e2e.dir`, as `/omni:prove` does, and the tests load that file. The skill never
-  prints, logs or commits a credential and never shows one to the model.
+- **A saved session, from the framework's own login.** `credentials` in `e2e.config.ts` read the
+  account from environment variables. A `test.setup` file in `e2e.dir` fills the login form and calls
+  `session.save('<name>')`, and each generated test declares `{ session: '<name>' }`. When
+  `e2e.dir` holds no setup, the skill writes one for a classic form, asking only for the account and
+  the names of the environment variables that hold it, never a password, and checks it with the guard.
+  The skill never prints, logs or commits a credential and never shows one to the model.
+- **By hand (secondary, not verified).** For a login a person completes by hand (Google refuses to
+  sign in a browser an automated tool drives), `e2e.setup` writes a saved session
+  (`storage-state.json`) in the run's own folder, outside `e2e.dir`, as `/omni:prove` does, and the
+  tests load that file. This path is not verified until it is tried.
 
 ### The guard
 
@@ -132,15 +140,15 @@ node .omni-loop/bin/omni.mjs e2e guard 1276
 
 Before anything is committed, the skill runs the guard. It exits non-zero and names `file:line` and
 the kind of shape (a password, a token, a key, a session state), **never the value**, when a file of
-`e2e.dir` (other than the recording cache) holds one. A `storage-state.json` found under `e2e.dir` is
-refused by name. A non-zero exit stops the run: no commit and no sub-PR follow, until the file it
+`e2e.dir` (other than the recording cache) holds one. A saved session file (`storage-state.json`, which
+only the secondary path writes) found under `e2e.dir` is refused by name. A non-zero exit stops the run: no commit and no sub-PR follow, until the file it
 names is fixed. With `e2e.enabled` false it says so in one line and exits non-zero.
 
 ### QA chooses the flows and the account
 
 The kit does not choose what to test or who signs in. **QA chooses the flows** to cover first and **the
-test account** the runs use, and keeps its credentials out of the code (in the environment that runs
-`e2e.setup`). The sub-PR states which QA flow and which account the run used, the account **by
+test account** the runs use, and keeps its credentials out of the code (in the environment variables the
+`credentials` read). The sub-PR states which QA flow and which account the run used, the account **by
 label**, never the secret. The first real run is done by QA in the plan repository.
 
 ## Run it
