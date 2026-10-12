@@ -27616,6 +27616,7 @@ var proofUrl = external_exports.string().refine((value) => {
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
 var envName = external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
+var lawOwner = external_exports.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = external_exports.object({
   repo: external_exports.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -27787,7 +27788,12 @@ var ConfigSchema = external_exports.object({
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
     // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
-    requireProof: external_exports.boolean().default(false)
+    requireProof: external_exports.boolean().default(false),
+    // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
+    max: external_exports.number().int().positive().default(20),
+    // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
+    // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
+    owners: external_exports.array(lawOwner).default([])
   }),
   risk: section({
     storedShape: external_exports.array(regexSource).default([]),
@@ -28774,7 +28780,7 @@ var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
 var ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
-var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
+var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
   Why: "why",
   Decided: "decided",
@@ -28784,6 +28790,9 @@ var FIELD_KEY = {
   "Enforced by": "enforcedBy",
   Stated: "stated",
   Proposed: "proposedLine",
+  "Proposed law": "proposedLaw",
+  Locked: "lockedLine",
+  Governs: "governsLine",
   Kind: "kindLine",
   "Kept id": "keptId",
   "Glossary term": "glossaryTerm"
@@ -28844,6 +28853,37 @@ function readProposed(file2, id, value) {
     problems: [`${file2}: ${id} \u2014 "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`]
   };
 }
+var LOCKED_VALUE = /^@([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?),\s*(\d{4}-\d{2}-\d{2})$/;
+function readLocked(file2, id, value) {
+  if (value === void 0) return { locked: null, problems: [] };
+  const match = value.match(LOCKED_VALUE);
+  if (match) return { locked: { by: group(match, 1), on: group(match, 2) }, problems: [] };
+  const line = value === "" ? "Locked:" : `Locked: ${value}`;
+  return {
+    locked: { by: null, on: null },
+    problems: [`${file2}: ${id} \u2014 "${line}" is not "Locked: @<login>, <YYYY-MM-DD>".`]
+  };
+}
+function readGoverns(file2, id, value) {
+  if (value === void 0) return { governs: null, problems: [] };
+  const governs = value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+  if (governs.length > 0) return { governs, problems: [] };
+  return {
+    governs,
+    problems: [`${file2}: ${id} \u2014 "Governs:" names no path \u2014 list the paths it rules over, comma-separated.`]
+  };
+}
+function readProposedLaw(file2, id, value) {
+  if (value === void 0) return { proposedLaw: null, problems: [] };
+  if (value !== "") return { proposedLaw: value, problems: [] };
+  return {
+    proposedLaw: value,
+    problems: [`${file2}: ${id} \u2014 "Proposed law:" says nothing \u2014 write one plain sentence: what breaks, and who gets hurt.`]
+  };
+}
+function isConfirmedRule(entry3) {
+  return (entry3.kind === "rule" || entry3.kind === "invariant") && (entry3.proposed === null || entry3.locked !== null);
+}
 var PENDING_VALUE = /^pending #([1-9]\d*)$/;
 var PENDING_INTENT = /^pending(?![\w./-])/i;
 function meansPending(value) {
@@ -28884,6 +28924,9 @@ function parseEntryFile(file2, text14, place) {
     const enforcedBy2 = fields.enforcedBy ?? null;
     const { proposed, problems: proposedProblems } = readProposed(file2, id, fields.proposedLine);
     const { pending, problems: pendingProblems } = readPending(file2, id, enforcedBy2);
+    const { locked, problems: lockedProblems } = readLocked(file2, id, fields.lockedLine);
+    const { governs, problems: governsProblems } = readGoverns(file2, id, fields.governsLine);
+    const { proposedLaw, problems: proposedLawProblems } = readProposedLaw(file2, id, fields.proposedLaw);
     return {
       id,
       kind,
@@ -28902,10 +28945,13 @@ function parseEntryFile(file2, text14, place) {
       pending,
       stated: fields.stated ?? null,
       proposed,
+      locked,
+      governs,
+      proposedLaw,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts2,
-      problems: [...proposedProblems, ...pendingProblems]
+      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...proposedLawProblems]
     };
   });
 }
@@ -32114,14 +32160,11 @@ var RULES = [
 ];
 var LAW_DEMOTED = "law-demoted";
 var RULE_IDS = [...RULES.map((rule) => rule.id), LAW_DEMOTED];
-function isLaw(entry3) {
-  return (entry3.kind === "rule" || entry3.kind === "invariant") && entry3.proposed === null;
-}
 function demotedFiles({ ctx, base }) {
   if (ctx.config.laws.source !== "knowledge") return [];
   const head = new Map(readRegisters({ ctx }).entries.map((entry3) => [entry3.id, entry3]));
   const files = /* @__PURE__ */ new Set();
-  for (const was of readKnowledge({ ctx, source: base }).entries.filter(isLaw)) {
+  for (const was of readKnowledge({ ctx, source: base }).entries.filter(isConfirmedRule)) {
     const now2 = head.get(was.id);
     if (now2 === void 0) files.add(was.file);
     else if (was.enforced && !now2.enforced) files.add(now2.file);
@@ -38986,6 +39029,7 @@ function findInboxViolations({ ctx }) {
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync30, readFileSync as readFileSync31 } from "node:fs";
 import { join as join42 } from "node:path";
+var DEFAULT_LAWS_MAX = 20;
 function violation(file2, id, detail) {
   return { file: file2, id, detail };
 }
@@ -39236,6 +39280,7 @@ function findEntryViolations(ctx, entries4) {
   for (const entry3 of entries4) {
     violations.push(...idShapeViolations(entry3));
     violations.push(...entry3.problems.map((problem) => ({ text: problem })));
+    violations.push(...lockViolations(entry3));
     if (entry3.scope === "cross-domain" && !entry3.kind) {
       violations.push(
         violation(entry3.file, entry3.id, 'is missing a "Kind: rule" or "Kind: invariant" line.')
@@ -39309,6 +39354,44 @@ function proofViolations(ctx, entry3, requireProof) {
   if (meansPending(entry3.enforcedBy)) return [];
   return missingPathViolations(ctx, entry3, "Enforced by", entry3.enforcedBy, { onlyPathLike: false });
 }
+function lockViolations(entry3) {
+  if (entry3.locked === null) return [];
+  if (entry3.kind === "principle") {
+    return [violation(entry3.file, entry3.id, "is locked, but a principle is never a law \u2014 lock a rule or an invariant that serves it.")];
+  }
+  const violations = [];
+  if (!entry3.enforced) {
+    violations.push(violation(entry3.file, entry3.id, `is locked, but "Enforced by:" names no test \u2014 a law is proven: name its test's path.`));
+  }
+  if (entry3.governs === null) {
+    violations.push(violation(entry3.file, entry3.id, 'is locked, but carries no "Governs:" line \u2014 a law names the paths it rules over.'));
+  }
+  if (entry3.proposed !== null) {
+    violations.push(violation(entry3.file, entry3.id, 'is locked and proposed at once \u2014 a person locked it: remove its "Proposed:" line.'));
+  }
+  return violations;
+}
+function findLockCountViolations(ctx, entries4) {
+  if (ctx.copyOf) return [];
+  const locks = entries4.filter((entry3) => entry3.locked !== null).length;
+  if (locks === 0) return [];
+  const max = ctx.config.laws?.max ?? DEFAULT_LAWS_MAX;
+  const owners = ctx.config.laws?.owners ?? [];
+  const counted3 = `${locks} locked ${locks === 1 ? "entry" : "entries"}`;
+  const where = ctx.layout.knowledgeRoot;
+  const violations = [];
+  if (locks > max) {
+    violations.push({
+      text: `${where}: ${counted3}, more than laws.max (${max}) \u2014 a law is one of the few truths that cost the most when broken: strike one, or raise laws.max.`
+    });
+  }
+  if (owners.length === 0) {
+    violations.push({
+      text: `${where}: ${counted3}, and laws.owners is empty \u2014 name who may lock a law and approve a change to one in laws.owners before locking.`
+    });
+  }
+  return violations;
+}
 function findUnresolvedCitations(file2, text14, resolve9) {
   return idsCitedIn(text14).filter((id) => !resolve9(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
 }
@@ -39340,6 +39423,7 @@ function gradeKnowledge({
     ...findCrossDomainFileViolations(knowledge2),
     ...findReusedIds(knowledge2.entries),
     ...findEntryViolations(ctx, knowledge2.entries),
+    ...findLockCountViolations(ctx, knowledge2.entries),
     ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve9))
   ];
   return {
