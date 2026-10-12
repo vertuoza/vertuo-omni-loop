@@ -930,6 +930,13 @@ var ComparePageSchema = z8.looseObject({
   files: z8.array(z8.looseObject({ filename: z8.string(), status: z8.string() })).nullish(),
   commits: z8.array(z8.looseObject({ sha: z8.string(), commit: z8.looseObject({ message: z8.string().nullish() }).nullish() })).nullish()
 });
+var ReviewsPageSchema = z8.array(
+  z8.looseObject({
+    user: z8.looseObject({ login: z8.string() }).nullish(),
+    state: z8.string(),
+    commit_id: z8.string().nullish()
+  })
+);
 var CheckRunsSchema = z8.looseObject({
   check_runs: z8.array(z8.looseObject({ id: z8.number(), status: z8.string().nullish() })).nullish()
 });

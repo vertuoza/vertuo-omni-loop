@@ -934,6 +934,13 @@ var ComparePageSchema = z8.looseObject({
   files: z8.array(z8.looseObject({ filename: z8.string(), status: z8.string() })).nullish(),
   commits: z8.array(z8.looseObject({ sha: z8.string(), commit: z8.looseObject({ message: z8.string().nullish() }).nullish() })).nullish()
 });
+var ReviewsPageSchema = z8.array(
+  z8.looseObject({
+    user: z8.looseObject({ login: z8.string() }).nullish(),
+    state: z8.string(),
+    commit_id: z8.string().nullish()
+  })
+);
 var CheckRunsSchema = z8.looseObject({
   check_runs: z8.array(z8.looseObject({ id: z8.number(), status: z8.string().nullish() })).nullish()
 });
@@ -1291,6 +1298,7 @@ var printed = (value) => String(value);
 // apps/omni-app/src/webhook/webhook.ts
 var CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["opened", "synchronize", "reopened", "ready_for_review", "labeled", "unlabeled", "edited"]),
+  pull_request_review: Object.freeze(["submitted", "dismissed"]),
   check_run: Object.freeze(["rerequested"])
 });
 var RETRO_ACTIONS = Object.freeze({
@@ -1305,6 +1313,7 @@ var APPROVED_LABEL_ACTIONS = Object.freeze({
 var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
+  pull_request_review: CHECK_ACTIONS.pull_request_review,
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
@@ -1397,7 +1406,7 @@ function toCheckRequests(event, delivery) {
   if (!source) return [];
   const trigger = `${event}.${String(payload.action)}`;
   const name = event === "check_run" ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
-  const pulls = event === "pull_request" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
+  const pulls = event !== "check_run" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
     number: pull.number,
     sha: pull.head?.sha ?? payload.check_run?.head_sha,
     base: pull.base?.ref
