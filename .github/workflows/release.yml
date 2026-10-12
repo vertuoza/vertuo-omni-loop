@@ -6,9 +6,6 @@
 # briefing's Never section). A push whose head is a release commit cuts nothing.
 # main is protected by a ruleset (test, typecheck, lint and fallow must pass) that only the deploy key
 # RELEASE_DEPLOY_KEY may bypass: the checkout below uses it, so this push, and no other, goes through.
-# Vercel deploys main from the release commit and skips the merge before it (PRD 1646,
-# scripts/vercel-ignore.sh): when this run fails or is cancelled, no release commit comes, so its last
-# step marks main's head vercel/production-fallback and calls each project's Deploy Hook for main.
 name: release
 on:
   push:
@@ -26,7 +23,6 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
-      statuses: write
     env:
       GH_TOKEN: ${{ github.token }}
       GIT_AUTHOR_NAME: github-actions[bot]
@@ -44,19 +40,3 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: node kit/release/release.ts
-      # PRD 1646: the release did not land, so Vercel would skip this merge. Mark main's head so the
-      # ignore step builds it, then ask each project for a deployment of main.
-      - name: deploy main through the Vercel Deploy Hooks
-        if: failure() || cancelled()
-        env:
-          HOOK_GALAXY: ${{ secrets.VERCEL_DEPLOY_HOOK_GALAXY_MAIN }}
-          HOOK_OMNI_APP: ${{ secrets.VERCEL_DEPLOY_HOOK_OMNI_APP_MAIN }}
-        run: |
-          head="$(gh api "repos/${{ github.repository }}/git/ref/heads/main" --jq .object.sha)" || head="${{ github.sha }}"
-          gh api -X POST "repos/${{ github.repository }}/statuses/$head" -f state=success \
-            -f context=vercel/production-fallback -f description="the release did not land: deploy this commit" >/dev/null \
-            || echo "::warning::could not mark $head vercel/production-fallback"
-          for hook in "$HOOK_GALAXY" "$HOOK_OMNI_APP"; do
-            if [ -z "$hook" ]; then echo "::warning::a Vercel Deploy Hook secret is not set"; continue; fi
-            curl -sf -X POST "$hook" >/dev/null || echo "::warning::a Vercel Deploy Hook call failed"
-          done

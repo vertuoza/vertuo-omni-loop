@@ -36,7 +36,8 @@ A merge to `main` ships:
   from this repository. A merge to `main` deploys each to production through the release commit
   that follows it, and only the project whose inputs changed since its last production deploy
   (PRD 1646, `scripts/vercel-ignore.sh`): a merge of documents alone deploys neither. When the
-  `release` workflow fails, its last step deploys `main` through each project's Deploy Hook.
+  `release` workflow fails, the `release-fallback` workflow deploys `main` through each project's
+  Deploy Hook.
   `VERCEL_FORCE_BUILD=1` on a project makes it build every deployment
   ([apps/galaxy/README.md › When Vercel builds](../../../apps/galaxy/README.md#8-when-vercel-builds)).
 

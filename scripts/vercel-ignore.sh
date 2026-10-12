@@ -8,7 +8,7 @@
 # 1. VERCEL_FORCE_BUILD=1 on the project builds everything: the switch that stops skipping at once.
 # 2. On main (VERCEL_IGNORE_PRODUCTION_BRANCH, default main):
 #    - a commit carrying the status vercel/production-fallback = success builds: the release
-#      workflow failed and called the project's Deploy Hook (.github/workflows/release.yml);
+#      workflow failed and called the project's Deploy Hook (.github/workflows/release-fallback.yml);
 #    - a commit whose message does not start `chore(release): ` is a merge, skipped: the release
 #      commit the release workflow pushes a minute later carries it;
 #    - a release commit builds when scripts/vercel-inputs.ts says the diff since the project's last

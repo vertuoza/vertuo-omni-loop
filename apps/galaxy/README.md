@@ -1493,7 +1493,8 @@ Vercel bill: every merge built both projects twice, and every push on every bran
   CI and tooling, tests, the release's version stamps), the GitHub App only for `apps/omni-app/`, the
   lockfile, or a `package.json` change beyond its version. A merge of documents builds nothing, and
   the sidebar's version then lags until the next merge that changes galaxy. When the `release`
-  workflow fails, its last step marks `main` and calls each project's Deploy Hook.
+  workflow fails or is cancelled, the `release-fallback` workflow marks `main` and calls each
+  project's Deploy Hook.
 - **On any other branch,** a push builds nothing. A ready pull request into `main` gets one preview
   per project it changes, about 150 seconds after its last push (`.github/workflows/preview-debounce.yml`):
   a newer push restarts the wait. Drafts, sub-PRs into a feature branch, changes only under
