@@ -12,7 +12,7 @@ const read = (file: string) => readFileSync(`${MIGRATIONS}${file}`, 'utf8').repl
 const files = () => readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
 
 const FUNCTIONS = [
-  'ask_cli_device_issue(text, text, text, text, integer, text, timestamptz, timestamptz)',
+  'ask_cli_device_issue(text, text, text, timestamptz, timestamptz, text, integer, text)',
   'ask_cli_device_read(text)',
   'ask_cli_device_polled(text, timestamptz, integer)',
   'ask_cli_device_take(text)',

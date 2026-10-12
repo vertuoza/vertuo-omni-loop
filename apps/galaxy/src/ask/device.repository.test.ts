@@ -25,18 +25,18 @@ const ROW = {
 };
 
 describe('the device store over the database\'s functions', () => {
-  it('issues with the token\'s fields, or nulls for a sign-in, and reads a taken user code', async () => {
+  it('issues with the token\'s fields, leaving out what a sign-in has not, and reads a taken user code', async () => {
     const { db, calls } = client({ ask_cli_device_issue: { data: true, error: null } });
     const store = deviceRepository(db);
     const at = { device_hash: HASH, user_code: 'BCDFGHJK', now: '2026-10-12T09:00:00.000Z', expires_at: '2026-10-12T09:10:00.000Z' };
     expect(await store.issue({ ...at, request: { purpose: 'token', name: 'cloud', days: 30, workspace: null } })).toBe('issued');
     expect(calls[0]).toEqual({ fn: 'ask_cli_device_issue', args: {
-      p_device_hash: HASH, p_user_code: 'BCDFGHJK', p_purpose: 'token', p_name: 'cloud', p_days: 30, p_workspace: null,
+      p_device_hash: HASH, p_user_code: 'BCDFGHJK', p_purpose: 'token', p_name: 'cloud', p_days: 30,
       p_now: at.now, p_expires_at: at.expires_at,
     } });
     const taken = client({ ask_cli_device_issue: { data: false, error: null } });
     expect(await deviceRepository(taken.db).issue({ ...at, request: { purpose: 'signin' } })).toBe('taken');
-    expect(taken.calls[0]?.args).toMatchObject({ p_purpose: 'signin', p_name: null, p_days: null, p_workspace: null });
+    expect(taken.calls[0]?.args).toEqual({ p_device_hash: HASH, p_user_code: 'BCDFGHJK', p_purpose: 'signin', p_now: at.now, p_expires_at: at.expires_at });
   });
 
   it('reads and finds a row, its poll interval as `interval`, or null', async () => {

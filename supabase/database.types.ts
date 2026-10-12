@@ -3153,7 +3153,7 @@ export type Database = {
         Args: {
           p_now: string
           p_payload: string
-          p_payload_expires_at: string
+          p_payload_expires_at?: string
           p_purpose: string
           p_user_code: string
         }
@@ -3178,14 +3178,14 @@ export type Database = {
       }
       ask_cli_device_issue: {
         Args: {
-          p_days: number
+          p_days?: number
           p_device_hash: string
           p_expires_at: string
-          p_name: string
+          p_name?: string
           p_now: string
           p_purpose: string
           p_user_code: string
-          p_workspace: string
+          p_workspace?: string
         }
         Returns: boolean
       }
