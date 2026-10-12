@@ -36,6 +36,13 @@ export const APPROVED_CHECK_EVENT = 'omni-loop/approved.check.requested';
 /** The `external_id` every approved check run carries, so the webhook tells a re-run of it, whatever `ci.approvedContext` names it. */
 export const APPROVED_EXTERNAL_ID = 'omni-loop/approved';
 
+/**
+ * The event `/api/github` sends when a PRD's issue gains or loses the approved label (PRD 1612). It names
+ * a PRD, not a pull request: the `approved-rerun` function finds that PRD's open pull requests and sends
+ * one APPROVED_CHECK_EVENT each, with its head.
+ */
+export const APPROVED_LABEL_EVENT = 'omni-loop/approved.label.changed';
+
 /** The event `/api/github` sends for a merged pull request; the `retro` function qualifies it (PRD 72). */
 export const RETRO_EVENT = 'omni-loop/retro.requested';
 
@@ -59,6 +66,12 @@ const SourceSchema = z.looseObject({
 export const CheckRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
   headSha: z.string(),
+  trigger: z.string().optional(),
+});
+
+/** A PRD, in the repository of its issue, whose approved label changed (PRD 1612). */
+export const ApprovedLabelDataSchema = SourceSchema.extend({
+  prd: PrdNumberSchema,
   trigger: z.string().optional(),
 });
 
@@ -96,6 +109,9 @@ export type CanonFacts = z.infer<typeof CanonFactsSchema>;
 export type CanonActionRequestData = z.infer<typeof CanonActionRequestDataSchema>;
 
 export type CheckRequest = { name: string; data: CheckRequestData };
+export type ApprovedLabelData = z.infer<typeof ApprovedLabelDataSchema>;
+/** The approved label's event (PRD 1612), sent beside the webhook's others. */
+export type ApprovedLabelRequest = { name: typeof APPROVED_LABEL_EVENT; data: ApprovedLabelData };
 export type RetroRequest = { name: string; data: RetroRequestData };
 export type HarvestRequest = { name: string; data: HarvestRequestData };
 export type CanonActionRequest = { name: string; data: CanonActionRequestData };

@@ -1,6 +1,9 @@
 import 'server-only';
 import { serviceDb } from '../data/sign-in-live';
+import { approvedUnlabeler } from '../approval/label';
+import { githubStore } from '../dossier/github/server';
 import { serverEnv } from '../env';
+import { appCredentials } from '../signup/github-app';
 import { liveChannels } from '../notify/notify-live';
 import { reachRepository } from './approvals.repository';
 import { voidReachRepository, voidRepository } from './void.repository';
@@ -10,7 +13,9 @@ import { tellVoids } from './void.service';
 // with the client the push ran on, so the database checks who reads. How the approver is reached is
 // read as the service role (SUPABASE_SERVICE_ROLE_KEY), which alone may, and so is a gone device
 // forgotten; without it the void stands and nobody is told, said in the log. The channels are this
-// deployment's VAPID and Resend keys, the push contact its own address.
+// deployment's VAPID and Resend keys, the push contact its own address. PRD 1612 s2: the voided PRD's
+// approved label is removed as the omni-loop App (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY); without the
+// App the removal throws and is one log line.
 
 const log = (line: string) => { console.error(line); };
 
@@ -24,5 +29,6 @@ export function liveTellVoids(db: Parameters<typeof voidRepository>[0], dossier:
     reach: service ? voidReachRepository(service) : null,
     channels: (contact) => liveChannels(contact, forget),
     log,
+    unlabel: (repo, prd) => approvedUnlabeler({ creds: appCredentials(), fetch, store: githubStore() })(repo, prd),
   }, dossier, origin);
 }

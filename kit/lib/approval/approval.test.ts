@@ -218,6 +218,30 @@ describe('readApproval', () => {
   });
 });
 
+describe('judgeApproval at a pull request\'s head, read into a folder as the App reads it (PRD 1612)', () => {
+  const parsed = (body: unknown) => {
+    const read = parseApprovalReply(body);
+    assertDefined(read, 'the approval reply');
+    return read;
+  };
+
+  it('tells whitespace only from content, and a missing file, at the head', () => {
+    const files = [pinned('plan', `${INBOX}/plan.md`, PLAN, { content: PLAN })];
+    const body = reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files });
+    expect(judgeApproval(repo({ [`${INBOX}/plan.md`]: `${PLAN}  ` }).ctx, PRD, parsed(body)).drift).toEqual([
+      { kind: 'plan', file: `${INBOX}/plan.md`, how: 'whitespace only' },
+    ]);
+    expect(judgeApproval(repo({ [`${INBOX}/plan.md`]: 'another plan' }).ctx, PRD, parsed(body)).drift).toEqual([
+      { kind: 'plan', file: `${INBOX}/plan.md`, how: 'content' },
+    ]);
+  });
+
+  it('gives exactly the reading readApproval gives, so the terminal and the check never disagree', async () => {
+    const { ctx } = repo({ [`${INBOX}/plan.md`]: 'changed' });
+    expect(judgeApproval(ctx, PRD, parsed(reply()))).toEqual(await readApproval(ctx, PRD, () => Promise.resolve(reply())));
+  });
+});
+
 describe('judgeProductApproval — a product PRD has no tree: the server is its record (PRD 1548)', () => {
   const MOBILE_12 = parseProductPrdId('mobile-12');
   const productReply = (approval: unknown) => {

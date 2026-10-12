@@ -50,9 +50,7 @@ function polygon(ctx: CanvasRenderingContext2D, pts: readonly Point[]) {
 }
 
 /** One Entropy block: its dark edge, its body, a lit line along its top, and a spike every 4 pixels along its long edges. */
-function block(ctx: CanvasRenderingContext2D, tall: Block) {
-  // A block taller than wide (an upright bar) is drawn as the same rectangle lying down, turned a quarter.
-  const b = tall.h > tall.w ? { ...tall, w: tall.h, h: tall.w, angle: tall.angle + Math.PI / 2 } : tall;
+function block(ctx: CanvasRenderingContext2D, b: Block) {
   // The block's own directions on the screen: along its length, and out of its top edge.
   const along = { x: Math.cos(b.angle), y: -Math.sin(b.angle) }, up = { x: -Math.sin(b.angle), y: -Math.cos(b.angle) };
   ctx.fillStyle = defined(ENTROPY[3], "a block's edge");
