@@ -66,5 +66,5 @@ already: revoke one to make another.`, `Demo: no token here signs anything in.`
 
 ## Source
 
-/omni:brainstorm, PRD 1628: .omni-loop/delivery/inbox/1628-cloud-sign-in/before-after.html; brought
+/omni:brainstorm, PRD 1628: .omni-loop/delivery/shipped/1628-cloud-sign-in/before-after.html; brought
 up to the built screen by PRD 1628 s4.
