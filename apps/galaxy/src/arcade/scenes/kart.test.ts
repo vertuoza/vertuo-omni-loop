@@ -10,7 +10,7 @@ import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
 import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
-import { KartOverlay } from './kart.tsx';
+import { KartOverlay, type KartArt } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { defaultOptions, optionsKey, optionsPress, type OptionsView } from '../kart/options';
 import { sending, type ScoreSend } from './invaders-score';
@@ -137,8 +137,14 @@ describe('loadKart', () => {
 
   it('hands the game the laps and difficulty of the options', async () => {
     const createKart = vi.fn(() => stubGame());
-    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 5, difficulty: 'hard' });
-    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 5, difficulty: 'hard' });
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' } });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' } });
+  });
+
+  it('hands the game the look of the options', async () => {
+    const createKart = vi.fn(() => stubGame());
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' } });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' } });
   });
 
   it('answers null and logs the error with console.error when the import fails', async () => {
@@ -516,8 +522,8 @@ describe('the OPTIONS panel (PRD 1762)', () => {
     renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'options', view }, multi: true, options })))
       .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-  it('lists KEYS ›, LAPS, DIFFICULTY and DEFAULTS, with the cursor on KEYS and B to go back', () => {
-    expect(panel(OPTIONS_OPEN.step === 'options' ? OPTIONS_OPEN.view : { screen: 'menu', cursor: 'keys' })).toBe('OPTIONS ▶ KEYS › LAPS ◀ 3 ▶ DIFFICULTY ◀ NORMAL ▶ DEFAULTS B BACK');
+  it('lists KEYS ›, KART ›, LAPS, DIFFICULTY and DEFAULTS, with the cursor on KEYS and B to go back', () => {
+    expect(panel(OPTIONS_OPEN.step === 'options' ? OPTIONS_OPEN.view : { screen: 'menu', cursor: 'keys' })).toBe('OPTIONS ▶ KEYS › KART › LAPS ◀ 3 ▶ DIFFICULTY ◀ NORMAL ▶ DEFAULTS B BACK');
   });
 
   it('shows what changed: LAPS 5, DIFFICULTY HARD', () => {
@@ -529,7 +535,7 @@ describe('the OPTIONS panel (PRD 1762)', () => {
   it('moves, changes a value and puts DEFAULTS back, from the ready screen\'s press to the panel\'s', () => {
     let view: OptionsView = { screen: 'menu', cursor: 'keys' };
     let options = defaultOptions();
-    for (const a of ['down', 'right', 'down', 'right', 'right'] as const) ({ view, options } = optionsPress(view, options, a));
+    for (const a of ['down', 'down', 'right', 'down', 'right', 'right'] as const) ({ view, options } = optionsPress(view, options, a));
     expect(options).toMatchObject({ laps: 5, difficulty: 'easy' });
     for (const a of ['down', 'a'] as const) ({ view, options } = optionsPress(view, options, a));
     expect(options).toEqual(defaultOptions());
@@ -581,5 +587,22 @@ describe('the race names the player\'s keys (PRD 1762)', () => {
     expect(run('boost')).toContain('SPACE ITEM BOOST');
     const own = { ...defaultOptions(), keys: { ...defaultOptions().keys, item: 'e' } };
     expect(race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item: 'orb' } }, own)).toContain('E ITEM ORB');
+  });
+});
+
+describe('the KART panel (PRD 1762)', () => {
+  const panel = (view: OptionsView, options = defaultOptions(), art: KartArt | null = null) =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'options', view }, multi: true, options, art })));
+  const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const art: KartArt = { sprite: (v) => (v === 'kart' ? 'kart-rocket' : `kart-rocket${v.slice(4)}`), tint: {} };
+
+  it('lists COLOR, DESIGN and DEFAULTS with the look chosen', () => {
+    const options = { ...defaultOptions(), look: { color: 'PINK', design: 'RACER' } };
+    expect(text(panel({ screen: 'kart', cursor: 'color' }, options))).toBe('KART ▶ COLOR ◀ PINK ▶ DESIGN ◀ RACER ▶ DEFAULTS B BACK');
+  });
+
+  it('shows the kart in its look, a canvas that stays when motion is reduced', () => {
+    expect(panel({ screen: 'kart', cursor: 'color' }, defaultOptions(), art)).toContain('aria-label="YOUR KART"');
+    expect(panel({ screen: 'kart', cursor: 'color' })).not.toContain('YOUR KART');
   });
 });

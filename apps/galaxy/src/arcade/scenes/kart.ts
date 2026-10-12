@@ -251,9 +251,9 @@ export type KartModule = typeof import('../kart/index');
  * Imports the game and makes it. A failed import (offline, or a chunk gone after a deploy) is logged
  * with `console.error` and answers null, so the screen can say so and A can try again.
  */
-export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = [], rules: Pick<KartOptions, 'laps' | 'difficulty'> | null = null): Promise<KartGame | null> {
+export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = [], rules: Pick<KartOptions, 'laps' | 'difficulty' | 'look'> | null = null): Promise<KartGame | null> {
   try {
-    return (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty } : {}) });
+    return (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty, look: rules.look } : {}) });
   } catch (err) {
     console.error(err);
     return null;

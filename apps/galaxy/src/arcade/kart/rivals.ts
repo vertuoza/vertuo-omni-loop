@@ -4,12 +4,13 @@
 import type { Tint } from '@omni/design';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
+import type { KartLook } from './look';
 import { slopeAt } from './relief';
 import { RULES, type Difficulty } from './rules';
 import { LAPS, type Track } from './track';
 
 /** Who drives a rival's kart: its sprite and its tint, as `fleetSprite` gives them, and its fleet's colour, which the kart takes. */
-export interface Driver { sprite: string; tint: Tint | null; color: string | null; /** Who it is, as the results table names it. */ name?: string }
+export interface Driver { sprite: string; tint: Tint | null; color: string | null; /** The kart's look (PRD 1762); none draws the fleet's colour and CLASSIC. */ look?: KartLook; /** Who it is, as the results table names it. */ name?: string }
 
 /** How far a kart is in the race: the laps it has completed, and the waypoints of the lap it is on that it has passed in order. */
 export interface Pace { laps: number; passed: number }

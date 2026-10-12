@@ -2,10 +2,11 @@
 // OMNI KART's text layer (PRD 1359), over the arcade's canvas: the loading line, the failure line with
 // its way back, the ready screen (COMET RING · 3 LAPS · PRESS START), the countdown and its GO, and the
 // pause. Later slices add the race's own screens. Laid out for the grid the game is drawn on (kart.css).
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Hint } from '../hint';
 import { ordinal } from '../fleets';
-import { HeroSprite } from '../Sprite';
+import type { Tint } from '@omni/design';
+import { HeroSprite, Sprite } from '../Sprite';
 import { driveLine, keyLabel } from '../keys';
 import { useScreen } from '../Screen';
 import type { KartOptions, OptionsView } from '../kart/options';
@@ -57,7 +58,47 @@ function ChoicePanel({ choice, multi, back, laps }: { choice: Extract<KartChoice
 }
 
 /** The OPTIONS panel (PRD 1762): KEYS ›, LAPS ◀ 3 ▶, DIFFICULTY ◀ NORMAL ▶ and DEFAULTS; on KEYS, the five actions and the key each holds. */
-function OptionsPanel({ view, options }: { view: OptionsView; options: KartOptions }) {
+/** What the KART panel draws the player's kart with: its sprite for a view, and its tint (the game's look, which only the loaded game may import). */
+export interface KartArt { sprite: (view: 'kart' | 'kart-left' | 'kart-right') => string; tint: Tint }
+
+/** The lines of an OPTIONS panel, the cursor on one, and the way back. */
+function Lines({ rows, cursor }: { rows: readonly (readonly [string, string])[]; cursor: string }) {
+  return (
+    <>
+      <ul className="kt-choice">
+        {rows.map(([id, text]) => <li key={id} data-cursor={cursor === id}>{cursor === id ? '▶ ' : ''}{text}</li>)}
+      </ul>
+      <p className="hint"><Hint k="B">BACK</Hint></p>
+    </>
+  );
+}
+
+const TURN = ['kart', 'kart-right', 'kart', 'kart-left'] as const;
+
+/** The player's kart turning on the KART panel, in its look; still, from behind, under reduced motion. */
+function KartTurn({ art }: { art: KartArt }) {
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = window.setInterval(() => { setAt((i) => (i + 1) % TURN.length); }, 350);
+    return () => { window.clearInterval(id); };
+  }, []);
+  return <div className="kt-turn"><Sprite name={art.sprite(TURN[at] ?? 'kart')} tint={art.tint} scale={3} title="YOUR KART" /></div>;
+}
+
+function OptionsPanel({ view, options, art }: { view: OptionsView; options: KartOptions; art?: KartArt | null | undefined }) {
+  if (view.screen === 'kart') {
+    const rows: readonly [string, string][] = [['color', `COLOR ◀ ${options.look.color} ▶`], ['design', `DESIGN ◀ ${options.look.design} ▶`], ['defaults', 'DEFAULTS']];
+    return (
+      <div className="kt">
+        <div className="j-panel kt-panel kt-mid kt-options">
+          <p className="inv-title">KART</p>
+          {art && <KartTurn art={art} />}
+          <Lines rows={rows} cursor={view.cursor} />
+        </div>
+      </div>
+    );
+  }
   if (view.screen === 'keys') {
     return (
       <div className="kt">
@@ -78,6 +119,7 @@ function OptionsPanel({ view, options }: { view: OptionsView; options: KartOptio
   }
   const lines: [string, string][] = [
     ['keys', 'KEYS ›'],
+    ['kart', 'KART ›'],
     ['laps', `LAPS ◀ ${options.laps} ▶`],
     ['difficulty', `DIFFICULTY ◀ ${options.difficulty.toUpperCase()} ▶`],
     ['defaults', 'DEFAULTS'],
@@ -86,10 +128,7 @@ function OptionsPanel({ view, options }: { view: OptionsView; options: KartOptio
     <div className="kt">
       <div className="j-panel kt-panel kt-mid kt-options">
         <p className="inv-title">{OPTIONS_LINE}</p>
-        <ul className="kt-choice">
-          {lines.map(([id, text]) => <li key={id} data-cursor={view.cursor === id}>{view.cursor === id ? '▶ ' : ''}{text}</li>)}
-        </ul>
-        <p className="hint"><Hint k="B">BACK</Hint></p>
+        <Lines rows={lines} cursor={view.cursor} />
       </div>
     </div>
   );
@@ -199,7 +238,9 @@ function RaceScreen({ hud, back, keys }: { hud: KartHud; back: string; keys?: Ka
   );
 }
 
-export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null }: {
+export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null, art }: {
+  /** The player's kart in its look, for the KART panel (PRD 1762). */
+  art?: KartArt | null;
   /** The player's options (PRD 1762): their keys are named on the countdown and the item panel; the OPTIONS panel shows them. */
   options?: KartOptions | null;
   /** What the GRID shows once MULTI is picked (PRD 1572). */
@@ -222,7 +263,12 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   if (status !== 'ready') return <Notice line={status === 'failed' ? NOT_LOADED : 'LOADING…'} back={back} />;
   if (hud?.results) return <ResultsScreen results={hud.results} send={send} back={back} />;
   if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} keys={options?.keys} />;
-  if (choice?.step === 'options' && options) return <OptionsPanel view={choice.view} options={options} />;
+  return <ReadyScreen choice={choice} multi={multi} back={back} options={options} art={art} />;
+}
+
+/** The screens before the race: the OPTIONS panel, the choice between SINGLE, MULTI and OPTIONS, or the ready line. */
+function ReadyScreen({ choice, multi, back, options, art }: { choice: KartChoice | null; multi: boolean; back: string; options: KartOptions | null; art?: KartArt | null | undefined }) {
+  if (choice?.step === 'options' && options) return <OptionsPanel view={choice.view} options={options} art={art} />;
   if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} laps={lapsOf(options)} />;
   return (
     <div className="kt">

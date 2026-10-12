@@ -3,7 +3,8 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { BOX_WORLD, boxFrame, minimapAt, minimapLit, minimapTiles, MINIMAP_TOP, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
+import { kartTint, COLORS } from './look';
+import { BOX_WORLD, dotColour, boxFrame, minimapAt, minimapLit, minimapTiles, MINIMAP_TOP, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
 import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf, project, viewOf } from './mode7';
@@ -203,6 +204,24 @@ describe('the player\'s kart', () => {
     const kart = playerSprite();
     expect(sure(kart, 'the kart').tint).toBeTruthy();
     expect(sure(kart, 'the kart').tint).toHaveProperty('Y');
+  });
+
+  it('wears the look the player chose: its design in the three views and its colour on the body', () => {
+    createKart({ seed: 1, look: { color: 'PINK', design: 'ROCKET' } }).draw(recorder().ctx, frame(WIDE));
+    const kart = playerSprite();
+    expect(kart.name).toBe('kart-rocket');
+    const plain = (() => { sprites.length = 0; createKart().draw(recorder().ctx, frame(WIDE)); return playerSprite().tint; })();
+    expect(JSON.stringify(kart.tint)).not.toBe(JSON.stringify(plain));
+    expect(JSON.stringify(kart.tint)).toBe(JSON.stringify(kartTint({ color: 'PINK', design: 'ROCKET' }, sure(plain, 'the fleet tint') as Parameters<typeof kartTint>[1])));
+  });
+
+  it('keeps today\'s kart for FLEET and CLASSIC, and for a race made without a look', () => {
+    createKart({ seed: 1, look: { color: 'FLEET', design: 'CLASSIC' } }).draw(recorder().ctx, frame(WIDE));
+    const withLook = playerSprite();
+    sprites.length = 0;
+    createKart().draw(recorder().ctx, frame(WIDE));
+    expect(withLook.name).toBe('kart');
+    expect(JSON.stringify(withLook.tint)).toBe(JSON.stringify(playerSprite().tint));
   });
 
   it('shows the hero in its seat: head and shoulders, drawn before the kart so the kart covers the rest', () => {
@@ -740,6 +759,24 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     expect(leaning.filter((f) => !f.shadow)).toHaveLength(1);
     expect(s.filter((f) => f.falling).some((f) => f.shadow)).toBe(false);
     expect(s.filter((f) => !f.falling && f.roll === 0).some((f) => f.shadow)).toBe(true);
+  });
+});
+
+describe('a driver\'s look and the minimap dots (PRD 1762)', () => {
+  it('takes the dot of a kart from its look\'s colour, and the fleet\'s colour for FLEET or no look', () => {
+    expect(dotColour({ color: 'PINK', design: 'CLASSIC' }, '#123456')).toBe(COLORS.find((c) => c.name === 'PINK')?.hex);
+    expect(dotColour({ color: 'FLEET', design: 'CLASSIC' }, '#123456')).toBe('#123456');
+    expect(dotColour(undefined, '#123456')).toBe('#123456');
+  });
+
+  it('draws a rival that carries a look with its colour on the minimap, the others as today, and the player\'s dot stays yellow', () => {
+    const r = recorder();
+    const cast = [{ sprite: 'shark', tint: null, color: '#123456', look: { color: 'PINK', design: 'RACER' } }, { sprite: 'fox', tint: null, color: '#654321' }];
+    createKart({ seed: 3, cast }).draw(r.ctx, frame(WIDE));
+    const dots = r.fills.filter((f) => f.rect[2] === 2 && f.rect[3] === 2).map((f) => f.style);
+    expect(dots).toContain(COLORS.find((c) => c.name === 'PINK')?.hex);
+    expect(dots).toContain('#654321');
+    expect(r.fills.some((f) => f.style === DEFAULT_THEME.yellow && f.rect[2] === 3)).toBe(true);
   });
 });
 

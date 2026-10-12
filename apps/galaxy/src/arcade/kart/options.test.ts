@@ -110,22 +110,22 @@ describe('the OPTIONS panel', () => {
     return { view, options };
   };
 
-  it('moves its cursor over KEYS, LAPS, DIFFICULTY and DEFAULTS, and stops at the ends', () => {
-    expect(run('down').view).toEqual({ screen: 'menu', cursor: 'laps' });
+  it('moves its cursor over KEYS, KART, LAPS, DIFFICULTY and DEFAULTS, and stops at the ends', () => {
+    expect(run('down').view).toEqual({ screen: 'menu', cursor: 'kart' });
     expect(run('down', 'down', 'down', 'down', 'down').view).toEqual({ screen: 'menu', cursor: 'defaults' });
     expect(run('up').view).toEqual({ screen: 'menu', cursor: 'keys' });
   });
 
   it('changes LAPS through 3, 5 and 7, and DIFFICULTY through EASY, NORMAL and HARD', () => {
-    expect(run('down', 'right').options.laps).toBe(5);
-    expect(run('down', 'right', 'right').options.laps).toBe(7);
-    expect(run('down', 'left').options.laps).toBe(7);
-    expect(run('down', 'down', 'right').options.difficulty).toBe('hard');
-    expect(run('down', 'down', 'left').options.difficulty).toBe('easy');
+    expect(run('down', 'down', 'right').options.laps).toBe(5);
+    expect(run('down', 'down', 'right', 'right').options.laps).toBe(7);
+    expect(run('down', 'down', 'left').options.laps).toBe(7);
+    expect(run('down', 'down', 'down', 'right').options.difficulty).toBe('hard');
+    expect(run('down', 'down', 'down', 'left').options.difficulty).toBe('easy');
   });
 
   it('puts every option back with DEFAULTS', () => {
-    const changed = run('down', 'right', 'down', 'right').options;
+    const changed = run('down', 'down', 'right', 'down', 'right').options;
     expect(changed).not.toEqual(defaultOptions());
     let step = optionsPress({ screen: 'menu', cursor: 'defaults' }, changed, 'a');
     expect(step.options).toEqual(defaultOptions());
@@ -156,5 +156,45 @@ describe('the OPTIONS panel', () => {
     expect(refused.options).toEqual(defaultOptions());
     expect(optionsKey(waiting, defaultOptions(), 'Escape').view).toMatchObject({ capture: false, refused: false });
     expect(optionsPress(waiting, defaultOptions(), 'b').view).toMatchObject({ screen: 'keys', capture: false });
+  });
+});
+
+describe('the KART panel (PRD 1762)', () => {
+  const run = (...actions: Parameters<typeof optionsPress>[2][]) => {
+    let view: OptionsView = FIRST_OPTIONS;
+    let options = defaultOptions();
+    for (const a of actions) ({ view, options } = optionsPress(view, options, a));
+    return { view, options };
+  };
+
+  it('opens from the second line of OPTIONS and goes back to it with B', () => {
+    expect(run('down', 'a').view).toEqual({ screen: 'kart', cursor: 'color' });
+    expect(run('down', 'a', 'b').view).toEqual({ screen: 'menu', cursor: 'kart' });
+  });
+
+  it('changes the colour and the design with ◀ ▶, round the lists', () => {
+    expect(run('down', 'a', 'right').options.look).toEqual({ color: 'RED', design: 'CLASSIC' });
+    expect(run('down', 'a', 'left').options.look.color).toBe('PINK');
+    expect(run('down', 'a', 'down', 'right').options.look).toEqual({ color: 'FLEET', design: 'ROCKET' });
+    expect(run('down', 'a', 'down', 'left').options.look.design).toBe('RACER');
+  });
+
+  it('puts the look back with its own DEFAULTS and leaves the other options', () => {
+    const done = run('down', 'right', 'a', 'right', 'down', 'right', 'down', 'a');
+    expect(done.options.look).toEqual({ color: 'FLEET', design: 'CLASSIC' });
+  });
+
+  it('leaves the look alone where nothing changes it: A on COLOR, ◀ ▶ on DEFAULTS, and a press that is none of its own', () => {
+    expect(run('down', 'a', 'a').options).toEqual(defaultOptions());
+    expect(run('down', 'a', 'down', 'down', 'right', 'left').options).toEqual(defaultOptions());
+    expect(run('down', 'a', 'down', 'down', 'a').options).toEqual(defaultOptions());
+    expect(run('down', 'a', 'select').view).toEqual({ screen: 'kart', cursor: 'color' });
+    expect(run('down', 'a', 'up').view).toEqual({ screen: 'kart', cursor: 'color' });
+  });
+
+  it('is put back by the panel\'s DEFAULTS too', () => {
+    const changed = run('down', 'a', 'right', 'b').options;
+    expect(changed.look.color).toBe('RED');
+    expect(optionsPress({ screen: 'menu', cursor: 'defaults' }, changed, 'a').options).toEqual(defaultOptions());
   });
 });
