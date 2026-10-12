@@ -88,9 +88,10 @@ describe('the rivals\' skill', () => {
     for (const gap of [-1e9, -300, 0, 120, 1e9]) expect(Math.abs(rubber(0, gap) - 1)).toBeLessThanOrEqual(0.05 + 1e-12);
   });
 
-  it('never makes a rival faster than the band allows over the player\'s top speed', () => {
+  it('never makes a rival faster than the band allows over the player\'s top speed, a BOOST from a box apart', () => {
+    // Forty boxes: a rival takes a BOOST within 30 seconds, which lifts its top speed by `boostFactor`.
     const r = play(racing(), NONE, 30);
-    for (const rival of r.rivals) expect(rival.kart.speed).toBeLessThanOrEqual(RULES.topSpeed * 1.05 + 1e-9);
+    for (const rival of r.rivals) expect(rival.kart.speed).toBeLessThanOrEqual(RULES.topSpeed * 1.05 * RULES.boostFactor + 1e-9);
   });
 });
 

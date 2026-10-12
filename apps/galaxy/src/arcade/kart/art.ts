@@ -40,7 +40,7 @@ export function coverOf(depth: Float32Array, w: number, h: number, box: { left: 
   const left = Math.max(0, Math.floor(box.left)), right = Math.min(w, Math.ceil(box.right));
   const top = Math.max(0, Math.floor(box.top)), bottom = Math.min(h, Math.ceil(box.bottom));
   if (left >= right || top >= bottom) return null;
-  const nearer = z * 0.96 - 2;
+  const nearer = z * 0.9 - 2; // one row of the floor is up to 2.5% of a far thing's distance, and the foot's two rows below it count
   const cut = new Int16Array(right - left);
   let any = false;
   for (let col = left; col < right; col++) {
@@ -337,9 +337,25 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
 }
 
 /** How wide an item stands in the world, in game pixels. */
-export const BOX_WORLD = 16;
+export const BOX_WORLD = 20;
 const BLOB_WORLD = 12;
 const ORB_WORLD = 9;
+
+/** The pool of light under a box: wider than the box, three rows like a shadow, pulsing with the box; still when motion is reduced. */
+export const POOL_WORLD = 26;
+export const poolAlpha = (s: FrameState, z: number): number => (s.reduced ? 0.45 : 0.45 + 0.2 * Math.sin(s.t * 4 + z * 0.05));
+function pool(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected) {
+  const w = POOL_WORLD * at.scale;
+  if (w < 3) return;
+  const row = Math.max(1, Math.round(w * 0.07));
+  ctx.globalAlpha = poolAlpha(s, at.z);
+  ctx.fillStyle = s.theme.gold;
+  for (const [i, share] of ([[-1, 0.7], [0, 1], [1, 0.7]] as const)) {
+    const rw = Math.round(w * share);
+    ctx.fillRect(Math.round(at.sx - rw / 2), Math.round(at.sy + i * row), rw, row);
+  }
+  ctx.globalAlpha = 1;
+}
 
 /** An item box on the floor: a glowing cube that turns and bobs, as big as its distance makes it; still when motion is reduced. */
 const BOX = 'item-box';
@@ -348,6 +364,7 @@ function itemBox(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected) {
   const { w, h } = spriteSize(BOX);
   const scale = (BOX_WORLD * at.scale) / w;
   if (w * scale < 2) return;
+  pool(ctx, s, at);
   const bob = s.reduced ? 0 : Math.sin(s.t * 4 + at.z * 0.05) * h * scale * 0.08;
   ctx.imageSmoothingEnabled = false;
   sprite(ctx, s, BOX, at.sx - (w * scale) / 2, at.sy - h * scale + bob - h * scale * 0.1, { scale, frame: boxFrame(s, at.z) });

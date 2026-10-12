@@ -3,7 +3,7 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { boxFrame, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
+import { BOX_WORLD, boxFrame, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
 import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf, project, viewOf } from './mode7';
@@ -345,7 +345,7 @@ describe('the items on the floor (slice 5)', () => {
     const kart = createKart({ seed: 3 });
     kart.press('start');
     const held = new Set<Action>(['a']);
-    let seen = 0, empty = 0;
+    let seen = 0, empty = 0, most = 0;
     for (let t = 0; t < 12; t += 0.05) {
       kart.step(held, 0.05);
       if (t < 3.1) continue;
@@ -354,10 +354,22 @@ describe('the items on the floor (slice 5)', () => {
       kart.draw(ctx, frame(WIDE));
       const boxes = sprites.filter((x) => x.name === 'item-box').length;
       seen += boxes;
-      if (boxes === 0) empty++;
+      most = Math.max(most, boxes);
+      if (boxes < most) empty++;
     }
     expect(seen).toBeGreaterThan(0);
     expect(empty).toBeGreaterThan(0);
+  });
+
+  it('draws a box 20 wide over a pool of its light that pulses with it, and still with reduced motion', () => {
+    expect(BOX_WORLD).toBe(20);
+    expect(POOL_WORLD).toBeGreaterThan(BOX_WORLD);
+    const f = frame(WIDE);
+    expect(new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => poolAlpha({ ...f, t }, 0))).size).toBeGreaterThan(2);
+    for (const t of [0, 0.3, 0.9, 2.1]) expect(poolAlpha({ ...f, t, reduced: true }, 40)).toBe(poolAlpha({ ...f, t: 0, reduced: true }, 40));
+    const poolAt = (t: number, reduced: boolean) => { const r = recorder(); createKart({ seed: 3 }).draw(r.ctx, { ...f, t, sceneT: t, reduced }); return r.fills.filter((x) => x.style === DEFAULT_THEME.gold); };
+    expect(poolAt(1, true).length).toBeGreaterThan(0);
+    expect(poolAt(1, true)).toEqual(poolAt(1.37, true));
   });
 
   it('turns and bobs the boxes, and holds them still when motion is reduced', () => {

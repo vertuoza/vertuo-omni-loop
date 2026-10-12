@@ -19,8 +19,8 @@ const onBox = (fx: Partial<Fx> = {}): Racer => racer(box.x, box.y, fx);
 const world = () => newWorld(track, 5);
 
 describe('the item boxes', () => {
-  it('stand as two rows of four, all present at the start', () => {
-    expect(world().boxes).toHaveLength(8);
+  it('stand as ten lines of four, all present at the start', () => {
+    expect(world().boxes).toHaveLength(40);
     expect(world().boxes.every((b) => b.back === 0)).toBe(true);
   });
 
