@@ -126,8 +126,8 @@ describe('the blocks', () => {
 });
 
 describe('every wave is passable', () => {
-  it('turns on a ring of 240 bins, 7 a step: the run\'s own angles, exactly', () => {
-    expect(ring()).toEqual({ bins: 240, move: 7 });
+  it('turns on a ring of 48 bins, 1 a step: the run\'s own angles, exactly', () => {
+    expect(ring()).toEqual({ bins: 48, move: 1 });
   });
 
   it('passes every chapter wave, each from where the wave before can leave the orbs', () => {

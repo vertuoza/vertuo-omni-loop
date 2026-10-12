@@ -11,13 +11,13 @@ describe('the constants block', () => {
   it('holds the circle, the orbs and the turning speed', () => {
     expect(RULES.radius).toBe(56);
     expect(RULES.orbRadius).toBe(6);
-    expect(RULES.turnsPerSecond).toBe(1.75);
+    expect(RULES.turnsPerSecond).toBe(1.25);
     expect(RULES.field).toEqual({ w: 320, h: 288 });
     expect(RULES.subStep).toBe(1 / 60);
     expect(RULES.maxDt).toBe(0.05);
   });
 
-  it('sits the crest and its circle in the lower third of the playfield, the circle inside it', () => {
+  it('sits the circle\'s centre in the lower third of the playfield, the circle inside it', () => {
     const { x, y } = RULES.centre;
     expect(x).toBe(RULES.field.w / 2);
     expect(y).toBeGreaterThanOrEqual((RULES.field.h * 2) / 3);
@@ -34,22 +34,22 @@ describe('the turn', () => {
     expect(turnOf(held('a', 'up', 'start'))).toBe(0);
   });
 
-  it('turns the pair at 1.75 turns a second: a half turn in about 0.29 s', () => {
-    expect(turn(0, held('left'), 1)).toBeCloseTo(1.75 * TURN, 10);
-    expect(turn(0, held('right'), 1)).toBeCloseTo(-1.75 * TURN, 10);
-    expect(turn(1, held('left'), 0.5 / 1.75)).toBeCloseTo(1 + Math.PI, 10);
+  it('turns the pair at 1.25 turns a second: a half turn in 0.4 s', () => {
+    expect(turn(0, held('left'), 1)).toBeCloseTo(1.25 * TURN, 10);
+    expect(turn(0, held('right'), 1)).toBeCloseTo(-1.25 * TURN, 10);
+    expect(turn(1, held('left'), 0.5 / 1.25)).toBeCloseTo(1 + Math.PI, 10);
     expect(turn(1, held('left', 'right'), 1)).toBe(1);
     expect(turn(1, held(), 1)).toBe(1);
   });
 
-  it('moves an orb anticlockwise on the screen under ◀: from the right of the crest to above it', () => {
+  it('moves an orb anticlockwise on the screen under ◀: from the right of the centre to above it', () => {
     const [start] = orbs(0);
-    const [after] = orbs(turn(0, held('left'), 0.25 / 1.75));
+    const [after] = orbs(turn(0, held('left'), 0.25 / 1.25));
     expect(start.x).toBeCloseTo(RULES.centre.x + RULES.radius, 10);
     expect(start.y).toBeCloseTo(RULES.centre.y, 10);
     expect(after.x).toBeCloseTo(RULES.centre.x, 10);
     expect(after.y).toBeCloseTo(RULES.centre.y - RULES.radius, 10); // the screen's y grows downwards
-    const [clock] = orbs(turn(0, held('right'), 0.25 / 1.75));
+    const [clock] = orbs(turn(0, held('right'), 0.25 / 1.25));
     expect(clock.y).toBeCloseTo(RULES.centre.y + RULES.radius, 10);
   });
 

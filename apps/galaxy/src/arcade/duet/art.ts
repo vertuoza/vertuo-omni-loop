@@ -1,10 +1,10 @@
-// OMNI DUET's playfield on the canvas (PRD 1633): the 320×288 field, the Omni Loop crest at the centre
-// of the circle, the two orbs on it, each with its short trail (the warm one in the orange ramp, the
+// OMNI DUET's playfield on the canvas (PRD 1633): the 320×288 field, the circle with nothing at its
+// centre, the two orbs on it, each with its short trail (the warm one in the orange ramp, the
 // cool one in the theme's cyan), and the wave's Entropy blocks falling through it, in Entropy's ramp
 // with spikes along their edges. The scene places the field on the grid (scenes/duet.ts); this file
 // draws in the field's own game pixels. Every colour equal to a theme token is read from the frame's
 // theme (ADR-0046).
-import { drawLogo, logoPixels, RAMPS, rampFrom } from '@omni/design';
+import { RAMPS, rampFrom } from '@omni/design';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Action } from '../keys';
 import type { FrameState } from '../scenes/common.ts';
@@ -13,9 +13,6 @@ import { corners, type Block } from './collide';
 import { orbs, RULES, type Point } from './rules';
 import { CHAPTER_TITLES, newRun, pause, press, step, waveOf, wavesIn, type Run } from './run';
 import { blocksAt } from './waves';
-
-/** The crest's scale: whole pixels only, as every piece of the brand is drawn. */
-const CREST_SCALE = 2;
 
 /** The warm orb's ramp, light to dark: no theme token is orange. */
 const WARM = defined(RAMPS.O, 'the orange ramp');
@@ -101,7 +98,7 @@ function track(ctx: CanvasRenderingContext2D, s: FrameState) {
   }
 }
 
-/** The field: its dark, the circle, the crest, the wave's blocks, then each orb's trail and the orb. */
+/** The field: its dark, the circle, the wave's blocks, then each orb's trail and the orb. */
 export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run) {
   ctx.fillStyle = s.theme.void;
   ctx.fillRect(0, 0, RULES.field.w, RULES.field.h);
@@ -109,8 +106,6 @@ export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run
   const falling = run.phase === 'play' || (run.phase === 'paused' && run.resume === 'play');
   const wave = falling ? waveOf(run) : undefined;
   if (wave) for (const b of blocksAt(wave, run.tick)) block(ctx, b);
-  const crest = logoPixels('mark');
-  drawLogo(ctx, 'mark', RULES.centre.x - (crest.w * CREST_SCALE) / 2, RULES.centre.y - (crest.h * CREST_SCALE) / 2, { scale: CREST_SCALE });
   const cool = rampFrom(s.theme.cyan);
   const pair = (angle: number) => { const [warm, other] = orbs(angle); return [[warm, WARM], [other, cool]] as const; };
   if (!s.reduced) {

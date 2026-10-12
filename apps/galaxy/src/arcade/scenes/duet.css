@@ -9,7 +9,7 @@
 .dt-notice, .dt-back { position: absolute; left: 50%; margin: 0; font-size: 8px; white-space: nowrap; }
 .dt-notice { top: 50%; transform: translate(-50%, -50%); letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
 .dt-back { top: calc(50% + 18px); transform: translateX(-50%); }
-/* The ready screen: over the top of the playfield, clear of the crest and its orbs in the lower third. */
+/* The ready screen: over the top of the playfield, clear of the circle and its orbs in the lower third. */
 .dt-panel {
   left: 50%; top: 30%; transform: translate(-50%, -50%); gap: 6px; justify-items: center; text-align: center;
   line-height: 1.4; width: 340px;
@@ -26,7 +26,7 @@
 /* The game over says more than the other screens: it sits lower, over the middle of the playfield,
    since nothing moves under it any more. */
 .dt-over { top: 42%; }
-/* A chapter's banner, over the top half of the playfield, clear of the crest and its orbs. */
+/* A chapter's banner, over the top half of the playfield, clear of the circle and its orbs. */
 .dt-banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap; }
 
 /* ── On the tall grid (320×288) ───────────────────────────────────────────── */

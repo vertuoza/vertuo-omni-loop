@@ -48,6 +48,25 @@ describe('the playfield', () => {
     expect(moves).toEqual([]);
   });
 
+  it('leaves the circle\'s centre empty: nothing but the field\'s dark is drawn there', () => {
+    const covering: string[] = [];
+    const state: Record<string | symbol, unknown> = {};
+    const ctx = new Proxy(state, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        if (prop === 'fillRect') {
+          return (x: number, y: number, w: number, h: number) => {
+            const { x: cx, y: cy } = RULES.centre;
+            if (x <= cx && cx < x + w && y <= cy && cy < y + h) covering.push(String(target.fillStyle));
+          };
+        }
+        return () => {};
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    drawField(ctx, frame, newRun({ seed: 1 }));
+    expect(covering).toEqual([DEFAULT_THEME.void]);
+  });
+
   it('draws no block on the ready screen', () => {
     const { ctx, colours } = recorder();
     drawField(ctx, frame, newRun({ seed: 1 }));
