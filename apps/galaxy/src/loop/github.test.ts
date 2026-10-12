@@ -98,6 +98,9 @@ type World = {
 
 type Route = (url: URL, init: RequestInit) => Response | undefined;
 
+/** A sent request's body, which the host only ever sends as text. */
+const bodyOf = (init: RequestInit): string => (typeof init.body === 'string' ? init.body : '');
+
 const SPENT = { 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(NOW / 1000 + 1800) };
 
 /** One page of a hundred, as the `page` parameter asks. */
@@ -161,7 +164,7 @@ function repositoryRoutes(world: World): Route[] {
 /** GraphQL's answer to one of the host's two queries, paging threads two at a time by their index. */
 function graphqlAnswer(world: World, init: RequestInit): Response {
   if (world.graphqlErrors) return json({ errors: world.graphqlErrors.map((message) => ({ message })) });
-  const { query: text, variables } = JSON.parse(String(init.body)) as { query: string; variables: { owner: string; name: string; after: string | null } };
+  const { query: text, variables } = JSON.parse(bodyOf(init)) as { query: string; variables: { owner: string; name: string; after: string | null } };
   expect(variables).toMatchObject({ owner: 'acme', name: 'widgets' });
   if (text.includes('closedByPullRequestsReferences')) {
     const nodes = (world.closedBy ?? []).map((pr) => ({ number: pr.number, repository: { nameWithOwner: pr.repo } }));
@@ -317,7 +320,7 @@ describe('githubLoopHost: one change', () => {
     const threads = Array.from({ length: 5 }, (_, i) => thread(`PRRT_${i}`));
     const { host, graphql } = fakeGithub({ pulls: [pull(4)], threads });
     expect((await host.change('acme/widgets', parsePr(4)))?.review.threads.map((t) => t.id)).toEqual(threads.map((t) => t.id));
-    const afters = graphql().map((s) => (JSON.parse(String(s.init.body)) as { variables: { after: string | null } }).variables.after);
+    const afters = graphql().map((s) => (JSON.parse(bodyOf(s.init)) as { variables: { after: string | null } }).variables.after);
     expect(afters).toEqual([null, '2', '4']);
     expect(graphql().every((s) => s.init.method === 'POST')).toBe(true);
   });
