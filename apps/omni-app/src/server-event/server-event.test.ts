@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { capture, throwing } from '../run-log/capture.ts';
 import { receiveServerEvent, SERVER_EVENT, SERVER_SIGNATURE_HEADER, serverEventRoute, verifyServerEvent, type ServerEventRequest } from './server-event.ts';
 
 const SECRET = 'shared-secret';
@@ -100,9 +101,66 @@ describe('serverEventRoute — /api/server-event', () => {
     expect(refused.status).toBe(401);
   });
 
-  it('refuses a GET 405, naming POST', () => {
-    const response = serverEventRoute({ stageEvents: null }).GET();
+  it('refuses a GET 405, naming POST', async () => {
+    const response = await serverEventRoute({ stageEvents: null }).GET(new Request('https://app.example/api/server-event'));
     expect(response.status).toBe(405);
     expect(response.headers.get('allow')).toBe('POST');
+  });
+});
+
+describe('serverEventRoute — one server-event line per call (PRD 1723 s6)', () => {
+  const post = (body: string, signature: string) =>
+    new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: signature } });
+  const body = JSON.stringify(EVENT);
+
+  it('logs ok on an accepted event, refused on a bad signature, a body that is no event or a GET, failed when Inngest is down', async () => {
+    const log = capture();
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.resolve(), logger: log.logger });
+    const down = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.reject(new Error('down')), logger: log.logger });
+    expect((await route.POST(post(body, sign(body)))).status).toBe(202);
+    expect((await route.POST(post(body, sign(body, 'x')))).status).toBe(401);
+    expect((await route.POST(post('{}', sign('{}')))).status).toBe(400);
+    expect((await route.GET(new Request('https://app.example/api/server-event'))).status).toBe(405);
+    expect((await down.POST(post(body, sign(body)))).status).toBe(500);
+    expect(log.lines().map(({ level, event, outcome, status }) => ({ level, event, outcome, status }))).toEqual([
+      { level: 'info', event: 'server-event', outcome: 'ok', status: 202 },
+      { level: 'warn', event: 'server-event', outcome: 'refused', status: 401 },
+      { level: 'warn', event: 'server-event', outcome: 'refused', status: 400 },
+      { level: 'warn', event: 'server-event', outcome: 'refused', status: 405 },
+      { level: 'error', event: 'server-event', outcome: 'failed', status: 500 },
+    ]);
+    expect(log.lines().every((line) => typeof line.ms === 'number')).toBe(true);
+  });
+
+  it('logs failed on a thrown error, and rethrows the very error', async () => {
+    const log = capture();
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.resolve(), logger: log.logger });
+    const request = post(body, sign(body));
+    const thrown = new Error('the body could not be read');
+    vi.spyOn(request, 'text').mockRejectedValue(thrown);
+    await expect(route.POST(request)).rejects.toBe(thrown);
+    expect(log.lines()).toEqual([{ level: 'error', event: 'server-event', outcome: 'failed', ms: 0, error: { name: 'Error', message: 'the body could not be read' } }]);
+  });
+
+  it('answers the same when the logger throws', async () => {
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.resolve(), logger: throwing });
+    expect((await route.POST(post(body, sign(body)))).status).toBe(202);
+  });
+
+  it('says a missing secret as a JSON note line at warn, by default', async () => {
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    try {
+      await receiveServerEvent(requestOf(EVENT), { secret: undefined, send: () => Promise.resolve() });
+      expect(write.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toEqual([
+        {
+          level: 'warn',
+          event: 'note',
+          fn: 'server-event',
+          message: 'server event: STAGE_EVENT_SECRET is not set on this deployment, every server event is refused',
+        },
+      ]);
+    } finally {
+      write.mockRestore();
+    }
   });
 });
