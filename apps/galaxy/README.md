@@ -951,9 +951,14 @@ off, no row exists, and every player sees NO XP YET.
   meanwhile; a failed import says `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder
   imports it at run time (`duet/guard.test.ts`). Two orbs, one warm and one cool, ride a circle around
   the Omni Loop crest, always opposite: ◀ held turns them anticlockwise, ▶ clockwise, both or neither
-  hold them still. Waves of Entropy blocks fall through them, still, sliding or turning, over four
-  chapters of about ten waves written as text in `duet/waves.ts`: **I · DRIFT**, **II · SLIDE**,
-  **III · SPIN** and **IV · STORM**. After chapter IV, `ENDLESS · ×2`: waves drawn from one fixed seed
+  hold them still. Waves of Entropy blocks fall through them, each a word of a small vocabulary set
+  on the circle and dodged by one clear pose of the pair: a half bar from either side, stopping R/3
+  short of the centre line, and an upright bar on the circle's edge, passed upright; a centre block,
+  passed level. Still, sliding or turning, they make four chapters of ten waves written as text in
+  `duet/waves.ts`, one obstacle a line with its distance behind the one before in R: **I · DRIFT**,
+  **II · SLIDE**, **III · SPIN** and **IV · STORM**. An obstacle asking the other pose stands at
+  least a quarter turn and a person's reaction behind the one before. After chapter IV,
+  `ENDLESS · ×2`: waves of one to three of chapter IV's runs of one pose, drawn from one fixed seed
   (`ENDLESS_SEED`, the same for every player), faster and never ending. `waveProblems` proves every
   chapter wave and the first 200 endless waves passable. A wave passed scores 10, 20 in endless mode;
   nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
