@@ -65,6 +65,10 @@ the command with one line naming the variables, never a value (ADR-0057). Every 
 - `OMNI_TOKEN`: a kit token (`omk_…`, made by `omni setup-token`) that signs every `omni` command in
   to the Omni page where no browser can, a Claude Code cloud session; set, it wins over the sign-in
   `omni signin` keeps, and `omni whoami` prints `(OMNI_TOKEN ··<last four>)`.
+- `OMNI_SESSION_ID`: the session id every `omni` command records its work under and
+  `omni dossier open` tags a draft with, under any coding agent; set, it wins over the session id
+  Claude Code sets. Unset under an agent that gives none, `omni dossier open` generates one
+  and keeps it for the checkout in `.omni-loop/local/session.json`.
 <!-- /omni:env-variables -->
 
 The app and the arcade each list their own: [`apps/omni-app/README.md`](apps/omni-app/README.md),

@@ -8,7 +8,7 @@ const KIT_TOKEN = 'omk_Zq9xW3vK7pL2mN8bR4tY6uJ1hG5fD0sA_-cE3iO9wQv';
 describe('readEnv', () => {
   it('gives every group null, and the terminal its defaults, when nothing is set', () => {
     expect(readEnv({})).toEqual({
-      claudeSession: null,
+      agentSession: null,
       openrouter: null,
       proof: null,
       terminal: { columns: 80, color: true },
@@ -32,7 +32,7 @@ describe('readEnv', () => {
       SUPABASE_SERVICE_ROLE_KEY: SECRET,
       npm_execpath: '/bin/pnpm.cjs',
     });
-    expect(env.claudeSession).toEqual({ id: 'abc' });
+    expect(env.agentSession).toEqual({ id: 'abc' });
     expect(env.openrouter).toEqual({ key: SECRET });
     expect(env.proof).toEqual({ url: 'https://preview.test/x' });
     expect(env.githubActions).toEqual({ output: '/tmp/out' });
@@ -64,6 +64,31 @@ describe('readEnv', () => {
     expect(messageOf({ SUPABASE_SERVICE_ROLE_KEY: SECRET })).toContain('(the Supabase pair: set all of them, or none)');
     expect(messageOf({ OMNI_LOOP_WORKSPACE: '  ' })).toBe('environment: OMNI_LOOP_WORKSPACE is not valid: a workspace slug');
     expect(messageOf({ OMNI_TOKEN: 'omk_short' })).toBe('environment: OMNI_TOKEN is not valid: it is not a kit token: make one with omni setup-token');
+  });
+
+  describe('the agent session, any agent\'s (PRD 1739)', () => {
+    it('reads OMNI_SESSION_ID first, then CLAUDE_CODE_SESSION_ID, and none when neither is set', () => {
+      expect(readEnv({ OMNI_SESSION_ID: 'abc', CLAUDE_CODE_SESSION_ID: 'xyz' }).agentSession).toEqual({ id: 'abc' });
+      expect(readEnv({ CLAUDE_CODE_SESSION_ID: 'xyz' }).agentSession).toEqual({ id: 'xyz' });
+      expect(readEnv({ OMNI_SESSION_ID: 'abc' }).agentSession).toEqual({ id: 'abc' });
+      expect(readEnv({}).agentSession).toBeNull();
+      expect(readEnv({ OMNI_SESSION_ID: '', CLAUDE_CODE_SESSION_ID: '' }).agentSession).toBeNull();
+    });
+
+    it('trims an id, and passes over one that is blank or longer than 200 characters to the next', () => {
+      expect(readEnv({ OMNI_SESSION_ID: '  abc  ' }).agentSession).toEqual({ id: 'abc' });
+      expect(readEnv({ OMNI_SESSION_ID: '   ', CLAUDE_CODE_SESSION_ID: 'xyz' }).agentSession).toEqual({ id: 'xyz' });
+      expect(readEnv({ OMNI_SESSION_ID: 'a'.repeat(201), CLAUDE_CODE_SESSION_ID: 'xyz' }).agentSession).toEqual({ id: 'xyz' });
+      expect(readEnv({ OMNI_SESSION_ID: 'a'.repeat(200) }).agentSession).toEqual({ id: 'a'.repeat(200) });
+      expect(readEnv({ CLAUDE_CODE_SESSION_ID: 'a'.repeat(201) }).agentSession).toBeNull();
+    });
+
+    it('lists OMNI_SESSION_ID for a person to set, and Claude Code\'s as the platform\'s', () => {
+      expect(VARIABLES).toContain('OMNI_SESSION_ID');
+      expect(VARIABLES).not.toContain('CLAUDE_CODE_SESSION_ID');
+      expect(PLATFORM_VARIABLES).toContain('CLAUDE_CODE_SESSION_ID');
+      expect(PLATFORM_VARIABLES).not.toContain('OMNI_SESSION_ID');
+    });
   });
 
   describe('OMNI_TOKEN, the kit token a cloud session signs in with (PRD 1628)', () => {
