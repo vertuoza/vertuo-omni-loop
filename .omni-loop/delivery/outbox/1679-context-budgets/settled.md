@@ -237,3 +237,392 @@ A constant: the raise line's wording is one regex and one function; ceilings alr
 ```
 
 <!-- /omni-outbox-settled: s2-02-how-a-raise-is-matched -->
+
+<!-- omni-outbox-settled: s3-01-route-test-outside-territory -->
+
+## s3-01-route-test-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-route-test-outside-territory
+prd: 1679
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+Adding the new budgets check to the App changes how many background jobs it serves, and a test outside this slice's area counts them. Should this slice have updated that test?
+
+## The decision, in plain words
+
+I updated the count in that test so it names the new budgets check, and changed nothing else in it.
+
+## The intro, for fun
+
+One new job joined the App, and the head count noticed.
+
+## The punchline, for fun
+
+The roll call now has one more name on it.
+
+## The options, in plain words
+
+A. A. Keep the edit: the route test names the budgets check and counts 9 functions and 14 registrations.
+B. B. Move the edit into a follow-up change owned by whoever owns the outbox check's folder.
+
+## What I had to decide
+
+Whether a slice that adds an App function may touch the test that lists every function, though it sits outside its declared area.
+
+## What I did meanwhile
+
+The test lists the budgets check among the functions the App serves; every other line of it is unchanged.
+
+## What it costs to change later
+
+Undoing it is reverting four lines of one test file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the plan did not list the route test in s3's territory, though adding a function in functions.ts always changes it
+
+```
+
+<!-- /omni-outbox-settled: s3-01-route-test-outside-territory -->
+
+<!-- omni-outbox-settled: s3-02-budgets-on-read-from-base -->
+
+## s3-02-budgets-on-read-from-base — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-budgets-on-read-from-base
+prd: 1679
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The budgets check reads whether budgets are on from the branch a pull request goes into, so the pull request that first turns budgets on gets no budgets check until it merges. Is that right?
+
+## The decision, in plain words
+
+The check reads whether budgets are on from the branch the pull request goes into, like the App's other checks, and measures everything else at the pull request's head.
+
+## The intro, for fun
+
+A switch flipped in a pull request only counts once it lands.
+
+## The punchline, for fun
+
+The guard starts its shift the day after it is hired.
+
+## The options, in plain words
+
+A. A. Read the switch from the base branch, as the outbox and approved checks read their settings.
+B. B. Read the switch from the head, so the pull request that turns budgets on is checked at once.
+
+## What I had to decide
+
+Whether turning budgets on should take effect on the very pull request that turns it on, or only after it merges.
+
+## What I did meanwhile
+
+A pull request that turns budgets on, such as this repository's own, gets no omni / budgets check; every pull request after it does. Measuring, ceilings and paths are read at the head.
+
+## What it costs to change later
+
+Switching to the head's setting is a one-line change in the check's first step.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the App's checks also run only on pull requests into the default branch, so a sub-PR into a feature branch gets no omni / budgets either; omni check context covers it locally
+
+```
+
+<!-- /omni-outbox-settled: s3-02-budgets-on-read-from-base -->
+
+<!-- omni-outbox-settled: s4-01-ci-form-budgets-slot -->
+
+## s4-01-ci-form-budgets-slot — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-ci-form-budgets-slot
+prd: 1679
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The plan asks for a Budgets section in the CI page of the playbook, but the kit only accepts the sections it has on its list of sections for that page. Should this slice add Budgets to that list, outside the files it was given?
+
+## The decision, in plain words
+
+I added Budgets as an optional section of the CI page in the kit's list of sections, with its test and the notes that record how the kit's pages differ from where they came from. Without it, the new section would fail the kit's own checks.
+
+## The intro, for fun
+
+A new shelf was ordered for the CI page, but the cupboard only had four slots.
+
+## The punchline, for fun
+
+So the cupboard got a fifth slot, and a note saying who drilled it.
+
+## The options, in plain words
+
+A. Keep the optional budgets slot in the kit's list, with its test and porting notes (as built).
+B. Drop the slot and the template section, and keep the budget guidance in the skills only.
+
+## What I had to decide
+
+Agree to keep the optional `budgets` slot of the ci form (kit/lib/playbook/forms.ts, its forms.test.ts line) and the two porting notes (kit/porting/templates--ci.md, kit/porting/plugin--do-work.md), changed outside s4's territory; or say the section should live elsewhere.
+
+## What I did meanwhile
+
+The ci form has an optional budgets slot; a repository whose ci form lacks it shows the kit default, a short paragraph on budgets.
+
+## What it costs to change later
+
+Undoing it is removing one optional slot and the template section; no stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for s4 did not list kit/lib/playbook/forms.ts, which declares each form's slots; the template test refuses a section the list does not hold, so the done-when could not be met without it.
+- (author) Slice s5 fills this repository's own Budgets section in the ci form and needs this slot to pass omni check kb; it lands in the same wave.
+- (author) Every repository whose ci form has no Budgets section now prints the kit default in omni kb show ci, about 600 bytes more, so form:ci measures a little larger than before this slice.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-ci-form-budgets-slot -->
+
+<!-- omni-outbox-settled: s4-02-skill-tests-beside-law-proofs -->
+
+## s4-02-skill-tests-beside-law-proofs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-skill-tests-beside-law-proofs
+prd: 1679
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+This slice added its tests to the file that also proves four product rules, leaving those rule tests untouched. Do you agree that no product rule changed here?
+
+## The decision, in plain words
+
+I added the new tests at the end of the file the plan named, leaving the product rule tests as they were. The kit's guard treats any change to that file as touching a rule, so it needs a person to confirm.
+
+## The intro, for fun
+
+The new tests moved into a building where the rule keepers live.
+
+## The punchline, for fun
+
+They knocked on no doors, but the guard still wants a signature.
+
+## The options, in plain words
+
+A. Keep the new tests in the file the plan named, since no rule changed (as built).
+B. Move the new tests to a file of their own, so the rule tests' file stays untouched.
+
+## What I had to decide
+
+Agree that kit/test/plugin.test.ts changes no law proof (BR-PRODUCT-3, -4, -10 and -11 are untouched; the diff only adds the block "the context budget in the skills (PRD 1679)" and one import), or ask for the tests to move to a file of their own such as kit/test/budget-skills.test.ts.
+Decided by: Jev (hardToRevert 0.74) · agent said true
+
+## What I did meanwhile
+
+The new tests sit at the end of kit/test/plugin.test.ts, as the plan's territory names it.
+
+## What it costs to change later
+
+Moving the block to its own file later is a cut and paste with no behaviour change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) omni check coverage refuses a spec account for a law-proof file: only a high item accounts for it, whatever the change. Every later PRD that adds a skill test to kit/test/plugin.test.ts will meet the same refusal; the guard may want to tell an added test from a changed law test.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-skill-tests-beside-law-proofs -->
+
+<!-- omni-outbox-settled: s5-01-ceilings-sized-for-what-lands-next -->
+
+## s5-01-ceilings-sized-for-what-lands-next — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-ceilings-sized-for-what-lands-next
+prd: 1679
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+Three of this repository's first reading limits were set a little above what the branch measures today, so they stay green once the main branch and the sibling slice that adds the CI page's Budgets heading are merged in. Is that the right way to start, or should every limit match today's size exactly?
+
+## The decision, in plain words
+
+The limits for the CI page, the root agent instructions and the whole session start were sized for what the branch will hold after those merges, rounded up to the next kilobyte. Every other limit is today's size rounded up.
+
+## The intro, for fun
+
+A limit set to today's size can turn red tomorrow, the moment someone merges what was already written.
+
+## The punchline, for fun
+
+So three of them got a coat one size up, still well under the guideline.
+
+## The options, in plain words
+
+A. A. Size the CI page, root agent instructions and session limits for what lands next: 8 KiB, 7 KiB and 9 KiB (as built).
+B. B. Every limit at today's branch size only: the CI page at 7 KiB, the session at 3 KiB, and no limit for the root agent instructions until they are measured here.
+
+## What I had to decide
+
+Answer A to keep the limits as built. Answer B to cut them to today's sizes; the next merge of the main branch then trims or lowers them in the same change.
+
+## What I did meanwhile
+
+The check is green on the branch and stays green after the main branch and the sibling slice are merged in.
+
+## What it costs to change later
+
+Changing it is editing three numbers in one file; nothing is migrated.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the session and root-instructions limits read the main branch's agent instructions file as it is today (6,271 bytes); a later change to that file on main is measured against them
+- (author) the CI page's limit (8 KiB) assumes the sibling slice names its new template section `budgets`, as this slice's form does
+
+```
+
+<!-- /omni-outbox-settled: s5-01-ceilings-sized-for-what-lands-next -->
