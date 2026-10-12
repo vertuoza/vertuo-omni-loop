@@ -123,6 +123,15 @@ describe('the outbox check of a product PRD\'s target PR — one gate on the pro
     expect(checkRunAt(t.github.state, -1)).toMatchObject({ conclusion: 'failure', output: { title: 'unknown · no product PRD mobile-12 holds this repository' } });
   });
 
+  // Issue 1690: PR #1614 went red with `unknown · no product PRD mobile-12 holds this repository`.
+  it('a body that only mentions a claim, in inline code or a code block, is no product PRD\'s: no outbox row read, never unknown', async () => {
+    const body = 'Closes #1612\n\n## Reviewer focus\n\nThe target step (`Part of mobile-12` against a feature branch, or `Part of owner/repo#n`).\n\n```\nPart of mobile-12\n```\n';
+    const t = setUp({ pull: targetPull(body), read: () => Promise.resolve(null) });
+    await t.run(await deliver(targetPull(body)));
+    expect(t.reads).toEqual([]);
+    expect(outputOf(checkRunAt(t.github.state, -1)).title).not.toMatch(/^unknown/);
+  });
+
   it('a target PR of a plan-repository PRD still passes, pointing at its plan PR, reading no outbox row', async () => {
     const t = setUp({ pull: targetPull('Part of acme/plan#8') });
     await t.run(await deliver(targetPull('Part of acme/plan#8')));
