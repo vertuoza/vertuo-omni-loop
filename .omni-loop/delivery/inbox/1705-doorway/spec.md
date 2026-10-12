@@ -166,8 +166,10 @@ Supabase (`kb show testing`).
   and no element of the app shell (no sidebar, no app bar, no theme switch).
 - **`apps/galaxy/src/doorway/routes.test.ts`** reads the `app/ask` tree: `signin/` and `device/` sit
   under `(doorway)/`; `page.tsx`, `for-me/`, `history/`, `q/` and `[session]/` under `(shell)/`;
-  `(shell)/layout.tsx` renders `AppShell` and `(doorway)/layout.tsx` and `app/signup/layout.tsx`
-  render `Doorway`; `app/ask/layout.tsx` renders neither.
+  `(shell)/layout.tsx` renders `AppShell` and `(doorway)/layout.tsx` renders `Doorway`;
+  `app/ask/layout.tsx` renders neither.
+- **`apps/galaxy/src/signup/layout.test.ts`** renders `app/signup/layout.tsx`: it holds the doorway
+  and no app shell.
 - **`apps/galaxy/src/ask/theme-color.test.ts`** keeps passing for `/ask`; `/signup`'s viewport keeps
   Omni's ground.
 - **`apps/galaxy/src/signup/SignupScreen.test.ts`** holds each screen's new words (the table above),
@@ -176,6 +178,9 @@ Supabase (`kb show testing`).
   library mockups finds nothing.
 - **The device card's test** (beside `device-card.tsx`): the confirm state renders the code in an
   element carrying the pixel face's class; the enter-the-code box does not.
+- **Tests that follow the move:** `ask/page/questions-pages.test.ts` (imports `app/ask/for-me/` and
+  `history/`), `ask/page/share-render.test.ts` and `switch/headers.test.ts` (read `app/ask/layout.tsx`
+  as the shell's layout) point at `app/ask/(shell)/` after the move, and still hold what they hold.
 - **Guards that must stay green:** `design-system.test.ts` (no colour on `:root`, no Google Fonts),
   `page-width.test.ts`, `theme-tokens.test.ts`.
 - **By eye:** `pnpm galaxy:shots` with `pnpm galaxy:dev` running, the three pages at 393×700,
