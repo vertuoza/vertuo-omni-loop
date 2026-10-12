@@ -178,6 +178,14 @@ describe('omni care state', () => {
     expect(calls.filter((call) => call.file === 'gh')).toEqual([]);
   });
 
+  it('runs no gh at all, not even for a token, when github.user is set', async () => {
+    const files = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\ngithub:\n  user: someone\n', '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN };
+    const root = makeRepo({ git: true, files }).root;
+    const { code, calls } = await run(['care', 'state', '7'], root, widgets());
+    expect(code).toBe(0);
+    expect(calls.filter((call) => call.file === 'gh')).toEqual([]);
+  });
+
   it('finds the feature PR by its branch, and reads that change and its comments', async () => {
     const root = repo();
     const reads = widgets();

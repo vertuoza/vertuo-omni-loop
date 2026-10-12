@@ -196,11 +196,14 @@ function waitingState(found: Found): Waiting['state'] {
 /** Where a round's PR lives: its repository, its default branch, and the branch its PR comes from. */
 type Scope = { repo: string; defaultBranch: string; branch: string; target: (Target & { defaultBranch: string }) | null };
 
-function scopeOf(prd: PrdNumber, flag: string | undefined, { ctx, gh }: { ctx: Context; gh: Gh }): Scope {
+/** Where the round's PR lives. Only a target's default branch is read through `gh`: the loop's facts
+ * do not carry it, and nothing else of a round needs `gh`. */
+function scopeOf(prd: PrdNumber, flag: string | undefined, { ctx, exec, env }: { ctx: Context; exec: Exec; env: Env }): Scope {
   const repo = repoSlug('care', ctx, flag);
   const branch = featureBranchFor(prd, ctx);
   const target = targetOf(ctx, flag);
   if (target === null) return { repo, defaultBranch: ctx.config.repo.defaultBranch, branch, target: null };
+  const gh: Gh = { exec, env: githubEnv(ctx, { exec, env }) };
   const defaultBranch = ghText(['repo', 'view', target.slug, '--json', 'defaultBranchRef', '--jq', '.defaultBranchRef.name'], gh).trim();
   return { repo, defaultBranch, branch, target: { ...target, defaultBranch } };
 }
@@ -221,7 +224,7 @@ async function runState(args: string[], { ctx, stdout, stderr, exec, env, reads 
   const { positional, flags } = parseArgs('care', args, { values: ['pr', 'repo'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = prdArg('care', '<prd>', positional[0]);
-  const scope = scopeOf(prd, flags.repo, { ctx, gh: { exec, env: githubEnv(ctx, { exec, env }) } });
+  const scope = scopeOf(prd, flags.repo, { ctx, exec, env });
 
   const { wave, landings } = await waveClaims(prd, { ctx, reads, repo: flags.repo, target: scope.target });
   const landed = landings !== null && landings.length > 1 ? landings : null;
