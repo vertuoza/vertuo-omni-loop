@@ -27,7 +27,7 @@ it, so switching them on needs no one else. Two things make "switch them on" mor
 
 - **Fake secrets in the tests.** The masking tests and a few fixtures hold strings shaped like real
   credentials, written out whole: `ghp_…`, `ghs_…`, `github_pat_…`, `sk-ant-api03-…`,
-  `AKIAIOSFODNN7EXAMPLE`, a `-----BEGIN RSA PRIVATE KEY-----` block (for example
+  AWS's documented example key id, a PEM private key block (for example
   `apps/galaxy/src/jev/mask.test.ts`, `apps/omni-app/src/retro/narrate.test.ts`,
   `kit/lib/openrouter.test.ts`, `apps/omni-app/src/env.test.ts`). Once push protection is on, an
   agent that adds or moves one could have its push refused, and the briefing's Hooks rule forbids
@@ -74,7 +74,8 @@ by them.
    checks out the repository read-only and pushes nothing. Its header comment names the token's
    scopes and where to create it, as `game.yml` does.
 5. **Switch on and triage, then one line in the briefing.**
-   - Once 1 to 4 are on `main`, an admin runs `node scripts/security-settings.ts --apply`. GitHub
+   - Once 1 to 4 are merged into the feature branch, the last slice runs
+     `node scripts/security-settings.ts --apply` with an admin's `gh`. GitHub
      then scans the whole history. Every alert it raises is triaged: a real credential is rotated
      at its provider first, then closed as `revoked`; a fake one is closed as `used_in_tests`. The
      list of alerts and how each was closed goes in the feature PR's report.
@@ -94,8 +95,11 @@ by them.
   run that has been red for eight days. If this one goes red, it must say exactly what to run."*
   Settled `accepted`: every red line names its fix command or its alert's link, and a red run opens
   (or updates) one `omni:security` issue that the next green run closes.
-- **Fixtures first, settings last.** Push protection is switched on only after the guard is on
-  `main`, so no push in flight can be refused for a fake.
+- **Fixtures first, settings last.** Push protection is switched on only once the guard and the
+  rebuilt fixtures are merged into the feature branch. Push protection reads only the commits a push
+  adds, so the fakes still on `main` until the feature PR merges never refuse a push; a branch of
+  someone else's that adds a new literal fake meanwhile would be refused, and the briefing line says
+  what to do.
 - **Built at runtime, not allow-listed.** GitHub can be told to skip paths
   (`.github/secret_scanning.yml`), but a skipped path also hides a real secret pasted into a test.
   Assembling the fake keeps every path scanned.
