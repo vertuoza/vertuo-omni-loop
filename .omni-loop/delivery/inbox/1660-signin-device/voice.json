@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-12",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A sign-in that reuses the one-time code and the token exchange as they are is less new code to break in production.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Signing in from my SSH box the way gh does is a real tool, not fluff.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Cloud sessions in every repository sign in with one click on my phone, so I can start ideas anywhere.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 2, "reaction": "Two flows picked by an environment guess is one more thing my team has to know about.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "No more pasting failed addresses back into a terminal I do not master.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "Now I have two sign-in flows to keep coherent, and which one my terminal picks depends on an environment guess. When it guesses wrong, who on my team knows to type --device?",
+        "citations": ["persona:Lead Engineer"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✗ until the fallback link"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-12",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Every state of the page and every terminal line has a test, and the payload is handed over once.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "RFC 8628 with slow_down and hashed device codes is the boring, correct shape.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "setup-token works the same way, so a teammate makes their cloud token without help.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "The fallback link means a wrong guess never strands anyone, and old pages and new kits still meet.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "A code to match and a No button I can understand without knowing the harness.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    }
+  ]
+}
