@@ -24,7 +24,7 @@ const why = (err: unknown) => (err instanceof Error ? err.message : String(err))
 export async function productHomeViewOf(session: MemberSession, product: string, deps: ProductHomeDeps): Promise<ProductHomeView> {
   if (session.kind === 'demo') {
     const demo = demoProductHome(product);
-    return demo === null ? { kind: 'not-found' } : { kind: 'home', home: demo };
+    return demo === null ? { kind: 'not-found' } : { kind: 'home', home: demo, demo: true };
   }
   if (session.kind !== 'signed-in') return session;
   try {

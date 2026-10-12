@@ -1,7 +1,10 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { productVoidRepository } from './server-event.repository';
-import { OMNI_APP_URL, SERVER_EVENT_PATH, SERVER_SIGNATURE_HEADER, sendServerEvent, tellAppOfVoid, type ServerEvent } from './server-event.service';
+import type { OutboxItemsService } from '../outbox-items/outbox-items.service';
+import {
+  OMNI_APP_URL, SERVER_EVENT_PATH, SERVER_SIGNATURE_HEADER, sendServerEvent, tellAppOfVoid, withOutboxTold, type DossierOf, type ServerEvent,
+} from './server-event.service';
 
 vi.mock('server-only', () => ({}));
 
@@ -94,5 +97,75 @@ describe('a push that voids a product PRD\'s approval tells the App once', () =>
   it('never throws, even when sending does', async () => {
     const { logged } = await tell({ data: [{ repo: null }], error: null }, () => Promise.reject(new Error('boom')));
     expect(logged).toEqual([`server event: telling the App of dossier ${DOSSIER}'s void failed — boom`]);
+  });
+});
+
+describe('an outbox item put or settled tells the App once, so both checks follow (PRD 1548 s8, acceptance 8)', () => {
+  const at = () => new Date('2026-10-11T09:45:00.000Z');
+  const OK = { ok: true as const, value: { id: 'i-1' } };
+  const REFUSED = { ok: false as const, kind: 'settled' as const, error: 'Item s1-01-a is already settled (agreed).' };
+  const PUT = { product: 'mobile', prd: 12, repo: 'Acme/API', body: '---\nid: s1-01-a\n---' };
+  const SETTLE = { product: 'mobile', prd: 12, item: 's1-01-a', verdict: 'agreed', basis: 'agreed', answer: 'A' };
+
+  /** The outbox service told: a fake service answering `served`, a dossier read answering `dossier`, every send and line kept. */
+  function told(served: typeof OK | typeof REFUSED = OK, dossier: Awaited<ReturnType<DossierOf>> = { ok: true, value: DOSSIER }) {
+    const sent: ServerEvent[] = [];
+    const logged: string[] = [];
+    const asked: unknown[] = [];
+    const calls: string[] = [];
+    const service = {
+      put: (request: unknown) => { calls.push(`put ${JSON.stringify(request)}`); return Promise.resolve(served); },
+      settle: (request: unknown) => { calls.push(`settle ${JSON.stringify(request)}`); return Promise.resolve(served); },
+    } as unknown as OutboxItemsService;
+    const dossierOf: DossierOf = (prd) => { asked.push(prd); return Promise.resolve(dossier); };
+    const wrapped = withOutboxTold(service, { dossierOf, send: (event) => { sent.push(event); return Promise.resolve(true); }, now: at, log: (l) => logged.push(l) });
+    return { wrapped, sent, logged, asked, calls };
+  }
+
+  it('sends item-opened after a put, item-settled after an adoption or a settlement, finding the dossier as the writer', async () => {
+    const put = told();
+    expect(await put.wrapped.put(PUT as never)).toBe(OK);
+    expect(put.sent).toEqual([{ event: 'item-opened', dossier: DOSSIER, at: '2026-10-11T09:45:00.000Z' }]);
+    expect(put.asked).toEqual([{ key: 'mobile', seq: 12, repo: 'acme/api' }]);
+    expect(put.calls).toEqual([`put ${JSON.stringify(PUT)}`]);
+
+    const adopt = told();
+    await adopt.wrapped.put({ ...PUT, adopt: true } as never);
+    expect(adopt.sent.map((e) => e.event)).toEqual(['item-settled']);
+
+    const settle = told();
+    expect(await settle.wrapped.settle(SETTLE as never)).toBe(OK);
+    expect(settle.sent).toEqual([{ event: 'item-settled', dossier: DOSSIER, at: '2026-10-11T09:45:00.000Z' }]);
+    expect(settle.asked).toEqual([{ key: 'mobile', seq: 12, repo: null }]);
+    expect(settle.calls).toEqual([`settle ${JSON.stringify(SETTLE)}`]);
+  });
+
+  it('sends nothing for a write the server refused', async () => {
+    const run = told(REFUSED);
+    expect(await run.wrapped.settle(SETTLE as never)).toBe(REFUSED);
+    expect(await run.wrapped.put(PUT as never)).toBe(REFUSED);
+    expect(run.sent).toEqual([]);
+    expect(run.asked).toEqual([]);
+  });
+
+  it('never fails the write: a dossier it cannot find or read sends nothing, said in the log', async () => {
+    for (const dossier of [{ ok: true as const, value: null }, { ok: false as const, code: '42501', message: 'denied', hint: null }]) {
+      const run = told(OK, dossier);
+      expect(await run.wrapped.put(PUT as never)).toBe(OK);
+      expect(run.sent).toEqual([]);
+      expect(run.logged).toEqual(['server event: the dossier of mobile-12 could not be read, the App is not told of its item-opened']);
+    }
+  });
+
+  it('never fails the write, even when sending throws', async () => {
+    const logged: string[] = [];
+    const service = { put: () => Promise.resolve(OK), settle: () => Promise.resolve(OK) } as unknown as OutboxItemsService;
+    const wrapped = withOutboxTold(service, {
+      dossierOf: () => Promise.resolve({ ok: true, value: DOSSIER }),
+      send: () => Promise.reject(new Error('boom')),
+      log: (l) => logged.push(l),
+    });
+    expect(await wrapped.settle(SETTLE as never)).toBe(OK);
+    expect(logged).toEqual(['server event: telling the App of mobile-12\'s item-settled failed — boom']);
   });
 });

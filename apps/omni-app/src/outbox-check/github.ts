@@ -14,9 +14,11 @@ import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import type { CommentId, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { deferredOutput, NOT_ACTIVE_ON_PR, planPrdOf, prdDirs, prdOfTopic, pullKind, type PlanPrd } from '../evaluate/evaluate.ts';
+import { productPrdOf, type ProductPrdRef } from '../approved-check/state.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';
+import type { ProductOutboxVerdict } from './product-outbox.ts';
 import {
   CheckRunsSchema,
   CommentsPageSchema,
@@ -100,7 +102,14 @@ export async function readBaseConfig(
 
 /**
 /** What the check is on a pull request: see `checkTarget`. */
-export type CheckTarget = { active: boolean; name: string; gated: boolean; reason: string | null; deferTo?: PlanPrd | null };
+export type CheckTarget = {
+  active: boolean;
+  name: string;
+  gated: boolean;
+  reason: string | null;
+  deferTo?: PlanPrd | null;
+  product?: ProductPrdRef | null;
+};
 
 /**
  * What the check is on this pull request, from its refs, the base branch's config and the folder
@@ -111,7 +120,9 @@ export type CheckTarget = { active: boolean; name: string; gated: boolean; reaso
  * knowledge`, a fix, knowledge or enforce PR (PRD 1342, `pullKind`); `reason` says why another is not. A broken config is gated, so its check says what is
  * wrong. `deferTo`: on a pull request into the default branch that is not gated here, the plan
  * repository's PRD its body says it is part of (`planPrdOf`, issue 1202): a target feature PR, whose
- * check passes and points to the plan PR.
+ * check passes and points to the plan PR. `product`: on a pull request into the default branch, the
+ * product PRD its body says it is part of (`Part of mobile-12`, PRD 1548 s8): a target feature PR of a
+ * PRD whose outbox is rows on the server, graded there (./product-outbox.ts), never deferred to a plan PR.
  */
 export async function checkTarget(
   octokit: GitHubClient,
@@ -130,6 +141,8 @@ export async function checkTarget(
   if (!config) return { active: true, name: DEFAULT_CHECK_NAME, gated: true, reason: null };
 
   const name = config.ci.outboxContext;
+  const product = pr.baseRef === config.repo.defaultBranch ? productPrdOf(pr.body) : null;
+  if (product) return { active: true, name, gated: false, reason: null, deferTo: null, product };
   const deferTo = pr.baseRef === config.repo.defaultBranch ? planPrdOf(pr.body, `${owner}/${repo}`) : null;
   const feature = pullKind(pr, config);
   if ('skip' in feature) return { active: true, name, gated: false, reason: feature.skip, deferTo };
@@ -279,6 +292,19 @@ export async function completeAsDeferred(
   return completeOpen(octokit, { owner, repo, headSha, name, conclusion: 'success', output: deferredOutput(plan, planPr), create: true });
 }
 
+/**
+ * Grade the check of a product PRD's target feature PR (PRD 1548 s8): completes its open check runs, or
+ * creates one, as the outbox rows on the server say (`productOutboxVerdict`), its Details on the
+ * product's Questions tab when the PRD was read.
+ */
+export async function completeAsProduct(
+  octokit: GitHubClient,
+  { owner, repo, headSha, name, verdict }: Repo & { headSha: string; name: string; verdict: ProductOutboxVerdict },
+): Promise<number[]> {
+  const output = { title: verdict.title, summary: verdict.summary };
+  return completeOpen(octokit, { owner, repo, headSha, name, conclusion: verdict.conclusion, output, create: true, detailsUrl: verdict.detailsUrl });
+}
+
 /** The output of a skipped check: the title `evaluate` gives a pull request it does not gate. */
 function skippedOutput(reason: string | null | undefined): { title: string; summary: string } {
   return { title: NOT_ACTIVE_ON_PR, summary: reason ?? NOT_ACTIVE_ON_PR };
@@ -296,16 +322,19 @@ async function completeOpen(
     output,
     create,
     externalId,
+    detailsUrl = null,
   }: Repo & {
     headSha: string;
     name: string;
-    conclusion: 'failure' | 'skipped' | 'success';
+    conclusion: 'failure' | 'neutral' | 'skipped' | 'success';
     output: { title: string; summary: string };
     create: boolean;
     externalId?: string | undefined;
+    detailsUrl?: string | null;
   },
 ): Promise<number[]> {
   const completed_at = new Date().toISOString();
+  const details = detailsUrl === null ? {} : { details_url: detailsUrl };
 
   const { data } = await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', {
     owner,
@@ -326,6 +355,7 @@ async function completeOpen(
         status: 'completed',
         conclusion,
         completed_at,
+        ...details,
         output,
       });
       ids.push(run.id);
@@ -344,6 +374,7 @@ async function completeOpen(
     status: 'completed',
     conclusion,
     completed_at,
+    ...details,
     output,
   });
   return [CreatedSchema.parse(created).id];

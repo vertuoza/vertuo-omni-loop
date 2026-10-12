@@ -324,7 +324,8 @@ describe('the score sent once', () => {
   it('sends the score reached on SELECT on the pause, once', () => {
     const { sent, on } = arcade();
     let d = pressed(opened(), 'start', on);
-    for (let i = 0; i < 300; i++) d = steppedDuet(d, d.game as DuetGame, new Set(), 1 / 60, on);
+    // Held still until chapter I's first wave has passed: the score is then above 0.
+    for (let i = 0; i < 1200 && !d.hud?.score; i++) d = steppedDuet(d, d.game as DuetGame, new Set(), 1 / 60, on);
     d = pressed(pressed(d, 'start', on), 'select', on);
     expect(d.hud).toMatchObject({ phase: 'over' });
     expect(sent).toEqual([d.hud?.score]);
