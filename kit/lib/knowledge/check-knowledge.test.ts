@@ -686,3 +686,88 @@ describe('laws.requireProof — a law names its proof (PRD 1342)', () => {
     expect(gradeWith(root, true, { copyOf: 'acme/back-end' }).violations).toEqual([]);
   });
 });
+
+describe('a law is a locked entry (PRD 1726)', () => {
+  const TEST = 'kit/lib/advisor.test.ts';
+  const LOCK = 'Locked: @pierrederval, 2026-10-14';
+  const GOVERNS = 'Governs: kit/lib/advisor/**';
+  const law = (id: string, ...extra: string[]) =>
+    rule(id, { extra: [LOCK, GOVERNS, ...extra] }).replace('Enforced by: unenforced', `Enforced by: ${TEST}`);
+  function gradeWith(root: string, laws: { max?: number; owners?: string[] } = {}, extra: { copyOf?: string } = {}) {
+    const ctx = { ...flatCtx(root, { laws: { source: 'knowledge', owners: ['pierrederval'], ...laws } }), ...extra } as Parameters<typeof gradeKnowledge>[0]['ctx'];
+    return gradeKnowledge({ ctx, files: [], glossaryText: GLOSSARY_TEXT });
+  }
+  const lawTree = (rules: string, principles = principle('P-ADVISOR-1')) =>
+    tree({ [ADVISOR_PRINCIPLES]: principles, [ADVISOR_RULES]: rules, [TEST]: '// a test\n' });
+
+  it('accepts a locked rule with its test and its Governs:, and any entry carrying Governs: or Proposed law:', () => {
+    const root = lawTree(
+      [law('BR-ADVISOR-1'), rule('BR-ADVISOR-2', { extra: [GOVERNS, 'Proposed law: the advisor answers a stranger, and a customer sees another firm’s numbers.'] })].join('\n'),
+      principle('P-ADVISOR-1', { extra: [GOVERNS] }),
+    );
+    expect(gradeWith(root).violations).toEqual([]);
+  });
+
+  it('refuses a lock with no test: unenforced, or pending on its law issue', () => {
+    const root = lawTree(
+      [
+        rule('BR-ADVISOR-1', { extra: [LOCK, GOVERNS] }),
+        rule('BR-ADVISOR-2', { extra: [LOCK, GOVERNS] }).replace('Enforced by: unenforced', 'Enforced by: pending #7'),
+      ].join('\n'),
+    );
+    expect(gradeWith(root).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: 'is locked, but "Enforced by:" names no test — a law is proven: name its test\'s path.' },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-2', detail: 'is locked, but "Enforced by:" names no test — a law is proven: name its test\'s path.' },
+    ]);
+  });
+
+  it('refuses a lock with no Governs:', () => {
+    const root = lawTree(law('BR-ADVISOR-1').replace(`${GOVERNS}\n`, ''));
+    expect(gradeWith(root).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: 'is locked, but carries no "Governs:" line — a law names the paths it rules over.' },
+    ]);
+  });
+
+  it('refuses a locked principle', () => {
+    const root = lawTree(rule('BR-ADVISOR-1'), principle('P-ADVISOR-1', { extra: [LOCK, GOVERNS] }));
+    expect(gradeWith(root).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_PRINCIPLES, id: 'P-ADVISOR-1', detail: 'is locked, but a principle is never a law — lock a rule or an invariant that serves it.' },
+    ]);
+  });
+
+  it('refuses a lock beside a Proposed: line', () => {
+    const root = lawTree(law('BR-ADVISOR-1', 'Proposed: invade 2026-10-12'));
+    expect(gradeWith(root).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: 'is locked and proposed at once — a person locked it: remove its "Proposed:" line.' },
+    ]);
+  });
+
+  it('refuses more locks than laws.max, and accepts exactly laws.max', () => {
+    const root = lawTree([law('BR-ADVISOR-1'), law('BR-ADVISOR-2'), law('BR-ADVISOR-3')].join('\n'));
+    expect(gradeWith(root, { max: 3 }).violations).toEqual([]);
+    expect(gradeWith(root, { max: 2 }).violations).toEqual([
+      'docs/knowledge: 3 locked entries, more than laws.max (2) — a law is one of the few truths that cost the most when broken: strike one, or raise laws.max.',
+    ]);
+  });
+
+  it('counts a malformed lock and a locked principle against laws.max', () => {
+    const root = lawTree(law('BR-ADVISOR-1').replace(LOCK, 'Locked: someone'), principle('P-ADVISOR-1', { extra: [LOCK, GOVERNS] }));
+    expect(gradeWith(root, { max: 1 }).violations).toContain(
+      'docs/knowledge: 2 locked entries, more than laws.max (1) — a law is one of the few truths that cost the most when broken: strike one, or raise laws.max.',
+    );
+  });
+
+  it('refuses any lock while laws.owners is empty, and nothing when nothing is locked', () => {
+    const locked = lawTree(law('BR-ADVISOR-1'));
+    expect(gradeWith(locked, { owners: [] }).violations).toEqual([
+      'docs/knowledge: 1 locked entry, and laws.owners is empty — name who may lock a law and approve a change to one in laws.owners before locking.',
+    ]);
+    const unlocked = lawTree(rule('BR-ADVISOR-1'));
+    expect(gradeWith(unlocked, { owners: [] }).violations).toEqual([]);
+  });
+
+  it("never asks an imported copy for laws.max or laws.owners: the target's own config decides", () => {
+    const root = lawTree([law('BR-ADVISOR-1'), law('BR-ADVISOR-2')].join('\n'));
+    expect(gradeWith(root, { max: 1, owners: [] }, { copyOf: 'acme/back-end' }).violations).toEqual([]);
+  });
+});

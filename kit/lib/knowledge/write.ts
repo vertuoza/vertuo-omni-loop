@@ -19,6 +19,10 @@
  * `Source:` naming the ledger file and the entry's id, `Enforced by:` on every rule and invariant,
  * and `Proposed: harvest <date>` on every entry from an adopted decision and on every new principle.
  *
+ * **Laws** (PRD 1726): the writer only appends, so an entry already in a layer file keeps its
+ * `Locked:`, `Governs:` and `Proposed law:` lines byte for byte. It never writes `Locked:`: only a
+ * person locks a law.
+ *
  * **Enforced by** (PRD 1171): the model proposes the proof, code keeps only what it can check. A
  * path the reply's `enforcedBy` names is kept when the feature pull request changed it (added,
  * modified or renamed: `changed`) **and** it exists in the tree; the kept paths are written
