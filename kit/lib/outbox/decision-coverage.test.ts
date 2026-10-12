@@ -452,7 +452,7 @@ describe('lockedLawChanges — law-locked (PRD 1726)', () => {
   it('fires when a locked entry’s text is edited, a field as much as its statement', () => {
     seed(INVARIANTS, file(entry('N1', 'A law, reworded.', PROOF, LOCK)));
     expect(firedOver(file(entry('N1', 'A law.', PROOF, LOCK)))).toEqual([`N1 ${INVARIANTS} M law-locked`]);
-    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF, LOCK, 'Governs: src/**')));
+    seed(INVARIANTS, file(entry('N1', 'A law.', PROOF, LOCK, 'Governs: ^src/')));
     expect(firedOver(file(entry('N1', 'A law.', PROOF, LOCK)))).toEqual([`N1 ${INVARIANTS} M law-locked`]);
   });
 
