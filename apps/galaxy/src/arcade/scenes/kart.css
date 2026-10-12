@@ -79,3 +79,23 @@
   .kt-beat, .kt-final { animation: none; }
 }
 .kt-turn { display: flex; justify-content: center; margin: 2px 0 6px; }
+
+/* The podium (PRD 1762): three steps (second, first, third), the first the tallest, under confetti. */
+.kt-steps { list-style: none; margin: 0 0 6px; padding: 0; display: flex; align-items: flex-end; justify-content: center; gap: 6px; font-size: 8px; letter-spacing: 1px; color: var(--white); }
+.kt-step { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 56px; }
+.kt-step-block { display: block; width: 100%; text-align: center; padding: 4px 0; background: var(--panel-edge, #3a3a5a); }
+.kt-step[data-place='1'] .kt-step-block { padding: 14px 0; color: var(--yellow); }
+.kt-step[data-place='2'] .kt-step-block { padding: 9px 0; }
+.kt-step[data-filled='false'] { opacity: 0.6; }
+.kt-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.kt-confetti span { position: absolute; top: -6px; width: 4px; height: 6px; background: var(--yellow); animation: kt-fall 2.4s linear infinite; }
+.kt-confetti span[data-hue='1'] { background: var(--white); }
+.kt-confetti span[data-hue='2'] { background: #ee6fb8; }
+.kt-confetti span[data-hue='3'] { background: #2fc4d8; }
+@keyframes kt-fall { to { transform: translateY(300px) rotate(240deg); } }
+/* Reduced motion: the confetti stays where it is, still. */
+@media (prefers-reduced-motion: reduce) {
+  .kt-confetti span { animation: none; top: calc(10px + var(--kt-i, 0) * 8px); }
+  .kt-confetti span:nth-child(odd) { top: 40px; }
+  .kt-confetti span:nth-child(3n) { top: 90px; }
+}

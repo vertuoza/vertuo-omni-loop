@@ -229,7 +229,7 @@ describe('the finish and the race time (slice 4)', () => {
     const r = finished();
     const res = resultsOf(r);
     expect(res.rows.filter((x) => !x.you).every((x) => x.tenths === null)).toBe(true);
-    expect(hudOf(r)).toEqual({ phase: 'finish', beat: null, results: res });
+    expect(hudOf(r)).toMatchObject({ phase: 'finish', beat: null, results: res });
   });
 
   it('puts a rival that crossed before the player ahead of the player, with its time', () => {
@@ -242,10 +242,28 @@ describe('the finish and the race time (slice 4)', () => {
     expect(r.finish?.place).toBe(2);
   });
 
+  it('shows the podium before the results: A on the podium shows the results, the time already sent', () => {
+    let r = nearLine();
+    let sent = 0;
+    while (r.phase === 'race') { const st = step(r, GAS, 0.05); sent += st.events.filter((e) => e.kind === 'finish').length; r = st.race; }
+    expect(sent).toBe(1);
+    expect(hudOf(r).podium?.steps).toHaveLength(3);
+    expect(press(r, 'a').events).toEqual([]);
+    const results = press(r, 'a').race;
+    expect(hudOf(results).podium).toBeUndefined();
+    expect(hudOf(results).results?.threeLap).toBe(r.finish?.threeLap);
+  });
+
+  it('shows no podium for a race left before the line', () => {
+    const left = pause(nearLine());
+    expect(hudOf(left).podium).toBeUndefined();
+    expect(press(left, 'a').events).toEqual([]);
+  });
+
   it('answers A on the results with another race, ignores START, and offers no pause', () => {
     let r = nearLine();
     while (r.phase === 'race') r = step(r, GAS, 0.05).race;
-    expect(press(r, 'a').events).toEqual([{ kind: 'again' }]);
+    expect(press(press(r, 'a').race, 'a').events).toEqual([{ kind: 'again' }]);
     expect(press(r, 'start').race.phase).toBe('finish');
     expect(press(r, 'select').events).toEqual([]);
     expect(pause(r).phase).toBe('finish');

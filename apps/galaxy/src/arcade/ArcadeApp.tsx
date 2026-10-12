@@ -37,7 +37,7 @@ import { KartOverlay } from './scenes/kart.tsx';
 import { DuetLayer } from './scenes/duet.tsx';
 import { duetDrawOf, useDuet } from './scenes/duet.live';
 import { duetRetry, type ArcadeDuet } from './scenes/duet.ts';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud } from './scenes/kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud, type KartStep } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -1229,6 +1229,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, heroOf(row.hero, row.fleet).tint) };
   };
 
+  // A podium step's kart in its look (PRD 1762): the player's own look and fleet, or the driver's tint and look; through the options module.
+  const podiumKart = (step: KartStep) => {
+    const api = optionsApi.current;
+    if (!api) return null;
+    const look = step.look ?? kart?.options?.look ?? { color: 'FLEET', design: 'CLASSIC' };
+    const own = heroOf(me?.hero ?? ui.hero, me?.team ?? null).tint;
+    return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, step.you ? own : step.tint ?? own) };
+  };
+
   const overlay = (() => {
     switch (ui.scene) {
       case 'boot': return <BootOverlay brand={brand} />;
@@ -1258,7 +1267,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         </>
       ) : null;
       case 'duet': return <DuetLayer duet={duet} send={send} />;
-      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} podiumKart={podiumKart} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

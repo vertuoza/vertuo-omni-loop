@@ -10,7 +10,7 @@ import { HeroSprite, Sprite } from '../Sprite';
 import { driveLine, keyLabel } from '../keys';
 import { useScreen } from '../Screen';
 import type { KartOptions, OptionsView } from '../kart/options';
-import { choiceLine, GRID_JOINING_LINE, lapsOf, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, readyLine, SINGLE_LINE, type KartChoice, type KartGridRow, type KartGridView, type KartHud, type KartItem, type KartStatus } from './kart.ts';
+import { choiceLine, GRID_JOINING_LINE, lapsOf, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, readyLine, SINGLE_LINE, type KartChoice, type KartGridRow, type KartGridView, type KartHud, type KartItem, type KartStatus, type KartStep } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
@@ -176,6 +176,39 @@ function Notice({ line, back }: { line: string; back: string }) {
   );
 }
 
+const CONFETTI = Array.from({ length: 14 }, (_, i) => i);
+
+/** The podium (PRD 1762): the first three on their steps, each driver with their kart in its look, under confetti that holds still under reduced motion. */
+function PodiumScreen({ podium, podiumKart }: { podium: NonNullable<KartHud['podium']>; podiumKart?: ((step: KartStep) => KartArt | null) | undefined }) {
+  return (
+    <div className="kt">
+      <div className="kt-confetti" aria-hidden="true">{CONFETTI.map((i) => <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 5) * 0.3}s` }} data-hue={i % 4} />)}</div>
+      <div className="j-panel kt-panel kt-mid kt-podium">
+        <p className="inv-title">PODIUM</p>
+        <ol className="kt-steps">
+          {podium.steps.map((st) => {
+            const art = st.filled ? podiumKart?.(st) : null;
+            return (
+              <li key={st.place} className={`kt-step${st.you ? ' kt-you' : ''}`} data-place={st.place} data-filled={st.filled}>
+                {art && <Sprite name={art.sprite('kart')} tint={art.tint} scale={1} title={`${st.name}'S KART`} />}
+                <span className="kt-step-name">{st.name}</span>
+                <span className="kt-step-block">{st.filled ? ordinal(st.place) : '…'}</span>
+              </li>
+            );
+          })}
+        </ol>
+        {podium.place && <p className="kt-score" role="status">{podium.place}</p>}
+        <p className="hint"><Hint k="A">RESULTS</Hint></p>
+      </div>
+    </div>
+  );
+}
+
+/** The finish: the podium first, then the results once A moves on. */
+function FinishScreen({ hud, results, send, back, podiumKart }: { hud: KartHud; results: NonNullable<KartHud['results']>; send: ScoreSend | null; back: string; podiumKart?: ((step: KartStep) => KartArt | null) | undefined }) {
+  return hud.podium ? <PodiumScreen podium={hud.podium} podiumKart={podiumKart} /> : <ResultsScreen results={results} send={send} back={back} />;
+}
+
 /** The finish: the results table, the time that is sent and where sending it stands. */
 function ResultsScreen({ results, send, back }: { results: NonNullable<KartHud['results']>; send: ScoreSend | null; back: string }) {
   const line = sendLine(send, 'time');
@@ -245,7 +278,9 @@ function RaceScreen({ hud, back, keys }: { hud: KartHud; back: string; keys?: Ka
   );
 }
 
-export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null, art, kartOf }: {
+export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null, art, kartOf, podiumKart }: {
+  /** A podium step's kart in its look (PRD 1762). */
+  podiumKart?: (step: KartStep) => KartArt | null;
   /** A grid row's kart in its look (PRD 1762), drawn beside the player. */
   kartOf?: (row: KartGridRow) => KartArt | null;
   /** The player's kart in its look, for the KART panel (PRD 1762). */
@@ -270,7 +305,7 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   // The grid needs nothing of the game: it shows while the game loads again behind it.
   if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} kartOf={kartOf} />;
   if (status !== 'ready') return <Notice line={status === 'failed' ? NOT_LOADED : 'LOADING…'} back={back} />;
-  if (hud?.results) return <ResultsScreen results={hud.results} send={send} back={back} />;
+  if (hud?.results) return <FinishScreen hud={hud} results={hud.results} send={send} back={back} podiumKart={podiumKart} />;
   if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} keys={options?.keys} />;
   return <ReadyScreen choice={choice} multi={multi} back={back} options={options} art={art} />;
 }
