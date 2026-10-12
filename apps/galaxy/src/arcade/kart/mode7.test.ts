@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 import {
-  chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, skyShift, spritesInView, viewOf, type Texture, type View,
+  chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, renderTerrain, skyShift, spritesInView, viewOf, type Deck, type Texture, type View,
 } from './mode7';
+import { groundAt, heightsOf, reliefRange } from './relief';
+import { BEYOND, deckOf, paintTrack } from './texture';
+import { parseTrack } from './track';
 
 const WIDE = { w: 640, h: 360 }, TALL = { w: 320, h: 288 };
 const at = (angle: number, screen = WIDE): View => viewOf(screen, { x: 500, y: 400, angle });
@@ -153,5 +156,166 @@ describe('skyShift', () => {
     expect(skyShift(Math.PI / 2, 1000)).toBeCloseTo(750, 9);
     expect(skyShift(Math.PI * 2, 1000)).toBeCloseTo(0, 6);
     expect(skyShift(-Math.PI / 2, 1000)).toBeCloseTo(250, 9);
+  });
+});
+
+describe('the eye over the ground (PRD 1698)', () => {
+  it('stands 28 over the ground under the kart: the camera is lifted with the ground', () => {
+    expect(viewOf(WIDE, { x: 0, y: 0, angle: 0 }).height).toBe(28);
+    expect(viewOf(WIDE, { x: 0, y: 0, angle: 0 }, 12).height).toBe(40);
+  });
+
+  it('projects a point on raised ground higher on the screen, by its height over the floor', () => {
+    const v = viewOf(WIDE, { x: 100, y: 100, angle: 0 });
+    const low = sure(project(v, 200, 100), 'the flat point'), high = sure(project(v, 200, 100, 10), 'the raised point');
+    expect(high.sy).toBeLessThan(low.sy);
+    expect(high.sy).toBeCloseTo(v.horizon + ((28 - 10) * v.focal) / 100, 9);
+    expect(high.sx).toBeCloseTo(low.sx, 9);
+    expect(high.z).toBe(low.z);
+  });
+
+  it('draws a sprite standing on raised ground higher: its ground is its own', () => {
+    const v = viewOf(WIDE, { x: 100, y: 100, angle: 0 });
+    const things = [{ x: 200, y: 100, up: 10 }, { x: 300, y: 100, up: 0 }];
+    const seen = spritesInView(v, things, (t) => t.up);
+    const raised = sure(seen.find((s) => s.sprite.up === 10), 'the raised sprite');
+    expect(raised.at.sy).toBeCloseTo(v.horizon + ((28 - 10) * v.focal) / 100, 9);
+    expect(seen.map((s) => s.at.z)).toEqual([200, 100]); // still the farthest first
+  });
+});
+
+describe('renderTerrain (PRD 1698)', () => {
+  const SCREEN = { w: 64, h: 96 };
+  const ROAD = 0xff808080;
+  const FLAT = { low: 0, high: 0 };
+  const deck: Deck = {
+    thickness: 12, wall: Uint32Array.of(0xff0000ff, 0xff00ff00, 0xffff0000), stripe: Uint32Array.of(0xff0000fe, 0xff00fe00, 0xfffe0000),
+    glow: 18, glowPx: Uint32Array.of(0x80ffffff, 0x40ffffff),
+  };
+  const sidePx = new Set([...deck.wall, ...deck.stripe]);
+  /** A 64×64 texture, the road where `road` says so. */
+  const world = (road: (x: number, y: number) => boolean): Texture => ({ w: 64, h: 64, px: Uint32Array.from({ length: 64 * 64 }, (_, i) => (road(i % 64, Math.floor(i / 64)) ? ROAD : 0)) });
+  const heightsOfWorld = (up: (x: number, y: number) => number): Float32Array => Float32Array.from({ length: 64 * 64 }, (_, i) => up(i % 64, Math.floor(i / 64)));
+  const north = (y: number, screen = SCREEN): View => viewOf(screen, { x: 32, y, angle: -Math.PI / 2 });
+  const draw = (v: View, texture: Texture, heights: Float32Array, range = FLAT) => {
+    const out = new Uint32Array(v.w * v.h), depth = new Float32Array(v.w * v.h);
+    const samples = renderTerrain(v, texture, heights, range, deck, out, depth);
+    return { out, depth, samples };
+  };
+  const column = (out: Uint32Array, v: View, col = 32) => Array.from({ length: v.h }, (_, r) => out[r * v.w + col] ?? 0);
+
+  it('draws the road, and leaves the space above the horizon see-through', () => {
+    const v = north(70);
+    const { out } = draw(v, world((_, y) => y < 40), heightsOfWorld(() => 0));
+    const rows = column(out, v);
+    expect(rows.some((p) => p === ROAD)).toBe(true);
+    for (let r = 0; r <= v.horizon; r++) expect(rows[r], `row ${r}`).toBe(0);
+  });
+
+  it('draws a hill higher on the screen than the flat road behind it', () => {
+    const v = north(70);
+    const road = world((_, y) => y < 40);
+    const top = (up: (x: number, y: number) => number) => column(draw(v, road, heightsOfWorld(up), { low: 0, high: 10 }).out, v).findIndex((p) => p === ROAD);
+    const flat = top(() => 0), hill = top((_, y) => (y < 10 ? 10 : 0));
+    expect(flat).toBeGreaterThan(v.horizon);
+    expect(hill).toBeLessThan(flat);
+  });
+
+  it('gives each road pixel its distance as its depth, and Infinity elsewhere', () => {
+    const v = north(70);
+    const { out, depth } = draw(v, world((_, y) => y < 40), heightsOfWorld(() => 0));
+    let checked = 0;
+    for (const row of [v.horizon + 30, v.horizon + 55, v.h - 5]) {
+      if (out[row * v.w + 32] !== ROAD) continue;
+      const z = (v.height * v.focal) / (row + 0.5 - v.horizon);
+      expect(Math.abs((depth[row * v.w + 32] ?? 0) - z) / z, `row ${row}`).toBeLessThan(0.05);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(0);
+    for (let i = 0; i < out.length; i++) if (out[i] === 0) expect(depth[i]).toBe(Infinity);
+  });
+
+  it('hides the road behind a near crest: the rows it covers hold the crest, at its distance', () => {
+    const v = north(70);
+    const road = world(() => true);
+    const flat = draw(v, road, heightsOfWorld(() => 0));
+    // A ridge 20 high, 15 to 20 ahead, hides what stands behind it.
+    const crest = draw(v, road, heightsOfWorld((_, y) => (y <= 55 && y > 50 ? 20 : 0)), { low: 0, high: 20 });
+    const row = v.horizon + 28;
+    expect(flat.depth[row * v.w + 32]).toBeGreaterThan(30);
+    expect(crest.depth[row * v.w + 32]).toBeLessThan(30);
+  });
+
+  describe('the deck', () => {
+    // The road ends 30 ahead of the camera, the void in front of it: its edge faces the camera.
+    const v = north(60, { w: 64, h: 200 });
+    const road = world((_, y) => y < 30);
+    const rowOf = (up: number, z: number) => v.horizon + ((v.height - up) * v.focal) / z;
+
+    it('shows the side of the deck under the road\'s edge, 12 deep, in the wall\'s colours', () => {
+      const rows = column(draw(v, road, heightsOfWorld(() => 0)).out, v);
+      const edge = Math.ceil(rowOf(0, 30)), base = Math.ceil(rowOf(-12, 30));
+      expect(rows[edge - 2]).toBe(ROAD);
+      const side = rows.slice(edge, base);
+      expect(side.length).toBeGreaterThan(10);
+      expect(side.every((p) => sidePx.has(p))).toBe(true);
+      expect(sidePx.has(side[0] ?? 0)).toBe(true);
+      expect(side.at(-1)).toBe(deck.wall.at(-1) ?? deck.stripe.at(-1));
+    });
+
+    it('lays a glow under the side, fading into the void over 18 units', () => {
+      const rows = column(draw(v, road, heightsOfWorld(() => 0)).out, v);
+      const base = Math.ceil(rowOf(-12, 30));
+      expect(rows[base + 1]).toBe(deck.glowPx[0]);
+      const end = Math.ceil(rowOf(-12, 30) + (18 * v.focal) / 30);
+      expect(end).toBeLessThan(v.h);
+      expect(rows[end + 2]).toBe(0);
+    });
+
+    it('lays the glow over what was there: a road far below shows through it', () => {
+      const lowFar = heightsOfWorld((_, y) => (y < 10 ? -60 : 0));
+      const rows = column(draw(v, world((_, y) => y < 10 || (y >= 20 && y < 30)), lowFar, { low: -60, high: 0 }).out, v);
+      const far = Math.ceil(rowOf(-60, 55)) + 2;
+      expect(far).toBeGreaterThan(Math.ceil(rowOf(-12, 30)) + 2);
+      const seen = rows[far] ?? 0;
+      expect(seen).not.toBe(ROAD);
+      expect(deck.glowPx).not.toContain(seen);
+      expect(seen >>> 24).toBe(0xff); // the glow's half-opaque magenta over opaque road
+    });
+
+    it('draws no side where the road starts with the road in front of it', () => {
+      const { out } = draw(v, world((_, y) => y >= 30 && y < 50), heightsOfWorld(() => 0));
+      expect(column(out, v).filter((p) => sidePx.has(p))).toHaveLength(0);
+    });
+  });
+
+  describe('the cost guard', () => {
+    const track = parseTrack();
+    const texture = paintTrack(track);
+    const heights = heightsOf(track, texture);
+    const range = reliefRange(track);
+    const edge = deckOf();
+    const KART_FOOT = 6;
+    it.each([['wide', WIDE], ['tall', TALL]] as const)('takes at most 600 samples a column at every waypoint of COMET RING, facing the next one, on the %s grid', (_name, grid) => {
+      const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
+      track.waypoints.forEach((w, i) => {
+        const next = sure(track.waypoints[(i + 1) % track.waypoints.length], 'the next waypoint');
+        const angle = Math.atan2(next.y - w.y, next.x - w.x);
+        const camera = chaseCamera({ x: w.x, y: w.y, angle }, depthAt(grid, grid.h - KART_FOOT));
+        const v = viewOf(grid, camera, groundAt(track, w.x, w.y));
+        const samples = renderTerrain(v, texture, heights, range, edge, out, depth);
+        expect(samples, `waypoint ${i}`).toBeGreaterThan(50);
+        expect(samples, `waypoint ${i}`).toBeLessThanOrEqual(600);
+      });
+    });
+  });
+});
+
+describe('renderFloor stays the flat floor', () => {
+  it('still reads the texture one sample a screen pixel, as the cabinet\'s still draws it', () => {
+    const v = viewOf({ w: 32, h: 24 }, { x: 600, y: 900, angle: -Math.PI / 2 });
+    const out = new Uint32Array(32 * 24);
+    renderFloor(v, paintTrack(parseTrack()), out, BEYOND);
+    expect(out.some((p) => p >>> 24 === 0xff)).toBe(true);
   });
 });

@@ -4,6 +4,7 @@
 import type { Tint } from '@omni/design';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { slopeAt } from './relief';
 import { RULES } from './rules';
 import { LAPS, type Track } from './track';
 
@@ -157,7 +158,7 @@ export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: 
 /** One short step of a rival, the player being `playerProgress` along: it drives its kart at its own pace, and its pace follows. A rival whose fall ends comes back on the line. */
 export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number): Rival {
   const band = rubber(progressOf(track, r.pace, r.kart), playerProgress);
-  const stepped = stepFx(track.map, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX);
+  const stepped = stepFx(track.map, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX, slopeAt(track, r.kart.x, r.kart.y, r.kart.angle));
   const pace = advance(track, r.pace, r.kart, stepped.kart);
   if (!stepped.landed) return { ...r, kart: stepped.kart, fx: stepped.fx, pace };
   return { ...r, ...comeBack(track, pace, stepped.kart, stepped.fx), pace };

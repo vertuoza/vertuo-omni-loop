@@ -221,3 +221,45 @@ describe('the fall', () => {
     expect(fx.blink).toBeCloseTo(RULES.blinkTime - 0.1, 9);
   });
 });
+
+describe('the slope on the top speed (PRD 1698)', () => {
+  const GAS = pad({ accel: true });
+  /** The speed after `seconds` at full gas on ground rising `slope` a unit ahead. */
+  const topOn = (slope: number, seconds = 4): number => {
+    let k = kartAt(20 * TILE, middle, 0);
+    for (let t = 0; t < seconds; t += RULES.subStep) k = driveKart(k, GAS, RULES.subStep, 1, false, slope);
+    return k.speed;
+  };
+
+  it('is the flat top speed on the level', () => {
+    expect(topOn(0)).toBeCloseTo(RULES.topSpeed, 6);
+  });
+
+  it('lowers the top speed uphill and raises it downhill, by 1.2 times the slope', () => {
+    expect(topOn(0.1)).toBeCloseTo(RULES.topSpeed * (1 - 0.12), 3);
+    expect(topOn(-0.1)).toBeCloseTo(RULES.topSpeed * (1 + 0.12), 3);
+    expect(RULES.climb).toBe(1.2);
+  });
+
+  it('never goes under 0.67 nor over 1.33 of the flat top speed', () => {
+    expect(topOn(5)).toBeCloseTo(RULES.topSpeed * 0.67, 6);
+    expect(topOn(-5)).toBeCloseTo(RULES.topSpeed * 1.33, 6);
+  });
+
+  it('slows a kart that is faster than the slope allows, down to what it allows', () => {
+    let k: Kart = { ...kartAt(20 * TILE, middle, 0), speed: RULES.topSpeed };
+    for (let t = 0; t < 2; t += RULES.subStep) k = driveKart(k, GAS, RULES.subStep, 1, false, 0.2);
+    expect(k.speed).toBeCloseTo(RULES.topSpeed * (1 - 0.24), 3);
+  });
+
+  it('reaches stepFx too: the same hill is slower up than down', () => {
+    const run = (slope: number): number => {
+      let k = kartAt(5 * TILE, middle, 0), fx: Fx = NO_FX;
+      for (let t = 0; t < 4; t += RULES.subStep) ({ kart: k, fx } = stepFx(MAP, k, GAS, RULES.subStep, 1, fx, slope));
+      return k.speed;
+    };
+    expect(run(0.1)).toBeLessThan(run(0));
+    expect(run(-0.1)).toBeGreaterThan(run(0));
+    expect(run(0.1)).toBeLessThan(run(-0.1));
+  });
+});

@@ -3,7 +3,7 @@ import type { Action } from '../keys';
 import { tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
-import { LAPS, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
 // The race's phases and what each one lets the player do (PRD 1359, slice 2).
 
@@ -445,5 +445,25 @@ describe('a fall into the void', () => {
     const s = step({ ...r, player, rivals: [rival, ...r.rivals.slice(1)] }, NONE, 1 / 120);
     expect(s.race.fx.fall).toBeGreaterThan(0);
     expect(s.events).toContainEqual({ kind: 'fell', racer: 0 });
+  });
+});
+
+describe('the hills under the player (PRD 1698)', () => {
+  // The start straight runs east from waypoint 13 to waypoint 0; a hump of 26 at its middle.
+  const n = track.waypoints.length;
+  const hump = parseTrack({ ...COMET_RING, relief: { heights: Array.from({ length: n }, () => 0), bumps: Array.from({ length: n }, (_, i) => (i === n - 1 ? 26 : 0)) } });
+  const a = hump.waypoints[n - 1], b = hump.waypoints[0];
+  if (!a || !b) throw new Error('no waypoints');
+  const speedAfter = (on: typeof hump, share: number): number => {
+    const x = a.x + 2.5 * TILE + share * (b.x - a.x - 5 * TILE);
+    const r = play(started(newRace({ seed: 7, track: on })), NONE, RULES.countdown + 0.05);
+    return play({ ...r, player: { x, y: a.y, angle: 0, speed: RULES.topSpeed, steer: 0 } }, GAS, 0.5).player.speed;
+  };
+
+  it('slows the player climbing and speeds it descending, as the flat circuit does not', () => {
+    const flat = speedAfter(track, 0.25);
+    expect(flat).toBeCloseTo(RULES.topSpeed, 0);
+    expect(speedAfter(hump, 0.25)).toBeLessThan(flat * 0.95);
+    expect(speedAfter(hump, 0.75)).toBeGreaterThan(flat * 1.05);
   });
 });

@@ -12,6 +12,7 @@ import type { Action } from '../keys';
 import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
 import { carried, type GridPlayer, type ItemMessage, type StateMessage } from './net';
 import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES } from './rules';
 import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
@@ -218,7 +219,7 @@ const STRAIGHT = 0.1;
 
 /** A kart's own short step: it drives with the pad, its pace follows, and a fall that ends brings it back on the line (the jump is never passed to `advance()`). */
 function roll(track: Track, own: { player: Kart; fx: Fx; pace: Pace }, pad: Pad, dt: number): { player: Kart; fx: Fx; pace: Pace } {
-  const moved = stepFx(track.map, own.player, pad, dt, 1, own.fx);
+  const moved = stepFx(track.map, own.player, pad, dt, 1, own.fx, slopeAt(track, own.player.x, own.player.y, own.player.angle));
   const pace = advance(track, own.pace, own.player, moved.kart);
   if (!moved.landed) return { player: moved.kart, fx: moved.fx, pace };
   const back = comeBack(track, pace, moved.kart, moved.fx);

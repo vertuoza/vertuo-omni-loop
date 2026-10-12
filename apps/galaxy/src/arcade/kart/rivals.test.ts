@@ -3,7 +3,7 @@ import { kartAt, NO_FX, type Fx, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
 import { advance, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
-import { LAPS, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
 /** The longest a rival's three laps are given in these tests, in seconds. */
 const LIMIT_SECONDS = 150;
@@ -370,5 +370,31 @@ describe('a falling rival', () => {
     const kept = pushApart([r.kart, { ...r.kart }], [true, false]);
     expect(kept[0]).toEqual(r.kart);
     expect(kept[1]).toEqual(r.kart);
+  });
+});
+
+describe('a rival on a hill (PRD 1698)', () => {
+  // The start straight runs east from waypoint 13 to waypoint 0; a hump of 26 at its middle climbs and falls along it.
+  const n = track.waypoints.length;
+  const hump = parseTrack({ ...COMET_RING, relief: { heights: Array.from({ length: n }, () => 0), bumps: Array.from({ length: n }, (_, i) => (i === n - 1 ? 26 : 0)) } });
+  const a = nth(hump.waypoints, n - 1), b = nth(hump.waypoints, 0);
+  const length = b.x - a.x;
+  const LEVEL_FOR = 2.5 * TILE;
+  /** The speed of a rival at full tilt, `share` of the way over the hump, after half a second. */
+  const speedAt = (on: typeof hump, share: number): number => {
+    const x = a.x + LEVEL_FOR + share * (length - 2 * LEVEL_FOR);
+    let rival: Rival = { driver: driver('beaver'), kart: { ...kartAt(x, a.y, 0), speed: RULES.topSpeed }, pace: START_PACE, skill: 1, offset: 0 };
+    for (let t = 0; t < 0.5; t += RULES.subStep) rival = driveRival(on, rival, RULES.subStep, progressOf(on, rival.pace, rival.kart));
+    return rival.kart.speed;
+  };
+
+  it('is slower going up the hill than on the flat, and faster coming down, within 0.67 and 1.33 of it', () => {
+    const flat = speedAt(track, 0.25);
+    expect(flat).toBeCloseTo(RULES.topSpeed, 0);
+    const up = speedAt(hump, 0.25), down = speedAt(hump, 0.75);
+    expect(up).toBeLessThan(flat * 0.95);
+    expect(down).toBeGreaterThan(flat * 1.05);
+    expect(up).toBeGreaterThanOrEqual(flat * 0.67 - 1e-9);
+    expect(down).toBeLessThanOrEqual(flat * 1.33 + 1e-9);
   });
 });

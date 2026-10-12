@@ -30,6 +30,33 @@ export interface TrackSource {
   readonly waypoints: readonly (readonly [number, number])[];
   /** What stands on the void tiles around the circuit; none when left out. */
   readonly props?: readonly Prop[];
+  /** The road's ups and downs; flat when left out. */
+  readonly relief?: Relief;
+}
+
+/**
+ * The road's ups and downs along the racing line (PRD 1698): the height of the road at each waypoint, and on each
+ * leg (from waypoint i to the next) a hump (positive) or a dip (negative) at its middle, in world units. A leg eases
+ * from one height to the next, and the road is level around every waypoint, so a corner never twists.
+ */
+export interface Relief { readonly heights: readonly number[]; readonly bumps: readonly number[] }
+
+/** How far from a waypoint the road stays level at the waypoint's height: half a road's width, 2.5 tiles, past the corner's square of road. */
+export const LEVEL = 2.5 * TILE;
+
+/** The most the relief may span, from its lowest road to its highest: under the camera's eye height (28), so the eye is never under a road. */
+export const RELIEF_SPAN = 26;
+
+/**
+ * The road's height `d` along leg `i` of the relief, the leg being `length` long: level for `LEVEL` at both ends,
+ * easing from one waypoint's height to the next between them, its hump or dip at the middle. No step anywhere.
+ */
+export function legHeight(relief: Relief, i: number, d: number, length: number): number {
+  const n = relief.heights.length;
+  const from = relief.heights[i] ?? 0, to = relief.heights[(i + 1) % n] ?? 0, bump = relief.bumps[i] ?? 0;
+  const t = Math.min(1, Math.max(0, (d - LEVEL) / Math.max(1, length - 2 * LEVEL)));
+  const hump = Math.sin(Math.PI * t);
+  return from + (to - from) * t * t * (3 - 2 * t) + bump * hump * hump;
 }
 
 /** What stands off the road: pylons and beacons along the circuit's edge, the rest deeper in. */
@@ -114,6 +141,12 @@ export const COMET_RING: TrackSource = {
     [54, 56], [54, 40], [44, 40], [44, 28], [56, 28], [56, 8], [36, 8],
     [36, 20], [20, 20], [20, 8], [8, 8], [8, 40], [18, 40], [18, 56],
   ],
+  // The relief (PRD 1698): a hill and a valley on the top and west legs, the climb back and a roller coaster
+  // down the west side. The start straight is flat.
+  relief: {
+    heights: [0, 12, 12, 20, 20, 4, 4, 0, 0, 12, 12, 2, 2, 0],
+    bumps: [0, 0, 0, -5, 6, 12, 0, -4, 0, 0, 10, 0, 8, 0],
+  },
   // Pylons and beacons alternate along the void near the road's edge; asteroids, satellites and
   // wrecks float deeper in. Every one is on a void tile.
   props: [
@@ -203,13 +236,31 @@ function lineOf(src: TrackSource): StartLine | null {
  * What is wrong with a circuit, each problem with the row and the column it is at: an unknown
  * character, rows of unequal length, a waypoint off the road, two consecutive waypoints (the last and
  * the first too) not joined by road, not exactly six starting places behind the line, a start line
- * that does not cross the road from wall to wall, an item box off the road, a prop off a void tile.
+ * that does not cross the road from wall to wall, an item box off the road, a prop off a void tile, a relief
+ * with a height or a bump missing or not a number, or spanning more than `RELIEF_SPAN`.
  * Empty when it is drivable.
  */
 export function trackProblems(src: TrackSource = COMET_RING): string[] {
   const shape = shapeProblems(src.rows);
   if (shape.length) return shape;
-  return [...waypointProblems(src), ...placeProblems(src.rows), ...lineProblems(src), ...boxProblems(src.rows), ...propProblems(src)];
+  return [...waypointProblems(src), ...placeProblems(src.rows), ...lineProblems(src), ...boxProblems(src.rows), ...propProblems(src), ...reliefProblems(src)];
+}
+
+/** A relief with a height or a bump missing or one too many, a number that is not one, or a road spanning more than `RELIEF_SPAN`. */
+function reliefProblems({ waypoints, relief }: TrackSource): string[] {
+  if (!relief) return [];
+  const { heights, bumps } = relief;
+  const n = waypoints.length;
+  if (heights.length !== n || bumps.length !== n) return [`the relief needs ${n} heights and ${n} bumps, one a waypoint and one a leg: ${heights.length} and ${bumps.length} found`];
+  if (![...heights, ...bumps].every((v) => typeof v === 'number' && Number.isFinite(v))) return ['the relief has a height or a bump that is not a number'];
+  // Sampled along every leg, at the length the waypoints give it.
+  const tops = waypoints.flatMap((a, i) => {
+    const b = at(waypoints, (i + 1) % n, 'the next waypoint');
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]) * TILE;
+    return Array.from({ length: 33 }, (_, k) => legHeight(relief, i, (k / 32) * length, length));
+  });
+  const span = Math.round((Math.max(...tops) - Math.min(...tops)) * 10) / 10;
+  return span > RELIEF_SPAN ? [`the road rises ${span} over its lowest point, more than ${RELIEF_SPAN}`] : [];
 }
 
 /** An unknown character, or a row not as long as the first. */
@@ -327,6 +378,8 @@ export interface Track {
   readonly places: readonly { x: number; y: number }[];
   /** The item boxes' centres. */
   readonly boxes: readonly { x: number; y: number }[];
+  /** The road's ups and downs: a flat road for a circuit with none. */
+  readonly relief: Relief;
   /** The props, at their tile centres. */
   readonly props: readonly { kind: PropKind; x: number; y: number }[];
   /** The arch over the start line: its legs' centres, one beyond each end of the line. */
@@ -403,6 +456,7 @@ export function parseTrack(src: TrackSource = COMET_RING): Track {
     cols, rows: src.rows.length, size: { w: cols * TILE, h: src.rows.length * TILE }, map: src.rows,
     waypoints: src.waypoints.map(centre), forward: line.forward, heading: Math.atan2(line.forward[1], line.forward[0]),
     places, boxes: tilesOf(src.rows, '?').map(centre), line: lineCentre(line.tiles, line.forward),
+    relief: src.relief ?? { heights: src.waypoints.map(() => 0), bumps: src.waypoints.map(() => 0) },
     props: (src.props ?? []).map(({ kind, x, y }) => ({ kind, ...centre([x, y]) })),
     arch: [centre(legs[0]), centre(legs[1])],
   };
