@@ -5,6 +5,7 @@
 // (kart.tsx). The grid the race is drawn on is the one it started on, as SUPER OMNI WORLD keeps its own.
 import type { Hero, Tint } from '@omni/design';
 import type { Action } from '../keys';
+import type { KartOptions, OptionsView } from '../kart/options';
 import type { Grid } from '../grid';
 import type { FrameState, KartDraw, Pages, SceneName } from './common.ts';
 import { space } from './common.ts';
@@ -148,14 +149,19 @@ export interface ArcadeKart {
   status: KartStatus; retry: number; grid: Grid; game: KartGame | null; hud: KartHud | null;
   /** The ready screen's choice (PRD 1572): still choosing, or SINGLE picked, which is today's ready line and today's race. */
   choice: KartChoice;
+  /** The player's options (PRD 1762), kept in the browser: none until the game's code has loaded with them. */
+  options: KartOptions | null;
   /** Whether MULTI can be picked: the account gave a link to the grid. */
   multi: boolean;
   /** What the GRID shows, once MULTI is picked (PRD 1572); none before. */
   lobby: KartGridView | null;
 }
 
-/** Where the ready screen stands: choosing between SINGLE and MULTI (the cursor on one), SINGLE picked, or MULTI picked: on the workspace's grid. */
-export type KartChoice = { step: 'choose'; cursor: 'single' | 'multi' } | { step: 'single' } | { step: 'grid' } | { step: 'live' };
+/** Where the ready screen stands: choosing between SINGLE, MULTI and OPTIONS (the cursor on one), SINGLE picked, MULTI picked: on the workspace's grid, or on the OPTIONS panel (PRD 1762). */
+export type KartChoice = { step: 'choose'; cursor: KartCursor } | { step: 'single' } | { step: 'grid' } | { step: 'live' } | { step: 'options'; view: OptionsView };
+
+/** The ready screen's three lines, in order. */
+export type KartCursor = 'single' | 'multi' | 'options';
 
 /** A player on the GRID screen: their hero, name and best time in tenths (none before a first race), whether it is the player at this screen and whether they hold a place. */
 export interface KartGridRow { id: string; name: string; hero: Hero; fleet: string | null; best: number | null; you: boolean; seat: boolean }
@@ -184,25 +190,48 @@ export const BACK_TO_CHOICE: KartChoice = { step: 'choose', cursor: 'multi' };
 /** The ready screen's first state: the cursor on SINGLE. */
 export const FIRST_CHOICE: KartChoice = { step: 'choose', cursor: 'single' };
 
+/** The ready screen's first state once the OPTIONS panel is left: the cursor on OPTIONS. */
+export const BACK_TO_OPTIONS: KartChoice = { step: 'choose', cursor: 'options' };
+
+/** What KEYS says while it waits for a key, and when the key pressed stays the arcade's. */
+export const PRESS_A_KEY = 'PRESS A KEY';
+export const KEY_RESERVED = 'KEY USED BY THE ARCADE';
+
+/** The OPTIONS panel as it opens: on KEYS. */
+export const OPTIONS_OPEN: KartChoice = { step: 'options', view: { screen: 'menu', cursor: 'keys' } };
+
 /** The line under COMET RING · 3 LAPS for the circuit, before the choice. */
 export const CHOICE_LINE = 'COMET RING · 3 LAPS';
 /** The two ways to race. */
 export const SINGLE_LINE = 'SINGLE';
 export const MULTI_LINE = 'MULTI';
+export const OPTIONS_LINE = 'OPTIONS';
 /** MULTI when the account has no link to the grid: it cannot be picked. */
 export const MULTI_CLOSED_LINE = 'MULTI · SIGN IN TO RACE';
 
 /**
- * What a press does on the choice: ▲ ▼ move the cursor (MULTI is skipped when it cannot be picked),
- * A or START picks: SINGLE is today's ready line, MULTI the workspace's grid. B is the room's,
- * through `kartPress`.
+ * What a press does on the choice: ▲ ▼ move the cursor over SINGLE, MULTI and OPTIONS (MULTI is skipped
+ * when it cannot be picked), A or START picks: SINGLE is today's ready line, MULTI the workspace's grid,
+ * OPTIONS its panel. B is the room's, through `kartPress`.
  */
 export function choicePress(choice: KartChoice, action: Action, multi: boolean): KartChoice {
   if (choice.step !== 'choose') return choice;
-  if (action === 'up') return { step: 'choose', cursor: 'single' };
-  if (action === 'down') return multi ? { step: 'choose', cursor: 'multi' } : choice;
-  if (action === 'a' || action === 'start') return choice.cursor === 'single' ? { step: 'single' } : multi ? { step: 'grid' } : choice;
-  return choice;
+  if (action === 'up' || action === 'down') return moveChoice(choice, action === 'up' ? -1 : 1, multi);
+  return action === 'a' || action === 'start' ? pickChoice(choice, multi) : choice;
+}
+
+/** ▲ ▼ over the lines the player can pick; the cursor stops at the ends. */
+function moveChoice(choice: Extract<KartChoice, { step: 'choose' }>, by: -1 | 1, multi: boolean): KartChoice {
+  const order: readonly KartCursor[] = multi ? ['single', 'multi', 'options'] : ['single', 'options'];
+  const next = order[Math.max(0, Math.min(order.length - 1, order.indexOf(choice.cursor) + by))] ?? choice.cursor;
+  return next === choice.cursor ? choice : { step: 'choose', cursor: next };
+}
+
+/** A or START on the line under the cursor. */
+function pickChoice(choice: Extract<KartChoice, { step: 'choose' }>, multi: boolean): KartChoice {
+  if (choice.cursor === 'single') return { step: 'single' };
+  if (choice.cursor === 'options') return OPTIONS_OPEN;
+  return multi ? { step: 'grid' } : choice;
 }
 
 /** The line over the screen when the import failed. */
