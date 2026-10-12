@@ -54644,7 +54644,7 @@ var settle2 = {
 // kit/bin/commands/setup-token.ts
 init_define_OMNI_BUNDLE();
 import { randomBytes as randomBytes2 } from "node:crypto";
-var USAGE33 = "usage: omni setup-token [--name <name>] [--days 30|90|365]";
+var USAGE33 = "usage: omni setup-token [--name <name>] [--days 30|90|365] [--device | --loopback]";
 var DAYS = ["30", "90", "365"];
 var DEFAULT_DAYS = "90";
 var NAME_MAX = 40;
@@ -54663,11 +54663,109 @@ function daysOf(given) {
   if (!DAYS.includes(given)) throw usageError(`omni setup-token: --days must be 30, 90 or 365, got "${given}".`);
   return given;
 }
+var NO_DEVICE_SIGN_IN2 = "this Omni page has no device sign-in yet: using the browser on this machine";
+var DEVICE_ENDINGS2 = {
+  denied: "the sign-in was refused in the browser",
+  expired: "the sign-in link expired: run omni setup-token again",
+  unreachable: "unreachable",
+  closed: "the sign-in was stopped before it came back"
+};
+function endingOf2(error62) {
+  if (error62 instanceof DeviceError) return DEVICE_ENDINGS2[error62.reason === "unavailable" ? "unreachable" : error62.reason];
+  if (error62 instanceof LoopbackError) return error62.message;
+  return null;
+}
+async function tokenOf(device) {
+  const approval3 = await device.poll();
+  if (!("token" in approval3) || approval3.expiresAt === null || Number.isNaN(Date.parse(approval3.expiresAt))) throw new DeviceError("unreachable");
+  return { token: approval3.token, expiresAt: approval3.expiresAt };
+}
+function startTokenDevice({ askUrl: askUrl2, name: name3, days, fetch }) {
+  return startDevice({ askUrl: askUrl2, purpose: "token", name: name3, days: Number(days), workspace: null, fetch });
+}
+function printToken({ stdout }, made) {
+  println(stdout, made.token);
+  println(stdout, `It expires on ${new Date(made.expiresAt).toISOString().slice(0, 10)}.`);
+  println(stdout, `Paste it as OMNI_TOKEN=${made.token} in your cloud environment's variables.`);
+  return 0;
+}
+function endingLine({ stderr }, error62) {
+  const ending = endingOf2(error62);
+  if (ending === null) throw error62;
+  println(stderr, `omni setup-token: ${ending}`);
+  return 1;
+}
+async function fallbackDevice2(run) {
+  try {
+    return await startTokenDevice(run);
+  } catch (error62) {
+    if (error62 instanceof DeviceError) return null;
+    throw error62;
+  }
+}
+async function tokenByLoopback(run) {
+  const { askUrl: askUrl2, name: name3, days, stdout, openBrowser, waitMs } = run;
+  const state = randomBytes2(32).toString("base64url");
+  const listener = await startTokenLoopback({ state, timeoutMs: waitMs });
+  const issuing = fallbackDevice2(run);
+  try {
+    const page2 = new URL(askEndpoint(askUrl2, "/ask/signin"));
+    page2.searchParams.set("purpose", "token");
+    page2.searchParams.set("name", name3);
+    page2.searchParams.set("days", days);
+    page2.searchParams.set("port", String(listener.port));
+    page2.searchParams.set("state", state);
+    println(stdout, `Make the token in your browser: ${page2}`);
+    try {
+      await openBrowser(page2.toString());
+    } catch {
+    }
+    const contenders = [{ result: listener.token, close: () => listener.close() }];
+    const device = await issuing;
+    if (device) {
+      println(stdout, `Browser didn't open, or it's on another machine? ${device.url}  (code ${device.userCode})`);
+      contenders.push({ result: tokenOf(device), close: () => device.close() });
+    }
+    return printToken(run, await firstOf(contenders));
+  } catch (error62) {
+    return endingLine(run, error62);
+  } finally {
+    await listener.close();
+    await (await issuing)?.close();
+  }
+}
+async function tokenByDevice(run) {
+  const { stdout } = run;
+  try {
+    const device = await startTokenDevice(run);
+    try {
+      println(stdout, `Sign in at ${device.url}`);
+      println(stdout, `Check that the page shows ${device.userCode}. Waiting (${Math.max(1, Math.round(device.waitMs / 6e4))} min)\u2026`);
+      return printToken(run, await tokenOf(device));
+    } finally {
+      await device.close();
+    }
+  } catch (error62) {
+    if (error62 instanceof DeviceError && error62.reason === "unavailable") return null;
+    return endingLine(run, error62);
+  }
+}
 var setupToken = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, openBrowser = openInBrowser, waitMs = LOOPBACK_WAIT_MS, now: now2 = () => /* @__PURE__ */ new Date() }) {
-    const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"] });
-    if (positional.length > 0) throw usageError(USAGE33);
+  async run(args, {
+    cwd,
+    stdout,
+    stderr,
+    exec,
+    vars,
+    openBrowser = openInBrowser,
+    fetch = globalThis.fetch,
+    waitMs = LOOPBACK_WAIT_MS,
+    now: now2 = () => /* @__PURE__ */ new Date(),
+    platform = process.platform
+  }) {
+    const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"], booleans: ["device", "loopback"] });
+    if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE33);
     const name3 = nameOf2(flags.name, now2());
     const days = daysOf(flags.days);
     const askUrl2 = loadContext(cwd, { exec }).config.ask.url;
@@ -54675,32 +54773,14 @@ var setupToken = {
       println(stderr, ASK_URL_UNSET);
       return 1;
     }
-    const state = randomBytes2(32).toString("base64url");
-    const listener = await startTokenLoopback({ state, timeoutMs: waitMs });
-    try {
-      const page2 = new URL(askEndpoint(askUrl2, "/ask/signin"));
-      page2.searchParams.set("purpose", "token");
-      page2.searchParams.set("name", name3);
-      page2.searchParams.set("days", days);
-      page2.searchParams.set("port", String(listener.port));
-      page2.searchParams.set("state", state);
-      println(stdout, `Make the token in your browser: ${page2}`);
-      try {
-        await openBrowser(page2.toString());
-      } catch {
-      }
-      const made = await listener.token;
-      println(stdout, made.token);
-      println(stdout, `It expires on ${new Date(made.expiresAt).toISOString().slice(0, 10)}.`);
-      println(stdout, `Paste it as OMNI_TOKEN=${made.token} in your cloud environment's variables.`);
-      return 0;
-    } catch (error62) {
-      if (!(error62 instanceof LoopbackError)) throw error62;
-      println(stderr, `omni setup-token: ${error62.message}`);
-      return 1;
-    } finally {
-      await listener.close();
+    const run = { askUrl: askUrl2, name: name3, days, stdout, stderr, openBrowser, fetch, waitMs };
+    const forced = flags.device ? "device" : flags.loopback ? "loopback" : null;
+    if (chooseFlow(vars.session, platform, forced) === "device") {
+      const ended = await tokenByDevice(run);
+      if (ended !== null) return ended;
+      println(stderr, NO_DEVICE_SIGN_IN2);
     }
+    return tokenByLoopback(run);
   }
 };
 
