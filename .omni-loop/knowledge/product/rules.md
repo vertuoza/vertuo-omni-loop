@@ -589,7 +589,7 @@ On a person's profile, a PRD, bug fix or visual update is listed for the chosen 
 
 Serves: P-PRODUCT-51
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
-Enforced by: pending #1515
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
