@@ -138,7 +138,7 @@ The ask page offers to send an answer only while the newest round is open, reada
 
 Serves: P-PRODUCT-12
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s4-02-question-moves-on-time, PRD #71
-Enforced by: pending #1475
+Enforced by: apps/galaxy/src/ask/page/view.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
