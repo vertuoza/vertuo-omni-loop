@@ -1332,3 +1332,238 @@ Putting listComments back is two lines in roadmap.ts.
 ```
 
 <!-- /omni-outbox-settled: s5-04-roadmap-answers-and-ticks -->
+
+<!-- omni-outbox-settled: s6-01-approval-through-the-page -->
+
+## s6-01-approval-through-the-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-approval-through-the-page
+prd: 1665
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The merge check for a slice can ask that a person approved it, a fact that came from GitHub directly and that the Omni page does not give yet: where should it come from now?
+
+## The decision, in plain words
+
+I let the page's answer carry who approved, as an optional fact, and until the page sends it nobody counts as having approved, so a slice that needs a person's approval waits rather than merging without one.
+
+## The intro, for fun
+
+The doorman now reads the guest list from the front desk, which has not printed the names yet.
+
+## The punchline, for fun
+
+So for now nobody gets in on a name alone, which is the safe kind of rude.
+
+## The options, in plain words
+
+A. A. The page's answer carries who approved, optional; absent reads as nobody, so the slice waits (built).
+B. B. The same field, but absent reads as not known, with its own line naming the page as too old.
+C. C. Keep reading approvals from GitHub through the command-line tool for this one check.
+
+## What I had to decide
+
+`omni flow check merge` read `approvedBy` from `gh pr view --json reviews` (personApproved: each non-bot login whose last deciding review approves). The loop's contract had no approval field, so LoopReads could not carry it. Built: kit/lib/loop-reads/contract.ts's LoopReviewSchema gains `approvedBy: z.array(z.string()).optional()` (the page's strict ReviewSchema spreads the kit's shape, so it accepts the field without requiring it); flow.ts reads `review.approvedBy ?? []`. Until apps/galaxy/src/loop/github.ts answers it (landing 1's ground, not this slice's), an area with `approval: person` holds every sub-PR with `no person has approved #n`. contract.ts is s3's territory, not s6's.
+
+## What I did meanwhile
+
+Tested: an approval the fake page answers lets the kernel sub-PR merge, and a page that answers none holds it with the approval reason. No flow in this repository sets `approval: person`, so nothing here is held by it today.
+
+## What it costs to change later
+
+A field on the page's GitHub adapter (the reviews of the pull request, grouped as personApproved does), or one constant if the field is renamed.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the page should answer approvals in this PRD (a follow-up to landing 1) or in a later one.
+- (author) Whether a page that does not answer the field should read as nobody approved (built) or as not known, with its own line.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-approval-through-the-page -->
+
+<!-- omni-outbox-settled: s6-02-harvest-reads-and-bridge -->
+
+## s6-02-harvest-reads-and-bridge — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-harvest-reads-and-bridge
+prd: 1665
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The shared GitHub helper file was to keep only what writes, but the knowledge harvest, left out of this change, still reads two facts through it: where should those two reads live?
+
+## The decision, in plain words
+
+I moved the harvest's two reads into the harvest command itself, its only user, unchanged, and deleted the old bridge that turned GitHub answers into the new reads, since nothing used it any more.
+
+## The intro, for fun
+
+Spring cleaning found two borrowed mugs in the shared cupboard.
+
+## The punchline, for fun
+
+They went back to the one desk that drinks from them.
+
+## The options, in plain words
+
+A. A. The harvest's two reads move into the harvest command; the unused bridge is deleted (built).
+B. B. Leave the harvest's two reads in the shared helper file, against the plan's wording.
+C. C. Move them to a new helper file of their own beside the shared one.
+
+## What I had to decide
+
+kit/bin/github.ts held pullRequestFor and pullRequestFilesFor (gh api repos/<r>/pulls/<n> and its files), used only by kit/bin/commands/harvest.ts, which the spec keeps on gh. Done-when: github.ts keeps only its write helpers and githubEnv. Built: both moved, private, into harvest.ts (outside s6's territory: one import line and two functions; the harvest tests pass unchanged). kit/lib/loop-reads/gh-bridge.ts and its test (s3's ground) are deleted: no file imports it after s4 and s5. ghClient's listComments stays: it reads only to find the comment a write updates. The guard test follows the seven commands' imports and does not reach harvest.ts.
+
+## What I did meanwhile
+
+Ran the harvest, flow, github and loop-reads tests: green.
+
+## What it costs to change later
+
+Moving two functions back, or restoring the bridge from git history.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the harvest's reads should later move to the Omni page too (the spec keeps the setup commands on gh for now).
+
+```
+
+<!-- /omni-outbox-settled: s6-02-harvest-reads-and-bridge -->
+
+<!-- omni-outbox-settled: s6-03-guard-reach -->
+
+## s6-03-guard-reach — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-guard-reach
+prd: 1665
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The new guard checks that the loop's deciding commands never read GitHub through the command-line tool: how far should it look, and does a write that uses the same tool count?
+
+## The decision, in plain words
+
+It looks at the seven commands and every file they use, followed step by step, and counts the seven read forms the spec names; a write through the same tool is let through when its file holds only writes.
+
+## The intro, for fun
+
+A smoke alarm that rings for toast is soon taken off the ceiling.
+
+## The punchline, for fun
+
+This one rings for reading only, and leaves the writing alone.
+
+## The options, in plain words
+
+A. A. The seven forms in the seven commands and every file they import; writes with mutations only pass (built).
+B. B. The same, and every REST read through the tool too.
+C. C. Only the seven command files themselves, not what they import.
+
+## What I had to decide
+
+kit/test/no-gh-reads.test.ts parses each file's syntax tree (comments never count) and fails on an argument list holding pr list, pr view, pr diff, pr checks, issue view or issue list, the same as one string, and on api graphql when the file holds a GraphQL query (a document that does not start with `mutation`). care.ts's reply and resolve mutations pass (s4-02). Its reach is the seven command files plus every kit file they import, followed transitively, tests left out. Not counted: `gh api` REST calls (comment listing before a write, care's `gh repo view` for a target's default branch), which the spec's list does not name.
+
+## What I did meanwhile
+
+Proven red first on fixtures for each form and on the branch before flow moved (three hits in kit/bin/github.ts), green after.
+
+## What it costs to change later
+
+A line in the guard's list of forms, or its list of files.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a REST read through `gh api` on the loop's path should also fail the guard (care's default-branch read would then need the page).
+
+```
+
+<!-- /omni-outbox-settled: s6-03-guard-reach -->
