@@ -42,7 +42,7 @@ function stubs(dir: string, log: string, c: Required<Omit<Case, 'env'>>) {
   const read = join(dir, 'read');
   stub('gh', [
     'case "$*" in',
-    `  *statuses/*) exit ${c.statusExit} ;;`,
+    `  *check-runs*) exit ${c.statusExit} ;;`,
     `  *'.patch'*) cat '${join(dir, 'patch')}' ;;`,
     `  */files*) cat '${join(dir, 'files')}' ;;`,
     `  *) if [ -f '${read}' ]; then echo '${c.second}'; else touch '${read}'; echo '${c.first}'; fi ;;`,
@@ -81,7 +81,7 @@ function debounce(c: Case) {
     },
   });
   const calls = existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : [];
-  return { ...run, calls, deploys: calls.filter((l) => l.startsWith('curl ')), statuses: calls.filter((l) => l.includes('/statuses/')) };
+  return { ...run, calls, deploys: calls.filter((l) => l.startsWith('curl ')), checks: calls.filter((l) => l.includes('/check-runs')) };
 }
 
 describe('preview-debounce.sh', () => {
@@ -94,7 +94,7 @@ describe('preview-debounce.sh', () => {
     expect(run.status).toBe(0);
     expect(run.stdout).toMatch(line);
     expect(run.deploys).toEqual([]);
-    expect(run.statuses).toEqual([]);
+    expect(run.checks).toEqual([]);
   });
 
   it('builds nothing when the head moved, or the pull request turned draft, while it waited', () => {
@@ -109,9 +109,11 @@ describe('preview-debounce.sh', () => {
   it('marks and deploys galaxy alone for a galaxy change, from Git, at the head commit', () => {
     const run = debounce({ files: ['apps/galaxy/src/a.ts', '.omni-loop/delivery/shipped/1/spec.md'] });
     expect(run.status).toBe(0);
-    expect(run.statuses).toHaveLength(1);
-    expect(run.statuses[0]).toContain(`repos/acme/widgets/statuses/${HEAD}`);
-    expect(run.statuses[0]).toContain('context=vercel/preview/galaxy');
+    expect(run.checks).toHaveLength(1);
+    expect(run.checks[0]).toContain('repos/acme/widgets/check-runs');
+    expect(run.checks[0]).toContain(`head_sha=${HEAD}`);
+    expect(run.checks[0]).toContain('conclusion=success');
+    expect(run.checks[0]).toContain('name=vercel/preview/galaxy');
     expect(run.deploys).toHaveLength(1);
     expect(run.deploys[0]).toContain('/v13/deployments?teamId=team_1');
     expect(run.deploys[0]).toContain(`"gitSource":{"type":"github","repoId":"123","ref":"feat/topic","sha":"${HEAD}"}`);
@@ -137,7 +139,7 @@ describe('preview-debounce.sh', () => {
     expect(run.deploys).toEqual([]);
   });
 
-  it('fails, red on the pull request, when Vercel refuses, the status cannot be set, or a secret is missing', () => {
+  it('fails, red on the pull request, when Vercel refuses, the check cannot be added, or a secret is missing', () => {
     expect(debounce({ curlExit: 22 }).status).toBe(1);
     const noStatus = debounce({ statusExit: 1 });
     expect(noStatus.status).toBe(1);
@@ -157,7 +159,7 @@ describe('the preview-debounce workflow', () => {
     expect(JSON.stringify(workflow)).toContain('"types":["ready_for_review","synchronize"]');
     expect(JSON.stringify(workflow)).toContain('"branches":["main"]');
     expect(digText(workflow, 'jobs', 'preview', 'if')).toContain('github.event.pull_request.draft == false');
-    expect(digText(workflow, 'permissions', 'statuses')).toBe('write');
+    expect(digText(workflow, 'permissions', 'checks')).toBe('write');
   });
 
   it('calls the script', () => {

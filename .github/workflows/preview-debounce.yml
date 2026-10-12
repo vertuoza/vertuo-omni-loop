@@ -1,8 +1,8 @@
 # The Vercel previews of a ready pull request into main (PRD 1646). Vercel's own Git deployments of a
 # branch are skipped by scripts/vercel-ignore.sh; this workflow is how a preview gets built. Once a
 # pull request is ready (and after each push to it), scripts/preview-debounce.sh waits for its pushes
-# to settle, then, for each project its files reach, marks the head commit vercel/preview/<project>
-# and asks Vercel to build that commit from Git. A newer push cancels a run still waiting (the
+# to settle, then, for each project its files reach, adds the check run vercel/preview/<project> to
+# the head commit and asks Vercel to build that commit from Git. A newer push cancels a run still waiting (the
 # concurrency group), so a burst of agent pushes builds one preview. Drafts, pull requests into a
 # feature branch (slices, landings) and dependabot never preview.
 #
@@ -17,7 +17,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  statuses: write
+  checks: write
 concurrency:
   group: preview-${{ github.head_ref }}
   cancel-in-progress: true

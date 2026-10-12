@@ -1,7 +1,10 @@
 // The Vercel ignore step of both projects (PRD 1646, after PRD 675). Each case runs the script in a
 // fixture git repository, as Vercel's clone is, carrying the script and scripts/vercel-inputs.ts, with
-// GitHub's commit statuses served by a local stub. Exit 0 skips the build, exit 1 builds.
+// GitHub served by a local stub that answers as GitHub does for the omni-loop App: the installation,
+// its token (only for a JWT signed with the App's key), then the commit's check runs. Exit 0 skips the
+// build, exit 1 builds.
 import { spawn, spawnSync } from 'node:child_process';
+import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -13,21 +16,43 @@ import { digText } from '../kit/bin/dig.ts';
 const here = dirname(fileURLToPath(import.meta.url));
 const dirs: string[] = [];
 
-/** sha → the contexts whose status is success. `unreachable` makes the stub answer 500. */
-const statuses = new Map<string, string[]>();
+const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+
+/** True when `auth` is `Bearer <a JWT for App 7, signed with the App's key>`. */
+function appJwt(auth: string | undefined): boolean {
+  const [head, body, signature] = (auth ?? '').replace(/^Bearer /, '').split('.');
+  if (!head || !body || !signature) return false;
+  const signed = createVerify('RSA-SHA256').update(`${head}.${body}`).verify(publicKey, Buffer.from(signature, 'base64url'));
+  return signed && Buffer.from(body, 'base64url').toString().includes('"iss":"7"');
+}
+
+/** The check runs named `name` on `sha`, as GitHub lists them to the installation token. */
+function checkRuns(url: string, auth: string | undefined): [number, unknown] {
+  const check = /\/repos\/acme\/widgets\/commits\/([0-9a-f]+)\/check-runs\?check_name=([^&]+)/.exec(url);
+  if (!check || auth !== 'Bearer ghs_token') return [404, {}];
+  const name = decodeURIComponent(check[2] ?? '');
+  const runs = (checks.get(check[1] ?? '') ?? []).filter((n) => n === name).map((n) => ({ name: n, conclusion: 'success' }));
+  return [200, { check_runs: runs }];
+}
+
+/** The stub's answer: the App's installation and its token for a signed JWT, then check runs. */
+function github(method: string, url: string, auth: string | undefined): [number, unknown] {
+  if (url === '/repos/acme/widgets/installation') return appJwt(auth) ? [200, { id: 99 }] : [401, {}];
+  if (url === '/app/installations/99/access_tokens' && method === 'POST') return appJwt(auth) ? [201, { token: 'ghs_token' }] : [401, {}];
+  return checkRuns(url, auth);
+}
+
+/** sha → the names of its check runs concluded success. `unreachable` makes the stub answer 500. */
+const checks = new Map<string, string[]>();
 let unreachable = false;
 let server: Server;
 let api = '';
 
 beforeAll(async () => {
   server = createServer((req, res) => {
-    const sha = /\/commits\/([0-9a-f]+)\/status/.exec(req.url ?? '')?.[1] ?? '';
-    if (unreachable || req.headers.authorization !== 'Bearer token') {
-      res.writeHead(500).end();
-      return;
-    }
-    const list = (statuses.get(sha) ?? []).map((context) => ({ context, state: 'success' }));
-    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ statuses: list }));
+    const [code, body] = unreachable ? [500, {}] : github(req.method ?? 'GET', req.url ?? '', req.headers.authorization);
+    res.writeHead(code, { 'content-type': 'application/json' }).end(JSON.stringify(body));
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
   const address = server.address();
@@ -37,7 +62,7 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((done) => server.close(() => { done(); })));
 
 afterEach(() => {
-  statuses.clear();
+  checks.clear();
   unreachable = false;
   while (dirs.length) rmSync(dirs.pop() ?? '', { recursive: true, force: true });
 });
@@ -61,6 +86,7 @@ function repo(): { root: string; commit: (message: string, files: Record<string,
   mkdirSync(join(root, 'scripts'));
   copyFileSync(join(here, 'vercel-ignore.sh'), join(root, 'scripts/vercel-ignore.sh'));
   copyFileSync(join(here, 'vercel-inputs.ts'), join(root, 'scripts/vercel-inputs.ts'));
+  copyFileSync(join(here, 'vercel-github-token.ts'), join(root, 'scripts/vercel-github-token.ts'));
   const commit = (message: string, files: Record<string, string>) => {
     write(root, files);
     git(root, 'add', '-A');
@@ -81,7 +107,8 @@ function ignore(root: string, project: string, env: Record<string, string>): Pro
         PATH: process.env.PATH,
         VERCEL_GIT_REPO_OWNER: 'acme',
         VERCEL_GIT_REPO_SLUG: 'widgets',
-        GITHUB_STATUS_TOKEN: 'token',
+        GITHUB_APP_ID: '7',
+        GITHUB_APP_PRIVATE_KEY: PEM,
         VERCEL_IGNORE_GITHUB_API: api,
         ...env,
       },
@@ -166,7 +193,7 @@ describe('on main', () => {
   it('builds a merge commit the release workflow\'s fallback marked', async () => {
     const { root, commit } = repo();
     const sha = commit('feat: x (#4)', { 'apps/galaxy/a.ts': 'x' });
-    statuses.set(sha, ['vercel/production-fallback']);
+    checks.set(sha, ['vercel/production-fallback']);
     const run = await ignore(root, 'omni-app', { VERCEL_GIT_COMMIT_REF: 'main', VERCEL_GIT_COMMIT_SHA: sha, VERCEL_GIT_COMMIT_MESSAGE: 'feat: x (#4)' });
     expect(run.status).toBe(BUILD);
     expect(run.stdout).toMatch(/fallback/);
@@ -177,28 +204,31 @@ describe('on any other branch', () => {
   it.each([
     'feat/topic', 'feat/topic--s2', 'feat/topic-1of2-expand', 'fix/topic', 'docs/phase-0-topic',
     'docs/retro-topic', 'docs/knowledge-topic', 'claude/xyz', 'dependabot/npm_and_yarn/next-16.4.0',
-  ])('skips %s without its preview status', async (branch) => {
+  ])('skips %s without its preview check', async (branch) => {
     const { root, commit } = repo();
     const sha = commit('feat: x', { 'apps/galaxy/a.ts': 'x' });
     const run = await ignore(root, 'galaxy', { VERCEL_GIT_COMMIT_REF: branch, VERCEL_GIT_COMMIT_SHA: sha });
     expect(run.status).toBe(SKIP);
   });
 
-  it('builds a commit carrying its own project\'s preview status, and only that project', async () => {
+  it('builds a commit carrying its own project\'s preview check, and only that project', async () => {
     const { root, commit } = repo();
     const sha = commit('chore(delivery): ship PRD 1', { 'apps/galaxy/a.ts': 'x' });
-    statuses.set(sha, ['vercel/preview/galaxy']);
+    checks.set(sha, ['vercel/preview/galaxy']);
     const env = { VERCEL_GIT_COMMIT_REF: 'feat/topic', VERCEL_GIT_COMMIT_SHA: sha };
     expect((await ignore(root, 'galaxy', env)).status).toBe(BUILD);
     expect((await ignore(root, 'omni-app', env)).status).toBe(SKIP);
   });
 
-  it('skips when GitHub cannot be asked: no token, or no answer', async () => {
+  it('skips when GitHub cannot be asked: no App credentials, a key GitHub refuses, or no answer', async () => {
     const { root, commit } = repo();
     const sha = commit('feat: x', { 'apps/galaxy/a.ts': 'x' });
-    statuses.set(sha, ['vercel/preview/galaxy']);
+    checks.set(sha, ['vercel/preview/galaxy']);
     const env = { VERCEL_GIT_COMMIT_REF: 'feat/topic', VERCEL_GIT_COMMIT_SHA: sha };
-    expect((await ignore(root, 'galaxy', { ...env, GITHUB_STATUS_TOKEN: '' })).status).toBe(SKIP);
+    expect((await ignore(root, 'galaxy', { ...env, GITHUB_APP_PRIVATE_KEY: '' })).status).toBe(SKIP);
+    const otherKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+    expect((await ignore(root, 'galaxy', { ...env, GITHUB_APP_PRIVATE_KEY: otherKey })).status).toBe(SKIP);
+    expect((await ignore(root, 'galaxy', { ...env, GITHUB_APP_PRIVATE_KEY: PEM.replace(/\n/g, '\\n') })).status).toBe(BUILD);
     unreachable = true;
     const run = await ignore(root, 'galaxy', env);
     expect(run.status).toBe(SKIP);

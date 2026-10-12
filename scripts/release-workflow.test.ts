@@ -23,14 +23,16 @@ describe('the release-fallback workflow', () => {
 
   it('marks main\'s head vercel/production-fallback, then calls both Deploy Hooks', () => {
     expect(run).toContain('git/ref/heads/main');
-    expect(run).toContain('context=vercel/production-fallback');
-    expect(run.indexOf('statuses')).toBeLessThan(run.indexOf('curl'));
+    expect(run).toContain('repos/${{ github.repository }}/check-runs');
+    expect(run).toContain('name=vercel/production-fallback');
+    expect(run).toContain('conclusion=success');
+    expect(run.indexOf('check-runs')).toBeLessThan(run.indexOf('curl'));
     expect(digText(job, 'env', 'HOOK_GALAXY')).toBe('${{ secrets.VERCEL_DEPLOY_HOOK_GALAXY_MAIN }}');
     expect(digText(job, 'env', 'HOOK_OMNI_APP')).toBe('${{ secrets.VERCEL_DEPLOY_HOOK_OMNI_APP_MAIN }}');
   });
 
-  it('may write commit statuses and nothing else', () => {
-    expect(dig(workflow, 'permissions')).toEqual({ statuses: 'write' });
+  it('may write check runs and nothing else', () => {
+    expect(dig(workflow, 'permissions')).toEqual({ checks: 'write' });
   });
 
   it('leaves the release workflow without it', () => {

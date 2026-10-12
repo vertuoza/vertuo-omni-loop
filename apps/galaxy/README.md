@@ -1511,9 +1511,11 @@ Set once, for both projects (`apps/omni-app` is the GitHub App's):
    the team id as `VERCEL_TEAM_ID`; each project's id (Settings › General) as
    `VERCEL_PROJECT_ID_GALAXY` and `VERCEL_PROJECT_ID_OMNI_APP`; and the repository's numeric id
    (`gh api repos/vertuoza/vertuo-omni-loop --jq .id`) as the GitHub variable `VERCEL_GITHUB_REPO_ID`.
-3. **GitHub › a fine-grained token,** this repository only, *Commit statuses: read*, as
-   `GITHUB_STATUS_TOKEN` in both Vercel projects, for Production and Preview. Without it no
-   preview builds.
+3. **Nothing to add for GitHub:** the ignore step reads the `vercel/preview/<project>` and
+   `vercel/production-fallback` check runs as the omni-loop GitHub App, with the `GITHUB_APP_ID` and
+   `GITHUB_APP_PRIVATE_KEY` both projects already hold (`scripts/vercel-github-token.ts` mints a
+   token from them for each build). Check both projects have the two, for Production and Preview:
+   without them no preview builds.
 4. **Vercel › each project › Settings › Build and Deployment:** the GitHub App's Build Machine on
    Standard; galaxy's on Standard unless its last production builds show Standard more than twice as
    slow as the machine it has (build CPU minutes are vCPUs × minutes). On-Demand Concurrent Builds

@@ -2,19 +2,20 @@
 # The preview gate of the `preview-debounce` workflow (PRD 1646): a ready pull request into main gets
 # one Vercel preview per project its changes can reach, once its pushes settle. Vercel's own Git
 # deployments of a branch are all skipped by scripts/vercel-ignore.sh, unless the commit carries the
-# status vercel/preview/<project> this script sets.
+# check run vercel/preview/<project> this script adds.
 #
 # 1. Stops (exit 0, one line why) on a draft, a base other than main, or a dependabot/ head.
 # 2. Waits PREVIEW_DEBOUNCE_SECONDS (default 150): a newer push cancels this run while it waits (the
 #    workflow's concurrency group), so a burst of agent pushes builds once.
 # 3. Stops when the head moved or the pull request turned draft meanwhile: the newer push has its run.
 # 4. For each project scripts/vercel-inputs.ts says the pull request's files reach (as a branch, so
-#    .omni-loop/ never counts), sets vercel/preview/<project> = success on the head commit, then asks
+#    .omni-loop/ never counts), adds the check run vercel/preview/<project> = success to the head
+#    commit (which scripts/vercel-ignore.sh reads as the omni-loop App), then asks
 #    Vercel for a deployment of that commit from Git (POST /v13/deployments with gitSource): Vercel
 #    clones and builds it on its own machines, as for a push. Nothing is built here.
 # 5. A GitHub or Vercel call that fails exits 1, so the run is red on the pull request.
 #
-# Reads GITHUB_REPOSITORY, DEBOUNCE_PR, GH_TOKEN (statuses: write, pull-requests: read), VERCEL_TOKEN,
+# Reads GITHUB_REPOSITORY, DEBOUNCE_PR, GH_TOKEN (checks: write, pull-requests: read), VERCEL_TOKEN,
 # VERCEL_TEAM_ID, VERCEL_PROJECT_ID_GALAXY, VERCEL_PROJECT_ID_OMNI_APP, VERCEL_GITHUB_REPO_ID,
 # PREVIEW_DEBOUNCE_SECONDS and VERCEL_API (default https://api.vercel.com). Needs gh, curl and node.
 set -uo pipefail
@@ -77,9 +78,10 @@ for project in galaxy omni-app; do
   [ -n "${VERCEL_TOKEN:-}" ] && [ -n "$id" ] && [ -n "${VERCEL_GITHUB_REPO_ID:-}" ] \
     || fail "$project needs a preview but VERCEL_TOKEN, its project id or VERCEL_GITHUB_REPO_ID is not set (PRD 1646, Dashboard steps)"
 
-  gh api -X POST "repos/$repo/statuses/$sha" -f state=success -f "context=vercel/preview/$project" \
-    -f "description=settled: Vercel may build this preview" >/dev/null \
-    || fail "could not set vercel/preview/$project on ${sha:0:7}"
+  gh api -X POST "repos/$repo/check-runs" -f "name=vercel/preview/$project" -f "head_sha=$sha" \
+    -f status=completed -f conclusion=success -f "output[title]=Settled: Vercel may build this preview" \
+    -f "output[summary]=No push for ${wait_s}s since this commit." >/dev/null \
+    || fail "could not add vercel/preview/$project to ${sha:0:7}"
 
   body="$(printf '{"name":"%s","project":"%s","gitSource":{"type":"github","repoId":"%s","ref":"%s","sha":"%s"}}' \
     "$project" "$id" "$VERCEL_GITHUB_REPO_ID" "$ref" "$sha")"

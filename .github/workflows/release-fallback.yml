@@ -1,6 +1,6 @@
 # Production's safety net (PRD 1646). Vercel deploys main from the `release` workflow's commit and
 # skips the merge before it (scripts/vercel-ignore.sh): when a `release` run fails or is cancelled, no
-# release commit comes. This workflow then marks main's head vercel/production-fallback, so the ignore
+# release commit comes. This workflow then adds the check run vercel/production-fallback to main's head, so the ignore
 # step builds it, and calls each Vercel project's Deploy Hook for main. A release run skipped for a
 # release commit concludes `skipped` and calls nothing. The release workflow itself stays the one job
 # PRD 347 pins (kit/release/workflow.test.ts).
@@ -13,7 +13,7 @@ on:
     workflows: [release]
     types: [completed]
 permissions:
-  statuses: write
+  checks: write
 jobs:
   deploy-main:
     if: github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'cancelled'
@@ -27,8 +27,9 @@ jobs:
       - name: deploy main through the Vercel Deploy Hooks
         run: |
           head="$(gh api "repos/${{ github.repository }}/git/ref/heads/main" --jq .object.sha)" || head="${{ github.event.workflow_run.head_sha }}"
-          gh api -X POST "repos/${{ github.repository }}/statuses/$head" -f state=success \
-            -f context=vercel/production-fallback -f description="the release did not land: deploy this commit" >/dev/null \
+          gh api -X POST "repos/${{ github.repository }}/check-runs" -f name=vercel/production-fallback \
+            -f head_sha="$head" -f status=completed -f conclusion=success \
+            -f "output[title]=The release did not land" -f "output[summary]=Vercel deploys this commit of main." >/dev/null \
             || echo "::warning::could not mark $head vercel/production-fallback"
           for hook in "$HOOK_GALAXY" "$HOOK_OMNI_APP"; do
             if [ -z "$hook" ]; then echo "::warning::a Vercel Deploy Hook secret is not set"; continue; fi

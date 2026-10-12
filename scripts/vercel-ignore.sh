@@ -7,19 +7,21 @@
 # In order:
 # 1. VERCEL_FORCE_BUILD=1 on the project builds everything: the switch that stops skipping at once.
 # 2. On main (VERCEL_IGNORE_PRODUCTION_BRANCH, default main):
-#    - a commit carrying the status vercel/production-fallback = success builds: the release
+#    - a commit carrying the check run vercel/production-fallback = success builds: the release
 #      workflow failed and called the project's Deploy Hook (.github/workflows/release-fallback.yml);
 #    - a commit whose message does not start `chore(release): ` is a merge, skipped: the release
 #      commit the release workflow pushes a minute later carries it;
 #    - a release commit builds when scripts/vercel-inputs.ts says the diff since the project's last
 #      production deploy (VERCEL_GIT_PREVIOUS_SHA) can change it. Whenever it is unsure (no previous
 #      SHA, one the shallow clone lacks after one deepen, a diff that fails) it builds.
-# 3. On any other branch it builds only a commit carrying vercel/preview/<project> = success, which
-#    .github/workflows/preview-debounce.yml sets on a ready pull request into main once its pushes
-#    settle. No token, no answer from GitHub, or no status: it skips.
+# 3. On any other branch it builds only a commit carrying the check run vercel/preview/<project> =
+#    success, which .github/workflows/preview-debounce.yml adds on a ready pull request into main
+#    once its pushes settle. No App credentials, no answer from GitHub, or no such check: it skips.
 #
-# GitHub is read with GITHUB_STATUS_TOKEN at VERCEL_IGNORE_GITHUB_API (default https://api.github.com),
-# with a 5-second limit. The step runs before any install: bash, git, curl and node only.
+# GitHub is read as the omni-loop GitHub App, whose GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY both
+# projects already hold (scripts/vercel-github-token.ts), at VERCEL_IGNORE_GITHUB_API (default
+# https://api.github.com), with a 5-second limit per call. The step runs before any install: bash,
+# git, curl and node only.
 set -uo pipefail
 
 project="${1:-}"
@@ -46,38 +48,58 @@ branch="${VERCEL_GIT_COMMIT_REF:-}"
 sha="${VERCEL_GIT_COMMIT_SHA:-$(git rev-parse HEAD 2>/dev/null)}"
 [ -n "$sha" ] || build "no commit SHA"
 
-# Prints `yes` when the commit carries the status <context> = success, `no` when it does not, and
-# nothing when GitHub cannot be asked.
-status_of() {
-  local context="$1" api="${VERCEL_IGNORE_GITHUB_API:-https://api.github.com}"
-  local owner="${VERCEL_GIT_REPO_OWNER:-}" repo="${VERCEL_GIT_REPO_SLUG:-}" token="${GITHUB_STATUS_TOKEN:-}"
-  [ -n "$owner" ] && [ -n "$repo" ] && [ -n "$token" ] || return 0
-  curl -sf --max-time 5 \
-    -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" \
-    "$api/repos/$owner/$repo/commits/$sha/status?per_page=100" 2>/dev/null \
+# The omni-loop GitHub App's installation token, minted once from GITHUB_APP_ID and
+# GITHUB_APP_PRIVATE_KEY (scripts/vercel-github-token.ts); empty when it cannot be had.
+token=""
+token_tried=""
+github_token() {
+  if [ -z "$token_tried" ]; then
+    token_tried=1
+    local owner="${VERCEL_GIT_REPO_OWNER:-}" repo="${VERCEL_GIT_REPO_SLUG:-}"
+    if [ -n "$owner" ] && [ -n "$repo" ] && [ -n "${GITHUB_APP_ID:-}" ] && [ -n "${GITHUB_APP_PRIVATE_KEY:-}" ]; then
+      token="$(printf '%s\n%s/%s\n%s\n%s\n' "$GITHUB_APP_ID" "$owner" "$repo" "$api" "$GITHUB_APP_PRIVATE_KEY" \
+        | node scripts/vercel-github-token.ts 2>/dev/null)" || token=""
+    fi
+  fi
+  printf '%s' "$token"
+}
+
+# Prints `yes` when the commit carries a check run <name> concluded success, `no` when it does not,
+# and nothing when GitHub cannot be asked.
+check_of() {
+  local name="$1" owner="${VERCEL_GIT_REPO_OWNER:-}" repo="${VERCEL_GIT_REPO_SLUG:-}" auth
+  auth="$(github_token)"
+  [ -n "$auth" ] || return 0
+  curl -sf --max-time 5 -G \
+    -H "Authorization: Bearer $auth" -H "Accept: application/vnd.github+json" \
+    --data-urlencode "check_name=$name" \
+    "$api/repos/$owner/$repo/commits/$sha/check-runs" 2>/dev/null \
     | node -e '
         let text = "";
         process.stdin.on("data", (d) => { text += d; });
         process.stdin.on("end", () => {
           try {
-            const statuses = JSON.parse(text).statuses ?? [];
-            const hit = statuses.some((s) => s.context === process.argv[1] && s.state === "success");
+            const runs = JSON.parse(text).check_runs ?? [];
+            const hit = runs.some((r) => r.name === process.argv[1] && r.conclusion === "success");
             console.log(hit ? "yes" : "no");
           } catch {}
         });
-      ' "$context"
+      ' "$name"
 }
 
+api="${VERCEL_IGNORE_GITHUB_API:-https://api.github.com}"
+
 if [ "$branch" != "${VERCEL_IGNORE_PRODUCTION_BRANCH:-main}" ]; then
-  [ -n "${GITHUB_STATUS_TOKEN:-}" ] || skip "$branch: no GITHUB_STATUS_TOKEN to read its preview status"
-  case "$(status_of "vercel/preview/$project")" in
-    yes) build "$branch: vercel/preview/$project is set on ${sha:0:7}" ;;
+  [ -n "${GITHUB_APP_ID:-}" ] && [ -n "${GITHUB_APP_PRIVATE_KEY:-}" ] \
+    || skip "$branch: no GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY to read its preview check"
+  case "$(check_of "vercel/preview/$project")" in
+    yes) build "$branch: vercel/preview/$project passed on ${sha:0:7}" ;;
     no) skip "$branch: no vercel/preview/$project on ${sha:0:7} (only a ready pull request into main previews)" ;;
-    *) skip "$branch: could not read its statuses from GitHub" ;;
+    *) skip "$branch: could not read its checks from GitHub" ;;
   esac
 fi
 
-[ "$(status_of vercel/production-fallback)" = "yes" ] && build "the release workflow's fallback deploys ${sha:0:7}"
+[ "$(check_of vercel/production-fallback)" = "yes" ] && build "the release-fallback workflow deploys ${sha:0:7}"
 
 message="${VERCEL_GIT_COMMIT_MESSAGE-}"
 if [ -z "${VERCEL_GIT_COMMIT_MESSAGE+set}" ]; then
