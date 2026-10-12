@@ -1,6 +1,9 @@
 // OMNI KART's numbers (PRD 1359): one constants block, chosen by eye, so a follow-up tunes the feel
 // without touching the engine. World units are the circuit's texture pixels (a tile is 16), times in
 // seconds, speeds in units a second, angles in radians.
+/** How hard the rivals drive (PRD 1762). */
+export type Difficulty = 'easy' | 'normal' | 'hard';
+
 export const RULES = Object.freeze({
   /** A kart's body, as a circle: what karts are pushed apart by and what items reach. */
   radius: 5,
@@ -70,6 +73,12 @@ export const RULES = Object.freeze({
   blobLateral: 12,
   orbRange: 130,
   orbLine: 0.18,
+  /** The rivals' difficulty (PRD 1762): per level, the range of a rival's own pace (a share of the player's top speed, never above 1), how far off the line it drives, the rubber band, and how long a rival holds an item before it uses it (seconds). NORMAL is the numbers above, unchanged. */
+  levels: {
+    easy: { skillMin: 0.8, skillMax: 0.88, lineOffset: 14, rubber: 0.1, hold: 2.5 },
+    normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0 },
+    hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0 },
+  },
   /** How long FINAL LAP shows once the third lap starts. */
   finalBanner: 2.5,
   countdown: 3,

@@ -33,6 +33,41 @@ describe('a Presence entry', () => {
   });
 });
 
+describe('a Presence entry with a look and laps (PRD 1762)', () => {
+  const look = { color: 'RED', design: 'ROCKET' };
+
+  it('carries the look and the laps, and reads them back', () => {
+    const sent = presenceOf(player({ look, laps: 5 }));
+    expect(sent).toMatchObject({ look, laps: 5 });
+    expect(readPresence(sent)).toEqual(player({ look, laps: 5 }));
+  });
+
+  it('reads an entry without them as a player with none', () => {
+    const read = readPresence(presenceOf(player()));
+    expect(read?.look).toBeUndefined();
+    expect(read?.laps).toBeUndefined();
+    expect(Object.keys(presenceOf(player()))).not.toContain('look');
+  });
+
+  it('reads a look or laps that is wrong as none, and keeps the player', () => {
+    const sent = presenceOf(player());
+    expect(readPresence({ ...sent, look: 'red', laps: 'five' })).toEqual(player());
+    expect(readPresence({ ...sent, laps: 9 })?.laps).toBeUndefined();
+    expect(readPresence({ ...sent, look: { color: 'MAUVE', design: 'BOAT' } })?.look).toEqual({ color: 'FLEET', design: 'CLASSIC' });
+  });
+
+  it('reads a start with laps, and a start without them', () => {
+    const order = [presenceOf(player({ id: 'a' })), presenceOf(player({ id: 'b' }))];
+    expect(readMessage({ kind: 'start', race: 'r', seed: 1, order, laps: 5 })).toMatchObject({ laps: 5 });
+    expect(readMessage({ kind: 'start', race: 'r', seed: 1, order })?.kind).toBe('start');
+    expect(readMessage({ kind: 'start', race: 'r', seed: 1, order, laps: 8 })).toBeNull();
+  });
+
+  it('reads a state with 4 to 7 laps', () => {
+    for (const laps of [4, 7]) expect(readMessage({ ...state, laps })).toEqual({ ...state, laps });
+  });
+});
+
 describe('everyone Presence holds', () => {
   it('reads each key\'s player and leaves out what does not read, or names another player than its key', () => {
     const entries = { u1: presenceOf(player()), u2: presenceOf(player({ id: 'u2' })), u3: { id: 'u3' }, u4: presenceOf(player({ id: 'u9' })) };
@@ -62,7 +97,7 @@ describe('the race\'s messages', () => {
     expect(readMessage({ ...state, x: 'far' })).toBeNull();
     expect(readMessage({ ...state, speed: Number.POSITIVE_INFINITY })).toBeNull();
     expect(readMessage({ ...state, steer: 2 })).toBeNull();
-    expect(readMessage({ ...state, laps: 4 })).toBeNull();
+    expect(readMessage({ ...state, laps: 8 })).toBeNull();
     expect(readMessage({ ...state, fall: -1 })).toBeNull();
     expect(readMessage({ kind: 'nope', race: 'r1' })).toBeNull();
     expect(readMessage(null)).toBeNull();

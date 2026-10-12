@@ -3,6 +3,32 @@ import { createHeld } from './held';
 
 const shown = (h: ReturnType<typeof createHeld>) => [...h.buttons()].sort();
 
+describe('the held buttons, from the player\'s own keys', () => {
+  it('holds the button a key is told to stand for, and lets it go on the key up', () => {
+    const h = createHeld();
+    h.keyDown('ArrowUp', 'a');
+    h.keyDown('W', 'down');
+    expect(shown(h)).toEqual(['a', 'down']);
+    h.keyUp('w');
+    expect(shown(h)).toEqual(['a']);
+    h.keyUp('ArrowUp');
+    expect(shown(h)).toEqual([]);
+  });
+});
+
+describe('the held buttons, from the player\'s own keys', () => {
+  it('holds the button a key is told to stand for, and lets it go on the key up', () => {
+    const h = createHeld();
+    h.keyDown('ArrowUp', 'a');
+    h.keyDown('W', 'down');
+    expect(shown(h)).toEqual(['a', 'down']);
+    h.keyUp('w');
+    expect(shown(h)).toEqual(['a']);
+    h.keyUp('ArrowUp');
+    expect(shown(h)).toEqual([]);
+  });
+});
+
 describe('the held buttons, from the keyboard', () => {
   it('holds a key\'s button from its key down to its key up', () => {
     const h = createHeld();
