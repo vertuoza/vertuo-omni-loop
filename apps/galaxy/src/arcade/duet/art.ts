@@ -17,8 +17,8 @@ import type { Theme } from '../theme';
 import { corners, type Block } from './collide';
 import { LINE_SECONDS, lineOf } from './lines';
 import { orbs, RULES, type Point } from './rules';
-import { CHAPTER_TITLES, newRun, pause, press, step, waveOf, wavesIn, type Run } from './run';
-import { placedAt, sightOf } from './waves';
+import { CHAPTER_TITLES, crashWave, CRASH_SECONDS, newRun, pause, press, step, waveOf, wavesIn, type Crash, type Run } from './run';
+import { placedAt, sightOf, type Wave } from './waves';
 
 /** The warm orb's ramp, light to dark: no theme token is orange. */
 const WARM = defined(RAMPS.O, 'the orange ramp');
@@ -208,26 +208,53 @@ function blockTrail(ctx: CanvasRenderingContext2D, b: Block, colour: string, sig
   }
 }
 
-/** The field: its dark, its backdrop, the circle, the wave's blocks with their trails, then each orb's trail and the orb. */
+/** The wave on the screen and its sub-step: the one that struck while a crash shows, the one falling in play or under its pause, else none. */
+function shownWave(run: Run): { wave: Wave; tick: number } | undefined {
+  if (run.crash) {
+    const wave = crashWave(run.crash);
+    return wave && { wave, tick: run.crash.tick };
+  }
+  const falling = run.phase === 'play' || (run.phase === 'paused' && run.resume === 'play');
+  const wave = falling ? waveOf(run) : undefined;
+  return wave && { wave, tick: run.tick };
+}
+
+/**
+ * The wave's blocks at `tick`, with their trails under them. A ghost fades as it falls and is not drawn
+ * once gone; with reduced motion too, as a fade moves nothing on the screen and the hidden obstacle is
+ * the wave itself, not an effect. A trail is motion, drawn only without reduced motion.
+ */
+function blocks(ctx: CanvasRenderingContext2D, s: FrameState, wave: Wave, tick: number) {
+  const seen = placedAt(wave, tick).map(({ piece, block: b }) => ({ b, sight: sightOf(piece, b) })).filter(({ sight }) => sight > 0);
+  if (!s.reduced) for (const { b, sight } of seen) blockTrail(ctx, b, s.theme.plasma, sight);
+  for (const { b, sight } of seen) {
+    ctx.globalAlpha = sight;
+    block(ctx, b);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** The flash over the contact that cost a life, fading as it shows; none under reduced motion. */
+function flash(ctx: CanvasRenderingContext2D, s: FrameState, crash: Crash) {
+  if (s.reduced) return;
+  ctx.globalAlpha = FLASH * (crash.left / CRASH_SECONDS);
+  ctx.fillStyle = s.theme.white;
+  ctx.fillRect(0, 0, RULES.field.w, RULES.field.h);
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * The field: its dark, its backdrop, the circle, the wave's blocks with their trails, then each orb's
+ * trail and the orb. A life just lost shows its contact: the wave as it struck, the orbs where they
+ * were hit, under a fading flash.
+ */
 export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run) {
   ctx.fillStyle = s.theme.void;
   ctx.fillRect(0, 0, RULES.field.w, RULES.field.h);
   backdrop(ctx, s, run);
   track(ctx, s);
-  const falling = run.phase === 'play' || (run.phase === 'paused' && run.resume === 'play');
-  const wave = falling ? waveOf(run) : undefined;
-  // A ghost fades as it falls and is not drawn once gone; with reduced motion too, as a fade moves
-  // nothing on the screen and the hidden obstacle is the wave itself, not an effect. A trail is
-  // motion, drawn only without reduced motion, every trail under every block.
-  if (wave) {
-    const seen = placedAt(wave, run.tick).map(({ piece, block: b }) => ({ b, sight: sightOf(piece, b) })).filter(({ sight }) => sight > 0);
-    if (!s.reduced) for (const { b, sight } of seen) blockTrail(ctx, b, s.theme.plasma, sight);
-    for (const { b, sight } of seen) {
-      ctx.globalAlpha = sight;
-      block(ctx, b);
-    }
-    ctx.globalAlpha = 1;
-  }
+  const shown = shownWave(run);
+  if (shown) blocks(ctx, s, shown.wave, shown.tick);
   const cool = rampFrom(s.theme.cyan);
   const pair = (angle: number) => { const [warm, other] = orbs(angle); return [[warm, WARM], [other, cool]] as const; };
   if (!s.reduced) {
@@ -240,8 +267,12 @@ export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run
     });
     ctx.globalAlpha = 1;
   }
-  for (const [p, ramp] of pair(run.angle)) orb(ctx, p, ramp);
+  for (const [p, ramp] of pair(run.crash ? run.crash.angle : run.angle)) orb(ctx, p, ramp);
+  if (run.crash) flash(ctx, s, run.crash);
 }
+
+/** How bright the flash over a contact starts. */
+const FLASH = 0.45;
 
 export interface DuetOptions { seed: number }
 
