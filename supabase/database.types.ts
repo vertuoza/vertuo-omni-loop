@@ -152,6 +152,7 @@ export type Database = {
       agent_tokens: {
         Row: {
           created_at: string
+          expires_at: string | null
           id: string
           last_four: string
           last_used_at: string | null
@@ -159,11 +160,16 @@ export type Database = {
           name: string
           revoked_at: string | null
           revoked_by: string | null
+          scope: string
+          session: string | null
+          session_lease: string | null
+          session_lease_until: string | null
           token_hash: string
           workspace_id: string
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           last_four: string
           last_used_at?: string | null
@@ -171,11 +177,16 @@ export type Database = {
           name: string
           revoked_at?: string | null
           revoked_by?: string | null
+          scope?: string
+          session?: string | null
+          session_lease?: string | null
+          session_lease_until?: string | null
           token_hash: string
           workspace_id: string
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           last_four?: string
           last_used_at?: string | null
@@ -183,6 +194,10 @@ export type Database = {
           name?: string
           revoked_at?: string | null
           revoked_by?: string | null
+          scope?: string
+          session?: string | null
+          session_lease?: string | null
+          session_lease_until?: string | null
           token_hash?: string
           workspace_id?: string
         }
@@ -3027,6 +3042,7 @@ export type Database = {
         Args: { p_hash: string }
         Returns: {
           created_at: string
+          expires_at: string | null
           id: string
           last_four: string
           last_used_at: string | null
@@ -3034,6 +3050,10 @@ export type Database = {
           name: string
           revoked_at: string | null
           revoked_by: string | null
+          scope: string
+          session: string | null
+          session_lease: string | null
+          session_lease_until: string | null
           token_hash: string
           workspace_id: string
         }
@@ -3049,6 +3069,7 @@ export type Database = {
         Returns: Json
       }
       agent_tokens_list: { Args: { p_workspace: string }; Returns: Json }
+      agent_tokens_live: { Args: { p_person: string }; Returns: number }
       answered_counts: {
         Args: { from_at: string; to_at: string; workspace: string }
         Returns: {
@@ -3747,6 +3768,27 @@ export type Database = {
         Returns: string[]
       }
       kart_grid_allows: { Args: { p_topic: string }; Returns: boolean }
+      kit_token_claim: { Args: { p_hash: string }; Returns: Json }
+      kit_token_make: {
+        Args: {
+          p_days: number
+          p_hash: string
+          p_last_four: string
+          p_name: string
+          p_session: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
+      kit_token_release: {
+        Args: { p_lease: string; p_token: string }
+        Returns: undefined
+      }
+      kit_token_renewed: {
+        Args: { p_lease: string; p_session: string; p_token: string }
+        Returns: boolean
+      }
+      kit_tokens_mine: { Args: { p_workspace: string }; Returns: Json }
       link_github: { Args: never; Returns: Json }
       lookup_product: {
         Args: { p_prd?: number; p_repo: string; p_workspace: string }

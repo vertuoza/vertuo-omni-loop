@@ -130,12 +130,13 @@ export interface Kit {
 }
 
 /** Whether the CLI has `command`: a file of that name in the kit's commands, or, for a command whose
- * file has another name (`wait`, in `approval-wait.ts`, PRD 1322), an import of it by that name in
- * the commands' `index.ts`. */
+ * file has another name (`wait`, in `approval-wait.ts`, PRD 1322; `whoami`, beside `signin` in
+ * `signin.ts`, PRD 1628), an import of it by that name in the commands' `index.ts`, alone or among
+ * others. */
 function isCommand(kit: Kit, command: string): boolean {
   if (existsSync(join(kit.commands, `${command}.ts`))) return true;
   const index = join(kit.commands, 'index.ts');
-  return existsSync(index) && new RegExp(`^import \\{ ${command} \\} from `, 'm').test(readFileSync(index, 'utf8'));
+  return existsSync(index) && new RegExp(`^import \\{ (?:\\w+, )*${command}(?:, \\w+)* \\} from `, 'm').test(readFileSync(index, 'utf8'));
 }
 
 /** The page whose TERMINAL blocks must each be one line (PRD 420): a newcomer pastes them one by one. */

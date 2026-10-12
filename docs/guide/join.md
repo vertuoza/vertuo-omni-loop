@@ -12,6 +12,9 @@ a clone of your team's repository; this page then shows you around.
 Setting the loop up on a repository yourself? After the four steps, go to
 [Invade](/docs/invade) instead.
 
+Working from Claude Code on the web or the app too? A cloud session has no browser to sign in with:
+[Cloud sessions](/docs/cloud) signs it in as you with one token, made once.
+
 ## Is this page for you?
 
 Open the repository you will work in on GitHub, on its default branch:
