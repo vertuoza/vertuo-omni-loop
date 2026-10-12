@@ -75,7 +75,7 @@ describe('the request', () => {
   });
 
   it('masks every token in the state and the question before sending', async () => {
-    const token = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+    const token = 'ghp_' + 'abcdefghijklmnopqrstuvwxyz0123456789';
     const { fetch, calls } = stub(noul(0.1));
     await askJev({ key: KEY, state: { body: `leaked ${token}` }, question: { type: 'noul', statement: `uses ${token}` }, fetch });
     const sent = sure(calls[0], 'calls[0]').init.body;

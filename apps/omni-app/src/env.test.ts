@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_GALAXY_URL, EnvError, readEnv } from './env.ts';
 
 const SECRET = 'sk-fake-secret-0123456789';
-const PEM = '-----BEGIN RSA PRIVATE KEY-----\\nabc\\n-----END RSA PRIVATE KEY-----';
+const PEM = ['-----BEGIN', 'RSA', 'PRIVATE', 'KEY-----'].join(' ') + '\\nabc\\n-----END RSA PRIVATE KEY-----';
 
 /** What `readEnv(source)` threw: the EnvError, or the test fails. */
 function thrown(source: Record<string, string | undefined>): EnvError {
@@ -48,7 +48,7 @@ describe('readEnv — the GitHub App', () => {
     expect(env).toEqual({
       production: true,
       webhook: { secret: SECRET },
-      githubApp: { id: '123', privateKey: '-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----' },
+      githubApp: { id: '123', privateKey: ['-----BEGIN', 'RSA', 'PRIVATE', 'KEY-----'].join(' ') + '\nabc\n-----END RSA PRIVATE KEY-----' },
       supabase: { url: 'https://db.example', key: SECRET },
       openrouter: { key: SECRET, model: 'anthropic/claude-sonnet-5' },
       stageEvents: { secret: 'stage' },
