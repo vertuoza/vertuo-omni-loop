@@ -32,6 +32,28 @@ describe('productPrdOf', () => {
       expect(productPrdOf(body), String(body)).toBeNull();
     }
   });
+
+  // Issue 1690: PR #1614's Reviewer focus quoted the claim as an example and its outbox check went red.
+  it('names none for a claim only mentioned: in inline code, mid-sentence, or inside a fenced or indented code block', () => {
+    for (const body of [
+      '## Reviewer focus\n\nThe target step (`Part of mobile-12` against a feature branch, or `Part of owner/repo#n`).',
+      'This PR is not Part of mobile-12 at all.',
+      '`Part of mobile-12`',
+      'Example:\n\n```\nPart of mobile-12\n```\n',
+      'Example:\n\n  ~~~md\nPart of mobile-12\n  ~~~\n',
+      'Example:\r\n\r\n```\r\nPart of mobile-12\r\n```\r\n',
+      'Unclosed:\n\n````\nPart of mobile-12\n```\nstill code',
+      'Indented:\n\n    Part of mobile-12',
+    ]) {
+      expect(productPrdOf(body), body).toBeNull();
+    }
+  });
+
+  it('reads a claim that starts a line outside code, after a code block that mentions another', () => {
+    expect(productPrdOf('Notes:\n\n```\nPart of field-app-3\n```\n\nPart of mobile-12 · https://galaxy.example/prd/d-1')).toEqual(MOBILE_12);
+    expect(productPrdOf('Offline upload.\r\n\r\nPart of mobile-12 · https://galaxy.example/prd/d-1\r\n')).toEqual(MOBILE_12);
+    expect(productPrdOf('  Part of mobile-12')).toEqual(MOBILE_12);
+  });
 });
 
 describe('approvedVerdict', () => {

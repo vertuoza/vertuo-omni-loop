@@ -53,7 +53,8 @@ const pullOf = (body: string | undefined) => ({ number: parsePr(446), base: { re
 
 /** A run: the stubbed GitHub, the record's reads, and the log. */
 function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/d-12', config = ACTIVE, record = RECORD }: { body?: string; config?: string | null; record?: ApprovalRecord | null | Error } = {}) {
-  const github = fakeGitHub({ commits: { base1: commitWith(config) }, pull: pullOf(body) });
+  // The head holds no PRD folder: a body naming no product PRD is then no ◆ PRD's either (PRD 1612).
+  const github = fakeGitHub({ commits: { base1: commitWith(config), head1: commitWith(null) }, pull: pullOf(body) });
   const reads: string[] = [];
   const readRecord: RecordReader = (repository, prd) => {
     reads.push(`${repository} ${prd.id}`);
@@ -141,7 +142,8 @@ const runOn = (run: ReturnType<typeof setUp>) => new InngestTestEngine({ functio
 
 describe('approved-check — the pull requests that get no check (acceptance 8)', () => {
   it('posts nothing, and reads no record, on a body naming no product PRD', async () => {
-    for (const body of ['Closes #12', 'Part of acme/plans#12', '']) {
+    // `Part of acme/plans#12` is a ◆ PRD's target PR since PRD 1612: ./repo-prd.test.ts checks it.
+    for (const body of ['Closes #12', '']) {
       const run = setUp({ body });
       const { result } = await runOn(run);
       expect(result).toMatchObject({ posted: false });

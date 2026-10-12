@@ -107,7 +107,11 @@ export function readRecordings(root: string, dir: string): Recording[] {
 }
 
 /** A test file tagged `prd-<n>`: its id is its path under the e2e folder. */
-export type TaggedTest = { readonly id: string; readonly file: string };
+/** `agent` is true when the file holds an `agent.` call (`agent.act`, `agent.assert`): only such a test records. */
+export type TaggedTest = { readonly id: string; readonly file: string; readonly agent: boolean };
+
+/** A call on `agent` (a text scan: a call made through an alias is not seen). */
+const AGENT_CALL = /(?<![\w$.])agent\s*\.\s*\w+/;
 
 /** The test files under `<dir>` that carry the tag `prd-<n>` (not `prd-<n>0`), in path order. */
 export function readTaggedTests(root: string, dir: string, prd: PrdNumber): TaggedTest[] {
@@ -115,6 +119,7 @@ export function readTaggedTests(root: string, dir: string, prd: PrdNumber): Tagg
   const base = join(root, dir);
   return filesUnder(base, ['.ts', '.tsx', '.js', '.mjs', '.cjs'])
     .filter((path) => !relative(base, path).split(sep).includes('.e2e'))
-    .filter((path) => tag.test(readFileSync(path, 'utf8')))
-    .map((path) => ({ id: posix(relative(base, path)), file: posix(relative(root, path)) }));
+    .map((path) => ({ path, text: readFileSync(path, 'utf8') }))
+    .filter(({ text }) => tag.test(text))
+    .map(({ path, text }) => ({ id: posix(relative(base, path)), file: posix(relative(root, path)), agent: AGENT_CALL.test(text) }));
 }

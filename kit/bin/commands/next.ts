@@ -27,6 +27,8 @@
 // too, once ready). The board is read across every repository (`buildBoard`). The verdicts are then
 // the `ultra-` skills and `mega-pr-care --once` only, each verdict and step carries the repositories
 // it touches (`repos`), and the loop plan holds two steps in series only on a path in one repository.
+// With `plan: { product }` (PRD 1548, s10), those targets are the product's, read from the Omni page
+// (`contextWithTargets`, `./board.ts`).
 //
 // PRD 1162, slice s7, `--roadmap <n>`: drives exactly roadmap n's PRDs (its `roadmap.md` in the inbox's
 // `roadmaps/`), someone else's included, on a loop plan of its own (the kept one when it drives the
@@ -59,10 +61,8 @@ import { prdState as stageAtGate } from '../../lib/approval/prd-state.ts';
 import type { ApprovalCall } from '../../lib/approval/prd-state.ts';
 import { fillBranch } from '../../lib/board.ts';
 import { careState } from '../../lib/care/state.ts';
-import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { gateApproval } from '../../lib/delivery/prd.ts';
-import type { GateOptions } from '../../lib/delivery/prd.ts';
 import type { IssueNumber, PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 import type { LoopChange, LoopComment } from '../../lib/loop-reads/contract.ts';
 import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
@@ -101,8 +101,9 @@ import { openItemsForPrd } from '../../lib/outbox/comment.ts';
 import type { OutboxItem } from '../../lib/types.ts';
 import { planReplies } from '../../lib/outbox/replies.ts';
 import { issueArg, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
-import type { Env, Exec, FreeCommand, FreeIo } from '../io.ts';
-import { buildBoard } from './board.ts';
+import type { Env, Exec, FreeCommand } from '../io.ts';
+import { buildBoard, contextWithTargets } from './board.ts';
+import type { TargetsIo } from './board.ts';
 
 /** A change as this command reads one: its state in GitHub's words, a draft being open. */
 type ListedPr = { number: PrNumber; url: string; state: string; isDraft: boolean; updatedAt: string; body: string; author: string | null; labels: readonly string[] };
@@ -678,10 +679,11 @@ async function drive(named: readonly PrdNumber[], { plan, roadmap }: { plan: boo
 
 export const next = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, env, reads, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & GateOptions & { reads?: LoopReads | undefined }) {
+  async run(args: string[], free: TargetsIo) {
+    const { stdout, stderr, exec, env, reads, tokens, home, fetch = globalThis.fetch, callMs } = free;
     const { positional, flags } = parseArgs('next', args, { booleans: ['json', 'plan'], values: ['roadmap'] });
     const named = positional.map((value) => prdArg('next', '<prd>', value));
-    const ctx = loadContext(cwd, { exec });
+    const ctx = await contextWithTargets('next', free);
     if (flags.roadmap !== undefined && named.length > 0) throw usageError("omni next: --roadmap <n> drives the roadmap's PRDs; name no PRD beside it.");
     const roadmap = flags.roadmap === undefined ? null : roadmapOf(issueArg('next', '--roadmap', flags.roadmap), ctx);
     const slug = repoSlug('next', ctx, undefined);

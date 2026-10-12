@@ -10,6 +10,8 @@
 // target's default branch from GitHub, its own landing chain, and wave claims among its own slices
 // only. Wherever it runs, a status comment's `waits on <slug>#<pr>` line is read with that PR's state,
 // and the round holds its CI fix while that PR is open (`decideRound`).
+// With `plan: { product }` (PRD 1548, s10), `state` and `list` read the product's targets from the
+// Omni page (`contextWithTargets`, `./board.ts`); `reply` reads none.
 //
 // `omni care list <prd> [--json]` — PRD 1118, in a plan repository only: every pull request one
 // `/omni:mega-pr-care` run looks after, in merge order (`mergeOrder`): the target and landing PRs, the
@@ -40,20 +42,18 @@ import { landingPlan } from '../../lib/landings/landing-plan.ts';
 import type { Slice } from '../../lib/types.ts';
 import { CARE_VERDICTS, careReplyBody } from '../../lib/care/marker.ts';
 import { careState } from '../../lib/care/state.ts';
-import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
-import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import type { LoopChange } from '../../lib/loop-reads/contract.ts';
-import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
 import { boardReads, LoopReadError } from '../../lib/loop-reads/port.ts';
 import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { isOneOf, propertyOf } from '../../lib/narrow.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, prArg, prdArg, println, readUserFile, repoSlug, usageError } from '../args.ts';
-import { buildBoard } from './board.ts';
-import type { CommandIo, Env, Exec, FreeCommand, FreeIo } from '../io.ts';
+import { buildBoard, loopReadsFor, runWithTargets } from './board.ts';
+import type { TargetsIo, TargetsSubcommand } from './board.ts';
+import type { CommandIo, Env, Exec, FreeCommand } from '../io.ts';
 import { GhGraphqlSchema, GhReplyMutationSchema } from '../schema.ts';
 import type { IssueNumber, PrNumber, PrdNumber } from '../../lib/ids.ts';
 
@@ -408,24 +408,28 @@ function postReply({ thread, verdict, body }: { thread: string; verdict: string;
   }
 }
 
-/** What `omni care` reads through beyond its io: a test's own `LoopReads`, or the Omni page's sign-in. */
-type CareOptions = { reads?: LoopReads | undefined; tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch | undefined; callMs?: number | undefined };
+/** `run`, reading the loop through the free io's `LoopReads`: a read that cannot be made prints its one
+ * line on stderr, exit 1. */
+function readingLoop(run: (args: string[], io: Io) => Promise<number>): TargetsSubcommand['run'] {
+  return async (args, io, free) => {
+    try {
+      return await run(args, { ...io, reads: loopReadsFor(io.ctx, free) });
+    } catch (error) {
+      if (!(error instanceof LoopReadError)) throw error;
+      println(io.stderr, error.line);
+      return 1;
+    }
+  };
+}
+
+/** The subcommands of `omni care`: `state` and `list` read a plan repository's targets, `reply` none. */
+const SUBCOMMANDS: Record<string, TargetsSubcommand> = {
+  state: { run: readingLoop(runState), targets: () => true },
+  list: { run: readingLoop(runList), targets: () => true },
+  reply: { run: runReply, targets: () => false },
+};
 
 export const care = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, env, vars, reads, tokens, home, fetch, callMs }: FreeIo & CareOptions): Promise<number> {
-    const [sub, ...rest] = args;
-    const ctx = loadContext(cwd, { exec });
-    const io: CommandIo = { ctx, stdout, stderr, exec, env, vars };
-    if (sub === 'reply') return runReply(rest, io);
-    if (sub !== 'state' && sub !== 'list') throw usageError(USAGE);
-    const loop = reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
-    try {
-      return await (sub === 'state' ? runState : runList)(rest, { ...io, reads: loop });
-    } catch (error) {
-      if (!(error instanceof LoopReadError)) throw error;
-      println(stderr, error.line);
-      return 1;
-    }
-  },
+  run: (args: string[], io: TargetsIo): Promise<number> => runWithTargets('care', USAGE, SUBCOMMANDS, args, io),
 } satisfies FreeCommand;

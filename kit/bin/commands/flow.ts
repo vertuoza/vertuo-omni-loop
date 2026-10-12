@@ -12,7 +12,9 @@
 // - `show` alone prints what this repository changes from the kit's defaults, area by area.
 // - `show --repo <target>`, in a plan repository, reads an imported target's copied flow instead
 //   (`kit/lib/plan-repo/copy-flow.ts`), its hook files from the copy: what that target's flow is at
-//   planning time. A target with no copied flow is a usage error.
+//   planning time. A target with no copied flow is a usage error. With `plan: { product }` (PRD 1548,
+//   s10), a target's short name is looked up among the product's targets, read from the Omni page
+//   (`contextWithTargets`, `./board.ts`) only when `--repo` names one by its short name.
 // - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
 //   exit 1; output that does not end with the point's verdict line is `not ok … no verdict`.
 // - `check merge --pr <n> [--repo <target>]` reads the sub-PR through `LoopReads` (the Omni page, PRD
@@ -23,8 +25,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
-import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
-import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { FLOW_POINTS, flowPoint, type FlowPoint } from '../../lib/flow/points.ts';
 import { resolveFlow, type ResolvedFlow } from '../../lib/flow/resolve.ts';
@@ -32,14 +32,15 @@ import { flowDifferences, ruleLines, showPath, showPoint, type AreaDifference, t
 import { readVerdict, verdictLine } from '../../lib/flow/verdict.ts';
 import { mergeGate, type CheckState, type MergeVerdict, type SubPr } from '../../lib/flow/merge-gate.ts';
 import type { LoopChangeDetail } from '../../lib/loop-reads/contract.ts';
-import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
 import { LoopReadError } from '../../lib/loop-reads/port.ts';
 import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { COPY_FLOW_FILE, copyFlowFolder, readCopyFlow } from '../../lib/plan-repo/copy-flow.ts';
 import { parseFolderName, prdFoldersIn } from '../../lib/layout.ts';
 import { errorMessage, parseArgs, type Flags, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
-import type { CommandIo, FreeCommand, FreeIo } from '../io.ts';
+import type { CommandIo, FreeCommand } from '../io.ts';
+import { loopReadsFor, runWithTargets } from './board.ts';
+import type { TargetsIo, TargetsSubcommand } from './board.ts';
 import type { PrNumber } from '../../lib/ids.ts';
 
 const USAGE =
@@ -352,17 +353,22 @@ async function checkMerge(args: string[], { ctx, stdout, stderr }: CommandIo, re
   return verdict.ok ? 0 : 1;
 }
 
-/** What `omni flow` reads the loop through beyond its io: a test's own `LoopReads`, or the Omni page's sign-in. */
-type FlowOptions = { reads?: LoopReads | undefined; tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch | undefined; callMs?: number | undefined };
+/** Whether `args` name a target by its short name (`--repo back`), which only `plan.targets` resolves. */
+function namesTarget(args: readonly string[]): boolean {
+  const at = args.indexOf('--repo');
+  const value = at === -1 ? undefined : args[at + 1];
+  return value !== undefined && !value.startsWith('--') && !value.includes('/');
+}
+
+/** The subcommands of `omni flow`: `show` and `check` read the targets only for a short `--repo`;
+ * `check` reads the loop through the free io's `LoopReads` (a test's own, or the Omni page's sign-in). */
+const SUBCOMMANDS: Record<string, TargetsSubcommand> = {
+  show: { run: show, targets: namesTarget },
+  verdict: { run: verdict, targets: () => false },
+  check: { run: (args, io, free) => checkMerge(args, io, loopReadsFor(io.ctx, free)), targets: namesTarget },
+};
 
 export const flow = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, env, vars, reads, tokens, home, fetch, callMs }: FreeIo & FlowOptions): Promise<number> {
-    const [sub, ...rest] = args;
-    const io: CommandIo = { ctx: loadContext(cwd, { exec }), stdout, stderr, exec, env, vars };
-    if (sub === 'show') return show(rest, io);
-    if (sub === 'verdict') return verdict(rest, io);
-    if (sub === 'check') return checkMerge(rest, io, reads ?? omniLoopReads({ askUrl: io.ctx.config.ask.url, tokens, home, fetch, callMs }));
-    throw usageError(USAGE);
-  },
+  run: (args: string[], io: TargetsIo): Promise<number> => runWithTargets('flow', USAGE, SUBCOMMANDS, args, io),
 } satisfies FreeCommand;

@@ -16,6 +16,10 @@
 // landing branch (`branches.landing`) for its sub-PRs, and one by head for the landing's own change;
 // the board then names the current landing and prints a line per landing.
 //
+// With `plan: { product }` (PRD 1548, s10), the targets the slices name are the product's, read from
+// the Omni page (`withProductTargets`, `kit/lib/product/targets.ts`) before the board is built;
+// `contextWithTargets` is that read for `omni board`, `omni next`, `omni care` and `omni flow`.
+//
 // `buildBoard` is that whole building part, exported so that `omni next`, `omni care` and the status
 // line's background refresh (`omni statusline --refresh <n>`, PRD 324) build the board exactly as
 // `omni board` does, from the reads they hand it; the command itself only prints what it returns.
@@ -23,11 +27,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { boardFor, fillBranch, landingBranches } from '../../lib/board.ts';
 import type { BoardLanding, BoardPr, BoardRepos, BoardRow, LandingRow } from '../../lib/board.ts';
-import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { gradedLandings } from '../../lib/inbox/plan-grade.ts';
 import { landingPlan } from '../../lib/landings/landing-plan.ts';
+import { withProductTargets } from '../../lib/product/targets.ts';
+import type { ProductTargetsIo } from '../../lib/product/targets.ts';
 import type { Slice } from '../../lib/inbox/territory.ts';
 import { parsePlanLandings, parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
@@ -37,7 +42,7 @@ import { boardReads, holdsOneRepository, LoopReadError } from '../../lib/loop-re
 import type { BoardReads, LoopReads } from '../../lib/loop-reads/port.ts';
 import { errorCode, errorMessage, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
 import { defined } from '../../lib/narrow.ts';
-import type { FreeCommand, FreeIo, Out } from '../io.ts';
+import type { CommandIo, FreeCommand, FreeIo, Out } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
@@ -280,17 +285,54 @@ function printFrontier(stdout: Out, result: Built['result']): void {
   }
 }
 
-/** What `omni board` reads through beyond its io: a test's own `LoopReads`, or the Omni page's sign-in. */
-type BoardOptions = { reads?: LoopReads | undefined; tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch | undefined; callMs?: number | undefined };
+/** What a command that reads a product's targets is handed: a free command's, what a test hands in for
+ * the read (the sign-in, the app, the clock), and a test's own `LoopReads` for the loop's reads. */
+export type TargetsIo = FreeIo & Omit<ProductTargetsIo, 'cwd' | 'exec'> & { reads?: LoopReads | undefined };
+
+/** The loop's reads for `ctx`: a test's own `LoopReads`, or the Omni page's with the io's sign-in. */
+export function loopReadsFor(ctx: Context, { reads, tokens, home, fetch, callMs }: TargetsIo): LoopReads {
+  return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+}
+
+/**
+ * The context `omni <verb>` runs in, loaded from `io.cwd`: with `plan: { product }`, its
+ * `plan.targets` are the product's, read from the server, the last read's line on stderr when the
+ * copy answered. A usage error, with the line saying why, when they cannot be read.
+ */
+export async function contextWithTargets(verb: string, io: TargetsIo): Promise<Context> {
+  const read = await withProductTargets(loadContext(io.cwd, { exec: io.exec }), io, io.stderr);
+  if (typeof read === 'string') throw usageError(`omni ${verb}: ${read}`);
+  return read;
+}
+
+/** A subcommand of `omni care` or `omni flow`: its run, handed the command's io and the free io it was
+ * run with (for the loop's reads), and whether the arguments it is given need a plan repository's targets. */
+export type TargetsSubcommand = {
+  run: (args: string[], io: CommandIo, free: TargetsIo) => number | Promise<number>;
+  targets: (args: readonly string[]) => boolean;
+};
+
+/**
+ * Runs the subcommand `args` names among `subcommands`, in the context `contextWithTargets` reads when
+ * its arguments need the targets, and in the plain context otherwise, so that it calls no server.
+ */
+export async function runWithTargets(verb: string, usage: string, subcommands: Record<string, TargetsSubcommand>, args: string[], io: TargetsIo): Promise<number> {
+  const [sub = '', ...rest] = args;
+  const command = Object.hasOwn(subcommands, sub) ? subcommands[sub] : undefined;
+  if (command === undefined) throw usageError(usage);
+  const ctx = command.targets(rest) ? await contextWithTargets(verb, io) : loadContext(io.cwd, { exec: io.exec });
+  return command.run(rest, { ctx, stdout: io.stdout, stderr: io.stderr, exec: io.exec, env: io.env, vars: io.vars }, io);
+}
 
 export const board = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, reads, tokens, home, fetch, callMs }: FreeIo & BoardOptions): Promise<number> {
+  async run(args: string[], io: TargetsIo): Promise<number> {
+    const { stdout, stderr } = io;
     const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = prdArg('board', '<prd>', positional[0]);
-    const ctx = loadContext(cwd, { exec });
-    const loop = reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+    const ctx = await contextWithTargets('board', io);
+    const loop = loopReadsFor(ctx, io);
 
     let built: Built;
     try {

@@ -2816,3 +2816,860 @@ Folding it into the outbox's service later is a refactor of two small files; not
 ```
 
 <!-- /omni-outbox-settled: s9-04-the-tab-settles-and-tells-the-app-itself -->
+
+<!-- omni-outbox-settled: s10-01-the-targets-command-shares-the-read -->
+
+## s10-01-the-targets-command-shares-the-read — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s10
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-01-the-targets-command-shares-the-read
+prd: 1548
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+The command that lists a product's repositories had its own copy of the steps that read them from the Omni page. Is it fine that it now shares the one reading the board, the next step, the care and the flow commands use?
+
+## The decision, in plain words
+
+Yes, kept: the listing now calls the shared reading, so both say the same things the same way. It is outside this slice's own files, and changes nothing anyone sees.
+
+## The intro, for fun
+
+Two commands were reading the same list out loud, word for word.
+
+## The punchline, for fun
+
+Now one reads it and the other just nods along.
+
+## The options, in plain words
+
+A. Keep the shared read, as built.
+B. Undo it and keep the listing's own copy of the reading.
+
+## What I had to decide
+
+Whether the change to kit/bin/commands/targets.ts, outside the territory, stays: its targetList now calls productTargetList from kit/lib/product/targets.ts instead of repeating the sign-in, server read and copy fallback. The duplicate was what fallow's audit refused.
+
+## What I did meanwhile
+
+targets.ts keeps its own usage error for a missing repo.slug and every printed line; its tests pass unchanged.
+
+## What it costs to change later
+
+A constant: reverting is putting the dozen lines back in targets.ts and accepting the duplication fallow refuses.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- One ordering edge: with neither ask.url nor repo.slug set, omni targets now stops on the missing slug first (exit 2) rather than on the missing Omni page (exit 1). (author)
+
+```
+
+<!-- /omni-outbox-settled: s10-01-the-targets-command-shares-the-read -->
+
+<!-- omni-outbox-settled: s10-02-other-readers-still-read-the-config-list -->
+
+## s10-02-other-readers-still-read-the-config-list — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s10
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-02-other-readers-still-read-the-config-list
+prd: 1548
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+The board, next-step, care and flow commands now read a product's repositories, but other places still read only the list written in the config. Is it fine to leave them for later?
+
+## The decision, in plain words
+
+Yes, left as they are: the status line's background board, roadmaps, bug fixes, knowledge copies and the retro still read the written list only, which is empty for a product. The setting itself needed no change: it already exists.
+
+## The intro, for fun
+
+Four rooms got the new address book; the rest of the house still has the old one.
+
+## The punchline, for fun
+
+The old one is blank, so nobody gets lost, they just stay in.
+
+## The options, in plain words
+
+A. Leave them for later, as built.
+B. Move the status line's board refresh in this PRD, the others later.
+C. Move every reader in this PRD.
+
+## What I had to decide
+
+Whether the readers outside this territory that still read plan.targets only (the status line's buildBoard refresh in kit/bin/commands/statusline.ts, roadmap, bug fix, knowledge copy and retro readers) move to withProductTargets now or in a later slice. The config key plan.product needed no schema entry: PRD 1364 added it.
+
+## What I did meanwhile
+
+Left untouched; with plan: { product } their plan.targets is [] as before this slice, so they read no target. withProductTargets in kit/lib/product/targets.ts is the one call each would need.
+
+## What it costs to change later
+
+A constant per reader: one await withProductTargets where it loads its context.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The status line's refresh builds the board without the product's targets, so in a product plan repository it marks target slices unreadable until it moves. (author)
+
+```
+
+<!-- /omni-outbox-settled: s10-02-other-readers-still-read-the-config-list -->
+
+<!-- omni-outbox-settled: s10-03-unreadable-product-targets-stop-the-command -->
+
+## s10-03-unreadable-product-targets-stop-the-command — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s10
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-03-unreadable-product-targets-stop-the-command
+prd: 1548
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+When a planning repository takes its repositories from a product and they cannot be read at all, what should the board, the next-step, the care and the flow commands do?
+
+## The decision, in plain words
+
+They stop with one line saying why, as the listing of repositories already does, and use the last read with a note when the server is down. Commands that need no repository list never ask the server.
+
+## The intro, for fun
+
+The map is locked in a drawer and the drawer is on the server.
+
+## The punchline, for fun
+
+No map, no walk: we say so and stay home.
+
+## The options, in plain words
+
+A. Stop with the line, as built.
+B. The next-step command waits instead, naming why, and the other three stop.
+C. Every command carries on as if the plan repository had no targets.
+
+## What I had to decide
+
+What omni board, next, care (state, list) and flow (show/check with a short --repo) do when withProductTargets returns a line: they throw a usage error `omni <verb>: <line>` (exit 2). omni next otherwise turns a GitHub failure into a wait verdict; a loop calling it each tick now stops on this instead.
+
+## What I did meanwhile
+
+Built as a stop, with the last-read copy used when the server does not answer (its line on stderr), and care reply, flow verdict and flow show without a short --repo never calling the server.
+
+## What it costs to change later
+
+A constant: making next turn the line into a wait verdict is a few lines in next.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a loop that calls the next-step command every tick should rather keep waiting on a product it cannot read. (author)
+
+```
+
+<!-- /omni-outbox-settled: s10-03-unreadable-product-targets-stop-the-command -->
+
+<!-- omni-outbox-settled: s11-01-a-product-run-outside-a-plan-repository -->
+
+## s11-01-a-product-run-outside-a-plan-repository — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s11
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-a-product-run-outside-a-plan-repository
+prd: 1548
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+Run from an ordinary repository rather than a plan repository, the brainstorm cannot list the product's repositories by its short key, and the plan grader only reads a PRD kept in a repository. How does a product run cope?
+
+## The decision, in plain words
+
+The repositories come from the design: the person names each one, as the design already asks. The plan is written as always but not graded, and the hand-off says so.
+
+## The intro, for fun
+
+The brainstorm moved out of its office and left its address book behind.
+
+## The punchline, for fun
+
+It asks the person for each address, and admits it skipped the spell check.
+
+## The options, in plain words
+
+A. Targets from the design and plan check not run, said in the hand-off (built).
+B. Teach omni targets and omni plan check a product PRD in this landing first.
+C. Run a product brainstorm only from a checkout whose config says plan.product.
+
+## What I had to decide
+
+Confirm the product run's two gaps until a later slice closes them: outside a config with plan.product, the targets are the repositories the design names (the products/targets route reads a product by name, not by key); and omni plan check, which reads a PRD by number from the delivery tree, is reported as not run on a product PRD.
+
+## What I did meanwhile
+
+kit/plugin/skills/mega-brainstorm/SKILL.md, From a product: step 1 reads omni targets --json when plan.product is set and otherwise takes the repositories the design names; every one is checked with omni product phase0 before any clone. The plan is written into the scratch PRD folder and pushed with omni dossier push <key>-<n> --from, and the hand-off names plan check as not run.
+
+## What it costs to change later
+
+Teaching the targets route a key, and plan check a folder or a product PRD id, are each a change in one route or command; the skill's text then drops the fallback.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) s12 takes plans through omni dossier get; whether it grades them there is s12's to say.
+
+```
+
+<!-- /omni-outbox-settled: s11-01-a-product-run-outside-a-plan-repository -->
+
+<!-- omni-outbox-settled: s11-02-a-command-that-reads-each-targets-flag -->
+
+## s11-02-a-command-that-reads-each-targets-flag — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s11
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-02-a-command-that-reads-each-targets-flag
+prd: 1548
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+Before a product PRD is designed further, every repository it touches must take its approval on the Omni page. How does the brainstorm learn that for each repository, and what does the product question print once a product is remembered?
+
+## The decision, in plain words
+
+A new terminal command reads each repository's setting and prints one line per repository, refusing by name any that still takes a review pull request. Asking which product a checkout is in now names the remembered product first, then the ones the server lists.
+
+## The intro, for fun
+
+The brainstorm needed to ask each repository how it likes to be approved.
+
+## The punchline, for fun
+
+So it now knocks on every door and writes down who still wants paperwork.
+
+## The options, in plain words
+
+A. Keep omni product phase0 and the remembered line first in omni product which (built).
+B. Read each repository's setting through the existing approval command, given the repository, instead.
+C. Give omni product which a --remembered flag and leave its default output as before.
+
+## What I had to decide
+
+Confirm the two shapes the skill reads: omni product phase0 <owner/name>... (one line per repository: `<repo> is phase0: server`, acceptance 10's refusal line on pr, or `<repo>: its phase0 could not be read: <why>`, exit 0 only when all are on server), and omni product which printing `remembered: <key>` as its first line when the checkout remembers a product, then the server's products as before.
+
+## What I did meanwhile
+
+kit/bin/commands/product-checkout.ts adds use and phase0 beside import and which; phase0 reads each flag through readFlag (GET /api/repositories/phase0?repo=), the route omni approval flag already calls for one repository. A flag that cannot be read holds the run instead of reading as pr, as flag.ts's fallback would. which keeps its output unchanged when nothing is remembered, so every existing test of it passes as before.
+
+## What it costs to change later
+
+Each shape is a line in one command and its tests. Moving phase0 under omni approval flag --repo instead is a rename in the skill text and one command.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names the refusal and the remembered product but no command to read another repository's flag; omni approval flag reads only the checkout's own.
+
+```
+
+<!-- /omni-outbox-settled: s11-02-a-command-that-reads-each-targets-flag -->
+
+<!-- omni-outbox-settled: s11-03-the-help-does-not-list-the-new-product-verbs -->
+
+## s11-03-the-help-does-not-list-the-new-product-verbs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s11
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-03-the-help-does-not-list-the-new-product-verbs
+prd: 1548
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 1
+---
+
+## The question, in plain words
+
+The terminal's help still lists the product command's two old uses and the multi-repository brainstorm with no product option. Who adds the new uses, and when?
+
+## The decision, in plain words
+
+Not this slice: the help's text belongs to another slice of this PRD, so it was left as it is. The guide slice that comes last, or a small follow-up, adds them.
+
+## The intro, for fun
+
+We taught the command new tricks but the manual is still on the old page.
+
+## The punchline, for fun
+
+The manual's owner gets a sticky note instead of a surprise edit.
+
+## The options, in plain words
+
+A. Leave the help to s13 or a follow-up (built).
+B. Add the lines to the help in this slice, outside its territory.
+C. Let the help read an entry file that sits beside each command.
+
+## What I had to decide
+
+Name who adds `omni product use <key>` and `omni product phase0 <owner/name>…` to the product entry of kit/lib/help/entries.ts, and `/omni:mega-brainstorm --product <key>` to the mega-brainstorm entry (kit/lib/help/entries.test.ts pins that entry's usage to `/omni:mega-brainstorm` alone): s13, the docs slice, or a follow-up.
+
+## What I did meanwhile
+
+The plan's shared ground gives kit/lib/help/entries.ts to s2 alone, so this slice left it unchanged. The command's own usage line (omni product with no verb, exit 2) names all four verbs, and kit/bin/commands/product-checkout.ts's header describes them.
+
+## What it costs to change later
+
+Two usage lines and a sentence in one entry, and one line in its test; nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan says s11's omni product option goes in its own entry file under kit/bin/commands/product, but the help reads its entries from kit/lib/help/entries.ts only: no entry file elsewhere is read.
+
+```
+
+<!-- /omni-outbox-settled: s11-03-the-help-does-not-list-the-new-product-verbs -->
+
+<!-- omni-outbox-settled: s12-01-skills-do-by-hand-what-the-board-cannot-read -->
+
+## s12-01-skills-do-by-hand-what-the-board-cannot-read — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-01-skills-do-by-hand-what-the-board-cannot-read
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+Several of the loop's commands still only know a repository's own PRD numbers, so they cannot read a product PRD yet. Should the skills work around them for now, or wait until those commands learn product PRDs?
+
+## The decision, in plain words
+
+The skills work around them: they read the plan from the server and the pull requests from GitHub themselves, wait on approval by asking again every minute, and say in their report which command did not run. Teaching those commands product PRDs is a follow-up.
+
+## The intro, for fun
+
+Half the toolbox speaks the new language and the other half still nods politely.
+
+## The punchline, for fun
+
+So the skills translate by hand until the second half takes lessons.
+
+## The options, in plain words
+
+A. The skills work around the commands for now, and a follow-up teaches the commands product PRDs (built).
+B. Hold every product PRD build until those commands learn product PRDs.
+C. Teach the commands product PRDs inside this PRD, before the skills ship.
+
+## What I had to decide
+
+Whether the product path of the ultra and mega skills reads the plan, the pull requests and the approval itself while the board, the next step, care, the approval wait, the plan checks, ship, rework and the Loop page take only a repository's PRD number.
+
+## What I did meanwhile
+
+Each skill's product section reads the plan through the dossier, grades the slices from the target pull requests the way the board does, waits on approval by reading the PRD again once a minute for up to an hour, drives a product PRD beside the loop plan with no Loop page tick, and names every command it could not run in its hand-off.
+
+## What it costs to change later
+
+Skill text only: once a command learns product PRDs, the matching sentence of each product section is replaced by that command.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether grading slices by hand matches the board exactly on a claim gone stale (author)
+- whether a product PRD should appear on the Loop page before its commands learn product ids (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-01-skills-do-by-hand-what-the-board-cannot-read -->
+
+<!-- omni-outbox-settled: s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing -->
+
+## s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+When a product PRD reaches the build with no plan on its page, or with a plan split into several landings, should the build plan it or split it itself?
+
+## The decision, in plain words
+
+Neither: the build stops in one line. A product PRD's plan is approved together with its spec at brainstorm, so the build never writes one after approval, and a product PRD lands as one feature pull request per repository for now.
+
+## The intro, for fun
+
+The builder shows up and finds the blueprint drawer empty.
+
+## The punchline, for fun
+
+It leaves a note asking for the blueprint instead of sketching one on a napkin.
+
+## The options, in plain words
+
+A. Stop in one line: the plan comes from the brainstorm, in one landing per repository (built).
+B. Plan it in the build, as a repository's PRD is planned, and ask for approval again.
+C. Allow several landings, each repository getting its own chain of pull requests.
+
+## What I had to decide
+
+What the build does with a product PRD whose page holds no plan, or whose plan has more than one landing.
+
+## What I did meanwhile
+
+The build stops with one line naming the brainstorm that plans it, or the number of landings, and builds nothing.
+
+## What it costs to change later
+
+Skill text only: allowing either later is a paragraph in the build's product section.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a plan written after approval would void the approval on the server (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-02-a-product-prd-is-planned-at-brainstorm-in-one-landing -->
+
+<!-- omni-outbox-settled: s12-03-reworks-only-from-answers-given-in-the-run -->
+
+## s12-03-reworks-only-from-answers-given-in-the-run — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-03-reworks-only-from-answers-given-in-the-run
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+When someone disagrees with a decision on the product's Questions tab, the loop has no command yet that reads that answer back. Which disagreements does the rework run act on?
+
+## The decision, in plain words
+
+Only the ones answered in the same run, in the terminal, where the run saw the question and the answer. A disagreement given on the Questions tab is reported as held until a command can read it.
+
+## The intro, for fun
+
+Someone wrote a strong opinion on the fridge, and the robot cannot read handwriting yet.
+
+## The punchline, for fun
+
+It acts on what you told it out loud and points at the fridge for the rest.
+
+## The options, in plain words
+
+A. Rework only what was answered in the same run; hold the rest, named (built).
+B. Hold every product rework until a command reads the answers on the server.
+C. Add that command to this PRD, so the rework run reads every answer.
+
+## What I had to decide
+
+Which drifted answers on a product PRD the rework run reworks, while no command lists the answers settled on the server.
+
+## What I did meanwhile
+
+The rework run reworks each answer posted as a disagreement in the same run, bounded by the option picked, and names every other one as held on the Questions tab.
+
+## What it costs to change later
+
+Skill text only, plus a command that lists a product PRD's settled answers when one lands.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- how often a person answers on the Questions tab rather than in the terminal (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-03-reworks-only-from-answers-given-in-the-run -->
+
+<!-- omni-outbox-settled: s12-04-a-product-prds-branches-are-named-after-its-id -->
+
+## s12-04-a-product-prds-branches-are-named-after-its-id — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-04-a-product-prds-branches-are-named-after-its-id
+prd: 1548
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 2
+---
+
+## The question, in plain words
+
+A product PRD has no folder name to build its branch names from. What name do its branches and its local copies of each repository take?
+
+## The decision, in plain words
+
+Its own name, like mobile-12, in place of the topic, so every repository's feature branch and every slice branch of that PRD carry it, and two PRDs never share a copy.
+
+## The intro, for fun
+
+Every branch needs a name tag, and this PRD only came with a number plate.
+
+## The punchline, for fun
+
+So the number plate went on every branch, which at least never gets lost.
+
+## The options, in plain words
+
+A. Name them after the PRD's id alone (built).
+B. Add a short word from the title after the id.
+C. Give the product PRD a topic field on its page and use that.
+
+## What I had to decide
+
+What fills the topic of a product PRD's feature and slice branches, and of its target clones.
+
+## What I did meanwhile
+
+The PRD's id fills the topic everywhere, for every repository it lands in.
+
+## What it costs to change later
+
+Renaming later means new branches for any PRD already being built; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether people want a readable word in the branch name beside the id (author)
+
+```
+
+<!-- /omni-outbox-settled: s12-04-a-product-prds-branches-are-named-after-its-id -->
+
+<!-- omni-outbox-settled: s13-01-the-help-names-the-product-verbs -->
+
+## s13-01-the-help-names-the-product-verbs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-11
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-11
+- Slice: s13
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s13-01-the-help-names-the-product-verbs
+prd: 1548
+slice: s13
+rank: medium
+bears-on: none
+raised: 2026-10-11
+wave: 3
+---
+
+## The question, in plain words
+
+The terminal's help did not list the two new product commands, nor that the brainstorm across repositories can start from a product. This slice only owns the guide and the two app pages: may it add those lines to the help as well?
+
+## The decision, in plain words
+
+Yes, kept as small as it could be: the help now lists remembering a product and checking each repository's approval setting, and says the brainstorm can start from a product. Nothing else in the help changed.
+
+## The intro, for fun
+
+The guide learned three new words before the dictionary did.
+
+## The punchline, for fun
+
+So we slipped them into the dictionary on the way out.
+
+## The options, in plain words
+
+A. A. Add the lines to the help in this slice (built).
+B. B. Leave the help as it was and add them in a follow-up.
+
+## What I had to decide
+
+Whether the help's product entry and its brainstorm-across-repositories entry may carry the new verbs, outside this slice's territory (settled item s11-03 left it to this slice or a follow-up).
+
+## What I did meanwhile
+
+Added the usage lines omni product use <key> and omni product phase0 <owner/name>… with one paragraph on each, the remembered line of omni product which, and a sentence on --product to the mega-brainstorm entry's detail. Its usage line stays /omni:mega-brainstorm alone, since a help test pins it; the help tests pass.
+
+## What it costs to change later
+
+A text change in one file; reverting it is one commit, and nothing stored or shipped depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The mega-brainstorm entry's usage line does not show --product <key>: the help test pins that usage, and the test lies outside this slice.
+
+```
+
+<!-- /omni-outbox-settled: s13-01-the-help-names-the-product-verbs -->

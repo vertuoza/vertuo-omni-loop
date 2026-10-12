@@ -1,5 +1,6 @@
 // `omni e2e status <n>` (PRD 1233, beta): the tests tagged `prd-<n>` under `e2e.dir`, each with whether
-// it has a recording, as JSON. Exit 1 when one has none, when `e2e` is off, or when a recording does not
+// it has a recording, as JSON, and whether one is expected (a test with no `agent.` call records none).
+// Exit 1 when one that expects a recording has none, when `e2e` is off, or when a recording does not
 // read or is not `trace-1` (the message names the file); exit 2 for a usage error. It reads files only:
 // no network, no browser, no model.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
@@ -10,7 +11,7 @@ import { confirmHeld, holdHealed, readLedgerAt, rejectHeld, withoutConfirmed } f
 import { parseFolderName } from '../../lib/layout.ts';
 import { screenshotsFor } from '../../lib/e2e/screenshots.ts';
 import { RecordingError, readRecordings, readTaggedTests } from '../../lib/e2e/recording.ts';
-import { testStatus } from '../../lib/e2e/status.ts';
+import { missingRecording, testStatus } from '../../lib/e2e/status.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 import { messageOf } from '../../lib/narrow.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
@@ -37,7 +38,7 @@ function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   try {
     const tests = testStatus(readTaggedTests(ctx.root, dir, prd), readRecordings(ctx.root, dir));
     println(stdout, JSON.stringify({ prd, dir, tests }, null, 2));
-    return tests.some((test) => !test.recording) ? 1 : 0;
+    return missingRecording(tests) ? 1 : 0;
   } catch (error) {
     if (!(error instanceof RecordingError)) throw error;
     println(stderr, `omni e2e: ${messageOf(error)}`);

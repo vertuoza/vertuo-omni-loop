@@ -1,9 +1,9 @@
 // OMNI DUET's playfield on the canvas (PRD 1633): the 320×288 field, the circle with nothing at its
 // centre, the two orbs on it, each with its short trail (the warm one in the orange ramp, the
-// cool one in the theme's cyan), and the wave's Entropy blocks falling through it, in Entropy's ramp
-// with spikes along their edges. The scene places the field on the grid (scenes/duet.ts); this file
-// draws in the field's own game pixels. Every colour equal to a theme token is read from the frame's
-// theme (ADR-0046).
+// cool one in the theme's cyan), and the wave's obstacles falling through it as Entropy blocks, in
+// Entropy's ramp with spikes along their long edges, a ghost fading out before it reaches the
+// circle. The scene places the field on the grid (scenes/duet.ts); this file draws in the field's
+// own game pixels. Every colour equal to a theme token is read from the frame's theme (ADR-0046).
 import { RAMPS, rampFrom } from '@omni/design';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Action } from '../keys';
@@ -12,7 +12,7 @@ import type { DuetGame, DuetHud } from '../scenes/duet.ts';
 import { corners, type Block } from './collide';
 import { orbs, RULES, type Point } from './rules';
 import { CHAPTER_TITLES, newRun, pause, press, step, waveOf, wavesIn, type Run } from './run';
-import { blocksAt } from './waves';
+import { blocksAt, sightOf } from './waves';
 
 /** The warm orb's ramp, light to dark: no theme token is orange. */
 const WARM = defined(RAMPS.O, 'the orange ramp');
@@ -105,7 +105,17 @@ export function drawField(ctx: CanvasRenderingContext2D, s: FrameState, run: Run
   track(ctx, s);
   const falling = run.phase === 'play' || (run.phase === 'paused' && run.resume === 'play');
   const wave = falling ? waveOf(run) : undefined;
-  if (wave) for (const b of blocksAt(wave, run.tick)) block(ctx, b);
+  // A ghost fades as it falls and is not drawn once gone; with reduced motion too, as a fade moves
+  // nothing on the screen and the hidden obstacle is the wave itself, not an effect.
+  if (wave) {
+    blocksAt(wave, run.tick).forEach((b, i) => {
+      const sight = sightOf(defined(wave.pieces[i], "a block's obstacle"), b);
+      if (sight <= 0) return;
+      ctx.globalAlpha = sight;
+      block(ctx, b);
+    });
+    ctx.globalAlpha = 1;
+  }
   const cool = rampFrom(s.theme.cyan);
   const pair = (angle: number) => { const [warm, other] = orbs(angle); return [[warm, WARM], [other, cool]] as const; };
   if (!s.reduced) {

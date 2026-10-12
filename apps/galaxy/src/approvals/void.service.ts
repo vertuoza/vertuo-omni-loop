@@ -1,3 +1,4 @@
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { notifyAll, type Channels, type Message } from '../notify/notify';
 import type { PushVoid, VoidReachRepository, VoidRepository } from './void.repository';
 
@@ -7,7 +8,9 @@ import type { PushVoid, VoidReachRepository, VoidRepository } from './void.repos
 // approver they voided by the channels they turned on: `approval voided by <pusher>'s push`, each
 // changed kind with its old and new short hash, and the PRD's page. One push voids one approval, so one
 // message goes out, however many kinds it changed. Telling never fails a push: what could not be read
-// or sent is one log line.
+// or sent is one log line. PRD 1612 s2: first, the PRD's issue loses its approved label (as the App's
+// installation), whether or not the approver can be told: the App's `issues.unlabeled` webhook then
+// reruns the omni/approved check on the PRD's open pull requests.
 
 /** What telling needs: the pusher's read, the service role's (null when this deployment has no service
  * key), the channels built for a contact address (this app's origin) with a way to forget a device,
@@ -17,6 +20,9 @@ export type TellDeps = {
   reach: VoidReachRepository | null;
   channels: (contact: string) => Channels;
   log: (line: string) => void;
+  /** Removes the approved label from PRD `prd`'s issue in `repo`, as the App's installation (PRD 1612
+   * s2); may throw. */
+  unlabel: (repo: string, prd: PrdNumber) => Promise<void>;
 };
 
 const short = (sha256: string) => sha256.slice(0, 7);
@@ -46,6 +52,16 @@ function voidMessage(voids: readonly [PushVoid, ...PushVoid[]], origin: string):
   };
 }
 
+/** Removes the voided PRD's approved label, so the App's `issues.unlabeled` webhook reruns the
+ * omni/approved check; a label that cannot be removed is a log line, never a failed push. */
+async function unlabel(deps: TellDeps, voided: PushVoid): Promise<void> {
+  try {
+    await deps.unlabel(voided.repo, voided.prd);
+  } catch (error) {
+    deps.log(`approvals: PRD #${voided.prd} of ${voided.repo} is voided, but its approved label was not removed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function tell(deps: TellDeps, dossier: string, origin: string): Promise<void> {
   const read = await deps.voids.ofPush(dossier);
   if (!read.ok) {
@@ -54,6 +70,7 @@ async function tell(deps: TellDeps, dossier: string, origin: string): Promise<vo
   }
   const [first, ...rest] = read.value;
   if (!first) return;
+  await unlabel(deps, first);
   if (!deps.reach) {
     deps.log(`approvals: PRD #${first.prd} of ${first.repo}'s approval is voided, but ${first.approver} is not told: SUPABASE_SERVICE_ROLE_KEY is not set`);
     return;
