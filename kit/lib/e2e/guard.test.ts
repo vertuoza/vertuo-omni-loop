@@ -20,6 +20,8 @@ describe('scanText', () => {
     "await page.fill('#password', value);",
     'the token is kept in the saved session',
     'password: ${QA_PASSWORD}',
+    "await page.fill('#password', process.env.QA_PASSWORD ?? '');",
+    "await session.save('qa');",
   ])('lets %s through', (line) => {
     expect(scanText('f.ts', line)).toEqual([]);
   });
