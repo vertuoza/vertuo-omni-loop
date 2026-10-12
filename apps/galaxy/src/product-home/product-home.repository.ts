@@ -11,15 +11,47 @@ import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts
 // (approval_requests_waiting()), and the workspace's open pull requests on a feature branch
 // (pull_requests). Since s10, its other tabs': the product's ideas still on a board (ideas.product_id),
 // its roadmaps (roadmaps.product_id), and its bug and visual fixes (dossiers of kind `bug` or `visual`).
-// A failed read throws, and an answer out of shape too. No rule lives here: which lane a
+// Since PRD 1548 s9, its Questions tab's: the product's key (products.key), its product PRDs (dossiers of
+// kind `prd` keyed by the product's counter, `mobile-12`), their outbox items with whether each is settled
+// (outbox_items, outbox_settlements), and the GitHub logins of the PRDs' authors (players). A failed read throws, and an answer out of shape too. No rule lives here: which lane a
 // PRD is on is product-home.service.ts's.
 
 /** What the product home's reads need: the tables and the database's functions. */
 export type ProductHomeDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 type From = Pick<SupabaseClient, 'from'>;
 
-const PRODUCT_COLUMNS = 'id, name';
-export const StoredProduct = z.object({ id: z.string(), name: z.string() });
+const PRODUCT_COLUMNS = 'id, name, key';
+export const StoredProduct = z.object({ id: z.string(), name: z.string(), key: z.string().nullable() });
+type Product = z.infer<typeof StoredProduct>;
+
+const PRODUCT_PRD_COLUMNS = 'id, product_seq, title, opened_by, created_at';
+/** A product PRD of the product: keyed by the product's counter, with no home repository (PRD 1548). */
+export const StoredProductPrd = z.object({
+  id: z.string(),
+  product_seq: z.number().int().positive(),
+  title: z.string(),
+  opened_by: z.string().nullable(),
+  created_at: z.string(),
+});
+export type StoredProductPrd = z.infer<typeof StoredProductPrd>;
+
+const ITEM_COLUMNS = 'dossier_id, item, rank, repository, body, raised_at, outbox_settlements(id)';
+/** An outbox item of a product PRD, with its settlements (none while it is open). */
+export const StoredItem = z.object({
+  dossier_id: z.string(),
+  item: z.string(),
+  rank: z.enum(['medium', 'high', 'human-action']),
+  repository: z.string().nullable(),
+  body: z.string(),
+  raised_at: z.string(),
+  outbox_settlements: z.array(z.object({ id: z.string() })),
+});
+export type StoredItem = z.infer<typeof StoredItem>;
+
+const PLAYER_COLUMNS = 'user_id, github_login';
+/** A member's GitHub login, as their workspace's player. */
+export const StoredPlayer = z.object({ user_id: z.string(), github_login: z.string().nullable() });
+export type StoredPlayer = z.infer<typeof StoredPlayer>;
 
 const PRD_COLUMNS = 'id, home_repo, prd, title, birthplace, opened_by, created_at';
 /** A numbered PRD of the product. */
@@ -120,6 +152,25 @@ export const productPrdsOf = (db: From, scope?: { workspace: string; product: st
 
 type ProductScope = { workspace: string; product: string };
 
+/** The product PRDs of every product, or of the workspace's product given, newest first. */
+export const productServerPrdsOf = (db: From, scope?: ProductScope) => {
+  const read = db.from('dossiers').select(PRODUCT_PRD_COLUMNS).eq('kind', 'prd').not('product_seq', 'is', null);
+  return (scope === undefined ? read : read.eq('workspace_id', scope.workspace).eq('product_id', scope.product))
+    .order('created_at', { ascending: false });
+};
+
+/** The outbox items of every product PRD, or of `dossiers`, oldest first, each with its settlements. */
+export const productItemsOf = (db: From, dossiers?: readonly string[]) => {
+  const read = db.from('outbox_items').select(ITEM_COLUMNS);
+  return (dossiers === undefined ? read : read.in('dossier_id', [...dossiers])).order('raised_at');
+};
+
+/** The players of every workspace, or of the workspace's members given. */
+export const playersOf = (db: From, scope?: { workspace: string; users: readonly string[] }) => {
+  const read = db.from('players').select(PLAYER_COLUMNS);
+  return scope === undefined ? read : read.eq('workspace_id', scope.workspace).in('user_id', [...scope.users]);
+};
+
 /** The ideas on a board of every product, or of the workspace's product given, newest first. */
 export const productIdeasOf = (db: From, scope?: ProductScope) => {
   const read = db.from('ideas').select(IDEA_COLUMNS).eq('archived', false).not('product_id', 'is', null);
@@ -185,8 +236,8 @@ type RpcAnswer = { data: unknown; error: { message: string } | null };
 
 export function productHomeRepository(db: ProductHomeDb) {
   return {
-    /** The workspace's product `id`; null when it holds none such. */
-    async product(workspace: string, id: string): Promise<{ id: string; name: string } | null> {
+    /** The workspace's product `id`, with its key; null when it holds none such. */
+    async product(workspace: string, id: string): Promise<Product | null> {
       const { data, error } = await productOf(db, workspace).eq('id', id);
       if (error) throw new Error(`Supabase: could not read the product (${why(error)})`);
       return orThrow(parseRows(StoredProduct, data, `${WHERE}: products`))[0] ?? null;
@@ -197,6 +248,29 @@ export function productHomeRepository(db: ProductHomeDb) {
       const { data, error } = await productPrdsOf(db, { workspace, product });
       if (error) throw new Error(`Supabase: could not read the product's PRDs (${why(error)})`);
       return orThrow(parseRows(StoredHomePrd, data, `${WHERE}: dossiers`));
+    },
+
+    /** The product's product PRDs, newest first. */
+    async productPrds(workspace: string, product: string): Promise<StoredProductPrd[]> {
+      const { data, error } = await productServerPrdsOf(db, { workspace, product });
+      if (error) throw new Error(`Supabase: could not read the product's PRDs on the server (${why(error)})`);
+      return orThrow(parseRows(StoredProductPrd, data, `${WHERE}: product dossiers`));
+    },
+
+    /** The outbox items of the product PRDs `dossiers`, oldest first, each with its settlements. */
+    async items(dossiers: readonly string[]): Promise<StoredItem[]> {
+      if (dossiers.length === 0) return [];
+      const { data, error } = await productItemsOf(db, dossiers);
+      if (error) throw new Error(`Supabase: could not read the PRDs' outbox items (${why(error)})`);
+      return orThrow(parseRows(StoredItem, data, `${WHERE}: outbox_items`));
+    },
+
+    /** The players of the workspace's members `users`: their GitHub logins. */
+    async players(workspace: string, users: readonly string[]): Promise<StoredPlayer[]> {
+      if (users.length === 0) return [];
+      const { data, error } = await playersOf(db, { workspace, users });
+      if (error) throw new Error(`Supabase: could not read the PRDs' authors (${why(error)})`);
+      return orThrow(parseRows(StoredPlayer, data, `${WHERE}: players`));
     },
 
     /** The product's ideas still on a board, newest first. */

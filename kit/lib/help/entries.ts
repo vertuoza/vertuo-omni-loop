@@ -82,7 +82,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     usage: ['omni status [--fetch]', 'omni status <prd> [--labels a,b] [--base <ref> | --changes]'],
     label: 'omni status',
     summary: 'your PRDs, the inbox, the outbox, what has shipped',
-    also: [['omni status <n>', 'the outbox gate for PRD n (exit 0 green, 1 red)']],
+    also: [['omni status <n>', 'the outbox gate for PRD n (exit 0 green, 1 red)'], ['omni status <key>-<n>', 'a product PRD\'s gate, read from the Omni page']],
     detail:
       'With no PRD number, the overview of this repository, read from git only: how many PRDs sit ' +
       'at each stage of the loop (PRD, inbox, building, outbox, shipped, retro; an idea is a draft ' +
@@ -552,7 +552,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     kind: 'command',
     who: 'you',
     label: 'omni product …',
-    usage: ['omni product import --product <name>', 'omni product which'],
+    usage: ['omni product import --product <name>', 'omni product which', 'omni product use <key>', 'omni product phase0 <owner/name>…'],
     summary: "plan targets into a product; this repo's products",
     detail:
       'omni product import --product <name> copies the targets of this plan repository, its ' +
@@ -562,8 +562,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'changed. A second run changes nothing. It never edits the config: swap targets for ' +
       'product: <name> in the plan section yourself, and omni targets then reads the links from ' +
       'the product. Only an owner of the workspace changes its links. omni product which prints ' +
-      'the products this repository is in, one per line, or none. Either exits 1, with one line ' +
-      'saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses.',
+      'the products this repository is in, one per line, or none, after remembered: <key> when this ' +
+      'checkout remembers one. Either exits 1, with one line saying why, when there is no Omni page ' +
+      'or sign-in, or the page is unreachable or refuses. omni product use <key> remembers the ' +
+      'product this checkout runs from, for every worktree of it, so a product PRD (mobile-12) is ' +
+      'built from here with no plan repository. omni product phase0 <owner/name>… reads each ' +
+      "repository's phase-0 flag and prints one line each, refusing by name any not on server, which " +
+      'a product PRD cannot land in. Exit 0 when every one is on server, 1 otherwise.',
   },
   {
     name: 'whoami',
@@ -595,23 +600,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '  --channel prd-issue|feature-pull-request --number <n>',
       '  (--answer "<text>" | --answer-file <path>) [--url <u>]',
       '  [--verdict agreed|drifted]',
+      'omni settle <item-id> --prd <key>-<n>',
+      '  (--answer "<text>" | --answer-file <path>)',
+      '  [--verdict agreed|drifted]',
     ],
     summary: 'settle one answered outbox item',
     detail:
       "Settles one open outbox item with the answer a person gave: appends the question and the " +
       "answer, word for word, to the PRD's settled ledger, then deletes the open file. The ledger " +
-      'is append-only: nothing in it is ever rewritten.',
+      'is append-only: nothing in it is ever rewritten. With --prd <key>-<n>, settles a product PRD\'s ' +
+      'open item on the Omni page, as answered in the terminal.',
   },
   {
     name: 'adopt',
     kind: 'command',
     who: 'skills',
-    usage: ['omni adopt <item-text-file>'],
+    usage: ['omni adopt <item-text-file>', 'omni adopt <item-id> --prd <key>-<n>'],
     summary: 'adopt a medium outbox item',
     detail:
       "Adopts a medium outbox item, as it is raised or once it is open: appends its entry to the PRD's " +
       'settled ledger and removes the open file. An adopted decision stands unless someone objects ' +
-      "later. /omni:wave adopts a wave's medium items once the wave has merged.",
+      "later. /omni:wave adopts a wave's medium items once the wave has merged. With --prd <key>-<n>, " +
+      "adopts a product PRD's open medium item on the Omni page.",
   },
   {
     name: 'replies',
@@ -631,12 +641,15 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json]',
       'omni answers post --prd <n> --pr <n> --answers <file>',
       '  [--repo <owner/name>] [--print]',
+      'omni answers ask <key>-<n> [--json]',
+      'omni answers post --prd <key>-<n> --answers <file>',
     ],
     summary: 'answer the outbox from the terminal',
     detail:
       'With ask, prints the open human-action and high questions of the feature PR, in its numbering, ' +
       'at most four at a time. With post, writes the picks as one reply and posts it on the feature ' +
-      'PR, where omni replies reads it; --print only prints it. /omni:yolo runs it when its gate ends red.',
+      'PR, where omni replies reads it; --print only prints it. /omni:yolo runs it when its gate ends red. ' +
+      "On a product PRD, ask needs no PR, and post settles each answered question on the Omni page.",
   },
   {
     name: 'comment',
@@ -688,6 +701,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni item new --prd <n> --slice <id> --file <file>',
       '  [--adopt | --out <dir>] [--json]',
       'omni item relay <dir> --prd <n>',
+      'omni item new --prd <key>-<n> … · omni item relay <dir> --prd <key>-<n>',
     ],
     summary: 'record a decision an agent took alone',
     detail:
@@ -697,7 +711,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'straight to the settled ledger. --out writes the item to a folder instead of the outbox, ' +
       'for a slice built in another repository, and never adopts. relay moves every item and ' +
       "account of such a folder into PRD n's outbox, checked as new items are; a refused file " +
-      'stays in the folder with its reason, exit 2.',
+      'stays in the folder with its reason, exit 2. On a product PRD (--prd <key>-<n>) the outbox is ' +
+      'its rows on the Omni page: a checked item becomes a row, and while the server cannot be reached ' +
+      'it holds, exit 1.',
   },
   {
     name: 'plan',
@@ -1077,7 +1093,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'one PRD whose plan says which slice lands in which target repository, read from a ' +
       'read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR ' +
       'and one phase-0 PR, with a table of what lands where, all live in the plan repository; it ' +
-      'never writes in a target. It ends with the /omni:ultra-yolo line that builds it.',
+      'never writes in a target. It ends with the /omni:ultra-yolo line that builds it. With ' +
+      '--product <key>, it runs from any checkout of a repository the product holds, a plan ' +
+      'repository or not, and makes a product PRD (mobile-12) on the Omni page instead: no issue, ' +
+      'no branch and no PR in any repository, every repository it lands in on phase 0 on the server.',
     group: 'multi-repo',
     when: 'Use it when one idea needs changes in several repositories and this is their plan repository.',
     example: {

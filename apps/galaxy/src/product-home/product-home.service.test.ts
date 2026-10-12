@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { productHomeOf, productHomeService, type ProductHomeRows } from './product-home.service';
-import type { ProductHomeRepository, StoredHomePrd } from './product-home.repository';
+import type { ProductHomeRepository, StoredHomePrd, StoredItem, StoredProductPrd } from './product-home.repository';
 
 // The product home's rules (PRD 1364 s9), on fixture rows: which lane each PRD of the product is on, its
 // state word, its seal and its PR chips, the summary, and the PRDs tab, newest first.
@@ -16,8 +16,30 @@ const stage = (n: number, s: 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped'
 
 const base = (over: Partial<ProductHomeRows> = {}): ProductHomeRows => ({
   product: { id: 'p-mobile', name: 'Mobile' },
-  prds: [], stages: [], outbox: [], approvals: [], voids: [], waitingOnMe: [], topics: [], pulls: [], ideas: [], roadmaps: [], fixes: [], me: ME,
+  prds: [], stages: [], outbox: [], approvals: [], voids: [], waitingOnMe: [], topics: [], pulls: [], ideas: [], roadmaps: [], fixes: [],
+  key: 'mobile', productPrds: [], items: [], players: [], me: ME,
   ...over,
+});
+
+const productPrd = (id: string, seq: number, over: Partial<StoredProductPrd> = {}): StoredProductPrd => ({
+  id, product_seq: seq, title: `Mobile ${String(seq)}`, opened_by: null, created_at: `2026-10-${String(10 + (seq % 10)).padStart(2, '0')}T00:00:00Z`, ...over,
+});
+
+/** An outbox item of a product PRD, as its row holds it: its body a well-formed item whose question names it. */
+const item = (dossier: string, id: string, rank: StoredItem['rank'], repository: string | null, settlements: { id: string }[] = []): StoredItem => ({
+  dossier_id: dossier, item: id, rank, repository, raised_at: '2026-10-11T09:00:00Z', outbox_settlements: settlements,
+  body: [
+    '---', `id: ${id}`, 'prd: mobile-12', `slice: ${id.split('-')[0] ?? 's1'}`, `rank: ${rank}`, 'bears-on: none', 'raised: 2026-10-11', 'wave: 1', '---', '',
+    '## The question, in plain words', '', `Is ${id} settled?`, '',
+    '## The decision, in plain words', '', 'It is kept.', '',
+    '## The intro, for fun', '', 'A question walks in.', '',
+    '## The punchline, for fun', '', 'It walks out answered.', '',
+    '## The options, in plain words', '', 'A. Keep it (built).', 'B. Change it.', '',
+    '## What I had to decide', '', 'Whether to keep it.', '',
+    '## What I did meanwhile', '', 'Kept it.', '',
+    '## What it costs to change later', '', 'Little.', '',
+    '## What I could not know', '', '(author) Nothing more.', '',
+  ].join('\n'),
 });
 
 const lane = (rows: ProductHomeRows, id: 'on-you' | 'on-review' | 'on-agent') =>
@@ -171,10 +193,53 @@ describe('the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs (s10)',
         { repository: 'vertuo/api', prd: parsePrd(999), waiting: [{ id: 's1-01', rank: 'high', question: 'Not ours?' }] },
       ],
     });
+    const on = { options: [], answerOn: null };
     expect(productHomeOf(rows).questions).toEqual([
-      { dossier: 'd-2', repo: 'vertuo/api', prd: 913, title: 'Quotes', id: 's1-01', rank: 'human-action', question: 'Add the secret?' },
-      { dossier: 'd-2', repo: 'vertuo/api', prd: 913, title: 'Quotes', id: 's1-02', rank: 'high', question: 'Keep the cache?' },
-      { dossier: 'd-1', repo: 'vertuo/api', prd: 912, title: 'Search', id: 's2-01', rank: 'high', question: 'Round per line?' },
+      { dossier: 'd-2', repo: 'vertuo/api', prdLabel: '913', title: 'Quotes', id: 's1-01', rank: 'human-action', question: 'Add the secret?', forWhom: 'for a person who can do it', ...on },
+      { dossier: 'd-2', repo: 'vertuo/api', prdLabel: '913', title: 'Quotes', id: 's1-02', rank: 'high', question: 'Keep the cache?', forWhom: 'for its author', ...on },
+      { dossier: 'd-1', repo: 'vertuo/api', prdLabel: '912', title: 'Search', id: 's2-01', rank: 'high', question: 'Round per line?', forWhom: 'for its author', ...on },
+    ]);
+  });
+
+  it('lists the open questions of the product PRDs, worst first, with their repository, options and who each is for (PRD 1548 s9)', () => {
+    const rows = base({
+      key: 'mobile',
+      productPrds: [productPrd('d-m12', 12, { title: 'Quotes on the phone', opened_by: 'u-paul' }), productPrd('d-m11', 11, { opened_by: ME })],
+      items: [
+        item('d-m12', 's2-01-quote-totals', 'medium', 'vertuoza/vertuo-api'),
+        item('d-m12', 's3-02-vat-number', 'high', 'vertuoza/vertuo-mobile'),
+        item('d-m12', 's1-01-settled-one', 'high', null, [{ id: 'st-1' }]),
+        item('d-m11', 's1-01-add-the-secret', 'human-action', null),
+        item('d-m11', 's1-02-keep-the-cache', 'high', null),
+      ],
+      players: [{ user_id: 'u-paul', github_login: 'paul' }, { user_id: ME, github_login: null }],
+    });
+    const questions = productHomeOf(rows).questions;
+    expect(questions.map((q) => [q.prdLabel, q.id, q.repo, q.rank, q.forWhom, q.answerOn])).toEqual([
+      ['mobile-12', 's3-02-vat-number', 'vertuoza/vertuo-mobile', 'high', 'for paul', 'mobile-12'],
+      ['mobile-12', 's2-01-quote-totals', 'vertuoza/vertuo-api', 'medium', 'for paul', 'mobile-12'],
+      ['mobile-11', 's1-01-add-the-secret', null, 'human-action', 'for a person who can do it', 'mobile-11'],
+      ['mobile-11', 's1-02-keep-the-cache', null, 'high', 'for you', 'mobile-11'],
+    ]);
+    expect(questions[0]).toMatchObject({
+      dossier: 'd-m12', title: 'Quotes on the phone', question: 'Is s3-02-vat-number settled?',
+      options: [{ letter: 'A', text: 'Keep it (built).' }, { letter: 'B', text: 'Change it.' }],
+    });
+  });
+
+  it('orders product PRDs and repository PRDs together, newest first, and reads a question whose body no longer parses by its id', () => {
+    const rows = base({
+      key: null,
+      prds: [prd('d-1', 912, { created_at: '2026-10-02T00:00:00Z' })],
+      stages: [stage(912, 'building')],
+      outbox: [{ repository: 'vertuo/api', prd: parsePrd(912), waiting: [{ id: 's2-01', rank: 'high', question: 'Round per line?' }] }],
+      productPrds: [productPrd('d-m3', 3, { created_at: '2026-10-03T00:00:00Z' }), productPrd('d-m1', 1, { created_at: '2026-10-01T00:00:00Z' })],
+      items: [{ ...item('d-m3', 's1-01-broken', 'high', null), body: 'not an item' }, item('d-m1', 's1-01-old', 'high', null)],
+    });
+    expect(productHomeOf(rows).questions.map((q) => [q.prdLabel, q.id, q.question, q.options.length, q.answerOn])).toEqual([
+      ['3', 's1-01-broken', 's1-01-broken', 0, null],
+      ['912', 's2-01', 'Round per line?', 0, null],
+      ['1', 's1-01-old', 'Is s1-01-old settled?', 2, null],
     ]);
   });
 
@@ -188,8 +253,11 @@ describe('the product home\'s service', () => {
   function store(over: Partial<ProductHomeRepository> = {}) {
     const calls: string[] = [];
     const s: ProductHomeRepository = {
-      product: (ws, id) => { calls.push(`product ${ws} ${id}`); return Promise.resolve({ id, name: 'Mobile' }); },
+      product: (ws, id) => { calls.push(`product ${ws} ${id}`); return Promise.resolve({ id, name: 'Mobile', key: 'mobile' }); },
       prds: (ws, id) => { calls.push(`prds ${ws} ${id}`); return Promise.resolve([prd('d-1', 7, { home_repo: 'vertuo/api' })]); },
+      productPrds: (ws, id) => { calls.push(`product prds ${ws} ${id}`); return Promise.resolve([productPrd('d-m12', 12, { opened_by: 'u-paul' })]); },
+      items: (ids) => { calls.push(`items ${ids.join()}`); return Promise.resolve([item('d-m12', 's2-01-quote-totals', 'high', 'vertuoza/vertuo-api')]); },
+      players: (ws, users) => { calls.push(`players ${ws} ${users.join()}`); return Promise.resolve([{ user_id: 'u-paul', github_login: 'paul' }]); },
       stages: (_ws, repos) => { calls.push(`stages ${repos.join()}`); return Promise.resolve([stage(7, 'building')]); },
       outbox: (_ws, repos) => { calls.push(`outbox ${repos.join()}`); return Promise.resolve([]); },
       topics: (_ws, repos) => { calls.push(`topics ${repos.join()}`); return Promise.resolve([]); },
@@ -211,9 +279,10 @@ describe('the product home\'s service', () => {
     expect(home?.product).toEqual({ id: 'p-1', name: 'Mobile' });
     expect(home?.ledger.lanes['on-agent'].map((r) => r.prd)).toEqual([7]);
     expect(home?.visuals.map((f) => f.dossier)).toEqual(['d-v']);
+    expect(home?.questions.map((q) => [q.prdLabel, q.id, q.forWhom])).toEqual([['mobile-12', 's2-01-quote-totals', 'for paul']]);
     expect(calls).toEqual([
-      'product ws-1 p-1', 'prds ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting',
-      'pulls ws-1', 'ideas ws-1 p-1', 'roadmaps ws-1 p-1', 'fixes ws-1 p-1',
+      'product ws-1 p-1', 'prds ws-1 p-1', 'product prds ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting',
+      'pulls ws-1', 'ideas ws-1 p-1', 'roadmaps ws-1 p-1', 'fixes ws-1 p-1', 'items d-m12', 'players ws-1 u-paul',
     ]);
   });
 

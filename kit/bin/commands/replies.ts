@@ -1,15 +1,16 @@
 // `omni replies --prd <n> --pr <n> [--repo owner/name] [--post]` — reads the numbered replies on the
-// feature pull request, settles what they answer, and (with --post) posts the next round.
+// feature pull request, settles what they answer, and (with --post) posts the next round. It reads
+// and settles the PRD's outbox through its outbox store (PRD 1548, s6).
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-replies.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
-import { readReplies, summarize } from '../../lib/outbox/replies.ts';
+import { summarize } from '../../lib/outbox/replies.ts';
+import { outboxStore } from '../../lib/outbox/stores.ts';
 import { githubClientFor } from '../github.ts';
 import { propertyOf } from '../../lib/narrow.ts';
 import { parseArgs, prArg, prdArg, println, repoSlug, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
-import { synchronous } from '../synchronous.ts';
 
 export const replies: Command = {
-  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
+  async run(args: string[], { ctx, stdout, exec, env }: CommandIo): Promise<number> {
     const { positional, flags } = parseArgs('replies', args, { values: ['prd', 'pr', 'repo'], booleans: ['post'] });
     if (positional.length) throw usageError('usage: omni replies --prd <n> --pr <n> [--repo <owner/name>] [--post]');
     const prd = prdArg('replies', '--prd', flags.prd);
@@ -17,7 +18,7 @@ export const replies: Command = {
     const repo = repoSlug('replies', ctx, flags.repo);
     const post = flags.post === true;
 
-    const result = readReplies({ ctx, prd, pr, post }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
+    const result = await outboxStore(ctx).replies({ prd, pr, post }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
     println(stdout, summarize(result));
     if (result.round) {
       if (result.round.posted) {
@@ -29,5 +30,5 @@ export const replies: Command = {
       }
     }
     return result.failed.length > 0 ? 1 : 0;
-  }),
+  },
 };
