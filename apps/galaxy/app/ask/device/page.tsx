@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Metadata } from 'next';
 import { DevicePage } from '../../../src/ask/device-card';
 import { deviceView, readDeviceQuery } from '../../../src/ask/device-card.controller';
