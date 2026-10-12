@@ -1,10 +1,16 @@
 // `omni flow show` and `omni flow verdict` (PRD 1089, s4), through the CLI.
-import type { ExecFileSyncOptions } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo, realExec } from '../test/fixture.ts';
+import type { TokenStore } from '../lib/ask/client.ts';
+import { parsePr } from '../lib/ids.ts';
+import type { LoopChange, LoopChangeDetail } from '../lib/loop-reads/contract.ts';
+import { aChange, fakeLoopReads } from '../lib/loop-reads/fake.ts';
+import { LoopReadError } from '../lib/loop-reads/port.ts';
 import { main } from './omni.ts';
+
+type LoopCheck = LoopChangeDetail['review']['checks'][number];
 
 function io() {
   const out: string[] = [];
@@ -230,40 +236,48 @@ describe('omni flow verdict', () => {
   });
 });
 
-// `omni flow check merge` (PRD 1089, s5): the sub-PR's facts come from a faked `gh`, git runs for real.
+// `omni flow check merge` (PRD 1089, s5): the sub-PR's facts come from the shared fake `LoopReads`
+// (PRD 1665, s6: no `gh` read), git runs for real.
 const KERNEL_REBASE = SPEC_FLOW.replace(
   'subPr: { requireChecks: [phpunit, phpstan-max], approval: person }',
   'subPr: { merge: rebase, requireChecks: [phpunit, phpstan-max], approval: person }',
 );
-const GREEN = [
-  { __typename: 'CheckRun', name: 'phpunit', status: 'COMPLETED', conclusion: 'SUCCESS' },
-  { __typename: 'CheckRun', name: 'phpstan-max', status: 'COMPLETED', conclusion: 'SUCCESS' },
+const GREEN: LoopCheck[] = [
+  { name: 'phpunit', state: 'success' },
+  { name: 'phpstan-max', state: 'success' },
 ];
-const APPROVED = [{ author: { login: 'ada' }, state: 'APPROVED' }];
-type Gh = { head?: string; reviews?: unknown[]; rollup?: unknown[]; files?: string[]; open?: { number: number; headRefName: string }[] };
+const APPROVED = ['ada'];
+type Loop = {
+  head?: string;
+  state?: LoopChange['state'];
+  approvedBy?: string[];
+  checks?: LoopCheck[];
+  files?: string[];
+  open?: { number: number; headRefName: string }[];
+  everything?: LoopReadError;
+};
 
-function fakeGh({ head = 'feat/bus--s1', reviews = [], rollup = GREEN, files = ['src/kernel/Bus/Dispatcher.php'], open = [] }: Gh, calls: string[]) {
-  return (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
-    if (cmd !== 'gh') return realExec(cmd, args, options);
-    calls.push(args.join(' '));
-    if (args[1] === 'view') {
-      return JSON.stringify({ number: 12, state: 'OPEN', baseRefName: 'feat/bus', headRefName: head, reviews, statusCheckRollup: rollup });
-    }
-    if (args[1] === 'diff') return `${files.join('\n')}\n`;
-    if (args[1] === 'list') return JSON.stringify(open);
-    throw new Error(`unexpected gh ${args.join(' ')}`);
-  };
+/** The fake's state: sub-PR #12 into `feat/bus` of `repo`, its review and files, and the other open sub-PRs. */
+function fakeLoop({ head = 'feat/bus--s1', state = 'open', approvedBy, checks = GREEN, files = ['src/kernel/Bus/Dispatcher.php'], open = [], everything }: Loop, repo: string) {
+  const twelve = aChange({ number: parsePr(12), head, base: 'feat/bus', state });
+  const others = open.filter(({ number }) => number !== 12).map(({ number, headRefName }) => aChange({ number: parsePr(number), head: headRefName, base: 'feat/bus' }));
+  return fakeLoopReads({
+    changes: { [repo]: [twelve, ...others] },
+    details: { [`${repo}#12`]: { files, review: { checks, mergeable: true, threads: [], ...(approvedBy ? { approvedBy } : {}) } } },
+    ...(everything ? { everything } : {}),
+  });
 }
 
-async function checkMerge(args: string[], { flow = SPEC_FLOW, gh = {} }: { flow?: string; gh?: Gh } = {}) {
+async function checkMerge(args: string[], { flow = SPEC_FLOW, loop = {} }: { flow?: string; loop?: Loop } = {}) {
   const { root } = makeRepo({
     git: true,
     files: { '.omni-loop/config.yml': HEAD + flow, '.omni-loop/delivery/inbox/0912-bus/plan.md': PLAN, ...HOOK_FILES },
   });
   const s = io();
-  const calls: string[] = [];
-  const code = await main(['flow', 'check', 'merge', ...args], { cwd: root, exec: fakeGh(gh, calls), ...s });
-  return { code, out: s.out.join(''), err: s.err.join(''), calls };
+  const repoAt = args.indexOf('--repo');
+  const reads = fakeLoop(loop, repoAt === -1 ? 'acme/widgets' : (args[repoAt + 1] ?? ''));
+  const code = await main(['flow', 'check', 'merge', ...args], { cwd: root, exec: realExec, reads, ...s });
+  return { code, out: s.out.join(''), err: s.err.join(''), reads: reads.reads };
 }
 
 describe('omni flow check merge', () => {
@@ -274,34 +288,31 @@ describe('omni flow check merge', () => {
   });
 
   it('prints ok and the rebase command once approved and green (spec acceptance 8)', async () => {
-    const { code, out } = await checkMerge(['--pr', '12'], { flow: KERNEL_REBASE, gh: { reviews: APPROVED } });
+    const { code, out } = await checkMerge(['--pr', '12'], { flow: KERNEL_REBASE, loop: { approvedBy: APPROVED } });
     expect(code).toBe(0);
     expect(out).toBe('ok\ngh pr merge 12 --rebase --delete-branch\n');
   });
 
   it("prints today's squash command with no flow", async () => {
-    const { code, out, calls } = await checkMerge(['--pr', '12'], { flow: '', gh: { rollup: [] } });
+    const { code, out, reads } = await checkMerge(['--pr', '12'], { flow: '', loop: { checks: [] } });
     expect(code).toBe(0);
     expect(out).toBe('ok\ngh pr merge 12 --squash --delete-branch\n');
-    expect(calls).toEqual([
-      'pr view 12 --repo acme/widgets --json number,state,baseRefName,headRefName,reviews,statusCheckRollup',
-      'pr diff 12 --repo acme/widgets --name-only',
-    ]);
+    expect(reads).toEqual([{ read: 'change', repo: 'acme/widgets', number: 12 }]);
   });
 
   it('reports a path outside the territory and merges, or refuses it under territory: block', async () => {
     const files = ['src/kernel/Bus/Dispatcher.php', 'README.md'];
-    const reported = await checkMerge(['--pr', '12'], { flow: '', gh: { files } });
+    const reported = await checkMerge(['--pr', '12'], { flow: '', loop: { files } });
     expect(reported.code).toBe(0);
     expect(reported.out).toBe("ok\ngh pr merge 12 --squash --delete-branch\nreport README.md is outside the slice's territory\n");
-    const blocked = await checkMerge(['--pr', '12'], { flow: 'flow:\n  rules:\n    subPr: { territory: block }\n', gh: { files } });
+    const blocked = await checkMerge(['--pr', '12'], { flow: 'flow:\n  rules:\n    subPr: { territory: block }\n', loop: { files } });
     expect(blocked.code).toBe(1);
     expect(blocked.out).toBe("not ok default: territory block — README.md is outside the slice's territory\n");
   });
 
   it("counts the PRD's outbox folder as the slice's ground, as the wave's territory check does", async () => {
     const files = ['src/kernel/Bus/Dispatcher.php', '.omni-loop/delivery/outbox/0912-bus/s1-01-shape.md'];
-    const blocked = await checkMerge(['--pr', '12'], { flow: 'flow:\n  rules:\n    subPr: { territory: block }\n', gh: { files } });
+    const blocked = await checkMerge(['--pr', '12'], { flow: 'flow:\n  rules:\n    subPr: { territory: block }\n', loop: { files } });
     expect(blocked.code).toBe(0);
     expect(blocked.out).toBe('ok\ngh pr merge 12 --squash --delete-branch\n');
   });
@@ -313,14 +324,14 @@ describe('omni flow check merge', () => {
       { number: 13, headRefName: 'feat/bus--s2' },
       { number: 14, headRefName: 'feat/other--s1' },
     ];
-    const both = await checkMerge(['--pr', '12'], { flow: flow.replace("['^src/kernel/']", "['^src/kernel/', '^src/Invoice']"), gh: { open } });
+    const both = await checkMerge(['--pr', '12'], { flow: flow.replace("['^src/kernel/']", "['^src/kernel/', '^src/Invoice']"), loop: { open } });
     expect(both.code).toBe(1);
     expect(both.out).toBe('not ok kernel: maxOpen 1 — 2 of its sub-PRs are open: #12, #13\n');
-    expect((await checkMerge(['--pr', '12'], { flow, gh: { open } })).code).toBe(0);
+    expect((await checkMerge(['--pr', '12'], { flow, loop: { open } })).code).toBe(0);
   });
 
   it('prints the verdict as JSON', async () => {
-    const { code, out } = await checkMerge(['--pr', '12', '--json'], { flow: KERNEL_REBASE, gh: { reviews: APPROVED } });
+    const { code, out } = await checkMerge(['--pr', '12', '--json'], { flow: KERNEL_REBASE, loop: { approvedBy: APPROVED } });
     expect(code).toBe(0);
     expect(JSON.parse(out)).toEqual({
       ok: true,
@@ -333,10 +344,92 @@ describe('omni flow check merge', () => {
   });
 
   it("asks a target's repository and names it in the command", async () => {
-    const { code, out, calls } = await checkMerge(['--pr', '12', '--repo', 'acme/back'], { flow: '', gh: { rollup: [] } });
+    const { code, out, reads } = await checkMerge(['--pr', '12', '--repo', 'acme/back'], { flow: '', loop: { checks: [] } });
     expect(code).toBe(0);
     expect(out).toBe('ok\ngh pr merge 12 --squash --delete-branch --repo acme/back\n');
-    expect(calls.every((call) => call.includes('--repo acme/back'))).toBe(true);
+    expect(reads).toEqual([{ read: 'change', repo: 'acme/back', number: 12 }]);
+  });
+
+  it('lists the open changes into the base, drafts among them, only when an area counts them', async () => {
+    const flow = "flow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n      rules:\n        subPr: { maxOpen: 1 }\n";
+    const { reads } = await checkMerge(['--pr', '12'], { flow, loop: { state: 'draft' } });
+    expect(reads).toEqual([
+      { read: 'change', repo: 'acme/widgets', number: 12 },
+      { read: 'changes', query: { repo: 'acme/widgets', base: 'feat/bus', state: 'open' } },
+    ]);
+  });
+
+  it('reads a draft as open, and refuses a merged or closed change', async () => {
+    expect((await checkMerge(['--pr', '12'], { flow: '', loop: { state: 'draft' } })).out).toBe('ok\ngh pr merge 12 --squash --delete-branch\n');
+    expect((await checkMerge(['--pr', '12'], { flow: '', loop: { state: 'merged' } })).out).toBe('not ok #12 is not open (MERGED)\n');
+    expect((await checkMerge(['--pr', '12'], { flow: '', loop: { state: 'closed' } })).out).toBe('not ok #12 is not open (CLOSED)\n');
+  });
+
+  it('counts neutral and skipped checks as green, and a check by its worst run', async () => {
+    const flow = 'flow:\n  rules:\n    subPr: { requireChecks: [a, b, c] }\n';
+    const green = await checkMerge(['--pr', '12'], { flow, loop: { checks: [{ name: 'a', state: 'neutral' }, { name: 'b', state: 'skipped' }, { name: 'c', state: 'success' }] } });
+    expect(green.out).toBe('ok\ngh pr merge 12 --squash --delete-branch\n');
+    const red = await checkMerge(['--pr', '12'], {
+      flow,
+      loop: { checks: [{ name: 'a', state: 'success' }, { name: 'a', state: 'failure' }, { name: 'b', state: 'pending' }, { name: 'c', state: 'success' }, { name: 'c', state: 'pending' }] },
+    });
+    expect(red.out).toBe([
+      'not ok default: requireChecks a — a failed on #12',
+      'not ok default: requireChecks b — b is pending on #12',
+      'not ok default: requireChecks c — c is pending on #12',
+      '',
+    ].join('\n'));
+  });
+
+  it("holds a sub-PR whose page answers no approval when an area asks a person's", async () => {
+    const { code, out } = await checkMerge(['--pr', '12'], { flow: KERNEL_REBASE });
+    expect(code).toBe(1);
+    expect(out).toBe('not ok kernel: approval person — no person has approved #12\n');
+  });
+
+  it.each([
+    ['no sign-in (omni signin)'],
+    ['unreachable'],
+    ['refused (404): this Omni page cannot read the loop yet'],
+  ])('prints %s alone on stderr, exit 1, when no read can be made', async (line) => {
+    const { code, out, err } = await checkMerge(['--pr', '12'], { loop: { everything: new LoopReadError(line, 'everything') } });
+    expect(code).toBe(1);
+    expect(out).toBe('');
+    expect(err).toBe(`${line}\n`);
+  });
+
+  it('reads the Omni page of ask.url, calling nothing without a sign-in', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: { '.omni-loop/config.yml': `${HEAD}ask:\n  url: https://omni.example.test\n`, '.omni-loop/delivery/inbox/0912-bus/plan.md': PLAN },
+    });
+    let called = false;
+    const fetch = () => {
+      called = true;
+      return Promise.resolve(new Response('{}'));
+    };
+    const tokens: TokenStore = { read: () => null, write: () => undefined };
+    const s = io();
+    expect(await main(['flow', 'check', 'merge', '--pr', '12'], { cwd: root, exec: realExec, tokens, fetch, ...s })).toBe(1);
+    expect(s.err.join('')).toBe('no sign-in (omni signin)\n');
+    expect(called).toBe(false);
+  });
+
+  it("asks the Omni page for the sub-PR with the sign-in, and prints its 403 in its own words", async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: { '.omni-loop/config.yml': `${HEAD}ask:\n  url: https://omni.example.test\n`, '.omni-loop/delivery/inbox/0912-bus/plan.md': PLAN },
+    });
+    const urls: string[] = [];
+    const fetch = (url: string) => {
+      urls.push(url);
+      return Promise.resolve(new Response(JSON.stringify({ error: 'acme/widgets is not in your workspace.' }), { status: 403 }));
+    };
+    const tokens: TokenStore = { read: () => ({ access_token: 'at', refresh_token: 'rt', expires_at: null }), write: () => undefined };
+    const s = io();
+    expect(await main(['flow', 'check', 'merge', '--pr', '12'], { cwd: root, exec: realExec, tokens, fetch, ...s })).toBe(1);
+    expect(s.err.join('')).toBe('refused (403): acme/widgets is not in your workspace\n');
+    expect(urls).toEqual(['https://omni.example.test/api/loop/changes/12?repo=acme%2Fwidgets']);
   });
 
   it.each([

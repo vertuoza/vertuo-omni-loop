@@ -50,8 +50,15 @@ export const LoopThreadSchema = z.object({
 });
 
 /** Where a change's review stands: its head's checks, whether it merges cleanly (null: not known yet),
- * and its review threads. */
-export const LoopReviewSchema = z.object({ checks: z.array(LoopCheckSchema), mergeable: z.boolean().nullable(), threads: z.array(LoopThreadSchema) });
+ * and its review threads. `approvedBy` (PRD 1665, s6) is each person, never a bot, whose last deciding
+ * review approves: optional, so a page that does not answer it yet still reads, and its absence reads
+ * as nobody, which holds a sub-PR whose flow asks for a person's approval. */
+export const LoopReviewSchema = z.object({
+  checks: z.array(LoopCheckSchema),
+  mergeable: z.boolean().nullable(),
+  threads: z.array(LoopThreadSchema),
+  approvedBy: z.array(z.string()).optional(),
+});
 
 /** What one change adds to a change of a list: when its head was last committed, its paths, its review. */
 export const LoopChangeDetailFields = { lastCommitAt: z.string().nullable(), files: z.array(z.string()) };

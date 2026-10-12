@@ -204,6 +204,25 @@ Stop the loop on the first of:
 | every slice `merged` | **complete**: go to step 4 |
 | nothing takeable, nothing awaiting merge, a slice not merged | **held**: say which slices hold it and why — `stuck` (`labels.needsFix`), `stopped` (the law or principles), `blocked` (the human-action item, or its unmerged blocker), `in-flight` (someone else is on it; re-run later) |
 | a wave merged nothing and the board did not change | **held**, likewise: the wave's report names the red step |
+| the board, or the wave, ends on a line the loop's reads print (below) | **held, not failed**: say the line |
+
+**A read the loop cannot make.** `omni board`, `omni care` and `omni flow check merge` read the
+loop's state through the Omni page (`ask.url`), never through `gh`. When one cannot read, it exits
+`1` with one line alone on stderr:
+
+| line | what a person does |
+|---|---|
+| `no sign-in (omni signin)` | signs in on this machine (`omni signin`), or sets `OMNI_TOKEN` |
+| `unreachable` | nothing: the Omni page did not answer within 15 seconds |
+| `refused (403): <owner/repo> is not in your workspace` | adds the repository to their workspace |
+| `refused (424): the Omni app cannot read <owner/repo>: <install link>` | installs the Omni app on it, at the link |
+| `refused (429): GitHub's budget for <owner/repo> is spent until <time>` | nothing: the budget refills at that time |
+| `refused (404): this Omni page cannot read the loop yet` | updates the Omni page `ask.url` names, or points `ask.url` at one that serves the loop |
+
+Each is **held, not failed**, as an unreachable approval is: the run ends on
+`<the line> · held, not failed: run this again once it reads`. No `labels.needsFix`, no `stuck`
+state, no attempt spent, no outbox posted for it, the feature PR left as it is, and nothing read
+through `gh` instead.
 
 **Held:** when a slice is stuck, or the wave's check stayed red, the feature PR gets
 `labels.needsFix` in place of `labels.inProgress` and a status comment with state `stuck` naming the

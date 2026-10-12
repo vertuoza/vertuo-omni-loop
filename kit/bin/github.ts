@@ -1,20 +1,17 @@
-// The one place the CLI talks to GitHub: `gh api`, shelled out, reading and writing an issue's (or a
-// pull request's — the same thing to the API) comments by id. Every library function that posts
-// takes a client with `listComments` / `createComment` / `updateComment`; this is the production one.
+// The one place the CLI writes to GitHub: `gh api`, shelled out, writing an issue's (or a pull
+// request's — the same thing to the API) comments by id, after reading them to find its own. Every
+// library function that posts takes a client with `listComments` / `createComment` / `updateComment`;
+// this is the production one. PRD 1665, s6: the read helpers left — the loop reads through `LoopReads`
+// (the Omni page), and the harvest, which still reads through `gh`, holds its own.
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/bin--github.md.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { ExecText } from '../lib/context.ts';
 import { processEnv, withGithubToken } from '../lib/env/read.ts';
-import { z } from 'zod';
-import { checkState, personApproved, type SubPr } from '../lib/flow/merge-gate.ts';
-import { PrNumberSchema } from '../lib/ids.ts';
 import type { IssueNumber, PrNumber } from '../lib/ids.ts';
 import type { CommentClient } from '../lib/outbox/comment.ts';
-import { PullFilesSchema } from '../lib/knowledge/pipeline.ts';
-import type { ChangedFile } from '../lib/knowledge/write.ts';
 import type { Env } from './io.ts';
-import { GhCommentsSchema, GhPullRequestSchema, GhWrittenCommentSchema } from './schema.ts';
+import { GhCommentsSchema, GhWrittenCommentSchema } from './schema.ts';
 
 /** What the GitHub helpers read of the context: the `gh` user and the repository's slug. */
 type GithubContext = { config: { github: { user: string | null }; repo: { slug: string | null } } };
@@ -104,123 +101,4 @@ export function githubClientFor(
     createComment: (body) => client().createComment(body),
     updateComment: (id, body) => client().updateComment(id, body),
   };
-}
-
-/** One pull request, as the harvest reads it. */
-export type PullRequest = {
-  number: PrNumber;
-  url: string;
-  merged: boolean;
-  mergedAt: string | null;
-  mergedBy: string | null;
-  mergeSha: string | null;
-  base: string;
-  head: string;
-};
-
-/**
- * One pull request of `repo` (default `ctx.config.repo.slug`), as the harvest needs it: whether and
- * when it merged, who merged it, into which branch, and its merge commit. Read through `gh api`.
- *
- */
-export function pullRequestFor(
-  ctx: GithubContext,
-  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = processEnv() }: { repo?: string | null; number: PrNumber; exec?: ExecText; env?: Env },
-): PullRequest {
-  const ghEnv = githubEnv(ctx, { exec, env });
-  const data = GhPullRequestSchema.parse(
-    JSON.parse(exec('gh', ['api', `repos/${repo}/pulls/${number}`], { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) })),
-  );
-  return {
-    number: data.number,
-    url: data.html_url,
-    merged: Boolean(data.merged_at),
-    mergedAt: data.merged_at ?? null,
-    mergedBy: data.merged_by?.login ?? null,
-    mergeSha: data.merge_commit_sha ?? null,
-    base: data.base?.ref ?? '',
-    head: data.head?.ref ?? '',
-  };
-}
-
-/**
- * The files pull request `number` of `repo` (default `ctx.config.repo.slug`) changed, every page
- * (PRD 1171): each one's path, a rename's new one, and GitHub's status, removals included, for the
- * harvest to tell a removed proof from one the pull request never changed. `--slurp` gives the pages
- * as one array of arrays, joined here.
- */
-export function pullRequestFilesFor(
-  ctx: GithubContext,
-  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = processEnv() }: { repo?: string | null; number: PrNumber; exec?: ExecText; env?: Env },
-): ChangedFile[] {
-  const ghEnv = githubEnv(ctx, { exec, env });
-  const pages = z
-    .array(z.array(z.unknown()))
-    .parse(JSON.parse(exec('gh', ['api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--slurp'], { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) })));
-  return PullFilesSchema.parse(pages.flat());
-}
-
-const GhSubPrSchema = z.looseObject({
-  number: PrNumberSchema,
-  state: z.string(),
-  baseRefName: z.string(),
-  headRefName: z.string(),
-  reviews: z.array(z.looseObject({ author: z.looseObject({ login: z.string().optional() }).nullish(), state: z.string().optional() })).nullish(),
-  statusCheckRollup: z
-    .array(z.looseObject({
-      __typename: z.string().optional(),
-      name: z.string().optional(),
-      context: z.string().optional(),
-      status: z.string().optional(),
-      conclusion: z.string().nullish(),
-      state: z.string().optional(),
-    }))
-    .nullish(),
-});
-
-const GhOpenPrsSchema = z.array(z.looseObject({ number: PrNumberSchema, headRefName: z.string() }));
-
-/**
- * Sub-PR `number` of `repo` (default `ctx.config.repo.slug`), as `omni flow check merge` reads it:
- * its state, base and head, each check's state, each person who approved, and every path its diff
- * changes. Two `gh` calls: `pr view` for the facts, `pr diff --name-only` for the paths, so a diff
- * past `pr view`'s first hundred files is read whole.
- */
-export function subPrFor(
-  ctx: GithubContext,
-  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = processEnv() }: { repo?: string | null; number: PrNumber; exec?: ExecText; env?: Env },
-): SubPr {
-  const ghEnv = githubEnv(ctx, { exec, env });
-  const options = { encoding: 'utf8' as const, ...(ghEnv ? { env: ghEnv } : {}) };
-  const where = ['--repo', repo ?? ''];
-  const data = GhSubPrSchema.parse(JSON.parse(
-    exec('gh', ['pr', 'view', String(number), ...where, '--json', 'number,state,baseRefName,headRefName,reviews,statusCheckRollup'], options),
-  ));
-  const files = exec('gh', ['pr', 'diff', String(number), ...where, '--name-only'], options)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line !== '');
-  return {
-    number: data.number,
-    state: data.state,
-    base: data.baseRefName,
-    head: data.headRefName,
-    checks: checkState(data.statusCheckRollup ?? []),
-    approvedBy: personApproved(data.reviews ?? []),
-    files,
-  };
-}
-
-/** Every open pull request of `repo` (default `ctx.config.repo.slug`) into `base`, by number and head branch. */
-export function openPullRequestsInto(
-  ctx: GithubContext,
-  { repo = ctx.config.repo.slug, base, exec = execFileSync, env = processEnv() }: { repo?: string | null; base: string; exec?: ExecText; env?: Env },
-): { number: PrNumber; head: string }[] {
-  const ghEnv = githubEnv(ctx, { exec, env });
-  const listed = GhOpenPrsSchema.parse(JSON.parse(exec(
-    'gh',
-    ['pr', 'list', '--repo', repo ?? '', '--base', base, '--state', 'open', '--json', 'number,headRefName', '--limit', '200'],
-    { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) },
-  )));
-  return listed.map(({ number, headRefName }) => ({ number, head: headRefName }));
 }
