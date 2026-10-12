@@ -171,6 +171,18 @@ touch nothing else, and a landing holding such a slice holds only such slices. T
 instance, lists its migrations directories there (`^kernel-migrations/database/migrations/` and
 `/db/migrations/`), so a migration always travels in a landing of its own.
 
+**Inline waves** (issue 1722) build a small plan with no sub-PR per slice. `wave: { inlineBelow: <n> }`
+in the config (`0` by default, which changes nothing) makes `/omni:wave` build a PRD whose plan has
+fewer than `n` slices (the current landing's, for a PRD of several landings) on its feature branch
+itself: one slice after the other, each by `/omni:do-work --inline`, with no claim, no slice branch
+and no sub-PR. A built slice's last commit carries the trailer line `Omni-Slice: <id>`; `omni board`
+reads a slice with no pull request and such a commit on `<remote>/<feature branch>` as `merged`
+(`inlineSlicesIn`, `boardFor`'s `inlineDone`) and prints `inline` in its `--json` (`inlineWave`):
+`true` only when `wave.inlineBelow` is set, the plan is small enough, no slice lands in another
+repository, and no slice has a pull request, so a PRD that began with sub-PRs finishes with them.
+The git read runs only when `wave.inlineBelow` is above `0`, in `omni board`, `omni next` and the
+status line's board refresh.
+
 **Opening pull requests through the repository's skill.** `pr: { openWith: <skill> }` in the
 config (`null` by default, which keeps the kit's `gh pr create`) names a slash skill of the
 repository that `/omni:pr` opens every feature, landing and standalone pull request with, so the
