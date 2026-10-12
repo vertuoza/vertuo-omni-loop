@@ -22,9 +22,11 @@ export interface KartLook { readonly color: string; readonly design: string }
 
 export const DEFAULT_LOOK: KartLook = Object.freeze({ color: 'FLEET', design: 'CLASSIC' });
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
 /** A stored look: an unknown colour reads as FLEET and an unknown design as CLASSIC, each alone; anything but an object is the default. */
 export function readLook(raw: unknown): KartLook {
-  const o = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const o: Record<string, unknown> = isRecord(raw) ? raw : {};
   const color = COLORS.find((c) => c.name === o.color)?.name ?? DEFAULT_LOOK.color;
   const design = DESIGNS.find((d) => d === o.design) ?? DEFAULT_LOOK.design;
   return Object.freeze({ color, design });

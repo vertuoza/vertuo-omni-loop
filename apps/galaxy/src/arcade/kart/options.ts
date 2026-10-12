@@ -49,7 +49,7 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 /** The keys read back: all five, none reserved, no key twice; otherwise the defaults. */
 function readKeys(raw: unknown): Record<DriveAction, string> {
   if (!isObject(raw)) return { ...DEFAULT_KEYS };
-  const keys = {} as Record<DriveAction, string>;
+  const keys: Record<DriveAction, string> = { ...DEFAULT_KEYS };
   for (const action of DRIVE_ACTIONS) {
     const key = raw[action];
     if (typeof key !== 'string' || key === '' || key.length > 24) return { ...DEFAULT_KEYS };
@@ -59,6 +59,9 @@ function readKeys(raw: unknown): Record<DriveAction, string> {
   if (new Set(values).size !== values.length || values.some(isReserved)) return { ...DEFAULT_KEYS };
   return keys;
 }
+
+const isLaps = (v: unknown): v is Laps => LAP_CHOICES.some((laps) => laps === v);
+const isDifficulty = (v: unknown): v is Difficulty => DIFFICULTIES.some((level) => level === v);
 
 const nameOf = (raw: unknown, names: readonly string[], fallback: string): string => (typeof raw === 'string' && names.includes(raw) ? raw : fallback);
 
@@ -70,8 +73,8 @@ export function parseOptions(text: string | null | undefined): KartOptions {
   try { raw = JSON.parse(text); } catch { return out; }
   if (!isObject(raw)) return out;
   out.keys = readKeys(raw.keys);
-  if (LAP_CHOICES.includes(raw.laps as Laps)) out.laps = raw.laps as Laps;
-  if (DIFFICULTIES.includes(raw.difficulty as Difficulty)) out.difficulty = raw.difficulty as Difficulty;
+  if (isLaps(raw.laps)) out.laps = raw.laps;
+  if (isDifficulty(raw.difficulty)) out.difficulty = raw.difficulty;
   const look = isObject(raw.look) ? raw.look : {};
   out.look = { color: nameOf(look.color, COLORS, 'FLEET'), design: nameOf(look.design, DESIGNS, 'CLASSIC') };
   return out;
@@ -133,10 +136,10 @@ export interface OptionsStep { view: OptionsView; options: KartOptions; leave: b
 
 const step = (view: OptionsView, options: KartOptions, leave = false): OptionsStep => ({ view, options, leave });
 
-const cycle = <T>(list: readonly T[], at: T, by: 1 | -1): T => list[(list.indexOf(at) + by + list.length) % list.length] as T;
+const cycle = <T>(list: readonly T[], at: T, by: 1 | -1): T => list[(list.indexOf(at) + by + list.length) % list.length] ?? at;
 
 const move = <T>(list: readonly T[], at: T, action: Action): T =>
-  action === 'up' ? (list[Math.max(0, list.indexOf(at) - 1)] as T) : (list[Math.min(list.length - 1, list.indexOf(at) + 1)] as T);
+  (action === 'up' ? list[Math.max(0, list.indexOf(at) - 1)] : list[Math.min(list.length - 1, list.indexOf(at) + 1)]) ?? at;
 
 type KeysView = Extract<OptionsView, { screen: 'keys' }>;
 type MenuView = Extract<OptionsView, { screen: 'menu' }>;
