@@ -186,7 +186,7 @@ export const ConfigSchema = z
       adr: text.default('.omni-loop/knowledge/adr'),
       playbook: text.default('.omni-loop/knowledge/playbook'),
       glossary: nullableText.default(null),
-      context: z.array(text).default(['CLAUDE.md']),
+      context: z.array(text).default(['AGENTS.md', 'CLAUDE.md']),
     }),
     labels: section({
       prd: labelName.default('omni:prd'),
@@ -262,6 +262,9 @@ export const ConfigSchema = z
       .prefault({}),
     laws: section({
       source: z.enum(['knowledge', 'claudeMdInvariants', 'none']).default('none'),
+      // The heading under which the context files (`paths.context`, in order) list the ADRs that are
+      // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
+      // read (PRD 1739), so every config that sets them still reads.
       claudeMdHeading: text.default('## Invariants'),
       // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
       // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
