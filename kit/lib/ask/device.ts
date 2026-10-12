@@ -9,8 +9,8 @@
 //        → {status: pending | slow_down (interval) | expired | denied}
 //        → {status: approved, code} (signin) | {status: approved, token, expires_at} (token)
 //
-// The body's `status` is what this module reads, never the HTTP status (the page's contract,
-// apps/galaxy/src/ask/device.contract.ts; PRD 1660, s1-02). It is to the device flow what
+// The body's `status` is what this module reads, never the HTTP status (the Omni page's
+// device contract; PRD 1660, s1-02). It is to the device flow what
 // `startLoopback` (`./loopback.ts`) is to the loopback: a request to wait on, and `close()`.
 import type { Session } from '../env/read.ts';
 import { jsonObject } from './schema.ts';
