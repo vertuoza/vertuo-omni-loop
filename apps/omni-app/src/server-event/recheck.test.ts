@@ -14,6 +14,7 @@ import type { ApprovalRecord, PinnedFile } from '../approved-check/state.ts';
 import { OUTBOX_CHECK_EVENT, type CheckRequest, inngest } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { createOutboxCheck } from '../outbox-check/outbox-check.ts';
+import { stdoutLines } from '../run-log/capture.ts';
 import { createServerEventRecheck, SERVER_EVENT_FUNCTION_ID, SERVER_EVENT_TRIGGER } from './recheck.ts';
 import { receiveServerEvent, SERVER_SIGNATURE_HEADER, type ServerEventRequest } from './server-event.ts';
 import type { PrdTargets } from './targets.ts';
@@ -153,6 +154,15 @@ describe('server-event — an approval, a void, an item opened or settled re-pos
     const { result } = await new InngestTestEngine({ function: recheck, events: [sent as never] }).execute();
     expect(result).toEqual({ rechecked: [] });
     expect(logged).toEqual([`server event: the approved of dossier ${DOSSIER} re-checks nothing: the App cannot read the server here`]);
+  });
+
+  it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {
+    const recheck = createServerEventRecheck({ client: inngest, octokitFor: () => { throw new Error('no GitHub'); }, readTargets: null });
+    const [sent] = await post('approved');
+    const lines = await stdoutLines(() => new InngestTestEngine({ function: recheck, events: [sent as never] }).execute());
+    expect(lines.filter((line) => line.event === 'note')).toEqual([
+      { level: 'warn', event: 'note', fn: 'server-event-recheck', message: `server event: the approved of dossier ${DOSSIER} re-checks nothing: the App cannot read the server here` },
+    ]);
   });
 
   it('waits for the GitHub budget: a deferred read is retried after its window, said in the log', async () => {

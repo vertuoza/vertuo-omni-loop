@@ -42,6 +42,7 @@ import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate
 import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { DEFAULT_CHECK_NAME, publish, startCheck } from '../publish/publish.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
 import {
   changedFiles,
@@ -91,7 +92,7 @@ export function createOutboxCheck({
   readProductOutbox = null,
   galaxyUrl = '',
   now = () => new Date(),
-  log = (line) => { console.error(line); },
+  log = noteTo('outbox-check'),
 }: {
   client: Inngest;
   octokitFor: OctokitFor<GitHubClient>;

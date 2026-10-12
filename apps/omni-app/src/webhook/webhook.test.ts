@@ -470,11 +470,17 @@ describe('webhook — touches (PRD 902, s3)', () => {
     const issue = { action: 'opened', installation: INSTALLATION, repository: REPOSITORY, issue: { number: 902 } };
     expect((await deliver('issues', issue, refused, sign('x'))).status).toBe(401);
     expect(refused).not.toHaveBeenCalled();
-    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
     const failing = vi.fn<(touch: Touch) => Promise<unknown>>(() => Promise.reject(new Error('galaxy down')));
-    expect((await deliver('issues', issue, failing)).status).toBe(200);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('galaxy down'));
-    log.mockRestore();
+    try {
+      expect((await deliver('issues', issue, failing)).status).toBe(200);
+      // Said as a JSON note line at warn, today's sentence as its message (PRD 1723 s6).
+      expect(write.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toEqual([
+        { level: 'warn', event: 'note', fn: 'webhook', message: 'touch: could not forward — galaxy down' },
+      ]);
+    } finally {
+      write.mockRestore();
+    }
   });
 });
 

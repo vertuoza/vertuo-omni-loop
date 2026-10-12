@@ -11,6 +11,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, type AppEvent, inngest } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
+import { stdoutLines } from '../run-log/capture.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { APPROVED_FUNCTION_ID, attestationUrl, createApprovedCheck } from './approved-check.ts';
 import type { RecordReader } from './record.ts';
@@ -175,6 +176,20 @@ describe('approved-check — the GitHub budget (PRD 902)', () => {
     const { error } = await new InngestTestEngine({ function: fn, events: [{ name: APPROVED_CHECK_EVENT, data: event }] }).execute();
     expect(error).toMatchObject({ name: RetryAfterError.name });
     expect(logged).toEqual([`approved check of acme/widgets#446 waits for the GitHub budget: GitHub budget below its background floor until ${new Date(until).toISOString()}`]);
+  });
+
+  it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {
+    const until = NOW.getTime() + 60_000;
+    const fn = createApprovedCheck({ client: inngest, octokitFor: () => { throw new GithubDeferred(until); }, readRecord: () => Promise.resolve(RECORD), galaxyUrl: GALAXY });
+    const lines = await stdoutLines(() => new InngestTestEngine({ function: fn, events: [{ name: APPROVED_CHECK_EVENT, data: event }] }).execute());
+    expect(lines.filter((line) => line.event === 'note')).toEqual([
+      {
+        level: 'warn',
+        event: 'note',
+        fn: 'approved-check',
+        message: `approved check of acme/widgets#446 waits for the GitHub budget: GitHub budget below its background floor until ${new Date(until).toISOString()}`,
+      },
+    ]);
   });
 
   it('lets any other failure through to the retries', async () => {

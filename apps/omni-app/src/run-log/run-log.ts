@@ -10,8 +10,11 @@
 import type { Inngest } from 'inngest';
 import { log, type LogEntry, type Logger, type LogOutcome } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 
-/** The ids a run line may carry, beside its event, outcome and duration. */
-export type RunFields = Pick<LogEntry, 'repo' | 'prd' | 'deliveryId' | 'runId' | 'fn' | 'status'>;
+/** The ids a run line may carry, beside its event, outcome and duration; one left undefined is not written. */
+export type RunFields = { [K in 'repo' | 'prd' | 'deliveryId' | 'runId' | 'fn' | 'status']?: LogEntry[K] | undefined };
+
+/** A run line as built: any field may be undefined, and is then left out. */
+type RunLine = { [K in keyof LogEntry]?: LogEntry[K] | undefined } & { event: string; outcome: LogOutcome };
 
 /** Adds ids to the run's line, as the run learns them. */
 export type Note = (fields: RunFields) => void;
@@ -22,11 +25,15 @@ export function outcomeOfStatus(status: number): LogOutcome {
   return status < 500 ? 'refused' : 'failed';
 }
 
-/** Writes one line at the level its outcome reads at; a logger that throws is ignored. */
-function write(logger: Logger, entry: LogEntry & { outcome: LogOutcome }): void {
+/** Writes one line at the level its outcome reads at, its undefined fields left out; a logger that throws is ignored. */
+function write(logger: Logger, line: RunLine): void {
+  const entry: LogEntry = { event: line.event };
+  for (const [field, value] of Object.entries(line)) {
+    if (value !== undefined) Object.assign(entry, { [field]: value });
+  }
   try {
-    if (entry.outcome === 'ok') logger.info(entry);
-    else if (entry.outcome === 'refused') logger.warn(entry);
+    if (line.outcome === 'ok') logger.info(entry);
+    else if (line.outcome === 'refused') logger.warn(entry);
     else logger.error(entry);
   } catch {
     // A log line never changes a run.
