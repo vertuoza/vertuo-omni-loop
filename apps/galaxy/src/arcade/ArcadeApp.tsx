@@ -142,9 +142,9 @@ export function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf:
 
 /**
  * How long until the scene showing hands over by itself, in ms at `at` (seconds, the arcade's clock),
- * or null when nothing moves on: the boot, the intro, the welcome and the fleet lock-in. None moves
- * on while OPEN THE APP? is up; once it closes, each starts in full again, but the lock-in still
- * counts from when it began.
+ * or null when nothing moves on. Four scenes hand over: the boot, the intro, the welcome and the fleet
+ * lock-in. None moves on while OPEN THE APP? is up; once it closes, each starts in full again, but the
+ * lock-in still counts from when it began.
  */
 export function handOverIn(ui: Pick<UI, 'scene' | 'leaving' | 'lockedAt' | 'lockSaved'>, at: number): number | null {
   if (ui.leaving) return null;
