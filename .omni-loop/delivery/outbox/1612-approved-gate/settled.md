@@ -627,3 +627,75 @@ One line to remove, or the reader moved into an already listed file (apps/galaxy
 ```
 
 <!-- /omni-outbox-settled: s4-02-github-call-sites-listed -->
+
+<!-- omni-outbox-settled: s3-05-one-approved-gate-folded-into-1548 -->
+
+## s3-05-one-approved-gate-folded-into-1548 — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-05-one-approved-gate-folded-into-1548
+prd: 1612
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+PRD 1548 reached the main branch first with its own approved check, its own states and its own attestation page, on the same ground as this PRD. Which one stands, and how does this PRD fit in?
+
+## The decision, in plain words
+
+Folded in, as the people driving the loop decided for this run: PRD 1548's design is the base, with one approved check that now also judges a repository's PRD born on the server, at the pull request's head. There is one set of states, each named once: approved is building, waiting is pending, drifted stays drifted, an approver who left is refused, and an unreadable server is held.
+
+## The options, in plain words
+
+A. Keep it as built: one check and one set of states, PRD 1548's.
+B. Keep it, but let a waiting pull request read neutral instead of failing.
+C. Bring this PRD's attestation page back for repository PRDs, beside PRD 1548's.
+
+## What I had to decide
+
+Whether a pull request still waiting for approval should fail, as PRD 1548 says and this run kept, or only wait in neutral, as this PRD's spec first said.
+
+## What I did meanwhile
+
+A waiting PRD's check fails, and blocks a merge only where a repository made the check required.
+
+## What it costs to change later
+
+Turning waiting back to neutral is a one-line change in the check's mapping and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Restore, the check's name in the config, the rerun when the approved label changes and the guide are kept; PRD 1548's code was not rewritten, and its tests stand.
+- The spec and the plan of this PRD were approved on the server and are pinned, so they were left as approved: their four-state table and their attestation page at its own address now read as history, and this item and the guide say what was built.
+- The attestation page this PRD drew, with its head, its target pull requests and its copy button, is gone. A PRD born on the server of a repository shows its approval on the PRD page instead, and the check's summary names the head it read.
+
+```
+
+<!-- /omni-outbox-settled: s3-05-one-approved-gate-folded-into-1548 -->
