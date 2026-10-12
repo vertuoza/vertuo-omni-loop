@@ -65,11 +65,22 @@ never overrides this skill's rules.
    outbox item and account files), what blocks it, its wave. Read the plan's "done when" for it.
 3. The spec, in full.
 4. Every file in `paths.context`, the glossary at `paths.glossary` when set, and — when
-   `laws.source` is `knowledge` — the knowledge folder at `paths.knowledge` (principles, rules,
-   invariants; `node .omni-loop/bin/omni.mjs knowledge <id>` explains one). A **proposed** entry
+   `laws.source` is `knowledge` — only the knowledge this slice touches, never the whole folder at
+   `paths.knowledge`:
+
+   ```bash
+   node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>
+   ```
+
+   It prints every locked law, one plain line each with who must approve a change to it, then the
+   rules whose `Governs:` line matches the slice's territory. `node .omni-loop/bin/omni.mjs
+   knowledge <id>` prints one of them in full when its line is not enough. A **proposed** entry
    (one carrying a `Proposed:` line; `omni knowledge <id>` prints who proposed it and when) is read
    like any other: it describes the product. It is not a law until a person confirms it, so it
-   never stops a slice (see **Exactly two ways a slice ends early**).
+   never stops a slice (see **Exactly two ways a slice ends early**). When the slice changes a
+   locked law (its text, or the test that proves it), say so in the sub-PR's **Decisions** line,
+   in one plain sentence (what breaks, and who gets hurt): the feature PR stays red until one of the people the law line names
+   approves it on GitHub, and no outbox item clears that.
 5. `omni kb show architecture`, `omni kb show conventions` and `omni kb show setup`: where code
    may go and what may depend on what; naming, formatting and the shape of a commit; how to
    install and run the repository. They bind this slice as if written here.
@@ -134,7 +145,7 @@ building, commit and push work in progress at least every half of
 
 ## 3. Record the decision, keep building
 
-When the PRD, the spec, the context files and the knowledge folder do not settle something:
+When the PRD, the spec, the context files and the knowledge the slice read do not settle something:
 
 1. **Take the most reversible option** — the one a different answer undoes for the price of a
    constant, not a migration — and carry on.

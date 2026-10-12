@@ -41,8 +41,8 @@ brainstorm runs as it always has.
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
 is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.phase0`,
-`worktrees`, `paths.*`, `labels.*`, `prLinks.*`, `acceptance.*` and `limits.beforeAfterMaxBytes`
-from it. `<remote>` below is `repo.remote`.
+`worktrees`, `paths.*`, `labels.*`, `prLinks.*`, `acceptance.*`, `laws.source` and
+`limits.beforeAfterMaxBytes` from it. `<remote>` below is `repo.remote`.
 
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
@@ -353,6 +353,15 @@ spec: file
   tests, at which levels, and what a test must never do.
 - **Risks** names what merging this PRD would publish, and how that is rolled back: read
   `omni kb show releasing`.
+- **The locked laws it touches**, in **Risks**, when `laws.source` is `knowledge`. List the files
+  the design will change or add (best guess, from the design as approved), then run
+  `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on them. Each locked law it prints gets
+  one plain line in **Risks**: its id, then what breaks, and who gets hurt, if it is broken, and the
+  CODEOWNERS the law line names, as `<id>: <what breaks, for whom>. Changing it needs @<login> to
+  approve the pull request on GitHub.` That person learns of it now, before anything is built, not
+  as a red check at the end. No locked law printed: the one line `The locked laws: none touched.`
+  A rule it prints is read like the rest of the knowledge, and named in Risks only when the design
+  changes it.
 - Words come from `paths.glossary` when it is set, and from the files in `paths.context`.
 
 **Self-review,** before anyone reads it: no placeholder or "TBD", no two sections contradicting each

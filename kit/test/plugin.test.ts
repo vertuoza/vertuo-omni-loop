@@ -2869,3 +2869,102 @@ describe('a slice is claimed before it is built', () => {
     expect(doWork.indexOf('## 1. Read before you build')).toBeLessThan(doWork.indexOf('## 2. Build'));
   });
 });
+
+describe('locked laws in the skills: each reads only what a change touches, and speaks plainly (PRD 1726)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const flat = (text: string) => text.replace(/\s+/g, ' ');
+  /** A `## <start>` section up to the next `## ` heading outside a fenced block (a template's headings stay in). */
+  const section = (text: string, start: string) => {
+    const lines = text.split('\n');
+    const from = lines.findIndex((line) => line.startsWith(`## ${start}`));
+    if (from < 0) return '';
+    let fenced = false;
+    let to = lines.length;
+    for (let index = from + 1; index < lines.length; index += 1) {
+      const line = lines[index] ?? '';
+      if (line.trim().startsWith('```')) fenced = !fenced;
+      else if (!fenced && line.startsWith('## ')) {
+        to = index;
+        break;
+      }
+    }
+    return lines.slice(from, to).join('\n');
+  };
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+
+  it('/omni:brainstorm runs kb laws --paths on what the design touches, and names each locked law and its CODEOWNERS in Risks', () => {
+    const spec = flat(section(read('brainstorm'), '4. Write the spec'));
+    expect(missingInOrder(spec, [
+      '**The locked laws it touches**', 'in **Risks**', '`laws.source` is `knowledge`', 'omni.mjs kb laws --paths <file>…',
+      'the CODEOWNERS the law line names', 'Changing it needs @<login> to approve the pull request on GitHub.',
+      'before anything is built', '`The locked laws: none touched.`',
+    ])).toEqual([]);
+    expect(flat(section(read('brainstorm'), 'Step 0'))).toContain('`laws.source`');
+  });
+
+  it('/omni:plan reads kb laws --slice for each slice and marks one that changes a locked law law: <id> · owner @x', () => {
+    const plan = read('plan');
+    expect(missingInOrder(flat(section(plan, '4. Write `plan.md`')), [
+      '**Law slices.**', '`laws.source` is `knowledge`', 'omni.mjs kb laws --slice <n> <id>', 'locked law',
+      '**s2** (`law: BR-QUOTE-3 · owner @ana`)', 'approval on GitHub', '`omni plan check` does not read it',
+    ])).toEqual([]);
+    expect(flat(section(plan, 'Step 0'))).toContain('`laws.source`');
+  });
+
+  it('/omni:do-work reads kb laws --slice instead of the whole knowledge folder', () => {
+    const before = flat(section(read('do-work'), '1. Read before you build'));
+    expect(missingInOrder(before, [
+      'only the knowledge this slice touches, never the whole folder at `paths.knowledge`', 'omni.mjs kb laws --slice <n> <id>',
+      "whose `Governs:` line matches the slice's territory", 'omni.mjs knowledge <id>', 'no outbox item clears that',
+    ])).toEqual([]);
+    expect(before).not.toContain('the knowledge folder at `paths.knowledge` (principles, rules, invariants;');
+  });
+
+  it('/omni:bug-fix reads kb laws --paths of its fix, and a law is a locked rule or invariant', () => {
+    const text = read('bug-fix');
+    expect(missingInOrder(flat(section(text, '8. Fix')), [
+      '`laws.source` is `knowledge`', 'never the whole folder', 'omni.mjs kb laws --paths <file>…', '**A change to a law**',
+    ])).toEqual([]);
+    const law = flat(section(text, 'A change to a law'));
+    expect(law).toContain('A law is a locked rule or invariant of the knowledge base');
+    expect(law).not.toContain('A law is a rule or an invariant');
+    expect(missingInOrder(law, ['**A locked law asks more.**', '`law-locked`', 'approves the pull request on GitHub', 'No item, label or trailer clears it'])).toEqual([]);
+  });
+
+  it('/omni:pr records Law-Change-Approved-By: for each approving CODEOWNER the outbox check names, above the footer', () => {
+    const body = flat(section(read('pr'), 'The body'));
+    expect(missingInOrder(body, [
+      '**The law record,**', 'changes a locked law', '`ci.outboxContext`', 'approved by their CODEOWNERS',
+      'just above the `omni sign footer` line', 'Law-Change-Approved-By: @<login>', 'not what clears the gate', 'only from that summary line',
+    ])).toEqual([]);
+  });
+
+  it('/omni:invade drafts the thesis from evidence and proposes at most laws.max candidate laws, locking none, its PR naming who locks them', () => {
+    const text = read('invade');
+    const registers = flat(section(text, '3. Write the registers'));
+    expect(missingInOrder(registers, [
+      '### The thesis and candidate laws', '/product/thesis.md', '## Who it is for', '## What it promises', '## The laws',
+      'No law is locked yet.', '## What it refuses', 'TODO(human)', 'at most `laws.max`', 'Governs: ^',
+      'Proposed law: <one plain sentence: what breaks, and who gets hurt>', 'regular expressions over repository paths',
+      '**Lock none.** Never write `Locked:`',
+    ])).toEqual([]);
+    expect(missingInOrder(flat(section(text, '8. One docs-only pull request')), [
+      '## Candidate laws', 'None is locked. A law is locked by', '`laws.owners`', 'approve that pull request on GitHub',
+    ])).toEqual([]);
+    expect(flat(section(text, 'Guardrails'))).toContain('Never writes a `Locked:` line');
+  });
+
+  it('every skill that writes about a law says it in one plain sentence: what breaks, and who gets hurt', () => {
+    for (const skill of ['brainstorm', 'plan', 'do-work', 'bug-fix', 'pr', 'invade']) {
+      expect(flat(read(skill)), skill).toContain('what breaks, and who gets hurt');
+    }
+  });
+});

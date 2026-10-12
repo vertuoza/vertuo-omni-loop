@@ -244,6 +244,29 @@ Its title is the PRD's title followed by the landing's `titleSuffix`, ` (n/N)`.
 **Standalone PR**: the template, or Summary / Verified / Risk and rollback / Reviewer focus, then
 `Closes #<issue>` when there is one, then the `omni sign footer` line.
 
+**The law record,** on a feature, landing or standalone PR that changes a locked law. Such a PR's
+`ci.outboxContext` check stays red until a CODEOWNER of the law's files approves it on GitHub; once
+they have, its summary reads `Locked laws changed (<ids>): approved by their CODEOWNERS, @<login>, …`.
+Read it on the head commit:
+
+```bash
+gh api repos/<owner>/<repo>/commits/<head sha>/check-runs --jq '.check_runs[] | select(.name == "<ci.outboxContext>") | .output.summary'
+```
+
+For each login that line names, add one line to the body, in one paragraph of its own just above
+the `omni sign footer` line, so the merge commit keeps who approved:
+
+```markdown
+Law-Change-Approved-By: @<login>
+```
+
+The record is history, not what clears the gate: only the approving review does. Write a login only
+from that summary line, never from a review you guessed at or a name someone typed, and keep the
+paragraph current on every body rewrite (a new push that dismisses an approval drops its line until
+the check names it again). No such line in the summary: no record. Beside the record, the
+**Risk and rollback** section says in one plain sentence what breaks, and who gets hurt, if the law
+is broken.
+
 ## Opening: point `pr.open`
 
 Every PR this skill opens is opened at point `pr.open` (**Flow points**): run
