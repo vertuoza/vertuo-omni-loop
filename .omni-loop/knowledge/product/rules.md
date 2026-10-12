@@ -523,7 +523,7 @@ When a workspace has no fleets, the arcade menu keeps its FLEETS entry, hinted a
 
 Serves: P-PRODUCT-45
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
-Enforced by: pending #1509
+Enforced by: apps/galaxy/src/arcade/scenes/menu.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
