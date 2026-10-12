@@ -622,7 +622,7 @@ The corner game box never takes the page's Tab or Shift keys, so a reader can al
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s4-02-dock-select-stays-with-the-page, PRD #817
-Enforced by: pending #1518
+Enforced by: apps/galaxy/src/play-dock/dock-keys.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
