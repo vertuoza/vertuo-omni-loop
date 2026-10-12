@@ -1,6 +1,6 @@
 ---
 name: mega-drive
-description: Drives a plan repository's multi-repository PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /loop /omni:mega-drive [<n>…], or a roadmap's PRDs with --roadmap <n> — /omni:drive for a plan repository, step for step. Its first tick orders every slice of the PRDs driven into a loop plan whose steps collide only on a path in the same repository (omni next --plan) and opens the loop on the Loop page; every tick it reads the steps that share no ground with what runs (omni next --json) and launches one background agent per step, each in its own worktree with its PRD's own target clones, running that step's one skill, /omni:ultra-wave, /omni:ultra-yolo, /omni:ultra-yolo-fix or /omni:mega-pr-care --once, parks a PRD that waits on a person on its plan PR's status comment naming each open PR by repository, records a tick per step launched and per step finished with the repositories it touches and what runs and is held, under --roadmap checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts and pushes the roadmap, and sets the next wake; once nothing runs and every PRD is parked or done it stops itself, listing each open prerequisite with its command. Outside a plan repository it prints the /loop /omni:drive line. Never merges into any repository's default branch, never answers the outbox. Triggers on "drive the plan repository", "drive my PRDs across the repositories", "run the loop across repositories", "/loop /omni:mega-drive", "/omni:mega-drive".
+description: Drives a plan repository's multi-repository PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /loop /omni:mega-drive [<n>…], or a roadmap's PRDs with --roadmap <n> — /omni:drive for a plan repository, step for step. Its first tick orders every slice of the PRDs driven into a loop plan whose steps collide only on a path in the same repository (omni next --plan) and opens the loop on the Loop page; every tick it reads the steps that share no ground with what runs (omni next --json) and launches one background agent per step, each in its own worktree with its PRD's own target clones, running that step's one skill, /omni:ultra-wave, /omni:ultra-yolo, /omni:ultra-yolo-fix or /omni:mega-pr-care --once, parks a PRD that waits on a person on its plan PR's status comment naming each open PR by repository, records a tick per step launched and per step finished with the repositories it touches and what runs and is held, under --roadmap checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts and pushes the roadmap, and sets the next wake; once nothing runs and every PRD is parked or done it stops itself, listing each open prerequisite with its command. A product PRD named by its id (<key>-<n>) is driven from any kitted checkout of its product, beside the loop plan — parked while it waits for approval or is drifted, held while the server is unreachable, built by /omni:ultra-yolo once approved, with no plan PR. Outside a plan repository it prints the /loop /omni:drive line. Never merges into any repository's default branch, never answers the outbox. Triggers on "drive the plan repository", "drive my PRDs across the repositories", "run the loop across repositories", "/loop /omni:mega-drive", "/omni:mega-drive".
 ---
 
 # Mega drive: a pool of loop plan steps, across repositories
@@ -45,15 +45,53 @@ otherwise.
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON,
-as `/omni:drive` step 0 keeps it, and its `plan` section. Without a `plan` section (its
-`plan.targets`), this is a repository of its own: stop with exactly one line, the arguments it was
-given carried over, and no wake:
+as `/omni:drive` step 0 keeps it, and its `plan` section. A product PRD's id among the arguments
+(`<key>-<n>`, as `mobile-12`) is driven as **From a product** below says, a plan section or not.
+Without a `plan` section (its
+`plan.targets`) and with no product PRD's id among the arguments, this is a repository of its own:
+stop with exactly one line, the arguments it was given carried over, and no wake:
 
 ```text
 not a plan repository: /loop /omni:drive [<n>…] [--roadmap <n>]
 ```
 
 Then print the briefing, `node .omni-loop/bin/omni.mjs kb show briefing`, as `/omni:drive` step 0.
+
+## From a product (`<key>-<n>`)
+
+A **product PRD** (◆, PRD 1548) has no plan repository and no plan PR: its plan and its outbox are
+on the Omni page, and its code lands as one `Part of <key>-<n>` target feature PR per target (see
+`/omni:ultra-yolo`'s **From a product**). It is driven only when named,
+`/loop /omni:mega-drive mobile-12`, from any kitted checkout of a repository the product holds.
+`omni next`, `omni care state` and `omni loop push` read a repository's PRD numbers only: a product
+PRD is never passed to them, gets no step of the loop plan, and is driven beside it, at most one step
+agent per product PRD, inside `limits.parallelSteps` with the others. Numbers given beside it are
+driven as written.
+
+**Each tick,** for each product PRD named, read where it stands first:
+
+```bash
+node .omni-loop/bin/omni.mjs prd <key>-<n>
+```
+
+| `state:` | the tick |
+|---|---|
+| `prd` | **parks** it: `waits on a reviewer: the PRD waits for approval on its page`, its link the `page:` line. A tick never waits on an approval |
+| `drifted` or `refused` | **parks** it on a person, its `why` carrying the `approval:` lines: no step is launched while it is drifted |
+| `unreachable` | a `wait`, never a park and never a failure (`server unreachable · held, not failed`): a later tick reads it again |
+| `inbox` | while no step agent of this session runs it, launches one, as step 3 launches a step: `/omni:ultra-yolo <key>-<n>` until every target feature PR is ready, then `/omni:mega-pr-care <key>-<n> --once` each tick until each is merged or closed |
+
+The target feature PRs are read with
+`gh pr list --repo <slug> --head <feature branch> --state all --json number,state,isDraft,url`,
+for each target of the plan (`node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan`). An
+`/omni:ultra-yolo` that returned on a red gate **parks** the PRD on a person,
+`waits on answers on <product> › Questions`; one that returned held is a `wait`. The park is written
+on no plan PR and sent to no Loop page: it is printed in the tick's line, and in step 5's list, one
+line per product PRD naming each open target PR by repository.
+
+When every PRD named is a product PRD, step 1 opens no loop plan and step 4 records no tick: the
+tick prints its lines and sets its wake as **Waking up** says. Step 5 stops once each is parked or
+done and no step agent of this session runs it.
 
 ## 1. Open or resume the loop
 

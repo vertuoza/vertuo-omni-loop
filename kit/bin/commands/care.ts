@@ -9,6 +9,8 @@
 // target's default branch from GitHub, its own landing chain, and wave claims among its own slices
 // only. Wherever it runs, a status comment's `waits on <slug>#<pr>` line is read with that PR's state,
 // and the round holds its CI fix while that PR is open (`decideRound`).
+// With `plan: { product }` (PRD 1548, s10), `state` and `list` read the product's targets from the
+// Omni page (`contextWithTargets`, `./board.ts`); `reply` reads none.
 //
 // `omni care list <prd> [--json]` — PRD 1118, in a plan repository only: every pull request one
 // `/omni:mega-pr-care` run looks after, in merge order (`mergeOrder`): the target and landing PRs, the
@@ -42,10 +44,10 @@ import { parseFolderName } from '../../lib/layout.ts';
 import { isOneOf, propertyOf } from '../../lib/narrow.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, prArg, prdArg, println, readUserFile, repoSlug, usageError } from '../args.ts';
-import { buildBoard } from './board.ts';
-import type { Command, CommandIo, Env, Exec } from '../io.ts';
+import { buildBoard, runWithTargets } from './board.ts';
+import type { TargetsIo, TargetsSubcommand } from './board.ts';
+import type { CommandIo, Env, Exec, FreeCommand } from '../io.ts';
 import { GhGraphqlSchema, GhReplyMutationSchema } from '../schema.ts';
-import { synchronous } from '../synchronous.ts';
 import { IssueNumberSchema, PrNumberSchema } from '../../lib/ids.ts';
 import type { IssueNumber, PrNumber, PrdNumber } from '../../lib/ids.ts';
 
@@ -392,12 +394,14 @@ function postReply({ thread, verdict, body }: { thread: string; verdict: string;
   }
 }
 
-export const care: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
-    const [sub, ...rest] = args;
-    if (sub === 'state') return runState(rest, io);
-    if (sub === 'list') return runList(rest, io);
-    if (sub === 'reply') return runReply(rest, io);
-    throw usageError(USAGE);
-  }),
+/** The subcommands of `omni care`: `state` and `list` read a plan repository's targets, `reply` none. */
+const SUBCOMMANDS: Record<string, TargetsSubcommand> = {
+  state: { run: runState, targets: () => true },
+  list: { run: runList, targets: () => true },
+  reply: { run: runReply, targets: () => false },
+};
+
+export const care: FreeCommand = {
+  withoutContext: true,
+  run: (args: string[], io: TargetsIo): Promise<number> => runWithTargets('care', USAGE, SUBCOMMANDS, args, io),
 };
