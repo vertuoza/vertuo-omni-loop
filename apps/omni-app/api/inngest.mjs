@@ -5716,6 +5716,25 @@ var OMNI_TOKEN = envGroup({
   schema: z25.object({ token: z25.string().regex(OMNI_TOKEN_PATTERN, "it is not a kit token: make one with omni setup-token") }),
   variables: { token: "OMNI_TOKEN" }
 });
+var SESSION = envGroup({
+  label: "the session",
+  schema: z25.object({
+    claudeCodeRemote: z25.string().optional(),
+    sshConnection: z25.string().optional(),
+    sshTty: z25.string().optional(),
+    codespaces: z25.string().optional(),
+    display: z25.string().optional(),
+    waylandDisplay: z25.string().optional()
+  }),
+  variables: {
+    claudeCodeRemote: "CLAUDE_CODE_REMOTE",
+    sshConnection: "SSH_CONNECTION",
+    sshTty: "SSH_TTY",
+    codespaces: "CODESPACES",
+    display: "DISPLAY",
+    waylandDisplay: "WAYLAND_DISPLAY"
+  }
+});
 var PACKAGE_MANAGER = envGroup({
   label: "the package manager",
   schema: z25.object({ execPath: z25.string() }),
@@ -5723,7 +5742,7 @@ var PACKAGE_MANAGER = envGroup({
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync15, rmSync as rmSync5, writeFileSync as writeFileSync5 } from "node:fs";
