@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 1717
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s2-01-security-report-summary-line -->
+
+## s2-01-security-report-summary-line — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s2
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s2-01-security-report-summary-line
 prd: 1717
@@ -47,3 +77,7 @@ Changing the wording later is one line in the check and one in its tests; switch
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) The watch slice is not built yet, so whether it will use the summary line as its title is not proven here.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-security-report-summary-line -->
