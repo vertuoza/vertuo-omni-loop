@@ -479,7 +479,7 @@ While the OPEN THE APP? confirm is open, the arcade's timed hand-overs (boot, in
 
 Serves: P-PRODUCT-41
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
-Enforced by: pending #1505
+Enforced by: apps/galaxy/src/arcade/leave.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
@@ -490,7 +490,7 @@ On HOME, pressing Enter runs PRESS START unless the focus is on a button, link o
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
-Enforced by: pending #1506
+Enforced by: apps/galaxy/src/home/start.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
@@ -523,7 +523,7 @@ When a workspace has no fleets, the arcade menu keeps its FLEETS entry, hinted a
 
 Serves: P-PRODUCT-45
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
-Enforced by: pending #1509
+Enforced by: apps/galaxy/src/arcade/scenes/menu.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -589,7 +589,7 @@ On a person's profile, a PRD, bug fix or visual update is listed for the chosen 
 
 Serves: P-PRODUCT-51
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
-Enforced by: pending #1515
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -611,7 +611,7 @@ When the hero loses a life with lives left, the stage waits on its ready screen 
 
 Serves: P-PRODUCT-53
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
-Enforced by: pending #1517
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
@@ -622,7 +622,7 @@ The corner game box never takes the page's Tab or Shift keys, so a reader can al
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s4-02-dock-select-stays-with-the-page, PRD #817
-Enforced by: pending #1518
+Enforced by: apps/galaxy/src/play-dock/dock-keys.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
@@ -633,7 +633,7 @@ On a stage clear screen, A or START goes on to the next stage's ready screen wit
 
 Serves: P-PRODUCT-54
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
-Enforced by: pending #1519
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818

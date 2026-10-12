@@ -140,6 +140,21 @@ export function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf:
   return gridFor(form, scene);
 }
 
+/**
+ * How long until the scene showing hands over by itself, in ms at `at` (seconds, the arcade's clock),
+ * or null when nothing moves on. Four scenes hand over: the boot, the intro, the welcome and the fleet
+ * lock-in. None moves on while OPEN THE APP? is up; once it closes, each starts in full again, but the
+ * lock-in still counts from when it began.
+ */
+export function handOverIn(ui: Pick<UI, 'scene' | 'leaving' | 'lockedAt' | 'lockSaved'>, at: number): number | null {
+  if (ui.leaving) return null;
+  if (ui.scene === 'boot' || ui.scene === 'welcome') return 3200;
+  if (ui.scene === 'intro') return 20200;
+  // The lock-in plays for 1.8 s, and moves on once the fleet is saved (whichever comes last).
+  if (ui.scene === 'select' && ui.lockedAt !== null && ui.lockSaved) return Math.max(0, 1800 - (at - ui.lockedAt) * 1000);
+  return null;
+}
+
 export interface UI {
   scene: SceneName; sel: number; tab: number; menu: number; fleet: number; since: number;
   page: number; // the page shown, on a scene its group splits into pages; back to the first on each scene
@@ -596,16 +611,16 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // ── Timed hand-overs ──
   // They wait while OPEN THE APP? is up, so B finds the scene it covered, and start again from there.
   useEffect(() => {
-    const later = (ms: number, fn: () => void) => { const id = window.setTimeout(fn, ms); return () => { window.clearTimeout(id); }; };
-    if (ui.leaving) return undefined;
-    if (ui.scene === 'boot') return later(3200, () => { go({ scene: 'title' }); });
-    if (ui.scene === 'intro') return later(20200, () => { open(nextStep('intro', 'onboard', fleets), { flow: 'onboard' }); });
-    if (ui.scene === 'welcome') return later(3200, () => { open('menu'); });
-    // The lock-in plays for 1.8 s, and moves on once the fleet is saved (whichever comes last).
-    if (ui.scene === 'select' && ui.lockedAt !== null && ui.lockSaved) {
-      return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => { open(nextStep('select', uiRef.current.flow, fleets)); });
-    }
-    return undefined;
+    const scene = ui.scene;
+    const ms = handOverIn({ scene, leaving: ui.leaving, lockedAt: ui.lockedAt, lockSaved: ui.lockSaved }, now());
+    if (ms === null) return undefined;
+    const id = window.setTimeout(() => {
+      if (scene === 'boot') go({ scene: 'title' });
+      else if (scene === 'intro') open(nextStep('intro', 'onboard', fleets), { flow: 'onboard' });
+      else if (scene === 'welcome') open('menu');
+      else open(nextStep('select', uiRef.current.flow, fleets));
+    }, ms);
+    return () => { window.clearTimeout(id); };
   }, [ui.scene, ui.lockedAt, ui.lockSaved, ui.leaving, go, open, fleets]);
   useEffect(() => {
     if (!ui.toast) return;

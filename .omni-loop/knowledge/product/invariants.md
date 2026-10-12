@@ -65,7 +65,7 @@ Merged: @pierrederval, 2026-09-26, PR #73
 Each game/cli script parses its own arguments in openWorkspace() before any read, and any argument it does not understand exits 2 with the usage line before Supabase or GitHub is called.
 
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s4-01-game-scripts-refuse-stray-arguments, PRD #100
-Enforced by: pending #1544
+Enforced by: game/cli/scripts.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -85,7 +85,7 @@ Merged: @pierrederval, 2026-09-27, PR #161
 The front page forwards every link that names an arcade screen to /play, reading the list from the arcade's DEEP_LINKS table, so no game-screen link ever lands on HOME.
 
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s1-01-forward-every-arcade-link, PRD #261
-Enforced by: pending #1546
+Enforced by: apps/galaxy/src/home/forward.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
