@@ -24,16 +24,18 @@ import {
   noEdits,
   prepareHarvest,
   withoutWorth,
+  PullFilesSchema,
   type LawQuestion,
 } from '../../lib/knowledge/pipeline.ts';
 import { footerLine } from '../../lib/signature.ts';
 import { parseArgs, prArg, prdArg, println, usageError } from '../args.ts';
-import { githubEnv, pullRequestFilesFor, pullRequestFor } from '../github.ts';
+import { githubEnv } from '../github.ts';
+import { GhPullRequestSchema } from '../schema.ts';
 import { decide } from './decide.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Command, CommandIo } from '../io.ts';
-import type { LawIssue, LawWorth, Merge, Placed } from '../../lib/knowledge/write.ts';
-import { IssueNumberSchema, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
+import type { ChangedFile, LawIssue, LawWorth, Merge, Placed } from '../../lib/knowledge/write.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni harvest <prd> --pr <feature pull request>';
 
@@ -96,6 +98,41 @@ export async function askLawWorth(question: LawQuestion, { ctx, exec, env, vars,
   }
 }
 
+/** One merged pull request, as the harvest reads it: whether and when it merged, who merged it, its merge commit, into
+ * which branch. The harvest is a setup command that still reads through `gh` (PRD 1665 left it out of
+ * scope); these reads moved here from `../github.ts`, which keeps only the writes, in s6. */
+type HarvestedPr = { number: PrNumber; url: string; merged: boolean; mergedAt: string | null; mergedBy: string | null; mergeSha: string | null; base: string };
+
+/** The `gh` options of one read: utf8, with the configured user's token when there is one. */
+function ghOptions({ ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>) {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  return { encoding: 'utf8' as const, ...(ghEnv ? { env: ghEnv } : {}) };
+}
+
+/** Pull request `number` of this repository, through `gh api`. */
+function pullRequestFor(number: PrNumber, io: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): HarvestedPr {
+  const data = GhPullRequestSchema.parse(JSON.parse(io.exec('gh', ['api', `repos/${io.ctx.config.repo.slug}/pulls/${number}`], ghOptions(io))));
+  return {
+    number: data.number,
+    url: data.html_url,
+    merged: Boolean(data.merged_at),
+    mergedAt: data.merged_at ?? null,
+    mergedBy: data.merged_by?.login ?? null,
+    mergeSha: data.merge_commit_sha ?? null,
+    base: data.base?.ref ?? '',
+  };
+}
+
+/**
+ * The files pull request `number` changed, every page (PRD 1171): each one's path, a rename's new one,
+ * and GitHub's status, removals included, for the harvest to tell a removed proof from one the pull
+ * request never changed. `--slurp` gives the pages as one array of arrays, joined here.
+ */
+function pullRequestFilesFor(number: PrNumber, io: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): ChangedFile[] {
+  const raw = io.exec('gh', ['api', `repos/${io.ctx.config.repo.slug}/pulls/${number}/files`, '--paginate', '--slurp'], ghOptions(io));
+  return PullFilesSchema.parse(z.array(z.array(z.unknown())).parse(JSON.parse(raw)).flat());
+}
+
 const OpenedSchema = z.looseObject({ number: IssueNumberSchema });
 
 /** Opens one law issue through `gh`, labelled `labels.law` and signed; returns its number. */
@@ -125,7 +162,7 @@ export const harvest: Command = {
     if (!vars.openrouter) throw usageError(`omni harvest: ${KEY_VAR} is not set — the harvest asks a model where each decision belongs.`);
     if (ctx.layout.whereIs(prd) === null) throw usageError(`omni harvest: PRD ${prd} has no inbox or shipped folder.`);
 
-    const pr = pullRequestFor(ctx, { number, exec, env });
+    const pr = pullRequestFor(number, { ctx, exec, env });
     const defaultBranch = ctx.config.repo.defaultBranch;
     if (!pr.merged) {
       println(stderr, `omni harvest: pull request #${number} is not merged — only a merged feature pull request is harvested.`);
@@ -137,7 +174,7 @@ export const harvest: Command = {
     }
     const merge: Merge = { by: pr.mergedBy ?? '', at: pr.mergedAt ?? '', pr: pr.number, ...(pr.url ? { url: pr.url } : {}) };
 
-    const changed = pullRequestFilesFor(ctx, { number, exec, env });
+    const changed = pullRequestFilesFor(number, { ctx, exec, env });
     const prepared = prepareHarvest({ ctx, prd, merge, changed });
     if (!prepared.ok) {
       println(stderr, [`omni harvest — PRD ${prd}: cannot harvest:`, ...prepared.errors.map((e) => `  - ${e}`)].join('\n'));

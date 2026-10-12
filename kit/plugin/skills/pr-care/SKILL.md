@@ -78,6 +78,24 @@ node .omni-loop/bin/omni.mjs care state <n>
 When `pr.number` is not the one the last round looked after (a landing merged, and the next landing
 is now the one to watch), switch the worktree to its head first, as step 1 item 2 does.
 
+**A read the loop cannot make.** `omni care state` reads the loop's state through the Omni page
+(`ask.url`), never through `gh`. When no read can be made, it prints no state: it exits `1` with one
+line alone on stderr.
+
+| line | what a person does |
+|---|---|
+| `no sign-in (omni signin)` | signs in on this machine (`omni signin`), or sets `OMNI_TOKEN` |
+| `unreachable` | nothing: the Omni page did not answer within 15 seconds |
+| `refused (403): <owner/repo> is not in your workspace` | adds the repository to their workspace |
+| `refused (424): the Omni app cannot read <owner/repo>: <install link>` | installs the Omni app on it, at the link |
+| `refused (429): GitHub's budget for <owner/repo> is spent until <time>` | nothing: the budget refills at that time |
+| `refused (404): this Omni page cannot read the loop yet` | updates the Omni page `ask.url` names, or points `ask.url` at one that serves the loop |
+
+Each is **held, not failed**: the round acts on nothing (no push, no reply, no resolve, no attempt
+spent, nothing read through `gh` instead), prints `<the line> · held, not failed`, and the next round
+reads again (**5. Wait for the next round**). Under `--once`, the round returns that line as its
+result, held.
+
 Its `round` is the pure decision the kit drew from the state: a `mode`, and the ordered `actions`.
 Carry them out in that order and do nothing it does not list.
 

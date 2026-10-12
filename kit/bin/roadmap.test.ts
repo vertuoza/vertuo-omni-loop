@@ -6,7 +6,11 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CALL_TIMEOUT_MS } from '../lib/ask/client.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
-import { parseCommentId, parseIssue } from '../lib/ids.ts';
+import { parseCommentId, parseIssue, parsePr } from '../lib/ids.ts';
+import type { LoopChange } from '../lib/loop-reads/contract.ts';
+import { aChange, fakeLoopReads } from '../lib/loop-reads/fake.ts';
+import { LoopReadError } from '../lib/loop-reads/port.ts';
+import type { LoopReads } from '../lib/loop-reads/port.ts';
 import { answerComment, readAnswers } from '../lib/roadmap/answers.ts';
 import { readLastResult } from '../lib/roadmap/prereqs/last.ts';
 import { readTicks, tickComment } from '../lib/roadmap/prereqs/ticks.ts';
@@ -187,8 +191,9 @@ describe('omni check inbox on a roadmap', () => {
 });
 
 // ── PRD 1162, slice s6: `omni roadmap push` and `omni roadmap answer` ───────────────────────────────
-// Through `main()` with `gh` stubbed (the PRDs' feature PRs and the roadmap issue's comments) and a
-// fetch that answers as `POST /api/roadmaps` does; the sign-in is an in-memory token store.
+// Through `main()` with the loop's reads faked (the PRDs' feature PRs and the roadmap issue's comments,
+// PRD 1665), `gh` stubbed for the comments it posts, and a fetch that answers as `POST /api/roadmaps`
+// does; the sign-in is an in-memory token store.
 
 const BASE = 'https://omni.example';
 const HOST = 'omni.example';
@@ -227,19 +232,16 @@ const WITH_QUESTIONS = [
   '',
 ].join('\n');
 
-type GhPr = { number: number; url: string; state: string; isDraft: boolean; createdAt: string; mergedAt: string | null; closedAt: string | null; updatedAt: string };
-
-/** An exec that answers `gh` as GitHub would for `prs` (by head branch) and the issue's `comments`,
- * keeps every comment posted, and runs anything else for real. */
-function fakeGh({ prs = {}, comments = [], down = false }: { prs?: Record<string, GhPr[]>; comments?: Array<{ id: number; body: string }>; down?: boolean } = {}) {
+/** The loop's reads holding `prs` and the roadmap issue's `comments` (every read throwing `loop` when
+ * given), and an exec whose `gh` only posts a comment (any read throws, every write fails when `down`),
+ * keeping each one posted, and runs anything else for real. */
+function fakeGh({ prs = [], comments = [], down = false, loop }: { prs?: LoopChange[]; comments?: Array<{ id: number; body: string }>; down?: boolean; loop?: LoopReadError } = {}) {
   const posted: Array<{ path: string; body: string }> = [];
   const gh = (args: readonly string[], options?: ExecFileSyncOptions) => {
-    if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs[args[args.indexOf('--head') + 1] ?? ''] ?? []);
     if (args[0] === 'api' && args.includes('--input')) {
       posted.push({ path: args[1] ?? '', body: sentBody(options) });
       return JSON.stringify({ id: 99, html_url: 'https://github.com/acme/widgets/issues/1200#issuecomment-99' });
     }
-    if (args[0] === 'api') return JSON.stringify(comments);
     throw new Error(`unexpected gh ${args.join(' ')}`);
   };
   const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
@@ -247,7 +249,13 @@ function fakeGh({ prs = {}, comments = [], down = false }: { prs?: Record<string
     if (down) throw new Error('gh: could not connect');
     return gh(args, options);
   };
-  return { exec, posted };
+  const at = '2026-10-01T00:00:00Z';
+  const reads = fakeLoopReads({
+    changes: { 'acme/widgets': prs },
+    comments: { 'acme/widgets#1200': comments.map(({ id, body }) => ({ id: parseCommentId(id), author: null, body, createdAt: at, updatedAt: at })) },
+    ...(loop ? { everything: loop } : {}),
+  });
+  return { exec, posted, reads };
 }
 
 /** The `body` of the JSON a `gh api --input -` call sends; empty when it carries none. */
@@ -256,9 +264,12 @@ function sentBody(options?: ExecFileSyncOptions): string {
   return typeof sent === 'object' && sent !== null && 'body' in sent && typeof sent.body === 'string' ? sent.body : '';
 }
 
-async function omni(argv: string[], { root, exec, fetch, tokens = signedIn() }: { root: string; exec: ReturnType<typeof fakeGh>['exec']; fetch?: unknown; tokens?: ReturnType<typeof memoryTokens> }) {
+async function omni(
+  argv: string[],
+  { root, exec, fetch, tokens = signedIn(), reads = fakeLoopReads() }: { root: string; exec: ReturnType<typeof fakeGh>['exec']; fetch?: unknown; tokens?: ReturnType<typeof memoryTokens>; reads?: LoopReads },
+) {
   const s = io();
-  const code = await main(argv, { cwd: root, exec, env: {}, tokens, fetch, stdout: s.stdout, stderr: s.stderr });
+  const code = await main(argv, { cwd: root, exec, env: {}, tokens, fetch, reads, stdout: s.stdout, stderr: s.stderr });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
 
@@ -266,18 +277,18 @@ function pushRepo(url: string | null = BASE, text = WITH_QUESTIONS) {
   return makeRepo({ git: true, files: { ...PUSH_CONFIG(url), ...SPECS, [`${IN}/roadmaps/1200-crew/roadmap.md`]: text } });
 }
 
-const PR21: GhPr = { number: 21, url: 'https://github.com/acme/widgets/pull/21', state: 'MERGED', isDraft: false, createdAt: '2026-10-01T09:00:00Z', mergedAt: '2026-10-03T09:00:00Z', closedAt: '2026-10-03T09:00:00Z', updatedAt: '2026-10-03T09:00:00Z' };
-const PR22: GhPr = { number: 22, url: 'https://github.com/acme/widgets/pull/22', state: 'OPEN', isDraft: false, createdAt: '2026-10-04T09:00:00Z', mergedAt: null, closedAt: null, updatedAt: '2026-10-05T09:00:00Z' };
+const PR21 = aChange({ number: parsePr(21), head: 'feat/skeleton', url: 'https://github.com/acme/widgets/pull/21', state: 'merged', createdAt: '2026-10-01T09:00:00Z', mergedAt: '2026-10-03T09:00:00Z', updatedAt: '2026-10-03T09:00:00Z' });
+const PR22 = aChange({ number: parsePr(22), head: 'feat/worker', url: 'https://github.com/acme/widgets/pull/22', state: 'open', createdAt: '2026-10-04T09:00:00Z', updatedAt: '2026-10-05T09:00:00Z' });
 
 describe('omni roadmap push', () => {
   it("sends the roadmap, its answers and each PRD's standing, exactly the contract's fields", async () => {
     const { root } = pushRepo();
-    const { exec } = fakeGh({
-      prs: { 'feat/skeleton': [PR21], 'feat/worker': [PR22] },
+    const gh = fakeGh({
+      prs: [PR21, PR22],
       comments: [{ id: 1, body: '<!-- omni-roadmap-answer: Q5 -->\n**Q5**, answered:\n\nyes' }, { id: 2, body: 'unmarked' }],
     });
     const { calls, fetch } = stubFetch(pushed());
-    const { code, out, err } = await omni(['roadmap', 'push', '1200'], { root, exec, fetch });
+    const { code, out, err } = await omni(['roadmap', 'push', '1200'], { root, ...gh, fetch });
     expect({ code, err }).toEqual({ code: 0, err: '' });
     expect(out).toBe(`roadmap 1200: created, 3 PRD(s) — ${BASE}/roadmaps/${ROADMAP_ID}\n`);
     expect(calls).toHaveLength(1);
@@ -303,7 +314,7 @@ describe('omni roadmap push', () => {
   it('prints the note the app gives on an unknown product', async () => {
     const { root } = pushRepo();
     const { fetch } = stubFetch(pushed('No product named "X" in this workspace: the roadmap is filed under none.'));
-    const { code, out } = await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch });
+    const { code, out } = await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch });
     expect(code).toBe(0);
     expect(out).toContain('\nNo product named "X" in this workspace: the roadmap is filed under none.\n');
   });
@@ -313,7 +324,7 @@ describe('omni roadmap push', () => {
     const { fetch } = stubFetch(pushed());
     const s = io();
     const env = { CLAUDE_CODE_SESSION_ID: 'road-push' };
-    expect(await main(['roadmap', 'push', '1200'], { cwd: root, exec: fakeGh().exec, env, tokens: signedIn(), fetch, stdout: s.stdout, stderr: s.stderr })).toBe(0);
+    expect(await main(['roadmap', 'push', '1200'], { cwd: root, ...fakeGh(), env, tokens: signedIn(), fetch, stdout: s.stdout, stderr: s.stderr })).toBe(0);
     const kept: unknown = JSON.parse(readFileSync(join(root, '.omni-loop/local/now/links-roadmap-1200.json'), 'utf8'));
     expect(kept).toMatchObject({ links: [{ label: 'roadmap page', href: `${BASE}/roadmaps/${ROADMAP_ID}` }] });
     const shown = io();
@@ -325,14 +336,14 @@ describe('omni roadmap push', () => {
   it('keeps no page when the push stops', async () => {
     const { root } = pushRepo();
     const refused = stubFetch(() => json(403, { error: 'no' }));
-    expect((await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch: refused.fetch })).code).toBe(1);
+    expect((await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch: refused.fetch })).code).toBe(1);
     expect(existsSync(join(root, '.omni-loop/local/now'))).toBe(false);
   });
 
   it("has the contract's 5-second limit on its call", async () => {
     const { root } = pushRepo();
     const { calls, fetch } = stubFetch(pushed());
-    await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch });
+    await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch });
     expect(CALL_TIMEOUT_MS).toBe(5000);
     expect(calls[0]?.signal).toBeInstanceOf(AbortSignal);
   });
@@ -345,7 +356,7 @@ describe('omni roadmap push', () => {
       roadmapCalls += 1;
       return roadmapCalls === 1 ? json(401, { error: 'expired' }) : pushed()();
     });
-    const { code } = await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch });
+    const { code } = await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch });
     expect(code).toBe(0);
     expect(calls.map((c) => [c.url.replace(BASE, ''), c.authorization])).toEqual([
       ['/api/roadmaps', 'Bearer access-1'], ['/api/ask/token', undefined], ['/api/roadmaps', 'Bearer access-2'],
@@ -354,34 +365,50 @@ describe('omni roadmap push', () => {
 
   it('stops with one line, exit 1, never throwing: off, no sign-in, unreachable, refused, github unreachable', async () => {
     const quiet = stubFetch(pushed());
-    const off = await omni(['roadmap', 'push', '1200'], { root: pushRepo(null).root, exec: fakeGh().exec, fetch: quiet.fetch });
+    const off = await omni(['roadmap', 'push', '1200'], { root: pushRepo(null).root, ...fakeGh(), fetch: quiet.fetch });
     expect(off).toEqual({ code: 1, out: '', err: 'off\n' });
     const { root } = pushRepo();
-    expect(await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch: quiet.fetch, tokens: memoryTokens() })).toEqual({ code: 1, out: '', err: 'no sign-in (omni signin)\n' });
+    expect(await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch: quiet.fetch, tokens: memoryTokens() })).toEqual({ code: 1, out: '', err: 'no sign-in (omni signin)\n' });
     expect(quiet.calls).toHaveLength(0);
     const down = stubFetch(() => { throw new TypeError('fetch failed'); });
-    expect(await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch: down.fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
+    expect(await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch: down.fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
     const refused = stubFetch(() => json(403, { error: 'No workspace of yours owns acme/widgets.' }));
-    expect(await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch: refused.fetch })).toEqual({ code: 1, out: '', err: 'refused (403): No workspace of yours owns acme/widgets.\n' });
+    expect(await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch: refused.fetch })).toEqual({ code: 1, out: '', err: 'refused (403): No workspace of yours owns acme/widgets.\n' });
     const bare = stubFetch(() => new Response('oops', { status: 500 }));
-    expect(await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch: bare.fetch })).toEqual({ code: 1, out: '', err: 'refused (500)\n' });
-    expect(await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh({ down: true }).exec, fetch: quiet.fetch })).toEqual({ code: 1, out: '', err: 'github unreachable\n' });
+    expect(await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch: bare.fetch })).toEqual({ code: 1, out: '', err: 'refused (500)\n' });
+    for (const line of ['no sign-in (omni signin)', 'unreachable', 'refused (404): this Omni page cannot read the loop yet']) {
+      const loop = new LoopReadError(line, 'everything');
+      expect(await omni(['roadmap', 'push', '1200'], { root, ...fakeGh({ loop }), fetch: quiet.fetch })).toEqual({ code: 1, out: '', err: `${line}\n` });
+    }
+    const theirs = fakeLoopReads({ failing: { 'acme/widgets': new LoopReadError('refused (403): acme/widgets is not in your workspace', 'repository') } });
+    expect(await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), reads: theirs, fetch: quiet.fetch })).toEqual({ code: 1, out: '', err: 'refused (403): acme/widgets is not in your workspace\n' });
+    expect(quiet.calls).toHaveLength(0);
+  });
+
+  it('reads the feature PRs and the answers through the loop, never through gh', async () => {
+    const { root } = pushRepo();
+    const gh = fakeGh({ prs: [PR21, PR22], down: true });
+    const { code, err } = await omni(['roadmap', 'push', '1200'], { root, ...gh, fetch: stubFetch(pushed()).fetch });
+    expect({ code, err }).toEqual({ code: 0, err: '' });
+    expect(gh.reads.reads.map((read) => (read.read === 'changes' ? `changes ${read.query.head ?? ''} ${read.query.state ?? ''}` : read.read === 'comments' ? `comments ${read.on}` : read.read))).toEqual([
+      'changes feat/skeleton all', 'changes feat/worker all', 'changes feat/think all', 'comments 1200',
+    ]);
   });
 
   it('stops with one line on a roadmap.md that does not parse', async () => {
     const { root } = pushRepo(BASE, '---\nroadmap: 1200\ntitle: T\nmilestone: M\n---\n');
-    const { code, err } = await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch: stubFetch(pushed()).fetch });
+    const { code, err } = await omni(['roadmap', 'push', '1200'], { root, ...fakeGh(), fetch: stubFetch(pushed()).fetch });
     expect(code).toBe(1);
     expect(err).toBe(`${IN}/roadmaps/1200-crew/roadmap.md does not parse (omni roadmap check 1200)\n`);
   });
 
   it('exits 2 with one line on an unknown roadmap or a bad argument', async () => {
     const { root } = pushRepo();
-    const unknown = await omni(['roadmap', 'push', '1300'], { root, exec: fakeGh().exec });
+    const unknown = await omni(['roadmap', 'push', '1300'], { root, ...fakeGh() });
     expect(unknown.code).toBe(2);
     expect(unknown.err).toBe("omni roadmap push: roadmap 1300 has no folder under the inbox's roadmaps.\n");
-    expect((await omni(['roadmap', 'push'], { root, exec: fakeGh().exec })).code).toBe(2);
-    expect((await omni(['roadmap', 'push', 'x'], { root, exec: fakeGh().exec })).code).toBe(2);
+    expect((await omni(['roadmap', 'push'], { root, ...fakeGh() })).code).toBe(2);
+    expect((await omni(['roadmap', 'push', 'x'], { root, ...fakeGh() })).code).toBe(2);
   });
 });
 
@@ -410,7 +437,7 @@ describe('omni roadmap answer', () => {
 
   it('stops with one line when GitHub cannot take the comment', async () => {
     const { root } = pushRepo();
-    expect(await omni(['roadmap', 'answer', '1200', 'Q5', 'yes'], { root, exec: fakeGh({ down: true }).exec })).toEqual({ code: 1, out: '', err: 'github unreachable\n' });
+    expect(await omni(['roadmap', 'answer', '1200', 'Q5', 'yes'], { root, ...fakeGh({ down: true }) })).toEqual({ code: 1, out: '', err: 'github unreachable\n' });
   });
 });
 
@@ -474,10 +501,13 @@ function stubShell({ docker = false }: { docker?: boolean } = {}) {
   return { ran, shell };
 }
 
-async function prereqs(argv: string[], { root, exec = fakeGh().exec, fetch = stubFetch(pushed()).fetch, docker = false }: { root: string; exec?: ReturnType<typeof fakeGh>['exec']; fetch?: unknown; docker?: boolean }) {
+async function prereqs(
+  argv: string[],
+  { root, exec = fakeGh().exec, reads = fakeLoopReads(), fetch = stubFetch(pushed()).fetch, docker = false }: { root: string; exec?: ReturnType<typeof fakeGh>['exec']; reads?: LoopReads; fetch?: unknown; docker?: boolean },
+) {
   const s = io();
   const { ran, shell } = stubShell({ docker });
-  const code = await main(argv, { cwd: root, exec, env: {}, tokens: signedIn(), fetch, prereqShell: shell, machine: MACHINE, now: () => NOW, stdout: s.stdout, stderr: s.stderr });
+  const code = await main(argv, { cwd: root, exec, reads, env: {}, tokens: signedIn(), fetch, prereqShell: shell, machine: MACHINE, now: () => NOW, stdout: s.stdout, stderr: s.stderr });
   return { code, out: s.out.join(''), err: s.err.join(''), ran };
 }
 
@@ -505,13 +535,22 @@ describe('omni roadmap prereqs', () => {
 
   it('with --fix, fixes an agent row, reads the ticks, and exits 0 once every row is ok, fixed or ticked', async () => {
     const { root, read } = prereqsRepo();
-    const { code, out, ran } = await prereqs(['roadmap', 'prereqs', '1200', '--fix'], { root, exec: fakeGh({ comments: [TICK_P3] }).exec, docker: true });
+    const { code, out, ran } = await prereqs(['roadmap', 'prereqs', '1200', '--fix'], { root, ...fakeGh({ comments: [TICK_P3] }), docker: true });
     expect(code).toBe(0);
     expect(out).toContain(`roadmap 1200 — prerequisites on ${MACHINE}: 2 ok · 1 fixed · 1 ticked\n`);
     expect(out).toContain('  p2 fixed — each settings example has its settings file\n');
     expect(out).toContain('  p3 ticked — the preview has its database secret\n');
     expect(read('.env')).toBe('A=1\n');
     expect(ran).toContain('sh -c npm ping');
+  });
+
+  it('says which read stopped when the ticks cannot be read, and every person row waits', async () => {
+    const { root } = prereqsRepo();
+    const loop = new LoopReadError('no sign-in (omni signin)', 'everything');
+    const { code, out, err } = await prereqs(['roadmap', 'prereqs', '1200', '--fix'], { root, ...fakeGh({ comments: [TICK_P3], loop }), docker: true });
+    expect(code).toBe(1);
+    expect(err).toContain('roadmap 1200: the ticks could not be read (no sign-in (omni signin)) — every person row waits.\n');
+    expect(out).toContain('  p3 waits on you — the preview has its database secret');
   });
 
   it('runs no fix without --fix', async () => {
@@ -523,7 +562,7 @@ describe('omni roadmap prereqs', () => {
   it('pushes every row, its state, the machine and the time, and keeps the result for this machine', async () => {
     const { root } = prereqsRepo();
     const { calls, fetch } = stubFetch(pushed());
-    await prereqs(['roadmap', 'prereqs', '1200'], { root, fetch, exec: fakeGh({ comments: [TICK_P3] }).exec });
+    await prereqs(['roadmap', 'prereqs', '1200'], { root, fetch, ...fakeGh({ comments: [TICK_P3] }) });
     const body = calls[0]?.body as Record<string, unknown>;
     const dockerCard: unknown = expect.objectContaining({ command: 'open -a Docker' });
     expect(body.prerequisites).toEqual([
@@ -551,7 +590,7 @@ describe('omni roadmap prereqs', () => {
     const red = await prereqs(['roadmap', 'prereqs', '1200'], { root: prereqsRepo().root, fetch: down.fetch });
     expect(red.code).toBe(1);
     expect(red.err).toBe('roadmap 1200: the page is not updated (unreachable)\n');
-    const green = await prereqs(['roadmap', 'prereqs', '1200', '--fix'], { root: prereqsRepo().root, fetch: down.fetch, exec: fakeGh({ comments: [TICK_P3] }).exec, docker: true });
+    const green = await prereqs(['roadmap', 'prereqs', '1200', '--fix'], { root: prereqsRepo().root, fetch: down.fetch, ...fakeGh({ comments: [TICK_P3] }), docker: true });
     expect(green.code).toBe(0);
     expect(green.err).toBe('roadmap 1200: the page is not updated (unreachable)\n');
   });
@@ -584,10 +623,10 @@ describe('omni roadmap prereqs', () => {
     await prereqs(['roadmap', 'prereqs', '1200'], { root });
     const s = io();
     const here = stubFetch(pushed());
-    expect(await main(['roadmap', 'push', '1200'], { cwd: root, exec: fakeGh().exec, env: {}, tokens: signedIn(), fetch: here.fetch, machine: MACHINE, stdout: s.stdout, stderr: s.stderr })).toBe(0);
+    expect(await main(['roadmap', 'push', '1200'], { cwd: root, ...fakeGh(), env: {}, tokens: signedIn(), fetch: here.fetch, machine: MACHINE, stdout: s.stdout, stderr: s.stderr })).toBe(0);
     expect((here.calls[0]?.body as Record<string, unknown>).prerequisiteResult).toMatchObject({ machine: MACHINE, checkedAt: NOW.toISOString() });
     const elsewhere = stubFetch(pushed());
-    await main(['roadmap', 'push', '1200'], { cwd: root, exec: fakeGh().exec, env: {}, tokens: signedIn(), fetch: elsewhere.fetch, machine: 'other-mac', stdout: s.stdout, stderr: s.stderr });
+    await main(['roadmap', 'push', '1200'], { cwd: root, ...fakeGh(), env: {}, tokens: signedIn(), fetch: elsewhere.fetch, machine: 'other-mac', stdout: s.stdout, stderr: s.stderr });
     expect((elsewhere.calls[0]?.body as Record<string, unknown>).prerequisiteResult).toBeNull();
   });
 
@@ -624,6 +663,6 @@ describe('omni roadmap tick', () => {
 
   it('stops with one line when GitHub cannot take the comment', async () => {
     const { root } = prereqsRepo();
-    expect(await omni(['roadmap', 'tick', '1200', 'p3'], { root, exec: fakeGh({ down: true }).exec })).toEqual({ code: 1, out: '', err: 'github unreachable\n' });
+    expect(await omni(['roadmap', 'tick', '1200', 'p3'], { root, ...fakeGh({ down: true }) })).toEqual({ code: 1, out: '', err: 'github unreachable\n' });
   });
 });

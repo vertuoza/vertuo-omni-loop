@@ -1,11 +1,15 @@
 // PRD 1548, s10 (acceptance 12): with `plan: { product: Mobile }`, `omni board`, `omni next`,
 // `omni care` and `omni flow` read Mobile's targets from the Omni page, as `omni targets` does, and
 // with `plan.targets[]` they read the config's as before, calling no server. Through `main()` on a
-// fixture plan repository: `gh` and the server are fakes, and nothing here calls the network.
+// fixture plan repository: `gh`, the server and the loop's reads (`LoopReads`, PRD 1665) are fakes,
+// and nothing here calls the network.
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { main } from '../../bin/omni.ts';
+import { parsePr } from '../ids.ts';
+import { aChange, fakeLoopReads } from '../loop-reads/fake.ts';
+import type { FakeRead } from '../loop-reads/fake.ts';
 import { makeRepo, realExec } from '../../test/fixture.ts';
 
 const HOST = 'omni.test';
@@ -62,27 +66,17 @@ function server(status = 200) {
 }
 const down = { urls: [], fetch: () => Promise.reject(new TypeError('fetch failed')) };
 
-/** A `gh` that knows one draft feature PR in each target and nothing else, and records the repository of each call. */
-const feature = (slug: string) => ({ number: 40, state: 'OPEN', isDraft: true, url: `https://github.com/${slug}/pull/40`, updatedAt: '2026-10-11T07:00:00Z', body: 'Part of #7' });
+/** The loop's reads: one draft feature PR in each target and nothing else, every read recorded. */
+const feature = (slug: string) =>
+  aChange({ number: parsePr(40), head: 'feat/widgets', state: 'draft', url: `https://github.com/${slug}/pull/40`, updatedAt: '2026-10-11T07:00:00Z', body: 'Part of #7' });
+const loopReads = () => fakeLoopReads({ changes: { 'acme/backend': [feature('acme/backend')], 'acme/frontend': [feature('acme/frontend')] } });
+const repoOf = (read: FakeRead): string => ('query' in read ? read.query.repo : read.repo);
 
-/** What the fake `gh` answers, by its first two arguments; anything else lists nothing. */
-const GH: Record<string, (args: readonly string[], slug: string) => string> = {
-  'repo view': () => 'main\n',
-  'pr view': (args) => JSON.stringify({ number: Number(args[2]), state: 'OPEN', url: null, commits: [] }),
-  'issue view': () => JSON.stringify({ comments: [], closedByPullRequestsReferences: [] }),
-  'pr list': (args, slug) => JSON.stringify(args.includes('--head') && slug !== 'acme/plan' ? [feature(slug)] : []),
+/** A `gh` that knows the default branch and lists nothing else. */
+const fakeGh = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
+  if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
+  return args[0] === 'repo' && args[1] === 'view' ? 'main\n' : '[]';
 };
-
-function fakeGh() {
-  const repos: string[] = [];
-  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
-    if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
-    const slug = String(args[args.indexOf('--repo') + 1]);
-    if (args.includes('--repo')) repos.push(slug);
-    return (GH[args.slice(0, 2).join(' ')] ?? (() => '[]'))(args, slug);
-  };
-  return { exec, repos };
-}
 
 async function omni(argv: string[], { config, fetch = server(), tokens = signedIn }: { config: string; fetch?: { fetch: unknown }; tokens?: unknown }) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN } });
@@ -90,20 +84,21 @@ async function omni(argv: string[], { config, fetch = server(), tokens = signedI
 }
 
 async function omniIn(root: string, argv: string[], { fetch = server(), tokens = signedIn }: { fetch?: { fetch: unknown }; tokens?: unknown } = {}) {
-  const gh = fakeGh();
+  const reads = loopReads();
   const out: string[] = [];
   const err: string[] = [];
   const code = await main(argv, {
     cwd: root,
-    exec: gh.exec,
+    exec: fakeGh,
     env: {},
+    reads,
     tokens,
     fetch: fetch.fetch,
     now: () => new Date('2026-10-11T08:00:00Z'),
     stdout: { write: (s: string) => out.push(s) },
     stderr: { write: (s: string) => err.push(s) },
   });
-  return { code, out: out.join(''), err: err.join(''), repos: [...new Set(gh.repos)] };
+  return { code, out: out.join(''), err: err.join(''), repos: [...new Set(reads.reads.map(repoOf))] };
 }
 
 const TARGETS_URL = 'https://omni.test/api/products/targets?repo=acme%2Fplan&product=Mobile';

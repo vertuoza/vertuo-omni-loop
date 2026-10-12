@@ -29,6 +29,21 @@
 /* A chapter's banner, over the top half of the playfield, clear of the circle and its orbs. */
 .dt-banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap; }
 
+/* The wave's line, centred across the playfield above the circle, shown as the wave begins: it fades in,
+   holds and fades out over the 2 seconds the text layer keeps it (issue 1692). It catches no press and
+   is drawn over the falling blocks without hiding them: small, and with no panel behind it. */
+.dt-line {
+  position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); margin: 0; font-size: 8px;
+  letter-spacing: 1px; white-space: nowrap; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; opacity: 0.9;
+  pointer-events: none; animation: dt-line 2s linear both;
+}
+@keyframes dt-line {
+  0% { opacity: 0; }
+  12% { opacity: 0.9; }
+  70% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
 /* ── On the tall grid (320×288) ───────────────────────────────────────────── */
 .grid-tall .dt-panel { padding: 8px 10px; width: 280px; }
 .grid-tall .dt-score { left: 10px; }

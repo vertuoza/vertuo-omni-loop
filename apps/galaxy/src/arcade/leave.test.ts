@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { WoundKind } from '@omni/galaxy';
+import { handOverIn } from './ArcadeApp';
 import type { Form } from './form';
 import { TALL, WIDE, type Grid } from './grid';
 import { Press } from './hint';
@@ -116,5 +118,31 @@ describe('the confirm on the screen', () => {
   it('makes its hints buttons a tap presses, as every key hint is', () => {
     const buttons = [...html(TALL, 'handheld').matchAll(/<button type="button" class="j-hit">(.*?)<\/button>/g)].map(([, b]) => text(sure(b, 'b')));
     expect(buttons).toEqual([['A', 'YES'], ['B', 'NO']]);
+  });
+});
+
+// Law BR-PRODUCT-44 (.omni-loop/knowledge/product/rules.md, #1505).
+describe('law BR-PRODUCT-44: the timed hand-overs under the confirm', () => {
+  const at = (scene: 'boot' | 'intro' | 'welcome', leaving: boolean) => handOverIn({ scene, leaving, lockedAt: null, lockSaved: false }, 50);
+  const lockIn = (leaving: boolean, now: number) => handOverIn({ scene: 'select', leaving, lockedAt: 10, lockSaved: true }, now);
+
+  it('law BR-PRODUCT-44: the boot, the intro, the welcome and the fleet lock-in wait while OPEN THE APP? is open', () => {
+    for (const scene of ['boot', 'intro', 'welcome'] as const) expect(at(scene, true), scene).toBeNull();
+    expect(lockIn(true, 10.5)).toBeNull();
+  });
+
+  it('law BR-PRODUCT-44: after a no, the same screen restarts its timer in full', () => {
+    expect(at('boot', false)).toBe(3200);
+    expect(at('intro', false)).toBe(20200);
+    expect(at('welcome', false)).toBe(3200);
+    // The timer starts again from where the confirm closed it: the hand-over is timed afresh each time it closes.
+    const app = readFileSync(new URL('./ArcadeApp.tsx', import.meta.url), 'utf8');
+    const effect = sure(/\n {2}useEffect\(\(\) => \{\n {4}const scene = ui\.scene;\n {4}const ms = handOverIn\([\s\S]*?\n {2}\}, \[([^\]]*)\]\);/.exec(app)?.[1], 'the timed hand-overs in ArcadeApp.tsx');
+    expect(effect.split(', ')).toContain('ui.leaving');
+  });
+
+  it('law BR-PRODUCT-44: the fleet lock-in still counts from when it began', () => {
+    expect(lockIn(false, 10.5)).toBeCloseTo(1300);
+    expect(lockIn(false, 12)).toBe(0);
   });
 });

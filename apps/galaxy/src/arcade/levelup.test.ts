@@ -141,3 +141,27 @@ describe('the level this device last celebrated', () => {
     expect(createSeen(local).get('ada-gh')).toBe(5);
   });
 });
+
+// Law BR-PRODUCT-37 (.omni-loop/knowledge/product/rules.md, #1498).
+describe('the game the level-up screen names', () => {
+  it('law BR-PRODUCT-37: the first registry game unlocked above the level last celebrated and at or below the level reached, only when the saved record holds it unlocked', () => {
+    const rules: XpRules = { ...XP_RULES, unlocks: { a: 2, b: 3, c: 3, d: 5 } };
+    const games: Game[] = ['a', 'b', 'c', 'd'].map((id) => ({ id, title: id.toUpperCase(), scene: null, measure: 'points' }));
+    const all = ['a', 'b', 'c', 'd'];
+    const named = (level: number, unlocked: string[], seen: number | null) =>
+      levelUpFor(xpStatus(true, row(150, level, unlocked), rules), seen, rules, games)?.game?.id ?? null;
+
+    // Above the level last celebrated: a game unlocked at that level is never named again.
+    expect(named(3, all, 2)).toBe('b');
+    // At or below the level reached: a game unlocked higher is never named early.
+    expect(named(4, all, 3)).toBeNull();
+    expect(named(5, all, 4)).toBe('d');
+    // Levels climbed between two visits: a game a level climbed through opened is named.
+    expect(named(4, all, null)).toBe('a');
+    expect(named(4, all, 1)).toBe('a');
+    // Only a game the saved record holds unlocked: the next one in the registry's order that it holds, or none.
+    expect(named(3, ['a', 'c'], 2)).toBe('c');
+    expect(named(4, ['b', 'c'], null)).toBe('b');
+    expect(named(3, [], null)).toBeNull();
+  });
+});

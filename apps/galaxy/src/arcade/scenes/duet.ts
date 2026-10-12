@@ -30,7 +30,8 @@ export function playfield(grid: Grid): Placement {
 /**
  * What the text layer shows of the run: its phase, the chapter, whether it is in endless mode, the
  * wave (from 1) and how many the chapter has (none in endless mode), the lives left, the score, the
- * waves passed in the whole run, and whether play has started.
+ * waves passed in the whole run, whether play has started, and the wave's line while it shows, in its
+ * first seconds of play (issue 1692).
  */
 export interface DuetHud {
   phase: 'ready' | 'play' | 'chapter' | 'paused' | 'over';
@@ -42,6 +43,7 @@ export interface DuetHud {
   score: number;
   passed: number;
   started: boolean;
+  line?: string;
 }
 
 /**
@@ -143,7 +145,7 @@ export function duetPress(status: DuetStatus, action: Action): 'retry' | 'back' 
 export const sameDuetHud = (a: DuetHud | null, b: DuetHud | null): boolean =>
   a === b || (!!a && !!b && a.phase === b.phase && a.lives === b.lives && a.score === b.score
     && a.wave === b.wave && a.waves === b.waves && a.endless === b.endless && a.passed === b.passed && a.started === b.started
-    && a.chapter.numeral === b.chapter.numeral && a.chapter.name === b.chapter.name);
+    && a.chapter.numeral === b.chapter.numeral && a.chapter.name === b.chapter.name && a.line === b.line);
 
 /** The Omni sky over the whole grid, then the loaded game's playfield, placed for the grid and clipped to it. */
 export function drawDuet(ctx: CanvasRenderingContext2D, s: FrameState) {

@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { addressAt, DEEP_LINKS, landing, readHash } from './deep-link';
+import { xpStatus } from './games/room';
+import { levelUpFor } from './levelup';
+import { afterStart, arrive } from './onboarding';
 import { twinEvents, twinGalaxy } from './test/twins.fake';
-import type { Session } from './types';
+import type { FleetRow, Player, Session } from './types';
 import { sure } from './test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
@@ -83,6 +87,30 @@ describe('every deep link, through the one door', () => {
   });
 });
 
+// BR-PRODUCT-43 (.omni-loop/knowledge/product/rules.md): a signed-in person whose page holds no
+// galaxy, following the link to the game's menu, starts from the intro as the home address does, then
+// reaches the outside-the-crew screen or the menu with the galaxy out of reach.
+describe('law BR-PRODUCT-43: the menu link without a galaxy', () => {
+  const fleets: FleetRow[] = [{ name: 'beaver', home: null, label: 'BEAVER', color: '#2fc6a4', motto: '', mascot: null, sort: 0, retired: false }];
+  const ready: Player = {
+    id: 'u1', display_name: 'ADA', team: 'beaver', team_since: '2026-09-25T10:00:00Z',
+    hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, github_login: 'ada-gh',
+  };
+
+  it('starts the arcade from the intro, as the home address does, for an account outside the crew and a crew member alike', () => {
+    for (const session of [outsider, crew]) {
+      const home = landing('', { view: null, session });
+      expect(home, session.email).toBeNull();
+      expect(landing('#menu', { view: null, session }), session.email).toEqual(home);
+    }
+  });
+
+  it('then shows the outside-the-crew screen to an account outside the crew, and the way to the menu to a player', () => {
+    expect(afterStart(outsider, null, fleets)).toBe('outsider');
+    expect(afterStart(crew, ready, fleets)).toBe('welcome');
+  });
+});
+
 describe('the address the arcade writes', () => {
   it('names the screen it is on, when a deep link names it', () => {
     expect(addressAt('/', { scene: 'map', sel: 0 }, view)).toBe('/#map');
@@ -142,5 +170,27 @@ describe('a planet named by its home (PRD 728)', () => {
     expect(sure(bare.planets[0], 'bare.planets[0]').home).toBeNull();
     expect(addressAt('/', { scene: 'planet', sel: 0 }, bare)).toBe('/#planet-88');
     expect(readHash('#planet-88', bare)).toEqual({ scene: 'planet', sel: 0 });
+  });
+});
+
+// Law BR-PRODUCT-42 (.omni-loop/knowledge/product/rules.md, #1503).
+describe('the #menu link with a level this device has not celebrated', () => {
+  it('law BR-PRODUCT-42: plays LEVEL UP first, and opens the menu once that level is celebrated', () => {
+    const lv3 = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders'] });
+    const link = sure(landing('#menu', { view, session: crew }), '#menu landing');
+    expect(link.scene).toBe('menu');
+
+    // Not yet celebrated on this device: the level-up plays first. Celebrated: the menu opens.
+    expect(arrive(link.scene, levelUpFor(lv3, null) !== null)).toBe('levelup');
+    expect(arrive(link.scene, levelUpFor(lv3, 2) !== null)).toBe('levelup');
+    expect(arrive(link.scene, levelUpFor(lv3, 3) !== null)).toBe('menu');
+
+    // The arcade opens the deep link through `go`, the path every route to the menu takes, and `go`
+    // sends the menu through `arrive` with the level-up due on this device.
+    const app = readFileSync(new URL('./ArcadeApp.tsx', import.meta.url), 'utf8');
+    const go = sure(/const go = useCallback\(([\s\S]*?)\n {2}\}, \[\]\);/.exec(app)?.[1], 'go in ArcadeApp.tsx');
+    expect(go).toMatch(/patch\.scene === 'menu' \? levelUpDue\.current\(\)/);
+    expect(go).toMatch(/arrive\(patch\.scene, Boolean\(due\)\) === 'levelup'/);
+    expect(app).toMatch(/const link = landing\(window\.location\.hash, [^)]*\);\s*if \(link\) go\(link\);/);
   });
 });
