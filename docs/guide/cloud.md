@@ -81,13 +81,19 @@ a setup script. Make one for the loop, or edit the one you use.
 3. **Network access:** a session must reach the Omni page. Allow the host of the repository's
    `ask.url` (read it with `omni config ask.url`; for the Omni Loop's own repository it is
    `www.omni-loop.xyz`), and `openrouter.ai` too when you set `OPENROUTER_API_KEY` below:
-   - **Limited**, with those hosts added under **Allowed domains**, and **Allow package managers**
-     left ticked, so the setup script can install. An app that has not updated shows the same thing as
-     **Custom**, with a box to include the default list of package managers: tick it.
+   - **Custom**, with those hosts listed one per line under **Allowed domains**, and **Also include
+     default list of common package managers** ticked, so the setup script can still install.
    - Or **Full**, which allows every host.
 
-   The default, **Trusted network access**, does not allow the Omni page: a session then stops on
-   `OMNI_TOKEN: cannot reach <host>`.
+   The default, **Trusted**, allows package registries and GitHub but not the Omni page: a session then
+   stops on `OMNI_TOKEN: cannot reach <host>`. A change to network access reaches the sessions already
+   open within about a minute.
+
+   **For the whole team,** an Owner of your Claude organization can make one shared environment with
+   these settings, from the **Cloud environments** page of the organization's admin settings: it then
+   shows to every member under **Organization**. There is no organization-wide allowlist that applies
+   to everyone's own environments. Keep `OMNI_TOKEN` out of a shared environment: every member's
+   session reads its variables, and the token acts as the one who made it.
 4. **Environment variables:** one line per variable, in `.env` format: `OMNI_TOKEN=omk_…`, with
    the token you made in step 1. Add any optional variable the repository's README lists under
    its environment variables, such as `OPENROUTER_API_KEY`, when you want what it turns on in the
@@ -99,8 +105,8 @@ a setup script. Make one for the loop, or edit the one you use.
    `.omni-loop/bin/` that needs nothing installed: leave its setup script as it is.
 6. **Create environment** (or **Save**).
 
-Each session started in that environment reads its settings when it starts. A session already open
-keeps what it started with: start a new one.
+A session reads the environment's variables and runs its setup script when it starts: after changing
+either, start a new session.
 
 ## 3. Check it
 
