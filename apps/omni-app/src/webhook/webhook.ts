@@ -64,10 +64,13 @@ type ActionTable = Readonly<Record<string, readonly string[]>>;
 
 /**
  * The events and actions the app re-evaluates the outbox check on. `check_run.rerequested` is
- * GitHub's **Re-run** button; GitHub delivers it only to the app that created the check run.
+ * GitHub's **Re-run** button; GitHub delivers it only to the app that created the check run. A
+ * review submitted or dismissed (PRD 1726) re-runs it too: a CODEOWNER's approval is what clears a
+ * change to a locked law, without a new push.
  */
 export const CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited']),
+  pull_request_review: Object.freeze(['submitted', 'dismissed']),
   check_run: Object.freeze(['rerequested']),
 });
 
@@ -93,6 +96,7 @@ const APPROVED_LABEL = parseConfig('kit: 1').labels.approved;
 /** Every event and action the app acts on. `app.yml` subscribes to exactly these events (its test says so). */
 export const HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
+  pull_request_review: CHECK_ACTIONS.pull_request_review,
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run]),
 });
 
@@ -234,7 +238,7 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
   const trigger = `${event}.${String(payload.action)}`;
   const name = event === 'check_run' ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
   const pulls =
-    event === 'pull_request'
+    event !== 'check_run'
       ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }]
       : (payload.check_run?.pull_requests ?? []).map((pull) => ({
           number: pull.number,
