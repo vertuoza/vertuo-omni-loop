@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "As long as my masking tests still pass and nothing blocks my push for a fake token, I'm fine with it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A daily red run nobody reads is noise; it has to tell me what to run.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "A leaked key on a public repository is the kind of incident I never want to explain.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Switched on, kept on, and agents can't trip over it: that's the right order.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "It doesn't change what I see, but I like that nobody has to remember it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "I don't want another scheduled run that goes red and that everyone learns to ignore, like the nightly mutation run that has been red for eight days. If this one goes red, it must say exactly what to run.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✗ until a red run says what to run"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The guard tells me in my own run to build the fake at runtime, and the masking tests keep their values.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every red line names its fix and one issue tracks it until green: that I would actually read.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Real secrets are refused before they're public, and the day-one alerts are triaged in the PR.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Fixtures first, settings last, and a token with two read scopes only.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Still not for me to see, but one issue on red is easy to follow.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓"
+    }
+  ]
+}

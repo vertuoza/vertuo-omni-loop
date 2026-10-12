@@ -1,0 +1,149 @@
+<title>Secret scanning before and after</title>
+<style>
+/* Layout: one column; each part sets today beside after in two panes that stack on a phone.
+   Single dark look, on purpose: the Omni Loop's own tokens (packages/design/tokens.css). */
+:root {
+  --bg: #07061c;        /* void */
+  --pane: #0e0d33;      /* deep */
+  --fg: #f2f4ff;        /* white */
+  --muted: #8a90d6;     /* dim */
+  --line: #2a2766;
+  --accent: #a45cff;    /* plasma */
+  --good: #4ee08a;      /* green */
+  --bad: #ff3b5c;       /* red */
+  --code: #6ff0ff;      /* cyan */
+  --display: "Press Start 2P", ui-monospace, monospace;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 56px; display: grid; gap: 32px; }
+h1 { font: 18px/1.5 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 13px/1.5 var(--display); margin: 0; color: var(--accent); letter-spacing: .04em; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; color: var(--muted); }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pane { background: var(--pane); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pane.today { border-top: 3px solid var(--bad); }
+.pane.after { border-top: 3px solid var(--good); }
+pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--code); overflow-x: auto; white-space: pre; }
+ul, ol { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: .92em; color: var(--code); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.no { color: var(--bad); } .yes { color: var(--good); }
+.note { color: var(--muted); font-size: 13.5px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Press+Start+2P&display=swap">
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Secret scanning, switched on and kept on</h1>
+    <p class="lede">PRD #1717 · Bounded, no product code. A public repository gets GitHub's secret scanning and push protection, fake secrets that never trip them, and a daily check that keeps them on.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+
+    <h3>1 · The repository's settings</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>vertuoza/vertuo-omni-loop   public
+security_and_analysis
+  secret_scanning                  disabled
+  secret_scanning_push_protection  disabled
+  dependabot_security_updates      enabled</pre>
+        <ul>
+          <li>A real token pushed by mistake is <span class="no">public at once</span>, and nothing raises it.</li>
+          <li>Nothing would notice a setting switched off.</li>
+        </ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>vertuoza/vertuo-omni-loop   public
+security_and_analysis
+  secret_scanning                  enabled
+  secret_scanning_push_protection  enabled
+  dependabot_security_updates      enabled</pre>
+        <ul>
+          <li>A push holding a real credential is <span class="yes">refused before it lands</span>.</li>
+          <li>Switched on by <code>node scripts/security-settings.ts --apply</code>; the whole history scanned once, every alert triaged in the feature PR.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>2 · A fake secret in a test</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>// apps/galaxy/src/jev/mask.test.ts
+const FAKES = [
+  'ghp_abcd…6789',          // written out whole
+  'sk-ant-api03-abcd…wxyz',
+];</pre>
+        <ul>
+          <li>Once push protection is on, an agent adding one like it <span class="no">could be refused</span>, and the briefing forbids bypassing.</li>
+        </ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>// apps/galaxy/src/jev/mask.test.ts
+const FAKES = [
+  'ghp_' + 'a'.repeat(36),  // built at runtime
+  'sk-ant-' + 'api03-' + 'x'.repeat(26),
+];</pre>
+        <ul>
+          <li>The test receives a string of the same shape, so what it proves is unchanged.</li>
+          <li><code>scripts/secret-shapes-guard.test.ts</code> <span class="yes">refuses a literal one</span> in any tracked file, naming the file, the line and the shape, in the agent's own run.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>3 · When something goes wrong</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+        <p>A setting switched off, or a secret pushed: <span class="no">no run, no issue, no one told</span>.</p>
+      </div>
+      <div class="pane after">
+        <h3>After: the daily <code>security</code> workflow</h3>
+<pre>$ node scripts/security-settings.ts
+secret scanning     enabled
+push protection     disabled  → node scripts/security-settings.ts --apply
+open alert #3       github_personal_access_token
+                    → https://github.com/vertuoza/vertuo-omni-loop/security/secret-scanning/3
+exit 1</pre>
+        <ul>
+          <li>Red: opens one <code>omni:security</code> issue with this output, or comments on the open one.</li>
+          <li>Green again: closes that issue.</li>
+          <li>Reads with <code>SECURITY_READ_TOKEN</code> (Administration: read, Secret scanning alerts: read, this repository only); off until it is set.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>4 · What stays the same</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Thing</th><th>After this PRD</th></tr></thead>
+        <tbody>
+          <tr><td>Product code (arcade, GitHub App, kit)</td><td>unchanged; no deploy follows the merge</td></tr>
+          <tr><td>Pull request checks</td><td>unchanged, plus the guard test inside <code>test</code></td></tr>
+          <tr><td>Paths GitHub scans</td><td>all of them: nothing is allow-listed</td></tr>
+          <tr><td>Organisation defaults, other repositories</td><td>unchanged: out of scope</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">The voice objected at the design (persona:B-E DEv): "If this one goes red, it must say exactly what to run." Accepted: every red line names its fix, and one issue tracks it until the next green run.</p>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</div>
