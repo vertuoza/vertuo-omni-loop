@@ -358,7 +358,7 @@ When the phone turns during an invaders game, the game keeps the field it starte
 
 Serves: P-PRODUCT-31
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
-Enforced by: pending #1494
+Enforced by: apps/galaxy/src/arcade/game-field.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
