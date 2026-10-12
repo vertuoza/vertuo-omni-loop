@@ -134,8 +134,8 @@ export type Terminal = { columns: number; color: boolean };
 
 /** `COLUMNS` when it is a positive whole number, else 80; colour unless `NO_COLOR` is set. */
 function terminalOf(group: z.output<typeof TERMINAL.schema> | null): Terminal {
-  const raw = group?.columns;
-  const columns = raw !== undefined && raw.trim() !== '' ? Number(raw) : Number.NaN;
+  // Unset is NaN, and blank is 0: neither is a positive whole number.
+  const columns = Number(group?.columns);
   return { columns: Number.isInteger(columns) && columns > 0 ? columns : DEFAULT_COLUMNS, color: group?.noColor === undefined };
 }
 
