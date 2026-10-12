@@ -1,9 +1,9 @@
 // The loop's read contract (PRD 1665): what the Omni page answers under `<ask.url>/api/loop/*`, in the
 // loop's own words (a *change*, never a pull request), as zod schemas. This is the one copy of its
 // fields (settled item s1-01): the kit reads with these, and the page builds its own answers' schemas
-// from their shapes (`apps/galaxy/src/loop/loop.contract.ts`, which may import the kit's library; the
-// kit may never import the page, ADR-0058). Both are held to the same examples, the page's
-// `apps/galaxy/src/loop/fixtures/contract.json`, which `./contract.test.ts` reads by its path.
+// from their shapes (its `src/loop/loop.contract.ts`, which may import the kit's library; the kit may
+// never import the page, ADR-0058). Both are held to the same examples, the page's
+// `src/loop/fixtures/contract.json`, which `./contract.test.ts` reads by its path.
 //
 // The kit reads, it does not police: every object here keeps the fields it knows and drops the rest,
 // so a newer page that answers a field more still reads. The page makes them strict for what it sends.

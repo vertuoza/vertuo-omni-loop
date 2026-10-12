@@ -84,17 +84,24 @@ export function ghBoardReads({ exec, env }: { exec: ExecText; env: Record<string
       throw new LoopReadError(ghReason(error), 'repository');
     }
   };
+  // `gh` runs synchronously: what it throws rejects the read's promise, as an awaited call's would.
+  const later = <T>(work: () => T): Promise<T> =>
+    new Promise((resolve) => {
+      resolve(work());
+    });
   return {
-    changes: async ({ repo, base, head, label, state = 'open' }: ChangesQuery) => {
-      const narrowing = head !== undefined ? ['--head', head] : label !== undefined ? ['--label', label] : base !== undefined ? ['--base', base] : [];
-      const raw = gh(['pr', 'list', '--repo', repo, '--json', PR_FIELDS.join(','), '--state', state, '--limit', '200', ...narrowing]);
-      const prs = z.array(GhPrSchema).parse(JSON.parse(raw));
-      return prs.flatMap((pr) => (pr.number === undefined ? [] : [changeOf({ ...pr, number: pr.number }, repo)]));
-    },
-    lastCommitAt: async (repo, number) => {
-      const raw = gh(['pr', 'view', String(number), '--repo', repo, '--json', 'commits']);
-      const last = (GhCommitsSchema.parse(JSON.parse(raw)).commits ?? []).at(-1);
-      return last?.committedDate ?? last?.authoredDate ?? null;
-    },
+    changes: ({ repo, base, head, label, state = 'open' }: ChangesQuery) =>
+      later(() => {
+        const narrowing = head !== undefined ? ['--head', head] : label !== undefined ? ['--label', label] : base !== undefined ? ['--base', base] : [];
+        const raw = gh(['pr', 'list', '--repo', repo, '--json', PR_FIELDS.join(','), '--state', state, '--limit', '200', ...narrowing]);
+        const prs = z.array(GhPrSchema).parse(JSON.parse(raw));
+        return prs.flatMap((pr) => (pr.number === undefined ? [] : [changeOf({ ...pr, number: pr.number }, repo)]));
+      }),
+    lastCommitAt: (repo, number) =>
+      later(() => {
+        const raw = gh(['pr', 'view', String(number), '--repo', repo, '--json', 'commits']);
+        const last = (GhCommitsSchema.parse(JSON.parse(raw)).commits ?? []).at(-1);
+        return last?.committedDate ?? last?.authoredDate ?? null;
+      }),
   };
 }
