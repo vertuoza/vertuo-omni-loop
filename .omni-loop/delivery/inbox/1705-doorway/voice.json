@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-12",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Moving folders into route groups and one new frame component is a small, testable change, not a rewrite of sign-in.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "A starfield on a sign-in page is exactly the fluff I expect from this tool.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "The sign-in I approve from my phone finally looks like a product, not a corner of the Questions inbox.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Both terminal sign-ins and sign-up look the same, so there is one thing to explain to my team.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "One code and one button, with no menu of an app I am not in yet.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A starfield on a sign-in page is exactly the fluff I expect from this tool. I only want to see the code match and get back to my terminal.",
+        "citations": ["persona:B-E DEv"],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ on the stars"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-12",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A route test names every folder, so a page can't slip between the shell and the doorway unnoticed.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "The stars stay, but they are static and the code is the biggest thing on the page. Fine.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Sign-up reads one line before the button now, so a new team lands faster.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "No URL changes and a one-commit rollback: nothing for my team to relearn.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 5, "reaction": "Short sentences on sign-up and the sign-in: I understand each screen without the docs.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ with static stars"
+    }
+  ]
+}

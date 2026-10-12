@@ -3,8 +3,8 @@ screen: ask-device
 status: draft
 kind: page
 mock: ask-device.html
-implements: [apps/galaxy/app/ask/device/page.tsx, apps/galaxy/src/ask/device-card.tsx]
-reads: [apps/galaxy/src/ask/device.ts, apps/galaxy/src/ask/cli-code-card.tsx, apps/galaxy/src/ask/page/Notice.tsx, apps/galaxy/src/ask/ask.css]
+implements: [apps/galaxy/app/ask/(doorway)/device/page.tsx, apps/galaxy/src/ask/device-card.tsx]
+reads: [apps/galaxy/src/doorway/Doorway.tsx, apps/galaxy/src/ask/device.ts, apps/galaxy/src/ask/cli-code-card.tsx, apps/galaxy/src/ask/page/Notice.tsx, apps/galaxy/src/ask/ask.css]
 routes: [/ask/device]
 supersedes: null
 ---
@@ -17,9 +17,11 @@ their terminal shows, then signs the terminal in with GitHub, from any browser. 
 
 ## Regions
 
-- **The wordmark** above the card, as on `/ask/signin`.
+- **The doorway** around it (its own shared screen, `doorway`, PRD 1705): the starfield, the crest
+  above the card, a `Docs` link under it. No app shell.
 - **The card** (`ask-card`, one column): a title, one short line, and, while the request is
-  pending, the code in large mono type on the sunk panel.
+  pending, the code on the sunk panel, in the pixel face at 24 px (16 px below 900 px): the one arcade touch
+  inside the card (PRD 1705). The Enter the code box keeps the mono face.
 - **The actions:** **Yes, sign it in** (the primary action) and *No, it's not mine* (a quiet link
   button) beside it; or, with no code in the link, a code box and **Continue**.
 
@@ -47,9 +49,10 @@ Every sentence at rest stays within 7 words (the word pass). The code is always 
 
 ## Open questions
 
-- The page under the Light and Dark themes is not drawn yet; it uses Ask's tokens, so it follows
-  them.
+- Dark and Light are drawn in the `doorway` mockup (PRD 1705); the other states only under Omni.
+
 
 ## Source
 
 /omni:brainstorm, PRD 1660: .omni-loop/delivery/shipped/1660-signin-device/before-after.html
+/omni:brainstorm, PRD 1705: .omni-loop/delivery/inbox/1705-doorway/before-after.html
