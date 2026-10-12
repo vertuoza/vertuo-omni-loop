@@ -749,6 +749,10 @@ var ConfigSchema = z7.object({
     // and a config that does not set it parses exactly as before.
     hookMaxBytes: z7.number().int().positive().optional()
   }),
+  // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
+  // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
+  // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
+  wave: section({ inlineBelow: z7.number().int().min(0).default(0) }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.

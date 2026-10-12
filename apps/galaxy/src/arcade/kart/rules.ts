@@ -14,6 +14,8 @@ export const RULES = Object.freeze({
   reverseAccel: 50,
   /** A kart faster than the top speed it is at (once a BOOST is over) slows to it at this rate. */
   overspeedDrag: 220,
+  /** The slope on the top speed (PRD 1698): the share of it a unit of slope takes off uphill and adds downhill, within a third either way (kart.ts). */
+  climb: 1.2,
   /** The turn rate at best grip, the speed it is reached at, and the part of it that is left at the top speed. */
   steer: 2.6,
   gripSpeed: 25,
@@ -31,6 +33,10 @@ export const RULES = Object.freeze({
   rivalAim: 0.04,
   rivalSharp: 0.7,
   rivalCorner: 60,
+  /** How far ahead a rival looks for the edge, in seconds of its speed (PRD 1698): a wheel over the void there, or under it, steers it back. */
+  rivalLook: 0.25,
+  /** How close to a corner's waypoint a rival turns in for the next one. */
+  rivalTurnIn: 64,
   /** The rubber band: the most a rival's pace moves, and the gap in game pixels at which it moves that much. */
   rubber: 0.05,
   rubberRange: 400,
@@ -53,6 +59,10 @@ export const RULES = Object.freeze({
   blinkTime: 0.5,
   /** How far from the road a kart's centre goes before it falls: half its width as drawn (art.ts `KART_WORLD`), so it falls once all of it has tipped over the edge. */
   overhang: 7,
+  /** A kart's four wheels (PRD 1698): how far ahead and behind its centre they stand and how far to each side, and how fast a wheel over the void draws the kart towards the edge. */
+  wheelAlong: 6,
+  wheelAcross: 3,
+  tipPull: 16,
   spinSpeed: 0.3,
   spinRate: Math.PI * 2,
   /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */

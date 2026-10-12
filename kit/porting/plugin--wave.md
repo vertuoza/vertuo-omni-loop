@@ -149,3 +149,58 @@ sub-PR's threads before the gate and holds an asked one).
 
 `pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
 kit's sources.
+
+## Issue 1722 — a small plan builds inline, with no sub-PR per slice
+
+Not a re-port: a kit-local feature. A new config key, `wave.inlineBelow` (default `0`, which keeps
+every step as it was), and `omni board --json`'s new `inline` field decide it. When `inline` is
+`true`, step 1 sends the wave to a new **Inline wave** section in place of steps 2 to 4: the board's
+`takeable` slices are built one at a time (they share one branch), each by a `/omni:do-work
+--inline` subagent on a detached head of the feature branch, with no claim, no sub-PR and no merge.
+Steps 5 (the wave's check, adopt, rebuild) and 6 (the report) run as written; the feature PR's
+**Slices** line reads `built inline, <short sha>` in place of `#<sub-PR>`.
+
+**Decided:**
+- **How the board knows a slice is built.** A slice with no pull request would read `runnable`
+  forever, so the loop would build it again. A commit on the feature branch whose message carries
+  `Omni-Slice: <id>` is its record (`kit/lib/board.ts`, `inlineSlicesIn`); the board reads it with one
+  `git log <remote>/<default>..<remote>/<feature branch>`, only when `wave.inlineBelow` is above `0`.
+  The alternatives, a file in the PRD's folder or a label on the feature PR, would add a write to
+  every slice and a second source of truth. A feature branch deleted after its merge names no slice,
+  which is when the PRD has shipped and nothing reads the board for a wave.
+- **One slice at a time.** Two slices of one wave pushing to one branch race; the plan is small by
+  definition (`wave.inlineBelow`), so the lost parallelism is one slice's time at most.
+- **A slice that does not end `done` pushes nothing to the feature branch.** It goes to the slice
+  branch with no PR, so the feature branch is never red from a half-built slice. The board still
+  reads it `runnable`, so a drive stops on its "a wave merged nothing and the board did not change"
+  row (`/omni:yolo` step 3) rather than looping.
+- **Never inline a PRD that has a sub-PR,** nor across repositories: `inlineWave` says `false`, so a
+  config change in the middle of a PRD never mixes the two shapes, and `/omni:ultra-wave` is
+  untouched.
+- **Turning the key back to `0` in the middle of a PRD** makes its built slices read `runnable` again
+  (nothing reads the trailer then); set it back, or finish the PRD by hand.
+
+### Tests
+
+`kit/lib/board.test.ts` (`inlineSlicesIn`, `boardFor` with `inlineDone`, `inlineWave`),
+`kit/bin/board.test.ts` (the git read, `inline` in `--json` and in the table), `kit/lib/config.test.ts`
+and `kit/test/plugin.test.ts` (the wave and do-work skills name the inline path).
+
+### Gate (this update)
+
+`pnpm vitest run kit/` and `pnpm test`, green.
+
+## Issue 1179 — never a wave on a branch behind the default branch
+
+Step 1 gained **Behind the default branch**: when `omni board --json`'s new `base.behind` is `true`,
+the wave follows `/omni:yolo`'s **Meet the default branch** before any claim, then reads the board
+again. The guardrails gained "Never claim on a branch behind the default branch".
+
+### Tests
+
+`kit/test/plugin.test.ts`, `the default branch met before the plan, the board and the first wave
+(issue 1179)`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.ts kit/bin/board.test.ts` and `pnpm test`, green.

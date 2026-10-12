@@ -246,7 +246,7 @@ async function refreshPrdBoard(root: string, prd: PrdNumber, io: RefreshIo, time
   if (lockHeld(root, prd, instant)) return;
   const read = async () => {
     const ctx = loadContext(io.cwd, { exec: timed });
-    return (await buildBoard(prd, { ctx, reads: boardReads(loopReadsOf(ctx, io)), now: instant })).result.slices;
+    return (await buildBoard(prd, { ctx, reads: boardReads(loopReadsOf(ctx, io)), now: instant, exec: timed })).result.slices;
   };
   const built = await read().then((slices) => ({ slices }), (error: unknown) => ({ error }));
   refreshBoard({

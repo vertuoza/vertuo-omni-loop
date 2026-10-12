@@ -1,8 +1,10 @@
 // OMNI KART on the arcade's canvas (PRD 1359): the Omni sky over the circuit in Mode 7, seen from
 // behind the player's kart, which is drawn over it with its driver in the seat. The one file under
 // arcade/kart/ that draws: everything it draws from is pure (track.ts, mode7.ts, texture.ts, race.ts).
-// The circuit's texture is painted once, the first time a race is drawn, and the floor goes through
-// one pixel buffer per grid, allocated once and reused. It also holds the race the arcade steps.
+// The circuit's texture and the ground's heights are painted once, the first time a race is drawn, and the
+// floor goes through one pixel buffer per grid, allocated once and reused. The road rises and falls
+// (relief.ts, PRD 1698): the camera rides the ground under the player's kart, a sprite stands on the ground
+// under it, and a hill's crest hides what is behind it. It also holds the race the arcade steps.
 import { drawPlanet, drawStarfield, fleetSprite, spriteImage, spriteSize, woundTint } from '@omni/design';
 import type { Action } from '../keys';
 import { heroOf } from '../fleets';
@@ -10,20 +12,65 @@ import { stripesOf } from '../theme';
 import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/common.ts';
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
-import { NO_FX, type Kart } from './kart';
+import { leanOf, NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
-import { chaseCamera, depthAt, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
+import { chaseCamera, depthAt, project, renderTerrain, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
+import { groundAt, heightsOf, reliefRange } from './relief';
 import type { GridSession, RaceStart } from './hub';
 import type { Item } from './items';
 import { rateFor, readMessage, type GridPlayer, type ItemMessage, type RaceMessage } from './net';
 import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, plant, press, step, whereIs, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
-import { BEYOND, paintTrack } from './texture';
-import { parseTrack, type PropKind, type Track } from './track';
+import { deckOf, paintTrack } from './texture';
+import { isRoad, parseTrack, tileAt, type PropKind, type Track } from './track';
 
-/** A buffer the floor is rendered into, and the canvas it is drawn from. */
-interface Floor { image: ImageData; pixels: Uint32Array; canvas: HTMLCanvasElement }
+/** A buffer the floor is rendered into, how far each of its pixels is (Infinity where it shows no road), and the canvas it is drawn from. */
+interface Floor { image: ImageData; pixels: Uint32Array; depth: Float32Array; canvas: HTMLCanvasElement }
+
+/** The circuit's ground, once painted: its texture, the height under each of its pixels, the lowest and highest of them, and the side of its deck. */
+interface Ground { texture: Texture; heights: Float32Array; range: { low: number; high: number }; deck: Deck }
+
+/**
+ * Where the part of a sprite `z` away, in the screen box `box`, is covered by nearer road: for each column of the box,
+ * the first row from the top where the floor is nearer than it (the box's bottom where none is), or null when no column
+ * is covered. What a crest hides is what is under the row it covers from.
+ */
+export function coverOf(depth: Float32Array, w: number, h: number, box: { left: number; top: number; right: number; bottom: number }, z: number): Int16Array | null {
+  const left = Math.max(0, Math.floor(box.left)), right = Math.min(w, Math.ceil(box.right));
+  const top = Math.max(0, Math.floor(box.top)), bottom = Math.min(h, Math.ceil(box.bottom));
+  if (left >= right || top >= bottom) return null;
+  const nearer = z * 0.9 - 2; // one row of the floor is up to 2.5% of a far thing's distance, and the foot's two rows below it count
+  const cut = new Int16Array(right - left);
+  let any = false;
+  for (let col = left; col < right; col++) {
+    let row = top;
+    while (row < bottom && (depth[row * w + col] ?? Infinity) >= nearer) row++;
+    cut[col - left] = row;
+    if (row < bottom) any = true;
+  }
+  return any ? cut : null;
+}
+
+/**
+ * Clips what is drawn next to the part of a sprite that no nearer road covers (`coverOf`). Saves the context when it
+ * clips and says so, for the caller to restore it; clips nothing when no road covers the box.
+ */
+function hideBehind(ctx: CanvasRenderingContext2D, floor: Floor, w: number, h: number, box: { left: number; top: number; right: number; bottom: number }, z: number): boolean {
+  const cut = coverOf(floor.depth, w, h, box, z);
+  if (!cut) return false;
+  const left = Math.max(0, Math.floor(box.left)), top = Math.max(0, Math.floor(box.top));
+  ctx.save();
+  ctx.beginPath();
+  for (let start = 0, col = 1; col <= cut.length; col++) {
+    const at = cut[start] ?? top;
+    if (col < cut.length && cut[col] === at) continue;
+    if (at > top) ctx.rect(left + start, top, col - start, at - top);
+    start = col;
+  }
+  ctx.clip();
+  return true;
+}
 
 /** The sky's panorama, in screens: a full turn of the camera, for a field of view of 60° across one screen. */
 const PANORAMA = 6;
@@ -139,11 +186,32 @@ const KART_FOOT = 6;
 /** The camera behind the player's kart on `grid`: as far back as puts the floor under the kart's centre where its sprite's wheels touch, so it is drawn where it stands. */
 export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: number; y: number; angle: number } => chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT));
 
+/** The camera's view of the race on `grid`: behind the player's kart, its eye 28 over the ground under it. */
+export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'waypoints' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y));
+
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
 
 /** How far a kart's fall has gone, 0 (just over the edge) to 1 (gone): it is drawn smaller and lower as it grows. */
 export const fallenOf = (fx: { fall: number }): number => (fx.fall > 0 ? 1 - Math.min(1, fx.fall / RULES.fallTime) : 0);
+
+/** How far a kart rolls over, in radians: a little for a lean (`lean` is -1 to 1, as `leanOf` gives it) and, once it tips, more and more as it falls, onto its side. Towards the side over the void: clockwise (positive) for its right. */
+const TILT = 0.5;
+const ROLL = 1.3;
+export function rollOf(lean: number, fallen: number): number {
+  return lean === 0 ? 0 : Math.sign(lean) * Math.min(Math.PI / 2, TILT * Math.min(0.5, Math.abs(lean)) + ROLL * fallen);
+}
+
+/** Draws `draw` turned by `roll` about the screen point x, y (where the kart's wheels touch the road). */
+function rolled(ctx: CanvasRenderingContext2D, roll: number, x: number, y: number, draw: () => void) {
+  if (roll === 0) { draw(); return; }
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(roll);
+  ctx.translate(-x, -y);
+  draw();
+  ctx.restore();
+}
 
 /** How fast a kart blinks once it is back on the road, in blinks a second: it is drawn on every other frame of the blink. */
 const BLINK_RATE = 12;
@@ -167,13 +235,16 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
   const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - KART_FOOT + fallen * 18 * scale;
   const half = scale / 2;
-  shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05);
+  if (race.fx.fall <= 0) shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
-  const spin = race.fx.spin > 0 ? SPIN_VIEWS[Math.floor(s.t * 12) % SPIN_VIEWS.length] : undefined;
-  sprite(ctx, s, spin ?? viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
+  const roll = rollOf(leanOf(race.track.map, kart), fallen);
+  rolled(ctx, roll, x + (KART_W * scale) / 2, y + 18 * scale, () => {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
+    const spin = race.fx.spin > 0 ? SPIN_VIEWS[Math.floor(s.t * 12) % SPIN_VIEWS.length] : undefined;
+    sprite(ctx, s, spin ?? viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
+  });
 }
 
 /** How wide a kart stands in the world, in game pixels: a rival is drawn this wide, scaled by its distance. A kart falls once all of it is past the road's edge (`RULES.overhang`, half of it). */
@@ -187,7 +258,7 @@ export function viewFacing(rival: number, camera: number): string {
 const LEAN = 0.3;
 
 /** A rival's kart on the floor at `at`, its driver in the seat, as big as its distance makes it. */
-function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected) {
+function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected, lean: number) {
   const fallen = fallenOf(r.fx ?? NO_FX);
   if (fallen >= 1 || hiddenBlink(r.fx ?? NO_FX)) return;
   const scale = ((KART_WORLD * at.scale) / KART_W) * (1 - fallen);
@@ -198,17 +269,81 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
   const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale + fallen * 6 * at.scale;
   const half = scale / 2;
-  shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
-  ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
+  if ((r.fx ?? NO_FX).fall <= 0) shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05); // a falling kart casts none
+  rolled(ctx, rollOf(lean, fallen), at.sx, y + 18 * scale, () => {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
+    ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
+  });
 }
 
-/** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. */
-type Thing = { x: number; y: number } & (
+/** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. `g` is the ground's height under it. */
+type Thing = { x: number; y: number; g: number } & (
   { kind: 'rival'; rival: Rival } | { kind: 'box' } | { kind: 'blob' } | { kind: 'orb' }
   | { kind: 'prop'; prop: PropKind } | { kind: 'arch'; leg: 0 | 1 }
 );
+
+/** Where the minimap stands (PRD 1698): this far in from the right edge, and under the item panel of the race's line (its top at 8, about 24 high). */
+const MINIMAP_INSET = 8;
+export const MINIMAP_TOP = 36;
+const FRAME = 1;
+const MINIMAP_PANEL = 'rgba(11, 10, 38, 0.82)';
+
+/** The minimap's frame on a grid, and where its first tile is: one game pixel a tile, inside a frame of one. */
+export function minimapAt(grid: { w: number }, track: Pick<Track, 'cols' | 'rows'>): { x: number; y: number; w: number; h: number; mapX: number; mapY: number } {
+  const w = track.cols + 2 * FRAME, h = track.rows + 2 * FRAME;
+  const x = grid.w - MINIMAP_INSET - w;
+  return { x, y: MINIMAP_TOP, w, h, mapX: x + FRAME, mapY: MINIMAP_TOP + FRAME };
+}
+
+interface MinimapTile { x: number; y: number; colour: string }
+
+/** The road's tiles seen from above, each with its colour: the higher the ground, the lighter, the start line white. Measured once per circuit. */
+export function minimapTiles(track: Track, range: { low: number; high: number }): MinimapTile[] {
+  const out: MinimapTile[] = [];
+  const span = range.high - range.low;
+  for (let y = 0; y < track.rows; y++) {
+    for (let x = 0; x < track.cols; x++) {
+      const c = tileAt(track.map, x, y);
+      if (!isRoad(c)) continue;
+      if (c === 'S') { out.push({ x, y, colour: '#ffffff' }); continue; }
+      const t = span > 0 ? (groundAt(track, (x + 0.5) * TILE, (y + 0.5) * TILE) - range.low) / span : 0;
+      const k = Math.round(70 + 120 * Math.min(1, Math.max(0, t)));
+      out.push({ x, y, colour: `rgb(${k}, ${k + 20}, ${Math.min(255, k + 60)})` });
+    }
+  }
+  return out;
+}
+
+/** Whether the player's dot is lit this frame: always, but while the player falls it blinks, and with reduced motion it does not. */
+export const minimapLit = (s: { t: number; reduced: boolean }, fx: { fall: number }): boolean => s.reduced || fx.fall <= 0 || Math.floor(s.t * 6) % 2 === 0;
+
+/** The circuit from above in the top right corner: the road by height, the boxes to take, a dot per kart on the road, the player's dot last. */
+function minimap(ctx: CanvasRenderingContext2D, s: FrameState, track: Track, tiles: readonly MinimapTile[], race: Race) {
+  const at = minimapAt(s.grid, track);
+  ctx.fillStyle = s.theme.cyan;
+  ctx.fillRect(at.x, at.y, at.w, at.h);
+  ctx.fillStyle = MINIMAP_PANEL;
+  ctx.fillRect(at.x + FRAME, at.y + FRAME, at.w - 2 * FRAME, at.h - 2 * FRAME);
+  for (const t of tiles) { ctx.fillStyle = t.colour; ctx.fillRect(at.mapX + t.x, at.mapY + t.y, 1, 1); }
+  minimapDots(ctx, s, at, race);
+}
+
+/** The boxes to take, the karts on the road (none for one that falls), then the player, last. */
+function minimapDots(ctx: CanvasRenderingContext2D, s: FrameState, at: { mapX: number; mapY: number }, race: Race) {
+  const tile = (v: number, o: number) => o + Math.floor(v / TILE);
+  ctx.fillStyle = s.theme.gold;
+  for (const b of race.items.boxes.filter((x) => x.back <= 0)) ctx.fillRect(tile(b.x, at.mapX), tile(b.y, at.mapY), 1, 1);
+  for (const r of race.rivals.filter((x) => (x.fx?.fall ?? 0) <= 0)) {
+    ctx.fillStyle = r.driver.color ?? s.theme.white;
+    ctx.fillRect(tile(r.kart.x, at.mapX) - 1, tile(r.kart.y, at.mapY) - 1, 2, 2);
+  }
+  if (!minimapLit(s, race.fx)) return;
+  const { x, y, angle } = race.player;
+  ctx.fillStyle = s.theme.yellow;
+  ctx.fillRect(tile(x, at.mapX) - 1, tile(y, at.mapY) - 1, 3, 3);
+  ctx.fillRect(tile(x, at.mapX) + Math.round(Math.cos(angle) * 3), tile(y, at.mapY) + Math.round(Math.sin(angle) * 3), 1, 1);
+}
 
 /** A prop's sprite, and how wide it stands in the world, in game pixels: it is drawn this wide, scaled by its distance. */
 export const PROP_ART: Readonly<Record<PropKind, { sprite: string; world: number }>> = {
@@ -249,7 +384,7 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
   ctx.imageSmoothingEnabled = false;
   const top = at.sy - h * scale;
   const other = track.arch[leg === 0 ? 1 : 0];
-  const beyond = project(v, other.x, other.y);
+  const beyond = project(v, other.x, other.y, groundAt(track, other.x, other.y));
   if (leg === 0 && beyond) {
     const beam = spriteSize(ARCH_BEAM);
     const left = Math.min(at.sx, beyond.sx), right = Math.max(at.sx, beyond.sx);
@@ -264,9 +399,25 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
 }
 
 /** How wide an item stands in the world, in game pixels. */
-export const BOX_WORLD = 16;
+export const BOX_WORLD = 20;
 const BLOB_WORLD = 12;
 const ORB_WORLD = 9;
+
+/** The pool of light under a box: wider than the box, three rows like a shadow, pulsing with the box; still when motion is reduced. */
+export const POOL_WORLD = 26;
+export const poolAlpha = (s: FrameState, z: number): number => (s.reduced ? 0.45 : 0.45 + 0.2 * Math.sin(s.t * 4 + z * 0.05));
+function pool(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected) {
+  const w = POOL_WORLD * at.scale;
+  if (w < 3) return;
+  const row = Math.max(1, Math.round(w * 0.07));
+  ctx.globalAlpha = poolAlpha(s, at.z);
+  ctx.fillStyle = s.theme.gold;
+  for (const [i, share] of ([[-1, 0.7], [0, 1], [1, 0.7]] as const)) {
+    const rw = Math.round(w * share);
+    ctx.fillRect(Math.round(at.sx - rw / 2), Math.round(at.sy + i * row), rw, row);
+  }
+  ctx.globalAlpha = 1;
+}
 
 /** An item box on the floor: a glowing cube that turns and bobs, as big as its distance makes it; still when motion is reduced. */
 const BOX = 'item-box';
@@ -275,6 +426,7 @@ function itemBox(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected) {
   const { w, h } = spriteSize(BOX);
   const scale = (BOX_WORLD * at.scale) / w;
   if (w * scale < 2) return;
+  pool(ctx, s, at);
   const bob = s.reduced ? 0 : Math.sin(s.t * 4 + at.z * 0.05) * h * scale * 0.08;
   ctx.imageSmoothingEnabled = false;
   sprite(ctx, s, BOX, at.sx - (w * scale) / 2, at.sy - h * scale + bob - h * scale * 0.1, { scale, frame: boxFrame(s, at.z) });
@@ -298,9 +450,9 @@ const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 
 };
 
 /** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen trail is noise. */
-function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles) {
+function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles, track: Track) {
   if (s.reduced) return;
-  const seen = spritesInView(v, particles.list);
+  const seen = spritesInView(v, particles.list, (p) => groundAt(track, p.x, p.y));
   for (const { sprite: p, at } of seen) {
     const look = PARTICLE[p.kind];
     const size = Math.max(1, Math.round(look.size * at.scale));
@@ -323,6 +475,20 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
   let particles = newParticles(seed);
+  let ground: Ground | null = null;
+  let tiles: MinimapTile[] | null = null;
+  const tilesOf = (range: { low: number; high: number }): MinimapTile[] => (tiles ??= minimapTiles(track, range));
+  const groundOf = (): Ground => {
+    if (ground) return ground;
+    texture ??= paintTrack(track);
+    ground = { texture, heights: heightsOf(track, texture), range: reliefRange(track), deck: deckOf() };
+    return ground;
+  };
+  // What stands still on the circuit stands on the ground under it, measured once.
+  const standing = [
+    ...track.props.map(({ kind, x, y }): Thing => ({ kind: 'prop', prop: kind, x, y, g: groundAt(track, x, y) })),
+    ...track.arch.map(({ x, y }, leg): Thing => ({ kind: 'arch', leg: leg === 0 ? 0 : 1, x, y, g: groundAt(track, x, y) })),
+  ];
   const floors = new Map<string, Floor>();
   const floorFor = (v: View): Floor => {
     const key = `${v.w}x${v.h}`;
@@ -332,7 +498,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
       canvas.width = v.w;
       canvas.height = v.h;
       const image = new ImageData(v.w, v.h);
-      floor = { image, pixels: new Uint32Array(image.data.buffer), canvas };
+      floor = { image, pixels: new Uint32Array(image.data.buffer), depth: new Float32Array(v.w * v.h), canvas };
       floors.set(key, floor);
     }
     return floor;
@@ -454,31 +620,35 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
     speed: () => Math.min(1, Math.max(0, race.player.speed / RULES.topSpeed)),
     hud: () => hudOf(race),
     draw(ctx, s) {
-      texture ??= paintTrack(track);
-      const v = viewOf(s.grid, cameraFor(s.grid, race.player));
+      const { texture, heights, range, deck } = groundOf();
+      const v = viewFor(s.grid, track, race.player);
       skyOf(ctx, s, v, seed);
       const floor = floorFor(v);
-      renderFloor(v, texture, floor.pixels, BEYOND);
+      renderTerrain(v, texture, heights, range, deck, floor.pixels, floor.depth);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);
       ctx.drawImage(floor.canvas, 0, 0);
       const things: Thing[] = [
-        ...race.items.boxes.filter((b) => b.back <= 0).map((b): Thing => ({ kind: 'box', x: b.x, y: b.y })),
-        ...race.items.blobs.map((b): Thing => ({ kind: 'blob', x: b.x, y: b.y })),
-        ...race.items.orbs.map((o): Thing => ({ kind: 'orb', x: o.x, y: o.y })),
-        ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y })),
-        ...track.props.map(({ kind, x, y }): Thing => ({ kind: 'prop', prop: kind, x, y })),
-        ...track.arch.map(({ x, y }, leg): Thing => ({ kind: 'arch', leg: leg === 0 ? 0 : 1, x, y })),
+        ...race.items.boxes.filter((b) => b.back <= 0).map((b): Thing => ({ kind: 'box', x: b.x, y: b.y, g: groundAt(track, b.x, b.y) })),
+        ...race.items.blobs.map((b): Thing => ({ kind: 'blob', x: b.x, y: b.y, g: groundAt(track, b.x, b.y) })),
+        ...race.items.orbs.map((o): Thing => ({ kind: 'orb', x: o.x, y: o.y, g: groundAt(track, o.x, o.y) })),
+        ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y, g: groundAt(track, rival.kart.x, rival.kart.y) })),
+        ...standing,
       ];
-      // The farthest first, so a near kart covers a far item.
-      for (const { sprite: thing, at } of spritesInView(v, things)) {
-        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at);
+      // The farthest first, so a near kart covers a far item; a hill's crest nearer than a thing hides it.
+      for (const { sprite: thing, at } of spritesInView(v, things, (t) => t.g)) {
+        // The arch spans the flat start straight and stays on top; the rest is hidden where the road in front covers it.
+        const reach = at.scale * 40;
+        const hid = thing.kind !== 'arch' && hideBehind(ctx, floor, v.w, v.h, { left: at.sx - reach, right: at.sx + reach, top: at.sy - reach * 1.5, bottom: at.sy + 2 }, at.z);
+        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at, leanOf(track.map, thing.rival.kart));
         else if (thing.kind === 'box') itemBox(ctx, s, at);
         else if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
         else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
         else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
+        if (hid) ctx.restore();
       }
-      particlesOn(ctx, s, v, particles);
+      particlesOn(ctx, s, v, particles, track);
       playerKart(ctx, s, race);
+      minimap(ctx, s, track, tilesOf(range), race);
     },
   };
 }

@@ -3,7 +3,7 @@ import type { Action } from '../keys';
 import { tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
-import { LAPS, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
 // The race's phases and what each one lets the player do (PRD 1359, slice 2).
 
@@ -336,7 +336,7 @@ describe('the cues an event makes', () => {
 // The fall into the void (PRD 1447, slice 2), on COMET RING.
 
 describe('the whole race over the void', () => {
-  it('lets every rival finish its three laps with at most one fall, the player standing still', () => {
+  it('lets every rival finish its three laps without a single fall, the player standing still', () => {
     for (const seed of [7, 1, 42]) {
       const falls = [0, 0, 0, 0, 0, 0];
       let r = press(newRace({ seed }), 'start').race;
@@ -348,7 +348,7 @@ describe('the whole race over the void', () => {
         for (const e of s.events) if (e.kind === 'fell') falls[e.racer] = (falls[e.racer] ?? 0) + 1;
       }
       expect(r.rivals.every((x) => x.doneAt != null)).toBe(true);
-      expect(falls.slice(1).every((n) => n <= 1)).toBe(true);
+      expect(falls.slice(1), `seed ${seed}`).toEqual([0, 0, 0, 0, 0]);
     }
   });
 
@@ -387,7 +387,7 @@ describe('a fall into the void', () => {
   });
 
   it('does not fall while any of it is still over the road, its centre over the void included', () => {
-    for (const y of [6 * TILE + 1, 6 * TILE - 1, 6 * TILE - RULES.overhang + 0.5]) {
+    for (const y of [6 * TILE + 1, 6 * TILE - 1, 6 * TILE - RULES.wheelAlong + 0.5]) {
       const r = edge();
       expect(step({ ...r, player: { ...r.player, y, speed: 0 } }, NONE, FRAME).race.fx.fall, `y ${y}`).toBe(0);
     }
@@ -438,12 +438,32 @@ describe('a fall into the void', () => {
 
   it('falls when another kart pushes it over the edge', () => {
     const r = racing();
-    // The player hangs over the edge, its centre 5.5 past it; the rival overlapping it from the road pushes it 2 further.
-    const rival = { ...first(r.rivals), kart: { ...first(r.rivals).kart, x: 20 * TILE + 8, y: 6 * TILE + 0.5, speed: 0 } };
-    const player = { ...r.player, x: 20 * TILE + 8, y: 6 * TILE - 5.5, speed: 0 };
+    // The player faces the edge and hangs over it, its centre 5.5 past it (a rear wheel on the road); the rival overlapping it from the road pushes it 2 further.
+    const rival = { ...first(r.rivals), kart: { ...first(r.rivals).kart, x: 20 * TILE + 8, y: 6 * TILE + 0.5, angle: -Math.PI / 2, speed: 0 } };
+    const player = { ...r.player, x: 20 * TILE + 8, y: 6 * TILE - 5.5, angle: -Math.PI / 2, speed: 0 };
     expect(step({ ...r, player }, NONE, 1 / 120).race.fx.fall).toBe(0);
     const s = step({ ...r, player, rivals: [rival, ...r.rivals.slice(1)] }, NONE, 1 / 120);
     expect(s.race.fx.fall).toBeGreaterThan(0);
     expect(s.events).toContainEqual({ kind: 'fell', racer: 0 });
+  });
+});
+
+describe('the hills under the player (PRD 1698)', () => {
+  // The start straight runs east from waypoint 13 to waypoint 0; a hump of 26 at its middle.
+  const n = track.waypoints.length;
+  const hump = parseTrack({ ...COMET_RING, relief: { heights: Array.from({ length: n }, () => 0), bumps: Array.from({ length: n }, (_, i) => (i === n - 1 ? 26 : 0)) } });
+  const a = hump.waypoints[n - 1], b = hump.waypoints[0];
+  if (!a || !b) throw new Error('no waypoints');
+  const speedAfter = (on: typeof hump, share: number): number => {
+    const x = a.x + 2.5 * TILE + share * (b.x - a.x - 5 * TILE);
+    const r = play(started(newRace({ seed: 7, track: on })), NONE, RULES.countdown + 0.05);
+    return play({ ...r, player: { x, y: a.y, angle: 0, speed: RULES.topSpeed, steer: 0 } }, GAS, 0.5).player.speed;
+  };
+
+  it('slows the player climbing and speeds it descending, as the flat circuit does not', () => {
+    const flat = speedAfter(track, 0.25);
+    expect(flat).toBeCloseTo(RULES.topSpeed, 0);
+    expect(speedAfter(hump, 0.25)).toBeLessThan(flat * 0.95);
+    expect(speedAfter(hump, 0.75)).toBeGreaterThan(flat * 1.05);
   });
 });
