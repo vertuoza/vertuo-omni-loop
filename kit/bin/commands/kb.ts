@@ -23,6 +23,7 @@ import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
 import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readThesis, thesisPath } from '../../lib/knowledge/thesis.ts';
+import { messageOf } from '../../lib/narrow.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
@@ -309,7 +310,7 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
   try {
     written = writeOwnersBlock(ctx);
   } catch (error) {
-    println(stderr, `omni kb owners: ${(error as Error).message}`);
+    println(stderr, `omni kb owners: ${messageOf(error)}`);
     return 1;
   }
   const who = listed.map(ownerHandle).join(', ');

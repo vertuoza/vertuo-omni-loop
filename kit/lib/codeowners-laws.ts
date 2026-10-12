@@ -11,7 +11,7 @@
  * - each locked law's test, every path its `Enforced by:` line names;
  *
  * each owned by every one of `laws.owners`. It writes the file GitHub reads first (`.github/`, the
- * root, then `docs/`), and `.github/CODEOWNERS` when there is none, so a block never shadows a file
+ * root, then the docs folder), and `.github/CODEOWNERS` when there is none, so a block never shadows a file
  * a repository already has. `omni check knowledge` goes red when the block differs from what the
  * command would write ({@link ownersBlockProblems}).
  */
@@ -20,6 +20,7 @@ import { dirname, join } from 'node:path';
 import { CODEOWNERS_FILES, OWNERS_BEGIN, ownersBlock, ownersBlockIn, withOwnersBlock, type OwnedPath } from './codeowners.ts';
 import { domainsDir, isLaw, LAYER_FILES, productDir, readKnowledge, type Knowledge, type KnowledgeCtx } from './knowledge/registers.ts';
 import { thesisPath } from './knowledge/thesis.ts';
+import { messageOf } from './narrow.ts';
 
 /** What the block needs of the context: the knowledge folder, and `laws.owners`. */
 export type OwnersCtx = KnowledgeCtx & { config: { laws?: { owners?: readonly string[] } } };
@@ -78,7 +79,7 @@ export function ownersBlockProblems(ctx: OwnersCtx, knowledge: Knowledge = readK
   try {
     current = text === null ? null : ownersBlockIn(text);
   } catch (error) {
-    return [`${file}: ${(error as Error).message}.`];
+    return [`${file}: ${messageOf(error)}.`];
   }
   const laws = knowledge.entries.filter(isLaw).length;
   if (current === null) {
@@ -102,7 +103,7 @@ export function writeOwnersBlock(ctx: OwnersCtx): { file: string; wrote: boolean
   try {
     next = withOwnersBlock(text, block);
   } catch (error) {
-    throw new Error(`${file}: ${(error as Error).message}.`, { cause: error });
+    throw new Error(`${file}: ${messageOf(error)}.`, { cause: error });
   }
   if (next === text) return { file, wrote: false, paths };
   const absolute = join(ctx.root, file);
