@@ -690,15 +690,44 @@ describe('laws.requireProof — a law names its proof (PRD 1342)', () => {
 describe('a law is a locked entry (PRD 1726)', () => {
   const TEST = 'kit/lib/advisor.test.ts';
   const LOCK = 'Locked: @pierrederval, 2026-10-14';
-  const GOVERNS = 'Governs: kit/lib/advisor/**';
+  const GOVERNS = 'Governs: ^kit/lib/advisor/';
+  const THESIS = 'docs/knowledge/product/thesis.md';
   const law = (id: string, ...extra: string[]) =>
     rule(id, { extra: [LOCK, GOVERNS, ...extra] }).replace('Enforced by: unenforced', `Enforced by: ${TEST}`);
   function gradeWith(root: string, laws: { max?: number; owners?: string[] } = {}, extra: { copyOf?: string } = {}) {
     const ctx = { ...flatCtx(root, { laws: { source: 'knowledge', owners: ['pierrederval'], ...laws } }), ...extra } as Parameters<typeof gradeKnowledge>[0]['ctx'];
     return gradeKnowledge({ ctx, files: [], glossaryText: GLOSSARY_TEXT });
   }
-  const lawTree = (rules: string, principles = principle('P-ADVISOR-1')) =>
-    tree({ [ADVISOR_PRINCIPLES]: principles, [ADVISOR_RULES]: rules, [TEST]: '// a test\n' });
+  /** The ids of the rules `text` locks, any `Locked:` line counted. */
+  const lockedIn = (text: string) =>
+    text.split(/^## /m).slice(1).filter((entry) => entry.includes('\nLocked:')).map((entry) => entry.split('\n')[0]?.trim() ?? '');
+  /** A thesis listing `ids` as its laws (PRD 1726, s2), as `omni check knowledge` asks once a law is locked. */
+  const thesisOf = (ids: readonly string[]) => `# Thesis\n\n## The laws\n\n${ids.map((id) => `- ${id} — It holds. If broken: an advisor's customer is hurt.`).join('\n')}\n`;
+  const lawTree = (rules: string, principles = principle('P-ADVISOR-1'), thesis: string | null = thesisOf(lockedIn(rules))) =>
+    tree({ [ADVISOR_PRINCIPLES]: principles, [ADVISOR_RULES]: rules, [TEST]: '// a test\n', ...(thesis === null ? {} : { [THESIS]: thesis }) });
+
+  it('refuses a Governs: pattern the flow areas’ matcher cannot read, a glob included', () => {
+    const root = lawTree(rule('BR-ADVISOR-1', { extra: ['Governs: kit/lib/advisor/**, ^kit/lib/advisor\\.ts$'] }));
+    expect(gradeWith(root).violations.map(parseLine)).toEqual([
+      {
+        file: ADVISOR_RULES,
+        id: 'BR-ADVISOR-1',
+        detail: '"Governs:" lists "kit/lib/advisor/**", which is not a regular expression over paths — write it as a flow area\'s paths are written, such as ^kit/lib/outbox/.',
+      },
+    ]);
+  });
+
+  it('refuses a locked law the thesis does not list, and never asks an imported copy', () => {
+    const root = lawTree(law('BR-ADVISOR-1'), principle('P-ADVISOR-1'), null);
+    expect(gradeWith(root).violations).toEqual([
+      `${THESIS}: is missing, and BR-ADVISOR-1 is locked — write the thesis, with one line per law in its "## The laws" section.`,
+    ]);
+    expect(gradeWith(root, {}, { copyOf: 'acme/back-end' }).violations).toEqual([]);
+    const listed = lawTree(law('BR-ADVISOR-1'), principle('P-ADVISOR-1'), thesisOf(['BR-ADVISOR-1', 'BR-ADVISOR-9']));
+    expect(gradeWith(listed).violations).toEqual([
+      `${THESIS}: BR-ADVISOR-9 — is listed under "The laws", but it is not a locked law — remove the line, or have a person lock the entry.`,
+    ]);
+  });
 
   it('accepts a locked rule with its test and its Governs:, and any entry carrying Governs: or Proposed law:', () => {
     const root = lawTree(

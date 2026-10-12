@@ -22,7 +22,9 @@
  *   config is its target's, so neither is asked;
  * - **laws** (PRD 1726) — a `Locked:` entry is a rule or an invariant, never a principle, names its
  *   test and a `Governs:` line, and carries no `Proposed:` line; the folder holds no more locks than
- *   `laws.max`, and none while `laws.owners` is empty (an imported copy is asked neither);
+ *   `laws.max`, and none while `laws.owners` is empty (an imported copy is asked neither); every
+ *   `Governs:` pattern is a regular expression, as a flow area's `paths` are; and `product/thesis.md`
+ *   lists every locked law in its laws section, and nothing else (`thesis.ts`);
  * - **honesty** — a path-shaped `Enforced by:` or `Source:` that does not exist is refused: a wrong
  *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves.
  *
@@ -55,6 +57,8 @@ import {
   type KnowledgeCtx,
   type KnowledgeEntry,
 } from './registers.ts';
+import { invalidGoverns } from './disclose.ts';
+import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
 
 /**
  * What grading needs of the context: the checkout, where the knowledge folder sits, the glossary's
@@ -528,6 +532,28 @@ function findLockCountViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry
   return violations;
 }
 
+/**
+ * Every `Governs:` pattern the flow areas' matcher could not read (PRD 1726): each is a regular
+ * expression over repository paths, as an area's `paths` are, so a glob like `**` is refused.
+ */
+function findGovernsViolations(entries: readonly KnowledgeEntry[]): Violation[] {
+  return entries.flatMap((entry) =>
+    invalidGoverns(entry.governs ?? []).map((source) =>
+      violation(entry.file, entry.id, `"Governs:" lists "${source}", which is not a regular expression over paths — write it as a flow area's paths are written, such as ^kit/lib/outbox/.`),
+    ),
+  );
+}
+
+/**
+ * The thesis against the locks (PRD 1726): its laws section lists every locked law and nothing else,
+ * each line with its `If broken:`; once a law is locked, the thesis must exist. An imported copy is
+ * not asked: it is a draft of its target's folder.
+ */
+function findThesisViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry[]): Violation[] {
+  if (ctx.copyOf) return [];
+  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text) => ({ text }));
+}
+
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
@@ -587,6 +613,8 @@ export function gradeKnowledge({
     ...findReusedIds(knowledge.entries),
     ...findEntryViolations(ctx, knowledge.entries),
     ...findLockCountViolations(ctx, knowledge.entries),
+    ...findGovernsViolations(knowledge.entries),
+    ...findThesisViolations(ctx, knowledge.entries),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve)),
   ];
 

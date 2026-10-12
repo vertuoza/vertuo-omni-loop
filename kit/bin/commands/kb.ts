@@ -1,4 +1,4 @@
-// `omni kb init | show <form> [--json] | status [--json] | graph [--json]` — the playbook: one form
+// `omni kb init | show <form> [--json] | status [--json] | graph [--json] | laws […]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
 // section (a pointer, then the repository's section, then the kit default), each section labelled
@@ -6,10 +6,19 @@
 // prints the map: each form's state and source, each register folder's laws and proposals, every
 // open question, every stale evidence entry, and — in a plan repository — each imported copy
 // (PRD 522). `graph` prints the knowledge registers as one graph
-// (PRD #149): its summary, or with `--json` the whole document. None of them
+// (PRD #149): its summary, or with `--json` the whole document. `laws` (PRD 1726) discloses only what
+// a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
+// the rules that govern those files, that slice's territory or that domain folder; `show briefing`
+// ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. None of them
 // fails on what a form holds: a dead pointer or a kit default naming an unset config key is a
 // warning, and `omni check kb` grades.
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
+import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
+import { readKnowledge } from '../../lib/knowledge/registers.ts';
+import { readThesis, thesisPath } from '../../lib/knowledge/thesis.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
@@ -17,8 +26,9 @@ import { resolveForm } from '../../lib/playbook/resolve.ts';
 import { playbookStatus } from '../../lib/playbook/status.ts';
 import { formTemplate } from '../../lib/playbook/templates.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
-import { parseArgs, println, usageError } from '../args.ts';
-import type { Command, CommandIo } from '../io.ts';
+import { parseArgs, prdArg, println, sliceArg, usageError, type Flags } from '../args.ts';
+import type { Command, CommandIo, Exec } from '../io.ts';
+import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
 import type { Decisions } from '../../lib/playbook/decisions.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
@@ -28,9 +38,10 @@ import { synchronous } from '../synchronous.ts';
 type KbFlags = { json?: true };
 
 /** The map `omni kb status` prints. */
-export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus> };
+export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus>; ungoverned: number };
 
-const USAGE = 'usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]';
+const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -52,7 +63,7 @@ function recordLines({ dir, records, shared, next }: Decisions): string[] {
 }
 
 /** One resolved form as text: its title, its file and state, then each section under its label. */
-function showText(resolved: ResolvedForm, records: Decisions | null): string {
+function showText(resolved: ResolvedForm, records: Decisions | null, laws: BriefingLaws | null): string {
   const lines = [`# ${resolved.title}`, `${resolved.file} · ${resolved.state}`];
   for (const section of resolved.sections) {
     lines.push('', section.slot === null ? section.label : `## ${section.heading}  ${section.label}`);
@@ -61,7 +72,25 @@ function showText(resolved: ResolvedForm, records: Decisions | null): string {
     if (section.source === 'hole') lines.push(...section.questions.map((question) => `TODO(human): ${question}`));
   }
   if (records) lines.push('', ...recordLines(records));
+  if (laws) lines.push('', ...laws.lines);
   return lines.join('\n');
+}
+
+/** The briefing's closing section (PRD 1726): the thesis's laws, read live, or the locked laws when there is no thesis. */
+type BriefingLaws = { source: string; lines: string[] };
+
+const BRIEFING = 'briefing';
+
+function briefingLaws(ctx: Context): BriefingLaws {
+  const thesis = readThesis(ctx);
+  const file = thesisPath(ctx);
+  if (thesis?.lawsSection) {
+    return { source: file, lines: [`## The laws  [read live from ${file}]`, thesis.lawsSection] };
+  }
+  const { laws } = disclose(readKnowledge({ ctx }).entries, thesis, null);
+  const body = laws.length === 0 ? ['No law is locked yet.'] : laws.map((law) => lawLine(law, ctx.config.laws.owners));
+  const missing = thesis === null ? `no thesis at ${file}` : `no laws section in ${file}`;
+  return { source: ctx.layout.knowledgeRoot, lines: [`## The laws  [${missing}; read from the registers]`, ...body] };
 }
 
 function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
@@ -71,8 +100,10 @@ function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: Com
   }
   const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
   const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
+  const laws = id === BRIEFING ? briefingLaws(ctx) : null;
   for (const problem of resolved.problems) println(stderr, `warning: ${problem}`);
-  println(stdout, flags.json ? JSON.stringify(records ? { ...resolved, records } : resolved, null, 2) : showText(resolved, records));
+  const json = { ...resolved, ...(records ? { records } : {}), ...(laws ? { laws } : {}) };
+  println(stdout, flags.json ? JSON.stringify(json, null, 2) : showText(resolved, records, laws));
   return 0;
 }
 
@@ -110,7 +141,7 @@ function copyLines(targets: StatusMap['targets']): string[] {
  * The map as text: a line per form, then each register folder's laws and proposals, then each
  * imported copy, then every open question, then every stale evidence entry.
  */
-function statusText({ frontDoor, forms, registers, targets }: StatusMap): string {
+function statusText({ frontDoor, forms, registers, targets, ungoverned }: StatusMap): string {
   const width = Math.max(...forms.map(({ form }) => form.length));
   const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
   for (const { form, kind, state, source, questions, stale } of forms) {
@@ -124,7 +155,9 @@ function statusText({ frontDoor, forms, registers, targets }: StatusMap): string
   const stale = forms.flatMap(({ form, file, stale: entries }) =>
     entries.map(({ path, hash, now }) => `  ${form} (${file}): ${path}@${hash} — ${now === null ? 'gone' : `now ${now.slice(0, 7)}`}`),
   );
-  lines.push(...registerLines(registers), ...copyLines(targets));
+  lines.push(...registerLines(registers));
+  if (ungoverned > 0) lines.push(`Rules with no Governs: ${ungoverned} — omni kb laws --paths never shows them: give each a "Governs:" line.`);
+  lines.push(...copyLines(targets));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : 'Open questions: none.', ...questions);
   lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : 'Stale evidence: none.', ...stale);
   return lines.join('\n');
@@ -132,7 +165,11 @@ function statusText({ frontDoor, forms, registers, targets }: StatusMap): string
 
 function status(positional: string[], flags: KbFlags, { ctx, stdout, exec }: CommandIo): number {
   if (positional.length > 0) throw usageError('usage: omni kb status [--json]');
-  const map: StatusMap = { ...playbookStatus({ ctx, exec }), targets: copiesStatus({ ctx, exec }) };
+  const map: StatusMap = {
+    ...playbookStatus({ ctx, exec }),
+    targets: copiesStatus({ ctx, exec }),
+    ungoverned: disclose(readKnowledge({ ctx }).entries, null, null).ungoverned,
+  };
   println(stdout, flags.json ? JSON.stringify(map, null, 2) : statusText(map));
   return 0;
 }
@@ -181,8 +218,81 @@ function graph(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo)
   return 0;
 }
 
+/** The tracked files under a slice's territory, and each territory entry itself: the paths its rules are read for. */
+function territoryPaths(ctx: Context, exec: Exec, territory: readonly string[]): string[] {
+  const prefixes = territory.map((entry) => entry.replace(/\*+$/, ''));
+  let tracked: string[] = [];
+  try {
+    tracked = exec('git', ['ls-files'], { cwd: ctx.root, encoding: 'utf8' }).split('\n').filter(Boolean);
+  } catch {
+    tracked = []; // not a git checkout: the territory entries alone
+  }
+  return [...new Set([...territory, ...tracked.filter((path) => prefixes.some((prefix) => path.startsWith(prefix)))])];
+}
+
+/** PRD `prd`'s slice `slice`'s territory, read from its plan. */
+function sliceTerritory(ctx: Context, prdText: string, sliceText: string): string[] {
+  const prd = prdArg('kb laws', '--slice', prdText);
+  const slice = sliceArg('kb laws', 'the slice', sliceText);
+  const planPath = ctx.layout.planPath(prd);
+  const plan = planPath === null || !existsSync(join(ctx.root, planPath)) ? null : readFileSync(join(ctx.root, planPath), 'utf8');
+  if (plan === null) {
+    throw usageError(`omni kb laws: PRD ${prd} has no plan${planPath === null ? ' — no inbox or shipped folder holds it' : ` at ${planPath}`}.`);
+  }
+  const row = parsePlanSlices(plan).find(({ id }) => id === slice);
+  if (row === undefined) throw usageError(`omni kb laws: the plan of PRD ${prd} has no slice ${slice}.`);
+  return row.territory;
+}
+
+/** The flags of `omni kb laws`. */
+type LawsFlags = Flags<'paths' | 'slice' | 'area', 'json'>;
+
+/** What the rules are disclosed for: `--paths`, `--slice`, `--area`, or nothing (the laws alone). */
+function lawsFor(io: CommandIo, flags: LawsFlags, positional: readonly string[], domains: readonly string[]): DiscloseFor {
+  if (flags.paths !== undefined) {
+    return { paths: [...flags.paths.split(','), ...positional].map((path) => path.trim()).filter(Boolean) };
+  }
+  if (flags.slice !== undefined) {
+    const [slice] = positional;
+    if (positional.length !== 1 || slice === undefined) throw usageError(`omni kb laws: --slice takes a PRD and a slice, such as --slice 7 s2. ${LAWS_USAGE}`);
+    return { paths: territoryPaths(io.ctx, io.exec, sliceTerritory(io.ctx, flags.slice, slice)) };
+  }
+  if (positional.length > 0) throw usageError(LAWS_USAGE);
+  if (flags.area === undefined) return null;
+  if (!domains.includes(flags.area)) throw usageError(`omni kb laws: no domain folder ${flags.area} — the folders: ${domains.join(', ')}.`);
+  return { area: flags.area };
+}
+
+/** The disclosure as text: one plain line per law, then one headline per rule asked for. */
+function lawsText(disclosure: Disclosure, what: DiscloseFor, owners: readonly string[]): string {
+  const lines = disclosure.laws.map((law) => lawLine(law, owners));
+  if (lines.length === 0) lines.push('No law is locked yet.');
+  if (what === null) return lines.join('\n');
+  lines.push(...disclosure.rules.map(ruleLine));
+  if (disclosure.rules.length === 0) {
+    lines.push('area' in what ? `No rule in ${what.area} yet.` : 'No rule says it governs these files.');
+  }
+  if (!('area' in what) && disclosure.ungoverned > 0) {
+    lines.push(`${disclosure.ungoverned} rule(s) say no "Governs:", so none of them is shown here (omni kb status counts them).`);
+  }
+  return lines.join('\n');
+}
+
+function laws(args: string[], io: CommandIo): number {
+  const { ctx, stdout } = io;
+  const { positional, flags } = parseArgs('kb laws', args, { values: ['paths', 'slice', 'area'], booleans: ['json'] });
+  const chosen = [flags.paths, flags.slice, flags.area].filter((flag) => flag !== undefined).length;
+  if (chosen > 1) throw usageError(`omni kb laws: give one of --paths, --slice and --area. ${LAWS_USAGE}`);
+  const knowledge = readKnowledge({ ctx });
+  const what = lawsFor(io, flags, positional, ['product', ...knowledge.domains.map(({ name }) => name)]);
+  const disclosure = disclose(knowledge.entries, readThesis(ctx), what);
+  println(stdout, flags.json ? JSON.stringify(disclosure, null, 2) : lawsText(disclosure, what, ctx.config.laws.owners));
+  return 0;
+}
+
 export const kb: Command = {
   run: synchronous((args: string[], io: CommandIo): number => {
+    if (args[0] === 'laws') return laws(args.slice(1), io);
     const { positional, flags } = parseArgs('kb', args, { booleans: ['json'] });
     const [sub, ...rest] = positional;
     if (sub === 'init') return init(rest, flags, io);

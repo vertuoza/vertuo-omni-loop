@@ -794,7 +794,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const { code, out } = await omni(root, ['kb', 'status', '--json']);
     expect(code).toBe(0);
     const status = JSON.parse(out) as StatusMap;
-    expect(Object.keys(status)).toEqual(['frontDoor', 'forms', 'registers', 'targets']);
+    expect(Object.keys(status)).toEqual(['frontDoor', 'forms', 'registers', 'targets', 'ungoverned']);
     expect(status.registers).toEqual([{ folder: `${K}/product`, laws: 2, proposals: 0 }]);
     expect(status.targets).toHaveLength(1);
     const [copy] = status.targets;
@@ -818,5 +818,236 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const { root: plain } = makeRepo({ git: true, files: CONFIG });
     expect(dig(JSON.parse((await omni(plain, ['kb', 'status', '--json'])).out), 'targets')).toEqual([]);
     expect((await omni(plain, ['kb', 'status'])).out).not.toMatch(/Imported copies/);
+  });
+});
+
+describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
+  const K = '.omni-loop/knowledge';
+  const LAW_CONFIG = `${CONFIG_TEXT}laws:\n  owners: [pierrederval]\n`;
+  const TEST_FILE = 'kit/lib/outbox/gate.test.ts';
+  const principle = (id: string) => `## ${id}\n\nA decision.\n\nWhy: x\nDecided: y\nSource: PRD #1726\n\n`;
+  const rule = (id: string, statement: string, extra: string[] = []) =>
+    `## ${id}\n\n${statement}\n\nServes: P-PRODUCT-1\nSource: PRD #1726\nEnforced by: ${TEST_FILE}\nStated: 2026-10-12\n${extra.map((line) => `${line}\n`).join('')}\n`;
+  const LOCK = 'Locked: @pierrederval, 2026-10-14';
+  const RULES = [
+    rule('BR-PRODUCT-1', 'Only a person merges into main. The agent never does.', [LOCK, 'Governs: ^kit/lib/outbox/', 'Proposed law: An agent never merges into main.']),
+    rule('BR-PRODUCT-2', 'A quote total is never negative. It is clamped.', ['Governs: ^kit/lib/quote/, ^apps/quote/']),
+    rule('BR-PRODUCT-3', 'A rule nobody said the files of.'),
+    rule('BR-PRODUCT-4', 'The ledger keeps its history.', ['Governs: ^game/ledger\\.ts$']),
+  ].join('');
+  const THESIS = [
+    '# Thesis',
+    '',
+    '## Who it is for',
+    '',
+    '- Product managers.',
+    '',
+    '## The laws',
+    '',
+    '- BR-PRODUCT-1 — Only a person merges into main. If broken: unreviewed code reaches every user.',
+    '',
+    '## What it refuses',
+    '',
+    '- Merging on its own.',
+    '',
+  ].join('\n');
+  const files = (extra: Record<string, string> = {}): Record<string, string> => ({
+    '.omni-loop/config.yml': LAW_CONFIG,
+    [TEST_FILE]: 'test\n',
+    'kit/lib/quote/total.ts': 'x\n',
+    'game/ledger.ts': 'x\n',
+    [`${K}/product/principles.md`]: `# Principles\n\n${principle('P-PRODUCT-1')}`,
+    [`${K}/product/rules.md`]: `# Rules\n\n${RULES}`,
+    [`${K}/product/invariants.md`]: '# Invariants\n',
+    [`${K}/product/thesis.md`]: THESIS,
+    ...extra,
+  });
+  const LAW_LINE =
+    'law BR-PRODUCT-1 — Only a person merges into main. If broken: unreviewed code reaches every user. Changing it needs @pierrederval to approve the pull request.';
+  const UNGOVERNED = '1 rule(s) say no "Governs:", so none of them is shown here (omni kb status counts them).';
+  const lines = (out: string) => out.split('\n').filter(Boolean);
+  /** `omni <argv>` exits 2, its one line saying `text`. */
+  const refused = async (root: string, argv: readonly string[], text: string) => {
+    const { code, err } = await omni(root, argv);
+    expect(code).toBe(2);
+    expect(err).toContain(text);
+  };
+
+  it('prints one plain line per locked law and nothing else, its sentence taken from the thesis', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    const { code, out } = await omni(root, ['kb', 'laws']);
+    expect(code).toBe(0);
+    expect(lines(out)).toEqual([LAW_LINE]);
+  });
+
+  it('falls back to the Proposed law: sentence, then the headline, when the thesis does not say it', async () => {
+    const { root } = makeRepo({ git: true, files: files({ [`${K}/product/thesis.md`]: '# Thesis\n' }) });
+    expect(lines((await omni(root, ['kb', 'laws'])).out)).toEqual([
+      'law BR-PRODUCT-1 — An agent never merges into main. Changing it needs @pierrederval to approve the pull request.',
+    ]);
+    const bare = RULES.replace('Proposed law: An agent never merges into main.\n', '');
+    const { root: noSentence } = makeRepo({ git: true, files: files({ [`${K}/product/rules.md`]: `# Rules\n\n${bare}`, [`${K}/product/thesis.md`]: '# Thesis\n' }) });
+    expect(lines((await omni(noSentence, ['kb', 'laws'])).out)).toEqual([
+      'law BR-PRODUCT-1 — Only a person merges into main. Changing it needs @pierrederval to approve the pull request.',
+    ]);
+  });
+
+  it('says so when no law is locked, and names no owner when laws.owners is empty', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    expect(await omni(root, ['kb', 'laws'])).toMatchObject({ code: 0, out: 'No law is locked yet.\n' });
+    const { root: ownerless } = makeRepo({ git: true, files: files({ '.omni-loop/config.yml': CONFIG_TEXT }) });
+    expect(lines((await omni(ownerless, ['kb', 'laws'])).out)).toEqual([LAW_LINE.replace('@pierrederval', 'its owner')]);
+  });
+
+  it('--paths adds exactly the rules whose Governs: matches, never one without Governs:', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    const { code, out } = await omni(root, ['kb', 'laws', '--paths', 'kit/lib/quote/total.ts', 'game/ledger.ts']);
+    expect(code).toBe(0);
+    expect(lines(out)).toEqual([LAW_LINE, 'rule BR-PRODUCT-2 — A quote total is never negative.', 'rule BR-PRODUCT-4 — The ledger keeps its history.', UNGOVERNED]);
+  });
+
+  it('--paths matches as a flow area does: a regular expression, over a comma-separated list', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    expect(lines((await omni(root, ['kb', 'laws', '--paths', 'apps/quote/page.tsx,game/ledger.ts.bak'])).out)).toEqual([
+      LAW_LINE,
+      'rule BR-PRODUCT-2 — A quote total is never negative.',
+      UNGOVERNED,
+    ]);
+  });
+
+  it('--paths that no rule governs prints the laws and says so', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    expect(lines((await omni(root, ['kb', 'laws', '--paths', 'README.md'])).out)).toEqual([LAW_LINE, 'No rule says it governs these files.', UNGOVERNED]);
+  });
+
+  it('--json carries the laws, the rules asked for and the ungoverned count', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    const parsed: unknown = JSON.parse((await omni(root, ['kb', 'laws', '--paths', 'game/ledger.ts', '--json'])).out);
+    expect(parsed).toEqual({
+      laws: [{
+        id: 'BR-PRODUCT-1',
+        file: `${K}/product/rules.md`,
+        sentence: 'Only a person merges into main. If broken: unreviewed code reaches every user.',
+        lockedBy: 'pierrederval',
+        lockedOn: '2026-10-14',
+        governs: ['^kit/lib/outbox/'],
+      }],
+      rules: [{ id: 'BR-PRODUCT-4', kind: 'rule', file: `${K}/product/rules.md`, headline: 'The ledger keeps its history.', governs: ['^game/ledger\\.ts$'], proposed: false }],
+      ungoverned: 1,
+    });
+  });
+
+  it('--slice reads the slice’s territory from its plan, the files under it included', async () => {
+    const plan = '# Plan\n\n| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | one | `game/` | — | 1 |\n| s2 | two | `kit/lib/quote` | — | 1 |\n';
+    const { root } = makeRepo({ git: true, files: files({ '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan }) });
+    expect(lines((await omni(root, ['kb', 'laws', '--slice', '7', 's1'])).out)).toEqual([LAW_LINE, 'rule BR-PRODUCT-4 — The ledger keeps its history.', UNGOVERNED]);
+    expect(lines((await omni(root, ['kb', 'laws', '--slice', '7', 's2'])).out)[1]).toBe('rule BR-PRODUCT-2 — A quote total is never negative.');
+    await refused(root, ['kb', 'laws', '--slice', '7', 's9'], 'the plan of PRD 7 has no slice s9');
+    await refused(root, ['kb', 'laws', '--slice', '8', 's1'], 'PRD 8 has no plan — no inbox or shipped folder holds it');
+    await refused(root, ['kb', 'laws', '--slice', '7'], '--slice takes a PRD and a slice');
+  });
+
+  it('--area lists one domain folder’s rules, with or without Governs:, for a person browsing', async () => {
+    const domain = {
+      [`${K}/domains/quote/README.md`]: '# Quote\n\nGlossary term: Quote\n',
+      [`${K}/domains/quote/principles.md`]: '# Principles\n',
+      [`${K}/domains/quote/rules.md`]: `# Rules\n\n${rule('BR-QUOTE-1', 'A quote has a customer.')}`,
+      [`${K}/domains/quote/invariants.md`]: '# Invariants\n',
+    };
+    const { root } = makeRepo({ git: true, files: files(domain) });
+    expect(lines((await omni(root, ['kb', 'laws', '--area', 'quote'])).out)).toEqual([LAW_LINE, 'rule BR-QUOTE-1 — A quote has a customer.']);
+    expect(lines((await omni(root, ['kb', 'laws', '--area', 'product'])).out)).toEqual([
+      LAW_LINE,
+      'rule BR-PRODUCT-2 — A quote total is never negative.',
+      'rule BR-PRODUCT-3 — A rule nobody said the files of.',
+      'rule BR-PRODUCT-4 — The ledger keeps its history.',
+    ]);
+    await refused(root, ['kb', 'laws', '--area', 'billing'], 'no domain folder billing — the folders: product, quote');
+    const { root: empty } = makeRepo({ git: true, files: { ...files(), [`${K}/domains/quote/README.md`]: '# Quote\n\nGlossary term: Quote\n' } });
+    expect(lines((await omni(empty, ['kb', 'laws', '--area', 'quote'])).out)).toEqual([LAW_LINE, 'No rule in quote yet.']);
+  });
+
+  it('refuses two ways of asking at once, and a stray argument', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    await refused(root, ['kb', 'laws', '--paths', 'a', '--area', 'product'], 'give one of --paths, --slice and --area');
+    await refused(root, ['kb', 'laws', 'stray'], 'usage: omni kb laws');
+    expect(await omni(root, ['kb', 'laws', '--area', 'product', 'stray'])).toMatchObject({ code: 2 });
+  });
+
+  it('omni kb show briefing ends with the thesis’s laws section, read live', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    const { code, out } = await omni(root, ['kb', 'show', 'briefing']);
+    expect(code).toBe(0);
+    const section = [`## The laws  [read live from ${K}/product/thesis.md]`, '- BR-PRODUCT-1 — Only a person merges into main. If broken: unreviewed code reaches every user.'];
+    expect(out.trimEnd().split('\n').slice(-2)).toEqual(section);
+    const json: unknown = JSON.parse((await omni(root, ['kb', 'show', 'briefing', '--json'])).out);
+    expect(dig(json, 'laws')).toEqual({ source: `${K}/product/thesis.md`, lines: section });
+    expect((await omni(root, ['kb', 'show', 'testing'])).out).not.toContain('## The laws');
+  });
+
+  it('the briefing reads the registers when the thesis has no laws section, and says so when nothing is locked', async () => {
+    const { root } = makeRepo({ git: true, files: files({ [`${K}/product/thesis.md`]: '# Thesis\n' }) });
+    expect((await omni(root, ['kb', 'show', 'briefing'])).out.trimEnd().split('\n').slice(-2)).toEqual([
+      `## The laws  [no laws section in ${K}/product/thesis.md; read from the registers]`,
+      'law BR-PRODUCT-1 — An agent never merges into main. Changing it needs @pierrederval to approve the pull request.',
+    ]);
+    const { root: empty } = makeRepo({ git: true, files: CONFIG });
+    expect((await omni(empty, ['kb', 'show', 'briefing'])).out.trimEnd().split('\n').slice(-2)).toEqual([
+      `## The laws  [no thesis at ${K}/product/thesis.md; read from the registers]`,
+      'No law is locked yet.',
+    ]);
+  });
+
+  it('omni kb status counts the rules with no Governs: as a backlog', async () => {
+    const { root } = makeRepo({ git: true, files: files() });
+    expect(dig(JSON.parse((await omni(root, ['kb', 'status', '--json'])).out), 'ungoverned')).toBe(1);
+    expect((await omni(root, ['kb', 'status'])).out).toContain('Rules with no Governs: 1 — omni kb laws --paths never shows them: give each a "Governs:" line.');
+    const { root: empty } = makeRepo({ git: true, files: CONFIG });
+    expect((await omni(empty, ['kb', 'status'])).out).not.toContain('Rules with no Governs');
+  });
+
+  describe('omni check knowledge grades the thesis against the locks', () => {
+    const check = async (root: string) => {
+      const { code, out, err } = await omni(root, ['check', 'knowledge']);
+      return { code, text: `${out}${err}` };
+    };
+
+    it('passes when the thesis lists every locked law and nothing else', async () => {
+      const { root } = makeRepo({ git: true, files: files() });
+      expect(await check(root)).toMatchObject({ code: 0 });
+    });
+
+    it('refuses a thesis that names an id that is not locked', async () => {
+      const thesis = THESIS.replace('## What', '- BR-PRODUCT-2 — Totals are never negative. If broken: invoices lie.\n\n## What');
+      const { code, text } = await check(makeRepo({ git: true, files: files({ [`${K}/product/thesis.md`]: thesis }) }).root);
+      expect(code).toBe(1);
+      expect(text).toContain(`${K}/product/thesis.md: BR-PRODUCT-2 — is listed under "The laws", but it is not a locked law`);
+    });
+
+    it('refuses a thesis that misses a locked law, and a law line that says no "If broken:"', async () => {
+      const missing = await check(makeRepo({ git: true, files: files({ [`${K}/product/thesis.md`]: THESIS.replace(/- BR-PRODUCT-1.*\n/, '') }) }).root);
+      expect(missing.code).toBe(1);
+      expect(missing.text).toContain(`${K}/product/thesis.md: BR-PRODUCT-1 — is a locked law, but "The laws" does not list it`);
+      const plain = await check(makeRepo({ git: true, files: files({ [`${K}/product/thesis.md`]: THESIS.replace(' If broken: unreviewed code reaches every user.', '') }) }).root);
+      expect(plain.code).toBe(1);
+      expect(plain.text).toContain(`${K}/product/thesis.md: BR-PRODUCT-1 — its line says no "If broken:"`);
+    });
+
+    it('refuses a lock with no thesis, or a thesis with no laws section', async () => {
+      const none = Object.fromEntries(Object.entries(files()).filter(([path]) => path !== `${K}/product/thesis.md`));
+      const absent = await check(makeRepo({ git: true, files: none }).root);
+      expect(absent.code).toBe(1);
+      expect(absent.text).toContain(`${K}/product/thesis.md: is missing, and BR-PRODUCT-1 is locked`);
+      const bare = await check(makeRepo({ git: true, files: files({ [`${K}/product/thesis.md`]: '# Thesis\n' }) }).root);
+      expect(bare.code).toBe(1);
+      expect(bare.text).toContain(`${K}/product/thesis.md: has no "## The laws" section, and BR-PRODUCT-1 is locked`);
+    });
+
+    it('refuses a Governs: pattern the flow areas’ matcher cannot read', async () => {
+      const globbed = files({ [`${K}/product/rules.md`]: `# Rules\n\n${RULES.replace('Governs: ^game/ledger\\.ts$', 'Governs: game/**')}` });
+      const { code, text } = await check(makeRepo({ git: true, files: globbed }).root);
+      expect(code).toBe(1);
+      expect(text).toContain(`${K}/product/rules.md: BR-PRODUCT-4 — "Governs:" lists "game/**", which is not a regular expression over paths`);
+    });
   });
 });
