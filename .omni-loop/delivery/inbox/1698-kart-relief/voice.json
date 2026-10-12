@@ -90,6 +90,49 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The floor renderer shipped with its 600-sample cap held by a test on both grids, and lint and typecheck are clean. The cap cuts the far road in the highest views, and nobody has raced it in a browser yet: that is what I check first.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The spec promised no migration; one shipped anyway, a single delete of the kart's best times and nothing else. It is the person's call and the weekly export keeps the rows, but a revert no longer restores them, so I read that migration before the merge.",
+          "citations": ["persona:B-E DEv"]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The release note says it in two sentences: hills, tipping over, boxes on every straight, a minimap, and a fresh board where every new time counts.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Six slices in five waves, each wave green together, three medium trade-offs adopted in the open. The rivals' no-fall test now leans on box placements found by search, which is fragile.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Laps, items and the fall are the race players know; the board starting over keeps old flat times from shutting new players out.",
+          "citations": ["persona:Irisa"]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
     }
   ]
 }
