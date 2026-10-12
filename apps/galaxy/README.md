@@ -835,10 +835,12 @@ off, no row exists, and every player sees NO XP YET.
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
   highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
-  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`). A visitor sees every cabinet locked and
-  "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
-  could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
-  choosing; the tall grid shows one a page.
+  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`; OMNI DUET: `REACH LV 4 TO PLAY`). A visitor
+  sees every cabinet locked and "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE
+  YOUR FIRST POINT", and XP that could not be read "XP OUT OF REACH". The wide grid stands a window of
+  three cabinets side by side, ◀ ▶ choosing, which scrolls by one so the cabinet under the cursor is
+  always in it (cabinets 1–3 with the cursor on 1 to 3, 2–4 on the fourth); the tall grid shows one a
+  page.
 - **`levelup`** (`src/arcade/levelup.ts`): arriving at the menu by any route, a player whose level
   is higher than the one last celebrated on this device (`omni-loop:level-seen:<login>` in browser
   storage) sees LEVEL UP! first. When a level climbed since then opened a game their row holds
@@ -944,6 +946,27 @@ off, no row exists, and every player sees NO XP YET.
   live, `—` while racing and `OUT` for one who left; the finish time is sent through `submit_score()` as a
   solo time is, so the cabinet keeps the better of the two, and the grid's next race waits until every
   player of the last one finished or is OUT.
+- **`duet`**, OMNI DUET (PRD 1633), opened at LV 4 (`xp.unlocks.duet` in the rulebook): an original
+  two-orb dodge game. Its code is `src/arcade/duet/`, imported only when the cabinet opens (`LOADING…`
+  meanwhile; a failed import says `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder
+  imports it at run time (`duet/guard.test.ts`). Two orbs, one warm and one cool, ride a circle around
+  the Omni Loop crest, always opposite: ◀ held turns them anticlockwise, ▶ clockwise, both or neither
+  hold them still. Waves of Entropy blocks fall through them, still, sliding or turning, over four
+  chapters of about ten waves written as text in `duet/waves.ts`: **I · DRIFT**, **II · SLIDE**,
+  **III · SPIN** and **IV · STORM**. After chapter IV, `ENDLESS · ×2`: waves drawn from one fixed seed
+  (`ENDLESS_SEED`, the same for every player), faster and never ending. `waveProblems` proves every
+  chapter wave and the first 200 endless waves passable. A wave passed scores 10, 20 in endless mode;
+  nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
+  began with (in endless mode, the wave hit with the score it began with), on a ready screen that
+  waits for START, so no death ever earns a point. START pauses, and so does a blurred window, a
+  hidden tab or OPEN THE APP?; only START resumes. The game ends at the last life lost, on SELECT on
+  the pause, or on B on a ready screen once play has started (B on the first one leaves with no
+  score), and every way shows the game over: the score, the waves passed and where the run got to.
+  The score reached is sent once under `duet`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or
+  SCORE NOT SAVED (A retries once) as Invaders; otherwise A plays again from chapter I and B goes back
+  to the room. The run is a pure phase machine in fixed 1/60 s steps (`duet/run.ts`), so it plays the
+  same at any frame rate, in one 320×288 playfield on both grids; its numbers are one block,
+  `duet/rules.ts`. It is silent.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a

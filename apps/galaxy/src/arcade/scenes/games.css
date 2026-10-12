@@ -1,5 +1,6 @@
-/* The games group: the game room. Laid out on the wide grid (640×360) first, the three cabinets side
-   by side; the rules at the end rearrange it for the tall grid (320×288), one cabinet a page. */
+/* The games group: the game room. Laid out on the wide grid (640×360) first, a window of three
+   cabinets side by side that follows the cursor (games/room.ts, roomWindow); the rules at the end
+   rearrange it for the tall grid (320×288), one cabinet a page. */
 
 .games { position: absolute; inset: 0; padding: 26px 34px 0; }
 .games h2 { font-size: 16px; }
