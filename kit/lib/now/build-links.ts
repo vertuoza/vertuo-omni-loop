@@ -8,34 +8,29 @@
 //   one from its fix branch is open: that link is what reads the fix's stage as `fix PR open`.
 //
 // The topic is read from the work's folder (the inbox or shipped for a PRD, `bugs/` or `visual/` for a
-// fix) in the checkout, else on the base. GitHub is asked through the injected `gh`, the Omni page
-// through the injected `page`; a link that cannot be had (no folder, no sign-in, offline, no such pull
-// request) is left out, and nothing here throws.
-import { z } from 'zod';
+// fix) in the checkout, else on the base. The pull requests are read through the injected `LoopReads`
+// (PRD 1665: the Omni page), the page's links through the injected `page`; a link that cannot be had (no
+// folder, no sign-in, offline, no such pull request) is left out, and nothing here throws.
 import { fillBranch } from '../board.ts';
 import { bugRoot } from '../bug/verdict.ts';
 import type { Context, ExecText } from '../context.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
+import type { LoopChange } from '../loop-reads/contract.ts';
+import type { LoopReads } from '../loop-reads/port.ts';
 import { parseFolderName } from '../layout.ts';
 import { visualRoot } from '../visual/verdict.ts';
 import { FIX_PR } from './now.ts';
 import type { FixKind, NowLink } from './now.ts';
-import { attempt, baseOf, foldersAt } from './tree.ts';
-
-/** `gh` run with `args`: its standard output. */
-export type Gh = (args: readonly string[]) => string;
+import { baseOf, foldersAt } from './tree.ts';
 
 /** The Omni page's link for the `kind` work numbered `n`, or `null` when it has none. */
 export type PageOf = (kind: 'prd' | FixKind, n: PrdNumber | IssueNumber) => Promise<string | null>;
 
+/** What building the links reads through: the pull requests, the Omni page's links, and git. */
+type LinkReads = { reads: LoopReads; page: PageOf; exec: ExecText };
 
-const ListedPrSchema = z.object({ number: z.number().int().positive(), url: z.string().min(1), state: z.string().catch('') });
-/** The pull requests `gh pr list` answered: one that does not read is left out. */
-const ListedPrsSchema = z.array(z.unknown()).transform((prs) => prs.flatMap((pr) => {
-  const read = ListedPrSchema.safeParse(pr);
-  return read.success ? [read.data] : [];
-}));
-type ListedPr = z.infer<typeof ListedPrSchema>;
+/** Whether `change` is still open: a draft is too. */
+const isOpen = (change: LoopChange): boolean => change.state === 'open' || change.state === 'draft';
 
 /** The topic of the work numbered `n` among the folders under `dirs`, in the checkout or on the base. */
 function topicOf(ctx: Context, dirs: readonly string[], n: PrdNumber | IssueNumber, exec: ExecText): string | null {
@@ -48,16 +43,19 @@ function topicOf(ctx: Context, dirs: readonly string[], n: PrdNumber | IssueNumb
   return null;
 }
 
-/** The pull requests from `head`, as GitHub lists them (newest first); none when it cannot be asked. */
-function prsFrom(ctx: Context, gh: Gh, head: string, state: 'open' | 'all'): ListedPr[] {
-  const slug = ctx.config.repo.slug;
-  const args = ['pr', 'list', ...(slug ? ['--repo', slug] : []), '--head', head, '--state', state, '--json', 'number,url,state', '--limit', '20'];
-  const listed = attempt((): unknown => JSON.parse(gh(args)), []);
-  return ListedPrsSchema.safeParse(listed).data ?? [];
+/** The pull requests from `head` (newest first); none without a repository slug, or when they cannot be read. */
+async function prsFrom(ctx: Context, reads: LoopReads, head: string, state: 'open' | 'all'): Promise<LoopChange[]> {
+  const repo = ctx.config.repo.slug;
+  if (!repo) return [];
+  try {
+    return await reads.changes({ repo, head, state });
+  } catch {
+    return [];
+  }
 }
 
 /** The link to `pr`, labelled `<label> #<k>`. */
-const prLink = (label: string, pr: ListedPr | undefined): NowLink[] => (pr ? [{ label: `${label} #${pr.number}`, href: pr.url }] : []);
+const prLink = (label: string, pr: LoopChange | undefined): NowLink[] => (pr ? [{ label: `${label} #${pr.number}`, href: pr.url }] : []);
 
 /** The Omni page's link, labelled `label`; none when it cannot be had. */
 async function pageLink(page: PageOf, kind: 'prd' | FixKind, n: PrdNumber | IssueNumber, label: string): Promise<NowLink[]> {
@@ -70,25 +68,25 @@ async function pageLink(page: PageOf, kind: 'prd' | FixKind, n: PrdNumber | Issu
 }
 
 /** The links of PRD `n`: its page, its feature PR and its phase-0 PR while open. */
-async function prdLinks(ctx: Context, n: PrdNumber | IssueNumber, { gh, page, exec }: { gh: Gh; page: PageOf; exec: ExecText }): Promise<NowLink[]> {
+async function prdLinks(ctx: Context, n: PrdNumber | IssueNumber, { reads, page, exec }: LinkReads): Promise<NowLink[]> {
   const links = await pageLink(page, 'prd', n, 'PRD page');
   const topic = topicOf(ctx, [ctx.layout.dirs.inbox, ctx.layout.dirs.shipped], n, exec);
   if (topic === null) return links;
-  const features = prsFrom(ctx, gh, fillBranch(ctx.config.branches.feature, { topic }), 'all');
-  const feature = features.find((pr) => pr.state === 'OPEN') ?? features[0];
-  const phase0 = prsFrom(ctx, gh, fillBranch(ctx.config.branches.phase0, { topic }), 'open')[0];
+  const features = await prsFrom(ctx, reads, fillBranch(ctx.config.branches.feature, { topic }), 'all');
+  const feature = features.find(isOpen) ?? features[0];
+  const phase0 = (await prsFrom(ctx, reads, fillBranch(ctx.config.branches.phase0, { topic }), 'open'))[0];
   return [...links, ...prLink('feature PR', feature), ...prLink('phase-0 PR', phase0)];
 }
 
 /** The links of the `kind` fix of issue `n`: its page, and its pull request while open. */
-async function fixLinks(ctx: Context, kind: FixKind, n: PrdNumber | IssueNumber, { gh, page, exec }: { gh: Gh; page: PageOf; exec: ExecText }): Promise<NowLink[]> {
+async function fixLinks(ctx: Context, kind: FixKind, n: PrdNumber | IssueNumber, { reads, page, exec }: LinkReads): Promise<NowLink[]> {
   const links = await pageLink(page, kind, n, 'fix page');
   const topic = topicOf(ctx, [kind === 'bug' ? bugRoot(ctx) : visualRoot(ctx)], n, exec);
   if (topic === null) return links;
-  return [...links, ...prLink(FIX_PR, prsFrom(ctx, gh, fillBranch(ctx.config.branches.fix, { topic }), 'open')[0])];
+  return [...links, ...prLink(FIX_PR, (await prsFrom(ctx, reads, fillBranch(ctx.config.branches.fix, { topic }), 'open'))[0])];
 }
 
 /** The links of the `kind` work numbered `n` in the checkout of `ctx`, in the spec's order. */
-export function buildLinks(ctx: Context, kind: 'prd' | FixKind, n: PrdNumber | IssueNumber, io: { gh: Gh; page: PageOf; exec: ExecText }): Promise<NowLink[]> {
+export function buildLinks(ctx: Context, kind: 'prd' | FixKind, n: PrdNumber | IssueNumber, io: LinkReads): Promise<NowLink[]> {
   return kind === 'prd' ? prdLinks(ctx, n, io) : fixLinks(ctx, kind, n, io);
 }

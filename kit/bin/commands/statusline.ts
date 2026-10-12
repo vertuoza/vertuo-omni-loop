@@ -11,7 +11,7 @@
 // for it, and never for a shipped PRD or a merged fix.
 //
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to
-// stderr, never fetches, never runs `gh` and writes no file; what it cannot read leaves its part out.
+// stderr, never fetches, never reads the loop and writes no file; what it cannot read leaves its part out.
 // JSON that cannot be read prints `omni`; a reader that fails prints line 1 from the JSON alone. Under
 // `OMNI_TOKEN` (PRD 1628), line 1 ends on `token ··<last four>`, read from the variable alone. The
 // board comes from a file in the main checkout (`board-cache.mjs`): when it is missing or a minute
@@ -23,18 +23,22 @@
 //
 // `omni statusline --refresh <n>` is that refresh, the background half: it takes PRD `<n>`'s lock
 // (another refresh holds it: exit 0, nothing written), builds the board exactly as `omni board <n>`
-// does, in its own folder (the session's), writes it to the main checkout's board file, and removes
-// the lock. Any failure (no `gh`, offline, no plan) is written as the error entry. It prints nothing
-// and always exits 0: no one reads its output. Each call it runs is cut off after a minute, so that a
-// hung `gh` never outlives the lock by much.
+// does, through the same `LoopReads` (PRD 1665: the Omni page, with this computer's sign-in), in its own
+// folder (the session's), writes it to the main checkout's board file, and removes the lock. Any
+// failure (no sign-in, the page unreachable or refusing, no plan) is written as the error entry, the
+// read's own line: the status line then draws what it draws without a board, never an error, and tries
+// again a minute later. It prints nothing and always exits 0: no one reads its output. Each process it
+// runs is cut off after a minute, and each read after 15 seconds, so that nothing hung outlives the lock
+// by much.
 //
 // `omni statusline --refresh <n> --kind prd|bug|visual` (PRD 1208, s4) also keeps the links of what the
 // session is on (`../../lib/now/links.ts`), under the same lock rules and timings: for `prd`, the board
 // as above, then PRD n's links (its page, its feature PR, its phase-0 PR while open); for `bug` or
 // `visual`, issue n's fix links alone (its page, its pull request while open), and no board. The pages
 // are asked of the Omni page with this computer's sign-in (none without one, or with the dossier off),
-// the pull requests of `gh`; a link that cannot be had is left out. Without `--kind`, the board alone,
-// as PRD 324 runs it. A test also hands it `tokens`, `home`, `fetch` and `callMs`.
+// the pull requests of the same `LoopReads`; a link that cannot be had is left out. Without `--kind`,
+// the board alone, as PRD 324 runs it. A test also hands it `tokens`, `home`, `fetch` and `callMs`, or
+// `reads`, a `LoopReads` of its own.
 import { spawn as spawnProcess } from 'node:child_process';
 import { loadContext } from '../../lib/context.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
@@ -61,10 +65,11 @@ import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
 import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
 import { issueArg, prdArg } from '../args.ts';
-import { githubEnv } from '../github.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Vars } from '../io.ts';
 import { buildBoard } from './board.ts';
-import { ghBoardReads } from '../../lib/loop-reads/gh-bridge.ts';
+import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import { boardReads } from '../../lib/loop-reads/port.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 
 const REFRESH_FLAG = '--refresh';
 const KIND_FLAG = '--kind';
@@ -110,8 +115,10 @@ type StatuslineOptions = {
   spawn?: typeof spawnProcess;
 };
 
-/** What a test hands the refresh beyond `main()`'s own: the sign-in and the fetch the page is asked with. */
+/** What a test hands the refresh beyond `main()`'s own: the sign-in and the fetch the page is asked with,
+ * or the loop's reads themselves. */
 type RefreshOptions = {
+  reads?: LoopReads | undefined;
   tokens?: TokenStore | undefined;
   home?: string | undefined;
   fetch?: Fetch;
@@ -219,29 +226,27 @@ function pageOf(ctx: Context, { tokens, home, fetch = globalThis.fetch, callMs }
   };
 }
 
+/** The loop's reads the refresh goes through: the test's own, else the Omni page's with this computer's sign-in. */
+function loopReadsOf(ctx: Context, { reads, tokens, home, fetch, callMs }: RefreshIo): LoopReads {
+  return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+}
+
 /** The refresh of the `kind` work numbered `n`'s links in the main checkout at `root`. */
 async function refreshWorkLinks(root: string, kind: 'prd' | FixKind, n: PrdNumber | IssueNumber, io: RefreshIo, timed: Exec, instant: number): Promise<void> {
   const ctx = loadContext(io.cwd, { exec: timed });
-  let ghEnv: Env | undefined;
-  try {
-    ghEnv = githubEnv(ctx, { exec: timed, env: io.env });
-  } catch {
-    ghEnv = undefined;
-  }
-  const gh = (args: readonly string[]) => timed('gh', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(ghEnv ? { env: ghEnv } : {}) });
-  await refreshLinks({ root, kind, n, now: instant, build: () => buildLinks(ctx, kind, n, { gh, page: pageOf(ctx, io), exec: timed }) });
+  const reads = loopReadsOf(ctx, io);
+  await refreshLinks({ root, kind, n, now: instant, build: () => buildLinks(ctx, kind, n, { reads, page: pageOf(ctx, io), exec: timed }) });
 }
 
 /** The refresh of PRD `prd`'s board in the main checkout at `root`. */
 async function refreshPrdBoard(root: string, prd: PrdNumber, io: RefreshIo, timed: Exec, instant: number): Promise<void> {
-  // The board is read before the lock is taken, so a refresh while another one holds it reads nothing;
-  // what the read threw is written as the error entry, as before. Its reads go through `gh` until s5 of
-  // PRD 1665 hands the refresh the Omni page's.
+  // The board is read before the lock is taken (`refreshBoard` builds synchronously), so a refresh while
+  // another one holds it reads nothing; what the read threw, a `LoopReadError`'s line included, is
+  // written as the error entry.
   if (lockHeld(root, prd, instant)) return;
   const read = async () => {
     const ctx = loadContext(io.cwd, { exec: timed });
-    const reads = ghBoardReads({ exec: timed, env: githubEnv(ctx, { exec: timed, env: io.env }) });
-    return (await buildBoard(prd, { ctx, reads, now: instant })).result.slices;
+    return (await buildBoard(prd, { ctx, reads: boardReads(loopReadsOf(ctx, io)), now: instant })).result.slices;
   };
   const built = await read().then((slices) => ({ slices }), (error: unknown) => ({ error }));
   refreshBoard({
@@ -299,10 +304,10 @@ export const statusline = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, exec, env, vars, script, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess, tokens, home, fetch, callMs }: FreeIo & StatuslineOptions & RefreshOptions,
+    { cwd, stdout, exec, env, vars, script, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess, reads, tokens, home, fetch, callMs }: FreeIo & StatuslineOptions & RefreshOptions,
   ) {
     if (args[0] === REFRESH_FLAG) {
-      await refresh(args, { cwd, exec, env, now, tokens, home, ...(fetch ? { fetch } : {}), callMs });
+      await refresh(args, { cwd, exec, env, now, reads, tokens, home, ...(fetch ? { fetch } : {}), callMs });
       return 0;
     }
     const lines = withToken(await statusLines({ cwd, exec, env, terminal: vars.terminal, script, stdin, now, readFacts, spawn }), vars.omniToken?.token);
