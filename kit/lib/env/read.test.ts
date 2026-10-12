@@ -80,6 +80,7 @@ describe('readEnv', () => {
       expect(readEnv({ OMNI_SESSION_ID: '   ', CLAUDE_CODE_SESSION_ID: 'xyz' }).agentSession).toEqual({ id: 'xyz' });
       expect(readEnv({ OMNI_SESSION_ID: 'a'.repeat(201), CLAUDE_CODE_SESSION_ID: 'xyz' }).agentSession).toEqual({ id: 'xyz' });
       expect(readEnv({ OMNI_SESSION_ID: 'a'.repeat(200) }).agentSession).toEqual({ id: 'a'.repeat(200) });
+      expect(readEnv({ OMNI_SESSION_ID: ' a ', CLAUDE_CODE_SESSION_ID: 'xyz' }).agentSession).toEqual({ id: 'a' });
       expect(readEnv({ CLAUDE_CODE_SESSION_ID: 'a'.repeat(201) }).agentSession).toBeNull();
     });
 
