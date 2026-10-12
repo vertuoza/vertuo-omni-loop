@@ -139,8 +139,20 @@ describe('parseTrack', () => {
     expect(track.size).toEqual({ w: 1024, h: 1024 });
     expect(track.waypoints[0]).toEqual({ x: 54.5 * 16, y: 56.5 * 16 });
     expect(track.waypoints).toHaveLength(COMET_RING.waypoints.length);
-    expect(track.boxes).toHaveLength(8);
-    expect(new Set(track.boxes.map((b) => b.x)).size).toBe(2);
+    expect(track.boxes).toHaveLength(40);
+  });
+
+  it('stands the boxes in ten lines of four across the road, each line on a row or a column of tiles', () => {
+    // A line is a group of boxes within three tiles of one another; across the road, it shares one row or one column.
+    const tiles = track.boxes.map((b) => [Math.floor(b.x / 16), Math.floor(b.y / 16)] as const);
+    const lines: (readonly (readonly [number, number])[])[] = [];
+    for (const t of tiles) {
+      const line = lines.find((l) => l.some((o) => Math.abs(o[0] - t[0]) + Math.abs(o[1] - t[1]) <= 3));
+      if (line) (line as (readonly [number, number])[]).push(t); else lines.push([t]);
+    }
+    expect(lines).toHaveLength(10);
+    for (const l of lines) expect(new Set(l.map((t) => t[0])).size === 1 || new Set(l.map((t) => t[1])).size === 1).toBe(true);
+    expect(lines.every((l) => l.length === 4)).toBe(true);
   });
 
   it('points the karts down the start straight, towards the first waypoint', () => {
