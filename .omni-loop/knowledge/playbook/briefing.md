@@ -29,6 +29,8 @@ Use this page when a session starts: the rules that cost the most when broken.
   `3` attempts, leave a comment saying what is stuck.
 - A pull request you own carries `omni:in-progress` and a status comment you keep current,
   until it is green or stuck.
+- Never bypass push protection. A blocked push names a secret: rotate it if it is real, build it at
+  runtime if it is a fixture.
 
 TODO(human): README.md warns that the game's ledger projection writes permanent history (run it against production only once the sectors hold the real repositories), and apps/galaxy/.env.example keeps the Supabase secret key out of the browser. Should these be never lines here, and what else costs the most when broken?
 
