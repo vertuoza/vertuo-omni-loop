@@ -21,6 +21,9 @@ type Answer = { data: unknown };
 /** The pull request this double serves. */
 type FakePull = { number: PrNumber; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[]; body?: string };
 
+/** A review of the pull request, as its review list returns it, oldest first. */
+type FakeReview = { user: { login: string } | null; state: string; commit_id: string };
+
 /** An open pull request of another repository, as the pull request list returns it. */
 type FakeOtherPull = { number: number; body: string | null };
 
@@ -66,18 +69,20 @@ export function fakeGitHub({
   comments = [],
   files = [],
   others = {},
+  reviews = [],
 }: {
   commits: Record<string, string>;
   pull: FakePull;
   comments?: { id: number; body: string }[];
   files?: { filename: string; status: string }[];
   others?: Record<string, FakeOtherPull[]>;
+  reviews?: FakeReview[];
 }) {
   const requests: Recorded[] = [];
   const checkRuns: FakeCheckRun[] = [];
   let nextId = 1000;
 
-  const state = { pull: structuredClone(pull), comments: structuredClone(comments), checkRuns, requests };
+  const state = { pull: structuredClone(pull), comments: structuredClone(comments), reviews: structuredClone(reviews), checkRuns, requests };
 
   function treeAt(sha: string): { commit: string; root: string; dir: string } {
     const [commit = '', ...rest] = sha.split(':');
@@ -115,8 +120,16 @@ export function fakeGitHub({
     request: (route: string, params: Params = {}): Promise<Answer> => settled(() => answer(route, params)),
   };
 
+  /** The lists read a page at a time: every item on the first page, none after. */
+  const lists: Record<string, () => unknown[]> = {
+    'GET /repos/{owner}/{repo}/issues/{issue_number}/comments': () => state.comments,
+    'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews': () => state.reviews,
+  };
+
   function answer(route: string, params: Params): Answer {
       requests.push({ route, ...params });
+      const list = lists[route];
+      if (list) return { data: params.page === 1 ? list() : [] };
       switch (route) {
         case 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}': {
           const { commit, root, dir } = treeAt(String(params.tree_sha));
@@ -140,8 +153,6 @@ export function fakeGitHub({
           };
         case 'GET /repos/{owner}/{repo}/pulls':
           return otherPulls(params);
-        case 'GET /repos/{owner}/{repo}/issues/{issue_number}/comments':
-          return { data: params.page === 1 ? state.comments : [] };
         case 'POST /repos/{owner}/{repo}/issues/{issue_number}/comments': {
           const comment = { id: nextId++, body: String(params.body) };
           state.comments.push(comment);
@@ -210,6 +221,7 @@ const ROUTES: readonly string[] = [
   'GET /repos/{owner}/{repo}/git/blobs/{file_sha}',
   'GET /repos/{owner}/{repo}/pulls/{pull_number}',
   'GET /repos/{owner}/{repo}/pulls',
+  'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews',
   'GET /repos/{owner}/{repo}/issues/{issue_number}/comments',
   'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
   'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}',

@@ -57,9 +57,10 @@ describe('app.yml — the GitHub App manifest', () => {
     expect([...manifest.default_events].sort()).toEqual([...SUBSCRIBED].sort());
   });
 
-  it('the webhook handles exactly the spec’s actions, `closed` for the retro and the canon buttons’ `requested_action` (PRD 839)', () => {
+  it('the webhook handles exactly the spec’s actions, `closed` for the retro, the canon buttons’ `requested_action` (PRD 839) and a review (PRD 1726)', () => {
     expect(HANDLED).toEqual({
       pull_request: ['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited', 'closed'],
+      pull_request_review: ['submitted', 'dismissed'],
       check_run: ['rerequested', 'requested_action'],
     });
   });

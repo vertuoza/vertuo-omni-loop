@@ -1,0 +1,6 @@
+kit: 1
+repo:
+  slug: acme/widgets
+laws:
+  source: knowledge
+  owners: [ann]

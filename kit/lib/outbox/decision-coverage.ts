@@ -42,8 +42,9 @@ export type CoverageContext = Pick<Context, 'root' | 'config'> & {
   layout: Pick<Context['layout'], 'knowledgeRoot' | 'adrDir'>;
 };
 import type { NameStatus } from '../git.ts';
-import { isConfirmedRule, readKnowledge, readRegisters } from '../knowledge/registers.ts';
-import type { KnowledgeSource } from '../knowledge/registers.ts';
+import { isOwnedBy, isPersonOwner } from '../codeowners.ts';
+import { isConfirmedRule, isLaw, readKnowledge, readRegisters } from '../knowledge/registers.ts';
+import type { KnowledgeEntry, KnowledgeSource } from '../knowledge/registers.ts';
 
 /** One change a rule fired on, and which rule. */
 export type RiskyChange = { path: string; status: string; rule: string };
@@ -71,17 +72,16 @@ function isStoredShape(change: NameStatus, { ctx }: { ctx: CoverageContext }): b
  * @returns {Set<string>}
  */
 export function enforcedByPaths({ ctx }: { ctx: CoverageContext }): Set<string> {
-  const { entries } = readRegisters({ ctx });
-  const paths = new Set<string>();
-  for (const entry of entries) {
-    // `unenforced` and `pending #<n>` (PRD 1342) name no path: only an enforced entry has a proof.
-    if (!entry.enforced) continue;
-    for (const rawPath of String(entry.enforcedBy).split(',')) {
-      const path = rawPath.replace(/`/g, '').trim();
-      if (path) paths.add(path);
-    }
-  }
-  return paths;
+  return new Set(readRegisters({ ctx }).entries.flatMap(proofPathsOf));
+}
+
+/** The paths one entry's `Enforced by:` line names; none for `unenforced` or `pending #<n>` (PRD 1342). */
+function proofPathsOf(entry: KnowledgeEntry): string[] {
+  if (!entry.enforced) return [];
+  return String(entry.enforcedBy)
+    .split(',')
+    .map((rawPath) => rawPath.replace(/`/g, '').trim())
+    .filter(Boolean);
 }
 
 /** The path is named by an `Enforced by:` line under `ctx.layout.knowledgeRoot`, read at call
@@ -186,4 +186,91 @@ export function riskyChanges(
     risky.push({ path, status: statuses.get(path) ?? 'M', rule: LAW_DEMOTED });
   }
   return risky;
+}
+
+/** The rule a range fires when it changes a locked law (PRD 1726): only its files' CODEOWNERS clear it. */
+export const LAW_LOCKED = 'law-locked';
+
+/** A change `law-locked` fired on, and the law it changed. */
+export type LockedLawChange = RiskyChange & { law: string };
+
+/** An entry as read, every field: where it sits counts, so a law moved to another register is changed. */
+function entryText(entry: KnowledgeEntry): string {
+  return JSON.stringify(entry);
+}
+
+/**
+ * **`law-locked`** (PRD 1726): every change of the range to a locked law, the law named. A law is a
+ * locked rule or invariant ({@link isLaw}) at the base or at the head (`ctx.root`). It fires on:
+ *
+ * - the register file of a law the base and the head do not hold alike: a `Locked:` line added or
+ *   removed, its text edited, or the entry deleted — only when that file is among `changes`, so a
+ *   base branch that moved on alone fires nothing;
+ * - a path a law's `Enforced by:` line names, at the base or the head, among `changes`.
+ *
+ * A rule or invariant no one locked never fires it: the rule-level gate (`law-proof`, `law-text`,
+ * `law-demoted`, {@link riskyChanges}) is unchanged. It is not one of `RULE_IDS`: no account clears
+ * it, only an approving review on GitHub ({@link lawsAwaitingOwners}). Without a `base`, only the
+ * proofs of the head's laws are read. Never fires when `ctx.config.laws.source` is not `'knowledge'`.
+ */
+export function lockedLawChanges(
+  changes: readonly NameStatus[],
+  { ctx, base = null }: { ctx: CoverageContext; base?: KnowledgeSource | null },
+): LockedLawChange[] {
+  if (ctx.config.laws.source !== 'knowledge') return [];
+  const statuses = new Map(changes.map((change) => [change.path, change.status]));
+  const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
+  const was = new Map((base === null ? [] : readKnowledge({ ctx, source: base }).entries).map((entry) => [entry.id, entry]));
+  const fired: LockedLawChange[] = [];
+  const fire = (law: string, path: string) => {
+    const status = statuses.get(path);
+    if (status === undefined || fired.some((one) => one.law === law && one.path === path)) return;
+    fired.push({ path, status, rule: LAW_LOCKED, law });
+  };
+  for (const id of new Set([...was.keys(), ...head.keys()])) {
+    for (const path of lawPaths(was.get(id), head.get(id), { compared: base !== null })) fire(id, path);
+  }
+  return fired;
+}
+
+/**
+ * The paths one entry's change may fire `law-locked` on, when it is a law at the base (`before`) or
+ * at the head (`after`): its register file when the two differ (`compared`: a base was read), then
+ * the paths its `Enforced by:` names. None when it is a law at neither end.
+ */
+function lawPaths(before: KnowledgeEntry | undefined, after: KnowledgeEntry | undefined, { compared }: { compared: boolean }): string[] {
+  const laws = [before, after].filter((entry) => entry !== undefined).filter(isLaw);
+  const changed = compared && (before === undefined || after === undefined || entryText(before) !== entryText(after));
+  return [...laws.filter(() => changed).map((entry) => entry.file), ...laws.flatMap(proofPathsOf)];
+}
+
+/** Why a law a range changed is not cleared yet: no person owns one of its files, or no owner approved. */
+export type LawAwaiting = { law: string; reason: 'no-codeowner' | 'no-approval'; paths: string[]; owners: string[] };
+
+/**
+ * What still holds each law `law-locked` fired on (PRD 1726). Every file that fired it must be
+ * approved by a person CODEOWNERS lists for that file (`ownersOf`, read from the base branch), among
+ * `approvers` (the logins whose review approves the head). A file no person owns holds its law as
+ * `no-codeowner`, whatever was approved (fail closed); otherwise a file none of its owners approved
+ * holds it as `no-approval`. `paths` are the files holding it, `owners` the persons who could clear
+ * them. `approvedBy`: the approvers who cleared a file.
+ */
+export function lawsAwaitingOwners(
+  fired: readonly LockedLawChange[],
+  { ownersOf, approvers }: { ownersOf: (path: string) => string[]; approvers: readonly string[] },
+): { awaiting: LawAwaiting[]; approvedBy: string[] } {
+  const files = fired.map(({ law, path }) => {
+    const persons = ownersOf(path).filter(isPersonOwner);
+    return { law, path, persons, approved: approvers.filter((login) => isOwnedBy(persons, login)) };
+  });
+  const awaiting: LawAwaiting[] = [];
+  for (const law of new Set(fired.map((one) => one.law))) {
+    const own = files.filter((file) => file.law === law);
+    const owners = [...new Set(own.flatMap((file) => file.persons))];
+    const unowned = own.filter((file) => file.persons.length === 0).map((file) => file.path);
+    const unapproved = own.filter((file) => file.approved.length === 0).map((file) => file.path);
+    if (unowned.length > 0) awaiting.push({ law, reason: 'no-codeowner', paths: unowned, owners });
+    else if (unapproved.length > 0) awaiting.push({ law, reason: 'no-approval', paths: unapproved, owners });
+  }
+  return { awaiting, approvedBy: [...new Set(files.flatMap((file) => file.approved))] };
 }
