@@ -17,7 +17,6 @@ import { levelTag, XP_LINE, xpStatus } from '../arcade/games/room';
 import { present } from '../ask/test/test-item';
 import { demoAccount } from '../arcade/account-demo';
 import { setFleets } from '../arcade/fleets';
-import { xpStatus } from '../arcade/games/room';
 import { WIDE } from '../arcade/grid';
 import { isPlayer } from '../arcade/onboarding';
 import { ScreenContext } from '../arcade/Screen';
