@@ -1,9 +1,9 @@
 // OMNI DUET's playfield on the canvas (PRD 1633): the 320×288 field, the circle with nothing at its
 // centre, the two orbs on it, each with its short trail (the warm one in the orange ramp, the
-// cool one in the theme's cyan), and the wave's Entropy blocks falling through it, in Entropy's ramp
-// with spikes along their edges. The scene places the field on the grid (scenes/duet.ts); this file
-// draws in the field's own game pixels. Every colour equal to a theme token is read from the frame's
-// theme (ADR-0046).
+// cool one in the theme's cyan), and the wave's obstacles falling through it as Entropy blocks, in
+// Entropy's ramp with spikes along their long edges. The scene places the field on the grid
+// (scenes/duet.ts); this file draws in the field's own game pixels. Every colour equal to a theme
+// token is read from the frame's theme (ADR-0046).
 import { RAMPS, rampFrom } from '@omni/design';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Action } from '../keys';
@@ -50,7 +50,9 @@ function polygon(ctx: CanvasRenderingContext2D, pts: readonly Point[]) {
 }
 
 /** One Entropy block: its dark edge, its body, a lit line along its top, and a spike every 4 pixels along its long edges. */
-function block(ctx: CanvasRenderingContext2D, b: Block) {
+function block(ctx: CanvasRenderingContext2D, tall: Block) {
+  // A block taller than wide (an upright bar) is drawn as the same rectangle lying down, turned a quarter.
+  const b = tall.h > tall.w ? { ...tall, w: tall.h, h: tall.w, angle: tall.angle + Math.PI / 2 } : tall;
   // The block's own directions on the screen: along its length, and out of its top edge.
   const along = { x: Math.cos(b.angle), y: -Math.sin(b.angle) }, up = { x: -Math.sin(b.angle), y: -Math.cos(b.angle) };
   ctx.fillStyle = defined(ENTROPY[3], "a block's edge");
