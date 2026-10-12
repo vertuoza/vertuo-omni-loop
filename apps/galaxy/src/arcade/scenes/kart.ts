@@ -6,6 +6,7 @@
 import type { Hero, Tint } from '@omni/design';
 import type { Action } from '../keys';
 import type { KartOptions, OptionsView } from '../kart/options';
+import type { KartLook } from '../kart/look';
 import type { Grid } from '../grid';
 import type { FrameState, KartDraw, Pages, SceneName } from './common.ts';
 import { space } from './common.ts';
@@ -28,10 +29,18 @@ export interface KartHud {
   run?: KartRun;
   /** The results table, once the player crossed the line at the end of the last lap. */
   results?: KartResults;
+  /** The podium that shows before the results (PRD 1762): the first three on their steps; A moves on to the results. */
+  podium?: KartPodium;
 }
 
 /** One line of the results table: a place, the driver and the time in tenths of a second (none for a kart still racing). */
-export interface KartRow { place: number; name: string; tenths: number | null; you: boolean; /** MULTI (PRD 1572): the player left, or went silent, before the line. */ out?: boolean }
+export interface KartRow { place: number; name: string; tenths: number | null; you: boolean; /** MULTI (PRD 1572): the player left, or went silent, before the line. */ out?: boolean; /** The driver's fleet tint and kart look (PRD 1762), to draw their kart on the podium. */ tint?: Tint | null; look?: KartLook }
+
+/** One step of the podium: the driver and the time, or `…` while a MULTI driver has not crossed the line. */
+export interface KartStep { place: 1 | 2 | 3; name: string; filled: boolean; tenths: number | null; you: boolean; tint?: Tint | null; look?: KartLook }
+
+/** The podium (PRD 1762): the steps in the order they stand (second, first, third), and `YOU 5TH` when the player is off it. */
+export interface KartPodium { steps: readonly KartStep[]; place: string | null }
 
 /** The finish: the six places, the player's place and time, and the race time that is sent. */
 export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number; /** The clock at the player's third crossing, in tenths: the time sent to the board, shown as 3-LAP TIME (the race time in a 3-lap race). */ threeLap: number; /** MULTI: the table fills in as each player finishes, so a text layer reads it afresh. */ live?: true }
@@ -279,7 +288,7 @@ export function kartPress(status: KartStatus, action: Action, phase: KartHud['ph
 
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
 export const sameKartHud = (a: KartHud | null, b: KartHud | null): boolean =>
-  a === b || (!!a && !!b && a.phase === b.phase && a.menu === b.menu && a.beat === b.beat && sameResults(a.results, b.results) && sameRun(a.run, b.run));
+  a === b || (!!a && !!b && a.phase === b.phase && a.menu === b.menu && a.beat === b.beat && samePodium(a.podium, b.podium) && sameResults(a.results, b.results) && sameRun(a.run, b.run));
 
 /** The same results table: one object, or, for a MULTI race's live table, the same rows. */
 const sameResults = (a: KartResults | undefined, b: KartResults | undefined): boolean =>
@@ -293,3 +302,8 @@ export function drawKart(ctx: CanvasRenderingContext2D, s: FrameState) {
   if (s.kart) { s.kart.draw(ctx, s); return; }
   space(ctx, s, 0.2); // loading, or failed: the Omni sky behind the line
 }
+
+/** The same podium: the same steps standing, the same place under them. */
+const samePodium = (a: KartPodium | undefined, b: KartPodium | undefined): boolean =>
+  a === b || (!!a && !!b && a.place === b.place && podiumKey(a) === podiumKey(b));
+const podiumKey = (p: KartPodium): string => p.steps.map((s) => `${s.name}|${s.filled}|${s.tenths}`).join(';');

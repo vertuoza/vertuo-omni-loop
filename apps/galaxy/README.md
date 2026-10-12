@@ -904,6 +904,16 @@ off, no row exists, and every player sees NO XP YET.
   race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under `kart`: the
   kart keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
   or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
+  **The options** (PRD 1762): OPTIONS on the ready screen holds KEYS (the five actions of a keyboard: GAS, BRAKE, LEFT, RIGHT, ITEM),
+  KART (eight colours and three designs, CLASSIC, ROCKET and RACER, drawn on the track, the minimap and the podium), LAPS (3, 5 or 7),
+  DIFFICULTY (EASY, NORMAL or HARD, the rivals' pace and how long they hold an item) and DEFAULTS. They are kept in this browser only,
+  under `omni-loop:kart-options` (`kart/options.ts`), never sent anywhere; a MULTI grid takes the first arrival's laps and each player's
+  look. **The three-lap time** (3-LAP TIME on the results): whatever the laps, the time sent to the board is the clock at the third
+  crossing, so a 5 or 7-lap race ranks with the 3-lap ones. **The podium** (`kart/podium.ts`, pure): crossing the line at the end of
+  the last lap shows PODIUM before RESULTS: the first three on their steps (second, first, third) with each driver's kart in its look,
+  under confetti that stands still under reduced motion, and `YOU 5TH` under them when the player is off it. In MULTI a step shows `…`
+  until its driver crosses, and a player who is OUT never stands on one. A shows RESULTS; the time was already sent at the finish, and
+  a race left before the line has no podium.
   **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
   in space, all in code, no image file. **The void** (PRD 1447): everything off the road is the void,
   written `~` in the map: the floor has nothing there, and the space the circuit floats in shows all round
