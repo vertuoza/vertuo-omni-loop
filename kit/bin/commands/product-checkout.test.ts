@@ -60,7 +60,7 @@ describe('omni product use <key>', () => {
 
   it('remembers for the main checkout when run from one of its worktrees', async () => {
     const root = repo();
-    execFileSync('git', ['commit', '--allow-empty', '-qm', 'base'], { cwd: root });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-qm', 'base'], { cwd: root });
     const tree = join(root, '..', `${root.split('/').pop()}-tree`);
     execFileSync('git', ['worktree', 'add', '-q', tree], { cwd: root });
     expect((await run(tree, ['use', 'mobile'])).code).toBe(0);
