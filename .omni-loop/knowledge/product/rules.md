@@ -325,7 +325,7 @@ When the arcade cannot read a signed-in person's memberships, domain join or loa
 
 Serves: P-PRODUCT-28
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
-Enforced by: pending #1491
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101

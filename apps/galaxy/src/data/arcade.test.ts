@@ -13,6 +13,7 @@ vi.mock('../env', async (actual) => {
 
 import { present } from '../ask/test/test-item';
 import type { DossierListRow } from '../dossier/store';
+import { afterReturn, afterStart } from '../arcade/onboarding';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
@@ -349,5 +350,26 @@ describe('the database out of reach', () => {
     const { data } = await page(PEOPLE.wile, (world) => { world.state.failOn = 'ledger_events'; });
     expect(data).toMatchObject({ view: null, fleets: [], workspace: ACME, brand: { name: 'Acme' }, problem: OUT_OF_REACH });
     expect(data.session?.crew).toBe(true);
+  });
+
+  // Law BR-PRODUCT-30 (.omni-loop/knowledge/product/rules.md, #1491).
+  it('law BR-PRODUCT-30: when the memberships or a loader cannot be read, a signed-in person is crew: the out-of-reach message, never the wrong-account screen', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    // The memberships, then each table the loaders read once the workspace is known.
+    const unreadable = ['workspace_members', 'ledger_events', 'sectors', 'teams', 'players'] as const;
+    for (const table of unreadable) {
+      for (const person of [PEOPLE.ada, PEOPLE.wile]) {
+        const { data } = await page(person, (world) => { world.state.failOn = table; });
+        const why = `${person.email}, ${table} out of reach`;
+        expect(data.problem, why).toBe(OUT_OF_REACH);
+        expect(data.session?.crew, why).toBe(true);
+        expect(afterStart(data.session, data.me ?? null, data.fleets), why).not.toBe('outsider');
+        expect(afterReturn({ kind: 'signin' }, data.session, data.me ?? null, data.fleets), why).not.toBe('outsider');
+      }
+    }
+    // The whole database out of reach: the same.
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.fail = { message: 'timeout' }; });
+    expect(data.problem).toBe(OUT_OF_REACH);
+    expect(afterStart(data.session, data.me ?? null, data.fleets)).not.toBe('outsider');
   });
 });
