@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EnvError, gitWithoutPrompt, OMNI_TOKEN_PATTERN, omniTokenOf, readEnv, requireGroup, SUPABASE, VARIABLES, withGithubToken, withStepVariables, WORKSPACE } from './read.ts';
+import { EnvError, gitWithoutPrompt, OMNI_TOKEN_PATTERN, PLATFORM_VARIABLES, omniTokenOf, readEnv, requireGroup, SUPABASE, VARIABLES, withGithubToken, withStepVariables, WORKSPACE } from './read.ts';
 
 const SECRET = 'sk-fake-secret-0123456789';
 /** A kit token as `omni setup-token` prints it: `omk_` and 43 base64url characters. */
@@ -17,6 +17,7 @@ describe('readEnv', () => {
       supabase: null,
       packageManager: null,
       omniToken: null,
+      session: { remote: false, display: false },
     });
   });
 
@@ -80,6 +81,32 @@ describe('readEnv', () => {
       expect(omniTokenOf({ OMNI_TOKEN: KIT_TOKEN, PROOF_URL: 'not a url' })).toBe(KIT_TOKEN);
       expect(omniTokenOf({})).toBeNull();
       expect(() => omniTokenOf({ OMNI_TOKEN: 'omk_short' })).toThrow(EnvError);
+    });
+  });
+
+  describe('the session a sign-in reads to choose its flow (PRD 1660)', () => {
+    const REMOTE = ['CLAUDE_CODE_REMOTE', 'SSH_CONNECTION', 'SSH_TTY', 'CODESPACES'];
+    const DISPLAYS = ['DISPLAY', 'WAYLAND_DISPLAY'];
+
+    it('reads each remote-session variable on its own as a remote session, and an empty one as unset', () => {
+      for (const name of REMOTE) {
+        expect(readEnv({ [name]: '1' }).session, name).toEqual({ remote: true, display: false });
+        expect(readEnv({ [name]: '' }).session, name).toEqual({ remote: false, display: false });
+      }
+      expect(readEnv({ SSH_CONNECTION: '10.0.0.1 51000 10.0.0.2 22', SSH_TTY: '/dev/pts/0' }).session).toEqual({ remote: true, display: false });
+    });
+
+    it('reads DISPLAY or WAYLAND_DISPLAY as a display, an empty one as none', () => {
+      for (const name of DISPLAYS) {
+        expect(readEnv({ [name]: ':0' }).session, name).toEqual({ remote: false, display: true });
+        expect(readEnv({ [name]: '' }).session, name).toEqual({ remote: false, display: false });
+      }
+      expect(readEnv({ DISPLAY: ':0', SSH_TTY: '/dev/pts/0' }).session).toEqual({ remote: true, display: true });
+    });
+
+    it('lists them as variables the platform sets, never a person', () => {
+      expect(PLATFORM_VARIABLES).toEqual(expect.arrayContaining([...REMOTE, ...DISPLAYS]));
+      for (const name of [...REMOTE, ...DISPLAYS]) expect(VARIABLES).not.toContain(name);
     });
   });
 

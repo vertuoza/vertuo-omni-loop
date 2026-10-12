@@ -47,6 +47,18 @@ whenever the page cannot answer, the question shows in the terminal as usual. Th
 kept: the whole workspace reads them, sorted and searchable, on the page's History, and a live one
 can be shared with a teammate, who answers it on its own link.
 
+**Signing in from any machine.** `omni signin` (and `omni setup-token`, which makes a kit token for a
+cloud session's `OMNI_TOKEN`) finishes one of two ways. On a laptop it opens the Omni page in the
+browser, which comes back to the terminal on `127.0.0.1`, and prints a device link under it as a
+fallback: `Browser didn't open, or it's on another machine? <link>  (code <c>)`; whichever comes back
+first wins. In a remote session (a Claude Code cloud session, SSH, a Codespace: `CLAUDE_CODE_REMOTE`,
+`SSH_CONNECTION`, `SSH_TTY` or `CODESPACES` set), or on Linux with no display, it takes the device
+flow: it prints `Sign in at <ask.url>/ask/device?user_code=<c>`, opens no browser, and waits up to 10
+minutes while the person opens the link in any browser, checks that the page shows the same code and
+signs in; nothing is pasted back. `--device` and `--loopback` force one flow or the other. An Omni page
+without the device sign-in says so and the browser on this machine takes over. `omni setup-token`
+then prints the token, its expiry and the line to paste it by, and keeps it nowhere.
+
 **The status line** shows two lines at the bottom of every Claude Code session opened in the
 repository or one of its worktrees: the model, how full the context window is (a bar of 10 cells,
 green under 50 %, yellow from 50, red from 80), the 5-hour usage and when it resets, and `ask on`

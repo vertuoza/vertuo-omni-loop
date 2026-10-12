@@ -391,3 +391,390 @@ B is one new database function that deletes a kit token by its hash for the serv
 ```
 
 <!-- /omni-outbox-settled: s3-01-unhanded-token-left-unusable -->
+
+<!-- omni-outbox-settled: s4-01-poll-failure-ends-at-once -->
+
+## s4-01-poll-failure-ends-at-once — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-poll-failure-ends-at-once
+prd: 1660
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+While the terminal waits for the person to approve the sign-in, what should it do when one of its checks with the Omni page fails to get through?
+
+## The decision, in plain words
+
+It stops at once and says the page is unreachable, so the person runs the sign-in again, rather than quietly trying again for a while.
+
+## The intro, for fun
+
+The terminal knocked on the door, and nobody heard it once.
+
+## The punchline, for fun
+
+It went home instead of knocking again.
+
+## The options, in plain words
+
+A. A. End at once on the first failed check
+B. B. Keep waiting through up to three failed checks in a row, then end
+
+## What I had to decide
+
+Keep the sign-in ending on the first check that fails (A), or let it ride over a few failed checks in a row before giving up (B).
+
+## What I did meanwhile
+
+Built as A: kit/lib/ask/device.ts ends its wait with the reason unreachable as soon as one poll cannot reach the page or gets an answer it cannot read, and omni signin prints omni signin: unreachable, exit 1.
+
+## What it costs to change later
+
+B is a counter of failed polls in the device module and one test, at any time: nothing is stored, and the page does not change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists unreachable among the endings without saying whether a single failed poll during the ten minutes is enough to end the wait.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-poll-failure-ends-at-once -->
+
+<!-- omni-outbox-settled: s4-02-device-link-from-ask-url -->
+
+## s4-02-device-link-from-ask-url — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-device-link-from-ask-url
+prd: 1660
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+The terminal prints the link to approve the sign-in. Should it print the address the Omni page sends back, or build it from the address the repository's settings give for the Omni page?
+
+## The decision, in plain words
+
+It builds the link from the repository's own setting, the address the terminal already trusts and talks to, and only takes the short code from the page's answer.
+
+## The intro, for fun
+
+Two addresses for the same door walked into a terminal.
+
+## The punchline, for fun
+
+It picked the one written in its own notebook.
+
+## The options, in plain words
+
+A. A. Build the link from the configured address
+B. B. Print the address the page sends back
+
+## What I had to decide
+
+Keep the link built from the configured address (A), or print the address the page answers with (B).
+
+## What I did meanwhile
+
+Built as A: deviceLink in kit/lib/ask/device.ts makes the ask device page under ask.url with the user code, and the page's url field is not read.
+
+## What it costs to change later
+
+B is one line in the device module and its test, at any time.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec prints the link under ask.url while the page's answer also carries its own url, built from the server's own origin, which may differ behind a proxy.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-device-link-from-ask-url -->
+
+<!-- omni-outbox-settled: s5-01-race-waits-on-the-survivor -->
+
+## s5-01-race-waits-on-the-survivor — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-race-waits-on-the-survivor
+prd: 1660
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+On a laptop the terminal waits for the browser and for the printed link at once. When one of the two fails, for example the link is refused or the page cannot be reached, should the terminal give up or keep waiting on the other?
+
+## The decision, in plain words
+
+It keeps waiting on the other and gives up only once both have failed, then says why the last one failed. A refused link or a dropped connection never cuts short a sign-in the browser is about to finish.
+
+## The intro, for fun
+
+Two doors were left open for the same guest, and one of them slammed shut.
+
+## The punchline, for fun
+
+The terminal kept an eye on the other door.
+
+## The options, in plain words
+
+A. A failure drops out and the other keeps waiting; the last failure is the one printed
+B. The first way back to end, success or failure, ends the sign-in
+
+## What I had to decide
+
+Keep a failed way back dropping out while the other keeps waiting (A), or end the sign-in on the first way back to end, success or failure (B). Decided by: Jev (hardToRevert 0.50) · agent said false
+
+## What I did meanwhile
+
+Built as A: firstOf in kit/lib/ask/race.ts takes the first result to come back and closes the other; a failure drops out, and once both failed it fails with the last failure, which omni signin prints as its one line.
+
+## What it costs to change later
+
+B is a few lines in the race and two tests, at any time: nothing is stored and the page does not change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the sign-in finishes on whichever comes back first, without saying what a failure of one does to the other.
+- (author) With A, pressing No on the fallback link leaves the terminal waiting for the browser until the loopback's own five minutes run out, and a loopback that times out leaves it waiting for the link's ten.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-race-waits-on-the-survivor -->
+
+<!-- omni-outbox-settled: s6-01-setup-token-own-copy-of-the-flows -->
+
+## s6-01-setup-token-own-copy-of-the-flows — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-setup-token-own-copy-of-the-flows
+prd: 1660
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+Making a token from the terminal now offers the same two ways back as signing in. Should it say exactly what signing in says when it ends badly, and should both share one piece of code for it?
+
+## The decision, in plain words
+
+It says the same sentences, naming its own command to run again, and keeps its own short copy of the steps, because the sign-in's steps are not shared and changing them was not part of this piece of work.
+
+## The intro, for fun
+
+The token maker borrowed the sign-in's script and changed one name in it.
+
+## The punchline, for fun
+
+Two actors now say the same lines, each from their own copy.
+
+## The options, in plain words
+
+A. A. Its own copy, same sentences, naming omni setup-token
+B. B. One shared module for both commands, same sentences
+
+## What I had to decide
+
+Keep the token maker's own copy of the two ways back (A), or move the shared steps into one place both commands use (B). Decided by: Jev (hardToRevert 0.54) · agent said false
+
+## What I did meanwhile
+
+Built as A: omni setup-token reuses the device module and the race, and holds its own fallback, endings and no-device line, mirroring omni signin. Its endings read: the sign-in was refused in the browser; the sign-in link expired: run omni setup-token again; unreachable.
+
+## What it costs to change later
+
+B is moving three small helpers from the sign-in command into a shared module and pointing both commands at it, with no change to what anyone sees: a refactor of an hour, nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan keeps the sign-in command outside this slice's territory, so its unexported helpers could not be shared from here.
+- (author) The spec says the token maker takes the same lines without saying whether the expired line should name omni signin or omni setup-token to run again; it names the command the person ran.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-setup-token-own-copy-of-the-flows -->
+
+<!-- omni-outbox-settled: s6-02-help-does-not-show-the-flow-flags -->
+
+## s6-02-help-does-not-show-the-flow-flags — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-help-does-not-show-the-flow-flags
+prd: 1660
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The built-in help still shows signing in and making a token without the two new switches that force the browser on this machine or the printed link. Who adds them, and when?
+
+## The decision, in plain words
+
+Left as it is in this piece of work, because the help text lives outside it. The commands themselves and the kit's guide name both switches, so only the help screen lags.
+
+## The intro, for fun
+
+Two new switches arrived, and the help screen did not get the memo.
+
+## The punchline, for fun
+
+The commands know them; the manual will catch up.
+
+## The options, in plain words
+
+A. A. Leave the help screen for a follow-up
+B. B. Add both switches to the help screen before shipping
+
+## What I had to decide
+
+Leave the help screen for a follow-up (A), or add both switches to it before this feature ships (B). Decided by: Jev (hardToRevert 0.66) · agent said false
+
+## What I did meanwhile
+
+Built as A: omni signin and omni setup-token take --device and --loopback and say so in their usage lines, and the kit README's sign-in paragraph names both; the help entries are unchanged.
+
+## What it costs to change later
+
+B is two usage lines and a sentence each in the help entries, at any time: nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) kit/lib/help/entries.ts is outside every slice's territory in this plan, so no slice could change it.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-help-does-not-show-the-flow-flags -->
