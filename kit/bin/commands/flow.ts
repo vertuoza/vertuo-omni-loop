@@ -15,26 +15,31 @@
 //   planning time. A target with no copied flow is a usage error.
 // - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
 //   exit 1; output that does not end with the point's verdict line is `not ok … no verdict`.
-// - `check merge --pr <n> [--repo <target>]` reads the sub-PR from GitHub (`../github.ts`), finds its
-//   slice by its head branch in the inbox's plans, and applies `rules.subPr` through
-//   `kit/lib/flow/merge-gate.ts`: `ok` and the merge command to run, exit 0, or one `not ok <area>:
-//   <rule> — <why>` line per reason, exit 1. What merges anyway is printed as `report` lines.
+// - `check merge --pr <n> [--repo <target>]` reads the sub-PR through `LoopReads` (the Omni page, PRD
+//   1665 s6: no `gh` read), finds its slice by its head branch in the inbox's plans, and applies
+//   `rules.subPr` through `kit/lib/flow/merge-gate.ts`: `ok` and the merge command to run, exit 0, or
+//   one `not ok <area>: <rule> — <why>` line per reason, exit 1. What merges anyway is printed as
+//   `report` lines. A read that cannot be made prints its one line on stderr, exit 1.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { FLOW_POINTS, flowPoint, type FlowPoint } from '../../lib/flow/points.ts';
 import { resolveFlow, type ResolvedFlow } from '../../lib/flow/resolve.ts';
 import { flowDifferences, ruleLines, showPath, showPoint, type AreaDifference, type PathView, type PointView, type ShownHook } from '../../lib/flow/show.ts';
 import { readVerdict, verdictLine } from '../../lib/flow/verdict.ts';
-import { mergeGate, type MergeVerdict } from '../../lib/flow/merge-gate.ts';
+import { mergeGate, type CheckState, type MergeVerdict, type SubPr } from '../../lib/flow/merge-gate.ts';
+import type { LoopChangeDetail } from '../../lib/loop-reads/contract.ts';
+import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import { LoopReadError } from '../../lib/loop-reads/port.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { COPY_FLOW_FILE, copyFlowFolder, readCopyFlow } from '../../lib/plan-repo/copy-flow.ts';
 import { parseFolderName, prdFoldersIn } from '../../lib/layout.ts';
 import { errorMessage, parseArgs, type Flags, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
-import { openPullRequestsInto, subPrFor } from '../github.ts';
-import type { Command, CommandIo } from '../io.ts';
-import { synchronous } from '../synchronous.ts';
+import type { CommandIo, FreeCommand, FreeIo } from '../io.ts';
 import type { PrNumber } from '../../lib/ids.ts';
 
 const USAGE =
@@ -247,14 +252,52 @@ function sliceGround(ctx: Context): Map<string, { territory: string[]; outbox: s
 }
 
 /** Every other open sub-PR into `base` that is a slice here, with its territory — only when an area counts them. */
-function openSlices({ ctx, exec, env }: CommandIo, resolved: ResolvedFlow, { slug, base }: { slug: string | null; base: string }) {
-  const slices = sliceTerritories(ctx);
+async function openSlices(ctx: Context, reads: LoopReads, resolved: ResolvedFlow, { slug, base }: { slug: string; base: string }) {
   const countsOpen = [resolved.defaultArea, ...resolved.areas].some(({ rules }) => rules.subPr.maxOpen !== null);
   if (!countsOpen) return [];
-  return openPullRequestsInto(ctx, { repo: slug, base, exec, env }).flatMap(({ number: n, head }) => {
+  const slices = sliceTerritories(ctx);
+  return (await reads.changes({ repo: slug, base, state: 'open' })).flatMap(({ number: n, head }) => {
     const territory = slices.get(head);
     return territory === undefined ? [] : [{ number: n, territory }];
   });
+}
+
+/** A change's state as the gate reads a sub-PR's: a draft is open. */
+const SUB_PR_STATE = { open: 'OPEN', draft: 'OPEN', merged: 'MERGED', closed: 'CLOSED' } as const;
+
+/** A check's state as the gate reads it: neutral and skipped pass, as on the host. */
+const CHECK_STATE: Record<LoopChangeDetail['review']['checks'][number]['state'], CheckState> = {
+  pending: 'pending',
+  success: 'pass',
+  neutral: 'pass',
+  skipped: 'pass',
+  failure: 'fail',
+};
+
+/** The worst state of each check name, in first-seen order: a check run twice counts as its worst run. */
+function checksOf(checks: LoopChangeDetail['review']['checks']): SubPr['checks'] {
+  const worst: CheckState[] = ['fail', 'pending', 'pass'];
+  const byName = new Map<string, CheckState>();
+  for (const { name, state } of checks) {
+    const now = CHECK_STATE[state];
+    const before = byName.get(name);
+    byName.set(name, before === undefined || worst.indexOf(now) < worst.indexOf(before) ? now : before);
+  }
+  return [...byName].map(([name, state]) => ({ name, state }));
+}
+
+/** Sub-PR `number` of `slug`, as the gate reads it, from the change the loop's reads answer. */
+async function subPrOf(reads: LoopReads, slug: string, number: PrNumber): Promise<SubPr> {
+  const change = await reads.change(slug, number);
+  return {
+    number: change.number,
+    state: SUB_PR_STATE[change.state],
+    base: change.base,
+    head: change.head,
+    checks: checksOf(change.review.checks),
+    approvedBy: change.review.approvedBy ?? [],
+    files: change.files,
+  };
 }
 
 /** The verdict as text: `ok` and the command, or a `not ok` line per reason, then the `report` lines. */
@@ -274,15 +317,15 @@ function mergeArgs(ctx: Context, args: string[]): { number: PrNumber; repo: stri
   return { number, repo, json: flags.json === true };
 }
 
-function checkMerge(args: string[], io: CommandIo): number {
-  const { ctx, stdout, exec, env } = io;
-  const { number, repo, json } = mergeArgs(ctx, args);
+/** The gate's verdict on sub-PR `number`: its facts and the open sub-PRs read through `reads`, its
+ * slice's ground from the inbox's plans. Throws the `LoopReadError` of a read that cannot be made. */
+async function gateVerdict(ctx: Context, reads: LoopReads, { number, repo }: { number: PrNumber; repo: string | null }): Promise<MergeVerdict> {
   const resolved = resolveFlow(ctx.config);
-  const slug = repo ?? ctx.config.repo.slug;
-  const pr = subPrFor(ctx, { repo: slug, number, exec, env });
-  const open = openSlices(io, resolved, { slug, base: pr.base });
+  const slug = repo ?? ctx.config.repo.slug ?? '';
+  const pr = await subPrOf(reads, slug, number);
+  const open = await openSlices(ctx, reads, resolved, { slug, base: pr.base });
   const own = sliceGround(ctx).get(pr.head);
-  const verdict = mergeGate({
+  return mergeGate({
     flow: resolved,
     pr,
     territory: own?.territory ?? null,
@@ -293,16 +336,33 @@ function checkMerge(args: string[], io: CommandIo): number {
     // This repository's generated outputs (PRD 1138); a sub-PR in another repository meets none.
     generated: repo === null ? (ctx.config.generated ?? []) : [],
   });
+}
+
+async function checkMerge(args: string[], { ctx, stdout, stderr }: CommandIo, reads: LoopReads): Promise<number> {
+  const { number, repo, json } = mergeArgs(ctx, args);
+  let verdict: MergeVerdict;
+  try {
+    verdict = await gateVerdict(ctx, reads, { number, repo });
+  } catch (error) {
+    if (!(error instanceof LoopReadError)) throw error;
+    println(stderr, error.line);
+    return 1;
+  }
   println(stdout, json ? JSON.stringify(verdict, null, 2) : verdictText(verdict));
   return verdict.ok ? 0 : 1;
 }
 
-export const flow: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
+/** What `omni flow` reads the loop through beyond its io: a test's own `LoopReads`, or the Omni page's sign-in. */
+type FlowOptions = { reads?: LoopReads | undefined; tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch | undefined; callMs?: number | undefined };
+
+export const flow = {
+  withoutContext: true,
+  async run(args: string[], { cwd, stdout, stderr, exec, env, vars, reads, tokens, home, fetch, callMs }: FreeIo & FlowOptions): Promise<number> {
     const [sub, ...rest] = args;
+    const io: CommandIo = { ctx: loadContext(cwd, { exec }), stdout, stderr, exec, env, vars };
     if (sub === 'show') return show(rest, io);
     if (sub === 'verdict') return verdict(rest, io);
-    if (sub === 'check') return checkMerge(rest, io);
+    if (sub === 'check') return checkMerge(rest, io, reads ?? omniLoopReads({ askUrl: io.ctx.config.ask.url, tokens, home, fetch, callMs }));
     throw usageError(USAGE);
-  }),
-};
+  },
+} satisfies FreeCommand;
