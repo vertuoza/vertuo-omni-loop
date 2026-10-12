@@ -38,7 +38,7 @@ import { defined } from '../narrow.ts';
 import { plainText } from '../outbox/plain-text.ts';
 import { BECAME_FIELD, STAYS_HERE_FIELD } from './harvest.ts';
 import { PRODUCT_CODE, codeOf, domainsDir, idParts, productDir, readKnowledge, type EntryKind } from './registers.ts';
-import type { IssueNumber, PrNumber, PrdNumber } from '../ids.ts';
+import type { IssueNumber, PrNumber, PrdNumber, ProductPrdId } from '../ids.ts';
 
 /** The merge a harvest runs after: who merged, when, and which pull request. */
 export type Merge = { by: string; at: string; pr: PrNumber; url?: string };
@@ -50,7 +50,7 @@ export type Taken = { records?: readonly (string | number)[]; ids?: readonly str
 export type WriteCandidate = {
   id: string;
   ledgerFile: string | null;
-  item?: { prd?: PrdNumber | null; sections?: ItemSections | null } | null;
+  item?: { prd?: PrdNumber | ProductPrdId | null; sections?: ItemSections | null } | null;
   answer?: string | null;
   verdict?: string | null;
   approvedBy?: string | null;
@@ -314,7 +314,7 @@ function appendEntry(text: string | null, entry: string, { heading }: { heading:
   return `${base}${entry}`;
 }
 
-function sourceLine(candidate: WriteCandidate, ledgerFile: string, prd: PrdNumber | null): string {
+function sourceLine(candidate: WriteCandidate, ledgerFile: string, prd: PrdNumber | ProductPrdId | null): string {
   return `${ledgerFile}, entry ${candidate.id}, PRD #${prd}`;
 }
 
@@ -340,7 +340,7 @@ function renderRecord({
   decided: string;
   merged: string;
   merge: Merge;
-  prd: PrdNumber | null;
+  prd: PrdNumber | ProductPrdId | null;
   ledgerFile: string;
 }): string {
   const option = chosenOption(candidate);

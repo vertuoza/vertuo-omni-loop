@@ -37,6 +37,7 @@ type FakeCheckRun = {
   output: unknown;
   external_id?: unknown;
   actions?: unknown;
+  details_url?: unknown;
 };
 
 /** What a completed check run's `output` holds, as the tests read it. */
@@ -162,6 +163,7 @@ export function fakeGitHub({
             status: params.status,
             conclusion: params.conclusion ?? null,
             output: params.output ?? null,
+            ...detailsOf(params),
           };
           checkRuns.push(run);
           return { data: run };
@@ -169,7 +171,7 @@ export function fakeGitHub({
         case 'PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}': {
           const run = checkRuns.find((r) => r.id === params.check_run_id);
           if (!run) throw httpError(404, `no check run ${String(params.check_run_id)}`);
-          Object.assign(run, { status: params.status, conclusion: params.conclusion, output: params.output });
+          Object.assign(run, { status: params.status, conclusion: params.conclusion, output: params.output }, detailsOf(params));
           return { data: run };
         }
         case 'GET /repos/{owner}/{repo}/commits/{ref}/check-runs':
@@ -184,6 +186,11 @@ export function fakeGitHub({
   }
 
   return { octokit, state };
+}
+
+/** A check run's Details link, when the unit sent one. */
+function detailsOf(params: Params): { details_url?: unknown } {
+  return params.details_url === undefined ? {} : { details_url: params.details_url };
 }
 
 /** `run`'s value as a promise and its throw as a rejection, as an `async` function makes them. */

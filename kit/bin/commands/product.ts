@@ -6,9 +6,12 @@
 //   and it prints what it added and changed; a second run changes nothing. It never edits the config:
 //   the person swaps `targets` for `product: <name>` themselves. A repository with no `plan` section,
 //   or no targets to send, says so and exits 1.
-// - `which` prints the products this repository is in, one per line, or `none`.
+// - `which` prints the products this repository is in, one per line, or `none`; first, the product
+//   this checkout remembers, when it remembers one (PRD 1548, s11).
+// - `use <key>` and `phase0 <owner/name>…` (PRD 1548, s11) are `./product-checkout.ts`'s: the product a
+//   checkout remembers, and each target's phase-0 flag as a product PRD reads it.
 //
-// Either prints one line and exits 1 with no Omni page (`ask.url`), no sign-in, no repository slug, the
+// `import` and `which` print one line and exit 1 with no Omni page (`ask.url`), no sign-in, no repository slug, the
 // server unreachable or its refusal (with its reason). It runs before a context exists, like
 // `targets`, so that a test can hand it `tokens`, `home`, `fetch` and `callMs`; it loads the context
 // itself.
@@ -21,16 +24,21 @@ import { importLines, linksOfTargets, whichLines } from '../../lib/product/impor
 import { messageOf } from '../../lib/narrow.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
+import { phase0Of, phase0Repos, rememberedLines, useProduct } from './product-checkout.ts';
+import type { CheckoutOptions } from './product-checkout.ts';
 
-const USAGE = 'usage: omni product import --product <name> | omni product which';
+const USAGE = 'usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>…';
 
-/** What a test hands `omni product` beyond `main()`'s own: the sign-in and the app. */
-type ProductOptions = {
+/** What a test hands `omni product` beyond `main()`'s own: the sign-in, the app and the clock. */
+type ProductOptions = CheckoutOptions & {
   tokens?: TokenStore | undefined;
   home?: string | undefined;
   fetch?: Fetch;
   callMs?: number | undefined;
 };
+
+/** A verb, as the arguments name it. */
+type Asked = { verb: 'import'; product: string } | { verb: 'which' } | { verb: 'use'; key: string } | { verb: 'phase0'; repos: string[] };
 
 /** What a verb prints, and whether it went through. */
 type Said = { ok: boolean; lines: string[] };
@@ -69,16 +77,26 @@ const whichCall = (repo: string): Call => async (client) => {
   }
 };
 
-/** The verb and its product, as the arguments name them; a usage error otherwise. */
-function verbOf(args: string[]): { verb: 'import'; product: string } | { verb: 'which' } {
+/** Each verb's reading of the words after it and of `--product`: the verb asked, or null when they do
+ * not fit it. */
+const VERBS: Readonly<Record<string, (rest: string[], product: string | undefined) => Asked | null>> = {
+  import: (rest, product) => {
+    if (rest.length > 0) return null;
+    if (product === undefined) throw usageError('omni product import: name the product with --product <name>.');
+    return { verb: 'import', product };
+  },
+  which: (rest, product) => (rest.length === 0 && product === undefined ? { verb: 'which' } : null),
+  use: ([key, ...more], product) => (key !== undefined && more.length === 0 && product === undefined ? { verb: 'use', key } : null),
+  phase0: (rest, product) => (product === undefined ? { verb: 'phase0', repos: phase0Repos(rest) } : null),
+};
+
+/** The verb and what it acts on, as the arguments name them; a usage error otherwise. */
+function verbOf(args: string[]): Asked {
   const { positional, flags } = parseArgs('product', args, { values: ['product'] });
-  const [verb, ...rest] = positional;
-  if (rest.length === 0 && verb === 'import') {
-    if (flags.product === undefined) throw usageError('omni product import: name the product with --product <name>.');
-    return { verb, product: flags.product };
-  }
-  if (rest.length === 0 && verb === 'which' && flags.product === undefined) return { verb };
-  throw usageError(USAGE);
+  const [verb = '', ...rest] = positional;
+  const asked = Object.hasOwn(VERBS, verb) ? VERBS[verb]?.(rest, flags.product) : null;
+  if (!asked) throw usageError(USAGE);
+  return asked;
 }
 
 /** What the verb says: its call through the signed-in client, or why it cannot make it. */
@@ -96,11 +114,13 @@ export const product: FreeCommand = {
   async run(args: string[], io: FreeIo & ProductOptions): Promise<number> {
     const asked = verbOf(args);
     const ctx = loadContext(io.cwd, { exec: io.exec });
+    if (asked.verb === 'use') return useProduct(asked.key, io);
+    if (asked.verb === 'phase0') return phase0Of(asked.repos, ctx, io);
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError(`omni product ${asked.verb}: no repository slug — set repo.slug in the config.`);
     const call = asked.verb === 'import' ? importCall(ctx, repo, asked.product) : whichCall(repo);
     const { ok, lines } = await said(call, asked.verb, ctx, io);
-    for (const line of lines) println(io.stdout, line);
+    for (const line of [...(asked.verb === 'which' ? rememberedLines(io) : []), ...lines]) println(io.stdout, line);
     return ok ? 0 : 1;
   },
 };

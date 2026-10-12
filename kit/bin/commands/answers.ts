@@ -12,20 +12,39 @@
 //   fails (the reply is printed, to paste).
 //
 // Exit 2 is a usage error, or the kit not installed here.
+//
+// The open items and the adopted entries are read through the PRD's outbox store (PRD 1548, s6).
+//
+// On a product PRD (PRD 1548, s7), `omni answers ask <key>-<n>` and `omni answers post --prd <key>-<n>
+// --answers <file>` need no pull request: the questions are its open rows on the Omni page, numbered
+// worst first, and `post` settles each answered one there, as answered in the terminal
+// (`../../lib/outbox/server-answers.ts`), printing one line per question settled; exit 1 when a pick
+// is refused (nothing settled) or a question could not be settled. While the server cannot be reached
+// each holds, exit 1, with the held line. Both run before a context exists, like `omni status`.
 import { CONFIG_FILE } from '../../lib/config.ts';
-import { adoptedEntriesForPrd, findPrMarkerComment, openItemsForPrd, parseNumbersMarker } from '../../lib/outbox/comment.ts';
+import { findPrMarkerComment, parseNumbersMarker } from '../../lib/outbox/comment.ts';
+import { loadContext } from '../../lib/context.ts';
+import { isProductPrdId } from '../../lib/ids.ts';
+import type { ProductPrdId } from '../../lib/ids.ts';
+import { answerOnServer, serverNumbering } from '../../lib/outbox/server-answers.ts';
+import { serverFailure } from '../../lib/outbox/server-store.ts';
+import { outboxStore } from '../../lib/outbox/stores.ts';
+import type { OutboxSignIn } from '../../lib/outbox/stores.ts';
 import { answerableQuestions, askBatches, writeReply } from '../../lib/outbox/answers.ts';
 import { propertyOf } from '../../lib/narrow.ts';
 import { githubClientFor } from '../github.ts';
-import { parseArgs, prArg, prdArg, println, readUserFile, repoSlug, usageError } from '../args.ts';
-import type { Command, CommandIo, Out } from '../io.ts';
+import { parseArgs, prArg, prdIdArg, println, readUserFile, repoSlug, usageError } from '../args.ts';
+import type { FreeCommand, FreeIo, Out } from '../io.ts';
 import type { CommentClient } from '../../lib/outbox/comment.ts';
 import type { Context } from '../../lib/context.ts';
-import { synchronous } from '../synchronous.ts';
 
 const USAGE =
   'usage: omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json] | ' +
-  'omni answers post --prd <n> --pr <n> --answers <file> [--repo <owner/name>] [--print]';
+  'omni answers post --prd <n> --pr <n> --answers <file> [--repo <owner/name>] [--print] | ' +
+  'omni answers ask <key>-<n> [--json] | omni answers post --prd <key>-<n> --answers <file>';
+
+/** What a verb of `omni answers` runs on. */
+type AnswersIo = { ctx: Context; stdout: Out; stderr: Out; exec: FreeIo['exec']; env: FreeIo['env']; signIn: OutboxSignIn };
 
 /** A one-line refusal on stderr, exit 1. */
 function fail(stderr: Out, message: string): number {
@@ -59,10 +78,23 @@ function printBatches(stdout: Out, batches: ReturnType<typeof askBatches>): void
   });
 }
 
-function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
+/** `omni answers ask <key>-<n>`: a product PRD's open questions, numbered worst first. */
+async function askProduct(prd: ProductPrdId, asJson: boolean, { ctx, stdout, stderr, signIn }: AnswersIo): Promise<number> {
+  const items = await outboxStore(ctx, prd, signIn).openItems(prd);
+  const batches = askBatches({ numbering: serverNumbering(items), items });
+  if (batches.length === 0) return fail(stderr, `nothing to ask on PRD ${prd} — no open human-action or high question.`);
+  if (asJson) println(stdout, JSON.stringify({ prd, batches }, null, 2));
+  else printBatches(stdout, batches);
+  return 0;
+}
+
+async function ask(args: string[], io: AnswersIo): Promise<number> {
+  const { ctx, stdout, stderr, exec, env } = io;
   const { positional, flags } = parseArgs('answers', args, { values: ['pr', 'repo'], booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
-  const prd = prdArg('answers', '<prd>', positional[0]);
+  const named = prdIdArg('answers', '<prd>', positional[0]);
+  if (isProductPrdId(named)) return askProduct(named, flags.json === true, io).catch((error: unknown) => serverFailure('answers', error, stderr));
+  const prd = named;
   const pr = prArg('answers', '--pr', flags.pr);
   const repo = repoSlug('answers', ctx, flags.repo);
   if (!ctx.config.answers.enabled) {
@@ -78,7 +110,7 @@ function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): num
   if (numbering === null) {
     return fail(stderr, `pull request #${pr} carries no outbox comment yet — nothing to ask.`);
   }
-  const batches = askBatches({ numbering, items: openItemsForPrd(prd, { ctx }) });
+  const batches = askBatches({ numbering, items: await outboxStore(ctx).openItems(prd) });
   if (batches.length === 0) {
     return fail(stderr, `nothing to ask on PRD ${prd} — no open human-action or high question.`);
   }
@@ -87,13 +119,35 @@ function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): num
   return 0;
 }
 
-function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
+/** `omni answers post --prd <key>-<n> --answers <file>`: settles the answered questions on the Omni page. */
+async function postProduct(prd: ProductPrdId, source: string, named: string, { ctx, stdout, stderr, signIn }: AnswersIo): Promise<number> {
+  let picks: unknown;
+  try {
+    picks = JSON.parse(source);
+  } catch {
+    return fail(stderr, `refused — ${named} is not JSON.`);
+  }
+  const answered = await answerOnServer({ store: outboxStore(ctx, prd, signIn), prd, picks });
+  if (!answered.ok) return fail(stderr, `refused — ${answered.reason}`);
+  for (const { number, id, verdict } of answered.settled) println(stdout, `${number}: ${id} settled as "${verdict}"`);
+  for (const { number, id, errors } of answered.failed) stderr.write(`omni answers: ${number}: ${id} not settled — ${errors.join('; ')}\n`);
+  return answered.failed.length > 0 ? 1 : 0;
+}
+
+async function post(args: string[], io: AnswersIo): Promise<number> {
+  const { ctx, stdout, stderr, exec, env } = io;
   const { positional, flags } = parseArgs('answers', args, {
     values: ['prd', 'pr', 'repo', 'answers'],
     booleans: ['print'],
   });
   if (positional.length) throw usageError(USAGE);
-  const prd = prdArg('answers', '--prd', flags.prd);
+  const named = prdIdArg('answers', '--prd', flags.prd);
+  if (isProductPrdId(named)) {
+    if (typeof flags.answers !== 'string' || flags.pr !== undefined || flags.print === true) throw usageError(USAGE);
+    const source = readUserFile('answers', ctx, flags.answers);
+    return postProduct(named, source, flags.answers, io).catch((error: unknown) => serverFailure('answers', error, stderr));
+  }
+  const prd = named;
   const pr = prArg('answers', '--pr', flags.pr);
   const repo = repoSlug('answers', ctx, flags.repo);
   if (typeof flags.answers !== 'string') throw usageError(`omni answers: --answers <file> is required. ${USAGE}`);
@@ -113,10 +167,11 @@ function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): nu
   } catch (error) {
     return fail(stderr, `could not read the comments of pull request #${pr} (${firstLine(error)}).`);
   }
+  const store = outboxStore(ctx);
   const questions = answerableQuestions({
     numbering: numbering ?? [],
-    items: openItemsForPrd(prd, { ctx }),
-    adopted: adoptedEntriesForPrd(prd, { ctx }),
+    items: await store.openItems(prd),
+    adopted: await store.adoptedEntries(prd),
   });
   const written = writeReply({ prd, door: 'terminal', questions, picks });
   if (!written.ok) return fail(stderr, `refused — ${written.reason}`);
@@ -137,11 +192,12 @@ function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): nu
   return 0;
 }
 
-export const answers: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
+export const answers = {
+  withoutContext: true,
+  async run(args: string[], { cwd, stdout, stderr, exec, env, ...signIn }: FreeIo & OutboxSignIn): Promise<number> {
     const [verb, ...rest] = args;
-    if (verb === 'ask') return ask(rest, io);
-    if (verb === 'post') return post(rest, io);
-    throw usageError(USAGE);
-  }),
-};
+    if (verb !== 'ask' && verb !== 'post') throw usageError(USAGE);
+    const io = { ctx: loadContext(cwd, { exec }), stdout, stderr, exec, env, signIn };
+    return verb === 'ask' ? ask(rest, io) : post(rest, io);
+  },
+} satisfies FreeCommand;
