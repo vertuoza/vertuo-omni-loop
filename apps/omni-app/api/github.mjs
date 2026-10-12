@@ -287,6 +287,8 @@ var INBOX_CHECK_EVENT = "omni-loop/inbox.check.requested";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_CHECK_EVENT = "omni-loop/approved.check.requested";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
+var BUDGETS_CHECK_EVENT = "omni-loop/budgets.check.requested";
+var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
 var RETRO_EVENT = "omni-loop/retro.requested";
 var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
 var inngest = new Inngest({ id: APP_ID });
@@ -1115,7 +1117,7 @@ var FORMS = Object.freeze([
   form("architecture", "core", [req("layout"), req("boundaries"), opt("patterns")]),
   form("testing", "core", [req("commands"), req("layout"), opt("levels"), req("never"), opt("data")]),
   form("verification", "core", [req("preflight"), opt("before-push"), opt("checks")]),
-  form("ci", "core", [req("workflows"), req("gating"), opt("known-reds"), opt("rerun")]),
+  form("ci", "core", [req("workflows"), req("gating"), opt("known-reds"), opt("rerun"), opt("budgets")]),
   form("pull-requests", "core", [req("body"), opt("title"), opt("labels"), opt("reviewers")]),
   form("decisions", "core", [req("where"), req("format"), opt("numbering")]),
   form("definition-of-done", "extended", [req("done"), opt("docs"), opt("commits")]),
@@ -1399,6 +1401,7 @@ function toCheckRequests(event, delivery) {
 function rerunEventOf(externalId) {
   if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
   if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  if (externalId === BUDGETS_EXTERNAL_ID) return BUDGETS_CHECK_EVENT;
   return OUTBOX_CHECK_EVENT;
 }
 function toRetroRequests(event, delivery) {
