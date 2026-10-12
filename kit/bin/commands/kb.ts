@@ -26,7 +26,7 @@ import { resolveForm } from '../../lib/playbook/resolve.ts';
 import { playbookStatus } from '../../lib/playbook/status.ts';
 import { formTemplate } from '../../lib/playbook/templates.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
-import { parseArgs, prdArg, println, sliceArg, usageError } from '../args.ts';
+import { parseArgs, prdArg, println, sliceArg, usageError, type Flags } from '../args.ts';
 import type { Command, CommandIo, Exec } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
@@ -245,7 +245,7 @@ function sliceTerritory(ctx: Context, prdText: string, sliceText: string): strin
 }
 
 /** The flags of `omni kb laws`. */
-type LawsFlags = { paths?: string; slice?: string; area?: string };
+type LawsFlags = Flags<'paths' | 'slice' | 'area', 'json'>;
 
 /** What the rules are disclosed for: `--paths`, `--slice`, `--area`, or nothing (the laws alone). */
 function lawsFor(io: CommandIo, flags: LawsFlags, positional: readonly string[], domains: readonly string[]): DiscloseFor {
