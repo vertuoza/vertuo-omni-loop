@@ -3,6 +3,11 @@
 // `http://127.0.0.1:<port>/callback?state=<state>&code=<code>`. Only a callback carrying the state
 // this terminal made is taken: any other is refused and the listener keeps waiting, so a stale tab or
 // a planted link never signs anyone in. The first good callback ends it, and so does its wait.
+//
+// `omni setup-token` (PRD 1628) listens the same way for a kit token instead of a code:
+// `http://127.0.0.1:<port>/callback?state=<state>&token=<omk_…>&expires_at=<ISO date>`, the way back
+// the Omni page sends (its kit-token module). The token is taken only when it is well formed and its
+// expiry readable; no page this listener answers, and no error it raises, ever holds it.
 import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 
@@ -15,6 +20,12 @@ export type Loopback = {
   closed: Promise<void>;
   close(): Promise<void>;
 };
+
+/** The listener `startTokenLoopback` gives: the same, with the token and its expiry it brings. */
+export type TokenLoopback = Omit<Loopback, 'code'> & { token: Promise<MadeToken> };
+
+/** A kit token as the browser brought it back: the token, and when it expires (an ISO date). */
+export type MadeToken = { token: string; expiresAt: string };
 
 /** How long a sign-in may take in the browser. */
 export const LOOPBACK_WAIT_MS = 5 * 60_000;
@@ -35,9 +46,40 @@ function page(title: string, text: string): string {
     + `<h1 style="font-size:1.3rem">${title}</h1><p>${text}</p></body></html>`;
 }
 
-const SIGNED_IN = page('Back to the terminal', 'The terminal is finishing the sign-in. You can close this tab.');
-const NOT_OURS = page('Sign-in refused', 'This sign-in was not started by this terminal. Run <code>omni signin</code> again.');
-const NO_CODE = page('Sign-in incomplete', 'The sign-in came back without its code. Run <code>omni signin</code> again.');
+/** What a listener catches from a good callback's query, the pages it answers, and how it names what
+ * it waits for in its errors. */
+type Catch<T> = {
+  take: (params: URLSearchParams) => T | null;
+  pages: { done: string; notOurs: string; incomplete: string };
+  what: string;
+};
+
+const SIGN_IN: Catch<string> = {
+  take: (params) => params.get('code') || null,
+  pages: {
+    done: page('Back to the terminal', 'The terminal is finishing the sign-in. You can close this tab.'),
+    notOurs: page('Sign-in refused', 'This sign-in was not started by this terminal. Run <code>omni signin</code> again.'),
+    incomplete: page('Sign-in incomplete', 'The sign-in came back without its code. Run <code>omni signin</code> again.'),
+  },
+  what: 'sign-in',
+};
+
+/** A kit token's shape, as `OMNI_TOKEN` must have it (`../env/read.ts`). */
+const KIT_TOKEN = /^omk_[A-Za-z0-9_-]{43}$/;
+
+const TOKEN: Catch<MadeToken> = {
+  take: (params) => {
+    const token = params.get('token') ?? '';
+    const expiresAt = params.get('expires_at') ?? '';
+    return KIT_TOKEN.test(token) && !Number.isNaN(Date.parse(expiresAt)) ? { token, expiresAt } : null;
+  },
+  pages: {
+    done: page('Back to the terminal', 'The terminal has your token. You can close this tab.'),
+    notOurs: page('Token refused', 'This token was not asked for by this terminal. Run <code>omni setup-token</code> again.'),
+    incomplete: page('Token incomplete', 'The token came back incomplete. Run <code>omni setup-token</code> again.'),
+  },
+  what: 'token',
+};
 
 const sameText = (a: string, b: string): boolean => {
   const left = Buffer.from(a);
@@ -45,14 +87,31 @@ const sameText = (a: string, b: string): boolean => {
   return left.length === right.length && timingSafeEqual(left, right);
 };
 
-/** Listens for the browser's callback carrying `state`, until `timeoutMs` has passed. */
-export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { state: unknown; timeoutMs?: number }): Promise<Loopback> {
+type Options = { state: unknown; timeoutMs?: number };
+
+/** Listens for the browser's callback carrying `state` and a code, until `timeoutMs` has passed. */
+export async function startLoopback(options: Options): Promise<Loopback> {
+  const { caught, ...rest } = await listen(options, SIGN_IN);
+  return { ...rest, code: caught };
+}
+
+/** Listens for the browser's callback carrying `state`, a kit token and its expiry, until `timeoutMs`
+ * has passed. */
+export async function startTokenLoopback(options: Options): Promise<TokenLoopback> {
+  const { caught, ...rest } = await listen(options, TOKEN);
+  return { ...rest, token: caught };
+}
+
+async function listen<T>(
+  { state, timeoutMs = LOOPBACK_WAIT_MS }: Options,
+  { take, pages, what }: Catch<T>,
+): Promise<Omit<Loopback, 'code'> & { caught: Promise<T> }> {
   if (typeof state !== 'string' || state.length === 0) throw new LoopbackError('the listener needs a state to compare with.');
-  let settle: { resolve: (code: string) => void; reject: (error: Error) => void } = { resolve: () => {}, reject: () => {} };
-  const code = new Promise<string>((resolve, reject) => {
+  let settle: { resolve: (caught: T) => void; reject: (error: Error) => void } = { resolve: () => {}, reject: () => {} };
+  const caught = new Promise<T>((resolve, reject) => {
     settle = { resolve, reject };
   });
-  code.catch(() => {});
+  caught.catch(() => {});
   let done = false;
 
   const server = createServer((request, response) => {
@@ -66,12 +125,12 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
       return;
     }
     if (!sameText(url.searchParams.get('state') ?? '', state)) {
-      answer(400, NOT_OURS);
+      answer(400, pages.notOurs);
       return;
     }
-    const given = url.searchParams.get('code');
-    if (!given) {
-      answer(400, NO_CODE);
+    const given = take(url.searchParams);
+    if (given === null) {
+      answer(400, pages.incomplete);
       return;
     }
     done = true;
@@ -80,7 +139,7 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
         settle.resolve(given);
       });
     });
-    answer(200, SIGNED_IN);
+    answer(200, pages.done);
   });
 
   let closedResolve: () => void = () => {};
@@ -116,7 +175,7 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
   timer = setTimeout(
     () => {
       finish(() => {
-        settle.reject(new LoopbackError(`no sign-in came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`));
+        settle.reject(new LoopbackError(`no ${what} came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`));
       });
     },
     timeoutMs,
@@ -126,12 +185,12 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
     port,
     address,
     redirectUri: `http://${HOST}:${port}${PATH}`,
-    code,
+    caught,
     closed,
     async close() {
       if (server.listening) {
         finish(() => {
-          settle.reject(new LoopbackError('the listener was stopped before a sign-in came back.'));
+          settle.reject(new LoopbackError(`the listener was stopped before a ${what} came back.`));
         });
       }
       await closed;

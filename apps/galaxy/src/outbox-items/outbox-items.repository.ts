@@ -1,7 +1,7 @@
 // A product PRD's outbox storage (PRD 1548 s7; ADR-0095), on the client it is given: the caller's own,
 // acting as their access token, so row-level security and the outbox RPCs have the last word (a member of
 // the PRD's workspace reads its items and settlements, and writes them only through outbox_item_put(),
-// outbox_item_adopt() and outbox_settle(), supabase/migrations/20261204090000_outbox_items.sql). Every
+// outbox_item_adopt() and outbox_settle(), supabase/migrations/20261204100000_outbox_items.sql). Every
 // answer is parsed where it comes in; it holds no rule. A refusal comes back as the database's code,
 // message and hint; an answer out of shape as the code `shape`.
 import type { SupabaseClient } from '@supabase/supabase-js';

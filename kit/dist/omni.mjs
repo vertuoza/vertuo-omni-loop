@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.334" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.344" };
   }
 });
 
@@ -28545,12 +28545,18 @@ var SUPABASE = envGroup({
   schema: external_exports.object({ url: external_exports.url(), key: external_exports.string() }),
   variables: { url: ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"], key: "SUPABASE_SERVICE_ROLE_KEY" }
 });
+var OMNI_TOKEN_PATTERN = /^omk_[A-Za-z0-9_-]{43}$/;
+var OMNI_TOKEN = envGroup({
+  label: "the kit token",
+  schema: external_exports.object({ token: external_exports.string().regex(OMNI_TOKEN_PATTERN, "it is not a kit token: make one with omni setup-token") }),
+  variables: { token: "OMNI_TOKEN" }
+});
 var PACKAGE_MANAGER = envGroup({
   label: "the package manager",
   schema: external_exports.object({ execPath: external_exports.string() }),
   variables: { execPath: "npm_execpath" }
 });
-var VARIABLES = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE]);
+var VARIABLES = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE]);
 var PLATFORM_VARIABLES = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER]);
 var DEFAULT_COLUMNS = 80;
@@ -28569,10 +28575,20 @@ function readEnv(source2) {
     githubActions: reader.group(GITHUB_ACTIONS),
     workspace: reader.group(WORKSPACE),
     supabase: reader.group(SUPABASE),
-    packageManager: reader.group(PACKAGE_MANAGER)
+    packageManager: reader.group(PACKAGE_MANAGER),
+    omniToken: reader.group(OMNI_TOKEN)
   };
   reader.done();
   return env;
+}
+function omniTokenOf(source2) {
+  const reader = envReader(source2);
+  const group2 = reader.group(OMNI_TOKEN);
+  reader.done();
+  return group2?.token ?? null;
+}
+function processOmniToken() {
+  return omniTokenOf(processEnv());
 }
 function processEnv() {
   return process.env;
@@ -30328,11 +30344,38 @@ var renewed = (current, fresh) => ({
 });
 var withContext = (body, context) => context && typeof context === "object" ? { ...body, context } : body;
 var withLead = (body, lead) => typeof lead === "string" && lead !== "" ? { ...body, lead } : body;
+var TRADE_MARGIN_MS = 6e4;
+function stale({ expires_at: at2 }, now2) {
+  if (typeof at2 !== "number") return false;
+  return (at2 < 1e12 ? at2 * 1e3 : at2) - TRADE_MARGIN_MS <= now2;
+}
+function dayOf(value) {
+  const ms = typeof value === "number" ? value < 1e12 ? value * 1e3 : value : typeof value === "string" ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : null;
+}
+function workspaceName(value) {
+  const name3 = typeof value === "string" ? value : jsonObject(value)?.name;
+  return typeof name3 === "string" && name3 !== "" ? name3 : null;
+}
+var MAKE_ANOTHER = "make a new one with omni setup-token";
+function refusalLine(body, host) {
+  const reply = jsonObject(body) ?? {};
+  if (reply.reason === "expired") {
+    const day2 = dayOf(reply.expires_at);
+    return `OMNI_TOKEN expired${day2 ? ` on ${day2}` : ""}: ${MAKE_ANOTHER}`;
+  }
+  if (reply.reason === "revoked") return `OMNI_TOKEN was revoked: ${MAKE_ANOTHER}`;
+  if (reply.reason === "not-a-member") {
+    const login2 = typeof reply.login === "string" && reply.login !== "" ? reply.login : "its maker";
+    return `OMNI_TOKEN: ${login2} is no longer a member of ${workspaceName(reply.workspace) ?? "its workspace"}`;
+  }
+  return `OMNI_TOKEN is not known to ${host}: ${MAKE_ANOTHER}`;
+}
 function freshTokens(body) {
   const fresh = jsonObject(body);
   return fresh && TokenReplySchema.shape.access_token.safeParse(fresh.access_token).success ? fresh : null;
 }
-function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
+function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS, now: now2 = Date.now }) {
   const root = baseUrl.replace(/\/+$/, "");
   const segment = (value) => encodeURIComponent(value);
   async function send3(method, path, { body, token, timeoutMs, accept = "application/json", extra = {}, signal }) {
@@ -30376,12 +30419,36 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     tokens.write(host, kept);
     return kept;
   }
+  async function trade(omniToken, repo = null) {
+    let response;
+    try {
+      response = await send3("POST", "/api/ask/token", { body: repo ? { omni_token: omniToken, repo } : { omni_token: omniToken }, timeoutMs: callMs });
+    } catch {
+      throw new AskCallError(`OMNI_TOKEN: cannot reach ${host}: allow it in your environment's network access`);
+    }
+    const body = await bodyOf3(response);
+    if (response.status === 401) throw new AskCallError(refusalLine(body, host), { status: 401, reason: reasonOf(body) });
+    if (!response.ok) {
+      const reason2 = reasonOf(body);
+      throw new AskCallError(`OMNI_TOKEN: ${host} answered ${response.status}${reason2 ? `: ${reason2}` : ""}`, { status: response.status, reason: reason2 });
+    }
+    const fresh = freshTokens(body);
+    if (!fresh) throw new AskCallError(`OMNI_TOKEN: ${host} answered with no access token`, { status: response.status });
+    const kept = renewed({ access_token: "" }, fresh);
+    tokens.write(host, kept);
+    return { tokens: kept, reply: fresh };
+  }
+  async function currentTokens() {
+    const held2 = tokens.read(host);
+    if (tokens.omniToken && (!held2?.access_token || stale(held2, now2()))) return (await trade(tokens.omniToken)).tokens;
+    return held2;
+  }
   async function authorized(method, path, options) {
-    const current = tokens.read(host);
+    const current = await currentTokens();
     if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
     let response = await send3(method, path, { ...options, token: current.access_token });
     if (response.status === 401) {
-      const fresh = await refresh2(current);
+      const fresh = tokens.omniToken ? (await trade(tokens.omniToken)).tokens : await refresh2(current);
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
       response = await send3(method, path, { ...options, token: fresh.access_token });
     }
@@ -30410,7 +30477,17 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
       clearTimeout(timer);
     }
   }
+  async function renewByToken(omniToken) {
+    try {
+      await trade(omniToken);
+      return "renewed";
+    } catch (error62) {
+      const status5 = error62 instanceof AskCallError ? error62.status : null;
+      return status5 === 401 || status5 === 403 ? "refused" : "unreachable";
+    }
+  }
   async function renew() {
+    if (tokens.omniToken) return renewByToken(tokens.omniToken);
     const current = tokens.read(host);
     if (!current?.refresh_token) return "refused";
     let response;
@@ -30452,8 +30529,22 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
       throw new AskCallError(`PUT a proof file: ${response.status}`, { status: response.status, reason: reason2 });
     }
   }
+  async function tradeToken({ repo = null } = {}) {
+    if (!tokens.omniToken) throw new AskCallError(`no OMNI_TOKEN to sign in to ${host} with`);
+    const { reply } = await trade(tokens.omniToken, repo);
+    const text14 = (value) => typeof value === "string" && value !== "" ? value : null;
+    const workspace = jsonObject(reply.workspace);
+    const name3 = text14(workspace?.name);
+    return {
+      login: text14(reply.login),
+      email: text14(reply.email),
+      workspace: name3 ? { slug: text14(workspace?.slug), name: name3 } : null,
+      reason: name3 ? null : text14(reply.reason)
+    };
+  }
   return {
     renew,
+    tradeToken,
     download: download2,
     upload,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
@@ -31239,8 +31330,8 @@ function compare(risky, accounts) {
     const why2 = refused2.get(entryKey(change));
     return why2 === void 0 ? change : { ...change, refused: why2 };
   });
-  const stale = entries4.filter((entry3) => !riskyKeys.has(entryKey(entry3)));
-  return { accounted, unaccounted, stale };
+  const stale2 = entries4.filter((entry3) => !riskyKeys.has(entryKey(entry3)));
+  return { accounted, unaccounted, stale: stale2 };
 }
 
 // kit/lib/outbox/out-folder.ts
@@ -31697,8 +31788,22 @@ function readAll(file2) {
     return {};
   }
 }
-function homeTokens({ home = homedir() } = {}) {
-  const file2 = join24(home, ...FILE);
+var omniTokenTail = (token) => token.slice(-4);
+var NOT_TRADED_YET = { access_token: "", expires_at: 0 };
+function omniTokenStore(token) {
+  const held2 = /* @__PURE__ */ new Map();
+  return {
+    omniToken: token,
+    read: (host) => held2.get(host) ?? NOT_TRADED_YET,
+    write(host, tokens) {
+      held2.set(host, tokens);
+    }
+  };
+}
+function homeTokens({ home, omniToken } = {}) {
+  const token = omniToken !== void 0 ? omniToken : home === void 0 ? processOmniToken() : null;
+  if (token !== null) return omniTokenStore(token);
+  const file2 = join24(home ?? homedir(), ...FILE);
   return {
     read(host) {
       const entry3 = TokensSchema.safeParse(readAll(file2)[host]);
@@ -31724,11 +31829,11 @@ var SignInError = class extends Error {
   }
 };
 var credentialsHost = (askUrl2) => new URL(askUrl2).host;
-function signedInClient({ askUrl: askUrl2, tokens, home, fetch, callMs }) {
+function signedInClient({ askUrl: askUrl2, tokens, home, omniToken, fetch, callMs, now: now2 }) {
   const host = credentialsHost(askUrl2);
-  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  const store = tokens ?? homeTokens({ home, omniToken });
   if (!store.read(host)) return null;
-  return askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
+  return askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {}, ...now2 ? { now: now2 } : {} });
 }
 var askEndpoint = (askUrl2, path) => `${askUrl2.replace(/\/+$/, "")}${path}`;
 var isText = (value) => textOrNull(value) !== null;
@@ -31750,9 +31855,10 @@ function workspaceOf(value) {
   if (typeof value !== "object" || value === null || !("name" in value) || !isText(value.name)) return null;
   return { slug: "slug" in value && isText(value.slug) ? value.slug : null, name: value.name };
 }
-function signedInLine({ login: login2, email: email3, repo, workspace, reason: reason2 } = {}) {
+function signedInLine({ login: login2, email: email3, repo, workspace, reason: reason2, by = null } = {}) {
   const who2 = isText(login2) ? login2 : isText(email3) ? email3 : null;
-  const head = who2 ? `signed in as ${who2}` : "signed in";
+  const signed = by ? `signed in by ${by}` : "signed in";
+  const head = who2 ? `${signed} as ${who2}` : signed;
   if (!isText(repo)) return head;
   if (workspace && isText(workspace.name)) return `${head} \u2014 ${repo} goes to ${workspace.name}`;
   if (isText(reason2)) return `${head} \u2014 ${reason2}`;
@@ -37584,23 +37690,51 @@ var LoopbackError = class extends Error {
 function page(title, text14) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:17px/1.6 system-ui,sans-serif;max-width:34rem;margin:15vh auto;padding:0 1rem"><h1 style="font-size:1.3rem">${title}</h1><p>${text14}</p></body></html>`;
 }
-var SIGNED_IN = page("Back to the terminal", "The terminal is finishing the sign-in. You can close this tab.");
-var NOT_OURS = page("Sign-in refused", "This sign-in was not started by this terminal. Run <code>omni signin</code> again.");
-var NO_CODE = page("Sign-in incomplete", "The sign-in came back without its code. Run <code>omni signin</code> again.");
+var SIGN_IN = {
+  take: (params) => params.get("code") || null,
+  pages: {
+    done: page("Back to the terminal", "The terminal is finishing the sign-in. You can close this tab."),
+    notOurs: page("Sign-in refused", "This sign-in was not started by this terminal. Run <code>omni signin</code> again."),
+    incomplete: page("Sign-in incomplete", "The sign-in came back without its code. Run <code>omni signin</code> again.")
+  },
+  what: "sign-in"
+};
+var KIT_TOKEN = /^omk_[A-Za-z0-9_-]{43}$/;
+var TOKEN = {
+  take: (params) => {
+    const token = params.get("token") ?? "";
+    const expiresAt = params.get("expires_at") ?? "";
+    return KIT_TOKEN.test(token) && !Number.isNaN(Date.parse(expiresAt)) ? { token, expiresAt } : null;
+  },
+  pages: {
+    done: page("Back to the terminal", "The terminal has your token. You can close this tab."),
+    notOurs: page("Token refused", "This token was not asked for by this terminal. Run <code>omni setup-token</code> again."),
+    incomplete: page("Token incomplete", "The token came back incomplete. Run <code>omni setup-token</code> again.")
+  },
+  what: "token"
+};
 var sameText = (a, b) => {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
 };
-async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
+async function startLoopback(options) {
+  const { caught, ...rest } = await listen(options, SIGN_IN);
+  return { ...rest, code: caught };
+}
+async function startTokenLoopback(options) {
+  const { caught, ...rest } = await listen(options, TOKEN);
+  return { ...rest, token: caught };
+}
+async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, what }) {
   if (typeof state !== "string" || state.length === 0) throw new LoopbackError("the listener needs a state to compare with.");
   let settle3 = { resolve: () => {
   }, reject: () => {
   } };
-  const code = new Promise((resolve9, reject2) => {
+  const caught = new Promise((resolve9, reject2) => {
     settle3 = { resolve: resolve9, reject: reject2 };
   });
-  code.catch(() => {
+  caught.catch(() => {
   });
   let done = false;
   const server = createServer((request2, response) => {
@@ -37614,12 +37748,12 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
       return;
     }
     if (!sameText(url2.searchParams.get("state") ?? "", state)) {
-      answer(400, NOT_OURS);
+      answer(400, pages.notOurs);
       return;
     }
-    const given = url2.searchParams.get("code");
-    if (!given) {
-      answer(400, NO_CODE);
+    const given = take(url2.searchParams);
+    if (given === null) {
+      answer(400, pages.incomplete);
       return;
     }
     done = true;
@@ -37628,7 +37762,7 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
         settle3.resolve(given);
       });
     });
-    answer(200, SIGNED_IN);
+    answer(200, pages.done);
   });
   let closedResolve = () => {
   };
@@ -37662,7 +37796,7 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   timer = setTimeout(
     () => {
       finish(() => {
-        settle3.reject(new LoopbackError(`no sign-in came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`));
+        settle3.reject(new LoopbackError(`no ${what} came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`));
       });
     },
     timeoutMs
@@ -37671,12 +37805,12 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
     port,
     address,
     redirectUri: `http://${HOST}:${port}${PATH}`,
-    code,
+    caught,
     closed,
     async close() {
       if (server.listening) {
         finish(() => {
-          settle3.reject(new LoopbackError("the listener was stopped before a sign-in came back."));
+          settle3.reject(new LoopbackError(`the listener was stopped before a ${what} came back.`));
         });
       }
       await closed;
@@ -37708,6 +37842,20 @@ function signInConfig(cwd, exec) {
   const { config: config3 } = loadContext(cwd, { exec });
   return { askUrl: config3.ask.url, repo: config3.repo.slug ?? null };
 }
+function tokenClient(askUrl2, vars, fetch) {
+  const token = vars.omniToken?.token;
+  if (!token) return null;
+  return { token, client: askClient({ baseUrl: askUrl2, host: credentialsHost(askUrl2), tokens: homeTokens({ omniToken: token }), fetch }) };
+}
+async function orTokenLine(stderr, fn) {
+  try {
+    return await fn();
+  } catch (error62) {
+    if (!(error62 instanceof AskCallError)) throw error62;
+    println(stderr, error62.message);
+    return 1;
+  }
+}
 function noArguments(name3, args) {
   const { positional } = parseArgs(name3, args);
   if (positional.length > 0) throw usageError(`usage: omni ${name3}`);
@@ -37715,12 +37863,21 @@ function noArguments(name3, args) {
 var signin = {
   withoutContext: true,
   /** `onSignedIn`, when given (by `omni init`), takes the closing line instead of stdout. */
-  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }) {
+  async run(args, { cwd, stdout, stderr, exec, vars, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }) {
     noArguments("signin", args);
     const { askUrl: askUrl2, repo } = signInConfig(cwd, exec);
     if (!askUrl2) {
       println(stderr, ASK_URL_UNSET);
       return 1;
+    }
+    const byToken = tokenClient(askUrl2, vars, fetch);
+    if (byToken) {
+      return orTokenLine(stderr, async () => {
+        const line = signedInLine({ ...await byToken.client.tradeToken({ repo }), repo, by: "OMNI_TOKEN" });
+        if (onSignedIn) onSignedIn(line);
+        else println(stdout, line);
+        return 0;
+      });
     }
     const state = randomBytes(32).toString("base64url");
     const listener = await startLoopback({ state, timeoutMs: waitMs });
@@ -37751,11 +37908,15 @@ var signin = {
 };
 var signout = {
   withoutContext: true,
-  run: synchronous((args, { cwd, stdout, stderr, exec, home }) => {
+  run: synchronous((args, { cwd, stdout, stderr, exec, vars, home }) => {
     noArguments("signout", args);
     const askUrl2 = askUrlOf(cwd, exec);
     if (!askUrl2) {
       println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    if (vars.omniToken) {
+      println(stderr, "OMNI_TOKEN is set in this environment: revoke it on your profile page");
       return 1;
     }
     const host = credentialsHost(askUrl2);
@@ -37765,7 +37926,7 @@ var signout = {
 };
 var whoami = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, home, fetch = globalThis.fetch }) {
+  async run(args, { cwd, stdout, stderr, exec, vars, home, fetch = globalThis.fetch }) {
     noArguments("whoami", args);
     const askUrl2 = askUrlOf(cwd, exec);
     if (!askUrl2) {
@@ -37773,6 +37934,14 @@ var whoami = {
       return 1;
     }
     const host = credentialsHost(askUrl2);
+    const byToken = tokenClient(askUrl2, vars, fetch);
+    if (byToken) {
+      return orTokenLine(stderr, async () => {
+        const { login: login2, email: email3 } = await byToken.client.tradeToken();
+        println(stdout, `${login2 ?? email3 ?? `signed in to ${host}`} (OMNI_TOKEN \xB7\xB7${omniTokenTail(byToken.token)})`);
+        return 0;
+      });
+    }
     const store = credentials({ home });
     const entry3 = store.read(host);
     if (!entry3) {
@@ -40554,8 +40723,8 @@ function gradePrd(prd2, risky, { ctx }) {
   const results = readAccounts(prd2, { ctx });
   const malformed = results.flatMap((result) => result.ok ? [] : result.errors);
   const accounts = results.flatMap((result) => result.ok ? [result.account] : []);
-  const { accounted, unaccounted, stale } = compare(risky, accounts);
-  return { prd: prd2, malformed, accounted, unaccounted, stale };
+  const { accounted, unaccounted, stale: stale2 } = compare(risky, accounts);
+  return { prd: prd2, malformed, accounted, unaccounted, stale: stale2 };
 }
 function describeUnaccounted(prd2, change) {
   const why2 = change.refused ?? "no account names it";
@@ -42073,9 +42242,9 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var WILDCARD = /[*?{]/;
 var WILDCARDS = Object.freeze({ "**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]" });
-var TOKEN = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
+var TOKEN2 = /\*\*\/|\*\*|\*|\?|\{([^{}]*)\}|[\s\S]/g;
 function source(pattern) {
-  return pattern.replace(TOKEN, (token, alternatives) => {
+  return pattern.replace(TOKEN2, (token, alternatives) => {
     if (alternatives !== void 0) return `(?:${alternatives.split(",").map(source).join("|")})`;
     return WILDCARDS[token] ?? token.replace(/[.+^${}()|[\]\\]/g, "\\$&");
   });
@@ -43886,7 +44055,7 @@ var generated = {
     }
     const states = staleness(entries4, changedPaths(io, range2));
     if (flags.json) println(io.stdout, JSON.stringify(states, null, 2));
-    else for (const { path, stale, build } of states) println(io.stdout, `${path}: ${stale ? "stale" : "fresh"} \u2014 ${build}`);
+    else for (const { path, stale: stale2, build } of states) println(io.stdout, `${path}: ${stale2 ? "stale" : "fresh"} \u2014 ${build}`);
     return 0;
   })
 };
@@ -44325,6 +44494,15 @@ var ENTRIES = deepFreeze([
     label: "omni signin",
     summary: "sign in to the Omni page, once per computer",
     detail: "Signs you in to the Omni page, the one the config's ask.url names: it opens the page in your browser, then keeps the sign-in in your home folder, for that host. Ask mode and dossiers both use it. Once per computer is enough; omni whoami says who is signed in, omni signout forgets it."
+  },
+  {
+    name: "setup-token",
+    kind: "command",
+    who: "you",
+    usage: ["omni setup-token [--name <name>] [--days 30|90|365]"],
+    label: "omni setup-token",
+    summary: "make a token for a cloud session",
+    detail: "Makes a token that signs the kit in where no browser opens, such as a Claude Code cloud session: it opens the Omni page in your browser, as omni signin does, then prints the token once, the day it expires, and the line to paste it by, OMNI_TOKEN=<token>, in your cloud environment's variables. It keeps the token nowhere. --name defaults to terminal and today's date; --days is 30, 90 or 365, 90 by default. Revoke a token on your profile page."
   },
   {
     name: "dossier",
@@ -46961,20 +47139,20 @@ function copyLines(targets2) {
 function statusText({ frontDoor, forms, registers, targets: targets2 }) {
   const width = Math.max(...forms.map(({ form: form2 }) => form2.length));
   const lines2 = [`kb status \u2014 ${forms.length} form(s) in ${frontDoor}`];
-  for (const { form: form2, kind, state, source: source2, questions: questions3, stale: stale2 } of forms) {
+  for (const { form: form2, kind, state, source: source2, questions: questions3, stale: stale3 } of forms) {
     const counts2 = [];
     if (questions3.length > 0) counts2.push(`${questions3.length} open question(s)`);
-    if (stale2.length > 0) counts2.push(`${stale2.length} stale evidence`);
+    if (stale3.length > 0) counts2.push(`${stale3.length} stale evidence`);
     const columns3 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source2]).padEnd(11), counts2.join(" \xB7 ")];
     lines2.push(`  ${columns3.join("  ").trimEnd()}`);
   }
   const questions2 = forms.flatMap(({ form: form2, file: file2, questions: open3 }) => open3.map(({ slot, question }) => `  ${form2}#${slot} (${file2}): ${question}`));
-  const stale = forms.flatMap(
+  const stale2 = forms.flatMap(
     ({ form: form2, file: file2, stale: entries4 }) => entries4.map(({ path, hash: hash2, now: now2 }) => `  ${form2} (${file2}): ${path}@${hash2} \u2014 ${now2 === null ? "gone" : `now ${now2.slice(0, 7)}`}`)
   );
   lines2.push(...registerLines(registers), ...copyLines(targets2));
   lines2.push(questions2.length > 0 ? `Open questions: ${questions2.length}` : "Open questions: none.", ...questions2);
-  lines2.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : "Stale evidence: none.", ...stale);
+  lines2.push(stale2.length > 0 ? `Stale evidence: ${stale2.length}` : "Stale evidence: none.", ...stale2);
   return lines2.join("\n");
 }
 function status2(positional, flags, { ctx, stdout, exec }) {
@@ -51016,17 +51194,17 @@ function ownJudged({ installed: installed2, filled }) {
 function importedStale(gh2, target3, { branch, config: config3, evidence, copyFlow }) {
   const { repo } = target3;
   const read2 = { repo, readAt: defined(target3.readAt, `the readAt of ${repo}`) };
-  const stale = [staleness2(gh2, read2, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh2, read2, branch, config3, copyFlow)].filter(
+  const stale2 = [staleness2(gh2, read2, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh2, read2, branch, config3, copyFlow)].filter(
     (why2) => why2 !== null
   );
-  return stale.length > 0 ? stale.join("; ") : null;
+  return stale2.length > 0 ? stale2.join("; ") : null;
 }
 function judged2(gh2, target3, facts, read2) {
   const { knowledge: knowledge2 } = target3;
   if (knowledge2 === "own") return ownJudged(facts);
   if (facts.installed && facts.filled) return ["drifted", `the config says ${knowledge2}, but it has the loop and a filled form`];
-  const stale = knowledge2 === "imported" ? importedStale(gh2, target3, read2) : null;
-  return stale === null ? ["ok", null] : ["stale", stale];
+  const stale2 = knowledge2 === "imported" ? importedStale(gh2, target3, read2) : null;
+  return stale2 === null ? ["ok", null] : ["stale", stale2];
 }
 function readTarget2(target3, {
   exec = execFileSync13,
@@ -54618,6 +54796,69 @@ var settle2 = {
   }
 };
 
+// kit/bin/commands/setup-token.ts
+init_define_OMNI_BUNDLE();
+import { randomBytes as randomBytes2 } from "node:crypto";
+var USAGE33 = "usage: omni setup-token [--name <name>] [--days 30|90|365]";
+var DAYS = ["30", "90", "365"];
+var DEFAULT_DAYS = "90";
+var NAME_MAX = 40;
+function nameOf2(given, today2) {
+  if (given === void 0) return `terminal ${today2.toISOString().slice(0, 10)}`;
+  const name3 = given.trim();
+  const control = Array.from(name3).some((char) => {
+    const code = char.charCodeAt(0);
+    return code < 32 || code === 127;
+  });
+  if (name3 === "" || name3.length > NAME_MAX || control) throw usageError(`omni setup-token: --name must be 1 to ${NAME_MAX} characters on one line.`);
+  return name3;
+}
+function daysOf(given) {
+  if (given === void 0) return DEFAULT_DAYS;
+  if (!DAYS.includes(given)) throw usageError(`omni setup-token: --days must be 30, 90 or 365, got "${given}".`);
+  return given;
+}
+var setupToken = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, openBrowser = openInBrowser, waitMs = LOOPBACK_WAIT_MS, now: now2 = () => /* @__PURE__ */ new Date() }) {
+    const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"] });
+    if (positional.length > 0) throw usageError(USAGE33);
+    const name3 = nameOf2(flags.name, now2());
+    const days = daysOf(flags.days);
+    const askUrl2 = loadContext(cwd, { exec }).config.ask.url;
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const state = randomBytes2(32).toString("base64url");
+    const listener = await startTokenLoopback({ state, timeoutMs: waitMs });
+    try {
+      const page2 = new URL(askEndpoint(askUrl2, "/ask/signin"));
+      page2.searchParams.set("purpose", "token");
+      page2.searchParams.set("name", name3);
+      page2.searchParams.set("days", days);
+      page2.searchParams.set("port", String(listener.port));
+      page2.searchParams.set("state", state);
+      println(stdout, `Make the token in your browser: ${page2}`);
+      try {
+        await openBrowser(page2.toString());
+      } catch {
+      }
+      const made = await listener.token;
+      println(stdout, made.token);
+      println(stdout, `It expires on ${new Date(made.expiresAt).toISOString().slice(0, 10)}.`);
+      println(stdout, `Paste it as OMNI_TOKEN=${made.token} in your cloud environment's variables.`);
+      return 0;
+    } catch (error62) {
+      if (!(error62 instanceof LoopbackError)) throw error62;
+      println(stderr, `omni setup-token: ${error62.message}`);
+      return 1;
+    } finally {
+      await listener.close();
+    }
+  }
+};
+
 // kit/bin/commands/ship.ts
 init_define_OMNI_BUNDLE();
 var ship = {
@@ -54644,13 +54885,13 @@ var ship = {
 
 // kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
-var USAGE33 = "usage: omni sign trailer|footer";
+var USAGE34 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional } = parseArgs("sign", args);
     const [which = ""] = positional;
-    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE33);
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE34);
     const line = LINES2[which](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -54811,7 +55052,7 @@ function formatOverview(overview2, { now: now2 }) {
 }
 
 // kit/bin/commands/status.ts
-var USAGE34 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE35 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 async function overview({ ctx, stdout, exec, fetch, gate }) {
   if (fetch) {
     const failure6 = fetchRemote({ ctx, exec });
@@ -54864,7 +55105,7 @@ var status4 = {
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     const ctx = loadContext(cwd, { exec });
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens, home, fetch, callMs } });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE34);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE35);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
     return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, stderr, exec, vars, gate: { tokens, home, fetch, callMs, now: now2 } });
   }
@@ -54956,7 +55197,7 @@ function lastReadLine(readAt) {
 }
 
 // kit/bin/commands/targets.ts
-var USAGE35 = "usage: omni targets [--json]";
+var USAGE36 = "usage: omni targets [--json]";
 async function targetList(ctx, product2, io, note) {
   const askUrl2 = ctx.config.ask.url;
   if (!askUrl2) return "no targets: plan.product reads them from the Omni page, and ask.url is not set";
@@ -54982,7 +55223,7 @@ var targets = {
   async run(args, io) {
     const { stdout, stderr, exec, env } = io;
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE35);
+    if (positional.length) throw usageError(USAGE36);
     const ctx = loadContext(io.cwd, { exec });
     const plan2 = ctx.config.plan;
     if (!plan2) {
@@ -55055,7 +55296,7 @@ function whichLines(reply) {
 }
 
 // kit/bin/commands/product.ts
-var USAGE36 = "usage: omni product import --product <name> | omni product which";
+var USAGE37 = "usage: omni product import --product <name> | omni product which";
 function failure5(error62, what) {
   if (!(error62 instanceof AskCallError)) return { ok: false, lines: [messageOf(error62)] };
   if (error62.status === null) return { ok: false, lines: [`${what}: the server is unreachable`] };
@@ -55089,7 +55330,7 @@ function verbOf(args) {
     return { verb: verb2, product: flags.product };
   }
   if (rest.length === 0 && verb2 === "which" && flags.product === void 0) return { verb: verb2 };
-  throw usageError(USAGE36);
+  throw usageError(USAGE37);
 }
 async function said(call, verb2, ctx, io) {
   if (typeof call === "string") return { ok: false, lines: [call] };
@@ -55181,7 +55422,7 @@ var TOPIC_FLOOR = 8;
 var BUILDING2 = "building";
 var RESET = "\x1B[0m";
 var COLOURS = { green: "\x1B[32m", yellow: "\x1B[33m", red: "\x1B[31m" };
-var TOKEN2 = /\x1b\[[0-9;]*m|[\s\S]/gu;
+var TOKEN3 = /\x1b\[[0-9;]*m|[\s\S]/gu;
 var SGR = /^\x1b\[[0-9;]*m$/;
 var paint = (text14, colour2, color) => color ? `${COLOURS[colour2]}${text14}${RESET}` : text14;
 function contextColour(percent) {
@@ -55210,7 +55451,7 @@ function sessionLine({ model, contextPercent, fiveHour, askOn }, { now: now2, co
 }
 function visibleLength(line) {
   let length = 0;
-  for (const [token] of line.matchAll(TOKEN2)) if (!SGR.test(token)) length += 1;
+  for (const [token] of line.matchAll(TOKEN3)) if (!SGR.test(token)) length += 1;
   return length;
 }
 function fit2(line, width) {
@@ -55218,7 +55459,7 @@ function fit2(line, width) {
   let out = "";
   let shown6 = 0;
   let open3 = false;
-  for (const [token] of line.matchAll(TOKEN2)) {
+  for (const [token] of line.matchAll(TOKEN3)) {
     if (SGR.test(token)) {
       out += token;
       open3 = token !== RESET;
@@ -55439,6 +55680,11 @@ function issueNumber(value) {
     return null;
   }
 }
+function withToken(lines2, token) {
+  if (!token) return lines2;
+  const [first = "", ...rest] = lines2;
+  return [`${first} \xB7 token \xB7\xB7${omniTokenTail(token)}`, ...rest];
+}
 var statusline = {
   withoutContext: true,
   async run(args, { cwd, stdout, exec, env, vars, script: script2, stdin = process.stdin, now: now2 = Date.now, readFacts: readFacts4 = readFacts3, spawn: spawn2 = spawnProcess, tokens, home, fetch, callMs }) {
@@ -55446,7 +55692,7 @@ var statusline = {
       await refresh(args, { cwd, exec, env, now: now2, tokens, home, ...fetch ? { fetch } : {}, callMs });
       return 0;
     }
-    const lines2 = await statusLines({ cwd, exec, env, terminal: vars.terminal, script: script2, stdin, now: now2, readFacts: readFacts4, spawn: spawn2 });
+    const lines2 = withToken(await statusLines({ cwd, exec, env, terminal: vars.terminal, script: script2, stdin, now: now2, readFacts: readFacts4, spawn: spawn2 }), vars.omniToken?.token);
     try {
       stdout.write(`${lines2.join("\n")}
 `);
@@ -55480,7 +55726,7 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.ts
-var USAGE37 = "usage: omni update [--to <version>]";
+var USAGE38 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
   const dir = mkdtempSync5(join107(tmpdir5(), "omni-update-"));
   try {
@@ -55532,7 +55778,7 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE37);
+    if (positional.length) throw usageError(USAGE38);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -55583,10 +55829,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.ts
-var COMMAND_TABLE = Object.freeze({ config: config2, prd, approval: approval2, wait: wait2, status: status4, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask4, heartbeat, signin, signout, whoami, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, now, targets, product });
+var COMMAND_TABLE = Object.freeze({ config: config2, prd, approval: approval2, wait: wait2, status: status4, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask4, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, now, targets, product });
 
 // kit/bin/omni.ts
-var USAGE38 = `usage: omni <command> [args]
+var USAGE39 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -55694,7 +55940,7 @@ async function main(argv, {
   const name3 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command2 = Object.hasOwn(COMMAND_TABLE, name3) ? COMMAND_TABLE[name3] : void 0;
   if (!command2) {
-    stderr.write(USAGE38);
+    stderr.write(USAGE39);
     return 2;
   }
   try {

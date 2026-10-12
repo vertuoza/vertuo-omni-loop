@@ -1,5 +1,5 @@
 // The outbox check of a product PRD's target feature PR (PRD 1548 s8, acceptance 7): the PRD's outbox is
-// rows on the server (supabase/migrations/20261204090000_outbox_items.sql), not files in any repository,
+// rows on the server (supabase/migrations/20261204100000_outbox_items.sql), not files in any repository,
 // so the check reads them as the service role (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, the approved
 // check's pair) and grades the one gate there, never pointing at a plan PR.
 //

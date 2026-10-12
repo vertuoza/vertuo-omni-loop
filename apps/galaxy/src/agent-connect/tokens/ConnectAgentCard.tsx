@@ -1,5 +1,5 @@
 import type { SubmitEvent } from 'react';
-import { dayLabel, lastUsedLabel, makerLabel, setupsOf, TOKEN_NAME_MAX, type AgentToken } from './model';
+import { dayLabel, expiresLabel, isTerminalToken, lastUsedLabel, makerLabel, setupsOf, TOKEN_NAME_MAX, type AgentToken } from './model';
 import type { Shown, TokensState } from './state';
 
 // Settings › Business › Connect an agent drawn from its state (PRD 855 s1). A name field and Make link;
@@ -8,6 +8,8 @@ import type { Shown, TokensState } from './state';
 // when an agent last read through it and its last four characters, with Revoke on the viewer's own (on
 // every link for an owner). A link whose maker left the workspace says it no longer works. Drawn on the
 // server first; ConnectAgent.tsx wires the handlers.
+// PRD 1628 s4: a member's terminal token, listed to its maker and to an owner, reads `terminal token`
+// and the day it expires, with the same Revoke, which also ends the sign-in it unlocks.
 
 export interface TokensHandlers {
   name(name: string): void;
@@ -29,6 +31,7 @@ export const DONE = 'Done — I copied it';
 export const NO_LINKS = 'No link yet. Make one for each editor, and revoke it when the editor goes.';
 export const REVOKE = 'Revoke';
 export const NOT_WORKING = 'Not working: its maker left the workspace.';
+export const TERMINAL_TOKEN = 'terminal token';
 const COPY = 'Copy';
 const COPIED = 'Copied';
 
@@ -62,13 +65,15 @@ function TokenShown({ shown, copied, on }: { shown: Shown; copied: string | null
 
 function TokenRow({ token, busy, on }: { token: AgentToken; busy: boolean; on: TokensHandlers }) {
   return (
-    <li className="agent-row" data-token={token.id} data-mine={token.mine ? 'true' : 'false'}>
+    <li className="agent-row" data-token={token.id} data-mine={token.mine ? 'true' : 'false'} data-scope={token.scope ?? 'business'}>
       <div className="agent-row-main">
         <strong>{token.name}</strong>
         <span className="agent-row-meta">
+          {isTerminalToken(token) && <span className="agent-row-kind">{TERMINAL_TOKEN}</span>}
           <span>{token.mine ? 'made by you' : `made by ${makerLabel(token)}`}</span>
           <span>created {dayLabel(token.createdAt)}</span>
           <span>{lastUsedLabel(token)}</span>
+          {expiresLabel(token) && <span>{expiresLabel(token)}</span>}
           <code>…{token.lastFour}</code>
         </span>
         {!token.working && <span className="agent-row-dead">{NOT_WORKING}</span>}

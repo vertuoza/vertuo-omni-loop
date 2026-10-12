@@ -27,6 +27,7 @@ const player: Player = {
 };
 const LEVEL_3 = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders'] });
 const CABINETS = cabinets(LEVEL_3).length;
+const GAMES_IN_ORDER = ['ENTROPY INVADERS', 'SUPER OMNI WORLD', 'OMNI KART', 'OMNI DUET'];
 
 /** The text a screen shows, one run of text per entry, as a player reads it on `grid`. */
 function textOf(el: ReactElement, grid: Grid): string[] {
@@ -68,8 +69,9 @@ describe('the game room, for a player with a level', () => {
     expect(wide).toContain('120 XP to LV 4');
   });
 
-  it('stands the three cabinets side by side on the wide grid: Entropy Invaders lit, Super Omni World, then OMNI KART, and no SOON', () => {
-    expect(CABINETS).toBe(3);
+  it('stands three of its four cabinets side by side on the wide grid: Entropy Invaders lit, Super Omni World, then OMNI KART, and no SOON', () => {
+    expect(CABINETS).toBe(4);
+    expect(wide).not.toContain('OMNI DUET');
     expect(wide).toContain('ENTROPY INVADERS');
     expect(wide).toContain('SUPER OMNI WORLD');
     expect(wide).toContain('CREW TOP 5');
@@ -99,6 +101,41 @@ describe('the game room, for a player with a level', () => {
     expect(text).toContain('LV 1');
     expect(text).not.toContain('A · PLAY');
     expect(text).not.toContain('CREW TOP 5');
+  });
+});
+
+describe('the wide grid\'s window of three cabinets (PRD 1633)', () => {
+  const marquees = (index: number, xp: XpStatus = LEVEL_3) => {
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } },
+      createElement(GamesOverlay, { xp, me: player, index, onPick: () => {} })));
+    return [...html.matchAll(/class="(cabinet[^"]*)"[^>]*><span class="marquee">([^<]*)</g)].map((m) => ({ title: m[2], active: (m[1] ?? '').includes('active') }));
+  };
+  const FIRST = ['ENTROPY INVADERS', 'SUPER OMNI WORLD', 'OMNI KART'];
+  const LAST = ['SUPER OMNI WORLD', 'OMNI KART', 'OMNI DUET'];
+
+  it.each([
+    [0, FIRST], [1, FIRST], [2, FIRST], [3, LAST],
+  ] as const)('with the cursor on cabinet %i, shows %o, the one under the cursor chosen', (at, titles) => {
+    const shown = marquees(at);
+    expect(shown.map((c) => c.title)).toEqual(titles);
+    expect(shown.filter((c) => c.active).map((c) => c.title)).toEqual([GAMES_IN_ORDER[at]]);
+  });
+
+  it('shows OMNI DUET locked with LV 4 below its level, and the rest of the room as it was', () => {
+    const text = room(LEVEL_3, WIDE, 3);
+    expect(text).toContain('OMNI DUET');
+    expect(text).toContain('LV 4');
+    expect(text).not.toContain('ENTROPY INVADERS');
+    expect(text).toContain('CHOOSE');
+  });
+
+  it('turns back to the first three when the cursor comes back to the first cabinet', () => {
+    expect(marquees(3).map((c) => c.title)).toEqual(LAST);
+    expect(marquees(0).map((c) => c.title)).toEqual(FIRST);
+  });
+
+  it('keeps a cursor past the last cabinet on the last window', () => {
+    expect(marquees(7).map((c) => c.title)).toEqual(LAST);
   });
 });
 
@@ -222,6 +259,9 @@ describe('the game room on the tall grid', () => {
     expect(pages[2]).toContain('OMNI KART');
     expect(pages[2]).not.toContain('SOON');
     expect(pages[2]).not.toContain('ENTROPY INVADERS');
+    expect(pages[3]).toContain('OMNI DUET');
+    expect(pages[3]).toContain('LV 4');
+    expect(pages[3]).not.toContain('OMNI KART');
   });
 
   it('shows every line the wide room shows, across its pages', () => {

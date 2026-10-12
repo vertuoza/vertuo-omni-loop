@@ -1,13 +1,16 @@
 import { connect } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
-import { LoopbackError, startLoopback } from './loopback.ts';
+import { LoopbackError, startLoopback, startTokenLoopback } from './loopback.ts';
 
 const STATE = 'state-0123456789abcdef';
 
 let listener: Awaited<ReturnType<typeof startLoopback>> | undefined;
+let tokens: Awaited<ReturnType<typeof startTokenLoopback>> | undefined;
 afterEach(async () => {
   await listener?.close();
+  await tokens?.close();
   listener = undefined;
+  tokens = undefined;
 });
 
 const get = (port: number, path: string) => fetch(`http://127.0.0.1:${port}${path}`);
@@ -84,5 +87,84 @@ describe('the loopback listener omni signin starts', () => {
 
   it('needs a state to compare with', async () => {
     await expect(startLoopback({ state: '' })).rejects.toThrow(/state/);
+  });
+});
+
+const TOKEN = 'omk_Zq9xW3vK7pL2mN8bR4tY6uJ1hG5fD0sA_-cE3iO9wQv';
+const EXPIRES = '2027-01-09T10:00:00.000Z';
+const tokenQuery = (over: Record<string, string> = {}) => new URLSearchParams({ state: STATE, token: TOKEN, expires_at: EXPIRES, ...over }).toString();
+
+describe('the loopback listener omni setup-token starts (PRD 1628)', () => {
+  it('catches the token and its expiry of a callback carrying its state, answers the browser, then closes', async () => {
+    tokens = await startTokenLoopback({ state: STATE });
+    expect(tokens.address).toBe('127.0.0.1');
+    expect(tokens.redirectUri).toBe(`http://127.0.0.1:${tokens.port}/callback`);
+    const response = await get(tokens.port, `/callback?${tokenQuery()}`);
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toMatch(/terminal has your token/);
+    expect(body).not.toContain(TOKEN);
+    await expect(tokens.token).resolves.toEqual({ token: TOKEN, expiresAt: EXPIRES });
+    await tokens.closed;
+    expect(await accepts(tokens.port)).toBe(false);
+  });
+
+  it('refuses a callback whose state does not match, and keeps waiting for the right one', async () => {
+    tokens = await startTokenLoopback({ state: STATE });
+    const caught: unknown[] = [];
+    tokens.token.then((made) => caught.push(made), () => {});
+    for (const state of ['state-somebody-else', '', `${STATE}x`]) {
+      const refused = await get(tokens.port, `/callback?${tokenQuery({ state })}`);
+      expect(refused.status).toBe(400);
+      const body = await refused.text();
+      expect(body).toMatch(/not asked for by this terminal/);
+      expect(body).toMatch(/omni setup-token/);
+    }
+    expect(caught).toEqual([]);
+    await get(tokens.port, `/callback?${tokenQuery()}`);
+    await expect(tokens.token).resolves.toEqual({ token: TOKEN, expiresAt: EXPIRES });
+  });
+
+  it('refuses a callback without a well-formed token or a readable expiry, and a code instead of a token', async () => {
+    tokens = await startTokenLoopback({ state: STATE });
+    const bad = [
+      `state=${STATE}&expires_at=${EXPIRES}`,
+      tokenQuery({ token: 'omk_short' }),
+      tokenQuery({ token: `omb_${TOKEN.slice(4)}` }),
+      tokenQuery({ token: `${TOKEN}x` }),
+      `state=${STATE}&token=${TOKEN}`,
+      tokenQuery({ expires_at: 'someday' }),
+      `state=${STATE}&code=one-time-code`,
+    ];
+    for (const query of bad) {
+      const refused = await get(tokens.port, `/callback?${query}`);
+      expect(refused.status).toBe(400);
+      expect(await refused.text()).toMatch(/came back incomplete/);
+    }
+    expect(await accepts(tokens.port)).toBe(true);
+  });
+
+  it('never takes a token on the sign-in listener', async () => {
+    listener = await startLoopback({ state: STATE });
+    expect((await get(listener.port, `/callback?${tokenQuery()}`)).status).toBe(400);
+    expect(await accepts(listener.port)).toBe(true);
+  });
+
+  it('gives up after its wait, naming the token', async () => {
+    tokens = await startTokenLoopback({ state: STATE, timeoutMs: 50 });
+    await expect(tokens.token).rejects.toBeInstanceOf(LoopbackError);
+    await expect(tokens.token).rejects.toThrow(/no token came back/);
+    await tokens.closed;
+  });
+
+  it('stops listening when closed before a callback', async () => {
+    tokens = await startTokenLoopback({ state: STATE });
+    await tokens.close();
+    await expect(tokens.token).rejects.toThrow(/stopped before a token came back/);
+    expect(await accepts(tokens.port)).toBe(false);
+  });
+
+  it('needs a state to compare with', async () => {
+    await expect(startTokenLoopback({ state: '' })).rejects.toThrow(/state/);
   });
 });

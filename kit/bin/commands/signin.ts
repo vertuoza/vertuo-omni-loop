@@ -13,19 +13,26 @@
 // - `whoami` prints the email kept for that host (the GitHub login when there is none), or `signed out`. Past its expiry, it renews the
 //   sign-in first: refused, it says the sign-in is no longer valid and exits 1.
 //
+// Under `OMNI_TOKEN` (PRD 1628), which wins over the kept sign-in and leaves the file alone: `signin`
+// trades the token with the checkout's `repo.slug` and opens no browser (`signed in by OMNI_TOKEN as
+// <login> — <owner/repo> goes to <workspace>`); `whoami` trades it and prints `<login> (OMNI_TOKEN
+// ··<last four>)`; `signout` deletes nothing and says to revoke the token on the profile page, exit 1.
+// A token that does not work prints its one line (`../../lib/ask/client.ts`) and exits 1.
+//
 // Each reads `ask.url` from the repository's config; with none, each exits 1 with one line. They run
 // before a context exists, like `init` and `ask`, so a test can hand them `home` (the folder the
 // credentials live under), `openBrowser`, `fetch` and `waitMs`.
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { askClient } from '../../lib/ask/client.ts';
+import { AskCallError, askClient } from '../../lib/ask/client.ts';
+import { homeTokens, omniTokenTail } from '../../lib/ask/client-tokens.ts';
 import type { Fetch } from '../../lib/ask/client.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { askEndpoint, credentials, credentialsHost, exchangeCode, signedInLine, SignInError } from '../../lib/ask/credentials.ts';
 import { LOOPBACK_WAIT_MS, LoopbackError, startLoopback } from '../../lib/ask/loopback.ts';
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, println, usageError } from '../args.ts';
-import type { Exec, FreeCommand, FreeIo } from '../io.ts';
+import type { Exec, FreeCommand, FreeIo, Vars } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
 export const ASK_URL_UNSET = 'ask mode is not set up for this repository (ask.url)';
@@ -52,6 +59,24 @@ function signInConfig(cwd: string, exec: Exec): { askUrl: string | null; repo: s
   return { askUrl: config.ask.url, repo: config.repo.slug ?? null };
 }
 
+/** The ask client that signs in with `OMNI_TOKEN`, or `null` when it is unset. */
+function tokenClient(askUrl: string, vars: Vars, fetch: Fetch): { token: string; client: ReturnType<typeof askClient> } | null {
+  const token = vars.omniToken?.token;
+  if (!token) return null;
+  return { token, client: askClient({ baseUrl: askUrl, host: credentialsHost(askUrl), tokens: homeTokens({ omniToken: token }), fetch }) };
+}
+
+/** `fn()`'s exit code, or 1 with the token's one line on stderr when the token does not work. */
+async function orTokenLine(stderr: FreeIo['stderr'], fn: () => Promise<number>): Promise<number> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (!(error instanceof AskCallError)) throw error;
+    println(stderr, error.message);
+    return 1;
+  }
+}
+
 /** The command's arguments: none. */
 function noArguments(name: string, args: string[]): void {
   const { positional } = parseArgs(name, args);
@@ -72,13 +97,22 @@ export const signin = {
   /** `onSignedIn`, when given (by `omni init`), takes the closing line instead of stdout. */
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }: FreeIo & SigninOptions,
+    { cwd, stdout, stderr, exec, vars, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }: FreeIo & SigninOptions,
   ) {
     noArguments('signin', args);
     const { askUrl, repo } = signInConfig(cwd, exec);
     if (!askUrl) {
       println(stderr, ASK_URL_UNSET);
       return 1;
+    }
+    const byToken = tokenClient(askUrl, vars, fetch);
+    if (byToken) {
+      return orTokenLine(stderr, async () => {
+        const line = signedInLine({ ...(await byToken.client.tradeToken({ repo })), repo, by: 'OMNI_TOKEN' });
+        if (onSignedIn) onSignedIn(line);
+        else println(stdout, line);
+        return 0;
+      });
     }
     const state = randomBytes(32).toString('base64url');
     const listener = await startLoopback({ state, timeoutMs: waitMs });
@@ -111,11 +145,15 @@ export const signin = {
 
 export const signout = {
   withoutContext: true,
-  run: synchronous((args: string[], { cwd, stdout, stderr, exec, home }: FreeIo & { home?: string | undefined }): number => {
+  run: synchronous((args: string[], { cwd, stdout, stderr, exec, vars, home }: FreeIo & { home?: string | undefined }): number => {
     noArguments('signout', args);
     const askUrl = askUrlOf(cwd, exec);
     if (!askUrl) {
       println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    if (vars.omniToken) {
+      println(stderr, 'OMNI_TOKEN is set in this environment: revoke it on your profile page');
       return 1;
     }
     const host = credentialsHost(askUrl);
@@ -126,7 +164,7 @@ export const signout = {
 
 export const whoami = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, home, fetch = globalThis.fetch }: FreeIo & { home?: string | undefined; fetch?: Fetch }) {
+  async run(args: string[], { cwd, stdout, stderr, exec, vars, home, fetch = globalThis.fetch }: FreeIo & { home?: string | undefined; fetch?: Fetch }) {
     noArguments('whoami', args);
     const askUrl = askUrlOf(cwd, exec);
     if (!askUrl) {
@@ -134,6 +172,14 @@ export const whoami = {
       return 1;
     }
     const host = credentialsHost(askUrl);
+    const byToken = tokenClient(askUrl, vars, fetch);
+    if (byToken) {
+      return orTokenLine(stderr, async () => {
+        const { login, email } = await byToken.client.tradeToken();
+        println(stdout, `${login ?? email ?? `signed in to ${host}`} (OMNI_TOKEN ··${omniTokenTail(byToken.token)})`);
+        return 0;
+      });
+    }
     const store = credentials({ home });
     const entry = store.read(host);
     if (!entry) {

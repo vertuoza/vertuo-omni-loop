@@ -1,7 +1,7 @@
 // A fake of the Omni page's outbox routes (PRD 1548 s7), held in memory, for the kit's tests of the `server`
 // outbox store: `GET /api/outbox/items`, `POST /api/outbox/items` and `POST /api/outbox/items/settle`,
 // answering as the Omni page's outbox controller does, on the rules of the outbox RPCs
-// (supabase/migrations/20261204090000_outbox_items.sql): an item is put or rewritten while open, a medium
+// (supabase/migrations/20261204100000_outbox_items.sql): an item is put or rewritten while open, a medium
 // one adopted at once, an open one settled once; nothing is deleted. It knows the product PRDs it is
 // given and refuses any other, 404; with `down` set, every call fails as an unreachable server does.
 import type { Fetch } from '../lib/ask/client.ts';

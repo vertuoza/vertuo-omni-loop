@@ -65,6 +65,20 @@ export const SUPABASE = envGroup({
   variables: { url: ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'], key: 'SUPABASE_SERVICE_ROLE_KEY' },
 });
 
+/** A kit token's shape (PRD 1628): `omk_` and 32 random bytes in base64url, as `omni setup-token` prints it. */
+export const OMNI_TOKEN_PATTERN = /^omk_[A-Za-z0-9_-]{43}$/;
+
+/**
+ * The kit token a cloud session signs in with (PRD 1628): set, it wins over the sign-in kept in
+ * `~/.config/omni/credentials.json`. A value of another shape stops the command, naming the variable
+ * and never the value.
+ */
+const OMNI_TOKEN = envGroup({
+  label: 'the kit token',
+  schema: z.object({ token: z.string().regex(OMNI_TOKEN_PATTERN, 'it is not a kit token: make one with omni setup-token') }),
+  variables: { token: 'OMNI_TOKEN' },
+});
+
 /** The package manager that runs a script, which `pnpm check:changed` runs its steps with. */
 const PACKAGE_MANAGER = envGroup({
   label: 'the package manager',
@@ -76,7 +90,7 @@ const PACKAGE_MANAGER = envGroup({
  * The variables a person sets for the kit, the game and the scripts: the root README's list names
  * exactly these (`scripts/env-docs.test.ts`).
  */
-export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE]);
+export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN]);
 
 /** The game's own, a part of {@link VARIABLES}: `game/README.md`'s list names exactly these. */
 export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABASE]);
@@ -111,9 +125,26 @@ export function readEnv(source: EnvSource) {
     workspace: reader.group(WORKSPACE),
     supabase: reader.group(SUPABASE),
     packageManager: reader.group(PACKAGE_MANAGER),
+    omniToken: reader.group(OMNI_TOKEN),
   };
   reader.done();
   return env;
+}
+
+/**
+ * The kit token `source` holds, or `null`, read alone: what the token store a command builds by
+ * default signs in with. A malformed one throws the `EnvError` `readEnv` would.
+ */
+export function omniTokenOf(source: EnvSource): string | null {
+  const reader = envReader(source);
+  const group = reader.group(OMNI_TOKEN);
+  reader.done();
+  return group?.token ?? null;
+}
+
+/** The kit token this process was started with, or `null`: {@link omniTokenOf} the process's environment. */
+export function processOmniToken(): string | null {
+  return omniTokenOf(processEnv());
 }
 
 /** The kit's, the game's and the scripts' groups, as `readEnv` gives them. */
