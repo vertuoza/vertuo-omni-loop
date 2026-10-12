@@ -709,3 +709,626 @@ A constant or a status set in omni.ts and its tests.
 ```
 
 <!-- /omni-outbox-settled: s3-03-read-error-lines -->
+
+<!-- omni-outbox-settled: s4-01-care-state-from-loop-facts -->
+
+## s4-01-care-state-from-loop-facts — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-care-state-from-loop-facts
+prd: 1665
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+The plan asked that the old GitHub question behind a pull request's care be gone, but the code that reads its answer lives outside this slice's ground. Is it fine that this slice rewrote it?
+
+## The decision, in plain words
+
+I rewrote that reader so it reads the Omni page's answer instead, and removed the old question. The care state says the same things, except that it no longer carries links to a check's run, a review comment or an avatar, which the page does not send.
+
+## The intro, for fun
+
+The old question was retired, but its answer sheet lived next door.
+
+## The punchline, for fun
+
+So the neighbour got a new sheet, same boxes, three fewer links.
+
+## The options, in plain words
+
+A. A. Read care from the page's answer in the shared reader, the links left empty (built).
+B. B. Keep the reader as it was and have the two commands rebuild the old GitHub answer from the page's, leaving the old question in place.
+C. C. Add the links to the page's answer first, then read them here.
+
+## What I had to decide
+
+kit/lib/care/state.ts and kit/lib/care/state.test.ts are outside s4's territory, yet 'CARE_QUERY is gone' (s4's done-when) means editing them: CARE_QUERY, CareResponseSchema and the GraphQL parser are removed, and careState({change, comments}, options) reads LoopChangeDetail (review.checks, review.mergeable, review.threads) and LoopComment. The rollup is drawn from the check states (red if any failure, running if any pending, green otherwise, none with no check); a failed check's url, a thread's url and a thread comment's url and avatarUrl are now always null, since the contract (settled item s2-02) carries none. The galaxy keeps its own CARE_QUERY copy (apps/galaxy/src/dossier/github/care.ts), untouched.
+
+## What I did meanwhile
+
+Rewrote state.ts and its tests on loop facts; next.ts and care.ts call it with reads.change and reads.comments. care state's JSON keeps every field, with null links.
+
+## What it costs to change later
+
+A field added to the contract (a check's or a comment's link) and one line each in state.ts to read it again.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether /omni:pr-care or the Omni page leans on a failed check's link or a thread's link from care state's JSON was not checked beyond the kit's own tests.
+- (author) No other slice lists kit/lib/care/, so the edit cannot collide in this landing, but the plan did not give it to s4.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-care-state-from-loop-facts -->
+
+<!-- omni-outbox-settled: s4-02-care-target-default-branch -->
+
+## s4-02-care-target-default-branch — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-care-target-default-branch
+prd: 1665
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+When the care command looks after another repository's pull request, it needs that repository's main branch name, which the Omni page does not give. Where should it read it?
+
+## The decision, in plain words
+
+It still asks GitHub's own tool for that one name, and only for another repository: everywhere else the care command reads the Omni page alone. A bug's closing changes are now taken from the plan's own repository, as the page names them by number only.
+
+## The intro, for fun
+
+The map came from the new office, all but one street name.
+
+## The punchline, for fun
+
+For that one, we still phone the old office.
+
+## The options, in plain words
+
+A. A. Keep the one default-branch read on gh, for a target only (built).
+B. B. Add a repository read (its default branch) to the page's contract and use it here.
+C. C. Take the target's default branch from the plan repository's config instead.
+
+## What I had to decide
+
+care state --repo <target> read the target's default branch with `gh repo view` (scopeOf); the contract has no repository read. Built: kept on gh, called only for a target (githubEnv is no longer computed for any other round, so a session without gh reads the plan repository's care with no gh at all). `gh repo view` is not among the reads the s6 guard refuses. Also: care list's bug records come from LoopIssueDetail.closedBy, which names closing changes of the issue's own repository only (settled item s2-02), where the gh read took each change's repository from its link.
+
+## What I did meanwhile
+
+Tested: a target round still reads `develop` for acme/backend; a round with github.user set runs no gh.
+
+## What it costs to change later
+
+A repository read in the contract and one call in care.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) In a cloud session without gh, `omni care state --repo <target>` still fails on the default branch read.
+- (author) A bug record PR opened in a target repository, rather than the plan repository, is no longer listed.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-care-target-default-branch -->
+
+<!-- omni-outbox-settled: s4-03-next-stops-on-no-sign-in -->
+
+## s4-03-next-stops-on-no-sign-in — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-next-stops-on-no-sign-in
+prd: 1665
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+The loop's next-step command used to answer 'wait, GitHub is unreachable' on any failed read, while the spec now asks every command to print one line and stop when it cannot read at all. Which should it do?
+
+## The decision, in plain words
+
+When nothing can be read at all (no sign-in, no answer, a page that cannot read the loop yet), it prints that one line and stops. When only one repository is refused, it still answers 'wait' for that work, as before, and carries on.
+
+## The intro, for fun
+
+A traffic light that is off is not the same as a red one.
+
+## The punchline, for fun
+
+So the command now says the light is off, and stops waiting at it.
+
+## The options, in plain words
+
+A. A. Stop with the one line when nothing can be read; keep wait for one repository refused (built).
+B. B. Keep answering wait for every read failure, as before, and print no line.
+C. C. Stop with the line on any read failure, one repository refused included.
+
+## What I had to decide
+
+omni next caught every read failure into the verdict `wait: github unreachable` (exit 0). The spec's behaviour table and acceptance 3 say no sign-in, no answer and a page without the routes print one line and exit 1, for next too. Built: a LoopReadError of scope `everything` stops the whole run (stderr line, exit 1, no verdict printed); scope `repository` (403/424/429, a 404 with the page's words) keeps today's `wait: github unreachable` for that PRD, and a target refused alone stays `unreadable`. The care command does the same. s6 tells /omni:drive and the other skills to treat the line as held, not failed.
+
+## What I did meanwhile
+
+Tested both: a refused repository still answers wait with exit 0; each of the three whole-run lines prints alone with exit 1.
+
+## What it costs to change later
+
+One condition in next.ts (stopsEverything) and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Until s6 updates /omni:drive, a loop that reads exit 1 from omni next as a failure may stop instead of holding; landing 2 ships s4 and s6 together.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-next-stops-on-no-sign-in -->
+
+<!-- omni-outbox-settled: s4-04-replies-without-standing -->
+
+## s4-04-replies-without-standing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-replies-without-standing
+prd: 1665
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+To tell whether the open questions were answered, the next-step command counted only replies from people allowed to change the repository, but the Omni page does not say who is allowed. Whose replies should count?
+
+## The decision, in plain words
+
+Every person's reply counts for this hint. It only decides that answers may be waiting; the step it then launches reads the replies again and keeps only those of people allowed to change the repository.
+
+## The intro, for fun
+
+The guest list went missing, so the doorman lets everyone into the lobby.
+
+## The punchline, for fun
+
+The real check still happens at the ballroom door.
+
+## The options, in plain words
+
+A. A. Count every person's reply for this hint (built).
+B. B. Add the author's standing to the page's answer for comments, and keep counting writers only.
+C. C. Count no reply here, and let the outbox gate alone say answers are waiting.
+
+## What I had to decide
+
+outboxFacts in next.ts fed planReplies GitHub's comments with author_association, and isCountedReply keeps OWNER, MEMBER and COLLABORATOR only. LoopComment is {id, author, body, createdAt, updatedAt}, with no association. Built: each LoopComment is handed to planReplies as a COLLABORATOR's (replyCommentOf), so any person's numbered reply makes `answered` true and the verdict `act yolo-fix`. kit/lib/outbox/replies.ts is unchanged. The other comment reads (the status comment's updatedAt for a running step, the roadmap issue's answers and ticks) never used the association.
+
+## What I did meanwhile
+
+Built and tested: a numbered reply on the feature PR gives act yolo-fix, as before.
+
+## What it costs to change later
+
+A field in the contract (the author's standing) and one line in next.ts to pass it on.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A reply from someone outside the repository's writers now launches a yolo-fix run that will find nothing to settle; whether that run stops cleanly was not checked.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-replies-without-standing -->
+
+<!-- omni-outbox-settled: s4-06-gate-test-reads-fake -->
+
+## s4-06-gate-test-reads-fake — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-06-gate-test-reads-fake
+prd: 1665
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+One test of the next-step command, outside this slice's ground, stood in for GitHub with empty answers. Once the command read the Omni page instead, that test failed, so I changed it: is that fine?
+
+## The decision, in plain words
+
+The test now hands the command the shared empty stand-in for the Omni page's answers. Its three checks on approvals are unchanged and pass.
+
+## The intro, for fun
+
+The understudy learned new lines, and the old script still had the old ones.
+
+## The punchline, for fun
+
+One line of the old script changed, the play is the same.
+
+## The options, in plain words
+
+A. A. Hand the gate test the shared empty fake (built).
+B. B. Route its fetch by URL so the loop's reads answer empty lists from the same stub.
+
+## What I had to decide
+
+kit/lib/next/gate.test.ts (PRD 1299's approval gate of omni next) stubbed gh to answer `[]`; once next reads LoopReads, its fetch, which answers the approval body to every URL, reached the loop's reads too and the answer fell outside the contract (exit 1). Built: it passes `reads: fakeLoopReads()` to main(), and its two header comments say so. No assertion changed.
+
+## What I did meanwhile
+
+The three gate tests pass; the full suite is green.
+
+## What it costs to change later
+
+Two lines in one test file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether other tests outside the kit's command tests reach omni next or omni care through main() with a gh stub was checked only by the full suite, which is green.
+
+```
+
+<!-- /omni-outbox-settled: s4-06-gate-test-reads-fake -->
+
+<!-- omni-outbox-settled: s5-02-statusline-last-value -->
+
+## s5-02-statusline-last-value — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-statusline-last-value
+prd: 1665
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+When the status line's background refresh cannot read the loop, what should the status line show?
+
+## The decision, in plain words
+
+It shows what it shows today when the refresh fails: the PRD's line without the slices, never an error, and it tries again a minute later.
+
+## The intro, for fun
+
+The scoreboard lost its feed, so it kept the match title up and the score off.
+
+## The punchline, for fun
+
+A minute later it asks again, politely, without a single red light.
+
+## The options, in plain words
+
+A. A. Keep today's behaviour: on a failed read the line drops the slices and tries again a minute later.
+B. B. Keep the last good slices on screen, marked as old, until a read works again.
+
+## What I had to decide
+
+Whether 'keeps the last value it drew' (spec, Behaviour; plan s5 done-when) means today's behaviour, where a failed refresh writes the error entry and the line drops the board, or keeping the last good slices on screen past a failed read.
+
+## What I did meanwhile
+
+refreshPrdBoard writes the LoopReadError's own line as the error entry (kit/lib/statusline/board-cache.ts unchanged); the status line then draws the stage alone, and kit/bin/statusline.test.ts proves the line drawn after a failed read is the line drawn before it, with no error text.
+
+## What it costs to change later
+
+Keeping the last slices means writing the old slices back with their old time in board-cache.ts, outside this slice: a small change, but it would also need its own retry timer.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says 'as it does today when gh fails', which is what was built; the done-when's 'draws its last value' could also mean the last slices.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-statusline-last-value -->
+
+<!-- omni-outbox-settled: s5-03-roadmap-closed-date-and-links -->
+
+## s5-03-roadmap-closed-date-and-links — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-roadmap-closed-date-and-links
+prd: 1665
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+The Omni page does not say when a change was closed, nor give a link to each comment, but the roadmap page shows both: where should they come from?
+
+## The decision, in plain words
+
+A closed change counts as closed when it was last updated, a merged one when it merged, and a comment's link is built from the issue's address and the comment's number.
+
+## The intro, for fun
+
+The calendar lost the closing date, so it trusted the last time anyone touched the door.
+
+## The punchline, for fun
+
+Close enough, and usually exactly the same minute.
+
+## The options, in plain words
+
+A. A. Keep the dates and links as built.
+B. B. Add a closing date and a comment link to the loop's contract, and read them.
+C. C. Send no end date and no comment link when the page does not give them.
+
+## What I had to decide
+
+How kit/lib/roadmap/push.ts fills a feature PR's closedAt and a clarification comment's url when the loop contract's Change has no closedAt and its Comment no url.
+
+## What I did meanwhile
+
+featurePrOf takes closedAt from mergedAt for a merged change and from updatedAt for a closed one; issueComments links each comment as https://github.com/<repo>/issues/<n>#issuecomment-<id>, as the push already builds the roadmap issue's own address. Tested in kit/lib/roadmap/push.test.ts.
+
+## What it costs to change later
+
+Adding closedAt to the contract's Change, or url to its Comment, is a field on both sides and one line here each.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A closed change edited after it closed would show a later end date than it really had.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-roadmap-closed-date-and-links -->
+
+<!-- omni-outbox-settled: s5-04-roadmap-answers-and-ticks -->
+
+## s5-04-roadmap-answers-and-ticks — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-roadmap-answers-and-ticks
+prd: 1665
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+Besides each PRD's progress, the roadmap commands also read the answers and the ticks left as comments on the roadmap's issue: should those be read through the Omni page too?
+
+## The decision, in plain words
+
+Yes: the answers, the ticks and the comments the progress needs are read through the Omni page as well, so a roadmap push works without GitHub's own tool, and a failed read says which read stopped it.
+
+## The intro, for fun
+
+Moving house, the movers took the furniture and asked about the mail.
+
+## The punchline, for fun
+
+The mail came along too; only the outgoing letters still leave by the old post office.
+
+## The options, in plain words
+
+A. A. Read the answers and the ticks through the Omni page, as built.
+B. B. Read only the feature PRs through the Omni page, and keep the comments on GitHub's tool.
+
+## What I had to decide
+
+Whether omni roadmap's reads of the roadmap issue's comments (answers in push, ticks in prereqs), done by githubClientFor(...).listComments(), move to LoopReads.comments with the feature PRs, and what a failed read prints.
+
+## What I did meanwhile
+
+kit/bin/commands/roadmap.ts reads the feature PRs, their comments, the answers and the ticks through LoopReads; a failed read prints its own line (no sign-in, unreachable, refused ...) where push printed 'github unreachable', which stays for any other failure; prereqs says '(<line>)' when the ticks cannot be read. Posting an answer or a tick still goes through gh. Tested in kit/bin/roadmap.test.ts.
+
+## What it costs to change later
+
+Putting listComments back is two lines in roadmap.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names only the gate's 'gh pr list'; reading the comments the same way was judged from 'every read that decides is in scope'.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-roadmap-answers-and-ticks -->
