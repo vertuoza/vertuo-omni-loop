@@ -883,15 +883,15 @@ off, no row exists, and every player sees NO XP YET.
   Mode 7 kart race, three laps of one circuit, COMET RING, against five rivals. Its code is
   `src/arcade/kart/`, imported only when the cabinet opens (a failed import says
   `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder imports it at run time. The floor is
-  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected line by
-  line (`mode7.ts`); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
+  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected column by
+  column with its relief (`mode7.ts`, see **The relief** below); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
   farthest to the nearest. The player drives their own hero in a kart tinted with the hero's suit
   (◀ ▶ steer, A accelerates, ▼ brakes and reverses, START pauses); the rivals are the workspace's
   other fleets, each driven by its mascot, who follow the racing line at 92% to 100% of the player's
   pace under a light rubber band (`rivals.ts`). A lap counts when the line is crossed forwards after
   every waypoint, in order; the HUD shows the place (1ST to 6TH), `LAP n/3`, the race time and the item
   held, and `FINAL LAP` on the third lap. The race is a seeded, pure phase machine (`race.ts`).
-  **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
+  **Items** (`items.ts`): ten lines of four boxes across the road, one on every straight (40 in all), give one item to a kart holding
   none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
   leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
   **BOOST** is 1.5 seconds at 1.4 times the top speed. **BLOB** is an Entropy blob
@@ -921,9 +921,42 @@ off, no row exists, and every player sees NO XP YET.
   Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
   line. The sky has two planets, a distant station and comets. The camera sits so the player's kart is
   drawn where it stands. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
-  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
-  that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
+  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes,
+  20 wide, that turn and bob over a pool of their light on the road, which pulses with them. With
+  reduced motion on, the sky, comets, satellites, boxes, their pools and beacons stand
   still and no particle is drawn; the shadows stay.
+  **The relief** (PRD 1698): COMET RING rises and falls along its racing line. Its relief is one block
+  beside the map: a `heights` list (one per waypoint) and a `bumps` list (one per leg, positive a hump,
+  negative a dip). Each leg eases from one height to the next with its bump in the middle, and is level
+  for 2.5 tiles at both ends, so every corner is level and two legs meet at the same height; the
+  ground anywhere is that of the nearest leg (`relief.ts`, pure), and a circuit with no relief is flat.
+  The relief spans 26 world units at most, under the camera's eye (28), and the circuit's checks refuse
+  a relief that spans more or has a height or a bump missing or not a number, as they refuse a broken
+  map. The camera's eye stands 28 over the ground under the player's kart, so a crest hides the road
+  behind it and a descent shows the circuit below; a kart, box, prop, BLOB or ORB behind a crest is
+  hidden where the road in front covers it (the start arch stays on top). **Slopes** change the top
+  speed along the kart's heading: uphill it falls by 1.2 times the slope, downhill it rises by as much,
+  never under 0.67 nor over 1.33 of the flat one, for the player and the rivals. **The deck:** where the
+  road meets the void and the void is nearer the camera, the road's edge shows its side, 12 deep (a
+  light lip, metal that darkens down the side, every other panel a shade darker, a magenta neon line at
+  its foot), then a magenta glow fading into the void over 18 world units. The floor's cost is bounded:
+  each column samples outwards from the camera and never takes more than 600 samples, the renderer
+  reports its count, and a test holds it at every waypoint on the wide and the tall grid. The cabinet's
+  still keeps a flat floor.
+  **The four wheels** (PRD 1698): a kart stands on four wheels, 6 ahead of and behind its centre and 3
+  to each side. A side with more wheels over the void than the other **leans** the kart towards it and
+  slides it towards the void at 16 a second; the player can steer back onto the road. Both wheels of
+  one side over the void **tip it over** into the fall and the way back above, and a centre 7 past the
+  edge still falls. A leaning kart is drawn rolled towards the void, a falling one rolls over as it
+  sinks, and it casts no shadow while it falls. A rival looks a quarter of a second ahead, steers back
+  from a wheel over the void there, brakes when it is faster than a corner allows and turns in 64
+  before the corner's waypoint, so it finishes three laps without falling (seeds 1, 7 and 42).
+  **The minimap** (PRD 1698): in the top right corner under the item panel, over the sky, on both
+  grids, 8 game pixels in from the right edge: one game pixel a tile, the road shaded by its height
+  (the higher, the lighter), the start line light, over a dark cyan-framed panel. It shows a gold
+  pixel for each box there to take, a dot of its own colour for each rival on the road (none while one
+  falls), every other player in MULTI, and the player as a bigger yellow dot with a tick the way it
+  faces, drawn last; it blinks while the player falls, and stays lit with reduced motion.
   **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
   `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
   reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase
