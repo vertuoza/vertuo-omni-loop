@@ -4,16 +4,58 @@
       "stage": "design",
       "date": "2026-10-12",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Three small defaults with a test each, and nothing changes for the Claude setup I already have.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "A variable I must export myself in every Codex terminal will never be set.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "The loop stops being a Claude-only thing: I can say it works with the agent a team already pays for.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One AGENTS.md and one variable I can set in a wrapper, for every agent on my team.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "The refusal now tells me where to put a hook, not only what is wrong.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Three small defaults with a test each, and nothing changes for the Claude setup I already have.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A variable I must export myself in every Codex terminal will never be set.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The loop stops being a Claude-only thing: I can say it works with the agent a team already pays for.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One AGENTS.md and one variable I can set in a wrapper, for every agent on my team.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The refusal now tells me where to put a hook, not only what is wrong.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": {
         "persona": "B-E DEv",
         "text": "An env var I have to export myself in every Codex terminal won't get set. If omni can't link my session on its own, my dossier stays empty and this quick win does nothing for me.",
-        "citations": ["persona:B-E DEv"],
+        "citations": [
+          "persona:B-E DEv"
+        ],
         "settled": "accepted"
       },
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ on the hand-set variable"
@@ -22,11 +64,104 @@
       "stage": "spec",
       "date": "2026-10-12",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Each change has a fixture named in Test seams, and the config names stay, so no config of mine breaks.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "omni makes the id itself now, so a Codex brainstorm links to its dossier without my typing anything.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Small, shippable, and it names the follow-up that makes the whole kit agent-agnostic.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "The risk of a custom paths.context without CLAUDE.md is named, and the release note will say it.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "The new refusal line reads in one go: move it to .agents/hooks/, or mark it.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each change has a fixture named in Test seams, and the config names stay, so no config of mine breaks.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "omni makes the id itself now, so a Codex brainstorm links to its dossier without my typing anything.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Small, shippable, and it names the follow-up that makes the whole kit agent-agnostic.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The risk of a custom paths.context without CLAUDE.md is named, and the release note will say it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The new refusal line reads in one go: move it to .agents/hooks/, or mark it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ with the generated id"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Three small sub-PRs, each with its tests, and my CLAUDE.md setup reads exactly as before.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The release note says it plainly: under Codex the dossier links to my checkout with nothing to set up.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "I can now tell a team on Cursor that the loop reads their AGENTS.md: a real first step.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One AGENTS.md and OMNI_SESSION_ID for my wrapper; the one behaviour change is named in the note.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The refusal tells me where a hook goes: .agents/hooks/. Short and clear.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ with the generated id"
