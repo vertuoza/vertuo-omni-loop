@@ -402,7 +402,7 @@ The level-up screen names the first registry game whose unlock level is above th
 
 Serves: P-PRODUCT-35
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
-Enforced by: pending #1498
+Enforced by: apps/galaxy/src/arcade/levelup.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
