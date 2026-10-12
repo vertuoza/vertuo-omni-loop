@@ -30,7 +30,7 @@ export function firstOf<T>(contenders: readonly Contender<T>[]): Promise<T> {
         (error: unknown) => {
           if (won) return;
           failed.add(contender);
-          if (failed.size === contenders.length) reject(error);
+          if (failed.size === contenders.length) reject(error instanceof Error ? error : new Error(String(error)));
         },
       ).catch(reject);
     });

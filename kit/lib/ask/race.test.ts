@@ -17,8 +17,8 @@ function contender<T>() {
       settle.reject(new Error('closed'));
       return Promise.resolve();
     },
-    resolve: (value) => settle.resolve(value),
-    reject: (error) => settle.reject(error),
+    resolve: (value) => { settle.resolve(value); },
+    reject: (error) => { settle.reject(error); },
     state,
   };
   return made;

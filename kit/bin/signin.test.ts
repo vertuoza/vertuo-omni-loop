@@ -459,7 +459,7 @@ describe('omni signin, the loopback with the device link as its fallback (PRD 16
     const std = io();
     const browser = fakeBrowser();
     const later = (url: string) => {
-      setTimeout(() => browser.open(url), 60);
+      setTimeout(() => { browser.open(url); }, 60);
     };
 
     expect(await main(['signin'], { ...LAPTOP, cwd: root, ...std, home: freshHome(), openBrowser: later, fetch: page.fetch })).toBe(0);
