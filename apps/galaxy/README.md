@@ -952,16 +952,27 @@ off, no row exists, and every player sees NO XP YET.
   imports it at run time (`duet/guard.test.ts`). Two orbs, one warm and one cool, ride a circle around
   the Omni Loop crest, always opposite: ◀ held turns them anticlockwise, ▶ clockwise, both or neither
   hold them still. Waves of Entropy blocks fall through them, each a word of a small vocabulary set
-  on the circle and dodged by one clear pose of the pair, as in Duet: a half bar from either side,
-  stopping R/3 short of the centre line, passed upright; a centre block, passed level. Still, sliding
-  or turning, they make four chapters of ten waves written as text in `duet/waves.ts`, one obstacle a
-  line with its distance behind the one before in R: **I · DRIFT** (95 to 113 px/s, about 2 R a
-  second), **II · SLIDE**, **III · SPIN** and **IV · STORM** (125 to 143 px/s). A wave is short,
-  three to six obstacles and 8 seconds at most, and none is passed with the orbs held still. An
-  obstacle asking the other pose stands at least a quarter turn and a person's reaction behind the
-  one before. After chapter IV,
-  `ENDLESS · ×2`: waves of one to three of chapter IV's runs of one pose, drawn from one fixed seed
-  (`ENDLESS_SEED`, the same for every player), faster and never ending. `waveProblems` proves every
+  on the circle, as in Duet. A still one is dodged by one clear pose of the pair: a half bar from
+  either side, stopping R/3 short of the centre line, passed upright; a centre block, passed level.
+  A moving one hits every pose held still and is dodged by turning the pair with it: a centre block
+  that slides across the whole circle (±R, on a fixed path that sweeps half the circle as it
+  falls), and a rod 2.2 R long turning about its middle on the centre line as fast as the pair turns
+  (Duet's own rod); half bars never move. They make four chapters of ten waves written as text in
+  `duet/waves.ts`, one obstacle a line with its distance behind the one before in R: **I · DRIFT**
+  (95 to 113 px/s, about 2 R a second, still obstacles), **II · SLIDE**, **III · SPIN** and
+  **IV · STORM** (125 to 143 px/s). Each wave falls at its speed, then speeds up evenly over its last
+  35% to 30% faster (15% in chapter I); the pair turns as fast as ever. From chapter II, moving
+  obstacles chain into spirals (three or more moving the same way round, passed holding one turn) and
+  zigzags (each the other way round from the one before, a change of turn at every one), two of
+  each a chapter at least. A `ghost` obstacle is drawn as it enters and fades out, gone 2 R above the
+  circle, yet strikes as any other: in chapter IV's last four waves (its eighth all rods, its ninth all
+  ghosts). A wave is short, three to six obstacles and 8 seconds at most, and none is passed with the
+  orbs held still. An obstacle asking another pose, or a turn, stands at least a quarter turn and a
+  person's reaction behind the one before, at the speed it arrives at. After chapter IV,
+  `ENDLESS · ×2`: waves of one to three of chapter IV's runs, drawn from one fixed seed
+  (`ENDLESS_SEED`, the same for every player), faster (its speed, before the speed-up, from 145 to
+  155 px/s) and never ending; from its 11th wave some obstacles are ghosts, a share rising slowly to
+  40%, and now and then a wave is all rods or all ghosts. `waveProblems` proves every
   chapter wave and the first 200 endless waves passable. A wave passed scores 10, 20 in endless mode;
   nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
   began with (in endless mode, the wave hit with the score it began with), on a ready screen that

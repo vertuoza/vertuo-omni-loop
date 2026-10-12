@@ -5,6 +5,7 @@ import type { FrameState } from '../scenes/common.ts';
 import { createDuet, drawField, hudOf } from './art';
 import { RULES } from './rules';
 import { newRun, pause, press, step, type Run } from './run';
+import { blocksAt, CHAPTERS } from './waves';
 
 // OMNI DUET's playfield and what the text layer reads of a run (PRD 1633, slice 3): the wave's Entropy
 // blocks drawn in Entropy's ramp, in the field's own pixels, without turning or moving the canvas.
@@ -65,6 +66,35 @@ describe('the playfield', () => {
     }) as unknown as CanvasRenderingContext2D;
     drawField(ctx, frame, newRun({ seed: 1 }));
     expect(covering).toEqual([DEFAULT_THEME.void]);
+  });
+
+  it('draws a ghost whole as it enters and fades it out: near the circle, no ghost is drawn at all', () => {
+    // Chapter IV's ninth wave is all ghosts.
+    const chapter = 3, wave = 8;
+    const ghosts = CHAPTERS[chapter]?.waves[wave];
+    if (!ghosts?.pieces.every((p) => p.ghost)) throw new Error('not a wave of ghosts');
+    const tickWhen = (k: number, cy: number) => { let t = 0; while ((blocksAt(ghosts, t)[k]?.cy ?? Infinity) < cy) t++; return t; };
+    /** The Entropy fills drawn `tick` sub-steps into the wave, and the least alpha any was drawn at. */
+    const drawn = (tick: number) => {
+      const fills: number[] = [];
+      const state: Record<string | symbol, unknown> = { globalAlpha: 1 };
+      const ctx = new Proxy(state, {
+        get(target, prop) {
+          if (prop in target) return target[prop];
+          if (prop === 'fillRect') return () => { if (entropy.includes(String(target.fillStyle))) fills.push(Number(target.globalAlpha)); };
+          return () => {};
+        },
+      }) as unknown as CanvasRenderingContext2D;
+      drawField(ctx, frame, { ...newRun({ seed: 1 }), phase: 'play', chapter, wave, tick, started: true });
+      return fills;
+    };
+    const entering = drawn(tickWhen(0, 0));
+    expect(entering.length).toBeGreaterThan(0);
+    expect(Math.max(...entering)).toBe(1);
+    // Its first ghost halfway down its fade (the others, above the playfield, still whole).
+    expect(Math.min(...drawn(tickWhen(0, 22)))).toBeCloseTo(0.5, 1);
+    // The last ghost at the circle's top: every ghost of the wave is gone.
+    expect(drawn(tickWhen(ghosts.pieces.length - 1, RULES.centre.y - RULES.radius))).toEqual([]);
   });
 
   it('draws no block on the ready screen', () => {
