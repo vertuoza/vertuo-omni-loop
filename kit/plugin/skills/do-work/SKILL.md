@@ -1,6 +1,6 @@
 ---
 name: do-work
-description: Build ONE slice of a PRD to standard — grounded in the repository's own context, test-first through red-green-refactor, inside the slice's territory only, every decision taken without asking recorded as an outbox item — then ship it as a sub-PR. The job every /omni:wave subagent does; a person may also run it on one slice. Triggers on "do the slice", "build s3", "/omni:do-work".
+description: Build ONE slice of a PRD to standard — grounded in the repository's own context, test-first through red-green-refactor, inside the slice's territory only, every decision taken without asking recorded as an outbox item — then ship it as a sub-PR. The job every /omni:wave subagent does; a person may also run it on one slice. Under --target, a product PRD (<key>-<n>) takes its plan through omni dossier get and its items go to the server. Triggers on "do the slice", "build s3", "/omni:do-work".
 ---
 
 <!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-do-work/SKILL.md — changes in kit/porting/plugin--do-work.md -->
@@ -38,7 +38,8 @@ prints `hooks none` and `kitStep: run`: the step runs as written.
 | slice | `s5` | a row of the PRD's plan |
 | feature branch | shaped like `branches.feature` | the branch the slice is cut from and its sub-PR targets |
 | `--in-wave` | — | set by `/omni:wave` only. Changes three things, below: the claimed slice branch is checked out rather than cut, medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
-| `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which preflight runs and what the result carries: see **Under `--target <name>`** |
+| `--inline` | — | set by `/omni:wave` only, when the board says `inline` (`wave.inlineBelow`): the plan is small enough for the feature PR to be the record of every slice. The slice is built on the feature branch itself, with no claim, no slice branch and no sub-PR: see **Under `--inline`** |
+| `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository, or for a product PRD (`mobile-12`) in any kitted checkout of its product: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which preflight runs and what the result carries: see **Under `--target <name>`** |
 
 Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) instead.
 
@@ -91,8 +92,12 @@ never overrides this skill's rules.
    locked screen or law is step 3's **A change to a locked screen or law**.
 
 The slice branch is `branches.slice` filled with the feature branch's topic and the slice id.
-Never work on the default branch or on the feature branch.
+Never work on the default branch or on the feature branch (under `--inline`, whose whole point it
+is, the feature branch is where the slice is built).
 
+- **Under `--inline`:** there is no claim and no slice branch. `git fetch <repo.remote>`, then
+  `git switch --detach <repo.remote>/<feature branch>` (detached, because git refuses a branch
+  another worktree holds), and build there.
 - **Under `--in-wave`:** `/omni:wave` has already claimed the slice. Do not cut a fresh branch:
   fetch and check out the existing `<repo.remote>/<slice branch>`, which holds the claim commit.
 - **Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice
@@ -103,7 +108,8 @@ Never work on the default branch or on the feature branch.
 `node .omni-loop/bin/omni.mjs flow show do-work.start --prd <n> --slice <id>` and follow it (**Flow
 points**); its kit step is empty: only its hooks run.
 
-**Heartbeat.** A claim reads as stale when its branch has no commit beyond the claim and the claim
+**Heartbeat.** Under `--inline` there is no claim to keep warm: commit as you go, and push once, at
+step 5. Otherwise a claim reads as stale when its branch has no commit beyond the claim and the claim
 is older than `limits.claimStaleMinutes`; a stale claim can be taken by a second wave. While
 building, commit and push work in progress at least every half of
 `node .omni-loop/bin/omni.mjs config limits.claimStaleMinutes` minutes.
@@ -142,7 +148,7 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
 2. **Record it** with `omni item new`. Write the JSON to a scratch file (never in the repository):
 
    ```bash
-   node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --json            # --in-wave
+   node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --json            # --in-wave, --inline
    node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --json --adopt    # alone
    ```
 
@@ -159,8 +165,8 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
    answers. The kit refuses one without the other. **Never invent a rationale:** a gap you could
    not close goes in `gaps`, marked `(author)`.
    The kit picks the rank and the id; you never do. `--adopt` only acts on a medium item: it goes
-   straight to the ledger. Under `--in-wave`, never pass it — `/omni:wave` adopts after the wave
-   merges, so parallel slices do not race on the ledger.
+   straight to the ledger. Under `--in-wave` or `--inline`, never pass it — `/omni:wave` adopts
+   after the wave, so the slices do not race on the ledger.
 
    **Ask Jev about `hardToRevert`.** Once you have set `hardToRevert` yourself, and before you run
    `omni item new`, write the decision's state to a second scratch file (never in the repository):
@@ -384,6 +390,35 @@ what fails. `stopped` carries the law or principles it would break; `blocked` ca
 human-action item.
 `/omni:wave` merges sub-PRs; a subagent never merges its own.
 
+## Under `--inline`
+
+`/omni:wave` sets it when the board's `inline` is `true` (`wave.inlineBelow`): the plan has so few
+slices that its feature PR is the record of every one. The skill runs as written, with these
+differences.
+
+- **No claim, no slice branch, no sub-PR.** Step 1 builds on a detached head of
+  `<repo.remote>/<feature branch>`; `/omni:pr`'s Claim mode never runs; step 5's item 6 and the point
+  `do-work.ready` do not run, since there is no sub-PR to open or mark ready.
+- **Push once, at step 5**, with `git push <repo.remote> HEAD:<feature branch>`, so that
+  `<repo.remote>/<feature branch>` stays the slice's base through steps 4 and 5: the design check, the
+  coverage grade and the generated-files check all read it so. A push the remote refuses as not a
+  fast-forward: `git fetch <repo.remote>`, `git merge <repo.remote>/<feature branch>`, run the
+  preflight again and push again; it counts as one attempt of `limits.attempts`.
+- **The built mark.** Once the preflight and the checks are green, and before that push, make the
+  slice's last commit, an empty one (`git commit --allow-empty`) when nothing is left to commit,
+  titled `chore(delivery): slice <id> of PRD <n> built`. Its message ends with the trailer block:
+  the line `Omni-Slice: <id>` first, then the co-author trailer your session requires, then the line
+  `omni sign trailer` prints as the message's last line, with no blank line between them. That line
+  is how `omni board` reads the slice as built, so it is on this commit alone, never on a
+  work-in-progress commit.
+- **A slice that does not end `done`** (`red`, `stopped`, `blocked`) makes no built mark and pushes
+  nothing to the feature branch, which stays as green as the last slice left it. Everything it did
+  goes to the slice branch (`branches.slice` filled with the topic and the slice id) with a plain
+  `git push <repo.remote> HEAD:<slice branch>`, and no pull request is opened. `summary` says where
+  the work is, and an item it wrote is on that branch.
+- **The result** is `--in-wave`'s, with `branch` the feature branch and `prUrl` `null` when `done`,
+  and `branch` the slice branch and `prUrl` `null` otherwise.
+
 ## Under `--target <name>`
 
 In a plan repository (its config has a `plan` section), a slice whose plan row names another
@@ -439,6 +474,26 @@ with these differences.
 - **Ship.** Commit in the slice's worktree, signed as above (`omni sign trailer` is run from the
   plan repository), push the slice branch to the clone's remote, heartbeat included, and hand off
   to `/omni:pr --repo <slug>` for the sub-PR into the target's feature branch.
+- **A product PRD** (◆, its id `<key>-<n>`, as `mobile-12`, PRD 1548) has no plan repository and
+  no folder: `/omni:ultra-wave`'s **From a product** runs this slice from any kitted checkout of a
+  repository the product holds, and every `omni` command above runs there, with the PRD's id for its
+  number. What differs:
+  - **Where.** The clone is `<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`, and
+    the slice and feature branches are `branches.slice` and `branches.feature` filled with `<key>-<n>` as the topic.
+  - **Reading.** Step 1's `omni prd <key>-<n>` prints where the PRD stands (`state: inbox`, its
+    `approval:` lines), not a folder. Take the plan and the spec from the server:
+    `node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan` and `… spec`, each writing a scratch
+    file and printing its path, then `sha256 <hash>`; read the slice's row from that plan. A
+    `state:` other than `inbox` (`drifted`, `unreachable`) builds nothing: return `stopped`, its
+    line in `summary`. `held · server unreachable · held, not failed` from `dossier get` does the
+    same.
+  - **Items** go to the scratch folder as above, then to the server when relayed:
+    `node .omni-loop/bin/omni.mjs item new --prd <key>-<n> --slice <id> --file <file> --out <scratch dir> --json`.
+    The kit checks each one as `omni check outbox` would, and refuses one exactly as above. An
+    account is written as above, but the Omni page keeps none yet: the relay leaves it in the
+    scratch folder, so name every risky change it covers in `risks` too.
+  - **No checks in a plan repository.** `omni check coverage --prd` and `omni check all` read a
+    repository's PRD only: neither runs on a product PRD's slice, and the hand-off says so.
 - **The result** of `--in-wave` gains `repo` (`<name>`) and `out` (the scratch folder); each item's
   `file` is its path in that folder:
 

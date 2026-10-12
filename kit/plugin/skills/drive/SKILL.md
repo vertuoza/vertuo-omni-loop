@@ -137,6 +137,27 @@ then one per entry of `running`, `running: step <step> · PRD <prd> · <kind> si
 per entry of `held`, `held: <why>`. When `steps` is empty, print `step <step>/<of> · PRD <prd> ·
 <verdict> <skill> · <why>` for `step`, as it is.
 
+**A read the loop cannot make is held, not failed.** `omni next`, like `omni board`, `omni care`,
+`omni roadmap`'s gate and `omni flow check merge`, reads the loop's state through the Omni page
+(`ask.url`), never through `gh`. When no read can be made, it prints no document: it exits `1` with
+one of these lines alone on stderr.
+
+| line | what a person does |
+|---|---|
+| `no sign-in (omni signin)` | signs in on this machine (`omni signin`), or sets `OMNI_TOKEN` |
+| `unreachable` | nothing: the Omni page did not answer within 15 seconds |
+| `refused (403): <owner/repo> is not in your workspace` | adds the repository to their workspace |
+| `refused (424): the Omni app cannot read <owner/repo>: <install link>` | installs the Omni app on it, at the link |
+| `refused (429): GitHub's budget for <owner/repo> is spent until <time>` | nothing: the budget refills at that time |
+| `refused (404): this Omni page cannot read the loop yet` | updates the Omni page `ask.url` names, or points `ask.url` at one that serves the loop |
+
+Each is **held, not failed**, as an unanswered approval is: print `held: <the line>`, launch
+nothing, record one `--action wait` tick whose `--result` is that line, and wake in 20 minutes
+(**Waking up**), never counting it as a step that failed and never reading through `gh` instead. A
+line that names one repository (a 403, 424 or 429) holds only the work in it: `omni next` answers
+that PRD `wait` and carries on with the others. A step agent that returns one of these lines held
+its step the same way: record its tick with the line, never a failure.
+
 ## 3. Act on it
 
 **Launch.** Count this session's **step agents**, the ones it launched that have not returned yet.

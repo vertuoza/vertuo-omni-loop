@@ -28,24 +28,6 @@ export const GhPullRequestSchema = z.looseObject({
   head: z.looseObject({ ref: z.string() }).nullish(),
 });
 
-/** One pull request of `gh pr list --json …`, the fields the board reads; each may be missing. */
-const GhPrListItemSchema = z.looseObject({
-  number: PrNumberSchema.optional(),
-  title: z.string().optional(),
-  headRefName: z.string().optional(),
-  baseRefName: z.string().optional(),
-  state: z.string().optional(),
-  isDraft: z.boolean().optional(),
-  mergedAt: z.string().nullish(),
-  body: z.string().optional(),
-  labels: z.array(z.union([z.string(), z.looseObject({ name: z.string().nullish() })]).nullish()).nullish(),
-  updatedAt: z.string().optional(),
-  createdAt: z.string().nullish(),
-});
-
-/** What `gh pr list --json …` prints: every pull request it found. */
-export const GhPrListSchema = z.array(GhPrListItemSchema);
-
 /** What `gh pr list --json number,state,updatedAt` prints: the feature branch's pull requests. */
 export const GhPrStatesSchema = z.array(z.looseObject({ number: PrNumberSchema, state: z.string().optional(), updatedAt: z.unknown().optional() }));
 
@@ -64,9 +46,4 @@ export const GhReplyMutationSchema = z.looseObject({
         .nullish(),
     })
     .nullish(),
-});
-
-/** What `gh pr view <n> --json commits` prints: the pull request's commits, oldest first. */
-export const GhPrCommitsSchema = z.looseObject({
-  commits: z.array(z.looseObject({ committedDate: z.string().nullish(), authoredDate: z.string().nullish() })).nullish(),
 });

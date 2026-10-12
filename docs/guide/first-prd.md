@@ -102,7 +102,8 @@ gives all four reasons.
 phase 0 is approved on the Omni page, the brainstorm says `phase 0: server` and opens no phase-0 pull
 request. Review the same three files on the PRD's page, then press **Approve** there: the page
 records who approved and when, and pins the files you approved. If one changes on the feature branch
-afterwards, the build refuses until you restore it or approve again.
+afterwards, the build refuses until you restore it (`omni approval restore <n>`) or approve again,
+and the feature pull request's `omni/approved` check says so.
 [Phase 0 approved on the server](/docs/loop#phase-0-approved-on-the-server) says more.
 
 ## 3. Build it: `/clear`, then `/omni:yolo <n>`

@@ -4,8 +4,9 @@ repo:
   slug: vertuoza/vertuo-omni-loop
   defaultBranch: main
 paths:
-  # No CLAUDE.md or AGENTS.md at the root; apps/galaxy/AGENTS.md is the arcade's own, scoped to its folder.
-  context: []
+  # The root AGENTS.md is this repository's agent instructions, for any coding agent; the root CLAUDE.md
+  # imports it (@AGENTS.md). apps/galaxy/AGENTS.md is the arcade's own, scoped to its folder.
+  context: [AGENTS.md]
 labels:
   autoCreate: false
 commands:

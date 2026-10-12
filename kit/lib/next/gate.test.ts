@@ -1,9 +1,10 @@
 // PRD 1299, slice s5: `omni next <prd>` reads a ◆ PRD's approval through `prdState()` first, through
-// `main()` on a fixture repository, with GitHub stubbed empty and the approval route stubbed.
+// `main()` on a fixture repository, with the loop's reads empty and the approval route stubbed.
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { main } from '../../bin/omni.ts';
 import { makeRepo, realExec } from '../../test/fixture.ts';
+import { fakeLoopReads } from '../loop-reads/fake.ts';
 import { WAKE_HINTS } from './decide.ts';
 
 const LINK = 'https://omni.test/prd/acme/widgets/7';
@@ -12,7 +13,7 @@ const DIR = '.omni-loop/delivery/inbox/0007-widgets';
 const PLAN = ['# A plan', '', '| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', '| s1 | Alpha | `a/` | — | 1 |', ''].join('\n');
 const spec = (server: boolean) => `---\nprd: 7\ntitle: A\nblocked-by: none\nspec: file\n${server ? 'phase0: server\n' : ''}---\n\n# A\n`;
 
-/** gh answers every list with nothing (no phase-0 PR, no feature PR, no sub-PR); git runs, fetch aside. */
+/** git runs, fetch aside; anything else answers an empty list. */
 function exec(file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string {
   if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
   return '[]';
@@ -27,7 +28,9 @@ async function nextOf(server: boolean, body: unknown) {
   };
   const out: string[] = [];
   const tokens = { read: () => ({ access_token: 'a', refresh_token: 'r' }), write: () => undefined };
-  const code = await main(['next', '7', '--json'], { cwd: root, exec, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => undefined }, env: {}, tokens, fetch });
+  // The loop's reads (PRD 1665) answer nothing from the shared fake: `fetch` stands for the approval route alone.
+  const reads = fakeLoopReads();
+  const code = await main(['next', '7', '--json'], { cwd: root, exec, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => undefined }, env: {}, tokens, fetch, reads });
   const parsed: unknown = JSON.parse(out.join(''));
   return { code, verdict: (parsed as { prds: unknown[] }).prds[0], urls };
 }

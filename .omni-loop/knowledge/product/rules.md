@@ -35,7 +35,7 @@ Merged: @pierrederval, 2026-09-25, PR #9
 
 ## BR-PRODUCT-4
 
-Every slice is claimed by a draft pull request before it is built, however it is started: the wave claims under --in-wave, and do-work run alone opens the claim itself when none exists.
+Every slice is claimed by a draft pull request before it is built, however it is started, except in a plan of fewer slices than `wave.inlineBelow`, which is built on its feature branch and whose feature PR is the record of every slice: the wave claims under --in-wave, and do-work run alone opens the claim itself when none exists.
 
 Serves: P-PRODUCT-4
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s5-02-claim-first-alone, PRD #7
@@ -138,7 +138,7 @@ The ask page offers to send an answer only while the newest round is open, reada
 
 Serves: P-PRODUCT-12
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s4-02-question-moves-on-time, PRD #71
-Enforced by: pending #1475
+Enforced by: apps/galaxy/src/ask/page/view.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -321,11 +321,11 @@ Merged: @pierrederval, 2026-09-26, PR #101
 
 ## BR-PRODUCT-30
 
-When the arcade cannot read a signed-in person's memberships, domain join or loaders, it treats them as crew: it shows the galaxy-out-of-reach message and never the wrong-account screen.
+When the arcade cannot read a signed-in person's memberships or loaders, it treats them as crew: it shows the galaxy-out-of-reach message and never the wrong-account screen.
 
 Serves: P-PRODUCT-28
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
-Enforced by: pending #1491
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -336,7 +336,7 @@ The public /design page dresses its heroes only in the six built-in fleets of th
 
 Serves: P-PRODUCT-29
 Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
-Enforced by: pending #1492
+Enforced by: apps/galaxy/src/design/render.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #153
@@ -347,7 +347,7 @@ The arcade shows only the XP earned in the workspace it plays for a person, the 
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s2-01-xp-read-in-the-workspace-played, PRD #160
-Enforced by: pending #1493
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -358,7 +358,7 @@ When the phone turns during an invaders game, the game keeps the field it starte
 
 Serves: P-PRODUCT-31
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
-Enforced by: pending #1494
+Enforced by: apps/galaxy/src/arcade/game-field.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -369,7 +369,7 @@ In the arcade invaders game, alien rows are ordered by what each Entropy kind pa
 
 Serves: P-PRODUCT-32
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
-Enforced by: pending #1495
+Enforced by: apps/galaxy/src/arcade/games/invaders.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -391,7 +391,7 @@ The arcade reads high scores only for players who linked GitHub, separately from
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-04-scores-read-on-their-own, PRD #160
-Enforced by: pending #1497
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -402,7 +402,7 @@ The level-up screen names the first registry game whose unlock level is above th
 
 Serves: P-PRODUCT-35
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
-Enforced by: pending #1498
+Enforced by: apps/galaxy/src/arcade/levelup.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -457,7 +457,7 @@ Whenever a player enters the arcade menu, including through the #menu link, with
 
 Serves: P-PRODUCT-39
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
-Enforced by: pending #1503
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
@@ -468,7 +468,7 @@ When a signed-in person with no galaxy on their page follows a link to the game'
 
 Serves: P-PRODUCT-40
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
-Enforced by: pending #1504
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
@@ -479,7 +479,7 @@ While the OPEN THE APP? confirm is open, the arcade's timed hand-overs (boot, in
 
 Serves: P-PRODUCT-41
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
-Enforced by: pending #1505
+Enforced by: apps/galaxy/src/arcade/leave.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
@@ -490,7 +490,7 @@ On HOME, pressing Enter runs PRESS START unless the focus is on a button, link o
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
-Enforced by: pending #1506
+Enforced by: apps/galaxy/src/home/start.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
@@ -523,7 +523,7 @@ When a workspace has no fleets, the arcade menu keeps its FLEETS entry, hinted a
 
 Serves: P-PRODUCT-45
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
-Enforced by: pending #1509
+Enforced by: apps/galaxy/src/arcade/scenes/menu.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
@@ -589,7 +589,7 @@ On a person's profile, a PRD, bug fix or visual update is listed for the chosen 
 
 Serves: P-PRODUCT-51
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
-Enforced by: pending #1515
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
@@ -611,7 +611,7 @@ When the hero loses a life with lives left, the stage waits on its ready screen 
 
 Serves: P-PRODUCT-53
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
-Enforced by: pending #1517
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
@@ -622,7 +622,7 @@ The corner game box never takes the page's Tab or Shift keys, so a reader can al
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s4-02-dock-select-stays-with-the-page, PRD #817
-Enforced by: pending #1518
+Enforced by: apps/galaxy/src/play-dock/dock-keys.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
@@ -633,7 +633,7 @@ On a stage clear screen, A or START goes on to the next stage's ready screen wit
 
 Serves: P-PRODUCT-54
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
-Enforced by: pending #1519
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
@@ -784,7 +784,7 @@ Merged: @pierrederval, 2026-10-06, PR #1119
 
 ## BR-PRODUCT-72
 
-The care list reads a bug's fix pull requests from its fix-plan table, one per row in table order, and takes the bug's record from the pull requests GitHub links as closing it. A repository with no pull request yet is left off until one opens.
+The care list reads a bug's fix pull requests from its fix-plan table, one per row in table order, and takes the bug's record from the pull requests of the plan's own repository that the loop reports as closing it. A repository with no pull request yet is left off until one opens.
 
 Serves: P-PRODUCT-64
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
@@ -792,6 +792,7 @@ Enforced by: kit/bin/care.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
+Reworded: @pierrederval, 2026-10-12, the bug's record comes from the plan repository's closing pull requests as the Omni page reports them since #1665 (entry s4-05-law-proofs-on-loop-reads)
 
 ## BR-PRODUCT-73
 

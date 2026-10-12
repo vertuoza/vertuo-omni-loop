@@ -35,13 +35,14 @@ const voidOf = (id: string, kind: string, from: string, to: string) => ({
 
 const REACHED = [{ user: IRISA, email: 'irisa@acme.test', devices: [{ id: VOID_PLAN, endpoint: 'https://push.example/1', p256dh: 'k', auth: 'a' }] }];
 
-function world(answers: Record<string, Raw | Error>, { reach = true } = {}) {
+function world(answers: Record<string, Raw | Error>, { reach = true, unlabel = (): Promise<void> => Promise.resolve() }: { reach?: boolean; unlabel?: TellDeps['unlabel'] } = {}) {
   const caller = stub(answers);
   const service = stub(answers);
   const pushed: Array<{ endpoint: string; payload: string }> = [];
   const emailed: Array<{ to: string; subject: string; text: string; html: string }> = [];
   const contacts: string[] = [];
   const lines: string[] = [];
+  const unlabelled: string[] = [];
   const channels = (contact: string): Channels => {
     contacts.push(contact);
     return {
@@ -55,8 +56,9 @@ function world(answers: Record<string, Raw | Error>, { reach = true } = {}) {
     reach: reach ? voidReachRepository(service.db) : null,
     channels,
     log: (line) => { lines.push(line); },
+    unlabel: (repo, prd) => { unlabelled.push(`${repo}#${Number(prd)}`); return unlabel(repo, prd); },
   };
-  return { deps, caller, service, pushed, emailed, contacts, lines, tell: () => tellVoids(deps, DOSSIER, 'https://omni.example') };
+  return { deps, caller, service, pushed, emailed, contacts, lines, unlabelled, tell: () => tellVoids(deps, DOSSIER, 'https://omni.example') };
 }
 
 describe('tellVoids', () => {
@@ -115,5 +117,37 @@ describe('tellVoids', () => {
     const w = world({ approval_voids_of_push: new Error('connection reset') });
     await expect(w.tell()).resolves.toBeUndefined();
     expect(w.lines).toEqual([`approvals: telling the approver of dossier ${DOSSIER}'s void failed: connection reset`]);
+  });
+
+  // PRD 1612 s2: a void removes the approved label, so the App reruns the omni/approved check.
+  it("removes the approved label from the voided PRD's issue, once per push", async () => {
+    const w = world({
+      approval_voids_of_push: { data: [voidOf(VOID_SPEC, 'spec', 'a', 'b'), voidOf(VOID_PLAN, 'plan', 'c', 'd')], error: null },
+      approval_void_recipients: { data: REACHED, error: null },
+    });
+    await w.tell();
+    expect(w.unlabelled).toEqual(['acme/mobile#7']);
+  });
+
+  it('removes the label even when nobody can be told', async () => {
+    const w = world({ approval_voids_of_push: { data: [voidOf(VOID_PLAN, 'plan', 'a', 'b')], error: null } }, { reach: false });
+    await w.tell();
+    expect(w.unlabelled).toEqual(['acme/mobile#7']);
+  });
+
+  it('removes nothing when the push voided nothing', async () => {
+    const w = world({ approval_voids_of_push: { data: [], error: null } });
+    await w.tell();
+    expect(w.unlabelled).toEqual([]);
+  });
+
+  it('logs a label it could not remove, and still tells the approver', async () => {
+    const w = world({
+      approval_voids_of_push: { data: [voidOf(VOID_PLAN, 'plan', 'a', 'b')], error: null },
+      approval_void_recipients: { data: REACHED, error: null },
+    }, { unlabel: () => Promise.reject(new Error('GitHub answered 403')) });
+    await w.tell();
+    expect(w.lines).toEqual(['approvals: PRD #7 of acme/mobile is voided, but its approved label was not removed: GitHub answered 403']);
+    expect(w.pushed).toHaveLength(1);
   });
 });

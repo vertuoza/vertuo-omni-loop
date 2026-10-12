@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ask-device · draft</title>
+<style>
+/* The page itself: Omni's reading tokens (ASK.omni in packages/design/src/tokens.ts). */
+:root {
+  --page: #07061c; --page-ink: #f2f4ff; --page-muted: #8a90d6; --page-line: #1a2170; --page-line-strong: #5a60c4; --page-plasma: #ffd84a;
+  --chrome: #e8e8ec; --chrome-ink: #3c3c43; --chrome-muted: #6b6b73;
+  --read: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --pixel: "Press Start 2P", "Courier New", monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--page-ink); font: 17px/1.6 var(--read); }
+main.doc { max-width: 1320px; margin: 0 auto; padding: 32px 16px 72px; }
+h1 { font-size: 1.7rem; margin: 0 0 4px; }
+h2 { font-size: 1.35rem; margin: 56px 0 8px; border-bottom: 1px solid var(--page-line); padding-bottom: 6px; }
+h3 { font-size: .95rem; margin: 32px 0 8px; color: var(--page-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+p.lead, p.note { color: var(--page-muted); margin: 0 0 14px; max-width: 900px; }
+.doc code { font: .88em var(--mono); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 12px 0 6px; }
+.trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 12px 0 6px; }
+@media (max-width: 1000px) { .pair, .trio { grid-template-columns: 1fr; } }
+.col { min-width: 0; }
+.tag { display: inline-block; font-size: .8rem; padding: 1px 9px; border: 1px solid var(--page-line-strong); border-radius: 999px; margin-bottom: 8px; color: var(--page-muted); }
+.tag.after { border-color: var(--page-plasma); color: var(--page-plasma); }
+.caption { color: var(--page-muted); font-size: .9rem; margin: 6px 0 0; max-width: 900px; }
+table.map { border-collapse: collapse; width: 100%; font-size: .93rem; margin: 10px 0; }
+.map th, .map td { text-align: left; border-bottom: 1px solid var(--page-line); padding: 7px 8px; vertical-align: top; }
+.map th { color: var(--page-muted); font-weight: 600; }
+.tree { background: #000; border: 1px solid var(--page-line); border-radius: 8px; padding: 12px 14px; font: 13px/1.6 var(--mono); white-space: pre; overflow-x: auto; color: #d7dae8; }
+.tree .add { color: #4ee08a; } .tree .mv { color: #ffd84a; } .tree .dim { color: #7c80a6; }
+.screens-line { font: 14px/1.5 var(--mono); color: var(--page-ink); background: #0e0d33; border: 1px solid var(--page-line); border-radius: 8px; padding: 8px 12px; display: inline-block; }
+
+/* A browser window around each screen. */
+.win { border: 1px solid var(--page-line-strong); border-radius: 10px; overflow: hidden; }
+.bar { background: var(--chrome); color: var(--chrome-ink); font: 12px/1 var(--read); padding: 8px 12px; display: flex; gap: 8px; align-items: center; }
+.bar .url { flex: 1; background: #fff; border-radius: 6px; padding: 6px 10px; color: var(--chrome-muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.phone { max-width: 393px; margin: 0 auto; border-radius: 22px; }
+
+/* ── The screens: Ask's three themes, as the product names them ─────────── */
+.screen { --ground:#07061c; --surface:#120f3a; --sunk:#0e0d33; --line:#1a2170; --line-strong:#5a60c4; --ink:#f2f4ff; --muted:#8a90d6;
+  --plasma:#ffd84a; --plasma-soft:#2a2350; --on-plasma:#07061c; --cyan:#6ff0ff; --green:#4ee08a; --red:#ff6b86;
+  background: var(--ground); color: var(--ink); font: 15px/1.6 var(--read); position: relative; }
+.screen.t-light { --ground:#f5f4fc; --surface:#ffffff; --sunk:#eceaf8; --line:#d9d6ee; --line-strong:#85819f; --ink:#17153d; --muted:#4f5486;
+  --plasma:#4b1fb0; --plasma-soft:#efe7ff; --on-plasma:#ffffff; --cyan:#0b6f86; --green:#15703f; --red:#b3122f; }
+.screen.t-dark { --ground:#0e0d33; --surface:#16144a; --sunk:#1d1a58; --line:#2f2c78; --line-strong:#6d6acc; --ink:#f2f4ff; --muted:#a9aee6;
+  --plasma:#b37cff; --plasma-soft:#2a1d66; --on-plasma:#0e0d33; --cyan:#6ff0ff; --green:#4ee08a; --red:#ff6b86; }
+
+/* The card, as ask.css draws it. */
+.card { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; padding: 20px; width: 100%; max-width: 460px; text-align: left; }
+.card h4 { margin: 0 0 8px; font-size: 1.12rem; line-height: 1.35; }
+.card p { margin: 0 0 14px; color: var(--muted); font-size: .94rem; }
+.card p:last-child { margin-bottom: 0; }
+.card a { color: var(--cyan); }
+.card code { font: .9em var(--mono); color: var(--ink); }
+.btn { display: inline-block; font: 600 15px/1 var(--read); padding: 11px 16px; border-radius: 8px; border: 1px solid var(--plasma); background: var(--plasma); color: var(--on-plasma); }
+.btn.quiet { background: transparent; color: var(--cyan); border-color: transparent; padding-left: 4px; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.row:last-child { margin-bottom: 0; }
+.ok-mark { color: var(--green); }
+/* Today's code: mono. After: the pixel face at 24 px (3 × 8). */
+.code { font: 600 26px/1 var(--mono); letter-spacing: .14em; color: var(--ink); background: var(--sunk); border: 1px solid var(--line-strong); border-radius: 8px; padding: 14px 0; text-align: center; margin: 0 0 16px; }
+.code.pixel { font: 24px/1 var(--pixel); letter-spacing: 0; padding: 18px 0; }
+.phone .code.pixel { font-size: 16px; }
+
+/* Today: the app shell around the card. */
+.shell { display: grid; grid-template-columns: 168px 1fr; min-height: 380px; }
+.side { background: #0f0d34; border-right: 1px solid var(--line); padding: 12px 10px; font-size: 12px; }
+.side .brand { font: 10px/1 var(--pixel); color: var(--plasma); margin: 4px 0 4px; }
+.side .ws { color: var(--muted); margin-bottom: 12px; }
+.side .grp { font-size: 10px; letter-spacing: .08em; color: var(--muted); margin: 10px 0 4px; }
+.side .it { padding: 3px 6px; border-radius: 5px; color: var(--ink); }
+.side .it.on { outline: 1px solid var(--plasma); color: var(--plasma); }
+.topbar { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line-strong); padding: 10px 14px; font-size: 13px; }
+.topbar .trail { flex: 1; } .topbar .trail span { color: var(--muted); }
+.pill { border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 8px; font-size: 11px; }
+.pill.y { background: var(--plasma); color: var(--on-plasma); border-color: var(--plasma); }
+.shell .body { padding: 18px; }
+.shell .card { max-width: none; }
+
+/* Today: /signup's bare column. */
+.bare { padding: 28px 20px 36px; min-height: 380px; }
+
+/* After: the doorway. */
+.doorway { min-height: 440px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 40px 16px; overflow: hidden; }
+.doorway .stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+.doorway.t-light .stars { display: none; }
+.doorway > :not(.stars) { position: relative; }
+.doorway .mark { display: block; line-height: 0; }
+.doorway .foot { color: var(--muted); font-size: .85rem; }
+.doorway .foot a { color: var(--muted); }
+.phone .doorway { min-height: 600px; padding: 32px 16px; justify-content: flex-start; padding-top: 72px; }
+.mini .doorway { min-height: 340px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px; margin-top: 16px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="crest" viewBox="0 0 122 18"><path fill="#1a2170" d="M4 0h6v1h-6zM18 0h4v1h-4zM26 0h8v1h-8zM38 0h16v1h-16zM60 0h4v1h-4zM76 0h6v1h-6zM94 0h6v1h-6zM108 0h10v1h-10zM3 1h2v1h-2zM9 1h1v1h-1zM12 1h3v1h-3zM18 1h1v1h-1zM21 1h1v1h-1zM26 1h1v1h-1zM29 1h2v1h-2zM33 1h1v1h-1zM38 1h1v1h-1zM41 1h2v1h-2zM53 1h1v1h-1zM60 1h1v1h-1zM63 1h1v1h-1zM75 1h2v1h-2zM81 1h1v1h-1zM84 1h3v1h-3zM93 1h2v1h-2zM99 1h1v1h-1zM102 1h3v1h-3zM108 1h1v1h-1zM117 1h1v1h-1zM2 2h2v1h-2zM9 2h1v1h-1zM11 2h2v1h-2zM14 2h2v1h-2zM18 2h1v1h-1zM21 2h6v1h-6zM29 2h2v1h-2zM33 2h1v1h-1zM38 2h1v1h-1zM41 2h2v1h-2zM53 2h1v1h-1zM60 2h1v1h-1zM63 2h1v1h-1zM74 2h2v1h-2zM81 2h1v1h-1zM83 2h2v1h-2zM86 2h2v1h-2zM92 2h2v1h-2zM99 2h1v1h-1zM101 2h2v1h-2zM104 2h2v1h-2zM108 2h1v1h-1zM117 2h3v1h-3zM1 3h2v1h-2zM9 3h3v1h-3zM15 3h2v1h-2zM18 3h1v1h-1zM23 3h2v1h-2zM29 3h2v1h-2zM33 3h1v1h-1zM38 3h1v1h-1zM41 3h6v1h-6zM49 3h5v1h-5zM60 3h1v1h-1zM63 3h1v1h-1zM73 3h2v1h-2zM81 3h3v1h-3zM87 3h2v1h-2zM91 3h2v1h-2zM99 3h3v1h-3zM105 3h2v1h-2zM108 3h1v1h-1zM111 3h6v1h-6zM119 3h1v1h-1zM0 4h2v1h-2zM6 4h5v1h-5zM16 4h3v1h-3zM23 4h2v1h-2zM29 4h2v1h-2zM33 4h3v1h-3zM38 4h1v1h-1zM41 4h1v1h-1zM46 4h1v1h-1zM49 4h1v1h-1zM60 4h1v1h-1zM63 4h1v1h-1zM72 4h2v1h-2zM78 4h5v1h-5zM88 4h4v1h-4zM96 4h5v1h-5zM106 4h3v1h-3zM111 4h1v1h-1zM116 4h1v1h-1zM119 4h1v1h-1zM0 5h1v1h-1zM5 5h2v1h-2zM9 5h1v1h-1zM17 5h2v1h-2zM21 5h2v1h-2zM25 5h2v1h-2zM29 5h2v1h-2zM35 5h1v1h-1zM38 5h1v1h-1zM41 5h1v1h-1zM46 5h1v1h-1zM49 5h1v1h-1zM60 5h1v1h-1zM63 5h1v1h-1zM72 5h1v1h-1zM77 5h2v1h-2zM81 5h1v1h-1zM89 5h2v1h-2zM95 5h2v1h-2zM99 5h1v1h-1zM107 5h2v1h-2zM111 5h1v1h-1zM116 5h1v1h-1zM119 5h1v1h-1zM0 6h1v1h-1zM4 6h2v1h-2zM9 6h3v1h-3zM15 6h4v1h-4zM21 6h2v1h-2zM25 6h2v1h-2zM29 6h2v1h-2zM35 6h4v1h-4zM41 6h1v1h-1zM46 6h1v1h-1zM49 6h1v1h-1zM60 6h1v1h-1zM63 6h1v1h-1zM72 6h1v1h-1zM76 6h2v1h-2zM81 6h3v1h-3zM87 6h4v1h-4zM94 6h2v1h-2zM99 6h3v1h-3zM105 6h4v1h-4zM111 6h6v1h-6zM119 6h1v1h-1zM0 7h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM15 7h1v1h-1zM18 7h1v1h-1zM21 7h2v1h-2zM25 7h2v1h-2zM29 7h2v1h-2zM33 7h2v1h-2zM37 7h2v1h-2zM41 7h1v1h-1zM46 7h1v1h-1zM49 7h1v1h-1zM60 7h1v1h-1zM63 7h1v1h-1zM72 7h1v1h-1zM76 7h1v1h-1zM83 7h1v1h-1zM87 7h1v1h-1zM90 7h1v1h-1zM94 7h1v1h-1zM101 7h1v1h-1zM105 7h1v1h-1zM108 7h1v1h-1zM117 7h3v1h-3zM0 8h1v1h-1zM4 8h1v1h-1zM11 8h1v1h-1zM15 8h1v1h-1zM18 8h1v1h-1zM21 8h2v1h-2zM25 8h2v1h-2zM29 8h2v1h-2zM33 8h2v1h-2zM37 8h2v1h-2zM41 8h1v1h-1zM46 8h1v1h-1zM49 8h1v1h-1zM60 8h1v1h-1zM63 8h1v1h-1zM72 8h1v1h-1zM76 8h1v1h-1zM83 8h1v1h-1zM87 8h1v1h-1zM90 8h1v1h-1zM94 8h1v1h-1zM101 8h1v1h-1zM105 8h1v1h-1zM108 8h1v1h-1zM117 8h1v1h-1zM0 9h1v1h-1zM4 9h2v1h-2zM10 9h2v1h-2zM15 9h1v1h-1zM18 9h1v1h-1zM21 9h6v1h-6zM29 9h2v1h-2zM33 9h4v1h-4zM41 9h1v1h-1zM46 9h1v1h-1zM49 9h1v1h-1zM60 9h1v1h-1zM63 9h1v1h-1zM72 9h1v1h-1zM76 9h2v1h-2zM82 9h2v1h-2zM87 9h1v1h-1zM90 9h1v1h-1zM94 9h2v1h-2zM100 9h2v1h-2zM105 9h1v1h-1zM108 9h1v1h-1zM111 9h7v1h-7zM0 10h1v1h-1zM5 10h2v1h-2zM9 10h2v1h-2zM15 10h1v1h-1zM18 10h1v1h-1zM21 10h1v1h-1zM26 10h1v1h-1zM29 10h2v1h-2zM33 10h1v1h-1zM36 10h1v1h-1zM41 10h1v1h-1zM46 10h1v1h-1zM49 10h1v1h-1zM60 10h1v1h-1zM63 10h1v1h-1zM72 10h1v1h-1zM77 10h2v1h-2zM81 10h2v1h-2zM87 10h1v1h-1zM90 10h1v1h-1zM95 10h2v1h-2zM99 10h2v1h-2zM105 10h1v1h-1zM108 10h1v1h-1zM111 10h1v1h-1zM0 11h2v1h-2zM6 11h4v1h-4zM14 11h2v1h-2zM18 11h1v1h-1zM21 11h1v1h-1zM26 11h1v1h-1zM29 11h2v1h-2zM33 11h1v1h-1zM36 11h3v1h-3zM41 11h1v1h-1zM46 11h1v1h-1zM49 11h1v1h-1zM60 11h1v1h-1zM63 11h1v1h-1zM72 11h2v1h-2zM78 11h4v1h-4zM86 11h2v1h-2zM90 11h2v1h-2zM96 11h4v1h-4zM104 11h2v1h-2zM108 11h1v1h-1zM111 11h1v1h-1zM1 12h2v1h-2zM13 12h2v1h-2zM18 12h1v1h-1zM21 12h1v1h-1zM26 12h1v1h-1zM29 12h2v1h-2zM33 12h1v1h-1zM38 12h1v1h-1zM41 12h6v1h-6zM49 12h5v1h-5zM60 12h1v1h-1zM63 12h9v1h-9zM73 12h2v1h-2zM85 12h2v1h-2zM91 12h2v1h-2zM103 12h2v1h-2zM108 12h1v1h-1zM111 12h1v1h-1zM2 13h2v1h-2zM12 13h2v1h-2zM18 13h1v1h-1zM21 13h1v1h-1zM26 13h1v1h-1zM29 13h2v1h-2zM33 13h1v1h-1zM38 13h1v1h-1zM41 13h2v1h-2zM53 13h1v1h-1zM60 13h1v1h-1zM71 13h1v1h-1zM74 13h2v1h-2zM84 13h2v1h-2zM92 13h2v1h-2zM102 13h2v1h-2zM108 13h1v1h-1zM111 13h1v1h-1zM3 14h2v1h-2zM11 14h2v1h-2zM18 14h1v1h-1zM21 14h1v1h-1zM26 14h1v1h-1zM29 14h2v1h-2zM33 14h1v1h-1zM38 14h1v1h-1zM41 14h2v1h-2zM53 14h1v1h-1zM60 14h1v1h-1zM71 14h1v1h-1zM75 14h2v1h-2zM83 14h2v1h-2zM93 14h2v1h-2zM101 14h2v1h-2zM108 14h1v1h-1zM111 14h1v1h-1zM4 15h8v1h-8zM18 15h4v1h-4zM26 15h8v1h-8zM38 15h16v1h-16zM60 15h12v1h-12zM76 15h8v1h-8zM94 15h8v1h-8zM108 15h4v1h-4z"/><path fill="#fff3a8" d="M5 1h4v1h-4zM19 1h2v1h-2zM27 1h2v1h-2zM31 1h2v1h-2zM39 1h2v1h-2zM43 1h10v1h-10zM61 1h2v1h-2zM77 1h4v1h-4zM95 1h4v1h-4zM109 1h8v1h-8zM4 2h5v1h-5zM19 2h2v1h-2zM27 2h1v1h-1zM31 2h2v1h-2zM39 2h1v1h-1zM43 2h9v1h-9zM61 2h2v1h-2zM76 2h5v1h-5zM94 2h5v1h-5zM109 2h8v1h-8zM3 3h6v1h-6zM19 3h4v1h-4zM31 3h2v1h-2zM47 3h2v1h-2zM61 3h2v1h-2zM75 3h6v1h-6zM93 3h6v1h-6zM109 3h2v1h-2zM2 4h4v1h-4zM19 4h3v1h-3zM31 4h2v1h-2zM61 4h2v1h-2zM74 4h4v1h-4zM92 4h4v1h-4zM109 4h2v1h-2zM1 5h2v1h-2zM73 5h2v1h-2zM91 5h2v1h-2z"/><path fill="#6a2fd0" d="M10 2h1v1h-1zM34 2h2v1h-2zM54 2h2v1h-2zM64 2h2v1h-2zM82 2h1v1h-1zM100 2h1v1h-1zM34 3h2v1h-2zM54 3h2v1h-2zM64 3h2v1h-2zM42 4h4v1h-4zM50 4h6v1h-6zM64 4h2v1h-2zM112 4h4v1h-4zM120 4h2v1h-2zM7 5h2v1h-2zM42 5h4v1h-4zM50 5h6v1h-6zM64 5h2v1h-2zM79 5h2v1h-2zM97 5h2v1h-2zM112 5h4v1h-4zM120 5h2v1h-2zM6 6h3v1h-3zM42 6h2v1h-2zM50 6h2v1h-2zM64 6h2v1h-2zM78 6h3v1h-3zM96 6h3v1h-3zM120 6h2v1h-2zM5 7h4v1h-4zM16 7h2v1h-2zM42 7h2v1h-2zM50 7h2v1h-2zM64 7h2v1h-2zM77 7h4v1h-4zM88 7h2v1h-2zM95 7h4v1h-4zM106 7h2v1h-2zM120 7h2v1h-2zM5 8h3v1h-3zM16 8h2v1h-2zM42 8h2v1h-2zM50 8h2v1h-2zM64 8h2v1h-2zM77 8h3v1h-3zM88 8h2v1h-2zM95 8h3v1h-3zM106 8h2v1h-2zM118 8h4v1h-4zM6 9h1v1h-1zM16 9h2v1h-2zM42 9h2v1h-2zM50 9h2v1h-2zM64 9h2v1h-2zM78 9h1v1h-1zM88 9h2v1h-2zM96 9h1v1h-1zM106 9h2v1h-2zM118 9h4v1h-4zM16 10h2v1h-2zM22 10h4v1h-4zM34 10h2v1h-2zM42 10h2v1h-2zM50 10h2v1h-2zM64 10h2v1h-2zM88 10h2v1h-2zM106 10h2v1h-2zM112 10h8v1h-8zM16 11h2v1h-2zM22 11h4v1h-4zM34 11h2v1h-2zM42 11h2v1h-2zM50 11h2v1h-2zM64 11h2v1h-2zM88 11h2v1h-2zM106 11h2v1h-2zM112 11h8v1h-8zM15 12h3v1h-3zM22 12h2v1h-2zM34 12h2v1h-2zM87 12h3v1h-3zM105 12h3v1h-3zM112 12h2v1h-2zM14 13h4v1h-4zM22 13h2v1h-2zM34 13h2v1h-2zM86 13h4v1h-4zM104 13h4v1h-4zM112 13h2v1h-2zM13 14h4v1h-4zM22 14h2v1h-2zM34 14h2v1h-2zM54 14h2v1h-2zM72 14h2v1h-2zM85 14h4v1h-4zM103 14h4v1h-4zM112 14h2v1h-2zM12 15h4v1h-4zM22 15h2v1h-2zM34 15h2v1h-2zM54 15h2v1h-2zM72 15h2v1h-2zM84 15h4v1h-4zM102 15h4v1h-4zM112 15h2v1h-2zM5 16h10v1h-10zM20 16h4v1h-4zM28 16h8v1h-8zM40 16h16v1h-16zM62 16h12v1h-12zM77 16h10v1h-10zM95 16h10v1h-10zM110 16h4v1h-4zM6 17h8v1h-8zM20 17h4v1h-4zM28 17h8v1h-8zM40 17h16v1h-16zM62 17h12v1h-12zM78 17h8v1h-8zM96 17h8v1h-8zM110 17h4v1h-4z"/><path fill="#ffd84a" d="M13 2h1v1h-1zM28 2h1v1h-1zM40 2h1v1h-1zM52 2h1v1h-1zM85 2h1v1h-1zM103 2h1v1h-1zM12 3h3v1h-3zM25 3h4v1h-4zM39 3h2v1h-2zM84 3h3v1h-3zM102 3h3v1h-3zM117 3h2v1h-2zM11 4h5v1h-5zM22 4h1v1h-1zM25 4h4v1h-4zM39 4h2v1h-2zM47 4h2v1h-2zM83 4h5v1h-5zM101 4h5v1h-5zM117 4h2v1h-2zM3 5h2v1h-2zM10 5h6v1h-6zM19 5h2v1h-2zM23 5h2v1h-2zM27 5h2v1h-2zM31 5h4v1h-4zM39 5h2v1h-2zM47 5h2v1h-2zM61 5h2v1h-2zM75 5h2v1h-2zM82 5h6v1h-6zM93 5h2v1h-2zM100 5h6v1h-6zM109 5h2v1h-2zM117 5h2v1h-2zM1 6h3v1h-3zM12 6h1v1h-1zM19 6h2v1h-2zM23 6h2v1h-2zM27 6h1v1h-1zM31 6h4v1h-4zM39 6h1v1h-1zM47 6h2v1h-2zM61 6h2v1h-2zM73 6h3v1h-3zM84 6h1v1h-1zM91 6h3v1h-3zM102 6h1v1h-1zM109 6h2v1h-2zM117 6h1v1h-1zM1 7h3v1h-3zM19 7h2v1h-2zM23 7h2v1h-2zM31 7h2v1h-2zM35 7h2v1h-2zM47 7h2v1h-2zM61 7h2v1h-2zM73 7h3v1h-3zM91 7h3v1h-3zM109 7h6v1h-6zM1 8h3v1h-3zM19 8h2v1h-2zM31 8h2v1h-2zM61 8h2v1h-2zM73 8h3v1h-3zM91 8h3v1h-3zM109 8h3v1h-3zM1 9h3v1h-3zM73 9h3v1h-3zM91 9h3v1h-3z"/><path fill="#ff9b30" d="M16 5h1v1h-1zM88 5h1v1h-1zM106 5h1v1h-1zM13 6h2v1h-2zM28 6h1v1h-1zM40 6h1v1h-1zM85 6h2v1h-2zM103 6h2v1h-2zM118 6h1v1h-1zM12 7h3v1h-3zM27 7h2v1h-2zM39 7h2v1h-2zM84 7h3v1h-3zM102 7h3v1h-3zM115 7h2v1h-2zM12 8h3v1h-3zM23 8h2v1h-2zM27 8h2v1h-2zM35 8h2v1h-2zM39 8h2v1h-2zM47 8h2v1h-2zM84 8h3v1h-3zM102 8h3v1h-3zM112 8h5v1h-5zM12 9h3v1h-3zM19 9h2v1h-2zM27 9h2v1h-2zM31 9h2v1h-2zM37 9h4v1h-4zM47 9h2v1h-2zM61 9h2v1h-2zM84 9h3v1h-3zM102 9h3v1h-3zM109 9h2v1h-2zM1 10h4v1h-4zM11 10h4v1h-4zM19 10h2v1h-2zM27 10h1v1h-1zM31 10h2v1h-2zM37 10h3v1h-3zM47 10h2v1h-2zM61 10h2v1h-2zM73 10h4v1h-4zM83 10h4v1h-4zM91 10h4v1h-4zM101 10h4v1h-4zM109 10h2v1h-2zM2 11h4v1h-4zM10 11h2v1h-2zM19 11h2v1h-2zM31 11h2v1h-2zM47 11h2v1h-2zM61 11h2v1h-2zM74 11h4v1h-4zM82 11h2v1h-2zM92 11h4v1h-4zM100 11h2v1h-2zM109 11h2v1h-2zM3 12h6v1h-6zM19 12h2v1h-2zM31 12h2v1h-2zM61 12h2v1h-2zM75 12h6v1h-6zM93 12h6v1h-6zM109 12h2v1h-2zM4 13h2v1h-2zM76 13h2v1h-2zM94 13h2v1h-2z"/><path fill="#d9531a" d="M28 10h1v1h-1zM40 10h1v1h-1zM12 11h2v1h-2zM27 11h2v1h-2zM39 11h2v1h-2zM84 11h2v1h-2zM102 11h2v1h-2zM9 12h4v1h-4zM27 12h2v1h-2zM39 12h2v1h-2zM47 12h2v1h-2zM81 12h4v1h-4zM99 12h4v1h-4zM6 13h6v1h-6zM19 13h2v1h-2zM27 13h2v1h-2zM31 13h2v1h-2zM39 13h2v1h-2zM43 13h10v1h-10zM61 13h10v1h-10zM78 13h6v1h-6zM96 13h6v1h-6zM109 13h2v1h-2zM5 14h6v1h-6zM19 14h2v1h-2zM27 14h2v1h-2zM31 14h2v1h-2zM39 14h2v1h-2zM43 14h10v1h-10zM61 14h10v1h-10zM77 14h6v1h-6zM95 14h6v1h-6zM109 14h2v1h-2z"/></symbol>
+    <symbol id="stars" viewBox="0 0 320 270" preserveAspectRatio="xMidYMid slice"><path fill="#2e3270" d="M5 29h1v1h-1zM202 193h1v1h-1zM23 160h1v1h-1zM25 160h1v1h-1zM24 159h1v1h-1zM24 161h1v1h-1zM158 80h1v1h-1zM116 92h1v1h-1zM83 94h1v1h-1zM97 44h1v1h-1zM99 44h1v1h-1zM98 43h1v1h-1zM98 45h1v1h-1zM89 13h1v1h-1zM91 13h1v1h-1zM90 12h1v1h-1zM90 14h1v1h-1zM67 102h1v1h-1zM55 175h1v1h-1zM245 96h1v1h-1zM230 228h1v1h-1zM47 114h1v1h-1zM272 40h1v1h-1zM77 48h1v1h-1zM313 81h1v1h-1zM237 94h1v1h-1zM92 26h1v1h-1zM16 154h1v1h-1zM51 207h1v1h-1zM318 26h1v1h-1zM207 236h1v1h-1zM80 154h1v1h-1zM142 122h1v1h-1zM130 7h1v1h-1zM193 59h1v1h-1zM234 192h1v1h-1zM289 14h1v1h-1zM298 157h1v1h-1zM284 49h1v1h-1zM141 141h1v1h-1zM126 1h1v1h-1zM145 110h1v1h-1zM135 110h1v1h-1zM201 158h1v1h-1zM46 261h1v1h-1zM22 146h1v1h-1zM65 131h1v1h-1zM293 25h1v1h-1zM88 92h1v1h-1zM87 92h1v1h-1zM89 92h1v1h-1zM88 91h1v1h-1zM88 93h1v1h-1zM35 89h1v1h-1zM176 244h1v1h-1zM130 152h1v1h-1zM224 195h1v1h-1zM316 81h1v1h-1zM69 259h1v1h-1zM20 36h1v1h-1zM208 55h1v1h-1zM288 68h1v1h-1zM23 55h1v1h-1zM83 167h1v1h-1zM82 167h1v1h-1zM84 167h1v1h-1zM83 166h1v1h-1zM83 168h1v1h-1zM192 23h1v1h-1zM134 264h1v1h-1zM233 189h1v1h-1zM99 55h1v1h-1zM203 103h1v1h-1zM205 103h1v1h-1zM204 102h1v1h-1zM204 104h1v1h-1zM9 5h1v1h-1z"/><path fill="#6a70c0" d="M198 29h1v1h-1zM119 181h1v1h-1zM75 39h1v1h-1zM98 158h1v1h-1zM98 44h1v1h-1zM90 13h1v1h-1zM211 217h1v1h-1zM260 79h1v1h-1zM136 61h1v1h-1zM39 130h1v1h-1zM15 227h1v1h-1zM185 235h1v1h-1zM118 202h1v1h-1zM282 255h1v1h-1zM26 207h1v1h-1zM69 238h1v1h-1zM104 25h1v1h-1zM73 133h1v1h-1zM236 116h1v1h-1zM13 238h1v1h-1zM94 91h1v1h-1zM273 161h1v1h-1zM83 192h1v1h-1zM174 178h1v1h-1zM200 36h1v1h-1zM21 111h1v1h-1zM244 38h1v1h-1zM79 12h1v1h-1zM96 68h1v1h-1zM59 234h1v1h-1zM40 76h1v1h-1zM42 76h1v1h-1zM41 75h1v1h-1zM41 77h1v1h-1zM319 38h1v1h-1zM11 192h1v1h-1zM297 259h1v1h-1zM231 237h1v1h-1zM27 142h1v1h-1zM249 68h1v1h-1zM147 165h1v1h-1zM202 130h1v1h-1zM24 219h1v1h-1zM302 24h1v1h-1zM112 212h1v1h-1zM34 30h1v1h-1zM48 37h1v1h-1zM193 229h1v1h-1zM244 95h1v1h-1zM277 199h1v1h-1zM53 127h1v1h-1zM24 255h1v1h-1zM26 255h1v1h-1zM25 254h1v1h-1zM25 256h1v1h-1zM88 258h1v1h-1zM231 177h1v1h-1zM56 167h1v1h-1zM254 142h1v1h-1zM82 68h1v1h-1zM64 262h1v1h-1zM308 103h1v1h-1zM47 84h1v1h-1z"/><path fill="#ffffff" d="M215 144h1v1h-1zM24 160h1v1h-1zM139 240h1v1h-1zM9 262h1v1h-1zM259 237h1v1h-1zM124 221h1v1h-1zM132 181h1v1h-1zM271 240h1v1h-1zM229 38h1v1h-1zM76 132h1v1h-1zM246 219h1v1h-1zM9 233h1v1h-1zM238 7h1v1h-1zM18 192h1v1h-1zM285 195h1v1h-1zM278 31h1v1h-1zM6 242h1v1h-1zM14 167h1v1h-1zM131 159h1v1h-1zM15 167h1v1h-1zM205 128h1v1h-1zM123 149h1v1h-1zM183 165h1v1h-1zM114 10h1v1h-1zM250 82h1v1h-1zM196 42h1v1h-1zM297 140h1v1h-1zM284 45h1v1h-1zM17 259h1v1h-1zM132 147h1v1h-1zM232 131h1v1h-1zM259 122h1v1h-1zM222 144h1v1h-1zM316 21h1v1h-1zM116 189h1v1h-1zM125 183h1v1h-1zM247 2h1v1h-1zM296 101h1v1h-1zM193 71h1v1h-1zM14 223h1v1h-1zM245 69h1v1h-1zM183 144h1v1h-1zM204 103h1v1h-1z"/><path fill="#c8d0ff" d="M200 172h1v1h-1zM182 91h1v1h-1zM264 11h1v1h-1zM73 231h1v1h-1zM127 254h1v1h-1zM174 166h1v1h-1zM239 260h1v1h-1zM296 141h1v1h-1zM249 239h1v1h-1zM48 244h1v1h-1zM214 243h1v1h-1zM313 172h1v1h-1zM75 141h1v1h-1zM99 177h1v1h-1zM246 52h1v1h-1zM188 171h1v1h-1zM143 190h1v1h-1zM274 209h1v1h-1zM41 76h1v1h-1zM319 201h1v1h-1zM249 47h1v1h-1zM134 109h1v1h-1zM241 251h1v1h-1zM151 203h1v1h-1zM119 240h1v1h-1zM246 210h1v1h-1zM195 160h1v1h-1zM262 56h1v1h-1zM15 72h1v1h-1zM127 65h1v1h-1zM233 32h1v1h-1zM25 255h1v1h-1zM69 41h1v1h-1zM52 92h1v1h-1zM290 52h1v1h-1zM44 124h1v1h-1zM99 266h1v1h-1zM290 109h1v1h-1zM297 118h1v1h-1z"/><path fill="#6ff0ff" d="M21 160h2v1h-2zM26 160h2v1h-2zM24 157h1v2h-1zM24 162h1v2h-1zM201 103h2v1h-2zM206 103h2v1h-2zM204 100h1v2h-1zM204 105h1v2h-1z"/></symbol>
+  </defs>
+</svg>
+<main class="doc">
+  <h1>ask-device</h1>
+  <p class="lead">ask-device in the doorway: confirm, done, enter the code, denied, expired. Draft, from PRD 1705's before/after page.</p>
+  <div class="grid">
+<div class="cell"><div class="win">
+        <div class="bar"><span>●●●</span><span class="url">omni-loop.xyz/ask/device?user_code=8M5T-2LFF</span></div>
+        <div class="screen doorway" data-screen="ask-device-confirm">
+          <svg class="stars" aria-hidden="true"><use href="#stars"/></svg>
+          <a class="mark" href="#" aria-label="OMNI LOOP"><svg width="366" height="54" shape-rendering="crispEdges"><use href="#crest"/></svg></a>
+          <div class="card">
+            <h4>Sign a terminal in</h4>
+            <p>Does your terminal show this code?</p>
+            <div class="code pixel">8M5T-2LFF</div>
+            <div class="row"><span class="btn" data-primary>Yes, sign it in</span><span class="btn quiet">No, it’s not mine</span></div>
+          </div>
+          <div class="foot"><a href="#">Docs</a></div>
+        </div>
+      </div></div>
+<div class="cell"><div class="win">
+        <div class="bar"><span>●●●</span><span class="url">omni-loop.xyz/ask/device?done=1</span></div>
+        <div class="screen doorway" data-screen="ask-device-done">
+          <svg class="stars" aria-hidden="true"><use href="#stars"/></svg>
+          <a class="mark" href="#" aria-label="OMNI LOOP"><svg width="366" height="54" shape-rendering="crispEdges"><use href="#crest"/></svg></a>
+          <div class="card"><h4><span class="ok-mark">✓</span> Back to your terminal</h4><p>Signed in. Close this tab.</p></div>
+          <div class="foot"><a href="#">Docs</a></div>
+        </div>
+      </div></div>
+<div class="cell"><div class="win">
+      <div class="bar"><span class="url">…/ask/device</span></div>
+      <div class="screen doorway" data-screen="ask-device-enter">
+        <svg class="stars" aria-hidden="true"><use href="#stars"/></svg>
+        <a class="mark" href="#" aria-label="OMNI LOOP"><svg width="244" height="36" shape-rendering="crispEdges"><use href="#crest"/></svg></a>
+        <div class="card">
+          <h4>Sign a terminal in</h4>
+          <p>Enter the code your terminal shows.</p>
+          <div class="row"><span class="code" style="margin:0;padding:10px 12px;font-size:18px;width:170px">____-____</span><span class="btn" data-primary>Continue</span></div>
+        </div>
+      </div>
+    </div></div>
+<div class="cell"><div class="win">
+      <div class="bar"><span class="url">…/ask/device?user_code=8M5T-2LFF</span></div>
+      <div class="screen doorway" data-screen="ask-device-denied">
+        <svg class="stars" aria-hidden="true"><use href="#stars"/></svg>
+        <a class="mark" href="#" aria-label="OMNI LOOP"><svg width="244" height="36" shape-rendering="crispEdges"><use href="#crest"/></svg></a>
+        <div class="card"><h4>Nothing was signed in</h4><p>Got this link from someone? Ignore it.</p></div>
+      </div>
+    </div></div>
+<div class="cell"><div class="win">
+      <div class="bar"><span class="url">…/ask/device?user_code=8M5T-2LFF</span></div>
+      <div class="screen doorway" data-screen="ask-device-expired">
+        <svg class="stars" aria-hidden="true"><use href="#stars"/></svg>
+        <a class="mark" href="#" aria-label="OMNI LOOP"><svg width="244" height="36" shape-rendering="crispEdges"><use href="#crest"/></svg></a>
+        <div class="card"><h4 style="color:var(--red)">This link has expired</h4><p>Run <code>omni signin</code> again.</p></div>
+      </div>
+    </div></div>
+  </div>
+</main>
+</body>
+</html>

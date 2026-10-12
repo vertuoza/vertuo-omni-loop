@@ -120,7 +120,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state " +
       '(merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints ' +
-      'it as one document, the one /omni:wave acts on. Needs gh logged in.',
+      'it as one document, the one /omni:wave acts on, with base: whether the branch the next wave ' +
+      'builds on is behind the default branch (a phase-0 merged after the plan), so the wave merges ' +
+      'it in first. Needs gh logged in.',
   },
   {
     name: 'care',
@@ -556,7 +558,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     kind: 'command',
     who: 'you',
     label: 'omni product …',
-    usage: ['omni product import --product <name>', 'omni product which'],
+    usage: ['omni product import --product <name>', 'omni product which', 'omni product use <key>', 'omni product phase0 <owner/name>…'],
     summary: "plan targets into a product; this repo's products",
     detail:
       'omni product import --product <name> copies the targets of this plan repository, its ' +
@@ -566,8 +568,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'changed. A second run changes nothing. It never edits the config: swap targets for ' +
       'product: <name> in the plan section yourself, and omni targets then reads the links from ' +
       'the product. Only an owner of the workspace changes its links. omni product which prints ' +
-      'the products this repository is in, one per line, or none. Either exits 1, with one line ' +
-      'saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses.',
+      'the products this repository is in, one per line, or none, after remembered: <key> when this ' +
+      'checkout remembers one. Either exits 1, with one line saying why, when there is no Omni page ' +
+      'or sign-in, or the page is unreachable or refuses. omni product use <key> remembers the ' +
+      'product this checkout runs from, for every worktree of it, so a product PRD (mobile-12) is ' +
+      'built from here with no plan repository. omni product phase0 <owner/name>… reads each ' +
+      "repository's phase-0 flag and prints one line each, refusing by name any not on server, which " +
+      'a product PRD cannot land in. Exit 0 when every one is on server, 1 otherwise.',
   },
   {
     name: 'whoami',
@@ -790,7 +797,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'approval',
     kind: 'command',
     who: 'you',
-    usage: ['omni approval <n> [--json]', 'omni approval flag [--json]'],
+    usage: ['omni approval <n> [--json]', 'omni approval restore <n>', 'omni approval flag [--json]'],
     summary: "whether a PRD born on the server is approved, and still what was approved",
     detail:
       "Reads PRD n's approval in force on the Omni page, with your sign-in, and compares each file " +
@@ -799,7 +806,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'content, or its whitespace only), which refuses until you restore it or approve again; the ' +
       'server unreachable, which holds the PRD rather than failing it; or refused, when the approver ' +
       'left the workspace or the page answered an error. It exits 0 only when approved. --json ' +
-      'prints the state, who, when and the pinned files. omni approval flag reads where this ' +
+      'prints the state, who, when and the pinned files. The omni/approved check on the PR says ' +
+      'the same, from the same judge. omni approval restore <n> writes each changed or missing ' +
+      'file back from the version that was approved, after checking it hashes as pinned, one line ' +
+      'per file; when a version cannot be read, or the approval was voided, it says approve again ' +
+      'with the PRD page link. It never commits or pushes: review the diff, then push. ' +
+      'omni approval flag reads where this ' +
       "repository's new PRDs are born instead: phase 0: server (approved on the PRD's page) or " +
       'phase 0: pr (a phase-0 PR), as an owner set it on the Omni page; when it cannot be read it ' +
       'says pr, with why, and exits 1. To wait until someone approves rather than read it once, ' +
@@ -994,7 +1006,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
     detail:
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
-      'with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording ' +
+      'with whether a recording of it exists in .e2e/cache (recording) and whether one is expected ' +
+      '(expected: false when the file holds no agent. call, since only an agent step records), and ' +
+      'exits 1 when a test that expects a recording has none; a test with no agent step passes. A recording ' +
       'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
       'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
       'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +
@@ -1102,7 +1116,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'one PRD whose plan says which slice lands in which target repository, read from a ' +
       'read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR ' +
       'and one phase-0 PR, with a table of what lands where, all live in the plan repository; it ' +
-      'never writes in a target. It ends with the /omni:ultra-yolo line that builds it.',
+      'never writes in a target. It ends with the /omni:ultra-yolo line that builds it. With ' +
+      '--product <key>, it runs from any checkout of a repository the product holds, a plan ' +
+      'repository or not, and makes a product PRD (mobile-12) on the Omni page instead: no issue, ' +
+      'no branch and no PR in any repository, every repository it lands in on phase 0 on the server.',
     group: 'multi-repo',
     when: 'Use it when one idea needs changes in several repositories and this is their plan repository.',
     example: {

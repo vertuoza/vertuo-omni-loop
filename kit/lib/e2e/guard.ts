@@ -7,7 +7,7 @@ import { join } from 'node:path';
 export type Finding = { readonly file: string; readonly line: number; readonly kind: string };
 
 const MAX_BYTES = 1_000_000;
-/** The saved-session file name `e2e.setup` writes: refused by name wherever it sits. */
+/** A saved-session file name (only the secondary `e2e.setup` path writes one; the framework's own login writes none under `e2e.dir`): refused by name wherever it sits. */
 const SESSION_FILE = 'storage-state.json';
 /** A value that is obviously a placeholder, not a secret. */
 const PLACEHOLDER = /^(?:x+|\*+|\.+|<[^>]*>|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|process\.env[.\w[\]'"]*|env\.\w+|null|undefined|true|false|changeme|password|secret|token|your[-_ ].*|example.*|redacted.*)$/i;
@@ -74,7 +74,7 @@ export function guardFiles(root: string, files: readonly string[]): Finding[] {
   for (const file of [...new Set(files)].sort()) {
     if (inCache(file)) continue;
     if (file.split('/').pop() === SESSION_FILE) {
-      findings.push({ file, line: 1, kind: 'saved session' });
+      findings.push({ file, line: 1, kind: 'saved session file' });
       continue;
     }
     let text: string;

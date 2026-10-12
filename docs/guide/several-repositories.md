@@ -1,6 +1,6 @@
 ---
 title: Several repositories
-description: One feature across several repositories — a plan repository, its targets, and the mega and ultra skills, in three drawings.
+description: One feature across several repositories — a plan repository, its targets, and the mega and ultra skills, in three drawings, or a product PRD with no plan repository at all.
 ---
 
 Some features land in more than one repository: the business logic in the back-end, the screen
@@ -18,6 +18,10 @@ the code's pull requests open in each target.
 
 The example on this page is the same throughout: PRD 600 lives in `vertuo-automation-plan`; its
 slice s1 lands in `vertuo-backend-php`, and s2 and s3 in `vertuo-apps`.
+
+There is a second way, with no plan repository at all: a **product PRD**, kept on a
+[product](/docs/products) on the Omni page and run from any of its repositories.
+[Without a plan repository](#without-a-plan-repository) compares the two.
 
 ## The repositories
 
@@ -140,10 +144,12 @@ seconds, `omni targets` reads that copy and says `targets from the last read, <d
 unreachable`; with no copy yet, it stops with `no targets: the server is unreachable and nothing was
 read yet`. When the page refuses you, it stops with its reason.
 
-For now only `omni targets` reads a product. The skills that plan and build across repositories, and
-the commands they run, see no target when the config names a product: keep `plan.targets` in a plan
-repository that builds, and name the product once they read it too. A config that keeps
-`plan.targets` works exactly as before.
+`omni board`, `omni next`, `omni care` and `omni flow` read the same targets, so the skills that
+plan, build and look after a PRD work with a product named. When the Omni page cannot be read, each
+uses the last read, with a note, or stops with one line saying why. A few readers still see only
+`plan.targets`, which is empty when the config names a product: the status line's board, roadmaps,
+bug fixes across repositories, `/omni:mega-invade --sync` and the retro. Keep `plan.targets` while
+you need those. A config that keeps `plan.targets` works exactly as before.
 
 ## Plan across them
 
@@ -251,5 +257,24 @@ type:
 It reads your answers on the plan pull request and reworks each decision you changed **in the
 repository it was taken in**: a sub-pull request into that target's feature branch. Then it runs the
 same gate again, and marks the plan pull request ready once no question is left.
+
+## Without a plan repository
+
+A [product PRD](/docs/products#a-product-prd), such as `mobile-12`, is built across the product's
+repositories with no plan repository. Its spec, plan and questions live on its page on the Omni
+page, and you run the same skills from a checkout of any of the product's repositories that has the
+loop installed. Every repository it lands in must have phase 0 on the server.
+
+| step | in a plan repository | as a product PRD |
+|---|---|---|
+| brainstorm | `/omni:mega-brainstorm`: an issue, a draft plan pull request and one phase-0 pull request | `/omni:mega-brainstorm --product mobile`: the PRD on its page, and nothing in any repository |
+| approve | merge the phase-0 pull request | approve it on its page |
+| build | `/omni:ultra-yolo 600` | `/omni:ultra-yolo mobile-12` |
+| each target's feature pull request | the outbox check points at the plan pull request | two checks: `omni/approved`, and the outbox check, read from the Omni page |
+| questions | answered on the plan pull request | answered on the product's **Questions** tab, or in the terminal |
+| the gate | `omni status 600`, then the plan pull request ready last | `omni status mobile-12`, then each target's pull request ready; there is no plan pull request |
+
+[A product PRD](/docs/products#a-product-prd) walks it from brainstorm to ready, with the two checks
+and what does not work yet.
 
 [Next → Roadmaps](/docs/roadmaps)

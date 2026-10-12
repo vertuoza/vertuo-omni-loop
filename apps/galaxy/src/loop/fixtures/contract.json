@@ -1,0 +1,121 @@
+{
+  "changes": {
+    "changes": [
+      {
+        "number": 12,
+        "title": "feat(kit): the board reads the Omni page (PRD 7, s3)",
+        "head": "feat/widgets--s3",
+        "base": "feat/widgets",
+        "state": "draft",
+        "createdAt": "2026-10-11T09:00:00Z",
+        "updatedAt": "2026-10-11T10:00:00Z",
+        "mergedAt": null,
+        "labels": ["omni:sub", "omni:in-progress"],
+        "body": "Part of #7",
+        "url": "https://github.com/acme/widgets/pull/12",
+        "author": "ada"
+      },
+      {
+        "number": 10,
+        "title": "feat(kit): the contract (PRD 7, s1)",
+        "head": "feat/widgets--s1",
+        "base": "feat/widgets",
+        "state": "merged",
+        "createdAt": "2026-10-10T09:00:00Z",
+        "updatedAt": "2026-10-10T12:00:00Z",
+        "mergedAt": "2026-10-10T12:00:00Z",
+        "labels": ["omni:sub"],
+        "body": "Part of #7",
+        "url": "https://github.com/acme/widgets/pull/10",
+        "author": null
+      }
+    ]
+  },
+  "change": {
+    "number": 9,
+    "title": "PRD 7: widgets",
+    "head": "feat/widgets",
+    "base": "main",
+    "state": "open",
+    "createdAt": "2026-10-09T09:00:00Z",
+    "updatedAt": "2026-10-11T10:00:00Z",
+    "mergedAt": null,
+    "labels": ["omni:feature"],
+    "body": "Closes #7",
+    "url": "https://github.com/acme/widgets/pull/9",
+    "author": "ada",
+    "lastCommitAt": "2026-10-11T09:30:00Z",
+    "files": ["src/widgets.ts", "src/widgets.test.ts"],
+    "review": {
+      "checks": [
+        { "name": "test", "state": "success" },
+        { "name": "lint", "state": "failure" },
+        { "name": "deploy", "state": "pending" },
+        { "name": "outbox", "state": "neutral" },
+        { "name": "e2e", "state": "skipped" }
+      ],
+      "mergeable": true,
+      "threads": [
+        {
+          "id": "PRRT_kwDOAbc123",
+          "path": "src/widgets.ts",
+          "line": 12,
+          "resolved": false,
+          "comments": [
+            { "author": "grace", "body": "Name this after what it holds.", "createdAt": "2026-10-11T09:40:00Z" },
+            { "author": "ada", "body": "Renamed.\n\n<!-- omni-care: fixed -->", "createdAt": "2026-10-11T09:50:00Z" }
+          ]
+        },
+        {
+          "id": "PRRT_kwDOAbc124",
+          "path": null,
+          "line": null,
+          "resolved": true,
+          "comments": []
+        }
+      ]
+    }
+  },
+  "comments": {
+    "comments": [
+      {
+        "id": 501,
+        "author": "omni-loop-invader[bot]",
+        "body": "<!-- omni-outbox-status -->\nPR care: watching since 2026-10-11T09:00:00Z · last round 2026-10-11T10:00:00Z",
+        "createdAt": "2026-10-11T09:00:00Z",
+        "updatedAt": "2026-10-11T10:00:00Z"
+      },
+      {
+        "id": 502,
+        "author": null,
+        "body": "Looks good.",
+        "createdAt": "2026-10-11T10:05:00Z",
+        "updatedAt": "2026-10-11T10:05:00Z"
+      }
+    ]
+  },
+  "issues": {
+    "issues": [
+      { "number": 21, "title": "Bug: the board double-counts", "state": "open", "labels": ["omni:bug"], "body": "PRD #7" },
+      { "number": 7, "title": "PRD 7: widgets", "state": "closed", "labels": ["omni:prd"], "body": "" }
+    ]
+  },
+  "issue": {
+    "number": 21,
+    "title": "Bug: the board double-counts",
+    "state": "closed",
+    "labels": ["omni:bug"],
+    "body": "PRD #7",
+    "comments": [
+      {
+        "id": 601,
+        "author": "ada",
+        "body": "<!-- omni-bug-fix-plan -->\n| acme/widgets | #30 |",
+        "createdAt": "2026-10-11T11:00:00Z",
+        "updatedAt": "2026-10-11T11:00:00Z"
+      }
+    ],
+    "closedBy": [31]
+  },
+  "refusal": { "error": "acme/other is not in your workspace: No workspace you belong to lists it." }
+}

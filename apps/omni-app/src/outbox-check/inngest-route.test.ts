@@ -3,7 +3,7 @@ import { functions, GET, POST, PUT } from '../../entries/inngest.ts';
 import { EnvError } from '../env.ts';
 import { FUNCTION_ID } from './outbox-check.ts';
 import { INBOX_FUNCTION_ID } from '../inbox-check/inbox-check.ts';
-import { APPROVED_FUNCTION_ID } from '../approved-check/approved-check.ts';
+import { APPROVED_FUNCTION_ID, APPROVED_RERUN_FUNCTION_ID } from '../approved-check/approved-check.ts';
 import { BUDGETS_FUNCTION_ID } from '../budgets-check/budgets-check.ts';
 import { RETRO_FUNCTION_ID } from '../retro/retro.ts';
 import { HARVEST_FUNCTION_ID } from '../knowledge-harvest/knowledge-harvest.ts';
@@ -19,11 +19,12 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the outbox-check function, the inbox-check function (PRD 675), the approved-check function (PRD 1548), the budgets check (PRD 1679), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), and nothing else', () => {
+  it('serves the outbox-check function, the inbox-check function (PRD 675), the approved-check function (PRD 1548) and its rerun on the approved label (PRD 1612), the budgets check (PRD 1679), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), and nothing else', () => {
     expect(functions.map((fn) => fn.id())).toEqual([
       FUNCTION_ID,
       INBOX_FUNCTION_ID,
       APPROVED_FUNCTION_ID,
+      APPROVED_RERUN_FUNCTION_ID,
       BUDGETS_FUNCTION_ID,
       RETRO_FUNCTION_ID,
       HARVEST_FUNCTION_ID,
@@ -41,8 +42,9 @@ describe('/api/inngest', () => {
     const response = await GET(new Request('https://omni-loop.example/api/inngest', { headers: { host: 'omni-loop.example' } }));
     expect(response.status).toBe(200);
     const body = (await response.json()) as { function_count: number };
-    // Inngest registers each failure handler as a function of its own, beside its function; prStats, canonAction, approvedCheck and serverEvent have none.
-    expect(body.function_count).toBe(14);
+    // Inngest registers each failure handler as a function of its own, beside its function; prStats,
+    // canonAction, approvedCheck, approvedRerun and serverEvent have none.
+    expect(body.function_count).toBe(15);
   });
 });
 

@@ -1,6 +1,9 @@
 // PRD 1162, slice s6: where each PRD of a roadmap stands, and the body `omni roadmap push` sends.
 import { describe, expect, it } from 'vitest';
-import { parseIssue, parsePrd, parsePr } from '../ids.ts';
+import { parseCommentId, parseIssue, parsePrd, parsePr } from '../ids.ts';
+import type { LoopComment } from '../loop-reads/contract.ts';
+import { aChange, fakeLoopReads } from '../loop-reads/fake.ts';
+import { LoopReadError } from '../loop-reads/port.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import type { Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
 import { prdState, prdTimes, readRoadmapPrds, roadmapPushBody, waitsOn, WAITS_ON_MAX } from './push.ts';
@@ -170,7 +173,7 @@ describe('roadmapPushBody', () => {
   });
 });
 
-// PRD 1217, slice s1: each PRD's human work, read through the `gh` and `git` handed in.
+// PRD 1217, slice s1: each PRD's human work, read through the `LoopReads` (PRD 1665) and `git` handed in.
 describe('readRoadmapPrds', () => {
   const OUTBOX = '.omni-loop/delivery/outbox/1201-alpha';
   const PLAN = '.omni-loop/delivery/inbox/1201-alpha/plan.md';
@@ -187,28 +190,25 @@ describe('readRoadmapPrds', () => {
     '## What I could not know', '', '(author) w', '',
   ].join('\n');
 
-  const comments = (list: Array<{ body: string; url?: string; createdAt: string }>) =>
-    list.map((c) => JSON.stringify({ body: c.body, url: c.url ?? null, createdAt: c.createdAt })).join('\n');
+  const comment = (id: number, body: string, createdAt: string): LoopComment => ({ id: parseCommentId(id), author: 'pierre', body, createdAt, updatedAt: createdAt });
 
-  /** `gh` and `git` over one GitHub and one remote: PRD 1201's feature PR open with an outbox and a
-   * park, PRD 1202 not started with a clarification asked. */
+  /** The loop's reads and `git` over one code host and one remote: PRD 1201's feature PR open with an
+   * outbox and a park, PRD 1202 not started with a clarification asked. */
   function readers({ plan = '', crewPr = false, failComments = false } = {}) {
-    const gh = (args: string[]) => {
-      if (args[0] === 'pr') {
-        const repo = args[args.indexOf('--repo') + 1];
-        if (args[args.indexOf('--head') + 1] !== 'feat/alpha') return '[]';
-        if (repo === 'acme/crew') return crewPr ? JSON.stringify([{ number: 9, url: 'https://github.com/acme/crew/pull/9', state: 'OPEN', isDraft: true, createdAt: '2026-10-02T00:00:00Z' }]) : '[]';
-        return JSON.stringify([{ number: 21, url: 'https://github.com/acme/widgets/pull/21', state: 'OPEN', isDraft: true, createdAt: '2026-10-01T00:00:00Z' }]);
-      }
-      if (failComments) throw new Error('gh: 502');
-      if (args[1] === 'repos/acme/widgets/issues/21/comments') {
-        return comments([{ body: '<!-- omni-outbox-status -->\n**Agent status**\n\n- loop: parked · waits on Pierre: grant the app · https://github.com/acme/widgets/pull/21', createdAt: '2026-10-05T00:00:00Z' }]);
-      }
-      if (args[1] === 'repos/acme/widgets/issues/1202/comments') {
-        return comments([{ body: '<!-- omni-needs-clarification -->\n1. Which tier?\n2. Who signs off?', url: 'https://github.com/acme/widgets/issues/1202#c1', createdAt: '2026-10-04T00:00:00Z' }]);
-      }
-      return '';
-    };
+    const loop = fakeLoopReads({
+      changes: {
+        'acme/widgets': [aChange({ number: parsePr(21), head: 'feat/alpha', state: 'draft', url: 'https://github.com/acme/widgets/pull/21', createdAt: '2026-10-01T00:00:00Z' })],
+        'acme/crew': crewPr ? [aChange({ number: parsePr(9), head: 'feat/alpha', state: 'draft', url: 'https://github.com/acme/crew/pull/9', createdAt: '2026-10-02T00:00:00Z' })] : [],
+      },
+      comments: {
+        'acme/widgets#21': [comment(1, '<!-- omni-outbox-status -->\n**Agent status**\n\n- loop: parked · waits on Pierre: grant the app · https://github.com/acme/widgets/pull/21', '2026-10-05T00:00:00Z')],
+        'acme/widgets#1202': [comment(77, '<!-- omni-needs-clarification -->\n1. Which tier?\n2. Who signs off?', '2026-10-04T00:00:00Z')],
+      },
+    });
+    // Only the comments fail: the feature PRs still read.
+    const reads = failComments
+      ? { ...loop, comments: () => Promise.reject(new LoopReadError('unreachable', 'everything')) }
+      : loop;
     const shown = new Map<string, string>([
       [`origin/feat/alpha:${OUTBOX}/s1-01-key.md`, itemFile('s1-01-key', 'human-action', 'The repository has no deploy key.', '1. Add `DEPLOY_KEY` to the repository secrets.')],
       [`origin/feat/alpha:${OUTBOX}/s2-01-shape.md`, itemFile('s2-01-shape', 'high', 'Which cache shape?')],
@@ -222,7 +222,7 @@ describe('readRoadmapPrds', () => {
       if (!text) throw new Error('not on the branch');
       return text;
     };
-    return { gh, git };
+    return { reads, git };
   }
 
   const roadmap: Roadmap = {
@@ -231,39 +231,78 @@ describe('readRoadmapPrds', () => {
     questions: [],
   };
 
-  it('reads, in a single repository, the open PR\'s human-action and high items, its park, and a clarification', () => {
+  it('reads, in a single repository, the open PR\'s human-action and high items, its park, and a clarification', async () => {
     const { ctx } = makeRepo({ files });
-    const { standings, prdWork } = readRoadmapPrds(ctx, roadmap, readers());
+    const { standings, prdWork } = await readRoadmapPrds(ctx, roadmap, readers());
     expect(standings.get('P1')?.prs.map((p) => p.number)).toEqual([21]);
     expect(prdWork).toEqual([
       { key: 'outbox:1201/s1-01-key', prd: 1201, repo: 'widgets', source: 'outbox', text: 'The repository has no deploy key.', act: '1. Add `DEPLOY_KEY` to the repository secrets.', url: 'https://github.com/acme/widgets/pull/21', ruleKind: 'dev-ops' },
       { key: 'outbox:1201/s2-01-shape', prd: 1201, repo: 'widgets', source: 'outbox', text: 'Which cache shape?', act: null, url: 'https://github.com/acme/widgets/pull/21', ruleKind: 'development' },
       { key: 'park:1201', prd: 1201, repo: 'widgets', source: 'park', text: 'waits on Pierre: grant the app', act: null, url: 'https://github.com/acme/widgets/pull/21', ruleKind: 'dev-ops' },
-      { key: 'clarification:1202', prd: 1202, repo: 'widgets', source: 'clarification', text: 'Which tier?', act: 'Who signs off?', url: 'https://github.com/acme/widgets/issues/1202#c1', ruleKind: 'development' },
+      { key: 'clarification:1202', prd: 1202, repo: 'widgets', source: 'clarification', text: 'Which tier?', act: 'Who signs off?', url: 'https://github.com/acme/widgets/issues/1202#issuecomment-77', ruleKind: 'development' },
     ]);
   });
 
-  it('names, in a plan repository, the repository each item\'s slice lands in', () => {
+  it('names, in a plan repository, the repository each item\'s slice lands in', async () => {
     const plan = [
       '| id | repo | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- | --- |',
       '| s1 | widgets | one | `a/` | — | 1 |', '| s2 | crew | two | `b/` | — | 1 |',
     ].join('\n');
     const { ctx } = makeRepo({ files: { ...files, [PLAN]: plan }, config: { plan: { targets: [{ repo: 'acme/crew', role: 'back-end', knowledge: 'none' }] } } });
     const rm: Roadmap = { ...roadmap, repos: true, prds: [row('P1', 1201, [], { repos: ['widgets', 'crew'] })] };
-    const { prdWork } = readRoadmapPrds(ctx, rm, readers({ plan, crewPr: true }));
+    const { prdWork } = await readRoadmapPrds(ctx, rm, readers({ plan, crewPr: true }));
     expect(prdWork?.filter((w) => w.source === 'outbox').map((w) => [w.key, w.repo])).toEqual([
       ['outbox:1201/s1-01-key', 'widgets'],
       ['outbox:1201/s2-01-shape', 'crew'],
     ]);
   });
 
-  it('reads no clarification once a plan was committed after it, and no work at all when a read fails', () => {
+  it('reads no clarification once a plan was committed after it, and no work at all when a read fails', async () => {
     const { ctx } = makeRepo({ files: { ...files, '.omni-loop/delivery/inbox/1202-beta/plan.md': 'plan\n' } });
     const r = readers();
     const git = (args: string[]) => (args[0] === 'log' ? '2026-10-06T00:00:00+02:00\n' : r.git(args));
-    expect(readRoadmapPrds(ctx, roadmap, { gh: r.gh, git }).prdWork?.some((w) => w.source === 'clarification')).toBe(false);
-    const failing = readRoadmapPrds(ctx, roadmap, readers({ failComments: true }));
+    expect((await readRoadmapPrds(ctx, roadmap, { reads: r.reads, git })).prdWork?.some((w) => w.source === 'clarification')).toBe(false);
+    const failing = await readRoadmapPrds(ctx, roadmap, readers({ failComments: true }));
     expect(failing.prdWork).toBeNull();
     expect(failing.standings.size).toBe(2);
+  });
+
+  it('reads each feature PR by its head, in every state, in its own repository and each target its row names', async () => {
+    const plan = '| id | repo | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- | --- |\n| s1 | crew | one | `a/` | — | 1 |\n';
+    const { ctx } = makeRepo({ files: { ...files, [PLAN]: plan }, config: { plan: { targets: [{ repo: 'acme/crew', role: 'back-end', knowledge: 'none' }] } } });
+    const rm: Roadmap = { ...roadmap, repos: true, prds: [row('P1', 1201, [], { repos: ['widgets', 'crew'] })] };
+    const r = readers({ plan, crewPr: true });
+    const { standings } = await readRoadmapPrds(ctx, rm, r);
+    expect(r.reads.reads.filter((read) => read.read === 'changes')).toEqual([
+      { read: 'changes', query: { repo: 'acme/widgets', head: 'feat/alpha', state: 'all' } },
+      { read: 'changes', query: { repo: 'acme/crew', head: 'feat/alpha', state: 'all' } },
+    ]);
+    expect(standings.get('P1')?.prs).toEqual([
+      { repo: 'widgets', number: 21, url: 'https://github.com/acme/widgets/pull/21', state: 'OPEN', isDraft: true, createdAt: '2026-10-01T00:00:00Z', mergedAt: null, closedAt: null, questions: 2 },
+      { repo: 'crew', number: 9, url: 'https://github.com/acme/crew/pull/9', state: 'OPEN', isDraft: true, createdAt: '2026-10-02T00:00:00Z', mergedAt: null, closedAt: null, questions: 0 },
+    ]);
+  });
+
+  it('reads a merged change as MERGED closed at its merge, a closed one as CLOSED at its last update, and prefers the open one', async () => {
+    const { ctx } = makeRepo({ files });
+    const at = (day: number) => `2026-10-0${day}T00:00:00Z`;
+    const changes = (list: Parameters<typeof aChange>[0][]) => fakeLoopReads({ changes: { 'acme/widgets': list.map(aChange) } });
+    const git = () => '';
+    const one: Roadmap = { ...roadmap, prds: [row('P1', 1201)] };
+    const merged = await readRoadmapPrds(ctx, one, { git, reads: changes([{ number: parsePr(21), head: 'feat/alpha', state: 'merged', mergedAt: at(3), updatedAt: at(4) }]) });
+    expect(merged.standings.get('P1')?.prs[0]).toMatchObject({ state: 'MERGED', isDraft: false, mergedAt: at(3), closedAt: at(3) });
+    const closed = await readRoadmapPrds(ctx, one, { git, reads: changes([{ number: parsePr(21), head: 'feat/alpha', state: 'closed', updatedAt: at(5) }]) });
+    expect(closed.standings.get('P1')?.prs[0]).toMatchObject({ state: 'CLOSED', isDraft: false, mergedAt: null, closedAt: at(5) });
+    const both = await readRoadmapPrds(ctx, one, { git, reads: changes([
+      { number: parsePr(30), head: 'feat/alpha', state: 'closed', updatedAt: at(6), createdAt: at(6) },
+      { number: parsePr(21), head: 'feat/alpha', state: 'open', createdAt: at(1) },
+    ]) });
+    expect(both.standings.get('P1')?.prs.map((pr) => [pr.number, pr.state, pr.isDraft])).toEqual([[21, 'OPEN', false]]);
+  });
+
+  it('rejects with the line the loop stops on when a feature PR cannot be read', async () => {
+    const { ctx } = makeRepo({ files });
+    const reads = fakeLoopReads({ everything: new LoopReadError('no sign-in (omni signin)', 'everything') });
+    await expect(readRoadmapPrds(ctx, roadmap, { reads, git: () => '' })).rejects.toThrow('no sign-in (omni signin)');
   });
 });

@@ -179,6 +179,29 @@ describe('fixesOf', () => {
   });
 });
 
+// Law BR-PRODUCT-54 (.omni-loop/knowledge/product/rules.md, #1515).
+describe('law BR-PRODUCT-54: a profile lists work by its latest activity in the period, not by when it started', () => {
+  const rows = (kind: 'prd' | 'bug' | 'visual') => [
+    // Started before the period, active within it: listed.
+    dossier(`${kind}1`, { kind, created_at: '2026-09-01T08:00:00Z', last_activity: '2026-09-26T08:00:00Z' }),
+    // Started within the period, no activity since: judged by that latest activity, listed.
+    dossier(`${kind}2`, { kind, created_at: '2026-09-24T08:00:00Z', last_activity: '2026-09-24T08:00:00Z' }),
+    // Started within the period, latest activity after it: judged by that activity, not listed.
+    dossier(`${kind}3`, { kind, created_at: '2026-09-23T08:00:00Z', last_activity: '2026-10-05T08:00:00Z' }),
+    // Started and last active before the period: not listed.
+    dossier(`${kind}4`, { kind, created_at: '2026-09-01T08:00:00Z', last_activity: '2026-09-10T08:00:00Z' }),
+  ];
+
+  it('lists a PRD for the period by its latest activity', () => {
+    expect(prdsOf(rows('prd'), 'ada-gh', ADA, WINDOW, new Map()).rows.map((r) => r.href)).toEqual(['/prd/prd1', '/prd/prd2']);
+  });
+
+  it('lists a bug fix and a visual update for the period by its latest activity', () => {
+    expect(fixesOf(rows('bug'), 'bug', 'ada-gh', ADA, WINDOW, new Map()).rows.map((r) => r.href)).toEqual(['/bugs/bug1', '/bugs/bug2']);
+    expect(fixesOf(rows('visual'), 'visual', 'ada-gh', ADA, WINDOW, new Map()).rows.map((r) => r.href)).toEqual(['/visual/visual1', '/visual/visual2']);
+  });
+});
+
 describe('seeAllHref', () => {
   it('opens each list for that person', () => {
     expect(seeAllHref('prd', 'ada-gh')).toBe('/prd?who=ada-gh');

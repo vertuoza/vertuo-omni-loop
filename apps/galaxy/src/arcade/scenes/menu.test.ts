@@ -13,6 +13,8 @@ import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 import { BRIEFING_PAGES, drawMenu, PAGES, TALL_SCENES } from './menu.ts';
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems, type MenuItem } from './menu.tsx';
+import { FleetsOverlay } from './fleets.tsx';
+import { HeroesOverlay } from './attract.tsx';
 import { xpStatus, type XpStatus } from '../games/room';
 import type { KnowledgeGraph } from '../../data/knowledge';
 import { sure } from '../test/sure';
@@ -445,5 +447,29 @@ describe('the star chart on the menu', () => {
     expect(doorOf(map, { view: null, chart: graph, problem: null })).toEqual({ refused: 'SIGN IN TO SEE THE GALAXY' });
     expect(doorOf(map, { view: null, chart: graph, problem: 'THE GALAXY IS OUT OF REACH.' })).toEqual({ refused: 'THE GALAXY IS OUT OF REACH.' });
     expect(doorOf(sure(items.find((m) => m.id === 'signout'), 'items.find((m) => m.id === "signout")'), { view, chart: graph, problem: null })).toBeNull();
+  });
+});
+
+// Law BR-PRODUCT-48 (.omni-loop/knowledge/product/rules.md, #1509).
+describe('law BR-PRODUCT-48: a workspace with no fleets', () => {
+  it('law BR-PRODUCT-48: keeps FLEETS on the menu, hinted as no fleets yet, opening the invitation instead of the wall; the Hall of Heroes hides its fleet column and TOP FLEETS', () => {
+    const none: GalaxyView = { ...view, teams: [] };
+    for (const at of [{ joined: true, solo: true }, { joined: true, solo: false }, { joined: false, solo: false }]) {
+      const items = menuItems({ ...at, signedIn: true, fleets: false });
+      const entry = sure(items.find((m) => m.id === 'fleets'), 'the FLEETS entry');
+      expect(entry).toMatchObject({ label: 'FLEETS', scene: 'fleets' });
+      const menu = textOf(createElement(MenuOverlay, { view: none, items, index: 0, me: at.joined ? { ...player, team: null } : null, onPick: () => {} }), WIDE);
+      expect(menu[menu.indexOf('FLEETS') + 1]).toBe('No fleets yet');
+      expect(doorOf(entry, { view: none, chart: 'none', problem: null })).toEqual({ scene: 'fleets' });
+    }
+    for (const owner of [true, false]) {
+      const screen = textOf(createElement(FleetsOverlay, { view: none, crew: [], index: 0, onPick: () => {}, owner }), WIDE).join(' ');
+      expect(screen).toContain('NO FLEETS YET — RAISE YOUR OWN!');
+      expect(screen).not.toContain('SELECT FLEET');
+    }
+    const hall = textOf(createElement(HeroesOverlay, { view: none, crew: [] }), WIDE);
+    expect(hall).toContain('HALL OF HEROES');
+    expect(hall).not.toContain('FLEET');
+    expect(hall.join(' ')).not.toContain('TOP FLEETS');
   });
 });

@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
@@ -11,8 +13,16 @@ vi.mock('../env', async (actual) => {
   return { ...env, serverEnv: () => env.readEnv({}) };
 });
 
+import { levelTag, XP_LINE, xpStatus } from '../arcade/games/room';
 import { present } from '../ask/test/test-item';
+import { demoAccount } from '../arcade/account-demo';
+import { setFleets } from '../arcade/fleets';
+import { WIDE } from '../arcade/grid';
+import { isPlayer } from '../arcade/onboarding';
+import { ScreenContext } from '../arcade/Screen';
+import { GamesOverlay } from '../arcade/scenes/games.tsx';
 import type { DossierListRow } from '../dossier/store';
+import { afterReturn, afterStart } from '../arcade/onboarding';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
@@ -349,5 +359,106 @@ describe('the database out of reach', () => {
     const { data } = await page(PEOPLE.wile, (world) => { world.state.failOn = 'ledger_events'; });
     expect(data).toMatchObject({ view: null, fleets: [], workspace: ACME, brand: { name: 'Acme' }, problem: OUT_OF_REACH });
     expect(data.session?.crew).toBe(true);
+  });
+
+  // Law BR-PRODUCT-30 (.omni-loop/knowledge/product/rules.md, #1491).
+  it('law BR-PRODUCT-30: when the memberships or a loader cannot be read, a signed-in person is crew: the out-of-reach message, never the wrong-account screen', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    // The memberships, then each table the loaders read once the workspace is known.
+    const unreadable = ['workspace_members', 'ledger_events', 'sectors', 'teams', 'players'] as const;
+    for (const table of unreadable) {
+      for (const person of [PEOPLE.ada, PEOPLE.wile]) {
+        const { data } = await page(person, (world) => { world.state.failOn = table; });
+        const why = `${person.email}, ${table} out of reach`;
+        expect(data.problem, why).toBe(OUT_OF_REACH);
+        expect(data.session?.crew, why).toBe(true);
+        expect(afterStart(data.session, data.me ?? null, data.fleets), why).not.toBe('outsider');
+        expect(afterReturn({ kind: 'signin' }, data.session, data.me ?? null, data.fleets), why).not.toBe('outsider');
+      }
+    }
+    // The whole database out of reach: the same.
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.fail = { message: 'timeout' }; });
+    expect(data.problem).toBe(OUT_OF_REACH);
+    expect(afterStart(data.session, data.me ?? null, data.fleets)).not.toBe('outsider');
+  });
+});
+
+// Law BR-PRODUCT-32 (.omni-loop/knowledge/product/rules.md, #1493).
+describe('the XP the arcade shows', () => {
+  it('law BR-PRODUCT-32: is earned in the workspace played, the one joined first; a failed read shows XP out of reach with no level, and the galaxy, fleets and crew as read', async () => {
+    // A member of two workspaces sees only the XP earned in the one they joined first (Acme), never
+    // the other's (500 XP at level 5 in Vertuoza), and no XP row of the other is read.
+    const both = await page(PEOPLE.both);
+    expect(both.data.workspace).toBe(ACME);
+    expect(both.data.xp).toEqual({ xp: 60, level: 2, unlocked: ['invaders'] });
+    expect(both.reads.filter((c) => c.table === 'player_xp').map((c) => c.eq)).toEqual([{ workspace_id: ACME, github_login: 'both-gh' }]);
+
+    // The XP read fails: XP out of reach, with no level, while the galaxy, fleets and crew show as read.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'player_xp'; });
+    expect(data.xp).toBe('unreadable');
+    const status = xpStatus(true, present(data.xp, 'the XP read'));
+    expect(status).toEqual({ kind: 'unreadable' });
+    expect(levelTag(status)).toBeNull();
+    expect(XP_LINE.unreadable).toBe('XP OUT OF REACH');
+    expect(data.problem).toBeUndefined();
+    expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
+    expect(data.fleets.map((f) => f.name)).toEqual(['beaver', 'pirates', 'invincible-team']);
+    expect(data.crew?.map((p) => p.display_name)).toEqual(['ADA', 'BOTH']);
+  });
+});
+
+// Law BR-PRODUCT-36 (.omni-loop/knowledge/product/rules.md, #1497).
+describe('the high scores, read on their own', () => {
+  it('law BR-PRODUCT-36: are read only for a player who linked GitHub, apart from the galaxy', async () => {
+    const visitor = await page(PEOPLE.una, (world) => {
+      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.una.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' });
+    });
+    expect(visitor.data.view).not.toBeNull();
+    expect(visitor.reads.some((c) => c.table === 'arcade_scores')).toBe(false);
+    expect(visitor.data.scores).toEqual({});
+
+    const player = await page(PEOPLE.ada);
+    expect(player.reads.some((c) => c.table === 'arcade_scores')).toBe(true);
+    expect(player.data.scores?.invaders).toMatchObject({ mine: 1240 });
+  });
+
+  it('law BR-PRODUCT-36: a failed read shows SCORES OUT OF REACH on the cabinet, while the galaxy, level and XP still show and the game plays', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
+    expect(data.problem).toBeUndefined();
+    expect(data.view?.planets.length).toBeGreaterThan(0);
+    expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
+
+    setFleets(data.fleets);
+    const xp = xpStatus(isPlayer(data.session ?? null), data.xp ?? null);
+    const overlay = createElement(GamesOverlay, { xp, me: data.me ?? null, index: 0, scores: data.scores ?? {}, onPick: () => {} });
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, overlay));
+    const text = html.replace(/<!-- -->/g, '').replace(/<[^>]+>/g, '\n').replace(/&#x27;/g, "'").split('\n').map((t) => t.trim()).filter(Boolean);
+    expect(text).toContain('SCORES OUT OF REACH');
+    expect(text).toContain('A · PLAY');
+    expect(text.some((t) => /\bLV 3\b/.test(t))).toBe(true);
+    expect(text).toContain('180 / 300 XP');
+  });
+
+  it('law BR-PRODUCT-36: the demo\'s table holds only the guest\'s own best', async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal('window', { localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => { storage.set(k, v); } } });
+    try {
+      vi.useFakeTimers();
+      const guest = demoAccount();
+      const signing = guest.signIn(); await vi.runAllTimersAsync(); await signing;
+      const linking = guest.linkGithub(); await vi.runAllTimersAsync(); await linking;
+      vi.useRealTimers();
+      expect(await guest.scores('invaders')).toEqual({ top: [], mine: null });
+      const me = await guest.save({ team: 'octopod', display_name: 'INKY', hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 0, cape: 2 } }, null);
+      await guest.submitScore('invaders', 1240);
+      const board = await guest.scores('invaders');
+      expect(board.mine).toBe(1240);
+      expect(board.top).toEqual([containing({ id: me.id, best: 1240 })]);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -696,7 +696,7 @@ at its own address and reading only the product's rows:
 | **Ledger** | `/app/products/<id>` | three lanes, *on you* (waiting for the viewer's approval or answer), *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆/◇, one state word and the open PRs of its feature and landing branches; a summary of building, waiting on a person and drifted |
 | **PRDs** | `…/prds` | the product's PRDs, newest first, birthplace and state |
 | **Ideas**, **Roadmap**, **Bug fixes**, **Visual fixes** | `…/ideas`, `…/roadmap`, `…/bugs`, `…/visual` | the product's ideas (with their `/omni:brainstorm` line), roadmaps, bug and visual dossiers |
-| **Questions** | `…/questions` | the open outbox questions of its PRDs that wait on a person, each linking to the PRD page's Outbox tab |
+| **Questions** | `…/questions` | every open outbox question of its PRDs, worst first within a PRD, each with its PRD, the repository it was raised in and who it is for; a product PRD's is answered there ([Answering on the Questions tab](#answering-on-the-questions-tab-prd-1548)), any other PRD's links to its PRD page's Outbox tab |
 | **Repositories & approvers** | `…/repositories` | the links, every field editable by an owner, and **Add a repository** (`POST`/`DELETE …/repositories/links`); under them the **Approvers** list (`POST`/`DELETE …/repositories/approvers`); a member reads both |
 
 **Settings › Repositories** shows each repository's products as chips linking to their homes, and
@@ -883,15 +883,15 @@ off, no row exists, and every player sees NO XP YET.
   Mode 7 kart race, three laps of one circuit, COMET RING, against five rivals. Its code is
   `src/arcade/kart/`, imported only when the cabinet opens (a failed import says
   `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder imports it at run time. The floor is
-  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected line by
-  line (`mode7.ts`); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
+  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected column by
+  column with its relief (`mode7.ts`, see **The relief** below); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
   farthest to the nearest. The player drives their own hero in a kart tinted with the hero's suit
   (◀ ▶ steer, A accelerates, ▼ brakes and reverses, START pauses); the rivals are the workspace's
   other fleets, each driven by its mascot, who follow the racing line at 92% to 100% of the player's
   pace under a light rubber band (`rivals.ts`). A lap counts when the line is crossed forwards after
   every waypoint, in order; the HUD shows the place (1ST to 6TH), `LAP n/3`, the race time and the item
   held, and `FINAL LAP` on the third lap. The race is a seeded, pure phase machine (`race.ts`).
-  **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
+  **Items** (`items.ts`): ten lines of four boxes across the road, one on every straight (40 in all), give one item to a kart holding
   none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
   leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
   **BOOST** is 1.5 seconds at 1.4 times the top speed. **BLOB** is an Entropy blob
@@ -921,9 +921,42 @@ off, no row exists, and every player sees NO XP YET.
   Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
   line. The sky has two planets, a distant station and comets. The camera sits so the player's kart is
   drawn where it stands. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
-  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
-  that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
+  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes,
+  20 wide, that turn and bob over a pool of their light on the road, which pulses with them. With
+  reduced motion on, the sky, comets, satellites, boxes, their pools and beacons stand
   still and no particle is drawn; the shadows stay.
+  **The relief** (PRD 1698): COMET RING rises and falls along its racing line. Its relief is one block
+  beside the map: a `heights` list (one per waypoint) and a `bumps` list (one per leg, positive a hump,
+  negative a dip). Each leg eases from one height to the next with its bump in the middle, and is level
+  for 2.5 tiles at both ends, so every corner is level and two legs meet at the same height; the
+  ground anywhere is that of the nearest leg (`relief.ts`, pure), and a circuit with no relief is flat.
+  The relief spans 26 world units at most, under the camera's eye (28), and the circuit's checks refuse
+  a relief that spans more or has a height or a bump missing or not a number, as they refuse a broken
+  map. The camera's eye stands 28 over the ground under the player's kart, so a crest hides the road
+  behind it and a descent shows the circuit below; a kart, box, prop, BLOB or ORB behind a crest is
+  hidden where the road in front covers it (the start arch stays on top). **Slopes** change the top
+  speed along the kart's heading: uphill it falls by 1.2 times the slope, downhill it rises by as much,
+  never under 0.67 nor over 1.33 of the flat one, for the player and the rivals. **The deck:** where the
+  road meets the void and the void is nearer the camera, the road's edge shows its side, 12 deep (a
+  light lip, metal that darkens down the side, every other panel a shade darker, a magenta neon line at
+  its foot), then a magenta glow fading into the void over 18 world units. The floor's cost is bounded:
+  each column samples outwards from the camera and never takes more than 600 samples, the renderer
+  reports its count, and a test holds it at every waypoint on the wide and the tall grid. The cabinet's
+  still keeps a flat floor.
+  **The four wheels** (PRD 1698): a kart stands on four wheels, 6 ahead of and behind its centre and 3
+  to each side. A side with more wheels over the void than the other **leans** the kart towards it and
+  slides it towards the void at 16 a second; the player can steer back onto the road. Both wheels of
+  one side over the void **tip it over** into the fall and the way back above, and a centre 7 past the
+  edge still falls. A leaning kart is drawn rolled towards the void, a falling one rolls over as it
+  sinks, and it casts no shadow while it falls. A rival looks a quarter of a second ahead, steers back
+  from a wheel over the void there, brakes when it is faster than a corner allows and turns in 64
+  before the corner's waypoint, so it finishes three laps without falling (seeds 1, 7 and 42).
+  **The minimap** (PRD 1698): in the top right corner under the item panel, over the sky, on both
+  grids, 8 game pixels in from the right edge: one game pixel a tile, the road shaded by its height
+  (the higher, the lighter), the start line light, over a dark cyan-framed panel. It shows a gold
+  pixel for each box there to take, a dot of its own colour for each rival on the road (none while one
+  falls), every other player in MULTI, and the player as a bigger yellow dot with a tick the way it
+  faces, drawn last; it blinks while the player falls, and stays lit with reduced motion.
   **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
   `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
   reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase
@@ -951,11 +984,41 @@ off, no row exists, and every player sees NO XP YET.
   meanwhile; a failed import says `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder
   imports it at run time (`duet/guard.test.ts`). Two orbs, one warm and one cool, ride a circle around
   the Omni Loop crest, always opposite: ◀ held turns them anticlockwise, ▶ clockwise, both or neither
-  hold them still. Waves of Entropy blocks fall through them, still, sliding or turning, over four
-  chapters of about ten waves written as text in `duet/waves.ts`: **I · DRIFT**, **II · SLIDE**,
-  **III · SPIN** and **IV · STORM**. After chapter IV, `ENDLESS · ×2`: waves drawn from one fixed seed
-  (`ENDLESS_SEED`, the same for every player), faster and never ending. `waveProblems` proves every
-  chapter wave and the first 200 endless waves passable. A wave passed scores 10, 20 in endless mode;
+  hold them still. Waves of Entropy blocks fall through them, each a word of a small vocabulary set
+  on the circle, as in Duet. A still one is dodged by one clear pose of the pair: a half bar from
+  either side, stopping R/3 short of the centre line, passed upright; a gate, two bars 1.2 R long at
+  one height either side of a gap 0.8 R wide on the centre line, passed upright through the gap; a
+  centre block, an upright block (0.8 × 1.3 R) and a short bar (1 R long), all on the centre line,
+  passed level. A moving one hits every pose held still and is dodged by turning the pair with it: a
+  centre block that slides across the whole circle (±R, on a fixed path that sweeps half the circle
+  as it falls), and a rod 2.2 R long turning about its middle on the centre line as fast as the pair
+  turns (Duet's own rod); only the centre block moves. They make four chapters of ten waves written
+  as text in `duet/waves.ts`, one obstacle a line with its distance behind the one before in R, each
+  chapter bringing in a new shape: **I · DRIFT** (95 to 113 px/s, about 2 R a second, still
+  obstacles, gates), **II · SLIDE** (short bars), **III · SPIN** (upright blocks) and **IV · STORM**
+  (125 to 143 px/s, rod chains). Each wave falls at its speed, then, after chapter I, speeds up
+  lightly over its last 35%, to 10% faster; the pair turns as fast as ever. From chapter II, moving
+  obstacles chain into spirals (three or more moving the same way round, passed holding one turn) and
+  zigzags (each the other way round from the one before, a change of turn at every one), two of
+  each a chapter at least; chapter IV chains rods two or three at a time, 1.25 to 1.4 R apart, out of
+  phase, each chain read as a spiral. A `ghost` obstacle is drawn as it enters and fades out, gone
+  2 R above the circle, yet strikes as any other: in chapter IV's last four waves (its eighth all
+  rods, its ninth all ghosts). A wave is short, three to six obstacles and 8 seconds at most, and none
+  is passed with the orbs held still. An obstacle asking another pose, or a turn, stands at least a
+  quarter turn and a person's reaction behind the one before, at the speed it arrives at (a rod right
+  behind a rod turning the same way excepted: the turn held carries on). After chapter IV,
+  `ENDLESS · ×2`: waves of one to three of chapter IV's runs, drawn from one fixed seed
+  (`ENDLESS_SEED`, the same for every player), faster (its speed, before the speed-up, from 145 px/s,
+  one more every two waves, to a ceiling of 170 px/s, about 3 R a second, from its 51st wave), its
+  runs 1.25 R apart where they ask one pose and as close as the spacing rule allows elsewhere, and
+  never ending; from its 11th wave some obstacles are ghosts, a share rising slowly to 40%, and now
+  and then a wave is all rods or all ghosts. `waveProblems` proves every chapter wave and the first
+  200 endless waves passable, with room to spare. Each chapter has its own dim backdrop behind the
+  field (drifting squares, sliding diagonal stripes, a turning spiral of dots, falling triangles;
+  endless mode a darker one of faint chevrons), every block a soft trail fading about R above it,
+  both in the theme's colours, the backdrop still and no trail under reduced motion; and as each wave
+  begins, a short line of the game's own (`duet/lines.ts`, one for every chapter wave and a few for
+  endless mode) shows in the middle of the playfield for 2 seconds and fades. A wave passed scores 10, 20 in endless mode;
   nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
   began with (in endless mode, the wave hit with the score it began with), on a ready screen that
   waits for START, so no death ever earns a point. START pauses, and so does a blurred window, a
@@ -1077,6 +1140,70 @@ runs instead of stopping ([`docs/guide/loop.md`](../../docs/guide/loop.md#the-ap
 - **The approve screen.** A ◆ PRD's approval cell opens with the spec's **Problem** and **Solution**
   above **Approve**, which only someone allowed to approve sees, then the pinned files. A ◇ PRD's page
   is unchanged.
+
+### A product PRD (PRD 1548)
+
+A **product PRD** (◆) is a dossier keyed by its product and a counter, `mobile-12`, with no home
+repository, no GitHub issue and no folder in any repository
+([`docs/guide/products.md`](../../docs/guide/products.md#a-product-prd)). Its code lands as one feature
+PR per target repository, each saying `Part of mobile-12`, on which the App posts `omni/approved` and
+the outbox check ([`apps/omni-app/README.md`](../omni-app/README.md#a-product-prds-checks-prd-1548)).
+
+- **The key.** `products.key` is lowercase kebab-case (`mobile`, `field-app`), unique in the
+  workspace and never ending in `-<digits>`. An owner sets it once with `product_set_key()`, and it
+  never changes. No page offers it yet: an owner calls the function in the database. Until a product
+  has a key, it has no product PRD.
+- **The kit's routes** take the PRD's id: `POST /api/dossiers/push` with `productKey` and `new: true`
+  (`omni dossier push --product <key> --new`) creates the product's next PRD and answers its `prdId`,
+  or with `prd` pushes new versions to it; `GET /api/dossiers?product=&prd=` finds it;
+  `GET /api/dossiers/get?product=&prd=&kind=` answers one kind's latest version whole
+  (`omni dossier get`); `GET /api/dossiers/approval?prd=<key>-<n>` its approval in force. `repo`, when
+  sent, only chooses between two of the caller's workspaces holding the key. Approving one labels no
+  issue, since it has none.
+- **The attestation.** The PRD's page shows, under its head, at `/prd/<id>#attestation` (where
+  `omni/approved`'s Details opens; `src/dossier/page/Attestation.tsx`): who approved it, whether they
+  are a workspace member and a product approver today, when, and each pinned file's hash beside
+  today's. Drifted, each changed file offers **Restore** (its approved version, to push again) and the
+  card **Ask again** (the approve screen, `#approve`). Both are plain links that change nothing.
+- **The server events.** Galaxy tells the App each time the server changes a product PRD
+  (`src/server-event/`): `approved` (Approve), `voided` (a push changed a pinned file), `item-opened`
+  (an outbox item raised, or rewritten while open) and `item-settled` (one answered, or adopted as it
+  was raised). Each is one POST of `{ event, dossier, at }` to the App's `/api/server-event`, signed
+  with an HMAC-SHA256 under `STAGE_EVENT_SECRET` in `x-omni-signature-256`. A missing secret, a
+  refusal or a network failure is one log line and never fails what told it: the PR's next webhook
+  posts the checks anyway.
+- **The outbox, on the server.** Its items are rows of `outbox_items`, and each answer one row of the
+  append-only `outbox_settlements`, written only through RPCs
+  (`supabase/migrations/20261204100000_outbox_items.sql`, proven by `supabase/checks/outbox_items.sql`). An item
+  keeps its markdown as written, checked by the kit's own parser before any write. An item takes one
+  settlement, and a second is refused. The kit reaches them through `src/outbox-items/`:
+  `GET /api/outbox/items?product=&prd=` (every item, with its settlement), `POST /api/outbox/items`
+  (raise one, or adopt one) and `POST /api/outbox/items/settle`, each as the caller's sign-in, so the
+  database decides who may. A non-member finds no such PRD.
+
+#### Answering on the Questions tab (PRD 1548)
+
+On the product home's **Questions** tab (`/app/products/<id>/questions`, `src/questions/`), a product
+PRD's open question shows its options as buttons, A being what was built, and **other…** for an
+answer of one's own. One answer is sent at a time, to `POST /api/outbox/answer {prdId, item, answer}`.
+
+- The answer is read by the kit's own rules, as `omni answers` reads one: a letter is that option (A
+  agrees with what was built, any other drifts), and an answer of one's own is judged against what was
+  built. One the rules cannot read is refused (422) with *Say whether this keeps what was built…*,
+  never guessed.
+- It is settled through the outbox's own service, as the caller, recorded as given on the Questions
+  tab (channel `questions`), then the App is told `item-settled`, so the outbox check follows. Nothing
+  is posted to GitHub.
+- A refusal shows under the question: 401 signed out, 404 no such PRD or question in the caller's
+  workspaces, 409 already settled, 503 no database. In the demo, answers settle in memory.
+- Who a question is for: whoever can do a human action, else the person who opened its PRD.
+
+**Not yet.** `/prd` and a PRD's page still read every dossier's home repository, which a product PRD
+has none of: the list can break, and the page show it wrongly, once a workspace has one (settled item
+s2-04). A drifted answer given here is not reworked by `/omni:ultra-yolo-fix`, which reworks only the
+answers given in the terminal in the same run (s12-03). The gate counts open rows only, and the server
+keeps no account of risky changes yet (s7-03). An objection to an adopted item has no place on the
+server yet (s5-01).
 
 ### The Outbox tab (PRD 251)
 

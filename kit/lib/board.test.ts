@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardFor, fillBranch, isClaimedStale, landingBranches, runnableFrontier } from './board.ts';
+import { boardFor, fillBranch, inlineSlicesIn, inlineWave, isClaimedStale, landingBranches, runnableFrontier } from './board.ts';
 import type { BoardLanding, BoardPr, BoardRepos, BoardSlice, FrontierRow } from './board.ts';
 import { assertDefined } from '../test/assert.ts';
 import { parsePr, parseWorkSliceId } from './ids.ts';
@@ -87,6 +87,11 @@ describe('isClaimedStale — the stale-claim rule, exported for the Engineering 
     expect(isClaimedStale(claim({ headCommitDate: null }), NOW, 60)).toBe(false);
   });
 
+  it('keeps a claim exactly as old as the limit fresh: stale is strictly older', () => {
+    const atLimit = new Date(NOW - 60 * 60_000).toISOString();
+    expect(isClaimedStale(claim({ createdAt: atLimit, headCommitDate: atLimit }), NOW, 60)).toBe(false);
+  });
+
   // Law BR-PRODUCT-2 (.omni-loop/knowledge/product/rules.md, #1464).
   it('law BR-PRODUCT-2: a head commit date that cannot be read counts as the claim having moved on, so the slice is never stale on that signal alone', () => {
     const coldClaim = { isDraft: true, createdAt: new Date(NOW - 24 * 60 * 60_000).toISOString() };
@@ -100,6 +105,10 @@ describe('boardFor — states', () => {
   it('is merged when the matched pull request is merged', () => {
     const result = board([slice()], [pr({ state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' })]);
     expect(firstRow(result).state).toBe('merged');
+  });
+
+  it('is merged when only the state says so, with no mergedAt', () => {
+    expect(firstRow(board([slice()], [pr({ state: 'MERGED', mergedAt: null })])).state).toBe('merged');
   });
 
   it('is merged when only mergedAt says so (state shape varies by payload)', () => {
@@ -280,6 +289,21 @@ describe('boardFor — matching', () => {
     const result = board([slice()], prs);
     expect(prOf(firstRow(result)).number).toBe(2);
   });
+
+  it('picks the most recently updated of two live candidates, in either order, and the first of an exact tie', () => {
+    const older = pr({ number: parsePr(1), updatedAt: '2026-09-25T09:00:00Z' });
+    const newer = pr({ number: parsePr(2), updatedAt: '2026-09-25T11:00:00Z' });
+    expect(prOf(firstRow(board([slice()], [older, newer]))).number).toBe(2);
+    expect(prOf(firstRow(board([slice()], [newer, older]))).number).toBe(2);
+    const twin = pr({ number: parsePr(3), updatedAt: newer.updatedAt });
+    expect(prOf(firstRow(board([slice()], [newer, twin]))).number).toBe(2);
+  });
+
+  it('never prefers a candidate over one with no update time read first: a missing time compares as NaN, not as 1970', () => {
+    const undated = pr({ number: parsePr(1), updatedAt: undefined });
+    const dated = pr({ number: parsePr(2), updatedAt: '2026-09-25T11:00:00Z' });
+    expect(prOf(firstRow(board([slice()], [undated, dated]))).number).toBe(1);
+  });
 });
 
 describe('runnableFrontier', () => {
@@ -341,6 +365,17 @@ describe('runnableFrontier', () => {
     expect(frontier.collisions).toHaveLength(1);
   });
 
+  it('defers the middle of a chain of collisions and keeps both ends, which share nothing', () => {
+    const rows = [
+      row({ id: parseWorkSliceId('s1'), wave: 1, territory: ['left/'] }),
+      row({ id: parseWorkSliceId('s2'), wave: 1, territory: ['left/', 'right/'] }),
+      row({ id: parseWorkSliceId('s3'), wave: 1, territory: ['right/'] }),
+    ];
+    const frontier = runnableFrontier(rows);
+    expect(frontier.takeable).toEqual(['s1', 's3']);
+    expect(frontier.excluded).toEqual(['s2']);
+  });
+
   it('order in `rows` is plan order — the row that comes first is the one kept', () => {
     const rows = [
       row({ id: parseWorkSliceId('s2'), wave: 1, territory: ['shared/'] }),
@@ -358,6 +393,85 @@ describe('runnableFrontier', () => {
     ];
     const result = board(slices, [pr({ headRefName: 'feat/widgets--s1', mergedAt: '2026-09-25T11:00:00Z' })]);
     expect(result.frontier).toEqual({ wave: 2, runnable: ['s2'], takeable: ['s2'], excluded: [], collisions: [] });
+  });
+});
+
+describe('boardFor — slices built inline on the feature branch (issue 1722)', () => {
+  const s1 = parseWorkSliceId('s1');
+  const s2 = parseWorkSliceId('s2');
+  const chain = () => [slice({ id: s1 }), slice({ id: s2, wave: 2, territory: ['b/'], blockedBy: [s1] })];
+
+  it('reads the slice ids named by the Omni-Slice trailer lines of commit messages, and nothing else', () => {
+    const messages = [
+      'feat(x): first slice\n\nCo-Authored-By: A <a@x>\nOmni-Slice: s1\n',
+      'chore: not a slice\n\nmentions Omni-Slice: s9 in the middle of a line\n',
+      'feat(x): second\n\nOmni-Slice: s2\n',
+      'feat(x): again\n\nOmni-Slice: s1\n',
+    ].join('\n');
+    expect([...inlineSlicesIn(messages)].sort()).toEqual(['s1', 's2']);
+    expect(inlineSlicesIn('').size).toBe(0);
+  });
+
+  it('reads a slice with no pull request and a commit of its own as merged, and frees what waited on it', () => {
+    const result = boardFor({ slices: chain(), prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, inlineDone: new Set(['s1']) });
+    expect(result.slices.map(({ id, state, pr }) => ({ id, state, pr }))).toEqual([
+      { id: 's1', state: 'merged', pr: null },
+      { id: 's2', state: 'runnable', pr: null },
+    ]);
+    expect(result.frontier).toMatchObject({ wave: 2, takeable: ['s2'] });
+  });
+
+  it('leaves every row as it was without inlineDone, and ignores a slice that has a pull request', () => {
+    expect(board(chain(), []).slices.map((row) => row.state)).toEqual(['runnable', 'blocked']);
+    const withPr = boardFor({ slices: [slice({ id: s1 })], prs: [pr()], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, inlineDone: new Set(['s1']) });
+    expect(firstRow(withPr).state).toBe('in-flight');
+  });
+
+  it('ignores inlineDone in a plan repository', () => {
+    const repos = { backend: { slug: 'acme/backend', readable: true } };
+    const result = boardFor({ slices: [slice({ id: s1, repo: 'backend' })], prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, repos, inlineDone: new Set(['s1']) });
+    expect(firstRow(result).state).toBe('runnable');
+  });
+
+  describe('inlineWave', () => {
+    const three = () => [slice({ id: s1 }), slice({ id: s2, territory: ['b/'] }), slice({ id: parseWorkSliceId('s3'), territory: ['c/'] })];
+
+    it('never builds inline with wave.inlineBelow at 0, its default', () => {
+      expect(inlineWave(board([slice()], []), 0)).toBe(false);
+    });
+
+    it('builds inline a plan with fewer slices than wave.inlineBelow, and no other', () => {
+      expect(inlineWave(board(three().slice(0, 1), []), 3)).toBe(true);
+      expect(inlineWave(board(three().slice(0, 2), []), 3)).toBe(true);
+      expect(inlineWave(board(three(), []), 3)).toBe(false);
+      expect(inlineWave(board(three().slice(0, 1), []), 1)).toBe(false);
+    });
+
+    it('stays inline once a slice is built, since a built slice has no pull request', () => {
+      const built = boardFor({ slices: three().slice(0, 2), prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, inlineDone: new Set(['s1']) });
+      expect(inlineWave(built, 3)).toBe(true);
+    });
+
+    it('never builds inline a PRD that already has a sub-PR: it finishes as it began', () => {
+      expect(inlineWave(board(three().slice(0, 2), [pr()]), 3)).toBe(false);
+    });
+
+    it('never builds inline across repositories', () => {
+      const repos = { backend: { slug: 'acme/backend', readable: true } };
+      expect(inlineWave(board([slice({ repo: 'backend' })], [], { repos }), 3)).toBe(false);
+    });
+
+    it('counts the current landing’s slices only, for a PRD of several landings', () => {
+      const slices = [slice({ id: s1, landing: 1 }), slice({ id: s2, territory: ['b/'], landing: 1 }), slice({ id: parseWorkSliceId('s3'), territory: ['c/'], landing: 2 })];
+      const landings = [
+        { landing: 1, name: 'first', branch: 'feat/widgets-1of2-first' },
+        { landing: 2, name: 'second', branch: 'feat/widgets-2of2-second' },
+      ];
+      const result = boardFor({ slices, prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, landings });
+      expect(result.currentLanding).toBe(1);
+      expect(inlineWave(result, 3)).toBe(true);
+      expect(inlineWave(result, 2)).toBe(false);
+    });
   });
 });
 
@@ -435,6 +549,23 @@ describe('boardFor — a plan repository (PRD 563)', () => {
       ['s3', 'blocked'],
     ]);
     expect(result.frontier).toMatchObject({ wave: 1, takeable: ['s2'] });
+  });
+
+  it('matches no pull request to a slice of a repository it cannot read', () => {
+    const result = multi(
+      [slice({ repo: 'backend' })],
+      [pr({ slug: 'acme/backend' })],
+      { ...REPOS, backend: { slug: 'acme/backend', readable: false } },
+    );
+    expect(firstRow(result)).toMatchObject({ state: 'unreadable', pr: null });
+  });
+
+  it('reads a plan where only some slices name a repository as a plan repository: a slice naming none is unreadable', () => {
+    const result = multi([slice({ id: parseWorkSliceId('s1'), repo: 'backend' }), slice({ id: parseWorkSliceId('s2'), territory: ['b/'] })], []);
+    expect(result.slices.map((row) => [row.id, row.state])).toEqual([
+      ['s1', 'runnable'],
+      ['s2', 'unreadable'],
+    ]);
   });
 
   it('makes a slice naming a repository it does not know unreadable, with no slug', () => {
@@ -535,6 +666,10 @@ describe('landings: the board reads a PRD per landing', () => {
 describe('landingBranches', () => {
   const BRANCHES = { feature: 'feat/{topic}', landing: 'feat/{topic}-{landing}of{landings}-{name}' };
 
+  it('reads a plan with no landings as one landing, landing-1, on the feature branch', () => {
+    expect(landingBranches(BRANCHES, { topic: 'widgets', landings: [] })).toEqual([{ landing: 1, name: 'landing-1', branch: 'feat/widgets' }]);
+  });
+
   it('keeps the feature branch for a PRD of one landing', () => {
     expect(landingBranches(BRANCHES, { topic: 'widgets', landings: [{ landing: 1, name: 'landing-1' }] })).toEqual([
       { landing: 1, name: 'landing-1', branch: 'feat/widgets' },
@@ -566,6 +701,8 @@ describe('landings in a plan repository: one chain per target', () => {
   it("takes a target's landing 2 only once that target's landing 1 is merged, and never holds one target on another", () => {
     const first = run([]);
     expect(first.frontier.takeable).toEqual(['s1', 's3']);
+    // The lowest current landing across the chains: the back-end's 1, not the front-end's 2.
+    expect(first.currentLanding).toBe(1);
     expect(first.landings?.map(({ repo, landing, current }) => [repo, landing, current])).toEqual([
       ['api', 1, true],
       ['api', 2, false],
@@ -584,5 +721,32 @@ describe('landings in a plan repository: one chain per target', () => {
     ]);
     expect(rowOf(result, 's3').state).toBe('in-flight');
     expect(result.landings?.find((row) => row.repo === 'web')?.pr).toEqual({ number: 9, state: 'draft', base: 'main' });
+    // Whichever order the payload lists them in: the slug, never the order, picks the landing PR.
+    const reversed = run([
+      pr({ number: parsePr(8), headRefName: 'feat/widgets', baseRefName: 'main', slug: 'acme/api' }),
+      pr({ number: parsePr(9), headRefName: 'feat/widgets', baseRefName: 'main', isDraft: true, slug: 'acme/web' }),
+    ]);
+    expect(reversed.landings?.find((row) => row.repo === 'web')?.pr).toEqual({ number: 9, state: 'draft', base: 'main' });
+  });
+
+  it('reads a landing that names no repository as every repository\'s, its PR by branch alone', () => {
+    const shared: BoardLanding[] = [
+      { landing: 1, name: 'expand', branch: 'feat/widgets-1of2-expand' },
+      { landing: 2, name: 'code', branch: 'feat/widgets-2of2-code' },
+    ];
+    const result = boardFor({
+      slices: SLICES,
+      prs: [pr({ number: parsePr(7), headRefName: 'feat/widgets-2of2-code', baseRefName: 'main', slug: 'acme/web' })],
+      now: NOW,
+      limits: LIMITS,
+      config: CONFIG,
+      prd: PRD,
+      repos: REPOS,
+      landings: shared,
+    });
+    expect(result.landings?.map(({ landing, slices, pr: landingPr }) => [landing, slices, landingPr.number])).toEqual([
+      [1, ['s1'], null],
+      [2, ['s2', 's3'], 7],
+    ]);
   });
 });

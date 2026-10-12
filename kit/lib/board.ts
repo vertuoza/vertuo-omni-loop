@@ -66,6 +66,13 @@
  * single feature branch when it has one): each landing entry then names its `repo`, a slice matches
  * its own repository's entry, and the current landing is decided per repository (`current` on each
  * landing row), so one target's landings never wait for another's.
+ *
+ * **Inline slices** (issue 1722). A PRD whose plan has fewer slices than `wave.inlineBelow` is built
+ * on its feature branch itself, with no sub-PR per slice (`inlineWave`). Such a slice never has a
+ * pull request, so the commits it left on the feature branch are its record: a commit whose message
+ * carries the trailer line `Omni-Slice: <id>` (`INLINE_SLICE_TRAILER`) says slice `<id>` was built,
+ * and `boardFor`, handed those ids as `inlineDone`, reads a slice with no pull request and such a
+ * commit as `merged`.
  */
 import type { PrNumber, WorkSliceId } from './ids.ts';
 import type { Config } from './types.ts';
@@ -162,6 +169,16 @@ export type BoardConfig = {
 
 /** A plan repository's repositories by short name. */
 export type BoardRepos = Record<string, { slug: string | null; readable: boolean }>;
+
+/** The trailer line an inline slice's commits end with: `Omni-Slice: s1`. */
+export const INLINE_SLICE_TRAILER = 'Omni-Slice';
+
+const INLINE_SLICE_LINE = new RegExp(`^${INLINE_SLICE_TRAILER}: (\\S+)\\s*$`, 'gm');
+
+/** The slice ids the trailer lines of `messages` (commit messages, as `git log --format=%B` prints them) name. */
+export function inlineSlicesIn(messages: string): Set<string> {
+  return new Set([...messages.matchAll(INLINE_SLICE_LINE)].map(([, id]) => String(id)));
+}
 
 /** What a branch template's placeholders are filled with. */
 type BranchValues = { topic?: string; slice?: WorkSliceId; landing?: number; landings?: number; name?: string };
@@ -357,6 +374,8 @@ export function runnableFrontier(rows: readonly FrontierRow[]): Frontier {
  * - `landings` — the PRD's landing branches in order (`landingBranches`); by default its one
  *   landing, on the feature branch. With more than one, the result also carries `landings` and
  *   `currentLanding`, and the frontier is the current landing's.
+ * - `inlineDone` — the ids of the slices built inline on the feature branch (`inlineSlicesIn`): one
+ *   of them with no pull request reads `merged`, and unblocks what waits on it.
  */
 export function boardFor<S extends BoardSlice>({
   slices,
@@ -367,6 +386,7 @@ export function boardFor<S extends BoardSlice>({
   prd,
   repos = null,
   landings = null,
+  inlineDone = new Set<string>(),
 }: {
   slices: readonly S[];
   prs?: readonly BoardPr[];
@@ -376,6 +396,7 @@ export function boardFor<S extends BoardSlice>({
   prd: { topic: string };
   repos?: BoardRepos | null;
   landings?: readonly BoardLanding[] | null;
+  inlineDone?: ReadonlySet<string>;
 }): { prd: { topic: string }; slices: BoardRow<S>[]; frontier: Frontier; landings?: LandingRow[]; currentLanding?: number | null } {
   const { topic } = prd;
   const ordered = landings ?? [{ landing: 1, name: 'landing-1', branch: fillBranch(config.branches.feature, { topic }) }];
@@ -401,10 +422,13 @@ export function boardFor<S extends BoardSlice>({
     return pickPr(candidates);
   });
 
+  // A slice built inline has no pull request: its commits on the feature branch are its merge.
+  const builtInline = (slice: S, pr: BoardPr | null | undefined) => !pr && !acrossRepos && inlineDone.has(slice.id);
+
   const mergedById = new Map(
     slices.map((slice, index) => {
       const pr = matched[index];
-      return [slice.id, Boolean(pr && isMerged(pr))];
+      return [slice.id, Boolean(pr && isMerged(pr)) || builtInline(slice, pr)];
     }),
   );
 
@@ -416,7 +440,8 @@ export function boardFor<S extends BoardSlice>({
     delete rest.repo;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     if (!repo) {
-      return { ...rest, pr, state: stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix }) };
+      const state = builtInline(slice, pr) ? 'merged' : stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix });
+      return { ...rest, pr, state };
     }
     const state = repo.readable
       ? stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix })
@@ -446,6 +471,23 @@ export function boardFor<S extends BoardSlice>({
     landings: landingRows,
     currentLanding,
   };
+}
+
+/**
+ * Whether a wave builds this board's slices inline (issue 1722): `wave.inlineBelow` is set, the plan has
+ * fewer slices than it (the current landing's, for a PRD of several landings), no slice lands in
+ * another repository, and no slice has a pull request, so a PRD that began with sub-PRs finishes
+ * with them. 0 never does.
+ */
+export function inlineWave(
+  { slices, landings, currentLanding }: Pick<ReturnType<typeof boardFor>, 'slices' | 'landings' | 'currentLanding'>,
+  inlineBelow: number,
+): boolean {
+  if (inlineBelow <= 0) return false;
+  if (slices.some((row) => row.pr !== null || (row.repo ?? null) !== null)) return false;
+  if (landings === undefined) return slices.length < inlineBelow;
+  const current = landings.find((landing) => landing.landing === currentLanding);
+  return current !== undefined && current.slices.length < inlineBelow;
 }
 
 /** States a slice is open in: it has a pull request, not yet merged. */

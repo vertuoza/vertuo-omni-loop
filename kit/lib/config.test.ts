@@ -505,7 +505,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
     ]);
   });
 
@@ -760,6 +760,28 @@ describe('limits.parallelSteps (PRD 1205)', () => {
     for (const value of ['0', '7', '2.5']) {
       expect(() => parseConfig(`kit: 1\nlimits:\n  parallelSteps: ${value}\n`, 'c.yml')).toThrow(/c\.yml.*limits\.parallelSteps/);
     }
+  });
+});
+
+describe('wave.inlineBelow (issue 1722)', () => {
+  it('defaults to 0, which never builds a PRD inline, and reads back the value a repository sets', () => {
+    expect(parseConfig('kit: 1\n').wave).toEqual({ inlineBelow: 0 });
+    expect(parseConfig('kit: 1\nwave:\n  inlineBelow: 3\n').wave.inlineBelow).toBe(3);
+  });
+
+  it('refuses a negative number, a fraction, text and an unknown key, naming it', () => {
+    for (const value of ['-1', '2.5', 'three', '""']) {
+      expect(() => parseConfig(`kit: 1\nwave:\n  inlineBelow: ${value}\n`, 'c.yml')).toThrow(/c\.yml.*wave\.inlineBelow/);
+    }
+    expect(() => parseConfig('kit: 1\nwave:\n  inline: 3\n', 'c.yml')).toThrow(/c\.yml.*wave.*inline/s);
+  });
+
+  it('is printed by omni config', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nwave:\n  inlineBelow: 3\n' } });
+    const out: string[] = [];
+    const code = await main(['config', 'wave.inlineBelow'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(out.join('')).toBe('3\n');
   });
 });
 

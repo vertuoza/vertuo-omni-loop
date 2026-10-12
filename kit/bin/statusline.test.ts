@@ -21,7 +21,12 @@ import { COMMAND_TABLE } from './commands/index.ts';
 import { main } from './omni.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
-import { parsePrd } from '../lib/ids.ts';
+import { parsePr, parsePrd } from '../lib/ids.ts';
+import type { PrNumber } from '../lib/ids.ts';
+import type { LoopChange } from '../lib/loop-reads/contract.ts';
+import { aChange, fakeLoopReads } from '../lib/loop-reads/fake.ts';
+import type { FakeLoopState } from '../lib/loop-reads/fake.ts';
+import { LoopReadError } from '../lib/loop-reads/port.ts';
 
 const CLI = fileURLToPath(new URL('./omni.ts', import.meta.url));
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
@@ -593,45 +598,40 @@ describe('omni statusline --refresh <n>', () => {
     '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN,
   };
 
-  /** A pull request of the feature `widgets`, as `gh pr list` returns one. */
-  function pr(number: number, slice: string, more = {}) {
-    return {
+  /** A change of the feature `widgets`, as the Omni page answers one (PRD 1665). */
+  function pr(number: PrNumber, slice: string, more: Partial<LoopChange> = {}): LoopChange {
+    return aChange({
       number,
       title: slice,
-      headRefName: `feat/widgets--${slice}`,
-      baseRefName: 'feat/widgets',
-      state: 'OPEN',
-      isDraft: false,
-      mergedAt: null,
-      body: '',
-      labels: [],
+      head: `feat/widgets--${slice}`,
+      base: 'feat/widgets',
       updatedAt: iso(NOW - MINUTE),
       createdAt: iso(NOW - 5 * MINUTE),
       ...more,
-    };
+    });
   }
   const PRS = [
-    pr(1, 's1', { state: 'MERGED', mergedAt: iso(NOW - HOUR) }),
-    pr(2, 's2', { isDraft: true }),
-    pr(3, 's3', { labels: [{ name: 'omni:needs-fix' }] }),
+    pr(parsePr(1), 's1', { state: 'merged', mergedAt: iso(NOW - HOUR) }),
+    pr(parsePr(2), 's2', { state: 'draft' }),
+    pr(parsePr(3), 's3', { labels: ['omni:needs-fix'] }),
   ];
 
-  /** `execFileSync` for git, and a stub for `gh`: `pr list` returns `prs`, and any `gh` throws when `ghFails`. */
-  function stubbedExec({ prs = PRS, ghFails = false } = {}) {
+  /** `execFileSync` for git; any `gh` call throws, for the refresh reads the loop through `LoopReads` alone. */
+  function stubbedExec() {
     const calls: string[] = [];
     const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([file, ...args].join(' '));
-      if (file !== 'gh') return realExec(file, args, options);
-      if (ghFails) throw new Error('spawnSync gh ENOENT\n    at stub');
-      if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
-      if (args[0] === 'pr' && args[1] === 'view') return JSON.stringify({ commits: [] });
-      throw new Error(`unexpected gh ${args.join(' ')}`);
+      if (file === 'gh') throw new Error(`unexpected gh ${args.join(' ')}`);
+      return realExec(file, args, options);
     };
     return { calls, exec };
   }
 
-  /** `omni statusline --refresh <prd>` in `cwd`: `{ code, out, err, calls }`. */
-  async function refresh(cwd: string, prd = '7', stub = stubbedExec()) {
+  /** The shared fake `LoopReads` holding `prs` as acme/widgets' changes. */
+  const loopOf = (prs: readonly LoopChange[] = PRS, more: FakeLoopState = {}) => fakeLoopReads({ changes: { 'acme/widgets': prs }, ...more });
+
+  /** `omni statusline --refresh <prd>` in `cwd`: `{ code, out, err, calls, reads }`. */
+  async function refresh(cwd: string, prd = '7', stub = stubbedExec(), reads = loopOf()) {
     const out: string[] = [];
     const err: string[] = [];
     const code = await main(['statusline', '--refresh', prd], {
@@ -642,11 +642,12 @@ describe('omni statusline --refresh <n>', () => {
       env: { ...PLAIN, CLAUDE_CODE_SESSION_ID: 'abc' },
       now: () => NOW,
       stdin: '',
+      reads,
       spawn: () => {
         throw new Error('a refresh starts no process');
       },
     });
-    return { code, out: out.join(''), err: err.join(''), calls: stub.calls };
+    return { code, out: out.join(''), err: err.join(''), calls: stub.calls, reads: reads.reads };
   }
 
   const readBoardJson = (root: string, prd = parsePrd(7)) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')) as { slices: unknown[] };
@@ -665,9 +666,8 @@ describe('omni statusline --refresh <n>', () => {
       ],
     });
     expect(existsSync(lockFile(root, parsePrd(7)))).toBe(false);
-    expect(run.calls.filter((call) => call.startsWith('gh '))).toEqual([
-      'gh pr list --repo acme/widgets --json number,title,headRefName,baseRefName,state,isDraft,mergedAt,body,labels,updatedAt,createdAt --state all --limit 200 --base feat/widgets',
-    ]);
+    expect(run.reads).toEqual([{ read: 'changes', query: { repo: 'acme/widgets', state: 'all', base: 'feat/widgets' } }]);
+    expect(run.calls.some((call) => call.startsWith('gh '))).toBe(false);
     expect(readFileSync(join(root, '.omni-loop/local/.gitignore'), 'utf8')).toBe('*\n');
     expect(existsSync(join(root, '.omni-loop/local/sessions'))).toBe(false);
   });
@@ -680,7 +680,7 @@ describe('omni statusline --refresh <n>', () => {
     expect(run).toMatchObject({ code: 0, out: '', err: '' });
     expect(existsSync(boardFile(root, parsePrd(7)))).toBe(false);
     expect(existsSync(lockFile(root, parsePrd(7)))).toBe(true);
-    expect(run.calls.some((call) => call.startsWith('gh '))).toBe(false);
+    expect(run.reads).toEqual([]);
   });
 
   it('takes over a lock 2 minutes old', async () => {
@@ -692,15 +692,47 @@ describe('omni statusline --refresh <n>', () => {
     expect(existsSync(lockFile(root, parsePrd(7)))).toBe(false);
   });
 
-  it('writes the error entry when gh fails, when there is no plan, or no such PRD', async () => {
+  it("writes the read's own line as the error entry when the loop cannot be read, whatever the line", async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    for (const [line, scope] of [
+      ['no sign-in (omni signin)', 'everything'],
+      ['unreachable', 'everything'],
+      ['refused (404): this Omni page cannot read the loop yet', 'everything'],
+      ['refused (403): acme/widgets is not in your workspace', 'repository'],
+      ["refused (429): the code host's budget for acme/widgets is spent", 'repository'],
+    ] as const) {
+      const failing = new LoopReadError(line, scope);
+      const run = await refresh(root, '7', stubbedExec(), loopOf(PRS, scope === 'everything' ? { everything: failing } : { failing: { 'acme/widgets': failing } }));
+      expect(run).toMatchObject({ code: 0, out: '', err: '' });
+      expect(readBoardJson(root)).toEqual({ at: iso(NOW), error: line });
+      expect(existsSync(lockFile(root, parsePrd(7)))).toBe(false);
+    }
+  });
+
+  it('keeps the status line drawing what it drew, never an error, after a read that failed', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const bare = mkdtempSync(join(tmpdir(), 'omni-origin-'));
+    git(bare, 'init', '-q', '--bare', '-b', 'main');
+    git(root, 'remote', 'add', 'origin', bare);
+    git(root, 'push', '-q', 'origin', 'main');
+    git(root, 'fetch', '-q', 'origin');
+    git(root, 'checkout', '-q', '-b', 'feat/widgets--s4');
+    const before = await statusline(root, payload(root), { env: { ...PLAIN, COLUMNS: '200' } });
+    const failing = new LoopReadError('no sign-in (omni signin)', 'everything');
+    expect((await refresh(root, '7', stubbedExec(), loopOf(PRS, { everything: failing }))).code).toBe(0);
+    const after = await statusline(root, payload(root), { env: { ...PLAIN, COLUMNS: '200' } });
+    expect(after).toMatchObject({ code: 0, err: '' });
+    expect(after.out.split('\n')[1]).toBe(before.out.split('\n')[1]);
+    expect(after.out).not.toContain('sign-in');
+  });
+
+  it('writes the error entry when there is no plan, or no such PRD', async () => {
     const { root } = makeRepo({ git: true, files: { ...FILES, '.omni-loop/delivery/inbox/0009-nothing/spec.md': '# nothing\n' } });
-    expect((await refresh(root, '7', stubbedExec({ ghFails: true }))).code).toBe(0);
-    expect(readBoardJson(root)).toEqual({ at: iso(NOW), error: 'spawnSync gh ENOENT' });
     expect((await refresh(root, '9')).code).toBe(0);
     expect(readBoardJson(root, parsePrd(9))).toEqual({ at: iso(NOW), error: 'omni board: no plan at .omni-loop/delivery/inbox/0009-nothing/plan.md.' });
     expect((await refresh(root, '42')).code).toBe(0);
     expect(readBoardJson(root, parsePrd(42))).toEqual({ at: iso(NOW), error: 'omni board: PRD 42 has no inbox or shipped folder.' });
-    for (const prd of [7, 9, 42]) expect(existsSync(lockFile(root, parsePrd(prd)))).toBe(false);
+    for (const prd of [9, 42]) expect(existsSync(lockFile(root, parsePrd(prd)))).toBe(false);
   });
 
   it('writes the board in the main checkout when run from a worktree', async () => {
@@ -755,30 +787,24 @@ describe('omni statusline --refresh <n> --kind', () => {
     commit(root, { '.omni-loop/delivery/bugs/1180-login-redirect/bug.md': '# login\n' });
     return root;
   };
-  const pr = (number: number, state = 'OPEN') => ({ number, url: `https://github.com/acme/widgets/pull/${number}`, state });
-  const HEADS: Record<string, unknown[]> = {
-    'feat/widgets': [pr(30, 'CLOSED'), pr(21)],
-    'docs/phase-0-widgets': [pr(20)],
-    'fix/login-redirect': [pr(40)],
-  };
+  /** A change from `head`, as the Omni page answers one (PRD 1665). */
+  const pr = (number: number, head: string, state: LoopChange['state'] = 'open') =>
+    aChange({ number: parsePr(number), head, state, url: `https://github.com/acme/widgets/pull/${number}` });
+  const CHANGES = [pr(30, 'feat/widgets', 'closed'), pr(21, 'feat/widgets', 'draft'), pr(20, 'docs/phase-0-widgets'), pr(40, 'fix/login-redirect'), pr(41, 'fix/login-redirect', 'merged')];
+  /** The shared fake `LoopReads`, holding the changes above as acme/widgets'. */
+  const loop = () => fakeLoopReads({ changes: { 'acme/widgets': CHANGES } });
   const signedIn = () => {
     const store: Record<string, unknown> = { 'omni.example': { access_token: 'a', refresh_token: 'r' } };
     return { read: (host: string) => store[host] ?? null, write: (host: string, tokens: unknown) => { store[host] = tokens; } };
   };
 
-  /** `execFileSync` for git; `gh pr list` answers by `--head` from `HEADS`, else as the board's empty list. */
+  /** `execFileSync` for git; any `gh` call throws, for the links are read through `LoopReads` alone. */
   function stubbedExec() {
     const calls: string[] = [];
     const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([file, ...args].join(' '));
-      if (file !== 'gh') return realExec(file, args, options);
-      if (args[0] === 'pr' && args[1] === 'list') {
-        const head = args.includes('--head') ? args[args.indexOf('--head') + 1] ?? '' : null;
-        if (head === null) return '[]';
-        const state = args[args.indexOf('--state') + 1];
-        return JSON.stringify((HEADS[head] ?? []).filter((listed) => state === 'all' || (listed as { state: string }).state === 'OPEN'));
-      }
-      throw new Error(`unexpected gh ${args.join(' ')}`);
+      if (file === 'gh') throw new Error(`unexpected gh ${args.join(' ')}`);
+      return realExec(file, args, options);
     };
     return { calls, exec };
   }
@@ -795,10 +821,10 @@ describe('omni statusline --refresh <n> --kind', () => {
     return { urls, fetch };
   }
 
-  async function refresh(cwd: string, args: string[], { exec = stubbedExec().exec, fetch = stubbedFetch().fetch, tokens = signedIn() } = {}) {
+  async function refresh(cwd: string, args: string[], { exec = stubbedExec().exec, fetch = stubbedFetch().fetch, tokens = signedIn(), reads = loop() } = {}) {
     const err: string[] = [];
     const code = await main(['statusline', '--refresh', ...args], {
-      cwd, stdout: { write: () => true }, stderr: { write: (s) => err.push(s) }, exec, env: PLAIN, now: () => NOW, stdin: '', tokens, fetch,
+      cwd, stdout: { write: () => true }, stderr: { write: (s) => err.push(s) }, exec, env: PLAIN, now: () => NOW, stdin: '', tokens, fetch, reads,
       spawn: () => {
         throw new Error('a refresh starts no process');
       },
@@ -847,6 +873,23 @@ describe('omni statusline --refresh <n> --kind', () => {
     expect(await nowJson(root)).toEqual({ headline: null, work: { kind: 'bug', number: 1180, topic: 'login-redirect', stage: 'fix PR open', slices: [], links }, doing: null });
   });
 
+  it('reads each link through LoopReads: the feature by its head, any state, the phase-0 and the fix PR open only', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const reads = loop();
+    expect(await refresh(root, ['7', '--kind', 'prd'], { reads })).toEqual({ code: 0, err: '' });
+    expect(reads.reads.filter((read) => read.read === 'changes' && read.query.head !== undefined)).toEqual([
+      { read: 'changes', query: { repo: 'acme/widgets', head: 'feat/widgets', state: 'all' } },
+      { read: 'changes', query: { repo: 'acme/widgets', head: 'docs/phase-0-widgets', state: 'open' } },
+    ]);
+  });
+
+  it('leaves out the pull requests, and keeps the page, when the loop cannot be read', async () => {
+    const root = fixRepo();
+    const reads = fakeLoopReads({ everything: new LoopReadError('no sign-in (omni signin)', 'everything') });
+    expect(await refresh(root, ['1180', '--kind', 'bug'], { reads })).toEqual({ code: 0, err: '' });
+    expect(linksJson(root, 'links-bug-1180.json')).toEqual({ at: iso(NOW), links: [{ label: 'fix page', href: `${BASE}/bug/1180` }] });
+  });
+
   it('leaves out a link it cannot have: no sign-in, no page, no pull request', async () => {
     const root = fixRepo();
     const store = { read: () => null, write: () => {} };
@@ -860,10 +903,10 @@ describe('omni statusline --refresh <n> --kind', () => {
     const { root } = makeRepo({ git: true, files: FILES });
     mkdirSync(join(root, '.omni-loop/local/now'), { recursive: true });
     writeFileSync(join(root, '.omni-loop/local/now/links-bug-1180.lock'), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
-    const { calls, exec } = stubbedExec();
-    expect(await refresh(root, ['1180', '--kind', 'bug'], { exec })).toEqual({ code: 0, err: '' });
+    const reads = loop();
+    expect(await refresh(root, ['1180', '--kind', 'bug'], { reads })).toEqual({ code: 0, err: '' });
     expect(existsSync(join(root, '.omni-loop/local/now/links-bug-1180.json'))).toBe(false);
-    expect(calls.some((call) => call.startsWith('gh '))).toBe(false);
+    expect(reads.reads).toEqual([]);
     expect(await refresh(root, ['1180', '--kind', 'roadmap'])).toEqual({ code: 0, err: '' });
     expect(await refresh(root, ['seven', '--kind', 'bug'])).toEqual({ code: 0, err: '' });
     expect(existsSync(join(root, '.omni-loop/local/now/links-roadmap-1180.json'))).toBe(false);

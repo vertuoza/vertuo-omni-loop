@@ -5,7 +5,8 @@ and the `omni` plugin for Claude Code (`kit/plugin/`: its skills and hooks). A r
 both to run the Omni Loop; everything specific to that repository is read from its
 `.omni-loop/config.yml`.
 
-**Installing.** A laptop needs Node 22 or later, git, gh signed in and Claude Code signed in, then
+**Installing.** A laptop needs Node 22 or later, git, gh signed in (for what the loop writes on
+GitHub: comments, labels, pull requests) and Claude Code signed in, then
 `omni` once: `npm install -g github:vertuoza/vertuo-omni-loop` (check it with `omni --version`).
 The global `omni` is the same bundle: inside a repository that has the kit it runs that
 repository's own `.omni-loop/bin/omni.mjs`, and outside one only `init`, `help` and `--version`
@@ -15,6 +16,29 @@ only its own files, pushes and opens the install pull request, installs the `omn
 offers sign-in; a step it cannot do prints the lines to type instead. What is left is the GitHub
 App link it prints and merging the pull request. The full walk-through is the Getting Started
 guide, `docs/guide/install.md`.
+
+**Reading the loop needs a sign-in, not `gh`.** The commands that decide what the loop plans or runs
+next read its state (a repository's changes, a change's review, its comments and issues) from the
+Omni page at `ask.url`, never through `gh`: `omni board`, `omni next`, `omni care`'s reads,
+`omni roadmap`'s gate, `omni statusline --refresh`, `omni dossier`'s issue title and
+`omni flow check merge`. So they run in any coding agent that has the kit and HTTPS, a Claude Code
+cloud session included, with no `gh` signed in. They need a sign-in: `omni signin` once per
+computer, or the kit token `OMNI_TOKEN` (`omni setup-token`) where no one can sign in. The page reads
+each repository with its GitHub App, so the repository must be in your workspace and the app
+installed on it. A read that cannot be made prints one line and exits `1`: `no sign-in (omni
+signin)`, `unreachable` (no answer within 15 seconds), `refused (403)` (the repository is not in
+your workspace), `refused (424)` (the app cannot read it, with the link that installs it),
+`refused (429)` (GitHub's budget for it is spent, with when it refills) or `refused (404): this
+Omni page cannot read the loop yet`. The skills treat each line as held, not failed. Writes (comments,
+labels, `omni care reply`, creating, readying or merging pull requests), git, and the setup and
+maintenance commands (`init`, `update`, `version`, `credits`, `harvest`, `targets`) still use `gh`.
+
+**Self-hosting the Omni page.** The kit depends on the loop's read contract (`GET
+<ask.url>/api/loop/changes`, `/changes/<n>`, `/comments`, `/issues` and `/issues/<n>`, whose shapes
+`kit/lib/loop-reads/contract.ts` holds), never on omni-loop.xyz. A team that runs its own Omni page
+sets `ask.url` in `.omni-loop/config.yml` to that page's address (`ask: { url:
+https://omni.example.com }`), signs in to it with `omni signin`, and every read goes there. A page
+older than the contract answers `refused (404): this Omni page cannot read the loop yet`: update it.
 
 **Updating.** Every merge to the kit's `main` cuts a release (`v0.0.1`, `v0.0.2`, …), and
 `omni version` says which one a repository runs and whether a newer one exists. A repository moves
@@ -46,6 +70,18 @@ terminal exits. It needs `ask.url` in the config (`null` by default, which leave
 whenever the page cannot answer, the question shows in the terminal as usual. The questions are
 kept: the whole workspace reads them, sorted and searchable, on the page's History, and a live one
 can be shared with a teammate, who answers it on its own link.
+
+**Signing in from any machine.** `omni signin` (and `omni setup-token`, which makes a kit token for a
+cloud session's `OMNI_TOKEN`) finishes one of two ways. On a laptop it opens the Omni page in the
+browser, which comes back to the terminal on `127.0.0.1`, and prints a device link under it as a
+fallback: `Browser didn't open, or it's on another machine? <link>  (code <c>)`; whichever comes back
+first wins. In a remote session (a Claude Code cloud session, SSH, a Codespace: `CLAUDE_CODE_REMOTE`,
+`SSH_CONNECTION`, `SSH_TTY` or `CODESPACES` set), or on Linux with no display, it takes the device
+flow: it prints `Sign in at <ask.url>/ask/device?user_code=<c>`, opens no browser, and waits up to 10
+minutes while the person opens the link in any browser, checks that the page shows the same code and
+signs in; nothing is pasted back. `--device` and `--loopback` force one flow or the other. An Omni page
+without the device sign-in says so and the browser on this machine takes over. `omni setup-token`
+then prints the token, its expiry and the line to paste it by, and keeps it nowhere.
 
 **The status line** shows two lines at the bottom of every Claude Code session opened in the
 repository or one of its worktrees: the model, how full the context window is (a bar of 10 cells,
@@ -134,6 +170,18 @@ validated like `risk.storedShape`): a slice whose territory touches a path one p
 touch nothing else, and a landing holding such a slice holds only such slices. The back-end, for
 instance, lists its migrations directories there (`^kernel-migrations/database/migrations/` and
 `/db/migrations/`), so a migration always travels in a landing of its own.
+
+**Inline waves** (issue 1722) build a small plan with no sub-PR per slice. `wave: { inlineBelow: <n> }`
+in the config (`0` by default, which changes nothing) makes `/omni:wave` build a PRD whose plan has
+fewer than `n` slices (the current landing's, for a PRD of several landings) on its feature branch
+itself: one slice after the other, each by `/omni:do-work --inline`, with no claim, no slice branch
+and no sub-PR. A built slice's last commit carries the trailer line `Omni-Slice: <id>`; `omni board`
+reads a slice with no pull request and such a commit on `<remote>/<feature branch>` as `merged`
+(`inlineSlicesIn`, `boardFor`'s `inlineDone`) and prints `inline` in its `--json` (`inlineWave`):
+`true` only when `wave.inlineBelow` is set, the plan is small enough, no slice lands in another
+repository, and no slice has a pull request, so a PRD that began with sub-PRs finishes with them.
+The git read runs only when `wave.inlineBelow` is above `0`, in `omni board`, `omni next` and the
+status line's board refresh.
 
 **Opening pull requests through the repository's skill.** `pr: { openWith: <skill> }` in the
 config (`null` by default, which keeps the kit's `gh pr create`) names a slash skill of the

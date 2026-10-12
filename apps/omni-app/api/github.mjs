@@ -287,8 +287,7 @@ var INBOX_CHECK_EVENT = "omni-loop/inbox.check.requested";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_CHECK_EVENT = "omni-loop/approved.check.requested";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
-var BUDGETS_CHECK_EVENT = "omni-loop/budgets.check.requested";
-var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
+var APPROVED_LABEL_EVENT = "omni-loop/approved.label.changed";
 var RETRO_EVENT = "omni-loop/retro.requested";
 var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
 var inngest = new Inngest({ id: APP_ID });
@@ -301,6 +300,10 @@ var SourceSchema = z5.looseObject({
 var CheckRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
   headSha: z5.string(),
+  trigger: z5.string().optional()
+});
+var ApprovedLabelDataSchema = SourceSchema.extend({
+  prd: PrdNumberSchema,
   trigger: z5.string().optional()
 });
 var CanonFactsSchema = z5.object({
@@ -605,7 +608,6 @@ var generatedEntry = z7.object({
   from: z7.array(text2).min(1, "at least one source prefix"),
   build: z7.string().trim().min(1)
 }).strict();
-var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z7.object({
   kit: z7.literal(CONFIG_VERSION),
   repo: section({
@@ -686,8 +688,9 @@ var ConfigSchema = z7.object({
     outboxContext: text2.default("outbox"),
     // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
     inboxContext: text2.default("inbox"),
-    // PRD 1548: the name of the check run the omni-loop App posts on a target feature PR of a product
-    // PRD, saying whether what it builds is what was approved; `null` posts none.
+    // PRD 1548 and PRD 1612: the name of the check run the omni-loop App posts on a target feature PR
+    // of a product PRD, and on a ◆ PRD's feature PR and its target PRs, saying whether what it builds
+    // is what was approved; `null` posts none.
     approvedContext: nullableText.default("omni/approved"),
     aggregateCheck: nullableText.default(null),
     branchProtection: z7.boolean().default(false),
@@ -743,6 +746,10 @@ var ConfigSchema = z7.object({
     // and a config that does not set it parses exactly as before.
     hookMaxBytes: z7.number().int().positive().optional()
   }),
+  // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
+  // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
+  // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
+  wave: section({ inlineBelow: z7.number().int().min(0).default(0) }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
@@ -821,12 +828,7 @@ var ConfigSchema = z7.object({
   flow: FlowSchema.optional(),
   // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
   // it has none, and parses with no `generated` key.
-  generated: z7.array(generatedEntry).optional(),
-  // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
-  // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
-  // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
-  // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
-  budgets: z7.object({ context: section({ enabled: z7.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional()
+  generated: z7.array(generatedEntry).optional()
 }).strict().superRefine(({ pr, flow }, issues) => {
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
@@ -1117,7 +1119,7 @@ var FORMS = Object.freeze([
   form("architecture", "core", [req("layout"), req("boundaries"), opt("patterns")]),
   form("testing", "core", [req("commands"), req("layout"), opt("levels"), req("never"), opt("data")]),
   form("verification", "core", [req("preflight"), opt("before-push"), opt("checks")]),
-  form("ci", "core", [req("workflows"), req("gating"), opt("known-reds"), opt("rerun"), opt("budgets")]),
+  form("ci", "core", [req("workflows"), req("gating"), opt("known-reds"), opt("rerun")]),
   form("pull-requests", "core", [req("body"), opt("title"), opt("labels"), opt("reviewers")]),
   form("decisions", "core", [req("where"), req("format"), opt("numbering")]),
   form("definition-of-done", "extended", [req("done"), opt("docs"), opt("commits")]),
@@ -1295,6 +1297,10 @@ var RETRO_ACTIONS = Object.freeze({
 var CANON_ACTIONS = Object.freeze({
   check_run: Object.freeze(["requested_action"])
 });
+var APPROVED_LABEL_ACTIONS = Object.freeze({
+  issues: Object.freeze(["labeled", "unlabeled"])
+});
+var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
@@ -1334,6 +1340,7 @@ async function receiveWebhook({
   headers,
   secret,
   send,
+  sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve()
 }) {
@@ -1363,13 +1370,15 @@ async function receiveWebhook({
     }
   }));
   const events = toEvents(event, payload);
-  if (events.length === 0) return reply(200, "ignored");
+  const approved = toApprovedLabelRequests(event, payload);
+  if (events.length + approved.length === 0) return reply(200, "ignored");
   try {
-    await send(events);
+    if (events.length > 0) await send(events);
+    if (approved.length > 0) await sendApproved(approved);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
-  return reply(200, `sent ${events.length}`);
+  return reply(200, `sent ${events.length + approved.length}`);
 }
 function toEvents(event, payload) {
   const action = readPayload(payload)?.action;
@@ -1401,7 +1410,6 @@ function toCheckRequests(event, delivery) {
 function rerunEventOf(externalId) {
   if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
   if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
-  if (externalId === BUDGETS_EXTERNAL_ID) return BUDGETS_CHECK_EVENT;
   return OUTBOX_CHECK_EVENT;
 }
 function toRetroRequests(event, delivery) {
@@ -1426,6 +1434,20 @@ function toHarvestRequests(event, payload) {
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber }
   }));
+}
+var LabelEventSchema = z13.looseObject({
+  label: z13.looseObject({ name: z13.string() }),
+  issue: z13.looseObject({ number: PrdNumberSchema, pull_request: z13.unknown().optional() })
+});
+function toApprovedLabelRequests(event, delivery) {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(APPROVED_LABEL_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const read = LabelEventSchema.safeParse(delivery);
+  if (!source || !read.success) return [];
+  const { label, issue } = read.data;
+  if (label.name !== APPROVED_LABEL || issue.pull_request !== void 0) return [];
+  return [{ name: APPROVED_LABEL_EVENT, data: { ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` } }];
 }
 var BUTTONS = Object.values(CANON_ACTION);
 function toCanonActionRequests(event, delivery) {
@@ -1492,6 +1514,7 @@ function githubRoute(env, { send = (events) => inngest.send(events) } = {}) {
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
+        sendApproved: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });

@@ -3,18 +3,19 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { boxFrame, cameraFor, cometsOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, SHADOW, viewFacing } from './art';
+import { BOX_WORLD, boxFrame, minimapAt, minimapLit, minimapTiles, MINIMAP_TOP, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
 import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf, project, viewOf } from './mode7';
 import { newRace } from './race';
-import { parseTrack } from './track';
+import { groundAt } from './relief';
+import { COMET_RING, parseTrack } from './track';
 
 // The ready screen's drawing, under a canvas that only counts (PRD 1359): the space the circuit floats in,
 // above the horizon and under it, in the theme's colours, then the floor from one reused pixel buffer, on both grids. The planets and
 // nebulae of @omni/design are its own, and stubbed out here.
 const planets = vi.hoisted(() => [] as { cy: number; r: number }[]);
-const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number | undefined; tint: unknown; frame: number | undefined }[]);
+const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number | undefined; tint: unknown; frame: number | undefined; clipped: boolean }[]);
 vi.mock('@omni/design', async (original) => {
   const m = await original<typeof import('@omni/design')>();
   return {
@@ -23,7 +24,7 @@ vi.mock('@omni/design', async (original) => {
     drawStarfield: () => {},
     makeNebula: () => ({}),
     spriteImage: () => ({ width: 32, height: 48 }),
-    drawSprite: (_ctx: unknown, name: string, x: number, y: number, o: { scale?: number; tint?: unknown; frame?: number } = {}) => { sprites.push({ name, x, y, scale: o.scale, tint: o.tint, frame: o.frame }); },
+    drawSprite: (ctx: { clipped?: boolean }, name: string, x: number, y: number, o: { scale?: number; tint?: unknown; frame?: number } = {}) => { sprites.push({ name, x, y, scale: o.scale, tint: o.tint, frame: o.frame, clipped: ctx.clipped === true }); },
   };
 });
 
@@ -54,14 +55,21 @@ afterEach(() => { vi.unstubAllGlobals(); });
 function recorder() {
   const fills: { style: string; rect: number[] }[] = [];
   const images: number[][] = [];
+  /** The angles the canvas was rotated by, in order. */
+  const rotations: number[] = [];
   /** Everything drawn, in order: the fills by their colour, the images and the sprites by name. */
   const order: string[] = [];
   const colours = new Set<string>();
   const state: Record<string | symbol, unknown> = {};
+  const stack: boolean[] = [];
   const ctx = new Proxy(state, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'fillRect') return (...rect: number[]) => { fills.push({ style: String(state['fillStyle']), rect }); order.push(`fill ${String(state['fillStyle'])}`); };
+      if (prop === 'save') return () => { stack.push(state['clipped'] === true); };
+      if (prop === 'restore') return () => { state['clipped'] = stack.pop() ?? false; };
+      if (prop === 'clip') return () => { state['clipped'] = true; };
+      if (prop === 'rotate') return (angle: number) => { rotations.push(angle); };
       if (prop === 'drawImage') return (_i: unknown, ...at: number[]) => { images.push(at); order.push('image'); };
       return () => {};
     },
@@ -71,7 +79,7 @@ function recorder() {
       return true;
     },
   });
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, images, colours, order };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, images, colours, order, rotations };
 }
 
 const frame = (grid: Grid, theme: Theme = DEFAULT_THEME): FrameState => ({
@@ -112,7 +120,8 @@ describe('the race\'s drawing', () => {
     const horizon = horizonOf(WIDE.h);
     for (let row = 0; row <= horizon; row++) expect(pixels.slice(row * WIDE.w, (row + 1) * WIDE.w).every((p) => p === 0), `row ${row}`).toBe(true);
     const under = pixels.slice((horizon + 1) * WIDE.w);
-    expect(under.every((p) => p >>> 24 === 0 || p >>> 24 === 0xff)).toBe(true);
+    // see-through over the void, opaque on the road and the deck's side, and the deck's glow under its edge: at most half opaque
+    expect(under.every((p) => p >>> 24 === 0 || p >>> 24 === 0xff || p >>> 24 <= 0x80)).toBe(true);
     expect(under.some((p) => p >>> 24 === 0xff)).toBe(true); // the road
     expect(under.some((p) => p >>> 24 === 0)).toBe(true); // the void, where the space shows
   });
@@ -336,7 +345,7 @@ describe('the items on the floor (slice 5)', () => {
     const kart = createKart({ seed: 3 });
     kart.press('start');
     const held = new Set<Action>(['a']);
-    let seen = 0, empty = 0;
+    let seen = 0, empty = 0, most = 0;
     for (let t = 0; t < 12; t += 0.05) {
       kart.step(held, 0.05);
       if (t < 3.1) continue;
@@ -345,10 +354,22 @@ describe('the items on the floor (slice 5)', () => {
       kart.draw(ctx, frame(WIDE));
       const boxes = sprites.filter((x) => x.name === 'item-box').length;
       seen += boxes;
-      if (boxes === 0) empty++;
+      most = Math.max(most, boxes);
+      if (boxes < most) empty++;
     }
     expect(seen).toBeGreaterThan(0);
     expect(empty).toBeGreaterThan(0);
+  });
+
+  it('draws a box 20 wide over a pool of its light that pulses with it, and still with reduced motion', () => {
+    expect(BOX_WORLD).toBe(20);
+    expect(POOL_WORLD).toBeGreaterThan(BOX_WORLD);
+    const f = frame(WIDE);
+    expect(new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => poolAlpha({ ...f, t }, 0))).size).toBeGreaterThan(2);
+    for (const t of [0, 0.3, 0.9, 2.1]) expect(poolAlpha({ ...f, t, reduced: true }, 40)).toBe(poolAlpha({ ...f, t: 0, reduced: true }, 40));
+    const poolAt = (t: number, reduced: boolean) => { const r = recorder(); createKart({ seed: 3 }).draw(r.ctx, { ...f, t, sceneT: t, reduced }); return r.fills.filter((x) => x.style === DEFAULT_THEME.gold); };
+    expect(poolAt(1, true).length).toBeGreaterThan(0);
+    expect(poolAt(1, true)).toEqual(poolAt(1.37, true));
   });
 
   it('turns and bobs the boxes, and holds them still when motion is reduced', () => {
@@ -417,7 +438,7 @@ describe('the shadows and the effects', () => {
     const flashes = (kart: ReturnType<typeof createKart>, reduced: boolean) => {
       const r = recorder();
       kart.draw(r.ctx, { ...frame(WIDE), reduced });
-      return r.fills.filter((f) => f.style === DEFAULT_THEME.white && f.rect[2] === f.rect[3]);
+      return r.fills.filter((f) => f.style === DEFAULT_THEME.white && f.rect[2] === f.rect[3] && (f.rect[0] ?? 0) < minimapAt(WIDE, parseTrack()).x);
     };
     const kart = createKart({ seed: 3 });
     kart.press('start');
@@ -495,7 +516,10 @@ describe('the props and the arch', () => {
 
   it('draws them far to near, each scaled by its distance', () => {
     const horizon = horizonOf(WIDE.h);
-    const pylons = named(drawn(), 'prop-pylon').map((x) => ({ ...x, scale: sure(x.scale, 'a scale') }));
+    // On a flat circuit: a prop on raised ground stands higher, which this proportion leaves out.
+    sprites.length = 0;
+    createKart({ seed: 3, track: parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints, ...(COMET_RING.props ? { props: COMET_RING.props } : {}) }) }).draw(recorder().ctx, frame(WIDE));
+    const pylons = named([...sprites], 'prop-pylon').map((x) => ({ ...x, scale: sure(x.scale, 'a scale') }));
     expect(pylons.length).toBeGreaterThan(1);
     expect(pylons.map((x) => x.scale)).toEqual([...pylons.map((x) => x.scale)].sort((a, b) => a - b));
     // The sprite's foot stands (height × focal) / z under the horizon, and its scale is proportional to 1 / z: their ratio is the same for every pylon.
@@ -565,7 +589,7 @@ describe('the sky', () => {
 
   it('draws the comets in the frame, and they cross as time passes', () => {
     const times = Array.from({ length: 60 }, (_, i) => i * 0.5);
-    const drawn = times.map((t) => skyOf(7, at(t)).fills.filter((f) => (f.rect[1] ?? horizon) < horizon && f.rect[2] !== undefined && f.rect[2] < 16));
+    const drawn = times.map((t) => skyOf(7, at(t)).fills.filter((f) => (f.rect[1] ?? horizon) < horizon && f.rect[2] !== undefined && f.rect[2] < 16 && (f.rect[0] ?? 0) < minimapAt(WIDE, parseTrack()).x));
     expect(drawn.some((f) => f.length > 0)).toBe(true);
     expect(drawn.some((f) => f.length === 0)).toBe(true);
   });
@@ -623,5 +647,146 @@ describe('the kart falling and blinking', () => {
     expect(run.map((k) => k.scale)).toEqual([...run.map((k) => k.scale)].sort((a, b) => b - a));
     expect(s.slice(end).some((k) => k === null)).toBe(true); // hidden on the blink's off frames
     expect(s.slice(first).some((k) => k !== null && k.scale === 4)).toBe(true); // back at full size on the road
+  });
+});
+
+describe('the relief on the screen (PRD 1698)', () => {
+  const n = COMET_RING.waypoints.length;
+  // The start straight runs east from waypoint 13 to waypoint 0, with a hump of 26 at its middle.
+  const hump = parseTrack({ ...COMET_RING, relief: { heights: Array.from({ length: n }, () => 0), bumps: Array.from({ length: n }, (_, i) => (i === n - 1 ? 26 : 0)) } });
+  const flat = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints });
+
+  it('puts the camera\'s eye 28 over the ground under the player\'s kart', () => {
+    for (const grid of [WIDE, TALL]) {
+      const kart = newRace({ seed: 1, track: hump }).player;
+      expect(viewFor(grid, hump, kart).height).toBeCloseTo(28 + groundAt(hump, kart.x, kart.y), 9);
+      const up = { ...kart, x: 36.5 * 16, y: 56.5 * 16 };
+      expect(groundAt(hump, up.x, up.y)).toBeCloseTo(26, 6);
+      expect(viewFor(grid, hump, up).height).toBeCloseTo(54, 6);
+      expect(viewFor(grid, flat, up).height).toBe(28);
+    }
+  });
+
+  it('cuts what stands behind a crest from the first row the nearer road covers, and nothing where none does', () => {
+    const w = 8, h = 10;
+    const depth = new Float32Array(w * h).fill(Infinity);
+    // The road 40 away covers the rows from 6 down in columns 2 to 4.
+    for (let row = 6; row < h; row++) for (let col = 2; col < 5; col++) depth[row * w + col] = 40;
+    const cut = coverOf(depth, w, h, { left: 0, right: 8, top: 0, bottom: 10 }, 100);
+    expect(Array.from(cut ?? [])).toEqual([10, 10, 6, 6, 6, 10, 10, 10]);
+    expect(coverOf(depth, w, h, { left: 0, right: 8, top: 0, bottom: 10 }, 30)).toBeNull(); // nearer than the road: nothing hides it
+    expect(coverOf(depth, w, h, { left: 5, right: 8, top: 0, bottom: 10 }, 100)).toBeNull();
+  });
+
+  it('clips the things behind a hill\'s crest and none on a flat circuit, the arch always on top', () => {
+    const clipped = (track: typeof hump) => {
+      sprites.length = 0;
+      createKart({ seed: 3, track }).draw(recorder().ctx, frame(WIDE));
+      return [...sprites];
+    };
+    const onFlat = clipped(flat), onHill = clipped(hump);
+    expect(onFlat.some((x) => x.clipped)).toBe(false);
+    expect(onHill.filter((x) => x.name.startsWith('arch')).every((x) => !x.clipped)).toBe(true);
+    expect(onHill.filter((x) => x.name.startsWith('arch')).length).toBeGreaterThan(0);
+    expect(onHill.some((x) => x.clipped)).toBe(true);
+  });
+});
+
+describe('tipping over the edge on the screen (PRD 1698)', () => {
+  it('rolls a kart towards the side over the void, a little for a lean and onto its side as a tipped kart falls', () => {
+    expect(rollOf(0, 0)).toBe(0);
+    expect(rollOf(0, 1)).toBe(0);
+    expect(rollOf(0.5, 0)).toBeGreaterThan(0); // one wheel out on its right: clockwise
+    expect(rollOf(-0.5, 0)).toBeLessThan(0);
+    expect(rollOf(0.5, 0)).toBeCloseTo(-rollOf(-0.5, 0), 9);
+    expect(rollOf(0.5, 0)).toBeLessThan(Math.PI / 4);
+    expect(rollOf(1, 0.5)).toBeGreaterThan(rollOf(0.5, 0));
+    expect(rollOf(1, 1)).toBeGreaterThan(rollOf(1, 0.5));
+    expect(rollOf(1, 1)).toBeLessThanOrEqual(Math.PI / 2 + 1e-9);
+  });
+
+  /** The player driving off the road's edge, gas and right held, frame by frame until it is back: what each frame rotated the canvas by, and whether the player's shadow was drawn. */
+  function series() {
+    const game = createKart({ seed: 3 });
+    game.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) game.step(new Set<Action>(), 0.05);
+    const out: { roll: number; shadow: boolean; falling: boolean }[] = [];
+    let seen = false;
+    for (let t = 0; t < 20; t += 0.02) {
+      game.step(new Set<Action>(['a', 'right']), 0.02);
+      sprites.length = 0;
+      const r = recorder();
+      game.draw(r.ctx, frame(WIDE));
+      const k = sprites.find((x) => x.name.startsWith('kart'));
+      const falling = k !== undefined && (k.scale ?? 4) < 4;
+      seen = seen || falling;
+      // The player's shadow stands at the grid's middle, near its bottom.
+      const shadow = r.fills.some((f) => { const [x = 0, y = 0, w = 0] = f.rect; return f.style === SHADOW && Math.abs(x + w / 2 - WIDE.w / 2) < 3 && y > WIDE.h - 60; });
+      out.push({ roll: Math.max(0, ...r.rotations.map(Math.abs)), shadow, falling });
+      if (seen && !falling && k) break;
+    }
+    return out;
+  }
+
+  it('draws a leaning kart rolled and a falling one rolled further, with no shadow while it falls', () => {
+    const s = series();
+    const leaning = s.filter((f) => !f.falling && f.roll > 0);
+    const falling = s.filter((f) => f.falling && f.roll > 0);
+    expect(leaning.length).toBeGreaterThan(0);
+    expect(falling.length).toBeGreaterThan(3);
+    expect(Math.max(...falling.map((f) => f.roll))).toBeGreaterThan(Math.max(...leaning.map((f) => f.roll)));
+    // The frame the fall begins on is still full size: it has the roll of a lean and already no shadow.
+    expect(leaning.filter((f) => f.shadow).length).toBeGreaterThan(0);
+    expect(leaning.filter((f) => !f.shadow)).toHaveLength(1);
+    expect(s.filter((f) => f.falling).some((f) => f.shadow)).toBe(false);
+    expect(s.filter((f) => !f.falling && f.roll === 0).some((f) => f.shadow)).toBe(true);
+  });
+});
+
+describe('the minimap (PRD 1698)', () => {
+  const track = parseTrack();
+  const inside = (grid: Grid, f: { rect: number[] }) => { const m = minimapAt(grid, track); const [x = 0, y = 0] = f.rect; return x >= m.mapX && y >= m.mapY && x < m.mapX + track.cols && y < m.mapY + track.rows; };
+
+  it.each([['wide', WIDE], ['tall', TALL]] as const)('stands in the top right corner, 8 in from the right edge and under the item panel, one pixel a tile, on the %s grid', (_n, grid) => {
+    const m = minimapAt(grid, track);
+    expect(m.x + m.w).toBe(grid.w - 8);
+    expect(m.y).toBeGreaterThanOrEqual(32);
+    expect(m.w).toBe(track.cols + 2);
+    expect(m.h).toBe(track.rows + 2);
+    const r = recorder();
+    createKart({ seed: 1 }).draw(r.ctx, frame(grid));
+    expect(r.fills.some((f) => f.style === DEFAULT_THEME.cyan && f.rect.join() === [m.x, m.y, m.w, m.h].join())).toBe(true);
+  });
+
+  it('shades the road by its height, lighter the higher, and the start line white', () => {
+    const tiles = minimapTiles(track, { low: 0, high: 26 });
+    const light = (c: string) => Number(/rgb\((\d+)/.exec(c)?.[1] ?? 0);
+    expect(tiles.length).toBeGreaterThan(100);
+    const shades = tiles.filter((t) => t.colour !== '#ffffff').map((t) => light(t.colour));
+    expect(Math.max(...shades)).toBeGreaterThan(Math.min(...shades));
+    expect(tiles.some((t) => t.colour === '#ffffff')).toBe(true);
+    const flat = minimapTiles(parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }), { low: 0, high: 0 });
+    expect(new Set(flat.filter((t) => t.colour !== '#ffffff').map((t) => t.colour)).size).toBe(1);
+  });
+
+  it('draws a gold pixel per box there to take, a dot per rival and the player\'s yellow dot last', () => {
+    const r = recorder();
+    createKart({ seed: 1 }).draw(r.ctx, frame(WIDE));
+    const gold = r.fills.filter((f) => f.style === DEFAULT_THEME.gold && inside(WIDE, f) && f.rect[2] === 1);
+    expect(gold).toHaveLength(track.boxes.length);
+    expect(r.fills.filter((f) => inside(WIDE, f) && f.rect[2] === 2 && f.rect[3] === 2)).toHaveLength(5);
+    const yellow = r.fills.map((f, i) => ({ f, i })).filter(({ f }) => f.style === DEFAULT_THEME.yellow && inside(WIDE, f) && f.rect[2] === 3);
+    expect(yellow).toHaveLength(1);
+    const after = r.fills.slice(sure(yellow[0], 'dot').i + 1).filter((f) => inside(WIDE, f));
+    expect(after.every((f) => f.rect[2] === 1 && f.rect[3] === 1)).toBe(true);
+    expect(after).toHaveLength(1);
+  });
+
+  it('blinks the player\'s dot while it falls, and not with reduced motion', () => {
+    expect(minimapLit({ t: 0.3, reduced: false }, { fall: 0 })).toBe(true);
+    expect(minimapLit({ t: 0, reduced: false }, { fall: 1 })).toBe(true);
+    expect(minimapLit({ t: 0.2, reduced: false }, { fall: 1 })).toBe(false);
+    expect(minimapLit({ t: 0.2, reduced: true }, { fall: 1 })).toBe(true);
+    expect(MINIMAP_TOP).toBeGreaterThanOrEqual(32);
   });
 });

@@ -1,77 +1,22 @@
-// PRD 790: a feature PR's care state, parsed from one GraphQL read — its check rollup, its mergeable
-// state, its review threads with each one's verdict, and the care line of `/omni:pr`'s status comment.
-// Pure: `kit/bin/commands/care.ts` runs the query (`CARE_QUERY`) and adds whether a wave holds
-// claims; the decision (`decide.mjs`) reads what this returns.
-import { z } from 'zod';
+// PRD 790: a feature PR's care state — its checks, its mergeable state, its review threads with each
+// one's verdict, and the care line of `/omni:pr`'s status comment. PRD 1665: read from the loop's facts,
+// one change with its review and its conversation's comments, as the Omni page answers them through
+// `LoopReads`; no GraphQL query is left. Pure: `kit/bin/commands/care.ts` and `next.ts` make the reads
+// and add whether a wave holds claims; the decision (`decide.ts`) reads what this returns.
 import { readCareVerdict } from './marker.ts';
-import { at, propertyOf } from '../narrow.ts';
+import { at } from '../narrow.ts';
 import type { CareVerdict } from './marker.ts';
-import { CommentIdSchema, PrNumberSchema, parsePr } from '../ids.ts';
+import { parsePr } from '../ids.ts';
 import type { CommentId, PrNumber } from '../ids.ts';
+import type { LoopChangeDetail, LoopComment } from '../loop-reads/contract.ts';
 
-// The parts of `CARE_QUERY`'s answer this file reads, as a schema: `kit/bin/commands/care.ts` parses
-// GitHub's answer with it. Every field but a few GitHub always sends may be missing or null, and this
-// parser keeps reading a missing field as it always has.
-const text = z.string().nullish();
-const nodesOf = <T extends z.ZodType>(node: T) => z.object({ nodes: z.array(node).nullish() }).nullish();
+/** What a care state is read from: one change, with its review, and its conversation's comments. */
+export type CareFacts = { change: LoopChangeDetail; comments: readonly Pick<LoopComment, 'id' | 'body'>[] };
 
-const ContextNodeSchema = z.object({
-  __typename: text,
-  name: text,
-  conclusion: text,
-  detailsUrl: text,
-  context: text,
-  state: text,
-  targetUrl: text,
-});
-type ContextNode = z.infer<typeof ContextNodeSchema>;
-const RollupSchema = z.object({ state: text, contexts: nodesOf(ContextNodeSchema.nullish()) });
-type Rollup = z.infer<typeof RollupSchema>;
-const AuthorSchema = z.object({ login: text, avatarUrl: text });
-const CommentNodeSchema = z.object({
-  author: AuthorSchema.nullish(),
-  body: text,
-  createdAt: text,
-  url: text,
-});
-type CommentNode = z.infer<typeof CommentNodeSchema>;
-const ThreadNodeSchema = z.object({
-  id: z.string(),
-  isResolved: z.boolean().nullish(),
-  path: text,
-  line: z.number().nullish(),
-  comments: nodesOf(CommentNodeSchema),
-});
-type ThreadNode = z.infer<typeof ThreadNodeSchema>;
-const IssueCommentNodeSchema = z.object({ databaseId: CommentIdSchema.nullish(), body: text });
-type IssueCommentNode = z.infer<typeof IssueCommentNodeSchema>;
-const PullRequestNodeSchema = z.object({
-  number: PrNumberSchema,
-  url: z.string(),
-  state: z.string(),
-  isDraft: z.boolean().nullish(),
-  baseRefName: z.string(),
-  headRefName: z.string(),
-  mergeable: text,
-  labels: nodesOf(z.object({ name: z.string() })),
-  commits: nodesOf(z.object({ commit: z.object({ statusCheckRollup: RollupSchema.nullish() }).nullish() }).nullish()),
-  reviewThreads: nodesOf(ThreadNodeSchema),
-  comments: nodesOf(IssueCommentNodeSchema),
-});
-type PullRequestNode = z.infer<typeof PullRequestNodeSchema>;
-
-/**
- * The JSON of `CARE_QUERY`, as far as `careState` reads it. Typed as `ZodType<CareResponse>`, which the
- * compiler checks against what the schema infers: inferring the whole output at every use instead is too
- * deep for `tsgo` (TS2589) in a file that reads it first (PRD 1042).
- */
-export const CareResponseSchema: z.ZodType<CareResponse> = z
-  .object({ data: z.object({ repository: z.object({ pullRequest: PullRequestNodeSchema.nullish() }).nullish() }).nullish() })
-  .nullish();
-
-/** The parsed JSON of `CARE_QUERY`: its three outer levels written out over `PullRequestNode`. */
-type Nullish<T> = T | null | undefined;
-export type CareResponse = Nullish<{ data?: Nullish<{ repository?: Nullish<{ pullRequest?: Nullish<PullRequestNode> }> }> }>;
+/** One check, one thread and one thread comment, as the facts carry them. */
+type Check = LoopChangeDetail['review']['checks'][number];
+type Thread = LoopChangeDetail['review']['threads'][number];
+type ThreadComment = Thread['comments'][number];
 
 export type CheckState = 'green' | 'red' | 'running' | 'none';
 export type FailedCheck = { name: string | null | undefined; url: string | null };
@@ -114,51 +59,15 @@ export type CareState = {
 };
 export type CareOptions = { statusMarker: string | null | undefined; needsFixLabel: string | null | undefined; gateContexts?: readonly string[] };
 
-/** The one read of a pull request a round makes. Variables: `owner`, `name`, `number`. */
-export const CARE_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      number url state isDraft baseRefName headRefName mergeable
-      labels(first: 50) { nodes { name } }
-      commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
-        __typename
-        ... on CheckRun { name status conclusion detailsUrl }
-        ... on StatusContext { context state targetUrl }
-      } } } } } }
-      reviewThreads(first: 100) { nodes { id isResolved path line
-        comments(first: 50) { nodes { author { login avatarUrl } body createdAt url } } } }
-      comments(last: 100) { nodes { databaseId body } }
-    }
-  }
-}`;
-
-const ROLLUP: Record<string, CheckState> = { SUCCESS: 'green', FAILURE: 'red', ERROR: 'red', PENDING: 'running', EXPECTED: 'running' };
-const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
-const FAILED_STATUS = new Set(['FAILURE', 'ERROR']);
 const CARE_LINE_RE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;
 const WAITS_ON_RE = /\bwaits on ([\w.-]+\/[\w.-]+)#(\d+)/;
 
-/** A commit status that failed, as a failed check; null for one that did not. */
-function failedStatus(node: ContextNode): FailedCheck | null {
-  return FAILED_STATUS.has(node.state ?? '') ? { name: node.context, url: node.targetUrl ?? null } : null;
-}
-
-/** A check run that failed, as a failed check; null for one that did not. */
-function failedRun(node: ContextNode): FailedCheck | null {
-  return FAILED_RUN.has(node.conclusion ?? '') ? { name: node.name, url: node.detailsUrl ?? null } : null;
-}
-
-function failedContexts(contexts: readonly (ContextNode | null | undefined)[]): FailedCheck[] {
-  const failed: FailedCheck[] = [];
-  for (const node of contexts) {
-    const check = node ? (node.__typename === 'StatusContext' ? failedStatus(node) : failedRun(node)) : null;
-    if (check) failed.push(check);
-  }
-  return failed;
-}
-
-function rollupOf(pr: PullRequestNode): Rollup | null {
-  return pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
+/** The checks' state as GitHub's rollup draws it: red once one failed, running while one is pending,
+ * green otherwise, none without a check. */
+function rollupOf(checks: readonly Check[]): CheckState {
+  if (checks.length === 0) return 'none';
+  if (checks.some((check) => check.state === 'failure')) return 'red';
+  return checks.some((check) => check.state === 'pending') ? 'running' : 'green';
 }
 
 // Red only on the outbox or inbox gate is the gate doing its job, not a failure to fix (/omni:pr).
@@ -168,29 +77,21 @@ function isFixable(state: CheckState, failed: readonly FailedCheck[], gateContex
   return failed.length === 0 || failed.some((run) => !gates.has(run.name));
 }
 
-function readChecks(pr: PullRequestNode, labels: readonly string[], { needsFixLabel, gateContexts }: { needsFixLabel: CareOptions['needsFixLabel']; gateContexts: readonly string[] }): CareChecks {
-  const rollup = rollupOf(pr);
-  const state: CheckState = rollup ? (ROLLUP[rollup.state ?? ''] ?? 'running') : 'none';
-  const failed = rollup && state === 'red' ? failedContexts(rollup.contexts?.nodes ?? []) : [];
+/** The checks of the change's head, read for a round. The facts carry no link to a check's run. */
+function readChecks(
+  checks: readonly Check[],
+  labels: readonly string[],
+  { needsFixLabel, gateContexts }: { needsFixLabel: CareOptions['needsFixLabel']; gateContexts: readonly string[] },
+): CareChecks {
+  const state = rollupOf(checks);
+  const failed = checks.filter((check) => check.state === 'failure').map((check) => ({ name: check.name, url: null }));
   const fixable = isFixable(state, failed, gateContexts);
   return { state, failed, stuck: needsFixLabel ? labels.includes(needsFixLabel) : false, fixable };
 }
 
-/** A comment author's field: its text, or null when the comment has no author or no such field. */
-function authorField(node: CommentNode, key: 'login' | 'avatarUrl'): string | null {
-  const value = propertyOf(node.author, key);
-  return typeof value === 'string' ? value : null;
-}
-
-function readComment(node: CommentNode): CareComment {
-  return {
-    author: authorField(node, 'login'),
-    avatarUrl: authorField(node, 'avatarUrl'),
-    body: node.body ?? '',
-    createdAt: node.createdAt ?? null,
-    url: node.url ?? null,
-    verdict: readCareVerdict(node.body),
-  };
+/** A thread comment, for a round: the facts carry no avatar and no link to it. */
+function readComment(comment: ThreadComment): CareComment {
+  return { author: comment.author, avatarUrl: null, body: comment.body, createdAt: comment.createdAt, url: null, verdict: readCareVerdict(comment.body) };
 }
 
 /** The reply's text, without its marker. */
@@ -207,8 +108,8 @@ function reasonOf(body: string): string {
  *   reopened: asked, and the round marks it so (the reviewer keeps the last word);
  * - otherwise: the verdict of that reply, handled.
  */
-function threadBase(node: ThreadNode, comments: CareComment[], resolved: boolean) {
-  return { id: node.id, url: comments[0]?.url ?? null, path: node.path ?? null, line: node.line ?? null, resolved, comments };
+function threadBase(thread: Thread, comments: CareComment[]) {
+  return { id: thread.id, url: null, path: thread.path, line: thread.line, resolved: thread.resolved, comments };
 }
 
 /** The verdict, reason and need of a thread whose last care reply sits at `last`. */
@@ -221,13 +122,12 @@ function repliedThread(comments: readonly CareComment[], last: number, resolved:
   return { verdict: reply.verdict, reason, needs: null };
 }
 
-function readThread(node: ThreadNode): CareThread | null {
-  const comments = (node.comments?.nodes ?? []).map(readComment);
-  const resolved = Boolean(node.isResolved);
+function readThread(thread: Thread): CareThread | null {
+  const comments = thread.comments.map(readComment);
   const last = comments.findLastIndex((c) => c.verdict !== null);
-  const base = threadBase(node, comments, resolved);
-  if (last === -1) return resolved ? null : { ...base, verdict: null, reason: null, needs: 'judge' };
-  return { ...base, ...repliedThread(comments, last, resolved) };
+  const base = threadBase(thread, comments);
+  if (last === -1) return thread.resolved ? null : { ...base, verdict: null, reason: null, needs: 'judge' };
+  return { ...base, ...repliedThread(comments, last, thread.resolved) };
 }
 
 /** The `waits on <slug>#<pr>` line of a status comment, as the field it adds; `{}` without one. */
@@ -236,31 +136,37 @@ function waitsOnIn(body: string): Pick<CareStatus, 'waitsOn'> {
   return waits?.[1] && waits[2] ? { waitsOn: { slug: waits[1], pr: parsePr(waits[2]) } } : {};
 }
 
-function readStatus(nodes: readonly IssueCommentNode[], statusMarker: CareOptions['statusMarker']): CareStatus | null {
-  const found = nodes.find((node) => statusMarker && (node.body ?? '').includes(statusMarker));
+function readStatus(comments: CareFacts['comments'], statusMarker: CareOptions['statusMarker']): CareStatus | null {
+  const found = comments.find((comment) => statusMarker && comment.body.includes(statusMarker));
   if (!found) return null;
-  const line = String(found.body).match(CARE_LINE_RE);
-  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null, ...waitsOnIn(String(found.body)) };
+  const line = found.body.match(CARE_LINE_RE);
+  return { commentId: found.id, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null, ...waitsOnIn(found.body) };
 }
 
-/** The care state of the pull request in `response` (the parsed JSON of `CARE_QUERY`). */
-export function careState(response: CareResponse, { statusMarker, needsFixLabel, gateContexts = [] }: CareOptions): CareState {
-  const pr = response?.data?.repository?.pullRequest;
-  if (!pr) throw new Error('the response holds no pull request');
-  const labels = (pr.labels?.nodes ?? []).map((label) => label.name);
+/** A change's state as the care state has always named it: GitHub's, a draft being open. */
+const PR_STATES: Record<LoopChangeDetail['state'], string> = { open: 'OPEN', draft: 'OPEN', merged: 'MERGED', closed: 'CLOSED' };
+
+/** Whether the change merges cleanly, in the words the care state has always used. */
+function mergeableOf(mergeable: boolean | null): string {
+  if (mergeable === null) return 'UNKNOWN';
+  return mergeable ? 'MERGEABLE' : 'CONFLICTING';
+}
+
+/** The care state of `change`, from its review and its conversation's `comments`. */
+export function careState({ change, comments }: CareFacts, { statusMarker, needsFixLabel, gateContexts = [] }: CareOptions): CareState {
   return {
     pr: {
-      number: pr.number,
-      url: pr.url,
-      state: pr.state,
-      isDraft: Boolean(pr.isDraft),
-      base: pr.baseRefName,
-      head: pr.headRefName,
-      labels,
+      number: change.number,
+      url: change.url,
+      state: PR_STATES[change.state],
+      isDraft: change.state === 'draft',
+      base: change.base,
+      head: change.head,
+      labels: [...change.labels],
     },
-    checks: readChecks(pr, labels, { needsFixLabel, gateContexts }),
-    mergeable: pr.mergeable ?? 'UNKNOWN',
-    threads: (pr.reviewThreads?.nodes ?? []).map(readThread).filter((thread) => thread !== null),
-    status: readStatus(pr.comments?.nodes ?? [], statusMarker),
+    checks: readChecks(change.review.checks, change.labels, { needsFixLabel, gateContexts }),
+    mergeable: mergeableOf(change.review.mergeable),
+    threads: change.review.threads.map(readThread).filter((thread) => thread !== null),
+    status: readStatus(comments, statusMarker),
   };
 }

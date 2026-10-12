@@ -47,14 +47,14 @@ function page(reply: Record<string, unknown> | Response | 'down' = {}) {
   return { fetch, sent };
 }
 
-async function run(argv: string[], { reply, env = { OMNI_TOKEN: TOKEN }, url }: { reply?: Parameters<typeof page>[0]; env?: Record<string, string>; url?: string | null } = {}) {
+async function run(argv: string[], { reply, env = { OMNI_TOKEN: TOKEN }, url, platform }: { reply?: Parameters<typeof page>[0]; env?: Record<string, string>; url?: string | null; platform?: NodeJS.Platform } = {}) {
   const root = checkout(url);
   const home = homeWithFile();
   const mtime = statSync(join(home, ...FILE)).mtimeMs;
   const opened: string[] = [];
   const fake = page(reply);
   const std = io();
-  const code = await main(argv, { cwd: root, ...std, env, home, fetch: fake.fetch, openBrowser: (link: string) => opened.push(link), waitMs: 50 });
+  const code = await main(argv, { cwd: root, ...std, env, home, fetch: fake.fetch, openBrowser: (link: string) => opened.push(link), waitMs: 50, ...(platform === undefined ? {} : { platform }) });
   const untouched = existsSync(join(home, ...FILE)) && readFileSync(join(home, ...FILE), 'utf8') === KEPT && statSync(join(home, ...FILE)).mtimeMs === mtime;
   return { code, out: std.out(), err: std.err(), sent: fake.sent, opened, untouched };
 }
@@ -75,9 +75,11 @@ describe('omni signin under OMNI_TOKEN', () => {
   });
 
   it('opens the browser as it always has when OMNI_TOKEN is unset', async () => {
-    const result = await run(['signin'], { env: {} });
+    // On a laptop: Linux with no display takes the device flow instead (PRD 1660), as CI does.
+    const result = await run(['signin'], { env: {}, platform: 'darwin' });
     expect(result.opened).toHaveLength(1);
-    expect(result.sent).toEqual([]);
+    // Only the fallback device request (PRD 1660) is sent: nothing is traded.
+    expect(result.sent).toEqual([{ url: `${ASK_URL}/api/ask/device`, body: { purpose: 'signin' } }]);
   });
 });
 

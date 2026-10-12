@@ -232,8 +232,9 @@ export const ConfigSchema = z
       outboxContext: text.default('outbox'),
       // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
       inboxContext: text.default('inbox'),
-      // PRD 1548: the name of the check run the omni-loop App posts on a target feature PR of a product
-      // PRD, saying whether what it builds is what was approved; `null` posts none.
+      // PRD 1548 and PRD 1612: the name of the check run the omni-loop App posts on a target feature PR
+      // of a product PRD, and on a ◆ PRD's feature PR and its target PRs, saying whether what it builds
+      // is what was approved; `null` posts none.
       approvedContext: nullableText.default('omni/approved'),
       aggregateCheck: nullableText.default(null),
       branchProtection: z.boolean().default(false),
@@ -297,6 +298,10 @@ export const ConfigSchema = z
       // and a config that does not set it parses exactly as before.
       hookMaxBytes: z.number().int().positive().optional(),
     }),
+    // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
+    // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
+    // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
+    wave: section({ inlineBelow: z.number().int().min(0).default(0) }),
     ask: section({ url: askUrl.nullable().default(null) }),
     // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
     // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
