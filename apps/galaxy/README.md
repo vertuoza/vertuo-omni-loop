@@ -1479,6 +1479,46 @@ works on the vercel.app host as before.
 3. **Vercel** › the galaxy project › Domains: keep both `www.omni-loop.xyz` and
    `vertuo-omni-loop-galaxy.vercel.app`, with no redirect between them.
 
+### 8. When Vercel builds
+
+Both projects build only what can change them (PRD 1646). Build CPU minutes were nearly the whole
+Vercel bill: every merge built both projects twice, and every push on every branch built both.
+
+- **On `main`,** a merge commit is skipped: the `release` workflow's `chore(release): v0.0.N` commit
+  follows within minutes and carries it. That commit builds each project whose inputs changed since
+  the project's last production deploy (`scripts/vercel-inputs.ts` holds the rules): galaxy unless
+  every change is on its never list (the delivery folder, the playbook and the ADRs, the GitHub App,
+  CI and tooling, tests, the release's version stamps), the GitHub App only for `apps/omni-app/`, the
+  lockfile, or a `package.json` change beyond its version. A merge of documents builds nothing, and
+  the sidebar's version then lags until the next merge that changes galaxy. When the `release`
+  workflow fails, its last step marks `main` and calls each project's Deploy Hook.
+- **On any other branch,** a push builds nothing. A ready pull request into `main` gets one preview
+  per project it changes, about 150 seconds after its last push (`.github/workflows/preview-debounce.yml`):
+  a newer push restarts the wait. Drafts, sub-PRs into a feature branch, changes only under
+  `.omni-loop/` and dependabot never preview.
+- **The escape hatch:** `VERCEL_FORCE_BUILD` = `1` in a project's environment variables builds every
+  deployment of it, at once, without a revert. Every build log says why it built or skipped, on one
+  `vercel-ignore:` line.
+
+Set once, for both projects (`apps/omni-app` is the GitHub App's):
+
+1. **Vercel › each project › Settings › Git › Deploy Hooks:** one for branch `main`. Store the URLs
+   as GitHub secrets `VERCEL_DEPLOY_HOOK_GALAXY_MAIN` and `VERCEL_DEPLOY_HOOK_OMNI_APP_MAIN`.
+2. **Vercel › Account › Tokens:** a token scoped to the team, as the GitHub secret `VERCEL_TOKEN`;
+   the team id as `VERCEL_TEAM_ID`; each project's id (Settings › General) as
+   `VERCEL_PROJECT_ID_GALAXY` and `VERCEL_PROJECT_ID_OMNI_APP`; and the repository's numeric id
+   (`gh api repos/vertuoza/vertuo-omni-loop --jq .id`) as the GitHub variable `VERCEL_GITHUB_REPO_ID`.
+3. **GitHub › a fine-grained token,** this repository only, *Commit statuses: read*, as
+   `GITHUB_STATUS_TOKEN` in both Vercel projects, for Production and Preview. Without it no
+   preview builds.
+4. **Vercel › each project › Settings › Build and Deployment:** the GitHub App's Build Machine on
+   Standard; galaxy's on Standard unless its last production builds show Standard more than twice as
+   slow as the machine it has (build CPU minutes are vCPUs × minutes). On-Demand Concurrent Builds
+   off, Prioritize Production Builds on. The Ignored Build Step stays the `vercel.json` one.
+
+To see the effect: Vercel › Usage › Build CPU Minutes, per day, against the month before (about
+2,190 a day in October 2026).
+
 ### In production
 
 - The ledger moves at most every 15 minutes (the game workflow's poll), and each player's XP with
