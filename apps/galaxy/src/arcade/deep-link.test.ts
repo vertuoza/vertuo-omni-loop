@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { addressAt, DEEP_LINKS, landing, readHash } from './deep-link';
+import { xpStatus } from './games/room';
+import { levelUpFor } from './levelup';
+import { arrive } from './onboarding';
 import { twinEvents, twinGalaxy } from './test/twins.fake';
 import type { Session } from './types';
 import { sure } from './test/sure';
@@ -142,5 +146,27 @@ describe('a planet named by its home (PRD 728)', () => {
     expect(sure(bare.planets[0], 'bare.planets[0]').home).toBeNull();
     expect(addressAt('/', { scene: 'planet', sel: 0 }, bare)).toBe('/#planet-88');
     expect(readHash('#planet-88', bare)).toEqual({ scene: 'planet', sel: 0 });
+  });
+});
+
+// Law BR-PRODUCT-42 (.omni-loop/knowledge/product/rules.md, #1503).
+describe('the #menu link with a level this device has not celebrated', () => {
+  it('law BR-PRODUCT-42: plays LEVEL UP first, and opens the menu once that level is celebrated', () => {
+    const lv3 = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders'] });
+    const link = sure(landing('#menu', { view, session: crew }), '#menu landing');
+    expect(link.scene).toBe('menu');
+
+    // Not yet celebrated on this device: the level-up plays first. Celebrated: the menu opens.
+    expect(arrive(link.scene, levelUpFor(lv3, null) !== null)).toBe('levelup');
+    expect(arrive(link.scene, levelUpFor(lv3, 2) !== null)).toBe('levelup');
+    expect(arrive(link.scene, levelUpFor(lv3, 3) !== null)).toBe('menu');
+
+    // The arcade opens the deep link through `go`, the path every route to the menu takes, and `go`
+    // sends the menu through `arrive` with the level-up due on this device.
+    const app = readFileSync(new URL('./ArcadeApp.tsx', import.meta.url), 'utf8');
+    const go = sure(/const go = useCallback\(([\s\S]*?)\n {2}\}, \[\]\);/.exec(app)?.[1], 'go in ArcadeApp.tsx');
+    expect(go).toMatch(/patch\.scene === 'menu' \? levelUpDue\.current\(\)/);
+    expect(go).toMatch(/arrive\(patch\.scene, Boolean\(due\)\) === 'levelup'/);
+    expect(app).toMatch(/const link = landing\(window\.location\.hash, [^)]*\);\s*if \(link\) go\(link\);/);
   });
 });

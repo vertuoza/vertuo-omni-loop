@@ -457,7 +457,7 @@ Whenever a player enters the arcade menu, including through the #menu link, with
 
 Serves: P-PRODUCT-39
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
-Enforced by: pending #1503
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
