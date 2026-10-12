@@ -50,7 +50,7 @@ import type { PageOf } from '../../lib/now/build-links.ts';
 import { refreshLinks } from '../../lib/now/links.ts';
 import type { FixKind, NowWork } from '../../lib/now/now.ts';
 import { readNow } from '../../lib/now/read.ts';
-import { refreshBoard } from '../../lib/statusline/board-cache.ts';
+import { lockHeld, refreshBoard } from '../../lib/statusline/board-cache.ts';
 import type { Spawn } from '../../lib/statusline/board-cache.ts';
 import { readFacts as readCheckoutFacts, startLinksRefresh } from '../../lib/statusline/facts.ts';
 import { SHIPPED } from '../../lib/statusline/stage.ts';
@@ -64,6 +64,7 @@ import { issueArg, prdArg } from '../args.ts';
 import { githubEnv } from '../github.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Vars } from '../io.ts';
 import { buildBoard } from './board.ts';
+import { ghBoardReads } from '../../lib/loop-reads/gh-bridge.ts';
 
 const REFRESH_FLAG = '--refresh';
 const KIND_FLAG = '--kind';
@@ -231,6 +232,29 @@ async function refreshWorkLinks(root: string, kind: 'prd' | FixKind, n: PrdNumbe
   await refreshLinks({ root, kind, n, now: instant, build: () => buildLinks(ctx, kind, n, { gh, page: pageOf(ctx, io), exec: timed }) });
 }
 
+/** The refresh of PRD `prd`'s board in the main checkout at `root`. */
+async function refreshPrdBoard(root: string, prd: PrdNumber, io: RefreshIo, timed: Exec, instant: number): Promise<void> {
+  // The board is read before the lock is taken, so a refresh while another one holds it reads nothing;
+  // what the read threw is written as the error entry, as before. Its reads go through `gh` until s5 of
+  // PRD 1665 hands the refresh the Omni page's.
+  if (lockHeld(root, prd, instant)) return;
+  const read = async () => {
+    const ctx = loadContext(io.cwd, { exec: timed });
+    const reads = ghBoardReads({ exec: timed, env: githubEnv(ctx, { exec: timed, env: io.env }) });
+    return (await buildBoard(prd, { ctx, reads, now: instant })).result.slices;
+  };
+  const built = await read().then((slices) => ({ slices }), (error: unknown) => ({ error }));
+  refreshBoard({
+    root,
+    prd,
+    now: instant,
+    build: () => {
+      if ('error' in built) throw built.error;
+      return built.slices;
+    },
+  });
+}
+
 /** The refresh of PRD `value`'s board, and with `--kind` of the links of the work it names: never throws, never prints. */
 async function refresh(args: readonly string[], io: RefreshIo): Promise<void> {
   const [, value] = args;
@@ -244,8 +268,7 @@ async function refresh(args: readonly string[], io: RefreshIo): Promise<void> {
     if (kind === null || kind === 'prd') {
       const prd = prdNumber(value);
       if (prd === null) return;
-      const build = () => buildBoard(prd, { ctx: loadContext(io.cwd, { exec: timed }), exec: timed, env: io.env, now: instant }).result.slices;
-      refreshBoard({ root, prd, now: instant, build });
+      await refreshPrdBoard(root, prd, io, timed, instant);
       if (kind === 'prd') await refreshWorkLinks(root, kind, prd, io, timed, instant);
       return;
     }

@@ -97,6 +97,7 @@ import { githubClientFor, githubEnv } from '../github.ts';
 import type { Env, Exec, FreeCommand, FreeIo } from '../io.ts';
 import { GhGraphqlSchema } from '../schema.ts';
 import { buildBoard } from './board.ts';
+import { ghBoardReads } from '../../lib/loop-reads/gh-bridge.ts';
 
 /** The answers of `gh pr list` this file reads: each names only the fields read. */
 const GhListedPrSchema = z.looseObject({
@@ -212,12 +213,14 @@ function outboxFacts(prd: PrdNumber, { branch, pr }: { branch: string; pr: Liste
 
 /** The board's facts and its slices; `null` with no plan, `unreadable` when the board cannot be
  * built, its slices then read from the plan alone, each `unreadable`. */
-function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null | 'unreadable'; slices: PlanSliceInput[] | null; claims: Running | null } {
+async function boardFacts(prd: PrdNumber, reader: Reader): Promise<{ board: BoardFacts | null | 'unreadable'; slices: PlanSliceInput[] | null; claims: Running | null }> {
   const { ctx } = reader;
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null || !existsSync(join(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
-    const { result } = buildBoard(prd, { ctx, exec: reader.exec, env: reader.env });
+    // The board's reads through `gh` until s4 of PRD 1665 hands this command the Omni page's.
+    const reads = ghBoardReads({ exec: reader.exec, env: githubEnv(ctx, { exec: reader.exec, env: reader.env }) });
+    const { result } = await buildBoard(prd, { ctx, reads });
     const having = (state: string) => result.slices.filter((row) => row.state === state).map((row) => row.id);
     const { stallDays } = ctx.config.limits;
     const board: BoardFacts = {
@@ -313,7 +316,7 @@ type Read = { facts: PrdFacts; slices: PlanSliceInput[] | null; prs: PrStanding[
 
 /** Everything PRD `prd`'s verdict is decided on, and its slices. Throws what `gh` throws when GitHub
  * cannot be read. */
-function readFacts(prd: PrdNumber, reader: Reader, gate: ApprovalGate | null): Read {
+async function readFacts(prd: PrdNumber, reader: Reader, gate: ApprovalGate | null): Promise<Read> {
   const folder = folderOf(prd, reader.ctx);
   const phase0 = openPhase0(prd, reader);
   if (folder === null) return beforeInbox(prd, phase0, reader);
@@ -321,7 +324,7 @@ function readFacts(prd: PrdNumber, reader: Reader, gate: ApprovalGate | null): R
   const pr = featurePr(branch, reader);
   const open = pr?.state === 'OPEN' ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
-  const { board, slices, claims } = boardFacts(prd, reader);
+  const { board, slices, claims } = await boardFacts(prd, reader);
   const across = acrossFacts(branch, slices, reader);
   const outbox = outboxFacts(prd, { branch, pr: open }, reader);
   const facts: PrdFacts = { prd, shipped: folder.shipped, phase0, feature, board, outbox, ...(across ? { across: across.across } : {}), approval: gate };
@@ -410,7 +413,7 @@ async function readPrd(prd: PrdNumber, reader: Reader): Promise<{ verdict: Verdi
   const gate = approvalGate(await stageAtGate(reader.ctx, prd, { approval: reader.approval }));
   let read: Read;
   try {
-    read = readFacts(prd, reader, gate);
+    read = await readFacts(prd, reader, gate);
   } catch (error) {
     if (isUsage(error)) throw error;
     const planPath = reader.ctx.layout.planPath(prd);
