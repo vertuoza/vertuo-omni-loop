@@ -287,6 +287,7 @@ var INBOX_CHECK_EVENT = "omni-loop/inbox.check.requested";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_CHECK_EVENT = "omni-loop/approved.check.requested";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
+var APPROVED_LABEL_EVENT = "omni-loop/approved.label.changed";
 var RETRO_EVENT = "omni-loop/retro.requested";
 var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
 var inngest = new Inngest({ id: APP_ID });
@@ -299,6 +300,10 @@ var SourceSchema = z5.looseObject({
 var CheckRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
   headSha: z5.string(),
+  trigger: z5.string().optional()
+});
+var ApprovedLabelDataSchema = SourceSchema.extend({
+  prd: PrdNumberSchema,
   trigger: z5.string().optional()
 });
 var CanonFactsSchema = z5.object({
@@ -683,8 +688,9 @@ var ConfigSchema = z7.object({
     outboxContext: text2.default("outbox"),
     // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
     inboxContext: text2.default("inbox"),
-    // PRD 1548: the name of the check run the omni-loop App posts on a target feature PR of a product
-    // PRD, saying whether what it builds is what was approved; `null` posts none.
+    // PRD 1548 and PRD 1612: the name of the check run the omni-loop App posts on a target feature PR
+    // of a product PRD, and on a ◆ PRD's feature PR and its target PRs, saying whether what it builds
+    // is what was approved; `null` posts none.
     approvedContext: nullableText.default("omni/approved"),
     aggregateCheck: nullableText.default(null),
     branchProtection: z7.boolean().default(false),
@@ -1287,6 +1293,10 @@ var RETRO_ACTIONS = Object.freeze({
 var CANON_ACTIONS = Object.freeze({
   check_run: Object.freeze(["requested_action"])
 });
+var APPROVED_LABEL_ACTIONS = Object.freeze({
+  issues: Object.freeze(["labeled", "unlabeled"])
+});
+var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
@@ -1326,6 +1336,7 @@ async function receiveWebhook({
   headers,
   secret,
   send,
+  sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve()
 }) {
@@ -1355,13 +1366,15 @@ async function receiveWebhook({
     }
   }));
   const events = toEvents(event, payload);
-  if (events.length === 0) return reply(200, "ignored");
+  const approved = toApprovedLabelRequests(event, payload);
+  if (events.length + approved.length === 0) return reply(200, "ignored");
   try {
-    await send(events);
+    if (events.length > 0) await send(events);
+    if (approved.length > 0) await sendApproved(approved);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
-  return reply(200, `sent ${events.length}`);
+  return reply(200, `sent ${events.length + approved.length}`);
 }
 function toEvents(event, payload) {
   const action = readPayload(payload)?.action;
@@ -1417,6 +1430,20 @@ function toHarvestRequests(event, payload) {
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber }
   }));
+}
+var LabelEventSchema = z13.looseObject({
+  label: z13.looseObject({ name: z13.string() }),
+  issue: z13.looseObject({ number: PrdNumberSchema, pull_request: z13.unknown().optional() })
+});
+function toApprovedLabelRequests(event, delivery) {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(APPROVED_LABEL_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const read = LabelEventSchema.safeParse(delivery);
+  if (!source || !read.success) return [];
+  const { label, issue } = read.data;
+  if (label.name !== APPROVED_LABEL || issue.pull_request !== void 0) return [];
+  return [{ name: APPROVED_LABEL_EVENT, data: { ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` } }];
 }
 var BUTTONS = Object.values(CANON_ACTION);
 function toCanonActionRequests(event, delivery) {
@@ -1483,6 +1510,7 @@ function githubRoute(env, { send = (events) => inngest.send(events) } = {}) {
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
+        sendApproved: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });

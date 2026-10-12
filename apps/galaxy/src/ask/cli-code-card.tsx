@@ -5,7 +5,8 @@ import { useGithubSignIn } from './page/GithubSignInCard';
 // coming back through the auth callback's ask-cli branch, which joins the workspaces of the person's
 // GitHub orgs and hands the terminal a sign-in of its own. This browser's own sign-in, if it has one,
 // is left as it is. With `purpose=token` (PRD 1628), the same sign-in makes a kit token instead: the
-// card names it, and says where it goes once made.
+// card names it, and says where it goes once made. The device page (/ask/device, PRD 1660) opens this
+// same card once its code is confirmed; its signin sentence is cut to pass the word pass.
 
 type Supabase = { url: string; key: string };
 
@@ -29,10 +30,7 @@ export function CliSignInCard({ supabase, returnPath, error, purpose = { kind: '
             and is shown once, {token.toTerminal ? <>in the terminal, where <code>omni setup-token</code> waits.</> : 'back on your profile page.'}
           </p>
         ) : (
-          <p className="ask-muted">
-            <code>omni signin</code> is waiting in your terminal. Sign in with your GitHub account: the terminal gets a
-            sign-in of its own, and this tab can be closed once it says so.
-          </p>
+          <p className="ask-muted">The terminal gets its own sign-in.</p>
         )}
         {problem && <p className="ask-error" role="alert">{problem}</p>}
         <button type="button" className="ask-button" onClick={() => void signIn()} disabled={busy}>

@@ -17,6 +17,7 @@
 // A drift names the file and the commit its latest version was pushed from (or the version itself, when
 // the push named no commit).
 import { basename } from 'node:path';
+import { proseLines } from '../evaluate/prose-lines.ts';
 
 /** A product PRD as a pull request's body names it, `Part of mobile-12`: its product's key and its number. */
 export type ProductPrdRef = { key: string; seq: number; id: string };
@@ -59,14 +60,18 @@ export type ApprovedVerdict = {
   drift: PinDrift[];
 };
 
-/** A product key (supabase/migrations/20261203100000_product_prd_ids.sql), then its PRD's number. */
-const PART_OF = /(?:^|[^\w-])Part of ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})(?![\w-])/;
+/** A line that starts with `Part of`, a product key (supabase/migrations/20261203100000_product_prd_ids.sql), then its PRD's number. */
+const PART_OF = /^ {0,3}Part of ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})(?![\w-])/;
 const KEY_MAX = 40;
 const SEQ_MAX = 2 ** 31 - 1;
 
-/** The product PRD a pull request's body says it is part of, or null when it names none. */
+/**
+ * The product PRD a pull request's body says it is part of, or null when it names none. Only a line
+ * that starts with `Part of <key>-<n>`, outside fenced code, says so (issue 1690): one quoted in
+ * inline code, mid-sentence or in a code block is a mention, never a claim.
+ */
 export function productPrdOf(body: string | null | undefined): ProductPrdRef | null {
-  const match = PART_OF.exec(body ?? '');
+  const match = proseLines(body ?? '').map((line) => PART_OF.exec(line)).find((found) => found !== null);
   if (!match) return null;
   const [, key = '', digits = ''] = match;
   const seq = Number(digits);

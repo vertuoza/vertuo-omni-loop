@@ -6,6 +6,11 @@
 // unreachable and says why on stderr. `--json` prints the state, who approved and when, whether they
 // are a member today, the dossier's link, the pinned files, what drifted and the lines.
 //
+// `omni approval restore <n>` (PRD 1612, s1) reads the same approval and writes each drifted file
+// back from the pinned version's content the server sent, checked against its sha256 first
+// (`kit/lib/approval/restore.ts`), one line per file. It exits 0 when every drifted file was written
+// back (or nothing drifted), 1 otherwise. It never commits and never pushes.
+//
 // `omni approval flag [--json]` (item s7-01) reads this repository's phase-0 flag on the Omni page
 // instead: `phase 0: server` or `phase 0: pr`, exit 0; or, when it cannot be read,
 // `phase 0: pr · the flag could not be read: <why>`, exit 1. `/omni:brainstorm` reads it at step 0.
@@ -16,13 +21,15 @@ import { readFlag } from '../../lib/approval/flag.ts';
 import type { FlagReading } from '../../lib/approval/flag.ts';
 import { approvalReader } from '../../lib/approval/prd-state.ts';
 import type { ApprovalReading } from '../../lib/approval/approval.ts';
+import { checkoutWriter, restoreDrift } from '../../lib/approval/restore.ts';
+import type { Restored } from '../../lib/approval/restore.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = 'usage: omni approval <n> [--json] · omni approval flag [--json]';
+const USAGE = 'usage: omni approval <n> [--json] · omni approval restore <n> · omni approval flag [--json]';
 
 /** The flag's line, as `omni approval flag` prints it. */
 const flagLine = ({ flag, why }: FlagReading): string =>
@@ -51,27 +58,44 @@ function report(stdout: Out, prd: PrdNumber, reading: ApprovalReading, json: boo
   println(stdout, json ? JSON.stringify(shown(prd, reading)) : reading.lines.join('\n'));
 }
 
+/** What `omni approval` was asked: the flag, a PRD's approval, or a restore of it. */
+type Asked = { what: 'flag' } | { what: 'read' | 'restore'; prd: PrdNumber };
+
+function askedOf(positional: string[]): Asked {
+  const [first, second] = positional;
+  if (first === 'restore' && positional.length === 2) return { what: 'restore', prd: prdArg('approval', '<n>', second) };
+  if (positional.length !== 1) throw usageError(USAGE);
+  return first === 'flag' ? { what: 'flag' } : { what: 'read', prd: prdArg('approval', '<n>', first) };
+}
+
 export const approval = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & ApprovalOptions) {
     const { positional, flags } = parseArgs('approval', args, { booleans: ['json'] });
-    if (positional.length !== 1) throw usageError(USAGE);
+    const asked = askedOf(positional);
     const ctx = loadContext(cwd, { exec });
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError('omni approval: no repository slug — set repo.slug in the config.');
-    if (positional[0] === 'flag') {
+    if (asked.what === 'flag') {
       const reading = await readFlag(ctx.config.ask.url, { repo, tokens, home, fetch, callMs });
       println(stdout, flags.json ? JSON.stringify(reading) : flagLine(reading));
       return reading.why === null ? 0 : 1;
     }
-    const prd = prdArg('approval', '<n>', positional[0]);
+    const { prd } = asked;
     if (!ctx.layout.whereIs(prd)) {
       println(stderr, `omni approval: PRD ${Number(prd)} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);
       return 1;
     }
     const reading = await approvalReader(ctx, { repo, tokens, home, fetch, callMs })(prd);
     if ('why' in reading) println(stderr, `omni approval: ${String(reading.why)}`);
+    if (asked.what === 'restore') return restore(stdout, restoreDrift(reading, checkoutWriter(ctx, prd)));
     report(stdout, prd, reading, Boolean(flags.json));
     return reading.state === 'approved' ? 0 : 1;
   },
 } satisfies FreeCommand;
+
+/** Prints what a restore did, one line per file: 0 when every drifted file was written back. */
+function restore(stdout: Out, restored: Restored): number {
+  println(stdout, restored.lines.join('\n'));
+  return restored.ok ? 0 : 1;
+}

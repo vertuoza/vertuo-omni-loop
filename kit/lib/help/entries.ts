@@ -791,7 +791,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'approval',
     kind: 'command',
     who: 'you',
-    usage: ['omni approval <n> [--json]', 'omni approval flag [--json]'],
+    usage: ['omni approval <n> [--json]', 'omni approval restore <n>', 'omni approval flag [--json]'],
     summary: "whether a PRD born on the server is approved, and still what was approved",
     detail:
       "Reads PRD n's approval in force on the Omni page, with your sign-in, and compares each file " +
@@ -800,7 +800,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'content, or its whitespace only), which refuses until you restore it or approve again; the ' +
       'server unreachable, which holds the PRD rather than failing it; or refused, when the approver ' +
       'left the workspace or the page answered an error. It exits 0 only when approved. --json ' +
-      'prints the state, who, when and the pinned files. omni approval flag reads where this ' +
+      'prints the state, who, when and the pinned files. The omni/approved check on the PR says ' +
+      'the same, from the same judge. omni approval restore <n> writes each changed or missing ' +
+      'file back from the version that was approved, after checking it hashes as pinned, one line ' +
+      'per file; when a version cannot be read, or the approval was voided, it says approve again ' +
+      'with the PRD page link. It never commits or pushes: review the diff, then push. ' +
+      'omni approval flag reads where this ' +
       "repository's new PRDs are born instead: phase 0: server (approved on the PRD's page) or " +
       'phase 0: pr (a phase-0 PR), as an owner set it on the Omni page; when it cannot be read it ' +
       'says pr, with why, and exits 1. To wait until someone approves rather than read it once, ' +

@@ -5,17 +5,20 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
+  APPROVED_LABEL_ACTIONS,
   CANON_ACTIONS,
   CHECK_ACTIONS,
   HANDLED,
   RETRO_ACTIONS,
   receiveWebhook,
+  toApprovedLabelRequests,
   toCanonActionRequests,
   toCheckRequests,
   toEvents,
   toHarvestRequests,
   toRetroRequests,
 } from './webhook.ts';
+import { APPROVED_LABEL_EVENT } from '../inngest-client.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
 import type { Touch } from '../stage-forward/touch.ts';
 import { appFunctions } from '../functions.ts';
@@ -534,5 +537,64 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     const { response, send } = await deliver({ event: 'check_run', payload });
     expect(response.status).toBe(200);
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe('webhook — the approved label (PRD 1612)', () => {
+  const labelPayload = (action: string, over: { label?: string; issue?: Record<string, unknown> } = {}) => ({
+    action,
+    installation: INSTALLATION,
+    repository: REPOSITORY,
+    label: { name: over.label ?? 'omni:approved' },
+    issue: { number: 1612, updated_at: '2026-10-11T10:00:00Z', ...over.issue },
+  });
+
+  it('handles the approved label added and removed on an issue', () => {
+    expect(APPROVED_LABEL_ACTIONS).toEqual({ issues: ['labeled', 'unlabeled'] });
+  });
+
+  it.each(['labeled', 'unlabeled'])('the approved label %s on a PRD issue is one approved label event naming the PRD', (action) => {
+    expect(toApprovedLabelRequests('issues', labelPayload(action))).toEqual([
+      {
+        name: APPROVED_LABEL_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prd: 1612,
+          trigger: `issues.${action}`,
+        },
+      },
+    ]);
+  });
+
+  it('another label, a pull request’s label, another action or another event is none', () => {
+    expect(toApprovedLabelRequests('issues', labelPayload('labeled', { label: 'bug' }))).toEqual([]);
+    expect(toApprovedLabelRequests('issues', labelPayload('labeled', { issue: { pull_request: {} } }))).toEqual([]);
+    expect(toApprovedLabelRequests('issues', labelPayload('opened'))).toEqual([]);
+    expect(toApprovedLabelRequests('pull_request', labelPayload('labeled'))).toEqual([]);
+  });
+
+  it('is not the outbox check’s event', () => {
+    expect(toEvents('issues', labelPayload('labeled'))).toEqual([]);
+  });
+
+  it('a signed delivery of the approved label hands the event to sendApproved, nothing to send', async () => {
+    const payload = labelPayload('unlabeled');
+    const body = JSON.stringify(payload);
+    const send = sending();
+    const sendApproved = vi.fn(() => Promise.resolve());
+    const response = await receiveWebhook({
+      body,
+      headers: { 'x-github-event': 'issues', 'x-hub-signature-256': sign(body) },
+      secret: SECRET,
+      send,
+      sendApproved,
+      forward: forwarding(),
+    });
+    expect(response).toEqual({ status: 200, body: 'sent 1' });
+    expect(send).not.toHaveBeenCalled();
+    expect(sendApproved).toHaveBeenCalledWith(toApprovedLabelRequests('issues', payload));
   });
 });

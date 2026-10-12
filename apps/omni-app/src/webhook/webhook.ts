@@ -27,20 +27,28 @@
 // (src/stage-forward/touch.ts), whether or not it also becomes an event. The app's `touch` POSTs each to
 // galaxy's `/api/github/touched`, signed as the stage event is. It never changes the reply either.
 //
+// The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
+// (`labels.approved`'s default, as the stage events read it) becomes one approved label event alone;
+// the `approved-rerun` function runs the `omni/approved` check again on every open pull request of that
+// PRD. Every handled pull request action also runs that check, on the outbox check's own event.
+//
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
 import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
-import { PrNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
   APPROVED_CHECK_EVENT,
   APPROVED_EXTERNAL_ID,
+  APPROVED_LABEL_EVENT,
   HARVEST_EVENT,
   INBOX_CHECK_EVENT,
   INBOX_EXTERNAL_ID,
   OUTBOX_CHECK_EVENT,
   RETRO_EVENT,
   type AppEvent,
+  type ApprovedLabelRequest,
   type CanonActionRequest,
   type CheckRequest,
   type HarvestRequest,
@@ -72,6 +80,15 @@ export const RETRO_ACTIONS = Object.freeze({
 export const CANON_ACTIONS = Object.freeze({
   check_run: Object.freeze(['requested_action']),
 });
+
+/** The actions on an issue that may be the approved label added or removed (PRD 1612). The manifest
+ * already subscribes to `issues`, for the touches. */
+export const APPROVED_LABEL_ACTIONS = Object.freeze({
+  issues: Object.freeze(['labeled', 'unlabeled']),
+});
+
+/** The kit's approved label: a repository that renames it gets no rerun on its label. */
+const APPROVED_LABEL = parseConfig('kit: 1').labels.approved;
 
 /** Every event and action the app acts on. `app.yml` subscribes to exactly these events (its test says so). */
 export const HANDLED = Object.freeze({
@@ -129,6 +146,7 @@ export async function receiveWebhook({
   headers,
   secret,
   send,
+  sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
 }: {
@@ -136,6 +154,8 @@ export async function receiveWebhook({
   headers: HeadersIn;
   secret: string | undefined;
   send: (events: AppEvent[]) => Promise<unknown>;
+  /** Sends the approved label's events (PRD 1612); none given, they go nowhere. */
+  sendApproved?: (events: ApprovedLabelRequest[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -170,14 +190,16 @@ export async function receiveWebhook({
   }));
 
   const events = toEvents(event, payload);
-  if (events.length === 0) return reply(200, 'ignored');
+  const approved = toApprovedLabelRequests(event, payload);
+  if (events.length + approved.length === 0) return reply(200, 'ignored');
 
   try {
-    await send(events);
+    if (events.length > 0) await send(events);
+    if (approved.length > 0) await sendApproved(approved);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
-  return reply(200, `sent ${events.length}`);
+  return reply(200, `sent ${events.length + approved.length}`);
 }
 
 /**
@@ -274,6 +296,28 @@ export function toHarvestRequests(event: string, payload: unknown): HarvestReque
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber },
   }));
+}
+
+/** The parts of an issue's label event the approved label reads. */
+const LabelEventSchema = z.looseObject({
+  label: z.looseObject({ name: z.string() }),
+  issue: z.looseObject({ number: PrdNumberSchema, pull_request: z.unknown().optional() }),
+});
+
+/**
+ * The approved label's filter, pure (PRD 1612): the approved label added to or removed from an issue
+ * (never a pull request) becomes one approved label event naming the issue as the PRD; any other label
+ * or action becomes none.
+ */
+export function toApprovedLabelRequests(event: string, delivery: unknown): ApprovedLabelRequest[] {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(APPROVED_LABEL_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const read = LabelEventSchema.safeParse(delivery);
+  if (!source || !read.success) return [];
+  const { label, issue } = read.data;
+  if (label.name !== APPROVED_LABEL || issue.pull_request !== undefined) return [];
+  return [{ name: APPROVED_LABEL_EVENT, data: { ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` } }];
 }
 
 /** The canon buttons' identifiers. */

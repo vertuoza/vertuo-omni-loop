@@ -9,6 +9,8 @@ import {
   kitExchange,
   madeCookie,
   readMadeCookie,
+  deviceTokenPort,
+  deviceTokenReturn,
   readTokenRequest,
   takeMadeToken,
   tokenCallbackPath,
@@ -19,6 +21,8 @@ import {
   type KitStore,
   type TokenRequest,
 } from './kit-token';
+import { fakeStore } from './device.fake';
+import { deviceService, type DeviceService } from './device.service';
 import { present } from './test/test-item';
 
 vi.mock('server-only', () => ({}));
@@ -192,10 +196,16 @@ function world() {
     }),
   };
 
-  /** The person signs in with GitHub on the token's round trip: where the callback sends the browser. */
-  async function roundTrip(account: Account, request: string, deps: KitMakeDeps = makeDeps) {
+  /** The code GitHub sends back for `account`, good once. */
+  function githubCode(account: Account) {
     const github = `github-${account.id}-${issued}`;
     googleCodes.set(github, account);
+    return github;
+  }
+
+  /** The person signs in with GitHub on the token's round trip: where the callback sends the browser. */
+  async function roundTrip(account: Account, request: string, deps: KitMakeDeps = makeDeps) {
+    const github = githubCode(account);
     return tokenSignInReturn(new URL(`${ORIGIN}/auth/callback?next=ask-cli&purpose=token&${request}&code=${github}`), ORIGIN, deps);
   }
 
@@ -214,7 +224,7 @@ function world() {
     return { status: response.status, text, body: Body.parse(JSON.parse(text)) };
   };
 
-  return { clock, rows, members, revoked, calls, state, store, makeDeps, tokenDeps, refreshTokens, roundTrip, tokenFor, trade };
+  return { clock, rows, members, revoked, calls, state, store, makeDeps, tokenDeps, refreshTokens, githubCode, roundTrip, tokenFor, trade };
 }
 
 // Every line the server logs, kept to prove no token leaks into one.
@@ -375,6 +385,146 @@ describe('the auth callback, for a token', () => {
     const w = world();
     const back = await tokenSignInReturn(new URL(`${ORIGIN}/auth/callback?next=ask-cli&purpose=token&back=https://evil.example&code=x`), ORIGIN, w.makeDeps);
     expect(back).toEqual({ location: `${ORIGIN}/ask/signin`, made: null });
+  });
+});
+
+// The device sign-in's token (PRD 1660, s3): `omni setup-token` waiting where this browser cannot reach
+// it. The request was issued with the token's name, days and workspace; the callback comes back with
+// `device=<user code>&purpose=token` only, makes the token as the loopback branch does, and attaches it
+// sealed to the pending request for the terminal's next poll.
+describe('the auth callback, for a token by device', () => {
+  const USER = 'WXTZ-4825';
+
+  async function pending(w: ReturnType<typeof world>, purpose: 'token' | 'signin' = 'token') {
+    const { store, rows, state } = fakeStore();
+    const devices = deviceService(store, { now: () => w.clock.now, userCode: () => 'WXTZ4825', open: (sealed) => box.open(sealed) });
+    const issued = await devices.issue(purpose === 'token' ? { purpose, name: 'cloud box', days: 30, workspace: 'vertuoza' } : { purpose });
+    return { devices, issued, rows, state };
+  }
+
+  /** The person signs in with GitHub from the device page: where the callback sends the browser. */
+  async function approveToken(w: ReturnType<typeof world>, account: Account, devices: DeviceService | null, device = USER, deps: KitMakeDeps = w.makeDeps) {
+    const url = new URL(`${ORIGIN}/auth/callback?next=ask-cli&device=${encodeURIComponent(device)}&purpose=token&code=${w.githubCode(account)}`);
+    return new URL(await deviceTokenReturn(url, ORIGIN, { ...deps, device: devices ? deviceTokenPort(devices) : null }));
+  }
+
+  it('makes the kit token as the fresh sign-in, attaches it sealed, and the poll hands it over once, unsealed', async () => {
+    const w = world();
+    const { devices, issued, rows } = await pending(w);
+    const back = await approveToken(w, ADA, devices);
+    expect(back.origin).toBe(ORIGIN);
+    expect(`${back.pathname}${back.search}`).toBe('/ask/device?done=1');
+    // Waiting, the token is held only sealed with the server's key.
+    const waiting = present([...rows.values()][0], 'the approved request');
+    expect(waiting).toMatchObject({ status: 'approved', purpose: 'token', payload_expires_at: new Date(START + 30 * DAY).toISOString() });
+    const answer = await devices.poll(issued.device_code);
+    const token = present('token' in answer ? answer.token : null, 'the polled token');
+    expect(token).toMatch(KIT_TOKEN);
+    expect(answer).toEqual({ status: 'approved', token, expires_at: new Date(START + 30 * DAY).toISOString() });
+    expect(waiting.payload).toBe(box.seal(token));
+    expect(waiting.payload).not.toContain(token);
+    // The token row is the one the loopback branch makes: its name, days and workspace from the request.
+    expect(present(w.rows.get(sha256(token)), 'the made row')).toMatchObject({ owner: ADA.id, name: 'cloud box', workspace: 'vertuoza', lastFour: token.slice(-4) });
+    expect(w.calls.join).toEqual([ADA.id]);
+    expect(w.revoked).toEqual([]);
+    // Handed over once: the request is gone, and a later poll answers expired.
+    expect(rows.size).toBe(0);
+    expect(await devices.poll(issued.device_code)).toEqual({ status: 'expired' });
+    // Never in a URL or a log line.
+    expect(back.toString()).not.toContain(token);
+    expect(logged.join('\n')).not.toContain(token);
+  });
+
+  it('reads the user code without case or dash', async () => {
+    const w = world();
+    const { devices } = await pending(w);
+    expect((await approveToken(w, ADA, devices, 'wxtz4825')).searchParams.get('done')).toBe('1');
+  });
+
+  it('makes nothing for a request no longer pending, or one that asked for a sign-in, ending the new sign-in', async () => {
+    const w = world();
+    const { devices, issued } = await pending(w);
+    expect(await devices.deny(USER)).toBe(true);
+    const denied = await approveToken(w, ADA, devices);
+    expect(`${denied.pathname}${denied.search}`).toBe(`/ask/device?user_code=${USER}`);
+    expect(await devices.poll(issued.device_code)).toEqual({ status: 'denied' });
+
+    const late = await pending(w);
+    w.clock.now += 11 * 60_000;
+    expect((await approveToken(w, ADA, late.devices)).searchParams.has('done')).toBe(false);
+
+    const signin = await pending(w, 'signin');
+    const wrong = await approveToken(w, ADA, signin.devices);
+    expect(wrong.searchParams.get('user_code')).toBe(USER);
+    expect(wrong.searchParams.has('done')).toBe(false);
+
+    expect(w.calls.make).toEqual([]);
+    expect(w.revoked).toEqual(['access-1', 'access-2', 'access-3']);
+  });
+
+  it('ends the new sign-in, leaving the token unusable, when the request stopped pending while it was made', async () => {
+    const w = world();
+    const { devices, issued } = await pending(w);
+    const racing: DeviceService = { ...devices, approve: async (...args) => { await devices.deny(USER); return devices.approve(...args); } };
+    const back = await approveToken(w, ADA, racing);
+    expect(back.searchParams.get('user_code')).toBe(USER);
+    expect(back.searchParams.has('done')).toBe(false);
+    expect(w.calls.make).toHaveLength(1);
+    expect(w.revoked).toEqual(['access-1']);
+    expect(await devices.poll(issued.device_code)).toEqual({ status: 'denied' });
+  });
+
+  it('says kit tokens are not set up here when this deployment has no key, making nothing', async () => {
+    const w = world();
+    const { devices } = await pending(w);
+    const back = await approveToken(w, ADA, devices, USER, { ...w.makeDeps, box: null });
+    expect(Object.fromEntries(back.searchParams)).toMatchObject({ user_code: USER, yes: '1' });
+    expect(back.searchParams.get('signin_error')).toMatch(/not set up/);
+    expect(w.calls.make).toEqual([]);
+    expect(w.revoked).toEqual(['access-1']);
+  });
+
+  it('comes back with the database\'s own words when the token is refused, ending the sign-in', async () => {
+    const w = world();
+    const { devices } = await pending(w);
+    w.state.makeError = { message: 'You hold 20 tokens already: revoke one to make another.', code: '54000' };
+    const back = await approveToken(w, ADA, devices);
+    expect(back.searchParams.get('signin_error')).toBe('You hold 20 tokens already: revoke one to make another.');
+    expect(back.searchParams.get('yes')).toBe('1');
+    expect(w.revoked).toEqual(['access-1']);
+  });
+
+  it('says so and ends the sign-in when the request cannot be reached, or this deployment has no device sign-in', async () => {
+    const w = world();
+    const { devices, state } = await pending(w);
+    state.fails = true;
+    const down = await approveToken(w, ADA, devices);
+    expect(down.searchParams.get('signin_error')).toMatch(/omni setup-token/);
+    state.fails = false;
+    const attachDown: DeviceService = { ...devices, approve: () => Promise.reject(new Error('ask_cli_device: the database is down')) };
+    const failed = await approveToken(w, ADA, attachDown);
+    expect(failed.searchParams.get('signin_error')).toMatch(/omni setup-token/);
+    const none = await approveToken(w, ADA, null);
+    expect(none.searchParams.get('signin_error')).toMatch(/omni setup-token/);
+    expect(w.calls.make).toHaveLength(1);
+    expect(w.revoked).toEqual(['access-1', 'access-2', 'access-3']);
+    expect(logged.join('\n')).not.toMatch(/omk_/);
+  });
+
+  it('comes back with GitHub\'s reason, exchanging nothing, and goes nowhere for a malformed user code', async () => {
+    const w = world();
+    const { devices } = await pending(w);
+    const refused = new URL(await deviceTokenReturn(
+      new URL(`${ORIGIN}/auth/callback?next=ask-cli&device=${USER}&purpose=token&error=access_denied&error_description=Not+today`),
+      ORIGIN, { ...w.makeDeps, device: deviceTokenPort(devices) },
+    ));
+    expect(Object.fromEntries(refused.searchParams)).toEqual({ user_code: USER, yes: '1', signin_error: 'Not today' });
+    for (const device of ['', 'WXTZ-48', 'AEIO-4825', 'http://evil.example']) {
+      const back = await approveToken(w, ADA, devices, device);
+      expect(`${back.origin}${back.pathname}${back.search}`).toBe(`${ORIGIN}/ask/device`);
+    }
+    expect(w.calls.make).toEqual([]);
+    expect(w.revoked).toEqual([]);
   });
 });
 

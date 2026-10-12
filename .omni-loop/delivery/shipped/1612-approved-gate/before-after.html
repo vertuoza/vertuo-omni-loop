@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1612 · The omni/approved gate</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1f24; --muted: #5d6270; --line: #dcdad3;
+  --term: #15171c; --term-ink: #d9dde6; --term-dim: #8a91a3;
+  --ok: #1f7a4d; --warn: #9a5b00; --bad: #b3261e; --accent: #2f5bd3; --pp: #7a3fd1; --chip: #eceae4;
+  --gh-bg: #ffffff; --gh-line: #d0d7de; --gh-muted: #59636e;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Ask's reading tokens, theme Omni, for the Attestation page mockups */
+  --a-ground: #07061c; --a-surface: #120f3a; --a-sunk: #0e0d33; --a-line: #1a2170; --a-line-strong: #5a60c4;
+  --a-ink: #f2f4ff; --a-muted: #8a90d6; --a-plasma: #ffd84a; --a-on-plasma: #07061c; --a-cyan: #5ee7ff; --a-green: #4ee08a; --a-red: #ff6b86;
+  --a-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --a-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #14161a; --panel: #1c1f25; --ink: #e8eaef; --muted: #a2a8b6; --line: #2e323b;
+    --ok: #5cc28d; --warn: #e0a548; --bad: #f08a80; --accent: #7d9cf0; --pp: #b48cf2; --chip: #262a32;
+    --gh-bg: #0d1117; --gh-line: #30363d; --gh-muted: #9198a1; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #14161a; --panel: #1c1f25; --ink: #e8eaef; --muted: #a2a8b6; --line: #2e323b;
+  --ok: #5cc28d; --warn: #e0a548; --bad: #f08a80; --accent: #7d9cf0; --pp: #b48cf2; --chip: #262a32;
+  --gh-bg: #0d1117; --gh-line: #30363d; --gh-muted: #9198a1; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+.wrap { max-width: 1140px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 40px; }
+header h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; max-width: 72ch; color: var(--muted); }
+.kicker { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+.part { display: grid; gap: 24px; }
+.part > h2 { margin: 0; font: 700 .8rem/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+.part.pp > h2 { color: var(--pp); border-color: var(--pp); }
+section { display: grid; gap: 10px; }
+section > h3 { font-size: 1.05rem; margin: 0; }
+section > p { margin: 0; max-width: 74ch; color: var(--muted); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 800px) { .pair { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.label { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.label.after { color: var(--ok); }
+.screens { font: 12px var(--mono); color: var(--pp); margin: 0; }
+.term { background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 14px 16px; font: 12.5px/1.6 var(--mono); overflow-x: auto; white-space: pre; margin: 0; }
+.dim { color: var(--term-dim); } .ok { color: #6fd39c; } .warn { color: #f0b860; } .bad { color: #ff8f86; }
+/* GitHub's checks box */
+.gh { background: var(--gh-bg); border: 1px solid var(--gh-line); border-radius: 8px; overflow: hidden; font-size: 13.5px; }
+.gh-head { padding: 10px 14px; border-bottom: 1px solid var(--gh-line); font-weight: 600; }
+.gh-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--gh-line); }
+.gh-row:first-of-type { border-top: 0; }
+.gh-row b { font-weight: 600; }
+.gh-row span { color: var(--gh-muted); overflow-wrap: anywhere; }
+.gh-row a { color: var(--accent); font-size: 12.5px; text-decoration: none; }
+.dot { width: 14px; height: 14px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 10px; color: #fff; font-weight: 700; }
+.d-ok { background: #1a7f37; } .d-bad { background: #cf222e; } .d-neu { background: #8c959f; }
+.state-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 800px) { .state-grid { grid-template-columns: 1fr; } }
+.state-grid h4 { margin: 0 0 6px; font-size: .9rem; }
+/* the Attestation page */
+.att { background: var(--a-ground); color: var(--a-ink); font: 15px/1.6 var(--a-body); border-radius: 12px; overflow: hidden; border: 1px solid var(--a-line); }
+.att-bar { padding: 10px 16px; background: var(--a-surface); border-bottom: 2px solid var(--a-line-strong); font: 600 14px/1.3 var(--a-body); color: var(--a-muted); }
+.att-bar b { color: var(--a-ink); }
+.att-page { padding: 20px; display: grid; gap: 16px; }
+.att-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; }
+.seal { width: 72px; height: 72px; }
+.att-head h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+.att-head p { margin: 2px 0 0; color: var(--a-muted); font-size: 14px; }
+.att-card { padding: 14px 16px; background: var(--a-surface); border: 1px solid var(--a-line-strong); border-radius: 12px; display: grid; gap: 8px; }
+.att-card h2 { margin: 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--a-muted); }
+.pins { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font: 500 13px/1.6 var(--a-mono); }
+.pins li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+.pins .eq { color: var(--a-green); } .pins .ne { color: var(--a-red); }
+.pins small { color: var(--a-muted); }
+.cmd { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cmd code { padding: 6px 10px; border-radius: 6px; background: var(--a-sunk); border: 1px solid var(--a-line-strong); font: 500 13px var(--a-mono); }
+.btn { display: inline-flex; padding: 7px 14px; border-radius: 8px; border: 0; font: 700 14px/1 var(--a-body); background: var(--a-plasma); color: var(--a-on-plasma); }
+.ghost { display: inline-flex; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--a-line-strong); font: 700 13px/1 var(--a-body); color: var(--a-ink); background: transparent; }
+.targets { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.targets li { display: flex; justify-content: space-between; gap: 8px; }
+.targets .s-ok { color: var(--a-green); } .targets .s-bad { color: var(--a-red); }
+.muted { color: var(--a-muted); font-size: 13px; }
+.empty { padding: 28px 16px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; color: var(--muted); }
+footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">PRD 1612 · concept #1269, area product-gate · today beside after</div>
+  <h1>The omni/approved gate: one check on every PR, the attestation one click away</h1>
+  <p>A PRD approved on its page leaves no trace where code is reviewed. After this PRD, every feature PR of a PRD born on the server, and every target PR "Part of" it, carries one check that reads the approval from the server and compares it with the PR's own files.</p>
+</header>
+
+<div class="part">
+  <h2>① Functional</h2>
+
+  <section>
+    <h3>A target PR of PRD 918, on GitHub</h3>
+    <p>Today the checks box says nothing about the approval; the issue's label is display only. After, one check, from the record.</p>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today · vertuoza/vertuo-api #446</div>
+        <div class="gh"><div class="gh-head">All checks have passed</div>
+          <div class="gh-row"><span class="dot d-ok">✓</span><span><b>ci / test</b> — 4m 12s</span><a href="#">Details</a></div>
+          <div class="gh-row"><span class="dot d-ok">✓</span><span><b>outbox</b> — Part of vertuoza/vertuo-mobile-plan#918</span><a href="#">Details</a></div>
+        </div>
+        <p class="muted" style="color:var(--muted)">Approved by Irisa? Is plan.md still the approved one? Nothing here says.</p>
+      </div>
+      <div class="side">
+        <div class="label after">After</div>
+        <div class="gh"><div class="gh-head">All checks have passed</div>
+          <div class="gh-row"><span class="dot d-ok">✓</span><span><b>omni/approved</b> — approved by @irisa · 5/5 pinned files match</span><a href="#">Details</a></div>
+          <div class="gh-row"><span class="dot d-ok">✓</span><span><b>ci / test</b> — 4m 12s</span><a href="#">Details</a></div>
+          <div class="gh-row"><span class="dot d-ok">✓</span><span><b>outbox</b> — Part of vertuoza/vertuo-mobile-plan#918</span><a href="#">Details</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Four states, the same words in the check and the terminal</h3>
+    <div class="state-grid">
+      <div><h4>Approved · success</h4><div class="gh"><div class="gh-row"><span class="dot d-ok">✓</span><span><b>omni/approved</b> — approved by @irisa · 5/5 pinned files match</span><a href="#">Details</a></div></div></div>
+      <div><h4>Waiting · neutral</h4><div class="gh"><div class="gh-row"><span class="dot d-neu">–</span><span><b>omni/approved</b> — waits for approval: omni-loop.xyz/prd/…</span><a href="#">Details</a></div></div></div>
+      <div><h4>Drifted · failure</h4><div class="gh"><div class="gh-row"><span class="dot d-bad">✗</span><span><b>omni/approved</b> — ≠ plan.md · whitespace only · run omni approval restore 918, or approve again</span><a href="#">Details</a></div></div></div>
+      <div><h4>Held · neutral</h4><div class="gh"><div class="gh-row"><span class="dot d-neu">–</span><span><b>omni/approved</b> — server unreachable · held, not failed</span><a href="#">Details</a></div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>A drift, fixed from the terminal</h3>
+    <p>Today a drift is found only when /omni:yolo refuses, and undoing it is by hand. After, the check names the command, and only a content change someone wants to keep needs a member's approval.</p>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today</div>
+<pre class="term"><span class="dim">$ /omni:yolo 918</span>
+  ≠ plan.md · whitespace only · ✗ refuse ·
+  restore it, or approve again: omni-loop.xyz/prd/…
+<span class="dim">→ restore how? by hand, from the PRD page</span></pre>
+      </div>
+      <div class="side">
+        <div class="label after">After</div>
+<pre class="term"><span class="dim">$ omni approval restore 918</span>
+  restored plan.md · sha256 9c41…e07b = pinned
+  <span class="dim">nothing committed: review the diff, then push</span>
+<span class="dim">$ git commit -am "restore the approved plan" && git push</span>
+<span class="ok">✓ omni/approved — approved by @irisa · 5/5 pinned files match</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>When it runs: webhooks, never a poll</h3>
+<pre class="term"><span class="dim">pull_request</span> opened · synchronize · reopened · edited · ready_for_review  → rerun on that PR
+<span class="dim">issues</span>       labeled omni:approved   <span class="dim">(a member approved on the PRD page)</span>   → rerun on every open PR of the PRD
+<span class="dim">issues</span>       unlabeled omni:approved <span class="dim">(new: an approval voided removes the label)</span> → rerun on every open PR of the PRD
+<span class="dim">read</span>         GET /api/approvals/judge?repo=…&amp;prd=918   <span class="dim">signed by the App (STAGE_EVENT_SECRET)</span></pre>
+  </section>
+</div>
+
+<div class="part pp">
+  <h2>② Pixel perfect</h2>
+  <p class="screens">screens: attestation (new, draft)</p>
+
+  <section>
+    <h3>The Attestation page, the check's Details</h3>
+    <p>Today the Details of a check has nowhere to go. After, /prd/&lt;id&gt;/attestation?head=&lt;sha&gt;: the seal, who approved and when, the policy, each pinned file against the PR's head, what to do, and the PRD's target PRs. The figures and names are examples.</p>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today</div>
+        <div class="empty">No page: the check does not exist.</div>
+      </div>
+      <div class="side">
+        <div class="label after">After · approved</div>
+        <div class="att"><div class="att-bar">PRDs › 918 › <b>Attestation</b></div>
+          <div class="att-page" data-screen="attestation-approved">
+            <div class="att-head">
+              <svg class="seal" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="33" fill="none" stroke="#ffd84a" stroke-width="3"/><circle cx="36" cy="36" r="26" fill="#2a2350" stroke="#ffd84a" stroke-width="1.5" stroke-dasharray="3 3"/><text x="36" y="34" text-anchor="middle" font-family="monospace" font-size="11" fill="#ffd84a" font-weight="700">918</text><text x="36" y="47" text-anchor="middle" font-family="monospace" font-size="8" fill="#8a90d6">9c41</text></svg>
+              <div><h1>Approved · pinned</h1><p data-content>Irisa · member of vertuoza ✓ · Mobile approver ✓ · 8 Oct 2026 14:02</p></div>
+            </div>
+            <div class="att-card"><h2>Pinned vs head 4f1a2c0</h2>
+              <ul class="pins" data-content>
+                <li><span class="eq">=</span><span>spec.md</span><small>9c41…e07b</small></li>
+                <li><span class="eq">=</span><span>plan.md</span><small>2b7d…1a90</small></li>
+                <li><span class="eq">=</span><span>before-after.html</span><small>77e0…c4d2</small></li>
+                <li><span class="eq">=</span><span>voice.json</span><small>d1aa…0f3e</small></li>
+                <li><span class="eq">=</span><span>scenarios</span><small>5c08…ab17</small></li>
+              </ul></div>
+            <div class="att-card"><h2>Targets</h2>
+              <ul class="targets" data-content><li><span>vertuoza/vertuo-api #446</span><span class="s-ok">approved</span></li><li><span>vertuoza/vertuo-mobile #93</span><span class="s-ok">approved</span></li></ul></div>
+            <p class="muted">Policy: Mobile approvers · vertuoza members.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>The same page, drifted</h3>
+    <p>The seal stands; the build is refused. The file that changed shows both hashes, and the page offers the two ways out: restore from the terminal, or a member approves again.</p>
+    <div class="pair">
+      <div class="side">
+        <div class="label">Today</div>
+        <div class="empty">The drift shows only when /omni:yolo refuses.</div>
+      </div>
+      <div class="side">
+        <div class="label after">After · drifted</div>
+        <div class="att"><div class="att-bar">PRDs › 918 › <b>Attestation</b></div>
+          <div class="att-page" data-screen="attestation-drifted">
+            <div class="att-head">
+              <svg class="seal" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="33" fill="none" stroke="#5a60c4" stroke-width="3"/><circle cx="36" cy="36" r="26" fill="#0e0d33" stroke="#5a60c4" stroke-width="1.5" stroke-dasharray="3 3"/><text x="36" y="34" text-anchor="middle" font-family="monospace" font-size="11" fill="#8a90d6" font-weight="700">918</text><text x="36" y="47" text-anchor="middle" font-family="monospace" font-size="8" fill="#8a90d6">9c41</text></svg>
+              <div><h1>Seal stands · build refused</h1><p data-content>plan.md changed at head 7d3e · whitespace only</p></div>
+            </div>
+            <div class="att-card"><h2>Pinned vs head 7d3e</h2>
+              <ul class="pins" data-content>
+                <li><span class="eq">=</span><span>spec.md</span><small>9c41…e07b</small></li>
+                <li><span class="ne">≠</span><span>plan.md</span><small>2b7d…1a90 → d3f8…5a21</small></li>
+                <li><span class="eq">=</span><span>before-after.html</span><small>77e0…c4d2</small></li>
+              </ul></div>
+            <div class="att-card"><h2>Fix it</h2>
+              <div class="cmd"><code>omni approval restore 918</code><button class="ghost">Copy</button></div>
+              <div class="cmd"><button class="btn" data-primary>Approve again</button><span class="muted">a Mobile approver</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>What stays the same: the approval itself (on the PRD page, by a member), the record (no new table), the issue's label (display only), and the outbox check. Nothing blocks unless a repository makes <code>omni/approved</code> a required check. A PRD born in its repository (◇) and every sub-PR get no check.</footer>
+
+</div>
+</body>
+</html>
