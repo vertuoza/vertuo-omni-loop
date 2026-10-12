@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { requestOrigin, signInReturn } from '../../../../src/ask/page/sign-in';
-import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-server';
+import { requestOrigin, signInReturn } from '../../../../../src/ask/page/sign-in';
+import { supabaseEnv, supabaseServer } from '../../../../../src/data/supabase-server';
 
 // Where Google sends the person back after signing in on an ask page: the code becomes the session
 // cookie, then back to the same session (src/ask/page/sign-in.ts).

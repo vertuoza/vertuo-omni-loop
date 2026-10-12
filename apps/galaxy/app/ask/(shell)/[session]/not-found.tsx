@@ -1,6 +1,6 @@
-import { Notice } from '../../../src/ask/page/Notice';
-import { SwitchAccount } from '../../../src/ask/page/SignInCard';
-import { supabaseEnv } from '../../../src/data/supabase-server';
+import { Notice } from '../../../../src/ask/page/Notice';
+import { SwitchAccount } from '../../../../src/ask/page/SignInCard';
+import { supabaseEnv } from '../../../../src/data/supabase-server';
 
 // A session that does not exist, or belongs to someone else: the same words either way, so a link
 // tells nobody whether it is real.

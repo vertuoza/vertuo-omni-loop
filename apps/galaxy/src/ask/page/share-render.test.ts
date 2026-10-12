@@ -134,10 +134,11 @@ describe('For me', () => {
     expect(renderToStaticMarkup(createElement(ForMe, { entries: [] }))).toContain('Nothing waits for you');
   });
 
-  it('is reached from the sidebar, not the ask header: the layout renders the app shell (PRD 438)', () => {
+  it('is reached from the sidebar, not the ask header: the Questions pages\' layout renders the app shell (PRD 438, PRD 1705)', () => {
     const layout = readFileSync(new URL('../../../app/ask/layout.tsx', import.meta.url), 'utf8');
-    expect(layout).toMatch(/<AppShell\b/);
-    expect(layout).not.toMatch(/ForMeLink|HistoryLink|AskBar/);
+    const shell = readFileSync(new URL('../../../app/ask/(shell)/layout.tsx', import.meta.url), 'utf8');
+    expect(shell).toMatch(/<AppShell\b/);
+    expect(`${layout}${shell}`).not.toMatch(/ForMeLink|HistoryLink|AskBar/);
     expect(layout).toContain("import '../../src/ask/page/share.css';");
   });
 });

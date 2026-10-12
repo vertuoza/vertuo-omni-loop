@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { CliSignInCard } from '../../../src/ask/cli-code-card';
-import { cliCallbackPath, readCliSignIn } from '../../../src/ask/cli-code';
-import { readTokenRequest, tokenCallbackPath } from '../../../src/ask/kit-token';
-import { Notice } from '../../../src/ask/page/Notice';
-import { supabaseEnv } from '../../../src/data/supabase-server';
+import { CliSignInCard } from '../../../../src/ask/cli-code-card';
+import { cliCallbackPath, readCliSignIn } from '../../../../src/ask/cli-code';
+import { readTokenRequest, tokenCallbackPath } from '../../../../src/ask/kit-token';
+import { Notice } from '../../../../src/ask/page/Notice';
+import { supabaseEnv } from '../../../../src/data/supabase-server';
 
 // /ask/signin?port=<p>&state=<s>: the page `omni signin` opens. The person signs in with Google here,
 // and the auth callback's ask-cli branch sends the terminal's loopback address a one-time code
