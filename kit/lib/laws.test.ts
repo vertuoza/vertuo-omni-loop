@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
+import { parseConfig } from './config.ts';
 import { invariantAdrs, invariantsFile, lawsFor } from './laws.ts';
 
 const ADR = '.omni-loop/knowledge/adr';
@@ -15,6 +16,10 @@ describe('invariantAdrs', () => {
 });
 
 describe('invariantsFile', () => {
+  it('reads AGENTS.md then CLAUDE.md when the config names no context files (PRD 1739)', () => {
+    expect(parseConfig('kit: 1\n').paths.context).toEqual(['AGENTS.md', 'CLAUDE.md']);
+  });
+
   it('names the first context file that exists and holds the heading, or null', () => {
     const files = { 'AGENTS.md': '# A\n', 'CLAUDE.md': '#  x\n  ## Invariants  \n' };
     const { root } = makeRepo({ files });

@@ -13,7 +13,6 @@ describe('parseConfig', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.delivery).toBe('.omni-loop/delivery');
     expect(config.paths.knowledge).toBe('.omni-loop/knowledge');
-    expect(config.paths.context).toEqual(['AGENTS.md', 'CLAUDE.md']);
     expect(config.labels.outboxGo).toBe('omni:outbox-go');
     expect(config.markers.prefix).toBe('omni-outbox');
     expect(config.laws.source).toBe('none');
@@ -365,13 +364,6 @@ describe('omni config', () => {
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
     }
-  });
-
-  it('prints paths.context as AGENTS.md then CLAUDE.md when the file sets none (PRD 1739)', async () => {
-    const { root } = makeRepo({ git: true, files });
-    const s = io();
-    expect(await main(['config', 'paths.context'], { cwd: root, ...s })).toBe(0);
-    expect(JSON.parse(s.out.join(''))).toEqual(['AGENTS.md', 'CLAUDE.md']);
   });
 
   it('prints labels.concept and branches.concept, from their defaults or as the file sets them (PRD 686)', async () => {
