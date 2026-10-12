@@ -30,6 +30,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { withInstallLink } from './auth';
 import { redeemCode, type Called, type CodeRedeemer } from './cli-code.repository';
+import { USER_CODE_ALPHABET, USER_CODE_LENGTH, type DevicePurpose } from './device.contract';
 
 /** How long a one-time code works. */
 export const CODE_TTL_MS = 2 * 60_000;
@@ -70,6 +71,29 @@ export const newCode = () => randomBytes(32).toString('base64url');
 
 /** What the code table keeps of a code: its SHA-256, in hex. */
 export const hashCode = (code: string) => createHash('sha256').update(code).digest('hex');
+
+// ── The device sign-in's way back (PRD 1660) ───────────────────────────────
+
+const USER_CODE = new RegExp(`^[${USER_CODE_ALPHABET}]{${USER_CODE_LENGTH}}$`);
+
+/** The user code a device link carries, as shown (XXXX-XXXX), read without case or dash; null when it
+ * cannot be one. */
+function readDeviceCode(raw: string | null): string | null {
+  const code = (raw ?? '').replace(/[\s-]/g, '').toUpperCase();
+  return USER_CODE.test(code) ? `${code.slice(0, 4)}-${code.slice(4)}` : null;
+}
+
+/** The device page, /ask/device, with its query: `user_code`, `yes` once Yes is pressed, `done`,
+ * `denied`, `signin_error`. */
+export const devicePagePath = (params: Record<string, string> = {}) => {
+  const search = query(params);
+  return search ? `/ask/device?${search}` : '/ask/device';
+};
+
+/** Where GitHub sends the person back from the device page: the auth callback's ask-cli branch, the
+ * user code in place of the loopback's port and state. */
+export const deviceCallbackPath = (userCode: string, purpose: DevicePurpose = 'signin') =>
+  `/auth/callback?${query({ next: 'ask-cli', device: userCode, ...(purpose === 'token' ? { purpose } : {}) })}`;
 
 // ── The callback's ask-cli branch ───────────────────────────────────────────
 
@@ -126,19 +150,63 @@ export async function cliSignInReturn(url: URL, origin: string, deps: CliCallbac
 
   const fresh = await freshSession(url, deps.exchange, 'ask cli sign-in');
   if ('failed' in fresh) return back(fresh.failed);
-  const { session } = fresh;
-  const end = () => deps.revoke(session).catch(() => {});
+  const code = await issueFor(fresh.session, deps);
+  return code ? loopbackUrl(signIn, code) : back(NOT_HANDED);
+}
+
+/** A fresh one-time code stored for `session`, by the database or, for a person in no workspace, by
+ * the server; null when it could not be stored, the session then ended. */
+async function issueFor(session: CliSession, deps: CliCallbackDeps): Promise<string | null> {
   const code = newCode();
   let { error: issueError } = await deps.issue(session, hashCode(code));
   if (issueError?.code === NO_WORKSPACE && deps.issueOutsideWorkspaces) {
     ({ error: issueError } = await deps.issueOutsideWorkspaces(session, hashCode(code)));
   }
-  if (issueError) {
-    console.error(`ask cli sign-in: ${issueError.message}`);
+  if (!issueError) return code;
+  console.error(`ask cli sign-in: ${issueError.message}`);
+  await deps.revoke(session).catch(() => {});
+  return null;
+}
+
+export type DeviceCallbackDeps = CliCallbackDeps & {
+  /** Attaches the one-time code to the pending signin request under this user code, once; whether it
+   * did. Throws when the store fails. Null when this deployment has no device sign-in. */
+  approve: ((userCode: string, code: string) => Promise<boolean>) | null;
+};
+
+/** Where the device= branch of the auth callback sends the browser (PRD 1660): the same join, link and
+ * one-time code as the loopback's, attached to the pending request for the terminal's next poll, then
+ * the device page's done state. A request no longer pending attaches nothing and shows its expired
+ * state; a refusal comes back to the device page's sign-in card with its reason. Never 127.0.0.1. */
+export async function deviceSignInReturn(url: URL, origin: string, deps: DeviceCallbackDeps): Promise<string> {
+  const page = (params: Record<string, string> = {}) => new URL(devicePagePath(params), origin).toString();
+  const userCode = readDeviceCode(url.searchParams.get('device'));
+  if (!userCode) return page();
+  const back = (error: string) => page({ user_code: userCode, yes: '1', signin_error: error });
+
+  const fresh = await freshSession(url, deps.exchange, 'ask device sign-in');
+  if ('failed' in fresh) return back(fresh.failed);
+  const { session } = fresh;
+  const end = () => deps.revoke(session).catch(() => {});
+  if (!deps.approve) {
     await end();
     return back(NOT_HANDED);
   }
-  return loopbackUrl(signIn, code);
+  const code = await issueFor(session, deps);
+  if (!code) return back(NOT_HANDED);
+  let attached: boolean;
+  try {
+    attached = await deps.approve(userCode, code);
+  } catch (error) {
+    console.error(`ask device sign-in: ${messageOf(error)}`);
+    await end();
+    return back(NOT_HANDED);
+  }
+  if (!attached) {
+    await end();
+    return page({ user_code: userCode });
+  }
+  return page({ done: '1' });
 }
 
 // ── POST /api/ask/token ─────────────────────────────────────────────────────

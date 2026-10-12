@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { cliSignInReturn, type CliSession } from '../../../src/ask/cli-code';
+import { cliSignInReturn, deviceSignInReturn, type CliSession } from '../../../src/ask/cli-code';
 import { cliCallbackDeps } from '../../../src/ask/cli-code-live';
+import { deviceLive } from '../../../src/ask/device.live';
 import { madeCookie, tokenSignInReturn } from '../../../src/ask/kit-token';
 import { kitMakeDeps } from '../../../src/ask/kit-token-live';
 import { sessionOf } from '../../../src/data/session';
@@ -25,6 +26,9 @@ import { VOTER_NEXT } from '../../../src/ideas/vote/vote';
 // terminal, not a cookie, which joins and links as well before its one-time code is issued, and the
 // browser goes on to the terminal's loopback address with that code, or back to /ask/signin with the
 // reason (src/ask/cli-code.ts).
+// With `?next=ask-cli&device=<user code>` it is a device sign-in (PRD 1660): `omni signin` waiting
+// where this browser cannot reach it. The same join, link and one-time code, attached to the pending
+// request for the terminal's next poll; the browser goes on to /ask/device?done=1, never to 127.0.0.1.
 // With `?next=ask-cli&purpose=token` it is a kit token being made (PRD 1628): `omni setup-token`, or
 // Make a token on a profile page. The same fresh sign-in, joined and linked, becomes the token's stored
 // session, and the token goes back once: to the terminal's loopback address, or to the page, kept for
@@ -50,6 +54,18 @@ async function cliReturn(request: NextRequest) {
   return response;
 }
 
+/** A device sign-in coming back: the one-time code attached to the pending request, then the device
+ * page, the PKCE verifier spent. */
+async function deviceReturn(request: NextRequest) {
+  const { deps, spent } = cliCallbackDeps(request.cookies.getAll());
+  const joining = joinBeforeIssue(deps, (session) => settleSignIn(supabaseAs(session.access_token), session, signInDeps));
+  const devices = deviceLive();
+  const approve = devices ? (userCode: string, code: string) => devices.approve(userCode, 'signin', code) : null;
+  const response = NextResponse.redirect(await deviceSignInReturn(request.nextUrl, origin(request), { ...joining, approve }));
+  for (const { name, value, options } of spent) response.cookies.set(name, value, options);
+  return response;
+}
+
 /** A kit token's round trip coming back: on to the loopback or the page, the made token kept for the
  * page in its cookie, and the PKCE verifier spent. */
 async function kitTokenReturn(request: NextRequest) {
@@ -65,9 +81,16 @@ async function kitTokenReturn(request: NextRequest) {
   return response;
 }
 
+/** The terminal coming back: a kit token, a device sign-in or the loopback's. */
+function askCliReturn(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  if (params.get('purpose') === 'token') return kitTokenReturn(request);
+  return params.has('device') ? deviceReturn(request) : cliReturn(request);
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  if (params.get('next') === 'ask-cli') return params.get('purpose') === 'token' ? kitTokenReturn(request) : cliReturn(request);
+  if (params.get('next') === 'ask-cli') return askCliReturn(request);
   if (params.get('next') === VOTER_NEXT) {
     const ports = supabaseEnv()
       ? await supabaseServer().then((db) => ({

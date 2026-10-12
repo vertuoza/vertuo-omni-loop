@@ -13,6 +13,12 @@ describe('the terminal\'s sign-in card, /ask/signin (PRD 359)', () => {
     expect(html).not.toMatch(/google/i);
   });
 
+  it('says in one short sentence that the terminal gets its own sign-in, for the word pass (PRD 1660)', () => {
+    const html = renderToStaticMarkup(createElement(CliSignInCard, { supabase: SUPABASE, returnPath: '/auth/callback?next=ask-cli' }));
+    expect(html).toContain('<p class="ask-muted">The terminal gets its own sign-in.</p>');
+    expect(html).toContain('Sign the terminal in');
+  });
+
   it('offers GitHub again after a failed try', () => {
     const html = renderToStaticMarkup(createElement(CliSignInCard, { supabase: SUPABASE, returnPath: '/x', error: 'Expired.' }));
     expect(html).toContain('>Try again with GitHub</button>');
