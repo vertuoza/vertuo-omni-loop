@@ -134,15 +134,15 @@ function clearChapter(run: Run): Run {
 }
 
 describe('the waves in play', () => {
-  it('lets chapter I\'s first wave pass orbs held still, and adds 10 once it is below the circle', () => {
-    const { run, events } = holdStill(playing());
+  it('lets chapter I\'s first wave pass orbs turned through it, and adds 10 once it is below the circle', () => {
+    const { run, events } = pilot(playing());
     expect(events).toEqual(['pass']);
     expect(run).toMatchObject({ phase: 'play', chapter: 0, wave: 1, tick: 0, score: 10, passed: 1, lives: 3 });
     expect(wavesIn(run)).toBe(10);
   });
 
   it('counts each wave once: the next steps of the next wave add nothing', () => {
-    const once = holdStill(playing()).run;
+    const once = pilot(playing()).run;
     const after = step(step(once, held(), RULES.subStep).run, held(), RULES.subStep);
     expect(after.run.score).toBe(10);
     expect(after.events).toEqual([]);
@@ -156,7 +156,7 @@ describe('the waves in play', () => {
 
 describe('a hit', () => {
   it('costs a life, restarts the chapter from its first wave, and shows the ready screen', () => {
-    const passedOne = holdStill(playing()).run; // wave 2 is a block on the left, where the warm orb stands still
+    const passedOne = pilot(playing()).run; // no wave is passed by orbs held still
     const { run, events } = holdStill(passedOne);
     expect(events).toEqual(['hit']);
     expect(run).toMatchObject({ phase: 'ready', chapter: 0, wave: 0, tick: 0, lives: 2, score: 0, passed: 1, carry: 0 });

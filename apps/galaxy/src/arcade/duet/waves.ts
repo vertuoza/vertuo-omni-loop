@@ -20,30 +20,26 @@ const R = RULES.radius;
  *   centre, its inner end stopping R/3 (19 px) short of the centre line: upright, the orbs stand 13 px
  *   clear of it; level, the orb on its side is inside it;
  * - a centre block, a square 0.75 R wide (42 px) on the centre line: level, the orbs stand 29 px
- *   clear of it; upright, they are inside it;
- * - an upright bar, 0.3 R wide and 1.5 R tall (17 × 84 px), standing on the circle's edge, its middle
- *   at R left or right of the centre: upright, the orbs stand 42 px clear of it; level, the orb on its
- *   side is inside it.
+ *   clear of it; upright, they are inside it.
  *
  * A sliding obstacle moves along the wave's width by at most its own reach, which keeps that pose
- * clear: a half bar only away from the centre line and back, a centre block and an upright bar either
- * side of where they stand. A turning obstacle turns about its own middle, stays clear of its pose
+ * clear: a half bar only away from the centre line and back, a centre block either side of where it
+ * stands. A turning obstacle turns about its own middle, stays clear of its pose
  * whichever way it points, and stands as written as it crosses the centre's height, so it still hits
  * the other pose there.
  */
 export const SHAPE = Object.freeze({
   half: Object.freeze({ length: 2, thick: 0.3, short: 1 / 3 }),
   centre: Object.freeze({ side: 0.75 }),
-  upright: Object.freeze({ wide: 0.3, tall: 1.5, at: 1 }),
   /** How far each kind slides from where it stands, in R, and how fast, in R a second. */
-  slideReach: Object.freeze({ half: 0.4, centre: 0.3, upright: 0.2 }),
+  slideReach: Object.freeze({ half: 0.4, centre: 0.3 }),
   slideSpeed: 0.7,
   /** A turning obstacle turns this many turns a second about its middle. */
   spinTurnsPerSecond: 0.3,
 });
 
-/** The three obstacles. */
-export type Kind = 'half' | 'centre' | 'upright';
+/** The two obstacles. */
+export type Kind = 'half' | 'centre';
 
 /** How an obstacle moves as it falls: not at all, side to side, or turning about its middle. */
 export type Motion = 'still' | 'slide' | 'turn';
@@ -55,7 +51,6 @@ export type Pose = 'upright' | 'level';
 export const POSE: Readonly<Record<Kind, { pose: Pose; angle: number }>> = Object.freeze({
   half: { pose: 'upright', angle: Math.PI / 2 },
   centre: { pose: 'level', angle: 0 },
-  upright: { pose: 'upright', angle: Math.PI / 2 },
 });
 
 /**
@@ -75,8 +70,7 @@ export interface Chapter { numeral: string; name: string; waves: readonly Wave[]
  * words, a ` · `, then its distance behind the one before:
  *
  *   L half · 0          a half bar from the left (R from the right)
- *   centre · 3R         a centre block
- *   R upright · 2.5R    an upright bar on the circle's right edge (L on its left)
+ *   centre · 2R         a centre block
  *
  * after which `slide` makes it slide and `turn` turn, and `back` the other way round: a slide sets off
  * to the right (a half bar away from the centre line), `slide back` to the left (a half bar from its
@@ -91,8 +85,6 @@ const LEGEND = Object.freeze({
     ['L half', { kind: 'half', side: -1 }],
     ['R half', { kind: 'half', side: 1 }],
     ['centre', { kind: 'centre', side: 0 }],
-    ['L upright', { kind: 'upright', side: -1 }],
-    ['R upright', { kind: 'upright', side: 1 }],
   ]),
   motions: Object.freeze(['slide', 'turn'] as const),
   back: 'back',
@@ -101,14 +93,12 @@ const LEGEND = Object.freeze({
 /** An obstacle's size in game pixels, unturned: its width and its height. */
 function sizeOf(kind: Kind): { w: number; h: number } {
   if (kind === 'half') return { w: SHAPE.half.length * R, h: SHAPE.half.thick * R };
-  if (kind === 'centre') return { w: SHAPE.centre.side * R, h: SHAPE.centre.side * R };
-  return { w: SHAPE.upright.wide * R, h: SHAPE.upright.tall * R };
+  return { w: SHAPE.centre.side * R, h: SHAPE.centre.side * R };
 }
 
 /** Where an obstacle's middle stands across the playfield, before it slides. */
 function anchorOf(kind: Kind, side: number): number {
   if (kind === 'half') return RULES.centre.x + side * (SHAPE.half.short + SHAPE.half.length / 2) * R;
-  if (kind === 'upright') return RULES.centre.x + side * SHAPE.upright.at * R;
   return RULES.centre.x;
 }
 
@@ -127,7 +117,7 @@ const unknown = (word: string | undefined) => new Error(word === undefined ? 'no
 /** Why the front of an obstacle's words names no obstacle: a side the kind cannot have, a side missing, or a word not in the legend. */
 function misnamed([first, second]: readonly string[]): Error {
   if (first === 'L' || first === 'R') return second === 'centre' ? new Error('a centre block has no side') : unknown(second);
-  return first === 'half' || first === 'upright' ? new Error(`a ${first} bar needs its side, L or R`) : unknown(first);
+  return first === 'half' ? new Error('a half bar needs its side, L or R') : unknown(first);
 }
 
 /** Reads an obstacle's side and kind from the front of its words, `L half` or `centre`, and how many words they took. */
@@ -138,7 +128,7 @@ function readKind(words: readonly string[]): { kind: Kind; side: -1 | 0 | 1; use
   return { ...named, used };
 }
 
-/** Reads an obstacle's words: `L half`, `centre slide`, `R upright turn back`. Throws a refusal's message. */
+/** Reads an obstacle's words: `L half`, `centre slide`, `R half turn back`. Throws a refusal's message. */
 function readWords(text: string): Omit<Piece, 'above'> {
   const words = text.split(/\s+/).filter((w) => w !== '');
   const { kind, side, used } = readKind(words);
@@ -447,280 +437,261 @@ export function waveProblems(chapters: readonly Chapter[], player: Player = {}):
 // Written for a pair that turns slowly (0.6 turns a second), in Duet's way: each obstacle asks one
 // pose, and a wave chains them so a person reads it as poses to hold and turns to make. Runs of the
 // same obstacle, evenly spaced, are passed by holding the pose; obstacles of either pose at equal
-// gaps by a steady back-and-forth. Chapter I sets still obstacles 3 to 4 R apart, building to short
-// runs; II brings in sliding ones, III turning ones, and IV mixes all three faster and tighter, down
-// to 2 R within a run of one pose.
+// gaps by a steady back-and-forth. The waves fall about 2 R a second, as Duet's do, and are short:
+// three to six obstacles, 8 seconds at most from the first entering to the last passing the orbs,
+// and none passed by holding the orbs still. Chapter I (95 to 113 px/s) alternates still half bars
+// and centre blocks 1.75 to 2.25 R apart, one idea a wave, each asking two changes of pose at the
+// least; II (105 to 123) brings in sliding ones, III (115 to 133) turning ones, and IV (125 to 143)
+// mixes all three, tighter, down to 1.25 R within a run of one pose.
 
 const DRIFT = [
-  `speed 52
-   centre · 0
-   centre · 4R
-   centre · 4R`,
-  `speed 54
+  `speed 95
    L half · 0
-   centre · 4R
-   R half · 4R
-   centre · 4R`,
-  `speed 56
+   centre · 2.25R
+   R half · 2.25R`,
+  `speed 97
    centre · 0
-   L half · 4R
-   centre · 4R
-   R half · 4R
-   centre · 4R`,
-  `speed 58
+   R half · 2R
+   centre · 2R
+   L half · 2R`,
+  `speed 99
    L half · 0
-   centre · 3.5R
-   R half · 3.5R
-   centre · 3.5R
-   L half · 3.5R
-   centre · 3.5R`,
-  `speed 60
+   R half · 1.5R
+   centre · 2R
+   L half · 2R`,
+  `speed 101
+   centre · 0
+   centre · 1.5R
+   L half · 2R
+   centre · 2R`,
+  `speed 103
    R half · 0
-   R half · 3R
-   R half · 3R
-   centre · 4R
-   centre · 3R
-   centre · 3R`,
-  `speed 62
+   centre · 1.75R
+   L half · 1.75R
+   centre · 1.75R
+   R half · 1.75R`,
+  `speed 105
+   L half · 0
+   L half · 1.5R
+   centre · 2R
+   centre · 1.5R
+   R half · 2R`,
+  `speed 107
    centre · 0
-   L half · 3.5R
-   L half · 3R
-   L half · 3R
-   centre · 3.5R
-   R half · 3.5R`,
-  `speed 64
-   L upright · 0
-   centre · 3.5R
-   R upright · 3.5R
-   centre · 3.5R
-   L half · 3.5R
-   R upright · 3R`,
-  `speed 66
-   L half · 0
-   R half · 3R
-   L half · 3R
-   centre · 3.5R
-   centre · 3R
-   R upright · 3.5R`,
-  `speed 68
-   L half · 0
-   centre · 3R
-   R half · 3R
-   centre · 3R
-   L upright · 3R
-   centre · 3R`,
-  `speed 70
+   R half · 1.75R
+   centre · 1.75R
+   L half · 1.75R
+   centre · 1.75R`,
+  `speed 109
    R half · 0
-   L half · 2.5R
-   R half · 2.5R
-   centre · 3R
-   centre · 2.5R
-   centre · 2.5R
-   L upright · 3R`,
+   L half · 1.5R
+   R half · 1.5R
+   centre · 2R
+   L half · 2R`,
+  `speed 111
+   centre · 0
+   centre · 1.5R
+   centre · 1.5R
+   R half · 2R
+   centre · 2R`,
+  `speed 113
+   L half · 0
+   centre · 1.75R
+   R half · 1.75R
+   centre · 1.75R
+   L half · 1.75R`,
 ];
 
 const SLIDE = [
-  `speed 60
+  `speed 105
    L half slide · 0
-   R half slide · 3R
-   L half slide · 3R`,
-  `speed 62
+   centre · 2R
+   R half slide · 2R
+   centre slide · 2R`,
+  `speed 107
    centre slide · 0
-   L half · 3.5R
-   centre slide · 3.5R
-   R half slide · 3.5R`,
-  `speed 64
-   R upright slide · 0
-   centre · 3.5R
-   L upright slide · 3.5R
-   centre slide · 3.5R
-   R half · 3.5R`,
-  `speed 66
-   L half slide · 0
-   L half slide back · 2.5R
-   L half slide · 2.5R
-   centre slide · 3R
-   centre slide back · 2.5R`,
-  `speed 68
-   centre slide · 0
-   R half slide · 3R
-   centre slide back · 3R
-   L half slide back · 3R
-   centre · 3R
-   R upright slide · 3R`,
-  `speed 70
-   R half slide back · 0
-   L upright slide · 2.5R
-   R half · 2.5R
-   centre slide · 3R
-   L half slide · 3R
-   centre slide back · 3R`,
-  `speed 72
-   centre slide · 0
-   centre slide back · 2.5R
-   centre slide · 2.5R
-   R half slide · 3R
-   L half slide · 2.5R
-   R upright slide · 2.5R`,
-  `speed 74
-   L upright slide · 0
-   centre slide · 3R
-   R upright slide back · 3R
-   centre slide back · 3R
-   L half slide · 3R
-   centre · 3R`,
-  `speed 76
+   L half · 2R
+   centre slide back · 2R
+   R half slide · 2R`,
+  `speed 109
    R half slide · 0
-   L half slide back · 2.5R
-   R half slide · 2.5R
-   centre slide back · 3R
-   L upright slide · 3R
-   centre slide · 3R`,
-  `speed 78
+   R half slide back · 1.5R
+   centre slide · 2R
+   L half slide · 2R
+   centre · 2R`,
+  `speed 111
+   L half slide · 0
+   centre slide · 2R
+   centre slide back · 1.5R
+   R half slide · 2R
+   L half slide back · 1.5R`,
+  `speed 113
    centre slide · 0
-   L half slide · 2.5R
-   centre slide back · 2.5R
-   R half slide back · 2.5R
-   centre slide · 2.5R
-   L upright slide back · 2.5R`,
+   R half slide · 2R
+   centre slide back · 2R
+   L half slide back · 2R
+   centre · 2R`,
+  `speed 115
+   R half slide back · 0
+   L half slide · 1.5R
+   centre slide · 2R
+   R half · 2R
+   centre slide back · 2R`,
+  `speed 117
+   centre slide · 0
+   centre slide back · 1.25R
+   L half slide · 1.75R
+   R half slide · 1.25R
+   centre slide · 1.75R
+   L half slide back · 1.75R`,
+  `speed 119
+   L half slide · 0
+   centre slide · 2R
+   R half slide back · 2R
+   centre slide back · 2R
+   L half slide · 2R`,
+  `speed 121
+   R half slide · 0
+   L half slide back · 1.5R
+   R half slide · 1.5R
+   centre slide back · 2R
+   centre slide · 1.5R
+   L half slide · 2R`,
+  `speed 123
+   centre slide · 0
+   L half slide · 1.75R
+   centre slide back · 1.75R
+   R half slide back · 1.75R
+   centre slide · 1.75R
+   L half slide · 1.75R`,
 ];
 
 const SPIN = [
-  `speed 66
+  `speed 115
    centre turn · 0
-   centre turn back · 3.5R
-   centre turn · 3.5R`,
-  `speed 68
+   L half · 1.75R
+   centre turn back · 1.75R
+   R half · 1.75R`,
+  `speed 117
    L half turn · 0
-   centre · 3.5R
-   R half turn back · 3.5R
-   centre turn · 3.5R
-   L half · 3R`,
-  `speed 70
-   R upright turn · 0
-   centre turn · 3.5R
-   L upright turn back · 3.5R
-   centre · 3R
-   L half · 3R`,
-  `speed 72
-   L half turn · 0
-   L half turn back · 2.5R
-   centre turn · 3R
-   centre turn back · 2.5R
-   R half slide · 3R`,
-  `speed 74
-   centre turn · 0
-   R half turn · 3R
-   centre turn back · 3R
-   L half turn back · 3R
-   centre slide · 3R
-   R upright turn · 3R`,
-  `speed 76
-   R half turn back · 0
-   R upright · 2.5R
-   R half turn · 2.5R
-   centre turn · 3R
-   L half turn · 3R`,
-  `speed 78
-   centre turn · 0
-   centre turn back · 2.5R
-   L upright turn · 3R
-   R half turn back · 2.5R
-   centre slide · 3R`,
-  `speed 80
-   L half turn · 0
-   centre turn back · 3R
-   R half turn · 3R
-   centre turn · 3R
-   L upright turn back · 3R`,
-  `speed 82
+   centre · 1.75R
+   R half · 1.75R
+   centre turn · 1.75R`,
+  `speed 119
    R half turn · 0
-   L half turn back · 2.5R
-   R half turn · 2.5R
-   centre turn · 3R
-   centre slide · 2.5R
-   L half turn · 3R`,
-  `speed 84
+   centre turn · 1.5R
+   L half slide · 1.5R
+   centre · 1.5R
+   R half · 1.5R`,
+  `speed 121
+   L half turn · 0
+   L half turn back · 1R
+   centre turn · 1.75R
+   centre turn back · 1R
+   R half slide · 1.75R`,
+  `speed 123
+   centre turn · 0
+   R half turn · 1.5R
+   centre turn back · 1.5R
+   L half · 1.5R
+   centre slide · 1.5R`,
+  `speed 125
+   R half turn back · 0
+   R half slide · 1R
+   centre turn · 1.75R
+   L half turn · 1.75R
+   centre · 1.75R`,
+  `speed 127
+   centre turn · 0
+   centre turn back · 1R
+   L half turn · 1.75R
+   R half slide back · 1R
+   centre slide · 1.75R`,
+  `speed 129
+   L half turn · 0
+   centre turn back · 1.6R
+   R half turn · 1.6R
+   centre turn · 1.6R
+   L half · 1.6R`,
+  `speed 131
+   R half turn · 0
+   L half turn back · 1R
+   centre turn · 1.75R
+   centre slide · 1R
+   L half turn · 1.75R`,
+  `speed 133
    centre turn back · 0
-   L half turn · 2.5R
-   centre turn · 2.5R
-   R half turn back · 2.5R
-   centre turn back · 2.5R
-   R upright turn · 2.5R`,
+   L half turn · 1.6R
+   centre turn · 1.6R
+   R half · 1.6R
+   centre turn back · 1.6R`,
 ];
 
 const STORM = [
-  `speed 88
+  `speed 125
    L half · 0
-   R half slide · 2R
-   L half turn · 2R
-   centre · 2.5R
-   centre slide · 2R`,
-  `speed 90
+   R half slide · 1.25R
+   centre turn · 1.75R
+   centre · 1.25R
+   L half turn · 1.75R`,
+  `speed 127
    centre turn · 0
-   centre · 2R
-   R upright slide · 2.5R
-   L half · 2R
-   centre slide back · 2.5R`,
-  `speed 92
+   centre slide · 1.25R
+   R half · 1.75R
+   L half slide back · 1.25R
+   centre · 1.75R`,
+  `speed 129
    R half turn · 0
-   L half · 2R
-   R half slide · 2R
-   centre turn back · 2.5R
-   L upright · 2.5R
-   R upright slide · 2R`,
-  `speed 94
+   L half · 1.25R
+   centre slide · 1.75R
+   R half slide · 1.75R
+   centre turn back · 1.75R`,
+  `speed 131
    centre slide · 0
-   centre turn · 2R
-   L half slide back · 2.5R
-   centre · 2.5R
-   R half turn · 2.5R
-   R half · 2R`,
-  `speed 96
-   L upright turn · 0
-   centre · 2.5R
-   centre slide · 2R
-   R half · 2.5R
-   L half turn back · 2R
-   centre turn · 2.5R`,
-  `speed 98
-   R half slide · 0
-   L half slide · 2R
-   R half slide back · 2R
-   centre turn · 2.5R
-   L upright slide · 2.5R
-   centre · 2.5R`,
-  `speed 100
+   L half turn · 1.75R
+   L half slide · 1.25R
+   centre · 1.75R
+   centre turn · 1.25R
+   R half · 1.75R`,
+  `speed 133
+   L half slide · 0
+   centre turn back · 1.75R
+   R half · 1.75R
+   R half turn · 1.25R
+   centre slide · 1.75R`,
+  `speed 135
    centre · 0
-   L half turn · 2.5R
-   centre slide back · 2.5R
-   R upright · 2.5R
-   centre turn back · 2.5R
-   L half · 2.5R
-   R half turn · 2R`,
-  `speed 102
-   L half · 0
-   L half slide · 2R
-   L half turn · 2R
-   centre turn · 2.5R
-   centre slide · 2R
-   centre · 2R
-   R upright turn back · 2.5R`,
-  `speed 104
+   L half slide · 1.75R
+   R half slide back · 1.25R
+   centre turn · 1.75R
+   centre slide back · 1.25R
+   L half · 1.75R`,
+  `speed 137
+   R half slide · 0
+   centre turn · 1.75R
+   L half turn · 1.75R
+   centre slide · 1.75R
+   R half · 1.75R`,
+  `speed 139
+   centre turn · 0
+   R half slide back · 1.75R
+   L half · 1.25R
+   centre slide · 1.75R
+   centre · 1.25R
+   R half turn · 1.75R`,
+  `speed 141
+   L half turn · 0
+   centre · 1.75R
+   R half slide · 1.75R
+   L half slide back · 1.25R
+   centre turn back · 1.75R`,
+  `speed 143
    centre slide · 0
-   R half turn back · 2.5R
-   centre · 2.5R
-   L half slide · 2.5R
-   centre turn · 2.5R
-   R upright slide back · 2.5R`,
-  `speed 106
-   R half · 0
-   L half turn · 2R
-   R half slide · 2R
-   centre turn back · 2.5R
-   centre slide · 2R
-   L upright turn · 2.5R
-   centre · 2.5R`,
+   centre turn · 1.25R
+   L half · 1.75R
+   R half turn back · 1.25R
+   centre · 1.75R
+   L half slide · 1.75R`,
 ];
 
 /** The four chapters, in the order they are played. */
@@ -739,11 +710,11 @@ export const ENDLESS_SEED = 0x1633;
 /**
  * How endless waves are drawn: one to `maxGroups` of `ENDLESS_GROUPS`, each `spacing` behind the one
  * before (2.5 R: at the top speed, room for a quarter turn and a person's reaction to spare), the
- * first `lead` above the playfield; the speed starts at `speed`, just above chapter IV's fastest, rises
- * by one every `rise` waves and stops at `topSpeed`, so every wave stays passable for a person however
- * long the run.
+ * first `lead` above the playfield; the speed starts at `speed`, 145 px/s, just above chapter IV's
+ * fastest (143), rises by one every `rise` waves and stops at `topSpeed`, 155 px/s, so every wave
+ * stays passable for a person however long the run.
  */
-const ENDLESS = Object.freeze({ speed: 108, rise: 5, topSpeed: 120, maxGroups: 3, spacing: '2.5R', lead: '0.25R' });
+const ENDLESS = Object.freeze({ speed: 145, rise: 5, topSpeed: 155, maxGroups: 3, spacing: '2.5R', lead: '0.25R' });
 
 /**
  * The groups an endless wave is built from: chapter IV's own obstacles, cut where a wave asks a new

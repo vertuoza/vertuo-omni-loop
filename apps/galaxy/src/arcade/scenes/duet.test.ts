@@ -16,6 +16,7 @@ import { DuetOverlay } from './duet.tsx';
 import { duetDrawOf, loadedDuet, pausedDuet, pressedDuet, steppedDuet, type DuetHooks } from './duet.live';
 import { failed, saved, sending, type ScoreSend } from './invaders-score';
 import { createDuet } from '../duet/index';
+import { CHAPTERS, route } from '../duet/waves';
 
 // OMNI DUET's scene (PRD 1633): the cabinet that opens it, the loader, the loading and failure lines,
 // the ready screen, what a press does before play and where the playfield sits on each grid (slice 2);
@@ -324,8 +325,10 @@ describe('the score sent once', () => {
   it('sends the score reached on SELECT on the pause, once', () => {
     const { sent, on } = arcade();
     let d = pressed(opened(), 'start', on);
-    // Held still until chapter I's first wave has passed: the score is then above 0.
-    for (let i = 0; i < 1200 && !d.hud?.score; i++) d = steppedDuet(d, d.game as DuetGame, new Set(), 1 / 60, on);
+    // Turned through chapter I's first wave, which orbs held still cannot pass: the score is then above 0.
+    for (const dir of route(at(at(CHAPTERS, 0, 'chapter I').waves, 0, "chapter I's first wave"), 0) ?? []) {
+      d = steppedDuet(d, d.game as DuetGame, new Set<'left' | 'right'>(dir === 1 ? ['left'] : dir === -1 ? ['right'] : []), 1 / 60, on);
+    }
     d = pressed(pressed(d, 'start', on), 'select', on);
     expect(d.hud).toMatchObject({ phase: 'over' });
     expect(sent).toEqual([d.hud?.score]);
