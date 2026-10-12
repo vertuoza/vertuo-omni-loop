@@ -22,7 +22,7 @@ function two(blocks: readonly Block[]): [Block, Block] {
 }
 
 /** Every obstacle the legend can write: each kind on each of its sides, still, sliding and turning, either way round. */
-const EVERY = ['L half', 'R half', 'centre', 'L upright', 'R upright'].flatMap((w) => ['', ' slide', ' slide back', ' turn', ' turn back'].map((m) => `${w}${m}`));
+const EVERY = ['L half', 'R half', 'centre'].flatMap((w) => ['', ' slide', ' slide back', ' turn', ' turn back'].map((m) => `${w}${m}`));
 
 /** Whether orbs held at `angle`, `r` wide, are struck by a wave of `words` alone, at any sub-step until it is passed. */
 function strikes(words: string, angle: number, { speed = 60, distance = '0', r = RULES.orbRadius }: { speed?: number; distance?: string; r?: number } = {}): boolean {
@@ -34,16 +34,21 @@ function strikes(words: string, angle: number, { speed = 60, distance = '0', r =
 describe('the vocabulary', () => {
   const posed = (words: string) => POSE[parseWave(`speed 60\n${words} · 0`, 'test').pieces[0]?.kind ?? 'centre'];
 
-  it('asks the pair upright for half bars and upright bars, and level for the centre block', () => {
+  it('asks the pair upright for half bars, and level for the centre block', () => {
     expect(posed('L half').pose).toBe('upright');
-    expect(posed('R upright turn').pose).toBe('upright');
+    expect(posed('R half turn').pose).toBe('upright');
     expect(posed('centre slide').pose).toBe('level');
+  });
+
+  it('holds two obstacles only, as Duet has: no upright bar', () => {
+    expect(Object.keys(POSE)).toEqual(['half', 'centre']);
+    expect(() => parseWave('speed 100\nL upright · 0', 'test')).toThrow('test, line 2: "upright" is not in the legend');
   });
 
   it.each(EVERY)('%s: its one pose clears it, with room for orbs 2 pixels wider; the other pose hits it', (words) => {
     const { angle } = posed(words);
     const other = angle === UPRIGHT ? LEVEL : UPRIGHT;
-    for (const speed of [52, 88, 120]) {
+    for (const speed of [95, 125, 155]) {
       for (const distance of ['0', '0.4R', '1.3R']) {
         expect(strikes(words, angle, { speed, distance, r: RULES.orbRadius + 2 }), `${speed} px/s, ${distance}: its pose`).toBe(false);
         expect(strikes(words, angle + Math.PI, { speed, distance }), `${speed} px/s, ${distance}: its pose half a turn on`).toBe(false);
@@ -60,13 +65,11 @@ describe('the vocabulary', () => {
     expect(right.cx - right.w / 2).toBeCloseTo(RULES.centre.x + R / 3, 9);
   });
 
-  it('sets the centre block on the centre line, 0.75 R wide, and the upright bar 1.5 R tall on the circle\'s edge', () => {
-    const [centre, upright] = two(at(parseWave('speed 60\ncentre · 0\nL upright · 1R', 'test'), 0));
+  it('sets the centre block on the centre line, a square 0.75 R wide', () => {
+    const [centre] = at(parseWave('speed 60\ncentre · 0', 'test'), 0);
     expect(centre).toMatchObject({ cx: RULES.centre.x, angle: 0 });
-    expect(centre.w).toBeCloseTo(0.75 * R, 9);
-    expect(upright.cx).toBeCloseTo(RULES.centre.x - R, 9);
-    expect(upright.w).toBeCloseTo(0.3 * R, 9);
-    expect(upright.h).toBeCloseTo(1.5 * R, 9);
+    expect(centre?.w).toBeCloseTo(0.75 * R, 9);
+    expect(centre?.h).toBeCloseTo(0.75 * R, 9);
   });
 });
 
@@ -79,7 +82,7 @@ describe('the chapters', () => {
     for (const c of CHAPTERS) expect(c.waves.length, c.name).toBe(10);
   });
 
-  it('brings in still obstacles first, then sliding ones, then turning ones, then all three faster', () => {
+  it('brings in still obstacles first, then sliding ones, then turning ones, then all three, each chapter a little faster', () => {
     expect([...motions(0)]).toEqual(['still']);
     expect(motions(1).has('slide')).toBe(true);
     expect(motions(1).has('turn')).toBe(false);
@@ -87,12 +90,15 @@ describe('the chapters', () => {
     expect(motions(3)).toEqual(new Set(['still', 'slide', 'turn']));
     const slowest = (i: number) => Math.min(...(CHAPTERS[i]?.waves.map((w) => w.speed) ?? []));
     const fastest = (i: number) => Math.max(...(CHAPTERS[i]?.waves.map((w) => w.speed) ?? []));
-    expect(slowest(3)).toBeGreaterThan(fastest(2));
+    for (const i of [1, 2, 3]) {
+      expect(slowest(i), CHAPTERS[i]?.name).toBeGreaterThan(slowest(i - 1));
+      expect(fastest(i), CHAPTERS[i]?.name).toBeGreaterThan(fastest(i - 1));
+    }
   });
 
   it('uses every kind of obstacle on both sides', () => {
     const used = new Set(CHAPTERS.flatMap((_, i) => pieces(i).map((p) => `${p.side} ${p.kind}`)));
-    expect(used).toEqual(new Set(['-1 half', '1 half', '0 centre', '-1 upright', '1 upright']));
+    expect(used).toEqual(new Set(['-1 half', '1 half', '0 centre']));
   });
 
   it('raises the speed wave after wave within each chapter', () => {
@@ -104,12 +110,12 @@ describe('the chapters', () => {
 
 describe('the wave text', () => {
   it('reads the speed, then one obstacle a line, each its distance behind the one before', () => {
-    const wave = parseWave('speed 70\nL half · 0\ncentre slide · 2R\nR upright turn back · 1.5R', 'test');
+    const wave = parseWave('speed 70\nL half · 0\ncentre slide · 2R\nR half turn back · 1.5R', 'test');
     expect(wave.speed).toBe(70);
     expect(wave.pieces.map(({ kind, side, motion, back }) => ({ kind, side, motion, back }))).toEqual([
       { kind: 'half', side: -1, motion: 'still', back: false },
       { kind: 'centre', side: 0, motion: 'slide', back: false },
-      { kind: 'upright', side: 1, motion: 'turn', back: true },
+      { kind: 'half', side: 1, motion: 'turn', back: true },
     ]);
     const [a, b, c] = wave.pieces as [Piece, Piece, Piece];
     expect(a.above).toBeCloseTo(reachOf(a), 9);
@@ -153,17 +159,16 @@ describe('the obstacles', () => {
     expect(at(parseWave('speed 60\ncentre · 1R', 'test'), 0)[0]?.cy).toBeCloseTo(-R - side / 2, 9);
   });
 
-  it('slide within their reach: a half bar only away from the centre line and back, the others either side', () => {
-    const slide = parseWave('speed 60\nL half slide · 0\ncentre slide back · 0\nR upright slide · 0', 'test');
+  it('slide within their reach: a half bar only away from the centre line and back, a centre block either side', () => {
+    const slide = parseWave('speed 60\nL half slide · 0\ncentre slide back · 0', 'test');
     const xs = (s: number) => at(slide, s).map((b) => b.cx);
-    const [half0 = 0, centre0 = 0, upright0 = 0] = xs(0);
+    const [half0 = 0, centre0 = 0] = xs(0);
     expect(centre0).toBe(160);
     for (let s = 0; s < 8; s += 0.05) {
-      const [half = 0, centre = 0, upright = 0] = xs(s);
+      const [half = 0, centre = 0] = xs(s);
       expect(half).toBeLessThanOrEqual(half0 + 1e-9);
       expect(half0 - half).toBeLessThanOrEqual(SHAPE.slideReach.half * R + 1e-9);
       expect(Math.abs(centre - 160)).toBeLessThanOrEqual(SHAPE.slideReach.centre * R + 1e-9);
-      expect(Math.abs(upright - upright0)).toBeLessThanOrEqual(SHAPE.slideReach.upright * R + 1e-9);
     }
     const quarter = SHAPE.slideReach.centre / SHAPE.slideSpeed;
     expect(xs(quarter)[1]).toBeCloseTo(160 - SHAPE.slideReach.centre * R, 0);
@@ -200,11 +205,11 @@ describe('the obstacles', () => {
 
 describe('the spacing a turn asks for', () => {
   it('asks nothing between two obstacles of one pose, and a quarter turn plus a person\'s reaction between the two poses', () => {
-    expect(turnSeconds('half', 'upright')).toBe(0);
+    expect(turnSeconds('half', 'half')).toBe(0);
     expect(turnSeconds('centre', 'centre')).toBe(0);
     const quarter = 0.25 / RULES.turnsPerSecond + RULES.reactionSeconds;
     expect(turnSeconds('half', 'centre')).toBeCloseTo(quarter, 9);
-    expect(turnSeconds('centre', 'upright')).toBeCloseTo(quarter, 9);
+    expect(turnSeconds('centre', 'half')).toBeCloseTo(quarter, 9);
   });
 
   it('stands every chapter obstacle that asks another pose far enough behind the one before, at its wave\'s speed', () => {
@@ -281,37 +286,70 @@ describe('what the waves ask of a person', () => {
     return alive.length > 0;
   };
 
-  it('asks to turn the pair in every wave but a chapter\'s first: no angle held still gets through', () => {
-    const still = CHAPTERS.flatMap((c) => c.waves.flatMap((w, i) => (i > 0 && stillPasses(w) ? [`${c.name} wave ${i + 1}`] : [])));
+  /** A wave's seconds, from its first obstacle entering the playfield to its last passing the orbs. */
+  const seconds = (wave: Wave) => {
+    let tick = 1;
+    while (!passedAt(wave, tick)) tick++;
+    const first = wave.pieces[0];
+    const enters = first ? (first.above - reachOf(first)) / wave.speed : 0;
+    return tick * RULES.subStep - enters;
+  };
+
+  /** How many times a wave's obstacles ask the pair to change pose. */
+  const changes = (wave: Wave) => wave.pieces.filter((p, k) => k > 0 && POSE[p.kind].pose !== POSE[wave.pieces[k - 1]?.kind ?? p.kind].pose).length;
+
+  it('asks to turn the pair in every wave, a chapter\'s first too: no angle held still gets through', () => {
+    const still = CHAPTERS.flatMap((c) => c.waves.flatMap((w, i) => (stillPasses(w) ? [`${c.name} wave ${i + 1}`] : [])));
     expect(still).toEqual([]);
   });
 
-  it('falls slower in chapter I than before the turn was slowed, at 70 pixels a second at most', () => {
-    expect(Math.max(...(CHAPTERS[0]?.waves ?? []).map((w) => w.speed))).toBeLessThanOrEqual(70);
+  it('falls about 2 R a second, as Duet does: chapter I at 95 to 115 px/s, each chapter after a little faster', () => {
+    const bands: readonly (readonly [number, number])[] = [[95, 115], [105, 125], [115, 135], [125, 145]];
+    CHAPTERS.forEach((c, i) => {
+      const [low = 0, high = 0] = bands[i] ?? [];
+      for (const w of c.waves) {
+        expect(w.speed, c.name).toBeGreaterThanOrEqual(low);
+        expect(w.speed, c.name).toBeLessThanOrEqual(high);
+      }
+    });
   });
 
-  it('spaces chapter I generously: 3 R at least before a change of pose, 2.5 R within a run of one pose', () => {
+  it('keeps every wave short: 8 seconds at most from its first obstacle entering to its last passing the orbs', () => {
+    const long = CHAPTERS.flatMap((c) => c.waves.flatMap((w, i) => (seconds(w) > 8 ? [`${c.name} wave ${i + 1}: ${seconds(w).toFixed(2)} s`] : [])));
+    expect(long).toEqual([]);
+  });
+
+  it('plays chapter I\'s ten waves in 75 seconds at most', () => {
+    const total = (CHAPTERS[0]?.waves ?? []).reduce((sum, w) => sum + seconds(w), 0);
+    expect(total).toBeLessThanOrEqual(75);
+  });
+
+  it('sets three to five obstacles in a chapter I wave, three to six after', () => {
+    CHAPTERS.forEach((c, i) => {
+      for (const w of c.waves) {
+        expect(w.pieces.length, c.name).toBeGreaterThanOrEqual(3);
+        expect(w.pieces.length, c.name).toBeLessThanOrEqual(i === 0 ? 5 : 6);
+      }
+    });
+  });
+
+  it('keeps chapter I the gentlest: still half bars and centre blocks, two changes of pose a wave at the least, 1.75 R before a change, 1.5 R within a run', () => {
     for (const [i, w] of (CHAPTERS[0]?.waves ?? []).entries()) {
+      expect(changes(w), `DRIFT wave ${i + 1}`).toBeGreaterThanOrEqual(2);
       w.pieces.forEach((p, k) => {
+        expect(p.motion, `DRIFT wave ${i + 1}, line ${k + 2}`).toBe('still');
         const before = w.pieces[k - 1];
         if (!before) return;
-        const least = POSE[before.kind].pose === POSE[p.kind].pose ? 2.5 : 3;
+        const least = POSE[before.kind].pose === POSE[p.kind].pose ? 1.5 : 1.75;
         expect(spaceBetween(before, p) / R, `DRIFT wave ${i + 1}, line ${k + 2}`).toBeGreaterThanOrEqual(least - 1e-9);
       });
     }
   });
 
-  it('sets three to seven obstacles in a wave, about six from chapter I\'s fourth wave on', () => {
-    const counts = CHAPTERS.flatMap((c) => c.waves.map((w) => w.pieces.length));
-    for (const n of counts) expect(n).toBeGreaterThanOrEqual(3);
-    for (const n of counts) expect(n).toBeLessThanOrEqual(7);
-    for (const n of counts.slice(3, 10)) expect(n).toBeGreaterThanOrEqual(6);
-  });
-
-  it('tightens to 2 R within a run of one pose in chapter IV', () => {
+  it('tightens to 1.25 R within a run of one pose in chapter IV', () => {
     const storm = (CHAPTERS[3]?.waves ?? []).flatMap((w) => w.pieces.slice(1).map((p, k) => ({ p, before: w.pieces[k] as Piece })));
     const same = storm.filter(({ p, before }) => POSE[p.kind].pose === POSE[before.kind].pose).map(({ p, before }) => spaceBetween(before, p) / R);
-    expect(Math.min(...same)).toBeCloseTo(2, 9);
+    expect(Math.min(...same)).toBeCloseTo(1.25, 9);
   });
 });
 
