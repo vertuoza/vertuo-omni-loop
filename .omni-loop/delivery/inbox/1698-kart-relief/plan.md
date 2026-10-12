@@ -2,8 +2,8 @@
 
 PRD #1698, specified in `spec.md` beside this plan. The feature branch `feat/kart-relief` merges into
 `main` through one feature PR (`Closes #1698`); each slice is a sub-PR from `feat/kart-relief--<slice>`
-into the feature branch (`Part of #1698`). One landing: no migration, no data, the arcade's code
-ships in one merge.
+into the feature branch (`Part of #1698`). One landing: the arcade's code and one migration, which
+deletes OMNI KART's best times (s6, the person's call during the build), ship in one merge.
 
 ## Slices
 
@@ -14,6 +14,7 @@ ships in one merge.
 | s3 | a kart stands on four wheels; a side with more wheels over the void leans it and slides it towards the void at 16 a second, and the player can steer back; both wheels of one side over the void tip it over into today's fall and way back, and a centre 7 past the edge still falls; a leaning kart is drawn rolled and a falling one rolls over, with no shadow; rivals look a quarter of a second ahead, brake and turn in 64 before a corner, and finish three laps without falling on seeds 1, 7 and 42 | `apps/galaxy/src/arcade/kart/kart.` `apps/galaxy/src/arcade/kart/rules.` `apps/galaxy/src/arcade/kart/rivals.` `apps/galaxy/src/arcade/kart/race.` `apps/galaxy/src/arcade/kart/art.` | s1 | 2 |
 | s4 | ten lines of four item boxes stand across the road, one on every straight, 40 in all, each drawn 20 wide over a pool of its light that pulses with it (still with reduced motion); the cabinet's still is drawn again with them, its floor flat | `apps/galaxy/src/arcade/kart/track.` `apps/galaxy/src/arcade/kart/items.test.ts` `apps/galaxy/src/arcade/kart/art.` `apps/galaxy/src/arcade/games/stills.` | s1 | 3 |
 | s5 | the minimap stands in the top right corner under the item panel on both grids, one game pixel a tile, the road shaded by height over a dark cyan-framed panel; it shows the boxes there to take, a dot per kart on the road (none for a falling one), every other player in MULTI, and the player's yellow dot with its heading, blinking while the player falls (not with reduced motion) | `apps/galaxy/src/arcade/kart/art.` | s1 | 4 |
+| s6 | OMNI KART's best times set on the flat circuit are deleted: one migration, the newest, deletes the kart's rows of `arcade_scores` and nothing else, its comment saying why and that the weekly backup keeps them; `submit_score()` and the table's shape do not change | `supabase/migrations/` | — | 5 |
 
 **Shared ground.** OMNI KART's engine and drawing are a few files every feature of this PRD passes
 through, so the slices that touch them run one wave after another, each on top of the one before:
@@ -30,6 +31,9 @@ through, so the slices that touch them run one wave after another, each on top o
 - `apps/galaxy/src/arcade/games/stills.` (`stills.ts`, drawn again by `stills.test.ts -u`) is s4's
   alone: the still keeps the flat floor, and only the boxes change it.
 - s2's territory (the galaxy README) is shared with no slice, so it builds in wave 1 beside s1.
+- s6's territory (`supabase/migrations/`) is shared with no slice. It was added after waves 1 to 4
+  merged, when the person chose to delete the best times set on the flat circuit, so it builds alone
+  in wave 5.
 
 ## Per slice: done when
 
@@ -82,3 +86,12 @@ through, so the slices that touch them run one wave after another, each on top o
   there to take; the player's dot blinks while falling, and stays lit with reduced motion.
 - `kart/race.multi.test.ts` or `kart/live.test.ts` stays green, and a MULTI race draws a dot per
   other player.
+
+**s6, the best times start over**
+- A new migration under `supabase/migrations/`, dated after `main`'s newest
+  (`node scripts/migration-order.ts` green), deletes the rows of `public.arcade_scores` whose game
+  is `kart` and nothing else; its comment says why (a lap with hills takes longer than a flat one)
+  and that the weekly backup (`pnpm game:export`) keeps them, as
+  `20261201090000_arcade_kart_times.sql` says for PRD 1440.
+- `scripts/migration-order.test.ts` and `apps/galaxy/src/arcade/measure.guard.test.ts` stay green;
+  `supabase/database.types.ts` does not change.

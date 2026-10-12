@@ -22,6 +22,8 @@ spec: file
   with a pool of light, the minimap)
 - `apps/galaxy/src/arcade/games/stills.ts` (the cabinet's still, drawn again for the new boxes)
 - `apps/galaxy/README.md` (OMNI KART's section)
+- `supabase/migrations/` (new: one migration that deletes OMNI KART's best times set on the flat
+  circuit)
 
 ## Problem
 
@@ -132,6 +134,11 @@ nothing. And nothing on the screen says where the other karts are, except the pl
   than 600 samples a column, the renderer reports its count, and a test holds it at every waypoint
   of COMET RING on both grids (**The cost of drawing it**, **Test seams**).
 - **No proof video,** chosen by the person.
+- **The best times set on the flat circuit are deleted,** chosen by the person on 2026-10-12, while
+  the slices were built, over keeping them: with climbs and descents a lap takes longer, so a time
+  set on the flat circuit would stay out of reach. One migration deletes OMNI KART's rows of
+  `arcade_scores` when the merge deploys; the weekly backup (`pnpm game:export`) keeps them, as it
+  did when PRD 1440 turned the kart's points into times.
 - **Written from a prototype:** every number in this spec (the relief, the deck, the wheels, the
   rivals' look-ahead and turn-in, the minimap's place) was tried in a race before the spec was
   written. Rivals drove three laps without falling on seeds 1, 7 and 42.
@@ -160,6 +167,7 @@ nothing. And nothing on the screen says where the other karts are, except the pl
 - The minimap, in SINGLE and in MULTI.
 - The floor's cost bound and its test.
 - The cabinet's still drawn again for the new boxes, and OMNI KART's section of `apps/galaxy/README.md`.
+- OMNI KART's best times set before the relief, deleted in every workspace by one migration.
 
 **Out:**
 - Jumps, ramps, banked corners, tunnels and bridges: the road never leaves the ground and never
@@ -197,17 +205,25 @@ testing`). The new behaviour is written test-first, from the prototype's numbers
   grids, shows the player's dot, a dot per rival on the road, none for a falling rival, and a gold
   pixel per box there to take.
 - **`games/stills.test.ts`:** the still drawn again (`-u`) and checked by eye.
+- **The migration:** `node scripts/migration-order.ts` holds it as the newest, and the `supabase`
+  workflow's `check` job applies every migration and the seed on an empty database. It deletes rows
+  only: `submit_score()` and the table's shape do not change, so `supabase/database.types.ts` stays.
 - **Guards that must stay green:** `kart/guard.test.ts` (nothing outside `arcade/kart/` imports it at
   run time) and the layering check.
 
 ## Risks
 
 **What merging publishes** (`omni kb show releasing`): the arcade's new code ships with the galaxy
-app's deploy. No migration, no data, no change to `submit_score()`: a race time stays a race time.
+app's deploy, and one migration, applied by the `supabase` workflow's deploy on the merge to `main`,
+deletes every OMNI KART best time. No change to `submit_score()` or to the table's shape: a race
+time stays a race time.
 
-- **Times get slower or faster.** Slopes and new boxes change how long a lap takes, so best times set
-  before this PRD and after it are not quite comparable. COMET RING's layout and its three laps do
-  not change, and the best kept is still the lowest.
+- **Every cabinet's board starts over.** Slopes and new boxes make a lap longer, so the best times
+  set on the flat circuit are deleted in every workspace, by the person's call. The weekly backup
+  keeps them; a revert of the migration does not bring them back.
+- **The deploy's order.** The migration and the arcade deploy on the same merge, not at the same
+  instant: a race finished on the flat circuit between the two can still set a time on the empty
+  board.
 - **A frame costs more.** The floor samples the ground column by column instead of line by line; the
   cost guard bounds it, and a slow device drops frames, never the race's rules (the race steps on a
   fixed clock).
@@ -217,7 +233,8 @@ app's deploy. No migration, no data, no change to `submit_score()`: a race time 
   reloads; in MULTI, a player on the old code and one on the new race the same layout, each with
   their own kart's rules.
 
-**Rollback:** revert the feature PR. Nothing to restore.
+**Rollback:** revert the feature PR. The deleted best times come back only from the last weekly
+backup (`pnpm game:export`).
 
 ## Acceptance criteria
 
@@ -248,3 +265,5 @@ app's deploy. No migration, no data, no change to `submit_score()`: a race time 
     samples a column, as the renderer reports.
 14. The cabinet's still is drawn again with the new boxes; its floor stays flat.
 15. Nothing outside `arcade/kart/` imports it at run time.
+16. Once the merge is deployed, OMNI KART's best times are empty in every workspace, and the first
+    race on the new circuit sets the first one; no other game's scores change.
