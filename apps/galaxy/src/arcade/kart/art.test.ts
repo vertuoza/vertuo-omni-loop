@@ -3,7 +3,7 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { boxFrame, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, SHADOW, viewFacing, viewFor } from './art';
+import { boxFrame, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
 import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf, project, viewOf } from './mode7';
@@ -55,6 +55,8 @@ afterEach(() => { vi.unstubAllGlobals(); });
 function recorder() {
   const fills: { style: string; rect: number[] }[] = [];
   const images: number[][] = [];
+  /** The angles the canvas was rotated by, in order. */
+  const rotations: number[] = [];
   /** Everything drawn, in order: the fills by their colour, the images and the sprites by name. */
   const order: string[] = [];
   const colours = new Set<string>();
@@ -67,6 +69,7 @@ function recorder() {
       if (prop === 'save') return () => { stack.push(state['clipped'] === true); };
       if (prop === 'restore') return () => { state['clipped'] = stack.pop() ?? false; };
       if (prop === 'clip') return () => { state['clipped'] = true; };
+      if (prop === 'rotate') return (angle: number) => { rotations.push(angle); };
       if (prop === 'drawImage') return (_i: unknown, ...at: number[]) => { images.push(at); order.push('image'); };
       return () => {};
     },
@@ -76,7 +79,7 @@ function recorder() {
       return true;
     },
   });
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, images, colours, order };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, images, colours, order, rotations };
 }
 
 const frame = (grid: Grid, theme: Theme = DEFAULT_THEME): FrameState => ({
@@ -674,5 +677,56 @@ describe('the relief on the screen (PRD 1698)', () => {
     expect(onHill.filter((x) => x.name.startsWith('arch')).every((x) => !x.clipped)).toBe(true);
     expect(onHill.filter((x) => x.name.startsWith('arch')).length).toBeGreaterThan(0);
     expect(onHill.some((x) => x.clipped)).toBe(true);
+  });
+});
+
+describe('tipping over the edge on the screen (PRD 1698)', () => {
+  it('rolls a kart towards the side over the void, a little for a lean and onto its side as a tipped kart falls', () => {
+    expect(rollOf(0, 0)).toBe(0);
+    expect(rollOf(0, 1)).toBe(0);
+    expect(rollOf(0.5, 0)).toBeGreaterThan(0); // one wheel out on its right: clockwise
+    expect(rollOf(-0.5, 0)).toBeLessThan(0);
+    expect(rollOf(0.5, 0)).toBeCloseTo(-rollOf(-0.5, 0), 9);
+    expect(rollOf(0.5, 0)).toBeLessThan(Math.PI / 4);
+    expect(rollOf(1, 0.5)).toBeGreaterThan(rollOf(0.5, 0));
+    expect(rollOf(1, 1)).toBeGreaterThan(rollOf(1, 0.5));
+    expect(rollOf(1, 1)).toBeLessThanOrEqual(Math.PI / 2 + 1e-9);
+  });
+
+  /** The player driving off the road's edge, gas and right held, frame by frame until it is back: what each frame rotated the canvas by, and whether the player's shadow was drawn. */
+  function series() {
+    const game = createKart({ seed: 3 });
+    game.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) game.step(new Set<Action>(), 0.05);
+    const out: { roll: number; shadow: boolean; falling: boolean }[] = [];
+    let seen = false;
+    for (let t = 0; t < 20; t += 0.02) {
+      game.step(new Set<Action>(['a', 'right']), 0.02);
+      sprites.length = 0;
+      const r = recorder();
+      game.draw(r.ctx, frame(WIDE));
+      const k = sprites.find((x) => x.name.startsWith('kart'));
+      const falling = k !== undefined && (k.scale ?? 4) < 4;
+      seen = seen || falling;
+      // The player's shadow stands at the grid's middle, near its bottom.
+      const shadow = r.fills.some((f) => { const [x = 0, y = 0, w = 0] = f.rect; return f.style === SHADOW && Math.abs(x + w / 2 - WIDE.w / 2) < 3 && y > WIDE.h - 60; });
+      out.push({ roll: Math.max(0, ...r.rotations.map(Math.abs)), shadow, falling });
+      if (seen && !falling && k) break;
+    }
+    return out;
+  }
+
+  it('draws a leaning kart rolled and a falling one rolled further, with no shadow while it falls', () => {
+    const s = series();
+    const leaning = s.filter((f) => !f.falling && f.roll > 0);
+    const falling = s.filter((f) => f.falling && f.roll > 0);
+    expect(leaning.length).toBeGreaterThan(0);
+    expect(falling.length).toBeGreaterThan(3);
+    expect(Math.max(...falling.map((f) => f.roll))).toBeGreaterThan(Math.max(...leaning.map((f) => f.roll)));
+    // The frame the fall begins on is still full size: it has the roll of a lean and already no shadow.
+    expect(leaning.filter((f) => f.shadow).length).toBeGreaterThan(0);
+    expect(leaning.filter((f) => !f.shadow)).toHaveLength(1);
+    expect(s.filter((f) => f.falling).some((f) => f.shadow)).toBe(false);
+    expect(s.filter((f) => !f.falling && f.roll === 0).some((f) => f.shadow)).toBe(true);
   });
 });

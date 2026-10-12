@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { driveKart, kartAt, NO_FX, padOf, stepFx, tippedOver, turnRate, type Fx, type Kart, type Pad } from './kart';
+import { driveKart, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
 import { isRoad, TILE, tileAt } from './track';
 
@@ -170,15 +170,16 @@ describe('the fall', () => {
     }
     expect(hung).toBe(true);
     expect(fx.fall).toBe(RULES.fallTime);
-    expect(k.y).toBeLessThanOrEqual(TILE - RULES.overhang);
-    expect(k.y).toBeGreaterThan(TILE - RULES.overhang - 2);
+    // Driving straight off the edge, it falls once its rear wheels pass it: the centre 6 past.
+    expect(k.y).toBeLessThanOrEqual(TILE - RULES.wheelAlong);
+    expect(k.y).toBeGreaterThan(TILE - RULES.wheelAlong - 2);
     expect(k.speed).toBe(0);
     expect(fx.boost).toBe(0);
     expect(fx.item).toBe('orb');
   });
 
-  it('does not fall with its centre over the void while any of its width is still over the road', () => {
-    for (const y of [TILE + 1, TILE - 1, TILE - RULES.overhang + 0.5]) {
+  it('does not fall with its centre over the void while a rear wheel is still over the road', () => {
+    for (const y of [TILE + 1, TILE - 1, TILE - RULES.wheelAlong + 0.5]) {
       expect(stepFx(VOID_MAP, { ...north(0), y }, NONE, RULES.subStep, 1, NO_FX).fx.fall, `y ${y}`).toBe(0);
     }
   });
@@ -261,5 +262,76 @@ describe('the slope on the top speed (PRD 1698)', () => {
     expect(run(0.1)).toBeLessThan(run(0));
     expect(run(-0.1)).toBeGreaterThan(run(0));
     expect(run(0.1)).toBeLessThan(run(-0.1));
+  });
+});
+
+describe('the four wheels (PRD 1698)', () => {
+  // A road 20 tiles wide from the west, its edge at x = 320, void to the east of it.
+  const EDGE = Array.from({ length: 6 }, () => '#'.repeat(20) + '~'.repeat(20));
+  const y = 3 * TILE;
+  const atEdge = (x: number, angle: number, speed = 0): Kart => ({ ...kartAt(x, y, angle), speed });
+  const SE = Math.PI / 4;
+
+  it('stands on four wheels, 6 ahead of and behind its centre and 3 to each side', () => {
+    expect(RULES.wheelAlong).toBe(6);
+    expect(RULES.wheelAcross).toBe(3);
+    expect(wheelsOver(EDGE, atEdge(100, 0))).toEqual({ left: 0, right: 0 });
+  });
+
+  it('counts the wheels over the void on each side', () => {
+    // Facing south-east: the front-left wheel is the first to go over the east edge, the rear-left the second.
+    expect(wheelsOver(EDGE, atEdge(316, SE))).toEqual({ left: 1, right: 0 });
+    expect(wheelsOver(EDGE, atEdge(322.5, SE))).toEqual({ left: 2, right: 1 });
+    // Facing the edge head on, both front wheels are out, one on each side.
+    expect(wheelsOver(EDGE, atEdge(316, 0))).toEqual({ left: 1, right: 1 });
+  });
+
+  it('leans towards the side with more wheels over the void, and not while the sides are level', () => {
+    expect(leanOf(EDGE, atEdge(316, SE))).toBe(-0.5);
+    expect(leanOf(EDGE, atEdge(322.5, SE))).toBe(-0.5);
+    expect(leanOf(EDGE, atEdge(316, SE - Math.PI / 2))).toBe(0.5); // turned a quarter, the wheel out is on the other side
+    expect(leanOf(EDGE, atEdge(316, 0))).toBe(0);
+    expect(leanOf(EDGE, atEdge(100, 0))).toBe(0);
+  });
+
+  it('slides a leaning kart towards the void at 16 a second', () => {
+    expect(RULES.tipPull).toBe(16);
+    const before = atEdge(314.5, SE);
+    const { kart, fx } = stepFx(EDGE, before, NONE, 0.1, 1, NO_FX);
+    expect(fx.fall).toBe(0);
+    expect(Math.hypot(kart.x - before.x, kart.y - before.y)).toBeCloseTo(1.6, 6);
+    expect(kart.x).toBeGreaterThan(before.x); // the void is east
+    // Level, it is not moved at all.
+    expect(stepFx(EDGE, atEdge(100, SE), NONE, 0.1, 1, NO_FX).kart).toMatchObject({ x: 100, y });
+  });
+
+  it('lets the player steer back onto the road', () => {
+    // Facing south, slightly west, its rear-left wheel is out: steering right turns it away from the void.
+    let k = atEdge(316, 1.87, 40);
+    let fx: Fx = NO_FX;
+    expect(leanOf(EDGE, k)).not.toBe(0);
+    for (let i = 0; i < 90; i++) ({ kart: k, fx } = stepFx(EDGE, k, pad({ right: true }), RULES.subStep, 1, fx));
+    expect(fx.fall).toBe(0);
+    expect(leanOf(EDGE, k)).toBe(0);
+  });
+
+  it('tips over once both wheels of one side are over the void, into today\'s fall', () => {
+    expect(tipsOver(EDGE, atEdge(316, SE))).toBe(false);
+    expect(tipsOver(EDGE, atEdge(322.5, SE))).toBe(true);
+    expect(tipsOver(EDGE, atEdge(316, 0))).toBe(false);
+    const { fx, kart } = stepFx(EDGE, atEdge(322.5, SE, 50), NONE, RULES.subStep, 1, { ...NO_FX, item: 'orb', boost: 1 });
+    expect(fx.fall).toBe(RULES.fallTime);
+    expect(kart.speed).toBe(0);
+    expect(fx.boost).toBe(0);
+    expect(fx.item).toBe('orb');
+  });
+
+  it('still falls with its centre 7 past the edge, whichever way it faces', () => {
+    // Round a convex corner of the road, wheels can all sit on road tiles while the centre is far from any: the centre rule keeps its fall.
+    for (const angle of [-Math.PI / 2, 0, SE]) {
+      const k = { ...kartAt(320 + RULES.overhang, y, angle), speed: 0 };
+      expect(tippedOver(EDGE, k)).toBe(true);
+      expect(stepFx(EDGE, k, NONE, RULES.subStep, 1, NO_FX).fx.fall).toBe(RULES.fallTime);
+    }
   });
 });
