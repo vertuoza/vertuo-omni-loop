@@ -234,3 +234,80 @@ Removing the line and the install filter undoes it: minutes.
 ```
 
 <!-- /omni-outbox-settled: s2-02-omni-app-declares-yaml -->
+
+<!-- omni-outbox-settled: s3-01-debounce-in-bash -->
+
+## s3-01-debounce-in-bash — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-debounce-in-bash
+prd: 1646
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+The plan described the wait-then-preview step as a TypeScript program, but this repository lets only its settings modules read secrets and settings from the machine. Which way should the step be written?
+
+## The decision, in plain words
+
+It is a short shell script beside the existing one that already makes pull request checks wait for pushes to settle, tested the same way. It reads its secrets the way that script does.
+
+## The intro, for fun
+
+The plan wanted a program; the repository already had a recipe for exactly this.
+
+## The punchline, for fun
+
+Same kitchen, same pan, one more dish.
+
+## The options, in plain words
+
+A. A shell script, like the checks' settle step (what was built)
+B. TypeScript, with a new environment group for the Vercel secrets
+
+## What I had to decide
+
+Keep the shell script, or rewrite it in TypeScript with a new settings group for its secrets.
+
+## What I did meanwhile
+
+A ready pull request gets its preview from the shell script, about 150 seconds after its last push.
+
+## What it costs to change later
+
+A rewrite later is a day: the tests already describe every case.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Vercel's deployment API body (name, project, gitSource) follows Vercel's public docs; it was not called from here (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-debounce-in-bash -->
