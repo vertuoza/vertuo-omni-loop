@@ -150,6 +150,16 @@ describe('omni budget set context (PRD 1679)', () => {
     expect(existsSync(join(root, CEILINGS))).toBe(false);
   });
 
+  it('is refused with the config when a key under budgets.context is unknown, as omni check config refuses it', async () => {
+    const { root } = repo({ '.omni-loop/config.yml': config('budgets:\n  context:\n    size: 1\n') });
+    for (const argv of [['check', 'config'], ['budget', 'set', 'context']]) {
+      const { code, out, err } = await omni(root, argv);
+      expect(code, argv.join(' ')).not.toBe(0);
+      expect(out + err, argv.join(' ')).toMatch(/budgets\.context.*size/);
+    }
+    expect(existsSync(join(root, CEILINGS))).toBe(false);
+  });
+
   it('exits 1 on a ceilings file it cannot read, writing nothing', async () => {
     const { root, read } = repo({ [CEILINGS]: '{ "briefing": "big" }\n' });
     const { code, err } = await omni(root, ['budget', 'set', 'context']);

@@ -7,6 +7,7 @@
 // `budgets.context.enabled`: a repository measures and sets before it turns budgets on.
 import { measureContextBudget, readCeilings, setCeilings, writeCeilings } from '../../lib/budgets/index.ts';
 import type { Measure } from '../../lib/budgets/index.ts';
+import { contextBudget } from '../../lib/config.ts';
 import { messageOf } from '../../lib/narrow.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
@@ -41,7 +42,7 @@ function measure(rest: string[], json: boolean, { ctx, stdout }: CommandIo): num
 
 function set(rest: string[], json: boolean, { ctx, stdout, stderr }: CommandIo): number {
   if (rest.length !== 1 || rest[0] !== CONTEXT || json) throw usageError('usage: omni budget set context');
-  const { file } = ctx.config.budgets.context;
+  const { file } = contextBudget(ctx.config);
   const where = { root: ctx.root, file };
   let result;
   try {

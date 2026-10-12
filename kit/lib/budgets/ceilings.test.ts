@@ -1,6 +1,7 @@
 // PRD 1679, s1: the ceilings file — first ceilings at today's size rounded up to the next KiB, and
-// never a ceiling raised.
+// never a ceiling raised — and the config key that says where it lives.
 import { describe, expect, it } from 'vitest';
+import { contextBudget, parseConfig } from '../config.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { ceilingsText, parseCeilings, readCeilings, roundUpToKib, setCeilings, writeCeilings } from './ceilings.ts';
 
@@ -67,5 +68,31 @@ describe('the ceilings file', () => {
     ['a negative ceiling', '{ "briefing": -1 }', /c\.json: briefing/],
   ])('refuses %s, naming the file', (_what, text, message) => {
     expect(() => parseCeilings(text, 'c.json')).toThrow(message);
+  });
+});
+
+describe('budgets.context in the config (PRD 1679)', () => {
+  const DEFAULT = { enabled: false, file: '.omni-loop/budgets/context.json' };
+
+  it('reads as off, its ceilings in .omni-loop/budgets/context.json, when the config says nothing', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(Object.hasOwn(config, 'budgets')).toBe(false);
+    expect(contextBudget(config)).toEqual(DEFAULT);
+    expect(contextBudget(parseConfig('kit: 1\nbudgets: {}\n'))).toEqual(DEFAULT);
+  });
+
+  it('reads enabled and file when the config sets them', () => {
+    const both = parseConfig('kit: 1\nbudgets:\n  context:\n    enabled: true\n    file: limits/context.json\n');
+    expect(contextBudget(both)).toEqual({ enabled: true, file: 'limits/context.json' });
+    expect(contextBudget(parseConfig('kit: 1\nbudgets:\n  context:\n    enabled: true\n'))).toEqual({ ...DEFAULT, enabled: true });
+  });
+
+  it.each([
+    ['an unknown key under budgets.context', 'budgets:\n  context:\n    ceiling: 3\n', /c\.yml.*budgets\.context.*unrecognized: ceiling/],
+    ['a budget the kit does not measure yet', 'budgets:\n  perf: {}\n', /c\.yml.*budgets.*unrecognized: perf/],
+    ['an enabled that is no boolean', 'budgets:\n  context:\n    enabled: "yes"\n', /c\.yml.*budgets\.context\.enabled/],
+    ['an empty file', "budgets:\n  context:\n    file: ''\n", /c\.yml.*budgets\.context\.file/],
+  ])('refuses %s, naming the key', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
   });
 });
