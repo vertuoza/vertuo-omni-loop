@@ -18,6 +18,13 @@ export const RULES = Object.freeze({
    * through where ◀, ▶ or nothing changes no sooner than this after the last change (waves.ts).
    */
   reactionSeconds: 0.25,
+  /**
+   * How late a change of what is held may land, at worst, with every wave still passed: the room each
+   * wave leaves to time a move, so a well-timed one never just grazes through (waves.ts).
+   */
+  lateSeconds: 0.15,
+  /** The same in endless mode, whose pace past chapter IV's leaves less room: a chain of rods turns at its own speed. */
+  endlessLateSeconds: 0.12,
   /** The fixed step the run is played in, and the longest frame played at once: the same run at 60 or 120 frames a second. */
   subStep: 1 / 60,
   maxDt: 0.05,

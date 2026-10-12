@@ -18,8 +18,8 @@ const R = RULES.radius;
  * radius 6:
  *
  * - a half bar, 2 R long and 0.3 R thick (112 × 17 px), from the left or the right towards the
- *   centre, its inner end stopping R/3 (19 px) short of the centre line: upright, the orbs stand 13 px
- *   clear of it; level, the orb on its side is inside it. It never moves: moving, it only ever moved
+ *   centre, its inner end stopping `half.short` R (25 px) short of the centre line: upright, the orbs
+ *   stand 19 px clear of it; level, the orb on its side is inside it. It never moves: moving, it only ever moved
  *   away from the upright orbs, so its motion changed nothing (issue 1689);
  * - a centre block, a square 0.75 R wide (42 px) on the centre line: level, the orbs stand 29 px
  *   clear of it; upright, they are inside it;
@@ -35,17 +35,20 @@ const R = RULES.radius;
  *   the pair with it clears it (a shorter rod never reaches the level orbs; a slower one leaves no
  *   way round its ends at chapter IV's speeds);
  * - a gate (issue 1692), two bars `gate.bar` R long and `gate.thick` R thick at one height, either
- *   side of a gap `gate.gap` R wide on the centre line (1.25 R × 17 px each, 34 px apart): upright,
- *   the orbs pass through the gap 11 px clear of either bar; level, each orb is inside a bar;
+ *   side of a gap `gate.gap` R wide on the centre line (67 × 17 px each, 56 px apart): upright, the
+ *   orbs pass through the gap 22 px clear of either bar; level, each orb is inside a bar;
+ *
+ * The half bar and the gate are the poses held the most exactly, so their room is what a person's
+ * timing needs (`RULES.lateSeconds`): a stop at upright that lands late must still clear them.
  * - an upright block, `upright.w` R wide and `upright.h` R tall (45 × 73 px) on the centre line: level,
  *   the orbs stand 28 px clear of it; upright, they are inside it;
  * - a short bar, `short.w` R long and `short.thick` R thick (56 × 18 px) on the centre line: level,
  *   the orbs stand 22 px clear of its ends; upright, they are inside it.
  */
 export const SHAPE = Object.freeze({
-  half: Object.freeze({ length: 2, thick: 0.3, short: 1 / 3 }),
+  half: Object.freeze({ length: 2, thick: 0.3, short: 0.45 }),
   centre: Object.freeze({ side: 0.75 }),
-  gate: Object.freeze({ bar: 1.2, thick: 0.3, gap: 0.8 }),
+  gate: Object.freeze({ bar: 1.2, thick: 0.3, gap: 1 }),
   upright: Object.freeze({ w: 0.8, h: 1.3 }),
   short: Object.freeze({ w: 1, thick: 0.33 }),
   slide: Object.freeze({ reach: 1, across: 2 }),
@@ -426,9 +429,10 @@ const TURNS: readonly (-1 | 0 | 1)[] = [-1, 0, 1];
 
 /**
  * The person the check plays: the least time, in seconds, between two changes of what they hold (0
- * for perfect, instant inputs), and the orbs' radius as the check takes it. Both default to the game's.
+ * for perfect, instant inputs), and the orbs' radius as the check takes it, both the game's by
+ * default; and how late each change may land, at worst (none by default).
  */
-interface Player { reactionSeconds?: number; orbRadius?: number }
+interface Player { reactionSeconds?: number; orbRadius?: number; lateSeconds?: number }
 
 /** The way through a wave, worked backwards: one table a sub-step, and the sub-steps a hold lasts before it may change. */
 interface Ways { tables: Uint8Array[]; react: number }
@@ -553,17 +557,74 @@ function humanPassable(wave: Wave, player: Player = {}): boolean {
   return start !== undefined && start.every((need) => need <= 1);
 }
 
+/** The ring a late check works on: its size, a sub-step's move, the hold before a change, how late a change lands, and the last sub-step. */
+interface LateRing { bins: number; move: number; react: number; late: number; last: number }
+
+/** The bin the orbs reach from bin `b` after `steps` sub-steps turning way `di` (0 ▶, 1 still, 2 ◀). */
+const binAfter = (on: LateRing, b: number, di: number, steps: number) => ((b + steps * (di - 1) * on.move) % on.bins + on.bins) % on.bins;
+
+/**
+ * Whether a change from way `di` to `ni`, meant after sub-step `t` at bin `b`, gets through wherever it
+ * lands, up to `late` sub-steps on: the way held on until then stays clear, and the new one gets through.
+ */
+function landsClear(on: LateRing, tables: readonly Uint8Array[], blocked: readonly (Uint8Array | null)[], t: number, move: { b: number; di: number; ni: number }): boolean {
+  const { b, di, ni } = move;
+  for (let j = 0; j <= on.late && t + j < on.last; j++) {
+    const held = binAfter(on, b, di, j);
+    if (j > 0 && blocked[t + j]?.[held]) return false;
+    if ((tables[t + j + 1]?.[binAfter(on, held, ni, 1) * 3 + ni] ?? NEVER) > 1) return false;
+  }
+  return true;
+}
+
+/** The fewest sub-steps held, after sub-step `t` at bin `b` turning way `di`, that get through: held on, or changed once allowed. */
+function lateNeed(on: LateRing, tables: readonly Uint8Array[], blocked: readonly (Uint8Array | null)[], t: number, at: { b: number; di: number }): number {
+  const { b, di } = at;
+  const ahead = tables[t + 1]?.[binAfter(on, b, di, 1) * 3 + di] ?? NEVER;
+  const kept = ahead === NEVER ? NEVER : Math.max(1, ahead - 1);
+  const changed = [0, 1, 2].some((ni) => ni !== di && landsClear(on, tables, blocked, t, { b, di, ni }));
+  return changed ? Math.min(kept, on.react) : kept;
+}
+
+/** The table after sub-step `t`, worked back from the later ones: each state's fewest sub-steps held that get through. */
+function lateTable(on: LateRing, tables: readonly Uint8Array[], blocked: readonly (Uint8Array | null)[], t: number): Uint8Array {
+  const cur = new Uint8Array(on.bins * 3).fill(NEVER);
+  for (let b = 0; b < on.bins; b++) {
+    if (t > 0 && blocked[t]?.[b]) continue;
+    for (let di = 0; di < 3; di++) cur[b * 3 + di] = lateNeed(on, tables, blocked, t, { b, di });
+  }
+  return cur;
+}
+
+/**
+ * Whether a person gets through `wave` from any angle, whatever they hold, even having just changed it,
+ * when each change of what they hold lands up to `late` sub-steps after they meant it, the worst for
+ * them. Worked backwards as `ways` is, each table keeping the fewest sub-steps held that get through.
+ */
+function lateProof(wave: Wave, player: Player, late: number): boolean {
+  const last = passTick(wave);
+  if (!last) return false;
+  const react = Math.max(1, Math.round((player.reactionSeconds ?? RULES.reactionSeconds) / RULES.subStep));
+  const on: LateRing = { ...ring(), react, late, last };
+  const blockedAt = coverage(wave, player.orbRadius ?? RULES.orbRadius, on.bins);
+  const blocked = Array.from({ length: last + 1 }, (_, t) => blockedAt(t));
+  const tables: Uint8Array[] = new Array<Uint8Array>(last + 1);
+  tables[last] = new Uint8Array(on.bins * 3).map((_, i) => (blocked[last]?.[Math.floor(i / 3)] ? NEVER : 1));
+  for (let t = last - 1; t >= 0; t--) tables[t] = lateTable(on, tables, blocked, t);
+  return (tables[0] ?? []).every((need) => need <= 1);
+}
+
 /**
  * Every wave a person cannot get through, named by its chapter and number. A person reacts: each
  * change of what they hold (◀, ▶ or nothing) comes at least `RULES.reactionSeconds` after the last,
  * and the orbs turn no faster than ◀ or ▶ held turns them. Each wave must be passable so from any
  * angle, whatever is held and however recently it changed: no way through one wave leaves the orbs
  * where the next cannot be passed, and a wave begun again after a hit can be passed from wherever the
- * orbs stand. `player` plays a slower person, or wider orbs, to prove room to spare.
+ * orbs stand. `player` plays a slower person, wider orbs, or changes landing late, to prove room to spare.
  */
 export function waveProblems(chapters: readonly Chapter[], player: Player = {}): string[] {
   return chapters.flatMap((chapter) => chapter.waves.flatMap((wave, i) =>
-    humanPassable(wave, player) ? [] : [`chapter ${chapter.numeral} · ${chapter.name}, wave ${i + 1}: no human way through`]));
+    (player.lateSeconds ? lateProof(wave, player, Math.round(player.lateSeconds / RULES.subStep)) : humanPassable(wave, player)) ? [] : [`chapter ${chapter.numeral} · ${chapter.name}, wave ${i + 1}: no human way through`]));
 }
 
 
@@ -905,11 +966,14 @@ export const ENDLESS_SEED = 0x1633;
  * playfield and each the least room behind the one before that the spacing rule allows at the wave's
  * top speed (its speed-up counted), never closer than `closest` (1.25 R, as Duet's endless packs its
  * obstacles), with `spare` R more (and `gate` R more beside a gate, which holds the pair upright
- * while it crosses the whole circle), rounded up to a twentieth of R: 1.25 R between two groups of
- * one pose, 2.35 R before a change of pose or a turn at the ceiling. The speed starts at `speed`,
+ * while it crosses the whole circle), rounded up to a twentieth of R, the time a change may land late
+ * (`RULES.endlessLateSeconds`) counted in the room: 1.25 R between two groups of one pose, 2.75 R
+ * before a change of pose or a turn at the ceiling. Within a group, a change keeps chapter IV's time past its
+ * top speed: its room grows with the speed. The speed starts at `speed`,
  * 145 px/s, just above chapter IV's fastest (143), rises by one every `rise` waves and stops at
  * `topSpeed`, 170 px/s (about 3 R a second, Duet's endless pace) from the 51st wave on, so every wave
- * stays passable for a person however long the run. Each speed is the wave's own, the one it falls at
+ * stays passable for a person however long the run, each change landing up to
+ * `RULES.endlessLateSeconds` late. Each speed is the wave's own, the one it falls at
  * until its speed-up, as a chapter wave's is; the speed-up is the chapters' own. A wave whose groups
  * would all ask one still pose draws its last group again, so none is passed held still; one longer
  * than `longest` seconds drops its last group, never its first.
@@ -920,7 +984,7 @@ export const ENDLESS_SEED = 0x1633;
  * themed as chapter IV's late waves are: rods alone, or every obstacle a ghost.
  */
 const ENDLESS = Object.freeze({
-  speed: 145, rise: 2, topSpeed: 170, maxGroups: 3, closest: 1.25, spare: 0.1, gate: 0.25, lead: '1R', longest: 8,
+  speed: 145, rise: 2, topSpeed: 170, maxGroups: 3, closest: 1.25, spare: 0.1, gate: 0.25, lead: '1R', longest: 8.5,
   ghosts: Object.freeze({ from: 10, start: 0.1, rise: 0.002, most: 0.4 }),
   themes: Object.freeze({ from: 10, every: 8 }),
 });
@@ -933,7 +997,8 @@ export function endlessSpeed(n: number): number {
 /** The room, in R as the wave text writes it, an endless wave at `speed` leaves between a group ending in `before` and one starting with `after`. */
 function gapOf(before: string, after: string, speed: number): string {
   const [from, to] = [readWords(before), readWords(after)];
-  const need = turnSeconds(from, to) * speed * (1 + RAMP.full) / R;
+  const turning = turnSeconds(from, to);
+  const need = (turning > 0 ? turning + RULES.endlessLateSeconds : 0) * speed * (1 + RAMP.full) / R;
   // A gate holds the pair upright while it crosses the whole circle: a change next to one asks a little more.
   const gate = from.kind === 'gate' || to.kind === 'gate' ? ENDLESS.gate : 0;
   const room = need > 0 ? Math.max(ENDLESS.closest, need + ENDLESS.spare + gate) : ENDLESS.closest;
@@ -994,12 +1059,27 @@ const TURNING_GROUPS = ENDLESS_GROUPS.filter((g) => g.every((line) => readWords(
 /** A group's line read back to its words alone. */
 const wordsOf = (line: string | undefined): string => splitLine(line ?? '').words;
 
+/** Chapter IV's top speed: the one its groups' own spacing was written for. */
+const STORM_TOP = Math.max(...(CHAPTERS.at(-1)?.waves.map((w) => w.speed) ?? [ENDLESS.speed]));
+
+/**
+ * A group's line after its first, its distance grown with the wave's speed past chapter IV's top, so a
+ * change of pose or turn keeps the time chapter IV gave it; a rod right behind a rod turning the same
+ * way keeps its distance, which sets their phase.
+ */
+function grown(before: string | undefined, line: string, speed: number): string {
+  const { words, distance } = splitLine(line);
+  if (turnSeconds(readWords(wordsOf(before)), readWords(words)) === 0 || speed <= STORM_TOP) return line;
+  const room = (readDistance(distance) / R) * (speed / STORM_TOP);
+  return `${words} · ${(Math.ceil(room * 20 - 1e-9) / 20).toFixed(2)}R`;
+}
+
 /** A wave of `groups`, at `speed`, each obstacle marked a ghost where `ghosts` says, group by group. */
 function endlessOf(groups: readonly (readonly string[])[], ghosts: readonly (readonly boolean[])[], speed: number, where: string): Wave {
   const lines = groups.flatMap((group, i) => group.map((line, k) => {
     const before = groups[i - 1];
     const space = before ? gapOf(wordsOf(before.at(-1)), wordsOf(line), speed) : ENDLESS.lead;
-    const written = k === 0 ? `${line} · ${space}` : line;
+    const written = k === 0 ? `${line} · ${space}` : grown(group[k - 1], line, speed);
     return ghosts[i]?.[k] ? written.replace(' · ', ' ghost · ') : written;
   }));
   return parseWave([`speed ${speed}`, ...lines].join('\n'), where);
