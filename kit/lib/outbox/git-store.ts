@@ -12,6 +12,7 @@ import { outboxItemFiles, SETTLED_FILE } from './outbox.ts';
 import { relayFolder } from './relay.ts';
 import { readReplies } from './replies.ts';
 import { adoptItem, parseSettledEntries, settleItem } from './settle.ts';
+import type { SettledEntry } from './settle.ts';
 import { isFolder, spendFolder, writeInto } from './out-folder.ts';
 import { gateResult } from './status.ts';
 import type { ItemRead, OutboxPrd, OutboxStore } from './store.ts';
@@ -64,6 +65,12 @@ function spentInOutbox(ctx: Context, prd: PrdNumber): Set<string> {
   return ids;
 }
 
+/** Every entry of PRD `prd`'s `settled.md`, the latest per item; none when it has no ledger yet. */
+function settledInOutbox(ctx: Context, prd: PrdNumber): SettledEntry[] {
+  const settledFile = join(ctx.root, outboxDirOf(ctx, prd), SETTLED_FILE);
+  return existsSync(settledFile) ? parseSettledEntries(readFileSync(settledFile, 'utf8'), ctx.markers) : [];
+}
+
 /** `run`'s value as a promise, as an `async` function that awaits nothing gives it: an error it
  * throws rejects the promise. */
 function promised<T>(run: () => T): Promise<T> {
@@ -96,6 +103,7 @@ export function gitOutboxStore(ctx: Context): OutboxStore {
     gate: (prd, options) => promised(() => gateResult(repoPrd(prd), { ctx, ...options })),
     openItems: (prd) => promised(() => openItemsForPrd(repoPrd(prd), { ctx })),
     adoptedEntries: (prd) => promised(() => adoptedEntriesForPrd(repoPrd(prd), { ctx })),
+    settledEntries: (prd) => promised(() => settledInOutbox(ctx, repoPrd(prd))),
     replies: (request, client) => promised(() => readReplies({ ctx, ...request, prd: repoPrd(request.prd) }, client)),
     prComment: (prd, client) => promised(() => upsertOutboxPrComment({ prd: repoPrd(prd), ctx }, client)),
     issueComment: (request, client) => promised(() => upsertOutboxComment({ ctx, ...request, prd: repoPrd(request.prd) }, client)),

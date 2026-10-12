@@ -55,6 +55,7 @@ const STORES: readonly (readonly [string, Traits, () => Subject])[] = [
 
 const MEDIUM_ID = parseOutboxItemId('s7-01-default-timeout');
 const HIGH_ID = parseOutboxItemId('s7-02-default-country');
+const OPEN_ID = parseOutboxItemId('s7-03-default-currency');
 
 /** An item of PRD `prd` at `rank`, with every section an item carries. */
 function itemText(prd: OutboxPrd, id: string, rank: string): string {
@@ -102,6 +103,7 @@ describe.each(STORES)('the %s outbox store', (_name, traits, make) => {
     const { store, prd } = make();
     expect(await store.openItems(prd)).toEqual([]);
     expect(await store.adoptedEntries(prd)).toEqual([]);
+    expect(await store.settledEntries(prd)).toEqual([]);
     expect([...(await store.spentIds(prd, null))]).toEqual([]);
     const gate = await store.gate(prd, {});
     expect(gate.ok).toBe(true);
@@ -169,6 +171,18 @@ describe.each(STORES)('the %s outbox store', (_name, traits, make) => {
     expect([...(await store.spentIds(prd, null))]).toEqual([HIGH_ID]);
     expect(await store.adoptedEntries(prd)).toEqual([]);
     expect((await store.gate(prd, {})).ok).toBe(true);
+  });
+
+  it('lists every settled entry with its verdict and item text, adopted ones included (PRD 1679)', async () => {
+    const { store, prd } = make();
+    const high = itemText(prd, HIGH_ID, 'high');
+    const ref = await store.writeItem({ prd, id: HIGH_ID, text: high }, null);
+    await store.settle(ref, AGREED);
+    const medium = itemText(prd, MEDIUM_ID, 'medium');
+    await store.adopt(medium);
+    await store.writeItem({ prd, id: OPEN_ID, text: itemText(prd, OPEN_ID, 'high') }, null);
+    const entries = (await store.settledEntries(prd)).map((entry) => [entry.id, entry.verdict, entry.itemText]);
+    expect(entries.sort()).toEqual([[HIGH_ID, 'agreed', high], [MEDIUM_ID, 'adopted', medium]].sort());
   });
 
   it('refuses an ill-formed answer and leaves the item open', async () => {
