@@ -80,3 +80,80 @@ None to keep. Undoing means a red build until the paths are fixed elsewhere.
 ```
 
 <!-- /omni-outbox-settled: s1-01-route-move-outside-territory -->
+
+<!-- omni-outbox-settled: s2-01-closed-signup-words -->
+
+## s2-01-closed-signup-words — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-closed-signup-words
+prd: 1705
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+The sign-up page has one more message the plan did not list, shown when a site cannot create workspaces at all, and its old sentence was too long for the short-sentence rule. Is the new, shorter one right?
+
+## The decision, in plain words
+
+It now says only that this site cannot make a workspace, without naming the missing piece.
+
+## The intro, for fun
+
+One last long sentence was hiding behind a closed door.
+
+## The punchline, for fun
+
+It now says the door is closed, without listing every missing hinge.
+
+## The options, in plain words
+
+A. Keep the short line: This deployment cannot make a workspace.
+B. Name the missing piece: a short line saying the database or the GitHub App is missing.
+
+## What I had to decide
+
+Keep the short line (A), or name the missing piece again in a short form (B).
+
+## What I did meanwhile
+
+The short line ships; it only shows on a deployment that cannot create workspaces.
+
+## What it costs to change later
+
+A one-line text change either way.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's word table left out the closed and failed reasons; failed already fit (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-closed-signup-words -->
