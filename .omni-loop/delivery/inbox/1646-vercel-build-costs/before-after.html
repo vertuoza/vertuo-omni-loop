@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1646 · Cut Vercel build costs</title>
+<style>
+  /* The app pages' Omni theme tokens (packages/design/src/tokens.ts, ASK.omni). */
+  :root {
+    --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --line-strong: #5a60c4;
+    --ink: #ffffff; --muted: #8a90d6; --plasma: #ffd23f; --on-plasma: #07061c;
+    --cyan: #3ee0ff; --green: #3ee08a; --red: #ff6b86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.6 var(--body); }
+  main { max-width: 1200px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; }
+  h2.part { font-size: 22px; margin: 48px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  .lede { color: var(--muted); margin: 0 0 8px; max-width: 900px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .col > .tag { display: inline-block; font: 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); border: 1px solid var(--line-strong); border-radius: 4px; padding: 4px 6px; margin-bottom: 8px; }
+  .col.after > .tag { color: var(--on-plasma); background: var(--plasma); border-color: var(--plasma); }
+  .caption { color: var(--muted); font-size: 15px; margin: 8px 0 0; }
+  pre { background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    font: 13px/1.55 var(--mono); overflow-x: auto; margin: 0; white-space: pre; }
+  pre .bad { color: var(--red); } pre .ok { color: var(--green); } pre .dim { color: var(--muted); } pre .sig { color: var(--plasma); }
+  .wrap { overflow-x: auto; }
+  table.t { border-collapse: collapse; width: 100%; font-size: 15px; }
+  table.t th, table.t td { text-align: left; border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: top; }
+  table.t th { color: var(--muted); font-weight: 600; }
+  td.bad { color: var(--red); } td.ok { color: var(--green); }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+  @media (max-width: 700px) { .kpis { grid-template-columns: 1fr; } }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .kpi .n { font: 700 24px/1.2 var(--mono); }
+  .kpi .l { color: var(--muted); font-size: 14px; }
+  .kpi .n .to { color: var(--plasma); }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD 1646 · Cut Vercel build costs</h1>
+  <p class="lede">Each Vercel project (galaxy, omni-app) builds only when a change can reach what it deploys.
+  Production on <code>main</code> stays automatic; previews stay for ready pull requests into <code>main</code>.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">1,700 <span class="to">→ ~300</span></div><div class="l">production builds a month</div></div>
+    <div class="kpi"><div class="n">every push <span class="to">→ 1 per burst</span></div><div class="l">preview builds, ready PRs into main only</div></div>
+    <div class="kpi"><div class="n">65.8k <span class="to">→ ≤ 10k</span></div><div class="l">Build CPU Minutes a month (target −85%)</div></div>
+  </div>
+
+  <h2 class="part">Functional</h2>
+
+  <h3>A merge to main</h3>
+  <div class="pair">
+    <div class="col"><span class="tag">Today</span>
+<pre>merge #1636           <span class="bad">galaxy build · omni-app build</span>
+chore(release) v0.0.337
+  (version only)      <span class="bad">galaxy build · omni-app build</span>
+
+merge docs(phase-0)   <span class="bad">galaxy build · omni-app build</span>
+chore(release)        <span class="bad">galaxy build · omni-app build</span></pre>
+      <p class="caption">Four builds per merge, whatever it changed. 868 commits on main in 30 days.</p>
+    </div>
+    <div class="col after"><span class="tag">After</span>
+<pre>merge #1636           <span class="dim">skipped: its release commit follows</span>
+chore(release) v0.0.337
+  diff since last deploy
+    galaxy inputs?    <span class="ok">yes → galaxy build</span>
+    omni-app inputs?  <span class="dim">no  → skipped</span>
+
+merge docs(phase-0)   <span class="dim">skipped</span>
+chore(release)        <span class="dim">.omni-loop/delivery only → nothing</span>
+
+release.yml fails     <span class="sig">Deploy Hooks → both build main</span></pre>
+      <p class="caption">At most one build per project per merge, and only for the project that changed.</p>
+    </div>
+  </div>
+
+  <h3>A push to a branch</h3>
+  <div class="pair">
+    <div class="col"><span class="tag">Today</span>
+<pre>feat/topic--slice-2  push  <span class="bad">2 builds</span>
+feat/topic--slice-2  push  <span class="bad">2 builds</span>
+feat/topic (draft)   merge <span class="bad">2 builds</span>
+docs/retro-topic     push  <span class="bad">2 builds</span>
+claude/xyz           push  <span class="bad">2 builds</span>
+dependabot/npm/next  push  <span class="bad">2 builds</span></pre>
+      <p class="caption">Only <code>docs/phase-0-*</code> is skipped (PRD 675).</p>
+    </div>
+    <div class="col after"><span class="tag">After</span>
+<pre>any push             <span class="dim">no build on its own</span>
+
+feat/topic marked ready
+  preview-debounce: wait 150 s, head unchanged?
+    galaxy changed vs main   <span class="ok">→ galaxy preview</span>
+    omni-app changed vs main <span class="dim">→ none</span>
+
+yolo-fix: 3 pushes in 1 min on ready PR
+  older waits cancelled      <span class="ok">→ 1 preview, last commit</span>
+
+draft · slice · retro · dependabot <span class="dim">→ nothing</span></pre>
+      <p class="caption">The wait runs in GitHub Actions, never on the paid build machine.</p>
+    </div>
+  </div>
+
+  <h3>What builds, by branch</h3>
+  <div class="wrap">
+  <table class="t">
+    <tr><th>branch</th><th>today</th><th>after</th></tr>
+    <tr><td><code>main</code> merge commit</td><td class="bad">both</td><td>nothing</td></tr>
+    <tr><td><code>main</code> release commit</td><td class="bad">both</td><td class="ok">each project whose inputs changed</td></tr>
+    <tr><td><code>feat/&lt;topic&gt;</code>, draft</td><td class="bad">both</td><td>nothing</td></tr>
+    <tr><td><code>feat/&lt;topic&gt;</code>, ready (ship commit, yolo-fix)</td><td class="bad">both, every push</td><td class="ok">changed projects, once per burst</td></tr>
+    <tr><td>slice, landing</td><td class="bad">both</td><td>nothing</td></tr>
+    <tr><td><code>fix/*</code>, other ready PRs into main</td><td class="bad">both</td><td class="ok">as a ready feature branch</td></tr>
+    <tr><td><code>docs/phase-0-*</code></td><td>nothing</td><td>nothing</td></tr>
+    <tr><td><code>docs/retro-*</code>, <code>docs/knowledge-*</code></td><td class="bad">both</td><td>nothing</td></tr>
+    <tr><td><code>claude/*</code> without a ready PR</td><td class="bad">both</td><td>nothing</td></tr>
+    <tr><td><code>dependabot/**</code></td><td class="bad">both</td><td>nothing</td></tr>
+  </table>
+  </div>
+
+  <h3>What stays the same</h3>
+  <div class="wrap">
+  <table class="t">
+    <tr><th>kept</th><th>how</th></tr>
+    <tr><td>Automatic production deploys</td><td>Every merge reaches production through its release commit, or the Deploy Hook fallback.</td></tr>
+    <tr><td>Builds on Vercel, from Git</td><td>No <code>vercel build</code>, no <code>--prebuilt</code>: previews are created through the REST API with <code>gitSource</code>.</td></tr>
+    <tr><td>Type check, lint, tests, security checks</td><td><code>next build</code> keeps its type check; CI is untouched.</td></tr>
+    <tr><td>Proof videos</td><td>The ready feature PR's preview lands ~150 s plus one build after ready, inside <code>/omni:prove</code>'s 10-minute wait.</td></tr>
+    <tr><td>An escape hatch</td><td><code>VERCEL_FORCE_BUILD=1</code> on a project builds everything, at once.</td></tr>
+  </table>
+  </div>
+
+  <h2 class="part">Pixel perfect</h2>
+  <p>Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>
