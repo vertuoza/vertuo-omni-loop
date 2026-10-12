@@ -66,6 +66,34 @@ describe('the grid', () => {
   });
 });
 
+describe('the rivals\' levels (PRD 1762)', () => {
+  it('holds today\'s numbers in NORMAL', () => {
+    expect(RULES.levels.normal).toEqual({ skillMin: RULES.skillMin, skillMax: 1, lineOffset: RULES.lineOffset, rubber: RULES.rubber, hold: 0 });
+    expect(rivalTraits(1359, 5, 'normal')).toEqual(rivalTraits(1359, 5));
+  });
+
+  it('keeps a rival\'s own pace at no more than the player\'s top speed, at every level', () => {
+    for (const level of ['easy', 'normal', 'hard'] as const) {
+      for (const t of rivalTraits(1359, 50, level)) {
+        expect(t.skill).toBeLessThanOrEqual(1);
+        expect(t.skill).toBeGreaterThanOrEqual(RULES.levels[level].skillMin);
+        expect(Math.abs(t.offset)).toBeLessThanOrEqual(RULES.levels[level].lineOffset);
+      }
+    }
+  });
+
+  it('orders the levels: EASY slower than NORMAL, HARD faster and on a tighter line', () => {
+    expect(RULES.levels.easy.skillMax).toBeLessThan(RULES.levels.normal.skillMin);
+    expect(RULES.levels.hard.skillMin).toBeGreaterThan(RULES.levels.normal.skillMin);
+    expect(RULES.levels.hard.lineOffset).toBeLessThan(RULES.levels.normal.lineOffset);
+  });
+
+  it('moves the rubber band by the level\'s share', () => {
+    expect(rubber(0, 1e6, 'easy')).toBeCloseTo(1 + RULES.levels.easy.rubber);
+    expect(rubber(0, 1e6, 'hard')).toBeCloseTo(1 + RULES.levels.hard.rubber);
+  });
+});
+
 describe('the rivals\' skill', () => {
   it('draws each rival\'s top speed between 92% and 100% of the player\'s, and a small offset from the line, from the seed', () => {
     const traits = rivalTraits(1359, 50);

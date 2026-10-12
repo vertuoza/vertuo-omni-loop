@@ -3,7 +3,7 @@
 // them by. Racers are indexed 0 (the player) then the rivals; `stepItems` plays one short step of the world.
 import type { KartItem as Item } from '../scenes/kart.ts';
 import type { Fx, Kart } from './kart';
-import { RULES } from './rules';
+import { RULES, type Difficulty } from './rules';
 import { draw } from './rivals';
 import { isRoad, TILE, tileAt, type Track } from './track';
 
@@ -126,10 +126,11 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
   return { world: { boxes, blobs, orbs, rng }, racers: out, events };
 }
 
-/** Whether rival `i` uses what it holds now, by plain rules: BOOST on a straight, BLOB with a kart close behind, ORB with a kart ahead in range and in line. `straight`: it is facing where it goes. */
-export function wantsToUse(racers: readonly Racer[], i: number, straight: boolean): boolean {
+/** Whether rival `i` (which has held its item `held` seconds) uses what it holds now, by plain rules: BOOST on a straight, BLOB with a kart close behind, ORB with a kart ahead in range and in line. `straight`: it is facing where it goes. */
+export function wantsToUse(racers: readonly Racer[], i: number, straight: boolean, level: Difficulty = 'normal', held = Infinity): boolean {
   const me = racers[i];
   if (!me?.fx.item || me.fx.spin > 0 || me.fx.fall > 0) return false;
+  if (held < RULES.levels[level].hold) return false; // the level's patience: an item is held this long before it is used
   if (me.fx.item === 'boost') return straight;
   const [cos, sin] = [Math.cos(me.kart.angle), Math.sin(me.kart.angle)];
   return racers.some((o, j) => {

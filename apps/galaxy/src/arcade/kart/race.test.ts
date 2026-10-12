@@ -467,3 +467,44 @@ describe('the hills under the player (PRD 1698)', () => {
     expect(speedAfter(hump, 0.75)).toBeGreaterThan(flat * 1.05);
   });
 });
+
+describe('the rivals\' difficulty (PRD 1762)', () => {
+  const LEVELS = ['easy', 'normal', 'hard'] as const;
+  const FRAME = 1 / 60;
+  /** Plays a whole race with the player standing still: each rival's finish time and falls. */
+  const run = (seed: number, difficulty: (typeof LEVELS)[number]) => {
+    const falls = [0, 0, 0, 0, 0, 0];
+    let r = press(newRace({ seed, difficulty }), 'start').race;
+    for (let t = 0; t < RULES.countdown + 0.05; t += 0.05) r = step(r, NONE, 0.05).race;
+    for (let t = 0; t < 900 && r.rivals.some((x) => x.doneAt == null); t += FRAME) {
+      const s = step(r, NONE, FRAME);
+      r = s.race;
+      for (const e of s.events) if (e.kind === 'fell') falls[e.racer] = (falls[e.racer] ?? 0) + 1;
+    }
+    return { times: r.rivals.map((x) => x.doneAt), falls: falls.slice(1) };
+  };
+  const results = new Map<string, ReturnType<typeof run>>();
+  for (const seed of [1, 7, 42]) for (const level of LEVELS) results.set(`${seed}/${level}`, run(seed, level));
+  const mean = (level: (typeof LEVELS)[number]) => {
+    const all = [1, 7, 42].flatMap((seed) => results.get(`${seed}/${level}`)?.times ?? []);
+    return all.reduce<number>((a, b) => a + (b ?? Infinity), 0) / all.length;
+  };
+
+  it('makes NORMAL when no level is given, and keeps the level on the race', () => {
+    expect(newRace({ seed: 1 }).difficulty).toBe('normal');
+    expect(newRace({ seed: 1, difficulty: 'hard' }).difficulty).toBe('hard');
+    expect(newRace({ seed: 1 }).rivals).toEqual(newRace({ seed: 1, difficulty: 'normal' }).rivals);
+  });
+
+  it('lets every rival finish without a fall at every level, on seeds 1, 7 and 42', () => {
+    for (const [key, out] of results) {
+      expect(out.times.every((t) => t != null), key).toBe(true);
+      expect(out.falls, key).toEqual([0, 0, 0, 0, 0]);
+    }
+  });
+
+  it('runs the rivals slower on EASY than on NORMAL, and slower on NORMAL than on HARD', () => {
+    expect(mean('easy')).toBeGreaterThan(mean('normal'));
+    expect(mean('normal')).toBeGreaterThan(mean('hard'));
+  });
+});

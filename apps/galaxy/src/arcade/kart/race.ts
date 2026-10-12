@@ -14,7 +14,7 @@ import { carried, type GridPlayer, type ItemMessage, type StateMessage } from '.
 import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
-import { RULES } from './rules';
+import { RULES, type Difficulty } from './rules';
 import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
 import { LAPS, parseTrack, PLACES, type Track } from './track';
 
@@ -49,6 +49,8 @@ export interface Race {
   /** The player's laps and waypoints, and the rivals on the grid: the five CPU karts, or in a MULTI race the other players, who are never driven here. */
   readonly pace: Pace;
   readonly rivals: readonly Rival[];
+  /** How hard the rivals drive (PRD 1762); `normal` in MULTI, which has none to drive. */
+  readonly difficulty: Difficulty;
   /** The race clock at which the player's last lap began: FINAL LAP shows from there; null before it. */
   readonly finalAt: number | null;
   /** MULTI: whether the race's menu is open over the race (the race goes on), and the players gone OUT or left, by id. */
@@ -98,19 +100,19 @@ function fillers(used: readonly Driver[], count: number): Driver[] {
  * others, all facing the way the line runs; nothing moves until START. Fewer than five rivals in the
  * cast: the next mascots fill the places.
  */
-export function newRace({ seed, track = parseTrack(), cast = [], field }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field }): Race {
+export function newRace({ seed, track = parseTrack(), cast = [], field, difficulty = 'normal' }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field; difficulty?: Difficulty }): Race {
   if (field) return newMultiRace(seed, track, field);
   const start = track.places[track.places.length - 1];
   if (!start) throw new Error('a circuit with no starting place');
   const drivers = [...cast.slice(0, PLACES - 1)];
   drivers.push(...fillers(drivers, PLACES - 1 - drivers.length));
-  const traits = rivalTraits(seed, drivers.length);
+  const traits = rivalTraits(seed, drivers.length, difficulty);
   const rivals = drivers.map((driver, i): Rival => {
     const place = track.places[i] ?? start;
     const trait = traits[i] ?? { skill: 1, offset: 0 };
     return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
+  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
 }
 
 /** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
@@ -141,7 +143,7 @@ function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
     return [{ id: p.id, slot: i, driver: driverOf(p), kart, pace: START_PACE, fx: NO_FX, skill: 1, offset: 0, heard: { kart, fx: NO_FX, at: 0 } }];
   });
   const mine = place(index);
-  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: index, gone: [], self: me, thrown: 0, finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
+  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty: 'normal', finalAt: null, menu: false, slot: index, gone: [], self: me, thrown: 0, finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
 }
 
 /** A state heard from player `id`: their kart, laps and spin-out or fall stand as they say, at the race clock it came at (before GO, at 0). Not a MULTI race on its way, a player not in it, or a player gone: nothing changes. */
@@ -237,7 +239,7 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     const falling = [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)];
     ({ player, fx, pace } = roll(track, { player, fx, pace }, pad, dt / steps));
     const ahead = progressOf(track, pace, player);
-    rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead));
+    rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead, race.difficulty));
     const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
     if (p) player = p;
     rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart } : r; });
@@ -250,7 +252,7 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     let racers = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
     rivals.forEach((r, j) => {
       const holder = racers[j + 1];
-      if (!holder || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0)) return;
+      if (!holder || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0, race.difficulty, r.held ?? 0)) return;
       const used = spendItem(items, holder);
       if (holder.fx.item) events.push({ kind: 'item', racer: j + 1, item: holder.fx.item });
       items = used.world;
@@ -264,7 +266,7 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     events.push(...acted.events);
     const [mine, ...theirs] = acted.racers;
     if (mine) { player = mine.kart; fx = mine.fx; }
-    rivals = rivals.map((r, j) => { const x = theirs[j]; return x ? { ...r, kart: x.kart, fx: x.fx } : r; });
+    rivals = rivals.map((r, j) => { const x = theirs[j]; return x ? { ...r, kart: x.kart, fx: x.fx, held: x.fx.item ? (r.held ?? 0) + dt / steps : 0 } : r; });
     [fx, ...rivals.map((r) => r.fx ?? NO_FX)].forEach((f, k) => { if (f.fall > 0 && !falling[k]) events.push({ kind: 'fell', racer: k }); });
   }
   return { player, fx, items, pace, rivals, events };
