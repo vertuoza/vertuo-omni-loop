@@ -11,8 +11,13 @@ export const RULES = Object.freeze({
   /** The circle the two orbs ride, and each orb's own radius. */
   radius: 56,
   orbRadius: 6,
-  /** ◀ or ▶ held turns the pair this many turns a second (a half turn in 0.4 s). */
-  turnsPerSecond: 1.25,
+  /** ◀ or ▶ held turns the pair this many turns a second (a half turn in about 0.83 s): played by holding real rotations, not by nudges. */
+  turnsPerSecond: 0.6,
+  /**
+   * The least time a person holds what they hold before they can change it: every wave must have a way
+   * through where ◀, ▶ or nothing changes no sooner than this after the last change (waves.ts).
+   */
+  reactionSeconds: 0.25,
   /** The fixed step the run is played in, and the longest frame played at once: the same run at 60 or 120 frames a second. */
   subStep: 1 / 60,
   maxDt: 0.05,
