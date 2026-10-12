@@ -47,4 +47,4 @@ named after the org, your own account works too) is in `/docs/install#install-th
 
 ## Source
 
-/omni:brainstorm, PRD 1705: .omni-loop/delivery/inbox/1705-doorway/before-after.html
+/omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html

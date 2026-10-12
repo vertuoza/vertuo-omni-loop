@@ -43,4 +43,4 @@ Today's words, unchanged by PRD 1705.
 
 ## Source
 
-/omni:brainstorm, PRD 1705: .omni-loop/delivery/inbox/1705-doorway/before-after.html
+/omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html

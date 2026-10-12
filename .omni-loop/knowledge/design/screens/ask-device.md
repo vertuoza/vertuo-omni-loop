@@ -55,4 +55,4 @@ Every sentence at rest stays within 7 words (the word pass). The code is always 
 ## Source
 
 /omni:brainstorm, PRD 1660: .omni-loop/delivery/shipped/1660-signin-device/before-after.html
-/omni:brainstorm, PRD 1705: .omni-loop/delivery/inbox/1705-doorway/before-after.html
+/omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html
