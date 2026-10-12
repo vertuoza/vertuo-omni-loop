@@ -30,6 +30,19 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-12",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The page has every state and the poll hands a code over once. But setup-token carries its own copy of signin's fallback, so the two will drift.", "citations": ["persona:F-E Developer"]},
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "The device functions default what a sign-in leaves out, the types are generated, and a 503 falls back like a 404. That is the boring, correct shape.", "citations": ["persona:B-E DEv"]},
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "A cloud session prints a link and a code, and I approve it from my phone. That is exactly what the note promises.", "citations": ["persona:Paul - Product Manager"]},
+        { "name": "Lead Engineer", "stance": "neutral", "score": 3, "reaction": "The fallback link means a wrong guess strands nobody. But `omni help` still does not show --device or --loopback, so my team learns them from the README.", "citations": ["persona:Lead Engineer"]},
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "I check a short code and press Yes. There is no address to paste back into a terminal.", "citations": ["persona:Irisa"]}
+      ],
+      "objection": {"persona": "Lead Engineer", "text": "`omni help` does not list --device or --loopback, so whoever is stuck on the wrong flow has to find the README to learn the way out.", "citations": ["persona:Lead Engineer"], "settled": "just-this-run"},
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ once help lists the flags"
     }
   ]
 }
