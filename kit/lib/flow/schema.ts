@@ -9,7 +9,10 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { FLOW_POINTS, flowPoint } from './points.ts';
 
-/** The one alias a hook may carry: it names something only Claude Code reads (a slash command, a file under `.claude/`). */
+/**
+ * The one alias a hook may carry, for what only Claude Code reads: a slash command (`/create-pr`) or a
+ * file under `.claude/`. A hook every agent reads is a plain path, best under `.agents/hooks/` (PRD 1739).
+ */
 export const CLAUDE_ALIAS = 'claude';
 /** The name the root of `flow` goes by when an area is named: every path no declared area claims. */
 export const DEFAULT_AREA = 'default';
@@ -43,7 +46,7 @@ export function hookRefProblem(ref: HookRef): string | null {
   if (path.startsWith('/') || path.startsWith('\\')) return `${path} is an absolute path — name a file of this repository by its path from the root`;
   if (path.split(/[\\/]/).includes('..')) return `${path} holds .. — name a file of this repository by its path from the root`;
   if (!claude && (path === '.claude' || path.startsWith('.claude/'))) {
-    return `${path} sits under .claude/ — mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+    return `${path} sits under .claude/, which only Claude Code reads — move it to .agents/hooks/, or mark it { path: ${path}, alias: claude }`;
   }
   return null;
 }
