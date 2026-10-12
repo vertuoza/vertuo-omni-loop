@@ -555,7 +555,7 @@ export function funLineProblems(text: string | null | undefined): string[] {
 /**
  * True when `bearsOn` is an id shape the injected `laws` treats as floor-setting — a principle, a
  * business rule, an invariant or a cross-domain entry when `laws.source` is `knowledge`; an ADR
- * named under the CLAUDE.md invariants heading when it is `claudeMdInvariants`; nothing when it is
+ * named under the context files' invariants heading when it is `claudeMdInvariants`; nothing when it is
  * `none`. Delegates entirely to `laws.floorsHigh` (`kit/lib/laws.ts`) so this module carries no
  * opinion of its own about which ids are laws.
  *

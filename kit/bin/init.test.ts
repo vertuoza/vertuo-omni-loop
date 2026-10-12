@@ -375,6 +375,12 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     expect(readConfig(withInvariants.read).laws.source).toBe('claudeMdInvariants');
   });
 
+  it('laws.source is claudeMdInvariants when AGENTS.md alone carries the heading (PRD 1739)', async () => {
+    const { root, read } = makeRepo({ git: true, files: { 'AGENTS.md': '# Rules\n\n## Invariants\n\n- one\n' } });
+    await init(root);
+    expect(readConfig(read).laws.source).toBe('claudeMdInvariants');
+  });
+
   it('falls back to the origin remote and origin/HEAD when gh cannot answer', async () => {
     const { root, read } = makeRepo({ git: true });
     const run = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
