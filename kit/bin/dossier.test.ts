@@ -4,12 +4,13 @@
 // running these tests never leaks its own id into them.
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CALL_TIMEOUT_MS } from '../lib/ask/client.ts';
 import { DOSSIERS_FILE, readDossiers } from '../lib/dossier/local.ts';
+import { SESSION_FILE } from '../lib/dossier/session.ts';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
@@ -85,13 +86,46 @@ describe('omni dossier open', () => {
     ]);
   });
 
-  it('sends no session id when CLAUDE_CODE_SESSION_ID is not set, and records the draft without one', async () => {
+  // PRD 1739: a session id any agent has.
+  it('sends OMNI_SESSION_ID over CLAUDE_CODE_SESSION_ID, Claude\'s when it is the only one, and writes no session file', async () => {
+    const { root, tokens } = await signedIn();
+    await dossier(['open', 'An idea'], { root, tokens, env: { OMNI_SESSION_ID: 'abc', CLAUDE_CODE_SESSION_ID: 'xyz' } });
+    await dossier(['open', 'Another'], { root, tokens, env: { CLAUDE_CODE_SESSION_ID: 'xyz' } });
+    expect(server.calls.map((call) => dig(call.body, 'claudeSessionId'))).toEqual(['abc', 'xyz']);
+    expect(readDossiers(root).map((entry) => entry.claudeSessionId)).toEqual(['abc', 'xyz']);
+    expect(existsSync(join(root, SESSION_FILE))).toBe(false);
+  });
+
+  it('with neither variable, sends a generated id, stores it in the main checkout, and sends it again on the next open', async () => {
     const { root, tokens } = await signedIn();
     expect((await dossier(['open', 'An idea'], { root, tokens, env: {} })).code).toBe(0);
-    expect(server.calls[0]?.body).toEqual({ title: 'An idea', repo: 'acme/widgets' });
-    expect(readDossiers(root)[0]?.claudeSessionId).toBeNull();
+    const id = digText(JSON.parse(readFileSync(join(root, SESSION_FILE), 'utf8')), 'id');
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(server.calls[0]?.body).toEqual({ title: 'An idea', repo: 'acme/widgets', claudeSessionId: id });
+    expect(readDossiers(root)[0]?.claudeSessionId).toBe(id);
     expect((await dossier(['open', 'Another'], { root, tokens, env: { CLAUDE_CODE_SESSION_ID: '' } })).code).toBe(0);
-    expect(server.calls[1]?.body).toEqual({ title: 'Another', repo: 'acme/widgets' });
+    expect(dig(server.calls[1]?.body, 'claudeSessionId')).toBe(id);
+  });
+
+  it('from a worktree with neither variable, stores the generated id in the main checkout, and the push from another worktree finds the draft', async () => {
+    const { root, tokens } = await signedIn();
+    const trees = mkdtempSync(join(tmpdir(), 'omni-wt-'));
+    const [one, two] = [join(trees, 'one'), join(trees, 'two')];
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'docs/team-inbox', one], { cwd: root, stdio: 'ignore' });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'feat/team-inbox', two], { cwd: root, stdio: 'ignore' });
+    await dossier(['open', 'A team inbox'], { root: one, tokens });
+    await dossier(['open', 'Another idea'], { root, tokens, env: { CLAUDE_CODE_SESSION_ID: 'someone-else' } });
+    const id = digText(JSON.parse(readFileSync(join(root, SESSION_FILE), 'utf8')), 'id');
+    expect(existsSync(join(one, SESSION_FILE))).toBe(false);
+    const [draft] = readDossiers(root);
+    assertDefined(draft, 'the draft');
+    expect(draft.claudeSessionId).toBe(id);
+
+    const run = await dossier(['push', '7'], { root: two, tokens });
+
+    expect(run.code).toBe(0);
+    expect(dig(server.calls[2]?.body, 'draftId')).toBe(draft.id);
+    expect(readDossiers(root).map((entry) => entry.prd)).toEqual([7, null]);
   });
 
   it('cuts a long idea to the 200 characters a title takes', async () => {
@@ -174,11 +208,11 @@ describe('omni dossier push', () => {
     expect(readDossiers(root)[0]?.prd).toBe(7);
   });
 
-  it('with several drafts and no session id, numbers none', async () => {
+  it('with several drafts of other sessions, numbers none', async () => {
     const { root, tokens } = await signedIn();
-    await dossier(['open', 'One idea'], { root, tokens });
-    await dossier(['open', 'Another idea'], { root, tokens });
-    await dossier(['push', '7'], { root, tokens });
+    await dossier(['open', 'One idea'], { root, tokens, env: { OMNI_SESSION_ID: 'one' } });
+    await dossier(['open', 'Another idea'], { root, tokens, env: { OMNI_SESSION_ID: 'two' } });
+    await dossier(['push', '7'], { root, tokens, env: { OMNI_SESSION_ID: 'three' } });
     expect(server.calls[2]?.body).not.toHaveProperty('draftId');
     expect(readDossiers(root).map((entry) => entry.prd)).toEqual([null, null]);
   });

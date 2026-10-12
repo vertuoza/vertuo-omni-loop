@@ -309,7 +309,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     summary: "a PRD's dossier on the Omni page",
     detail:
       "A PRD's dossier on the Omni page, where the whole workspace reads every version of its " +
-      'spec, plan and before/after. open opens a draft for an idea and prints its link; push sends ' +
+      'spec, plan and before/after. open opens a draft for an idea, tagged with the session id ' +
+      "(OMNI_SESSION_ID, else Claude Code's, else one it generates and keeps for the checkout in " +
+      '.omni-loop/local/session.json), and prints its link; push sends ' +
       "PRD n's files and adds a version only where a file changed; link prints PRD n's page, on " +
       'any computer, or none when it has no dossier, and writes nothing; status says whether ' +
       'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
@@ -1026,13 +1028,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     kind: 'command',
     who: 'skills',
     usage: ['omni now [--json] [--stdin] [--session <id>]'],
-    summary: 'what this Claude session is on now, and the slices being built',
+    summary: 'what this session is on now, and the slices being built',
     detail:
       'The PRD this session works on, from its branch or else from the last command that named ' +
       'one, its stage (building while a slice is not merged), and the slices in flight and stuck by ' +
       'id and name. --json prints the same as one document, for the status line, the omni-hud band ' +
       "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
-      'JSON, --session names the session. It reads only this computer: it never fetches, never calls ' +
+      'JSON, --session names the session; else it is OMNI_SESSION_ID, then CLAUDE_CODE_SESSION_ID, ' +
+      'then the id omni dossier open stored for the checkout. It reads only this computer: it never fetches, never calls ' +
       'GitHub, writes nothing and always exits 0.',
   },
 
@@ -1718,7 +1721,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     usage: ['/omni:dossier-open "<one line of the idea>"'],
     summary: 'open a draft dossier for an idea',
     detail:
-      'Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the ' +
+      'Opens a draft dossier for an idea on the Omni page, linked to this session, so the ' +
       'people the idea is for can follow it before the first question is asked. /omni:brainstorm ' +
       'and /omni:think-big run it first; it never stops the skill that runs it.',
     group: 'run-by-skills',
