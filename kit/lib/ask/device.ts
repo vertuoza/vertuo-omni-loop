@@ -172,22 +172,28 @@ export async function startDevice(options: Options): Promise<Device> {
   const issued = response?.ok ? await bodyOf(response) : null;
   const { device_code: deviceCode, user_code: userCode, interval, expires_in: expiresIn } = issued ?? {};
   if (!text(deviceCode) || !text(userCode) || !positive(interval) || !positive(expiresIn)) throw new DeviceError('unreachable');
+  const firstInterval = interval;
   const waitMs = expiresIn * 1000;
   const deadline = now() + waitMs;
+
+  /** Throws `closed` once `close()` was called. */
+  function stillOpen(): void {
+    if (stop.signal.aborted) throw new DeviceError('closed');
+  }
 
   /** One poll's outcome: the approval, or the interval until the next poll. */
   async function pollOnce(seconds: number): Promise<DeviceApproval | number> {
     const answer = await post(fetch, askUrl, '/api/ask/device/poll', { device_code: deviceCode }, stop.signal);
-    if (stop.signal.aborted) throw new DeviceError('closed');
+    stillOpen();
     return outcomeOf(answer ? await bodyOf(answer) : null, seconds);
   }
 
   async function run(): Promise<DeviceApproval> {
-    let seconds = interval;
+    let seconds = firstInterval;
     for (;;) {
-      if (stop.signal.aborted) throw new DeviceError('closed');
+      stillOpen();
       await sleep(seconds * 1000, stop.signal);
-      if (stop.signal.aborted) throw new DeviceError('closed');
+      stillOpen();
       if (now() >= deadline) throw new DeviceError('expired');
       const outcome = await pollOnce(seconds);
       if (typeof outcome !== 'number') return outcome;

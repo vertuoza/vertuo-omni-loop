@@ -9,6 +9,13 @@
 //   <workspace>`, `… — no workspace owns <owner/repo> yet — install the Omni App: <link>`, or `… —
 //   you are not a member of <workspace>, which owns <owner/repo>`; just `signed in as <login>` when
 //   the page says nothing of the repository (an older page, or no repo.slug).
+//   In a remote session (`CLAUDE_CODE_REMOTE`, `SSH_CONNECTION`, `SSH_TTY` or `CODESPACES` set), on
+//   Linux with no display, or with `--device`, it takes the device flow instead (PRD 1660,
+//   `../../lib/ask/device.ts`): it prints `Sign in at <ask.url>/ask/device?user_code=<c>` and
+//   `Check that the page shows <c>. Waiting (10 min)…`, opens no browser, polls the page until the
+//   person approves the request in any browser, then trades the code as above. Refused, expired or
+//   unreachable ends with one line, exit 1. A page with no device sign-in (404, or 503 without its
+//   database key) says so on stderr and runs the loopback.
 // - `signout` forgets that host's sign-in on this computer.
 // - `whoami` prints the email kept for that host (the GitHub login when there is none), or `signed out`. Past its expiry, it renews the
 //   sign-in first: refused, it says the sign-in is no longer valid and exits 1.
@@ -21,7 +28,7 @@
 //
 // Each reads `ask.url` from the repository's config; with none, each exits 1 with one line. They run
 // before a context exists, like `init` and `ask`, so a test can hand them `home` (the folder the
-// credentials live under), `openBrowser`, `fetch` and `waitMs`.
+// credentials live under), `openBrowser`, `fetch`, `waitMs` and `platform`.
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { AskCallError, askClient } from '../../lib/ask/client.ts';
@@ -29,6 +36,8 @@ import { homeTokens, omniTokenTail } from '../../lib/ask/client-tokens.ts';
 import type { Fetch } from '../../lib/ask/client.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { askEndpoint, credentials, credentialsHost, exchangeCode, signedInLine, SignInError } from '../../lib/ask/credentials.ts';
+import { chooseFlow, DeviceError, startDevice } from '../../lib/ask/device.ts';
+import type { DeviceReason } from '../../lib/ask/device.ts';
 import { LOOPBACK_WAIT_MS, LoopbackError, startLoopback } from '../../lib/ask/loopback.ts';
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, println, usageError } from '../args.ts';
@@ -90,16 +99,105 @@ type SigninOptions = {
   fetch?: Fetch;
   waitMs?: number;
   onSignedIn?: ((line: string) => void) | undefined;
+  platform?: NodeJS.Platform;
 };
+
+/** What the device flow says when the page has no device sign-in, before it runs the loopback. */
+const NO_DEVICE_SIGN_IN = 'this Omni page has no device sign-in yet: using the browser on this machine';
+
+/** The line after `omni signin: ` each way a device sign-in ends. */
+const DEVICE_ENDINGS: Readonly<Record<Exclude<DeviceReason, 'unavailable'>, string>> = {
+  denied: 'the sign-in was refused in the browser',
+  expired: 'the sign-in link expired: run omni signin again',
+  unreachable: 'unreachable',
+  closed: 'the sign-in was stopped before it came back',
+};
+
+/** What signing in needs, whichever flow brings the code back. */
+type SignInRun = Required<Pick<SigninOptions, 'openBrowser' | 'fetch' | 'waitMs'>> & Pick<SigninOptions, 'home' | 'onSignedIn'> & {
+  askUrl: string;
+  repo: string | null;
+  stdout: FreeIo['stdout'];
+  stderr: FreeIo['stderr'];
+};
+
+/** Trades the one-time code, keeps the sign-in for the host of `ask.url`, and prints its line. */
+async function finishSignIn({ askUrl, repo, fetch, home, stdout, onSignedIn }: SignInRun, code: string): Promise<number> {
+  const { entry, ...where } = await exchangeCode({ askUrl, code, repo, fetch });
+  credentials({ home }).write(credentialsHost(askUrl), entry);
+  const line = signedInLine({ ...where, repo });
+  if (onSignedIn) onSignedIn(line);
+  else println(stdout, line);
+  return 0;
+}
+
+/** Opens `url` in the browser; with no browser here, the link printed opens by hand, and the listener
+ * waits all the same. */
+async function openQuietly(openBrowser: SignInRun['openBrowser'], url: string): Promise<void> {
+  try {
+    await openBrowser(url);
+  } catch {
+    // Nothing to do: the link is on the terminal.
+  }
+}
+
+/** Signs in by the browser coming back to a listener on 127.0.0.1. */
+async function signInByLoopback(run: SignInRun): Promise<number> {
+  const { askUrl, stdout, stderr, openBrowser, waitMs } = run;
+  const state = randomBytes(32).toString('base64url');
+  const listener = await startLoopback({ state, timeoutMs: waitMs });
+  try {
+    const page = new URL(askEndpoint(askUrl, '/ask/signin'));
+    page.search = new URLSearchParams({ port: String(listener.port), state }).toString();
+    println(stdout, `Sign in in your browser: ${page}`);
+    await openQuietly(openBrowser, page.toString());
+    return await finishSignIn(run, await listener.code);
+  } catch (error) {
+    if (!(error instanceof LoopbackError) && !(error instanceof SignInError)) throw error;
+    println(stderr, `omni signin: ${error.message}`);
+    return 1;
+  } finally {
+    await listener.close();
+  }
+}
+
+/** Signs in by a device request the person approves in any browser; `null` when the page has none. */
+async function signInByDevice(run: SignInRun): Promise<number | null> {
+  const { askUrl, stdout, stderr, fetch } = run;
+  try {
+    const device = await startDevice({ askUrl, purpose: 'signin', fetch });
+    try {
+      println(stdout, `Sign in at ${device.url}`);
+      println(stdout, `Check that the page shows ${device.userCode}. Waiting (${Math.max(1, Math.round(device.waitMs / 60_000))} min)…`);
+      const approval = await device.poll();
+      if (!('code' in approval)) throw new DeviceError('unreachable');
+      return await finishSignIn(run, approval.code);
+    } finally {
+      await device.close();
+    }
+  } catch (error) {
+    if (error instanceof DeviceError) {
+      if (error.reason === 'unavailable') return null;
+      println(stderr, `omni signin: ${DEVICE_ENDINGS[error.reason]}`);
+      return 1;
+    }
+    if (!(error instanceof SignInError)) throw error;
+    println(stderr, `omni signin: ${error.message}`);
+    return 1;
+  }
+}
 
 export const signin = {
   withoutContext: true,
   /** `onSignedIn`, when given (by `omni init`), takes the closing line instead of stdout. */
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, vars, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }: FreeIo & SigninOptions,
+    {
+      cwd, stdout, stderr, exec, vars, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn, platform = process.platform,
+    }: FreeIo & SigninOptions,
   ) {
-    noArguments('signin', args);
+    const { positional, flags } = parseArgs('signin', args, { booleans: ['device'] });
+    if (positional.length > 0) throw usageError('usage: omni signin [--device]');
     const { askUrl, repo } = signInConfig(cwd, exec);
     if (!askUrl) {
       println(stderr, ASK_URL_UNSET);
@@ -114,32 +212,13 @@ export const signin = {
         return 0;
       });
     }
-    const state = randomBytes(32).toString('base64url');
-    const listener = await startLoopback({ state, timeoutMs: waitMs });
-    try {
-      const page = new URL(askEndpoint(askUrl, '/ask/signin'));
-      page.searchParams.set('port', String(listener.port));
-      page.searchParams.set('state', state);
-      println(stdout, `Sign in in your browser: ${page}`);
-      try {
-        await openBrowser(page.toString());
-      } catch {
-        // No browser here: the link above opens by hand, and the listener waits all the same.
-      }
-      const code = await listener.code;
-      const { entry, ...where } = await exchangeCode({ askUrl, code, repo, fetch });
-      credentials({ home }).write(credentialsHost(askUrl), entry);
-      const line = signedInLine({ ...where, repo });
-      if (onSignedIn) onSignedIn(line);
-      else println(stdout, line);
-      return 0;
-    } catch (error) {
-      if (!(error instanceof LoopbackError) && !(error instanceof SignInError)) throw error;
-      println(stderr, `omni signin: ${error.message}`);
-      return 1;
-    } finally {
-      await listener.close();
+    const run: SignInRun = { askUrl, repo, stdout, stderr, home, openBrowser, fetch, waitMs, onSignedIn };
+    if (chooseFlow(vars.session, platform, flags.device ? 'device' : null) === 'device') {
+      const ended = await signInByDevice(run);
+      if (ended !== null) return ended;
+      println(stderr, NO_DEVICE_SIGN_IN);
     }
+    return signInByLoopback(run);
   },
 } satisfies FreeCommand;
 

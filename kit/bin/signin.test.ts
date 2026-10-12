@@ -31,6 +31,8 @@ function freshHome(entries?: Record<string, Record<string, unknown>>) {
 const credentialsOf = (home: string) => JSON.parse(readFileSync(join(home, ...FILE), 'utf8')) as Record<string, unknown>;
 /** Matches any number, inside an expected object. */
 const anyNumber: unknown = expect.any(Number);
+/** A laptop: no remote session, not Linux, so `omni signin` takes the loopback whatever runs the tests. */
+const LAPTOP = { env: {}, platform: 'darwin' };
 const repoWith = (url: string | null) => makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${url === null ? 'null' : url}\n` } });
 
 /**
@@ -81,7 +83,7 @@ describe('omni signin', () => {
     const browser = fakeBrowser();
     const std = io();
 
-    const code = await main(['signin'], { cwd: root, ...std, home, openBrowser: browser.open });
+    const code = await main(['signin'], { ...LAPTOP, cwd: root, ...std, home, openBrowser: browser.open });
 
     expect(std.errors()).toBe('');
     expect(code).toBe(0);
@@ -129,7 +131,7 @@ describe('omni signin', () => {
         const home = freshHome();
         const std = io();
 
-        expect(await main(['signin'], { cwd: root, ...std, home, openBrowser: fakeBrowser().open, fetch })).toBe(0);
+        expect(await main(['signin'], { ...LAPTOP, cwd: root, ...std, home, openBrowser: fakeBrowser().open, fetch })).toBe(0);
 
         expect(std.errors()).toBe('');
         expect(std.text().trim().split('\n').at(-1)).toBe(line);
@@ -145,8 +147,8 @@ describe('omni signin', () => {
     const home = freshHome();
     const first = fakeBrowser({ code: 'code-1' });
     const second = fakeBrowser({ code: 'code-2' });
-    expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: first.open })).toBe(0);
-    expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: second.open })).toBe(0);
+    expect(await main(['signin'], { ...LAPTOP, cwd: root, ...io(), home, openBrowser: first.open })).toBe(0);
+    expect(await main(['signin'], { ...LAPTOP, cwd: root, ...io(), home, openBrowser: second.open })).toBe(0);
     const stateOf = (url: string) => new URL(url).searchParams.get('state');
     expect(stateOf(String(first.opened[0]))).not.toBe(stateOf(String(second.opened[0])));
   });
@@ -157,7 +159,7 @@ describe('omni signin', () => {
     const home = freshHome();
     const browser = fakeBrowser({ callbacks: (state) => ['state=not-this-terminal&code=planted', `state=${state}&code=code-1`] });
 
-    expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: browser.open })).toBe(0);
+    expect(await main(['signin'], { ...LAPTOP, cwd: root, ...io(), home, openBrowser: browser.open })).toBe(0);
 
     const [visit] = await Promise.all(browser.visits);
     expect(visit?.map((v) => v.status)).toEqual([400, 200]);
@@ -171,7 +173,7 @@ describe('omni signin', () => {
     const browser = fakeBrowser({ callbacks: () => ['state=not-this-terminal&code=planted'] });
     const std = io();
 
-    expect(await main(['signin'], { cwd: root, ...std, home, openBrowser: browser.open, waitMs: 300 })).toBe(1);
+    expect(await main(['signin'], { ...LAPTOP, cwd: root, ...std, home, openBrowser: browser.open, waitMs: 300 })).toBe(1);
 
     expect(std.errors()).toMatch(/no sign-in came back/);
     expect(existsSync(join(home, ...FILE))).toBe(false);
@@ -184,7 +186,7 @@ describe('omni signin', () => {
     const home = freshHome();
     const std = io();
 
-    expect(await main(['signin'], { cwd: root, ...std, home, openBrowser: fakeBrowser({ code: 'unknown' }).open })).toBe(1);
+    expect(await main(['signin'], { ...LAPTOP, cwd: root, ...std, home, openBrowser: fakeBrowser({ code: 'unknown' }).open })).toBe(1);
 
     expect(std.errors()).toMatch(/omni signin: the sign-in was refused: invalid grant/);
     expect(existsSync(join(home, ...FILE))).toBe(false);
@@ -201,7 +203,7 @@ describe('omni signin', () => {
       throw new Error('no browser here');
     };
 
-    expect(await main(['signin'], { cwd: root, ...std, home, openBrowser: failing })).toBe(0);
+    expect(await main(['signin'], { ...LAPTOP, cwd: root, ...std, home, openBrowser: failing })).toBe(0);
     expect(std.text()).toContain(browser.opened[0]);
   });
 
@@ -211,7 +213,7 @@ describe('omni signin', () => {
     const browser = fakeBrowser();
     const std = io();
 
-    expect(await main(['signin'], { cwd: root, ...std, home, openBrowser: browser.open })).toBe(1);
+    expect(await main(['signin'], { ...LAPTOP, cwd: root, ...std, home, openBrowser: browser.open })).toBe(1);
 
     expect(std.errors()).toBe('ask mode is not set up for this repository (ask.url)\n');
     expect(browser.opened).toEqual([]);
@@ -222,6 +224,176 @@ describe('omni signin', () => {
     const std = io();
     expect(await main(['signin', 'now'], { cwd: root, ...std, home: freshHome() })).toBe(2);
     expect(await main(['signin', '--force'], { cwd: root, ...std, home: freshHome() })).toBe(2);
+  });
+});
+
+/** A Claude Code cloud session: the terminal is on another machine than the person's browser. */
+const CLOUD = { env: { CLAUDE_CODE_REMOTE: 'true' }, platform: 'linux' };
+const USER_CODE = 'WXYZ-4821';
+const DEVICE_CODE = 'd'.repeat(43);
+
+type PollReply = { status: number; body: unknown } | 'unreachable';
+
+/**
+ * The Omni page's device routes in front of the fake server (which answers the token exchange): the
+ * issue answers `issue` (a status, or `unreachable`), each poll the next of `polls`, `pending` once
+ * they run out. Short intervals keep the tests fast; every device call is kept.
+ */
+function devicePage({ issue = 200, issued = {}, polls = [] }: { issue?: number | 'unreachable'; issued?: Record<string, unknown>; polls?: PollReply[] } = {}) {
+  const calls: { path: string; body: unknown }[] = [];
+  const queue = [...polls];
+  const fetch = (url: string, init: RequestInit): Promise<Response> => {
+    const path = new URL(url).pathname;
+    if (!path.startsWith('/api/ask/device')) return globalThis.fetch(url, init);
+    calls.push({ path, body: JSON.parse(typeof init.body === 'string' ? init.body : 'null') });
+    if (path === '/api/ask/device') {
+      if (issue === 'unreachable') return Promise.reject(new TypeError('fetch failed'));
+      const body = issue === 200 ? { device_code: DEVICE_CODE, user_code: USER_CODE, url: `https://elsewhere.test/ask/device?user_code=${USER_CODE}`, interval: 0.01, expires_in: 600, ...issued } : { error: 'not found' };
+      return Promise.resolve(Response.json(body, { status: issue }));
+    }
+    const next = queue.shift() ?? { status: 200, body: { status: 'pending' } };
+    if (next === 'unreachable') return Promise.reject(new TypeError('fetch failed'));
+    return Promise.resolve(Response.json(next.body, { status: next.status }));
+  };
+  return { fetch, calls, polls: () => calls.filter((call) => call.path === '/api/ask/device/poll') };
+}
+
+const approved = (code = 'code-1'): PollReply => ({ status: 200, body: { status: 'approved', code } });
+const pending: PollReply = { status: 200, body: { status: 'pending' } };
+
+describe('omni signin, by device code (PRD 1660)', () => {
+  it('in a cloud session prints the link and the code, opens no browser, polls, trades the code and signs in', async () => {
+    server = await startServer({ codes: ['code-1'], email: 'ada@example.com' });
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/api\nask:\n  url: ${server.url}\n` } });
+    const home = freshHome();
+    const browser = fakeBrowser();
+    const page = devicePage({ polls: [pending, approved()] });
+    const std = io();
+
+    const code = await main(['signin'], { ...CLOUD, cwd: root, ...std, home, openBrowser: browser.open, fetch: page.fetch });
+
+    expect(std.errors()).toBe('');
+    expect(code).toBe(0);
+    expect(browser.opened).toEqual([]);
+    const lines = std.text().trim().split('\n');
+    expect(lines.slice(0, 2)).toEqual([
+      `Sign in at ${server.url}/ask/device?user_code=${USER_CODE}`,
+      `Check that the page shows ${USER_CODE}. Waiting (10 min)…`,
+    ]);
+    expect(lines.at(-1)).toBe('signed in as ada@example.com');
+    expect(page.calls[0]).toEqual({ path: '/api/ask/device', body: { purpose: 'signin' } });
+    expect(page.polls()).toEqual([
+      { path: '/api/ask/device/poll', body: { device_code: DEVICE_CODE } },
+      { path: '/api/ask/device/poll', body: { device_code: DEVICE_CODE } },
+    ]);
+    expect(server.calls.at(-1)).toMatchObject({ method: 'POST', path: '/api/ask/token', body: { code: 'code-1', repo: 'acme/api' } });
+    expect(credentialsOf(home)[server.host]).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: anyNumber, email: 'ada@example.com' });
+    expect(statSync(join(home, ...FILE)).mode & 0o777).toBe(0o600);
+  });
+
+  it('takes the device flow on a laptop with --device', async () => {
+    server = await startServer({ codes: ['code-1'] });
+    const { root } = repoWith(server.url);
+    const browser = fakeBrowser();
+    const page = devicePage({ polls: [approved()] });
+    const std = io();
+
+    expect(await main(['signin', '--device'], { ...LAPTOP, cwd: root, ...std, home: freshHome(), openBrowser: browser.open, fetch: page.fetch })).toBe(0);
+
+    expect(browser.opened).toEqual([]);
+    expect(std.text()).toContain(`Sign in at ${server.url}/ask/device?user_code=${USER_CODE}`);
+  });
+
+  it('takes the device flow on Linux with no display, and the loopback with one', async () => {
+    server = await startServer({ codes: ['code-1', 'code-2'] });
+    const { root } = repoWith(server.url);
+    const headless = devicePage({ polls: [approved('code-1')] });
+    const noBrowser = fakeBrowser();
+    expect(await main(['signin'], { env: {}, platform: 'linux', cwd: root, ...io(), home: freshHome(), openBrowser: noBrowser.open, fetch: headless.fetch })).toBe(0);
+    expect(noBrowser.opened).toEqual([]);
+    expect(headless.polls()).toHaveLength(1);
+
+    const desktop = devicePage();
+    const browser = fakeBrowser({ code: 'code-2' });
+    expect(await main(['signin'], { env: { DISPLAY: ':0' }, platform: 'linux', cwd: root, ...io(), home: freshHome(), openBrowser: browser.open, fetch: desktop.fetch })).toBe(0);
+    expect(browser.opened).toHaveLength(1);
+    expect(desktop.calls).toEqual([]);
+  });
+
+  it('honours a slow_down and keeps polling until approved', async () => {
+    server = await startServer({ codes: ['code-1'] });
+    const { root } = repoWith(server.url);
+    const page = devicePage({ polls: [pending, { status: 429, body: { status: 'slow_down', interval: 0.03 } }, pending, approved()] });
+    const std = io();
+
+    expect(await main(['signin'], { ...CLOUD, cwd: root, ...std, home: freshHome(), fetch: page.fetch })).toBe(0);
+
+    expect(page.polls()).toHaveLength(4);
+    expect(std.text().trim().split('\n').at(-1)).toBe('signed in as person@example.com');
+  });
+
+  const endings: [string, Parameters<typeof devicePage>[0], string][] = [
+    ['refused in the browser', { polls: [pending, { status: 403, body: { status: 'denied' } }] }, 'omni signin: the sign-in was refused in the browser'],
+    ['expired on the page', { polls: [{ status: 410, body: { status: 'expired' } }] }, 'omni signin: the sign-in link expired: run omni signin again'],
+    ['past its own wait', { issued: { expires_in: 0.05 } }, 'omni signin: the sign-in link expired: run omni signin again'],
+    ['unreachable while polling', { polls: [pending, 'unreachable'] }, 'omni signin: unreachable'],
+    ['unreachable when issuing', { issue: 'unreachable' }, 'omni signin: unreachable'],
+    ['failing when issuing', { issue: 500 }, 'omni signin: unreachable'],
+  ];
+  for (const [what, setup, line] of endings) {
+    it(`ends with one line, exit 1, and writes nothing when ${what}`, async () => {
+      server = await startServer({ codes: ['code-1'] });
+      const { root } = repoWith(server.url);
+      const home = freshHome();
+      const browser = fakeBrowser();
+      const std = io();
+
+      expect(await main(['signin'], { ...CLOUD, cwd: root, ...std, home, openBrowser: browser.open, fetch: devicePage(setup).fetch })).toBe(1);
+
+      expect(std.errors()).toBe(`${line}\n`);
+      expect(browser.opened).toEqual([]);
+      expect(existsSync(join(home, ...FILE))).toBe(false);
+      expect(server.calls.filter((c) => c.path === '/api/ask/token')).toEqual([]);
+    });
+  }
+
+  it('says why when the page refuses the code it handed over', async () => {
+    server = await startServer({ codes: [] });
+    const { root } = repoWith(server.url);
+    const home = freshHome();
+    const std = io();
+
+    expect(await main(['signin'], { ...CLOUD, cwd: root, ...std, home, fetch: devicePage({ polls: [approved('unknown')] }).fetch })).toBe(1);
+
+    expect(std.errors()).toMatch(/omni signin: the sign-in was refused: invalid grant/);
+    expect(existsSync(join(home, ...FILE))).toBe(false);
+  });
+
+  for (const status of [404, 503]) {
+    it(`falls back to the browser on this machine when the page answers ${status} (no device sign-in there)`, async () => {
+      server = await startServer({ codes: ['code-1'], email: 'ada@example.com' });
+      const { root } = repoWith(server.url);
+      const browser = fakeBrowser();
+      const page = devicePage({ issue: status });
+      const std = io();
+
+      expect(await main(['signin'], { ...CLOUD, cwd: root, ...std, home: freshHome(), openBrowser: browser.open, fetch: page.fetch })).toBe(0);
+
+      expect(std.errors()).toBe('this Omni page has no device sign-in yet: using the browser on this machine\n');
+      expect(browser.opened).toHaveLength(1);
+      expect(std.text()).toContain(`Sign in in your browser: ${String(browser.opened[0])}`);
+      expect(std.text()).not.toContain('Sign in at');
+      expect(std.text().trim().split('\n').at(-1)).toBe('signed in as ada@example.com');
+      expect(page.polls()).toEqual([]);
+    });
+  }
+
+  it('takes no flag but --device, and no argument', async () => {
+    const { root } = repoWith('https://ask.example.com');
+    for (const args of [['signin', '--device', 'now'], ['signin', '--browser']]) {
+      const std = io();
+      expect(await main(args, { ...CLOUD, cwd: root, ...std, home: freshHome() }), args.join(' ')).toBe(2);
+    }
   });
 });
 
