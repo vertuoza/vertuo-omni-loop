@@ -16,6 +16,7 @@
  *
  * Pure, with its sink and clock injected; {@link log} is the one writing to stdout.
  */
+import type { PrdNumber } from '../ids.ts';
 
 /** The fields a line may carry; anything else is dropped. `level` is set by the method called. */
 export const LOG_FIELDS = [
@@ -48,7 +49,7 @@ export type LogEntry = {
   /** How long the run took, in milliseconds. */
   ms?: number;
   repo?: string;
-  prd?: number | string;
+  prd?: PrdNumber;
   deliveryId?: string;
   runId?: string;
   /** The function or GitHub event name that ran. */

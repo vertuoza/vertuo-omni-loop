@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createLogger, log, LOG_FIELDS, type LogSink } from './log.ts';
+import { parsePrd } from '../ids.ts';
 
 /** A logger writing into an array, on a clock the test moves. */
 function harness() {
@@ -43,7 +44,7 @@ describe('a log call', () => {
       outcome: 'ok',
       ms: 40,
       repo: 'acme/widgets',
-      prd: 7,
+      prd: parsePrd(7),
       deliveryId: 'd-1',
       runId: 'r-1',
       fn: 'stage-forward',
