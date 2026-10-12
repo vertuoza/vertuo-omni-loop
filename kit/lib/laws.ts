@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from './context.ts';
-import { ID_SHAPE, resolveId } from './knowledge/registers.ts';
+import { ID_SHAPE, isLaw, readKnowledge, resolveId, type KnowledgeEntry } from './knowledge/registers.ts';
 import { group } from './narrow.ts';
 
 /** Where a repository's laws come from: `laws.source` in its config. */
@@ -76,11 +76,23 @@ export function lawsFor(ctx: Context): Laws {
   }
 
   function floorsHigh(bearsOn: string): boolean {
-    // A proposed entry (PRD #68) is no law until a person removes its `Proposed:` line.
+    // Floors high: any entry a person confirmed — a principle, a rule, or a law (a locked rule or
+    // invariant, PRD 1726, `lockedLaws`). "Floors high" is not "is a law": an unlocked rule still
+    // weighs high, as it always has. A proposed entry (PRD #68) floors nothing until a person removes
+    // its `Proposed:` line.
     if (source === 'knowledge') return ID_SHAPE.test(bearsOn) && !resolveId(bearsOn, { ctx })?.proposed;
     if (source === 'claudeMdInvariants') return invariantSet().has(bearsOn);
     return false;
   }
 
   return Object.freeze({ source, resolve, floorsHigh });
+}
+
+/**
+ * The repository's laws (PRD 1726): every rule or invariant of the knowledge folder a person locked
+ * ({@link isLaw}), in the folder's order. None unless `laws.source` is `knowledge`.
+ */
+export function lockedLaws(ctx: Pick<Context, 'root' | 'layout' | 'config'>): KnowledgeEntry[] {
+  if (ctx.config.laws.source !== 'knowledge') return [];
+  return readKnowledge({ ctx }).entries.filter(isLaw);
 }

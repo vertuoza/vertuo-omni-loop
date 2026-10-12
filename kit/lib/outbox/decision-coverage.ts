@@ -42,8 +42,8 @@ export type CoverageContext = Pick<Context, 'root' | 'config'> & {
   layout: Pick<Context['layout'], 'knowledgeRoot' | 'adrDir'>;
 };
 import type { NameStatus } from '../git.ts';
-import { readKnowledge, readRegisters } from '../knowledge/registers.ts';
-import type { KnowledgeEntry, KnowledgeSource } from '../knowledge/registers.ts';
+import { isConfirmedRule, readKnowledge, readRegisters } from '../knowledge/registers.ts';
+import type { KnowledgeSource } from '../knowledge/registers.ts';
 
 /** One change a rule fired on, and which rule. */
 export type RiskyChange = { path: string; status: string; rule: string };
@@ -136,22 +136,18 @@ const LAW_DEMOTED = 'law-demoted';
 /** The five per-change rule ids, in `RULES`' own order, then `law-demoted`, read over the range. */
 export const RULE_IDS = [...RULES.map((rule) => rule.id), LAW_DEMOTED];
 
-/** A rule or an invariant no person still has to confirm: a law (a proposed entry is none yet). */
-function isLaw(entry: KnowledgeEntry): boolean {
-  return (entry.kind === 'rule' || entry.kind === 'invariant') && entry.proposed === null;
-}
-
 /**
- * The register files where a law was demoted between `base` and the head (`ctx.root`), each once:
- * the base's file of a law the head no longer holds, and the head's file of a law whose base named
- * a proof path and whose head is `pending #<n>` or `unenforced`. A law moved to another path, or
- * promoted, is not demoted. Never fires when `ctx.config.laws.source` is not `'knowledge'`.
+ * The register files where a confirmed rule or invariant ({@link isConfirmedRule}: every law, and
+ * every rule no `Proposed:` line holds back) was demoted between `base` and the head (`ctx.root`),
+ * each once: the base's file of one the head no longer holds, and the head's file of one whose base
+ * named a proof path and whose head is `pending #<n>` or `unenforced`. One moved to another path,
+ * or promoted, is not demoted. Never fires when `ctx.config.laws.source` is not `'knowledge'`.
  */
 function demotedFiles({ ctx, base }: { ctx: CoverageContext; base: KnowledgeSource }): string[] {
   if (ctx.config.laws.source !== 'knowledge') return [];
   const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
   const files = new Set<string>();
-  for (const was of readKnowledge({ ctx, source: base }).entries.filter(isLaw)) {
+  for (const was of readKnowledge({ ctx, source: base }).entries.filter(isConfirmedRule)) {
     const now = head.get(was.id);
     if (now === undefined) files.add(was.file);
     else if (was.enforced && !now.enforced) files.add(now.file);
