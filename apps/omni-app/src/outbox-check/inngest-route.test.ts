@@ -74,6 +74,6 @@ describe('/api/inngest — the environment, read when the route loads (PRD 1059)
   });
 
   it('loads on a preview with nothing set', async () => {
-    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(9);
+    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(10);
   });
 });
