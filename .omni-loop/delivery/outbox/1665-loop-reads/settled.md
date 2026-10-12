@@ -471,3 +471,241 @@ A file move and two paths, in either landing.
 ```
 
 <!-- /omni-outbox-settled: s2-03-shared-fixtures-home -->
+
+<!-- omni-outbox-settled: s3-01-gh-bridge-callers -->
+
+## s3-01-gh-bridge-callers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s3
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-gh-bridge-callers
+prd: 1665
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+The board is now built from the Omni page, but three other commands build the same board and are moved by later slices. Until then, where should those three read the board from?
+
+## The decision, in plain words
+
+Those three keep reading the board the old way, through a small bridge, so they behave exactly as today, while the board command itself reads only the Omni page. The later slices switch the three over and delete the bridge.
+
+## The intro, for fun
+
+Three passengers still hold paper tickets on the day the train goes digital.
+
+## The punchline, for fun
+
+They board as before, and the next two stops swap their tickets.
+
+## The options, in plain words
+
+A. Keep the three on the gh bridge until s4 and s5 move them, as built.
+B. Move the three to the Omni page now, rewriting their board fixtures in s4's and s5's test files.
+C. Keep a second copy of the board builder that reads the old way, beside the new one.
+
+## What I had to decide
+
+Whether omni next, omni care and the status line's refresh, which call buildBoard and belong to s4 and s5, keep their gh reads through a transitional BoardReads adapter (kit/lib/loop-reads/gh-bridge.ts) until s4 and s5 hand them the Omni page's LoopReads. Building it meant small edits outside s3's territory: buildBoard is now async, so kit/bin/commands/next.ts (boardFacts, readFacts), kit/bin/commands/care.ts (waveClaims, runState, run) and kit/bin/commands/statusline.ts (refreshPrdBoard, which checks lockHeld before reading since refreshBoard takes a sync build) await it; GhPrListSchema and GhPrCommitsSchema moved from kit/bin/schema.ts (and their cases from kit/bin/schema.test.ts) into the bridge, the only reader left.
+
+## What I did meanwhile
+
+Built the bridge with the very gh calls the board ran (same args, same environment), mapping each pull request to a LoopChange; what gh throws holds that repository only. next.test.ts, care.test.ts and statusline.test.ts pass unchanged.
+
+## What it costs to change later
+
+s4 and s5 replace one ghBoardReads(...) call each with boardReads(omniLoopReads(...)); s6's guard test then deletes gh-bridge.ts and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The status line's refresh now reads the board before it takes its lock (it skips when the lock is held), so two refreshes that start in the same instant can both read; before, the second waited on the lock and read nothing.
+- (author) Whether s4 and s5 would rather have had the callers moved straight to the Omni page here, with their tests, was not asked.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-gh-bridge-callers -->
+
+<!-- omni-outbox-settled: s3-02-contract-one-copy -->
+
+## s3-02-contract-one-copy — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s3
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-contract-one-copy
+prd: 1665
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+The page and the kit must read the same answer shapes, and the kit may not borrow the page's code. Where does the one copy of those shapes live now that the kit reads them?
+
+## The decision, in plain words
+
+The one copy now lives with the kit's reader, and the page builds its own stricter answers from it, as the earlier decision planned. The kit tolerates extra fields so an older kit still reads a newer page.
+
+## The intro, for fun
+
+One rulebook, two players, and only one of them may walk into the other's house.
+
+## The punchline, for fun
+
+So the rulebook moved to the house both are allowed into.
+
+## The options, in plain words
+
+A. One copy in the kit, the page building strict answers from it, as built.
+B. Two copies, one per side, held equal by the shared examples only.
+C. One copy in the kit, the page re-exporting it as is, loose.
+
+## What I had to decide
+
+Settled item s1-01 (option A) said to move the contract next to the kit's reader in the slice that shares it. Built: kit/lib/loop-reads/contract.ts holds the fields (z.object, unknown keys dropped, so a newer page still reads), with Loop-prefixed names (LoopChangeSchema, LoopChange…) so no export name is declared twice; apps/galaxy/src/loop/loop.contract.ts, outside s3's territory, now builds its strict answer schemas from those shapes (z.strictObject, url as z.url(), the 200 caps), its own query schemas unchanged. The kit's copy drops LoopRefusal for LoopErrorSchema. Two copies held equal only by the shared examples were refused by the repository's duplication gate.
+
+## What I did meanwhile
+
+Both sides still parse apps/galaxy/src/loop/fixtures/contract.json (kit/lib/loop-reads/contract.test.ts reads it by path); the galaxy's loop tests and typecheck pass unchanged.
+
+## What it costs to change later
+
+A file's imports: the galaxy contract can go back to its own fields in one edit, the routes and their tests keep their imports.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The galaxy now answers with schemas whose fields come from kit/lib; a kit change to a shape changes what the page sends on its next deploy. The shared examples catch a mismatch on either side, but the order of deploys still matters (landing 1 first).
+- (author) The Loop prefix on the kit's names is mine; the spec names the shapes Change, Issue and so on.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-contract-one-copy -->
+
+<!-- omni-outbox-settled: s3-03-read-error-lines -->
+
+## s3-03-read-error-lines — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s3
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-read-error-lines
+prd: 1665
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+The spec names six lines a read can stop on, but a few cases it does not name came up, and the board needs to know which refusals stop everything and which stop one repository only. What should those say and do?
+
+## The decision, in plain words
+
+A refusal that concerns one repository marks only that repository's work unreadable; no sign-in, no answer, or a page without these reads stops the whole board. Three unnamed cases got a plain line of their own, and the page's own words are printed when it gives some.
+
+## The intro, for fun
+
+Six warning signs were painted; the road turned out to have nine bends.
+
+## The punchline, for fun
+
+The extra bends got plain signs in the same paint.
+
+## The options, in plain words
+
+A. Keep the lines and scopes as built.
+B. Print the kit token's own refusal line instead of the no sign-in line when a kit token is in use.
+C. Make every refusal stop the whole board, as a missing gh did.
+
+## What I had to decide
+
+Lines and scopes the spec does not settle, in kit/lib/loop-reads/omni.ts: 403, 424, 429, and a 404 carrying the page's words (a missing change, settled item s1-03) hold one repository; 401, no sign-in, a timeout or no network, and a bare 404 hold everything (exit 1). The page's {error} is printed after 'refused (<status>): ' without its closing full stop; without one, the spec's words. Unnamed: no ask.url prints 'no Omni page is set here (ask.url)' (as the approval reader says); another status prints 'refused (<status>): <words, or: the Omni page answered <status>>'; an answer the contract does not read prints 'the Omni page answered outside the loop's contract (<path>)'. A kit-token exchange refused (401) prints 'no sign-in (omni signin)', not the token's own line. The reads go through a new askClient method, readLoop (kit/lib/ask/client.ts, outside s3's territory).
+Decided by: Jev (hardToRevert 0.42) · agent said false
+
+## What I did meanwhile
+
+Built and tested each line through the adapter with an injected fetch, and through omni board's main().
+
+## What it costs to change later
+
+A constant or a status set in omni.ts and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) With OMNI_TOKEN set, an expired or revoked kit token now prints the generic no sign-in line, losing the token's own clearer line.
+- (author) Whether a 404 with the page's words should hold one repository or everything was judged from s1-03 alone.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-read-error-lines -->
