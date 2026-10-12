@@ -9,6 +9,11 @@
       "name": "omni",
       "source": "./kit/plugin",
       "description": "The Omni Loop skills, typed /omni:<skill>."
+    },
+    {
+      "name": "omni-hud",
+      "source": "./kit/plugin-hud",
+      "description": "The Omni Loop's band above the prompt: what this session is on, its stage and its links. /omni-hud turns it off."
     }
   ]
 }

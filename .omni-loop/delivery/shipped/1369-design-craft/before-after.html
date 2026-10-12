@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design craft · before and after</title>
+<style>
+/* Layout: two columns, today beside after, each a stack of the same three moments of a UI slice. */
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1f24; --muted: #5d6270; --line: #dcdad3;
+  --term: #15171c; --term-ink: #d9dde6; --term-dim: #8a91a3;
+  --ok: #1f7a4d; --warn: #9a5b00; --off: #8a91a3; --accent: #2f5bd3;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14161a; --panel: #1c1f25; --ink: #e8eaef; --muted: #a2a8b6; --line: #2e323b;
+    --term: #0d0f12; --ok: #4fc58a; --warn: #e3a64a; --accent: #7d9bff; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 32px 16px 48px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; text-wrap: balance; }
+.lede { color: var(--muted); margin: 0 0 28px; max-width: 70ch; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.col > h2 { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+.card h3 { margin: 0 0 8px; font-size: .95rem; }
+.card p { margin: 0 0 8px; color: var(--muted); }
+pre { margin: 0; background: var(--term); color: var(--term-ink); font: 12.5px/1.6 var(--mono);
+  padding: 12px 14px; border-radius: 6px; overflow-x: auto; }
+.dim { color: var(--term-dim); }
+.g { color: #6fd39b; } .y { color: #f0b860; }
+ul.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .9rem; }
+ul.checks li { display: grid; grid-template-columns: 1.4em 1fr; }
+.ok { color: var(--ok); font-weight: 600; } .no { color: var(--warn); font-weight: 600; } .na { color: var(--off); }
+.shots { display: flex; gap: 12px; align-items: flex-end; margin-top: 12px; flex-wrap: wrap; }
+.shot { border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 6px; display: grid; gap: 4px; }
+.shot svg { display: block; max-width: 100%; height: auto; }
+.shot span { font: 11px var(--mono); color: var(--muted); }
+.empty { border: 1px dashed var(--line); border-radius: 6px; padding: 18px; text-align: center; color: var(--muted); font-size: .9rem; }
+.note { font-size: .85rem; color: var(--muted); margin-top: 28px; max-width: 80ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Design craft that follows the product</h1>
+  <p class="lede">PRD 1369. What an agent reads, and what a UI sub-PR shows, when the loop builds a screen: today, and once the <code>design</code> form and the auto-review exist.</p>
+
+  <div class="cols">
+    <section class="col">
+      <h2>Today</h2>
+
+      <div class="card">
+        <h3>1 · What the agent knows about the product's look</h3>
+        <pre><span class="dim">$</span> omni kb show design
+<span class="y">error: no form "design"</span>
+<span class="dim">forms: briefing, setup, architecture, testing, …</span></pre>
+        <p style="margin-top:8px">Nothing. Each skill reads tokens and styles ad hoc, if it thinks to.</p>
+      </div>
+
+      <div class="card">
+        <h3>2 · Building a UI slice in /omni:do-work</h3>
+        <pre><span class="dim">review</span>  tests green · preflight green
+<span class="dim">        </span>no screen looked at</pre>
+      </div>
+
+      <div class="card">
+        <h3>3 · The sub-PR a person opens</h3>
+        <p><strong>Verified</strong></p>
+        <ul class="checks">
+          <li><span class="ok">✓</span><span>pnpm test</span></li>
+          <li><span class="ok">✓</span><span>omni check all</span></li>
+        </ul>
+        <div class="empty" style="margin-top:12px">No screenshot. Whether it looks like the product is found out in review, by a person.</div>
+      </div>
+    </section>
+
+    <section class="col">
+      <h2>After</h2>
+
+      <div class="card">
+        <h3>1 · The <code>design</code> form, filled from the repository</h3>
+        <pre><span class="dim">$</span> omni kb show design
+<span class="g">## Product</span>  [repo · verified 2026-10-12]
+Site managers on a phone, outdoors; plain words.
+<span class="g">## System</span>  [repo]
+Tokens  packages/ui/tokens.css@3f2a1c
+Components  packages/ui/src/  (Button, Field, Table…)
+<span class="g">## Deliberate</span>  [repo]
+Dense tables on desktop; Inter is our brand face.
+<span class="g">## Review</span>  [repo]
+Widths 390, 1440 · sign in with proof session
+<span class="dim">(the craft floor sets Inter aside: the product chose it)</span></pre>
+      </div>
+
+      <div class="card">
+        <h3>2 · Building a UI slice in /omni:do-work</h3>
+        <pre><span class="dim">$</span> omni design touched
+ui: yes  <span class="dim">apps/web/src/pages/Quote.tsx</span>
+<span class="dim">review</span>  follows /omni:pixel-perfect review
+<span class="dim">        </span>critique · audit · lint · screenshots · polish
+<span class="dim">        </span>1 batch of fixes · 1 confirming look · never blocks</pre>
+      </div>
+
+      <div class="card">
+        <h3>3 · The sub-PR a person opens</h3>
+        <p><strong>Verified</strong></p>
+        <ul class="checks">
+          <li><span class="ok">✓</span><span>pnpm test</span></li>
+          <li><span class="ok">✓</span><span>omni check all</span></li>
+        </ul>
+        <p style="margin-top:12px"><strong>Design review</strong></p>
+        <ul class="checks">
+          <li><span class="ok">✓</span><span>Critique: tokens and Table component used, no raw colour</span></li>
+          <li><span class="ok">✓</span><span>Floor: fixed the empty state and a 3.9:1 label</span></li>
+          <li><span class="na">—</span><span>Design lint: not set here</span></li>
+          <li><span class="ok">✓</span><span>Matches the "after" mockup at 390 and 1440</span></li>
+          <li><span class="no">✗</span><span>Kept the toolbar on two rows at 390: sent to the outbox</span></li>
+        </ul>
+        <div class="shots">
+          <div class="shot">
+            <svg width="70" height="130" viewBox="0 0 70 130" aria-label="Phone screenshot">
+              <rect width="70" height="130" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+              <rect x="6" y="8" width="40" height="6" rx="2" fill="var(--ink)"/>
+              <rect x="6" y="20" width="58" height="10" rx="2" fill="var(--accent)" opacity=".85"/>
+              <rect x="6" y="36" width="58" height="4" rx="2" fill="var(--line)"/>
+              <rect x="6" y="44" width="58" height="4" rx="2" fill="var(--line)"/>
+              <rect x="6" y="52" width="44" height="4" rx="2" fill="var(--line)"/>
+              <rect x="6" y="112" width="58" height="10" rx="3" fill="var(--ink)"/>
+            </svg>
+            <span>390</span>
+          </div>
+          <div class="shot">
+            <svg width="200" height="125" viewBox="0 0 200 125" aria-label="Desktop screenshot">
+              <rect width="200" height="125" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+              <rect x="0" y="0" width="38" height="125" rx="6" fill="var(--line)" opacity=".6"/>
+              <rect x="48" y="10" width="70" height="7" rx="2" fill="var(--ink)"/>
+              <rect x="150" y="9" width="40" height="10" rx="3" fill="var(--accent)" opacity=".85"/>
+              <rect x="48" y="28" width="142" height="5" rx="2" fill="var(--line)"/>
+              <rect x="48" y="38" width="142" height="5" rx="2" fill="var(--line)"/>
+              <rect x="48" y="48" width="142" height="5" rx="2" fill="var(--line)"/>
+              <rect x="48" y="58" width="142" height="5" rx="2" fill="var(--line)"/>
+              <rect x="48" y="68" width="100" height="5" rx="2" fill="var(--line)"/>
+            </svg>
+            <span>1440</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <p class="note"><code>/omni:pixel-perfect</code> is impeccable's critique, audit, polish, harden, typeset, layout, adapt and clarify, imported into the kit and tailored: no dependency to install. Anyone can type <code>/omni:pixel-perfect polish the quote page</code>. All of this is behind one config flag, <code>design.enabled</code>, off by default: a repository turns it on to opt in, and off to get today's loop back. Same for <code>/omni:visual-fix</code>: its real check runs the review against the variation the person picked. A repository with no screen keeps the form blank and never runs it. Imported from pbakaus/impeccable (Apache-2.0); the product's own design always wins over its craft floor.</p>
+</div>
+</body>
+</html>

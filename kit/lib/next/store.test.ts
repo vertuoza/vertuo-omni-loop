@@ -17,6 +17,13 @@ describe('the loop plan file', () => {
     expect(readFileSync(join(root, dirname(LOOP_PLAN_FILE), '.gitignore'), 'utf8')).toBe('*\n');
   });
 
+  it("keeps a plan repository's steps with their repositories (PRD 1162, slice s1)", () => {
+    const root = mkdtempSync(join(tmpdir(), 'omni-'));
+    const across = planLoop({ prds: [{ prd: parsePrd(7), blockedBy: [], slices: [{ id: parseWorkSliceId('s1'), territory: ['a/'], wave: 1, state: 'runnable', repo: 'crew' }], ended: null }], shipped: [] });
+    writeLoopPlans(root, [across]);
+    expect(readLoopPlans(root)[0]?.steps[0]?.repos).toEqual(['crew']);
+  });
+
   it('reads a missing, broken or foreign file as no plan', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-'));
     expect(readLoopPlans(root)).toEqual([]);

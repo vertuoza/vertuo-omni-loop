@@ -24,6 +24,11 @@ Either way, [How the loop works](/docs/loop) then shows the loop in three drawin
 [Your first PRD](/docs/first-prd) takes an idea of yours all the way through it. Each page ends
 with a link to the next.
 
+You need no product to start. A [product](/docs/products) on the Omni page is optional: it gathers
+the repositories it is built from, gives its PRDs a home and approvers, and a repository can be in
+none, one or several. A product can also hold a PRD built across its repositories, with no plan
+repository: a [product PRD](/docs/products#a-product-prd).
+
 ## What you will have at the end
 
 - **A laptop ready for the loop.** The `omni` command, the loop's skills in your Claude Code, your
@@ -69,9 +74,13 @@ to the repository: that is all. Setting the loop up on a repository, you also ne
    setting the loop up on it.
 3. **Join a team**: the loop already runs in your organization; your way around it.
 4. **Invade**: letting the loop read your repository and write down what it learned.
-5. **How the loop works**: its stages, its pull requests and its skills, in three drawings.
+5. **How the loop works**: its stages, its pull requests and its skills, in three drawings, and
+   [laws and their tests](/docs/loop#laws-and-their-tests): what a law is, `/omni:enforce` and the
+   sweep.
 6. **Your first PRD**: from an idea to a merged feature and its release note.
-7. **Use cases**: what to type for each thing you want to do.
-8. **When something goes wrong**: the errors a first run meets, and their fix.
+7. **Design craft**, opt-in: the loop checks every screen it builds against your product's own
+   look, and `/omni:pixel-perfect` brings design commands you can type on any screen.
+8. **Use cases**: what to type for each thing you want to do.
+9. **When something goes wrong**: the errors a first run meets, and their fix.
 
 [Next → Install](/docs/install)

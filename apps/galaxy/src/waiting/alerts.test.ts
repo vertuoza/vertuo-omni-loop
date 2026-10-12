@@ -201,6 +201,8 @@ describe('desktop alerts', () => {
   it('says what waits in words a person reads, and where it opens', () => {
     expect(alertOf(q('r 1'))).toEqual({ title: 'Claude is asking: Which r 1?', body: 'terminal r 1', tag: 'r 1', href: '/ask/q/r%201' });
     expect(alertOf(o('i1', 459))).toEqual({ title: 'PRD 459 outbox: Keep i1?', body: 'Gate 459', tag: 'i1', href: '/prd/d-459?tab=outbox' });
+    expect(alertOf({ kind: 'approval', id: 'req 1', prd: parsePrd(1322), dossierId: 'd 1322', title: 'The approval handshake', repo: 'acme/mobile', askedAt: 0 }))
+      .toEqual({ title: 'PRD 1322 waits for your approval', body: 'The approval handshake', tag: 'req 1', href: '/prd/d%201322' });
   });
 });
 

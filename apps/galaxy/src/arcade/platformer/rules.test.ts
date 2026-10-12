@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hearRun, heroSpeed, JUMP, JUMP_IDLE, jumpStep, LIFE_EVENTS, LIVES, longestPit, newRun, nextRun, nextStage, PHYSICS, SCORE, simulateJump, STAGE_SECONDS, TILE, WORLD, type Outcome, type PlatformerEvent, type Run } from './rules';
+import { hearRun, heroSpeed, highestLedge, JUMP, JUMP_IDLE, jumpStep, LIFE_EVENTS, LIVES, longestPit, newRun, nextRun, nextStage, PHYSICS, SCORE, simulateJump, STAGE_SECONDS, TILE, WORLD, type Outcome, type PlatformerEvent, type Run } from './rules';
 
 // Super Omni World's rules without Phaser (PRD 817): the numbers the scene plays by, and the jump
 // that grows with how long A is held.
@@ -25,6 +25,10 @@ describe('the jump', () => {
     const top = simulateJump(JUMP.holdMax).height;
     expect(top).toBeGreaterThan(PHYSICS.heroH);
     expect(top).toBeLessThan(TILE * 8);
+  });
+
+  it('lands on a ledge five tiles over the ground, where the stages put their bricks and ? blocks', () => {
+    expect(highestLedge()).toBeGreaterThanOrEqual(5);
   });
 
   it('starts only from the ground, on a fresh press of A', () => {

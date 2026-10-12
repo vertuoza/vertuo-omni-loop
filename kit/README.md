@@ -5,7 +5,8 @@ and the `omni` plugin for Claude Code (`kit/plugin/`: its skills and hooks). A r
 both to run the Omni Loop; everything specific to that repository is read from its
 `.omni-loop/config.yml`.
 
-**Installing.** A laptop needs Node 22 or later, git, gh signed in and Claude Code signed in, then
+**Installing.** A laptop needs Node 22 or later, git, gh signed in (for what the loop writes on
+GitHub: comments, labels, pull requests) and Claude Code signed in, then
 `omni` once: `npm install -g github:vertuoza/vertuo-omni-loop` (check it with `omni --version`).
 The global `omni` is the same bundle: inside a repository that has the kit it runs that
 repository's own `.omni-loop/bin/omni.mjs`, and outside one only `init`, `help` and `--version`
@@ -15,6 +16,29 @@ only its own files, pushes and opens the install pull request, installs the `omn
 offers sign-in; a step it cannot do prints the lines to type instead. What is left is the GitHub
 App link it prints and merging the pull request. The full walk-through is the Getting Started
 guide, `docs/guide/install.md`.
+
+**Reading the loop needs a sign-in, not `gh`.** The commands that decide what the loop plans or runs
+next read its state (a repository's changes, a change's review, its comments and issues) from the
+Omni page at `ask.url`, never through `gh`: `omni board`, `omni next`, `omni care`'s reads,
+`omni roadmap`'s gate, `omni statusline --refresh`, `omni dossier`'s issue title and
+`omni flow check merge`. So they run in any coding agent that has the kit and HTTPS, a Claude Code
+cloud session included, with no `gh` signed in. They need a sign-in: `omni signin` once per
+computer, or the kit token `OMNI_TOKEN` (`omni setup-token`) where no one can sign in. The page reads
+each repository with its GitHub App, so the repository must be in your workspace and the app
+installed on it. A read that cannot be made prints one line and exits `1`: `no sign-in (omni
+signin)`, `unreachable` (no answer within 15 seconds), `refused (403)` (the repository is not in
+your workspace), `refused (424)` (the app cannot read it, with the link that installs it),
+`refused (429)` (GitHub's budget for it is spent, with when it refills) or `refused (404): this
+Omni page cannot read the loop yet`. The skills treat each line as held, not failed. Writes (comments,
+labels, `omni care reply`, creating, readying or merging pull requests), git, and the setup and
+maintenance commands (`init`, `update`, `version`, `credits`, `harvest`, `targets`) still use `gh`.
+
+**Self-hosting the Omni page.** The kit depends on the loop's read contract (`GET
+<ask.url>/api/loop/changes`, `/changes/<n>`, `/comments`, `/issues` and `/issues/<n>`, whose shapes
+`kit/lib/loop-reads/contract.ts` holds), never on omni-loop.xyz. A team that runs its own Omni page
+sets `ask.url` in `.omni-loop/config.yml` to that page's address (`ask: { url:
+https://omni.example.com }`), signs in to it with `omni signin`, and every read goes there. A page
+older than the contract answers `refused (404): this Omni page cannot read the loop yet`: update it.
 
 **Updating.** Every merge to the kit's `main` cuts a release (`v0.0.1`, `v0.0.2`, …), and
 `omni version` says which one a repository runs and whether a newer one exists. A repository moves
@@ -47,6 +71,18 @@ whenever the page cannot answer, the question shows in the terminal as usual. Th
 kept: the whole workspace reads them, sorted and searchable, on the page's History, and a live one
 can be shared with a teammate, who answers it on its own link.
 
+**Signing in from any machine.** `omni signin` (and `omni setup-token`, which makes a kit token for a
+cloud session's `OMNI_TOKEN`) finishes one of two ways. On a laptop it opens the Omni page in the
+browser, which comes back to the terminal on `127.0.0.1`, and prints a device link under it as a
+fallback: `Browser didn't open, or it's on another machine? <link>  (code <c>)`; whichever comes back
+first wins. In a remote session (a Claude Code cloud session, SSH, a Codespace: `CLAUDE_CODE_REMOTE`,
+`SSH_CONNECTION`, `SSH_TTY` or `CODESPACES` set), or on Linux with no display, it takes the device
+flow: it prints `Sign in at <ask.url>/ask/device?user_code=<c>`, opens no browser, and waits up to 10
+minutes while the person opens the link in any browser, checks that the page shows the same code and
+signs in; nothing is pasted back. `--device` and `--loopback` force one flow or the other. An Omni page
+without the device sign-in says so and the browser on this machine takes over. `omni setup-token`
+then prints the token, its expiry and the line to paste it by, and keeps it nowhere.
+
 **The status line** shows two lines at the bottom of every Claude Code session opened in the
 repository or one of its worktrees: the model, how full the context window is (a bar of 10 cells,
 green under 50 %, yellow from 50, red from 80), the 5-hour usage and when it resets, and `ask on`
@@ -60,6 +96,21 @@ and leaves a file that is not valid JSON as it is. A person who wants their own 
 `statusLine` in `.claude/settings.local.json`, which Claude Code reads first. The line never
 fetches and never waits on GitHub (the slices come from a board refreshed in the background at most
 once a minute), and it always exits `0`. Deleting the key switches it off.
+
+**The band** (the HUD) shows what the session is on in up to three rows above the prompt: a loop or
+roadmap it drives on top, with the roadmap's merged count; then the PRD, bug or visual fix it works
+on, with its stage and the slices being built (or, while a loop runs, the step it is doing); then
+links to open with one click: the PRD's page, its feature PR and its phase-0 PR while open, a fix's
+page and PR, the roadmap's page. It hides itself while the session is on nothing. It is the
+`omni-hud` plugin of the kit's marketplace, beside `omni`: `omni init` adds
+`"omni-hud@omni-loop": true` to `enabledPlugins` in the committed `.claude/settings.json`, by the same
+rules as the status line (the file created when missing, every other key kept, a value set by
+anyone else never touched). Typing `/omni-hud` hides the band for you, in this and later sessions,
+and typing it again shows it; setting the line to `false` removes it for the repository, and the
+status line stays. The band and the status line's second line only draw `omni now`, which any agent
+or person can run: it prints what the session is on (the headline, the work and its stage, what is
+being done now, and the links), `--json` prints the same as `{ "headline", "work", "doing" }`, with
+each one `null` when there is nothing. It reads files only, never the network, and always exits `0`.
 
 **Dossiers** keep each PRD's `spec.md`, `plan.md` and `before-after.html` on the same page, every
 version of each, with the questions that shaped it, for the whole workspace to read.
@@ -168,3 +219,33 @@ names) or `cites` (an entry to another whose id its statement or `Why:` names). 
 same parser every other command reads the registers with, so an agent can ask what serves a
 principle, or what a domain holds, in one call. A repository without a knowledge folder prints an
 empty graph.
+
+**Laws and their tests** (PRD 1342) apply only where `laws.source` is `knowledge`. A rule or an
+invariant's `Enforced by:` names a test path, `unenforced`, or `pending #<n>`: a law judged worth a
+test before it had one, whose **law issue** `#<n>` is labelled `labels.law` (default `omni:law`,
+which `omni init` creates). The classifier's reply carries `worthALaw` for every rule and invariant,
+and the harvest (`omni harvest`, and the app's) takes one of three paths for each: a test the feature
+changed becomes its `Enforced by:`; no test and not worth a law keeps it out of the registers, in its
+PRD's `settled.md` as `stays-here` with the note `not worth a law (<decided by> <score>)`; no test and
+worth a law writes it `pending #<n>` and opens its law issue. `omni decide law-worth` asks Jev's
+`law-worth` decision with the terminal's sign-in, and its answer replaces the classifier's when the
+workspace has put the decision On and Jev answers above its floor. **`omni knowledge judge`** is the
+sweep a repository runs once (it needs `OPENROUTER_API_KEY`, and exits `2` without it, writing
+nothing): every `unenforced` rule and invariant is asked "worth a law?", the model first, then
+`omni decide law-worth`; a yes opens its law issue through `gh` and becomes `pending #<n>`, a no
+leaves its register for its PRD's `settled.md` and the report names every entry that cited it; once
+every one is judged it sets `laws.requireProof: true` in the config. `omni knowledge judge <id>`
+judges that one law alone, the same way. It writes the working tree and commits nothing: a person opens the knowledge PR. With **`laws.requireProof: true`** (default
+`false`), `omni check knowledge` refuses a confirmed rule or invariant whose `Enforced by:` is
+`unenforced`; proposed entries and a plan repository's imported copies are not held to it.
+**`/omni:enforce <issue>`** writes a law's test, proves it (red with the law broken by the smallest
+change, green with the code restored, the break never committed), rewrites `pending #<n>` to the
+test's path on `branches.law` (default `test/law-{id}`) and opens one signed PR into the default
+branch that closes the issue; a test that cannot go red stops it with a comment on the issue and the
+law left `pending`. **The four law rules** of the outbox gate, `law-proof`, `law-text`,
+`test-removed` and `law-demoted` (a law's test path turned back to `pending` or `unenforced`, or a
+law gone from the registers, read against the knowledge folder at the range's base), are accounted
+only by `item <id>` naming an item ranked `high` or above: `spec <where>` is refused for them, and
+a `medium` item leaves the change unaccounted. `/omni:bug-fix` and `/omni:visual-fix` raise those
+items in a small `outbox/` of the fix's folder when their range touches a law, and `omni bug` and
+`omni visual` name what it needs.

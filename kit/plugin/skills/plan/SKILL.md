@@ -37,6 +37,11 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one l
 is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.landing`, `worktrees`,
 `paths.*`, `labels.*`, `prLinks.feature` and `acceptance.*` from it.
 
+Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and, when it
+prints `true`, `node .omni-loop/bin/omni.mjs config design.paths`. Keep both. Anything but `true`
+(or a failure) means design craft is off here: step 4 marks no slice `ui: yes`, and nothing else in
+this skill changes.
+
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
@@ -50,6 +55,19 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 1. `node .omni-loop/bin/omni.mjs prd <n>`. The PRD must be in state `inbox`, and its files must
    include a `spec.md`. Otherwise stop and say which is missing. The folder `dir` names is
    `<n>-<topic>` (the number zero-padded). Its `<topic>` fills `{topic}` in `branches.feature`.
+   It always exits 0: gate on its `state:` line, never on the exit code. A PRD born on the server
+   (◆) also prints `birthplace: server` and its `approval:` lines; its `state:` reads `inbox` only
+   once a member approved it on its page. For a ◆ PRD:
+
+   | `state:` | the plan |
+   |---|---|
+   | `inbox` | runs as written |
+   | `prd` (`approval: PRD <n> waits for approval: <link>`) | runs too: the plan is part of what the page approves, so `/omni:brainstorm` plans it before anyone approves |
+   | `drifted` (`approval: ≠ <file> · … · ✗ refuse · restore it, or approve again: <link>`) | stops, printing its `approval:` lines as they are |
+   | `unreachable` (`approval: server unreachable · held, not failed`) | stops with that line: held, not failed; run it again once the server answers |
+   | `refused` (`approval: approver <login> is not a workspace member`, or `refused (<status>)`) | stops, printing its line |
+
+   A ◇ PRD (no `birthplace:` line) never reads any of the four: it is `inbox` or not, as always.
 2. The spec, in full. Then every file in `paths.context`, the glossary at `paths.glossary` when it
    is set, and each ADR the spec cites under `paths.adr`.
 3. `gh issue view <n> --json body,comments`: the issue and any answer a person already gave on it.
@@ -62,7 +80,9 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 contradict the spec itself or an ADR it cites. The criteria are the spec's acceptance section, or,
 when it has none, its scope and test seams. The test is whether you can write every slice's
 "done when" as a condition someone can observe. If you cannot, post the question with
-`gh issue comment <n> --body-file <file>`, one numbered question per gap, and return
+`gh issue comment <n> --body-file <file>`: the file's first line is exactly
+`<!-- omni-needs-clarification -->` (how `omni roadmap push` finds it, as human work of the PRD's
+roadmap), then one numbered question per gap, the most important first. Return
 `needs clarification`. A plan is never written on a guess.
 
 ## 2. The feature branch
@@ -158,6 +178,20 @@ require. These four parts are the whole shape:
    slices, and how the waves keep them apart. A generated path is never in it.
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
    as a bullet list.
+
+**UI slices.** Only when step 0 read the design flag as `true` and `design.paths` lists globs: a
+slice whose territory meets `design.paths` (a territory prefix holds a path one glob matches, or a
+glob reaches into the prefix) is marked `ui: yes` on its done-when heading, after its id, so
+`/omni:do-work` starts its design review on it without asking:
+
+```markdown
+**s3** (`ui: yes`)
+- <its observable conditions>
+```
+
+A slice no glob meets is not marked. With the flag off, or `design.paths` empty, mark nothing:
+`/omni:do-work` then reads `omni design touched` on the built diff and judges for itself. The mark
+never changes a slice's territory, blockers or wave, and `omni plan check` does not read it.
 
 **Landings.** A PRD reaches the default branch in one pull request unless something in it must be
 deployed apart from the rest: a database migration the code needs in place first, or a contract
@@ -343,7 +377,9 @@ never stops the hand-off. Then:
 ```
 
 No folder and no stages here: run alone, this skill cannot tell whether the PRD's phase-0 PR has
-merged, so a stage marker could be wrong.
+merged, so a stage marker could be wrong. A ◆ PRD that step 1 read as `prd` gets one more line
+before the two steps: `PRD <n> waits for approval: <link>`, its `approval:` line as printed, so the
+person approves it on its page before `/omni:yolo` runs.
 
 ## Guardrails
 

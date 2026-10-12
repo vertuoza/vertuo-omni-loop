@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap human work</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--mute:#6b6a65;--line:#e2e0da;--accent:#4f46e5;
+--biz:#b45309;--biz-bg:#fef3c7;--dev:#1d4ed8;--dev-bg:#dbeafe;--ops:#7c3aed;--ops-bg:#ede9fe;--del:#047857;--del-bg:#d1fae5;
+--g1:#10b981;--g2:#6366f1;--g3:#f59e0b;--g4:#cbd5e1}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141413;--card:#1e1e1c;--ink:#ecebe6;--mute:#a3a29c;--line:#34332f;
+--biz:#fbbf24;--biz-bg:#3b2a07;--dev:#93c5fd;--dev-bg:#13254a;--ops:#c4b5fd;--ops-bg:#2a1f4a;--del:#6ee7b7;--del-bg:#0c3326;--g4:#475569}}
+:root[data-theme="dark"]{--bg:#141413;--card:#1e1e1c;--ink:#ecebe6;--mute:#a3a29c;--line:#34332f;
+--biz:#fbbf24;--biz-bg:#3b2a07;--dev:#93c5fd;--dev-bg:#13254a;--ops:#c4b5fd;--ops-bg:#2a1f4a;--del:#6ee7b7;--del-bg:#0c3326;--g4:#475569}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px 16px}
+h1{font-size:22px;margin:0 0 4px}
+.lede{color:var(--mute);margin:0 0 20px;max-width:70ch}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.col h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+.screen{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;overflow:hidden}
+.title{font-weight:600;font-size:17px;margin:0}
+.sub{color:var(--mute);font-size:13px;margin:2px 0 12px}
+.sec{font-weight:600;font-size:14px;margin:16px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.chip{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
+.k-biz{background:var(--biz-bg);color:var(--biz);border-color:transparent}
+.k-dev{background:var(--dev-bg);color:var(--dev);border-color:transparent}
+.k-ops{background:var(--ops-bg);color:var(--ops);border-color:transparent}
+.k-del{background:var(--del-bg);color:var(--del);border-color:transparent}
+.q{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:6px}
+.q b{font-weight:600}
+.group{font-size:12px;font-weight:600;margin:10px 0 4px}
+.item{border-left:3px solid var(--line);padding:4px 0 4px 10px;margin:4px 0;font-size:13px}
+.item.k-biz,.item.k-dev,.item.k-ops,.item.k-del{background:none;color:var(--ink)}
+.item.k-biz{border-left-color:var(--biz)}.item.k-dev{border-left-color:var(--dev)}.item.k-ops{border-left-color:var(--ops)}.item.k-del{border-left-color:var(--del)}
+.meta{color:var(--mute);font-size:12px}
+.act{margin-top:3px;font-size:12px;background:var(--bg);border-radius:6px;padding:4px 6px}
+a{color:var(--accent)}
+details{margin-top:10px;font-size:13px}
+summary{cursor:pointer;color:var(--mute)}
+.new{outline:2px dashed var(--accent);outline-offset:6px;border-radius:8px}
+.notes{margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:14px}
+@media (max-width:860px){.notes{grid-template-columns:1fr}}
+.notes ul{margin:4px 0;padding-left:18px}
+svg{display:block;width:100%;height:auto}
+</style>
+</head>
+<body>
+<h1>A roadmap lists all its human work, by kind</h1>
+<p class="lede">PRD #1217. The roadmap page on the Omni app, today and after. The Gantt and the open questions stay as they are. A new <b>Human work</b> item gathers every piece of human work from the roadmap's PRDs. Jev sorts each one as business, development, dev ops or delivery ops.</p>
+
+<div class="cols">
+<section class="col">
+<h2>Today</h2>
+<div class="screen">
+<p class="title">Roadmap #1190 · Billing v2</p>
+<p class="sub">milestone Q4 · target 2026-12-15 · 1 of 4 merged</p>
+<svg viewBox="0 0 400 110" role="img" aria-label="Gantt by wave">
+<g font-size="10" fill="currentColor"><text x="0" y="18">R1</text><text x="0" y="44">R2</text><text x="0" y="70">R3</text><text x="0" y="96">R4</text></g>
+<rect x="30" y="8" width="120" height="14" rx="3" fill="var(--g1)"/>
+<rect x="150" y="34" width="110" height="14" rx="3" fill="var(--g3)"/>
+<rect x="150" y="60" width="90" height="14" rx="3" fill="var(--g2)"/>
+<rect x="260" y="86" width="110" height="14" rx="3" fill="var(--g4)"/>
+</svg>
+<p class="sec">Open questions</p>
+<div class="q"><b>Q2</b> · person · Which plans get the new invoice layout first?</div>
+<p class="sec">PRDs</p>
+<div class="q">R2 #1192 Invoice export · <span class="meta">outbox: 2 questions</span></div>
+<div class="q">R3 #1193 Stripe webhooks · <span class="meta">building</span></div>
+<p class="meta" style="margin-top:12px">The secret R3 is missing, the migration R4 needs in production and the stuck slice of R2 are only visible on each PRD's own pull request.</p>
+</div>
+</section>
+
+<section class="col">
+<h2>After</h2>
+<div class="screen">
+<p class="title">Roadmap #1190 · Billing v2</p>
+<p class="sub">milestone Q4 · target 2026-12-15 · 1 of 4 merged</p>
+<svg viewBox="0 0 400 110" role="img" aria-label="Gantt by wave">
+<g font-size="10" fill="currentColor"><text x="0" y="18">R1</text><text x="0" y="44">R2</text><text x="0" y="70">R3</text><text x="0" y="96">R4</text></g>
+<rect x="30" y="8" width="120" height="14" rx="3" fill="var(--g1)"/>
+<rect x="150" y="34" width="110" height="14" rx="3" fill="var(--g3)"/>
+<rect x="150" y="60" width="90" height="14" rx="3" fill="var(--g2)"/>
+<rect x="260" y="86" width="110" height="14" rx="3" fill="var(--g4)"/>
+</svg>
+<div class="new">
+<p class="sec">Human work</p>
+<p class="chips"><span class="chip k-biz">business 1</span><span class="chip k-dev">development 1</span><span class="chip k-ops">dev ops 1</span><span class="chip k-del">delivery ops 1</span></p>
+<p class="group" style="color:var(--biz)">Business</p>
+<div class="item k-biz">Which plans get the new invoice layout first?<div class="meta">roadmap question Q2 · <a href="#">answer</a></div></div>
+<p class="group" style="color:var(--dev)">Development</p>
+<div class="item k-dev">waits on a person: slice s3 stuck after 3 attempts<div class="meta">#1192 Invoice export · vertuo-omni-loop · parked · <a href="#">feature PR</a></div></div>
+<p class="group" style="color:var(--ops)">Dev ops</p>
+<div class="item k-ops">Stripe webhook secret missing<div class="meta">#1193 Stripe webhooks · vertuo-omni-loop · outbox human-action · <a href="#">item</a></div>
+<div class="act">Add the repository secret <code>STRIPE_WEBHOOK_SECRET</code> under Settings › Secrets › Actions.</div></div>
+<p class="group" style="color:var(--del)">Delivery ops</p>
+<div class="item k-del">Run the invoices backfill in production<div class="meta">#1194 Invoice history · vertuo-omni-loop · outbox human-action · <a href="#">item</a></div>
+<div class="act">After the deploy, run <code>pnpm backfill:invoices</code> once against production.</div></div>
+<details><summary>3 done · settled human work stays listed</summary>
+<div class="item k-biz">Q1 · Keep the old PDF for a month? <span class="meta">answered 2026-10-02</span></div>
+<div class="item k-ops">GitHub App needs checks:write <span class="meta">done 2026-10-03</span></div>
+<div class="item k-dev">Use one invoice id across repos? <span class="meta">done 2026-10-04</span></div>
+</details>
+</div>
+<p class="sec">Open questions</p>
+<div class="q"><b>Q2</b> · person · Which plans get the new invoice layout first?</div>
+</div>
+</section>
+</div>
+
+<div class="notes">
+<div><b>What changes</b><ul>
+<li><code>omni roadmap push</code> also sends the human work it reads: person questions, outbox items (human-action and high), park lines, and the plan's needs-clarification comment.</li>
+<li>The app stores each one once. Jev's <code>hitl-category</code> sorts it, and when Jev is off, rules do.</li>
+<li>Work that is settled stays listed as done. The roadmap list's cards show the open count of each kind.</li>
+</ul></div>
+<div><b>What stays the same</b><ul>
+<li><code>roadmap.md</code>, its checks and the drive's parking.</li>
+<li>Outbox items and their ranks.</li>
+<li>The open questions and their answer box.</li>
+<li>A kit without this change pushes as it does today.</li>
+</ul></div>
+</div>
+</body>
+</html>

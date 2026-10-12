@@ -9,7 +9,7 @@ describe('ConfigSchema', () => {
   it('fills every section a file leaves out with its defaults', () => {
     const config = ConfigSchema.parse({ kit: 1 });
     expect(config.branches.feature).toBe('feat/{topic}');
-    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000 });
+    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3 });
     expect(config.acceptance).toEqual({ enabled: false, dir: null, pendingSuffix: null, run: null });
     expect(config.signature?.name).toBe('Omni-man');
     expect(config.plan).toBeUndefined();
@@ -22,10 +22,25 @@ describe('ConfigSchema', () => {
     expect(ConfigSchema.parse({ kit: 1, signature: null }).signature).toBeNull();
   });
 
+  it('names the approved check omni/approved unless the file renames it or turns it off with null (PRD 1548)', () => {
+    expect(ConfigSchema.parse({ kit: 1 }).ci.approvedContext).toBe('omni/approved');
+    expect(ConfigSchema.parse({ kit: 1, ci: { approvedContext: 'approved' } }).ci.approvedContext).toBe('approved');
+    expect(ConfigSchema.parse({ kit: 1, ci: { approvedContext: null } }).ci.approvedContext).toBeNull();
+    expect(ConfigSchema.parse({ kit: 1, ci: { approvedContext: 'approved' } }).ci.outboxContext).toBe('outbox');
+    expect(issues({ kit: 1, ci: { approvedContext: 3 } })[0]?.path).toEqual(['ci', 'approvedContext']);
+    expect(issues({ kit: 1, ci: { approvedContext: '' } })[0]?.path).toEqual(['ci', 'approvedContext']);
+  });
+
   it('refuses a wrong value, naming its field', () => {
     const [issue] = issues({ kit: 1, limits: { attempts: 'three' } });
     expect(issue?.path).toEqual(['limits', 'attempts']);
     expect(issue?.message).toBe('Expected number, received string');
+  });
+
+  it('limits.parallelSteps is a whole number from 1 to 6 (PRD 1205): it refuses 0, 7 and 2.5', () => {
+    expect(ConfigSchema.parse({ kit: 1, limits: { parallelSteps: 1 } }).limits.parallelSteps).toBe(1);
+    expect(ConfigSchema.parse({ kit: 1, limits: { parallelSteps: 6 } }).limits.parallelSteps).toBe(6);
+    for (const parallelSteps of [0, 7, 2.5]) expect(issues({ kit: 1, limits: { parallelSteps } })[0]?.path).toEqual(['limits', 'parallelSteps']);
   });
 
   it('refuses a key it does not name, naming the section', () => {

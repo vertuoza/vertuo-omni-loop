@@ -3,15 +3,18 @@
 // stay one line each:
 //
 //   POST /api/dossiers       {title, repo, claudeSessionId?}                         → 201 {id, url}
-//   GET  /api/dossiers?repo=<owner/name>&prd=<n>[&kind=prd|visual|bug]                → 200 {id, url}
-//   POST /api/dossiers/push  {repo, prd, kind?, title, draftId?, artifacts: [{kind, content}]}
-//                                             → 200 {id, url, added: [{kind, version}], unchanged: [kind]}
+//   GET  /api/dossiers?repo=<owner/name>&prd=<n>[&kind=prd|visual|bug|concept]        → 200 {id, url, product}
+//   POST /api/dossiers/push  {repo, prd, kind?, title, draftId?, product?, artifacts: [{kind, content}]}
+//                                             → 200 {id, url, added: [{kind, version}], unchanged: [kind], product}
 //
 // Since PRD 627 a dossier has a kind: a PRD's (`prd`, the kind of every call that sends none, so an older
 // kit pushes and finds as before), a visual fix's (`visual`) or a bug fix's (`bug`), numbered by its issue.
 // Each kind takes its own artifacts — a PRD spec, plan, before-after and (PRD 822) voice; a visual fix before-after and
 // variations, a round each, oldest first; a bug fix bug-record — and each is sent once but the rounds. A
 // fix is never a draft. The link goes to the kind's own page: /prd/<id>, /visual/<id> or /bugs/<id>.
+// Since PRD 1272 a concept is a kind too (`concept`), numbered by its issue and never a draft: it takes
+// its record, its vision tour, a board per round, oldest first, and its debate, linked under
+// /concepts/<id>. A push carries 4 MiB at most, so a concept's tour and boards go together.
 //
 // The kit calls both with the terminal's sign-in. A push finds the dossier (the draft named, else the
 // one keyed by workspace, repository and PRD, else a new one), numbers a draft — merging it into a
@@ -26,16 +29,27 @@
 // by workspace membership (PRD 459: its reason as it wrote it, and the App's install link after its install
 // hint; any signed-in account is let through to it, whatever its address), 404 a draft the caller cannot read (or no dossier for a lookup), 413 a body over its cap or an artifact over
 // 512 KiB, 503 no database here or the sign-in service down; 500 the database failed.
+//
+// Since PRD 1322 a PRD push that changed a file an approval in force pinned voids that approval, in the
+// database, in the push's own transaction. Once the versions landed, the push hands the dossier to
+// `tellVoids` (src/approvals/void.service.ts), which tells the approver; telling never fails a push.
+//
+// Since PRD 1364 a PRD has a product, or none. A PRD's push may name one, `product`, by its name: on the
+// dossier's first push, in a repository of several products, the one of them it names becomes its
+// product, and the database applies the rest of the birth rule (one product: that one; none: none;
+// supabase/migrations/20261129100000_prd_product.sql). A fix's or a concept's push naming one is refused
+// 400. A push and a lookup each answer the dossier's product by its name, or null when it has none.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, callerOrigin as origin, withInstallLink, type TokenCheck } from '../ask/auth';
 import {
-  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isArtifactKind, isWorkKind, KIND_ARTIFACTS, TITLE_MAX,
-  WORK_KINDS, type DossierArtifact, type WorkKind,
+  ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isPulseKind, isPushedArtifactKind, isPushKind, isRoundKind, KIND_ARTIFACTS,
+  productPrdOf, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, type DossierArtifact, type DossierProduct, type PushKind,
 } from './store';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema, ProductPrdIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
-/** The largest push: three artifacts of 512 KiB and their JSON (a visual fix's page and rounds together). */
-export const MAX_PUSH_BYTES = 2 * 1024 * 1024;
+/** The largest push: seven artifacts of 512 KiB and their JSON (PRD 1272: a concept's vision tour and
+ * boards together). */
+export const MAX_PUSH_BYTES = 4 * 1024 * 1024;
 /** The largest draft to open: a title, a repository and a session id. */
 export const MAX_OPEN_BYTES = 64 * 1024;
 
@@ -47,6 +61,9 @@ export type DossierDeps = {
   connect: ((token: string) => DossierClient) | null;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
+  /** Tells the approver whose approval the caller's push of `dossier` voided, as the caller's `db`;
+   * `origin` is where the caller reached this app. Never throws. Missing: nobody is told. */
+  tellVoids?: (db: DossierClient, dossier: string, origin: string) => Promise<void>;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -66,11 +83,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const bytesOf = (text: string) => new TextEncoder().encode(text).length;
 
 /** Where each kind of dossier is read. */
-const ROUTES: Record<WorkKind, string> = { prd: 'prd', visual: 'visual', bug: 'bugs' };
+const ROUTES: Record<PushKind, string> = { prd: 'prd', visual: 'visual', bug: 'bugs', concept: 'concepts' };
 
-const linkTo = (request: Request, id: string, kind: WorkKind = 'prd') => `${origin(request)}/${ROUTES[kind]}/${id}`;
+const linkTo = (request: Request, id: string, kind: PushKind = 'prd') => `${origin(request)}/${ROUTES[kind]}/${id}`;
 
-const KIND_PROBLEM = `\`kind\`, when sent, is one of ${WORK_KINDS.join(', ')}.`;
+const KIND_PROBLEM = `\`kind\`, when sent, is one of ${PUSH_KINDS.join(', ')}.`;
 
 /** A client acting as the caller, or the Response that refuses them. */
 async function signIn(request: Request, deps: DossierDeps): Promise<DossierClient | Response> {
@@ -130,19 +147,22 @@ const prdOf = (value: string | null): PrdNumber | null => {
   return isPrdNumber(prd) ? prd : null;
 };
 
-/** Where PRD n of a repository lives: its dossier's id and link, as the caller may read it. */
+/** Where PRD n of a repository lives: its dossier's id and link, as the caller may read it. Since PRD 1548,
+ * with `product`, product PRD `<key>-<n>`'s: its title, its product and its approval in force too. */
 export function findDossier(request: Request, deps: DossierDeps): Promise<Response> {
   return handle(request, deps, async (client) => {
     const query = new URL(request.url).searchParams;
+    if (query.has('product')) return findProductPrd(request, client, query);
     const repo = repoOf(query.get('repo'));
     if (!repo) return refuse(400, 'A lookup names its repository as owner/name.');
     const prd = prdOf(query.get('prd'));
     if (prd === null) return refuse(400, '`prd` is the PRD\'s number.');
     const kind = query.get('kind') ?? 'prd';
-    if (!isWorkKind(kind)) return refuse(400, KIND_PROBLEM);
-    const id = await dossierReader(client).numbered(repo, prd, kind);
+    if (!isPushKind(kind)) return refuse(400, KIND_PROBLEM);
+    const reader = dossierReader(client);
+    const id = await reader.numbered(repo, prd, kind);
     if (!id) return refuse(404, `No ${kind === 'prd' ? 'dossier for PRD' : `${kind} dossier for`} #${prd} of ${repo.toLowerCase()}.`);
-    return reply(200, { id, url: linkTo(request, id, kind) });
+    return reply(200, { id, url: linkTo(request, id, kind), product: nameOf(await reader.product(id)) });
   });
 }
 
@@ -165,18 +185,18 @@ export function openDossier(request: Request, deps: DossierDeps): Promise<Respon
 }
 
 /** The artifacts a push of `kind` carries, or why they are refused: `status` 400 or 413. */
-function artifactsOf(value: unknown, kind: WorkKind): { artifacts: DossierArtifact[] } | { status: 400 | 413; problem: string } {
+function artifactsOf(value: unknown, kind: PushKind): { artifacts: DossierArtifact[] } | { status: 400 | 413; problem: string } {
   const malformed = (problem: string) => ({ status: 400 as const, problem });
   if (!Array.isArray(value)) return malformed('`artifacts` must be a list of {kind, content}.');
   const artifacts: DossierArtifact[] = [];
   for (const item of value) {
-    if (!isRecord(item) || !isArtifactKind(item.kind) || typeof item.content !== 'string') {
-      return malformed(`Each artifact is {kind, content}, its kind one of ${ARTIFACT_KINDS.join(', ')}.`);
+    if (!isRecord(item) || !isPushedArtifactKind(item.kind) || typeof item.content !== 'string') {
+      return malformed(`Each artifact is {kind, content}, its kind one of ${PUSHED_ARTIFACT_KINDS.join(', ')}.`);
     }
     if (!KIND_ARTIFACTS[kind].includes(item.kind)) {
       return malformed(`A ${kind} dossier takes ${KIND_ARTIFACTS[kind].join(', ')}, not ${item.kind}.`);
     }
-    if (item.kind !== 'variations' && artifacts.some((a) => a.kind === item.kind)) {
+    if (!isRoundKind(item.kind) && artifacts.some((a) => a.kind === item.kind)) {
       return malformed(`Each kind is sent once: ${item.kind} came twice.`);
     }
     // Only the kind and the content go on: a hash the caller sent is never read.
@@ -187,17 +207,48 @@ function artifactsOf(value: unknown, kind: WorkKind): { artifacts: DossierArtifa
   return { artifacts };
 }
 
-/** A push's kind (a PRD's when it sends none) and the draft it names, or why they are refused: a fix
- * never names a draft. */
-function kindAndDraftOf(sent: Record<string, unknown>): { kind: WorkKind; draftId: string | null } | { problem: string } {
+/** The longest name a product takes (the products table's own check). */
+const PRODUCT_MAX = 80;
+
+/** A product as an answer names it: its name, or null for none. */
+const nameOf = (product: DossierProduct): string | null => product?.name ?? null;
+
+/** The product a push names, trimmed, or null when it names none; or why it is refused: only a PRD's
+ * push names one, as a text of 1 to 80 characters. */
+function productOfPush(sent: Record<string, unknown>, kind: PushKind): { product: string | null } | { problem: string } {
+  const named = sent.product ?? null;
+  if (named === null) return { product: null };
+  const product = typeof named === 'string' ? named.trim() : '';
+  if (product.length < 1 || product.length > PRODUCT_MAX) return { problem: `\`product\`, when sent, is a product's name of 1 to ${PRODUCT_MAX} characters.` };
+  if (kind !== 'prd') return { problem: `A ${kind} dossier has no product to name: only a PRD's push names one.` };
+  return { product };
+}
+
+/** A push's kind (a PRD's when it sends none) and the draft it names, or why they are refused: a fix or
+ * a concept never names a draft. */
+function kindAndDraftOf(sent: Record<string, unknown>): { kind: PushKind; draftId: string | null } | { problem: string } {
   const kind = sent.kind ?? 'prd';
-  if (!isWorkKind(kind)) return { problem: KIND_PROBLEM };
+  if (!isPushKind(kind)) return { problem: KIND_PROBLEM };
   const draftId = sent.draftId ?? null;
   if (!(draftId === null || (typeof draftId === 'string' && UUID.test(draftId)))) {
     return { problem: '`draftId`, when sent, is the id of a draft dossier.' };
   }
-  if (draftId !== null && kind !== 'prd') return { problem: 'A fix has no draft: push it by its number alone.' };
+  if (draftId !== null && kind !== 'prd') return { problem: `A ${kind} dossier has no draft: push it by its number alone.` };
   return { kind, draftId };
+}
+
+/** A push's kind, the draft it names and the product it names (PRD 1364), or why one is refused. */
+function namedBy(sent: Record<string, unknown>): { kind: PushKind; draftId: string | null; product: string | null } | { problem: string } {
+  const which = kindAndDraftOf(sent);
+  if ('problem' in which) return which;
+  const named = productOfPush(sent, which.kind);
+  return 'problem' in named ? named : { ...which, product: named.product };
+}
+
+/** Hands a PRD push that added a version to `tellVoids`: only such a push can void an approval. */
+async function tellVoidsOf(deps: DossierDeps, client: DossierClient, request: Request, kind: PushKind, pushed: { id: string; added: unknown[] }) {
+  if (kind !== 'prd' || pushed.added.length === 0 || !deps.tellVoids) return;
+  await deps.tellVoids(client, pushed.id, origin(request));
 }
 
 export function pushDossier(request: Request, deps: DossierDeps): Promise<Response> {
@@ -205,18 +256,141 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const store = dossierStore(client);
     const sent = await body(request, MAX_PUSH_BYTES);
     if (sent instanceof Response) return sent;
+    if (sent.productKey !== undefined) return pushProduct(request, deps, client, sent);
     const repo = repoOf(sent.repo);
     if (!repo) return refuse(400, 'A push names its repository as owner/name.');
     const prd = sent.prd;
     if (!isPrdNumber(prd)) return refuse(400, '`prd` is the PRD\'s number.');
     const title = titleOf(sent.title);
     if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
-    const which = kindAndDraftOf(sent);
+    const which = namedBy(sent);
     if ('problem' in which) return refuse(400, which.problem);
-    const { kind, draftId } = which;
+    const { kind, draftId, product } = which;
     const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
-    const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts });
-    return reply(200, { id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged });
+    const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts, product });
+    await tellVoidsOf(deps, client, request, kind, pushed);
+    return reply(200, {
+      id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged, product: nameOf(pushed.product),
+    });
+  });
+}
+
+// ── A product PRD (PRD 1548) ────────────────────────────────────────────────────
+// A product PRD has no home repository: it is keyed by its product's key and its number on that product,
+// `mobile-12` (supabase/migrations/20261203100000_product_prd_ids.sql). Its calls:
+//
+//   POST /api/dossiers/push  {productKey, new: true | prd, repo?, title, artifacts}
+//                                      → 200 {id, prdId, url, added, unchanged, product}
+//   GET  /api/dossiers?product=<key>&prd=<n>[&repo=]   → 200 {id, url, prdId, title, product}
+//   GET  /api/dossiers/get?product=<key>&prd=<n>&kind=<kind>[&repo=]
+//                                      → 200 {id, prdId, url, kind, version, sha256, content, createdAt}
+//
+// `new: true` creates the product's next PRD; `prd` pushes to the one of that number. `repo`, the
+// repository the kit runs from, only chooses between two of the caller's workspaces holding the key
+// (settled item s1-02). A push names no draft, no kind and no product name: 400. A key no product of the
+// caller's workspaces has, or a PRD there is none of, is 404. The approval in force is the approval
+// route's to answer (`GET /api/dossiers/approval?prd=<key>-<n>`, src/approval/approval-api.ts); the get
+// answers the latest version of one of a PRD's kinds (spec, plan, before-after, voice) whole.
+
+/** A product's key as a call sends it: one a product PRD's id can carry (`mobile`, `field-app`), or null. */
+const productKeyOf = (value: unknown): string | null =>
+  (typeof value === 'string' && ProductPrdIdSchema.safeParse(`${value}-1`).success ? value : null);
+
+const KEY_PROBLEM = 'is a product\'s key: lowercase kebab-case, as mobile or field-app.';
+
+/** What a product PRD's push may not name. */
+const NOT_ON_A_PRODUCT_PRD = ['draftId', 'kind', 'product'] as const;
+
+/** The number a product PRD's push goes to (null: create the next), or why it is refused. */
+function seqOfPush(sent: Record<string, unknown>): { seq: PrdNumber | null } | { problem: string } {
+  if (sent.new !== undefined && sent.new !== true) return { problem: '`new`, when sent, is true.' };
+  const seq = sent.prd ?? null;
+  if ((sent.new === true) === (seq !== null)) {
+    return { problem: 'A product PRD\'s push sends `new: true` to create one, or `prd`, its number, to push to it: one of the two.' };
+  }
+  if (seq !== null && !isPrdNumber(seq)) return { problem: '`prd` is the PRD\'s number on its product.' };
+  return { seq };
+}
+
+/** The repository a product PRD's call runs from, or null when it names none; undefined when out of shape. */
+const runsFrom = (value: unknown): string | null | undefined => (value === undefined || value === null ? null : repoOf(value) ?? undefined);
+
+const REPO_PROBLEM = '`repo`, when sent, is the repository as owner/name.';
+
+/** The product PRD a push goes to — its product's key, its number (null: the next) and the repository it
+ * runs from — or why the push is refused. */
+function productPushOf(sent: Record<string, unknown>): { key: string; seq: PrdNumber | null; repo: string | null } | { problem: string } {
+  const key = productKeyOf(sent.productKey);
+  if (!key) return { problem: `\`productKey\` ${KEY_PROBLEM}` };
+  const named = NOT_ON_A_PRODUCT_PRD.find((field) => sent[field] !== undefined && sent[field] !== null);
+  if (named) return { problem: `A product PRD's push names no ${named}: it is a PRD of its product alone.` };
+  const which = seqOfPush(sent);
+  if ('problem' in which) return which;
+  const repo = runsFrom(sent.repo);
+  return repo === undefined ? { problem: REPO_PROBLEM } : { key, seq: which.seq, repo };
+}
+
+async function pushProduct(request: Request, deps: DossierDeps, client: DossierClient, sent: Record<string, unknown>): Promise<Response> {
+  const to = productPushOf(sent);
+  if ('problem' in to) return refuse(400, to.problem);
+  const title = titleOf(sent.title);
+  if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
+  const read = artifactsOf(sent.artifacts, 'prd');
+  if ('problem' in read) return refuse(read.status, read.problem);
+  let pushed;
+  try {
+    pushed = await dossierStore(client).pushProduct({ ...to, title, artifacts: read.artifacts });
+  } catch (error) {
+    if (error instanceof DossierStoreError && error.code === 'P0002') return refuse(404, error.reason);
+    throw error;
+  }
+  await tellVoidsOf(deps, client, request, 'prd', pushed);
+  return reply(200, {
+    id: pushed.id, prdId: pushed.prdId, url: linkTo(request, pushed.id), added: pushed.added, unchanged: pushed.unchanged, product: nameOf(pushed.product),
+  });
+}
+
+/** Product PRD `<key>-<n>` as a query names it, with the repository it runs from; or the Response that
+ * refuses the query. */
+function productQuery(query: URLSearchParams): { key: string; seq: PrdNumber; repo: string | null; prdId: string } | Response {
+  const key = productKeyOf(query.get('product'));
+  if (!key) return refuse(400, `\`product\` ${KEY_PROBLEM}`);
+  const seq = prdOf(query.get('prd'));
+  if (seq === null) return refuse(400, '`prd` is the PRD\'s number on its product.');
+  const repo = runsFrom(query.get('repo') ?? undefined);
+  if (repo === undefined) return refuse(400, REPO_PROBLEM);
+  return { key, seq, repo, prdId: `${key}-${String(seq)}` };
+}
+
+async function findProductPrd(request: Request, client: DossierClient, query: URLSearchParams): Promise<Response> {
+  const named = productQuery(query);
+  if (named instanceof Response) return named;
+  const found = await productPrdOf(client, named);
+  if (!found) return refuse(404, `No PRD ${named.prdId}.`);
+  const reader = dossierReader(client);
+  const dossier = await reader.dossier(found);
+  return reply(200, {
+    id: found, url: linkTo(request, found), prdId: named.prdId, title: dossier?.title ?? null,
+    product: nameOf(await reader.product(found)),
+  });
+}
+
+/** PRD 1548: the latest version of one of a product PRD's kinds, whole, for `omni dossier get`. */
+export function getDossier(request: Request, deps: DossierDeps): Promise<Response> {
+  return handle(request, deps, async (client) => {
+    const query = new URL(request.url).searchParams;
+    const kind = query.get('kind');
+    if (!isPulseKind(kind)) return refuse(400, `\`kind\` is one of a PRD's: ${KIND_ARTIFACTS.prd.join(', ')}.`);
+    const named = productQuery(query);
+    if (named instanceof Response) return named;
+    const found = await productPrdOf(client, named);
+    if (!found) return refuse(404, `No PRD ${named.prdId}.`);
+    const latest = await dossierReader(client).latest(found, kind);
+    if (!latest) return refuse(404, `PRD ${named.prdId} has no ${kind} yet.`);
+    return reply(200, {
+      id: found, prdId: named.prdId, url: linkTo(request, found), kind, version: latest.version,
+      sha256: latest.sha256, content: latest.content, createdAt: latest.created_at,
+    });
   });
 }

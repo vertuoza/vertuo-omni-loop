@@ -231,12 +231,13 @@ var SUPABASE = envGroup({
 var OPENROUTER = envGroup({ label: "OpenRouter", schema: z3.object({ key: z3.string(), model: z3.string().optional() }), variables: { key: KEY_VAR, model: MODEL_VAR } });
 var STAGE_EVENTS = secretGroup("the stage events", "STAGE_EVENT_SECRET");
 var CONSTITUENT_JUDGE = secretGroup("the constituent judge", "CONSTITUENT_JUDGE_SECRET");
+var LAW_JUDGE = secretGroup("the law judge", "LAW_JUDGE_SECRET");
 var GALAXY = envGroup({
   label: "galaxy",
   schema: z3.object({ url: z3.url().optional() }),
   variables: { url: "GALAXY_URL" }
 });
-var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, GALAXY]);
+var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, GALAXY]);
 var PLATFORM_VARIABLES = variablesOf([VERCEL]);
 function readEnv(source) {
   const production = envReader(source).group(VERCEL)?.name === "production";
@@ -249,6 +250,7 @@ function readEnv(source) {
     openrouter: reader.group(OPENROUTER),
     stageEvents: reader.group(STAGE_EVENTS),
     constituentJudge: reader.group(CONSTITUENT_JUDGE),
+    lawJudge: reader.group(LAW_JUDGE),
     galaxyUrl: (reader.group(GALAXY)?.url ?? DEFAULT_GALAXY_URL).replace(/\/+$/, "")
   };
   reader.done();
@@ -266,6 +268,12 @@ import { z as z5 } from "zod";
 import { z as z4 } from "zod";
 var IssueNumberSchema = z4.number().int().positive().brand();
 var PrdNumberSchema = IssueNumberSchema.brand();
+var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
+var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
+var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
+  const cut = id.lastIndexOf("-");
+  return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
+}).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
 var WorkSliceIdSchema = z4.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
@@ -277,6 +285,9 @@ var APP_ID = "omni-loop";
 var OUTBOX_CHECK_EVENT = "omni-loop/outbox.check.requested";
 var INBOX_CHECK_EVENT = "omni-loop/inbox.check.requested";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
+var APPROVED_CHECK_EVENT = "omni-loop/approved.check.requested";
+var APPROVED_EXTERNAL_ID = "omni-loop/approved";
+var APPROVED_LABEL_EVENT = "omni-loop/approved.label.changed";
 var RETRO_EVENT = "omni-loop/retro.requested";
 var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
 var inngest = new Inngest({ id: APP_ID });
@@ -289,6 +300,10 @@ var SourceSchema = z5.looseObject({
 var CheckRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
   headSha: z5.string(),
+  trigger: z5.string().optional()
+});
+var ApprovedLabelDataSchema = SourceSchema.extend({
+  prd: PrdNumberSchema,
   trigger: z5.string().optional()
 });
 var CanonFactsSchema = z5.object({
@@ -325,6 +340,32 @@ function propertyOf(value, key) {
 function messageOf(error) {
   const message = propertyOf(error, "message");
   return typeof message === "string" ? message : String(error);
+}
+
+// kit/lib/design/words/selector.ts
+var NAME = String.raw`[A-Za-z_][\w-]*`;
+var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
+var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
+function parseCompound(text3) {
+  const compound = COMPOUND.exec(text3.trim());
+  if (!compound || compound[0] === "") return null;
+  const [, tag, parts = ""] = compound;
+  const matched = [...parts.matchAll(new RegExp(PART, "g"))];
+  return {
+    tag: tag === void 0 || tag === "*" ? null : tag.toLowerCase(),
+    ids: matched.flatMap(([, id]) => id === void 0 ? [] : [id]),
+    classes: matched.flatMap(([, , className]) => className === void 0 ? [] : [className]),
+    attributes: matched.flatMap(([, , , name, doubled, single, bare]) => name === void 0 ? [] : [{ name: name.toLowerCase(), value: doubled ?? single ?? bare ?? null }])
+  };
+}
+function parseSelector(source) {
+  const compounds = [];
+  for (const piece of source.split(",")) {
+    const compound = parseCompound(piece);
+    if (!compound) return null;
+    compounds.push(compound);
+  }
+  return { source, compounds };
 }
 
 // kit/lib/flow/schema.ts
@@ -508,19 +549,50 @@ var proofUrl = z7.string().refine((value) => {
   }
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
+var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
   repo: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
   role: z7.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
   knowledge: z7.enum(TARGET_KNOWLEDGE),
-  readAt: z7.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null)
+  readAt: z7.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
+  // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
+  // and imported.
+  readOnly: z7.boolean().optional(),
+  // PRD 1162: the short names of the targets whose default-branch packages this one installs.
+  consumes: z7.array(z7.string()).optional()
 }).strict();
+function targetShortName(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
 var planSection = z7.object({
   guide: nullableText.default(null),
-  targets: z7.array(target).min(1, "at least one target")
-}).strict().superRefine(({ targets }, issues) => {
+  targets: z7.array(target).min(1, "at least one target").optional(),
+  product: z7.string().trim().min(1).optional()
+}).strict().superRefine(({ targets, product }, issues) => {
+  if (targets !== void 0 && product !== void 0) {
+    issues.addIssue({
+      code: "custom",
+      path: [],
+      message: "product and targets cannot both be set \u2014 keep product to read the targets from the server, or targets to keep them here"
+    });
+  }
+  if (targets === void 0 && product === void 0) issues.addIssue({ code: "custom", path: ["targets"], message: "at least one target, or a product" });
+  checkTargets(targets ?? [], issues);
+}).transform(({ targets, ...plan }) => ({ ...plan, targets: targets ?? [] }));
+function checkTargets(targets, issues) {
   const seen = /* @__PURE__ */ new Set();
-  targets.forEach(({ repo, knowledge, readAt }, index) => {
+  const names = targets.map(({ repo }) => targetShortName(repo));
+  targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
+    const own = targetShortName(repo);
+    const others = names.filter((name) => name !== own);
+    consumes.forEach((name, at) => {
+      const path = ["targets", index, "consumes", at];
+      if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
+      else if (!others.includes(name)) {
+        issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
+      }
+    });
     if (seen.has(repo)) issues.addIssue({ code: "custom", path: ["targets", index, "repo"], message: `${repo} is listed twice` });
     seen.add(repo);
     if (knowledge === "imported" && readAt === null) {
@@ -530,7 +602,7 @@ var planSection = z7.object({
       issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: `only an imported target has one, and this one is ${knowledge}` });
     }
   });
-});
+}
 var generatedEntry = z7.object({
   path: text2,
   from: z7.array(text2).min(1, "at least one source prefix"),
@@ -562,7 +634,9 @@ var ConfigSchema = z7.object({
     // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
     megaInvade: branchTemplate.default("docs/omni-mega-invade"),
     // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-    concept: branchTemplate.default("docs/concept-{topic}")
+    concept: branchTemplate.default("docs/concept-{topic}"),
+    // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
+    law: branchTemplate.default("test/law-{id}")
   }),
   worktrees: text2.default(".claude/worktrees"),
   paths: section({
@@ -593,6 +667,11 @@ var ConfigSchema = z7.object({
     riskLow: labelName.default("omni:risk-low"),
     // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
     concept: labelName.default("omni:concept"),
+    // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
+    // display: nothing reads it.
+    approved: labelName.default("omni:approved"),
+    // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
+    law: labelName.default("omni:law"),
     autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
@@ -609,6 +688,10 @@ var ConfigSchema = z7.object({
     outboxContext: text2.default("outbox"),
     // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
     inboxContext: text2.default("inbox"),
+    // PRD 1548 and PRD 1612: the name of the check run the omni-loop App posts on a target feature PR
+    // of a product PRD, and on a ◆ PRD's feature PR and its target PRs, saying whether what it builds
+    // is what was approved; `null` posts none.
+    approvedContext: nullableText.default("omni/approved"),
     aggregateCheck: nullableText.default(null),
     branchProtection: z7.boolean().default(false),
     runner: text2.default("ubuntu-latest")
@@ -619,7 +702,9 @@ var ConfigSchema = z7.object({
     checks: z7.array(text2).default([]),
     test: nullableText.default(null),
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
-    mutation: nullableText.default(null)
+    mutation: nullableText.default(null),
+    // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
+    design: nullableText.default(null)
   }),
   acceptance: z7.object({
     enabled: z7.boolean().default(false),
@@ -632,7 +717,11 @@ var ConfigSchema = z7.object({
   }).prefault({}),
   laws: section({
     source: z7.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
-    claudeMdHeading: text2.default("## Invariants")
+    claudeMdHeading: text2.default("## Invariants"),
+    // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
+    // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
+    // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
+    requireProof: z7.boolean().default(false)
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),
@@ -650,6 +739,9 @@ var ConfigSchema = z7.object({
     attempts: z7.number().int().positive().default(3),
     claimStaleMinutes: z7.number().int().positive().default(60),
     beforeAfterMaxBytes: z7.number().int().positive().default(512e3),
+    // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
+    // was before, one step at a time.
+    parallelSteps: z7.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
     hookMaxBytes: z7.number().int().positive().optional()
@@ -676,6 +768,44 @@ var ConfigSchema = z7.object({
     setup: nullableText.default(null),
     bypassEnv: envName.nullable().default(null),
     maxSeconds: z7.number().int().positive().default(60)
+  }),
+  // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
+  // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
+  // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
+  e2e: section({
+    enabled: z7.boolean().default(false),
+    url: proofUrl.nullable().default(null),
+    deployment: nullableText.default(null),
+    setup: nullableText.default(null),
+    bypassEnv: envName.nullable().default(null),
+    dir: text2.default("e2e"),
+    model: text2.default("anthropic/claude-sonnet-5.5")
+  }),
+  // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
+  // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
+  // repository paths where the screens, styles, tokens and components live; `omni design touched`
+  // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
+  // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
+  // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in. `words` tunes the word
+  // pass, `omni design words` (`kit/lib/design/words/`): `sentence` is how many words make a sentence
+  // (on a control at that count, at rest above it), `screen` and `primary` the selectors that mark a
+  // screen and its primary action, and `avoid` the words the product avoids, beside any the form's
+  // `product` section lists. PRD 1550: `ignore` holds the globs `omni design touched` drops from a
+  // diff first; unset, it reads as the common test shapes (`kit/lib/design/ignore.ts`), and `[]`
+  // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
+  // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
+  design: section({
+    enabled: z7.boolean().default(false),
+    paths: z7.array(text2).default([]),
+    ignore: z7.array(text2).optional(),
+    screens: nullableText.default(null),
+    words: section({
+      sentence: z7.number().int().positive().default(7),
+      screen: wordSelector.default("[data-screen]"),
+      primary: wordSelector.default("[data-primary]"),
+      content: wordSelector.optional(),
+      avoid: z7.array(text2).default([])
+    })
   }),
   markers: section({ prefix: z7.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
@@ -705,6 +835,9 @@ var ConfigSchema = z7.object({
     });
   }
 });
+function designScreensDir({ paths, design }) {
+  return design.screens ?? `${paths.knowledge.replace(/\/+$/, "")}/design/screens/`;
+}
 var isRecord = (value) => value !== null && typeof value === "object";
 var RENAMED = Object.freeze([{ section: "branches", from: "terraform", to: "invade" }]);
 function renamedKey(raw) {
@@ -768,7 +901,8 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknow
 ${others.map((line) => `  - ${line}`).join("\n")}` : "";
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
-  return result.data;
+  const config = result.data;
+  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
 }
 
 // apps/omni-app/src/outbox-check/github-schema.ts
@@ -777,8 +911,10 @@ var Label = z8.union([z8.string(), z8.looseObject({ name: z8.string().nullish() 
 var PullSchema = z8.looseObject({
   base: z8.looseObject({ ref: z8.string(), sha: z8.string() }),
   head: z8.looseObject({ ref: z8.string(), sha: z8.string() }),
-  labels: z8.array(Label).nullish()
+  labels: z8.array(Label).nullish(),
+  body: z8.string().nullish()
 });
+var PullsPageSchema = z8.array(z8.looseObject({ number: z8.number(), body: z8.string().nullish() }));
 var PullHeadSchema = z8.looseObject({ head: z8.looseObject({ sha: z8.string() }) });
 var IssueSchema = z8.looseObject({
   state: z8.string(),
@@ -829,8 +965,8 @@ function messageOf2(error) {
 // apps/omni-app/src/stage-forward/stage-forward.ts
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
 var DEFAULT_SHAPES = (() => {
-  const { branches, prLinks } = parseConfig("kit: 1");
-  return Object.freeze({ branches, prLinks });
+  const { branches, prLinks, labels } = parseConfig("kit: 1");
+  return Object.freeze({ branches, prLinks, approved: labels.approved });
 })();
 var PullEventSchema = z9.looseObject({
   action: z9.unknown(),
@@ -845,7 +981,21 @@ var PullEventSchema = z9.looseObject({
     body: z9.unknown()
   })
 });
+var LabeledEventSchema = z9.looseObject({
+  action: z9.literal("labeled"),
+  repository: z9.looseObject({ full_name: z9.string().min(1) }),
+  label: z9.looseObject({ name: z9.string() }),
+  issue: z9.looseObject({ number: PrdNumberSchema, updated_at: z9.string().min(1), pull_request: z9.unknown().optional() })
+});
+function approvedStage(payload, approved) {
+  const read = LabeledEventSchema.safeParse(payload);
+  if (!read.success) return null;
+  const { repository, label, issue } = read.data;
+  if (label.name !== approved || issue.pull_request !== void 0) return null;
+  return { repository: repository.full_name, topic: String(issue.number), prd: issue.number, stage: "inbox", at: issue.updated_at };
+}
 function toStageEvent(event, payload, shapes = DEFAULT_SHAPES) {
+  if (event === "issues") return approvedStage(payload, shapes.approved ?? DEFAULT_SHAPES.approved);
   const read = event === "pull_request" ? PullEventSchema.safeParse(payload) : null;
   if (!read?.success) return null;
   const pull = pullOf(read.data);
@@ -973,6 +1123,7 @@ var FORMS = Object.freeze([
   form("releasing", "extended", [req("publishes"), opt("how"), opt("rollback"), opt("notes")]),
   form("bug-fixing", "extended", [req("steps"), opt("guard")]),
   form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
+  form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review"), opt("language")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
 var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
@@ -1142,6 +1293,10 @@ var RETRO_ACTIONS = Object.freeze({
 var CANON_ACTIONS = Object.freeze({
   check_run: Object.freeze(["requested_action"])
 });
+var APPROVED_LABEL_ACTIONS = Object.freeze({
+  issues: Object.freeze(["labeled", "unlabeled"])
+});
+var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
@@ -1149,7 +1304,8 @@ var HANDLED = Object.freeze({
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
 var PullRefSchema = z13.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z13.looseObject({ sha: z13.string().nullish() }).nullish()
+  head: z13.looseObject({ sha: z13.string().nullish() }).nullish(),
+  base: z13.looseObject({ ref: z13.string().nullish() }).nullish()
 });
 var PayloadSchema = z13.looseObject({
   action: z13.unknown(),
@@ -1158,7 +1314,8 @@ var PayloadSchema = z13.looseObject({
   repository: z13.looseObject({
     name: z13.string(),
     full_name: z13.string().nullish(),
-    owner: z13.looseObject({ login: z13.string().nullish() }).nullish()
+    owner: z13.looseObject({ login: z13.string().nullish() }).nullish(),
+    default_branch: z13.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
     merged: z13.boolean().nullish(),
@@ -1179,6 +1336,7 @@ async function receiveWebhook({
   headers,
   secret,
   send,
+  sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve()
 }) {
@@ -1208,13 +1366,15 @@ async function receiveWebhook({
     }
   }));
   const events = toEvents(event, payload);
-  if (events.length === 0) return reply(200, "ignored");
+  const approved = toApprovedLabelRequests(event, payload);
+  if (events.length + approved.length === 0) return reply(200, "ignored");
   try {
-    await send(events);
+    if (events.length > 0) await send(events);
+    if (approved.length > 0) await sendApproved(approved);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
-  return reply(200, `sent ${events.length}`);
+  return reply(200, `sent ${events.length + approved.length}`);
 }
 function toEvents(event, payload) {
   const action = readPayload(payload)?.action;
@@ -1230,15 +1390,23 @@ function toCheckRequests(event, delivery) {
   const source = sourceOf(payload);
   if (!source) return [];
   const trigger = `${event}.${String(payload.action)}`;
-  const name = event === "check_run" && payload.check_run?.external_id === INBOX_EXTERNAL_ID ? INBOX_CHECK_EVENT : OUTBOX_CHECK_EVENT;
-  const pulls = event === "pull_request" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
+  const name = event === "check_run" ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
+  const pulls = event === "pull_request" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
     number: pull.number,
-    sha: pull.head?.sha ?? payload.check_run?.head_sha
+    sha: pull.head?.sha ?? payload.check_run?.head_sha,
+    base: pull.base?.ref
   }));
-  return pulls.filter(isNamed).map((pull) => ({
+  const defaultBranch = payload.repository?.default_branch;
+  const intoDefault = (pull) => !defaultBranch || pull.base === defaultBranch;
+  return pulls.filter(intoDefault).filter(isNamed).map((pull) => ({
     name,
     data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger }
   }));
+}
+function rerunEventOf(externalId) {
+  if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
+  if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  return OUTBOX_CHECK_EVENT;
 }
 function toRetroRequests(event, delivery) {
   const payload = readPayload(delivery);
@@ -1246,6 +1414,8 @@ function toRetroRequests(event, delivery) {
   const source = sourceOf(payload);
   const pull = payload.pull_request;
   if (!source || pull?.merged !== true) return [];
+  const defaultBranch = payload.repository?.default_branch;
+  if (defaultBranch && pull.base?.ref !== defaultBranch) return [];
   const prNumber = pull.number ?? payload.number ?? void 0;
   if (prNumber === void 0 || !pull.merge_commit_sha || !pull.merged_at) return [];
   return [
@@ -1260,6 +1430,20 @@ function toHarvestRequests(event, payload) {
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber }
   }));
+}
+var LabelEventSchema = z13.looseObject({
+  label: z13.looseObject({ name: z13.string() }),
+  issue: z13.looseObject({ number: PrdNumberSchema, pull_request: z13.unknown().optional() })
+});
+function toApprovedLabelRequests(event, delivery) {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(APPROVED_LABEL_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const read = LabelEventSchema.safeParse(delivery);
+  if (!source || !read.success) return [];
+  const { label, issue } = read.data;
+  if (label.name !== APPROVED_LABEL || issue.pull_request !== void 0) return [];
+  return [{ name: APPROVED_LABEL_EVENT, data: { ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` } }];
 }
 var BUTTONS = Object.values(CANON_ACTION);
 function toCanonActionRequests(event, delivery) {
@@ -1326,6 +1510,7 @@ function githubRoute(env, { send = (events) => inngest.send(events) } = {}) {
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
+        sendApproved: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });

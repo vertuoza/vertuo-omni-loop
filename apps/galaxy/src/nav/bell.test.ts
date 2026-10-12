@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentGroup } from '../waiting/documents';
-import { EMPTY_WAITING, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
+import { EMPTY_WAITING, type WaitingApproval, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { bell, bellName, bellPanel, CLOSED_BELL, waitedFor } from './bell';
 import { item } from '../ask/test/test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -112,6 +112,27 @@ describe('the panel\'s New documents group (PRD 579)', () => {
 
   it('alone, the panel is not empty', () => {
     expect(bellPanel(EMPTY_WAITING, {}, NOW, [d(579, MIN)]).empty).toBe(false);
+  });
+});
+
+describe('the Approvals group (PRD 1322)', () => {
+  const a = (id: string, prd: number, ago: number): WaitingApproval => ({
+    kind: 'approval', id, prd: parsePrd(prd), dossierId: `d-${prd}`, title: `PRD title ${prd}`, repo: 'acme/mobile', askedAt: NOW - ago,
+  });
+
+  it('lists each PRD waiting for the person\'s approval after Questions, opening its page', () => {
+    const panel = bellPanel({ questions: [q('a', MIN)], outbox: [o('i1', 459)] }, {}, NOW, [], 0, [a('r1', 1322, 3 * MIN)]);
+    expect(panel.groups.map((g) => g.label)).toEqual(['Questions', 'Approvals', 'Outbox']);
+    expect(panel.groups[1]).toEqual({
+      label: 'Approvals', problem: null,
+      lines: [{ id: 'r1', href: '/prd/d-1322', head: 'PRD 1322 · PRD title 1322', text: 'Waits for your approval', meta: '3 min' }],
+    });
+  });
+
+  it('says when the part could not be read', () => {
+    expect(bellPanel(EMPTY_WAITING, { approvals: true }, NOW)).toEqual({
+      groups: [{ label: 'Approvals', problem: 'Approvals couldn\'t be read — retrying.', lines: [] }], empty: false,
+    });
   });
 });
 

@@ -28,8 +28,10 @@
     "phaser": "^4.2.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "resend": "^6.1.0",
     "server-only": "^0.0.1",
     "vertuo-omni-plan": "workspace:*",
+    "web-push": "^3.6.7",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -37,6 +39,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/web-push": "^3.6.4",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "esbuild": "^0.28.1",
     "playwright": "~1.56.1",

@@ -314,6 +314,24 @@ describe('createCanon — the constituents (PRD 871)', () => {
     expect(gate).toMatchObject({ ok: true, neutral: false });
   });
 
+  // Law BR-PRODUCT-68 (.omni-loop/knowledge/product/rules.md, #1529).
+  it('law BR-PRODUCT-68: red for a spec break only with a quoted spec sentence and the line it breaks; Jev only confirms or clears', async () => {
+    const jevBroken = () => judgeAnswering('true', 0.97, 'jev');
+    const paraphrase = { findings: [{ quote: 'calls the real projects API', claims: ['never#1'], why: 'a paraphrase' }], persona: { name: '', line: '' } };
+    for (const reply of [NOTHING, paraphrase]) {
+      const { canon } = constituentCanon({ reply, judge: jevBroken() });
+      const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+      expect(gate).toMatchObject({ ok: true, neutral: false });
+      expect(gate.canon.state).toBe('green');
+      expect(gate.canon.findings).toEqual([]);
+    }
+    const confirmed = await constituentCanon({ judge: jevBroken() }).canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(confirmed.canon.state).toBe('red');
+    expect(confirmed.details[0]).toBe(`never#1 "Calls real Vertuoza data or real Vertuoza APIs" — the spec: "fetch('/api/v1/projects')"`);
+    const cleared = await constituentCanon({ judge: judgeAnswering('false', 0.97, 'jev') }).canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(cleared.canon.state).toBe('green');
+  });
+
   it("Jev saying not broken keeps a size claim's part of a finding", async () => {
     const reply = { findings: [{ quote: "fetch('/api/v1/projects')", claims: ['never#1', 'size#1'], why: 'both' }], persona: { name: '', line: '' } };
     const { canon } = constituentCanon({ business: BUSINESS, reply, judge: judgeAnswering('false', 0.95, 'jev') });

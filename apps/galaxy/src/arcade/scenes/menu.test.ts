@@ -13,6 +13,8 @@ import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 import { BRIEFING_PAGES, drawMenu, PAGES, TALL_SCENES } from './menu.ts';
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems, type MenuItem } from './menu.tsx';
+import { FleetsOverlay } from './fleets.tsx';
+import { HeroesOverlay } from './attract.tsx';
 import { xpStatus, type XpStatus } from '../games/room';
 import type { KnowledgeGraph } from '../../data/knowledge';
 import { sure } from '../test/sure';
@@ -356,12 +358,14 @@ describe('How to play\'s LEVELS', () => {
 
   it('shows the weight of each personal credit, the curve\'s first levels and each game\'s unlock level, from the rulebook', () => {
     const text = levelsOf();
-    expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1, platformer: 2 } });
-    for (const label of ['ZONE SECURED', 'ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS']) expect(beside(text, label)).toBe('×1');
+    expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4 } });
+    for (const label of ['ZONE SECURED', 'ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS', 'QUESTION ANSWERED']) expect(beside(text, label)).toBe('×1');
     expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['1', '50', '150', '300', '500']);
     expect(text).not.toContain('LV 6');
     expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 1');
     expect(beside(text, 'SUPER OMNI WORLD')).toBe('LV 2');
+    expect(beside(text, 'OMNI KART')).toBe('LV 3');
+    expect(beside(text, 'OMNI DUET')).toBe('LV 4');
     expect(text.some((s) => s.includes('UP TO LV 99')), text.join(' | ')).toBe(true);
   });
 
@@ -391,7 +395,8 @@ describe('How to play\'s LEVELS', () => {
   });
 
   it('shows no level past the cap, and groups the thousands of a large XP', () => {
-    const low = levelsOf({ ...rules, cap: 3 });
+    // Every game unlocks within this cap, so a LV 4 on the page could only be a curve row past it.
+    const low = levelsOf({ ...rules, cap: 3, unlocks: { invaders: 1, platformer: 2, kart: 3 } });
     expect(low).toContain('LV 3');
     expect(low).not.toContain('LV 4');
     const steep = levelsOf({ ...rules, curve: { first: 1, step: 250 } });
@@ -442,5 +447,29 @@ describe('the star chart on the menu', () => {
     expect(doorOf(map, { view: null, chart: graph, problem: null })).toEqual({ refused: 'SIGN IN TO SEE THE GALAXY' });
     expect(doorOf(map, { view: null, chart: graph, problem: 'THE GALAXY IS OUT OF REACH.' })).toEqual({ refused: 'THE GALAXY IS OUT OF REACH.' });
     expect(doorOf(sure(items.find((m) => m.id === 'signout'), 'items.find((m) => m.id === "signout")'), { view, chart: graph, problem: null })).toBeNull();
+  });
+});
+
+// Law BR-PRODUCT-48 (.omni-loop/knowledge/product/rules.md, #1509).
+describe('law BR-PRODUCT-48: a workspace with no fleets', () => {
+  it('law BR-PRODUCT-48: keeps FLEETS on the menu, hinted as no fleets yet, opening the invitation instead of the wall; the Hall of Heroes hides its fleet column and TOP FLEETS', () => {
+    const none: GalaxyView = { ...view, teams: [] };
+    for (const at of [{ joined: true, solo: true }, { joined: true, solo: false }, { joined: false, solo: false }]) {
+      const items = menuItems({ ...at, signedIn: true, fleets: false });
+      const entry = sure(items.find((m) => m.id === 'fleets'), 'the FLEETS entry');
+      expect(entry).toMatchObject({ label: 'FLEETS', scene: 'fleets' });
+      const menu = textOf(createElement(MenuOverlay, { view: none, items, index: 0, me: at.joined ? { ...player, team: null } : null, onPick: () => {} }), WIDE);
+      expect(menu[menu.indexOf('FLEETS') + 1]).toBe('No fleets yet');
+      expect(doorOf(entry, { view: none, chart: 'none', problem: null })).toEqual({ scene: 'fleets' });
+    }
+    for (const owner of [true, false]) {
+      const screen = textOf(createElement(FleetsOverlay, { view: none, crew: [], index: 0, onPick: () => {}, owner }), WIDE).join(' ');
+      expect(screen).toContain('NO FLEETS YET — RAISE YOUR OWN!');
+      expect(screen).not.toContain('SELECT FLEET');
+    }
+    const hall = textOf(createElement(HeroesOverlay, { view: none, crew: [] }), WIDE);
+    expect(hall).toContain('HALL OF HEROES');
+    expect(hall).not.toContain('FLEET');
+    expect(hall.join(' ')).not.toContain('TOP FLEETS');
   });
 });

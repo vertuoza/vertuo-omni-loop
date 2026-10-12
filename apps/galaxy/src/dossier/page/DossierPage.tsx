@@ -3,6 +3,11 @@ import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
+import type { ApprovalSeal, ApprovalView, ApproveScreen } from './approval';
+import { ApproveButton } from './ApproveButton';
+import { Attestation } from './Attestation';
+import type { AttestationView } from './Attestation.service';
+import { SealScroll } from './SealScroll';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
@@ -14,6 +19,7 @@ import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
 import { PitchPane } from './PitchPane';
+import { ProductPicker } from './ProductPicker';
 import { ProofPane } from './ProofPane';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
@@ -51,6 +57,17 @@ import { VoicePane } from './VoicePane';
 // under its version picker; with none, it says so in the spec's words.
 // PRD 902, s2: a PRD's On GitHub cell says when GitHub was last read (`GitHub as of 09:15 UTC`), and
 // while the installation's budget is paused, when GitHub resumes.
+// PRD 1299, s3: a PRD born on the server has an Approval cell after Stage (waiting for approval, approved
+// by whom and when, or drifted · approve again with the files changed), and, for a member while it waits
+// or drifted, the Approve button first among its actions. A PRD born in the repository is unchanged.
+// PRD 1322 s7: Approve moves out of the actions into the approve screen, under the head, shown only to a
+// viewer allowed to approve: after a void (voided · approve again) or a drift, each changed file's diff
+// first, then the spec's Problem and Solution, then the button.
+// PRD 1364 s7: a PRD has a Product cell after Approval, its picker (ProductPicker.tsx): the workspace's
+// products and No product, changed by any member until an approval is in force, then locked, shown once the page
+// has read it. None in the demo, nor on a fix.
+// PRD 1548 s4: a product PRD's approval in force has its attestation under the head (Attestation.tsx), at
+// #attestation, where omni/approved's Details opens; Ask again there opens the approve screen, at #approve.
 
 type Props = {
   view: DossierView;
@@ -62,6 +79,8 @@ type Props = {
   live?: ReactNode;
   /** The shown version of the User voice, read (PRD 822); null off that tab, or when it could not be read. */
   voice?: VoiceView | null | undefined;
+  /** A product PRD's attestation (PRD 1548 s4); null or left out when nobody approved it, or for any other dossier. */
+  attestation?: AttestationView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {
@@ -152,8 +171,110 @@ function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
   );
 }
 
-export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
-  const { stage, fix } = view;
+/** A ◆ PRD's Approval cell (PRD 1299 s3): its state, then who approved it and when, or what changed since. */
+function ApprovalFact({ approval }: { approval: ApprovalView }) {
+  return (
+    <div className={`dossier-fact dossier-approval dossier-approval-${approval.state}`}>
+      <dt>Approval</dt>
+      <dd>
+        {approval.state === 'unread' ? <p className="ask-problem" role="alert">{approval.words}</p> : <strong>{approval.words}</strong>}
+        {approval.detail && <p className="ask-hint">{approval.detail}</p>}
+      </dd>
+    </div>
+  );
+}
+
+const DIFF_CLASS = { '+': 'dossier-diff-add', '-': 'dossier-diff-del', ' ': 'dossier-diff-same', '…': 'dossier-diff-gap' } as const;
+
+/** One changed file's diff since it was approved (PRD 1322 s7). */
+function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
+  return (
+    <div className="dossier-approve-diff">
+      <h3>{diff.path}</h3>
+      {diff.rows === null
+        ? <p className="ask-problem" role="alert">This file’s change could not be read. Reload the page in a moment.</p>
+        : (
+          <pre className="dossier-diff" aria-label={`Changes to ${diff.path}`}>
+            {diff.rows.map((row, at) => (
+              <span key={at} className={DIFF_CLASS[row.sign]}>{row.sign === '…' ? '…' : `${row.sign} ${row.text}`}{'\n'}</span>
+            ))}
+          </pre>
+        )}
+    </div>
+  );
+}
+
+/** The approve screen of a ◆ PRD (PRD 1322 s7), for a viewer who may approve it: after a void or a drift,
+ * the diff of each changed file first; then the spec's Problem and Solution; then Approve. */
+function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
+  const { screen } = approval;
+  return (
+    <section className="dossier-approve-screen" id="approve" aria-label="Approve">
+      {screen && screen.diffs.length > 0 && (
+        <div className="dossier-approve-changed">
+          <h2>What changed since it was approved</h2>
+          {screen.diffs.map((diff) => <ChangedFile key={diff.path} diff={diff} />)}
+        </div>
+      )}
+      {screen?.sections.map((section) => (
+        <div key={section.name} className="dossier-approve-section">
+          <h2>{section.name}</h2>
+          <article className="dossier-md" dangerouslySetInnerHTML={{ __html: section.html }} />
+        </div>
+      ))}
+      {screen?.spec === 'unread' && <p className="ask-problem" role="alert">The spec could not be read. Reload the page in a moment.</p>}
+      <ApproveButton dossier={approval.dossier} />
+    </section>
+  );
+}
+
+/** The seal of an approval in force (#1351): stamped with the PRD's number and APPROVED · PINNED, then who
+ * approved it and when, and each pinned file with its short hash. */
+function SealCard({ seal, dossier }: { seal: ApprovalSeal; dossier: string }) {
+  const hashes = seal.files.flatMap((file) => (file.hash ? [file.hash.slice(0, 4)] : [])).join(' ');
+  return (
+    <section id="approval" className="dossier-seal-card" aria-label="Approved">
+      <svg className="dossier-seal" viewBox="0 0 100 100" role="img" aria-label={`Seal of PRD ${seal.prd}: approved and pinned`}>
+        <defs><path id="dossier-seal-ring" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0" /></defs>
+        <circle cx="50" cy="50" r="47" className="dossier-seal-disc" />
+        <circle cx="50" cy="50" r="41" className="dossier-seal-line" />
+        <circle cx="50" cy="50" r="29" className="dossier-seal-line dossier-seal-dash" />
+        <text className="dossier-seal-ring"><textPath href="#dossier-seal-ring">{`APPROVED · PINNED · ${hashes} ·`}</textPath></text>
+        <text x="50" y="59" textAnchor="middle" className="dossier-seal-number">{seal.prd}</text>
+      </svg>
+      <p className="dossier-seal-who">Approved by {seal.approver}</p>
+      <p className="ask-hint">{seal.at} · {seal.files.length} {seal.files.length === 1 ? 'file' : 'files'} pinned</p>
+      <ul className="dossier-seal-files">
+        {seal.files.map((file) => <li key={file.path}><span>{file.path}</span><code>{file.hash ?? '—'}</code></li>)}
+      </ul>
+      <SealScroll dossier={dossier} />
+    </section>
+  );
+}
+
+/** Under the head of a ◆ PRD: the approve screen for whoever may approve it, or the seal once approved. */
+function ApprovalArea({ approval }: { approval: ApprovalView }) {
+  if (approval.canApprove) return <ApproveScreenSection approval={approval} />;
+  return approval.seal ? <SealCard seal={approval.seal} dossier={approval.dossier} /> : null;
+}
+
+/** Under the head: a ◆ PRD's approval area, then a product PRD's attestation (PRD 1548 s4); each only when it has one. */
+function UnderHead({ approval, attestation }: { approval: ApprovalView | null; attestation: AttestationView | null | undefined }) {
+  return (
+    <>
+      {approval && <ApprovalArea approval={approval} />}
+      {attestation && <Attestation attestation={attestation} />}
+    </>
+  );
+}
+
+/** A PRD's Product cell (PRD 1364 s7), on a deployment with a database: none in the demo, nor on a fix. */
+function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
+  return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
+}
+
+export function DossierPage({ view, markdown, supabase, live, voice, attestation }: Props) {
+  const { stage, fix, approval } = view;
   return (
     <div className="dossier">
       <PinnedHead>
@@ -172,6 +293,8 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
               <dd><StageTrack stage={stage} /></dd>
             </div>
           )}
+          {approval && <ApprovalFact approval={approval} />}
+          <ProductFact view={view} supabase={supabase} />
           <div className="dossier-fact">
             <dt>{view.repos.length > 1 ? 'Repos' : 'Repo'}</dt>
             <dd>
@@ -222,6 +345,7 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
           ))}
         </nav>
       </PinnedHead>
+      <UnderHead approval={approval} attestation={attestation} />
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>

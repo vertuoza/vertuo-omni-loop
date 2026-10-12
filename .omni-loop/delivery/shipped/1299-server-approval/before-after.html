@@ -1,0 +1,218 @@
+<title>PRD 1299 · Before and after</title>
+<style>
+/* Layout: two columns, today | after, one row per moment of phase 0; stacks to one column on a phone. Single dark look, the concept's vision tour. */
+:root{--void:#07061c;--deep:#0e0d33;--deep2:#141346;--line:#2f2e70;--yel:#ffd84a;--cyan:#6ff0ff;--grn:#4ee08a;--red:#ff3b5c;--txt:#f2f4ff;--dim:#8a90d6;
+--disp:Anton,Impact,"Arial Narrow Bold","Arial Narrow",sans-serif;--body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--txt);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1160px;margin:0 auto;padding-inline:20px;padding-block:28px 48px;display:grid;gap:28px}
+h1{font-family:var(--disp);font-weight:400;font-size:clamp(30px,5vw,46px);letter-spacing:.01em;margin:0;text-wrap:balance}
+h2{font-family:var(--disp);font-weight:400;font-size:24px;margin:0;text-wrap:balance}
+h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 8px;font-weight:600}
+p{margin:0;max-width:68ch}
+.tag{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.lede{display:grid;gap:10px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.cols>*{min-width:0}
+.colhead{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:4px;justify-self:start}
+.before .colhead{background:var(--deep2);color:var(--dim)}
+.after .colhead{background:var(--yel);color:var(--void)}
+.moment{display:grid;gap:12px}
+.mtitle{display:flex;gap:12px;align-items:baseline;border-top:1px solid var(--line);padding-top:16px}
+.mtitle b{font-family:var(--mono);color:var(--yel);font-weight:600}
+.side{display:grid;gap:10px;align-content:start}
+.panel{background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:10px}
+.term{background:#040313;border:1px solid var(--line);border-radius:8px;font-family:var(--mono);font-size:12.5px;padding:12px 14px;overflow-x:auto;white-space:pre;color:var(--txt)}
+.term .p{color:var(--dim)} .term .ok{color:var(--grn)} .term .no{color:var(--red)} .term .hold{color:var(--yel)}
+.chip{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.chip.srv{border-color:var(--yel);color:var(--yel)} .chip.rep{border-color:var(--dim)} .chip.grn{border-color:var(--grn);color:var(--grn)} .chip.red{border-color:var(--red);color:var(--red)}
+.files{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-family:var(--mono);font-size:12.5px}
+.files li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding-bottom:4px}
+.files .h{color:var(--cyan);font-variant-numeric:tabular-nums}
+.files li.bad .h{color:var(--red)}
+.btn{font:inherit;font-weight:700;border:0;border-radius:6px;padding:9px 16px;background:var(--yel);color:var(--void);justify-self:start}
+.btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);font-weight:500}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seal{flex:none}
+.gh{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 14px;display:grid;gap:8px;font-size:13.5px}
+.gh .t{font-weight:700} .gh .m{color:#8b949e;font-size:12.5px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.toggle{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-family:var(--mono);font-size:12px}
+.toggle span{padding:5px 12px;color:var(--dim)} .toggle span.on{background:var(--yel);color:var(--void)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+td,th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.tw{overflow-x:auto}
+.dim{color:var(--dim)}
+code{font-family:var(--mono);font-size:.92em;color:var(--cyan)}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <header class="lede">
+    <div class="tag">PRD 1299 · from concept #1269, area server-approval</div>
+    <h1>Phase 0 approved on the server</h1>
+    <p>Today a PRD is approved by merging a docs-only phase-0 PR. After this PRD, a repository switched to <code>server</code> approves it on the PRD page instead: the server records who and when, pins the files' hashes, and the building skills trust only that record. A repository left on <code>pr</code> works exactly as today.</p>
+  </header>
+
+  <div class="cols" aria-hidden="true">
+    <span class="colhead" style="justify-self:start">Today · every repository</span>
+    <span class="colhead" style="background:var(--yel);color:var(--void)">After · a repository on <b>server</b></span>
+  </div>
+
+  <!-- 1. The flag -->
+  <section class="moment">
+    <div class="mtitle"><b>1</b><h2>Where a PRD is born</h2></div>
+    <div class="cols">
+      <div class="side before">
+        <div class="panel">
+          <h3>No choice</h3>
+          <p>Every PRD gets a phase-0 PR. The only state is the folder: in <code>inbox/</code> on <code>main</code> means approved.</p>
+        </div>
+      </div>
+      <div class="side after">
+        <div class="panel">
+          <h3>omni-loop · Repositories · rollout step 4</h3>
+          <div class="row" style="justify-content:space-between">
+            <span style="font-family:var(--mono);font-size:13px">vertuoza/vertuo-omni-loop</span>
+            <span class="toggle"><span>pr</span><span class="on">server</span></span>
+          </div>
+          <div class="row" style="justify-content:space-between">
+            <span style="font-family:var(--mono);font-size:13px">vertuoza/vertuo-mobile</span>
+            <span class="toggle"><span class="on">pr</span><span>server</span></span>
+          </div>
+          <p class="dim" style="font-size:13px">A workspace owner flips it here, with no pull request. A PRD keeps its birthplace for life: <span class="chip srv">◆ server</span> or <span class="chip rep">◇ repo</span>. Flipping back changes no PRD in flight.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Brainstorm hand-off -->
+  <section class="moment">
+    <div class="mtitle"><b>2</b><h2>What the brainstorm leaves</h2></div>
+    <div class="cols">
+      <div class="side before">
+        <div class="gh">
+          <div class="t">docs(prd): Offline photo upload <span class="m">#1301</span></div>
+          <div class="m">docs/phase-0-offline-photos → main · 5 files · <span class="chip">omni:phase-0</span></div>
+          <div class="m"><span class="dot" style="background:#3fb950"></span>inbox · <span class="dot" style="background:#3fb950"></span>Vercel ×3 · CI skipped (docs only)</div>
+          <div class="m">Waiting for a person to review and merge.</div>
+        </div>
+        <div class="term"><span class="p">What is next?</span>
+1. Review the PRD: …/pull/1301
+2. Merge that PR. → PRD 1300 moves into the inbox.
+3. /omni:yolo 1300</div>
+      </div>
+      <div class="side after">
+        <div class="panel">
+          <div class="row"><span class="tag">PRD 1300</span><span class="chip srv">◆ server</span><span class="chip">0 phase-0 PRs</span></div>
+          <p style="font-size:13.5px">Spec, plan, before/after and voice are on the feature branch and in the dossier. Nothing is opened on GitHub except the PRD issue and the draft feature PR.</p>
+        </div>
+        <div class="term"><span class="p">What is next?</span>
+1. Approve it on its page: omni-loop.xyz/prd/1300
+2. Then run:
+
+/omni:yolo 1300</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Approving -->
+  <section class="moment">
+    <div class="mtitle"><b>3</b><h2>Approving</h2></div>
+    <div class="cols">
+      <div class="side before">
+        <div class="gh">
+          <div class="t">Merge pull request #1301</div>
+          <div class="m">Merged into main. The folder lands in <code>inbox/</code>.</div>
+          <div class="m">Who approved and what exactly was approved are recorded nowhere the loop reads. The files on the feature branch can change afterwards and <code>/omni:yolo</code> builds them anyway.</div>
+        </div>
+      </div>
+      <div class="side after">
+        <div class="panel">
+          <h3>Approve phase 0</h3>
+          <p style="font-size:13px">Approving pins these files by hash. <code>/omni:yolo</code> builds only while the feature branch still matches them.</p>
+          <ul class="files">
+            <li><span>spec.md <span class="dim">v4</span></span><span class="h">9c41…e07b</span></li>
+            <li><span>plan.md <span class="dim">v3</span></span><span class="h">41b0…0cd2</span></li>
+            <li><span>before-after.html <span class="dim">v2</span></span><span class="h">c77e…19fa</span></li>
+            <li><span>voice.json <span class="dim">v1</span></span><span class="h">0a3d…e550</span></li>
+          </ul>
+          <div class="row"><button class="btn" type="button">Approve</button><span class="dim" style="font-size:12.5px">any workspace member</span></div>
+        </div>
+        <div class="panel">
+          <div class="row">
+            <svg class="seal" width="54" height="54" viewBox="0 0 100 100" role="img" aria-label="approved seal"><circle cx="50" cy="50" r="47" fill="#ffd84a"/><circle cx="50" cy="50" r="40" fill="none" stroke="#07061c" stroke-width="2"/><circle cx="50" cy="50" r="30" fill="none" stroke="#07061c" stroke-width="1.2" stroke-dasharray="2 2"/><text x="50" y="60" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="24" fill="#07061c">1300</text></svg>
+            <div><div style="font-weight:700">Approved by Irisa · 9 Oct, 14:02</div><div class="dim" style="font-size:12.5px">4 files pinned · the PRD issue gets <span class="chip grn">omni:approved</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. The gate -->
+  <section class="moment">
+    <div class="mtitle"><b>4</b><h2>The gate before building</h2></div>
+    <div class="cols">
+      <div class="side before">
+        <div class="term"><span class="p">$ omni prd 1300</span>
+state inbox   <span class="p"># the folder is in inbox/</span>
+<span class="p">$ /omni:yolo 1300</span>
+<span class="ok">wave 1 starts</span></div>
+        <p class="dim" style="font-size:13px">One check: is the folder in <code>inbox/</code>. Nothing ties what is built to what was approved.</p>
+      </div>
+      <div class="side after">
+        <div class="term"><span class="p">$ omni approval 1300</span>
+<span class="ok">approved by irisa · 2026-10-09 14:02</span>
+<span class="p">$ /omni:yolo 1300</span>
+<span class="ok">wave 1 starts</span></div>
+        <div class="term"><span class="p">$ /omni:yolo 1300   # nobody approved yet</span>
+<span class="hold">PRD 1300 waits for approval: omni-loop.xyz/prd/1300</span>
+
+<span class="p">$ /omni:yolo 1300   # plan.md changed on the branch</span>
+<span class="no">≠ plan.md · content · ✗ refuse</span>
+restore it, or approve again: omni-loop.xyz/prd/1300
+
+<span class="p">$ /omni:yolo 1300   # the page does not answer</span>
+<span class="hold">server unreachable · held, not failed</span>
+
+<span class="p">$ /omni:yolo 1300   # the approver left</span>
+<span class="no">approver irisa is not a workspace member</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Drift on the page -->
+  <section class="moment">
+    <div class="mtitle"><b>5</b><h2>When a file changes after approval</h2></div>
+    <div class="cols">
+      <div class="side before">
+        <div class="panel"><p>Nothing shows it. The merged phase-0 copy on <code>main</code> and the feature branch's copy quietly differ.</p></div>
+      </div>
+      <div class="side after">
+        <div class="panel">
+          <div class="row"><span class="chip red">drifted</span><span style="font-weight:700">approve again</span></div>
+          <ul class="files">
+            <li><span>spec.md</span><span class="h">9c41…e07b ✓</span></li>
+            <li class="bad"><span>plan.md <span class="dim">v4 pushed after approval</span></span><span class="h">41b0 → f02a</span></li>
+          </ul>
+          <button class="btn" type="button">Approve v4</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- what stays -->
+  <section class="moment">
+    <div class="mtitle"><b>·</b><h2>What does not change</h2></div>
+    <div class="tw">
+      <table>
+        <tr><th>Stays as it is</th><th>Comes in a later area</th></tr>
+        <tr><td>A repository on <code>pr</code>: phase-0 PR, <code>omni phase0</code>, the App's inbox check</td><td>The phone push, the HUD toast and "approval voided" at push time (approval-handshake)</td></tr>
+        <tr><td>The PRD issue, the feature branch, sub-PRs and one feature PR that closes the issue</td><td>Approvers per product (product-home)</td></tr>
+        <tr><td>Building, outbox and shipped, read from the branch</td><td>The <code>omni/approved</code> check on target PRs (product-gate)</td></tr>
+        <tr><td>About 90 other readers of the inbox folder</td><td>Moving them onto <code>prdState()</code></td></tr>
+      </table>
+    </div>
+  </section>
+</div>

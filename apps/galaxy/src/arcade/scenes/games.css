@@ -1,5 +1,6 @@
-/* The games group: the game room. Laid out on the wide grid (640×360) first, the three cabinets side
-   by side; the rules at the end rearrange it for the tall grid (320×288), one cabinet a page. */
+/* The games group: the game room. Laid out on the wide grid (640×360) first, a window of three
+   cabinets side by side that follows the cursor (games/room.ts, roomWindow); the rules at the end
+   rearrange it for the tall grid (320×288), one cabinet a page. */
 
 .games { position: absolute; inset: 0; padding: 26px 34px 0; }
 .games h2 { font-size: 16px; }
@@ -34,6 +35,18 @@
 .cab-screen { position: relative; display: grid; align-content: start; gap: 2px; height: 66px; margin: 0 4px; padding: 4px 10px 0; box-sizing: border-box; background: var(--void); border: 2px solid #2a2766; }
 .cab-row { display: flex; justify-content: space-between; }
 .cab-hero { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); line-height: 0; }
+/* A game's own screen: its still (games/stills.ts) filling the screen's inside, and the player in it:
+   their kart from behind, their hero in the seat and its shadow under it (as the race draws them,
+   kart/art.ts), or their hero running on the ground of stage 1-1. */
+.cab-still { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.cab-kart { position: absolute; left: 50%; bottom: 2px; width: 28px; height: 18px; transform: translateX(-50%); line-height: 0; }
+.cab-kart > .sprite { position: absolute; left: 0; top: 0; }
+.cab-kart::before {
+  content: ''; position: absolute; left: -1px; top: 14px; width: 29px; height: 6px; background: rgba(8, 6, 24, 0.45);
+  clip-path: polygon(5px 0, 26px 0, 26px 2px, 29px 2px, 29px 4px, 26px 4px, 26px 6px, 5px 6px, 5px 4px, 0 4px, 0 2px, 5px 2px);
+}
+.cab-driver { position: absolute; left: 6px; top: -5px; height: 13px; overflow: hidden; }
+.cab-runner { position: absolute; left: 28px; bottom: 16px; line-height: 0; }
 .cab-scores { display: grid; gap: 8px; margin: 6px 8px 0; font-size: 7px; text-align: left; }
 .cab-scores b { font-weight: 400; color: var(--cyan); }
 .cab-none { font-family: var(--txt); font-size: 15px; color: var(--dim); }

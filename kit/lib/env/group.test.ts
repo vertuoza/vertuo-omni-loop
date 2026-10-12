@@ -65,6 +65,14 @@ describe('a group', () => {
     expect(error?.problems).toEqual([{ variables: ['STORE_URL (or PUBLIC_STORE_URL)'], reason: 'STORE_URL (or PUBLIC_STORE_URL) is not valid: Invalid URL' }]);
   });
 
+  it('reads outside production unless told otherwise', () => {
+    const reader = envReader({});
+    expect(reader.group(APP)).toBeNull();
+    expect(() => {
+      reader.done();
+    }).not.toThrow();
+  });
+
   it('is required in production only when marked so', () => {
     expect(read({}, { production: false }).error).toBeNull();
     expect(read({}, { production: true }).error?.problems).toEqual([{
@@ -119,5 +127,14 @@ describe('requireGroup', () => {
     expect(() => requireGroup(null, PAIR, 'the import writes the store')).toThrow(
       new EnvError([{ variables: ['STORE_URL (or PUBLIC_STORE_URL)', 'STORE_KEY'], reason: 'STORE_URL (or PUBLIC_STORE_URL) and STORE_KEY are not set: the import writes the store' }]),
     );
+  });
+
+  it('names three variables or more as a sentence does: commas, then "and" before the last', () => {
+    const TRIO = envGroup({
+      label: 'the trio',
+      schema: z.object({ a: z.string(), b: z.string(), c: z.string() }),
+      variables: { a: 'TRIO_A', b: 'TRIO_B', c: 'TRIO_C' },
+    });
+    expect(() => requireGroup(null, TRIO, 'the trio plays')).toThrow('environment: TRIO_A, TRIO_B and TRIO_C are not set: the trio plays');
   });
 });

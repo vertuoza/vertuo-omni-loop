@@ -26,6 +26,7 @@ const fake = (over: Partial<Source> = {}): Source => ({
   user: () => Promise.resolve(ADA),
   workspace: () => Promise.resolve({ id: 'w-acme', name: 'Acme' }),
   player: () => Promise.resolve(null),
+  ideasBoard: () => Promise.resolve('acme/widgets'),
   questions: () => Promise.resolve(WAITING),
   live: () => LIVE,
   ...over,
@@ -41,6 +42,7 @@ describe('the viewer', () => {
       login: 'ada',
       avatarUrl: 'https://avatars.example/ada.png',
       workspaceName: 'Acme',
+      ideasBoard: 'acme/widgets',
       heroSvg: null,
       waiting: { questions: WAITING, unread: false, source: LIVE },
     });
@@ -74,12 +76,21 @@ describe('the viewer', () => {
     expect(await readViewer(fake({ workspace: () => Promise.resolve(null) }))).toMatchObject({ signedIn: true, workspaceName: null });
   });
 
+  it('reads the workspace\'s ideas board for Work › Ideas, none when the read throws or there is no workspace (PRD 1246)', async () => {
+    const ideasBoard = vi.fn(() => Promise.resolve('acme/widgets'));
+    expect(await readViewer(fake({ ideasBoard }))).toMatchObject({ ideasBoard: 'acme/widgets' });
+    expect(ideasBoard).toHaveBeenCalledWith('w-acme');
+    expect(await readViewer(fake({ ideasBoard: boom }))).toMatchObject({ signedIn: true, workspaceName: 'Acme', ideasBoard: null });
+    expect(await readViewer(fake({ workspace: () => Promise.resolve(null) }))).toMatchObject({ ideasBoard: null });
+    expect(SIGNED_OUT.ideasBoard).toBeNull();
+  });
+
   it('holds no questions, marked unread, when their read throws, and still says where to read them again', async () => {
     expect(await readViewer(fake({ questions: boom }))).toMatchObject({ signedIn: true, workspaceName: 'Acme', waiting: { questions: [], unread: true, source: LIVE } });
   });
 
   it('never throws, even when every read does', async () => {
-    await expect(readViewer({ user: boom, workspace: boom, player: boom, questions: boom, live: () => { throw new Error('down'); } })).resolves.toEqual(SIGNED_OUT);
+    await expect(readViewer({ user: boom, workspace: boom, player: boom, ideasBoard: boom, questions: boom, live: () => { throw new Error('down'); } })).resolves.toEqual(SIGNED_OUT);
     await expect(readViewer(fake({ workspace: boom, questions: boom, live: () => { throw new Error('down'); } })))
       .resolves.toMatchObject({ signedIn: true, workspaceName: null, waiting: { questions: [], unread: true, source: null } });
   });

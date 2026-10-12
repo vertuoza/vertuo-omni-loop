@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1233: validate with e2e (beta), before and after</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --card: #ffffff; --ink: #1f2328; --muted: #656d76; --line: #d8d4cb;
+    --good: #1a7f4b; --good-bg: #e6f4ec; --bad: #b42318; --bad-bg: #fdecea;
+    --warn: #8a5a00; --warn-bg: #fdf3dc; --accent: #2457c5; --accent-bg: #e8eefb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c; --card: #1e2127; --ink: #e8e6e1; --muted: #9aa1a9; --line: #343a42;
+      --good: #5fd08e; --good-bg: #17301f; --bad: #ff8a80; --bad-bg: #3a1c1a;
+      --warn: #f2c35c; --warn-bg: #332a12; --accent: #8fb0ff; --accent-bg: #1c2740;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .col h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  .col.after h2 { color: var(--accent); }
+  .step { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; }
+  .dot { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 12px; font-weight: 600; background: var(--line); color: var(--ink); }
+  .after .dot { background: var(--accent-bg); color: var(--accent); }
+  .step p { margin: 0; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .good { background: var(--good-bg); color: var(--good); border-color: transparent; }
+  .bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--accent-bg); padding: 1px 5px; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 0; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .note { margin: 20px 0 0; padding: 12px 14px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); }
+  svg { max-width: 100%; height: auto; display: block; margin: 8px 0 0; }
+  svg text { fill: var(--ink); font: 12px system-ui, sans-serif; }
+  svg .box { fill: var(--card); stroke: var(--line); }
+  svg .hot { fill: var(--accent-bg); stroke: var(--accent); }
+  svg .line { stroke: var(--muted); fill: none; stroke-width: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Validate a PRD with e2e (beta)</h1>
+  <p class="sub">PRD #1233 · what a person gets from a PRD's acceptance criteria, today and after</p>
+
+  <div class="cols">
+    <section class="col before" aria-labelledby="b">
+      <h2 id="b">Today</h2>
+      <div class="step"><span class="dot">1</span><p><code>/omni:prove 1017</code> films each criterion once on the PR's preview.</p></div>
+      <div class="step"><span class="dot">2</span><p>Each criterion gets a verdict: <span class="tag good">✓</span> <span class="tag bad">✗</span> or <span class="tag">unfilmable</span>.</p></div>
+      <div class="step"><span class="dot">3</span><p>The clips go to the PRD's Proof tab. <strong>The scripts are thrown away.</strong></p></div>
+      <div class="step"><span class="dot">4</span><p>The next PRD that breaks the same screen is caught by a person, if by anyone.</p></div>
+      <svg viewBox="0 0 420 70" role="img" aria-label="Today: film, verdict, scripts discarded">
+        <rect class="box" x="4" y="14" width="110" height="40" rx="6"/><text x="59" y="38" text-anchor="middle">film each criterion</text>
+        <rect class="box" x="154" y="14" width="110" height="40" rx="6"/><text x="209" y="38" text-anchor="middle">verdict per criterion</text>
+        <rect class="box" x="304" y="14" width="110" height="40" rx="6"/><text x="359" y="38" text-anchor="middle">scripts discarded</text>
+        <path class="line" d="M114 34h40M264 34h40"/>
+      </svg>
+    </section>
+
+    <section class="col after" aria-labelledby="a">
+      <h2 id="a">After (beta, off by default)</h2>
+      <div class="step"><span class="dot">1</span><p><code>/omni:validate-e2e 1017</code> reads the spec's criteria (never the code's diff) and writes one test per criterion a screen can show.</p></div>
+      <div class="step"><span class="dot">2</span><p>A first run on the preview <strong>records</strong> each goal step; a second run with <code>--strict-cache</code> must pass.</p></div>
+      <div class="step"><span class="dot">3</span><p><code>omni e2e status</code> and <code>omni e2e heals</code> say, without a model, which recordings are missing and which steps changed.</p></div>
+      <div class="step"><span class="dot">4</span><p>A <strong>sub-PR</strong> into the feature branch carries the tests and their recordings. A person reads it, merges it, and the tests reach <code>main</code> with the PRD.</p></div>
+      <svg viewBox="0 0 440 140" role="img" aria-label="After: spec to tests to record to strict replay to sub-PR">
+        <rect class="box" x="4" y="10" width="96" height="38" rx="6"/><text x="52" y="33" text-anchor="middle">spec criteria</text>
+        <rect class="box" x="124" y="10" width="96" height="38" rx="6"/><text x="172" y="33" text-anchor="middle">e2e tests</text>
+        <rect class="box" x="244" y="10" width="96" height="38" rx="6"/><text x="292" y="33" text-anchor="middle">record on preview</text>
+        <rect class="hot" x="344" y="10" width="92" height="38" rx="6"/><text x="390" y="33" text-anchor="middle">strict replay</text>
+        <path class="line" d="M100 29h24M220 29h24M340 29h4"/>
+        <rect class="hot" x="124" y="86" width="150" height="40" rx="6"/><text x="199" y="110" text-anchor="middle">omni e2e status / heals</text>
+        <rect class="box" x="298" y="86" width="138" height="40" rx="6"/><text x="367" y="110" text-anchor="middle">sub-PR for review</text>
+        <path class="line" d="M390 48v18l-191 0v20M274 106h24"/>
+      </svg>
+    </section>
+  </div>
+
+  <h2 style="font-size:16px;margin:28px 0 4px">What a person reads in the sub-PR</h2>
+  <table>
+    <thead><tr><th>Criterion</th><th>Test</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>4. Following a header sorts, again reverses</td><td><code>prd-1017</code> · criterion 4</td><td><span class="tag good">✓</span></td></tr>
+      <tr><td>7. The sorted header alone shows a mark</td><td><code>prd-1017</code> · criterion 7</td><td><span class="tag good">✓</span></td></tr>
+      <tr><td>9. The page still draws with no script</td><td>none: an ordinary unit test</td><td><span class="tag">not filmable</span></td></tr>
+      <tr><td>Healed step on a later pass: <code>tap link "Name"</code> → <code>tap link "Full name"</code></td><td>outbox item, before and after</td><td><span class="tag warn">a person confirms</span></td></tr>
+    </tbody>
+  </table>
+  <p class="note">Illustrative rows, from the spike on PRD 1017. A healed step is never accepted without a person: a recording that no longer matches is a failure after a merge, and a diff to confirm on a PR.</p>
+</main>
+</body>
+</html>

@@ -102,6 +102,26 @@ describe('POST /api/loops start: a loop opens', () => {
     await w.start();
     expect((await w.start({}, { token: 'bob-token' })).status).toBe(201);
   });
+
+  // Law BR-PRODUCT-73 (.omni-loop/knowledge/product/rules.md, #1534).
+  it('law BR-PRODUCT-73: a loop with no wake yet reads live until an hour after its last push, only then silent and taken over', async () => {
+    const w = world();
+    const reader = loopReader(w.fake.client('ada-token') as never);
+    const first = await w.start();
+    const state = async () => {
+      const row = await reader.loop(first.loopId);
+      if (!row) throw new Error('the loop is gone');
+      return loopState(row, w.clock.now);
+    };
+    w.clock.now += 60 * 60 * 1000 - 1;
+    expect(await state()).toBe('live');
+    expect((await w.start({ takeOver: true })).status).toBe(409);
+    w.clock.now += 1;
+    expect(await state()).toBe('silent');
+    const taken = await w.start({ takeOver: true });
+    expect(taken.status).toBe(201);
+    expect(w.loop(first.loopId)?.state).toBe('stopped');
+  });
 });
 
 describe('POST /api/loops tick, park and stop', () => {
@@ -116,6 +136,17 @@ describe('POST /api/loops tick, park and stop', () => {
       link: 'https://omni.example/prd/7', merged: [101, 102], items: ['s1-01-first-wave'], next_wake_at: new Date(START + 90_000).toISOString(),
     })]);
     expect(w.loop(loopId)).toMatchObject({ next_wake_at: new Date(START + 90_000).toISOString(), last_tick_at: new Date(START).toISOString() });
+  });
+
+  it('a tick carrying the repositories its step touched stores them; one without them stores none', async () => {
+    const w = world();
+    const { loopId } = await w.start();
+    expect((await w.send(tick(loopId, { action: 'ultra-wave', repos: ['crew', 'ai-domain'] }))).status).toBe(200);
+    expect((await w.send(tick(loopId, { step: 2 }))).status).toBe(200);
+    expect(w.fake.tables.loop_ticks.map((t) => t.repos)).toEqual([['crew', 'ai-domain'], []]);
+    expect(w.fake.calls[1]?.args.p_body).toMatchObject({ repos: ['crew', 'ai-domain'] });
+    const ticks = await loopReader(w.fake.client('bob-token') as never).ticks(loopId);
+    expect(ticks.map((t) => t.repos)).toEqual([['crew', 'ai-domain'], []]);
   });
 
   it('a tick that replanned adds the next plan version, with its reason', async () => {
@@ -192,6 +223,8 @@ describe('refusals', () => {
     ['a next wake that is not a time', tick(LOOP, { nextWakeAt: 'soon' })],
     ['a tick without its next wake', { ...tick(LOOP), nextWakeAt: undefined }],
     ['a replan without its reason', tick(LOOP, { replan: { plan: {} } })],
+    ['a repository that is not a name', tick(LOOP, { repos: ['crew api'] })],
+    ['21 repositories', tick(LOOP, { repos: Array.from({ length: 21 }, (_, i) => `r${i}`) })],
     ['an unknown field', tick(LOOP, { transcript: '…' })],
     ['a park without who it waits on', { event: 'park', loopId: LOOP, prd: 9, what: 'answers' }],
     ['a park without on what', { event: 'park', loopId: LOOP, prd: 9, who: 'Pierre' }],

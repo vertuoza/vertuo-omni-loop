@@ -29,6 +29,17 @@ describe('experience', () => {
     ], { now: NOW })).toEqual({ alice: 10, bob: 15 });
   });
 
+  it('counts each answered question at its weight, 1 by default (PRD 1180)', () => {
+    const answers = [
+      E('ask:r1:answered', '2026-08-21T12:00:00Z', 'QUESTION_ANSWERED', { contributor: 'alice', team: 'octopod' }),
+      E('ask:r2:answered', '2026-09-21T12:00:00Z', 'QUESTION_ANSWERED', { contributor: 'Alice', team: 'octopod' }),
+    ];
+    expect(experience([charted, ...answers], { now: NOW })).toEqual({ alice: 4 });
+    expect(experience([charted, ...answers], { now: NOW, rules: rules({ weights: { questionAnswered: 0 } }) })).toEqual({ alice: 0 });
+    expect(xpKindOf('question answered')).toBe('questionAnswered');
+    expect([xpKindOf('feature merged'), xpKindOf('feature reviewed')]).toEqual(['featureMerged', 'featureReviewed']);
+  });
+
   it('counts the cross-fleet multiplier of a wound close, rounding once after summing', () => {
     // Each close pays 15 × 1.5 = 22.5; rounded once, two of them are 45, not 2 × 23.
     expect(experience([
@@ -141,6 +152,9 @@ describe('xpKindOf', () => {
       secured('s9', '2026-09-21T12:00:00Z', 'dan', 'picsou', lostPlanet),
       E('planet:7:lost', '2026-09-25T12:00:00Z', 'PLANET_LOST', { planet: lostPlanet, data: { ownerTeam: 'beaver', reason: 'closed' } }),
       E('planet:7:decommissioned', '2026-09-26T12:00:00Z', 'PLANET_DECOMMISSIONED', { planet: lostPlanet }),
+      E('ask:r1:answered', '2026-09-22T09:00:00Z', 'QUESTION_ANSWERED', { contributor: 'pm', team: 'beaver' }),
+      E('merge:r#500:2332:merged', '2026-09-22T14:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' }),
+      E('merge:r#500:2332:approved:eve', '2026-09-22T14:00:00Z', 'FEATURE_REVIEWED', { contributor: 'eve', team: 'octopod' }),
     ];
     expect(new Set(events.map((e) => e.type))).toEqual(new Set(EVENT_TYPES));
 
@@ -202,6 +216,20 @@ describe('unlockedFor', () => {
     expect(unlockedFor(2, [])).toEqual(['invaders', 'platformer']);
     const later = rules({ unlocks: { invaders: 1, platformer: 9 } });
     expect(unlockedFor(2, ['invaders', 'platformer'], later)).toEqual(['invaders', 'platformer']);
+  });
+
+  it('opens OMNI KART at LV 3 under the rulebook, and keeps it after a rule change moves it later (PRD 1359)', () => {
+    expect(unlockedFor(2, [])).toEqual(['invaders', 'platformer']);
+    expect(unlockedFor(3, [])).toEqual(['invaders', 'kart', 'platformer']);
+    const later = rules({ unlocks: { invaders: 1, platformer: 2, kart: 9 } });
+    expect(unlockedFor(3, ['invaders', 'kart', 'platformer'], later)).toEqual(['invaders', 'kart', 'platformer']);
+  });
+
+  it('opens OMNI DUET at LV 4 under the rulebook, and keeps it after a rule change moves it later (PRD 1633)', () => {
+    expect(unlockedFor(3, [])).toEqual(['invaders', 'kart', 'platformer']);
+    expect(unlockedFor(4, [])).toEqual(['duet', 'invaders', 'kart', 'platformer']);
+    const later = rules({ unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 9 } });
+    expect(unlockedFor(4, ['duet', 'invaders', 'kart', 'platformer'], later)).toEqual(['duet', 'invaders', 'kart', 'platformer']);
   });
 
   it('adds to the games already stored, and never takes one away', () => {

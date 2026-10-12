@@ -1,47 +1,54 @@
 // `omni board <prd> [--json] [--repo owner/name]` — the loop's view of a PRD's slices, rebuilt from
-// GitHub on every run. Reads the plan's own slice table (`parsePlanSlices`, which carries each
-// slice's own `blocked by` ids), fetches only this feature's own pull requests (`gh pr list`,
-// narrowed by `board.matchBy` — never the whole repository), and hands the result to `boardFor`
-// (`kit/lib/board.ts`) — the one place the state and the runnable frontier are decided. `commits`
-// is never asked of `gh pr list`: on a repository with any real history that field alone can blow
-// the GraphQL node-limit even at a small page size, so a head commit date is fetched with a second,
-// per-pull-request `gh pr view --json commits` call, and only for the pull requests that could
-// possibly be `claimed-stale` in the first place.
+// the code host on every run. Reads the plan's own slice table (`parsePlanSlices`, which carries each
+// slice's own `blocked by` ids), reads only this feature's own changes through the `LoopReads` port
+// (PRD 1665: the Omni page, `kit/lib/loop-reads/`), narrowed by `board.matchBy` — never the whole
+// repository — and hands the result to `boardFor` (`kit/lib/board.ts`) — the one place the state and
+// the runnable frontier are decided. A change's head commit date is read with a second, per-change read,
+// and only for the changes that could possibly be `claimed-stale` in the first place. It runs no `gh`.
 //
-// In a plan repository (PRD 563), a plan whose slices name their `repo` is read one `gh pr list`
-// per repository a slice names (its `plan.targets` entry, or `repo.slug` for the plan repository),
-// and a repository `gh` cannot read makes its own slices `unreadable` instead of failing the board.
+// In a plan repository (PRD 563), a plan whose slices name their `repo` is read one list per
+// repository a slice names (its `plan.targets` entry, or `repo.slug` for the plan repository), and a
+// repository the page refuses (403, 424, 429) makes its own slices `unreadable` instead of failing the
+// board. A read no repository can make (no sign-in, no answer, a page without the loop's routes) prints
+// its one line on stderr and exits 1.
 //
-// A PRD whose plan has more than one landing (`landing` column) is read per landing: one `gh pr list`
-// per landing branch (`branches.landing`) for its sub-PRs, and one by head for the landing's own
-// pull request; the board then names the current landing and prints a line per landing.
+// A PRD whose plan has more than one landing (`landing` column) is read per landing: one list per
+// landing branch (`branches.landing`) for its sub-PRs, and one by head for the landing's own change;
+// the board then names the current landing and prints a line per landing.
 //
 // The command also says whether the branch the next wave builds on carries the default branch
 // (issue 1179): `base` checks the feature branch, or the current landing's when its base is the
 // default branch, with `git merge-base --is-ancestor <remote>/<default> <remote>/<branch>`. A plan cut
 // while its phase-0 PR was open is otherwise built against the spec and plan before review.
 //
-// `buildBoard` is that whole building part, exported so that the status line's background refresh
-// (`omni statusline --refresh <n>`, PRD 324) builds the board exactly as `omni board` does; the
-// command itself only prints what it returns.
+// With `plan: { product }` (PRD 1548, s10), the targets the slices name are the product's, read from
+// the Omni page (`withProductTargets`, `kit/lib/product/targets.ts`) before the board is built;
+// `contextWithTargets` is that read for `omni board`, `omni next`, `omni care` and `omni flow`.
+//
+// `buildBoard` is that whole building part, exported so that `omni next`, `omni care` and the status
+// line's background refresh (`omni statusline --refresh <n>`, PRD 324) build the board exactly as
+// `omni board` does, from the reads they hand it; the command itself only prints what it returns.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { boardFor, fillBranch, landingBranches } from '../../lib/board.ts';
 import type { BoardLanding, BoardPr, BoardRepos, BoardRow, LandingRow } from '../../lib/board.ts';
+import { loadContext } from '../../lib/context.ts';
+import type { Context } from '../../lib/context.ts';
 import { gradedLandings } from '../../lib/inbox/plan-grade.ts';
 import { landingPlan } from '../../lib/landings/landing-plan.ts';
-import type { Context } from '../../lib/context.ts';
+import { withProductTargets } from '../../lib/product/targets.ts';
+import type { ProductTargetsIo } from '../../lib/product/targets.ts';
 import type { Slice } from '../../lib/inbox/territory.ts';
 import { parsePlanLandings, parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
-import { githubEnv } from '../github.ts';
+import type { LoopChange } from '../../lib/loop-reads/contract.ts';
+import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import { boardReads, holdsOneRepository, LoopReadError } from '../../lib/loop-reads/port.ts';
+import type { BoardReads, LoopReads } from '../../lib/loop-reads/port.ts';
 import { errorCode, errorMessage, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
 import { defined, propertyOf } from '../../lib/narrow.ts';
-import type { Command, CommandIo, Env, Exec } from '../io.ts';
-import { GhPrCommitsSchema, GhPrListSchema } from '../schema.ts';
-import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
-import { synchronous } from '../synchronous.ts';
-import type { PrNumber, PrdNumber } from '../../lib/ids.ts';
+import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
 
@@ -65,78 +72,39 @@ function topicFor(prd: PrdNumber, { ctx }: { ctx: Context }): string {
   return parsed.topic;
 }
 
-// Deliberately no `commits`: asked for every pull request of any repository with real history, it
-// can alone push a `gh pr list` call over the GraphQL API's per-query node limit — the failure this
-// fix round exists to close. Fetched per pull request instead, and only where the staleness rule
-// could possibly need it (see `fetchHeadCommitDates` below).
-const PR_FIELDS = ['number', 'title', 'headRefName', 'baseRefName', 'state', 'isDraft', 'mergedAt', 'body', 'labels', 'updatedAt', 'createdAt'];
-
-/** `--base <featureBranch>` for `board.matchBy: base`, `--label <subLabel>` for `board.matchBy:
- * label` — narrows `gh pr list` to this feature's own pull requests, server-side. Without this an
- * old sub-PR (say, already merged) can fall off a page of the whole repository's pull requests and
- * read as if it never existed — exactly what `--state all` was supposed to prevent. */
-/** What narrows `gh pr list` to one feature's pull requests. */
+/** What narrows a list to one feature's changes: its sub-PRs' base branch, or their label in `label` mode. */
 type Narrowing = { matchBy: string; featureBranch: string; subLabel: string };
 
-function narrowingArgs({ matchBy, featureBranch, subLabel }: Narrowing): string[] {
-  return matchBy === 'label' ? ['--label', subLabel] : ['--base', featureBranch];
+function narrowingOf({ matchBy, featureBranch, subLabel }: Narrowing): { base: string } | { label: string } {
+  return matchBy === 'label' ? { label: subLabel } : { base: featureBranch };
 }
 
-/** Every pull request of this feature — never the whole repository's. With `head`, the pull
- * requests whose head is that branch instead: a landing's own. */
-function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel, head = null }: { repo: string; exec: Exec; env: Env | undefined; head?: string | null } & Narrowing): BoardPr[] {
-  const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
-  const raw = exec(
-    'gh',
-    [
-      'pr',
-      'list',
-      '--repo',
-      repo,
-      '--json',
-      PR_FIELDS.join(','),
-      '--state',
-      'all',
-      '--limit',
-      '200',
-      ...(head === null ? narrowingArgs({ matchBy, featureBranch, subLabel }) : ['--head', head]),
-    ],
-    options,
-  );
-  return GhPrListSchema.parse(JSON.parse(raw)).map((pr) => ({ ...pr, headCommitDate: null }));
+/** A change as the board reads a pull request: `boardFor` keeps its own words (`OPEN`, `MERGED`). */
+function boardPrOf(change: LoopChange): BoardPr {
+  const state = change.state === 'merged' ? 'MERGED' : change.state === 'closed' ? 'CLOSED' : 'OPEN';
+  return {
+    number: change.number,
+    title: change.title,
+    headRefName: change.head,
+    baseRefName: change.base,
+    state,
+    isDraft: change.state === 'draft',
+    mergedAt: change.mergedAt,
+    body: change.body,
+    labels: change.labels,
+    updatedAt: change.updatedAt,
+    createdAt: change.createdAt,
+    headCommitDate: null,
+  };
 }
 
 /** Whether `pr` could possibly read as `claimed-stale` at all: only an open draft whose claim
- * (`createdAt`) is already older than the limit is worth a second `gh` call for — a merged, closed
- * or non-draft pull request, or a draft claimed only moments ago, can never be `claimed-stale`
- * regardless of what its head commit date turns out to be (`kit/lib/board.ts`'s `isClaimedStale`). */
+ * (`createdAt`) is already older than the limit is worth a second read — a merged, closed or non-draft
+ * pull request, or a draft claimed only moments ago, can never be `claimed-stale` regardless of what
+ * its head commit date turns out to be (`kit/lib/board.ts`'s `isClaimedStale`). */
 function couldBeStale(pr: BoardPr, now: number, staleMinutes: number): boolean {
   if (!pr.isDraft || pr.state !== 'OPEN' || !pr.createdAt) return false;
   return now - new Date(pr.createdAt).getTime() > staleMinutes * 60 * 1000;
-}
-
-/** The head commit's own date for one pull request, read with a second, narrow `gh pr view` call —
- * `null` when the payload carries no commit at all. */
-function fetchHeadCommitDate({ repo, number, exec, env }: { repo: string; number: PrNumber | undefined; exec: Exec; env: Env | undefined }): string | null {
-  const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
-  const raw = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'commits'], options);
-  const commits = GhPrCommitsSchema.parse(JSON.parse(raw)).commits ?? [];
-  const last = commits.at(-1);
-  return last?.committedDate ?? last?.authoredDate ?? null;
-}
-
-/** Widens every pull request that could possibly be `claimed-stale` with its own head commit date —
- * one extra `gh pr view` call each, never for a pull request the staleness rule could not apply to
- * anyway. */
-function fetchHeadCommitDates(
-  prs: BoardPr[],
-  { repo, exec, env, now, staleMinutes }: { repo: string; exec: Exec; env: Env | undefined; now: number; staleMinutes: number },
-): BoardPr[] {
-  return prs.map((pr) =>
-    couldBeStale(pr, now, staleMinutes)
-      ? { ...pr, headCommitDate: fetchHeadCommitDate({ repo, number: pr.number, exec, env }) }
-      : pr,
-  );
 }
 
 const STATE_WIDTH = 'claimed-stale'.length;
@@ -159,23 +127,24 @@ function landingLine(landing: LandingRow): string {
   return ` ${where}landing ${landing.landing} (${landing.name}) ${landing.branch} — ${counts} — ${pr}${landing.current ? ' — current' : ''}`;
 }
 
+/** What a board is built from beyond its plan. */
+type Built = { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[]; landings: BoardLanding[] };
+
 /**
- * PRD `prd`'s board, built as `omni board` builds it: the plan's slices, this feature's own pull
- * requests from `gh pr list` (with a head commit date for each that could be `claimed-stale`), and
- * `boardFor`. Throws a `UsageError` for a PRD with no folder, no plan or a plan that cannot be read,
- * and whatever `gh` throws.
- * `repo` is `--repo`'s value, when given.
+ * PRD `prd`'s board, built as `omni board` builds it: the plan's slices, this feature's own changes read
+ * through `reads` (with a head commit date for each that could be `claimed-stale`), and `boardFor`.
+ * Rejects with a `UsageError` for a PRD with no folder, no plan or a plan that cannot be read, and with
+ * the `LoopReadError` of a read that cannot be made. `repo` is `--repo`'s value, when given.
  *
- * In a plan repository whose plan has a `repo` column (PRD 563), it reads one pull-request list per
- * repository a slice names instead, and a repository `gh` cannot read makes only its own slices
- * `unreadable` rather than throwing.
- * It returns the plan's slices, the board, and each repository that could not be read (in a plan
- * repository).
+ * In a plan repository whose plan has a `repo` column (PRD 563), it reads one list per repository a
+ * slice names instead, and a repository refused alone (`holdsOneRepository`) makes only its own slices
+ * `unreadable` rather than rejecting. It returns the plan's slices, the board, and each repository that
+ * could not be read (in a plan repository).
  */
-export function buildBoard(
+export async function buildBoard(
   prd: PrdNumber,
-  { ctx, exec, env, repo: repoFlag, now = Date.now() }: { ctx: Context; exec: Exec; env?: Env | undefined; repo?: string | undefined; now?: number },
-): { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[]; landings: BoardLanding[] } {
+  { ctx, reads, repo: repoFlag, now = Date.now() }: { ctx: Context; reads: BoardReads; repo?: string | undefined; now?: number },
+): Promise<Built> {
   const { markdown } = readPlan(prd, { ctx });
   let slices: Slice[];
   try {
@@ -189,8 +158,7 @@ export function buildBoard(
   const landed = landings.length > 1 ? landings : null;
   const repo = repoSlug('board', ctx, repoFlag);
   const reader: Reader = {
-    exec,
-    env: githubEnv(ctx, { exec, env }),
+    reads,
     now,
     matchBy: ctx.config.board.matchBy,
     featureBranch: fillBranch(ctx.config.branches.feature, { topic }),
@@ -201,7 +169,7 @@ export function buildBoard(
     boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, ...more });
 
   if (slices.every((slice) => slice.repo === null)) {
-    return { slices, result: board(readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
+    return { slices, result: board(await readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
   }
 
   // In a plan repository, each repository's own chain: only its landings, numbered within it.
@@ -211,40 +179,49 @@ export function buildBoard(
       : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name }).map(
           (step) => ({ landing: step.planLanding, name: step.name, branch: step.branch, repo: name }),
         );
-  const across = readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
+  const across = await readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
   const chains = landed === null ? null : across.chains;
   return { slices, result: board(across.prs, { repos: across.repos, landings: chains }), unreadable: across.unreadable, landings: chains ?? landings };
 }
 
-/** What reading a feature's pull requests needs: the `gh` call's means and the config it narrows by. */
-type Reader = { exec: Exec; env: Env | undefined; now: number; staleMinutes: number } & Narrowing;
+/** What reading a feature's changes needs: the reads, and the config it narrows by. */
+type Reader = { reads: BoardReads; now: number; staleMinutes: number } & Narrowing;
 
 /** One repository's pull requests of this feature, each that could be `claimed-stale` with its head
  * commit date. With a landing chain: the sub-PRs into each landing branch (once, by label, in
  * `label` mode), then each landing's own pull request by head. */
-function readPrs(slug: string, chain: readonly BoardLanding[] | null, reader: Reader): BoardPr[] {
-  const { exec, env, now, staleMinutes, ...narrowing } = reader;
-  const list = (more: Partial<Narrowing> & { head?: string }) => fetchPrList({ repo: slug, exec, env, ...narrowing, ...more });
+async function readPrs(slug: string, chain: readonly BoardLanding[] | null, reader: Reader): Promise<BoardPr[]> {
+  const { reads, now, staleMinutes, ...narrowing } = reader;
+  const list = async (query: { base: string } | { label: string } | { head: string }) =>
+    (await reads.changes({ repo: slug, state: 'all', ...query })).map(boardPrOf);
   let prs: BoardPr[];
-  if (chain === null) prs = list({});
+  if (chain === null) prs = await list(narrowingOf(narrowing));
   else {
-    const subs = narrowing.matchBy === 'label' ? list({}) : chain.flatMap(({ branch }) => list({ featureBranch: branch }));
+    const subs =
+      narrowing.matchBy === 'label'
+        ? await list(narrowingOf(narrowing))
+        : (await Promise.all(chain.map(({ branch }) => list(narrowingOf({ ...narrowing, featureBranch: branch }))))).flat();
+    const heads = (await Promise.all(chain.map(({ branch }) => list({ head: branch })))).flat();
     const byNumber = new Map<number | undefined, BoardPr>();
-    for (const pr of [...subs, ...chain.flatMap(({ branch }) => list({ head: branch }))]) if (!byNumber.has(pr.number)) byNumber.set(pr.number, pr);
+    for (const pr of [...subs, ...heads]) if (!byNumber.has(pr.number)) byNumber.set(pr.number, pr);
     prs = [...byNumber.values()];
   }
-  return fetchHeadCommitDates(prs, { repo: slug, exec, env, now, staleMinutes });
+  return Promise.all(
+    prs.map(async (pr) =>
+      pr.number !== undefined && couldBeStale(pr, now, staleMinutes) ? { ...pr, headCommitDate: await reads.lastCommitAt(slug, pr.number) } : pr,
+    ),
+  );
 }
 
 /**
  * A plan repository's pull requests (PRD 563): one list per repository a slice names, each pull
- * request tagged with the slug it was read from; a repository gh cannot read holds only its slices.
+ * request tagged with the slug it was read from; a repository refused alone holds only its slices.
  * With landings, each repository is read along its own chain, and `chains` gathers them.
  */
-function readAcrossRepos(
+async function readAcrossRepos(
   slices: readonly Slice[],
   { known, chainOf, reader }: { known: Map<string, string>; chainOf: (name: string | null) => BoardLanding[] | null; reader: Reader },
-): { prs: BoardPr[]; repos: BoardRepos; unreadable: Unreadable[]; chains: BoardLanding[] } {
+): Promise<{ prs: BoardPr[]; repos: BoardRepos; unreadable: Unreadable[]; chains: BoardLanding[] }> {
   const out: { prs: BoardPr[]; repos: BoardRepos; unreadable: Unreadable[]; chains: BoardLanding[] } = { prs: [], repos: {}, unreadable: [], chains: [] };
   for (const name of new Set(slices.map((slice) => slice.repo))) {
     const chain = chainOf(name);
@@ -258,11 +235,12 @@ function readAcrossRepos(
       continue;
     }
     try {
-      out.prs.push(...readPrs(slug, chain, reader).map((pr) => ({ ...pr, slug })));
+      out.prs.push(...(await readPrs(slug, chain, reader)).map((pr) => ({ ...pr, slug })));
       out.repos[key] = { slug, readable: true };
     } catch (error) {
+      if (!holdsOneRepository(error)) throw error;
       out.repos[key] = { slug, readable: false };
-      out.unreadable.push({ repo: name, slug, reason: ghReason(error) });
+      out.unreadable.push({ repo: name, slug, reason: error.line });
     }
   }
   return out;
@@ -282,18 +260,6 @@ function knownRepositories(ctx: Context, planSlug: string): Map<string, string> 
   return known;
 }
 
-/** What a process wrote, as text: a string as it is, a buffer decoded, nothing for anything else. */
-function textOf(value: unknown): string {
-  if (typeof value === 'string') return value;
-  return Buffer.isBuffer(value) ? value.toString() : '';
-}
-
-/** What gh said when it could not read a repository, as one line. */
-function ghReason(error: unknown): string {
-  const lines = `${textOf(propertyOf(error, 'stderr'))}\n${textOf(propertyOf(error, 'message'))}`.split('\n').map((line) => line.trim()).filter(Boolean);
-  return lines[0] ?? 'gh could not read it';
-}
-
 /** Whether the branch the next wave builds on carries `onto`, the default branch on the remote:
  * `behind` true when it does not, false when it does, null when git cannot say (a branch not
  * pushed yet, a ref not fetched). */
@@ -303,7 +269,7 @@ type BoardBase = { branch: string; onto: string; behind: boolean | null };
  * the current landing's — landing 1, or a later one whose pull request is based on the default
  * branch (retargeted once the landing before it merged). Null in a plan repository's board, with
  * every landing merged, or while the current landing is stacked on the one before. */
-function branchOnDefault(ctx: Context, built: ReturnType<typeof buildBoard>): string | null {
+function branchOnDefault(ctx: Context, built: Built): string | null {
   const { slices, result } = built;
   if (slices.some((slice) => slice.repo !== null)) return null;
   if (result.landings === undefined) return fillBranch(ctx.config.branches.feature, { topic: result.prd.topic });
@@ -324,7 +290,7 @@ function ancestry(ctx: Context, exec: Exec, onto: string, head: string): boolean
 }
 
 /** The board's `base`: see `BoardBase`. */
-function baseOf(ctx: Context, exec: Exec, built: ReturnType<typeof buildBoard>): BoardBase | null {
+function baseOf(ctx: Context, exec: Exec, built: Built): BoardBase | null {
   const branch = branchOnDefault(ctx, built);
   if (branch === null) return null;
   const { remote, defaultBranch } = ctx.config.repo;
@@ -333,7 +299,7 @@ function baseOf(ctx: Context, exec: Exec, built: ReturnType<typeof buildBoard>):
 }
 
 /** The board's rows, under a line per landing when it has more than one. */
-function printRows(stdout: CommandIo['stdout'], result: ReturnType<typeof buildBoard>['result']): void {
+function printRows(stdout: Out, result: Built['result']): void {
   const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? '').length));
   if (result.landings === undefined) {
     for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
@@ -346,7 +312,7 @@ function printRows(stdout: CommandIo['stdout'], result: ReturnType<typeof buildB
 }
 
 /** The runnable frontier, in words. */
-function printFrontier(stdout: CommandIo['stdout'], result: ReturnType<typeof buildBoard>['result']): void {
+function printFrontier(stdout: Out, result: Built['result']): void {
   const { frontier } = result;
   if (frontier.wave === null) {
     println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
@@ -362,15 +328,65 @@ function printFrontier(stdout: CommandIo['stdout'], result: ReturnType<typeof bu
   }
 }
 
-export const board: Command = {
-  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
+/** What a command that reads a product's targets is handed: a free command's, what a test hands in for
+ * the read (the sign-in, the app, the clock), and a test's own `LoopReads` for the loop's reads. */
+export type TargetsIo = FreeIo & Omit<ProductTargetsIo, 'cwd' | 'exec'> & { reads?: LoopReads | undefined };
+
+/** The loop's reads for `ctx`: a test's own `LoopReads`, or the Omni page's with the io's sign-in. */
+export function loopReadsFor(ctx: Context, { reads, tokens, home, fetch, callMs }: TargetsIo): LoopReads {
+  return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+}
+
+/**
+ * The context `omni <verb>` runs in, loaded from `io.cwd`: with `plan: { product }`, its
+ * `plan.targets` are the product's, read from the server, the last read's line on stderr when the
+ * copy answered. A usage error, with the line saying why, when they cannot be read.
+ */
+export async function contextWithTargets(verb: string, io: TargetsIo): Promise<Context> {
+  const read = await withProductTargets(loadContext(io.cwd, { exec: io.exec }), io, io.stderr);
+  if (typeof read === 'string') throw usageError(`omni ${verb}: ${read}`);
+  return read;
+}
+
+/** A subcommand of `omni care` or `omni flow`: its run, handed the command's io and the free io it was
+ * run with (for the loop's reads), and whether the arguments it is given need a plan repository's targets. */
+export type TargetsSubcommand = {
+  run: (args: string[], io: CommandIo, free: TargetsIo) => number | Promise<number>;
+  targets: (args: readonly string[]) => boolean;
+};
+
+/**
+ * Runs the subcommand `args` names among `subcommands`, in the context `contextWithTargets` reads when
+ * its arguments need the targets, and in the plain context otherwise, so that it calls no server.
+ */
+export async function runWithTargets(verb: string, usage: string, subcommands: Record<string, TargetsSubcommand>, args: string[], io: TargetsIo): Promise<number> {
+  const [sub = '', ...rest] = args;
+  const command = Object.hasOwn(subcommands, sub) ? subcommands[sub] : undefined;
+  if (command === undefined) throw usageError(usage);
+  const ctx = command.targets(rest) ? await contextWithTargets(verb, io) : loadContext(io.cwd, { exec: io.exec });
+  return command.run(rest, { ctx, stdout: io.stdout, stderr: io.stderr, exec: io.exec, env: io.env, vars: io.vars }, io);
+}
+
+export const board = {
+  withoutContext: true,
+  async run(args: string[], io: TargetsIo): Promise<number> {
+    const { stdout, stderr } = io;
     const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = prdArg('board', '<prd>', positional[0]);
+    const ctx = await contextWithTargets('board', io);
+    const loop = loopReadsFor(ctx, io);
 
-    const built = buildBoard(prd, { ctx, exec, env, repo: flags.repo });
+    let built: Built;
+    try {
+      built = await buildBoard(prd, { ctx, reads: boardReads(loop), repo: flags.repo });
+    } catch (error) {
+      if (!(error instanceof LoopReadError)) throw error;
+      println(stderr, error.line);
+      return 1;
+    }
     const { slices, result, unreadable } = built;
-    const base = baseOf(ctx, exec, built);
+    const base = baseOf(ctx, io.exec, built);
 
     if (flags.json) {
       println(stdout, JSON.stringify({ ...result, base }, null, 2));
@@ -387,5 +403,5 @@ export const board: Command = {
       println(stdout, `omni board — ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
     }
     return 0;
-  }),
-};
+  },
+} satisfies FreeCommand;

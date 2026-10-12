@@ -17,7 +17,13 @@ describe('github-schema — a GitHub answer of another shape fails by the name o
       headRef: 'feat/x',
       headSha: 'h1',
       labels: ['omni:feature', 'loose'],
+      body: '',
     });
+  });
+
+  it('reads a pull request\'s body, the line a target feature PR names its plan PRD on', async () => {
+    const pull = { base: { ref: 'main', sha: 'b1' }, head: { ref: 'feat/x', sha: 'h1' }, body: 'Part of acme/plan#8' };
+    await expect(readPull(answering(pull), { ...WHERE, prNumber: parsePr(1) })).resolves.toMatchObject({ body: 'Part of acme/plan#8' });
   });
 
   it('refuses a pull request without its base SHA, naming the field', async () => {

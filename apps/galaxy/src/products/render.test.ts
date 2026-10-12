@@ -14,7 +14,8 @@ import { NO_PRODUCTS, ProductsView } from './ProductsView';
 // Settings › Products as the server renders it (PRD 859 s1, PRD 1108 s2): the list (each product a link
 // to its own page, with its look), the empty list, a product's page with its Pitch section — Look,
 // Voice, Intro / outro, Music and Length — as controls for whoever may edit the business and as text
-// for anyone else, a refusal, and every situation under the Settings tabs with Products marked.
+// for anyone else, a refusal, and every situation under the Settings tabs with Products marked. Its
+// Approvers list moved to the product home (PRD 1364 s11): the page links there.
 
 const VERTUOZA: ProductRow = { id: 'p-1', name: 'Vertuoza', look: 'arcade' };
 const OMNI: ProductRow = { id: 'p-2', name: 'Omni Loop', look: 'keynote' };
@@ -56,8 +57,8 @@ describe('a product\'s page, for whoever may edit the business', () => {
   it('is headed by the product, links back to the list, and has a Pitch section in five parts', () => {
     const html = renderToStaticMarkup(createElement(ProductPage, { source: { kind: 'demo' }, editable: true, product: PITCHED }));
     expect(headings(html, 1)).toEqual(['Vertuoza']);
-    expect(links(html)).toEqual([{ href: '/app/settings/products', text: '← Products' }]);
-    expect(headings(html, 2)).toEqual(['Pitch']);
+    expect(links(html)[0]).toEqual({ href: '/app/settings/products', text: '← Products' });
+    expect(headings(html, 2)).toEqual(['Pitch', 'Approvers']);
     expect(headings(html, 3)).toEqual(['Look', 'Voice', 'Intro / outro', 'Music', 'Length']);
     expect(text(html)).toContain(PITCH_HINT);
     expect(text(html)).not.toContain(READ_ONLY);
@@ -139,6 +140,18 @@ describe('a product\'s page, for whoever may edit the business', () => {
     const saved = section(defaultPitchSettings('arcade'), { actions: [{ type: 'busy' }, { type: 'saved', pitch: defaultPitchSettings('keynote') }] });
     expect(saved).toMatch(/role="status">Saved\.</);
     expect(selected(field(saved, 'Preset'))).toBe('keynote');
+  });
+});
+
+describe('a product\'s Approvers, moved to its home (PRD 1364 s11)', () => {
+  it('says the list moved, and links to the product home\'s Repositories & approvers tab, for everyone', () => {
+    for (const editable of [true, false]) {
+      const html = renderToStaticMarkup(createElement(ProductPage, { source: { kind: 'demo' }, editable, product: PITCHED }));
+      const section = /<section[^>]*aria-labelledby="approvers-title"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '';
+      expect(text(section)).toContain('Who approves this product’s PRDs is set on its home, under Repositories & approvers.');
+      expect(links(section)).toEqual([{ href: `/app/products/${PITCHED.id}/repositories`, text: 'Open Repositories & approvers →' }]);
+      expect(section).not.toMatch(/<(select|button)\b/);
+    }
   });
 });
 

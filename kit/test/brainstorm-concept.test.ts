@@ -124,11 +124,30 @@ describe('/omni:brainstorm --concept <n> <area> (PRD 686)', () => {
     for (const words of ['"after"', "the area's screens", '`vision.html`', 'static mockup']) expect(after, words).toContain(words);
   });
 
+  // PRD 1407, s7: with the design flag on, the drafts think-big wrote for the concept are where the
+  // area's screens start, brought up to the "after", their Source gaining the PRD's line.
+  it("step 5 starts the area's screens from the drafts /omni:think-big wrote, with the design flag on", () => {
+    const after = paragraphWith(section(TEXT, '5.'), 'With `--concept`');
+    for (const words of ['With the design flag on', '`/omni:think-big` wrote for the concept', 'brought up to the "after"', '**Source**']) expect(after, words).toContain(words);
+  });
+
   it("step 7 fills the area's PRD cell in the same commit as the PRD's folder", () => {
     const step7 = flat(section(TEXT, '7.'));
     const fill = paragraphWith(step7, 'With `--concept`');
     for (const words of ['`PRD` cell', '`#<n>`', '`<concept folder>/concept.md`', 'same commit']) expect(fill, words).toContain(words);
     expect(step7.indexOf(fill)).toBeLessThan(step7.indexOf('`docs(prd): <topic>`'));
+  });
+
+  // PRD 1272: the concept is a dossier kind, so its page links the area to its PRD at once.
+  it("step 7 pushes the concept again from the feature worktree, after its PRD cell is filled and the PRD is pushed", () => {
+    const step7 = flat(section(TEXT, '7.'));
+    const prdPush = step7.indexOf('`/omni:dossier-push <n>`');
+    const conceptPush = paragraphWith(section(TEXT, '7.'), '`/omni:dossier-push <concept> --kind concept`');
+    expect(conceptPush).toContain('With `--concept`');
+    expect(conceptPush).toContain('from this worktree');
+    expect(conceptPush).toMatch(/Whatever it prints, carry on/);
+    expect(step7.indexOf(conceptPush)).toBeGreaterThan(prdPush);
+    expect(step7.indexOf(conceptPush)).toBeGreaterThan(step7.indexOf("fill the area's `PRD` cell"));
   });
 
   it("step 9 carries the concept's concept.md into the phase-0 PR", () => {

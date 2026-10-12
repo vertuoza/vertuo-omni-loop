@@ -3,6 +3,8 @@ import { readForMeLive } from '../ask/page/for-me-live';
 import { DEMO_YOU } from '../dashboard/demo';
 import { viewer } from '../data/viewer';
 import { loadFleets, loadMe } from '../data/load-galaxy';
+import { DEMO_REPO } from '../ideas/demo';
+import { workspaceBoard } from '../ideas/members/store';
 import { faceOf } from '../people/face';
 import type { WaitingSource } from '../waiting/view';
 import type { WaitingQuestion } from '../waiting/waiting';
@@ -33,6 +35,8 @@ export interface ViewerSource {
   workspace(userId: string): Promise<{ id: string; name: string } | null>;
   /** Their player row in the workspace: its stored hero, unchecked, and their fleet's colour. */
   player(userId: string, workspaceId: string): Promise<{ hero: unknown; color: string | null } | null>;
+  /** The repository whose ideas board Work › Ideas opens (PRD 1246), or null when it lists none. */
+  ideasBoard(workspaceId: string): Promise<string | null>;
   /** The waiting list's Questions part (PRD 499). */
   questions(userId: string): Promise<WaitingQuestion[]>;
   /** Where the browser reads it again. */
@@ -71,8 +75,10 @@ function heroOf(player: { hero: unknown; color: string | null } | null): string 
 export async function readViewer(source: ViewerSource): Promise<Viewer> {
   const user = await settle(() => source.user(), null);
   if (!user) return SIGNED_OUT;
-  const [[workspace, player], questions, live] = await Promise.all([
-    settle(() => source.workspace(user.id), null).then(async (w) => [w, w ? await settle(() => source.player(user.id, w.id), null) : null] as const),
+  const [[workspace, player, ideasBoard], questions, live] = await Promise.all([
+    settle(() => source.workspace(user.id), null).then(async (w) => (w
+      ? [w, ...(await Promise.all([settle(() => source.player(user.id, w.id), null), settle(() => source.ideasBoard(w.id), null)]))] as const
+      : [null, null, null] as const)),
     settle(() => source.questions(user.id), null),
     settle(() => Promise.resolve(source.live(user.id)), null),
   ]);
@@ -83,6 +89,7 @@ export async function readViewer(source: ViewerSource): Promise<Viewer> {
     avatarUrl: text(user.user_metadata?.avatar_url),
     heroSvg: heroOf(player),
     workspaceName: text(workspace?.name),
+    ideasBoard,
     waiting: { questions: questions ?? [], unread: questions === null, source: live },
   };
 }
@@ -102,7 +109,7 @@ async function demoQuestions(now: number): Promise<WaitingQuestion[]> {
 export async function viewerLive(): Promise<Viewer> {
   const seen = await settle(() => viewer(), null);
   if (seen?.kind === 'demo') {
-    return { ...SIGNED_OUT, signedIn: true, name: DEMO_YOU.name, login: DEMO_YOU.login, waiting: { questions: await demoQuestions(Date.now()), unread: false, source: { kind: 'demo' } } };
+    return { ...SIGNED_OUT, signedIn: true, name: DEMO_YOU.name, login: DEMO_YOU.login, ideasBoard: DEMO_REPO, waiting: { questions: await demoQuestions(Date.now()), unread: false, source: { kind: 'demo' } } };
   }
   if (seen?.kind !== 'signed-in') return SIGNED_OUT;
   const { env, user } = seen;
@@ -113,6 +120,7 @@ export async function viewerLive(): Promise<Viewer> {
       const [me, fleets] = await Promise.all([loadMe(seen.db, workspaceId, userId), loadFleets(seen.db, workspaceId)]);
       return me && { hero: me.hero, color: fleets.find((f) => f.name === me.team)?.color ?? null };
     },
+    ideasBoard: (workspaceId) => workspaceBoard(seen.db, workspaceId),
     questions: () => seen.questions(),
     live: (userId) => ({ kind: 'database', url: env.url, key: env.key, me: userId }),
   });

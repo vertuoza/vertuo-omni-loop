@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screen · profile</title>
+<style>
+  /* The app pages' Omni theme tokens (packages/design/src/tokens.ts, ASK.omni). */
+  :root {
+    --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --line-strong: #5a60c4;
+    --ink: #ffffff; --muted: #8a90d6; --plasma: #ffd23f; --plasma-soft: #2a2350; --on-plasma: #07061c;
+    --cyan: #3ee0ff; --green: #3ee08a; --red: #ff6b86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.6 var(--body); }
+  main { max-width: 1200px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; }
+  h2.part { font-size: 22px; margin: 48px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  h3 { font-size: 18px; margin: 24px 0 8px; }
+  .lede { color: var(--muted); margin: 0 0 8px; max-width: 900px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .col > .tag { display: inline-block; font: 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); border: 1px solid var(--line-strong); border-radius: 4px; padding: 4px 6px; margin-bottom: 8px; }
+  .col.after > .tag { color: var(--on-plasma); background: var(--plasma); border-color: var(--plasma); }
+  .caption { color: var(--muted); font-size: 15px; margin: 8px 0 0; }
+  pre { background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    font: 13px/1.55 var(--mono); overflow-x: auto; margin: 0; white-space: pre; }
+  pre .bad { color: var(--red); } pre .ok { color: var(--green); } pre .dim { color: var(--muted); } pre .sig { color: var(--plasma); }
+  .flow { background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  .flow svg { width: 100%; height: auto; display: block; }
+  table.same { border-collapse: collapse; width: 100%; max-width: 900px; font-size: 15px; }
+  table.same th, table.same td { text-align: left; border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: top; }
+  table.same th { color: var(--muted); font-weight: 600; }
+
+  /* The profile page mockups: the app shell's reading surface, /app/people/<login>. */
+  .screen { background: var(--ground); border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .bar .mark { font: 11px/1 var(--mono); color: var(--plasma); letter-spacing: .1em; }
+  .bar .crumb { color: var(--muted); font-size: 14px; }
+  .page { padding: 20px 20px 24px; }
+  .head h4 { font-size: 24px; margin: 0; }
+  .who { color: var(--muted); font-size: 15px; margin: 2px 0 0; }
+  .who a { color: var(--cyan); text-decoration: none; }
+  section.p { margin-top: 22px; }
+  section.p h5 { font-size: 18px; margin: 0 0 6px; }
+  .line { color: var(--muted); font-size: 15px; margin: 0 0 10px; }
+  .switch { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .toggle { width: 36px; height: 20px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--sunk); position: relative; flex: none; }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); }
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .rows li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .rows .name { font-weight: 600; }
+  .rows .meta { grid-column: 1; color: var(--muted); font-size: 14px; }
+  .rows .four { font-family: var(--mono); color: var(--ink); }
+  button { font: inherit; font-size: 15px; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  .primary { background: var(--plasma); color: var(--on-plasma); border: 1px solid var(--plasma); font-weight: 700; }
+  .quiet { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+  .rows .quiet { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+  .make { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 10px; }
+  .make label { display: grid; gap: 2px; font-size: 13px; color: var(--muted); }
+  .field { background: var(--sunk); border: 1px solid var(--line-strong); color: var(--ink); border-radius: 6px; padding: 6px 8px; font: 15px var(--body); min-width: 0; }
+  .shown { margin-top: 12px; border: 1px solid var(--plasma); background: var(--plasma-soft); border-radius: 8px; padding: 10px 12px; }
+  .shown p { margin: 0 0 6px; font-size: 15px; }
+  .copy { display: flex; gap: 8px; align-items: center; }
+  .copy code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 13px var(--mono);
+    background: var(--sunk); border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 8px; }
+  .shown .hint { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+  .shown .hint code { font-family: var(--mono); color: var(--ink); }
+  .ghost { color: var(--muted); font-size: 15px; border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 22px; }
+  .rows .confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 4px; }
+</style>
+</head>
+<body>
+<main>
+<div class="screen" data-screen="profile">
+        <div class="bar"><span class="mark">OMNI LOOP</span><span class="crumb">People › ada</span></div>
+        <div class="page">
+          <div class="head"><h4>Ada Lovelace</h4><p class="who"><a href="#">@ada</a> · OCTOPOD</p></div>
+          <section class="p">
+            <h5>Alerts</h5>
+            <p class="line">How you are told a PRD waits for your approval. Both are off until you turn them on.</p>
+            <div class="switch"><span>Phone alerts on this device</span><span class="toggle" aria-hidden="true"></span></div>
+            <div class="switch"><span>Email · ada@vertuoza.com</span><span class="toggle" aria-hidden="true"></span></div>
+          </section>
+          <section class="p">
+            <h5>Terminal tokens</h5>
+            <p class="line">Sign in where no browser opens.</p>
+            <ul class="rows">
+              <li><span class="name">claude-cloud <span class="four">··9fKa</span></span>
+                <span class="meta"><span>Made 11 Oct</span> · <span>Used 2 min ago</span> · <span>Expires 9 Jan</span></span>
+                <span class="confirm">Revoke ··9fKa? <button class="quiet" type="button">Revoke</button> <button class="quiet" type="button">Keep</button></span></li>
+              <li><span class="name">ci-laptop <span class="four">··Lm2Q</span></span>
+                <span class="meta"><span>Made 2 Sep</span> · <span>Never used</span> · <span>Expires 1 Dec</span></span>
+                <button class="quiet" type="button">Revoke</button></li>
+            </ul>
+            <div class="make">
+              <label>Name<input class="field" value="claude-cloud" aria-label="Name"></label>
+              <label>Expires in<select class="field" aria-label="Expires in"><option>30 days</option><option selected>90 days</option><option>365 days</option></select></label>
+              <button class="primary" type="button" data-primary>Make a token</button>
+            </div>
+            <div class="shown">
+              <p><b>claude-cloud</b> · shown once · Expires 9 Jan</p>
+              <div class="copy"><code>omk_Q3vXc8yR1pTz0bWnE4kJ7uHs2aDfGh6iLo5mN9fKa</code><button class="quiet" type="button">Copy</button></div>
+              <p class="hint">Paste as <code>OMNI_TOKEN=</code> in your environment.</p>
+            </div>
+          </section>
+          <section class="p"><h5>PRDs</h5><p class="line">Nothing in this period</p></section>
+        </div>
+      </div>
+</main>
+</body>
+</html>

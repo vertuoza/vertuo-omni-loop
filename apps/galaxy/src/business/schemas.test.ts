@@ -8,7 +8,7 @@ import { StoredPersona } from './personas';
 import { FleetLookRow, IsOwner, RosterRow } from './constituents-rows';
 import { ConfirmedClaim } from './recheck/recheck';
 import { DraftRow } from './draft/run';
-import { AddedSource, PastedPage, ProductId, TrackedRepository, WorkspaceRow } from './draft/store';
+import { AddedSource, PastedPage, ProductId, RepositoryLink, TrackedRepository, WorkspaceRow } from './draft/store';
 
 vi.mock('server-only', () => ({}));
 
@@ -67,7 +67,8 @@ const CASES: Record<string, Case> = {
     row: { ...DRAFT, state: 'running', started_at: '2026-09-30T10:00:00Z', finished_at: null },
     required: 'started_at', wrong: ['counts', { readmes: '1' }], notNull: 'scanned',
   },
-  TrackedRepository: { schema: TrackedRepository, row: { full_name: 'acme/app', product_id: 'p-1' }, required: 'product_id', wrong: ['full_name', 1], notNull: 'full_name' },
+  TrackedRepository: { schema: TrackedRepository, row: { full_name: 'acme/app' }, required: 'full_name', wrong: ['full_name', 1], notNull: 'full_name' },
+  RepositoryLink: { schema: RepositoryLink, row: { product_id: 'p-1', repository: 'acme/app' }, required: 'product_id', wrong: ['repository', 1], notNull: 'repository' },
   PastedPage: { schema: PastedPage, row: { url: 'https://acme.com' }, required: 'url', wrong: ['url', 1], notNull: 'url' },
   ProductId: { schema: ProductId, row: { id: 'p-1' }, required: 'id', wrong: ['id', 1], notNull: 'id' },
   AddedSource: {

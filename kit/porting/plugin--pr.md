@@ -139,3 +139,27 @@ the kit does not own are covered by **Merging and ready**'s new rule: wait for t
 run before `gh pr ready`, then rerun a cancelled `ready_for_review` run, and never count a check
 that only skipped or was cancelled as green. `/omni:yolo` §5 item 4, `/omni:yolo-fix`'s ship and
 `/omni:ultra-yolo`'s target ready point to it.
+
+## Issue 1178 — a sub-PR's review threads
+
+Not a re-port: a kit-local bug fix. **A sub-PR's lifecycle** step 3 now says the orchestrator
+judges the sub-PR's review threads, when a reviewer left any, before it merges it (`/omni:wave`
+step 4, item 5). Its checks are still never read; only its threads are.
+
+## Issue 1202 — a target PR's outbox check defers to the plan PR
+
+Not a re-port: a kit-local bug fix. The omni-loop App skipped a target feature PR's outbox check
+("not active on this PR"), with no word of the plan PR that grades its PRD. The App now reads the
+`Part of <plan slug>#<n>` line `/omni:ultra-yolo` writes and passes the check, linking the plan PR.
+`--repo <slug>` gains one bullet saying so, and that a `gate` or `ci/outbox` red from a workflow the
+target wrote itself is a human step; `/omni:ultra-yolo` §2 item 4 and `/omni:mega-pr-care` point to it.
+
+## PRD #1584, slice s3 — the Pixel perfect line
+
+Not a re-port: a kit-local addition. With `design.enabled` on, the feature PR's body carries a
+**Pixel perfect** line right after the link line, naming the screens the before/after's Pixel
+perfect part lists, or `none`. Design off, no such line.
+
+### Tests
+
+`kit/test/design-skills.test.ts`.

@@ -16,7 +16,7 @@ const ME = 'me@example.com';
 const known = ({ rows = [], shipped = [], email = ME }: { rows?: YourRow[]; shipped?: StagedPrd[]; email?: string } = {}): Yours => ({ state: 'known', email, rows, shipped });
 
 /** An overview as `overviewFor` returns it. */
-function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0, shipped = 3, retro = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null, yours = known() }: { prd?: number; inbox?: number; building?: number; openItems?: number; outbox?: number; shipped?: number; retro?: number; slug?: string | null; base?: string; fetchedAt?: number | null; yours?: Yours } = {}): Overview {
+function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0, shipped = 3, retro = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null, yours = known(), rules = null }: { prd?: number; inbox?: number; building?: number; openItems?: number; outbox?: number; shipped?: number; retro?: number; slug?: string | null; base?: string; fetchedAt?: number | null; yours?: Yours; rules?: Overview['rules'] } = {}): Overview {
   const delivered = shipped + retro;
   const inProgress = inbox + building + outbox;
   const total = delivered + inProgress;
@@ -34,6 +34,8 @@ function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0,
     },
     inProgress: { total: inProgress, inbox, building, outbox },
     yours,
+    rules,
+    held: [],
   };
 }
 
@@ -57,6 +59,11 @@ describe('formatOverview', () => {
       '',
       'omni help: the loop and every command',
     ].join('\n'));
+  });
+
+  it('prints the rules enforced under the bar when the base has a knowledge folder (PRD 1171)', () => {
+    expect(formatOverview(overview({ rules: { enforced: 1, total: 3 } }), { now: NOW })).toContain('             2 in progress: 2 in the inbox\n  rules enforced  1 of 3\n\n  Yours');
+    expect(formatOverview(overview({ shipped: 0, inbox: 0, rules: { enforced: 0, total: 0 } }), { now: NOW })).toContain('  nothing yet: /omni:brainstorm to start\n  rules enforced  0 of 0\n\n');
   });
 
   it('leaves the slug out of the header when there is none', () => {
@@ -335,5 +342,22 @@ describe('fetchedAgo', () => {
   it('counts days from a day on', () => {
     expect(fetchedAgo(NOW - DAY, NOW)).toBe('fetched 1 day ago');
     expect(fetchedAgo(NOW - 40 * DAY, NOW)).toBe('fetched 40 days ago');
+  });
+});
+
+// PRD 1299, slice s5: a ◆ PRD waiting for approval, and the ◆ PRDs held.
+describe('formatOverview — ◆ PRDs (PRD 1299)', () => {
+  it('a ◆ PRD of yours at PRD says it waits for approval on its page', () => {
+    const text = formatOverview(overview({ prd: 1, yours: known({ rows: [{ stage: 'prd', prd: parsePrd(9), topic: 'quote', approval: true }] }) }), { now: NOW });
+    expect(text).toMatch(/^ {2}PRD +#9 {2}quote {4}waits for approval on its page$/m);
+  });
+
+  it('prints each held ◆ PRD and its lines under the bar, and nothing without one', () => {
+    const held = [{ prd: parsePrd(9), topic: 'quote', lines: ['≠ plan.md · content', 'server unreachable · held, not failed'] }];
+    const text = lines(formatOverview({ ...overview(), held }, { now: NOW }));
+    const at = text.indexOf('  held       #9 quote');
+    expect(at).toBeGreaterThan(0);
+    expect(text.slice(at + 1, at + 3)).toEqual(['             ≠ plan.md · content', '             server unreachable · held, not failed']);
+    expect(formatOverview(overview(), { now: NOW })).not.toMatch(/held/);
   });
 });

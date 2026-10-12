@@ -1,14 +1,19 @@
 // `omni statusline` — the command Claude Code runs as its status line (PRD 324's spec): it reads the
 // session's JSON on stdin and prints line 1 (the model, the context bar, the 5-hour usage, `ask on`)
-// and, where the loop is installed, line 2: the PRD the session's branch names, else the one the
-// session last worked on (the record its `session_id` names, written by the commands that name a
-// PRD), with its slice, its stage, the wave and the slices of its board in the outbox, and its open
-// items (`PRD 7 bravo · s2 · outbox · wave 2 of 4 · 3/5 slices merged, 1 stuck · 2 open items`), or
-// `no PRD · /omni:brainstorm to start`.
+// and, where the loop is installed, line 2, drawn from `omni now`'s reading (PRD 1208, s5) for every
+// kind: a PRD (`PRD 315 help-and-status · building · wave 2/4 · now s3 tabs, s4 board`, its wave and
+// open items from the PRD the status line's own facts name), a fix (`bug #1180 login-redirect · fix PR
+// open`), a loop or roadmap above the work (`roadmap 7 · 3/7 merged · now PRD 315 · s3`), or
+// `no PRD · /omni:brainstorm to start` (`../../lib/statusline/render.ts`). Both readings run git
+// through one remembering `exec`, so that the second costs no process the first already ran. Besides
+// the board's refresh (told `--kind prd`), it starts the refresh of the links of the work `omni now`
+// names when they are missing or a minute old, as the board's is started, unless one was just started
+// for it, and never for a shipped PRD or a merged fix.
 //
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to
-// stderr, never fetches, never runs `gh` and writes no file; what it cannot read leaves its part out.
-// JSON that cannot be read prints `omni`; a reader that fails prints line 1 from the JSON alone. The
+// stderr, never fetches, never reads the loop and writes no file; what it cannot read leaves its part out.
+// JSON that cannot be read prints `omni`; a reader that fails prints line 1 from the JSON alone. Under
+// `OMNI_TOKEN` (PRD 1628), line 1 ends on `token ··<last four>`, read from the variable alone. The
 // board comes from a file in the main checkout (`board-cache.mjs`): when it is missing or a minute
 // old, the status line starts its refresh, detached, and never waits for it. It runs before a
 // context exists, like `init` and `ask`, so that no checkout, config or folder can turn it into an
@@ -18,25 +23,57 @@
 //
 // `omni statusline --refresh <n>` is that refresh, the background half: it takes PRD `<n>`'s lock
 // (another refresh holds it: exit 0, nothing written), builds the board exactly as `omni board <n>`
-// does, in its own folder (the session's), writes it to the main checkout's board file, and removes
-// the lock. Any failure (no `gh`, offline, no plan) is written as the error entry. It prints nothing
-// and always exits 0: no one reads its output. Each call it runs is cut off after a minute, so that a
-// hung `gh` never outlives the lock by much.
+// does, through the same `LoopReads` (PRD 1665: the Omni page, with this computer's sign-in), in its own
+// folder (the session's), writes it to the main checkout's board file, and removes the lock. Any
+// failure (no sign-in, the page unreachable or refusing, no plan) is written as the error entry, the
+// read's own line: the status line then draws what it draws without a board, never an error, and tries
+// again a minute later. It prints nothing and always exits 0: no one reads its output. Each process it
+// runs is cut off after a minute, and each read after 15 seconds, so that nothing hung outlives the lock
+// by much.
+//
+// `omni statusline --refresh <n> --kind prd|bug|visual` (PRD 1208, s4) also keeps the links of what the
+// session is on (`../../lib/now/links.ts`), under the same lock rules and timings: for `prd`, the board
+// as above, then PRD n's links (its page, its feature PR, its phase-0 PR while open); for `bug` or
+// `visual`, issue n's fix links alone (its page, its pull request while open), and no board. The pages
+// are asked of the Omni page with this computer's sign-in (none without one, or with the dossier off),
+// the pull requests of the same `LoopReads`; a link that cannot be had is left out. Without `--kind`,
+// the board alone, as PRD 324 runs it. A test also hands it `tokens`, `home`, `fetch` and `callMs`, or
+// `reads`, a `LoopReads` of its own.
 import { spawn as spawnProcess } from 'node:child_process';
 import { loadContext } from '../../lib/context.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
-import { refreshBoard } from '../../lib/statusline/board-cache.ts';
-import { readFacts as readCheckoutFacts } from '../../lib/statusline/facts.ts';
+import { AskCallError, type askClient } from '../../lib/ask/client.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { omniTokenTail } from '../../lib/ask/client-tokens.ts';
+import { signedInClient } from '../../lib/ask/credentials.ts';
+import { field } from '../../lib/ask/schema.ts';
+import { dossierSwitch } from '../../lib/config.ts';
+import type { Context } from '../../lib/context.ts';
+import { buildLinks } from '../../lib/now/build-links.ts';
+import type { PageOf } from '../../lib/now/build-links.ts';
+import { refreshLinks } from '../../lib/now/links.ts';
+import type { FixKind, NowWork } from '../../lib/now/now.ts';
+import { readNow } from '../../lib/now/read.ts';
+import { lockHeld, refreshBoard } from '../../lib/statusline/board-cache.ts';
+import type { Spawn } from '../../lib/statusline/board-cache.ts';
+import { readFacts as readCheckoutFacts, startLinksRefresh } from '../../lib/statusline/facts.ts';
+import { SHIPPED } from '../../lib/statusline/stage.ts';
+import type { ExecText } from '../../lib/context.ts';
 import { parseInput } from '../../lib/statusline/input.ts';
 import { renderLines, UNREADABLE_LINE } from '../../lib/statusline/render.ts';
 import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
-import type { PrdNumber } from '../../lib/ids.ts';
-import { prdArg } from '../args.ts';
+import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
+import { issueArg, prdArg } from '../args.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Vars } from '../io.ts';
 import { buildBoard } from './board.ts';
+import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import { boardReads } from '../../lib/loop-reads/port.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 
 const REFRESH_FLAG = '--refresh';
+const KIND_FLAG = '--kind';
+const LINK_KINDS = ['prd', 'bug', 'visual'] as const;
 /** How long one call of the refresh may run. */
 const CALL_TIMEOUT_MS = 60 * 1000;
 
@@ -50,13 +87,42 @@ async function readText(stdin: HookStdin): Promise<string> {
   return text;
 }
 
-/** The lines to print, never throwing: line 1 from the JSON alone when the reader fails, `omni` when anything else does. */
+/** `exec` for one render: a call made before answers as it did, so that `omni now`'s reading, which
+ * asks git what the status line's facts asked, costs no second process. A call that threw throws again. */
+function rememberedExec(exec: ExecText): ExecText {
+  const answers = new Map<string, { out: string } | { error: unknown }>();
+  return (file, args, options) => {
+    const key = JSON.stringify([file, args, options.cwd ?? null]);
+    let answer = answers.get(key);
+    if (!answer) {
+      try {
+        answer = { out: exec(file, args, options) };
+      } catch (error) {
+        answer = { error };
+      }
+      answers.set(key, answer);
+    }
+    if ('error' in answer) throw answer.error;
+    return answer.out;
+  };
+}
+
 /** What a test hands `omni statusline` beyond `main()`'s own. */
 type StatuslineOptions = {
   stdin?: HookStdin;
   now?: () => number;
   readFacts?: typeof readCheckoutFacts;
   spawn?: typeof spawnProcess;
+};
+
+/** What a test hands the refresh beyond `main()`'s own: the sign-in and the fetch the page is asked with,
+ * or the loop's reads themselves. */
+type RefreshOptions = {
+  reads?: LoopReads | undefined;
+  tokens?: TokenStore | undefined;
+  home?: string | undefined;
+  fetch?: Fetch;
+  callMs?: number | undefined;
 };
 
 async function statusLines({
@@ -73,18 +139,44 @@ async function statusLines({
   try {
     const input = parseInput(await readText(stdin).catch(() => ''));
     const instant = now();
-    let facts = null;
-    if (input) {
-      try {
-        facts = readFacts(input, { cwd, exec, now: instant, spawn, script, env });
-      } catch {
-        facts = null;
-      }
-    }
-    return renderLines({ input, facts, terminal, now: instant });
+    if (!input) return renderLines({ input, facts: null, terminal, now: instant });
+    const remembered = rememberedExec(exec);
+    const { seen, started } = trackedSpawn(spawn);
+    const facts = attempt(() => readFacts(input, { cwd, exec: remembered, now: instant, spawn: seen, script, env }));
+    if (!facts?.installed) return renderLines({ input, facts, terminal, now: instant });
+    const answer = readNow({ cwd, folder: input.currentDir, sessionId: input.sessionId, exec: remembered, now: instant });
+    const refresh = { folder: input.currentDir ?? cwd, now: instant, spawn: seen, script, env };
+    if (answer.work && !started.has(String(answer.work.number))) refreshLinksOf(answer.work, refresh, remembered);
+    const board = facts.prd ? { number: facts.prd.number, slices: facts.prd.slices, openItems: facts.prd.openItems } : null;
+    return renderLines({ input, facts: { ...facts, now: answer, board }, terminal, now: instant });
   } catch {
     return [UNREADABLE_LINE];
   }
+}
+
+/** `fn()`, or `null` when it throws. */
+function attempt<T>(fn: () => T): T | null {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+
+/** `spawn`, noting the number of each refresh it starts in `started`. */
+function trackedSpawn(spawn: Spawn): { seen: Spawn; started: Set<string> } {
+  const started = new Set<string>();
+  const seen: Spawn = (command, args, options) => {
+    started.add(String(args[args.indexOf(REFRESH_FLAG) + 1]));
+    return spawn(command, args, options);
+  };
+  return { seen, started };
+}
+
+/** Starts the refresh of `work`'s links when they are due, never for a shipped PRD or a merged fix. */
+function refreshLinksOf(work: NowWork, refresh: Omit<Parameters<typeof startLinksRefresh>[0], 'kind' | 'n'>, exec: ExecText): void {
+  if (work.stage === SHIPPED || work.stage === 'merged') return;
+  startLinksRefresh({ ...refresh, kind: work.kind, n: work.number }, exec);
 }
 
 /** `value` as a PRD number, or `null`. */
@@ -106,33 +198,119 @@ function withTimeout(exec: Exec): Exec {
   return timed;
 }
 
-/** The refresh of PRD `value`'s board: never throws, never prints. */
-function refresh(value: string | undefined, { cwd, exec, env, now }: { cwd: string; exec: Exec; env: Env; now: () => number }): void {
-  const prd = prdNumber(value);
-  if (prd === null) return;
+/** What a refresh is handed. */
+type RefreshIo = { cwd: string; exec: Exec; env: Env; now: () => number } & RefreshOptions;
+
+/** The kind `--kind` names in `args`: `null` without one, `undefined` for one it does not know. */
+function kindOf(args: readonly string[]): (typeof LINK_KINDS)[number] | null | undefined {
+  if (!args.includes(KIND_FLAG)) return null;
+  const value = args[args.indexOf(KIND_FLAG) + 1];
+  return LINK_KINDS.find((kind) => kind === value);
+}
+
+/** The Omni page's link of a PRD or a fix, asked with this computer's sign-in: `null` without one,
+ * with the dossier off, or when the page has none. */
+function pageOf(ctx: Context, { tokens, home, fetch = globalThis.fetch, callMs }: RefreshIo): PageOf {
+  const toggle = dossierSwitch(ctx.config);
+  const repo = ctx.config.repo.slug;
+  const client: ReturnType<typeof askClient> | null = toggle.on && repo ? signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs }) : null;
+  return async (kind, n) => {
+    if (!client || !repo) return null;
+    try {
+      const url = field(await client.findDossier({ repo, prd: n, kind }), 'url');
+      return typeof url === 'string' && url !== '' ? url : null;
+    } catch (error) {
+      if (error instanceof AskCallError) return null;
+      throw error;
+    }
+  };
+}
+
+/** The loop's reads the refresh goes through: the test's own, else the Omni page's with this computer's sign-in. */
+function loopReadsOf(ctx: Context, { reads, tokens, home, fetch, callMs }: RefreshIo): LoopReads {
+  return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+}
+
+/** The refresh of the `kind` work numbered `n`'s links in the main checkout at `root`. */
+async function refreshWorkLinks(root: string, kind: 'prd' | FixKind, n: PrdNumber | IssueNumber, io: RefreshIo, timed: Exec, instant: number): Promise<void> {
+  const ctx = loadContext(io.cwd, { exec: timed });
+  const reads = loopReadsOf(ctx, io);
+  await refreshLinks({ root, kind, n, now: instant, build: () => buildLinks(ctx, kind, n, { reads, page: pageOf(ctx, io), exec: timed }) });
+}
+
+/** The refresh of PRD `prd`'s board in the main checkout at `root`. */
+async function refreshPrdBoard(root: string, prd: PrdNumber, io: RefreshIo, timed: Exec, instant: number): Promise<void> {
+  // The board is read before the lock is taken (`refreshBoard` builds synchronously), so a refresh while
+  // another one holds it reads nothing; what the read threw, a `LoopReadError`'s line included, is
+  // written as the error entry.
+  if (lockHeld(root, prd, instant)) return;
+  const read = async () => {
+    const ctx = loadContext(io.cwd, { exec: timed });
+    return (await buildBoard(prd, { ctx, reads: boardReads(loopReadsOf(ctx, io)), now: instant })).result.slices;
+  };
+  const built = await read().then((slices) => ({ slices }), (error: unknown) => ({ error }));
+  refreshBoard({
+    root,
+    prd,
+    now: instant,
+    build: () => {
+      if ('error' in built) throw built.error;
+      return built.slices;
+    },
+  });
+}
+
+/** The refresh of PRD `value`'s board, and with `--kind` of the links of the work it names: never throws, never prints. */
+async function refresh(args: readonly string[], io: RefreshIo): Promise<void> {
+  const [, value] = args;
+  const kind = kindOf(args);
+  if (kind === undefined) return;
   try {
-    const root = mainCheckout(cwd, exec);
+    const root = mainCheckout(io.cwd, io.exec);
     if (!root) return;
-    const timed = withTimeout(exec);
-    const instant = now();
-    const build = () => buildBoard(prd, { ctx: loadContext(cwd, { exec: timed }), exec: timed, env, now: instant }).result.slices;
-    refreshBoard({ root, prd, now: instant, build });
+    const timed = withTimeout(io.exec);
+    const instant = io.now();
+    if (kind === null || kind === 'prd') {
+      const prd = prdNumber(value);
+      if (prd === null) return;
+      await refreshPrdBoard(root, prd, io, timed, instant);
+      if (kind === 'prd') await refreshWorkLinks(root, kind, prd, io, timed, instant);
+      return;
+    }
+    const issue = issueNumber(value);
+    if (issue !== null) await refreshWorkLinks(root, kind, issue, io, timed, instant);
   } catch {
     // Nowhere to write, or the disk refused: the next render starts another.
   }
+}
+
+/** `value` as an issue number, or `null`. */
+function issueNumber(value: string | undefined): IssueNumber | null {
+  try {
+    return issueArg('statusline', '<n>', value);
+  } catch {
+    return null;
+  }
+}
+
+/** `lines` with line 1 ending on the kit token's last four when `OMNI_TOKEN` signs the kit in. */
+function withToken(lines: string[], token: string | undefined): string[] {
+  if (!token) return lines;
+  const [first = '', ...rest] = lines;
+  return [`${first} · token ··${omniTokenTail(token)}`, ...rest];
 }
 
 export const statusline = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, exec, env, vars, script, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess }: FreeIo & StatuslineOptions,
+    { cwd, stdout, exec, env, vars, script, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess, reads, tokens, home, fetch, callMs }: FreeIo & StatuslineOptions & RefreshOptions,
   ) {
     if (args[0] === REFRESH_FLAG) {
-      refresh(args[1], { cwd, exec, env, now });
+      await refresh(args, { cwd, exec, env, now, reads, tokens, home, ...(fetch ? { fetch } : {}), callMs });
       return 0;
     }
-    const lines = await statusLines({ cwd, exec, env, terminal: vars.terminal, script, stdin, now, readFacts, spawn });
+    const lines = withToken(await statusLines({ cwd, exec, env, terminal: vars.terminal, script, stdin, now, readFacts, spawn }), vars.omniToken?.token);
     try {
       stdout.write(`${lines.join('\n')}\n`);
     } catch {

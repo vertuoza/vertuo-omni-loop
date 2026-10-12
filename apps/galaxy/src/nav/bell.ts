@@ -3,7 +3,7 @@ import { BUSINESS_HREF } from '../waiting/business';
 import { faceOf } from '../people/face';
 import type { Person } from '../people/types';
 import type { DocumentGroup, DocumentKind } from '../waiting/documents';
-import type { WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
+import type { WaitingApproval, WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 
 // The top bar's bell (PRD 499), as pure functions. The bell carries the waiting list's count; its panel
 // lists two groups, Questions then Outbox, each only when it has something to show, each oldest first
@@ -17,10 +17,12 @@ import type { WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/wai
 // PRD 774 (s5) adds a fourth group, Business, last: one line, "Business · N to check", linking to
 // Settings › Business while proposed evidence, contradicted or faded claims wait there; at 0 it is
 // gone. Like New documents it never adds to the bell's count or its name.
+// PRD 1322 (s2) adds an Approvals group after Questions: one line per ◆ PRD whose approval is asked of
+// the person, oldest first, opening its page. It is a wait: it adds to the bell's count.
 
 /** What the list's parts could not read: a part whose last read failed, and PRDs whose outbox the
  * last read could not reach. */
-export type BellUnread = { questions?: boolean; outbox?: boolean; outboxPrds?: number; documents?: boolean; business?: boolean };
+export type BellUnread = { questions?: boolean; outbox?: boolean; outboxPrds?: number; documents?: boolean; business?: boolean; approvals?: boolean };
 
 /** The two alert switches at the panel's foot, and what flipping one asks. */
 export type BellAlerts = {
@@ -34,7 +36,7 @@ export type BellAlerts = {
  * ("· shared by", PRD 652). */
 export type BellLine = { id: string; href: string; head: string; text: string; meta: string; sharedBy?: Pick<Person, 'name' | 'face'> };
 
-export type BellGroup = { label: 'Questions' | 'Outbox' | 'New documents' | 'Business'; problem: string | null; lines: BellLine[] };
+export type BellGroup = { label: 'Questions' | 'Approvals' | 'Outbox' | 'New documents' | 'Business'; problem: string | null; lines: BellLine[] };
 
 export type BellPanel = { groups: BellGroup[]; empty: boolean };
 
@@ -63,6 +65,14 @@ const questionLine = (q: WaitingQuestion, now: number): BellLine => ({
   text: q.question,
   meta: waitedFor(now - q.askedAt),
   ...(q.sharedBy ? { sharedBy: { name: q.sharedBy, face: q.sharedByFace ?? faceOf({ name: q.sharedBy }) } } : {}),
+});
+
+const approvalLine = (item: WaitingApproval, now: number): BellLine => ({
+  id: item.id,
+  href: `/prd/${encodeURIComponent(item.dossierId)}`,
+  head: `PRD ${item.prd} · ${item.title}`,
+  text: 'Waits for your approval',
+  meta: waitedFor(now - item.askedAt),
 });
 
 const outboxLine = (item: WaitingOutbox): BellLine => ({
@@ -105,12 +115,15 @@ function outboxProblem(unread: BellUnread): string | null {
 
 /** The panel: its groups, each only when it has items or a problem to say, and whether nothing waits.
  * `documents` are the New documents part's groups, newest first; `business`, how many things wait to
- * be checked on Settings › Business. */
-export function bellPanel(list: WaitingList, unread: BellUnread, now: number, documents: readonly DocumentGroup[] = [], business = 0): BellPanel {
+ * be checked on Settings › Business; `approvals`, the approval requests waiting on the person. */
+export function bellPanel(
+  list: WaitingList, unread: BellUnread, now: number, documents: readonly DocumentGroup[] = [], business = 0, approvals: readonly WaitingApproval[] = [],
+): BellPanel {
   // Questions oldest first; the outbox as the route ordered it (by PRD, then as its outbox holds them).
   const questions = [...list.questions].sort((a, b) => a.askedAt - b.askedAt || a.id.localeCompare(b.id));
   const all: BellGroup[] = [
     { label: 'Questions', problem: unread.questions ? retrying('Questions') : null, lines: questions.map((q) => questionLine(q, now)) },
+    { label: 'Approvals', problem: unread.approvals ? retrying('Approvals') : null, lines: approvals.map((a) => approvalLine(a, now)) },
     { label: 'Outbox', problem: outboxProblem(unread), lines: list.outbox.map(outboxLine) },
     { label: 'New documents', problem: unread.documents ? retrying('New documents') : null, lines: documents.map((g) => documentLine(g, now)) },
     { label: 'Business', problem: unread.business ? retrying('Business') : null, lines: business > 0 ? [businessLine(business)] : [] },

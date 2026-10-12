@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Public ideas board</title>
+<style>
+/* Layout: two moments (a visitor opens the link, a member loads the ideas), each today | after side by side, stacking at phone width. Look: the PRD pages' tokens. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --green:#15703f;--greenSoft:#e4f4ea;--amber:#8a5a00;--amberSoft:#fdf1d8;
+ --term:#14123a;--termInk:#e6e8ff;--termMuted:#9aa0d8;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --green:#4ee08a;--greenSoft:#133b3c;--amber:#ffc865;--amberSoft:#3a2f1a;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --green:#4ee08a;--greenSoft:#133b3c;--amber:#ffc865;--amberSoft:#3a2f1a;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding:24px 16px 48px}
+main{max-width:1120px;margin:0 auto;display:grid;gap:40px}
+h1{font:400 clamp(28px,5vw,40px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.1 var(--display);letter-spacing:.03em;margin:0 0 4px;text-wrap:balance}
+p{margin:0;max-width:65ch}
+.lede{color:var(--muted);margin-top:8px}
+.pair{display:grid;grid-template-columns:1fr 1.6fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.bar{font:12px var(--mono);color:var(--muted);background:var(--sunk);padding:8px 12px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.pad{padding:16px;display:grid;gap:12px}
+.gate{text-align:center;padding:40px 16px;display:grid;gap:12px;justify-items:center}
+.btn{font:600 13px var(--body);border:1px solid var(--plasma);color:var(--plasma);background:transparent;border-radius:6px;padding:6px 12px}
+.btn.solid{background:var(--plasma);color:var(--surface)}
+.lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:560px){.lanes{grid-template-columns:1fr}}
+.lane{background:var(--sunk);border-radius:8px;padding:8px;display:grid;gap:8px;align-content:start;min-width:0}
+.lane h3{margin:0;font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px;display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start}
+.vote{display:grid;justify-items:center;font:600 12px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 6px;font-variant-numeric:tabular-nums;min-width:34px}
+.vote.on{border-color:var(--plasma);color:var(--plasma);background:var(--plasmaSoft)}
+.card b{font-size:13px;line-height:1.3;display:block}
+.card small{color:var(--muted);font-size:12px;line-height:1.35;display:block}
+.badge{display:inline-block;margin-top:4px;font:600 11px var(--mono);color:var(--green);background:var(--greenSoft);border-radius:4px;padding:1px 6px}
+.note{font-size:13px;color:var(--muted)}
+.term{background:var(--term);color:var(--termInk);font:12.5px/1.6 var(--mono);border-radius:10px;padding:14px;overflow-x:auto;white-space:pre}
+.term .c{color:var(--termMuted)}
+.chat{background:var(--amberSoft);color:var(--amber);border-radius:10px;padding:14px;font-size:13px;display:grid;gap:6px}
+ul.same{margin:0;padding-left:18px;display:grid;gap:4px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>A public ideas board people can vote on</h1>
+  <p class="lede">PRD #1246. Ideas are shown before they become PRDs, in Now · Next · Later lanes that members set. Anyone can read them, and anyone signed in with GitHub can vote.</p>
+</header>
+
+<section>
+  <h2>A visitor opens the link</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">Today</span>
+      <div class="frame">
+        <div class="bar">omni-loop.xyz/prd</div>
+        <div class="gate">
+          <b>Sign in to see this workspace</b>
+          <p class="note">Every workspace page is for members only. Someone who uses omni-loop can't see what's coming, and there is nowhere to say what matters to them.</p>
+          <span class="btn">Sign in with GitHub</span>
+        </div>
+      </div>
+    </div>
+    <div class="side">
+      <span class="tag after">After</span>
+      <div class="frame">
+        <div class="bar">omni-loop.xyz/ideas/vertuoza/vertuo-omni-loop · public, no sign-in</div>
+        <div class="pad">
+          <div class="lanes">
+            <div class="lane"><h3>Now <span>2</span></h3>
+              <div class="card"><span class="vote on">▲<span>41</span></span><div><b>Better UX on the approval gate</b><small>Answer the outbox in fewer clicks, with the decision's context beside it.</small></div></div>
+              <div class="card"><span class="vote">▲<span>17</span></span><div><b>Improve the HUD</b><small>More useful information about what the session is doing.</small><span class="badge">In PRD #1250</span></div></div>
+            </div>
+            <div class="lane"><h3>Next <span>3</span></h3>
+              <div class="card"><span class="vote">▲<span>33</span></span><div><b>AI may merge, with an independent review</b><small>A setting that lets the AI merge by itself, with a code review it can't skip.</small></div></div>
+              <div class="card"><span class="vote">▲<span>22</span></span><div><b>Sync with GitHub, fewer API calls</b><small>Read GitHub less often and keep what it says.</small></div></div>
+              <div class="card"><span class="vote">▲<span>9</span></span><div><b>Token tracking in omni-loop</b><small>Move from tokenspend so the loop tracks its own spend.</small></div></div>
+            </div>
+            <div class="lane"><h3>Later <span>3</span></h3>
+              <div class="card"><span class="vote">▲<span>14</span></span><div><b>Rework Product, Business and Settings</b><small>A clearer UX across the three pages.</small></div></div>
+              <div class="card"><span class="vote">▲<span>8</span></span><div><b>Better gamification score</b><small>A score that rewards what matters.</small></div></div>
+              <div class="card"><span class="vote">▲<span>5</span></span><div><b>Training on P-R</b><small>Import from nicojustdev/lenny.</small></div></div>
+            </div>
+          </div>
+          <p class="note">Members set the lanes, and votes sort the ideas within each lane. Pressing ▲ while signed out starts a GitHub sign-in that asks for no org access and comes back here. Pressing it again takes the vote back. A private board answers "no public board here". <em>Example counts and PRD number.</em></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>A member loads the ideas</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">Today</span>
+      <div class="chat">
+        <b>A list in a chat message</b>
+        <span>"Improve the HUD… switch token tracking… training on P-R… AI may merge… rework UX… approval gate… GitHub sync… score…"</span>
+        <span>No lane, no votes, and nowhere to point people.</span>
+      </div>
+    </div>
+    <div class="side">
+      <span class="tag after">After</span>
+<div class="term"><span class="c">$ omni idea add 'Better UX on the approval gate' --pitch 'Answer the outbox in fewer clicks' --lane now</span>
+idea added to Now: https://www.omni-loop.xyz/ideas/vertuoza/vertuo-omni-loop
+<span class="c">$ omni idea list</span>
+NOW
+  ▲ 41  Better UX on the approval gate
+  ▲ 17  Improve the HUD                          PRD #1250
+NEXT
+  ▲ 33  AI may merge, with an independent review
+  …</div>
+      <p class="note">On the page, a member also edits ideas, drags them between lanes, archives them, sets a PRD number, and copies each card's line: <code>/omni:brainstorm 'Better UX on the approval gate: …'</code>. The board goes public or private in Settings › Repositories.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What stays the same</h2>
+  <ul class="same">
+    <li>Every other workspace page stays members-only. A board is off until a member turns it on.</li>
+    <li>Brainstorms, PRDs and the loop are unchanged. An idea becomes a PRD only when someone runs <code>/omni:brainstorm</code>.</li>
+    <li>Members sign in as they do today. Only a voter's sign-in is new.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

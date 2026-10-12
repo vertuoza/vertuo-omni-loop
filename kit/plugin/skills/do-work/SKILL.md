@@ -1,6 +1,6 @@
 ---
 name: do-work
-description: Build ONE slice of a PRD to standard — grounded in the repository's own context, test-first through red-green-refactor, inside the slice's territory only, every decision taken without asking recorded as an outbox item — then ship it as a sub-PR. The job every /omni:wave subagent does; a person may also run it on one slice. Triggers on "do the slice", "build s3", "/omni:do-work".
+description: Build ONE slice of a PRD to standard — grounded in the repository's own context, test-first through red-green-refactor, inside the slice's territory only, every decision taken without asking recorded as an outbox item — then ship it as a sub-PR. The job every /omni:wave subagent does; a person may also run it on one slice. Under --target, a product PRD (<key>-<n>) takes its plan through omni dossier get and its items go to the server. Triggers on "do the slice", "build s3", "/omni:do-work".
 ---
 
 <!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-do-work/SKILL.md — changes in kit/porting/plugin--do-work.md -->
@@ -38,7 +38,7 @@ prints `hooks none` and `kitStep: run`: the step runs as written.
 | slice | `s5` | a row of the PRD's plan |
 | feature branch | shaped like `branches.feature` | the branch the slice is cut from and its sub-PR targets |
 | `--in-wave` | — | set by `/omni:wave` only. Changes three things, below: the claimed slice branch is checked out rather than cut, medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
-| `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which preflight runs and what the result carries: see **Under `--target <name>`** |
+| `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository, or for a product PRD (`mobile-12`) in any kitted checkout of its product: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which preflight runs and what the result carries: see **Under `--target <name>`** |
 
 Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) instead.
 
@@ -47,6 +47,10 @@ Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) in
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the Omni Loop
 kit is not installed in this repository. Keep the JSON; later steps read `repo.remote`,
 `branches.*`, `paths.*`, `commands.*`, `acceptance.*` and `laws.source` from it.
+
+Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`. Keep what it
+prints. Anything but `true` (or a failure) means design craft is off here: step 4's design review
+does not run, and the sub-PR has no **Design review** section. Nothing else in this skill changes.
 
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
@@ -69,6 +73,21 @@ never overrides this skill's rules.
 5. `omni kb show architecture`, `omni kb show conventions` and `omni kb show setup`: where code
    may go and what may depend on what; naming, formatting and the shape of a commit; how to
    install and run the repository. They bind this slice as if written here.
+6. **The design memory,** only when step 0 read the design flag as `true` and the slice builds or
+   changes a screen (the plan marks it `ui: yes`, or its territory holds screens). Read
+   `omni kb show design`, its `language` laws included: they bind the screens as the rest of the
+   form does. Then run `node .omni-loop/bin/omni.mjs design screens` and read each library screen
+   the slice builds or touches (its `implements` meets the territory, or the spec names it or one
+   of its routes): its file, in the folder `node .omni-loop/bin/omni.mjs config design.screens`
+   prints, and its mockup. Read its `reads` too, when it has one: the code behind the screen
+   (engines, data, rules) it only depends on, read for context. A change there is no change to the
+   screen and never trips its lock. A lock trips only when the slice's diff changes that screen's
+   own `implements`: a page lists the files of a shared screen it shows (`kind: shared`, an app
+   shell, notifications) in its `reads`, so a change to the shared screen alone never holds the
+   page, and a change to the page never holds the shared screen. A locked screen is built as
+   written: its **Regions**, **States**, **Words** and **Refusals** and its mockup are that screen's
+   spec, and it is never redesigned. A draft is a starting point. A change the spec asks of a
+   locked screen or law is step 3's **A change to a locked screen or law**.
 
 The slice branch is `branches.slice` filled with the feature branch's topic and the slice id.
 Never work on the default branch or on the feature branch.
@@ -178,6 +197,26 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
        reword and rerun.
 4. Commit the item file (or the ledger change) on the slice branch.
 
+**A change to a locked screen or law.** A screen of the library someone locked, and a law of the
+design form's `language` section with a lock line, are that person's decisions. Never edit a
+locked screen's body or a locked law, and never lock anything: only a person locks, through
+`/omni:pixel-perfect lock`. When the spec, or the slice's own work, changes a locked screen (the
+built screen departs from its mockup or its file on purpose) or builds against a locked law:
+
+1. Build what the spec asks, inside the territory, and leave the locked file as it is.
+2. Record it as above, with `hardToRevert: true` by rule, not judgement: skip the Jev step for it,
+   since this item is high whatever anyone says. `questionPlain` names the screen (or the law), the
+   change and who locked it (its `locked-by` and `locked-on`, or the law's lock line), so the gate
+   holds until that person answers. Its options are A, the change as built, and B, the screen as
+   locked, with the change undone. `decide` carries the amendment line the owner would add
+   (`> Amended <date> · @<login> · "<their words>": <what changed>` for a screen,
+   `#### Amended <date> · @<login> · "<their words>"` for a law), with their words left for them:
+   no agent writes an amendment line, which needs its owner's words.
+3. Carry on. It is no stop: the slice ends as it would have.
+
+A change to a locked screen or law is never a stop either, and it is the one design finding that
+is high: every other one is recorded at the rank it gets.
+
 **Exactly two ways a slice ends early.**
 
 | the slice meets | it does |
@@ -189,7 +228,9 @@ Anything else is not a stop. "This might break something" is a risk: record it w
 `hardToRevert` and carry on. Contradicting an ADR is proposing to supersede it: record it with
 `bearsOn` set to the ADR, and carry on. Going against a **proposed** knowledge entry is never a stop
 either: it is no law yet, so record it with `bearsOn` set to its id, leave `breaksNamedLaw` false,
-and carry on.
+and carry on. A design review finding is never a stop either (step 4): what the review leaves is
+recorded and the slice carries on, a change to a locked screen or law included (its high item,
+above).
 
 ## 4. Account for the ground you touched
 
@@ -197,6 +238,49 @@ and carry on.
 `node .omni-loop/bin/omni.mjs flow show do-work.review --prd <n> --slice <id>` and follow it
 (**Flow points**) around what follows. A `fail` from a hook is fixed on the slice branch, then the
 point runs again.
+
+**Design review.** Only when step 0 read the design flag as `true`; off, skip to the coverage below.
+It starts on its own: no one asks for it. First, the PRD's before/after page (`omni prd` lists it):
+when it says `Pixel perfect: no screen changes`, the PRD changes no screen, and the slice runs no
+pixel-perfect work (no review, no mockup, no word pass): the section is the one line
+`— Design review: no screen changes (Pixel perfect: no screen changes)`, and the step goes on to the
+coverage below. Otherwise run
+`node .omni-loop/bin/omni.mjs design touched <repo.remote>/<feature branch>`; it always exits 0.
+
+| the slice | it does |
+|---|---|
+| marked `ui: yes` in the plan's done-when, or the check prints `ui: yes` | follows the review below |
+| the check prints `ui: unknown` (`design.paths` is empty, or the base cannot be read) | judges from the diff whether a screen changed: yes, it follows the review; no, it skips it. Either way the section's first line says that it judged, and from what |
+| the check prints `ui: no`, and the plan does not mark it | skips the review; the section is the one line `— Design review: no screen changed (ui: no)` |
+
+The review is `/omni:pixel-perfect review`: follow that skill's step 0, then its
+`reference/review.md`, as written there, never restated here. Give it the PRD and the slice id,
+the slice's territory (every fix stays inside it), the base `<repo.remote>/<feature branch>`, and,
+as its reference picture, the "after" screen of the PRD's before/after page (`omni prd` lists it
+among the files; no page, and the step says so). Its fixes are this slice's code: commit them as
+reviewable commits (step 2) and run the tests again at **Point `do-work.test`** before going on.
+
+The review reads the same check's `screens:` line (the library screens the diff touches, their
+status and routes): it screenshots those routes and compares a locked screen with its mockup.
+
+**It never fails the slice, the wave or the gate.** No finding turns a check red, holds the
+preflight or leaves the sub-PR draft, and a finding is never the **stop** or the **blocked**
+outcome. What it did not fix (a finding left after the confirming look, a fix that would leave the
+territory) becomes an outbox item through step 3, one per finding or one per screen, naming the
+screen, what was found, the fix it would make and why it was left; its `gaps` carry the small ones.
+When the app cannot run or be seen here, the review says so and nothing is reported as seen. A
+change the review finds to a locked screen, or a fix it would make that changes one, is the high
+item of step 3's **A change to a locked screen or law**, never a lock and never an edit of the
+locked file. A fault the review lists under `Seen, not touched` (a part the diff did not change)
+is not this slice's: it is never fixed here and never an outbox item of this slice, and it stays in
+the **Design review** section, suggested as a bug of its own.
+
+Keep its report for the sub-PR: a **Design review** section, one ✓, ✗ or — line per step, in the
+shape `reference/review.md` shows, then what was fixed, one line each. The screenshots stay in a
+scratch folder outside the repository, never in the territory or a commit: attach them to the
+sub-PR when the session can, otherwise the screenshot line names each screen and width it saw.
+Under `--target <name>` the review does not run (no target app runs here, **Under `--target
+<name>`**): the section is the one line `— Design review: not run on a target slice`.
 
 After the last code commit, grade your own diff:
 
@@ -253,7 +337,8 @@ carries here, and what done means. What they ask of a push or a hand-off is part
    (**Flow points**) around item 6, the kit's step. A `not ok` leaves the sub-PR draft: name the
    hook and its reason in the hand-off, as a red preflight would be.
 6. **Hand off to `/omni:pr`** for the sub-PR into the feature branch: it turns the claim into the
-   sub-PR (title; a body that ends with the `omni sign footer` line; the co-author trailer and the
+   sub-PR (title; a body that carries step 4's **Design review** section when the design flag is
+   on, and ends with the `omni sign footer` line; the co-author trailer and the
    `omni sign trailer` line on every commit), keeps its status comment, marks it ready once the
    preflight is green, and runs its lifecycle. A sub-PR has no CI: its lifecycle
    ends at a green preflight and no conflict with the feature branch. Never merge it, never touch
@@ -284,12 +369,12 @@ repository is built there. `<name>` is that row's `repo`: the part after the `/`
 `plan.targets` entry's `repo`, whose whole `owner/name` is `<slug>` below. Everything above holds,
 with these differences.
 
-- **Where it is built.** The target's full clone is `<worktrees>/targets/<name>` of the plan
+- **Where it is built.** The target's full clone is `<worktrees>/targets/<name>@<prd>` of the plan
   repository (`<worktrees>` is `omni config worktrees`), made by `/omni:ultra-yolo`; its remote is
   the one `git -C <clone> remote` prints. Build in a worktree of that clone, one per slice, beside
-  it at `<worktrees>/targets/<name>--<slice>`:
+  it at `<worktrees>/targets/<name>@<prd>--<slice>`:
   `git -C <clone> fetch <clone remote>`, then
-  `git -C <clone> worktree add -B <slice branch> <worktrees>/targets/<name>--<slice> <clone remote>/<slice branch>`.
+  `git -C <clone> worktree add -B <slice branch> <worktrees>/targets/<name>@<prd>--<slice> <clone remote>/<slice branch>`.
   The slice branch and the feature branch are the plan repository's `branches.slice` and
   `branches.feature`, filled with the PRD's topic, in the target as here. Under `--in-wave` the
   claim is already on the target's remote; alone, claim through `/omni:pr --repo <slug>`'s
@@ -311,7 +396,7 @@ with these differences.
   account (step 4) is written at `<scratch dir>/accounts/<slice>.md`, and relayed with them.
 - **A target's flow,** at every point above, is the target's own committed one, never the plan
   repository's: run the plan repository's `omni` with the slice's worktree as its working directory,
-  `(cd <worktrees>/targets/<name>--<slice> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show <point> --path <p>)`,
+  `(cd <worktrees>/targets/<name>@<prd>--<slice> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show <point> --path <p>)`,
   once per territory entry (the target holds no plan for `--prd` to read), and follow each hook it
   names once, filling `{prd}` and `{slice}` yourself; `flow verdict` runs the same way. It reads
   the target's config and hook files in that worktree and runs no code of the target. A target
@@ -332,6 +417,26 @@ with these differences.
 - **Ship.** Commit in the slice's worktree, signed as above (`omni sign trailer` is run from the
   plan repository), push the slice branch to the clone's remote, heartbeat included, and hand off
   to `/omni:pr --repo <slug>` for the sub-PR into the target's feature branch.
+- **A product PRD** (◆, its id `<key>-<n>`, as `mobile-12`, PRD 1548) has no plan repository and
+  no folder: `/omni:ultra-wave`'s **From a product** runs this slice from any kitted checkout of a
+  repository the product holds, and every `omni` command above runs there, with the PRD's id for its
+  number. What differs:
+  - **Where.** The clone is `<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`, and
+    the slice and feature branches are `branches.slice` and `branches.feature` filled with `<key>-<n>` as the topic.
+  - **Reading.** Step 1's `omni prd <key>-<n>` prints where the PRD stands (`state: inbox`, its
+    `approval:` lines), not a folder. Take the plan and the spec from the server:
+    `node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan` and `… spec`, each writing a scratch
+    file and printing its path, then `sha256 <hash>`; read the slice's row from that plan. A
+    `state:` other than `inbox` (`drifted`, `unreachable`) builds nothing: return `stopped`, its
+    line in `summary`. `held · server unreachable · held, not failed` from `dossier get` does the
+    same.
+  - **Items** go to the scratch folder as above, then to the server when relayed:
+    `node .omni-loop/bin/omni.mjs item new --prd <key>-<n> --slice <id> --file <file> --out <scratch dir> --json`.
+    The kit checks each one as `omni check outbox` would, and refuses one exactly as above. An
+    account is written as above, but the Omni page keeps none yet: the relay leaves it in the
+    scratch folder, so name every risky change it covers in `risks` too.
+  - **No checks in a plan repository.** `omni check coverage --prd` and `omni check all` read a
+    repository's PRD only: neither runs on a product PRD's slice, and the hand-off says so.
 - **The result** of `--in-wave` gains `repo` (`<name>`) and `out` (the scratch folder); each item's
   `file` is its path in that folder:
 

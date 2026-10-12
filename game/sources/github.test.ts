@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configFrom } from '../config.ts';
-import { buildSnapshot, toIso, type Exec } from './github.ts';
+import { buildSnapshot, isRateLimit, toIso, type Exec } from './github.ts';
 
 // A gh read the fake answers: the start of its joined arguments, and its output (an Error is thrown).
 type Fixture = readonly [string, unknown];
@@ -108,6 +108,26 @@ describe('buildSnapshot', () => {
     ]);
     const p = nth((await buildSnapshot({ config, exec, now: NOW })).planets, 0, 'the planet');
     expect(p.regions).toEqual([{ repo: R, blockedBy: [2300], surveyedAt: '2026-09-01T08:00:00Z', featurePr: null }]);
+  });
+
+  it('names who merged a merged feature PR and who approved it: no bot, not its author, not a dismissed approval', async () => {
+    const merged = {
+      ...FP, isDraft: false, mergedAt: '2026-09-23T09:00:00Z', author: { login: 'Alice' }, mergedBy: { login: 'PM', is_bot: false },
+      latestReviews: [
+        { author: { login: 'Eve' }, state: 'APPROVED' },
+        { author: { login: 'eve' }, state: 'APPROVED' },
+        { author: { login: 'alice' }, state: 'APPROVED' },
+        { author: { login: 'bob' }, state: 'CHANGES_REQUESTED' },
+        { author: { login: 'copilot', is_bot: true }, state: 'APPROVED' },
+        { author: { login: 'renovate[bot]' }, state: 'APPROVED' },
+      ],
+    };
+    const p = nth((await snap([[`pr list -R ${R} --search`, [merged]]])).planets, 0, 'the planet');
+    expect(nth(p.regions, 0, 'the home region').featurePr).toMatchObject({ mergedBy: 'pm', approvedBy: ['eve'] });
+    const bot = nth((await snap([[`pr list -R ${R} --search`, [{ ...merged, mergedBy: { login: 'omni-bot', is_bot: true } }]]])).planets, 0, 'the planet');
+    expect(nth(bot.regions, 0, 'the home region').featurePr?.mergedBy).toBeNull();
+    const open = nth((await snap()).planets, 0, 'the planet');
+    expect(nth(open.regions, 0, 'the home region').featurePr).not.toHaveProperty('mergedBy');
   });
 
   it('takes the feature PR that says Closes #<n>, the omni:feature one first, never #<n>0', async () => {
@@ -222,6 +242,15 @@ describe('buildSnapshot', () => {
       const p = nth((await snap([[`pr list -R ${R} --base feat/generic-import`, [{ ...SUB_501, createdAt: '2026-09-21T09:00:00.000Z', mergedAt: '2026-09-21T14:00:00+02:00' }]]])).planets, 0, 'the planet');
       expect(nth(p.zones, 0, 'the zone').pr).toMatchObject({ createdAt: '2026-09-21T09:00:00Z', mergedAt: '2026-09-21T12:00:00Z' });
     });
+  });
+
+  it('credits a settle a merge over red wrote as @<login> to the login (PRD 1180)', async () => {
+    const settled = ['<!-- omni-outbox-settled: s1-01-a -->', '- Verdict: adopted', '- Approved at: 2026-09-22T10:00:00Z', '- Approved by: @pm', '- Rank: high', ''].join('\n');
+    const p = nth((await snap([
+      [`api repos/${R}/contents/${OUT}?ref=feat/generic-import --jq`, 'settled.md\n'],
+      [`api repos/${R}/contents/${OUT}/settled.md?ref=feat/generic-import`, settled],
+    ])).planets, 0, 'the planet');
+    expect(nth(p.outbox, 0, 'the outbox item').settled).toMatchObject({ verdict: 'adopted', by: 'pm' });
   });
 
   it('carries the rework sub-PR author of a drifted settle as reworkBy (F6)', async () => {
@@ -450,7 +479,7 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     ]);
     const all: Exec = async (args) => (args.join(' ').includes(other) ? twin(args) : exec(args));
     const s = await buildSnapshot({ config: both, exec: all, now });
-    expect(s.planets.map((p) => [p.home, p.prd, p.ownerTeam])).toEqual([[PLAN_REPO, 88, 'beaver'], [other, 88, 'octopod']]);
+    expect(s.planets.map((p) => [p.home, p.prd, p.ownerTeam])).toEqual([[other, 88, 'octopod'], [PLAN_REPO, 88, 'beaver']]); // the PRD closed last first
     const events = projectEvents(s, { config: both, now });
     const ids = events.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -542,5 +571,47 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
     expect(s.planets.map((p) => `${p.home}#${p.prd}`)).toEqual([`${PLAN_REPO}#88`]);
     expect(nth(s.planets, 0, 'the planet').regions.map((r) => present(r.featurePr, 'the feature PR').number)).toEqual([89, 284, 40]);
     expect(projectEvents(s, { config: cfg, now }).filter((e) => JSON.stringify(e).includes('old-plan'))).toEqual([]);
+  });
+});
+
+// What gh throws when the token's rate limit refuses a call.
+const rateLimited = (): Error => Object.assign(new Error('Command failed: gh api repos/x\ngh: API rate limit exceeded for user ID 1.'), { stderr: 'gh: API rate limit exceeded for user ID 1.' });
+
+describe('a read the token\'s rate limit refuses', () => {
+  it('is a rate limit, primary or secondary; a 404 is not', () => {
+    expect(isRateLimit(rateLimited())).toBe(true);
+    expect(isRateLimit(new Error('gh: You have exceeded a secondary rate limit.'))).toBe(true);
+    expect(isRateLimit(new Error('gh: Not Found (HTTP 404)'))).toBe(false);
+  });
+
+  it('never reads as empty: a shipped PRD\'s folder refused is no decommissioned planet', async () => {
+    const closed = { ...ISSUE, closedAt: '2026-09-23T10:00:00Z' };
+    const refused = await snap([[`issue list -R ${R} --label omni:prd`, [closed]], [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, rateLimited()]]);
+    expect(refused.planets).toEqual([]);
+    expect(refused.stopped?.by).toBe('rate-limit');
+    expect(refused.stopped?.message).toContain('API rate limit exceeded');
+    expect(projectEvents(refused, { config, now: NOW }).filter((e) => e.type === 'PLANET_DECOMMISSIONED')).toEqual([]);
+    // A 404 there still reads as no folder, as before.
+    const missing = await snap([[`issue list -R ${R} --label omni:prd`, [closed]], [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, new Error('gh: Not Found (HTTP 404)')]]);
+    expect(missing.stopped).toBeUndefined();
+    expect(missing.planets.map((p) => p.prd)).toEqual([2332]);
+  });
+
+  it('keeps every planet read in full before it, and drops the one it was reading', async () => {
+    const other = { ...ISSUE, number: 2333, title: 'Other', closedAt: '2026-09-23T10:00:00Z' };
+    const s = await snap([
+      [`issue list -R ${R} --label omni:prd`, [other, ISSUE]],
+      [`api repos/${R}/contents/.omni-loop/delivery/inbox --jq`, '2332-generic-import\n2333-other\n'],
+      [`api repos/${R}/commits?path=.omni-loop/delivery/inbox/2333-other/`, rateLimited()],
+    ]);
+    expect(s.planets.map((p) => p.prd)).toEqual([2332]); // the open PRD is read first
+    expect(s.stopped?.by).toBe('rate-limit');
+    expect(s.stopped?.message).toContain('1 of 2 planets read');
+  });
+
+  it('stops before a planet once the read budget is spent', async () => {
+    const s = await snap([], { deadline: 0 });
+    expect(s.planets).toEqual([]);
+    expect(s.stopped).toEqual({ by: 'budget', message: 'read budget spent: 0 of 1 planets read' });
   });
 });

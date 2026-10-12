@@ -123,6 +123,19 @@ describe('an answer', () => {
     expect(answerOf(checks, pick)).toBe('A live run');
   });
 
+  // Law BR-PRODUCT-14 (.omni-loop/knowledge/product/rules.md).
+  it('law BR-PRODUCT-14: ticked labels in listed order then the typed Other text, joined with ", "; Other replaces a single choice', () => {
+    let several = item(emptyDraft([checks]), 0);
+    several = pickOption(checks, several, 'Hooks');
+    several = pickOption(checks, several, 'RLS');
+    several = typeOther(checks, several, 'A live run');
+    expect(answerOf(checks, several)).toBe('RLS, Hooks, A live run');
+
+    let single = pickOption(storage, item(emptyDraft([storage]), 0), 'Memory');
+    single = typeOther(storage, single, 'Redis');
+    expect(answerOf(storage, single)).toBe('Redis');
+  });
+
   it('is no answer while Other is chosen but empty', () => {
     expect(answerOf(storage, toggleOther(storage, item(emptyDraft([storage]), 0)))).toBeNull();
     expect(answerOf(storage, typeOther(storage, item(emptyDraft([storage]), 0), ' \n '))).toBeNull();
@@ -227,14 +240,15 @@ describe('screenshots on Other (PRD 620)', () => {
     expect(addShots([checks], draft, 0, [shot('a')]).draft[0]).toMatchObject({ labels: ['RLS'], otherOn: true });
   });
 
-  it('refuses a non-image, a file over 5 MB and a sixth screenshot, each with its reason, and keeps the others', () => {
+  it('refuses a non-image, a file over 4 MB (PRD 1318) and a sixth screenshot, each with its reason, and keeps the others', () => {
     const draft = emptyDraft([storage]);
     const { draft: next, refused } = addShots([storage], draft, 0, [
       shot('a'), shot('pdf', 'application/pdf'), shot('big', 'image/png', SHOT_MAX_BYTES + 1), shot('b'), shot('c'), shot('d'), shot('e'), shot('f'),
     ]);
     expect(ids(item(next, 0).shots)).toEqual(['a', 'b', 'c', 'd', 'e']);
-    expect(refused).toEqual(['PNG, JPEG, GIF or WebP only', '5 MB max', '5 screenshots max']);
+    expect(refused).toEqual(['PNG, JPEG, GIF or WebP only', '4 MB max', '5 screenshots max']);
     expect(addShots([storage], draft, 0, [shot('ok', 'image/png', SHOT_MAX_BYTES)]).refused).toEqual([]);
+    expect(SHOT_MAX_BYTES).toBe(4 * 1024 * 1024);
   });
 
   it('leaves the draft as it was when every file is refused', () => {

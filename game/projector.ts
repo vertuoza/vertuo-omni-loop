@@ -2,14 +2,21 @@
 import { RULEBOOK } from './rulebook.ts';
 import { addWorkingMinutes } from './calendar.ts';
 import { z } from 'zod';
-import { makeEvent, planetKey, type EventType, type GameEvent } from './events.ts';
+import { makeEvent, NO_PLANET, planetKey, type EventType, type GameEvent } from './events.ts';
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
 import type { GameConfig } from './config.ts';
 import type { DerivedPlanet, Snapshot, SnapshotPlanet } from './types.ts';
-import type { PrNumber } from '../kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from '../kit/lib/ids.ts';
 
 /** One fact that could not become an event, and why. */
 export type Skip = { id: string; message: string };
+
+/**
+ * One answered ask round (PRD 1180), as public.game_answered_rounds() returns it: the PRD by the
+ * brainstorm or the delivery rule (null when none claims it), its home in lower case (that PRD's, else
+ * the round's repository), the answerer's lower-case GitHub login.
+ */
+export type AnsweredRound = { roundId: string; answeredAt: string; prd: PrdNumber | null; home: string; login: string };
 
 // An event's fields before validation: what the projector builds, `contributor` possibly unset.
 type Fields = {
@@ -37,9 +44,11 @@ const iso = (d: Date): string => d.toISOString().replace('.000Z', 'Z');
 // reported through `onSkip({ id, message })`; one bad fact never stops the rest of the poll. A planet
 // whose state cannot be derived at all is reported the same way, under the id `planet:<key>`. Every id
 // names the PRD by its key, `<home>#<n>` (PRD 728; the number alone for a snapshot with no home).
+// `answers` are the workspace's answered rounds (PRD 1180): each becomes one QUESTION_ANSWERED, on its
+// PRD's planet, or on planet 0 when no PRD claims it.
 export function projectEvents(
   snapshot: Snapshot,
-  { config, now, onSkip = () => {} }: { config: Pick<GameConfig, 'sectorOf'>; now: Date; onSkip?: (skip: Skip) => void },
+  { config, now, answers = [], onSkip = () => {} }: { config: Pick<GameConfig, 'sectorOf'>; now: Date; answers?: readonly AnsweredRound[]; onSkip?: (skip: Skip) => void },
 ): GameEvent[] {
   // A planet is named by its key, `<home>#<n>` (PRD 728): a blocker is the PRD of that number in the same home.
   const terraformedAt = new Map(snapshot.planets.flatMap((p) => (p.featurePr?.mergedAt ? [[planetKey(p.home, p.prd), p.featurePr.mergedAt] as const] : [])));
@@ -63,12 +72,22 @@ export function projectEvents(
     distressEvents(push, at, now);
     woundEvents(push, at);
     finishEvents(push, at);
+    mergeEvents(push, at);
     endEvents(push, at);
   }
+  answerEvents(push, answers);
   return events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
 }
 
-// Validates and keeps one event, or reports it skipped.
+/**
+ * A GitHub login as the ledger names a player (PRD 1180): letters, digits and inner hyphens, at
+ * most 39 characters, in any case, as GitHub issues them (`Serghok`). No `@`, no dot.
+ */
+const LOGIN = /^[a-z0-9](?:[a-z0-9-]{0,38})$/i;
+
+// Validates and keeps one event, or reports it skipped. An event credited to a name that is no
+// GitHub login is skipped too (PRD 1180): the ledger keeps an event's first copy forever, so it waits
+// for a poll that reads the name right rather than crediting no player.
 function pusher(events: GameEvent[], teams: Readonly<Record<string, string>>, onSkip: (skip: Skip) => void): Push {
   // Logins are case-insensitive; the roster is keyed in lower case.
   const teamOf = (login: string): string | undefined => teams[login] ?? teams[login.toLowerCase()];
@@ -77,6 +96,10 @@ function pusher(events: GameEvent[], teams: Readonly<Record<string, string>>, on
   // omit both `contributor` and `team` instead of passing `null`.
   return (fields: Fields) => {
     const { contributor, ...rest } = fields;
+    if (contributor && !LOGIN.test(contributor)) {
+      onSkip({ id: fields.id, message: `contributor ${JSON.stringify(contributor)} is not a GitHub login` });
+      return;
+    }
     try {
       events.push(makeEvent({
         ...rest,
@@ -133,6 +156,19 @@ function finishEvents(push: Push, { planet, state, key, on }: At): void {
   if (fp?.mergedAt) push({ id: `planet:${key}:terraformed`, at: fp.mergedAt, type: 'PLANET_TERRAFORMED', ...on, data: { ownerTeam: planet.ownerTeam, class: state.class, crossSector: state.crossSector } });
 }
 
+// Each region's feature PR merged into its default branch: one FEATURE_MERGED for who merged it, one
+// FEATURE_REVIEWED per person who approved it. Each id names the region's PR and the person, so a
+// merge pays once, however many polls see it.
+function mergeEvents(push: Push, { planet, key, on }: At): void {
+  for (const r of planet.regions) {
+    const fp = r.featurePr;
+    if (!fp?.mergedAt) continue;
+    const pr = `merge:${fp.repo}#${fp.number}:${key}`;
+    if (fp.mergedBy) push({ id: `${pr}:merged`, at: fp.mergedAt, type: 'FEATURE_MERGED', ...on, region: fp.repo, contributor: fp.mergedBy, data: { pr: fp.number } });
+    for (const login of fp.approvedBy ?? []) push({ id: `${pr}:approved:${login}`, at: fp.mergedAt, type: 'FEATURE_REVIEWED', ...on, region: fp.repo, contributor: login, data: { pr: fp.number } });
+  }
+}
+
 // A planet given up: lost, or decommissioned.
 function endEvents(push: Push, { planet, state, key, on }: At): void {
   if (state.state === 'lost') {
@@ -140,6 +176,15 @@ function endEvents(push: Push, { planet, state, key, on }: At): void {
     push({ id: `planet:${key}:lost`, at, type: 'PLANET_LOST', ...on, data: { ownerTeam: planet.ownerTeam, reason: planet.issue.closedAt ? 'closed' : 'silence' } });
   }
   if (state.state === 'decommissioned') push({ id: `planet:${key}:decommissioned`, at: planet.issue.closedAt, type: 'PLANET_DECOMMISSIONED', ...on });
+}
+
+// PRD 1180: one QUESTION_ANSWERED per answered round, whether or not its PRD is charted (its repository
+// may be untracked), on planet 0 when no PRD claims it. Its id names the round alone, so however many
+// polls see it, the ledger keeps one.
+function answerEvents(push: Push, answers: readonly AnsweredRound[]): void {
+  for (const a of answers) {
+    push({ id: `ask:${a.roundId}:answered`, at: a.answeredAt, type: 'QUESTION_ANSWERED', planet: a.prd ?? NO_PLANET, home: a.home, contributor: a.login });
+  }
 }
 
 function prNumber(planet: SnapshotPlanet, zoneId: string, repo: string): PrNumber | null {

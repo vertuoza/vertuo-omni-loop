@@ -5,7 +5,8 @@ import type { Member } from '../dashboard/board/tally';
 import type { FixSummary } from '../dossier/github/fix';
 import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow } from '../engineering/tally';
-import { profileOf, type ProfileRead } from './load';
+import { ALERTS_LINE } from './alerts';
+import { profileOf, type ProfileAlerts, type ProfileRead } from './load';
 import { ProfileScreen, type ProfileView } from './ProfileScreen';
 import { sure } from '../arcade/test/sure';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -192,5 +193,60 @@ describe('the other situations', () => {
       if (you.kind !== 'profile' || you.lists === 'unreadable') throw new Error(`no demo lists at ${at.toISOString()}`);
       expect(you.lists.prd.rows.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// PRD 1322 s9: your own alert switches, on your own profile only, both off by default.
+describe('your alerts', () => {
+  const own = (alerts: ProfileAlerts) => {
+    const view = profileOf(READ(LISTS), { login: 'ada-gh', viewerId: 'u-ada', period: '7d', now: NOW });
+    if (view.kind !== 'profile') throw new Error(view.kind);
+    expect(view.own).toBe(true);
+    return { ...view, alerts };
+  };
+  const ALERTS: ProfileAlerts = { channels: { push: false, email: false }, email: 'ada@example.com', publicKey: 'BPk-pub' };
+  const switches = (html: string) => [...html.matchAll(/<button[^>]*role="switch"[^>]*>/g)].map(([tag]) => tag);
+
+  it('shows Phone alerts on this device and Email · your address, both off', () => {
+    const html = screen(own(ALERTS));
+    const t = text(html);
+    expect(t).toContain(`Alerts ${ALERTS_LINE.intro}`);
+    expect(t).toContain('Phone alerts on this device');
+    expect(t).toContain('Email · ada@example.com');
+    expect(switches(html)).toEqual([
+      expect.stringContaining('aria-checked="false" aria-label="Phone alerts on this device"'),
+      expect.stringContaining('aria-checked="false" aria-label="Email · ada@example.com"'),
+    ]);
+    expect(switches(html).some((tag) => tag.includes('disabled'))).toBe(false);
+  });
+
+  it('draws each switch as stored', () => {
+    const html = screen(own({ ...ALERTS, channels: { push: true, email: true } }));
+    expect(switches(html).every((tag) => tag.includes('aria-checked="true"'))).toBe(true);
+  });
+
+  it('with no VAPID key on this deployment: Phone alerts says so, and cannot be turned on', () => {
+    const html = screen(own({ ...ALERTS, publicKey: null }));
+    expect(text(html)).toContain(ALERTS_LINE.noKeys);
+    expect(switches(html)[0]).toContain('disabled');
+  });
+
+  it('with no address on your sign-in: Email says so, and cannot be turned on', () => {
+    const html = screen(own({ ...ALERTS, email: null }));
+    expect(text(html)).toContain(ALERTS_LINE.noEmail);
+    expect(switches(html)[1]).toContain('disabled');
+  });
+
+  it('your switches out of reach: could not load', () => {
+    const t = text(screen(own({ ...ALERTS, channels: 'unreadable' })));
+    expect(t).toContain(`Alerts ${ALERTS_LINE.intro} ${UNREADABLE_LINE}`);
+    expect(t).not.toContain('Phone alerts on this device');
+  });
+
+  it('someone else\'s profile has no alerts', () => {
+    const view = profile();
+    if (view.kind !== 'profile') throw new Error(view.kind);
+    expect(view.own).toBe(false);
+    expect(text(screen(view))).not.toContain('Alerts');
   });
 });

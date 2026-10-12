@@ -62,6 +62,9 @@
 // PRD 859, s3: a PRD's Pitch tab (./pitch.ts) sits after Proof (after PR care when there is no proof)
 // once the dossier holds a pitch, and is not there before; `?tab=pitch&pitch=<id>` picks an older pitch
 // of its audience.
+//
+// PRD 1299, s3: a PRD born on the server (◆) carries its approval (./approval.ts): waiting for approval,
+// approved with who and when, or drifted · approve again; any other dossier carries none.
 import type { FixPageView } from '../../fixes/timeline';
 import type { Face } from '../../people/face';
 import { peopleOf, type People } from '../../people/load';
@@ -87,6 +90,7 @@ import { pad, shortDay, stamp } from './dates';
 import type { GithubAt } from '../snapshot/snapshot';
 import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 import { pitchesBadge, pitchView, type PitchRead, type PitchView } from './pitch';
+import { approvalView, type ApprovalFacts, type ApprovalRead, type ApprovalView } from './approval';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
@@ -227,6 +231,12 @@ export type DossierRead = {
   pitches?: PitchRead | null | undefined;
   /** When the GitHub summary was read, and when GitHub resumes (PRD 902, s2); null or left out when not known. */
   githubAt?: GithubAt | null | undefined;
+  /** The approval in force of a PRD born on the server (PRD 1299 s3): null when none yet, `unread` when
+   * it could not be read; left out for any other dossier. */
+  approval?: ApprovalRead | undefined;
+  /** Beside it (PRD 1322 s7): the voids, who the product asks to approve, and the approve screen; left
+   * out, no void, any member approves, and the button stands alone. */
+  approvalFacts?: ApprovalFacts | undefined;
 };
 
 /** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */
@@ -331,6 +341,8 @@ export type DossierView = {
   githubAsOf: string | null;
   /** `GitHub resumes at 10:00 UTC`, while the installation's budget is paused; null otherwise. */
   githubResumes: string | null;
+  /** A ◆ PRD's approval (PRD 1299 s3): waiting, approved, drifted or voided (PRD 1322 s7); null for any other dossier. */
+  approval: ApprovalView | null;
 };
 
 /** `09:15 UTC`: the time of day, in UTC like every date on the page. */
@@ -758,6 +770,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     ...(read.demo ? { demo: true as const } : {}),
     githubAsOf: read.githubAt ? `GitHub as of ${timeOfDay(read.githubAt.readAt)}` : null,
     githubResumes: read.githubAt?.resumesAt ? `GitHub resumes at ${timeOfDay(read.githubAt.resumesAt)}` : null,
+    approval: approvalView(read, me),
   };
 }
 

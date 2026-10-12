@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { gradeKnowledge } from '../lib/knowledge/check-knowledge.ts';
@@ -122,6 +123,9 @@ const FILES = {
   [`${K}/product/invariants.md`]: '# Product invariants\n\nNone yet.\n',
   [`${K}/adr/README.md`]: '# Decisions\n',
   [`${K}/adr/0001-outbox-check-as-app.md`]: '# ADR-0001 — The outbox check runs as an app\n\nBody.\n',
+  'kit/lib/widgets.test.ts': 'test\n',
+  'kit/lib/widgets.ts': 'code\n',
+  'kit/lib/elsewhere.test.ts': 'test\n',
   [`${INBOX}/spec.md`]: '# Widgets\n',
   [`${INBOX}/plan.md`]: `# Plan\n\nThe spec: \`${INBOX}/spec.md\`. The outbox: \`${OUTBOX}\`.\n`,
   [`${OUTBOX}/settled.md`]: LEDGER_TEXT,
@@ -137,6 +141,7 @@ const REPLIES = {
     statement: 'A secret is set in the console, never in the repository.',
     serves: 'new',
     principle: { statement: 'Secrets never live in the repository.', why: 'a leaked file leaks the secret.' },
+    enforcedBy: ['kit/lib/widgets.test.ts', 'kit/lib/legacy.test.ts', 'kit/lib/elsewhere.test.ts'],
     reason: 'a provable rule with no principle yet',
   },
   's0-01-local-name': { kind: 'stays-here', statement: 'A local naming choice.', reason: 'a local choice, nothing lasting' },
@@ -161,11 +166,20 @@ function io() {
   return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function fakeExec(pr: unknown, calls: (readonly string[])[] = []) {
+/** The merged pull request's files, as `gh api --paginate --slurp` gives them: two pages. */
+const PR_FILES = [
+  [
+    { filename: 'kit/lib/widgets.test.ts', status: 'added' },
+    { filename: 'kit/lib/legacy.test.ts', status: 'removed' },
+  ],
+  [{ filename: 'kit/lib/widgets.ts', status: 'modified' }],
+];
+
+function fakeExec(pr: unknown, calls: (readonly string[])[] = [], files: unknown = PR_FILES) {
   return (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd === 'gh') {
       calls.push(args);
-      return JSON.stringify(pr);
+      return JSON.stringify(String(args[1]).endsWith('/files') ? files : pr);
     }
     return realExec(cmd, args, options);
   };
@@ -222,7 +236,10 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     const { code, out, err, calls } = await harvest(r);
     expect(err).toBe('');
     expect(code).toBe(0);
-    expect(calls).toEqual([['api', 'repos/acme/widgets/pulls/43']]);
+    expect(calls).toEqual([
+      ['api', 'repos/acme/widgets/pulls/43'],
+      ['api', 'repos/acme/widgets/pulls/43/files', '--paginate', '--slurp'],
+    ]);
     expect(head(r.root)).toBe(before);
 
     // Settled at merge: the open items adopted by the merger, their files gone.
@@ -235,7 +252,7 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     const latest = Object.fromEntries(parseSettledEntries(ledger, markers).map((e) => [e.id, e]));
     for (const id of ['s1-01-high-one', 's1-02-set-secret', 's0-04-drift']) {
       expect(latest[id]?.verdict).toBe('adopted');
-      expect(latest[id]?.fields['Approved by']).toBe('@octocat');
+      expect(latest[id]?.fields['Approved by']).toBe('octocat');
       expect(latest[id]?.fields.Basis).toMatch(/^merged-over-red/);
     }
     // The plan's paths follow the move.
@@ -263,6 +280,13 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(out).toContain('s0-04-drift → covered by ADR-0001');
     expect(out).toContain('s0-01-local-name → stays here');
     expect(out).toContain('checks: omni check knowledge ✓ · omni check outbox ✓');
+
+    // The proof (PRD 1171): a path the pull request added and the tree holds is kept; a removed one
+    // and one the pull request did not change are dropped, each named with its reason.
+    expect(r.read(`${K}/product/rules.md`)).toContain('Enforced by: kit/lib/widgets.test.ts\n');
+    expect(out).toContain('      Enforced by: kit/lib/widgets.test.ts');
+    expect(out).toContain('      dropped kit/lib/legacy.test.ts — removed by #43');
+    expect(out).toContain('      dropped kit/lib/elsewhere.test.ts — not changed by #43');
 
     // Both checks green on the result.
     const ctx = r.ctx;
@@ -294,11 +318,139 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
   });
 });
 
+describe('omni harvest — worth a law? (PRD 1342)', () => {
+  const LAW = { kind: 'invariant', place: 'product', statement: 'A widget always has a name.', reason: 'must always hold' };
+  const ASK_URL = 'https://omni.test';
+  /** A repository whose laws are its knowledge: only there is a rule or an invariant asked "worth a law?". */
+  const KNOWLEDGE_LAWS = 'laws:\n  source: knowledge\n';
+  const lawsRepo = (config = `kit: 1\nrepo:\n  slug: acme/widgets\n`) => repo({ ...FILES, '.omni-loop/config.yml': config + KNOWLEDGE_LAWS });
+  let home: string;
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'omni-home-'));
+    vi.stubEnv('HOME', home);
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  /** Signs this computer in to the Omni page, as `omni signin` would. */
+  function signIn() {
+    mkdirSync(join(home, '.config', 'omni'), { recursive: true });
+    writeFileSync(join(home, '.config', 'omni', 'credentials.json'), JSON.stringify({ 'omni.test': { access_token: 'a-1', refresh_token: 'r-1' } }));
+  }
+
+  /** The fake OpenRouter of the happy path, with s0-02 a law whose worthALaw is `worth`, and Jev's reply to law-worth. */
+  function stubs(worth: boolean, jev: unknown = { answer: null, confidence: null, decidedBy: 'old' }) {
+    const decides: { url: string; body: unknown }[] = [];
+    const openrouter = fakeFetch({ ...REPLIES, 's0-02-cited': { ...LAW, worthALaw: worth } });
+    const stub = vi.fn((url: string, init: FetchInit) => {
+      if (!url.startsWith(ASK_URL)) return openrouter(url, init);
+      decides.push({ url, body: JSON.parse(String(init.body)) });
+      return Promise.resolve(new Response(JSON.stringify(jev), { status: 200, headers: { 'content-type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', stub);
+    return { decides };
+  }
+
+  /** `gh` faked: the pull request, its files, and a law issue opened as #91. */
+  async function run(r: Repo) {
+    const streams = io();
+    const calls: { args: readonly string[]; input: unknown }[] = [];
+    const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+      if (cmd !== 'gh') return realExec(cmd, args, options);
+      calls.push({ args, input: typeof options?.input === 'string' ? JSON.parse(options.input) : null });
+      if (args.includes('POST')) return JSON.stringify({ number: 91, html_url: 'https://github.com/acme/widgets/issues/91' });
+      return JSON.stringify(String(args[1]).endsWith('/files') ? PR_FILES : MERGED_PR);
+    };
+    const code = await main(['harvest', '42', '--pr', '43'], { cwd: r.root, exec, env: { OPENROUTER_API_KEY: KEY }, ...streams });
+    return { code, out: streams.out.join(''), err: streams.err.join(''), calls };
+  }
+  const ledgerOf = (r: Repo) => Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
+
+  it('a "yes" the classifier gave, with Jev unset, opens the law issue first, then writes the law pending it', async () => {
+    const r = lawsRepo();
+    stubs(true);
+    const { code, out, calls } = await run(r);
+    expect(code).toBe(0);
+    const opened = calls.filter((call) => call.args.includes('POST'));
+    expect(opened).toEqual([
+      {
+        args: ['api', 'repos/acme/widgets/issues', '--method', 'POST', '--input', '-'],
+        input: { title: 'Law: A widget always has a name.', body: expect.stringContaining('`N-PRODUCT-1`') as unknown, labels: ['omni:law'] },
+      },
+    ]);
+    expect(calls.findIndex((call) => call.args.includes('POST'))).toBe(calls.length - 1);
+    const invariants = r.read(`${K}/product/invariants.md`);
+    expect(invariants).toContain('## N-PRODUCT-1');
+    expect(invariants).toContain('Enforced by: pending #91\n');
+    expect(ledgerOf(r)['s0-02-cited']?.became).toEqual(['N-PRODUCT-1']);
+    expect(out).toContain('opened law issue #91: Law: A widget always has a name.');
+    expect(out).toContain('s0-02-cited → N-PRODUCT-1 (new, proposed)');
+    expect(out).toContain('      Enforced by: pending #91');
+    expect(out).toContain('checks: omni check knowledge ✓');
+  });
+
+  it('a "no" the classifier gave opens no issue and stays in the ledger, not worth a law', async () => {
+    const r = lawsRepo();
+    stubs(false);
+    const { code, out, calls } = await run(r);
+    expect(code).toBe(0);
+    expect(calls.filter((call) => call.args.includes('POST'))).toEqual([]);
+    expect(r.read(`${K}/product/invariants.md`)).not.toContain('N-PRODUCT-1');
+    expect(ledgerOf(r)['s0-02-cited']?.fields['Stays here']).toBe('not worth a law (classifier)');
+    expect(out).toContain('s0-02-cited → not worth a law (classifier)');
+  });
+
+  it('asks omni decide law-worth with the five fields and the classifier\'s answer, and Jev\'s "no" counts', async () => {
+    const r = lawsRepo(`kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK_URL}\n`);
+    signIn();
+    const { decides } = stubs(true, { answer: 'false', confidence: 0.77, decidedBy: 'jev' });
+    const { code, calls } = await run(r);
+    expect(code).toBe(0);
+    expect(decides).toEqual([
+      {
+        url: `${ASK_URL}/api/decide/law-worth`,
+        body: {
+          repo: 'acme/widgets',
+          state: { statement: 'A widget always has a name.', why: 'must always hold', principle: null, domain: 'product', prdTitle: 'Widgets' },
+          old: 'true',
+          ref: 'PRD 42 s0-02-cited',
+        },
+      },
+    ]);
+    expect(calls.filter((call) => call.args.includes('POST'))).toEqual([]);
+    expect(ledgerOf(r)['s0-02-cited']?.fields['Stays here']).toBe('not worth a law (Jev 0.77)');
+  });
+
+  it('keeps the classifier\'s answer when omni decide prints unset (Jev off, refused or failing)', async () => {
+    const r = lawsRepo(`kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK_URL}\n`);
+    signIn();
+    const { decides } = stubs(false, { error: 'boom' });
+    const { code } = await run(r);
+    expect(code).toBe(0);
+    expect(decides).toHaveLength(1);
+    expect(ledgerOf(r)['s0-02-cited']?.fields['Stays here']).toBe('not worth a law (classifier)');
+  });
+  it('with laws.source other than knowledge, asks nothing and opens no law issue: the law is written as before', async () => {
+    const r = repo();
+    const { decides } = stubs(true);
+    const { code, calls } = await run(r);
+    expect(code).toBe(0);
+    expect(decides).toEqual([]);
+    expect(calls.filter((call) => call.args.includes('POST'))).toEqual([]);
+    const invariants = r.read(`${K}/product/invariants.md`);
+    expect(invariants).toContain('## N-PRODUCT-1');
+    expect(invariants).not.toContain('pending #');
+  });
+});
+
 describe('omni harvest — refusals', () => {
   it('exits 1 for a pull request that is not merged, writing nothing', async () => {
     const r = repo();
-    const { code, err } = await harvest(r, { pr: { ...MERGED_PR, merged_at: null, merged_by: null } });
+    const { code, err, calls } = await harvest(r, { pr: { ...MERGED_PR, merged_at: null, merged_by: null } });
     expect(code).toBe(1);
+    expect(calls).toEqual([['api', 'repos/acme/widgets/pulls/43']]);
     expect(err).toContain('pull request #43 is not merged');
     expect(status(r.root)).toBe('');
   });

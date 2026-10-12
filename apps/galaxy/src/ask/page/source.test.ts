@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
-import { AskStoreError } from '../store';
+import { askCategories, askStore, AskStoreError } from '../store';
 import {
-  databasePort, questionPort, readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, removeSession, sendAnswers, sessionReader, shareRound, sortRound, tabsReader, withFaces,
+  readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, sendAnswers, shareRound, tabsReader, withFaces,
   type Db, type SortDb, type StorageDb,
 } from './source';
 import { stageShots, type Bucket } from './attachments';
@@ -93,47 +93,6 @@ describe('reading a session', () => {
   });
 });
 
-describe('polling', () => {
-  it('fetches the questions of a round once, and again only when its status moves', async () => {
-    const w = await world();
-    const first = await w.ask();
-    const read = sessionReader(w.recording('ada'), w.sessionId);
-    expect((await read())?.rounds).toHaveLength(1);
-
-    w.calls.length = 0;
-    expect((await read())?.rounds.map((r) => r.status)).toEqual(['open']);
-    expect(w.calls.filter((c) => c.includes('.in('))).toEqual([]);
-
-    const second = await w.ask();
-    w.calls.length = 0;
-    expect((await read())?.rounds.map((r) => r.id)).toEqual([first, second]);
-    expect(w.calls.filter((c) => c.includes('.in('))).toEqual([`ask_rounds.in("id", ${JSON.stringify([second])})`]);
-
-    await sendAnswers(w.as('ada'), first, ANSWERS);
-    w.calls.length = 0;
-    const state = await read();
-    expect(state?.rounds.find((r) => r.id === first)).toMatchObject({ status: 'answered', answered_via: 'page', answers: ANSWERS });
-    expect(w.calls.filter((c) => c.includes('.in('))).toEqual([`ask_rounds.in("id", ${JSON.stringify([first])})`]);
-  });
-
-  it('starts from what the server already read', async () => {
-    const w = await world();
-    await w.ask();
-    const seed = await readSession(w.recording('ada'), w.sessionId);
-    const read = sessionReader(w.recording('ada'), w.sessionId, seed);
-    w.calls.length = 0;
-    expect((await read())?.rounds).toHaveLength(1);
-    expect(w.calls.filter((c) => c.includes('.in('))).toEqual([]);
-  });
-
-  it('reads null once the session is gone', async () => {
-    const w = await world();
-    const read = sessionReader(w.recording('ada'), w.sessionId);
-    w.fake.tables.ask_sessions.length = 0;
-    expect(await read()).toBeNull();
-  });
-});
-
 describe('whether the tab\'s terminal is working (PRD 757)', () => {
   const FRESH = { seen_at: new Date(START).toISOString(), ended_at: null };
   const OTHER = { seen_at: new Date(START).toISOString(), ended_at: null };
@@ -145,13 +104,12 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
     return { asked, read: (id: string) => { asked.push(id); return Promise.resolve(rows[id] ?? null); } };
   }
 
-  it('each poll carries the heartbeat of this tab\'s Claude session, and of no other terminal', async () => {
+  it('each read carries the heartbeat of this tab\'s Claude session, and of no other terminal', async () => {
     const w = await world();
     item(w.fake.tables.ask_sessions, 0).claude_session_id = 'claude-this-tab';
     const p = pings();
-    const read = sessionReader(w.recording('ada'), w.sessionId, null, p.read);
-    expect((await read())?.ping).toEqual(FRESH);
-    expect((await read())?.ping).toEqual(FRESH);
+    expect((await readSession(w.recording('ada'), w.sessionId, p.read))?.ping).toEqual(FRESH);
+    expect((await readSession(w.recording('ada'), w.sessionId, p.read))?.ping).toEqual(FRESH);
     expect(p.asked).toEqual(['claude-this-tab', 'claude-this-tab']);
   });
 
@@ -165,7 +123,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
   it('a session with no Claude session id asks for no heartbeat, and reads none', async () => {
     const w = await world();
     const p = pings();
-    expect((await sessionReader(w.recording('ada'), w.sessionId, null, p.read)())?.ping).toBeNull();
+    expect((await readSession(w.recording('ada'), w.sessionId, p.read))?.ping).toBeNull();
     expect(p.asked).toEqual([]);
   });
 
@@ -173,7 +131,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
     const w = await world();
     await w.ask();
     item(w.fake.tables.ask_sessions, 0).claude_session_id = 'claude-this-tab';
-    const state = await sessionReader(w.recording('ada'), w.sessionId, null, () => Promise.reject(new Error('connection lost')))();
+    const state = await readSession(w.recording('ada'), w.sessionId, () => Promise.reject(new Error('connection lost')));
     expect(state?.ping).toBeNull();
     expect(state?.rounds).toHaveLength(1);
   });
@@ -256,7 +214,7 @@ describe('deleting the session (PRD 144)', () => {
   it('deletes it and its rounds for its owner', async () => {
     const w = await world();
     await w.ask();
-    expect(await removeSession(w.as('ada'), w.sessionId)).toBe(true);
+    expect(await askStore(w.as('ada')).deleteSession(w.sessionId)).toBe(true);
     expect(w.fake.tables.ask_sessions).toEqual([]);
     expect(w.fake.tables.ask_rounds).toEqual([]);
   });
@@ -264,8 +222,8 @@ describe('deleting the session (PRD 144)', () => {
   it('deletes nothing for a member who is not the owner, nor for another workspace', async () => {
     const w = await world();
     await w.ask();
-    expect(await removeSession(w.as('bob'), w.sessionId)).toBe(false);
-    expect(await removeSession(w.as('carl'), w.sessionId)).toBe(false);
+    expect(await askStore(w.as('bob')).deleteSession(w.sessionId)).toBe(false);
+    expect(await askStore(w.as('carl')).deleteSession(w.sessionId)).toBe(false);
     expect(w.fake.tables.ask_sessions).toHaveLength(1);
     expect(w.fake.tables.ask_rounds).toHaveLength(1);
   });
@@ -278,27 +236,24 @@ describe('sorting a round (PRD 144)', () => {
   it('lets any member of the workspace set one of the six, or clear it, and says who did', async () => {
     const w = await world();
     const id = await w.ask();
-    expect(await sortRound(sorter(w, 'bob'), id, 'product')).toEqual({ category: 'product', category_by: BOB.id });
-    expect(await sortRound(sorter(w, 'ada'), id, null)).toEqual({ category: null, category_by: ADA.id });
+    expect(await askCategories(sorter(w, 'bob')).set(id, 'product')).toEqual({ category: 'product', category_by: BOB.id });
+    expect(await askCategories(sorter(w, 'ada')).set(id, null)).toEqual({ category: null, category_by: ADA.id });
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ category: null, category_by: ADA.id });
   });
 
   it('sorts nothing for an account of another workspace', async () => {
     const w = await world();
     const id = await w.ask();
-    expect(await sortRound(sorter(w, 'carl'), id, 'business')).toBeNull();
+    expect(await askCategories(sorter(w, 'carl')).set(id, 'business')).toBeNull();
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ category: null, category_by: null });
   });
 
-  it('is read again by the poll once someone else sorts the round', async () => {
+  it('is read again once someone else sorts the round', async () => {
     const w = await world();
     const id = await w.ask();
-    const read = sessionReader(w.recording('ada'), w.sessionId);
-    expect((await read())?.rounds[0]).toMatchObject({ category: null });
-    await sortRound(sorter(w, 'bob'), id, 'ux-ui');
-    w.calls.length = 0;
-    expect((await read())?.rounds[0]).toMatchObject({ category: 'ux-ui', category_by: BOB.id });
-    expect(w.calls.filter((c) => c.includes('.in('))).toEqual([`ask_rounds.in("id", ${JSON.stringify([id])})`]);
+    expect((await readSession(w.recording('ada'), w.sessionId))?.rounds[0]).toMatchObject({ category: null });
+    await askCategories(sorter(w, 'bob')).set(id, 'ux-ui');
+    expect((await readSession(w.recording('ada'), w.sessionId))?.rounds[0]).toMatchObject({ category: 'ux-ui', category_by: BOB.id });
   });
 });
 
@@ -311,8 +266,7 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
     expect(await shareRound(both(w, 'bob'), id, ADA.id)).toBe(false);
     expect(await shareRound(both(w, 'ada'), id, CARL.id)).toBe(false);
     expect(await shareRound(both(w, 'ada'), id, BOB.id)).toBe(true);
-    const state = await readSession(w.as('ada'), w.sessionId);
-    expect(await databasePort(both(w, 'ada'), present(state, 'state')).share(id, BOB.id)).toBe(true);
+    expect(await shareRound(both(w, 'ada'), id, BOB.id)).toBe(true);
     expect(w.fake.tables.ask_shares).toHaveLength(1);
   });
 
@@ -335,9 +289,9 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
     const w = await world();
     const id = await w.ask();
     await shareRound(both(w, 'ada'), id, BOB.id);
-    expect(await questionPort(both(w, 'bob'), id).send(id, ANSWERS)).toBe('answered');
-    expect(await questionPort(both(w, 'ada'), id).send(id, ANSWERS)).toBe('taken');
-    expect((await questionPort(both(w, 'ada'), id).read())?.round).toMatchObject({ status: 'answered', answered_by: BOB.id });
+    expect(await sendAnswers(both(w, 'bob'), id, ANSWERS)).toBe('answered');
+    expect(await sendAnswers(both(w, 'ada'), id, ANSWERS)).toBe('taken');
+    expect((await readQuestion(both(w, 'ada'), id))?.round).toMatchObject({ status: 'answered', answered_by: BOB.id });
   });
 
   it('lists the open rounds shared with me, with their session and who shared them', async () => {

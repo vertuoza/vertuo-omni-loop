@@ -65,7 +65,10 @@ const STAGE_EVENTS = secretGroup('the stage events', 'STAGE_EVENT_SECRET');
 /** The secret the canon gate signs its call to galaxy's constituent judge with (PRD 871). */
 const CONSTITUENT_JUDGE = secretGroup('the constituent judge', 'CONSTITUENT_JUDGE_SECRET');
 
-/** Galaxy's host, for the stage events and the judge. */
+/** The secret the knowledge harvest signs its call to galaxy's law judge with (PRD 1342). */
+const LAW_JUDGE = secretGroup('the law judge', 'LAW_JUDGE_SECRET');
+
+/** Galaxy's host, for the stage events and the judges. */
 const GALAXY = envGroup({
   label: 'galaxy',
   schema: z.object({ url: z.url().optional() }),
@@ -73,7 +76,7 @@ const GALAXY = envGroup({
 });
 
 /** The variables a person sets for the app and `readEnv` reads: the README's list names these (`src/env-docs.test.ts`). */
-export const VARIABLES: readonly string[] = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, GALAXY]);
+export const VARIABLES: readonly string[] = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, GALAXY]);
 
 /** The variables the Inngest SDK reads itself (above): set by a person, so the README's list names them too. */
 export const SDK_VARIABLES: readonly string[] = ['INNGEST_EVENT_KEY', 'INNGEST_SIGNING_KEY', 'INNGEST_DEV'];
@@ -93,6 +96,7 @@ export function readEnv(source: EnvSource) {
     openrouter: reader.group(OPENROUTER),
     stageEvents: reader.group(STAGE_EVENTS),
     constituentJudge: reader.group(CONSTITUENT_JUDGE),
+    lawJudge: reader.group(LAW_JUDGE),
     galaxyUrl: (reader.group(GALAXY)?.url ?? DEFAULT_GALAXY_URL).replace(/\/+$/, ''),
   };
   reader.done();

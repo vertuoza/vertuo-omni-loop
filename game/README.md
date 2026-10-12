@@ -29,8 +29,9 @@ another. Name it with `--workspace <slug>`, or set `OMNI_LOOP_WORKSPACE`; the fl
 default: with neither, or with a slug no workspace has, the command stops and says so. Vertuoza is
 the workspace `vertuoza`.
 
-- `pnpm game:project --workspace <slug>` — snapshot the workspace's GitHub, append new events to its
-  ledger; logs any event it had to skip
+- `pnpm game:project --workspace <slug>` — snapshot the workspace's GitHub and read its answered ask
+  rounds, append new events to its ledger; logs any event it had to skip
+  ([Answered questions](#answered-questions))
 - `pnpm game:xp --workspace <slug>` — recompute every login's XP, level and unlocked games from the
   workspace's whole ledger, and write them all to `player_xp` in one request
   ([XP, levels and unlocks](#xp-levels-and-unlocks))
@@ -104,6 +105,72 @@ or its bare name; a tracked repository that no sector names counts as a sector o
 
 Scoring does not change: every number stays in `game/rulebook.ts`.
 
+## A poll's budget
+
+`game:project` re-reads every PRD in full at every poll. With hundreds of planets that can outlast the
+ledger job's 30 minutes and the token's hourly rate limit; a cut job appends nothing. A refused read
+used to count as an empty one, too: a shipped PRD whose folder listing was refused looked like a PRD
+with no folder, and was written down as `PLANET_DECOMMISSIONED` for good. Two rules now hold
+(`buildSnapshot` in `game/sources/github.ts`):
+
+- **A rate limit is never an empty read.** A read the token's rate limit refuses (primary or
+  secondary, `isRateLimit()`) stops the read. Every planet read in full before it is kept and
+  appended; the one being read is dropped; the run prints why and exits 1. The next poll reads the
+  rest. A 404 still reads as empty, as before.
+- **The newest first, within a budget.** Planets are read open first, then by when they closed, so
+  the work just done is the first paid. The read stops before a planet once 18 minutes have passed
+  (`READ_BUDGET_MINUTES`, `game/cli/project.ts`), keeps what it read and only warns, leaving the
+  ledger job's last minutes to `game:contributions` and `game:dossiers`.
+
+Nothing changes in the scoring: every event keeps its id, so a planet read in a later poll pays
+exactly what it would have, once.
+
+## Answered questions
+
+PRD 1180. Every answered ask round pays its answerer `RULEBOOK.questionAnswered`
+(2) points and XP at `xp.weights.questionAnswered` (1), whether it was answered on the page or in the
+terminal. After the GitHub snapshot, `game:project` reads `public.game_answered_rounds(workspace,
+since)` (`loadAnsweredRounds`, `game/sources/supabase.ts`) with `since` = the workspace's
+`game_since`, so past answers are backfilled on the first poll, dated when they were answered.
+
+- **Which PRD.** The function finds a round's PRD by the two rules of `dossier_rounds()`, over the
+  workspace's numbered PRD dossiers: the brainstorm rule (the round's ask session carries the
+  dossier's Claude session, inside that dossier's window) first, then the delivery rule (the round's
+  own PRD, asked in the PRD's home repository). A round no PRD claims (a draft's brainstorm, a spike,
+  a fix, ad-hoc work) comes back with no PRD, its home the repository it was asked in, else the
+  workspace's plan repository. A round whose answerer has no GitHub login is not returned. Only the
+  service role may call it.
+- **The event.** Each round is one `QUESTION_ANSWERED`, id `ask:<round_id>:answered`, at
+  `answered_at`, on the planet `<home>#<prd>`, or on planet 0 when no PRD claims it, crediting the
+  answerer's lower-case login and fleet. It is written whether or not its PRD is charted (its
+  repository may be untracked). Planet 0 is never a planet, and a planet whose only events are answers
+  is not on the map. The id never changes, so a round
+  is paid once, however many polls see it.
+- **The pay.** `score()` pays it in the season of `answered_at`, with no multiplier. It opens no
+  wound and joins no crew: threat, decay, the terraform bonus and the planet's state ignore it.
+- **A failed read** of the answered rounds keeps the GitHub events, appends no answer and prints
+  why in one line; the next poll reads them again.
+
+Rollback: set `questionAnswered` and its XP weight to 0; the next `game:score` and `game:xp` remove
+those points, and the events stay, paying nothing.
+
+## Merged feature PRs
+
+A feature PR merged into its default branch pays the people who landed it, once per region's feature
+PR, in the season of the merge, with no multiplier:
+
+- **who merged it**: `RULEBOOK.featureMerged` (30) points, one `FEATURE_MERGED`, id
+  `merge:<repo>#<pr>:<planet key>:merged`;
+- **each person who approved it**: `RULEBOOK.featureReviewed` (10) points, one `FEATURE_REVIEWED`
+  per approver, id `merge:<repo>#<pr>:<planet key>:approved:<login>`. An approver is a reviewer whose
+  latest review approves it (`latestReviews`), the PR's author aside.
+
+A bot is never paid. Both earn XP (`xp.weights.featureMerged`, `featureReviewed`). Neither joins the
+crew, so the terraform bonus pays as before. `game:project` reads `mergedBy` and `latestReviews` with
+the feature PR lists it already makes, so past merges since `game_since` are paid on the first poll.
+
+Rollback: set both numbers and their XP weights to 0; the events stay, paying nothing.
+
 ## The fresh start
 
 PRD 728 started the game again, once. `public.workspaces.game_since` is the moment a workspace's
@@ -143,7 +210,7 @@ call:
 
 - **XP** is the sum, over every season in the ledger, of a login's positive personal credits as
   `score()` pays them, each multiplied by its kind's weight in `xp.weights` (`zoneSecured`,
-  `woundClosed`, `rescue`, `expedition`, `closer`), rounded once after summing. Night-shift and
+  `woundClosed`, `rescue`, `expedition`, `closer`, `questionAnswered`, `featureMerged`, `featureReviewed`), rounded once after summing. Night-shift and
   cross-fleet multipliers count, as they do for points. A zone reverted and a clawback never lower
   it, and fleet credits (a terraform, a decay) are not personal. A weight of 0 leaves a kind out. A
   personal credit whose kind has no weight fails `game/experience.test.ts`, so a new kind of
@@ -163,11 +230,13 @@ lower weight or a steeper curve can lower XP and levels, never the games already
 changes the rules tells the crew. A new game adds its row to `xp.unlocks` and to the arcade's
 registry (`apps/galaxy/src/arcade/games/index.ts`).
 
-**`pnpm game:xp`** (`game/cli/xp.ts`) is the ledger job's step right after `pnpm game:project`. It
+**`pnpm game:xp`** (`game/cli/xp.ts`) runs in its own job, `xp`, after the ledger job, whatever that
+job ended on: a `game:project` that outlasts the ledger job's 30 minutes no longer holds XP and new
+unlocks back until a poll finishes. It
 reads the workspace's whole ledger and its stored `player_xp` rows, computes every login's XP, level
 and unlocked games, and upserts them all in one request. It never writes the ledger. If a read
-fails, it writes nothing and exits 1: the ledger step has already succeeded, so XP catches up at the
-next poll.
+fails, it writes nothing and exits 1: the ledger job has already ended, so XP catches up at the next
+poll.
 
 **`public.player_xp`** holds one row per login the ledger names, player or not, so a person who
 joins later already has their XP: key `(workspace_id, github_login)`, the login lower-cased, then
@@ -177,15 +246,17 @@ only the service role writes it. It rebuilds from the ledger, so the backup leav
 workflow is switched on, no row exists, and every player's game room says NO XP YET.
 
 The crew's high scores, `public.arcade_scores`, are the other half: the arcade posts them through
-`submit_score()`, which checks the game against the player's `player_xp.unlocked`. Nothing rebuilds
-them, so `game:export` backs them up.
+`submit_score()`, which checks the game against the player's `player_xp.unlocked` and keeps the better
+value in each game's direction: the highest score, except OMNI KART (`kart`), whose `best` is a race
+time in tenths of a second and the lowest wins (PRD 1440). Nothing rebuilds them, so `game:export`
+backs them up.
 
 ## Contributions
 
 The app's dashboard (`/app`, PRD 328) charts the pull requests each person got into `main` over the
 last 7 days, and counts the PRDs they opened this season. The ledger cannot say either: it records a
 feature PR's merge with no author, and no PRD's author at all. **`pnpm game:contributions`**
-(`game/cli/contributions.ts`) is the ledger job's step right after `pnpm game:xp`. At each poll,
+(`game/cli/contributions.ts`) is the ledger job's step right after `pnpm game:project`. At each poll,
 for each repository of the workspace's sectors, under its `github_org`, it reads through `gh`:
 
 1. the repository's default branch;
@@ -267,10 +338,11 @@ The workflow `.github/workflows/game.yml` does nothing until it is switched on.
 4. **Switch on.** Set the repository variable `GAME_ENABLED=true`. Do it once the crew has joined in
    the arcade: the first poll backfills history with everyone's fleet as it stands then.
 
-Two jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`): `game:project`,
-then `game:xp`, then `game:contributions`, then `game:dossiers`; `rankings` runs on the Monday schedule, or a dispatch with `post_rankings: true`
-(concurrency `game-rankings`): it exports the backup (kept 90 days), then posts. Both time out after
-20 minutes.
+Three jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`): `game:project`,
+then `game:contributions`, then `game:dossiers`; `xp` runs `game:xp` once `ledger` has ended, whatever
+it ended on (concurrency `game-xp`); `rankings` runs on the Monday schedule, or a dispatch with
+`post_rankings: true` (concurrency `game-rankings`): it exports the backup (kept 90 days), then posts.
+`ledger` times out after 30 minutes, `xp` after 10, `rankings` after 20.
 
 ## Known limits
 
@@ -284,7 +356,8 @@ then `game:xp`, then `game:contributions`, then `game:dossiers`; `rankings` runs
 - **No clawback on re-raise.** A settle whose item is later reopened or re-raised keeps its points
   (spec §6.4 brake not implemented yet).
 - **Every poll re-reads all PRDs.** There is no incremental read; cost grows with the number of
-  planets.
+  planets. A poll cut by the read budget leaves the oldest closed PRDs to a later one
+  ([A poll's budget](#a-polls-budget)).
 - **`game:xp` reads the whole ledger on every poll.** It recomputes every login from all of
   history, with no incremental read, so its cost grows with the ledger.
 - **Fleet stamps and scores live only in Supabase.** The ledger can be rebuilt from GitHub, and XP

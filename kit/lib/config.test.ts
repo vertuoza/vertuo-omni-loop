@@ -17,7 +17,7 @@ describe('parseConfig', () => {
     expect(config.markers.prefix).toBe('omni-outbox');
     expect(config.laws.source).toBe('none');
     expect(config.ci.outboxContext).toBe('outbox');
-    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000 });
+    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3 });
     expect(config.risk).toEqual({ storedShape: [], sharedContract: [] });
     expect(config.notify.slack).toBeNull();
     expect(config.ask).toEqual({ url: null });
@@ -59,6 +59,51 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nreleaseNotes:\n  enabled: "true"\n')).toThrow(/releaseNotes\.enabled/);
     expect(() => parseConfig('kit: 1\nreleaseNotes:\n  enabled: 1\n')).toThrow(/releaseNotes\.enabled/);
     expect(() => parseConfig('kit: 1\nreleaseNotes:\n  on: true\n')).toThrow(/releaseNotes.*on/s);
+  });
+
+  it('keeps design craft off with no screen paths unless the file switches it on, and refuses a bad switch or path (PRD 1369)', () => {
+    expect(parseConfig('kit: 1\n').design).toEqual({ enabled: false, paths: [], screens: '.omni-loop/knowledge/design/screens/', words: { sentence: 7, screen: '[data-screen]', primary: '[data-primary]', avoid: [] } });
+    expect(parseConfig('kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/**, "**/*.css"]\n').design).toEqual({
+      enabled: true,
+      paths: ['src/ui/**', '**/*.css'],
+      screens: '.omni-loop/knowledge/design/screens/',
+      words: { sentence: 7, screen: '[data-screen]', primary: '[data-primary]', avoid: [] },
+    });
+    expect(() => parseConfig('kit: 1\ndesign:\n  enabled: yes please\n', 'c.yml')).toThrow(/c\.yml.*design\.enabled/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  enabled: "true"\n')).toThrow(/design\.enabled/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  paths: src/ui\n')).toThrow(/design\.paths/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  paths: [""]\n')).toThrow(/design\.paths/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  on: true\n')).toThrow(/design.*on/s);
+  });
+
+  it('puts the screen library under the knowledge folder unless the file names its own, and refuses an empty one (PRD 1407)', () => {
+    expect(parseConfig('kit: 1\npaths:\n  knowledge: docs/kb/\n').design.screens).toBe('docs/kb/design/screens/');
+    expect(parseConfig('kit: 1\npaths:\n  knowledge: docs/kb\ndesign:\n  screens: design/screens\n').design.screens).toBe('design/screens');
+    expect(() => parseConfig('kit: 1\ndesign:\n  screens: ""\n')).toThrow(/design\.screens/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  screens: [a]\n')).toThrow(/design\.screens/);
+  });
+
+  it("tunes the word pass from design.words, defaults as the plan says, and refuses a selector it cannot read (PRD 1407)", () => {
+    expect(parseConfig('kit: 1\ndesign:\n  words:\n    sentence: 5\n    screen: "section.screen, [role=dialog]"\n    primary: .btn-primary\n    avoid: [utilize, click here]\n').design.words).toEqual({
+      sentence: 5,
+      screen: 'section.screen, [role=dialog]',
+      primary: '.btn-primary',
+      avoid: ['utilize', 'click here'],
+    });
+    expect(parseConfig('kit: 1\ndesign:\n  words:\n    sentence: 4\n').design.words).toEqual({ sentence: 4, screen: '[data-screen]', primary: '[data-primary]', avoid: [] });
+    expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    sentence: 0\n')).toThrow(/design\.words\.sentence/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    sentence: 2.5\n')).toThrow(/design\.words\.sentence/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    screen: "main > section"\n')).toThrow(/design\.words\.screen.*combinator/s);
+    expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    primary: "button:hover"\n')).toThrow(/design\.words\.primary/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    avoid: utilize\n')).toThrow(/design\.words\.avoid/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    avoid: [""]\n')).toThrow(/design\.words\.avoid/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    length: 3\n')).toThrow(/design\.words.*length/s);
+  });
+
+  it('has no design lint command unless the config sets one (PRD 1369)', () => {
+    expect(parseConfig('kit: 1\n').commands.design).toBeNull();
+    expect(parseConfig('kit: 1\ncommands:\n  design: npx impeccable detect src\n').commands.design).toBe('npx impeccable detect src');
+    expect(() => parseConfig('kit: 1\ncommands:\n  design: ""\n')).toThrow(/commands\.design/);
   });
 
   it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
@@ -118,6 +163,11 @@ describe('parseConfig', () => {
     expect(parseConfig(text).labels).toMatchObject({
       bug: 'defect', regression: 'broke', riskCritical: 'p0', riskHigh: 'p1', riskMedium: 'p2', riskLow: 'p3',
     });
+  });
+
+  it('names the approved label when the config does not set it, and reads back one it sets (PRD 1299)', () => {
+    expect(parseConfig('kit: 1\n').labels.approved).toBe('omni:approved');
+    expect(parseConfig('kit: 1\nlabels:\n  approved: signed-off\n').labels.approved).toBe('signed-off');
   });
 
   it('names the concept label and the concept branch when the config sets neither (PRD 686)', () => {
@@ -286,6 +336,18 @@ describe('the signature section (PRD #99, PRD #215)', () => {
     expect(() => parseConfig('kit: 1\nsignature:\n  email: "a\\nb@example.com"\n')).toThrow(/signature\.email/);
     expect(() => parseConfig('kit: 1\nsignature:\n  footer: ""\n')).toThrow(/signature\.footer/);
   });
+
+  // Law BR-PRODUCT-23 (.omni-loop/knowledge/product/rules.md, #1458).
+  it('law BR-PRODUCT-23: refuses a name or an email that is empty, holds a line break, or holds < or >, naming that key; a footer only has to be non-empty', () => {
+    for (const key of ['name', 'email']) {
+      for (const value of ['""', '"a\\nb"', '"a\\rb"', '"a<b"', '"a>b"']) {
+        expect(() => parseConfig(`kit: 1\nsignature:\n  ${key}: ${value}\n`), `${key}: ${value}`).toThrow(new RegExp(`signature\\.${key}`));
+      }
+    }
+    expect(() => parseConfig('kit: 1\nsignature:\n  footer: ""\n')).toThrow(/signature\.footer/);
+    const footer = '<b>{name}</b> > by\nnext line';
+    expect(parseConfig(`kit: 1\nsignature:\n  footer: ${JSON.stringify(footer)}\n`).signature?.footer).toBe(footer);
+  });
 });
 
 describe('omni config', () => {
@@ -352,6 +414,23 @@ describe('omni config', () => {
       const s = io();
       expect(await main(['config', 'releaseNotes.enabled'], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
+  it('prints design.enabled, design.paths and commands.design, off, empty and null by default (PRD 1369)', async () => {
+    const cases = [
+      [files['.omni-loop/config.yml'], ['false', '[]', 'null']],
+      ['kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/]\ncommands:\n  design: lint-ui\n', ['true', '["src/ui/"]', 'lint-ui']],
+    ] as const;
+    for (const [text, values] of cases) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const printed: string[] = [];
+      for (const key of ['design.enabled', 'design.paths', 'commands.design']) {
+        const s = io();
+        expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+        printed.push(s.out.join('').replace(/\s/g, ''));
+      }
+      expect(printed).toEqual(values);
     }
   });
 
@@ -426,7 +505,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
     ]);
   });
 
@@ -484,6 +563,80 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(firstLine(plan([{ ...OWN, url: 'x' }]))).toMatch(/: plan\.targets\.0: .*unrecognized: url/);
     expect(firstLine(`kit: 1\nplan:\n  repos: []\n  targets:\n${target(OWN)}\n`)).toMatch(/: plan: .*unrecognized: repos/);
   });
+
+  describe('plan.product in place of plan.targets (PRD 1364, s4)', () => {
+    it('reads a product name, trimmed, and gives an empty targets list: the targets are read from the server', () => {
+      expect(parseConfig('kit: 1\nplan:\n  guide: docs/repos.md\n  product: " Mobile "\n').plan).toEqual({
+        guide: 'docs/repos.md',
+        product: 'Mobile',
+        targets: [],
+      });
+      const bare = parseConfig('kit: 1\nplan:\n  product: Mobile\n').plan;
+      assertDefined(bare, 'the plan');
+      expect(bare.guide).toBeNull();
+      expect(bare.targets).toEqual([]);
+    });
+
+    it('keeps a config with targets free of any product key', () => {
+      const parsed = parseConfig(plan([OWN])).plan;
+      assertDefined(parsed, 'the plan');
+      expect(Object.hasOwn(parsed, 'product')).toBe(false);
+    });
+
+    it('refuses product and targets together, naming both', () => {
+      expect(firstLine(`kit: 1\nplan:\n  product: Mobile\n  targets:\n${target(OWN)}\n`)).toBe(
+        'c.yml is not a valid Omni Loop config: plan: product and targets cannot both be set — keep product to read the targets from the server, or targets to keep them here',
+      );
+    });
+
+    it('refuses a blank product, and a plan section with neither', () => {
+      expect(firstLine('kit: 1\nplan:\n  product: "  "\n')).toMatch(/: plan\.product: /);
+      expect(firstLine('kit: 1\nplan:\n  product: 7\n')).toMatch(/: plan\.product: /);
+      expect(firstLine('kit: 1\nplan:\n  guide: null\n')).toBe('c.yml is not a valid Omni Loop config: plan.targets: at least one target, or a product');
+    });
+  });
+
+  describe('readOnly and consumes on a target (PRD 1162)', () => {
+    it('reads a target without them as today: neither key at all', () => {
+      const parsed = parseConfig(plan([OWN, NONE])).plan;
+      assertDefined(parsed, 'the plan');
+      for (const entry of parsed.targets) {
+        expect(Object.hasOwn(entry, 'readOnly')).toBe(false);
+        expect(Object.hasOwn(entry, 'consumes')).toBe(false);
+      }
+    });
+
+    it('reads readOnly as a boolean and consumes as the short names of other targets', () => {
+      const parsed = parseConfig(plan([{ ...OWN, consumes: '[back, legacy]' }, IMPORTED, { ...NONE, readOnly: 'true' }])).plan;
+      assertDefined(parsed, 'the plan');
+      expect(parsed.targets[0]?.consumes).toEqual(['back', 'legacy']);
+      expect(parsed.targets[2]?.readOnly).toBe(true);
+    });
+
+    it('refuses a readOnly that is not a boolean', () => {
+      expect(firstLine(plan([{ ...OWN, readOnly: 'yes' }]))).toMatch(/: plan\.targets\.0\.readOnly: /);
+      expect(firstLine(plan([{ ...OWN, readOnly: '"true"' }]))).toMatch(/: plan\.targets\.0\.readOnly: /);
+    });
+
+    it('refuses a consumes that is no list, or names itself, an owner/name slug or no target', () => {
+      expect(firstLine(plan([{ ...OWN, consumes: 'back' }, IMPORTED]))).toMatch(/: plan\.targets\.0\.consumes: /);
+      expect(firstLine(plan([{ ...OWN, consumes: '[front]' }, IMPORTED]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: front is this target itself — a target never consumes itself/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[acme/back]' }, IMPORTED]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: acme\/back names no other target of plan\.targets by its short name \(back\)/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }, IMPORTED]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(back\)/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }, IMPORTED, NONE]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(back, legacy\)$/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(none\)$/,
+      );
+    });
+  });
 });
 
 describe('the proof section (PRD 798)', () => {
@@ -536,6 +689,51 @@ describe('the proof section (PRD 798)', () => {
   });
 });
 
+describe('the e2e section (PRD 1233)', () => {
+  const firstLine = (source: string) => {
+    try { parseConfig(source, 'c.yml'); } catch (error) { return messageOf(error).split('\n')[0]; }
+    return 'parsed';
+  };
+  const defaults = {
+    enabled: false, url: null, deployment: null, setup: null, bypassEnv: null, dir: 'e2e', model: 'anthropic/claude-sonnet-5.5',
+  };
+
+  it('is off, with dir e2e and the default model, when the file has no e2e section', () => {
+    expect(parseConfig('kit: 1\n').e2e).toEqual(defaults);
+  });
+
+  it('reads back every key the file sets', () => {
+    const config = parseConfig(
+      'kit: 1\ne2e:\n  enabled: true\n  url: github-deployment\n  deployment: Preview\n  setup: pnpm signin\n  bypassEnv: BYPASS_SECRET\n  dir: tests/e2e\n  model: openai/gpt-x\n',
+    );
+    expect(config.e2e).toEqual({
+      enabled: true, url: 'github-deployment', deployment: 'Preview', setup: 'pnpm signin', bypassEnv: 'BYPASS_SECRET', dir: 'tests/e2e', model: 'openai/gpt-x',
+    });
+  });
+
+  it('accepts a fixed http(s) URL and refuses any other address', () => {
+    expect(parseConfig('kit: 1\ne2e:\n  url: https://preview.example.com\n').e2e.url).toBe('https://preview.example.com');
+    expect(firstLine('kit: 1\ne2e:\n  url: preview\n')).toMatch(/^c\.yml.*e2e\.url/);
+    expect(firstLine('kit: 1\ne2e:\n  url: ftp://x.example.com\n')).toMatch(/e2e\.url/);
+  });
+
+  it('refuses an empty dir or model, a non-boolean enabled, a bad bypassEnv and an unknown key', () => {
+    expect(firstLine("kit: 1\ne2e:\n  dir: ''\n")).toMatch(/^c\.yml.*e2e\.dir/);
+    expect(firstLine("kit: 1\ne2e:\n  model: ''\n")).toMatch(/^c\.yml.*e2e\.model/);
+    expect(firstLine('kit: 1\ne2e:\n  enabled: yes please\n')).toMatch(/e2e\.enabled/);
+    expect(firstLine('kit: 1\ne2e:\n  bypassEnv: the secret value\n')).toMatch(/e2e\.bypassEnv/);
+    expect(firstLine('kit: 1\ne2e:\n  browser: chrome\n')).toMatch(/e2e.*browser/);
+  });
+
+  it('is printed by omni config', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\n' } });
+    const out: string[] = [];
+    const code = await main(['config', 'e2e'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(JSON.parse(out.join(''))).toEqual(defaults);
+  });
+});
+
 describe('the flow section (PRD 1089)', () => {
   it('leaves a config with no flow exactly as it parses today: no flow key, no hookMaxBytes', () => {
     const config = parseConfig('kit: 1\n');
@@ -552,6 +750,16 @@ describe('the flow section (PRD 1089)', () => {
 
   it('refuses an unknown key under flow, naming it', () => {
     expect(() => parseConfig('kit: 1\nflow:\n  steps: {}\n', 'c.yml')).toThrow(/c\.yml.*flow.*steps/);
+  });
+});
+
+describe('limits.parallelSteps (PRD 1205)', () => {
+  it('defaults to 3, and refuses a value outside 1 to 6 or a fraction, naming it', () => {
+    expect(parseConfig('kit: 1\n').limits.parallelSteps).toBe(3);
+    expect(parseConfig('kit: 1\nlimits:\n  parallelSteps: 1\n').limits.parallelSteps).toBe(1);
+    for (const value of ['0', '7', '2.5']) {
+      expect(() => parseConfig(`kit: 1\nlimits:\n  parallelSteps: ${value}\n`, 'c.yml')).toThrow(/c\.yml.*limits\.parallelSteps/);
+    }
   });
 });
 
@@ -613,5 +821,31 @@ describe('parseConfig — keys this kit does not know (#1151)', () => {
     expect(() => parseConfig('kit: 1\nfuture: 1\nrepo:\n  defaultBranch: 3\n', CONFIG_FILE, { ignoreUnknownKeys: true })).toThrow(
       /not a valid Omni Loop config: repo\.defaultBranch/,
     );
+  });
+});
+
+describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
+  it('defaults to false, omni:law and test/law-{id}', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.laws.requireProof).toBe(false);
+    expect(config.labels.law).toBe('omni:law');
+    expect(config.branches.law).toBe('test/law-{id}');
+  });
+
+  it('reads the values a repository sets', () => {
+    const config = parseConfig('kit: 1\nlaws:\n  source: knowledge\n  requireProof: true\nlabels:\n  law: law\nbranches:\n  law: laws/{id}\n');
+    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true });
+    expect(config.labels.law).toBe('law');
+    expect(config.branches.law).toBe('laws/{id}');
+  });
+
+  it.each([
+    ['a requireProof that is no boolean', 'laws:\n  requireProof: yes please\n', /c\.yml.*laws\.requireProof/],
+    ['a requireProof given as text', "laws:\n  requireProof: 'true'\n", /c\.yml.*laws\.requireProof/],
+    ['an empty law label', "labels:\n  law: ''\n", /c\.yml.*labels\.law/],
+    ['a law label that is no text', 'labels:\n  law: 3\n', /c\.yml.*labels\.law/],
+    ['an empty law branch', "branches:\n  law: ''\n", /c\.yml.*branches\.law/],
+  ])('refuses %s, naming the key', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
   });
 });

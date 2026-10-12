@@ -8,7 +8,9 @@ export default {
   test: {
     // Every folder runs `*.test.ts` beside `*.test.mjs` (PRD 725): the rename turns one into the other.
     include: ['game/**/*.test.{mjs,ts}', 'kit/**/*.test.{mjs,ts}', 'packages/**/*.test.{mjs,ts}', 'apps/omni-app/**/*.test.{mjs,ts}', 'apps/*/src/**/*.test.ts', '.claude/hooks/**/*.test.{mjs,ts}', 'scripts/**/*.test.{mjs,ts}'],
-    exclude: ['**/node_modules/**'],
+    // The omni-hud mod's tests run under `claude plugin test kit/plugin-hud` alone (PRD 1208): they
+    // import Claude Code's own test kit, which vitest cannot load.
+    exclude: ['**/node_modules/**', 'kit/plugin-hud/**'],
     testTimeout: TEST_TIMEOUT_MS,
     hookTimeout: TEST_TIMEOUT_MS,
   },

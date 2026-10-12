@@ -13,7 +13,9 @@
  *    non-empty **Red:** line.
  *    A record with a `## Fixes` section (PRD 1118) is checked by its rows instead
  *    (`kit/lib/bug/fixes.ts`): its reproductions live in the target repositories.
- * 5. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
+ * 5. A range that changes a law (PRD 1342) has an item ranked high for it in the folder's
+ *    `outbox/`, and an account naming it: the lines `laws` gives for the folder.
+ * 6. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
  *
  * It runs no test: the reproduction going green is CI's job.
@@ -130,15 +132,17 @@ function recordViolations(ctx: BugContext, record: string, changed: Set<string> 
  * Grades one issue's bug fix on the working tree, the branch's changed files and its commits when
  * given.
  */
-export function bugVerdict({ ctx, issue, changed, commits }: {
+export function bugVerdict({ ctx, issue, changed, commits, laws }: {
   ctx: BugContext;
   issue: IssueNumber;
   changed?: Iterable<string> | undefined;
   commits?: readonly Commit[] | undefined;
+  /** The changes to a law the range has not answered in the folder (PRD 1342), one line each. */
+  laws?: ((folder: string) => string[]) | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({
     ctx, number: issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
-    grade: (folder) => recordViolations(ctx, `${folder}/${RECORD}`, changedSet),
+    grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD}`, changedSet), ...(laws?.(folder) ?? [])],
   });
 }

@@ -1,5 +1,6 @@
 // A stubbed GitHub for the `outbox-check` tests: one repository whose commits are folders on disk
-// (the evaluate fixtures), one pull request, its comments and its check runs. It answers exactly the
+// (the evaluate fixtures), one pull request, its comments and its check runs, and the open pull
+// requests of the other repositories a test names (a plan repository's). It answers exactly the
 // routes the app's units use through `octokit.request(route, params)` and records every request.
 // Test support only; nothing in the app imports it.
 import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -18,7 +19,10 @@ type Recorded = { route: string } & Params;
 type Answer = { data: unknown };
 
 /** The pull request this double serves. */
-type FakePull = { number: PrNumber; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
+type FakePull = { number: PrNumber; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[]; body?: string };
+
+/** An open pull request of another repository, as the pull request list returns it. */
+type FakeOtherPull = { number: number; body: string | null };
 
 /**
  * A check run this double created: each field as the unit sent it. The inbox check's tests add the
@@ -33,6 +37,7 @@ type FakeCheckRun = {
   output: unknown;
   external_id?: unknown;
   actions?: unknown;
+  details_url?: unknown;
 };
 
 /** What a completed check run's `output` holds, as the tests read it. */
@@ -51,17 +56,22 @@ export function outputOf(run: FakeCheckRun): z.infer<typeof OutputSchema> {
 /** One entry of a tree this double lists. */
 type FakeEntry = { path: string; mode: string; type: string; sha: string; size?: number };
 
-/** `commits`: sha → a folder holding that commit's files. */
+/**
+ * `commits`: sha → a folder holding that commit's files. `others`: `owner/repo` → its open pull
+ * requests; any other repository's list answers 404, as GitHub does to a token that cannot read it.
+ */
 export function fakeGitHub({
   commits,
   pull,
   comments = [],
   files = [],
+  others = {},
 }: {
   commits: Record<string, string>;
   pull: FakePull;
   comments?: { id: number; body: string }[];
   files?: { filename: string; status: string }[];
+  others?: Record<string, FakeOtherPull[]>;
 }) {
   const requests: Recorded[] = [];
   const checkRuns: FakeCheckRun[] = [];
@@ -94,6 +104,13 @@ export function fakeGitHub({
     return out;
   }
 
+  /** Another repository's open pull requests, or GitHub's 404 when the test named none for it. */
+  function otherPulls(params: Params): Answer {
+    const pulls = others[`${String(params.owner)}/${String(params.repo)}`];
+    if (!pulls) throw httpError(404, 'Not Found');
+    return { data: pulls };
+  }
+
   const octokit = {
     request: (route: string, params: Params = {}): Promise<Answer> => settled(() => answer(route, params)),
   };
@@ -118,8 +135,11 @@ export function fakeGitHub({
               base: state.pull.base,
               head: state.pull.head,
               labels: (state.pull.labels ?? []).map((name) => ({ name })),
+              body: state.pull.body,
             },
           };
+        case 'GET /repos/{owner}/{repo}/pulls':
+          return otherPulls(params);
         case 'GET /repos/{owner}/{repo}/issues/{issue_number}/comments':
           return { data: params.page === 1 ? state.comments : [] };
         case 'POST /repos/{owner}/{repo}/issues/{issue_number}/comments': {
@@ -143,6 +163,7 @@ export function fakeGitHub({
             status: params.status,
             conclusion: params.conclusion ?? null,
             output: params.output ?? null,
+            ...detailsOf(params),
           };
           checkRuns.push(run);
           return { data: run };
@@ -150,7 +171,7 @@ export function fakeGitHub({
         case 'PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}': {
           const run = checkRuns.find((r) => r.id === params.check_run_id);
           if (!run) throw httpError(404, `no check run ${String(params.check_run_id)}`);
-          Object.assign(run, { status: params.status, conclusion: params.conclusion, output: params.output });
+          Object.assign(run, { status: params.status, conclusion: params.conclusion, output: params.output }, detailsOf(params));
           return { data: run };
         }
         case 'GET /repos/{owner}/{repo}/commits/{ref}/check-runs':
@@ -165,6 +186,11 @@ export function fakeGitHub({
   }
 
   return { octokit, state };
+}
+
+/** A check run's Details link, when the unit sent one. */
+function detailsOf(params: Params): { details_url?: unknown } {
+  return params.details_url === undefined ? {} : { details_url: params.details_url };
 }
 
 /** `run`'s value as a promise and its throw as a rejection, as an `async` function makes them. */
@@ -183,6 +209,7 @@ const ROUTES: readonly string[] = [
   'GET /repos/{owner}/{repo}/git/trees/{tree_sha}',
   'GET /repos/{owner}/{repo}/git/blobs/{file_sha}',
   'GET /repos/{owner}/{repo}/pulls/{pull_number}',
+  'GET /repos/{owner}/{repo}/pulls',
   'GET /repos/{owner}/{repo}/issues/{issue_number}/comments',
   'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
   'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}',

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --line-strong: #5a60c4;
+    --ink: #f2f4ff; --muted: #8a90d6; --plasma: #ffd84a; --plasma-soft: #2a2350; --on-plasma: #07061c;
+    --cyan: #6ff0ff; --green: #4ee08a; --red: #ff6b86; --magenta: #ff3ea5;
+    --font-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.6 var(--font-body); }
+  a { color: var(--cyan); }
+  .mock-note { max-width: 1200px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--muted); }
+  .mock-note b { color: var(--ink); }
+
+  /* The app shell: the sidebar and the top bar (apps/galaxy/app/app/layout.tsx, src/nav/). */
+  .shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 900px; }
+  .side { background: var(--sunk); border-right: 1px solid var(--line); padding: 16px 12px; font-size: 15px; }
+  .side .mark { font: 10px/1.4 var(--font-pixel); color: var(--plasma); margin-bottom: 20px; display: block; }
+  .side h3 { margin: 16px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .side ul { list-style: none; margin: 0; padding: 0; }
+  .side li a { display: block; padding: 4px 8px; color: var(--ink); text-decoration: none; border-radius: 4px; }
+  .side li a[aria-current] { background: var(--plasma-soft); color: var(--plasma); }
+  .bar { display: flex; justify-content: flex-end; gap: 12px; padding: 10px 24px; border-bottom: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+
+  /* The dashboard (dashboard.css, board/board.css, counts/counts.css). */
+  .dash { display: grid; gap: 24px; padding: 24px; }
+  .dash h1, .dash h2, .dash p { margin: 0; }
+  .dash-you { display: flex; gap: 20px; align-items: center; }
+  .dash-hero { width: 64px; height: 64px; }
+  .dash-name { font-size: 32px; line-height: 1.1; }
+  .dash-fleet { font-size: 15px; }
+  .chip { display: inline-block; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 999px; font: 9px/2 var(--font-pixel); color: var(--muted); }
+  .dash-points b { font-size: 22px; }
+  .dash-places { color: var(--muted); font-size: 15px; }
+  .dash-tiles { list-style: none; margin: 0; padding: 0; display: flex; }
+  .dash-tile-link { display: grid; gap: 2px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); text-decoration: none; min-width: 220px; }
+  .dash-tile-label { color: var(--muted); font-size: 15px; }
+  .dash-tile-number { font-size: 28px; }
+  .board { display: grid; gap: 16px; }
+  .board-period ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; }
+  .board-period a { display: block; padding: 4px 12px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--ink); text-decoration: none; font-size: 15px; }
+  .board-period a[aria-current] { background: var(--plasma); color: var(--on-plasma); border-color: var(--plasma); }
+  .board-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .board-card, .board-tile { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; }
+  .board-tile-label { color: var(--muted); font-size: 15px; }
+  .board-tile-figure b { font-size: 28px; }
+  .board-tile-stages { font-size: 14px; }
+  .board-tile-stages b { font-size: 16px; }
+  .board-tile-stages a { color: var(--ink); text-decoration: none; }
+  .board-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .board-chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .board-chart-head h2 { font-size: 16px; }
+  .board-chart-total { color: var(--muted); font-size: 15px; }
+  .board-legend { list-style: none; margin: 4px 0 0; padding: 0; display: flex; gap: 12px; font-size: 13px; color: var(--muted); }
+  .key { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 2px; }
+  .board-chart-svg { display: block; margin-top: 8px; }
+  .board-card h2 { font-size: 18px; margin-bottom: 8px; }
+  .board-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .board-table th, .board-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .board-table thead th { color: var(--muted); font-weight: 400; }
+  .board-table thead th a { color: var(--muted); text-decoration: none; }
+  .board-table .is-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .board-table tr[aria-current] { background: var(--plasma-soft); }
+  .board-you { color: var(--plasma); }
+  .dash-note { color: var(--muted); font-size: 15px; margin-top: 8px; }
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; }
+    .side { display: none; }
+    .board-tiles, .board-charts { grid-template-columns: 1fr; }
+    .dash { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>The dashboard at /app, theme Omni, the demo's solo player DAM-DEV, period 7 days.</b> Drawn from the source (apps/galaxy/src/dashboard/), not from a screenshot. The figures are examples of the demo world's shape, marked <code>data-content</code> (a figure inside a link, as the PRDs tile's stage counts and Waiting for you, cannot be: the word pass reads a control whole). The app shell around the screen is outside the marked screen: it is its own shared screen, <code>app-shell</code>, drawn here only as a frame.</p>
+
+<div class="shell">
+  <nav class="side" aria-label="Menu">
+    <span class="mark">OMNI LOOP</span>
+    <h3>Dashboard</h3>
+    <ul><li><a href="/app" aria-current="page">Home</a></li><li><a href="/app/fleet">Fleet</a></li><li><a href="/app/loop">Loop</a></li><li><a href="/app/workspace">Workspace</a></li><li><a href="/app/engineering">Engineering</a></li></ul>
+    <h3>Work</h3>
+    <ul><li><a href="/app/products">Products</a></li><li><a href="/roadmaps">Roadmaps</a></li><li><a href="/prd">PRDs</a></li><li><a href="/ask">Questions</a></li><li><a href="/knowledge">Knowledge</a></li></ul>
+  </nav>
+  <div>
+    <div class="bar"><span>Theme</span><span>Game mode</span><span>DAM-DEV</span></div>
+
+    <div class="dash" data-screen="dashboard">
+      <section class="dash-you" aria-labelledby="dash-name">
+        <svg class="dash-hero" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges">
+          <rect x="5" y="1" width="6" height="5" fill="#ffd8b0"/><rect x="4" y="6" width="8" height="6" fill="#a45cff"/>
+          <rect x="2" y="6" width="2" height="7" fill="#ff3ea5"/><rect x="5" y="12" width="2" height="3" fill="#2f3fc4"/><rect x="9" y="12" width="2" height="3" fill="#2f3fc4"/>
+        </svg>
+        <div class="dash-who">
+          <h1 id="dash-name" class="dash-name" data-content>DAM-DEV</h1>
+          <p class="dash-fleet"><span class="chip">SOLO</span></p>
+          <p class="dash-points"><b data-content>1,240</b> pts · <span data-content>October</span> season</p>
+          <p class="dash-places">You <span data-content>#4 of 9</span></p>
+        </div>
+      </section>
+
+      <section class="dash-counts" aria-label="Waiting for you">
+        <ul class="dash-tiles"><li>
+          <a class="dash-tile-body dash-tile-link" href="/ask" data-primary>
+            <span class="dash-tile-label">Waiting for you</span>
+            <span class="dash-tile-figure"><b class="dash-tile-number">3</b> right now</span>
+          </a>
+        </li></ul>
+      </section>
+
+      <div class="board">
+        <nav class="board-period" aria-label="Period"><ul>
+          <li><a href="/app?period=7d" aria-current="page">7 days</a></li>
+          <li><a href="/app?period=30d">30 days</a></li>
+          <li><a href="/app?period=season">Season</a></li>
+        </ul></nav>
+
+        <ul class="board-tiles" aria-label="Totals">
+          <li class="board-tile"><p class="board-tile-label">PRs merged</p><p class="board-tile-figure"><b data-content>14</b></p></li>
+          <li class="board-tile"><p class="board-tile-label">PRDs</p>
+            <p class="board-tile-figure board-tile-stages"><a href="/prd?stage=idea"><b>1</b> idea</a> · <a href="/prd?stage=prd"><b>0</b> PRD</a> · <a href="/prd?stage=inbox"><b>2</b> inbox</a> · <a href="/prd?stage=building"><b>1</b> building</a> · <a href="/prd?stage=outbox"><b>0</b> outbox</a> · <a href="/prd?stage=shipped"><b>3</b> shipped</a> · <a href="/prd?stage=retro"><b>1</b> retro</a></p></li>
+          <li class="board-tile"><p class="board-tile-label">Repositories</p><p class="board-tile-figure"><b data-content>2</b></p></li>
+          <li class="board-tile"><p class="board-tile-label">Questions answered</p><p class="board-tile-figure"><b data-content>6</b></p></li>
+        </ul>
+
+        <div class="board-charts">
+          <section class="board-card" aria-labelledby="board-merges">
+            <header class="board-chart-head"><h2 id="board-merges">PRs merged per day · last 7 days</h2><p class="board-chart-total"><b data-content>14</b> total</p></header>
+            <svg class="board-chart-svg" width="100%" height="160" viewBox="0 0 700 160" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="0" x2="700" y1="136" y2="136" stroke="#1a2170"/><line x1="0" x2="700" y1="76" y2="76" stroke="#1a2170"/><line x1="0" x2="700" y1="16" y2="16" stroke="#1a2170"/>
+              <rect x="70" y="106" width="56" height="30" rx="2" fill="#ffd84a"/><rect x="160" y="76" width="56" height="60" rx="2" fill="#ffd84a"/>
+              <rect x="250" y="116" width="56" height="20" rx="2" fill="#ffd84a"/><rect x="340" y="46" width="56" height="90" rx="2" fill="#ffd84a"/>
+              <rect x="430" y="96" width="56" height="40" rx="2" fill="#ffd84a"/><rect x="520" y="134" width="56" height="2" rx="1" fill="#ffd84a"/>
+              <rect x="610" y="86" width="56" height="50" rx="2" fill="#ffd84a"/>
+            </svg>
+          </section>
+          <section class="board-card" aria-labelledby="board-prds">
+            <header class="board-chart-head"><h2 id="board-prds">PRD events per day · last 7 days</h2><p class="board-chart-total"><b data-content>8</b> total</p></header>
+            <ul class="board-legend" aria-hidden="true"><li><span class="key" style="background:#6ff0ff"></span>opened</li><li><span class="key" style="background:#ffd84a"></span>started</li><li><span class="key" style="background:#4ee08a"></span>shipped</li></ul>
+            <svg class="board-chart-svg" width="100%" height="136" viewBox="0 0 700 136" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="0" x2="700" y1="120" y2="120" stroke="#1a2170"/>
+              <rect x="70" y="90" width="56" height="30" rx="2" fill="#6ff0ff"/><rect x="250" y="60" width="56" height="30" rx="2" fill="#ffd84a"/><rect x="250" y="90" width="56" height="30" rx="2" fill="#6ff0ff"/>
+              <rect x="430" y="90" width="56" height="30" rx="2" fill="#4ee08a"/><rect x="610" y="30" width="56" height="30" rx="2" fill="#4ee08a"/><rect x="610" y="60" width="56" height="60" rx="2" fill="#ffd84a"/>
+            </svg>
+          </section>
+        </div>
+
+        <section class="board-people board-card" aria-labelledby="board-people">
+          <h2 id="board-people">Your fleet · <span class="chip">SOLO</span></h2>
+          <table class="board-table">
+            <thead><tr><th class="is-num"><a href="#">Rank</a></th><th><a href="#">Name</a></th><th><a href="#">Fleet</a></th><th class="is-num"><a href="#">Points ▼</a></th><th class="is-num"><a href="#">PRs</a></th><th class="is-num"><a href="#">PRDs</a></th><th class="is-num"><a href="#">Questions</a></th></tr></thead>
+            <tbody data-content><tr aria-current="true"><td class="is-num">4</td><th class="board-name">DAM-DEV <span class="board-you">◀</span></th><td><span class="chip">SOLO</span></td><td class="is-num">1,240</td><td class="is-num">14</td><td class="is-num">2 · 1 · 3</td><td class="is-num">6</td></tr></tbody>
+          </table>
+          <p class="dash-note">No fleet of your own. <a href="/app/fleet">See a fleet’s board on Fleet</a></p>
+        </section>
+
+        <section class="board-repos board-card" aria-labelledby="board-repos">
+          <h2 id="board-repos">Repositories involved</h2>
+          <table class="board-table">
+            <thead><tr><th>Repository</th><th class="is-num">PRs merged</th><th class="is-num">PRD events</th></tr></thead>
+            <tbody data-content><tr><th class="board-name">vertuo-web</th><td class="is-num">9</td><td class="is-num">5</td></tr><tr><th class="board-name">vertuo-core</th><td class="is-num">5</td><td class="is-num">3</td></tr></tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="mock-note">Open on this draft: the mockup marks Waiting for you as the primary action, the one control that sends you to work; whether it or the board leads is still the screen's open question. Drawn in theme Omni only; Light and Dark use the same layout with ASK.light and ASK.dark.</p>
+</body>
+</html>

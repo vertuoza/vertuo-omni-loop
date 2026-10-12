@@ -87,6 +87,14 @@ create function pg_temp.cast_now() returns text language sql security definer as
   select coalesce(string_agg(row(p.*)::text, ';' order by p.id), '') from public.personas p;
 $$;
 
+-- Puts a repository in one product, and in that product only: what repository_set_product() did before
+-- PRD 1364 dropped it, written here as the links it leaves.
+create function pg_temp.move_to(repo text, product uuid) returns void language sql security definer as $$
+  delete from public.product_repositories l
+   where l.repository = repo and l.workspace_id = (select p.workspace_id from public.products p where p.id = product);
+  insert into public.product_repositories (product_id, workspace_id, repository, added_by)
+  select p.id, p.workspace_id, repo, 'person' from public.products p where p.id = product;
+$$;
 -- ── The business and two products, opened by Mo ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000079b1');
@@ -97,7 +105,7 @@ begin
   select p.id into first from public.products p where p.workspace_id = pg_temp.ws('vertuoza') order by p.ordinal limit 1;
   insert into made values ('erp', first);
   insert into made values ('loop', (public.product_add(pg_temp.ws('vertuoza'), 'The Loop')).id);
-  perform public.repository_set_product(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-omni-loop', pg_temp.made('loop'));
+  perform pg_temp.move_to('vertuoza/vertuo-omni-loop', pg_temp.made('loop'));
   -- A confirmed claim on the second product only: vertuo-apps (on the first) reads state none.
   perform public.claim_pick(pg_temp.ws('vertuoza'), pg_temp.made('loop'), 'offering', 'Omni Loop', 'pick');
 end $$;
@@ -257,8 +265,8 @@ end $$;
 reset role;
 
 -- A repository with no product reads no persona.
-update public.repositories set product_id = null
- where workspace_id = pg_temp.ws('vertuoza') and full_name = 'vertuoza/pdf-builder';
+delete from public.product_repositories
+ where workspace_id = pg_temp.ws('vertuoza') and repository = 'vertuoza/pdf-builder';
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000079a1');
 do $$

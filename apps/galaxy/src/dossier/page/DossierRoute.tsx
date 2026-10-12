@@ -34,6 +34,8 @@ import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
 import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
+import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
+import { attestationOf } from './Attestation.service';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
@@ -77,6 +79,15 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // the Proof tab out, never the page.
 // PRD 859 s3: its pitches are read the same way (./pitch-read.ts), and on the Pitch tab only the shown
 // pitch of each audience has its five files signed; pitches that cannot be read leave the tab out.
+// PRD 1299 s3: a numbered PRD born on the server (◆) has its approval in force read as the member beside
+// the page's own reads (./approval.ts); one that cannot be read says so on the page, never hides it. A PRD
+// born in the repository (◇) reads none.
+// PRD 1322 s7: beside it, the dossier's voids and the members its product asks to approve; for a viewer
+// who gets Approve, the approve screen too: the changed files' diffs and the spec's Problem and Solution.
+// Voids that cannot be read leave the approval unread; approvers that cannot be read leave the button to
+// any member, and dossier_approve() decides.
+// PRD 1548 s4: a product PRD's attestation is read as the member beside it (./Attestation.service.ts); one
+// that cannot be read is left out, never the page.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -84,6 +95,30 @@ export type DossierRouteProps = {
 };
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
+
+const logged = <T,>(fallback: T) => (error: unknown): T => {
+  console.error(error);
+  return fallback;
+};
+
+/** A ◆ PRD's approval in force, `unread` when it or its voids could not be read, with its voids, who the
+ * product asks to approve (`unread` when that could not be read), and, for `me` when they get the
+ * button, the approve screen (PRD 1322 s7); nothing for any other dossier. */
+async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<DossierRead, 'approval' | 'approvalFacts'>> {
+  const { dossier } = read;
+  if (dossier.birthplace !== 'server') return {};
+  const [row, voids, asked] = await Promise.all([
+    readApproval(db, dossier.id).catch(logged<ApprovalRead>('unread')),
+    readVoids(db, dossier.id).catch(logged(null)),
+    readAskedApprovers(db, dossier).catch(logged<'unread'>('unread')),
+  ]);
+  const approval: ApprovalRead = voids === null ? 'unread' : row;
+  const facts: ApprovalFacts = { voids: voids ?? [], asked };
+  const view = approvalView({ ...read, approval, approvalFacts: facts }, me);
+  if (!view?.canApprove) return { approval, approvalFacts: facts };
+  const screen = await readApproveScreen((id) => readContent(db, id), read.versions, approval, view);
+  return { approval, approvalFacts: { ...facts, screen } };
+}
 
 /** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
  * reads, each started now and awaited by the page's own blocks (PRD 657 s4); the summary reads null when
@@ -230,7 +265,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   };
   const { prd } = read.dossier;
   if (prd !== null && kindOf(read.dossier) === 'prd') {
-    read = { ...read, proofs: await proofs, pitches: await pitches };
+    const approval = approvalOf(db, read, user.id);
+    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval) };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
@@ -239,6 +275,6 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
-  const markdown = await shownMarkdown(view, (shownId) => readContent(db, shownId));
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} />;
+  const [markdown, attestation] = await Promise.all([shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier)]);
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} />;
 }

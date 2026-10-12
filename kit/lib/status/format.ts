@@ -3,7 +3,7 @@
 // 80 columns.
 // Pure: the clock comes in as `now`.
 import { BAR_CELLS } from './overview.ts';
-import type { Counts, LandingStatus, Overview, StagedPrd, YourRow, Yours } from './overview.ts';
+import type { Counts, HeldPrd, LandingStatus, Overview, StagedPrd, YourRow, Yours } from './overview.ts';
 import type { Stage } from '../types.ts';
 import { at } from '../narrow.ts';
 
@@ -87,6 +87,10 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }: Pick<Ov
   return [top, ...under];
 }
 
+/** How many of the base's rules and invariants name a proof, one line under the bar; none without a
+ * knowledge folder (PRD 1171). */
+const rulesLine = ({ rules }: Pick<Overview, 'rules'>): string[] => (rules === null ? [] : [`${INDENT}rules enforced  ${rules.enforced} of ${rules.total}`]);
+
 /** Each row of yours starts with its stage, in a column as wide as the widest stage and a gap: the
  * rows' own columns then start under the line under the bar. */
 /** The gap between a row's PRD number and its topic, and between its topic and what it says. */
@@ -102,12 +106,12 @@ const cut = (text: string, width: number): string => (text.length <= width ? tex
 const stageColumn = (stage: Stage): string => `${INDENT}${STAGE_WORDS[stage].padEnd(UNDER_BAR.length - INDENT.length)}`;
 
 /** Where a PRD of yours stands, in words. */
-function standing({ stage, prd, openItems = 0 }: YourRow): string {
+function standing({ stage, prd, openItems = 0, approval }: YourRow): string {
   const waiting = openItems > 0 ? `${plural(openItems, 'open item')} wait${openItems === 1 ? 's' : ''} for an answer` : null;
   if (stage === 'outbox') return waiting ?? 'its feature PR waits for your review';
   if (stage === 'building') return waiting ?? 'being built';
   if (stage === 'inbox') return `ready to build: /omni:yolo ${prd}`;
-  return 'its phase-0 PR waits for a merge';
+  return approval ? 'waits for approval on its page' : 'its phase-0 PR waits for a merge';
 }
 
 /** The rows of yours in the outbox, building, the inbox and PRD, their numbers, topics and words each in
@@ -172,6 +176,15 @@ function yours({ state, email, rows: inFlight, shipped }: Yours): string[] {
   return [heading, ...(inFlight.length ? rows(inFlight) : []), ...(shipped.length ? shippedRow(shipped) : [])];
 }
 
+/** The ◆ PRDs held out of every stage (PRD 1299): `held` and each one's number and topic, then each
+ * of its lines under the bar. A line is never cut: it may carry the link to act on. */
+function heldLines(held: readonly HeldPrd[]): string[] {
+  return held.flatMap(({ prd, topic, lines }) => [
+    cut(`${INDENT}${'held'.padEnd(UNDER_BAR.length - INDENT.length)}#${prd} ${topic}`, WIDTH),
+    ...lines.map((line) => `${UNDER_BAR}${line}`),
+  ]);
+}
+
 /** The overview `overviewFor` returns, as the lines `omni status` prints. */
 export function formatOverview(overview: Overview, { now }: { now: number }): string {
   return [
@@ -180,6 +193,8 @@ export function formatOverview(overview: Overview, { now }: { now: number }): st
     ...counts(overview.counts),
     '',
     ...bar(overview),
+    ...rulesLine(overview),
+    ...(overview.held.length ? ['', ...heldLines(overview.held)] : []),
     '',
     ...yours(overview.yours),
     '',

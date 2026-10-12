@@ -14,7 +14,10 @@ import type { ProfileBoard } from './profile';
 import type { HistoryItem } from '../dossier/page/history';
 import type { FixItem } from '../fixes/list';
 import { StagePill } from '../stages/stage-pill';
-import type { DossierList, ProfileHead, ProfileLists, ProfileWork, WorkList } from './load';
+import { AlertsSection } from './AlertsSection';
+import type { DossierList, ProfileHead, ProfileLists, ProfileTerminal, ProfileWork, WorkList } from './load';
+import { TerminalTokens } from './TerminalTokens';
+import { LIMIT } from './terminal-tokens';
 import { profilePath, type ProfilePullRequest, type ProfileReview } from './select';
 import '../dossier/page/dossier.css';
 import './profile.css';
@@ -25,7 +28,8 @@ import './profile.css';
 // each, then **see all**; "not in this workspace" for a login no member holds, with no data; and, as
 // on /app/fleet, closed, signed out and in no workspace. An empty list reads "Nothing in this period";
 // a workspace that tracks no repository says so under both pull request lists, linking to Settings ›
-// Repositories. Read-only: nothing on it is editable, your own profile included.
+// Repositories. Read-only, but for your own alert switches (PRD 1322 s9, ./AlertsSection.tsx) and, under
+// them, your own terminal tokens (PRD 1628 s4, ./TerminalTokens.tsx).
 // PRD 698 s5: above those, the PRDs they opened (#n, the title and the stage pill, to the dossier's page)
 // and the bug fixes and visual updates they asked for (the fix lists' row: #n, the title, the state pill,
 // a bug's risk and regression badges, to the fix's page), of the period, at most 10 each, then **see
@@ -186,6 +190,17 @@ function Work({ work }: { work: Read<ProfileWork> }) {
   );
 }
 
+function Terminal({ terminal, login }: { terminal: ProfileTerminal; login: string }) {
+  const { mine } = terminal;
+  const read = mine === UNREADABLE ? { tokens: null, live: null, limit: LIMIT } : mine;
+  return (
+    <TerminalTokens
+      source={terminal.source} tokens={read.tokens} live={read.live} limit={read.limit}
+      workspace={terminal.slug} back={profilePath(login)} now={terminal.now}
+    />
+  );
+}
+
 export function ProfileScreen({ view, supabase, signinError, query }: ProfileScreenProps) {
   switch (view.kind) {
     case 'closed':
@@ -217,6 +232,8 @@ export function ProfileScreen({ view, supabase, signinError, query }: ProfileScr
       return (
         <div className="dash">
           <Head person={view.person} season={view.board.season.name} />
+          {view.alerts && <AlertsSection alerts={view.alerts} />}
+          {view.terminal && <Terminal terminal={view.terminal} login={view.person.login} />}
           <Board board={view.board} path={profilePath(view.person.login)} query={query} peopleTitle="Season and counts" />
           <Lists lists={view.lists} />
           <Work work={view.work} />

@@ -1,6 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readBusiness, type BusinessDeps } from '../../business-api/api';
 import { hashToken } from '../tokens/token';
@@ -317,5 +319,26 @@ describe('/api/mcp, the MCP link', () => {
     const body = (await response.json()) as { result: { serverInfo: { name: string }; instructions: string } };
     expect(body.result.serverInfo.name).toBe('omni-business');
     expect(body.result.instructions).toMatch(/report_unknown/);
+  });
+  // Law BR-PRODUCT-66 (.omni-loop/knowledge/product/rules.md, #1527).
+  it('law BR-PRODUCT-66: Jev judges a question only on its first report, and never sets aside again one a person brought back', async () => {
+    // Only the report that first stores the question goes to Jev; a repeat does not.
+    const first = await world();
+    await first.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' });
+    expect(first.judged).toEqual(['q-1']);
+    for (const reported of [1, 2, 5]) {
+      const repeat = await world({ reported });
+      await repeat.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' });
+      expect(repeat.judged).toEqual([]);
+    }
+    // In the database, the newest definitions (no later migration replaces them).
+    const sql = (file: string) => readFileSync(fileURLToPath(new URL(`../../../../../supabase/migrations/${file}`, import.meta.url)), 'utf8').replace(/\s+/g, ' ');
+    // A repeat only adds to its asked count and keeps its state (open or set aside).
+    const report = sql('20261028100000_agent_questions.sql');
+    expect(report).toContain("on conflict (workspace_id, match_key) where state in ('open', 'set-aside') do update set asked = public.agent_questions.asked + 1, token_id = excluded.token_id, repo = excluded.repo, file = excluded.file, last_asked_at = now() returning * into q;");
+    // Bring back marks the question, and Jev's set aside leaves a marked question as it is.
+    const jev = sql('20261028110000_unknown_worth_asking.sql');
+    expect(jev).toContain("update public.agent_questions x set state = 'open', set_aside_at = null, brought_back_at = now()");
+    expect(jev).toContain("update public.agent_questions x set state = 'set-aside', set_aside_at = now() where x.id = p_question and x.state = 'open' and x.brought_back_at is null");
   });
 });

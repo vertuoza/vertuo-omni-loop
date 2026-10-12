@@ -27,7 +27,11 @@ export const PullSchema = z.looseObject({
   base: z.looseObject({ ref: z.string(), sha: z.string() }),
   head: z.looseObject({ ref: z.string(), sha: z.string() }),
   labels: z.array(Label).nullish(),
+  body: z.string().nullish(),
 });
+
+/** `GET /repos/{owner}/{repo}/pulls`: each open pull request's number and body. */
+export const PullsPageSchema = z.array(z.looseObject({ number: z.number(), body: z.string().nullish() }));
 
 /** The same answer, where only its head is read. */
 export const PullHeadSchema = z.looseObject({ head: z.looseObject({ sha: z.string() }) });

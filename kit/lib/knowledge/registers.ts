@@ -29,6 +29,10 @@
  * Any entry may carry `Proposed: <who> <YYYY-MM-DD>` (PRD #68): no person has confirmed it yet. Its
  * id resolves, but it is no law — `laws.floorsHigh` is false for it — until a person removes the line.
  *
+ * A rule or an invariant decided worth a law before it has a test (PRD 1342) carries
+ * `Enforced by: pending #<n>`: `<n>` is its law issue, which `/omni:enforce` turns into the test. It is
+ * a law from that day, not yet enforced; any other value starting with `pending` is refused.
+ *
  * Nothing else may glob this markdown: `check-knowledge.mjs` grades it, `outbox.mjs` resolves a
  * `bears-on` id through {@link resolveId}, and `describe.mjs` prints an entry and what serves it.
  *
@@ -41,6 +45,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/registers.mjs — changes in kit/porting/knowledge--registers.md.
 import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { basename, join } from 'node:path';
+import { parseIssue, type IssueNumber } from '../ids.ts';
 import { group, isOneOf, keysOf } from '../narrow.ts';
 
 /** An entry's kind: a person's decision, a provable statement, or what must hold in the code. */
@@ -69,6 +74,8 @@ export type KnowledgeEntry = {
   serves: string | null;
   enforcedBy: string | null;
   enforced: boolean;
+  /** The law issue of an `Enforced by: pending #<n>` line (PRD 1342), `null` for any other value. */
+  pending: IssueNumber | null;
   stated: string | null;
   proposed: Proposal | null;
   kindLine: string | null;
@@ -223,6 +230,31 @@ function readProposed(file: string, id: string, value: string | undefined): { pr
   };
 }
 
+/** `Enforced by: pending #<n>`, `<n>` a law issue's number (PRD 1342). */
+const PENDING_VALUE = /^pending #([1-9]\d*)$/;
+/** A value that means to be pending: `pending` in any case, not followed by more of a path or a word. */
+const PENDING_INTENT = /^pending(?![\w./-])/i;
+
+/** Whether an `Enforced by:` value means to pend on a law issue, well formed or not: never a path. */
+export function meansPending(value: string): boolean {
+  return PENDING_INTENT.test(value);
+}
+
+/**
+ * An entry's `Enforced by:` value read for a law issue: `{ pending, problems }`. `pending` is the
+ * issue of `pending #<n>`, `null` for a path, `unenforced` or no line. A value that starts as
+ * `pending` and is not that shape is a problem naming the file, and pends on no issue.
+ */
+function readPending(file: string, id: string, value: string | null): { pending: IssueNumber | null; problems: string[] } {
+  if (value === null || !meansPending(value)) return { pending: null, problems: [] };
+  const match = value.match(PENDING_VALUE);
+  if (match) return { pending: parseIssue(group(match, 1)), problems: [] };
+  return {
+    pending: null,
+    problems: [`${file}: ${id} — "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`],
+  };
+}
+
 /** Splits `text` into `{ id, lines }` entries; any `##` heading that is not an id closes one. */
 function splitEntries(text: string): { id: string; lines: string[] }[] {
   const entries: { id: string; lines: string[] }[] = [];
@@ -259,7 +291,8 @@ export function parseEntryFile(file: string, text: string, place: Place): Knowle
       place.kind ??
       (fields.kindLine === 'rule' || fields.kindLine === 'invariant' ? fields.kindLine : null);
     const enforcedBy = fields.enforcedBy ?? null;
-    const { proposed, problems } = readProposed(file, id, fields.proposedLine);
+    const { proposed, problems: proposedProblems } = readProposed(file, id, fields.proposedLine);
+    const { pending, problems: pendingProblems } = readPending(file, id, enforcedBy);
     return {
       id,
       kind,
@@ -274,13 +307,14 @@ export function parseEntryFile(file: string, text: string, place: Place): Knowle
       source: fields.source ?? null,
       serves: fields.serves ?? null,
       enforcedBy,
-      enforced: enforcedBy !== null && enforcedBy !== 'unenforced',
+      enforced: enforcedBy !== null && enforcedBy !== 'unenforced' && !meansPending(enforcedBy),
+      pending,
       stated: fields.stated ?? null,
       proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
-      problems,
+      problems: [...proposedProblems, ...pendingProblems],
     };
   });
 }

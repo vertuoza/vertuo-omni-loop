@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1550 · Design memory, round 2</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1f24; --muted: #5d6270; --line: #dcdad3;
+  --term: #15171c; --term-ink: #d9dde6; --term-dim: #8a91a3;
+  --ok: #1f7a4d; --warn: #9a5b00; --bad: #b3261e; --accent: #2f5bd3; --chip: #eceae4;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --panel: #1c1f25; --ink: #e8eaef; --muted: #a2a8b6; --line: #2e323b;
+    --term: #0d0f12; --term-ink: #d9dde6; --term-dim: #7d8496;
+    --ok: #5cc28d; --warn: #e0a548; --bad: #f08a80; --accent: #7d9cf0; --chip: #262a32; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161a; --panel: #1c1f25; --ink: #e8eaef; --muted: #a2a8b6; --line: #2e323b;
+  --term: #0d0f12; --term-ink: #d9dde6; --term-dim: #7d8496;
+  --ok: #5cc28d; --warn: #e0a548; --bad: #f08a80; --accent: #7d9cf0; --chip: #262a32; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 36px; }
+header h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; max-width: 68ch; color: var(--muted); }
+.kicker { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+section { display: grid; gap: 12px; }
+section > h2 { font-size: 1.1rem; margin: 0; }
+section > p { margin: 0; max-width: 72ch; color: var(--muted); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.label { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.label.after { color: var(--ok); }
+.term { background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 14px 16px; font: 12.5px/1.6 var(--mono); overflow-x: auto; white-space: pre; margin: 0; }
+.dim { color: var(--term-dim); } .ok { color: #6fd39c; } .warn { color: #f0b860; } .bad { color: #ff8f86; }
+.note { font-size: .86rem; color: var(--muted); margin: 0; }
+/* the gallery mockup */
+.gallery { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; }
+.gallery .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.gallery .top strong { font-size: .95rem; }
+.gallery .top span { font: 12px var(--mono); color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: grid; }
+.thumb { aspect-ratio: 16 / 10; max-width: 100%; background: var(--chip); display: grid; place-items: center; color: var(--muted); font: 11px var(--mono); }
+.thumb svg { width: 100%; height: 100%; display: block; }
+.meta { padding: 8px 10px; display: grid; gap: 4px; }
+.meta b { font-size: .85rem; }
+.meta small { font: 11px var(--mono); color: var(--muted); }
+.pill { justify-self: start; font: 600 10px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 4px 6px; border-radius: 4px; background: var(--chip); color: var(--muted); }
+.pill.locked { color: var(--ok); }
+.empty { border: 1px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center; color: var(--muted); font: 13px var(--mono); }
+footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">PRD 1550 · today beside after</div>
+  <h1>Design memory, round 2: a quiet word pass, screens that claim what they show, mockups and a gallery</h1>
+  <p>From a simulation on <code>main</code> on 2026-10-11: omni-loop's own screen library, the 12 latest before/after pages and the last 60 merges. Everything stays behind <code>design.enabled</code> and works in any repository.</p>
+</header>
+
+<section>
+  <h2>1 · The word pass reads only marked screens</h2>
+  <p>Today a page with no <code>[data-screen]</code> is read whole, so its own captions are flagged. After, it is skipped, and sibling elements stay separate strings.</p>
+  <div class="pair">
+    <div class="side" data-screen="words-today">
+      <div class="label">Today</div>
+<pre class="term"><span class="dim">$ omni design words 1342-laws-with-their-test/before-after.html</span>
+  no screen marked ([data-screen]): the page read whole
+  screen (whole page) · 393 words
+    <span class="bad">! explains-at-rest:</span> "PRD 1342. Nothing on a screen
+      changes besides one row on Settings › Jev. …" — 42 words
+<span class="dim">$ omni design words 1318-layered-data-access/before-after.html</span>
+    <span class="bad">! explains-at-rest:</span> "ask.client.tsPOST /api/ask/…"</pre>
+      <p class="note">16 findings over 12 pages, none on a screen.</p>
+    </div>
+    <div class="side" data-screen="words-after">
+      <div class="label after">After</div>
+<pre class="term"><span class="dim">$ omni design words 1342-laws-with-their-test/before-after.html</span>
+  <span class="dim">no screen marked: skipped</span>
+<span class="dim">$ omni design words .omni-loop/knowledge/design/screens/home.html</span>
+  screen home · 38 words
+    "ask.client.ts" (1) · "POST" (1)
+  <span class="ok">no finding</span></pre>
+      <p class="note">brainstorm and visual-fix mark each screen; the caption sits outside it.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2 · A screen claims what it is drawn from</h2>
+  <p>Today the game room claims the whole kart engine, so a physics fix would hold for its owner. After, the engine moves to <code>reads</code>: read for context, never a trip.</p>
+  <div class="pair">
+    <div class="side" data-screen="claim-today">
+      <div class="label">Today</div>
+<pre class="term"><span class="dim"># game-room.md</span>
+implements: [scenes/games.tsx, scenes/games.css,
+             <span class="warn">arcade/games/</span>]
+
+<span class="dim">$ omni design touched   # "OMNI KART floats in open space"</span>
+ui: yes
+screens: <span class="bad">🔒 game-room</span> /play#games
+<span class="bad">→ high outbox item: waits for its owner</span></pre>
+      <p class="note">11 of 60 merges would hold; 5 are kart physics fixes.</p>
+    </div>
+    <div class="side" data-screen="claim-after">
+      <div class="label after">After</div>
+<pre class="term"><span class="dim"># game-room.md</span>
+implements: [scenes/games.tsx, scenes/games.css]
+reads:      [arcade/games/]
+
+<span class="dim">$ omni design touched   # the same fix</span>
+ui: yes
+screens: <span class="ok">reads game-room</span>
+<span class="dim">no locked screen touched · nothing waits</span></pre>
+      <p class="note">A folder in <code>implements</code> gets a warning from <code>omni check design</code>, never a failure.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>3 · <code>touched</code> leaves tests out</h2>
+  <div class="pair">
+    <div class="side" data-screen="touched-today">
+      <div class="label">Today</div>
+<pre class="term"><span class="dim">$ omni design touched   # docs.test.ts, guide.test.ts</span>
+<span class="warn">ui: yes</span>
+  apps/galaxy/src/docs/docs.test.ts
+  apps/galaxy/src/docs/guide.test.ts
+<span class="dim">→ a design review on two test files</span></pre>
+    </div>
+    <div class="side" data-screen="touched-after">
+      <div class="label after">After</div>
+<pre class="term"><span class="dim"># design.ignore (default)</span>
+[**/*.test.*, **/*.spec.*, **/__tests__/**, **/test/**]
+
+<span class="dim">$ omni design touched   # the same change</span>
+<span class="ok">ui: no</span></pre>
+      <p class="note">A repository sets its own list; <code>[]</code> gives today back.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>4 · Mockups, and the whole library on one page</h2>
+  <p>Today no screen has a mockup, so there is nothing to lock against and nothing to see at once. After, <code>/omni:pixel-perfect mock &lt;screen&gt;</code> draws one self-contained HTML mockup per screen, and <code>omni design gallery</code> writes a local page of them all, generated each time and never committed.</p>
+  <div class="pair">
+    <div class="side" data-screen="gallery-today">
+      <div class="label">Today</div>
+<pre class="term"><span class="dim">$ omni design screens</span>
+dashboard    draft  —  /app
+game-room    draft  —  /play#games
+home         draft  —  /
+prd-dossier  draft  —  /prd/&lt;id&gt;
+<span class="dim">mock: null · mock: null · mock: null · mock: null</span></pre>
+      <div class="empty">no way to see a screen without running the app</div>
+    </div>
+    <div class="side" data-screen="gallery-after">
+      <div class="label after">After · omni design gallery</div>
+      <div class="gallery">
+        <div class="top"><strong>omni-loop · screen library</strong><span>4 screens · 1 locked · 3 drafts</span></div>
+        <div class="cards">
+          <div class="card">
+            <div class="thumb"><svg viewBox="0 0 160 100" aria-hidden="true"><rect width="160" height="100" fill="#0d0f2a"/><rect x="12" y="12" width="60" height="8" rx="2" fill="#7d9cf0"/><rect x="12" y="28" width="136" height="44" rx="4" fill="#1b1f44"/><rect x="20" y="38" width="30" height="24" rx="2" fill="#f0b860"/><rect x="58" y="38" width="30" height="24" rx="2" fill="#5cc28d"/><rect x="96" y="38" width="30" height="24" rx="2" fill="#2e323b"/><rect x="12" y="80" width="40" height="8" rx="2" fill="#7d9cf0"/></svg></div>
+            <div class="meta"><b>game-room</b><span class="pill locked">🔒 locked</span><small>@pierrederval · 2026-10-12</small><small>/play#games</small></div>
+          </div>
+          <div class="card">
+            <div class="thumb"><svg viewBox="0 0 160 100" aria-hidden="true"><rect width="160" height="100" fill="#f6f5f2"/><rect x="12" y="12" width="90" height="10" rx="2" fill="#1d1f24"/><rect x="12" y="28" width="120" height="5" rx="2" fill="#a2a8b6"/><rect x="12" y="44" width="40" height="12" rx="3" fill="#2f5bd3"/><rect x="12" y="66" width="64" height="24" rx="3" fill="#dcdad3"/><rect x="84" y="66" width="64" height="24" rx="3" fill="#dcdad3"/></svg></div>
+            <div class="meta"><b>home</b><span class="pill">draft</span><small>/</small></div>
+          </div>
+          <div class="card">
+            <div class="thumb"><svg viewBox="0 0 160 100" aria-hidden="true"><rect width="160" height="100" fill="#f6f5f2"/><rect x="0" y="0" width="34" height="100" fill="#e6e4de"/><rect x="42" y="12" width="70" height="8" rx="2" fill="#1d1f24"/><rect x="42" y="28" width="52" height="28" rx="3" fill="#dcdad3"/><rect x="100" y="28" width="52" height="28" rx="3" fill="#dcdad3"/><rect x="42" y="64" width="110" height="26" rx="3" fill="#dcdad3"/></svg></div>
+            <div class="meta"><b>dashboard</b><span class="pill">draft</span><small>/app</small></div>
+          </div>
+          <div class="card">
+            <div class="thumb">no mockup</div>
+            <div class="meta"><b>prd-dossier</b><span class="pill">draft</span><small>/prd/&lt;id&gt;</small></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">A change to a screen's <code>implements</code> that leaves its mockup alone is named <code>mock may be stale</code>, a note, never a block.</p>
+    </div>
+  </div>
+</section>
+
+<footer>What stays the same: the flag (<code>design.enabled</code>, off by default), the one deliberate block (a change to a locked screen or law asks its owner), and every screen written under PRD 1407, which reads as before. The lock and the date in the gallery are illustrative: no screen is locked by this PRD.</footer>
+
+</div>
+</body>
+</html>

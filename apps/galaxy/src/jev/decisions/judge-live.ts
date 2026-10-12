@@ -16,6 +16,15 @@ export function judgeDeps(env: Pick<ArcadeEnv, 'constituentJudgeSecret' | 'supab
   };
 }
 
+/** The law judge's (./law-judge-route.ts, PRD 1342 s3): the same, under LAW_JUDGE_SECRET. */
+export function lawJudgeDeps(env: Pick<ArcadeEnv, 'lawJudgeSecret' | 'supabase' | 'serviceRole' | 'secretsMasterKey'> = serverEnv()): JudgeRouteDeps {
+  return {
+    secret: env.lawJudgeSecret ?? undefined,
+    workspaceOf: trackingWorkspace,
+    jev: jevDecideDeps(env),
+  };
+}
+
 async function trackingWorkspace(repo: string): Promise<string | null> {
   // `data` is widened to null: the rows are read here unparsed.
   const { data, error }: { data: TrackingRow[] | null; error: { message: string } | null } = await serviceDb()

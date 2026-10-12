@@ -40,7 +40,7 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber, type SliceId } from '../../kit/lib/ids.ts';
 import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, parsePlanRepos, deliveryOf, prdOfFolder, type PlanSlice, type SettledEntry } from './parsers.ts';
 import type { GameConfig } from '../config.ts';
-import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet } from '../types.ts';
+import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet, SnapshotStop } from '../types.ts';
 
 /** How the game calls gh: its arguments in, its stdout out. */
 export type Exec = (args: string[]) => Promise<string>;
@@ -51,6 +51,7 @@ export const ghExec: Exec = async (args) => (await run('gh', args, { maxBuffer: 
 // What gh prints for the lists and views below. A field the code reads only when it is there may be
 // missing; one it counts on is required, so a gh that answers another shape fails naming the field.
 const Login = z.looseObject({ login: z.string().nullish() }).nullish();
+const Person = z.looseObject({ login: z.string().nullish(), is_bot: z.boolean().nullish() }).nullish();
 const Labels = z.array(z.looseObject({ name: z.string() })).nullish();
 const IssueRows = z.array(z.looseObject({
   number: PrdNumberSchema,
@@ -69,8 +70,13 @@ const PrRow = z.looseObject({
   updatedAt: z.string().nullish(),
   labels: Labels,
   body: z.string().nullish(),
+  author: Person,
+  mergedBy: Person,
+  latestReviews: z.array(z.looseObject({ author: Person, state: z.string().nullish() })).nullish(),
 });
 const PrRows = z.array(PrRow);
+// The fields every feature PR list reads: what PrRow parses.
+const FEATURE_FIELDS = 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body,author,mergedBy,latestReviews';
 const SubRowSchema = z.looseObject({
   number: PrNumberSchema,
   title: z.string(),
@@ -108,7 +114,17 @@ type SpecOf = (prd: PrdNumber) => Promise<{ blockedBy: PrdNumber[] }>;
 const RAW = ['-H', 'Accept: application/vnd.github.raw'];
 const lines = (s: string): string[] => s.split('\n').map((l) => l.trim()).filter(Boolean);
 const json = (s: string): unknown => (s.trim() ? JSON.parse(s) : []);
-const soft = (p: Promise<string>): Promise<string> => p.catch(() => ''); // a 404 (no outbox dir yet, no plan yet) is an empty read
+// A refusal for the token's rate limit, primary or secondary. It is never an empty read: an empty read
+// of a shipped PRD's folder decommissions its planet in the ledger for good.
+export function isRateLimit(err: unknown): boolean {
+  const stderr = err instanceof Error && 'stderr' in err ? String(err.stderr) : '';
+  return /rate limit|HTTP 429/i.test(`${err instanceof Error ? err.message : String(err)} ${stderr}`);
+}
+// A 404 (no outbox dir yet, no plan yet) is an empty read; a rate limit is thrown on (buildSnapshot stops).
+const soft = (p: Promise<string>): Promise<string> => p.catch((err: unknown) => {
+  if (isRateLimit(err)) throw err;
+  return '';
+});
 const OUTBOX_RANKS = new Set<string | undefined>(['medium', 'high', 'human-action']); // spec §8: a malformed outbox file is ignored
 
 // F4: every timestamp read from GitHub or a delivery file goes through here, so one malformed value
@@ -125,48 +141,75 @@ const firstIso = (out: string): string | null => toIso(lines(out)[0]);
 
 /**
  * `prds` keeps only those PRD numbers (in every home) and the PRDs their specs name as blockers.
+ * `deadline` (epoch ms) stops reading before a planet once it has passed.
+ *
+ * The planets are read most recent first: the open ones, then the closed ones by when they closed. A
+ * read stopped by the deadline or by the token's rate limit keeps every planet read in full before it,
+ * drops the one it was reading, and says why in `stopped`: the next poll reads the rest again.
  */
 export async function buildSnapshot(
-  { config, exec = ghExec, now = new Date(), prds }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly PrdNumber[] },
+  { config, exec = ghExec, now = new Date(), prds, deadline }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly PrdNumber[]; deadline?: number },
 ): Promise<Snapshot> {
   const teams = { ...(config.roster ?? {}) };
   const wanted = prds ? new Set(prds) : null;
   const tracked = config.tracked ?? [];
   const planets: SnapshotPlanet[] = [];
-  const homes: Array<{ home: string; issues: IssueRow[] }> = [];
-  for (const home of tracked) {
-    const issues = IssueRows.parse(json(await soft(exec(['issue', 'list', '-R', home, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,author,createdAt,closedAt']))));
-    if (issues.length) homes.push({ home, issues });
-  }
-  const regionsOf = partOfRegions(exec, tracked);
-  for (const { home, issues } of homes) {
-    const repo = await readRepository(exec, home);
-    const specs = new Map<PrdNumber, { blockedBy: PrdNumber[] }>(); // prd → { blockedBy }, read once
-    const specOf: SpecOf = async (prd) => {
-      if (!specs.has(prd)) {
-        const folder = repo.folders.get(prd);
-        specs.set(prd, folder ? parseSpec(await soft(exec(['api', `repos/${home}/contents/${folder.dir}/spec.md`, ...RAW]))) : { blockedBy: [] });
-      }
-      return specs.get(prd) ?? { blockedBy: [] };
-    };
-
-    // A single-planet read (game:banner <prd>) must not pay for the whole workspace: keep only those
-    // PRDs plus what their specs name as a blocker (one level is enough — the banner only needs to
-    // know a region is locked, not to walk the whole blocker chain).
-    let chosen = issues;
-    if (wanted) {
-      const keep = new Set<PrdNumber>();
-      for (const issue of issues.filter((i) => wanted.has(i.number))) {
-        keep.add(issue.number);
-        for (const blocker of (await specOf(issue.number)).blockedBy) keep.add(blocker);
-      }
-      chosen = issues.filter((i) => keep.has(i.number));
+  const snapshot = (stopped?: SnapshotStop): Snapshot => ({ at: now.toISOString(), teams, planets, ...(stopped ? { stopped } : {}) });
+  const queue: Array<{ issue: IssueRow; read: () => Promise<SnapshotPlanet> }> = [];
+  try {
+    const homes: Array<{ home: string; issues: IssueRow[] }> = [];
+    for (const home of tracked) {
+      const issues = IssueRows.parse(json(await soft(exec(['issue', 'list', '-R', home, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,author,createdAt,closedAt']))));
+      if (issues.length) homes.push({ home, issues });
     }
+    const regionsOf = partOfRegions(exec, tracked);
+    for (const { home, issues } of homes) {
+      const repo = await readRepository(exec, home);
+      const specs = new Map<PrdNumber, { blockedBy: PrdNumber[] }>(); // prd → { blockedBy }, read once
+      const specOf: SpecOf = async (prd) => {
+        if (!specs.has(prd)) {
+          const folder = repo.folders.get(prd);
+          specs.set(prd, folder ? parseSpec(await soft(exec(['api', `repos/${home}/contents/${folder.dir}/spec.md`, ...RAW]))) : { blockedBy: [] });
+        }
+        return specs.get(prd) ?? { blockedBy: [] };
+      };
 
-    for (const issue of chosen) planets.push(await readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }));
+      // A single-planet read (game:banner <prd>) must not pay for the whole workspace: keep only those
+      // PRDs plus what their specs name as a blocker (one level is enough — the banner only needs to
+      // know a region is locked, not to walk the whole blocker chain).
+      let chosen = issues;
+      if (wanted) {
+        const keep = new Set<PrdNumber>();
+        for (const issue of issues.filter((i) => wanted.has(i.number))) {
+          keep.add(issue.number);
+          for (const blocker of (await specOf(issue.number)).blockedBy) keep.add(blocker);
+        }
+        chosen = issues.filter((i) => keep.has(i.number));
+      }
+
+      for (const issue of chosen) queue.push({ issue, read: () => readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }) });
+    }
+  } catch (err) {
+    if (isRateLimit(err)) return snapshot({ by: 'rate-limit', message: `GitHub rate limit before any planet was read: ${firstLine(err)}` });
+    throw err;
   }
-  return { at: now.toISOString(), teams, planets };
+  queue.sort((a, b) => { const [x, y] = [recency(a.issue), recency(b.issue)]; return x < y ? 1 : x > y ? -1 : 0; }); // code points, not a locale: `~` above every digit
+  for (const { read } of queue) {
+    if (deadline !== undefined && Date.now() >= deadline) return snapshot({ by: 'budget', message: `read budget spent: ${planets.length} of ${queue.length} planets read` });
+    try {
+      planets.push(await read());
+    } catch (err) {
+      if (isRateLimit(err)) return snapshot({ by: 'rate-limit', message: `GitHub rate limit: ${planets.length} of ${queue.length} planets read: ${firstLine(err)}` });
+      throw err;
+    }
+  }
+  return snapshot();
 }
+
+// The order planets are read in: an open PRD first (its work is going on), then a closed one by its
+// close, then by its birth. ISO times sort as text; an open PRD's sorts above every date.
+const recency = (issue: IssueRow): string => `${issue.closedAt ? toIso(issue.closedAt) ?? '' : '~'} ${toIso(issue.createdAt) ?? ''}`;
+const firstLine = (err: unknown): string => (err instanceof Error ? err.message : String(err)).split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('Command failed')).at(0) ?? 'refused';
 
 // Multi-repository PRDs (PRD 728): in each tracked repository, the feature PRs into its default branch
 // whose body starts `Part of <owner>/<home>#<n>`. Each is one more region of that PRD. A repository is
@@ -184,7 +227,7 @@ function partOfRegions(exec: Exec, tracked: readonly string[]): RegionsOf {
       const index = (async () => {
         const defaultBranch = lines(await soft(exec(['api', `repos/${slug}`, '--jq', '.default_branch'])))[0] ?? 'main';
         const byPrd = new Map<string, PrRow[]>();
-        const prs = PrRows.parse(json(await soft(exec(['pr', 'list', '-R', slug, '--search', '"Part of" in:body', '--base', defaultBranch, '--state', 'all', '--limit', '500', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body']))));
+        const prs = PrRows.parse(json(await soft(exec(['pr', 'list', '-R', slug, '--search', '"Part of" in:body', '--base', defaultBranch, '--state', 'all', '--limit', '500', '--json', FEATURE_FIELDS]))));
         for (const pr of prs) {
           const m = PART_OF.exec(pr.body ?? '');
           if (!m || !toIso(pr.createdAt)) continue; // F4: no creation time, no feature PR
@@ -273,7 +316,7 @@ function chartPlanet(home: string, issue: IssueRow, teams: Record<string, string
 // The home's feature PR: a PR into its default branch whose body says `Closes #<n>`.
 async function homeFeaturePr(exec: Exec, { home, repo, prd }: { home: string; repo: Repository; prd: PrdNumber }): Promise<PrRow | undefined> {
   const closes = new RegExp(`\\bCloses #${prd}(?!\\d)`, 'i');
-  const prs = PrRows.parse(json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body'])))
+  const prs = PrRows.parse(json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', FEATURE_FIELDS])))
     .filter((pr) => toIso(pr.createdAt) && closes.test(pr.body ?? '')); // F4: no creation time, no feature PR
   return pickFeaturePr(prs);
 }
@@ -349,7 +392,23 @@ function regionResolver({ home, tracked, parts }: { home: string; tracked: reado
 async function readFeaturePr(exec: Exec, slug: string, fp: PrRow): Promise<FeaturePr> {
   const createdAt = toIso(fp.createdAt);
   const readyAt = fp.isDraft ? null : (firstIso(await soft(exec(['api', `repos/${slug}/issues/${fp.number}/timeline`, '--paginate', '--jq', '[.[] | select(.event=="ready_for_review")][0].created_at']))) ?? createdAt);
-  return { repo: slug, number: fp.number, createdAt, readyAt, mergedAt: toIso(fp.mergedAt), lastActivityAt: toIso(fp.updatedAt) ?? createdAt };
+  const mergedAt = toIso(fp.mergedAt);
+  return {
+    repo: slug, number: fp.number, createdAt, readyAt, mergedAt, lastActivityAt: toIso(fp.updatedAt) ?? createdAt,
+    ...(mergedAt ? { mergedBy: personOf(fp.mergedBy), approvedBy: approversOf(fp) } : {}),
+  };
+}
+
+// A person's lower-case login; null for a bot or no one.
+function personOf(p: z.infer<typeof Person>): string | null {
+  return p?.login && !p.is_bot && !p.login.endsWith('[bot]') ? p.login.toLowerCase() : null;
+}
+
+// Who approved a feature PR: each reviewer whose latest review approves it, the PR's author aside.
+function approversOf(fp: PrRow): string[] {
+  const author = personOf(fp.author);
+  const logins = (fp.latestReviews ?? []).filter((r) => r.state === 'APPROVED').map((r) => personOf(r.author));
+  return [...new Set(logins.filter((l): l is string => Boolean(l) && l !== author))].sort();
 }
 
 async function readPlan(exec: Exec, { home, repo, folder, ref }: { home: string; repo: Repository; folder: Folder; ref: string }): Promise<string> {
@@ -490,7 +549,8 @@ async function readJson<T>(read: () => Promise<string>, schema: z.ZodType<T>): P
   let value: unknown;
   try {
     value = JSON.parse(await read());
-  } catch {
+  } catch (err) {
+    if (isRateLimit(err)) throw err;
     return null;
   }
   const parsed = schema.safeParse(value);

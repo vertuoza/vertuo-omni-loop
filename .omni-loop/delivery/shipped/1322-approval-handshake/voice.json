@@ -1,0 +1,226 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Approving from a phone invites approving what nobody read. I want the problem and the solution in front of the button.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Another thing on my phone so a bot can ping me looks like a gimmick. Opt-in keeps it out of my way.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The agent waits and starts wave 1 the second someone approves, so I never retype a command. That is the speed I want.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Pinging every opted-in member could become noise as we grow. The void on a changed file is the part I trust.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "A push on my phone with the before and after is exactly how I want to approve a quick win. I do not want to dig through GitHub.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "Approving from a phone notification invites approving a spec nobody read.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✗ · offering#316 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The problem and the solution sit above Approve, and a changed file voids the approval. That answers my worry.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing reaches me unless I opt in, and the terminal side is a plain command. I can live with that.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Yolo waits instead of stopping, and the HUD tells me when it moves.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Held, not failed, and a timeout keep a terminal from hanging forever. Approvers per product will matter later.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Push and email both, and only what changed when I approve again. That is all I need.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · offering#316 ✓"
+    },
+    {
+      "stage": "rework-1",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Developers can be skipped, so I am not pinged for every PRD. The problem and the solution still sit above Approve.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Being skipped by default on a product I do not own keeps my phone quiet. That makes it less of a gimmick.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Each product has its own approvers, so a Mobile PRD goes to the Mobile people. That is how we work.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Owners decide who approves per product, which keeps cohesion. The noise worry is answered.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "I am asked for Mobile only, on my phone, and only I or Paul can approve it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · offering#316 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The problem and the solution sit above Approve, and a changed file voids the approval. Being skipped means my phone stays quiet.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Nothing pings me unless I am an approver who turned alerts on. The terminal part is just a command that waits.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The build starts the moment someone approves, so I never retype a command. Exactly what I wanted.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Owners decide each product's approvers, which keeps cohesion. A timeout keeps a waiting terminal from hanging.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "A push on my phone for my product, the before and after in front of me, and one tap to approve.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · offering#316 ✓"
+    }
+  ]
+}

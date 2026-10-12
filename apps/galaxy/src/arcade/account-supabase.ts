@@ -6,6 +6,7 @@
 // (src/data/scores.ts).
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { kartGridRepository } from '../data/kart-grid.repository';
 import { savePlayer } from '../data/players';
 import { githubSignIn } from '../data/sign-in-github';
 import { loadScores, submitScore } from '../data/scores';
@@ -48,6 +49,8 @@ export function supabaseAccount({ url, key, workspace }: { url: string; key: str
       const { data: { user } } = await db().auth.getUser();
       return loadScores(db(), workspace, game, user?.id ?? null);
     },
+    // OMNI KART's grid (PRD 1572): the workspace's private channel, joined as the signed-in player; none for a person with no workspace.
+    kartGrid: () => (workspace ? kartGridRepository(db(), workspace, async () => (await db().auth.getUser()).data.user?.id ?? null) : null),
     async signOut() {
       // This browser only: the default, global, would also end the sign-in `omni signin` keeps for
       // ask mode, and every terminal would quietly fall back to asking itself.

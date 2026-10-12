@@ -182,3 +182,38 @@ describe('omni visual', () => {
     expect(await main(['visual', String(ISSUE)], { cwd: root, ...s })).toBe(2);
   });
 });
+
+describe('omni visual — a change to a law needs the fix\'s outbox (PRD 1342)', () => {
+  const LAWS_CONFIG = `${CONFIG_TEXT}laws:\n  source: knowledge\n`;
+  const PROOF = 'app/sidebar.test.mjs';
+  const INVARIANTS = '.omni-loop/knowledge/product/invariants.md';
+  const LAW = `# Product invariants\n\n## N-PRODUCT-1\n\nThe sidebar is always readable.\n\nEnforced by: ${PROOF}\n`;
+
+  function lawRepo() {
+    const { root, write } = makeRepo({ git: true, files: { '.omni-loop/config.yml': LAWS_CONFIG, [INVARIANTS]: LAW, [PROOF]: "it('reads', () => {});\n" } });
+    const base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    return { root, write, base };
+  }
+
+  it('is not ok when the range changes a law\'s test, naming the outbox it needs', async () => {
+    const { root, write, base } = lawRepo();
+    write(PROOF, "it('reads in the dark', () => {});\n");
+    write(PAGE, VALID_PAGE);
+    commit(root, 'fix(app): sidebar darker (#12)');
+    const { code, out } = await run(root, base);
+    expect(code).toBe(1);
+    expect(failures(out)).toEqual([
+      `- ${PROOF} (law-proof): a change to a law needs an item ranked high in ${DIR}/outbox/ and an account naming it in ${DIR}/outbox/accounts/.`,
+    ]);
+  });
+
+  it('accepts an outbox folder beside the page', async () => {
+    const { root, write, base } = lawRepo();
+    write(PAGE, VALID_PAGE);
+    write(`${DIR}/outbox/accounts/.keep`, '');
+    commit(root, 'fix(app): sidebar darker (#12)');
+    const { code, out } = await run(root, base);
+    expect(failures(out)).toEqual([]);
+    expect(code).toBe(0);
+  });
+});

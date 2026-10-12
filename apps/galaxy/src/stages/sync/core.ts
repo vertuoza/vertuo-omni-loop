@@ -8,6 +8,11 @@
 // merge (shipped) and the retro PR's creation (retro). A folder's place is the repository's truth: a
 // folder in `inbox/` or `shipped/` whose PR is not found is recorded at the sync's time. No branch name,
 // path or label is written here: each comes from the repository's own config.
+//
+// PRD 1299 (s6): a PRD born on the server (◆) has no phase-0 PR, and its folder stays on its feature
+// branch until it ships. Its inbox is dated at its first approval, read from the database beside the
+// snapshot, never at a phase-0 merge nor at the sync's time; while it waits for approval it has no
+// inbox. Every stage after inbox is read from GitHub as for any PRD.
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
@@ -54,6 +59,9 @@ export type RepoSnapshot = {
 export type SeenStage = { repository: string; prd: PrdNumber; stage: StoredStage; reached_at: string };
 export type SeenTopic = { repository: string; prd: PrdNumber; topic: string };
 
+/** A PRD of the repository born on the server (◆), and when it was first approved; null while it waits. */
+export type ServerBorn = { prd: PrdNumber; approved_at: string | null };
+
 /** The sync's reading of a repository's config. Throws, naming the repository, when it is not valid. */
 export function syncConfig(text: string, repository: string): SyncConfig {
   const config = parseConfig(text, `${repository}:${CONFIG_PATH}`);
@@ -97,8 +105,11 @@ function foldersOf(snapshot: RepoSnapshot): Folder[] {
   return [...folders.values()].sort((a, b) => a.prd - b.prd);
 }
 
-/** The stages a folder's pull requests date, in track order; null for a stage not reached. */
-function folderStages(config: SyncConfig, pulls: readonly SnapshotPull[], { topic, place }: Folder, syncedAt: string): [StoredStage, string | null][] {
+/** The stages a folder's pull requests date, in track order; null for a stage not reached. `approval` is
+ * given for a ◆ PRD only: its inbox is that date, null while it waits. */
+function folderStages(
+  config: SyncConfig, pulls: readonly SnapshotPull[], { topic, place }: Folder, syncedAt: string, approval?: string | null,
+): [StoredStage, string | null][] {
   const on = (shape: string) => {
     const pattern = branchPattern(shape, topic);
     return pulls.filter((p) => pattern.test(p.head));
@@ -111,7 +122,7 @@ function folderStages(config: SyncConfig, pulls: readonly SnapshotPull[], { topi
   const mergedFeature = earliest(features.map((p) => p.merged_at));
   const retro = earliest(on(config.branches.retro).filter(counted).map((p) => p.created_at));
   return [
-    ['inbox', phase0 ?? (place === 'inbox' ? syncedAt : null)],
+    ['inbox', approval === undefined ? phase0 ?? (place === 'inbox' ? syncedAt : null) : approval],
     ['building', building],
     ['outbox', ready],
     ['shipped', place === 'shipped' ? mergedFeature ?? syncedAt : null],
@@ -134,8 +145,10 @@ export function changedPrds(snapshot: RepoSnapshot): PrdNumber[] {
   return [...changed].sort((a, b) => a - b);
 }
 
-/** Every stage and topic the repository shows; nothing without a config. */
-export function stagesOfRepo(snapshot: RepoSnapshot, syncedAt: string): { stages: SeenStage[]; topics: SeenTopic[] } {
+/** Every stage and topic the repository shows, `serverBorn` naming its ◆ PRDs; nothing without a config. */
+export function stagesOfRepo(
+  snapshot: RepoSnapshot, syncedAt: string, serverBorn: readonly ServerBorn[] = [],
+): { stages: SeenStage[]; topics: SeenTopic[] } {
   const { config } = snapshot;
   if (!config) return { stages: [], topics: [] };
   const repository = snapshot.repository.toLowerCase();
@@ -145,9 +158,13 @@ export function stagesOfRepo(snapshot: RepoSnapshot, syncedAt: string): { stages
   };
 
   for (const issue of snapshot.issues) seen(issue.number, 'prd', issue.created_at);
+  const approvals = new Map(serverBorn.map(({ prd, approved_at }) => [prd, approved_at]));
   const folders = foldersOf(snapshot);
   for (const folder of folders) {
-    for (const [stage, at] of folderStages(config, snapshot.pulls, folder, syncedAt)) seen(folder.prd, stage, at);
+    for (const [stage, at] of folderStages(config, snapshot.pulls, folder, syncedAt, approvals.get(folder.prd))) seen(folder.prd, stage, at);
+    approvals.delete(folder.prd);
   }
+  // A ◆ PRD whose folder is on its feature branch only: its approval is all the sync sees of it.
+  for (const [prd, at] of approvals) seen(prd, 'inbox', at);
   return { stages, topics: folders.map(({ prd, topic }) => ({ repository, prd, topic })) };
 }

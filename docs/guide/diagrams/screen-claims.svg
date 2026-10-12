@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 346" width="840" height="346">
+  <title>What a screen claims</title>
+  <desc>A screen of the library is one Markdown file, and its front matter claims three things. In the middle, the screen and its mockup: mock names one self-contained HTML page beside the file, drawn by /omni:pixel-perfect mock, with no script and no remote asset, the screen marked data-screen and each primary action data-primary; it is what a lock is made against and what the word pass reads. On the left, implements: the files the screen is drawn from, its layout, its styles and its words; a change there to a locked screen raises a high outbox item for whoever locked it, and a change there that leaves the mockup alone is named mock may be stale, a note only. On the right, reads: the code behind the screen, its engines, data and rules; an agent reads it for context, and a change there never trips a lock and never marks the mockup stale. Below, omni design touched first drops every changed path a design.ignore glob matches, by default the test shapes, so a change made only of tests reads ui: no; and omni design gallery writes the whole library, each screen with its mockup, as one page in a temporary folder that is never committed.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <text x="20" y="22" class="dg-tag">1 · IMPLEMENTS</text>
+  <rect x="23" y="37" width="250" height="178" class="dg-shadow"/>
+  <rect x="20" y="34" width="250" height="178" class="dg-box"/>
+  <text x="34" y="58" class="dg-code dg-you">implements: [...]</text>
+  <text x="34" y="80" class="dg-small">the files it is drawn from:</text>
+  <text x="34" y="98" class="dg-small">its layout, styles and words</text>
+  <text x="34" y="124" class="dg-small dg-muted">a change to a locked screen</text>
+  <text x="34" y="142" class="dg-small dg-muted">raises a high outbox item</text>
+  <text x="34" y="160" class="dg-small dg-muted">for whoever locked it</text>
+  <text x="34" y="186" class="dg-code">mock may be stale: &lt;screen&gt;</text>
+  <text x="34" y="202" class="dg-small dg-muted">when its mockup was left: a note</text>
+  <path d="M278 123 L284.0 123.0" class="dg-line dg-edge-you"/>
+  <polygon points="293,123 284.0,128.5 284.0,117.5" class="dg-head dg-you"/>
+  <text x="295" y="22" class="dg-tag">2 · THE SCREEN AND ITS MOCKUP</text>
+  <rect x="298" y="37" width="250" height="178" class="dg-shadow"/>
+  <rect x="295" y="34" width="250" height="178" class="dg-box dg-key"/>
+  <text x="309" y="58" class="dg-code">&lt;screen&gt;.md</text>
+  <text x="309" y="76" class="dg-code dg-you">mock: &lt;screen&gt;.html</text>
+  <text x="309" y="100" class="dg-small">one HTML page beside it, drawn by</text>
+  <text x="309" y="120" class="dg-code dg-agents">/omni:pixel-perfect mock</text>
+  <text x="309" y="144" class="dg-small dg-muted">no script, no remote asset</text>
+  <text x="309" y="164" class="dg-code">data-screen · data-primary</text>
+  <text x="309" y="186" class="dg-small dg-muted">what a lock is made against</text>
+  <text x="309" y="202" class="dg-small dg-muted">and what the word pass reads</text>
+  <path d="M562 123 L556.0 123.0" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="547,123 556.0,128.5 556.0,117.5" class="dg-head dg-agents"/>
+  <text x="570" y="22" class="dg-tag">3 · READS</text>
+  <rect x="573" y="37" width="250" height="178" class="dg-shadow"/>
+  <rect x="570" y="34" width="250" height="178" class="dg-box"/>
+  <text x="584" y="58" class="dg-code dg-agents">reads: [...]</text>
+  <text x="584" y="80" class="dg-small">the code behind it:</text>
+  <text x="584" y="98" class="dg-small">engines, data and rules</text>
+  <text x="584" y="124" class="dg-small dg-muted">read by the agent for context</text>
+  <text x="584" y="142" class="dg-small dg-muted">a change here never trips</text>
+  <text x="584" y="160" class="dg-small dg-muted">a lock, and never marks</text>
+  <text x="584" y="178" class="dg-small dg-muted">the mockup stale</text>
+  <rect x="23" y="255" width="395" height="78" class="dg-shadow"/>
+  <rect x="20" y="252" width="395" height="78" class="dg-box"/>
+  <text x="34" y="274" class="dg-code">design.ignore</text>
+  <text x="140" y="274" class="dg-small">drops tests before touched reads</text>
+  <text x="34" y="294" class="dg-code dg-muted">**/*.test.*  **/*.spec.*  **/__tests__/**  **/test/**</text>
+  <text x="34" y="316" class="dg-small dg-muted">a change made only of tests reads ui: no</text>
+  <rect x="428" y="255" width="395" height="78" class="dg-shadow"/>
+  <rect x="425" y="252" width="395" height="78" class="dg-box"/>
+  <text x="439" y="274" class="dg-code">omni design gallery</text>
+  <text x="439" y="294" class="dg-small">every screen and its mockup on one page,</text>
+  <text x="439" y="316" class="dg-small dg-muted">in a temporary folder: never committed</text>
+</svg>

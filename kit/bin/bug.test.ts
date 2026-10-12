@@ -359,3 +359,66 @@ describe('omni bug, a record with ## Fixes (PRD 1118)', () => {
     expect(await allFailures(root, base)).toEqual([`- ${RECORD}: no "## Fix" section.`]);
   });
 });
+
+describe('omni bug — a change to a law needs the fix\'s outbox (PRD 1342)', () => {
+  const LAWS_CONFIG = `${CONFIG_TEXT}laws:\n  source: knowledge\n`;
+  const PROOF = 'app/proof.test.mjs';
+  const INVARIANTS = '.omni-loop/knowledge/product/invariants.md';
+  const OUTBOX = `${DIR}/outbox`;
+  const LAW = `# Product invariants\n\n## N-PRODUCT-1\n\nA save writes one row.\n\nEnforced by: ${PROOF}\n`;
+  const ITEM = [
+    '---', 'id: s1-01-proof', 'prd: 12', 'slice: s1', 'rank: high', 'bears-on: N-PRODUCT-1', 'raised: 2026-10-10', 'wave: 1', '---', '',
+    '## The question, in plain words', '', 'The fix removes the old test of saving. Is that all right?', '',
+    '## The decision, in plain words', '', 'Yes, the new reproduction covers it.', '',
+    '## The options, in plain words', '', 'A. Remove it, as built.', 'B. Keep it.', '',
+    '## What I had to decide', '', 'x', '', '## What I did meanwhile', '', 'Removed it.', '',
+    '## What it costs to change later', '', 'One file.', '', '## What I could not know', '', '(author) w', '',
+  ].join('\n');
+  const ACCOUNT = ['---', 'prd: 12', 'slice: s1', 'graded: 2026-10-10', '---', '', '## Risky changes', '', `- \`${PROOF}\``, 'law-proof', 'item s1-01-proof', '', `- \`${PROOF}\``, 'test-removed', 'item s1-01-proof', ''].join('\n');
+
+  /** A fix branch that removes the law's proof, with `extra` files written beside the record. */
+  function removesProof(configText: string, extra: Record<string, string> = {}) {
+    const repo = setup(configText, { [INVARIANTS]: LAW, [PROOF]: "it('writes one row', () => {});\n" });
+    execFileSync('git', ['rm', '-q', PROOF], { cwd: repo.root });
+    repo.write(REPRO, "it('saves once', () => {});\n");
+    repo.write(RECORD, record());
+    for (const [path, text] of Object.entries(extra)) repo.write(path, text);
+    commit(repo.root, 'fix(app): saving twice keeps one row (#12)');
+    return repo;
+  }
+
+  it('is not ok when the range removes a law\'s test and the folder holds no outbox, naming where it goes', async () => {
+    const { root, base } = removesProof(LAWS_CONFIG);
+    const { code, out } = await run(root, base);
+    expect(code).toBe(1);
+    const need = `a change to a law needs an item ranked high in ${OUTBOX}/ and an account naming it in ${OUTBOX}/accounts/.`;
+    expect(failures(out)).toEqual([`- ${PROOF} (law-proof): ${need}`, `- ${PROOF} (test-removed): ${need}`]);
+  });
+
+  it('is ok once the outbox holds a high item and an account naming it, still open for a person', async () => {
+    const { root, base } = removesProof(LAWS_CONFIG, { [`${OUTBOX}/s1-01-proof.md`]: ITEM, [`${OUTBOX}/accounts/s1.md`]: ACCOUNT });
+    const { code, out } = await run(root, base);
+    expect(failures(out)).toEqual([]);
+    expect(code).toBe(0);
+  });
+
+  it('is not ok when the base\'s law loses its proof, even with the test kept (law-demoted)', async () => {
+    const repo = setup(LAWS_CONFIG, { [INVARIANTS]: LAW, [PROOF]: "it('writes one row', () => {});\n" });
+    repo.write(INVARIANTS, LAW.replace(`Enforced by: ${PROOF}`, 'Enforced by: unenforced'));
+    repo.write(REPRO, "it('saves once', () => {});\n");
+    repo.write(RECORD, record());
+    commit(repo.root, 'fix(app): saving twice keeps one row (#12)');
+    const { out } = await run(repo.root, repo.base);
+    expect(failures(out)).toEqual([
+      expect.stringMatching(new RegExp(`^- ${INVARIANTS} \\(law-text\\): `)),
+      expect.stringMatching(new RegExp(`^- ${INVARIANTS} \\(law-demoted\\): `)),
+    ]);
+  });
+
+  it('asks nothing when laws.source is not knowledge', async () => {
+    const { root, base } = removesProof(CONFIG_TEXT);
+    const { code, out } = await run(root, base);
+    expect(failures(out)).toEqual([]);
+    expect(code).toBe(0);
+  });
+});

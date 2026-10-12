@@ -330,6 +330,40 @@ describe('omni ask off', () => {
   });
 });
 
+// Law BR-PRODUCT-15 (.omni-loop/knowledge/product/rules.md, #1477).
+describe('switching ask mode with the page away', () => {
+  it('law BR-PRODUCT-15: on touches no other terminal\'s session; off always stops the mode, exits 0 and warns once per session left open', async () => {
+    const { root, tokens } = await signedIn({ answer: answerFirst });
+    await ask('on', { root, tokens });
+    await hook('pre', preFrom('term-a'), { root, tokens });
+    const terminal = readTerminal(root, 'term-a');
+    assertDefined(terminal, 'the first terminal');
+    const callsBefore = sessionCalls().length;
+
+    // Switching it on in another terminal opens no session and closes none.
+    const on = await ask('on', { root, tokens });
+    expect(on.code).toBe(0);
+    expect(sessionCalls()).toHaveLength(callsBefore);
+    expect(dig(server.sessions.get(terminal.sessionId), 'status')).toBe('open');
+    expect(readTerminal(root, 'term-a')).toEqual(terminal);
+
+    // Off with the page away: the mode stops anyway, exit 0, one warning per session.
+    writeTerminal(root, 'term-b', { sessionId: 'sess-b', host: server.host });
+    await server.close();
+    const off = await ask('off', { root, tokens });
+
+    expect(off.code).toBe(0);
+    expect(off.out()).toBe('off\n');
+    const warnings = off.err().trim().split('\n');
+    expect(warnings).toHaveLength(2);
+    for (const line of warnings) expect(line).toMatch(/could not close a session .*closes by itself after 12 hours without a call/);
+    expect(readMode(root)).toBeNull();
+    expect(activeMode(root)).toBeNull();
+    expect(readTerminal(root, 'term-a')).toBeNull();
+    expect(readTerminal(root, 'term-b')).toBeNull();
+  });
+});
+
 describe('omni ask status', () => {
   it('prints the person\'s page while the mode is on, and off otherwise, calling nothing while off', async () => {
     const { root, tokens } = await signedIn();

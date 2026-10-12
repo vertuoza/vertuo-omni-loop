@@ -20,11 +20,12 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'landings', 'flow', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'cloud', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e', 'use-cases',
+  'troubleshooting',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Several repositories',
-  'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
+  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
+  'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
 ];
 
 describe('docs/guide', () => {
@@ -32,7 +33,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its twelve pages, in order, each with its title', () => {
+  it('holds its sixteen pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -41,8 +42,8 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories',
-      '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
+      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
 
@@ -56,10 +57,75 @@ describe('docs/guide', () => {
     }
   });
 
+  it('explains roadmaps: one sitting, one map, specs up front, the check, one phase-0 PR, the drive line and the waiting PR (PRD 1162)', () => {
+    const roadmaps = readGuide(GUIDE).pages.find((page) => page.slug === 'roadmaps')?.body ?? '';
+    for (const heading of ['## Write a roadmap', '## roadmap.md', '## Drive it', '## Answer a question']) {
+      expect(roadmaps, heading).toContain(heading);
+    }
+    for (const phrase of ['/omni:roadmap', '/omni:mega-roadmap', 'one map', 'one phase-0', 'omni roadmap check', '/loop /omni:drive --roadmap', '/loop /omni:mega-drive --roadmap', 'waits on', 'omni roadmap answer']) {
+      expect(roadmaps, phrase).toContain(phrase);
+    }
+  });
+
+  it('explains a roadmap\'s prerequisites: the table, the categories, the base checks, what the agent may fix, and the tab (PRD 1218)', () => {
+    const roadmaps = readGuide(GUIDE).pages.find((page) => page.slug === 'roadmaps')?.body ?? '';
+    const at = roadmaps.indexOf('## Prerequisites');
+    expect(at).toBeGreaterThan(0);
+    const section = roadmaps.slice(at);
+    for (const phrase of [
+      '| id | category | need | check | fix | blocks | who |', '`local`', '`access`', '`permissions`', '`github`', '`services`',
+      '`base:docker`', '`base:install`', '**Who can do it:**', 'omni roadmap prereqs', '--fix', 'omni roadmap tick',
+      'never installs software', '**Prerequisites** tab', 'waits on prerequisite',
+    ]) {
+      expect(section, phrase).toContain(phrase);
+    }
+  });
+
+  it('explains products: optional, many to many, a PRD\'s product, the product home and plan.product (PRD 1364)', () => {
+    const { pages } = readGuide(GUIDE);
+    const body = (slug: string) => pages.find((page) => page.slug === slug)?.body ?? '';
+    const products = body('products');
+    for (const heading of ['## Products are optional', '## A repository in several products', '## A PRD\'s product', '## The product home', '## A plan repository reads its targets from a product']) {
+      expect(products, heading).toContain(heading);
+    }
+    for (const phrase of [
+      'no product, one, or several', 'Which product is this PRD for?', '--product', 'product: none',
+      'product is locked: PRD', '**Ledger**', '**Repositories & approvers**', 'Settings › Repositories', 'omni product which', 'plan.product',
+    ]) {
+      expect(products, phrase).toContain(phrase);
+    }
+    const several = body('several-repositories');
+    for (const phrase of ['product: Mobile', 'omni product import --product', 'targets from the last read', '](/docs/products']) {
+      expect(several, phrase).toContain(phrase);
+    }
+    expect(body('index')).toContain('](/docs/products)');
+  });
+
   it('sends someone joining a team past Invade, which their repository needs no more', () => {
     const join = readGuide(GUIDE).pages.find((page) => page.slug === 'join');
     expect(join?.next).toBe('/docs/loop');
     for (const never of ['omni init', 'installing the GitHub App', '/omni:invade']) expect(join?.body).toContain(never);
+  });
+
+  it('walks a member from no token to omni whoami in a cloud session, linked from Install and Join a team (PRD 1628)', () => {
+    const { pages } = readGuide(GUIDE);
+    const body = (slug: string) => pages.find((page) => page.slug === slug)?.body ?? '';
+    const cloud = body('cloud');
+    for (const heading of ['## 1. Make a token', '## 2. Set up the cloud environment', '## 3. Check it', '## What needs no setting up', '## When OMNI_TOKEN fails']) {
+      expect(cloud, heading).toContain(heading);
+    }
+    for (const phrase of [
+      'omni setup-token', 'Make the token in your browser: ', "Paste it as OMNI_TOKEN=<token> in your cloud environment's variables.",
+      '**Terminal tokens**', '**Make a token**', '**Revoke**', '30, 90 or 365',
+      '**Environment variables:**', 'OMNI_TOKEN=omk_…', 'OPENROUTER_API_KEY', '**Network access:**', '**Custom**', '**Full**', 'www.omni-loop.xyz', 'openrouter.ai', 'ask.url',
+      'omni whoami', '<your login> (OMNI_TOKEN ··<last four>)', "Claude's GitHub connection",
+      'OMNI_TOKEN expired on <date>: make a new one with omni setup-token', 'OMNI_TOKEN was revoked: make a new one with omni setup-token',
+      'OMNI_TOKEN: <login> is no longer a member of <workspace>', "OMNI_TOKEN: cannot reach <host>: allow it in your environment's network access",
+      'environment: OMNI_TOKEN is not valid', 'OMNI_TOKEN is set in this environment: revoke it on your profile page',
+    ]) {
+      expect(cloud, phrase).toContain(phrase);
+    }
+    for (const slug of ['install', 'join']) expect(body(slug), slug).toContain('](/docs/cloud)');
   });
 
   it('says why the phase-0 pull request goes into the default branch, and links it where a PRD is approved', () => {
@@ -125,6 +191,28 @@ describe('docs/guide', () => {
     for (const skill of ['/omni:mega-pr-care', '/omni:mega-bug-fix']) {
       expect(desc, `the <desc> names ${skill}`).toContain(skill);
       expect(typed.some((text) => text.startsWith(skill)), `${skill} is drawn as a command you type`).toBe(true);
+    }
+  });
+
+  it('draws a roadmap from its source to the end, and its PRDs over time, on the roadmaps page (PRD 1162)', () => {
+    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'roadmaps');
+    expect(diagramsNamed(page?.body ?? '').map((diagram) => [diagram.src, diagram.alone])).toEqual([
+      ['diagrams/roadmap.svg', true], ['diagrams/roadmap-waves.svg', true],
+    ]);
+  });
+
+  it('draws the roadmap skills among what you type, in one repository and in a plan repository (PRD 1162)', () => {
+    for (const [file, skills] of [
+      ['diagrams/skills.svg', ['/omni:roadmap', '/loop /omni:drive --roadmap']],
+      ['diagrams/skills-repositories.svg', ['/omni:mega-roadmap', '/loop /omni:mega-drive --roadmap']],
+    ] as const) {
+      const svg = readFileSync(join(GUIDE, file), 'utf8');
+      const desc = /<desc>([\s\S]*?)<\/desc>/.exec(svg)?.[1] ?? '';
+      const typed = [...svg.matchAll(/<text [^>]*class="dg-code dg-you"[^>]*>([^<]*)<\/text>/g)].map((m) => sure(m[1], 'm[1]'));
+      for (const skill of skills) {
+        expect(desc, `${file}: the <desc> names ${skill}`).toContain(skill);
+        expect(typed.some((text) => text.startsWith(skill)), `${file}: ${skill} is drawn as a command you type`).toBe(true);
+      }
     }
   });
 
@@ -220,13 +308,14 @@ describe('the guard', () => {
   afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
 
   /** A guide and a kit in a scratch folder: the kit has the skill `plan` and the command `config`;
-   * `files` are more files of the guide, such as its diagrams. */
-  function guide(pages: Record<string, string>, order = Object.keys(pages), files: Record<string, string> = {}) {
+   * `files` are more files of the guide, such as its diagrams; `commandFiles`, more files of the kit's commands. */
+  function guide(pages: Record<string, string>, order = Object.keys(pages), files: Record<string, string> = {}, commandFiles: Record<string, string> = {}) {
     dir = mkdtempSync(join(tmpdir(), 'omni-guide-'));
     const kit = { skills: join(dir, 'skills'), commands: join(dir, 'commands') };
     mkdirSync(join(kit.skills, 'plan'), { recursive: true });
     mkdirSync(kit.commands);
     writeFileSync(join(kit.commands, 'config.ts'), '');
+    for (const [name, text] of Object.entries(commandFiles)) writeFileSync(join(kit.commands, name), text);
     mkdirSync(join(dir, 'guide'));
     writeFileSync(join(dir, 'guide/meta.json'), JSON.stringify({ pages: order }));
     for (const [slug, text] of Object.entries(pages)) writeFileSync(join(dir, 'guide', `${slug}.md`), text);
@@ -248,6 +337,20 @@ describe('the guard', () => {
 
   it('fails on an omni command the CLI does not have', () => {
     expect(guide({ index: page('A', '/docs/b', '```bash terminal\nomni nope\n```'), b: page('B', '/docs') })).toEqual(['index.md: omni nope is no command of the CLI']);
+  });
+
+  it('knows a command its index imports from a file of another name, as `omni wait` from approval-wait.ts (PRD 1322)', () => {
+    const named = page('A', '/docs/b', '```bash terminal\nomni wait approval 7\n```');
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { wait } from './approval-wait.ts';\n" })).toEqual([]);
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { waits } from './approval-wait.ts';\n" }))
+      .toEqual(['index.md: omni wait is no command of the CLI']);
+  });
+
+  it('knows a command its index imports beside others from one file, as `omni whoami` from signin.ts (PRD 1628)', () => {
+    const named = page('A', '/docs/b', '```bash terminal\nomni whoami\nomni signout\n```');
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { signin, signout, whoami } from './signin.ts';\n" })).toEqual([]);
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { signin, signouts, whoamis } from './signin.ts';\n" }))
+      .toEqual(['index.md: omni whoami is no command of the CLI', 'index.md: omni signout is no command of the CLI']);
   });
 
   it('fails on a page with no title', () => {

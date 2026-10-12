@@ -22,12 +22,13 @@ export type Pick = { labels: string[]; otherOn: boolean; otherText: string; shot
 /** The images Other takes, and how many and how large (the bucket's own limits). A round's folder
  * numbers its screenshots 1 to 5, so five is the most for the whole round. */
 export const SHOT_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-export const SHOT_MAX_BYTES = 5 * 1024 * 1024;
+/** 4 MB (PRD 1318): a screenshot goes to the server one per request, under Vercel's 4.5 MB cap. */
+export const SHOT_MAX_BYTES = 4 * 1024 * 1024;
 export const SHOTS_MAX = 5;
 /** Other's answer text when it has screenshots and no text. */
 const SEE_SCREENSHOTS = '(see screenshots)';
 
-const REFUSED = { type: 'PNG, JPEG, GIF or WebP only', size: '5 MB max', count: '5 screenshots max' } as const;
+const REFUSED = { type: 'PNG, JPEG, GIF or WebP only', size: '4 MB max', count: '5 screenshots max' } as const;
 
 /** A round's picks, one per question, in the round's order. */
 export type Draft = Pick[];
@@ -82,7 +83,7 @@ export function typeOther(question: AskQuestion, pick: Pick, typed: string): Pic
 }
 
 /** Adds screenshots to Other of question `index`, which chooses it as typing does. A file that is
- * not an image Other takes, is over 5 MB or would be the round's sixth is left out, and each reason
+ * not an image Other takes, is over 4 MB or would be the round's sixth is left out, and each reason
  * is said once, in the order met; the others are kept. */
 export function addShots(questions: AskQuestion[], draft: Draft, index: number, shots: Shot[]): { draft: Draft; refused: string[] } {
   const question = questions[index];

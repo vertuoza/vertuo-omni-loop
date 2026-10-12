@@ -64,7 +64,7 @@ type Merge = z.infer<typeof MergeSchema>;
 
 function mergeAnswer(merge: Merge): EntryAnswer {
   return {
-    approvedBy: `@${merge.by}`,
+    approvedBy: merge.by, // the login alone: the ledger credits the line as written (PRD 1180)
     approvedAt: merge.at,
     channel: {
       kind: 'feature-pull-request',

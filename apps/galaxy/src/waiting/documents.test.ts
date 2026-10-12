@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Db } from '../ask/page/source';
 import type { NotificationApi } from './alerts';
 import {
-  ANNOUNCED_KEPT, DOCS_ANNOUNCED_KEY, DOCS_DAYS, DOCS_LIMIT, DOCS_SEEN_KEY, documentsReader, groupDocuments, markSeen,
+  ANNOUNCED_KEPT, DOCS_ANNOUNCED_KEY, DOCS_SEEN_KEY, groupDocuments, markSeen,
   noticeDocuments, readSeen, settled, SETTLE_MS, toAnnounce, type Announced, type DocumentGroup, type DocumentRow, type Seen,
 } from './documents';
 import { sure } from '../arcade/test/sure';
@@ -68,49 +67,6 @@ describe('grouping new documents per PRD', () => {
     const draft = { ...row('v1', 'spec', MIN), dossier: { id: 'd-x', prd: null, title: 'Draft' } } as unknown as DocumentRow;
     const odd = { ...row('v2', 'spec', MIN), kind: 'retro' } as unknown as DocumentRow;
     expect(groupDocuments([draft, odd], NEVER)).toEqual([]);
-  });
-});
-
-/** A fake Db that records the query built on it and answers `result`. */
-function recording(result: { data: unknown; error: { message: string } | null }) {
-  const calls: [string, ...unknown[]][] = [];
-  const chain: Record<string, unknown> = {};
-  for (const name of ['select', 'eq', 'not', 'gt', 'gte', 'order', 'limit']) {
-    chain[name] = (...args: unknown[]) => {
-      calls.push([name, ...args]);
-      return chain;
-    };
-  }
-  chain.then = (ok: (r: unknown) => unknown, ko: (e: unknown) => unknown) => Promise.resolve(result).then(ok, ko);
-  const db = { from: (table: string) => { calls.push(['from', table]); return chain; } } as unknown as Db;
-  return { db, calls };
-}
-
-describe('reading new documents', () => {
-  it('reads the versions of the numbered dossiers I opened, from the last 7 days, the 50 newest', async () => {
-    const rows = [row('v1', 'spec', MIN)];
-    const { db, calls } = recording({ data: rows, error: null });
-    expect(await documentsReader(db, 'me-1')(NOW)).toEqual(rows);
-    expect(DOCS_DAYS).toBe(7);
-    expect(DOCS_LIMIT).toBe(50);
-    expect(calls).toContainEqual(['from', 'dossier_versions']);
-    const select = calls.find((c) => c[0] === 'select')?.[1] as string;
-    expect(select.replace(/\s+/g, '')).toBe('id,kind,created_at,dossier:dossiers!inner(id,prd,title,opened_by)');
-    expect(calls).toContainEqual(['eq', 'dossier.opened_by', 'me-1']);
-    expect(calls).toContainEqual(['not', 'dossier.prd', 'is', null]);
-    expect(calls).toContainEqual(['gt', 'created_at', at(NOW - 7 * 24 * 60 * MIN)]);
-    expect(calls).toContainEqual(['order', 'created_at', { ascending: false }]);
-    expect(calls).toContainEqual(['limit', 50]);
-  });
-
-  it('keeps only the kinds it knows, and reads none as empty', async () => {
-    const { db } = recording({ data: null, error: null });
-    expect(await documentsReader(db, 'me-1')(NOW)).toEqual([]);
-  });
-
-  it('throws when the read fails', async () => {
-    const { db } = recording({ data: null, error: { message: 'denied' } });
-    await expect(documentsReader(db, 'me-1')(NOW)).rejects.toThrow(/denied/);
   });
 });
 

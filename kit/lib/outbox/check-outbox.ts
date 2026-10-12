@@ -25,7 +25,8 @@
  *
  * Two more things hold across the whole outbox, not just one item at a time:
  *
- * 6. **Every `Became:` id a `settled.md` carries resolves.** A settled entry that names a
+ * 6. **Every `Became:` id a `settled.md` carries resolves**, except one the law sweep removed,
+ *    which its `Stays here: …, was <id>` line names. A settled entry that names a
  *    knowledge id nothing claims is exactly as broken as an open item whose `bears-on` does not
  *    resolve — the same failure, noticed later, on the ledger instead of the open file. A process
  *    lesson becomes a playbook section, `playbook/<form>#<slot>` (PRD #45): it resolves when that
@@ -178,6 +179,14 @@ function optionsViolations(file: string, options: readonly OutboxOption[] | unde
 }
 
 /**
+ * Whether the law sweep (`omni knowledge judge`, PRD 1342) took `id` out of its register as not
+ * worth a law: it leaves the `Became:` line as it was and appends `Stays here: <why>, was <id>`.
+ */
+function removedBySweep(fields: Readonly<Record<string, string | undefined>>, id: string): boolean {
+  return fields['Stays here']?.endsWith(`, was ${id}`) ?? false;
+}
+
+/**
  * Grades every open item file under every dir `ctx.layout.outboxDirs()` names, plus the two
  * outbox-wide checks: every `Became:` id every `settled.md` carries resolves (a law through
  * `laws`, a playbook section through the form parser), and no open item sits inside a shipped
@@ -206,6 +215,7 @@ export function findOutboxViolations({ ctx }: { ctx: Context }): string[] {
 
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
       for (const id of entry.became) {
+        if (removedBySweep(entry.fields, id)) continue;
         const resolved = isPlaybookId(id) ? resolvePlaybookId(id, { ctx }) : laws.resolve(id);
         if (!resolved.ok) {
           violations.push(

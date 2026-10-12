@@ -98,6 +98,41 @@ describe('toStageEvent', () => {
   });
 });
 
+describe('toStageEvent, a PRD born on the server (PRD 1299, s6)', () => {
+  const labeled = (name: unknown, over: Record<string, unknown> = {}) => ({
+    action: 'labeled',
+    installation: { id: 7 },
+    repository: REPOSITORY,
+    label: { name },
+    issue: { number: 1299, updated_at: '2026-10-09T11:00:00Z', ...over },
+  });
+
+  it('turns the approved label added to a PRD\'s issue into inbox, dated at its approval', () => {
+    expect(toStageEvent('issues', labeled('omni:approved')))
+      .toEqual({ repository: 'acme/widgets', topic: '1299', prd: 1299, stage: 'inbox', at: '2026-10-09T11:00:00Z' });
+  });
+
+  it('follows the approved label it is given', () => {
+    const shapes = {
+      branches: { phase0: 'docs/phase-0-{topic}', slice: 'feat/{topic}--{slice}', feature: 'feat/{topic}', retro: 'docs/retro-{topic}' },
+      prLinks: { feature: 'Closes #{prd}' },
+      approved: 'signed-off',
+    };
+    expect(toStageEvent('issues', labeled('signed-off'), shapes)?.stage).toBe('inbox');
+    expect(toStageEvent('issues', labeled('omni:approved'), shapes)).toBeNull();
+  });
+
+  it('gives no stage event for another label, another action, a pull request or a payload of another shape', () => {
+    expect(toStageEvent('issues', labeled('omni:prd'))).toBeNull();
+    expect(toStageEvent('issues', { ...labeled('omni:approved'), action: 'unlabeled' })).toBeNull();
+    expect(toStageEvent('issues', labeled('omni:approved', { pull_request: { url: 'x' } }))).toBeNull();
+    expect(toStageEvent('issues', labeled('omni:approved', { number: 0 }))).toBeNull();
+    expect(toStageEvent('issues', labeled('omni:approved', { updated_at: null }))).toBeNull();
+    expect(toStageEvent('issues', labeled(7))).toBeNull();
+    expect(toStageEvent('issue_comment', labeled('omni:approved'))).toBeNull();
+  });
+});
+
 describe('signStageEvent', () => {
   it('is an HMAC-SHA256 over the exact body', () => {
     const body = '{"stage":"inbox"}';

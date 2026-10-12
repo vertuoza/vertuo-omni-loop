@@ -9,7 +9,8 @@ import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
 /** The flat test layout's context, typed as the kit's own (it carries every field the code reads). */
 const flatCtx = (root: string, overrides: Record<string, unknown> = {}): Context =>
   untypedFlatCtx(root, overrides) as unknown as Context;
-import { riskyChanges } from './decision-coverage.ts';
+import { memorySource } from '../knowledge/registers.ts';
+import { enforcedByPaths, riskyChanges } from './decision-coverage.ts';
 
 function change(path: string, status = 'M') {
   return { path, status };
@@ -283,5 +284,134 @@ describe('riskyChanges — the risky paths are config, not literals (Task 8, Ste
     expect(riskyChanges([change('.omni-loop/knowledge/adr/0002-x.md', 'A')], { ctx: defaultCtx })).toEqual([
       { path: '.omni-loop/knowledge/adr/0002-x.md', status: 'A', rule: 'law-text' },
     ]);
+  });
+});
+
+/** An invariants file holding one entry per `[id, Enforced by: value]` pair. */
+function invariantsText(entries: [string, string][]): string {
+  return entries
+    .flatMap(([id, enforcedBy]) => [`## ${id}`, '', `Invariant ${id}.`, '', `Enforced by: ${enforcedBy}`, ''])
+    .join('\n');
+}
+
+/** The base branch's knowledge folder, holding only the product invariants given. */
+function baseWith(entries: [string, string][]) {
+  return memorySource({ [INVARIANTS]: invariantsText(entries) });
+}
+
+/** The rules fired over a range that changed the invariants file, graded against `base`. */
+function demotedOver(base: ReturnType<typeof baseWith> | null, status = 'M', options: { ctx?: Context } = {}) {
+  return riskyChanges([change(INVARIANTS, status)], { ctx: options.ctx ?? ctx, base });
+}
+
+describe('riskyChanges — law-demoted (PRD 1342)', () => {
+  const PROOF = 'kit/lib/proof.test.ts';
+
+  it('fires when a law entry is removed between the base and the head', () => {
+    seed(INVARIANTS, invariantsText([['N1', PROOF]]));
+    const risky = demotedOver(baseWith([['N1', PROOF], ['N2', 'unenforced']]));
+    expect(risky).toEqual([
+      { path: INVARIANTS, status: 'M', rule: 'law-text' },
+      { path: INVARIANTS, status: 'M', rule: 'law-demoted' },
+    ]);
+  });
+
+  it('fires when the whole register file is deleted, with the change status', () => {
+    const risky = demotedOver(baseWith([['N1', PROOF]]), 'D');
+    expect(risky).toEqual([
+      { path: INVARIANTS, status: 'D', rule: 'law-text' },
+      { path: INVARIANTS, status: 'D', rule: 'law-demoted' },
+    ]);
+  });
+
+  it('fires when an Enforced by: path turns to pending', () => {
+    seed(INVARIANTS, invariantsText([['N1', 'pending #12']]));
+    const rules = demotedOver(baseWith([['N1', PROOF]])).map((entry) => entry.rule);
+    expect(rules).toEqual(['law-text', 'law-demoted']);
+  });
+
+  it('fires when an Enforced by: path turns to unenforced', () => {
+    seed(INVARIANTS, invariantsText([['N1', 'unenforced']]));
+    const rules = demotedOver(baseWith([['N1', PROOF]])).map((entry) => entry.rule);
+    expect(rules).toEqual(['law-text', 'law-demoted']);
+  });
+
+  it('does not fire when the path is kept, or swapped for another path', () => {
+    seed(INVARIANTS, invariantsText([['N1', PROOF], ['N2', 'kit/lib/other.test.ts']]));
+    const base = baseWith([['N1', PROOF], ['N2', 'kit/lib/older.test.ts']]);
+    expect(demotedOver(base).map((entry) => entry.rule)).toEqual(['law-text']);
+  });
+
+  it('does not fire when a law is promoted, unenforced to pending or pending to a path', () => {
+    seed(INVARIANTS, invariantsText([['N1', 'pending #3'], ['N2', PROOF]]));
+    const base = baseWith([['N1', 'unenforced'], ['N2', 'pending #4']]);
+    expect(demotedOver(base).map((entry) => entry.rule)).toEqual(['law-text']);
+  });
+
+  it('does not count a proposed entry removed as a law removed', () => {
+    seed(INVARIANTS, '');
+    const base = memorySource({
+      [INVARIANTS]: ['## N1', '', 'Not yet a law.', '', `Enforced by: ${PROOF}`, 'Proposed: harvest 2026-10-01', ''].join('\n'),
+    });
+    expect(demotedOver(base).map((entry) => entry.rule)).toEqual(['law-text']);
+  });
+
+  it('counts a law removed whatever its Enforced by: said', () => {
+    seed(INVARIANTS, '');
+    expect(demotedOver(baseWith([['N1', 'unenforced']])).map((entry) => entry.rule)).toEqual(['law-text', 'law-demoted']);
+  });
+
+  it('counts a rule removed as a law removed', () => {
+    const RULES_FILE = 'docs/knowledge/product/rules.md';
+    const base = memorySource({ [RULES_FILE]: ['## BR-PRODUCT-1', '', 'A rule.', '', 'Serves: P-PRODUCT-1', 'Enforced by: unenforced', ''].join('\n') });
+    expect(riskyChanges([change(RULES_FILE)], { ctx, base }).map((entry) => entry.rule)).toEqual(['law-text', 'law-demoted']);
+  });
+
+  it('does not count a principle removed as a law removed', () => {
+    const PRINCIPLES = 'docs/knowledge/product/principles.md';
+    const base = memorySource({ [PRINCIPLES]: ['## P-PRODUCT-1', '', 'A principle.', '', 'Why: because.', ''].join('\n') });
+    expect(riskyChanges([change(PRINCIPLES)], { ctx, base }).map((entry) => entry.rule)).toEqual(['law-text']);
+  });
+
+  it('reports a register file once however many of its laws were demoted', () => {
+    seed(INVARIANTS, invariantsText([['N1', 'unenforced']]));
+    const risky = demotedOver(baseWith([['N1', PROOF], ['N2', PROOF], ['N3', 'unenforced']]));
+    expect(risky.filter((entry) => entry.rule === 'law-demoted')).toHaveLength(1);
+  });
+
+  it('names the file the law sits in at the head, with M when that file is outside the range', () => {
+    const DOMAIN = 'docs/knowledge/domains/advisor/invariants.md';
+    seed(DOMAIN, invariantsText([['N1', 'unenforced']]));
+    const base = baseWith([['N1', PROOF]]);
+    expect(riskyChanges([change(DOMAIN, 'A')], { ctx, base })).toEqual([
+      { path: DOMAIN, status: 'A', rule: 'law-text' },
+      { path: DOMAIN, status: 'A', rule: 'law-demoted' },
+    ]);
+    expect(riskyChanges([], { ctx, base })).toEqual([{ path: DOMAIN, status: 'M', rule: 'law-demoted' }]);
+  });
+
+  it('never fires without a base to compare with', () => {
+    seed(INVARIANTS, '');
+    expect(demotedOver(null).map((entry) => entry.rule)).toEqual(['law-text']);
+    expect(riskyChanges([change(INVARIANTS)], { ctx }).map((entry) => entry.rule)).toEqual(['law-text']);
+  });
+
+  it('never fires when laws.source is not "knowledge"', () => {
+    seed(INVARIANTS, '');
+    const noLawsCtx = flatCtx(root, { risk: RISK, laws: { source: 'none' } });
+    const rules = demotedOver(baseWith([['N1', PROOF]]), 'M', { ctx: noLawsCtx }).map((entry) => entry.rule);
+    expect(rules).toEqual(['law-text']);
+  });
+});
+
+describe('enforcedByPaths — pending names no path (PRD 1342)', () => {
+  it('reads pending #<n> as no proof path, and a path beside it still as one', () => {
+    seed(INVARIANTS, invariantsText([['N1', 'pending #12'], ['N2', 'kit/lib/a.test.ts']]));
+    expect([...enforcedByPaths({ ctx })]).toEqual(['kit/lib/a.test.ts']);
+  });
+
+  it('fires law-proof on no change named after a pending line', () => {
+    seed(INVARIANTS, invariantsText([['N1', 'pending #12']]));
+    expect(rulesFiredOn('pending #12')).toEqual([]);
   });
 });

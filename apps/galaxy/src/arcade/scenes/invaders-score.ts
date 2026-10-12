@@ -1,9 +1,12 @@
 // A game's score at its end (Entropy Invaders' game over; Super Omni World's game over or WORLD
 // CLEAR, PRD 817), as pure functions: sent once, with one retry on A when that fails; NEW BEST when
 // it is one; and the crew's table it changes, which the cabinet's top five and the HI on the score
-// line show. The sending itself is the account's (Account.submitScore(), through submitSend()).
+// line show. The sending itself is the account's (Account.submitScore(), through submitSend()). Each reads the game's measure (`points`, the default, or
+// `time`, PRD 1440) through ../measure.
 import { TOP } from '../../data/scores';
 import type { Action } from '../keys';
+import type { Measure } from '../games/index';
+import { betterThan, measureOf, orderOf, textOf } from '../measure';
 import type { ScoreLine, ScoresRead } from '../types';
 
 /** Where the game over's score is: being sent, saved (with the best as stored), or not saved. */
@@ -17,12 +20,16 @@ export const SEND_TRIES = 2;
 
 export const sending = (score: number, tries = 1): ScoreSend => ({ state: 'sending', score, tries });
 
-/** NEW BEST: the score is now the stored best, and higher than the player's best before it (none counts as 0). */
-export const isNewBest = (score: number, best: number, before: number | null): boolean => best === score && score > (before ?? 0);
+/**
+ * NEW BEST: the score is now the stored best, and better than the player's best before it. For points
+ * (the default) none counts as 0, so a first score of 0 is no best; for a time the first one is a NEW BEST.
+ */
+export const isNewBest = (score: number, best: number, before: number | null, measure: Measure = 'points'): boolean =>
+  best === score && (measure === 'time' ? before === null || betterThan(measure, score, before) : score > (before ?? 0));
 
 /** The send came back with the player's best as stored; `before` is the best the arcade knew of theirs. */
-export function saved(send: ScoreSend, best: number, before: number | null): ScoreSend {
-  return { state: 'saved', score: send.score, best, newBest: isNewBest(send.score, best, before) };
+export function saved(send: ScoreSend, best: number, before: number | null, measure: Measure = 'points'): ScoreSend {
+  return { state: 'saved', score: send.score, best, newBest: isNewBest(send.score, best, before, measure) };
 }
 
 export function failed(send: ScoreSend): ScoreSend {
@@ -48,11 +55,12 @@ export function overPress(send: ScoreSend | null, action: Action): 'retry' | 'ga
  * sorted best first, an equal score already there staying ahead, five lines kept. A best no higher
  * than the one the table knew changes nothing; a table out of reach stays so.
  */
-export function withBest(board: ScoresRead | undefined, line: ScoreLine): ScoresRead {
+export function withBest(board: ScoresRead | undefined, line: ScoreLine, measure: Measure = 'points'): ScoresRead {
   if (board === 'unreadable') return board;
-  if (board && board.mine !== null && line.best <= board.mine) return board;
+  if (board && board.mine !== null && !betterThan(measure, line.best, board.mine)) return board;
   const others = board ? board.top.filter((l) => l.id !== line.id) : [];
-  return { top: [...others, line].sort((a, b) => b.best - a.best).slice(0, TOP), mine: line.best };
+  const order = orderOf(measure);
+  return { top: [...others, line].sort((a, b) => order(a.best, b.best)).slice(0, TOP), mine: line.best };
 }
 
 /** The HI on the score line: the crew's best, none before any score or when the table is out of reach. */
@@ -60,15 +68,13 @@ export function hiOf(board: ScoresRead | undefined): ScoreLine | null {
   return board && board !== 'unreadable' ? board.top[0] ?? null : null;
 }
 
-/** A best as the send's line shows it: its digits in groups of three, `9 210` (the crew table's way). */
-const bestDigits = (n: number) => String(Math.max(0, Math.floor(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-
 /** The end screen's line on its score: being saved, NEW BEST or the player's best, or not saved. */
-export function sendLine(send: ScoreSend | null): string | null {
+export function sendLine(send: ScoreSend | null, measure: Measure = 'points'): string | null {
   if (!send) return null;
-  if (send.state === 'sending') return 'SAVING SCORE…';
-  if (send.state === 'failed') return 'SCORE NOT SAVED';
-  return send.newBest ? 'NEW BEST' : `YOUR BEST ${bestDigits(send.best)}`;
+  const what = measure === 'time' ? 'TIME' : 'SCORE';
+  if (send.state === 'sending') return `SAVING ${what}…`;
+  if (send.state === 'failed') return `${what} NOT SAVED`;
+  return send.newBest ? 'NEW BEST' : `YOUR BEST ${textOf(measure, send.best)}`;
 }
 
 /**
@@ -84,7 +90,7 @@ export async function submitSend(
 ): Promise<{ send: ScoreSend; best: number | null }> {
   try {
     const best = await account.submitScore(game, attempt.score);
-    return { send: saved(attempt, best, before), best };
+    return { send: saved(attempt, best, before, measureOf(game)), best };
   } catch (err) {
     console.error(err);
     return { send: failed(attempt), best: null };

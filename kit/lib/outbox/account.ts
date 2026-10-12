@@ -24,13 +24,17 @@ import { basename } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
 import { withFile } from '../front-matter.ts';
 import { AccountFrontMatterSchema } from '../schema/front-matter.ts';
-import { SETTLED_FILE, outboxItemFiles, parseHeadingSections, readFrontMatterBlock } from './outbox.ts';
+import { SETTLED_FILE, outboxItemFiles, parseHeadingSections, parseOutboxItem, readFrontMatterBlock } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
-/** What an entry's account line says: `item <id>` or `spec <where>`, and no third form. */
-export type AccountLine = { kind: 'item'; id: string } | { kind: 'spec'; where: string };
+/**
+ * What an entry's account line says: `item <id>` or `spec <where>`, and no third form. An item's
+ * `rank` is what {@link readAccounts} read off the item it names (PRD 1342): its rank, `null` when
+ * the item does not say; {@link parseAccount} reads no item, and leaves it out.
+ */
+export type AccountLine = { kind: 'item'; id: string; rank?: string | null } | { kind: 'spec'; where: string };
 
 /** One accounted risky change: its path, the rule that fired, and the account written for it. */
 export type AccountEntry = { path: string; rule: string; account: AccountLine };
@@ -215,17 +219,18 @@ export function readAccounts(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): P
   if (!existsSync(`${ctx.root}/${dir}`)) return [];
 
   const prdPrefix = `${outboxDir}/`;
-  const itemIds = new Set(
-    outboxItemFiles({ ctx })
-      .filter((path) => path.startsWith(prdPrefix))
-      .map((path) => basename(path, '.md')),
-  );
+  // Each item id this PRD holds, with its rank: `null` when the file does not parse.
+  const ranks = new Map<string, string | null>();
+  for (const path of outboxItemFiles({ ctx }).filter((file) => file.startsWith(prdPrefix))) {
+    const parsed = parseOutboxItem(readRepoFile(ctx, path));
+    ranks.set(basename(path, '.md'), parsed.ok ? parsed.item.rank : null);
+  }
   // A settled item is still the decision the account points at: settling moves it into
-  // `settled.md`, it does not unmake it.
+  // `settled.md`, it does not unmake it, and its entry keeps the rank it was raised with.
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (existsSync(`${ctx.root}/${settledFile}`)) {
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
-      itemIds.add(entry.id);
+      ranks.set(entry.id, entry.fields.Rank ?? null);
     }
   }
 
@@ -240,7 +245,7 @@ export function readAccounts(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): P
     if (!parsed.ok) return parsed;
 
     const unresolved = parsed.account.entries.flatMap((entry) =>
-      entry.account.kind === 'item' && !itemIds.has(entry.account.id) ? [entry.account.id] : [],
+      entry.account.kind === 'item' && !ranks.has(entry.account.id) ? [entry.account.id] : [],
     );
     if (unresolved.length > 0) {
       return {
@@ -254,8 +259,33 @@ export function readAccounts(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): P
       };
     }
 
-    return parsed;
+    const entries = parsed.account.entries.map((entry): AccountEntry =>
+      entry.account.kind === 'item'
+        ? { ...entry, account: { ...entry.account, rank: ranks.get(entry.account.id) ?? null } }
+        : entry,
+    );
+    return { ok: true, account: { ...parsed.account, entries } };
   });
+}
+
+/**
+ * The four rules a change to a law fires (PRD 1342): its proof, its text, a test removed, and the
+ * law demoted. A person answers each: only an `item <id>` ranked {@link LAW_RANKS} accounts for one.
+ */
+export const LAW_RULES: readonly string[] = ['law-proof', 'law-text', 'test-removed', 'law-demoted'];
+
+/** The ranks of an item a person must answer, the only ones that account for a law change. */
+const LAW_RANKS: readonly (string | null | undefined)[] = ['high', 'human-action'];
+
+/** Why `entry` cannot account for the change it names, or `null` when it can. */
+function refusal(entry: AccountEntry): string | null {
+  if (!LAW_RULES.includes(entry.rule)) return null;
+  const { account } = entry;
+  if (account.kind === 'spec') {
+    return `its account "spec ${account.where}" is refused: a change to a law is accounted only by an item ranked high`;
+  }
+  if (LAW_RANKS.includes(account.rank)) return null;
+  return `its account names item ${account.id}, ranked ${account.rank ?? 'unknown'}: a change to a law needs an item ranked high`;
 }
 
 /** `path` and `rule` together identify one risky change (a path may fire more than one rule). */
@@ -271,8 +301,11 @@ function entryKey(change: { path: string; rule: string }): string {
  * handled by the caller.
  *
  * - `accounted` — a risky change some entry names, matched on `path` **and** `rule` together, since
- *   one path firing two rules needs two entries.
- * - `unaccounted` — a risky change no entry names. The only fatal list.
+ *   one path firing two rules needs two entries. For a law rule (PRD 1342) the entry must name an
+ *   item ranked `high` or `human-action`: a `spec` line, or an item ranked `medium` or unread,
+ *   names the change without accounting for it.
+ * - `unaccounted` — a risky change no entry accounts for. The only fatal list. A change an entry
+ *   named and could not account for carries `refused`, the reason, in plain words.
  * - `stale` — an entry naming a `path`/`rule` pair the risky list does not hold. Reported, never
  *   fatal — a rebase shifting the range, or a rule set change, is a planner being wrong about the
  *   ground, not a breach.
@@ -284,16 +317,27 @@ function entryKey(change: { path: string; rule: string }): string {
 export function compare<R extends { path: string; rule: string }>(
   risky: readonly R[],
   accounts: readonly Pick<Account, 'slice' | 'file' | 'entries'>[],
-): { accounted: R[]; unaccounted: R[]; stale: NamedEntry[] } {
+): { accounted: R[]; unaccounted: (R & { refused?: string })[]; stale: NamedEntry[] } {
   const entries: NamedEntry[] = accounts.flatMap((account) =>
     account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file })),
   );
 
-  const namedKeys = new Set(entries.map(entryKey));
+  const accepted = new Set<string>();
+  const refused = new Map<string, string>();
+  for (const entry of entries) {
+    const why = refusal(entry);
+    if (why === null) accepted.add(entryKey(entry));
+    else refused.set(entryKey(entry), why);
+  }
   const riskyKeys = new Set(risky.map(entryKey));
 
-  const accounted = risky.filter((change) => namedKeys.has(entryKey(change)));
-  const unaccounted = risky.filter((change) => !namedKeys.has(entryKey(change)));
+  const accounted = risky.filter((change) => accepted.has(entryKey(change)));
+  const unaccounted = risky
+    .filter((change) => !accepted.has(entryKey(change)))
+    .map((change) => {
+      const why = refused.get(entryKey(change));
+      return why === undefined ? change : { ...change, refused: why };
+    });
   const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
 
   return { accounted, unaccounted, stale };

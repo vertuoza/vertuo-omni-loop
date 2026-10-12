@@ -37,9 +37,15 @@ jobs:
       # of the services no step uses.
       - run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
+      - name: Every new migration is dated after the newest on main
+        # `supabase db push` refuses a migration dated before the newest one production applied (PRD
+        # 1364, 2026-10-11): re-date it after the one this names. main is read as it is now, not as the
+        # pull request found it.
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          node scripts/migration-order.ts --base origin/main
       - run: pnpm install --frozen-lockfile
       - name: The database's types are what the migrations generate
         # `supabase gen types --local`, by the pinned CLI above, against the database just started;
@@ -74,6 +80,10 @@ jobs:
         # role adds versions through the same rule: a version only when its content changed, never
         # rewritten. Only the opener deletes a draft; nobody deletes a numbered dossier.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossiers.sql
+      - name: The PRD list loads at a real workspace's size
+        # A member lists 1400 dossiers, with their versions and 25,200 answered rounds, through
+        # dossier_list() as /prd does, inside production's 8 second statement timeout (bug #1308).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_list_volume.sql
       - name: Who may read and write the heartbeats
         # working_ping() upserts the caller's own row and resolves its dossier (a draft, a PRD, a visual
         # or bug fix, or null); another account cannot write it, nobody signed in writes the table, a
@@ -86,6 +96,13 @@ jobs:
         # parked when PRDs still wait. Another account cannot push to it, nobody signed in writes the
         # three tables, a member of the workspace reads them, and anyone else reads nothing (PRD 1139).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/loops.sql
+      - name: Who may read and write the roadmaps
+        # roadmap_push() files a roadmap in its repository's workspace with its PRDs in order and its
+        # product matched by name among the workspace's own; a second push, by any member, replaces its
+        # document, questions and PRDs; an unknown product is filed under none and said. Nobody signed
+        # in writes the two tables, a roadmap never points at another workspace's product, a member of
+        # the workspace reads them, anyone else nothing; a loop's tick keeps its repositories (PRD 1162).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/roadmaps.sql
       - name: Who may read and write the releases
         # Anyone, signed out or signed in, reads every release, and nobody writes one. Only the service
         # role (pnpm releases:sync) adds releases and refreshes their text, and it never renumbers,
@@ -113,6 +130,12 @@ jobs:
         # each member's answered rounds in that workspace's sessions only; both return nothing to a
         # non-member, and neither runs signed out.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dashboards.sql
+      - name: What the game reads of the answered rounds
+        # game_answered_rounds returns one workspace's rounds answered since a moment, each with its PRD
+        # (brainstorm rule first, then delivery, numbered PRD dossiers only), its home and the
+        # answerer's lower-case login; none without a PRD or a login. Only the service role runs it,
+        # and the ledger takes QUESTION_ANSWERED (PRD 1180).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/game_answered_rounds.sql
       - name: Who may read and write the PRD stages
         # Only the service role records a PRD's stages and topics, and a second write of a stage keeps
         # its first date. A member reads their own workspace's rows; anyone else reads nothing, and
@@ -132,6 +155,21 @@ jobs:
         # are refused. Members read the repositories, pull requests and reviews; a stranger reads
         # nothing; nobody writes the three tables directly. vertuoza alone is seeded with six.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/repositories.sql
+      - name: A repository in several products
+        # PRD 1364: a repository links to any number of products, each link with its own role,
+        # knowledge, read-at, read-only and consumes. Only an owner links and unlinks; a self-consume,
+        # a consumes outside the product and an imported link without read-at are refused.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_repositories.sql
+      - name: A PRD's product
+        # PRD 1364: a PRD and an idea carry an optional product, taken at birth from a repository in one
+        # product, none in no product, the named one in several; changing it is locked while an approval
+        # is in force, and a PRD's product links its repositories.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_product.sql
+      - name: Which product a lookup finds
+        # PRD 1364: every product lookup reads the PRD's own product, then the repository's only
+        # product, then none: approvers, claims, personas, constituents and pitch follow it, and a
+        # token in a workspace of several products answers with no product instead of failing.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_lookups.sql
       - name: Who may read and write the business
         # Any member of a workspace opens its business, picks, suggests, confirms and rejects claims,
         # adds and renames products, points repositories at them and cites claims, through the business
@@ -207,6 +245,53 @@ jobs:
         # repository's product's settings, {} for none. A member uploads, replaces, reads and removes their
         # products' files in the private pitch-assets bucket; nobody else touches them.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/pitch_settings.sql
+      - name: Who may approve a PRD born on the server
+        # A PRD dossier's first spec sets its birthplace once (server when it says phase0: server). A
+        # member approves a numbered ◆ PRD holding a spec, a plan and a before/after, pinning the latest
+        # version of each kind; a non-member, a ◇ dossier and a missing file are refused. A second
+        # approval adds a row; nobody updates or deletes one. dossier_approval() answers the approval
+        # in force, and nothing to another workspace (PRD 1299).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approvals.sql
+      - name: Who approves a product's PRDs, and how each person is reached
+        # Only a workspace's owner lists a product's approvers, each asked or skipped; a member, another
+        # workspace's owner and anyone signed out are refused (42501), a stranger to the workspace or
+        # another state (22023). Every member reads the list. Once a member is asked, only asked members
+        # approve the product's PRDs; with no product or nobody asked, any member does. Each person's
+        # alert channels and push subscriptions are theirs alone (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_approvers.sql
+      - name: Asking a PRD's approvers
+        # approval_request() asks the product's members asked to approve except the author, or the
+        # author alone when nobody else is; a skipped member is never asked, a second request is
+        # re-asked. Requests and voids are read by members and never written or changed directly. Only
+        # the service role reads how each asked person is reached, behind their switches; the bell lists
+        # the latest request with no approval since (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approval_requests.sql
+      - name: A push that changes a pinned file voids the approval
+        # dossier_push() appends a void only when it adds a version of a kind the approval in force
+        # pinned, with another sha256, never editing the approval; dossier_approval() answers its voids,
+        # and a new approval is in force again. approval_voids_of_push() names the caller's last push's
+        # voids only; only the service role reads how the approver is reached (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approval_voiding.sql
+      - name: Who may race on a workspace's kart grid
+        # Only a player of the workspace with OMNI KART unlocked receives or sends Broadcast and
+        # Presence on kart:<workspace id>; another workspace, no kart unlocked, no player row, anon,
+        # or a topic that is not kart:<uuid>, nothing (PRD 1572, ADR-0101).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/kart_grid.sql
+      - name: A product PRD's id, its product's key and a counter
+        # Only an owner sets a product's key, once, in lowercase kebab-case, unique in the workspace.
+        # dossier_push() with the key creates the product's next PRD, with no home repository, born on the
+        # server, or pushes to one by its number; neither its number nor its product changes. A dossier is
+        # keyed by its repository or its product's counter, never both. dossier_approval(),
+        # approval_request() and dossier_approve() take either key; another workspace's key is its own.
+        # The rollback guard refuses while a product PRD exists. Two creates at once, in two sessions
+        # through dblink, take two numbers with no gap (PRD 1548).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_prd_ids.sql
+      - name: A product PRD's outbox items and their append-only settlements
+        # outbox_item_put() writes an item row with its typed columns and its markdown, rewritten while
+        # it is open; outbox_settle() appends one settlement and refuses a second, and a non-member;
+        # outbox_item_adopt() settles a medium item adopted. A settlement is never updated or deleted,
+        # and another workspace reads nothing (PRD 1548).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/outbox_items.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
@@ -223,4 +308,7 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase link --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"
-      - run: supabase db push       # migrations only; the demo seed never reaches production
+      # --include-all: a migration dated before one production already applied still goes in, rather than
+      # blocking every deploy after it. The `check` job refuses one, but only against the main it saw: a
+      # later migration that merges after it ran is applied here (PRD 1364, 2026-10-11).
+      - run: supabase db push --include-all   # migrations only; the demo seed never reaches production

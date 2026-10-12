@@ -23,6 +23,8 @@ const StepSchema = z.object({
   waitsFor: z.array(PrdNumberSchema),
   why: z.array(z.string()),
   beside: z.array(z.number().int().positive()),
+  // PRD 1162, slice s1: in a plan repository, the repositories the step touches.
+  repos: z.array(z.string()).exactOptional(),
 });
 
 const LoopPlanSchema = z.object({

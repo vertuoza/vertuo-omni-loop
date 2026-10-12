@@ -6,8 +6,10 @@ import type { DossierListRow } from '../../src/dossier/store';
 import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
+import '../../src/product-filter/product-filter.css';
+import { productListScope } from '../../src/product-filter/ProductFilter';
 import {
-  HISTORY_CALLBACK, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
+  HISTORY_CALLBACK, HISTORY_PATH, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
   rosterReader, whoLogin, type CurrentStages, type OpenCounts, type Whom,
 } from '../../src/dossier/page/history';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
@@ -37,6 +39,9 @@ import { prdKey, stageStore } from '../../src/stages/store';
 // filters stream with the rows: their repositories and the empty list's words come from the same read.
 // PRD 698 (s4): `who=<login>` lists the PRDs that person opened: the login's account ids are read from the
 // rosters of the listed dossiers' workspaces (workspace_roster, as the signed-in person), only then.
+// PRD 1364 s12: `product=<id>` or `product=none` keeps the PRDs of that product, or of none, read from
+// dossiers.product_id as the signed-in person; the filter's links are drawn above the list when the
+// listed workspaces have a product (src/product-filter/). The demo has no product, so no filter.
 
 export const metadata: Metadata = { title: 'PRDs · OMNI LOOP' };
 
@@ -76,19 +81,20 @@ export default async function HistoryRoute({ searchParams }: Props) {
 
   /** The list as the signed-in person reads it: the dossiers, then their open questions and stages. */
   async function history(userId: string): Promise<ReactNode> {
-    let rows: DossierListRow[];
+    let listed: DossierListRow[];
     try {
-      rows = ofWork(await readHistory(db), 'prd');
+      listed = ofWork(await readHistory(db), 'prd');
     } catch (error) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
+    const { rows, above } = await productListScope(HISTORY_PATH)(db, listed, query);
     const whom = login ? await readLoginIds(rows, login, rosterReader(db)) : undefined;
     const [open, stages] = await Promise.all([
       readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),
       readCurrentStages(rows, stageStore(db)),
     ]);
-    return listing(rows, userId, open, stages, whom);
+    return <>{above}{listing(rows, userId, open, stages, whom)}</>;
   }
   return <Streamed read={history(user.id)} skeleton={<PrdListLoading />} failed={<DossierDatabaseDown />}>{(list) => list}</Streamed>;
 }

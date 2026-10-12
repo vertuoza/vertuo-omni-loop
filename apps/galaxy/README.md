@@ -7,8 +7,8 @@ GitHub makes you a member of the workspace of every GitHub org of yours that has
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
 counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
 game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
-and levels open arcade games in the game room: Entropy Invaders from LV 1, then SUPER OMNI WORLD
-from LV 2 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+and levels open arcade games in the game room: Entropy Invaders from LV 1, SUPER OMNI WORLD
+from LV 2, then OMNI KART from LV 3 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
@@ -38,6 +38,13 @@ Game Boy's buttons on a phone (design:
 - The music and sounds are generated in the browser, SNES style: two pulse leads, a triangle bass,
   noise drums and one echo (`src/arcade/sound.ts`), playing songs written as note strings
   (`src/arcade/score.ts`). No audio files.
+- OMNI KART sounds like a race. The effects: the countdown's beeps and GO, one sound per item (BOOST,
+  BLOB, ORB), a box, a hit, a spin-out, a fall into the void and the FINAL LAP jingle; a rival's are quieter
+  and lower the farther it is, and silent beyond 20 tiles. The music: nothing on the ready screen or
+  the countdown, the `race` tune from GO, the `lastLap` tune (the same, faster) after the FINAL LAP
+  jingle, nothing while paused, and the arcade's fanfare on the results. The engine: one quiet hum
+  under the music whose pitch follows your speed, from a low note at rest to an octave above at top
+  speed. M mutes all of it, and leaving the cabinet stops it.
 
 ## HOME at `/`, the arcade at `/play`
 
@@ -120,9 +127,10 @@ HOME.
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.ts`, with each player's hero and name |
-| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and a SOON cabinet ([The game room](#the-game-room)) |
+| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
+| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the race time sent at the finish (the lowest is kept) |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -308,7 +316,7 @@ the database's policies decide what they see:
   (`src/data/players.ts`).
 - **With GitHub linked**, it also reads their `player_xp` row in that workspace, by lower-cased
   login (`src/data/xp.ts`), and each game's crew table from `arcade_scores`: its top five with the
-  players' names and heroes, and their own best (`src/data/scores.ts`). Each is read on its own,
+  players' names and heroes, and their own best (`src/data/scores.ts`), sorted in the game's direction: highest first for a score, fastest first for OMNI KART's time (PRD 1440). Each is read on its own,
   after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
   no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
 - **The planets' dossiers**, for every member, visitor or player (`src/data/dossiers.ts`): the
@@ -344,6 +352,30 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
   DOSSIER tab shows. The single-file artifact plays the same way.
 - **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
   plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
+
+### Layers: client → controller → service → repository (PRD 1318)
+
+Each feature folder (`src/<area>/`) splits a request into five roles, named by the file's suffix
+(ADR-0095, after vertuo-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
+
+| role | file | does | never |
+|---|---|---|---|
+| contract | `<area>.contract.ts` | zod schemas of each request and response, and the error shape `{"error": <kind>}` | imports anything server-only |
+| client | `<area>.client.ts` | fetches the area's routes and parses every response with the contract | imports a controller, a service, a repository or `@supabase/*` |
+| controller | `<area>.controller.ts` | checks the session first (none: `401 {"error":"signed-out"}`), parses the input, calls services, maps results to HTTP | imports a repository, `@supabase/*` or the database module |
+| service | `<area>.service.ts` | holds the rules, calls one or more repositories | imports `@supabase/*` or the database module |
+| repository | `<area>.repository.ts` | calls `.from`, `.rpc` or `.storage` on the client it is given | imports another repository or a service |
+
+A route (`app/api/**/route.ts`) only re-exports a controller's handlers, and a server page is a
+controller. Only repositories import the database module, `src/data/db.ts` (`userDb()`, as the
+signed-in person; `serviceRoleDb()`, for the reads ADR-0051 names), so row-level security stays the
+second wall. Signing in and out is the one thing the browser still does with Supabase, in
+`src/data/sign-in.client.ts`.
+
+`scripts/layering-guard.test.ts` checks every file here, naming the file, the line and the rule, and
+runs with `pnpm test`. Today's breaches are listed in `layering/baseline.json` at the repository's
+root, one line per file and rule: a breach it does not list fails, and so does a line whose breach is
+gone, so the list only shrinks. Moving an area onto the layers deletes its lines.
 
 ## Sign-in and sign-up
 
@@ -543,6 +575,13 @@ GitHub. Vertuoza, and only Vertuoza, starts with six tracked repositories; any o
 with none. omni-app's `prStats` Inngest function collects the tracked repositories every 15 minutes
 into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md)).
 
+**Phase 0 on the server** (PRD 1299). Each row also has a **Phase 0 on the server** switch
+(`repositories.phase0`, `pr` or `server`, `pr` by default), which only the owner flips, through the
+owner-only `set_repository_phase0()`. The kit reads it with `GET /api/repositories/phase0?repo=`
+(`omni approval flag`), answered by `repository_phase0()`: `pr` for a repository the workspace does
+not list. With `server`, `/omni:brainstorm` opens no phase-0 pull request; the PRD is approved on its
+page instead ([Approving a PRD](#approving-a-prd-prd-1299)).
+
 **Dashboard › Engineering** (`/app/engineering`, `app/app/engineering/page.tsx`,
 `src/engineering/`) is every member's, and counts the tracked repositories only: switching one off
 takes it out of every number at the next page load, and switching it back brings its history back.
@@ -584,9 +623,122 @@ with the service role, reads a sealed key, to call Jev (`src/jev/client.ts`: the
 floor live in `public.jev_decisions`, every call in `public.jev_calls`
 (`supabase/migrations/20261022090000_jev_decisions.sql`, proven by `supabase/checks/jev.sql`).
 
+**`law-worth` (PRD 1342)** is the seventh decision, Off by default like the others
+(`src/jev/decisions/law-worth.ts`, `supabase/migrations/20261128140000_law_worth.sql`): whether a rule
+or an invariant the knowledge harvest found, with no test proving it yet, is worth a law, an
+executable test that fails when it is broken. It reads the statement, its `Why`, the principle it
+serves, its domain and its PRD's title, and today's answer is the classifier's own `worthALaw`. At or
+above the threshold, the knowledge PR writes the law `Enforced by: pending #<issue>` and its law issue
+opens; under it, the decision stays in its PRD's `settled.md`. Asked two ways: from a terminal by
+`omni decide law-worth` (the harvest and the `omni knowledge judge` sweep), and by omni-app's harvest
+through **`POST /api/laws/judge`** (`app/api/laws/judge/route.ts`, `src/jev/decisions/law-judge-route.ts`),
+`{repo, state, old, ref?}` answered `200 {answer, confidence, decidedBy}`. The route is signed as the
+constituent judge's is, an HMAC-SHA256 over the exact body in `x-omni-signature-256`, under its own
+`LAW_JUDGE_SECRET`, the same value in omni-app's project; it caps the body at 64 KiB and refuses a
+state with a field it does not know. Without the secret it refuses every call, and the harvest takes
+the classifier's answer.
+
 Without `SECRETS_MASTER_KEY` (32 random bytes, base64: `openssl rand -base64 32`), the page says *Jev
 is not available on this deployment* and nothing can be saved. Losing it makes every stored key
 unreadable: each call then fails, today's path decides, and the owner pastes the key again.
+
+### Products: the product home, its repositories and approvers (PRD 1364, PRD 1322)
+
+Products are optional ([`docs/guide/products.md`](../../docs/guide/products.md)). A repository is in
+no product, one or several, and a PRD has one product or none; the loop works the same with none.
+**Settings › Products** (`/app/settings/products`, `src/products/`) still creates, renames and
+deletes a product and holds its Pitch; a product's Settings page links to its product home for the
+Approvers list that used to live there.
+
+**Many to many.** `public.product_repositories` holds one row per product and repository: its
+`role` (one kebab-case word, or null until set), `knowledge` (`own`, `imported` or `none`),
+`read_at` (the 40-hex commit, only and always for `imported`), `read_only`, `consumes` (repositories
+of the same product, never itself) and `added_by` (`person` or `prd`). Members read the links; the
+workspace's owners write them through `product_repository_link()` and `product_repository_unlink()`,
+which refuses to remove a repository another one of the product still consumes. The migration copied
+each `repositories.product_id` into one link, and a new repository is in no product; the contract
+landing then dropped `repositories.product_id` and `repository_set_product()`, so a repository's
+products are its links alone, and opening the business links each repository in no product to the
+first product. Proven by `supabase/checks/product_repositories.sql` and
+`supabase/checks/repositories.sql` (`supabase/migrations/20261129090000_product_repositories.sql`,
+`supabase/migrations/20261202090000_drop_repository_product.sql`).
+
+**A PRD's product.** `dossiers.product_id` and `ideas.product_id` are nullable. A dossier's first
+push takes its repository's product when the repository is in exactly one, none when it is in none,
+and, in several, the product the push names (`omni dossier push --product`, which `/omni:brainstorm`
+sends after asking *Which product is this PRD for?*) or none. Ideas, bug and visual fixes follow the
+same rule without the question. Giving a PRD a product links its home repository, and every
+repository its plan names, with `added_by = 'prd'`. The PRD's page has a **Product** picker
+(`GET`/`POST /api/dossiers/product`, `src/dossier/product/`) for every member until an approval is in
+force; then `dossier_set_product()` refuses with `product is locked: PRD <n> is approved`, and a void
+unlocks it. Proven by `supabase/checks/prd_product.sql`.
+
+**The lookups** (`lookup_product()`): the PRD's own product when the call names a PRD the server
+holds, else the repository's only product, else none, for `business_for_repo`, `business_for_token`,
+`dossier_approve`, `approval_request`, the voice's claims, agent questions, constituents and pitch. A
+PRD with no product reads none even in a repository with one product. With none, any member
+approves and the asked are every member but the author, as before; `business_for_token` with several
+products and no repository answers none instead of raising. Approvals know their PRD today; the
+kit's other calls do not send it yet, so they read the repository's only product. Proven by
+`supabase/checks/product_lookups.sql`.
+
+**Products in the sidebar** (`/app/products`, `src/products/ProductsHome.tsx`), first under Work:
+the workspace's products as cards, each with its repositories (one another product links too marked
+shared), its PRD count and how many of its PRDs wait on the viewer's approval; under them, the
+repositories in no product, each with **Add to a product**, which opens a product's Repositories &
+approvers tab with it picked.
+
+**The product home** (`/app/products/<id>`, `app/app/products/[id]/`, `src/product-home/`), each tab
+at its own address and reading only the product's rows:
+
+| tab | address | shows |
+|---|---|---|
+| **Ledger** | `/app/products/<id>` | three lanes, *on you* (waiting for the viewer's approval or answer), *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆/◇, one state word and the open PRs of its feature and landing branches; a summary of building, waiting on a person and drifted |
+| **PRDs** | `…/prds` | the product's PRDs, newest first, birthplace and state |
+| **Ideas**, **Roadmap**, **Bug fixes**, **Visual fixes** | `…/ideas`, `…/roadmap`, `…/bugs`, `…/visual` | the product's ideas (with their `/omni:brainstorm` line), roadmaps, bug and visual dossiers |
+| **Questions** | `…/questions` | every open outbox question of its PRDs, worst first within a PRD, each with its PRD, the repository it was raised in and who it is for; a product PRD's is answered there ([Answering on the Questions tab](#answering-on-the-questions-tab-prd-1548)), any other PRD's links to its PRD page's Outbox tab |
+| **Repositories & approvers** | `…/repositories` | the links, every field editable by an owner, and **Add a repository** (`POST`/`DELETE …/repositories/links`); under them the **Approvers** list (`POST`/`DELETE …/repositories/approvers`); a member reads both |
+
+**Settings › Repositories** shows each repository's products as chips linking to their homes, and
+no longer offers a product select. `/prd`, `/ideas/<owner>/<repo>` (to members), `/bugs` and
+`/visual` gain a product filter: all, one product, or no product.
+
+**The kit's routes** (`src/product-repositories/product-repositories.controller.ts`):
+`GET /api/products/targets?repo=&product=` for `omni targets` when a plan repository's config names
+`plan.product`, `POST /api/products/import` for `omni product import --product <name>`, and
+`GET /api/products/which?repo=` for `omni product which`. Each answers 401 signed out.
+
+#### Who approves (PRD 1322)
+
+The product home's **Approvers** list holds members of the workspace, each **asked to approve** or
+**skipped** (`public.product_approvers`, one row per listed member). The workspace's owners add a
+member and set or change their state through the owner-only `product_approver_set()` and
+`product_approver_remove()`; every other member reads the list. A member who leaves the workspace
+leaves every list.
+
+The list decides two things for a PRD born on the server (◆), through its product (the PRD's own,
+else its repository's only one, as above):
+
+- **Who may approve.** Once the product lists a member asked to approve, `dossier_approve()` refuses
+  anyone else, a skipped member included, and the PRD's page shows them no **Approve**. A PRD with no
+  product, or a product with nobody asked, keeps PRD 1299's rule: any member of the workspace.
+  The author may approve when they are one of the product's approvers.
+- **Who is asked** ([The approval handshake](#the-approval-handshake-prd-1322)): the members asked to
+  approve, except the PRD's author, or the author when that leaves nobody.
+
+Proven by `supabase/checks/product_approvers.sql`
+(`supabase/migrations/20261124090000_product_approvers.sql`).
+
+**How each person is reached** is their own choice, on their profile page (`/app/people/<login>`,
+`src/profile/`), both off by default and stored in `public.alert_channels`, which only that person
+reads and writes:
+
+- **Phone alerts on this device**: Web Push. The Omni page is installable (`app/manifest.ts`) and
+  registers its service worker, `/sw.js`; turning the switch on subscribes this device
+  (`public.push_subscriptions`: the member, the endpoint, its `p256dh` and `auth` keys, a device
+  label), and turning it off removes it, through `app/api/push/`. An iPhone is told first to add the
+  page to its home screen (iOS 16.4 and later).
+- **Email · <address>**: to the address of their GitHub sign-in, sent through Resend.
 
 ## The knowledge map
 
@@ -683,10 +835,12 @@ off, no row exists, and every player sees NO XP YET.
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
   highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
-  `REACH LV 2 TO PLAY`); a dark SOON cabinet stands for the game to come, with no level. A visitor sees every cabinet locked and
-  "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
-  could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
-  choosing; the tall grid shows one a page.
+  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`; OMNI DUET: `REACH LV 4 TO PLAY`). A visitor
+  sees every cabinet locked and "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE
+  YOUR FIRST POINT", and XP that could not be read "XP OUT OF REACH". The wide grid stands a window of
+  three cabinets side by side, ◀ ▶ choosing, which scrolls by one so the cabinet under the cursor is
+  always in it (cabinets 1–3 with the cursor on 1 to 3, 2–4 on the fourth); the tall grid shows one a
+  page.
 - **`levelup`** (`src/arcade/levelup.ts`): arriving at the menu by any route, a player whose level
   is higher than the one last celebrated on this device (`omni-loop:level-seen:<login>` in browser
   storage) sees LEVEL UP! first. When a level climbed since then opened a game their row holds
@@ -725,6 +879,124 @@ off, no row exists, and every player sees NO XP YET.
   Phaser does the physics and the drawing and reports what happened. It is silent. At the game over
   or WORLD CLEAR the score is sent once under `platformer`, with the same SAVING SCORE…, NEW BEST,
   YOUR BEST n or SCORE NOT SAVED (A retries once) as Invaders.
+- **`kart`**, OMNI KART (PRD 1359), opened at LV 3 (`xp.unlocks.kart` in the rulebook): an original
+  Mode 7 kart race, three laps of one circuit, COMET RING, against five rivals. Its code is
+  `src/arcade/kart/`, imported only when the cabinet opens (a failed import says
+  `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder imports it at run time. The floor is
+  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected line by
+  line (`mode7.ts`); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
+  farthest to the nearest. The player drives their own hero in a kart tinted with the hero's suit
+  (◀ ▶ steer, A accelerates, ▼ brakes and reverses, START pauses); the rivals are the workspace's
+  other fleets, each driven by its mascot, who follow the racing line at 92% to 100% of the player's
+  pace under a light rubber band (`rivals.ts`). A lap counts when the line is crossed forwards after
+  every waypoint, in order; the HUD shows the place (1ST to 6TH), `LAP n/3`, the race time and the item
+  held, and `FINAL LAP` on the third lap. The race is a seeded, pure phase machine (`race.ts`).
+  **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
+  none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
+  leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
+  **BOOST** is 1.5 seconds at 1.4 times the top speed. **BLOB** is an Entropy blob
+  dropped behind: the first kart over it spins out and it is gone, and a seventh removes the oldest
+  of six. **ORB** (a 16×16 `@omni/design` sprite) is thrown straight ahead at twice the top speed,
+  turns back at the road's edge, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
+  A spin-out lasts 1 second at 30% of the speed with no input, and never stops the race. The rivals
+  use theirs by rule: a BOOST at once on a straight, a BLOB with a kart close behind, an ORB with a
+  kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the player's
+  race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under `kart`: the
+  kart keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
+  or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
+  **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
+  in space, all in code, no image file. **The void** (PRD 1447): everything off the road is the void,
+  written `~` in the map: the floor has nothing there, and the space the circuit floats in shows all round
+  it, under the horizon as above it, its stars, nebulae and planets with the galaxy's glow along the
+  horizon. A neon edge sits on the void's side of the road's edge (cyan outside the circuit, magenta
+  inside); the map holds road and void only, and past its edge is void too. The kerbs alternate the two neons, the road has panel seams and three chevrons before
+  each corner. Nothing off the road slows or bounces a kart: **the fall** is the only cost. A kart
+  falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width;
+  it may hang over until then), and for 1 second takes no input, stays where it went over,
+  shrinks as it sinks and keeps its item, and a BOOST or a spin-out ends. **The way back:** it
+  returns at rest on the racing line, at the point nearest where it fell on the segment it was on
+  (never past the next waypoint, never across the start line), facing the race, and blinks for half
+  a second while it drives; its laps and waypoints are kept, the race clock never stops, and rivals
+  fall and return by the same rule. The player's fall plays the `fall` sound; a rival's is silent.
+  Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
+  line. The sky has two planets, a distant station and comets. The camera sits so the player's kart is
+  drawn where it stands. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
+  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
+  that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
+  still and no particle is drawn; the shadows stay.
+  **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
+  `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
+  reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase
+  Realtime channel `kart:<workspace id>` (ADR in `.omni-loop/knowledge/adr/`; the migration lets only a
+  player of the workspace with OMNI KART unlocked in), with Presence keyed by the player's id. The grid
+  lists the players in **starting order by best time**: the fastest on pole, then by best time, no
+  time behind, a tie by arrival. **Four places**: the first four to arrive hold them and a fifth reads
+  `GRID FULL · 4 RACERS` until one frees; the first to arrive starts the race (`START RACE`, the
+  others `WAITING FOR <NAME>`), and a player who arrives during a race reads `RACE ON · <n> RACERS`.
+  A refused or unreachable grid reads `GRID OUT OF REACH · A TO RETRY` and SINGLE still plays. In the
+  race **each browser drives its own kart** and sends its state at 10, 8 or 5 a second at two, three or
+  four players (`n² × rate` stays inside 80 messages a second, `kart/rules.ts`); the others are drawn
+  from their last state for at most half a second, in your way and never moved, with no CPU kart and
+  only your own kart taking a box. A BLOB dropped and an ORB fired are sent with an id of their own
+  (the sender's id and a count) and appear on every circuit; **the player hit alone decides**: it spins
+  out and sends a `hit`, which takes the item off every circuit. A BOOST stays your own. There is **no
+  pause**: ENTER opens `BACK TO RACE` / `LEAVE RACE` (and a window losing focus opens it) while the race
+  goes on; `LEAVE RACE` goes back to the grid and sends nothing to the score. A **hidden tab** leaves
+  the race at once (`YOU LEFT THE RACE`), and a player silent for 10 seconds is **OUT**. RESULTS fills in
+  live, `—` while racing and `OUT` for one who left; the finish time is sent through `submit_score()` as a
+  solo time is, so the cabinet keeps the better of the two, and the grid's next race waits until every
+  player of the last one finished or is OUT.
+- **`duet`**, OMNI DUET (PRD 1633), opened at LV 4 (`xp.unlocks.duet` in the rulebook): an original
+  two-orb dodge game. Its code is `src/arcade/duet/`, imported only when the cabinet opens (`LOADING…`
+  meanwhile; a failed import says `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder
+  imports it at run time (`duet/guard.test.ts`). Two orbs, one warm and one cool, ride a circle around
+  the Omni Loop crest, always opposite: ◀ held turns them anticlockwise, ▶ clockwise, both or neither
+  hold them still. Waves of Entropy blocks fall through them, each a word of a small vocabulary set
+  on the circle, as in Duet. A still one is dodged by one clear pose of the pair: a half bar from
+  either side, stopping R/3 short of the centre line, passed upright; a gate, two bars 1.2 R long at
+  one height either side of a gap 0.8 R wide on the centre line, passed upright through the gap; a
+  centre block, an upright block (0.8 × 1.3 R) and a short bar (1 R long), all on the centre line,
+  passed level. A moving one hits every pose held still and is dodged by turning the pair with it: a
+  centre block that slides across the whole circle (±R, on a fixed path that sweeps half the circle
+  as it falls), and a rod 2.2 R long turning about its middle on the centre line as fast as the pair
+  turns (Duet's own rod); only the centre block moves. They make four chapters of ten waves written
+  as text in `duet/waves.ts`, one obstacle a line with its distance behind the one before in R, each
+  chapter bringing in a new shape: **I · DRIFT** (95 to 113 px/s, about 2 R a second, still
+  obstacles, gates), **II · SLIDE** (short bars), **III · SPIN** (upright blocks) and **IV · STORM**
+  (125 to 143 px/s, rod chains). Each wave falls at its speed, then, after chapter I, speeds up
+  lightly over its last 35%, to 10% faster; the pair turns as fast as ever. From chapter II, moving
+  obstacles chain into spirals (three or more moving the same way round, passed holding one turn) and
+  zigzags (each the other way round from the one before, a change of turn at every one), two of
+  each a chapter at least; chapter IV chains rods two or three at a time, 1.25 to 1.4 R apart, out of
+  phase, each chain read as a spiral. A `ghost` obstacle is drawn as it enters and fades out, gone
+  2 R above the circle, yet strikes as any other: in chapter IV's last four waves (its eighth all
+  rods, its ninth all ghosts). A wave is short, three to six obstacles and 8 seconds at most, and none
+  is passed with the orbs held still. An obstacle asking another pose, or a turn, stands at least a
+  quarter turn and a person's reaction behind the one before, at the speed it arrives at (a rod right
+  behind a rod turning the same way excepted: the turn held carries on). After chapter IV,
+  `ENDLESS · ×2`: waves of one to three of chapter IV's runs, drawn from one fixed seed
+  (`ENDLESS_SEED`, the same for every player), faster (its speed, before the speed-up, from 145 px/s,
+  one more every two waves, to a ceiling of 170 px/s, about 3 R a second, from its 51st wave), its
+  runs 1.25 R apart where they ask one pose and as close as the spacing rule allows elsewhere, and
+  never ending; from its 11th wave some obstacles are ghosts, a share rising slowly to 40%, and now
+  and then a wave is all rods or all ghosts. `waveProblems` proves every chapter wave and the first
+  200 endless waves passable, with room to spare. Each chapter has its own dim backdrop behind the
+  field (drifting squares, sliding diagonal stripes, a turning spiral of dots, falling triangles;
+  endless mode a darker one of faint chevrons), every block a soft trail fading about R above it,
+  both in the theme's colours, the backdrop still and no trail under reduced motion; and as each wave
+  begins, a short line of the game's own (`duet/lines.ts`, one for every chapter wave and a few for
+  endless mode) shows in the middle of the playfield for 2 seconds and fades. A wave passed scores 10, 20 in endless mode;
+  nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
+  began with (in endless mode, the wave hit with the score it began with), on a ready screen that
+  waits for START, so no death ever earns a point. START pauses, and so does a blurred window, a
+  hidden tab or OPEN THE APP?; only START resumes. The game ends at the last life lost, on SELECT on
+  the pause, or on B on a ready screen once play has started (B on the first one leaves with no
+  score), and every way shows the game over: the score, the waves passed and where the run got to.
+  The score reached is sent once under `duet`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or
+  SCORE NOT SAVED (A retries once) as Invaders; otherwise A plays again from chapter I and B goes back
+  to the room. The run is a pure phase machine in fixed 1/60 s steps (`duet/run.ts`), so it plays the
+  same at any frame rate, in one 320×288 playfield on both grids; its numbers are one block,
+  `duet/rules.ts`. It is silent.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
@@ -770,6 +1042,135 @@ nobody deletes a numbered dossier.
   member of another workspace included, gets not found, in the words a dossier that never was gets.
   Omni, Light and Dark themes, Omni the default, as the `/ask` pages.
 - **Without a database**, in development, both pages play a demo dossier.
+
+### Approving a PRD (PRD 1299)
+
+A PRD born on the server (◆: its spec says `phase0: server`, and `dossiers.birthplace` is `server`,
+set once from the first spec version) shows an **Approval** cell on its page:
+
+- **waiting for approval**, with **Approve**, which only a member allowed to approve sees (the product's
+  approvers once it lists one, [PRD 1322](#the-approval-handshake-prd-1322); otherwise any member);
+- **approved**, with the seal card (#1351): the PRD's number stamped `APPROVED · PINNED`, who approved
+  it and when, and each pinned file with its short hash; right after Approve the page scrolls to it;
+- **drifted · approve again**, naming each pinned file a newer version replaced, with **Approve**
+  back.
+
+**Approve** posts `POST /api/dossiers/approval`, and the `dossier_approve()` RPC writes one row of the
+append-only `approvals` table (never updated, never deleted), pinning the latest spec, plan,
+before/after and voice by version and `sha256` (a newer voice never drifts or voids it: the loop
+appends the personas' rounds after approval). It refuses a non-member, a ◇ dossier, a draft and a
+dossier missing a spec, a plan or a before/after. The PRD's issue then gets the repository's
+`labels.approved` (`omni:approved` by default) through the App. A failed label is logged, and the
+approval stands. The kit reads the approval in force with `GET /api/dossiers/approval?repo=&prd=`
+(`omni approval <n>`), answered by `dossier_approval()`, and judges it against the feature branch's
+files. The stage sync dates a ◆ PRD's `inbox` stage at its first approval. A ◇ PRD's page is
+unchanged.
+
+### The approval handshake (PRD 1322)
+
+A ◆ PRD waiting for approval is asked for, followed, and voided when a change no longer matches what
+was approved. The kit's side is `omni wait approval <n> [--timeout <minutes>]`, which `/omni:yolo`
+runs instead of stopping ([`docs/guide/loop.md`](../../docs/guide/loop.md#the-approval-handshake)).
+
+- **The request.** `POST /api/dossiers/approval/request` `{repo, prd}` appends one row to the
+  append-only `public.approval_requests` (the dossier, its product, who asked, who is asked, when)
+  and answers who was asked: the product's members asked to approve, except the author, or the author
+  when nobody else is ([Who approves](#who-approves-prd-1322)). A skipped
+  member is never asked; a signed-out caller gets 401. Each person asked gets a push on every device
+  they subscribed, if their **Phone alerts** are on, and an email, if their **Email** is on:
+  `PRD <n> waits for your approval`, the spec's title, its before → after, the repositories and the
+  short pinned hashes, the email adding the spec's **Problem** and **Solution**. Both open the PRD's
+  page on its approve screen. Asked people also see the request in the page's bell. Asking again
+  after a void appends a new row (`re-asked`).
+- **The senders.** Web Push goes through the `web-push` library with `VAPID_PUBLIC_KEY` and
+  `VAPID_PRIVATE_KEY`; a push service answering 404 or 410 deletes that subscription. Email goes
+  through Resend with `RESEND_API_KEY` and `RESEND_FROM`. A channel whose keys are missing is skipped
+  with one log line; the other still goes out, and the request still stands in the bell.
+- **The stream.** `GET /api/dossiers/approval/stream?repo=&prd=` serves Server-Sent Events, laid out
+  repository → service → controller in `src/approvals/`: `approvals.repository.ts`, the only file
+  that reaches Supabase here, reads requests, approvals and voids and subscribes, as the signed-in
+  member, to Supabase Realtime on `approvals` and `approval_voids` for one dossier;
+  `approvals.service.ts` shapes them into `asked`, `approved`, `voided` and `re-asked` events, each
+  with an increasing id, and a `ping` every 15 seconds; `approvals.controller.ts` answers 401 to a
+  signed-out caller, replays the events after `Last-Event-ID`, and closes with `event: reconnect`
+  before the function's time limit. The kit reconnects with the last id it read, so no event is lost
+  or printed twice.
+- **The void.** `dossier_push()`, adding a version of a kind the approval in force pinned (spec,
+  plan, before/after; never the voice), compares its `sha256` with the pin; when they differ it appends a row
+  to the append-only `public.approval_voids` (the approval, the kind, the old and new hash, who
+  pushed) in the same transaction. The approval itself is never edited: one with a void after it is
+  no longer in force, and `omni approval <n>` reads it as `drifted`, naming the push. The approver
+  is pushed and emailed `approval voided by <pusher>'s push`, a waiting stream gets `voided` and the
+  wait asks again, and the page shows **voided · approve again** with only the changed files' diff
+  above **Approve**. A file changed by a `git push` alone voids nothing: `omni approval` stays the
+  gates' backstop.
+- **The approve screen.** A ◆ PRD's approval cell opens with the spec's **Problem** and **Solution**
+  above **Approve**, which only someone allowed to approve sees, then the pinned files. A ◇ PRD's page
+  is unchanged.
+
+### A product PRD (PRD 1548)
+
+A **product PRD** (◆) is a dossier keyed by its product and a counter, `mobile-12`, with no home
+repository, no GitHub issue and no folder in any repository
+([`docs/guide/products.md`](../../docs/guide/products.md#a-product-prd)). Its code lands as one feature
+PR per target repository, each saying `Part of mobile-12`, on which the App posts `omni/approved` and
+the outbox check ([`apps/omni-app/README.md`](../omni-app/README.md#a-product-prds-checks-prd-1548)).
+
+- **The key.** `products.key` is lowercase kebab-case (`mobile`, `field-app`), unique in the
+  workspace and never ending in `-<digits>`. An owner sets it once with `product_set_key()`, and it
+  never changes. No page offers it yet: an owner calls the function in the database. Until a product
+  has a key, it has no product PRD.
+- **The kit's routes** take the PRD's id: `POST /api/dossiers/push` with `productKey` and `new: true`
+  (`omni dossier push --product <key> --new`) creates the product's next PRD and answers its `prdId`,
+  or with `prd` pushes new versions to it; `GET /api/dossiers?product=&prd=` finds it;
+  `GET /api/dossiers/get?product=&prd=&kind=` answers one kind's latest version whole
+  (`omni dossier get`); `GET /api/dossiers/approval?prd=<key>-<n>` its approval in force. `repo`, when
+  sent, only chooses between two of the caller's workspaces holding the key. Approving one labels no
+  issue, since it has none.
+- **The attestation.** The PRD's page shows, under its head, at `/prd/<id>#attestation` (where
+  `omni/approved`'s Details opens; `src/dossier/page/Attestation.tsx`): who approved it, whether they
+  are a workspace member and a product approver today, when, and each pinned file's hash beside
+  today's. Drifted, each changed file offers **Restore** (its approved version, to push again) and the
+  card **Ask again** (the approve screen, `#approve`). Both are plain links that change nothing.
+- **The server events.** Galaxy tells the App each time the server changes a product PRD
+  (`src/server-event/`): `approved` (Approve), `voided` (a push changed a pinned file), `item-opened`
+  (an outbox item raised, or rewritten while open) and `item-settled` (one answered, or adopted as it
+  was raised). Each is one POST of `{ event, dossier, at }` to the App's `/api/server-event`, signed
+  with an HMAC-SHA256 under `STAGE_EVENT_SECRET` in `x-omni-signature-256`. A missing secret, a
+  refusal or a network failure is one log line and never fails what told it: the PR's next webhook
+  posts the checks anyway.
+- **The outbox, on the server.** Its items are rows of `outbox_items`, and each answer one row of the
+  append-only `outbox_settlements`, written only through RPCs
+  (`supabase/migrations/20261204100000_outbox_items.sql`, proven by `supabase/checks/outbox_items.sql`). An item
+  keeps its markdown as written, checked by the kit's own parser before any write. An item takes one
+  settlement, and a second is refused. The kit reaches them through `src/outbox-items/`:
+  `GET /api/outbox/items?product=&prd=` (every item, with its settlement), `POST /api/outbox/items`
+  (raise one, or adopt one) and `POST /api/outbox/items/settle`, each as the caller's sign-in, so the
+  database decides who may. A non-member finds no such PRD.
+
+#### Answering on the Questions tab (PRD 1548)
+
+On the product home's **Questions** tab (`/app/products/<id>/questions`, `src/questions/`), a product
+PRD's open question shows its options as buttons, A being what was built, and **other…** for an
+answer of one's own. One answer is sent at a time, to `POST /api/outbox/answer {prdId, item, answer}`.
+
+- The answer is read by the kit's own rules, as `omni answers` reads one: a letter is that option (A
+  agrees with what was built, any other drifts), and an answer of one's own is judged against what was
+  built. One the rules cannot read is refused (422) with *Say whether this keeps what was built…*,
+  never guessed.
+- It is settled through the outbox's own service, as the caller, recorded as given on the Questions
+  tab (channel `questions`), then the App is told `item-settled`, so the outbox check follows. Nothing
+  is posted to GitHub.
+- A refusal shows under the question: 401 signed out, 404 no such PRD or question in the caller's
+  workspaces, 409 already settled, 503 no database. In the demo, answers settle in memory.
+- Who a question is for: whoever can do a human action, else the person who opened its PRD.
+
+**Not yet.** `/prd` and a PRD's page still read every dossier's home repository, which a product PRD
+has none of: the list can break, and the page show it wrongly, once a workspace has one (settled item
+s2-04). A drifted answer given here is not reworked by `/omni:ultra-yolo-fix`, which reworks only the
+answers given in the terminal in the same run (s12-03). The gate counts open rows only, and the server
+keeps no account of risky changes yet (s7-03). An objection to an adopted item has no place on the
+server yet (s5-01).
 
 ### The Outbox tab (PRD 251)
 
@@ -1121,7 +1522,15 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    For Jev (PRD 812), one more, server only: `SECRETS_MASTER_KEY`, 32 random bytes in base64
    (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
    Settings › Jev says Jev is not available on this deployment and every decision is made as before
-   ([Settings › Jev](#settings--jev-prd-812)).
+   ([Settings › Jev](#settings--jev-prd-812)). For the law judge (PRD 1342), `LAW_JUDGE_SECRET`, a
+   long random string (`openssl rand -hex 32`), the same value as on omni-app, which signs the
+   harvest's calls to `/api/laws/judge`. Without it, the route refuses every call and the classifier
+   says whether a law is worth one.
+   For the approval alerts (PRD 1322), four more, server only: `VAPID_PUBLIC_KEY` and
+   `VAPID_PRIVATE_KEY`, a Web Push key pair (`npx web-push generate-vapid-keys`), and
+   `RESEND_API_KEY` and `RESEND_FROM`, a Resend key and the sender address of a domain verified on
+   Resend. Without a pair, that channel is skipped with one log line, and approval requests still
+   show in the bell ([The approval handshake](#the-approval-handshake-prd-1322)).
 
    Every variable the arcade reads, each optional and read once at startup (`src/env.ts`,
    `src/env.client.ts`, ADR-0057); [`.env.example`](.env.example) says what each one does:
@@ -1132,7 +1541,11 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
      `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`
    - OpenRouter: `OPENROUTER_API_KEY`
    - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
-     `CONSTITUENT_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+     `CONSTITUENT_JUDGE_SECRET`, `LAW_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+   - the approval alerts: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push), `RESEND_API_KEY`,
+     `RESEND_FROM` (email)
+   - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each
+     token's stored sign-in; without it no token is made or traded
    - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
@@ -1161,6 +1574,49 @@ works on the vercel.app host as before.
    and set its Setup URL to `https://www.omni-loop.xyz/signup/installed`.
 3. **Vercel** › the galaxy project › Domains: keep both `www.omni-loop.xyz` and
    `vertuo-omni-loop-galaxy.vercel.app`, with no redirect between them.
+
+### 8. When Vercel builds
+
+Both projects build only what can change them (PRD 1646). Build CPU minutes were nearly the whole
+Vercel bill: every merge built both projects twice, and every push on every branch built both.
+
+- **On `main`,** a merge commit is skipped: the `release` workflow's `chore(release): v0.0.N` commit
+  follows within minutes and carries it. That commit builds each project whose inputs changed since
+  the project's last production deploy (`scripts/vercel-inputs.ts` holds the rules): galaxy unless
+  every change is on its never list (the delivery folder, the playbook and the ADRs, the GitHub App,
+  CI and tooling, tests, the release's version stamps), the GitHub App only for `apps/omni-app/`, the
+  lockfile, or a `package.json` change beyond its version. A merge of documents builds nothing, and
+  the sidebar's version then lags until the next merge that changes galaxy. When the `release`
+  workflow fails or is cancelled, the `release-fallback` workflow marks `main` and calls each
+  project's Deploy Hook.
+- **On any other branch,** a push builds nothing. A ready pull request into `main` gets one preview
+  per project it changes, about 150 seconds after its last push (`.github/workflows/preview-debounce.yml`):
+  a newer push restarts the wait. Drafts, sub-PRs into a feature branch, changes only under
+  `.omni-loop/` and dependabot never preview.
+- **The escape hatch:** `VERCEL_FORCE_BUILD` = `1` in a project's environment variables builds every
+  deployment of it, at once, without a revert. Every build log says why it built or skipped, on one
+  `vercel-ignore:` line.
+
+Set once, for both projects (`apps/omni-app` is the GitHub App's):
+
+1. **Vercel › each project › Settings › Git › Deploy Hooks:** one for branch `main`. Store the URLs
+   as GitHub secrets `VERCEL_DEPLOY_HOOK_GALAXY_MAIN` and `VERCEL_DEPLOY_HOOK_OMNI_APP_MAIN`.
+2. **Vercel › Account › Tokens:** a token scoped to the team, as the GitHub secret `VERCEL_TOKEN`;
+   the team id as `VERCEL_TEAM_ID`; each project's id (Settings › General) as
+   `VERCEL_PROJECT_ID_GALAXY` and `VERCEL_PROJECT_ID_OMNI_APP`; and the repository's numeric id
+   (`gh api repos/vertuoza/vertuo-omni-loop --jq .id`) as the GitHub variable `VERCEL_GITHUB_REPO_ID`.
+3. **Nothing to add for GitHub:** the ignore step reads the `vercel/preview/<project>` and
+   `vercel/production-fallback` check runs as the omni-loop GitHub App, with the `GITHUB_APP_ID` and
+   `GITHUB_APP_PRIVATE_KEY` both projects already hold (`scripts/vercel-github-token.ts` mints a
+   token from them for each build). Check both projects have the two, for Production and Preview:
+   without them no preview builds.
+4. **Vercel › each project › Settings › Build and Deployment:** the GitHub App's Build Machine on
+   Standard; galaxy's on Standard unless its last production builds show Standard more than twice as
+   slow as the machine it has (build CPU minutes are vCPUs × minutes). On-Demand Concurrent Builds
+   off, Prioritize Production Builds on. The Ignored Build Step stays the `vercel.json` one.
+
+To see the effect: Vercel › Usage › Build CPU Minutes, per day, against the month before (about
+2,190 a day in October 2026).
 
 ### In production
 
@@ -1233,7 +1689,8 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
 - `submit_score(workspace, game, score)`, security definer, is the only way a score goes in. It
   refuses a caller with no player row in the workspace (a visitor, a member of another workspace,
   anyone signed out), a game their `player_xp.unlocked` does not hold, and a score outside
-  0..9,999,999. It keeps the higher of the stored best and the score, and returns the best as
+  0..9,999,999. It keeps the better of the stored best and the score in the game's direction (the lowest for
+  `kart`, whose value is a race time in tenths; the highest for every other game), and returns the best as
   stored.
 - `contributions` (PRD 328): who authored each pull request merged into a sector repository's
   default branch (`kind` `pr-merged`, `at` when it merged) and who opened each `omni:prd` issue

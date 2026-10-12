@@ -84,12 +84,51 @@ describe('outbox-check — the three steps', () => {
     }
   });
 
+  it('with laws in the knowledge folder, also snapshots it at the base and at the head (PRD 1342)', async () => {
+    const github = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-feature-demoted') } });
+    await engine(github).execute();
+    const blobs = github.state.requests
+      .filter((r) => r.route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}')
+      .map((r) => String(r.file_sha));
+    expect(blobs).toContain('base1:.omni-loop/knowledge/product/invariants.md');
+    expect(blobs).toContain('head1:.omni-loop/knowledge/product/invariants.md');
+    for (const sha of blobs) {
+      expect(/^base1:\.omni-loop\/(config\.yml|knowledge\/)|^head1:\.omni-loop\/(delivery|knowledge)\//.test(sha)).toBe(true);
+    }
+  });
+
   it('hands the changed files from the compare endpoint to the gate', async () => {
     const github = featureGitHub();
     await engine(github).execute();
     const compare = github.state.requests.find((r) => r.route === 'GET /repos/{owner}/{repo}/compare/{basehead}');
     assertDefined(compare, 'the compare request');
     expect(compare.basehead).toBe('base1...head1');
+  });
+
+  // Law N-PRODUCT-4 (.omni-loop/knowledge/product/invariants.md, #1540).
+  it('law N-PRODUCT-4: the gate takes its rules from the base, and from the head reads only the delivery and knowledge folders', async () => {
+    const blobsOf = (github: ReturnType<typeof featureGitHub>) =>
+      github.state.requests.filter((r) => r.route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}').map((r) => String(r.file_sha));
+    const pull = (labels: string[]) => ({ number: parsePr(12), base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/widget', sha: 'head1' }, labels });
+
+    // The head renames the override label to `ship-it`: that label overrides nothing, the base's still does.
+    const renamed = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-renames-label') }, pull: pull(['ship-it']) });
+    await engine(renamed).execute();
+    expect(renamed.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
+    const base = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-renames-label') }, pull: pull(['omni:outbox-go']) });
+    await engine(base).execute();
+    expect(base.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'neutral' });
+
+    // From the head, only what is judged: the delivery folder, and the knowledge folder beside the base's.
+    const laws = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-feature-demoted') } });
+    await engine(laws).execute();
+    const blobs = [...blobsOf(renamed), ...blobsOf(laws)];
+    expect(blobs).toContain('base1:.omni-loop/config.yml');
+    expect(blobs).toContain('base1:.omni-loop/knowledge/product/invariants.md');
+    expect(blobs).toContain('head1:.omni-loop/knowledge/product/invariants.md');
+    for (const sha of blobs.filter((s) => s.startsWith('head1:'))) {
+      expect(sha).toMatch(/^head1:\.omni-loop\/(delivery|knowledge)\//);
+    }
   });
 });
 
@@ -278,6 +317,62 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
     });
   }
 
+  describe('a target feature PR (issue 1202)', () => {
+    const targetPr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/crew-api', sha: 'head1' }, body: 'Part of acme/plan#8' };
+    const planPulls = { 'acme/plan': [{ number: 37, body: 'Closes #8' }] };
+
+    it('passes before any gate read, pointing to the plan PR', async () => {
+      const github = featureGitHub({ pull: targetPr, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'success' });
+      expect(github.state.checkRuns).toEqual([expect.objectContaining({ name: 'outbox', status: 'completed', conclusion: 'success' })]);
+      const reads = github.state.requests.map((r) => r.route);
+      expect(reads).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
+      expect(reads).not.toContain('GET /repos/{owner}/{repo}/issues/{issue_number}/comments');
+    });
+
+    it('the failure handler, run with no check yet, passes it too — never failure, never skipped', async () => {
+      const github = featureGitHub({ pull: targetPr, others: planPulls });
+      await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+      expect(github.state.checkRuns).toEqual([expect.objectContaining({ status: 'completed', conclusion: 'success' })]);
+    });
+
+    it('a sub-PR in the target, into its feature branch, stays skipped whatever its body says', async () => {
+      const github = featureGitHub({ pull: { ...targetPr, base: { ref: 'feat/crew-api', sha: 'base1' }, head: { ref: 'feat/crew-api--s1', sha: 'head1' } }, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'skipped' });
+    });
+
+    it('a body naming this same repository stays skipped, as today', async () => {
+      const github = featureGitHub({ pull: { ...targetPr, body: 'Part of acme/widgets#8' } });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'skipped' });
+    });
+
+    it('a body saying Closes #<n> too is gated here: Closes wins', async () => {
+      const github = featureGitHub({ pull: { ...targetPr, head: { ref: 'feat/widget', sha: 'head1' }, body: 'Closes #42\nPart of acme/plan#8' }, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'failure' });
+    });
+
+    it('a target\'s fix PR defers to the plan PR too, where its record lives (PRD 1342)', async () => {
+      const fixPr = { ...targetPr, head: { ref: 'fix/77-crash', sha: 'head1' } };
+      const github = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-fix') }, pull: fixPr, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'success' });
+      expect(github.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
+    });
+
+    it('a GitHub error other than 403 or 404 on the plan repository is not swallowed', async () => {
+      const github = featureGitHub({ pull: targetPr });
+      const broken = { request: (route: string, params?: Params) =>
+        route === 'GET /repos/{owner}/{repo}/pulls' ? Promise.reject(Object.assign(new Error('boom'), { status: 500 })) : github.octokit.request(route, params) };
+      const fn = createOutboxCheck({ client: inngest, octokitFor: () => broken });
+      const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+      expect(error).toBeDefined();
+    });
+  });
+
   it('the failure handler posts nothing when it cannot tell what the pull request is', async () => {
     const github = featureGitHub({ pull: dependabotPr });
     const down = { request: (route: string, params?: Params) => {
@@ -304,5 +399,23 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
     const github = featureGitHub();
     const { result } = await engine(github).execute();
     expect(result).toMatchObject({ conclusion: 'failure' });
+  });
+});
+
+describe('outbox-check — the live gate grades the pull request', () => {
+  /** The check run the live function completes for a feature PR at `head`, the range changing `files`. */
+  async function liveCheck(head: string, files: { filename: string; status: string }[] = []) {
+    const github = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture(head) }, files });
+    await engine(github).execute();
+    return checkRunAt(github.state, -1);
+  }
+
+  // Law BR-PRODUCT-6 (.omni-loop/knowledge/product/rules.md, #1468).
+  it('law BR-PRODUCT-6: the live check passes the changed files to the gate, so an unexplained risky change turns it red, as do open questions and unfinished rework', async () => {
+    expect(await liveCheck('head-clear')).toMatchObject({ conclusion: 'success' });
+    expect(await liveCheck('head-clear', [{ filename: 'src/widget.test.ts', status: 'removed' }]))
+      .toMatchObject({ conclusion: 'failure', output: { title: '1 unaccounted risky change' } });
+    expect(await liveCheck('head-open')).toMatchObject({ conclusion: 'failure', output: { title: '1 open outbox item' } });
+    expect(await liveCheck('head-drift')).toMatchObject({ conclusion: 'failure', output: { title: 'unreworked drift' } });
   });
 });

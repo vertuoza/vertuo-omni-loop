@@ -1,0 +1,30 @@
+/* The doorway (PRD 1705): one card on the ask pages' ground, the crest above it, HOME's starfield
+   behind. Every colour is an --ask-* token; nothing here names one. The crest is pixel art, drawn at
+   whole-number scales only: 3× (366 × 54), 2× (244 × 36) below 900 px. */
+
+.doorway { position: relative; overflow-x: hidden; }
+
+.doorway-stars { position: fixed; inset: 0; pointer-events: none; }
+.doorway-stars svg { display: block; width: 100%; height: 100%; }
+/* Pixel stars on Light's near-white ground read as dust: Light keeps the plain ground. */
+.ask[data-ask-theme='light'] .doorway-stars { display: none; }
+
+.doorway-main {
+  position: relative;
+  align-content: center;
+  gap: 24px;
+  padding-top: 48px;
+  padding-bottom: 48px;
+}
+
+.doorway-mark { display: block; line-height: 0; }
+.doorway-mark svg { display: block; width: 366px; height: 54px; image-rendering: pixelated; }
+
+.doorway-card { width: 100%; max-width: 460px; }
+
+.doorway-foot { margin: 0; font-size: 14px; color: var(--ask-muted); }
+.ask .doorway-foot a { color: var(--ask-muted); }
+
+@media (max-width: 899px) {
+  .doorway-mark svg { width: 244px; height: 36px; }
+}

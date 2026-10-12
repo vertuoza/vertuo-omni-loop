@@ -1,0 +1,173 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A product home that only reads tables we already have is low risk. Eight tabs is a lot of new UI to keep from rotting, though.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "You're moving my targets out of the config file onto a server I can't read in my editor. That's more 'tool' than I want.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One page per product with what waits on me, across every repository, is how I want to run ideas through all our repositories.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Shared services in several products is how our teams really work. Optional products mean nobody is forced into it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I open Mobile and see what waits on me without digging in GitHub. The product question only when it matters is fine.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "You're moving my targets out of the config file onto a server I can't read in my editor. That's more 'tool' than I want.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✗ · offering#316 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The tabs read existing tables and the layering rule applies to them. Still a big UI surface for one PRD.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "omni targets prints the table and keeps a last-read copy, and the targets file stays allowed. I can live with that.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The Ledger, the PRDs of my product and plan.product instead of a hand-kept list. That is the speed I want.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Many to many with the PRD carrying the product keeps approvers right for a shared API. The backfill keeps today's answers.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Mobile's home shows what waits on me and the questions in one place. That is all I need.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-10",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The tabs follow the layering rule and every one has page tests. I'd still like a look at them in a browser before trusting the Ledger's counts.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "omni targets prints the table and keeps a last read, and plan.targets still works. Only omni targets reads the product so far, which the docs say plainly.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A page per product with what waits on me, and a shared API in both products. That's what I asked for.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Many to many with the PRD carrying its product, and the old column dropped only after its readers moved. The kit not sending the PRD to the lookups yet is the gap to close.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Mobile's home and its Questions tab are in one place. The count on the product card and the Ledger can differ, which I'll notice.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
+    }
+  ]
+}

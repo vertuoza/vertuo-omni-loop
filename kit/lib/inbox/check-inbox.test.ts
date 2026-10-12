@@ -250,6 +250,16 @@ it('refuses a prd: that disagrees with the folder number', () => {
     /0042-a.*43|43.*0042-a/s,
   );
 });
+it('accepts phase0: server, a PRD born on the server (PRD 1299)', () => {
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ phase0: 'server' }) })).toBe('');
+});
+it('refuses any other phase0, naming the field and the one value it takes (PRD 1299)', () => {
+  for (const value of ['pr', 'repo', 'Server']) {
+    expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ phase0: value }) })).toBe(
+      `${IN}/0042-a/spec.md: phase0: phase0 must be server, or left out`,
+    );
+  }
+});
 it('refuses a missing spec.md in an inbox folder', () => {
   expect(violations({ [`${IN}/0042-a/plan.md`]: 'x' })).toMatch(/0042-a\/spec\.md/);
 });
@@ -327,4 +337,44 @@ describe('voice.json (PRD 822)', () => {
     const { ctx } = makeRepo({ files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: '{' } });
     expect(findInboxViolations({ ctx })).toEqual([`${folder}/voice.json: not valid JSON.`]);
   });
+});
+
+describe('roadmaps (PRD 1162)', () => {
+  const roadmapFile = `${IN}/roadmaps/1200-crew/roadmap.md`;
+  const roadmap = (blocker: string) =>
+    [
+      '---',
+      'roadmap: 1200',
+      'title: Crew',
+      'milestone: A first mandate.',
+      '---',
+      '## PRDs',
+      '| id | PRD | title | blocked by | why | wave |',
+      '|---|---|---|---|---|---|',
+      '| P1 | #42 | The inbox | – | – | 1 |',
+      `| P2 | #43 | The planner | ${blocker} | it ranks the inbox | 2 |`,
+      '',
+    ].join('\n');
+  const files = (blocker: string) => ({
+    [`${IN}/0042-a/spec.md`]: specText(),
+    [`${IN}/0043-b/spec.md`]: specText({ frontMatter: { prd: 43, 'blocked-by': '[42]' } }),
+    [roadmapFile]: roadmap(blocker),
+  });
+
+  it('passes a green roadmap, its folder no PRD of its own', () => {
+    const { ctx } = makeRepo({ files: files('P1') });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+  });
+
+  it('fails on a broken roadmap, naming its file and its row', () => {
+    const { ctx } = makeRepo({ files: files('P9') });
+    expect(findInboxViolations({ ctx })).toEqual(
+      expect.arrayContaining([`${roadmapFile}: P2: blocked by P9, which is not a row of the roadmap.`]),
+    );
+  });
+});
+
+it('accepts e2e: validate and refuses e2e: yes, naming the PRD (PRD 1275)', () => {
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ e2e: 'validate' }) })).toBe('');
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ e2e: 'yes' }) })).toMatch(/0042-a\/spec\.md: e2e: /);
 });

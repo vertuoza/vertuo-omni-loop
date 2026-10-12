@@ -10,6 +10,7 @@ const readJson = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8'
 
 const TRAILER = 'Co-authored-by: Omni-man <1+omni[bot]@users.noreply.github.com>';
 const PLUGIN = 'kit/plugin/.claude-plugin/plugin.json';
+const HUD = 'kit/plugin-hud/.claude-plugin/plugin.json';
 const BUNDLE = 'kit/dist/omni.mjs';
 
 /** A kit checkout with its two manifests and its bundle, as the release reads them. */
@@ -21,6 +22,7 @@ function fixtureRepo() {
   };
   write('package.json', `${JSON.stringify({ name: 'kit', private: true, type: 'module', scripts: { test: 'vitest run' } }, null, 2)}\n`);
   write(PLUGIN, `${JSON.stringify({ name: 'omni', description: 'The loop.', version: '0.1.0' }, null, 2)}\n`);
+  write(HUD, `${JSON.stringify({ name: 'omni-hud', description: 'The band.', version: '0.1.0', types: './types/index.d.ts' }, null, 2)}\n`);
   write(BUNDLE, '// bundle\n');
   return root;
 }
@@ -62,7 +64,7 @@ function run(answers: Record<string, Answer> = {}) {
 }
 
 describe('release', () => {
-  it('stamps the next version in both manifests, builds, commits, tags, pushes and publishes', () => {
+  it('stamps the next version in package.json and both plugins, builds, commits, tags, pushes and publishes', () => {
     const { root, calls, code } = run();
 
     expect(code).toBe(0);
@@ -72,6 +74,7 @@ describe('release', () => {
     expect(dig(pkg, 'scripts')).toEqual({ test: 'vitest run' });
     expect(dig(readJson(join(root, PLUGIN)), 'version')).toBe('0.0.10');
     expect(readFileSync(join(root, PLUGIN), 'utf8').endsWith('}\n')).toBe(true);
+    expect(readJson(join(root, HUD))).toEqual({ name: 'omni-hud', description: 'The band.', version: '0.0.10', types: './types/index.d.ts' });
 
     const build = calls.indexOf('pnpm kit:build');
     const add = calls.findIndex((line) => line.startsWith('git add'));
@@ -83,7 +86,7 @@ describe('release', () => {
     expect([build, add, commit, push, tag, pushTag, publish].every((index) => index >= 0)).toBe(true);
     expect(build < add && add < commit && commit < push && push < tag && tag < pushTag && pushTag < publish).toBe(true);
 
-    expect(calls[add]).toBe(`git add -- package.json ${PLUGIN} ${BUNDLE}`);
+    expect(calls[add]).toBe(`git add -- package.json ${PLUGIN} ${HUD} ${BUNDLE}`);
     expect(calls[commit]).toBe(`git commit -q -m chore(release): v0.0.10\n\n${TRAILER}`);
     expect(calls[publish]).toBe(`gh release create v0.0.10 ${BUNDLE} --title v0.0.10 --generate-notes --verify-tag`);
   });

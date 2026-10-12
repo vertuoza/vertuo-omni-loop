@@ -1,6 +1,6 @@
 ---
 name: ultra-yolo
-description: Build a multi-repository PRD from its plan repository with nothing asked along the way — record each target that moved since the plan was read, clone every target and open its draft target feature PR, run /omni:ultra-wave until every slice is merged into its target's feature branch or nothing more can move, finish each target to ready with green CI, then run one outbox gate in the plan repository. Green gate — omni ship, commit, push, and the plan PR is marked ready last. Red gate — the plan PR stays draft with the questions posted, then, with answers.enabled on, it offers to take the answers here and carry on into /omni:ultra-yolo-fix. Never merges into any repository's default branch. Triggers on "ultra-yolo this PRD", "build it across the repositories", "/omni:ultra-yolo".
+description: Build a multi-repository PRD from its plan repository with nothing asked along the way — plan it first when it has no plan yet, as /omni:mega-brainstorm plans one, graded by omni plan check, then record each target that moved since the plan was read, clone every target and open its draft target feature PR, run /omni:ultra-wave until every slice is merged into its target's feature branch or nothing more can move, finish each target to ready with green CI, then run one outbox gate in the plan repository. Green gate — omni ship, commit, push, and the plan PR is marked ready last. Red gate — the plan PR stays draft with the questions posted, then, with answers.enabled on, it offers to take the answers here and carry on into /omni:ultra-yolo-fix. With a product PRD's id (<key>-<n>) it runs instead from any kitted checkout of a repository the product holds — waits on its approval, takes the plan through omni dossier get, opens one Part of <key>-<n> target PR per target, relays every item to the server, parks on held, refuses on drifted, and marks the target PRs ready once omni status <key>-<n> is green, with no plan PR. Never merges into any repository's default branch. Triggers on "ultra-yolo this PRD", "build it across the repositories", "/omni:ultra-yolo".
 ---
 
 # Ultra-yolo: every repository, every wave, one gate
@@ -54,7 +54,9 @@ acts.
 ## Step 0
 
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the
-   JSON, as `/omni:yolo` step 0 keeps it. It must have a `plan` section; otherwise stop in one line:
+   JSON, as `/omni:yolo` step 0 keeps it. Given a product PRD's id (`<key>-<n>`, as `mobile-12`),
+   follow **From a product** below from here on, a plan section or not. Otherwise it must have a
+   `plan` section; otherwise stop in one line:
    `not a plan repository: /omni:yolo <n> builds a PRD of this repository`.
 2. **An ordinary PRD stops here.** Run `node .omni-loop/bin/omni.mjs prd <n>`. When it prints no
    `repos:` line, stop with exactly one line, before any branch, clone or pull request:
@@ -64,17 +66,181 @@ acts.
    ```
 
    Read the same way the `omni prd <n>` of step 1, which reads the plan on the feature branch.
+   A PRD with no plan yet (its folder holds no `plan.md`, on the feature branch or, with none yet,
+   on the default branch) has no `repos:` line either: it is not stopped here, but planned in step
+   1, which runs this check again once the plan is written.
 3. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then
    `node .omni-loop/bin/omni.mjs kb status` once, as `/omni:yolo` step 0 runs them.
+
+## From a product (`<key>-<n>`)
+
+A **product PRD** (◆, PRD 1548) lives on its product on the Omni page, and in no repository: its id
+is the product's key and a counter, `mobile-12`, its spec and plan are its dossier's versions, and
+its outbox is rows on the server. This run starts from any checkout of a repository the product
+holds that has the kit installed, a plan repository or not, and writes nothing in that checkout: no
+PRD issue, no feature branch, no commit, no outbox file, no phase-0 PR and **no plan PR**. Its code
+lands as one target feature PR per target, each saying `Part of <key>-<n>`; the one gate is
+`omni status <key>-<n>`, read from the server, and the target feature PRs are marked ready last.
+Every step below runs as written, with these differences.
+
+**Step 0.** Remember the product the id names, then read where the PRD stands:
+
+```bash
+node .omni-loop/bin/omni.mjs product use <key>
+node .omni-loop/bin/omni.mjs prd <key>-<n>
+```
+
+It always exits 0 on a PRD the page holds: gate on its `state:` line, which a product PRD's
+`birthplace: server` and `approval:` lines follow. No `birthplace: server` line, or exit 1 (`no PRD
+<key>-<n> on the Omni page`, no sign-in, dossiers off): stop on the line it printed.
+
+| `state:` | what the run does |
+|---|---|
+| `inbox` | approved on its page, every pinned file as approved: go on |
+| `prd` | **it waits on approval.** Print its `approval:` line once, then read `omni prd <key>-<n>` again once a minute (a background `sleep 60` between reads), up to 60 minutes or the `--timeout` the person gave. `inbox`: go on, without being typed again. Still `prd`: end held on `held: PRD <key>-<n> still waits for approval after <minutes> min: <page link>`, nothing built. Never approve it: an approver of the product does, on its page |
+| `drifted` | **refuse:** stop on its `approval:` lines (`≠ <file> · voided by <login>'s push … · ✗ refuse · approve again: <link>`). No slice is claimed and nothing is built while the PRD is drifted |
+| `unreachable` | **park on held:** stop on `server unreachable · held, not failed`. Nothing is built on a copy the run cannot verify; run this again once the server answers |
+| `refused` | stop on its `approval:` line |
+
+Read it again before every wave (step 3): a push that voided the approval between waves refuses the
+next wave, and a server gone quiet parks it.
+
+**Step 1, the plan,** is the dossier's, never a folder:
+
+```bash
+node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan
+```
+
+It writes the latest plan to a scratch file outside every repository and prints its path, then
+`sha256 <hash>`: read the plan from that path, and the spec the same way
+(`omni dossier get <key>-<n> spec`). `held · server unreachable · held, not failed` parks the run as
+`unreachable` does above. `none` (no plan on the page yet) stops the run in one line,
+`PRD <key>-<n> has no plan on its page: /omni:mega-brainstorm --product <key> plans it`, since a
+product PRD's plan is approved with it. `omni plan check`, `omni plan moved` and
+`omni plan landings` read a repository's PRD only: none runs, the hand-off names each as not run,
+and a plan of more than one landing (a `## Landings` table) is held in one line,
+`PRD <key>-<n> has <k> landings: a product PRD lands in one feature PR per target`.
+There is no plan PR to find, label or comment on.
+
+**Step 2, the targets,** are the plan's `## Repositories` rows. Each one's `owner/name` is the one
+`node .omni-loop/bin/omni.mjs targets --json` lists when the config has `plan.product`, otherwise the
+one the spec's `## Repositories` names; a row with neither is **held**. Before any clone, read each
+target's phase-0 flag:
+
+```bash
+node .omni-loop/bin/omni.mjs product phase0 <slug>…
+```
+
+A target that is not `phase0: server` is **held**, its line printed as is. Each clone is
+`<worktrees>/targets/<name>@<prd>`, `<prd>` being `<key>-<n>`, under the `<worktrees>` of this
+checkout, and every branch shape (`branches.feature`, `branches.slice`) is filled with the PRD's id,
+`<key>-<n>`, as its topic.
+Item 3's empty commit names `<key>-<n>` in place of `<plan slug>#<n>`, and item 4's body starts
+with exactly one line,
+
+```text
+Part of <key>-<n> · <page link>
+```
+
+the page link being the `page:` line `omni prd <key>-<n>` printed: that line is what makes the
+omni-loop App post `omni/approved` and the outbox check on the target PR, read from the product PRD
+on the server. Open it as written:
+
+```bash
+gh pr create --repo <slug> --draft --base <target default branch> --head <feature branch> --body-file <file>
+```
+
+**Step 3, the waves,** run `/omni:ultra-wave <key>-<n>` (its **From a product**), the approval read
+again before each.
+
+**Step 4, finish each target,** runs items 1 to 4 as written, keeping the `Part of <key>-<n>` line
+first. Item 5 waits for the gate: no target feature PR of a product PRD is marked ready before
+step 5 reads it green.
+
+**Step 5, one gate,** on the server:
+
+```bash
+node .omni-loop/bin/omni.mjs status <key>-<n>     # exit 0 green, 1 red or held
+```
+
+No outbox comment is posted (`omni comment` is not run): the questions are answered on the
+product's **Questions** tab, or here. There is no `omni ship`, no release note and no plan PR body.
+
+- **Green, every target's CI green:** mark each target feature PR ready, at point `yolo.ready` read
+  in its clone, as step 4 item 5 says: `gh pr ready <n> --repo <slug>`, in merge order. **This is the
+  only place a product PRD's target feature PR is marked ready,** and nothing in any plan repository
+  is opened, edited or marked ready.
+- **Green, but a target's CI is not green:** every target PR stays draft; the run is **held** by
+  that target.
+- **Red** (`<k> open item(s)`): every target PR stays draft; the questions wait on
+  `<product> › Questions`.
+- **Held** (`held · server unreachable since <time> · held, not failed`): every target PR stays
+  draft, and the run is parked on held, never failed.
+
+**Answer here, when the gate ends red,** as written, with the server's verbs: the questions are
+`node .omni-loop/bin/omni.mjs answers ask <key>-<n>`, and the picks are settled on the server with
+`node .omni-loop/bin/omni.mjs answers post --prd <key>-<n> --answers <file>`, which prints one line
+per question, `<k>: <item> settled as "agreed"` (or `"drifted"`). Then read the gate again: green
+goes on as above. A drifted answer carries on into `/omni:ultra-yolo-fix <key>-<n>`'s **From a
+product**, in this run.
+
+**Step 6, the hand-off,** opens with `PRD <key>-<n>: <page link>` (`omni dossier link` reads a
+repository's PRD only), then the report per target. Its green **What is next?** has no plan PR:
+
+```markdown
+**What is next?**
+
+1. Merge the target pull requests, in this order, each once its CI is green:
+   <slug>#<n> (https://github.com/<slug>/pull/<n>), then <slug>#<n> (…)
+   → PRD <key>-<n> is shipped once the last one merged.
+
+Merging them is yours. To keep every one green, conflict-free and its review comments handled,
+type /clear (or open a new terminal), then run:
+
+/omni:mega-pr-care <key>-<n>
+```
+
+The red ending names `<product> › Questions` and its last line is `/omni:ultra-yolo-fix <key>-<n>`;
+the held ending's is `/omni:ultra-yolo <key>-<n>`.
 
 ## 1. The plan repository
 
 As `/omni:yolo` steps 1 and 2, on the plan repository: find the draft **plan PR** (the feature PR
 `/omni:mega-brainstorm` opened), switch the clean checkout detached to its feature branch, read
 `omni prd <n>` there (state `inbox`; `shipped` with the plan PR still a draft resumes at step 5,
-green path, item 4). One difference: a PRD with no `plan.md` or no plan PR stops in one line,
-`PRD <n> has no plan: /omni:mega-brainstorm writes it`, because `/omni:plan` plans one repository
-only. Add `labels.inProgress` to the plan PR and rewrite its status comment, as there.
+green path, item 4). One difference: a PRD with no `plan.md` or no plan PR is planned first (**A
+PRD with no plan**, below). Add `labels.inProgress` to the plan PR and rewrite its status comment, as
+there.
+
+**A PRD with no plan** (a roadmap writes every spec up front and each plan just in time, so a PRD can
+reach this skill with its spec merged and no plan) is planned here, before its first wave, the way
+`/omni:mega-brainstorm` plans one, with nothing asked:
+
+1. Read the spec's `## Repositories` (for a PRD of a roadmap without one, the repositories its row
+   of `roadmap.md` names): the target repositories the PRD lands in. Then, as
+   `/omni:mega-brainstorm` step 3, a shallow read-only clone of each in a scratch folder
+   (`mktemp -d`), its head the `read at` of that repository's row; **nothing runs in it**. A target
+   that cannot be cloned stops the run in one line naming it: a plan is never written on a
+   repository it could not read.
+2. As `/omni:mega-brainstorm` step 8: follow `/omni:plan <n>`, its paragraph **In a plan
+   repository** filling the `repo` column and the `## Repositories` table, and point `plan.slice`
+   read per repository (`flow show plan.slice --repo <name>`), its hooks followed as planning
+   guidance only. It cuts the feature branch, commits `plan.md` there, signed, and opens the draft
+   plan PR, its **Slices** checklist grouped by repository.
+3. `node .omni-loop/bin/omni.mjs plan check <n>` must be green; fix the plan until it is, every
+   rule it names included (a slice in a read-only target, a consumer blocked by its provider). It
+   prints each wave with the repository beside each slice.
+4. Delete the scratch folder, then run `node .omni-loop/bin/omni.mjs prd <n>` again on the feature
+   branch. No `repos:` line now means the plan lands in this repository alone: stop with exactly
+   one line,
+
+   ```text
+   PRD <n> is an ordinary PRD: /omni:yolo <n>
+   ```
+
+`/omni:plan` may return `needs clarification`: the run stops there, with its question posted on the
+PRD's issue, its first line `<!-- omni-needs-clarification -->` as `/omni:plan` writes it, and
+nothing is built. Otherwise carry on below with the plan PR it opened.
 
 Then read what moved since the plan was written:
 
@@ -105,10 +271,13 @@ Read `## Repositories` from the plan, and each target's `owner/name` from the bo
 (`node .omni-loop/bin/omni.mjs board <n> --json` gives every slice its `repo` and `slug`). For
 each target row, the plan repository's own row excepted:
 
-1. **The clone.** A full clone at `<worktrees>/targets/<name>` of the plan repository
-   (`<worktrees>` is `omni config worktrees`): `gh repo clone <slug> <path>` when it is missing,
-   `git -C <path> fetch --prune` on every run. When `git check-ignore -q <path>` fails, append
-   the path to `.git/info/exclude`, never to a committed file.
+1. **The clone.** A full clone at `<worktrees>/targets/<name>@<prd>` of the plan repository, one
+   per PRD, so two PRDs built at once never share a clone's HEAD (`<worktrees>` is
+   `omni config worktrees`, taken from the plan repository's main checkout: the folder holding
+   `git rev-parse --path-format=absolute --git-common-dir`, so a run in a worktree finds the same
+   clones): `gh repo clone <slug> <path>` when it is missing, `git -C <path> fetch --prune` on every
+   run. When `git check-ignore -q <path>` fails, append the path to `info/exclude` under that
+   common git folder, never to a committed file.
 2. **The default branch** is the target's own:
    `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`. Never
    `repo.defaultBranch`.
@@ -123,7 +292,9 @@ each target row, the plan repository's own row excepted:
    `gh pr create --repo <slug> --draft --base <target default branch> --head <feature branch> --body-file <file>`.
    Its body starts with `Part of <plan slug>#<n>` (the plan repository's `repo.slug`), lists that
    target's slices as a **Slices** checklist, and ends with the `omni sign footer` line. Labels
-   follow `/omni:pr --repo`: one missing there is a human step, never created.
+   follow `/omni:pr --repo`: one missing there is a human step, never created. That `Part of` line
+   is what makes the omni-loop App pass the target's outbox check, linking the plan PR, rather
+   than grade the PRD there: the one gate is the plan PR's (`/omni:pr --repo`).
 
 **A plan of more than one landing** (`node .omni-loop/bin/omni.mjs plan landings <n> --json` lists
 more than one) is delivered per target as that target's own chain of landings, each built as

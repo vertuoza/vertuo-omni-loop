@@ -131,3 +131,38 @@ describe('sending a game\'s score through the account (PRD 817)', () => {
     expect(sendLine({ state: 'failed', score: 10, tries: 1 })).toBe('SCORE NOT SAVED');
   });
 });
+
+describe('a time game (OMNI KART): the lowest wins', () => {
+  it('names a NEW BEST for the first time, then only a faster one', () => {
+    expect(isNewBest(1023, 1023, null, 'time')).toBe(true);
+    expect(isNewBest(0, 0, null, 'time')).toBe(true);
+    expect(isNewBest(1023, 1023, 1100, 'time')).toBe(true);
+    expect(isNewBest(1200, 1100, 1100, 'time')).toBe(false);
+    expect(isNewBest(1100, 1100, 1100, 'time')).toBe(false);
+    expect(saved(sending(1023), 1023, 1100, 'time')).toMatchObject({ newBest: true });
+    expect(saved(sending(1300), 1100, 1100, 'time')).toMatchObject({ best: 1100, newBest: false });
+  });
+
+  it('keeps the table fastest first and five long, and a slower time changes nothing', () => {
+    const top = board(1500, line('a', 1000), line('b', 1100), line('c', 1200), line('me', 1500), line('d', 1600));
+    expect(ids(withBest(top, line('me', 1050), 'time'))).toEqual(['a', 'me', 'b', 'c', 'd']);
+    expect(mineOf(withBest(top, line('me', 1050), 'time'))).toBe(1050);
+    expect(withBest(top, line('me', 1700), 'time')).toBe(top);
+    expect(withBest(top, line('me', 1500), 'time')).toBe(top);
+    const full = board(null, line('a', 1000), line('b', 1100), line('c', 1200), line('d', 1300), line('e', 1400));
+    expect(ids(withBest(full, line('me', 1250), 'time'))).toEqual(['a', 'b', 'c', 'me', 'd']);
+    expect(ids(withBest(full, line('me', 2000), 'time'))).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(withBest(board(null), line('me', 900), 'time')).toEqual(board(900, line('me', 900)));
+  });
+
+  it('words its end line for a time, and a game\'s send reads its measure from its id', async () => {
+    expect(sendLine(sending(1023), 'time')).toBe('SAVING TIME…');
+    expect(sendLine({ state: 'failed', score: 1023, tries: 1 }, 'time')).toBe('TIME NOT SAVED');
+    expect(sendLine({ state: 'saved', score: 1300, best: 1023, newBest: false }, 'time')).toBe('YOUR BEST 1:42.3');
+    expect(sendLine({ state: 'saved', score: 1023, best: 1023, newBest: true }, 'time')).toBe('NEW BEST');
+    const account = { submitScore: () => Promise.resolve(1023) };
+    expect((await submitSend(account, 'kart', sending(1023), 1100)).send).toMatchObject({ state: 'saved', newBest: true });
+    expect((await submitSend({ submitScore: () => Promise.resolve(1100) }, 'kart', sending(1300), 1100)).send).toMatchObject({ newBest: false });
+    expect((await submitSend({ submitScore: () => Promise.resolve(300) }, 'invaders', sending(300), 1100)).send).toMatchObject({ newBest: false });
+  });
+});

@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Session HUD</title>
+<style>
+  /* PRD 324's palette, as its status line page uses. No web font and no external request: the Omni
+     page shows it inside a sandbox whose policy is default-src 'none'. Terminals look the same in
+     both themes. The numbers, topics and slices are examples. Layout: a pair of terminals per
+     situation, today on the left, after on the right, then a table of what changes. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --t-ground: #0d0c26;
+    --t-raised: #15133a;
+    --t-ink: #e8eaff;
+    --t-dim: #8f95cf;
+    --t-line: #2f2c78;
+    --t-green: #5fe3a1;
+    --t-yellow: #ffd166;
+    --t-red: #ff7a8a;
+    --t-link: #8fc2ff;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 56px; }
+  header { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  h3 { margin: 0; font: 600 14px/1.4 var(--body); }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 72ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 960px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair.stack { grid-template-columns: minmax(0, 1fr); }
+  .side { display: grid; gap: 10px; min-width: 0; }
+  .tag { justify-self: start; font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .note { font-size: 14px; color: var(--muted); max-width: 70ch; }
+
+  /* Terminal */
+  .term { background: var(--t-ground); color: var(--t-ink); border-radius: 10px; border: 1px solid var(--t-line); overflow-x: auto; }
+  .term-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--t-line); color: var(--t-dim); font: 12px var(--mono); align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--t-line); }
+  .term pre { margin: 0; padding: 12px 14px 14px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .term .input { margin: 0 14px; border: 1px solid var(--t-line); border-radius: 6px; padding: 8px 10px; font: 13px/1.4 var(--mono); color: var(--t-dim); white-space: pre; }
+  .term .foot { padding: 8px 14px 12px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .t-dim { color: var(--t-dim); }
+  .t-green { color: var(--t-green); }
+  .t-yellow { color: var(--t-yellow); }
+  .t-red { color: var(--t-red); }
+
+  .t-link { color: var(--t-link); text-decoration: underline; text-underline-offset: 3px; }
+  .band { margin: 0 14px; border-top: 1px dashed var(--t-line); padding: 8px 0 6px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .band .lbl { color: var(--t-dim); }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12px var(--mono); color: var(--muted); background: var(--sunk); }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { font-weight: 600; }
+  td.same { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">PRD 1208 · before / after</div>
+    <h1>The session HUD: what this Claude session is on, its links and the slice it builds</h1>
+    <p class="lede">Today the status line only knows PRDs, has no links, and counts slices without naming them. After, <code>omni now</code> works out what the session is on (a PRD, a bug fix, a visual fix, or a roadmap or loop). The status line shows it in one line, and a band above the prompt shows it with clickable links.</p>
+  </header>
+
+  <section>
+    <h2>Building a PRD</h2>
+    <p>A <code>/omni:yolo 315</code> in wave 2, with two slices being built.</p>
+    <div class="pair">
+      <div class="side"><span class="tag today">today</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · vertuo-omni-loop</div>
+<pre><span class="t-dim">⏺ Agent(build s3 tabs)  running…
+⏺ Agent(build s4 board) running…</span></pre>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context <span class="t-yellow">█████░░░░░ 58%</span> · usage 25%, resets in 1h30
+PRD 315 help-and-status · outbox · wave 2 of 4 · 2/5 slices merged, 2 in flight</div>
+        </div>
+      </div>
+      <div class="side"><span class="tag after">after</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · vertuo-omni-loop</div>
+<pre><span class="t-dim">⏺ Agent(build s3 tabs)  running…
+⏺ Agent(build s4 board) running…</span></pre>
+<div class="band">PRD 315 help-and-status · building · wave 2/4 · now: s3 tabs, s4 board
+<span class="t-link">PRD page</span> · <span class="t-link">feature PR #1210</span></div>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context <span class="t-yellow">█████░░░░░ 58%</span> · usage 25%, resets in 1h30
+PRD 315 help-and-status · building · wave 2/4 · now s3 tabs, s4 board</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Driving a roadmap</h2>
+    <p>A <code>/loop /omni:drive --roadmap 7</code> on its fourth step. The roadmap is the headline, then the PRD the step works on.</p>
+    <div class="pair">
+      <div class="side"><span class="tag today">today</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · vertuo-omni-loop</div>
+<pre><span class="t-dim">⏺ Skill(omni:wave 315)</span></pre>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context <span class="t-green">███░░░░░░░ 31%</span>
+no PRD · /omni:brainstorm to start</div>
+        </div>
+      </div>
+      <div class="side"><span class="tag after">after</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · vertuo-omni-loop</div>
+<pre><span class="t-dim">⏺ Skill(omni:wave 315)</span></pre>
+<div class="band">roadmap 7 · 3/7 merged · <span class="t-link">roadmap page</span>
+PRD 315 help-and-status · step 4: wave PRD 315 · s3 merged
+<span class="t-link">PRD page</span> · <span class="t-link">feature PR #1210</span></div>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context <span class="t-green">███░░░░░░░ 31%</span>
+roadmap 7 · 3/7 merged · now PRD 315 · s4</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A bug fix or a visual fix</h2>
+    <p>A <code>/omni:bug-fix</code> on its fix branch, its pull request open. A visual fix reads the same way, with <code>visual #&lt;n&gt;</code>.</p>
+    <div class="pair">
+      <div class="side"><span class="tag today">today</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · fix/login-redirect</div>
+<pre><span class="t-dim">⏺ Bash(omni bug 1180)  ok</span></pre>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context <span class="t-green">██░░░░░░░░ 22%</span>
+no PRD · /omni:brainstorm to start</div>
+        </div>
+      </div>
+      <div class="side"><span class="tag after">after</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · fix/login-redirect</div>
+<pre><span class="t-dim">⏺ Bash(omni bug 1180)  ok</span></pre>
+<div class="band">bug #1180 login-redirect · fix PR open
+<span class="t-link">fix page</span> · <span class="t-link">fix PR #1184</span></div>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context <span class="t-green">██░░░░░░░░ 22%</span>
+bug #1180 login-redirect · fix PR open</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>On nothing</h2>
+    <p>The band hides itself. <code>/omni:hud</code> turns it off, or on again, across sessions. The status line keeps its hint.</p>
+    <div class="pair">
+      <div class="side"><span class="tag today">today</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · main</div>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context —
+no PRD · /omni:brainstorm to start</div>
+        </div>
+      </div>
+      <div class="side"><span class="tag after">after</span>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;claude · main</div>
+<div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context —
+no PRD · /omni:brainstorm to start</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What changes, what stays</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Piece</th><th>Today</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td>What the session is on</td><td>A PRD, from its branch or the last command naming one</td><td>A PRD, a bug fix, a visual fix, or a roadmap or loop with the PRD of its current step, read by <code>omni now</code></td></tr>
+        <tr><td>Status line, line 1</td><td class="same">Model, context, 5-hour usage, ask mode</td><td class="same">Unchanged</td></tr>
+        <tr><td>Status line, line 2</td><td>PRD, stage, slice counts</td><td>Every kind, with the slices in flight named</td></tr>
+        <tr><td>Links</td><td>None on screen</td><td>PRD, fix or roadmap page and pull requests, clickable in the band, fetched in the background</td></tr>
+        <tr><td>Band above the prompt</td><td>None</td><td>The <code>omni-hud</code> plugin, shown only while the session is on something</td></tr>
+        <tr><td>Other agents</td><td>Nothing to read</td><td><code>omni now --json</code></td></tr>
+        <tr><td>Network on screen</td><td class="same">None: the status line never fetches</td><td class="same">None: <code>omni now</code> and the band never fetch</td></tr>
+        <tr><td>The <code>omni</code> plugin's skills and hooks</td><td class="same">As they are</td><td class="same">Unchanged</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</div>
+</body>
+</html>

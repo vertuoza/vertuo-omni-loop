@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS, LIST_FIELDS,
-  ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
+  PUSH_KINDS, PUSHED_ARTIFACT_KINDS, ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
 } from './store';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -18,6 +18,12 @@ const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migra
 const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261011090000_fix_dossiers.sql', import.meta.url)), 'utf8');
 // PRD 822: the voice artifact, on a PRD's dossier only.
 const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261024090000_customer_voice.sql', import.meta.url)), 'utf8');
+// PRD 1272: the concept kind and its four version kinds.
+const CONCEPT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261119090000_concept_dossiers.sql', import.meta.url)), 'utf8');
+// PRD 1299 s2: a PRD dossier's birthplace, granted to the signed-in.
+const APPROVALS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261123090000_approvals.sql', import.meta.url)), 'utf8');
+// PRD 1364 s2: a PRD's product, dossier_push() taking it by name, and dossiers.product_id granted.
+const PRODUCT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261129100000_prd_product.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {
@@ -61,7 +67,7 @@ describe('the dossier store', () => {
     const pushed = { id: '00000000-0000-4000-8000-000000000002', added: [{ kind: 'spec', version: 2 }], unchanged: ['plan'] };
     const { calls, db } = recording({ data: pushed, error: null });
     const push = { repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec' as const, content: 'x' }] };
-    expect(await dossierStore(db).push(push)).toEqual(pushed);
+    expect(await dossierStore(db).push(push)).toEqual({ ...pushed, product: null });
     // A PRD's push names no kind: the function's last parameter defaults to prd.
     expect(Object.keys(firstArgs(calls))).toEqual(parameters('dossier_push', FIX_MIGRATION).slice(0, -1));
     expect(calls[0]).toEqual({
@@ -76,6 +82,24 @@ describe('the dossier store', () => {
     await dossierStore(db).push({ repo: 'acme/widgets', prd: parsePrd(548), kind: 'visual', title: 'Links', draftId: null, artifacts: [{ kind: 'variations', content: 'r1' }] });
     expect(Object.keys(firstArgs(calls))).toEqual(parameters('dossier_push', FIX_MIGRATION));
     expect(firstArgs(calls).p_kind).toBe('visual');
+  });
+
+  it('pushes a PRD naming its product as p_product, one of the migration\'s parameters, and hands back the product (PRD 1364)', async () => {
+    const product = { id: '00000000-0000-4000-8000-0000000000aa', name: 'Mobile' };
+    const { calls, db } = recording({ data: { id: 'd1', added: [], unchanged: [], product }, error: null });
+    const pushed = await dossierStore(db).push({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox', draftId: null, artifacts: [], product: 'Mobile' });
+    expect(pushed.product).toEqual(product);
+    expect(firstArgs(calls).p_product).toBe('Mobile');
+    const declared = parameters('dossier_push', PRODUCT_MIGRATION);
+    for (const name of Object.keys(firstArgs(calls))) expect(declared).toContain(name);
+    expect(PRODUCT_MIGRATION).toContain('p_product text default null');
+  });
+
+  it('names no product when none is sent, and reads a reply with no product, or a malformed one, as none', async () => {
+    const { calls, db } = recording({ data: { id: 'd1', added: [], unchanged: [], product: { id: 7 } }, error: null });
+    const pushed = await dossierStore(db).push({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox', draftId: null, artifacts: [] });
+    expect(pushed.product).toBeNull();
+    expect(firstArgs(calls)).not.toHaveProperty('p_product');
   });
 
   it('turns a refusal into a DossierStoreError carrying Postgres\'s code and reason', async () => {
@@ -96,12 +120,22 @@ describe('the dossier store', () => {
     }
     expect(FIX_MIGRATION).toContain(`kind in (${WORK_KINDS.map((k) => `'${k}'`).join(', ')})`);
   });
+
+  it('checks the concept kind and its versions the concept migration adds (PRD 1272)', () => {
+    const quoted = (kinds: readonly string[]) => kinds.map((k) => `'${k}'`).join(', ');
+    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(PUSH_KINDS)})`);
+    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(PUSHED_ARTIFACT_KINDS)})`);
+    for (const kind of PUSH_KINDS) {
+      const takes = KIND_ARTIFACTS[kind];
+      expect(CONCEPT_MIGRATION).toContain(takes.length === 1 ? `when '${kind}' then p_version_kind = '${takes[0]}'` : `when '${kind}' then p_version_kind in (${quoted(takes)})`);
+    }
+  });
 });
 
 /** The columns `grant select (…) on public.<table> to authenticated` names. */
 function granted(table: string): string[] {
   const pattern = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`, 'g');
-  const columns = [MIGRATION, FIX_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => {
+  const columns = [MIGRATION, FIX_MIGRATION, APPROVALS_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => {
     const list = m[1];
     assertDefined(list, `the columns granted on ${table}`);
     return list.split(',').map((c) => c.trim());
@@ -168,6 +202,31 @@ describe('reading a dossier as its members do (the page to share)', () => {
       ['from', 'dossiers'], ['select', 'id'], ['eq', 'home_repo', 'acme/widgets'], ['eq', 'kind', 'prd'], ['eq', 'prd', 7],
       ['order', 'numbered_at', { ascending: false, nullsFirst: false }], ['order', 'id', { ascending: true }], ['limit', 1],
     ]);
+  });
+
+  it('reads a dossier\'s product: its product_id, granted to the signed-in, then that product\'s name (PRD 1364)', async () => {
+    const answers = [{ data: { product_id: 'p1' }, error: null }, { data: { id: 'p1', name: 'Mobile' }, error: null }];
+    const calls: unknown[][] = [];
+    const from = (table: string) => {
+      calls.push(['from', table]);
+      const answer = answers.shift();
+      const builder = {
+        select: (columns: string) => { calls.push(['select', columns]); return builder; },
+        eq: (column: string, value: unknown) => { calls.push(['eq', column, value]); return builder; },
+        maybeSingle: () => Promise.resolve(answer),
+      };
+      return builder;
+    };
+    expect(await dossierReader({ from } as never).product('d1')).toEqual({ id: 'p1', name: 'Mobile' });
+    expect(calls).toEqual([['from', 'dossiers'], ['select', 'product_id'], ['eq', 'id', 'd1'], ['from', 'products'], ['select', 'id, name'], ['eq', 'id', 'p1']]);
+    expect(PRODUCT_MIGRATION).toContain('grant select (product_id) on public.dossiers to authenticated');
+  });
+
+  it('reads no product for a dossier with none, or one the caller may not read', async () => {
+    expect(await dossierReader(querying({ data: { product_id: null }, error: null }).db).product('d1')).toBeNull();
+    const hidden = querying({ data: null, error: null });
+    expect(await dossierReader(hidden.db).product('d1')).toBeNull();
+    expect(hidden.calls.filter(([step]) => step === 'from')).toEqual([['from', 'dossiers']]);
   });
 
   it('finds a fix\'s dossier by its kind (PRD 627)', async () => {

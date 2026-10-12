@@ -37,7 +37,7 @@ function accountText({ frontMatter = {}, body }: { frontMatter?: Record<string, 
 }
 
 /** A minimal outbox item file, valid enough for `outboxItemFiles` to see it — content is not read. */
-function seedItem(prd: number, id: string) {
+function seedItem(prd: number, id: string, rank = 'high') {
   mkdirSync(join(root, 'docs/outbox', String(prd)), { recursive: true });
   writeFileSync(
     join(root, 'docs/outbox', String(prd), `${id}.md`),
@@ -46,7 +46,7 @@ function seedItem(prd: number, id: string) {
       `id: ${id}`,
       `prd: ${prd}`,
       'slice: s3',
-      'rank: high',
+      `rank: ${rank}`,
       'bears-on: none',
       'raised: 2026-09-23',
       'wave: 1',
@@ -286,7 +286,7 @@ describe('readAccounts', () => {
       {
         path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
         rule: 'stored-shape',
-        account: { kind: 'item', id: 's3-01-credit-ledger-shape' },
+        account: { kind: 'item', id: 's3-01-credit-ledger-shape', rank: 'high' },
       },
     ]);
     expect(view(s4Result).account.entries).toEqual([
@@ -379,7 +379,7 @@ describe('compare', () => {
         {
           path: 'docs/knowledge/product/invariants.md',
           rule: 'law-text',
-          account: { kind: 'spec', where: 'the plan says so' },
+          account: { kind: 'item', id: 's2-01-a', rank: 'high' },
         },
       ]),
     ];
@@ -388,5 +388,120 @@ describe('compare', () => {
     expect(result.accounted).toEqual([twoRuleRisky[0]]);
     expect(result.unaccounted).toEqual([twoRuleRisky[1]]);
     expect(result.stale).toEqual([]);
+  });
+});
+
+describe('compare — a law change is accounted only by an item ranked high (PRD 1342)', () => {
+  const PATH = 'docs/knowledge/product/invariants.md';
+
+  function oneEntry(rule: string, account: AccountEntry['account']) {
+    return [{ slice: parseWorkSliceId('s2'), file: 'docs/outbox/1342/accounts/s2.md', entries: [{ path: PATH, rule, account }] }];
+  }
+
+  it.each(['law-proof', 'law-text', 'test-removed', 'law-demoted'])('refuses spec <where> for %s', (rule) => {
+    const risky = [{ path: PATH, status: 'M', rule }];
+    const result = compare(risky, oneEntry(rule, { kind: 'spec', where: 'Solution, §2' }));
+    expect(result.accounted).toEqual([]);
+    expect(result.unaccounted).toEqual([
+      { ...risky[0], refused: 'its account "spec Solution, §2" is refused: a change to a law is accounted only by an item ranked high' },
+    ]);
+    expect(result.stale).toEqual([]);
+  });
+
+  it.each(['stored-shape', 'shared-contract'])('still accepts spec <where> for %s', (rule) => {
+    const risky = [{ path: PATH, status: 'M', rule }];
+    expect(compare(risky, oneEntry(rule, { kind: 'spec', where: 'Solution' })).accounted).toEqual(risky);
+  });
+
+  it('refuses an item ranked medium for a law change, naming the item and its rank', () => {
+    const risky = [{ path: PATH, status: 'M', rule: 'law-proof' }];
+    const result = compare(risky, oneEntry('law-proof', { kind: 'item', id: 's2-01-a', rank: 'medium' }));
+    expect(result.accounted).toEqual([]);
+    expect(result.unaccounted).toEqual([
+      { ...risky[0], refused: 'its account names item s2-01-a, ranked medium: a change to a law needs an item ranked high' },
+    ]);
+  });
+
+  it('refuses an item whose rank was never read', () => {
+    const risky = [{ path: PATH, status: 'M', rule: 'law-text' }];
+    const result = compare(risky, oneEntry('law-text', { kind: 'item', id: 's2-01-a' }));
+    expect(result.unaccounted).toEqual([
+      { ...risky[0], refused: 'its account names item s2-01-a, ranked unknown: a change to a law needs an item ranked high' },
+    ]);
+  });
+
+  it.each(['high', 'human-action'])('accepts an item ranked %s for a law change', (rank) => {
+    const risky = [{ path: PATH, status: 'M', rule: 'law-demoted' }];
+    const result = compare(risky, oneEntry('law-demoted', { kind: 'item', id: 's2-01-a', rank }));
+    expect(result.accounted).toEqual(risky);
+    expect(result.unaccounted).toEqual([]);
+  });
+
+  it('carries no refused reason on a change no entry names', () => {
+    const risky = [{ path: PATH, status: 'M', rule: 'law-text' }];
+    expect(compare(risky, []).unaccounted[0]).not.toHaveProperty('refused');
+  });
+
+  it('still accepts a medium item for a rule that is not a law rule', () => {
+    const risky = [{ path: PATH, status: 'M', rule: 'stored-shape' }];
+    expect(compare(risky, oneEntry('stored-shape', { kind: 'item', id: 's2-01-a', rank: 'medium' })).accounted).toEqual(risky);
+  });
+
+  it('an accepted entry beside a refused one accounts for the change', () => {
+    const risky = [{ path: PATH, status: 'M', rule: 'law-text' }];
+    const accounts = [
+      ...oneEntry('law-text', { kind: 'spec', where: 'Solution' }),
+      ...oneEntry('law-text', { kind: 'item', id: 's2-02-b', rank: 'high' }),
+    ];
+    const result = compare(risky, accounts);
+    expect(result.accounted).toEqual(risky);
+    expect(result.unaccounted).toEqual([]);
+  });
+});
+
+describe('readAccounts — the rank of the item an account names (PRD 1342)', () => {
+  const lawBody = ['## Risky changes', '', '- `docs/knowledge/product/invariants.md`', '  law-text', '  item s3-01-credit-ledger-shape', ''].join('\n');
+
+  function rankRead(ctx = flatCtx(root)) {
+    const [result] = readAccounts(parsePrd(1044), { ctx });
+    return view(result).account.entries[0]?.account;
+  }
+
+  it('reads the rank of an open item', () => {
+    seedItem(1044, 's3-01-credit-ledger-shape', 'medium');
+    seedAccount(1044, 's2', accountText({ body: lawBody }));
+    expect(rankRead()).toEqual({ kind: 'item', id: 's3-01-credit-ledger-shape', rank: 'medium' });
+  });
+
+  it('reads the rank a settled item was raised with', () => {
+    seedItem(1044, 's3-01-credit-ledger-shape', 'high');
+    seedAccount(1044, 's2', accountText({ body: lawBody }));
+    const ctx = flatCtx(root);
+    const settled = settleItem({
+      ctx,
+      file: 'docs/outbox/1044/s3-01-credit-ledger-shape.md',
+      answer: {
+        text: 'Yes, keep it as is.',
+        approvedBy: 'pierrederval',
+        approvedAt: '2026-09-23T09:30:00Z',
+        channel: { kind: 'prd-issue', number: 1044 },
+        statedVerdict: 'agreed',
+      },
+    });
+    expect(settled.ok).toBe(true);
+    expect(rankRead(ctx)).toEqual({ kind: 'item', id: 's3-01-credit-ledger-shape', rank: 'high' });
+  });
+
+  it('reads a null rank for an open item file that does not parse', () => {
+    mkdirSync(join(root, 'docs/outbox/1044'), { recursive: true });
+    writeFileSync(join(root, 'docs/outbox/1044/s3-01-credit-ledger-shape.md'), 'not an item\n');
+    seedAccount(1044, 's2', accountText({ body: lawBody }));
+    expect(rankRead()).toEqual({ kind: 'item', id: 's3-01-credit-ledger-shape', rank: null });
+  });
+
+  it('leaves a spec account as it was written', () => {
+    const body = ['## Risky changes', '', '- `a/migrations.ts`', '  stored-shape', '  spec Solution', ''].join('\n');
+    seedAccount(1044, 's2', accountText({ body }));
+    expect(rankRead()).toEqual({ kind: 'spec', where: 'Solution' });
   });
 });

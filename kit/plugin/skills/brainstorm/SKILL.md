@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Turns an idea into an approved design, then into a PRD the loop can build — the PRD issue, the spec, the before/after page and the pending acceptance scenarios in the PRD's inbox folder, its plan through /omni:plan, and a docs-only phase-0 PR a person reviews and merges before any code is written. Use before any change someone wants made. With --concept <n> <area>, starts from one area of a concept /omni:think-big left in the inbox. Writes no code, merges nothing. Ends with the /omni:yolo line. Triggers on "brainstorm", "I have an idea", "let's design this", "turn this into a PRD", "/omni:brainstorm".
+description: Turns an idea into an approved design, then into a PRD the loop can build — the PRD issue, the spec, the before/after page and the pending acceptance scenarios in the PRD's inbox folder, its plan through /omni:plan, and a docs-only phase-0 PR a person reviews and merges before any code is written — or, when the repository's phase 0 is on the server, no phase-0 PR and an approval on the PRD's page. Use before any change someone wants made. With --concept <n> <area>, starts from one area of a concept /omni:think-big left in the inbox. Writes no code, merges nothing. Ends with the /omni:yolo line. Triggers on "brainstorm", "I have an idea", "let's design this", "turn this into a PRD", "/omni:brainstorm".
 ---
 
 <!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-brainstorming/SKILL.md (with the superpowers brainstorming steps written in) — changes in kit/porting/plugin--brainstorm.md -->
@@ -9,7 +9,10 @@ description: Turns an idea into an approved design, then into a PRD the loop can
 
 An idea in; out come an approved design, the PRD issue, its inbox folder (spec, before/after page,
 pending acceptance scenarios), its plan and draft feature PR, and a docs-only **phase-0 PR**. It ends
-at a review gate, not at delivery: a person merges the phase-0 PR, then runs `/omni:yolo`.
+at a review gate, not at delivery: a person merges the phase-0 PR, then runs `/omni:yolo`. In a
+repository whose phase 0 is on the server, the PRD is born there (◆): no phase-0 PR is opened, and
+`/omni:yolo` asks its approvers with `omni wait approval` and waits until one approves it on its
+PRD page (**Where its phase 0 is approved**).
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
@@ -46,6 +49,27 @@ rules bind every step below. Each `omni kb show <form>` prints one form of the r
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
 never overrides this skill's rules.
+
+**Where its phase 0 is approved.** Each repository's phase-0 flag is kept on the Omni page, never in
+the config: `pr`, a phase-0 PR a person merges, as always; or `server`, an approval on the PRD's
+page. Read it now, once, with `node .omni-loop/bin/omni.mjs approval flag`, and keep it for every
+step below. It prints one line:
+
+- `phase 0: server`: the PRD is born on the server (◆). Say `phase 0: server · approved on the
+  PRD's page`.
+- `phase 0: pr`: the PRD is born in the repository (◇), and the brainstorm runs as it always has.
+- `phase 0: pr · the flag could not be read: <why>` (exit 1: no Omni page, no sign-in, no answer
+  within 5 seconds, or the page refused): print the line as is. The run carries on as ◇.
+
+The birthplace is for life: a flag flipped later changes no PRD that already exists. Under `server`,
+step 4 writes it in the spec, step 7's first dossier push records it on the dossier, step 9 opens no
+phase-0 PR and step 10 hands off to the PRD's page. Everything else runs as written.
+
+**The design flag.** Read it once: `node .omni-loop/bin/omni.mjs config design.enabled`, and keep
+what it prints for step 5 (and **Rework**, which writes the page the same way). Anything but `true`
+(or a failure) means design craft is off here: step 5 reads no design form, and the page is drawn
+as it always has been. Off, the design memory is off too: step 5 reads no screen library, marks no
+screen, runs no word pass and writes no draft screen, and steps 7 and 9 carry none.
 
 With `--concept`, read the concept next, as **From a concept** says. Each of its three stops ends
 the skill there, before the dossier opens and before any question.
@@ -165,6 +189,22 @@ question, yes or no: *"Record a proof video once it ships?"*. A yes writes `proo
 front matter (step 4), and `/omni:yolo` then follows `/omni:prove` once the feature PR is ready. A no,
 or `proof.url` unset, writes nothing and asks nothing.
 
+**The e2e question** (PRD 1275), right after the proof question and only when
+`node .omni-loop/bin/omni.mjs config e2e` prints `enabled` as true, ask one question, yes or no:
+*"Validate with e2e once it ships?"*. A yes writes `e2e: validate` in the spec's front matter
+(step 4), and `/omni:yolo` then follows `/omni:validate-e2e` once the feature PR is ready. A no, or
+e2e off, asks nothing and writes nothing.
+
+**The product question** (PRD 1364), right after the e2e question: run
+`node .omni-loop/bin/omni.mjs product which`, which prints the products this repository is in, one per
+line, or `none`. Only when it prints more than one product, ask one question: *"Which product is this
+PRD for?"*, its options each product it printed, by name, and **No product**. Keep the answer for
+step 7's first push; it is the PRD's product, so its approvers, claims and personas are that
+product's. With one product or `none`, ask nothing: the Omni page gives the PRD that one product, or
+none, by itself. When the command exits 1 (no Omni page, no sign-in, the page unreachable or its
+refusal), print its line as is and ask nothing: the PRD is born with whatever the page decides, and
+its page's Product picker changes it until it is approved.
+
 ## The voice
 
 Only when step 0's read listed personas. They speak for the people the product is sold to: all of
@@ -242,7 +282,9 @@ The PRD's number is its issue's number, and it names the inbox folder, so the is
 <the line `omni sign footer` prints>
 ```
 
-The `Before/after:` line is a repository path, never a URL.
+The `Before/after:` line is a repository path, never a URL. For a ◆ PRD, the Next command line
+ends `: it runs omni wait approval <n> and waits for the approval on its PRD page` in place of
+`, once the phase-0 PR is merged`: it has no phase-0 PR.
 
 With `--concept`, the paragraph names where the PRD comes from, as `concept #<concept>, area <area>`:
 GitHub links the concept's issue, which stays open as the concept's thread and so lists each PRD
@@ -293,7 +335,14 @@ spec: file
 - When `paths.knowledge` holds a knowledge folder, an optional `areas: [<domain>, …]` names the
   domain folders the PRD bears on.
 - `proof: video` only when the person said yes to the proof question (step 1); its only value is
-  `video`, and `omni check inbox` refuses any other. No other field: the plan is always the sibling `plan.md`, and
+  `video`, and `omni check inbox` refuses any other.
+- `e2e: validate` only when the person said yes to the e2e question (step 1); its only value is
+  `validate`, and `omni check inbox` refuses any other.
+- `phase0: server` only for a ◆ PRD (step 0 read the flag as `server`), written under `spec: file`;
+  its only value is `server`, and `omni check inbox` refuses any other by name. A ◇ PRD leaves it
+  out. It tells every gate, offline, that this PRD is approved on the server, and the server reads it
+  on the dossier's first push to set the dossier's birthplace. Never add or remove it afterwards.
+  No other field: the plan is always the sibling `plan.md`, and
   `omni check inbox` refuses a `status`, `branch`, `value`, `priority` or `plan` field by name.
 - **Acceptance criteria** are what `/omni:plan` turns into each slice's "done when", so each one is
   a condition someone can observe. When `acceptance.enabled`, every scenario from step 6 is copied
@@ -319,7 +368,93 @@ and go on only once they approve it.
 
 `before-after.html` in the folder, always, because `omni phase0` requires one:
 
+- **Two parts,** with the design flag on, in this order, each under its own heading:
+  - **Functional:** what the change does, today beside after: the flow, the data, the exchange,
+    drawn as the kinds below say (an API's exchange, a flow diagram, a short page for nothing
+    visible). Every PRD has it.
+  - **Pixel perfect:** only when the change changes a screen: the marked screens, today beside
+    after, as **A change with a screen** below says, and one line naming the library screens they
+    are, shared screens included (`screens: quote-list · app-shell`). It is the part review and the
+    word pass read, and the one a reviewer looks at closely.
+
+  A PRD that changes no screen (a database fix, a guard, a doc) has the Functional part alone, and
+  says, in place of the second part, the one line `Pixel perfect: no screen changes`: no slice runs
+  pixel-perfect work for it, and the feature PR's **Pixel perfect** line (`/omni:pr`) is `none`.
+  With the design flag off, the page is written as before, in one part, by the kinds below.
+
 - A change with a **screen:** two mockups side by side, the screen today and the screen after.
+  With the design flag on, read `node .omni-loop/bin/omni.mjs kb show design` first (and the file a
+  pointer section names), and build the "after" from the product's own tokens and components as
+  its `system` section names them: their colours, type scale, spacing and component shapes, read
+  from those files, never a palette or a style of your own. What its `deliberate` section says the
+  product does on purpose holds on the "after" too, over any rule of craft. A `[hole]` is filled
+  from what the "today" screen and its neighbours already use, never invented; say under the
+  mockup which section was a hole. The "after" changes only what the approved design changes.
+- **The design memory,** with the design flag on, for a change with a screen. Read the form's
+  `language` laws with the rest of it, then run `node .omni-loop/bin/omni.mjs design screens` and
+  read each library screen the design draws (its `implements` or `routes` meet what the design
+  touches): its file, in the folder `node .omni-loop/bin/omni.mjs config design.screens` prints,
+  and its mockup. A **locked** screen is drawn as written, from its file and its mockup, never
+  redesigned; a change the approved design makes to it is named in the spec's **Decisions**: the
+  screen, the change and who locked it (its `locked-by` and `locked-on`), for the slice that builds
+  it to raise as the high item its owner answers. A **draft** is a starting point.
+- **The marks and the word pass,** with the design flag on. Mark each screen of the page, "today"
+  and "after", with `data-screen` (its name), and its one primary action with `data-primary`, the
+  convention every mockup the kit's skills write uses. The page's own explanation (its title, the
+  PRD line, the captions under each mockup) sits outside every marked screen: the word pass reads
+  only marked screens, and skips a page with none. Before anyone is shown the page, run
+  `node .omni-loop/bin/omni.mjs design words <folder>/before-after.html`; it exits 0 whatever it
+  finds. Fix each finding of an "after" in that screen (a shorter label on the control, one primary
+  action, a sentence that stands at rest cut or moved, an avoided word replaced), and run it again.
+  The rule is fixed in the screen, never silenced: never drop a mark, unmark a primary action or
+  reword the finding away. A finding on "today" is what the product shows now: say it under the
+  mockup, never redraw today to hide it.
+- **The draft screens,** with the design flag on: each screen the "after" draws is written to the
+  library as a draft, never locked. Only a person locks, through `/omni:pixel-perfect lock`; an
+  approved "after" is a draft until its person locks it. A screen with no file yet gets
+  `<name>.md`, `<name>` its short kebab-case name, and its mockup `<name>.html` beside it: that
+  "after" alone, under the page rules below, marks kept.
+
+  ```markdown
+  ---
+  screen: <name>
+  status: draft
+  kind: <page, or shared for structure several pages show>
+  mock: <name>.html
+  implements: [<the paths the spec says build it, or none yet>]
+  reads: [<the code the spec says it only depends on, or none>]
+  routes: [<its routes, when the spec names them>]
+  supersedes: null
+  ---
+
+  ## Purpose
+  ## Regions
+  ## States
+  ## Words
+  ## Refusals
+  ## Open questions
+  ## Source
+  ```
+
+  Each section says what the approved design and the spec say, and nothing else: what they leave
+  undecided goes under **Open questions**. **Source** names where it came from, in one line:
+  `/omni:brainstorm, PRD <n>: <folder>/before-after.html`. The front matter holds only those
+  fields: the library's reader refuses any other. A draft already there is brought up to the
+  "after", and this PRD's line added to its **Source**: a draft changes freely. A locked screen's
+  file and mockup are never edited, and no agent writes an amendment line: it needs its owner's
+  words. **Which list.** One rule splits the paths, in four lines:
+  - A file whose change can change what a person sees on this screen goes in `implements`, the
+    data files that hold its words included.
+  - A file the screen only depends on goes in `reads`.
+  - Structure several pages share is a shared screen of its own (`kind: shared`); each page lists
+    its files in `reads`.
+  - A view file two pages share, and that is not structure, goes in `reads` on each.
+
+  The layout, styles and words go in `implements`; an engine, a data source or a rule behind it
+  goes in `reads`, and never a whole folder in `implements`: a lock trips on every file it names.
+  A shared screen (an app shell, notifications, a sign-in page, a dialog, a toast) is drawn and
+  drafted once, on its own; it names the pages it appears on in `routes` when it has none of its
+  own.
 - An **API or agent behaviour:** the exchange today and after (request and response, or user turn
   and agent turn), or a flow diagram.
 - **Nothing visible** (docs, config, a guard): a short page stating what changes and what stays the
@@ -328,13 +463,16 @@ and go on only once they approve it.
 With `--concept`, the "after" starts from the area's screens in `vision.html` (**From a concept**),
 each redrawn as a static mockup: the tour's look and layout, never its script or its motion, and
 changed only where the approved design moved away from the concept. The "before" is today, as
-always.
+always. With the design flag on, the draft screens `/omni:think-big` wrote for the concept are
+those screens' starting point: each is brought up to the "after", and its **Source** gains this
+PRD's line beside the concept's.
 
 The page is self-contained: inline CSS and inline SVG, no base64 raster image, and at most
 `limits.beforeAfterMaxBytes` bytes, which `omni check inbox` enforces. Load the `artifact-design`
 skill for the design when your session has it, then write the file. **Never publish it as a claude.ai
 artifact:** an artifact is private to its author, so the people the spec is for could not open it. A
-file in the repository is versioned, diffable, and reviewed in the phase-0 PR.
+file in the repository is versioned, diffable, and reviewed in the phase-0 PR (◆: on the PRD's page,
+where the dossier push sends it).
 
 ## 6. Acceptance scenarios
 
@@ -360,6 +498,10 @@ became which PRD. The file goes in the same commit as the PRD's folder. The cell
 empty there; when another brainstorm filled it since step 0, stop before committing and say so,
 naming that PRD.
 
+With the design flag on, first run `node .omni-loop/bin/omni.mjs check design` and
+`node .omni-loop/bin/omni.mjs design screens`: a refusal that names a draft step 5 wrote is fixed in
+it, and the drafts go in the same commit as the folder.
+
 In the worktree: commit the folder (its `voice.json` included, when step 4 wrote one, and any
 glossary change and scenario file, and with `--concept` the concept's `concept.md`) as
 `docs(prd): <topic>`, ending with the co-author trailer your session
@@ -367,13 +509,27 @@ requires, then the `omni sign trailer` line. Then:
 
 ```bash
 node .omni-loop/bin/omni.mjs check inbox
-node .omni-loop/bin/omni.mjs prd <n>        # state inbox, and the folder's files listed
+node .omni-loop/bin/omni.mjs prd <n>        # state: inbox (◆: state: prd, waiting for approval), and the folder's files listed
 ```
 
-Fix until `omni check inbox` is green, then `git push -u <remote> <feature branch>`.
+Fix until `omni check inbox` is green, then `git push -u <remote> <feature branch>`. For a ◆ PRD,
+`omni prd` also prints `birthplace: server` and its `approval:` lines. Nobody has approved it yet, so
+its `state:` is not `inbox` (`prd`, waiting for approval, or another state while the dossier does not
+exist yet): that is expected here, never a failure. A ◆ PRD whose `omni prd` prints no
+`birthplace: server` line has lost its `phase0: server`: fix the spec.
 
 Then follow `/omni:dossier-push <n>` from this worktree: the draft becomes PRD n's dossier, and the
-spec and the before/after page go up as its first versions. Whatever it prints, carry on to step 8.
+spec and the before/after page go up as its first versions. For a ◆ PRD, this first push is what
+makes the dossier's birthplace `server`: the server reads it from the spec's `phase0: server`.
+When step 1's product question picked a product, this first push carries it: run it as
+`node .omni-loop/bin/omni.mjs dossier push <n> --product '<name>'` and read what it prints as
+`/omni:dossier-push` says; **No product**, or no question asked, sends none. Only this first push
+names a product: every later push leaves it out. Whatever it prints, carry on.
+
+With `--concept`, then follow `/omni:dossier-push <concept> --kind concept` from this worktree too:
+the concept's page gets the `concept.md` whose area now names PRD n, so its Areas tab links that
+area to its PRD at once. Whatever it prints, carry on to step 8: a push that was skipped or refused
+stops nothing.
 
 ## 8. Plan it
 
@@ -387,10 +543,18 @@ PR.
 say what the spec must answer (it has already asked on the issue). There is no phase-0 PR and no
 `/omni:yolo` line until it is answered.
 
+For a ◆ PRD, `/omni:plan` runs while the PRD waits for approval: the plan is part of what is
+approved, so its gate takes `state: prd` with `birthplace: server` here, as it says.
+
 ## 9. The phase-0 PR
 
 The design is approved, the spec written and the plan computed, and not one line of source exists
 yet. That is what a person can review cheaply, so this is where a brainstorm ends.
+
+**A ◆ PRD opens no phase-0 PR.** When step 0 read the flag as `server`, skip this step whole: no
+phase-0 branch, no `docs(phase-0)` commit, no `omni phase0`, no PR. The spec, the plan, the
+before/after and the voice are already on its dossier (step 7's push and `/omni:plan`'s), and the PRD
+page is where a workspace member reviews and approves them: go to step 10. Never approve it yourself.
 
 1. Cut the phase-0 branch from today's default branch and take the files from the feature branch,
    so both copies are byte-identical and merging the default branch into the feature branch later
@@ -400,8 +564,12 @@ yet. That is what a person can review cheaply, so this is where a brainstorm end
    git fetch <remote>
    git worktree add -b <phase-0 branch> <worktrees>/<topic>-phase-0 <remote>/<repo.defaultBranch>
    cd <worktrees>/<topic>-phase-0
-   git checkout <remote>/<feature branch> -- <folder> <each scenario file> <the glossary, when step 6 changed it> <the concept's concept.md, with --concept>
+   git checkout <remote>/<feature branch> -- <folder> <each scenario file> <the glossary, when step 6 changed it> <each draft screen and its mockup, when step 5 wrote them> <the concept's concept.md, with --concept>
    ```
+
+   The draft screens sit in the knowledge folder, so `omni phase0` counts them as documents. When
+   it names one as a source file (a library configured outside that folder), leave the drafts on
+   the feature branch only, and say so in the PR's body.
 
    With `--concept`, that last path is `<concept folder>/concept.md`, its area's `PRD` cell filled
    in step 7: it sits under the delivery folder, so `omni phase0` counts it as a document, and the
@@ -473,7 +641,8 @@ Where it is
 ```
 
 The markers never move: "you are here" is always under PRD, because a brainstorm always ends with
-its phase-0 PR open, and "merging the phase-0 PR moves it here" is always under inbox.
+its phase-0 PR open (◆: waiting for approval), and "merging the phase-0 PR moves it here" is always
+under inbox.
 
 **3. What is next?** Three short numbered steps, then the command alone on the reply's last line.
 Step 1 links the phase-0 PR, and its second line, in brackets, always gives the PRD's page. Run
@@ -490,6 +659,34 @@ It never stops the hand-off.
    (spec, plan and before/after side by side: <dossier link>)
 2. Merge that PR. → PRD <n> moves into the inbox.
 3. Once it's merged, type /clear (or open a new terminal), then run:
+
+/omni:yolo <n>
+```
+
+**A ◆ PRD's hand-off.** It has no phase-0 PR, so the report names none, and the three blocks say
+"`/omni:yolo <n>` asks its approvers with `omni wait approval <n>` and waits; one approves it on its
+page". The folder's first line reads
+`PRD <n>'s folder: on <feature branch> now, on <repo.defaultBranch> once the feature PR merges`.
+**Where it is** keeps the stages line and its markers, but the inbox marker reads
+`└─ approving it on its PRD page moves it here`, and two stage lines change:
+
+```text
+  PRD       spec, plan and before/after written, on its PRD page, waiting for approval
+  inbox     approved on its PRD page: ready to build
+```
+
+**What is next?** gives the PRD's page, `<dossier link>` as above (with the same bracketed issue
+fallback when it has none):
+
+```markdown
+**What is next?**
+
+1. Review the PRD on its page: <dossier link>
+   (spec, plan and before/after side by side, every version kept)
+2. Its approvers approve it there. → PRD <n> moves into the inbox.
+   `omni wait approval <n>` asks them by phone and email, and waits for the approval.
+3. Type /clear (or open a new terminal), then run the line below: it runs
+   `omni wait approval <n>` and starts wave 1 the moment the PRD is approved.
 
 /omni:yolo <n>
 ```
@@ -513,11 +710,12 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
    `<folder>/voice.json`. No file, or no round in it: stop with the line alone,
    `PRD <n> has no voice yet: nothing to rework from`.
 3. **Rewrite** the spec and the before/after page to answer the latest round's objection and its
-   lowest scores, the way steps 4 and 5 write them, and add the change to the spec's **Decisions**.
+   lowest scores, the way steps 4 and 5 write them (with the design flag on, the marks, the word
+   pass and the drafts included), and add the change to the spec's **Decisions**.
    The overrule and the gap question hold as in **The voice**.
 4. **Ask the personas again** as round `rework-<k>`, `<k>` one more than the last rework round (1
    for the first), appended to `voice.json`.
-5. **Commit** the three files as `docs(prd): rework <topic> from the voice`, signed (**Signing**),
+5. **Commit** the three files (and any draft screen item 3 changed) as `docs(prd): rework <topic> from the voice`, signed (**Signing**),
    run `node .omni-loop/bin/omni.mjs check inbox` until it is green, push the feature branch, then
    follow `/omni:dossier-push <n>` from this worktree: each file that changed becomes a new version.
 6. **The review.** When the phase-0 PR is open, take the three files onto its branch as step 9
@@ -525,9 +723,12 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
    `node .omni-loop/bin/omni.mjs phase0 <n>` before pushing. When it has merged, cut a new branch
    from the default branch, `branches.phase0` with `{topic}` = `<topic>-rework-<k>`, take the files
    the same way, prove it the same way, push it, and open it as a docs-only PR through `/omni:pr`,
-   as step 9 opens the phase-0 PR.
+   as step 9 opens the phase-0 PR. A ◆ PRD (its spec says `phase0: server`) has no phase-0 PR:
+   skip this item; the push of item 5 put the new versions on its page, and an approval given
+   before them now reads drifted until a member approves again there.
 7. **Hand off:** the new round's scores beside the last ones, the PR updated or opened, the dossier
-   link, and, as the reply's last line, `/omni:yolo <n>` once that PR is merged.
+   link, and, as the reply's last line, `/omni:yolo <n>` once that PR is merged (◆: once it is
+   approved again on its page).
 
 ## Scaling
 
@@ -539,9 +740,14 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
 ## Guardrails
 
 - Nothing is built before the design is approved, and no source file enters the phase-0 PR.
+- Never lock a screen or a law, never edit a locked screen's file or mockup, and never write an
+  amendment line: an approved "after" is a draft, and only a person locks, through
+  `/omni:pixel-perfect lock`.
 - One idea, one PRD, one feature branch. Related small asks go in the same PRD now, not in its plan
   later.
 - Never merge, never add `labels.outboxGo`, never create a label unless `labels.autoCreate` is true.
+- Never approve a ◆ PRD: a workspace member does, on its page. Never open a phase-0 PR for one,
+  and never change a PRD's birthplace once its spec is written.
 - With `--concept`, never change a concept's files beyond the area's `PRD` cell: the concept is read,
   not rewritten.
 - With `--rework`, never rework a PRD once a sub-PR of it has merged: `/omni:yolo-fix` owns its

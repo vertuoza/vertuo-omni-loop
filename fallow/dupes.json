@@ -26,7 +26,7 @@
     "kit/lib/bug/verdict.ts:122-159|kit/lib/visual/verdict.ts:55-89",
     "apps/galaxy/src/ask/store.fake.ts:76-84|apps/galaxy/src/data/galaxy.fake.ts:163-171",
     "kit/lib/outbox/account.ts:48-63|kit/lib/outbox/outbox.ts:160-175",
-    "apps/omni-app/src/evaluate/evaluate.ts:76-81|apps/omni-app/src/retro/qualify.ts:78-83",
+    "apps/omni-app/src/evaluate/evaluate.ts:81-86|apps/omni-app/src/retro/qualify.ts:77-82",
     "apps/galaxy/src/ask/page/sign-in.ts:64-74|apps/galaxy/src/knowledge/sign-in.ts:33-43",
     "apps/galaxy/src/ask/store.ts:74-83|apps/galaxy/src/dossier/store.ts:39-48",
     "apps/galaxy/app/ask/callback/route.ts:11-18|apps/galaxy/app/knowledge/callback/route.ts:13-20",

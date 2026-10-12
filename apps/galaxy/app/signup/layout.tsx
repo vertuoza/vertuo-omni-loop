@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/signup/signup.css';
-import { ThemeScript } from '../../src/ask/theme-script';
-import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
+import { TOKENS } from '../../src/ask/theme-tokens';
+import { Doorway } from '../../src/doorway/Doorway';
 
-// /signup (PRD 359), on the ask pages' reading surface: their tokens as CSS custom properties, their
-// faces (from @omni/design's fonts.css, served from this origin), and their theme script as the root's
-// first child, so the stored theme is applied before the first paint.
+// /signup (PRD 359), in the doorway (PRD 1705): the frame of the pages a person meets before they are
+// inside the app, on the ask pages' reading surface, with their faces (from @omni/design's fonts.css,
+// served from this origin). The doorway writes the tokens and the theme script.
 
 export const metadata: Metadata = {
   title: 'Sign up · OMNI LOOP',
@@ -23,15 +23,5 @@ export const viewport: Viewport = {
 };
 
 export default function SignupLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
-      {/* The script marks this root with the theme before anything in it is parsed; React leaves
-          those two attributes alone. */}
-      <div className="ask" suppressHydrationWarning>
-        <ThemeScript />
-        <main className="ask-main">{children}</main>
-      </div>
-    </>
-  );
+  return <Doorway>{children}</Doorway>;
 }

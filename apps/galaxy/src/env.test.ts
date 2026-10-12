@@ -25,8 +25,19 @@ describe('readEnv, the arcade server\'s environment', () => {
       production: false, building: false, mode: 'demo',
       supabase: null, serviceRole: null, githubApp: null, githubAppSlug: null, githubOAuth: null, openrouter: null,
       stagesSyncSecret: null, stageEventSecret: null, secretsMasterKey: null, constituentJudgeSecret: null,
-      businessRecheckSecret: null, demo: null, galaxyUrl: null,
+      lawJudgeSecret: null, businessRecheckSecret: null, webPush: null, resend: null, kitTokenKey: null, demo: null, galaxyUrl: null,
     });
+  });
+
+  it('gives the key that seals a kit token\'s session, 32 bytes of base64, or refuses it naming the variable (PRD 1628)', () => {
+    const key = Buffer.alloc(32, 7);
+    expect(readEnv({ KIT_TOKEN_KEY: key.toString('base64') }).kitTokenKey).toEqual(key);
+    expect(readEnv({ KIT_TOKEN_KEY: ' ' }).kitTokenKey).toBeNull();
+    for (const bad of [Buffer.alloc(16, 7).toString('base64'), 'not base64 at all!', FAKE_SECRET]) {
+      const error = thrown({ KIT_TOKEN_KEY: bad });
+      expect(error.problems.map((problem) => problem.variables)).toEqual([['KIT_TOKEN_KEY']]);
+      expect(error.message).not.toContain(bad);
+    }
   });
 
   it('gives each complete group typed, and the supabase mode', () => {
@@ -48,6 +59,22 @@ describe('readEnv, the arcade server\'s environment', () => {
     expect(env.githubAppSlug).toBe('omni-loop');
     expect(env.openrouter).toEqual({ key: 'or' });
     expect(env.stagesSyncSecret).toBe('sync');
+  });
+
+  it('gives the approval alerts\' two channels, Web Push and Resend, each complete or off (PRD 1322)', () => {
+    const env = readEnv({
+      VAPID_PUBLIC_KEY: 'BOr3x_public-Key',
+      VAPID_PRIVATE_KEY: 'private_Key-1',
+      RESEND_API_KEY: 're_123',
+      RESEND_FROM: 'Omni Loop <approvals@omni-loop.xyz>',
+    });
+    expect(env.webPush).toEqual({ publicKey: 'BOr3x_public-Key', privateKey: 'private_Key-1' });
+    expect(env.resend).toEqual({ key: 're_123', from: 'Omni Loop <approvals@omni-loop.xyz>' });
+    expect(readEnv({ RESEND_API_KEY: 're_1', RESEND_FROM: 'approvals@omni-loop.xyz' }).resend?.from).toBe('approvals@omni-loop.xyz');
+    expect(thrown({ VAPID_PUBLIC_KEY: 'BOr3x' }).problems.map((problem) => problem.variables)).toEqual([['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY']]);
+    expect(thrown({ RESEND_API_KEY: FAKE_SECRET }).message).toContain('RESEND_FROM is not set');
+    expect(thrown({ RESEND_API_KEY: 're_1', RESEND_FROM: 'nobody' }).problems[0]?.variables).toEqual(['RESEND_FROM']);
+    expect(thrown({ VAPID_PUBLIC_KEY: 'not base64url!', VAPID_PRIVATE_KEY: 'k' }).problems[0]?.variables).toEqual(['VAPID_PUBLIC_KEY']);
   });
 
   it('reads a blank value as unset', () => {

@@ -1,13 +1,21 @@
-// PRD 1139, slice s1: `omni next <prd>` through `main()`, on a fixture repository and a stubbed GitHub.
+// PRD 1139, slice s1: `omni next <prd>` through `main()`, on a fixture repository. PRD 1665, s4: the
+// loop's state comes from the shared fake `LoopReads`, built from the same facts the `gh` fixtures
+// held; only git runs for real, and no `gh` runs at all.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptions } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo, realExec } from '../test/fixture.ts';
-import { parseOutboxItemId } from '../lib/ids.ts';
+import { parseCommentId, parseIssue, parseOutboxItemId, parsePr } from '../lib/ids.ts';
+import type { LoopChange, LoopChangeDetail, LoopComment } from '../lib/loop-reads/contract.ts';
+import { aChange, fakeLoopReads } from '../lib/loop-reads/fake.ts';
+import type { FakeLoopState } from '../lib/loop-reads/fake.ts';
+import { LoopReadError } from '../lib/loop-reads/port.ts';
 import { makeMarkers } from '../lib/markers.ts';
 import { formatNumbersMarker } from '../lib/outbox/comment.ts';
+import { writeLastResult } from '../lib/roadmap/prereqs/last.ts';
 import { main } from './omni.ts';
 
 function io() {
@@ -29,21 +37,27 @@ const PLAN = [
 const PR_URL = 'https://github.com/acme/widgets/pull/9';
 const NOW = new Date().toISOString();
 
-const subPr = (slice: string, over = {}) => ({
-  number: 20 + Number(slice.slice(1)),
-  title: slice,
-  headRefName: `feat/widgets--${slice}`,
-  baseRefName: 'feat/widgets',
-  state: 'MERGED',
-  isDraft: false,
-  mergedAt: NOW,
-  body: '',
-  labels: [],
-  updatedAt: NOW,
-  createdAt: NOW,
-  ...over,
-});
-const featurePr = (over = {}) => ({ number: 9, url: PR_URL, state: 'OPEN', isDraft: true, updatedAt: NOW, body: 'Closes #7', author: { login: 'pm' }, ...over });
+/** A slice's sub-PR into the feature branch, merged unless `over` says otherwise. */
+const subPr = (slice: string, over: Partial<LoopChange> = {}): LoopChange =>
+  aChange({
+    number: parsePr(20 + Number(slice.slice(1))),
+    title: slice,
+    head: `feat/widgets--${slice}`,
+    base: 'feat/widgets',
+    state: 'merged',
+    mergedAt: NOW,
+    createdAt: NOW,
+    updatedAt: NOW,
+    url: `https://github.com/acme/widgets/pull/${20 + Number(slice.slice(1))}`,
+    ...over,
+  });
+const openSub = (slice: string, over: Partial<LoopChange> = {}) => subPr(slice, { state: 'draft', mergedAt: null, ...over });
+/** The feature PR from `feat/widgets`, a draft unless `over` says otherwise. */
+const featurePr = (over: Partial<LoopChange> = {}): LoopChange =>
+  aChange({ number: parsePr(9), url: PR_URL, head: 'feat/widgets', base: 'main', state: 'draft', updatedAt: NOW, body: 'Closes #7', author: 'pm', ...over });
+/** An open phase-0 PR carrying `body`. */
+const phase0Pr = (number: number, url: string, body: string): LoopChange =>
+  aChange({ number: parsePr(number), url, head: `docs/phase-0-${number}`, base: 'main', state: 'open', body, labels: ['omni:phase-0'] });
 
 const markers = makeMarkers('omni-outbox');
 const ITEM_PATH = '.omni-loop/delivery/outbox/0007-widgets/wave-1/s1-01-list.md';
@@ -61,15 +75,15 @@ function itemText(rank: string) {
     '## What I could not know', '', '(author) w', '',
   ].join('\n');
 }
-const PR_COMMENT = {
-  id: 1,
-  body: `${markers.prComment}\n${formatNumbersMarker([{ number: 1, id: parseOutboxItemId('s1-01-list'), since: '2026-09-27T08:00:00Z' }], markers)}`,
-  user: { login: 'omni-loop[bot]' },
-  author_association: 'NONE',
-  created_at: '2026-09-27T08:00:00Z',
-  html_url: `${PR_URL}#issuecomment-1`,
-};
-const REPLY = { id: 2, body: '1: B because it reads better', user: { login: 'pm' }, author_association: 'MEMBER', created_at: '2026-09-28T08:00:00Z', html_url: `${PR_URL}#issuecomment-2` };
+/** A comment on a conversation, as the loop's facts carry one. */
+const commentOf = (id: number, author: string, body: string, at: string = NOW): LoopComment => ({ id: parseCommentId(id), author, body, createdAt: at, updatedAt: at });
+const PR_COMMENT = commentOf(
+  1,
+  'omni-loop[bot]',
+  `${markers.prComment}\n${formatNumbersMarker([{ number: 1, id: parseOutboxItemId('s1-01-list'), since: '2026-09-27T08:00:00Z' }], markers)}`,
+  '2026-09-27T08:00:00Z',
+);
+const REPLY = commentOf(2, 'pm', '1: B because it reads better', '2026-09-28T08:00:00Z');
 
 /** A fixture repository whose feature branch, as last fetched, holds `remoteFiles`. */
 function repo(remoteFiles: Record<string, string> = {}) {
@@ -83,51 +97,62 @@ function repo(remoteFiles: Record<string, string> = {}) {
   return root;
 }
 
-/** Which of the fake's answers a gh call asks for. */
-function ghCallKind(args: readonly string[]): string {
-  if (args[0] === 'api') return args[1] === 'graphql' ? 'graphql' : 'comments';
-  if (args[0] === 'pr' && args[1] === 'view') return 'commits';
-  if (args.includes('--label')) return 'phase0';
-  return args.includes('--head') ? 'feature' : 'subs';
-}
+type Review = LoopChangeDetail['review'];
 
-type Fakes = { feature?: unknown[]; subs?: unknown[]; phase0?: unknown[]; comments?: unknown[]; commits?: unknown; read?: unknown; down?: boolean };
+/** A ready PR's review: its one check failed, no conflict, no thread. */
+const RED_REVIEW: Review = { checks: [{ name: 'test', state: 'failure' }], mergeable: true, threads: [] };
 
-/** A fake `execFileSync`: gh answered from `fakes`, git fetch a no-op, every other git call real. */
-function fakeExec({ feature = [featurePr()], subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true }), subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: true })], phase0 = [], comments = [], commits = { commits: [] }, read, down = false }: Fakes = {}) {
+/** A fake `execFileSync` for git alone: fetch a no-op, every other git call real; anything else is refused. */
+function gitOnly() {
   const calls: string[][] = [];
-  const answers: Record<string, () => unknown> = { phase0: () => phase0, feature: () => feature, subs: () => subs, graphql: () => read, comments: () => comments, commits: () => commits };
   const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string => {
     calls.push([file, ...args]);
     if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
-    if (down) throw Object.assign(new Error('error connecting to api.github.com'), { stderr: 'error connecting to api.github.com' });
-    const answer = answers[ghCallKind(args)];
-    if (!answer) throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
-    return JSON.stringify(answer());
+    throw new Error(`gitOnly: unexpected call ${file} ${args.join(' ')}`);
   };
   return { exec, calls };
 }
 
-async function run(argv: readonly string[], root: string, fake: ReturnType<typeof fakeExec>) {
-  const s = io();
-  const code = await main(argv, { cwd: root, exec: fake.exec, ...s });
-  return { code, out: s.out.join(''), err: s.err.join('') };
+type Fakes = {
+  feature?: LoopChange[];
+  subs?: LoopChange[];
+  phase0?: LoopChange[];
+  /** The feature PR's conversation. */
+  comments?: LoopComment[];
+  /** When every sub-PR's head was last committed. */
+  lastCommitAt?: string | null;
+  /** The feature PR's review, once ready. */
+  review?: Review;
+  /** No read can be made at all. */
+  down?: LoopReadError;
+  /** The repository is refused alone. */
+  refused?: LoopReadError;
+};
+
+/** The feature branches of the PRDs these tests hold: each is answered the same feature PR. */
+const FEATURE_HEADS = ['feat/widgets', 'feat/gadgets', 'feat/gizmos'];
+
+/** The fake loop of `acme/widgets`, and git. */
+function fakeExec({ feature = [featurePr()], subs = [openSub('s1'), openSub('s2')], phase0 = [], comments = [], lastCommitAt = null, review, down, refused }: Fakes = {}) {
+  const features = feature.flatMap((pr) => FEATURE_HEADS.map((head) => ({ ...pr, head })));
+  const state: FakeLoopState = {
+    changes: { 'acme/widgets': [...phase0, ...features, ...subs] },
+    details: {
+      ...Object.fromEntries(subs.map((sub) => [`acme/widgets#${sub.number}`, { lastCommitAt }])),
+      ...(review ? { 'acme/widgets#9': { review } } : {}),
+    },
+    comments: { 'acme/widgets#9': comments },
+    ...(down ? { everything: down } : {}),
+    ...(refused ? { failing: { 'acme/widgets': refused } } : {}),
+  };
+  return { ...gitOnly(), reads: fakeLoopReads(state) };
 }
 
-const readyRead = (over = {}) => ({
-  data: {
-    repository: {
-      pullRequest: {
-        number: 9, url: PR_URL, state: 'OPEN', isDraft: false, baseRefName: 'main', headRefName: 'feat/widgets', mergeable: 'MERGEABLE',
-        labels: { nodes: [] },
-        commits: { nodes: [{ commit: { statusCheckRollup: { state: 'FAILURE', contexts: { nodes: [{ __typename: 'CheckRun', name: 'test', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: 'https://ci/1' }] } } } }] },
-        reviewThreads: { nodes: [] },
-        comments: { nodes: [] },
-        ...over,
-      },
-    },
-  },
-});
+async function run(argv: readonly string[], root: string, fake: { exec: ReturnType<typeof gitOnly>['exec']; reads: ReturnType<typeof fakeLoopReads> }) {
+  const s = io();
+  const code = await main(argv, { cwd: root, exec: fake.exec, reads: fake.reads, ...s });
+  return { code, out: s.out.join(''), err: s.err.join('') };
+}
 
 describe('omni next', () => {
   it('prints one verdict line for a PRD with takeable slices', async () => {
@@ -145,12 +170,25 @@ describe('omni next', () => {
     expect(JSON.parse(out)).toEqual({ prds: [{ prd: 7, verdict: 'wait', why: 'another session holds the claim on s1, s2', wakeHint: 1200, link: PR_URL }] });
   });
 
+  it('reads the phase-0 PRs by label, the feature PR by its branch and the sub-PRs by their base, and runs no gh', async () => {
+    const root = repo();
+    const fake = fakeExec();
+    await run(['next', '7'], root, fake);
+    const queries = fake.reads.reads.flatMap((read) => (read.read === 'changes' ? [read.query] : []));
+    expect(queries).toEqual([
+      { repo: 'acme/widgets', label: 'omni:phase-0', state: 'open' },
+      { repo: 'acme/widgets', head: 'feat/widgets', state: 'all' },
+      { repo: 'acme/widgets', base: 'feat/widgets', state: 'all' },
+    ]);
+    expect(fake.calls.filter((call) => call[0] === 'gh')).toEqual([]);
+  });
+
   it('a slice in flight with no commit for limits.stallDays parks on a person: its sub-PR, since when, take over or close, its link', async () => {
     const root = repo();
     const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const quietSince = daysAgo(5.5);
-    const subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true, createdAt: daysAgo(6), updatedAt: daysAgo(5.5) }), subPr('s2')];
-    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs, commits: { commits: [{ committedDate: daysAgo(6) }, { committedDate: quietSince }] } }));
+    const subs = [openSub('s1', { createdAt: daysAgo(6), updatedAt: daysAgo(5.5) }), subPr('s2')];
+    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs, lastCommitAt: quietSince }));
     expect(JSON.parse(out)).toEqual({
       prds: [
         {
@@ -166,17 +204,26 @@ describe('omni next', () => {
   it('a slice in flight with a commit inside limits.stallDays still waits on its claim', async () => {
     const root = repo();
     const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    const subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true, createdAt: daysAgo(6) }), subPr('s2')];
-    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs, commits: { commits: [{ committedDate: daysAgo(4.9) }] } }));
+    const subs = [openSub('s1', { createdAt: daysAgo(6) }), subPr('s2')];
+    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs, lastCommitAt: daysAgo(4.9) }));
     expect(JSON.parse(out)).toEqual({ prds: [{ prd: 7, verdict: 'wait', why: 'another session holds the claim on s1', wakeHint: 1200, link: PR_URL }] });
   });
 
-  it('a ready feature PR with red CI → act pr-care --once, read through its care state', async () => {
+  it('a ready feature PR with red CI → act pr-care --once, read through its review', async () => {
     const root = repo();
-    const fake = fakeExec({ feature: [featurePr({ isDraft: false })], subs: [subPr('s1'), subPr('s2')], read: readyRead() });
+    const fake = fakeExec({ feature: [featurePr({ state: 'open' })], subs: [subPr('s1'), subPr('s2')], review: RED_REVIEW });
     const { out } = await run(['next', '7', '--json'], root, fake);
     expect(JSON.parse(out)).toMatchObject({ prds: [{ prd: 7, verdict: 'act', skill: 'pr-care --once', link: PR_URL }] });
-    expect(fake.calls.some((call) => call[1] === 'api' && call[2] === 'graphql')).toBe(true);
+    expect(fake.reads.reads).toContainEqual({ read: 'change', repo: 'acme/widgets', number: 9 });
+  });
+
+  it('a ready feature PR with a conflict and a thread to judge → act pr-care --once; green and quiet → no care to do', async () => {
+    const root = repo();
+    const thread = { id: 'T1', resolved: false, path: 'a/x', line: 1, comments: [{ author: 'rev', body: 'Why?', createdAt: NOW }] };
+    const busy = fakeExec({ feature: [featurePr({ state: 'open' })], subs: [subPr('s1'), subPr('s2')], review: { checks: [{ name: 'test', state: 'success' }], mergeable: false, threads: [thread] } });
+    expect(JSON.parse((await run(['next', '7', '--json'], root, busy)).out)).toMatchObject({ prds: [{ verdict: 'act', skill: 'pr-care --once' }] });
+    const quiet = fakeExec({ feature: [featurePr({ state: 'open' })], subs: [subPr('s1'), subPr('s2')], review: { checks: [{ name: 'test', state: 'success' }], mergeable: true, threads: [] } });
+    expect(JSON.parse((await run(['next', '7', '--json'], root, quiet)).out)).not.toMatchObject({ prds: [{ skill: 'pr-care --once' }] });
   });
 
   it('every slice merged and a question open on the feature branch → park on the PR author', async () => {
@@ -196,7 +243,7 @@ describe('omni next', () => {
     const fake = fakeExec({ subs: [subPr('s1'), subPr('s2')] });
     const { out } = await run(['next', '7', '--json'], root, fake);
     expect(JSON.parse(out)).toMatchObject({ prds: [{ verdict: 'act', skill: 'yolo' }] });
-    expect(fake.calls.some((call) => String(call[2]).endsWith('/comments'))).toBe(false);
+    expect(fake.reads.reads.some((read) => read.read === 'comments')).toBe(false);
   });
 
   it('two PRDs give two lines, in the order named', async () => {
@@ -207,23 +254,47 @@ describe('omni next', () => {
 
   it('an open phase-0 PR parks on a reviewer, even before the folder reached the inbox', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
-    const fake = fakeExec({ phase0: [{ number: 3, url: 'https://github.com/acme/widgets/pull/3', state: 'OPEN', body: 'Refs #7' }, { number: 4, url: 'x', state: 'OPEN', body: 'Refs #70' }] });
+    const fake = fakeExec({ phase0: [phase0Pr(3, 'https://github.com/acme/widgets/pull/3', 'Refs #7'), phase0Pr(4, 'x', 'Refs #70')] });
     const { code, out } = await run(['next', '7'], root, fake);
     expect(code).toBe(0);
     expect(out).toBe('PRD 7 — park: waits on a reviewer: the phase-0 PR is open — https://github.com/acme/widgets/pull/3\n');
   });
 
+  it('a roadmap\'s one phase-0 PR, naming every row, parks each PRD on a reviewer (issue 1198)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const body = ['Refs #6', 'Refs #7', 'Refs #8', '', '## PRDs'].join('\n');
+    const fake = fakeExec({ phase0: [phase0Pr(36, 'https://github.com/acme/widgets/pull/36', body)] });
+    const { code, out } = await run(['next', '7', '8'], root, fake);
+    expect(code).toBe(0);
+    expect(out).toBe(
+      [7, 8].map((prd) => `PRD ${prd} — park: waits on a reviewer: the phase-0 PR is open — https://github.com/acme/widgets/pull/36\n`).join(''),
+    );
+  });
+
   it('a merged feature PR → done', async () => {
     const root = repo();
-    const { out } = await run(['next', '7'], root, fakeExec({ feature: [featurePr({ state: 'MERGED' })] }));
+    const { out } = await run(['next', '7'], root, fakeExec({ feature: [featurePr({ state: 'merged' })] }));
     expect(out).toBe(`PRD 7 — done: the feature PR is merged — ${PR_URL}\n`);
   });
 
-  it('gh unreachable prints wait: github unreachable, with exit 0', async () => {
+  it('the repository refused alone prints wait: github unreachable, with exit 0', async () => {
     const root = repo();
-    const { code, out } = await run(['next', '7'], root, fakeExec({ down: true }));
+    const refused = new LoopReadError('refused (429): the code host\'s budget for acme/widgets is spent', 'repository');
+    const { code, out } = await run(['next', '7'], root, fakeExec({ refused }));
     expect(code).toBe(0);
     expect(out).toBe('PRD 7 — wait: github unreachable (look again in 5 min)\n');
+  });
+
+  it.each([
+    ['no sign-in (omni signin)'],
+    ['unreachable'],
+    ['refused (404): this Omni page cannot read the loop yet'],
+  ])('a read that cannot be made at all prints "%s" alone on stderr, with exit 1', async (line) => {
+    const root = repo();
+    const { code, out, err } = await run(['next', '7'], root, fakeExec({ down: new LoopReadError(line, 'everything') }));
+    expect(code).toBe(1);
+    expect(out).toBe('');
+    expect(err).toBe(`${line}\n`);
   });
 
   it('a PRD with no folder and no phase-0 PR is a usage error', async () => {
@@ -285,20 +356,27 @@ describe('omni next — the loop plan', () => {
     expect(json.prds.map((verdict: { prd: number }) => verdict.prd)).toEqual([7, 9]);
     expect(json).toMatchObject({ plan: { version: 1, steps: 4 }, replanned: null, stop: false, step: { step: 1, prd: 7 }, verdict: { prd: 7, verdict: 'wait' } });
     const text = await run(['next'], root, fakeExec());
-    expect(text.out).toBe(`step 1/4 · PRD 7 — wait: another session holds the claim on s1, s2 (look again in 20 min) — ${PR_URL}\n`);
+    expect(text.out).toBe(
+      [
+        `step 1/4 · PRD 7 — wait: another session holds the claim on s1, s2 (look again in 20 min) — ${PR_URL}`,
+        `  step 1 (PRD 7 w1) running since ${NOW}`,
+        '  step 3 (PRD 9 w1) held: a/ shared with step 1 (PRD 7 w1, running)',
+        '',
+      ].join('\n'),
+    );
   });
 
   it('with no plan kept yet, a tick makes version 1 and follows it', async () => {
     const root = mine();
     const { out } = await run(['next'], root, fakeExec({ subs: [] }));
-    expect(out).toBe(`step 1/4 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}\n`);
+    expect(out).toBe(`step 1/4 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}\n  step 3 (PRD 9 w1) held: a/ shared with step 1 (PRD 7 w1, starting)\n`);
     expect(existsSync(join(root, PLAN_FILE))).toBe(true);
   });
 
   it('a slice going stuck writes version 2 with its reason, and the next tick follows it', async () => {
     const root = mine();
     await run(['next', '--plan'], root, fakeExec());
-    const stuck = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true, labels: [{ name: 'omni:needs-fix' }] }), subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: true })];
+    const stuck = [openSub('s1', { labels: ['omni:needs-fix'] }), openSub('s2')];
     const { out } = await run(['next'], root, fakeExec({ subs: stuck }));
     expect(out.split('\n')[0]).toBe('replanned v2: s1 of PRD 7 stuck → 9 moves up');
     expect(out.split('\n')[1]).toMatch(/^step 1\/4 · PRD 9 — act wave: /);
@@ -318,11 +396,11 @@ describe('omni next — the loop plan', () => {
     const root = mine();
     const { out } = await run(['next', '--plan', '--json'], root, fakeExec());
     expect((JSON.parse(out) as { plan: { steps: unknown[] } }).plan.steps).toHaveLength(4);
-    const parked = await run(['next', '--json'], root, fakeExec({ feature: [featurePr({ state: 'CLOSED' })] }));
+    const parked = await run(['next', '--json'], root, fakeExec({ feature: [featurePr({ state: 'closed' })] }));
     const json = JSON.parse(parked.out) as { stop: boolean; step: unknown };
     expect(json.stop).toBe(true);
     expect(json.step).toBeNull();
-    const text = await run(['next'], root, fakeExec({ feature: [featurePr({ state: 'MERGED' })] }));
+    const text = await run(['next'], root, fakeExec({ feature: [featurePr({ state: 'merged' })] }));
     expect(text.out).toBe('stop: every PRD is parked or done\n');
   });
 
@@ -332,5 +410,329 @@ describe('omni next — the loop plan', () => {
     const { code, err } = await run(['next'], root, fakeExec());
     expect(code).toBe(2);
     expect(err).toMatch(/cannot tell which PRDs are yours/);
+  });
+});
+
+// PRD 1162, slice s1: in a plan repository, `omni next` reads the plan PR, each target's feature PR and
+// the board across repositories, and returns only the ultra- skills.
+describe('omni next — a plan repository', () => {
+  const PLAN_CONFIG = {
+    '.omni-loop/config.yml': [
+      'kit: 1',
+      'repo:',
+      '  slug: acme/plans',
+      'plan:',
+      '  targets:',
+      '    - repo: acme/crew',
+      '      role: back-end',
+      '      knowledge: own',
+      '    - repo: acme/ai-domain',
+      '      role: ai',
+      '      knowledge: none',
+      '',
+    ].join('\n'),
+  };
+  const MULTI_PLAN = [
+    '# A plan',
+    '',
+    '| id | repo | slice | territory | blocked by | wave |',
+    '| --- | --- | --- | --- | --- | --- |',
+    '| s1 | crew | Alpha | `apps/crew-api/` | — | 1 |',
+    '| s2 | ai-domain | Beta | `apps/crew-api/` | — | 1 |',
+    '',
+  ].join('\n');
+  const PRS: Record<string, number> = { 'acme/plans': 12, 'acme/crew': 40, 'acme/ai-domain': 41 };
+  const urlOf = (slug: string) => `https://github.com/${slug}/pull/${PRS[slug] ?? 0}`;
+  const prIn = (slug: string, over: Partial<LoopChange> = {}) => featurePr({ number: parsePr(PRS[slug] ?? 0), url: urlOf(slug), ...over });
+
+  type MultiFakes = { features?: Record<string, LoopChange[]>; subs?: Record<string, LoopChange[]>; reviews?: Record<string, Review>; phase0?: LoopChange[] };
+
+  /** The fake loop of every repository, each answering from its own facts, and git. */
+  function fakeMulti({ features = {}, subs = {}, reviews = {}, phase0 = [] }: MultiFakes = {}) {
+    const slugs = new Set([...Object.keys(features), ...Object.keys(subs), 'acme/plans']);
+    const changes = Object.fromEntries([...slugs].map((slug) => [slug, [...(slug === 'acme/plans' ? phase0 : []), ...(features[slug] ?? []), ...(subs[slug] ?? [])]]));
+    const details = Object.fromEntries(Object.entries(reviews).map(([key, review]) => [key, { review }]));
+    return { ...gitOnly(), reads: fakeLoopReads({ changes, details }) };
+  }
+
+  const planRepo = () => makeRepo({ git: true, files: { ...PLAN_CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': MULTI_PLAN } }).root;
+  const allDraft = { 'acme/plans': [prIn('acme/plans')], 'acme/crew': [prIn('acme/crew')], 'acme/ai-domain': [prIn('acme/ai-domain')] };
+
+  it('--json prints the ultra verdict and the repositories of the PRD', async () => {
+    const fake = fakeMulti({ features: allDraft });
+    const { code, out, err } = await run(['next', '7', '--json'], planRepo(), fake);
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toEqual({
+      prds: [{ prd: 7, verdict: 'act', skill: 'ultra-wave', why: 'wave 1 can take s1, s2', link: urlOf('acme/plans'), repos: ['ai-domain', 'crew'] }],
+    });
+    const heads = fake.reads.reads.flatMap((read) => (read.read === 'changes' && read.query.head !== undefined ? [read.query.repo] : []));
+    expect(heads).toEqual(['acme/plans', 'acme/crew', 'acme/ai-domain']);
+  });
+
+  it('a ready target PR with red CI → act mega-pr-care --once, its review read from the target', async () => {
+    const fake = fakeMulti({
+      features: { ...allDraft, 'acme/crew': [prIn('acme/crew', { state: 'open' })] },
+      subs: { 'acme/crew': [subPr('s1')], 'acme/ai-domain': [subPr('s2')] },
+      reviews: { 'acme/crew#40': RED_REVIEW },
+    });
+    const { out } = await run(['next', '7', '--json'], planRepo(), fake);
+    expect(JSON.parse(out)).toMatchObject({ prds: [{ verdict: 'act', skill: 'mega-pr-care --once', why: 'crew#40 has red CI', link: urlOf('acme/crew') }] });
+    expect(fake.reads.reads.filter((read) => read.read === 'change' && read.number !== 21 && read.number !== 22)).toEqual([{ read: 'change', repo: 'acme/crew', number: 40 }]);
+  });
+
+  it('an open phase-0 PR, before the folder reached the inbox, parks naming it by repository', async () => {
+    const { root } = makeRepo({ git: true, files: PLAN_CONFIG });
+    const phase0 = [phase0Pr(3, 'https://github.com/acme/plans/pull/3', 'Refs #7')];
+    const { out } = await run(['next', '7'], root, fakeMulti({ phase0 }));
+    expect(out).toBe('PRD 7 — park: waits on a reviewer: the phase-0 PR plans#3 is open — https://github.com/acme/plans/pull/3\n');
+  });
+
+  it('a tick on the kept plan carries the repositories of its step; the same path in two repositories runs beside', async () => {
+    const root = planRepo();
+    const planned = await run(['next', '7', '--plan'], root, fakeMulti({ features: allDraft }));
+    expect(planned.out).toBe(['loop plan v1 · PRDs 7 · 2 steps', '  1. PRD 7 wave 1: s1, s2 · in ai-domain, crew', '  2. PRD 7 finish · after 1 · in ai-domain, crew', ''].join('\n'));
+    const { out } = await run(['next', '7', '--json'], root, fakeMulti({ features: allDraft }));
+    expect(JSON.parse(out)).toMatchObject({ step: { step: 1, prd: 7, repos: ['ai-domain', 'crew'] }, verdict: { skill: 'ultra-wave' } });
+  });
+
+  it("a target refused alone leaves that target's PR unreadable, and the others are read", async () => {
+    const fake = fakeMulti({ features: allDraft });
+    const reads = fakeLoopReads({
+      changes: { 'acme/plans': [prIn('acme/plans')], 'acme/crew': [prIn('acme/crew')] },
+      failing: { 'acme/ai-domain': new LoopReadError('refused (403): acme/ai-domain is not in your workspace', 'repository') },
+    });
+    const { code, out } = await run(['next', '7', '--json'], planRepo(), { exec: fake.exec, reads });
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toMatchObject({ prds: [{ prd: 7, repos: ['ai-domain', 'crew'] }] });
+  });
+});
+
+// PRD 1162, slice s7: `omni next --roadmap <n>` drives exactly the roadmap's PRDs.
+describe('omni next --roadmap', () => {
+  const ROADMAP = [
+    '---', 'roadmap: 12', 'title: Crew', 'milestone: A mandate is granted.', '---', '',
+    '## PRDs', '',
+    '| id | PRD | title | blocked by | why | wave |',
+    '|---|---|---|---|---|---|',
+    '| P1 | #7 | Widgets | – | – | 1 |',
+    '| P2 | #8 | Gadgets | P1 | it calls the widgets | 2 |',
+    '',
+    '## Open questions', '',
+    '| id | question | recommendation | blocks | kind |',
+    '|---|---|---|---|---|',
+    '| Q5 | Who signs? | The owner | P2 | person |',
+    '',
+  ].join('\n');
+
+  /** PRD 7 by you, 8 by someone else, both on the roadmap; 9 by you, off it. */
+  function roadmapRepo() {
+    const { root, write } = makeRepo({ git: true, files: CONFIG });
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    const add = (path: string, text: string, email: string) => {
+      write(path, text);
+      git('add', '-A');
+      git('-c', `user.email=${email}`, '-c', 'user.name=x', 'commit', '-q', '-m', path);
+    };
+    add('.omni-loop/delivery/inbox/0007-widgets/plan.md', PLAN, 'me@example.com');
+    add('.omni-loop/delivery/inbox/0008-gadgets/plan.md', PLAN, 'someone@example.com');
+    add('.omni-loop/delivery/inbox/0009-gizmos/plan.md', PLAN, 'me@example.com');
+    add('.omni-loop/delivery/inbox/roadmaps/0012-crew/roadmap.md', ROADMAP, 'me@example.com');
+    git('config', 'user.email', 'me@example.com');
+    return root;
+  }
+
+  /** The fake loop: each feature PR by its branch, and the roadmap issue's comments. */
+  function fakeRoadmap({ features = {}, comments = [] }: { features?: Record<string, LoopChange[]>; comments?: LoopComment[] } = {}) {
+    const changes = Object.entries(features).flatMap(([head, prs]) => prs.map((pr) => ({ ...pr, head })));
+    return { ...gitOnly(), reads: fakeLoopReads({ changes: { 'acme/widgets': changes }, comments: { 'acme/widgets#12': comments } }) };
+  }
+  const answer = commentOf(5, 'pm', '<!-- omni-roadmap-answer: Q5 -->\n**Q5**, answered:\n\nThe owner.');
+  const widgets = { 'feat/widgets': [featurePr()] };
+
+  it('drives exactly the roadmap\'s PRDs, someone else\'s included; a person question parks the PRD it blocks', async () => {
+    const root = roadmapRepo();
+    const { code, out, err } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: widgets }));
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    const json = JSON.parse(out) as { prds: { prd: number }[]; held: { prd: number; gate: string; why: string; link: string }[] };
+    expect(json.prds.map((verdict) => verdict.prd)).toEqual([7, 8]);
+    expect(json).toMatchObject({ roadmap: 12, step: { prd: 7 }, verdict: { prd: 7, verdict: 'act', skill: 'wave' } });
+    expect(json.held).toHaveLength(1);
+    expect(json.held[0]).toMatchObject({ prd: 8, gate: 'park', link: 'https://github.com/acme/widgets/issues/12' });
+    expect(json.held[0]?.why).toMatch(/^waits on a person: roadmap 12 question Q5 is not answered \(Who signs\?\)/);
+  });
+
+  it('once answered, the blocked PRD is held on its blocker\'s PR, named with its state', async () => {
+    const root = roadmapRepo();
+    const { out } = await run(['next', '--roadmap', '12'], root, fakeRoadmap({ features: widgets, comments: [answer] }));
+    expect(out).toBe([
+      `step 1/4 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}`,
+      `  held: PRD 8 — waits on widgets#9 (P1 Widgets): building wave 1/1 — ${PR_URL}`,
+      '',
+    ].join('\n'));
+    const merged = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: { 'feat/widgets': [featurePr({ state: 'merged' })] }, comments: [answer] }));
+    expect(JSON.parse(merged.out)).toMatchObject({ step: { prd: 8 }, held: [] });
+  });
+
+  it('a blocker closed unmerged parks its dependent', async () => {
+    const root = roadmapRepo();
+    const { out } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: { 'feat/widgets': [featurePr({ state: 'closed' })] }, comments: [answer] }));
+    expect(JSON.parse(out)).toMatchObject({ stop: true, waiting: [{ prd: 8, verdict: 'park', why: 'blocker #9 closed unmerged: fix the roadmap', link: PR_URL }] });
+  });
+
+  // PRD 1218, slice s4: an open prerequisite holds exactly the PRDs it blocks.
+  const PREREQS = [
+    '## Prerequisites', '',
+    '| id | category | need | check | fix | blocks | who |',
+    '|---|---|---|---|---|---|---|',
+    '| p1 | local | Docker is running, for the database tests | `base:docker` | | P1 | check |',
+    '| p2 | permissions | the preview has DATABASE_URL | | | P2 | person |',
+    '',
+    '### p1', '',
+    '- **Why:** The tests start a database in Docker.',
+    '- **Command:** `open -a Docker`',
+    '- **What it does:** Starts Docker.',
+    '- **Who can do it:** Anyone with this laptop.',
+    '',
+    '### p2', '',
+    '- **Why:** The preview needs its database.',
+    '- **Command:** `vercel env add DATABASE_URL preview`',
+    '- **What it does:** Adds the variable.',
+    '- **Who can do it:** A Vercel admin.',
+    '',
+  ].join('\n');
+  /** The roadmap with a Prerequisites section, and this machine's last result (none for null). */
+  function prereqRepo(states: Record<string, 'ok' | 'waits' | 'ticked'> | null) {
+    const root = roadmapRepo();
+    appendFileSync(join(root, '.omni-loop/delivery/inbox/roadmaps/0012-crew/roadmap.md'), `\n${PREREQS}`);
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', 'prerequisites'], { cwd: root });
+    if (states !== null) {
+      const rows = Object.entries(states).map(([id, state]) => ({ id, state, detail: state === 'waits' ? 'docker info failed' : null }));
+      writeLastResult(root, { roadmap: parseIssue(12), machine: hostname(), checkedAt: NOW, rows });
+      writeLastResult(root, { roadmap: parseIssue(12), machine: 'another-laptop', checkedAt: NOW, rows: rows.map((row) => ({ ...row, state: 'ok' as const })) });
+    }
+    return root;
+  }
+  const tick = commentOf(6, 'pm', '<!-- omni-roadmap-tick: p2 -->\nPrerequisite **p2** is done.\n');
+
+  it('a prerequisite this machine found waiting holds the PRD it blocks, with its line and the issue\'s link', async () => {
+    const root = prereqRepo({ p1: 'waits', p2: 'waits' });
+    const { code, out } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: widgets, comments: [answer] }));
+    expect(code).toBe(0);
+    const json = JSON.parse(out) as { held: { prd: number; gate: string; why: string; link: string }[] };
+    expect(json.held).toContainEqual({ prd: 7, gate: 'hold', why: 'waits on prerequisite p1 (local): Docker is running, for the database tests', link: 'https://github.com/acme/widgets/issues/12' });
+  });
+
+  it('ok on this machine frees the PRD; a person row ticked on the issue frees its own', async () => {
+    const root = prereqRepo({ p1: 'ok', p2: 'waits' });
+    const merged = { 'feat/widgets': [featurePr({ state: 'merged' })] };
+    const open = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: merged, comments: [answer] }));
+    expect(JSON.parse(open.out)).toMatchObject({ stop: true, waiting: [{ prd: 8, verdict: 'park', why: 'waits on prerequisite p2 (permissions): the preview has DATABASE_URL' }] });
+    const ticked = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: merged, comments: [answer, tick] }));
+    expect(JSON.parse(ticked.out)).toMatchObject({ step: { prd: 8 }, held: [] });
+  });
+
+  it('no result on this machine holds the blocked PRDs, saying how to check them', async () => {
+    const root = prereqRepo(null);
+    const { out } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: widgets, comments: [answer] }));
+    const json = JSON.parse(out) as { held: { prd: number; why: string }[] };
+    expect(json.held.find((one) => one.prd === 7)?.why).toBe('waits on prerequisite p1 (local): Docker is running, for the database tests — not checked on this machine yet: omni roadmap prereqs 12 --fix');
+  });
+
+  it('an unknown roadmap exits 2 with one line', async () => {
+    const root = roadmapRepo();
+    const { code, out, err } = await run(['next', '--roadmap', '99'], root, fakeRoadmap());
+    expect(code).toBe(2);
+    expect(out).toBe('');
+    expect(err.trimEnd().split('\n')).toEqual(['omni next: no roadmap 99 in the inbox; omni roadmap check lists them.']);
+    expect((await run(['next', '7', '--roadmap', '12'], root, fakeRoadmap())).code).toBe(2);
+  });
+});
+
+// PRD 1205, slice s1: the pool — `steps`, `running` and `held` beside the step and verdict of today.
+describe('omni next — the pool of steps', () => {
+  const ME = 'me@example.com';
+  const planOf = (territory: Record<string, string>) =>
+    ['# A plan', '', '| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', ...Object.entries(territory).map(([id, path]) => `| ${id} | ${id} | \`${path}\` | — | 1 |`), ''].join('\n');
+  type Tick = { step: unknown; verdict: unknown; waiting: unknown; prds: unknown; steps: { step: number; prd: number; verdict: { verdict: string } }[]; running: { step: number; prd: number; kind: string; since: string }[]; held: { step: number; prd: number; why: string }[] };
+
+  /** PRDs 7, 8 and 9, all yours, on the plans given (by default sharing no ground), with `limits`. */
+  function yours({ limits = '', plans = { '0008-gadgets': planOf({ s1: 'q/' }), '0009-gizmos': planOf({ s1: 'z/' }) } }: { limits?: string; plans?: Record<string, string> } = {}) {
+    const { root, write } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}${limits}` } });
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    for (const [folder, plan] of Object.entries({ '0007-widgets': PLAN, ...plans })) {
+      write(`.omni-loop/delivery/inbox/${folder}/plan.md`, plan);
+      git('add', '-A');
+      git('-c', `user.email=${ME}`, '-c', 'user.name=x', 'commit', '-q', '-m', folder);
+    }
+    git('config', 'user.email', ME);
+    return root;
+  }
+  async function tick(root: string, fake: ReturnType<typeof fakeExec>): Promise<Tick> {
+    const { code, out, err } = await run(['next', '--json'], root, fake);
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    return JSON.parse(out) as Tick;
+  }
+
+  it('three PRDs sharing no ground: one tick lists three steps, each of a different PRD, the first being step', async () => {
+    const json = await tick(yours(), fakeExec({ subs: [] }));
+    expect(json.steps.map((one) => one.prd)).toEqual([7, 8, 9]);
+    expect(json.steps.map((one) => one.verdict.verdict)).toEqual(['act', 'act', 'act']);
+    expect(json.steps[0]).toEqual({ ...(json.step as object), verdict: json.verdict });
+    expect(json).toMatchObject({ running: [], held: [] });
+  });
+
+  it('limits.parallelSteps: 1 keeps step, verdict, waiting and prds byte-identical, and steps holds step alone', async () => {
+    const three = await tick(yours(), fakeExec({ subs: [] }));
+    const one = await tick(yours({ limits: 'limits:\n  parallelSteps: 1\n' }), fakeExec({ subs: [] }));
+    const today = ({ step, verdict, waiting, prds }: Tick) => JSON.stringify({ step, verdict, waiting, prds });
+    expect(today(one)).toBe(today(three));
+    expect(one.steps).toEqual([{ ...(one.step as object), verdict: one.verdict }]);
+  });
+
+  it('two PRDs sharing a path: the first in steps, the second held naming the path and the step it waits on', async () => {
+    const json = await tick(yours({ plans: { '0009-gizmos': planOf({ s1: 'a/x' }) } }), fakeExec({ subs: [] }));
+    expect(json.steps.map((one) => one.prd)).toEqual([7]);
+    expect(json.held).toEqual([{ step: 3, prd: 9, why: 'a/ shared with step 1 (PRD 7 w1, starting)' }]);
+  });
+
+  it('a live claim is a step running: it counts against the slots, its PRD gets no second step', async () => {
+    const json = await tick(yours({ limits: 'limits:\n  parallelSteps: 2\n' }), fakeExec());
+    expect(json.running).toEqual([{ step: 1, prd: 7, kind: 'wave', since: NOW }]);
+    expect(json.steps).toHaveLength(1);
+  });
+
+  it('a stale claim is not running', async () => {
+    const old = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const stale = (slice: string) => openSub(slice, { createdAt: old, updatedAt: old });
+    const json = await tick(yours(), fakeExec({ subs: [stale('s1'), stale('s2')], lastCommitAt: old }));
+    expect(json.running).toEqual([]);
+    expect(json.steps.map((one) => one.prd)).toEqual([7, 8, 9]);
+  });
+
+  it("the feature PR's in-progress label with a fresh status comment is its step running; a stale comment is not", async () => {
+    const status = (at: string) => [commentOf(5, 'omni-loop[bot]', `${markers.status}\nworking`, at)];
+    const labelled = [featurePr({ labels: ['omni:in-progress'] })];
+    const merged = [subPr('s1'), subPr('s2')];
+    const root = yours({ plans: {} });
+    const fresh = await tick(root, fakeExec({ subs: merged, feature: labelled, comments: status(NOW) }));
+    expect(fresh.running).toEqual([{ step: 2, prd: 7, kind: 'finish', since: NOW }]);
+    expect(fresh.steps).toEqual([]);
+    const old = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const cold = await tick(root, fakeExec({ subs: merged, feature: labelled, comments: status(old) }));
+    expect(cold.running).toEqual([]);
+    expect(cold.steps.map((one) => `${one.prd}:${one.step}`)).toEqual(['7:2']);
+  });
+
+  it('the plain output prints one line per step to launch, per step running and per step held', async () => {
+    const root = yours({ plans: { '0008-gadgets': planOf({ s1: 'q/' }), '0009-gizmos': planOf({ s1: 'a/x' }) } });
+    const { out } = await run(['next'], root, fakeExec({ subs: [] }));
+    expect(out.trimEnd().split('\n')).toEqual([
+      `step 1/6 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}`,
+      `step 2/6 · PRD 8 — act wave: wave 1 can take s1 — ${PR_URL}`,
+      '  step 5 (PRD 9 w1) held: a/ shared with step 1 (PRD 7 w1, starting)',
+    ]);
   });
 });

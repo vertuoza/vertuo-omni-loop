@@ -7,6 +7,8 @@ import {
   PROFILE_LIMIT,
 } from './select';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { readHistoryFilters } from '../dossier/page/history';
+import { STAGES } from '../stages/stage';
 
 // The profile's pure choices (PRD 698 s3): one person's pull requests and reviews of one period,
 // newest first, at most 10 and whether more exist; the login a path names; where each link goes.
@@ -92,6 +94,16 @@ describe('the addresses', () => {
     expect(profileStageLinks('ada-gh').inbox).toBe('/prd?stage=inbox&who=ada-gh');
   });
 
+  // Law BR-PRODUCT-52 (.omni-loop/knowledge/product/rules.md, #1513).
+  it('law BR-PRODUCT-52: each profile stage count opens the PRD list at that stage, filtered to that person', () => {
+    const links = profileStageLinks('Ada-GH');
+    for (const stage of STAGES) {
+      const address = new URL(links[stage], 'https://galaxy.test');
+      expect(address.pathname).toBe('/prd');
+      expect(readHistoryFilters(Object.fromEntries(address.searchParams))).toEqual({ who: { login: 'ada-gh' }, stage });
+    }
+  });
+
   it('sends see all to a GitHub search of the tracked repositories', () => {
     expect(moreHref('authored', 'ada-gh', ['acme/widgets', 'acme/gears'])).toBe(
       'https://github.com/search?type=pullrequests&q=is%3Apr+author%3Aada-gh+repo%3Aacme%2Fwidgets+repo%3Aacme%2Fgears',
@@ -164,6 +176,29 @@ describe('fixesOf', () => {
   it('caps at 10 and says more exist', () => {
     const rows = Array.from({ length: 12 }, (_, i) => dossier(`v${i + 1}`, { kind: 'visual' }));
     expect(fixesOf(rows, 'visual', 'ada-gh', ADA, WINDOW, new Map())).toMatchObject({ more: true });
+  });
+});
+
+// Law BR-PRODUCT-54 (.omni-loop/knowledge/product/rules.md, #1515).
+describe('law BR-PRODUCT-54: a profile lists work by its latest activity in the period, not by when it started', () => {
+  const rows = (kind: 'prd' | 'bug' | 'visual') => [
+    // Started before the period, active within it: listed.
+    dossier(`${kind}1`, { kind, created_at: '2026-09-01T08:00:00Z', last_activity: '2026-09-26T08:00:00Z' }),
+    // Started within the period, no activity since: judged by that latest activity, listed.
+    dossier(`${kind}2`, { kind, created_at: '2026-09-24T08:00:00Z', last_activity: '2026-09-24T08:00:00Z' }),
+    // Started within the period, latest activity after it: judged by that activity, not listed.
+    dossier(`${kind}3`, { kind, created_at: '2026-09-23T08:00:00Z', last_activity: '2026-10-05T08:00:00Z' }),
+    // Started and last active before the period: not listed.
+    dossier(`${kind}4`, { kind, created_at: '2026-09-01T08:00:00Z', last_activity: '2026-09-10T08:00:00Z' }),
+  ];
+
+  it('lists a PRD for the period by its latest activity', () => {
+    expect(prdsOf(rows('prd'), 'ada-gh', ADA, WINDOW, new Map()).rows.map((r) => r.href)).toEqual(['/prd/prd1', '/prd/prd2']);
+  });
+
+  it('lists a bug fix and a visual update for the period by its latest activity', () => {
+    expect(fixesOf(rows('bug'), 'bug', 'ada-gh', ADA, WINDOW, new Map()).rows.map((r) => r.href)).toEqual(['/bugs/bug1', '/bugs/bug2']);
+    expect(fixesOf(rows('visual'), 'visual', 'ada-gh', ADA, WINDOW, new Map()).rows.map((r) => r.href)).toEqual(['/visual/visual1', '/visual/visual2']);
   });
 });
 

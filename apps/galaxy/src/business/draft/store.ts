@@ -19,10 +19,13 @@ export const RUN_DRAFT_COLUMNS = 'id, kind, state, started_at, finished_at, coun
 export const DRAFT_CLAIM_COLUMNS = 'id, seq, kind, value, source, state, product_id';
 const OUTCOMES: readonly MergeOutcome[] = ['added', 'seen', 'rejected', 'replacing'];
 
-export const REPOSITORY_COLUMNS = 'full_name, product_id';
+export const REPOSITORY_COLUMNS = 'full_name';
+export const LINK_COLUMNS = 'product_id, repository';
 
 /** A tracked repository, as the draft reads it. */
-export const TrackedRepository = z.object({ full_name: z.string(), product_id: z.string().nullable() });
+export const TrackedRepository = z.object({ full_name: z.string() });
+/** A repository's link to one of its products (PRD 1364): a repository's products are its links. */
+export const RepositoryLink = z.object({ product_id: z.string(), repository: z.string() });
 /** A pasted web page's address. */
 export const PastedPage = z.object({ url: z.string() });
 /** A product's id. */
@@ -79,9 +82,17 @@ export function draftStore(db: Db): DraftStore & SourcesStore {
         p_workspace: workspace, p_draft: draft, p_state: state, p_counts: counts, p_scanned: scanned, p_reason: reason ?? null,
       }));
     },
+    // Each tracked repository with its only product, or none when it is in no product or in several, as
+    // repository_only_product() reads it: the run then puts its evidence on the first product, as before.
     async repositories(workspace) {
       const answer = await db.from('repositories').select(REPOSITORY_COLUMNS).eq('workspace_id', workspace).eq('tracked', true).order('full_name');
-      return rowsOf('read the repositories', 'repositories', TrackedRepository, answer);
+      const repos = rowsOf('read the repositories', 'repositories', TrackedRepository, answer);
+      const links = rowsOf('read the repositories\' products', 'product_repositories', RepositoryLink,
+        await db.from('product_repositories').select(LINK_COLUMNS).eq('workspace_id', workspace));
+      return repos.map(({ full_name }) => {
+        const products = links.filter((l) => l.repository === full_name);
+        return { full_name, product_id: products.length === 1 ? (products[0]?.product_id ?? null) : null };
+      });
     },
     async webPages(workspace) {
       const answer = await db.from('business_sources').select('url').eq('workspace_id', workspace).order('added_at');

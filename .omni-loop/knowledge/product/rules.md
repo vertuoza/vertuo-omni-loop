@@ -6,7 +6,7 @@ In a phase-0 pull request, a path under the delivery folder, the knowledge root 
 
 Serves: P-PRODUCT-1
 Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s13-01-phase-0-docs-kind, PRD #3
-Enforced by: unenforced
+Enforced by: kit/lib/policy/phase-0.test.ts
 Stated: 2026-09-25
 Decided: @claude-code-session (delegated by pierre-derval) via PRD issue #3, 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
@@ -17,11 +17,10 @@ When a pull request's head commit date cannot be read, the claimed-stale check t
 
 Serves: P-PRODUCT-2
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s3-03-unknown-head-commit-date-reads-as-not-stale, PRD #7
-Enforced by: unenforced
+Enforced by: kit/lib/board.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-3
 
@@ -29,11 +28,10 @@ When the only red check is the outbox context and only person-answered items rem
 
 Serves: P-PRODUCT-3
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s4-03-outbox-check-red-is-the-gate, PRD #7
-Enforced by: unenforced
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-4
 
@@ -41,11 +39,10 @@ Every slice is claimed by a draft pull request before it is built, however it is
 
 Serves: P-PRODUCT-4
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s5-02-claim-first-alone, PRD #7
-Enforced by: unenforced
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-5
 
@@ -53,11 +50,10 @@ A feature pull request stays a draft while any question is open, with each open 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s9-01-gate-red-stays-draft, PRD #7
-Enforced by: unenforced
+Enforced by: kit/test/plugin.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-6
 
@@ -65,11 +61,10 @@ The live outbox check passes the pull request's changed files to the gate, so a 
 
 Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s5-01-check-grades-changed-files, PRD #28
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-7
 
@@ -77,11 +72,10 @@ The install sets laws.source to knowledge only when the knowledge registers hold
 
 Serves: P-PRODUCT-6
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-02-laws-source-from-register-entries, PRD #45
-Enforced by: unenforced
+Enforced by: kit/bin/init.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-8
 
@@ -89,11 +83,10 @@ When a kit default names {config:<key>} and the key is unknown, set to null, or 
 
 Serves: P-PRODUCT-7
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s1-01-kit-default-names-an-unset-setting, PRD #45
-Enforced by: unenforced
+Enforced by: kit/lib/playbook/resolve.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-9
 
@@ -101,47 +94,43 @@ A form section holding repository text beside TODO(human) lines reads as text: t
 
 Serves: P-PRODUCT-8
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s1-02-section-with-text-and-open-questions, PRD #45
-Enforced by: unenforced
+Enforced by: kit/lib/playbook/resolve.test.ts
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-10
 
-Terraform rewrites a knowledge-page section only when it is empty, holds nothing but TODO(human) lines, or its marker says by: terraform; any other written section, labelled or not, is a person's and is left alone.
+Invade rewrites a knowledge-page section only when it is empty, holds nothing but TODO(human) lines, or its marker says by: invade; any other written section, labelled or not, is a person's and is left alone.
 
 Serves: P-PRODUCT-9
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-03-terraform-treats-an-unmarked-section-as-a-persons, PRD #45
-Enforced by: unenforced
-Stated: 2026-09-25
+Enforced by: kit/test/plugin.test.ts
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-11
 
-Terraform marks a form state: filled with terraformed: <today> when any section holds text, a See: line or a TODO(human) question; only a wholly empty form stays state: blank with terraformed: null.
+Invade marks a form state: filled with invaded: <today> when any section holds text, a See: line or a TODO(human) question; only a wholly empty form stays state: blank with invaded: null.
 
 Serves: P-PRODUCT-10
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-05-terraform-marks-a-form-holding-only-questions-filled, PRD #45
-Enforced by: unenforced
-Stated: 2026-09-25
+Enforced by: kit/test/plugin.test.ts
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-12
 
-A round moves only from open to answered, from open to abandoned, or from abandoned to answered from the terminal, and an answer never changes. Only the clean-up deletes sessions; their owners cannot.
+A round moves only from open to answered, from open to abandoned, or from abandoned to answered from the terminal, and an answer never changes. A session is deleted only by its owner, its rounds with it; the hourly clean-up closes idle sessions and deletes nothing.
 
 Serves: P-PRODUCT-11
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s2-04-round-moves-forward, PRD #71
-Enforced by: unenforced
-Stated: 2026-09-26
+Enforced by: apps/galaxy/src/ask/rounds-sql.test.ts
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-13
 
@@ -149,11 +138,10 @@ The ask page offers to send an answer only while the newest round is open, reada
 
 Serves: P-PRODUCT-12
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s4-02-question-moves-on-time, PRD #71
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/ask/page/view.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-14
 
@@ -161,23 +149,21 @@ When a multi-select question has ticked choices and typed Other text, Claude rec
 
 Serves: P-PRODUCT-13
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s4-03-own-answer-with-several-choices, PRD #71
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/ask/answer-model.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-15
 
-omni ask on changes nothing unless a new session was opened, so a session already on stays on. omni ask off always stops ask mode on this computer and exits 0, with one warning line when the page could not be told.
+omni ask on opens no session and closes none, so switching it on in one terminal never touches another. omni ask off closes every terminal's session of this checkout and always stops ask mode there, exiting 0, with one warning line per session the page could not be told; that session closes by itself after 12 hours without a call.
 
 Serves: P-PRODUCT-14
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s5-02-switching-when-the-page-is-away, PRD #71
-Enforced by: unenforced
-Stated: 2026-09-26
+Enforced by: kit/bin/ask.test.ts
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-16
 
@@ -185,11 +171,10 @@ A retro field the model wrote is dropped when it exceeds its cap in rules or hol
 
 Serves: P-PRODUCT-15
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s2-04-prose-caps-and-refused-words, PRD #72
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/retro/guard.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-17
 
@@ -197,11 +182,10 @@ A failing test is named by its file, groups and title joined by ' > ', with whit
 
 Serves: P-PRODUCT-16
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s3-03-one-name-per-failing-test, PRD #72
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/retro/kinds/ci-logs.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-18
 
@@ -209,11 +193,10 @@ Retro churn counts only commits of pull requests merged into the feature branch,
 
 Serves: P-PRODUCT-17
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s4-01-churn-counts-merged-work, PRD #72
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/retro/kinds/churn.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-19
 
@@ -221,11 +204,10 @@ Retro churn leaves out known lockfiles by name at any depth and paths the root .
 
 Serves: P-PRODUCT-7
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s4-03-churn-leaves-out-tool-written-files, PRD #72
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/retro/kinds/churn.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-20
 
@@ -233,11 +215,10 @@ When the retro grades a territory breach, shared ground is only the prefixes tha
 
 Serves: P-PRODUCT-18
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s5-01-shared-ground-is-computed, PRD #72
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/retro/kinds/delivery.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-21
 
@@ -245,11 +226,10 @@ In retro prose, a backtick span is set aside only when it holds a letter and app
 
 Serves: P-PRODUCT-19
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s6-03-what-the-guard-counts-as-copied, PRD #72
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/retro/guard.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-22
 
@@ -257,11 +237,10 @@ A bug counts against a request when it has the bug label, was opened within 14 d
 
 Serves: P-PRODUCT-20
 Source: .omni-loop/delivery/shipped/0072-retro/outbox/settled.md, entry s8-05-what-ties-a-bug-to-the-prd, PRD #72
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/retro/kinds/after-merge.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-23
 
@@ -269,11 +248,10 @@ The config refuses a signature.name or signature.email that is empty, holds a li
 
 Serves: P-PRODUCT-21
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s1-01-signature-name-address-shape, PRD #99
-Enforced by: unenforced
+Enforced by: kit/lib/config.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-24
 
@@ -281,11 +259,10 @@ When any gh search for omni credits fails, the run prints one line and exits 2 w
 
 Serves: P-PRODUCT-22
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s3-02-credits-other-github-failures, PRD #99
-Enforced by: unenforced
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-25
 
@@ -293,11 +270,10 @@ In omni credits, an issue or pull request opened by the signature's bot account 
 
 Serves: P-PRODUCT-23
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-01-credits-app-items-counted-apart, PRD #99
-Enforced by: unenforced
+Enforced by: kit/lib/credits/classify.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-26
 
@@ -305,11 +281,10 @@ With signing off, omni credits prints PRD issues as a bare count and omits the a
 
 Serves: P-PRODUCT-24
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-03-credits-lines-not-looked-for, PRD #99
-Enforced by: unenforced
+Enforced by: kit/bin/credits.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-27
 
@@ -317,11 +292,10 @@ A workspace theme colour is accepted only as a lowercase six-digit #rrggbb value
 
 Serves: P-PRODUCT-25
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-02-theme-colours-lowercase, PRD #100
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/theme.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-28
 
@@ -329,35 +303,32 @@ link_github() answers only a caller who has at least one workspace_members row; 
 
 Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-03-link-github-needs-a-workspace, PRD #100
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/data/link-github-sql.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-29
 
-Ask mode is open to any workspace member, whatever the account's email or with none: membership is the only gate, never an email domain. A session goes to the workspace that owns its repository, and is refused when the person is not a member of it; a repository no workspace owns goes to the person's first workspace. An account in no workspace is refused, and each person sees only their own sessions and rounds.
+Ask mode is open to any workspace member, whatever the account's email or with none: membership is the only gate, never an email domain. A session goes to the workspace that owns its repository, and is refused when the person is not a member of it; a repository no workspace owns goes to the person's first workspace. An account in no workspace is refused. Every member of a workspace reads its sessions and rounds; only a session's owner keeps, closes or deletes it.
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
-Enforced by: unenforced
-Stated: 2026-09-26
+Enforced by: apps/galaxy/src/ask/workspace-gate-sql.test.ts
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-30
 
-When the arcade cannot read a signed-in person's memberships, domain join or loaders, it treats them as crew: it shows the galaxy-out-of-reach message and never the wrong-account screen.
+When the arcade cannot read a signed-in person's memberships or loaders, it treats them as crew: it shows the galaxy-out-of-reach message and never the wrong-account screen.
 
 Serves: P-PRODUCT-28
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-31
 
@@ -365,11 +336,10 @@ The public /design page dresses its heroes only in the six built-in fleets of th
 
 Serves: P-PRODUCT-29
 Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/design/render.test.ts
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #153
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-32
 
@@ -377,11 +347,10 @@ The arcade shows only the XP earned in the workspace it plays for a person, the 
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s2-01-xp-read-in-the-workspace-played, PRD #160
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-33
 
@@ -389,11 +358,10 @@ When the phone turns during an invaders game, the game keeps the field it starte
 
 Serves: P-PRODUCT-31
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/game-field.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-34
 
@@ -401,11 +369,10 @@ In the arcade invaders game, alien rows are ordered by what each Entropy kind pa
 
 Serves: P-PRODUCT-32
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/games/invaders.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-35
 
@@ -413,11 +380,10 @@ When a member leaves a workspace, their player row and every arcade_scores row k
 
 Serves: P-PRODUCT-33
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-01-scores-leave-with-the-player, PRD #160
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/data/scores-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-36
 
@@ -425,11 +391,10 @@ The arcade reads high scores only for players who linked GitHub, separately from
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-04-scores-read-on-their-own, PRD #160
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-37
 
@@ -437,7 +402,7 @@ The level-up screen names the first registry game whose unlock level is above th
 
 Serves: P-PRODUCT-35
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/levelup.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -448,11 +413,10 @@ Each question's cost uses the price list's per-million-token prices. Cache reads
 
 Serves: P-PRODUCT-36
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/ask/prices.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-39
 
@@ -460,11 +424,10 @@ An ask session that belongs to no workspace is kept, and nobody can read it, its
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s2-02-session-of-owner-in-no-workspace, PRD #144
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/ask/workspace-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-40
 
@@ -472,11 +435,10 @@ The model's guessed category is written only while no person has set one, throug
 
 Serves: P-PRODUCT-37
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/ask/category-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-41
 
@@ -484,7 +446,7 @@ The share list and the already-answered note name each workspace member by their
 
 Serves: P-PRODUCT-38
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/ask/members-sql.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -495,11 +457,10 @@ Whenever a player enters the arcade menu, including through the #menu link, with
 
 Serves: P-PRODUCT-39
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-43
 
@@ -507,11 +468,10 @@ When a signed-in person with no galaxy on their page follows a link to the game'
 
 Serves: P-PRODUCT-40
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-44
 
@@ -519,22 +479,21 @@ While the OPEN THE APP? confirm is open, the arcade's timed hand-overs (boot, in
 
 Serves: P-PRODUCT-41
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/leave.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
 
 ## BR-PRODUCT-45
 
-On HOME, pressing Enter starts the game unless the focus is on a button, link or field, which then does what that control does; a focused PRESS START still starts the game.
+On HOME, pressing Enter runs PRESS START unless the focus is on a button, link or field, which then does what that control does. PRESS START opens the app last picked, or SELECT YOUR APP when none is remembered.
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
-Enforced by: unenforced
-Stated: 2026-09-27
+Enforced by: apps/galaxy/src/home/start.test.ts
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-46
 
@@ -542,11 +501,10 @@ A fleet's mascot is one of eleven keys held in a database list, the same list an
 
 Serves: P-PRODUCT-43
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
-Enforced by: unenforced
+Enforced by: packages/design/src/mascots.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-47
 
@@ -554,11 +512,10 @@ A new fleet's key is its label lowercased, with each run of non-letters and non-
 
 Serves: P-PRODUCT-44
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/fleets/fleet-key-sql.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-48
 
@@ -566,11 +523,10 @@ When a workspace has no fleets, the arcade menu keeps its FLEETS entry, hinted a
 
 Serves: P-PRODUCT-45
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/scenes/menu.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-49
 
@@ -578,11 +534,10 @@ A player whose fleet was retired is sent to pick a fleet only while at least one
 
 Serves: P-PRODUCT-46
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/onboarding.test.ts
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-50
 
@@ -590,7 +545,7 @@ The dashboard's waiting-for-you tile counts the same questions the page's sideba
 
 Serves: P-PRODUCT-47
 Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/dashboard/stream/home.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #664
@@ -601,11 +556,10 @@ A person's name links to their profile page only when they are a member of the w
 
 Serves: P-PRODUCT-48
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/people/chips.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-52
 
@@ -613,11 +567,10 @@ On a person's profile, each PRDs stage count opens the PRD list at that stage fi
 
 Serves: P-PRODUCT-49
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-53
 
@@ -625,11 +578,10 @@ When the PRD list is narrowed to one person, it shows only the PRDs that person 
 
 Serves: P-PRODUCT-50
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/dossier/page/history.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-54
 
@@ -637,11 +589,10 @@ On a person's profile, a PRD, bug fix or visual update is listed for the chosen 
 
 Serves: P-PRODUCT-51
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/profile/select.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-55
 
@@ -649,11 +600,10 @@ A person's profile lists only the PRDs and fixes of the workspace the profile is
 
 Serves: P-PRODUCT-52
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/profile/profile.test.ts
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-56
 
@@ -661,11 +611,10 @@ When the hero loses a life with lives left, the stage waits on its ready screen 
 
 Serves: P-PRODUCT-53
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-57
 
@@ -673,11 +622,10 @@ The corner game box never takes the page's Tab or Shift keys, so a reader can al
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s4-02-dock-select-stays-with-the-page, PRD #817
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/play-dock/dock-keys.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-58
 
@@ -685,7 +633,7 @@ On a stage clear screen, A or START goes on to the next stage's ready screen wit
 
 Serves: P-PRODUCT-54
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/arcade/platformer/session.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
@@ -696,11 +644,10 @@ Jev is on exactly when a key is stored: turning it off deletes the key and sets 
 
 Serves: P-PRODUCT-55
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/jev/jev-key-sql.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-60
 
@@ -708,11 +655,10 @@ When a terminal asks Jev about a repository, the Jev settings of the workspace t
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s3-03-decide-unowned-repository, PRD #812
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/jev/decisions/decide-route.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-61
 
@@ -720,7 +666,7 @@ The Jev page's agreement rate counts only calls where Jev and the old way both a
 
 Serves: P-PRODUCT-56
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/jev/record/record.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
@@ -731,11 +677,10 @@ When more than one workspace tracks a repository, the canon check reads the busi
 
 Serves: P-PRODUCT-57
 Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/canon/business-pick-sql.test.ts
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #840
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-63
 
@@ -743,11 +688,10 @@ A link may read a repository the workspace lists, or any repository the workspac
 
 Serves: P-PRODUCT-58
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-64
 
@@ -755,11 +699,10 @@ When a member leaves a workspace, every link they made stops working and any cal
 
 Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-02-left-maker-links-listed, PRD #855
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-65
 
@@ -767,11 +710,10 @@ When an agent sends a question naming a code project that does not belong to the
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s3-01-report-repo-must-be-the-workspaces, PRD #855
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/agent-connect/questions/report-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-66
 
@@ -779,7 +721,7 @@ Jev judges an agent's question only on the report that first stores it; a repeat
 
 Serves: P-PRODUCT-37
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s4-02-jev-judges-first-report-bring-back-final, PRD #855
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/agent-connect/mcp/server.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -790,11 +732,10 @@ A product's Statement is a single line of at most 400 characters, and its owner 
 
 Serves: P-PRODUCT-59
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/constituents/constituents-sql.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-68
 
@@ -802,23 +743,22 @@ The inbox check turns red for a spec break only when it can quote the spec sente
 
 Serves: P-PRODUCT-60
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
-Enforced by: unenforced
+Enforced by: apps/omni-app/src/canon/canon.test.ts
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-69
 
-The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and every row is checked against this repository's rules.
+The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and in a plan repository each repository's rows are checked against that repository's own rules (a target with no copied rules against the kit's defaults).
 
 Serves: P-PRODUCT-61
 Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
-Enforced by: unenforced
+Enforced by: kit/lib/inbox/plan-grade.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1090
-Proposed: harvest 2026-10-06
+Reworded: @pierrederval, 2026-10-11, the plan check grades each target against its own flow since #1090
 
 ## BR-PRODUCT-70
 
@@ -826,11 +766,10 @@ A product's pitch look may be changed by exactly those who may edit the workspac
 
 Serves: P-PRODUCT-62
 Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
-Enforced by: unenforced
+Enforced by: apps/galaxy/src/products/pitch-look-sql.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-06, PR #860
-Proposed: harvest 2026-10-06
 
 ## BR-PRODUCT-71
 
@@ -838,20 +777,284 @@ When a pull request waits on another that was closed without merging, it is no l
 
 Serves: P-PRODUCT-63
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-01-waits-on-closed-or-unreadable, PRD #1118
-Enforced by: unenforced
+Enforced by: kit/lib/care/decide.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
-Proposed: harvest 2026-10-06
 
 ## BR-PRODUCT-72
 
-The care list reads a bug's fix pull requests from its fix-plan table, one per row in table order, and takes the bug's record from the pull requests GitHub links as closing it. A repository with no pull request yet is left off until one opens.
+The care list reads a bug's fix pull requests from its fix-plan table, one per row in table order, and takes the bug's record from the pull requests of the plan's own repository that the loop reports as closing it. A repository with no pull request yet is left off until one opens.
 
 Serves: P-PRODUCT-64
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
-Enforced by: unenforced
+Enforced by: kit/bin/care.test.ts
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
-Proposed: harvest 2026-10-06
+Reworded: @pierrederval, 2026-10-12, the bug's record comes from the plan repository's closing pull requests as the Omni page reports them since #1665 (entry s4-05-law-proofs-on-loop-reads)
+
+## BR-PRODUCT-73
+
+A loop that has not yet said when it will wake next reads live until one hour after the last thing it pushed; only then is it shown silent and may it be taken over.
+
+Serves: P-PRODUCT-2
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
+Enforced by: apps/galaxy/src/loop/api.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-74
+
+Parking a PRD records who it waits on and the loop keeps running; a later round of that PRD takes it off the parked list. A stopping loop ends parked if PRDs still wait, else stopped, and an ended loop refuses any push.
+
+Serves: P-PRODUCT-65
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
+Enforced by: apps/galaxy/src/loop/migration.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-75
+
+A signed-out visitor to the Loop page or one loop's page is asked to sign in, the same as on the Engineering page. The demo loops show only where every page shows its demo: in development or when the demo mode is switched on.
+
+Serves: P-PRODUCT-66
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
+Enforced by: apps/galaxy/src/loop/page/page.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-76
+
+omni loop push counts as off, printing off and exiting 1, only when ask.url is not set. It never reads dossier.enabled, so a repository with the dossier switched off still sends its loop state to the Loop page.
+
+Serves: P-PRODUCT-67
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
+Enforced by: kit/bin/loop.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-77
+
+Answering a question on a PRD earns the answerer 2 points and earns their fleet the same 2 points. If that PRD is later lost, those answer points are taken back in its season, like the rest of that PRD's points.
+
+Serves: P-PRODUCT-68
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-01-answers-pay-the-fleet-too, PRD #1180
+Enforced by: game/rulebook.test.ts, game/projector.test.ts, game/economy.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-78
+
+Every answered question earns points for the answerer when they are a current workspace member with a GitHub login, whether or not a numbered PRD claims it. An answer no PRD claims is credited on planet 0, which the map and the season's planets leave out.
+
+Serves: P-PRODUCT-69
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
+Enforced by: supabase/checks/game_answered_rounds.sql, supabase/migrations/20261109090000_game_answered_rounds.sql, game/sources/supabase.test.ts, supabase/migrations/20261118090000_every_answer_pays.sql
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-79
+
+A point credited to a GitHub login is credited under that login; a login with capitals is accepted, never skipped, and answer points arrive already in lower case. The event is skipped only when the name holds an at sign, a dot, a space or another character no GitHub login can hold.
+
+Serves: P-PRODUCT-70
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
+Enforced by: game/projector.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-80
+
+When a settled decision names an approver that no GitHub login can have, such as a dotted name, its settle is skipped with a warning and earns no one credit. The decision stays open until the name is corrected, then it is credited to that login.
+
+Serves: P-PRODUCT-71
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-02-dotted-approver-waits, PRD #1180
+Enforced by: game/sources/parsers.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-81
+
+Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.
+
+Serves: P-PRODUCT-72
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
+Enforced by: supabase/checks/roadmaps.sql, apps/galaxy/src/roadmap/migration.test.ts, kit/lib/roadmap/push.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-83
+
+The roadmap check refuses a project that installs another repository's package unless its wave comes after every project it waits on, directly or through others, that changes that repository. Projects that do not wait on each other may share a wave.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-01-consumer-rule-follows-blockers, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts, kit/lib/roadmap/grade.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-84
+
+The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused.
+
+Serves: P-PRODUCT-73
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-85
+
+In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused. The source line, like the product and target date, is optional.
+
+Serves: P-PRODUCT-74
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
+Enforced by: kit/lib/roadmap/parse.test.ts, kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-86
+
+omni roadmap push marks a PRD building once its feature PR is open, outbox when its draft holds open questions, ready once every part is ready, merged once every part merged; a PRD not started names its first unmerged blocker. If GitHub is unreadable, nothing is pushed.
+
+Serves: P-PRODUCT-75
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s6-01-roadmap-push-reads-the-prs, PRD #1162
+Enforced by: kit/lib/roadmap/push.test.ts, kit/bin/roadmap.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-87
+
+The steps to launch list only steps that have work to start and are not already running; a step that only waits is left out. Held names only steps a rule keeps back, never a step left out because every slot is full.
+
+Serves: P-PRODUCT-76
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-01-steps-only-act, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+
+## BR-PRODUCT-88
+
+A PRD runs the wave holding a live claim (a draft sub-PR in flight, not stale or stalled) on one of its slices. Otherwise, when its feature PR has the in-progress label and a status comment fresh within the claim limit, it runs its first step not done.
+
+Serves: P-PRODUCT-77
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-02-running-read, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+
+## BR-PRODUCT-89
+
+While a step the drive session started is not yet shown running on GitHub, the session launches no new step. It never launches a step for a PRD it already has a step agent on, and never runs more than limits.parallelSteps agents at once.
+
+Serves: P-PRODUCT-78
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s2-01-unseen-step-holds-pool, PRD #1205
+Enforced by: kit/test/plugin.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+
+## BR-PRODUCT-90
+
+When a session's branch names a feature or a fix, the session shows that work, even if its record says it last worked on something else. Only on a branch that names nothing does it show the last recorded work.
+
+Serves: P-PRODUCT-79
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s2-01-branch-before-record, PRD #1208
+Enforced by: kit/lib/now/now.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+
+## BR-PRODUCT-91
+
+The status line refreshes the links of the work a session is on when they are missing or a minute old and no refresh holds them, for a PRD not yet shipped (in review included) and a fix not yet merged; finished work is never refreshed.
+
+Serves: P-PRODUCT-80
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
+Enforced by: kit/bin/statusline.test.ts, kit/lib/statusline/board-cache.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+
+## BR-PRODUCT-92
+
+The dashboard counts only PRDs and fixes. A concept stored in the workspace is read without failing the dashboard and is left out of its counts, since concepts have their own list.
+
+Serves: P-PRODUCT-30
+Source: .omni-loop/delivery/shipped/1272-concepts-page/outbox/settled.md, entry s2-01-dashboard-skips-concepts, PRD #1272
+Enforced by: apps/galaxy/src/data/dossiers.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-09, PR #1282
+
+## BR-PRODUCT-93
+
+A concept's review state is unknown when no facts are stored for it, or its stored pull request is unread or missing. The concepts list reads only stored facts and never asks GitHub; the sync or the concept's own page fills them in.
+
+Serves: P-PRODUCT-7
+Source: .omni-loop/delivery/shipped/1272-concepts-page/outbox/settled.md, entry s4-02-concept-state-unknown-until-read, PRD #1272
+Enforced by: apps/galaxy/src/concepts/state.test.ts, apps/galaxy/src/concepts/list.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-09, PR #1282
+
+## BR-PRODUCT-94
+
+Every ask call the terminal makes also accepts the page's own sign-in when the request carries no terminal token. An answer marked as given on the page is taken only from the page's sign-in, never from a terminal token.
+
+Serves: P-PRODUCT-66
+Source: .omni-loop/delivery/shipped/1318-layered-data-access/outbox/settled.md, entry s3-01-cookie-session-on-every-ask-route, PRD #1318
+Enforced by: apps/galaxy/src/ask/api.test.ts
+Stated: 2026-10-09
+Decided: @pierrederval, 2026-10-09
+
+## BR-PRODUCT-95
+
+With 'every law names its test' switched on, the knowledge check refuses only this repository's confirmed rules and invariants that name no test. Proposed entries and knowledge copied from other repositories may stay untested.
+
+Serves: P-PRODUCT-81
+Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s1-01-require-proof-skips-proposed-and-copies, PRD #1342
+Enforced by: kit/lib/knowledge/check-knowledge.test.ts
+Stated: 2026-10-10
+Decided: nobody — adopted when raised (medium), 2026-10-09
+Merged: @pierrederval, 2026-10-10, PR #1343
+
+## BR-PRODUCT-101
+
+In the arcade duet game, quitting from the pause or pressing B on a ready screen once play has started ends the run at its game over, which sends the score once and shows whether it was saved; B from there returns to the game room.
+
+Serves: P-PRODUCT-54
+Source: .omni-loop/delivery/shipped/1633-omni-duet/outbox/settled.md, entry s4-01-quitting-shows-the-game-over, PRD #1633
+Enforced by: apps/galaxy/src/arcade/duet/run.test.ts, apps/galaxy/src/arcade/scenes/duet.test.ts
+Stated: 2026-10-11
+Decided: nobody — adopted when raised (medium), 2026-10-11
+Merged: @martl-vertuoza, 2026-10-11, PR #1636
+Proposed: harvest 2026-10-11
+
+## BR-PRODUCT-102
+
+In Duet's endless mode, each wave is one to three of the last chapter's own rows drawn from a fixed seed, at a speed starting just above that chapter's fastest that rises slowly and then stops at a ceiling, so every endless wave stays passable.
+
+Serves: P-PRODUCT-86
+Source: .omni-loop/delivery/shipped/1633-omni-duet/outbox/settled.md, entry s4-02-endless-waves-from-chapter-four-rows, PRD #1633
+Enforced by: apps/galaxy/src/arcade/duet/waves.test.ts, apps/galaxy/src/arcade/duet/waves.ts
+Stated: 2026-10-11
+Decided: nobody — adopted when raised (medium), 2026-10-11
+Merged: @martl-vertuoza, 2026-10-11, PR #1636
+Proposed: harvest 2026-10-11

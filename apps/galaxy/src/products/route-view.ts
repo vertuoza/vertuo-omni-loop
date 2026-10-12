@@ -5,7 +5,8 @@ import { DEMO_PRODUCTS, type ProductScreenView } from './ProductsScreen';
 
 // What /app/settings/products/<id> draws (PRD 859 s1), from who reads it: the demo's product, the
 // session's own situation (closed, sign-in), or the product as row-level security returns it, with its
-// Pitch settings (PRD 1108 s2). The demo's products hold none, so each reads as its look's preset.
+// Pitch settings (PRD 1108 s2). The demo's products hold no settings, so each reads as its look's preset.
+// Its Approvers list moved to the product home (PRD 1364 s11).
 
 type SignedIn = Extract<MemberSession, { kind: 'signed-in' }>;
 type LoadProduct = (session: SignedIn, id: string) => Promise<ProductLoad>;

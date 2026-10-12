@@ -1,11 +1,11 @@
 // The stored fix facts (PRD 691, s1): the store's Supabase calls on a recording client, and its fake's
 // rules. No test reaches Supabase.
 import { describe, expect, it } from 'vitest';
-import type { FixSummary } from '../../dossier/github/fix';
+import type { ConceptFacts, FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
-import { factsOf, fixFactsStore } from './store';
-import { fakeFixFactsStore } from './store.fake';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { conceptFactsOf, conceptFactsStore, factsOf, fixFactsStore } from './store';
+import { fakeConceptFactsStore, fakeFixFactsStore } from './store.fake';
+import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const W = 'w-acme';
 const FACTS: FixSummary = {
@@ -88,5 +88,37 @@ describe('the store, on its fake', () => {
     expect((await store.readFacts('w-other', ['d1'])).size).toBe(0);
     store.fail = 'down';
     await expect(store.readFacts(W, ['d1'])).rejects.toThrow('down');
+  });
+});
+
+describe('a concept\'s facts, in the same table (PRD 1272, s4)', () => {
+  const CONCEPT: ConceptFacts = {
+    issue: FACTS.issue,
+    pull: { number: parsePr(1270), url: 'https://github.com/acme/widgets/pull/1270', state: 'merged', mergedAt: '2026-10-07T09:00:00Z', mergedBy: null },
+  };
+
+  it('stores {issue, pull} in fix_facts, and reads back only a row that holds a concept\'s two parts', async () => {
+    const { calls, db } = recording([{ dossier_id: 'c1', facts: CONCEPT }, { dossier_id: 'c2', facts: { issue: UNREAD } }]);
+    await conceptFactsStore(db).writeFacts([{ dossier_id: 'c1', workspace_id: W, facts: CONCEPT }], '2026-10-08T10:00:00Z');
+    expect([...(await conceptFactsStore(db).readFacts(W, ['c1', 'c2']))]).toEqual([['c1', CONCEPT]]);
+    expect(calls).toEqual([
+      ['upsert', 'fix_facts', [{ dossier_id: 'c1', workspace_id: W, facts: CONCEPT, synced_at: '2026-10-08T10:00:00Z' }], { onConflict: 'dossier_id' }],
+      ['select', 'fix_facts', 'dossier_id, facts', ['eq', 'workspace_id', W], ['in', 'dossier_id', ['c1', 'c2']]],
+    ]);
+  });
+
+  it('reads a part GitHub could not read as unread, and anything else as no facts', () => {
+    expect(conceptFactsOf({ issue: UNREAD, pull: UNREAD })).toEqual({ issue: UNREAD, pull: UNREAD });
+    expect(conceptFactsOf({ issue: null, pull: { number: 3 } })).toBeNull();
+    expect(conceptFactsOf(null)).toBeNull();
+  });
+
+  it('keeps one row per concept on its fake, reading only the workspace asked', async () => {
+    const store = fakeConceptFactsStore(() => '2026-10-08T10:00:00Z');
+    await store.writeFacts([{ dossier_id: 'c1', workspace_id: W, facts: CONCEPT }]);
+    await store.writeFacts([{ dossier_id: 'c1', workspace_id: W, facts: { ...CONCEPT, pull: UNREAD } }]);
+    expect(store.rows).toEqual([{ dossier_id: 'c1', workspace_id: W, facts: { ...CONCEPT, pull: UNREAD }, synced_at: '2026-10-08T10:00:00Z' }]);
+    expect(store.writes).toEqual([`${W} c1`, `${W} c1`]);
+    expect((await store.readFacts('w-other', ['c1'])).size).toBe(0);
   });
 });

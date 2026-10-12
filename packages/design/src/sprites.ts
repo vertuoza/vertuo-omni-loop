@@ -629,6 +629,18 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     for (const [x, y] of COGS) d.rect(x, y, 2, 2, 'L');
     d.ellipse(8, 8, 2.2, 2.2, f ? 'C' : 'O');
   } },
+  // The Roadmaps entry (PRD 1162): a star chart, three waypoints joined by a route, the last one blinking.
+  'menu-roadmaps': { w: 16, h: 16, draw(d, f) { // a route across three stars, the goal flag at its end
+    d.rect(1, 1, 14, 14, 'N').line(3, 12, 7, 7, 'C').line(7, 7, 11, 9, 'C').line(11, 9, 13, 4, 'C');
+    d.rect(2, 11, 2, 2, 'Y').rect(6, 6, 2, 2, 'Y').rect(10, 8, 2, 2, 'Y');
+    d.rect(13, 1, 1, 4, 'L').rect(14, 1, 1, 2, f ? 'O' : 'R');
+  } },
+  // The Concepts entry (PRD 1272): a vast idea, a bulb lit over its base, its rays blinking.
+  'menu-concepts': { w: 16, h: 16, draw(d, f) { // a light bulb, its filament glowing
+    d.ellipse(8, 6, 4.5, 4.5, 'Y').rect(6, 10, 4, 2, 'Y').rect(6, 12, 4, 2, 'L').rect(7, 14, 2, 1, 'L');
+    d.rect(7, 5, 2, 4, f ? 'O' : 'R').px(6, 4, 'W');
+    d.pxs(f ? [[1, 6], [14, 6], [8, 0]] : [[2, 2], [13, 2]], 'C');
+  } },
   'menu-prds': { w: 16, h: 16, draw(d, f) { // a rocket, flame flickering
     d.poly([[8, 0], [11, 4], [11, 11], [5, 11], [5, 4]], 'W').poly([[8, 0], [11, 4], [5, 4]], 'R');
     d.poly([[5, 8], [2, 12], [5, 11]], 'R').poly([[11, 8], [14, 12], [11, 11]], 'R');
@@ -702,7 +714,99 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
       d.pxs([[3, y + 3], [11, y + 4], [6, y + 5]], 'A', 2);
     }
   } },
+
+  // OMNI KART's kart (PRD 1359), seen from behind: straight, leaning left and leaning right, two
+  // frames each (the tread). Its body is the suit's white and its trim the suit's navy, so a hero's
+  // tint (heroLook) paints the kart in the hero's suit; the driver is drawn behind it, in the seat.
+  kart: { w: 28, h: 18, draw: kartDraw(0) },
+  'kart-left': { w: 28, h: 18, draw: kartDraw(-1) },
+  'kart-right': { w: 28, h: 18, draw: kartDraw(1) },
+  // OMNI KART's ORB (PRD 1359): a glowing orb thrown ahead; the second frame pulses its halo.
+  orb: {
+    w: 16, h: 16,
+    draw(d, f) {
+      d.ellipse(8, 8, f ? 7.5 : 6.5, f ? 7.5 : 6.5, 'e', 0);
+      d.ellipse(8, 8, 5, 5, 'P').ellipse(8, 8, 3, 3, 'Y').px(6, 6, 'e').px(7, 6, 'e');
+    },
+  },
+  // OMNI KART's props (PRD 1427): they stand off the circuit as billboards, drawn the way a kart is.
+  // A pylon is still; a beacon's lamp blinks and a satellite's panels turn (frame 1).
+  'prop-pylon': { w: 12, h: 28, draw(d) {
+    d.poly([[3, 27], [9, 27], [8, 6], [4, 6]], 'A');
+    d.rect(5, 6, 2, 21, 'L', 1).rect(2, 26, 8, 2, 'A', 2);
+    d.rect(3, 10, 6, 1, 'C', 1).rect(3, 16, 6, 1, 'C', 1).rect(3, 22, 6, 1, 'C', 1);
+    d.rect(4, 2, 4, 4, 'C', 0);
+  } },
+  'prop-beacon': { w: 12, h: 24, draw(d, f) {
+    d.rect(5, 8, 2, 16, 'L', 1).rect(2, 22, 8, 2, 'A', 2);
+    d.ellipse(6, 5, f ? 5 : 3, f ? 5 : 3, f ? 'M' : 'R', f ? 0 : 2);
+    if (f) d.ellipse(6, 5, 2, 2, 'W', 0);
+  } },
+  'prop-asteroid': { w: 28, h: 22, draw(d) {
+    d.poly([[3, 14], [6, 5], [14, 1], [23, 5], [26, 13], [21, 20], [9, 20]], 'A', 1);
+    d.pxs([[8, 8], [9, 8], [18, 6], [19, 7], [12, 15], [13, 15], [20, 14]], 'A', 3);
+    d.pxs([[10, 5], [11, 5], [16, 3], [17, 3]], 'L', 0);
+  } },
+  'prop-satellite': { w: 28, h: 20, draw(d, f) {
+    d.rect(11, 6, 6, 8, 'L', 1).rect(12, 7, 4, 2, 'C', 0).rect(13, 14, 2, 3, 'A', 2);
+    if (f) { d.rect(5, 8, 6, 5, 'E', 1).rect(17, 8, 6, 5, 'E', 1); d.rect(5, 10, 6, 1, 'E', 3).rect(17, 10, 6, 1, 'E', 3); }
+    else { d.rect(1, 3, 10, 12, 'E', 1).rect(17, 3, 10, 12, 'E', 1); d.rect(1, 9, 10, 1, 'E', 3).rect(17, 9, 10, 1, 'E', 3); }
+    d.px(14, 3, 'Y', 0).px(14, 4, 'L', 2);
+  } },
+  'prop-wreck': { w: 32, h: 18, draw(d) {
+    d.poly([[2, 14], [7, 8], [18, 6], [26, 9], [30, 15], [22, 17], [8, 17]], 'A', 1);
+    d.poly([[18, 6], [24, 2], [27, 9]], 'A', 2);
+    d.rect(9, 10, 7, 3, 'R', 2).pxs([[12, 11], [13, 11]], 'O', 0);
+    d.pxs([[5, 14], [6, 14], [20, 14], [21, 13]], 'A', 3);
+  } },
+  // OMNI KART's item box (PRD 1427, slice 7): a glowing cube, seen face on (frame 0) and turned a quarter (frame 1), a halo round it.
+  'item-box': { w: 16, h: 16, outline: false, draw(d, f) {
+    d.ellipse(8, 8, 7.5, 7.5, 'C', 0);
+    if (f) {
+      d.poly([[5, 3], [11, 3], [13, 6], [13, 13], [10, 14], [4, 14], [3, 5]], 'Y', 1);
+      d.rect(9, 5, 4, 8, 'O', 2).rect(4, 4, 5, 1, 'Y', 0);
+    } else {
+      d.rect(3, 3, 10, 10, 'Y', 1).rect(3, 3, 10, 2, 'Y', 0).rect(3, 11, 10, 2, 'O', 2);
+    }
+    d.px(6, 7, 'W', 0).px(7, 7, 'W', 0).px(7, 8, 'W', 0).px(7, 10, 'W', 0);
+  } },
+  // The distant station in OMNI KART's sky (PRD 1427, slice 6): a hub with two wings of panels; its lamp and windows blink (frame 1).
+  'sky-station': { w: 28, h: 14, draw(d, f) {
+    d.rect(11, 3, 6, 8, 'L', 1).rect(12, 4, 4, 2, 'C', 0).rect(13, 11, 2, 2, 'A', 2);
+    d.rect(1, 6, 10, 2, 'A', 1).rect(17, 6, 10, 2, 'A', 1);
+    d.rect(0, 4, 3, 6, 'E', 1).rect(25, 4, 3, 6, 'E', 1);
+    d.px(14, 1, f ? 'Y' : 'R', 0).rect(13, 2, 2, 1, 'A', 2);
+    d.pxs([[12, 8], [15, 8]], f ? 'Y' : 'C', 0);
+  } },
+  // The arch over the start line: a leg on each side, and the beam between, stretched across the road.
+  'arch-leg': { w: 10, h: 48, draw(d) {
+    d.rect(2, 4, 6, 44, 'A', 1).rect(2, 4, 2, 44, 'L', 1).rect(0, 44, 10, 4, 'A', 2);
+    d.rect(3, 12, 4, 1, 'C', 1).rect(3, 22, 4, 1, 'C', 1).rect(3, 32, 4, 1, 'C', 1);
+    d.rect(1, 0, 8, 4, 'A', 2);
+  } },
+  'arch-beam': { w: 16, h: 8, outline: false, draw(d, f) {
+    d.rect(0, 0, 16, 8, 'A', 1).rect(0, 0, 16, 2, 'L', 1).rect(0, 6, 16, 2, 'A', 3);
+    for (let x = 0; x < 16; x += 4) d.rect(x + (f ? 2 : 0), 2, 2, 4, x % 8 ? 'Y' : 'C', 1);
+  } },
 });
+
+/** A kart seen from behind, leaning `lean` (-1 left, 0 straight, 1 right): the body leans over, the inside wheel lifts and the outside one digs in. */
+function kartDraw(lean: -1 | 0 | 1): SpriteDef['draw'] {
+  return (d, f) => {
+    const tread = (x: number, y: number) => { for (let r = 0; r < 4; r++) d.rect(x + 1, y + 1 + r * 2 + f, 4, 1, 'n', 3); };
+    const left = lean < 0 ? -1 : lean > 0 ? 1 : 0; // the body's slide over its wheels
+    const wl = lean < 0 ? 7 : lean > 0 ? 9 : 8, wr = lean > 0 ? 7 : lean < 0 ? 9 : 8; // each wheel's top: the inside one is higher
+    d.rect(1, wl, 6, 9, 'n', 1); tread(1, wl);
+    d.rect(21, wr, 6, 9, 'n', 1); tread(21, wr);
+    const s = left * 2;
+    d.rect(6, 12, 16, 2, 'L', 2); // the rear axle between the wheels
+    d.poly([[6 + s, 5], [22 + s, 5], [25 + s, 14], [3 + s, 14]], 'W');
+    d.rect(4 + s, 13, 20, 3, 'N');
+    d.ellipse(14 + s, 6, 5, 2.5, 'N'); // the seat back, the driver's shoulders sit over it
+    d.rect(10 + s, 15, 2, 2, 'L', 1).rect(16 + s, 15, 2, 2, 'L', 1); // the exhausts
+    d.px(5 + s, 11, 'R').px(6 + s, 11, 'R').px(21 + s, 11, 'R').px(22 + s, 11, 'R'); // the tail lights
+  };
+}
 
 // The tiles' shared parts: the soil under the grass, a block's riveted frame, a pipe's half.
 function soil(d: Painter): void {

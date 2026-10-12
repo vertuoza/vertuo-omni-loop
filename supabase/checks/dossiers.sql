@@ -14,7 +14,9 @@
 -- the kind: a PRD, a visual fix or a bug fix, each taking only its own versions. PRD 657 makes
 -- dossier_list() set-based and scoped to a workspace when asked: the same rows, counts and order as
 -- the previous body on every fixture here, for every account, and with p_workspace only that
--- workspace's. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- workspace's. PRD 1272 adds the concept: it takes only its record, its vision tour, a board per round
+-- and its debate, a board round is added once, the other kinds push as before, and only a member reads
+-- it. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -106,7 +108,7 @@ begin
   -- The push numbers the draft, takes the spec's title, and adds v1 of each kind.
   pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', draft,
     '[{"kind": "spec", "content": "spec one"}, {"kind": "plan", "content": "plan one"}]');
-  if pushed <> jsonb_build_object('id', draft, 'added', '[{"kind": "spec", "version": 1}, {"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '[]'::jsonb) then
+  if pushed <> jsonb_build_object('id', draft, 'added', '[{"kind": "spec", "version": 1}, {"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '[]'::jsonb, 'product', null) then
     raise exception 'FAIL: the first push answered %', pushed;
   end if;
   if not exists (select 1 from public.dossiers where id = draft and prd = 7 and numbered_at is not null and title = 'Team inbox') then
@@ -374,7 +376,7 @@ begin
   draft := public.dossier_open('A team roster', 'vertuoza/vertuo-omni-loop', 'sess-m');
   pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 8, 'Team roster', draft,
     '[{"kind": "spec", "content": "spec from github"}, {"kind": "plan", "content": "roster plan"}]');
-  if pushed <> jsonb_build_object('id', found_id, 'added', '[{"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '["spec"]'::jsonb) then
+  if pushed <> jsonb_build_object('id', found_id, 'added', '[{"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '["spec"]'::jsonb, 'product', null) then
     raise exception 'FAIL: a draft numbered to the fallback''s dossier did not land on it: %', pushed;
   end if;
   if exists (select 1 from public.dossiers where id = draft) then raise exception 'FAIL: a merged draft was not removed'; end if;
@@ -407,7 +409,7 @@ begin
     raise exception 'FAIL: the service role may add versions other than through the version rule, or delete a dossier';
   end if;
   if has_function_privilege('anon', 'public.dossier_open(text, text, text)', 'execute')
-     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute')
+     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text, text)', 'execute')
      or has_function_privilege('anon', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute')
      or has_function_privilege('authenticated', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute') then
     raise exception 'FAIL: an API role may call a dossier function it should not';
@@ -988,8 +990,8 @@ begin
   if not has_column_privilege('authenticated', 'public.dossiers', 'kind', 'select') then
     raise exception 'FAIL: a member may not read a dossier''s kind';
   end if;
-  if has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute')
-     or not has_function_privilege('authenticated', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute') then
+  if has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text, text)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text, text)', 'execute') then
     raise exception 'FAIL: dossier_push() is callable by anon, or not by the signed-in';
   end if;
 end $$;
@@ -1126,6 +1128,115 @@ begin
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
 select pg_temp.compare_lists('eve');
+reset role;
+
+-- ── A concept is a dossier with a kind (PRD 1272) ──
+-- A concept numbered by its issue takes its record, its vision tour, a board per round and its debate,
+-- and nothing else; no other kind takes those. A board round pushed again adds nothing. A PRD, a visual
+-- fix and a bug fix still push under the redefined function. Only a member of its workspace reads it.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  pushed jsonb;
+  concept uuid;
+begin
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products replace plan repositories', null,
+    '[{"kind": "concept-record", "content": "# concept"}, {"kind": "vision", "content": "<p>tour</p>"}, {"kind": "board", "content": "board one"}, {"kind": "board", "content": "board two"}, {"kind": "debate", "content": "# debate"}]',
+    'concept');
+  concept := (pushed ->> 'id')::uuid;
+  if pushed -> 'added' <> '[{"kind": "concept-record", "version": 1}, {"kind": "vision", "version": 1}, {"kind": "board", "version": 1}, {"kind": "board", "version": 2}, {"kind": "debate", "version": 1}]'::jsonb then
+    raise exception 'FAIL: a concept did not get its record, its vision tour, its two boards and its debate: %', pushed;
+  end if;
+  if not exists (select 1 from public.dossiers where id = concept and kind = 'concept' and prd = 1269 and numbered_at is not null) then
+    raise exception 'FAIL: a concept''s dossier is not kind concept, numbered by its issue';
+  end if;
+
+  -- The same boards again: no version added. A third board is round 3.
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products replace plan repositories', null,
+    '[{"kind": "board", "content": "board one"}, {"kind": "board", "content": "board two"}]', 'concept');
+  if pushed -> 'added' <> '[]'::jsonb or pushed -> 'unchanged' <> '["board", "board"]'::jsonb then
+    raise exception 'FAIL: pushing the same board rounds again added a version: %', pushed;
+  end if;
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products replace plan repositories', null,
+    '[{"kind": "board", "content": "board one"}, {"kind": "board", "content": "board two"}, {"kind": "board", "content": "board three"}]', 'concept');
+  if pushed -> 'added' <> '[{"kind": "board", "version": 3}]'::jsonb then
+    raise exception 'FAIL: a third board was not added as round 3: %', pushed;
+  end if;
+
+  -- The pairings: a concept takes no spec, a PRD no board, a visual fix no vision tour; a record twice,
+  -- and a concept naming a draft, are refused.
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products', null, '[{"kind": "spec", "content": "a spec"}]', 'concept');
+    raise exception 'FAIL: a concept dossier took a spec version';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "board", "content": "a board"}]');
+    raise exception 'FAIL: a prd dossier took a board version';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null, '[{"kind": "vision", "content": "a tour"}]', 'visual');
+    raise exception 'FAIL: a visual dossier took a vision version';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products', null,
+      '[{"kind": "concept-record", "content": "a"}, {"kind": "concept-record", "content": "b"}]', 'concept');
+    raise exception 'FAIL: a concept took its record twice in one push';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 1270, 'A concept', public.dossier_open('A concept', 'vertuoza/vertuo-omni-loop', null), '[]', 'concept');
+    raise exception 'FAIL: a concept numbered a draft';
+  exception when invalid_parameter_value then null; end;
+  if (select count(*) from public.dossier_versions where dossier_id = concept) <> 6 then
+    raise exception 'FAIL: a refused push left a version on the concept';
+  end if;
+
+  -- A PRD, a visual fix and a bug fix still push.
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan three"}]');
+  if jsonb_array_length(pushed -> 'added') <> 1 or pushed -> 'added' -> 0 ->> 'kind' <> 'plan' then
+    raise exception 'FAIL: a PRD push no longer works: %', pushed;
+  end if;
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null, '[{"kind": "variations", "content": "round four"}]', 'visual');
+  if pushed -> 'added' <> '[{"kind": "variations", "version": 4}]'::jsonb then
+    raise exception 'FAIL: a visual fix push no longer works: %', pushed;
+  end if;
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 571, 'omni reads 1e2 as a number', null, '[{"kind": "bug-record", "content": "# Bug 571, again"}]', 'bug');
+  if pushed -> 'added' <> '[{"kind": "bug-record", "version": 2}]'::jsonb then
+    raise exception 'FAIL: a bug fix push no longer works: %', pushed;
+  end if;
+
+  if (select l.kind from public.dossier_list(concept) l) is distinct from 'concept' then
+    raise exception 'FAIL: dossier_list() did not give the concept its kind';
+  end if;
+  insert into ids values ('concept', concept);
+end $$;
+
+-- Bob, a member, reads the concept and its versions; Carl, of another workspace, and Eve, of none, read none.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+begin
+  if not exists (select 1 from public.dossiers where id = (select id from ids where name = 'concept'))
+     or (select count(*) from public.dossier_versions where dossier_id = (select id from ids where name = 'concept')) <> 6 then
+    raise exception 'FAIL: a member did not read the concept of their workspace and its versions';
+  end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+begin
+  if exists (select 1 from public.dossiers where id = (select id from ids where name = 'concept'))
+     or exists (select 1 from public.dossier_versions where dossier_id = (select id from ids where name = 'concept'))
+     or exists (select 1 from public.dossier_list() where kind = 'concept') then
+    raise exception 'FAIL: an account of another workspace read a concept';
+  end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+do $$
+begin
+  if exists (select 1 from public.dossiers where kind = 'concept')
+     or exists (select 1 from public.dossier_versions where kind in ('concept-record', 'vision', 'board', 'debate')) then
+    raise exception 'FAIL: an account in no workspace read a concept';
+  end if;
+end $$;
 reset role;
 
 select 'dossier checks passed' as result;
