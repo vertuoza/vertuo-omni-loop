@@ -150,6 +150,10 @@ describe('GET /api/approvals/judge', () => {
     expect((await answerJudge(get('?repo=acme/mobile&prd=seven'), deps())).status).toBe(400);
   });
 
+  it('refuses a product PRD’s id with 400: its check reads its record itself (PRD 1548)', async () => {
+    expect((await answerJudge(get('?prd=mobile-12'), deps())).status).toBe(400);
+  });
+
   it('answers 503 without a service role, and 500 when the database fails or answers out of shape', async () => {
     expect((await answerJudge(get('?repo=acme/mobile&prd=7'), deps(record(), { record: null }))).status).toBe(503);
     const failed = deps(record({ approvals: { data: null, error: { code: '57014', message: 'timeout' } } }));

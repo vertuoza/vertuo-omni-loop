@@ -50,6 +50,8 @@ export async function answerJudge(request: Request, { secret, record, log = cons
   }
   const named = prdQueryOf(request);
   if (named instanceof Response) return named;
+  // A product PRD's check reads its record itself (PRD 1548, the App's approved-check/record.ts).
+  if (named.product !== null) return refuse(400, "`prd` is a repository PRD's number: a product PRD's check reads its record itself.");
   if (!record) return refuse(503, 'Approvals are not available here: this deployment has no service role.');
 
   const { repo, prd } = named;

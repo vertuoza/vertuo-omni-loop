@@ -561,6 +561,27 @@ describe('omni care list (PRD 1118)', () => {
     expect(out).toMatch(/6\. plan +acme\/plan#9 — open\n/);
   });
 
+  // Law BR-PRODUCT-72 (.omni-loop/knowledge/product/rules.md, #1533).
+  it("law BR-PRODUCT-72: a bug's fixes come from its fix-plan rows in table order, once each, its record from GitHub's closing links, a repository with no pull request left off", async () => {
+    const root = planRepo();
+    const plan = [
+      '<!-- omni-bug:fix-plan -->',
+      '| order | repository | what changes | pull request |',
+      '| --- | --- | --- | --- |',
+      '| 1 | frontend | show it | acme/frontend#46 |',
+      '| 2 | backend | restore the total | https://github.com/acme/backend/pull/41 |',
+      '| 3 | frontend | show it again | acme/frontend#46 |',
+      '| 4 | backend | a follow-up | not opened yet |',
+    ].join('\n');
+    const gh: PlanGh = {
+      ...GH,
+      issueViews: { 30: { comments: [{ body: plan }], closedByPullRequestsReferences: [{ number: 51, url: 'https://github.com/acme/plan/pull/51' }] } },
+    };
+    const { out } = await run(['care', 'list', '7', '--json'], root, fakePlanExec(root, gh));
+    const bugs = brief(out).filter((line) => line.startsWith('bug-'));
+    expect(bugs).toEqual(['bug-fix acme/frontend#46 open frontend', 'bug-fix acme/backend#41 merged backend', 'bug-record acme/plan#51 open']);
+  });
+
   it('exits 2 with one line outside a plan repository', async () => {
     const root = repo();
     const { code, err } = await run(['care', 'list', '7'], root, fakeExec(root));

@@ -9,7 +9,9 @@
 //
 // The inbox check (PRD 675) listens to that same outbox check event, so every handled pull request
 // action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
-// the inbox check event alone; a re-run of any other check run stays the outbox check event.
+// the inbox check event alone, a re-run of an approved check run (PRD 1548) the approved check event
+// alone; a re-run of any other check run stays the outbox check event. The approved check listens to
+// the outbox check event too, so every handled pull request action re-evaluates it as well.
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
 // run, becomes one canon action event alone, carrying the button and the facts the check run's summary
@@ -36,14 +38,17 @@ import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { APPROVED_LABEL_EVENT, type ApprovedLabelRequest } from '../approved-check/events.ts';
 import {
+  APPROVED_CHECK_EVENT,
+  APPROVED_EXTERNAL_ID,
+  APPROVED_LABEL_EVENT,
   HARVEST_EVENT,
   INBOX_CHECK_EVENT,
   INBOX_EXTERNAL_ID,
   OUTBOX_CHECK_EVENT,
   RETRO_EVENT,
   type AppEvent,
+  type ApprovedLabelRequest,
   type CanonActionRequest,
   type CheckRequest,
   type HarvestRequest,
@@ -212,7 +217,8 @@ export function toEvents(event: string, payload: unknown): AppEvent[] {
 
 /**
  * The checks' filter, pure: a check action becomes one check request per pull request it names —
- * the inbox check event for a re-run of an inbox check run, the outbox check event otherwise;
+ * the inbox check event for a re-run of an inbox check run, the approved check event for a re-run of
+ * an approved check run, the outbox check event otherwise;
  * anything else — a `closed`, merged or not, included — becomes none. A pull request into another
  * branch than the repository's default, a sub-PR into its feature branch, becomes none either
  * (#1413): no check of the loop grades it, and each event of one cost a run. A delivery naming no
@@ -226,7 +232,7 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
   if (!source) return [];
 
   const trigger = `${event}.${String(payload.action)}`;
-  const name = event === 'check_run' && payload.check_run?.external_id === INBOX_EXTERNAL_ID ? INBOX_CHECK_EVENT : OUTBOX_CHECK_EVENT;
+  const name = event === 'check_run' ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
   const pulls =
     event === 'pull_request'
       ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }]
@@ -242,6 +248,13 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
     name,
     data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger },
   }));
+}
+
+/** The event a re-run of a check run asks for, by the `external_id` the check run carries. */
+function rerunEventOf(externalId: string | null | undefined): string {
+  if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
+  if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  return OUTBOX_CHECK_EVENT;
 }
 
 /**

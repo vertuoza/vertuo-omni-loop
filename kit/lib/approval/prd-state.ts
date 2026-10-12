@@ -15,7 +15,7 @@ import { homeTokens } from '../ask/client-tokens.ts';
 import { credentialsHost } from '../ask/credentials.ts';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import type { Layout } from '../layout.ts';
-import type { PrdNumber } from '../ids.ts';
+import type { PrdNumber, ProductPrdId } from '../ids.ts';
 import { readApproval, UNREACHABLE_LINE } from './approval.ts';
 import type { ApprovalReading } from './approval.ts';
 
@@ -63,6 +63,15 @@ export async function prdState(ctx: { root: string; layout: Layout }, prd: PrdNu
   if (birthplace === 'repo' || where.state === 'shipped') return { ...place, state: where.state, approval: null };
   const reading = await approval(prd);
   return { ...place, state: stageOf(reading), approval: reading };
+}
+
+/** Where a product PRD stands (PRD 1548): born on the server, with no folder, its stage read from its
+ * approval in force as a ◆ PRD's in the inbox is. */
+export type ProductPrdState = { prd: ProductPrdId; birthplace: 'server'; state: PrdStage; approval: ApprovalReading };
+
+/** Where product PRD `prd` stands, given its approval reading (`readProductApproval`). */
+export function productPrdState(prd: ProductPrdId, approval: ApprovalReading): ProductPrdState {
+  return { prd, birthplace: 'server', state: stageOf(approval), approval };
 }
 
 const held = (why: string): HeldReading =>

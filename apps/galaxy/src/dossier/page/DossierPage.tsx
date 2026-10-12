@@ -5,6 +5,8 @@ import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import type { ApprovalSeal, ApprovalView, ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
+import { Attestation } from './Attestation';
+import type { AttestationView } from './Attestation.service';
 import { SealScroll } from './SealScroll';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
@@ -64,6 +66,8 @@ import { VoicePane } from './VoicePane';
 // PRD 1364 s7: a PRD has a Product cell after Approval, its picker (ProductPicker.tsx): the workspace's
 // products and No product, changed by any member until an approval is in force, then locked, shown once the page
 // has read it. None in the demo, nor on a fix.
+// PRD 1548 s4: a product PRD's approval in force has its attestation under the head (Attestation.tsx), at
+// #attestation, where omni/approved's Details opens; Ask again there opens the approve screen, at #approve.
 
 type Props = {
   view: DossierView;
@@ -75,6 +79,8 @@ type Props = {
   live?: ReactNode;
   /** The shown version of the User voice, read (PRD 822); null off that tab, or when it could not be read. */
   voice?: VoiceView | null | undefined;
+  /** A product PRD's attestation (PRD 1548 s4); null or left out when nobody approved it, or for any other dossier. */
+  attestation?: AttestationView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {
@@ -203,7 +209,7 @@ function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
 function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
   const { screen } = approval;
   return (
-    <section className="dossier-approve-screen" aria-label="Approve">
+    <section className="dossier-approve-screen" id="approve" aria-label="Approve">
       {screen && screen.diffs.length > 0 && (
         <div className="dossier-approve-changed">
           <h2>What changed since it was approved</h2>
@@ -252,12 +258,22 @@ function ApprovalArea({ approval }: { approval: ApprovalView }) {
   return approval.seal ? <SealCard seal={approval.seal} dossier={approval.dossier} /> : null;
 }
 
+/** Under the head: a ◆ PRD's approval area, then a product PRD's attestation (PRD 1548 s4); each only when it has one. */
+function UnderHead({ approval, attestation }: { approval: ApprovalView | null; attestation: AttestationView | null | undefined }) {
+  return (
+    <>
+      {approval && <ApprovalArea approval={approval} />}
+      {attestation && <Attestation attestation={attestation} />}
+    </>
+  );
+}
+
 /** A PRD's Product cell (PRD 1364 s7), on a deployment with a database: none in the demo, nor on a fix. */
 function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
   return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
 }
 
-export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
+export function DossierPage({ view, markdown, supabase, live, voice, attestation }: Props) {
   const { stage, fix, approval } = view;
   return (
     <div className="dossier">
@@ -329,7 +345,7 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
           ))}
         </nav>
       </PinnedHead>
-      {approval && <ApprovalArea approval={approval} />}
+      <UnderHead approval={approval} attestation={attestation} />
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>

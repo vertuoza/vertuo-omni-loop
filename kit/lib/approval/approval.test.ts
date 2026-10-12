@@ -8,9 +8,8 @@ import { makeRepo } from '../../test/fixture.ts';
 import type { Repo } from '../../test/fixture.ts';
 import { sha256 } from '../dossier/folder.ts';
 import { AskCallError } from '../ask/client.ts';
-import { parsePrd } from '../ids.ts';
-import { checkoutTree, failedReading, judgeApproval, parseApprovalReply, readApproval, treeFileOf, verdictOf } from './approval.ts';
-import type { ApprovalTree } from './approval.ts';
+import { parsePrd, parseProductPrdId } from '../ids.ts';
+import { failedReading, judgeApproval, judgeProductApproval, parseApprovalReply, readApproval, readProductApproval, treeFileOf } from './approval.ts';
 
 const PRD = parsePrd(1299);
 const URL_ = 'https://omni.test/prd/acme/widgets/1299';
@@ -36,7 +35,7 @@ function repo(files: Record<string, string> = {}, dir = INBOX) {
 function judge(ctx: Repo['ctx'], body: unknown) {
   const parsed = parseApprovalReply(body);
   assertDefined(parsed, 'the approval reply');
-  return judgeApproval(PRD, parsed, checkoutTree(ctx, PRD));
+  return judgeApproval(ctx, PRD, parsed);
 }
 
 describe('parseApprovalReply', () => {
@@ -219,53 +218,66 @@ describe('readApproval', () => {
   });
 });
 
-describe('judgeApproval, pure (PRD 1612)', () => {
-  /** A tree held in memory, as the App reads a PR's head: path to text. */
-  const memoryTree = (files: Record<string, string>): ApprovalTree => ({
-    fileOf: (file) => file.path,
-    read: (file) => files[file] ?? null,
-  });
-  const HEAD = { [`${INBOX}/spec.md`]: SPEC, [`${INBOX}/plan.md`]: PLAN, [`${INBOX}/before-after.html`]: PAGE };
+describe('judgeApproval at a pull request\'s head, read into a folder as the App reads it (PRD 1612)', () => {
   const parsed = (body: unknown) => {
     const read = parseApprovalReply(body);
     assertDefined(read, 'the approval reply');
     return read;
   };
-  const verdict = (body: unknown, files: Record<string, string> = HEAD) => verdictOf(judgeApproval(PRD, parsed(body), memoryTree(files)));
 
-  it('gives the gate\'s four states from fixtures, reading nothing but the tree it is handed', () => {
-    const withText = { approver: { login: 'ada', member: true }, approvedAt: 't', files: [pinned('plan', `${INBOX}/plan.md`, PLAN, { content: PLAN })] };
-    expect(verdict(reply())).toBe('approved');
-    expect(verdict(reply(null))).toBe('waiting');
-    expect(verdict(reply(), { ...HEAD, [`${INBOX}/plan.md`]: 'another plan' })).toBe('drifted');
-    expect(verdict(reply(withText), { [`${INBOX}/plan.md`]: `${PLAN}\n` })).toBe('drifted');
-    expect(verdict(reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files: PINNED, voids: [
-      { pusher: 'ada', kind: 'plan', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: 't' },
-    ] }))).toBe('drifted');
-    expect(verdictOf(failedReading(new AskCallError('GET x: timed out')))).toBe('held');
-  });
-
-  it('tells whitespace only from content against an in-memory head', () => {
+  it('tells whitespace only from content, and a missing file, at the head', () => {
     const files = [pinned('plan', `${INBOX}/plan.md`, PLAN, { content: PLAN })];
     const body = reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files });
-    expect(judgeApproval(PRD, parsed(body), memoryTree({ [`${INBOX}/plan.md`]: `${PLAN}  ` })).drift).toEqual([
+    expect(judgeApproval(repo({ [`${INBOX}/plan.md`]: `${PLAN}  ` }).ctx, PRD, parsed(body)).drift).toEqual([
       { kind: 'plan', file: `${INBOX}/plan.md`, how: 'whitespace only' },
     ]);
-    expect(judgeApproval(PRD, parsed(body), memoryTree({})).drift).toEqual([{ kind: 'plan', file: `${INBOX}/plan.md`, how: 'missing' }]);
+    expect(judgeApproval(repo({ [`${INBOX}/plan.md`]: 'another plan' }).ctx, PRD, parsed(body)).drift).toEqual([
+      { kind: 'plan', file: `${INBOX}/plan.md`, how: 'content' },
+    ]);
   });
 
-  it('gives on the checkout exactly the reading readApproval gives', async () => {
+  it('gives exactly the reading readApproval gives, so the terminal and the check never disagree', async () => {
     const { ctx } = repo({ [`${INBOX}/plan.md`]: 'changed' });
-    expect(judgeApproval(PRD, parsed(reply()), checkoutTree(ctx, PRD))).toEqual(await readApproval(ctx, PRD, () => Promise.resolve(reply())));
+    expect(judgeApproval(ctx, PRD, parsed(reply()))).toEqual(await readApproval(ctx, PRD, () => Promise.resolve(reply())));
   });
 });
 
-describe('verdictOf', () => {
-  it('holds an unreachable or refused reading, never fails it; only a drift fails', () => {
-    expect(verdictOf({ state: 'approved' })).toBe('approved');
-    expect(verdictOf({ state: 'pending' })).toBe('waiting');
-    expect(verdictOf({ state: 'drifted' })).toBe('drifted');
-    expect(verdictOf({ state: 'unreachable' })).toBe('held');
-    expect(verdictOf({ state: 'refused' })).toBe('held');
+describe('judgeProductApproval — a product PRD has no tree: the server is its record (PRD 1548)', () => {
+  const MOBILE_12 = parseProductPrdId('mobile-12');
+  const productReply = (approval: unknown) => {
+    const parsed = parseApprovalReply({ url: URL_, approval });
+    assertDefined(parsed, 'the approval reply');
+    return parsed;
+  };
+  const APPROVED = { approver: { login: 'ada', member: true }, approvedAt: '2026-10-09T10:00:00Z', files: [pinned('spec', 'spec.md', SPEC), pinned('plan', 'plan.md', PLAN)] };
+
+  it('reads pending with no approval yet, naming the product PRD', () => {
+    expect(judgeProductApproval(MOBILE_12, productReply(null))).toEqual({
+      state: 'pending', lines: [`PRD mobile-12 waits for approval: ${URL_}`], url: URL_, approval: null, drift: [],
+    });
+  });
+
+  it('reads approved when nothing voided it, whatever any checkout holds', () => {
+    expect(judgeProductApproval(MOBILE_12, productReply(APPROVED))).toMatchObject({ state: 'approved', lines: ['approved by ada · 2026-10-09T10:00:00Z'], drift: [] });
+  });
+
+  it('reads drifted on a push that voided it, naming the pinned file', () => {
+    const voided = { ...APPROVED, voids: [{ pusher: 'bob', kind: 'plan', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-10T10:00:00Z' }] };
+    expect(judgeProductApproval(MOBILE_12, productReply(voided))).toMatchObject({
+      state: 'drifted', lines: [`≠ plan.md · voided by bob's push aaaaaaa→bbbbbbb · ✗ refuse · approve again: ${URL_}`],
+      drift: [{ kind: 'plan', file: 'plan.md', how: 'voided' }],
+    });
+  });
+
+  it('reads refused when the approver left the workspace', () => {
+    expect(judgeProductApproval(MOBILE_12, productReply({ ...APPROVED, approver: { login: 'ada', member: false } }))).toMatchObject({
+      state: 'refused', lines: ['approver ada is not a workspace member'],
+    });
+  });
+
+  it('readProductApproval judges a reply, and reads a call that failed as readApproval does', async () => {
+    expect((await readProductApproval(MOBILE_12, () => Promise.resolve({ url: URL_, approval: APPROVED }))).state).toBe('approved');
+    expect((await readProductApproval(MOBILE_12, () => Promise.resolve({ url: URL_ }))).lines).toEqual(['refused (malformed reply)']);
+    expect((await readProductApproval(MOBILE_12, () => Promise.reject(new AskCallError('down')))).state).toBe('unreachable');
   });
 });

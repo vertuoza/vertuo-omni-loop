@@ -75,7 +75,7 @@ Merged: @pierrederval, 2026-09-26, PR #101
 A player with no level is stored in player_xp with level 0, never an empty value, and every screen that shows a level reads 0 as no level and shows none.
 
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s1-03-no-level-stored-as-zero, PRD #160
-Enforced by: pending #1545
+Enforced by: apps/galaxy/src/arcade/games/room.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161

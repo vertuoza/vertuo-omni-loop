@@ -152,6 +152,7 @@ export type Database = {
       agent_tokens: {
         Row: {
           created_at: string
+          expires_at: string | null
           id: string
           last_four: string
           last_used_at: string | null
@@ -159,11 +160,16 @@ export type Database = {
           name: string
           revoked_at: string | null
           revoked_by: string | null
+          scope: string
+          session: string | null
+          session_lease: string | null
+          session_lease_until: string | null
           token_hash: string
           workspace_id: string
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           last_four: string
           last_used_at?: string | null
@@ -171,11 +177,16 @@ export type Database = {
           name: string
           revoked_at?: string | null
           revoked_by?: string | null
+          scope?: string
+          session?: string | null
+          session_lease?: string | null
+          session_lease_until?: string | null
           token_hash: string
           workspace_id: string
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           last_four?: string
           last_used_at?: string | null
@@ -183,6 +194,10 @@ export type Database = {
           name?: string
           revoked_at?: string | null
           revoked_by?: string | null
+          scope?: string
+          session?: string | null
+          session_lease?: string | null
+          session_lease_until?: string | null
           token_hash?: string
           workspace_id?: string
         }
@@ -1131,13 +1146,14 @@ export type Database = {
           birthplace: string | null
           claude_session_id: string | null
           created_at: string
-          home_repo: string
+          home_repo: string | null
           id: string
           kind: string
           numbered_at: string | null
           opened_by: string | null
           prd: number | null
           product_id: string | null
+          product_seq: number | null
           title: string
           workspace_id: string
         }
@@ -1145,13 +1161,14 @@ export type Database = {
           birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
-          home_repo: string
+          home_repo?: string | null
           id?: string
           kind?: string
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
           product_id?: string | null
+          product_seq?: number | null
           title: string
           workspace_id: string
         }
@@ -1159,13 +1176,14 @@ export type Database = {
           birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
-          home_repo?: string
+          home_repo?: string | null
           id?: string
           kind?: string
           numbered_at?: string | null
           opened_by?: string | null
           prd?: number | null
           product_id?: string | null
+          product_seq?: number | null
           title?: string
           workspace_id?: string
         }
@@ -2115,10 +2133,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         Insert: {
@@ -2126,10 +2146,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          key?: string | null
           name: string
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          prd_count?: number
           workspace_id: string
         }
         Update: {
@@ -2137,10 +2159,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          key?: string | null
           name?: string
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          prd_count?: number
           workspace_id?: string
         }
         Relationships: [
@@ -3018,6 +3042,7 @@ export type Database = {
         Args: { p_hash: string }
         Returns: {
           created_at: string
+          expires_at: string | null
           id: string
           last_four: string
           last_used_at: string | null
@@ -3025,6 +3050,10 @@ export type Database = {
           name: string
           revoked_at: string | null
           revoked_by: string | null
+          scope: string
+          session: string | null
+          session_lease: string | null
+          session_lease_until: string | null
           token_hash: string
           workspace_id: string
         }
@@ -3040,6 +3069,7 @@ export type Database = {
         Returns: Json
       }
       agent_tokens_list: { Args: { p_workspace: string }; Returns: Json }
+      agent_tokens_live: { Args: { p_person: string }; Returns: number }
       answered_counts: {
         Args: { from_at: string; to_at: string; workspace: string }
         Returns: {
@@ -3050,7 +3080,7 @@ export type Database = {
       approval_people: { Args: { p_dossier: string }; Returns: Json }
       approval_recipients: { Args: { p_request: string }; Returns: Json }
       approval_request: {
-        Args: { p_prd: number; p_repo: string }
+        Args: { p_prd: number; p_product?: string; p_repo: string }
         Returns: Json
       }
       approval_requests_waiting: { Args: never; Returns: Json }
@@ -3267,10 +3297,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -3615,7 +3647,7 @@ export type Database = {
         Returns: number
       }
       dossier_approval: {
-        Args: { p_prd: number; p_repo: string }
+        Args: { p_prd: number; p_product?: string; p_repo: string }
         Returns: Json
       }
       dossier_approve: { Args: { p_dossier: string }; Returns: Json }
@@ -3653,6 +3685,7 @@ export type Database = {
           p_kind?: string
           p_prd: number
           p_product?: string
+          p_product_key?: string
           p_repo: string
           p_title: string
         }
@@ -3735,6 +3768,27 @@ export type Database = {
         Returns: string[]
       }
       kart_grid_allows: { Args: { p_topic: string }; Returns: boolean }
+      kit_token_claim: { Args: { p_hash: string }; Returns: Json }
+      kit_token_make: {
+        Args: {
+          p_days: number
+          p_hash: string
+          p_last_four: string
+          p_name: string
+          p_session: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
+      kit_token_release: {
+        Args: { p_lease: string; p_token: string }
+        Returns: undefined
+      }
+      kit_token_renewed: {
+        Args: { p_lease: string; p_session: string; p_token: string }
+        Returns: boolean
+      }
+      kit_tokens_mine: { Args: { p_workspace: string }; Returns: Json }
       link_github: { Args: never; Returns: Json }
       lookup_product: {
         Args: { p_prd?: number; p_repo: string; p_workspace: string }
@@ -3954,6 +4008,31 @@ export type Database = {
         Returns: Json
       }
       plan_repository_names: { Args: { p_plan: string }; Returns: string[] }
+      prd_dossier: {
+        Args: { p_prd: number; p_product?: string; p_repo: string }
+        Returns: {
+          birthplace: string | null
+          claude_session_id: string | null
+          created_at: string
+          home_repo: string | null
+          id: string
+          kind: string
+          numbered_at: string | null
+          opened_by: string | null
+          prd: number | null
+          product_id: string | null
+          product_seq: number | null
+          title: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dossiers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      prd_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -3961,10 +4040,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -3982,6 +4063,29 @@ export type Database = {
         Args: { p_member: string; p_product: string; p_state: string }
         Returns: Json
       }
+      product_of_key: {
+        Args: { p_key: string; p_repo?: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          prd_count: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_prd_ids_rollback_guard: { Args: never; Returns: undefined }
       product_rename: {
         Args: { p_name: string; p_product: string; p_workspace: string }
         Returns: {
@@ -3989,10 +4093,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4038,10 +4144,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4054,6 +4162,10 @@ export type Database = {
       product_repository_unlink: {
         Args: { p_product: string; p_repository: string }
         Returns: boolean
+      }
+      product_set_key: {
+        Args: { p_key: string; p_product: string }
+        Returns: Json
       }
       proof_criteria_valid: { Args: { c: Json }; Returns: boolean }
       proof_file_name_valid: { Args: { name: string }; Returns: boolean }
@@ -4177,10 +4289,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4197,10 +4311,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          key: string | null
           name: string
           ordinal: number
           pitch: Json
           pitch_look: string
+          prd_count: number
           workspace_id: string
         }
         SetofOptions: {

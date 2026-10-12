@@ -7,6 +7,8 @@ import {
   PROFILE_LIMIT,
 } from './select';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { readHistoryFilters } from '../dossier/page/history';
+import { STAGES } from '../stages/stage';
 
 // The profile's pure choices (PRD 698 s3): one person's pull requests and reviews of one period,
 // newest first, at most 10 and whether more exist; the login a path names; where each link goes.
@@ -90,6 +92,16 @@ describe('the addresses', () => {
     expect(profilePath('ada-gh')).toBe('/app/people/ada-gh');
     expect(githubPullUrl('acme/widgets', 7)).toBe('https://github.com/acme/widgets/pull/7');
     expect(profileStageLinks('ada-gh').inbox).toBe('/prd?stage=inbox&who=ada-gh');
+  });
+
+  // Law BR-PRODUCT-52 (.omni-loop/knowledge/product/rules.md, #1513).
+  it('law BR-PRODUCT-52: each profile stage count opens the PRD list at that stage, filtered to that person', () => {
+    const links = profileStageLinks('Ada-GH');
+    for (const stage of STAGES) {
+      const address = new URL(links[stage], 'https://galaxy.test');
+      expect(address.pathname).toBe('/prd');
+      expect(readHistoryFilters(Object.fromEntries(address.searchParams))).toEqual({ who: { login: 'ada-gh' }, stage });
+    }
   });
 
   it('sends see all to a GitHub search of the tracked repositories', () => {

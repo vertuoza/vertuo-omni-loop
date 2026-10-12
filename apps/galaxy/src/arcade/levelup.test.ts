@@ -36,6 +36,12 @@ describe('NEW GAME UNLOCKED', () => {
     expect(levelUpFor(player(1, 1), 0)?.game).toBe(invaders);
   });
 
+  it('shows OMNI DUET when LV 4 opened it (PRD 1633)', () => {
+    const duet = GAMES.find((g) => g.id === 'duet');
+    expect(duet).toMatchObject({ title: 'OMNI DUET' });
+    expect(levelUpFor(player(300, 4, ['invaders', 'platformer', 'kart', 'duet']), 3)?.game).toBe(duet);
+  });
+
   it('shows no game when the level opened none', () => {
     expect(levelUpFor(player(60, 2), 1)).toMatchObject({ game: null });
     expect(levelUpFor(player(180, 3), 2)).toMatchObject({ game: null });

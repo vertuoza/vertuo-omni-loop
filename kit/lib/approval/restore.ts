@@ -17,10 +17,10 @@ import { sha256 } from '../dossier/folder.ts';
 import type { Layout } from '../layout.ts';
 import type { PrdNumber } from '../ids.ts';
 import { treeFileOf } from './approval.ts';
-import type { ApprovalReading, ApprovalTree } from './approval.ts';
+import type { ApprovalReading } from './approval.ts';
 
-/** Where restored files are written: the tree's file for a pinned one, and a writer. */
-export type RestoreTree = Pick<ApprovalTree, 'fileOf'> & { write(file: string, content: string): void };
+/** Where restored files are written: the tree's file for a pinned one (by its kind and pinned path), and a writer. */
+export type RestoreTree = { fileOf(file: { kind: string; path: string }): string; write(file: string, content: string): void };
 
 /** What a restore did: one line per file, and whether every drifted file was written back. */
 export type Restored = { ok: boolean; lines: string[] };

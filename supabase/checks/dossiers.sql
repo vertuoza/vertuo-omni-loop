@@ -409,7 +409,7 @@ begin
     raise exception 'FAIL: the service role may add versions other than through the version rule, or delete a dossier';
   end if;
   if has_function_privilege('anon', 'public.dossier_open(text, text, text)', 'execute')
-     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text)', 'execute')
+     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text, text)', 'execute')
      or has_function_privilege('anon', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute')
      or has_function_privilege('authenticated', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute') then
     raise exception 'FAIL: an API role may call a dossier function it should not';
@@ -990,8 +990,8 @@ begin
   if not has_column_privilege('authenticated', 'public.dossiers', 'kind', 'select') then
     raise exception 'FAIL: a member may not read a dossier''s kind';
   end if;
-  if has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text)', 'execute')
-     or not has_function_privilege('authenticated', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text)', 'execute') then
+  if has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text, text)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text, text)', 'execute') then
     raise exception 'FAIL: dossier_push() is callable by anon, or not by the signed-in';
   end if;
 end $$;

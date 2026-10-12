@@ -20,4 +20,5 @@ export const GAMES: readonly Game[] = [
   { id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders', measure: 'points' },
   { id: 'platformer', title: 'SUPER OMNI WORLD', scene: 'platformer', measure: 'points' },
   { id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time' },
+  { id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' },
 ];

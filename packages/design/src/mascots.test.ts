@@ -93,3 +93,21 @@ $$;`;
     expect(drift('select 1;', LIBRARY)).toHaveLength(LIBRARY.length);
   });
 });
+
+// Law BR-PRODUCT-46 (.omni-loop/knowledge/product/rules.md, #1507).
+it("law BR-PRODUCT-46: a fleet's mascot is one of the eleven keys the database lists, the library's in its order, and no commander, enemy, plain hero or icon", () => {
+  const ELEVEN = ['beaver', 'octopod', 'picsou', 'cia', 'pirate', 'invincible', 'atom-eve', 'shark', 'turtle', 'allen', 'robot'];
+  const { file, sql } = newestDefinition();
+  const keys = mascotKeys(sql);
+  expect(keys, file).toEqual(ELEVEN);
+  expect(keys, file).toEqual([...MASCOTS]);
+  const refused = Object.keys(SPRITE_DEFS).filter((k) => k === 'omni' || k.startsWith('omni-') || k === 'entropy'
+    || k.startsWith('hero-') || (SPRITE_DEFS[k]?.w ?? 32) < 32);
+  expect(refused).toEqual(expect.arrayContaining(['omni', 'entropy', 'coin']));
+  for (const key of refused) expect(keys, `${file}: ${key}`).not.toContain(key);
+  // The database refuses any other key: fleet_look() checks the mascot against fleet_mascots().
+  const look = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()
+    .map((f) => readFileSync(new URL(f, MIGRATIONS), 'utf8'))
+    .filter((s) => /create\s+(?:or\s+replace\s+)?function\s+public\.fleet_look\s*\(/i.test(s)).at(-1) ?? '';
+  expect(look.replace(/\s+/g, ' ')).toContain("if mascot is not null and not (mascot = any (public.fleet_mascots())) then raise exception 'Mascot: one of %, or none.'");
+});

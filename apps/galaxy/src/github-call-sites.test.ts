@@ -24,7 +24,6 @@ const SITES: Record<string, Kind> = {
   'apps/galaxy/src/approval/label.ts': 'client',
   'apps/galaxy/src/business/draft/github.ts': 'client',
   'apps/galaxy/src/data/github-orgs.ts': 'person',
-  'apps/galaxy/src/dossier/attestation/attestation-github.ts': 'client',
   'apps/galaxy/src/dossier/github/reader.ts': 'client',
   'apps/galaxy/src/knowledge/github.ts': 'client',
   'apps/galaxy/src/outbox/send.ts': 'person',

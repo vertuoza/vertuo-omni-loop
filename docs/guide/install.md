@@ -101,6 +101,9 @@ It opens your browser: sign in with your GitHub account. The terminal then print
 `signed in as <your login>`, followed by the repository and the workspace it goes to. The sign-in is
 kept on this laptop, so every repository you run the loop in shares it.
 
+Working from Claude Code on the web or the app, where no browser opens? A cloud session signs in
+with a token instead: [Cloud sessions](/docs/cloud) shows how to make one and where it goes.
+
 When it ends on `you are not a member of <workspace>` or `no workspace owns <owner/repo> yet`, see
 [When something goes wrong](/docs/troubleshooting). When it says `no Omni Loop kit here`, you are
 not at the root of a repository that has the kit.

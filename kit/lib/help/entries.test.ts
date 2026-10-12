@@ -107,10 +107,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 53 commands and the 33 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(53);
+  it('holds the 54 commands and the 33 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(54);
     expect(skillFolders()).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(53);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(54);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(33);
   });
 
@@ -399,8 +399,18 @@ describe('the help table in this repository', () => {
   it('lists every verb of omni dossier, link included (PRD 413)', () => {
     const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command');
     assertDefined(dossier, 'dossier');
-    expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status']);
+    expect(dossier.usage).toEqual([
+      'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+    ]);
     expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
+  });
+
+  it('names a product PRD\'s verbs on omni dossier and omni prd (PRD 1548)', () => {
+    const find = (name: string) => ENTRIES.find((e) => e.name === name && e.kind === 'command');
+    expect(find('dossier')?.detail).toMatch(/get <key>-<n> <kind> writes the latest/);
+    expect(find('prd')?.usage).toEqual(['omni prd <n>', 'omni prd <key>-<n> [--show <kind>]']);
+    expect(find('prd')?.detail).toMatch(/mobile, 12-mobile and Mobile-12 are refused by name/);
   });
 
   it('names --kind on dossier push, /omni:dossier-push and both fix skills (PRD 627)', () => {

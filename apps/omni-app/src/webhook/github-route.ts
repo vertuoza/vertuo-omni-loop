@@ -6,10 +6,9 @@
 // s3). The webhook secret is `GITHUB_WEBHOOK_SECRET`, required in production; unset
 // elsewhere, every delivery is refused (fail closed).
 import type { AppEnv } from '../env.ts';
-import { type AppEvent, inngest } from '../inngest-client.ts';
+import { type AppEvent, type ApprovedLabelRequest, inngest } from '../inngest-client.ts';
 import { forwardStageEvent, stageEventUrl } from '../stage-forward/stage-forward.ts';
 import { forwardTouch, touchedUrl } from '../stage-forward/touch.ts';
-import type { ApprovedLabelRequest } from '../approved-check/events.ts';
 import { receiveWebhook } from './webhook.ts';
 
 /** The groups the route reads. */

@@ -2,7 +2,12 @@
 // tested with a stubbed Supabase client and the route stays one line each:
 //
 //   GET  /api/dossiers/approval?repo=<owner/name>&prd=<n>  → 200 {url, approval}
+//   GET  /api/dossiers/approval?prd=<key>-<n>[&repo=…]     → 200 {url, approval}
 //   POST /api/dossiers/approval {dossier}                  → 201 {url, approval}
+//
+// A product PRD (PRD 1548) has no repository: it is found by its id, `mobile-12`, the repository only
+// saying which workspace when two of the caller's hold the product's key (settled item
+// s1-02-a-key-two-workspaces-share). It has no issue either, so approving it labels nothing.
 //
 // `approval` is the approval in force, or null when nobody approved the PRD yet:
 // {approver: {login, member}, approvedAt, files: [{kind, path, sha256, versionId, content?}]}, the shape
@@ -17,7 +22,9 @@
 // session; a POST that carries a bearer token approves as that sign-in instead. Both run as the caller:
 // dossier_approve() and dossier_approval() (supabase/migrations/20261123090000_approvals.sql) check who
 // calls. Once an approval is written, the PRD's issue gets its approved label (./label.ts): a label that
-// cannot be added is logged and never undoes the approval, which is the record.
+// cannot be added is logged and never undoes the approval, which is the record. A product PRD's approval
+// instead tells the GitHub App, with one signed server event (PRD 1548 s4, ../server-event/), which re-posts
+// `omni/approved` on its open target pull requests; telling never undoes the approval either.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed query or body (or the
 // database's own: a ◇ dossier, a draft, a missing spec, plan or before/after), 401 no valid sign-in, 403
@@ -28,6 +35,7 @@ import { z } from 'zod';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { authenticate, callerOrigin, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
+import type { ServerEvent } from '../server-event/server-event.service';
 
 /** A Supabase client acting as the caller: the functions. */
 export type ApprovalDb = Pick<SupabaseClient, 'rpc'>;
@@ -43,6 +51,10 @@ export type ApprovalDeps = {
   label: (repo: string, prd: PrdNumber) => Promise<void>;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
+  /** Tells the GitHub App a product PRD was approved (PRD 1548 s4); never throws. Missing: the App is not told. */
+  tellApp?: (event: ServerEvent) => Promise<unknown>;
+  /** The clock the server event is dated by. */
+  now?: () => Date;
 };
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
@@ -53,6 +65,7 @@ const MAX_BODY_BYTES = 4 * 1024;
 const NO_DATABASE = 'Approvals are not available here: this deployment has no database.';
 const NOT_READ = 'The approval could not be read. Try again.';
 const NOT_WRITTEN = 'The approval could not be written. Try again.';
+const NOT_A_PRD = "`prd` is the PRD's number, or a product PRD's id like mobile-12.";
 
 const text = z.string().min(1);
 
@@ -67,8 +80,27 @@ const InForce = z.object({
   }).nullable(),
 });
 
-/** What dossier_approve() answers: the approval's id, and the PRD it approved. */
-const Approved = z.object({ id: text, repo: z.string().regex(REPO), prd: PrdNumberSchema });
+/** A product PRD's id, `<key>-<n>`: the product's key (lowercase kebab-case, each part starting with a letter), then its number. */
+const PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
+const KEY_MAX = 40;
+
+/** Which PRD a call names: a repository's by its number, or a product's by its key and number. */
+export type PrdKey = { repo: string; prd: PrdNumber; product: null } | { repo: string; seq: number; product: string };
+
+/** A product PRD's key and number, from its id; null when the id is out of shape. */
+function productPrdOf(id: string): { product: string; seq: number } | null {
+  const match = PRODUCT_PRD.exec(id);
+  if (!match) return null;
+  const [, product = '', digits = ''] = match;
+  const seq = Number(digits);
+  return product.length <= KEY_MAX && seq <= PRD_MAX ? { product, seq } : null;
+}
+
+/** What dossier_approve() answers: the approval's id, and the PRD it approved, a product PRD by its id (settled item s1-05). */
+const Approved = z.union([
+  z.object({ id: text, repo: z.string().regex(REPO), prd: PrdNumberSchema }),
+  z.object({ id: text, repo: z.null(), prd: z.null(), prdId: z.string().refine((id) => productPrdOf(id) !== null) }),
+]);
 
 /** The approval in force as the route answers it: the PRD page's link, the time in ISO 8601, and a
  * file's approved text only when the database still holds it. */
@@ -97,14 +129,20 @@ function refusalOf(error: { code?: string; message?: string }, deps: ApprovalDep
   return refuse(500, failed);
 }
 
-/** The approval in force of PRD `prd` of `repo`, as `db`'s caller reads it, or the Response that says why not. */
-async function inForce(request: Request, db: ApprovalDb, repo: string, prd: PrdNumber, deps: ApprovalDeps): Promise<Response> {
-  const answer = await db.rpc('dossier_approval', { p_repo: repo, p_prd: prd });
+/** The PRD `key` names, as a person reads it. */
+const nameOf = (key: PrdKey): string => (key.product === null ? `#${key.prd} of ${key.repo}` : `${key.product}-${key.seq}`);
+
+/** The approval in force of the PRD `key` names, as `db`'s caller reads it, or the Response that says why not
+ * (`key` itself, when the query was refused). */
+async function inForce(request: Request, db: ApprovalDb, key: PrdKey | Response, deps: ApprovalDeps): Promise<Response> {
+  if (key instanceof Response) return key;
+  const args = key.product === null ? { p_repo: key.repo, p_prd: key.prd } : { p_repo: key.repo, p_prd: key.seq, p_product: key.product };
+  const answer = await db.rpc('dossier_approval', args);
   if (answer.error) return refusalOf(answer.error, deps, NOT_READ);
-  if (answer.data === null) return refuse(404, `No dossier for PRD #${prd} of ${repo}.`);
+  if (answer.data === null) return refuse(404, `No dossier for PRD ${nameOf(key)}.`);
   const read = InForce.safeParse(answer.data);
   if (!read.success) {
-    console.error(`approval: the database answered out of shape for ${repo} #${prd}`);
+    console.error(`approval: the database answered out of shape for PRD ${nameOf(key)}`);
     return refuse(500, NOT_READ);
   }
   return reply(200, answerOf(request, read.data));
@@ -117,15 +155,24 @@ function prdOf(value: string | null): PrdNumber | null {
   return parsed.success && parsed.data <= PRD_MAX ? parsed.data : null;
 }
 
-/** The PRD a GET's query names, `?repo=<owner/name>&prd=<n>`, its repository in lower case; or the 400
- * that refuses it. Shared with the App's judge route (src/approvals/judge.controller.ts, PRD 1612). */
-export function prdQueryOf(request: Request): { repo: string; prd: PrdNumber } | Response {
+/** The PRD a GET's query names, `?repo=<owner/name>&prd=<n>` or `?prd=<key>-<n>[&repo=…]`, its
+ * repository in lower case; or the 400 that refuses it. Shared with the App's judge route
+ * (src/approvals/judge.controller.ts, PRD 1612), which reads a repository's PRD only. */
+export function prdQueryOf(request: Request): PrdKey | Response {
   const query = new URL(request.url).searchParams;
   const repo = query.get('repo') ?? '';
-  if (repo.length > 200 || !REPO.test(repo)) return refuse(400, '`repo` must be the repository as owner/name.');
-  const prd = prdOf(query.get('prd'));
+  const named = query.get('prd') ?? '';
+  const product = productPrdOf(named);
+  const badRepo = () => refuse(400, '`repo` must be the repository as owner/name.');
+  if (product) {
+    if (repo !== '' && (repo.length > 200 || !REPO.test(repo))) return badRepo();
+    return { repo: repo.toLowerCase(), ...product };
+  }
+  if (/[^\d.]/.test(named)) return refuse(400, NOT_A_PRD);
+  if (repo.length > 200 || !REPO.test(repo)) return badRepo();
+  const prd = prdOf(named === '' ? null : named);
   if (prd === null) return refuse(400, "`prd` is the PRD's number.");
-  return { repo: repo.toLowerCase(), prd };
+  return { repo: repo.toLowerCase(), prd, product: null };
 }
 
 /** GET: the approval in force, for the kit's `omni approval`. */
@@ -133,9 +180,7 @@ export async function answerApproval(request: Request, deps: ApprovalDeps): Prom
   if (!deps.connect) return refuse(503, NO_DATABASE);
   const auth = await authenticate(request.headers.get('authorization'), deps.connect);
   if (!auth.ok) return refuse(auth.status, auth.error);
-  const named = prdQueryOf(request);
-  if (named instanceof Response) return named;
-  return inForce(request, deps.connect(auth.caller.token), named.repo, named.prd, deps);
+  return inForce(request, deps.connect(auth.caller.token), prdQueryOf(request), deps);
 }
 
 /** The caller of a POST: its bearer token's client when it carries one, else the page's session. */
@@ -164,6 +209,13 @@ async function dossierOf(request: Request): Promise<string | Response> {
   return parsed.success ? parsed.data.dossier : refuse(400, "`dossier` is the id of the PRD's dossier.");
 }
 
+/** The PRD dossier_approve() says it approved: a repository's, or a product's by its id (no repository hint). */
+function keyOf(approved: z.infer<typeof Approved>): PrdKey {
+  if (approved.repo !== null) return { repo: approved.repo, prd: approved.prd, product: null };
+  const { product, seq } = productPrdOf(approved.prdId) ?? { product: '', seq: 0 };
+  return { repo: '', seq, product };
+}
+
 /** POST: the caller approves the dossier, its issue is labelled, and the approval in force answers. */
 export async function approveDossier(request: Request, deps: ApprovalDeps): Promise<Response> {
   const { connect } = deps;
@@ -179,12 +231,16 @@ export async function approveDossier(request: Request, deps: ApprovalDeps): Prom
     console.error(`approval: dossier_approve() answered out of shape for ${dossier}`);
     return refuse(500, NOT_WRITTEN);
   }
-  const { repo, prd } = approved.data;
-  try {
-    await deps.label(repo, prd);
-  } catch (error) {
-    console.error(`approval: PRD #${prd} of ${repo} is approved, but its label was not added: ${error instanceof Error ? error.message : String(error)}`);
+  const key = keyOf(approved.data);
+  if (key.product === null) {
+    try {
+      await deps.label(key.repo, key.prd);
+    } catch (error) {
+      console.error(`approval: PRD #${key.prd} of ${key.repo} is approved, but its label was not added: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else {
+    await deps.tellApp?.({ event: 'approved', dossier, at: (deps.now?.() ?? new Date()).toISOString() });
   }
-  const read = await inForce(request, db, repo, prd, deps);
+  const read = await inForce(request, db, key, deps);
   return read.status === 200 ? reply(201, await read.json()) : read;
 }

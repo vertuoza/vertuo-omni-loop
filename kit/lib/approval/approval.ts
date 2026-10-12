@@ -19,17 +19,13 @@
 // Since PRD 1322 an approval carries the voids `omni dossier push` left on it (`voids`, oldest first;
 // a server before it sends none): an approval with a void is no longer in force, so it reads
 // `drifted`, one line per void naming the push, whatever the tree holds.
-//
-// Since PRD 1612 the judge is pure and shared: `judgeApproval` reads the tree only through the
-// `ApprovalTree` it is handed (the checkout here, a PR's head in the App's `omni/approved` check), and
-// `verdictOf` folds the five states into the gate's four: approved, waiting, drifted, held.
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { AskCallError } from '../ask/client.ts';
 import { ARTIFACT_KINDS, sha256 } from '../dossier/folder.ts';
 import type { Layout } from '../layout.ts';
-import type { PrdNumber } from '../ids.ts';
+import type { PrdNumber, ProductPrdId } from '../ids.ts';
 
 export type ApprovalState = 'approved' | 'pending' | 'drifted' | 'unreachable' | 'refused';
 
@@ -81,77 +77,60 @@ export function treeFileOf(ctx: { layout: Layout }, prd: PrdNumber, file: Pick<P
 
 const squeezed = (content: string): string => content.replace(/\s+/g, '');
 
-/** The tree a judge reads the pinned files against: where it keeps each one today, and its text, or
- * null when it has no such file. The kit reads its checkout (`checkoutTree`); the App reads a PR's
- * head through Git blobs beforehand, and hands the judge what it read. */
-export type ApprovalTree = {
-  fileOf(file: Pick<PinnedFile, 'kind' | 'path'>): string;
-  read(file: string): string | null;
-};
-
-/** The checkout at `ctx.root`, as the judge reads it. */
-export function checkoutTree(ctx: { root: string; layout: Layout }, prd: PrdNumber): ApprovalTree {
-  return {
-    fileOf: (file) => treeFileOf(ctx, prd, file),
-    read: (file) => {
-      const absolute = join(ctx.root, file);
-      return existsSync(absolute) ? readFileSync(absolute, 'utf8') : null;
-    },
-  };
-}
-
 /** How the tree's copy of `file` differs from the approved one, or null when it matches. */
-function driftOf(tree: ApprovalTree, file: PinnedFile): Drift | null {
-  const path = tree.fileOf(file);
-  const content = tree.read(path);
-  if (content === null) return { kind: file.kind, file: path, how: 'missing' };
+function driftOf(ctx: { root: string; layout: Layout }, prd: PrdNumber, file: PinnedFile): Drift | null {
+  const tree = treeFileOf(ctx, prd, file);
+  const absolute = join(ctx.root, tree);
+  if (!existsSync(absolute)) return { kind: file.kind, file: tree, how: 'missing' };
+  const content = readFileSync(absolute, 'utf8');
   if (sha256(content) === file.sha256) return null;
   const spacing = file.content !== undefined && squeezed(file.content) === squeezed(content);
-  return { kind: file.kind, file: path, how: spacing ? 'whitespace only' : 'content' };
+  return { kind: file.kind, file: tree, how: spacing ? 'whitespace only' : 'content' };
 }
 
-/** The approval in force judged against `tree`: the one judge `omni approval <n>` and the App's
- * `omni/approved` check share (PRD 1612), so the terminal and the check never disagree. It reads
- * nothing but what `tree` answers. */
-export function judgeApproval(prd: PrdNumber, reply: ApprovalReply, tree: ApprovalTree): ApprovalReading {
+/** How a reply is judged: the PRD as its lines name it, where a pinned file is today, and how the files
+ * being read differ from the pinned ones. */
+type Judge = { named: string; fileOf: (file: Pick<PinnedFile, 'kind' | 'path'>) => string; drift: (files: PinnedFile[]) => Drift[] };
+
+/** The approval in force judged by `judge`: pending, voided, its approver gone, a file differing, or approved. */
+function judged(reply: ApprovalReply, { named, fileOf, drift: driftIn }: Judge): ApprovalReading {
   const { url, approval } = reply;
   const reading = (state: ApprovalState, lines: string[], drift: Drift[] = []): ApprovalReading => ({ state, lines, url, approval, drift });
-  if (!approval) return reading('pending', [`PRD ${Number(prd)} waits for approval: ${url}`]);
+  if (!approval) return reading('pending', [`${named} waits for approval: ${url}`]);
   const voids = approval.voids ?? [];
   if (voids.length > 0) {
-    const fileOf = (kind: string) => {
+    const fileOfKind = (kind: string) => {
       const file = approval.files.find((f) => f.kind === kind);
-      return file ? tree.fileOf(file) : kind;
+      return file ? fileOf(file) : kind;
     };
     const lines = voids.map((v) =>
-      `≠ ${basename(fileOf(v.kind))} · voided by ${v.pusher}'s push ${v.from.slice(0, 7)}→${v.to.slice(0, 7)} · ✗ refuse · approve again: ${url}`);
-    return reading('drifted', lines, voids.map((v) => ({ kind: v.kind, file: fileOf(v.kind), how: 'voided' })));
+      `≠ ${basename(fileOfKind(v.kind))} · voided by ${v.pusher}'s push ${v.from.slice(0, 7)}→${v.to.slice(0, 7)} · ✗ refuse · approve again: ${url}`);
+    return reading('drifted', lines, voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: 'voided' })));
   }
   const { login, member } = approval.approver;
   if (!member) return reading('refused', [`approver ${login} is not a workspace member`]);
   // The personas' rounds (voice) are appended by the loop after approval, its shipped round included:
   // a changed voice never drifts an approval (PRD 1322).
-  const drift = approval.files.filter((file) => file.kind !== 'voice').flatMap((file) => driftOf(tree, file) ?? []);
+  const drift = driftIn(approval.files.filter((file) => file.kind !== 'voice'));
   if (drift.length > 0) {
     return reading('drifted', drift.map((d) => `≠ ${basename(d.file)} · ${d.how} · ✗ refuse · restore it, or approve again: ${url}`), drift);
   }
   return reading('approved', [`approved by ${login} · ${approval.approvedAt}`]);
 }
 
-/** The gate's four states (PRD 1612), as the `omni/approved` check, the terminal and the attestation
- * page say them. */
-export type ApprovalVerdict = 'approved' | 'waiting' | 'drifted' | 'held';
+/** The approval in force judged against the tree being read. */
+export function judgeApproval(ctx: { root: string; layout: Layout }, prd: PrdNumber, reply: ApprovalReply): ApprovalReading {
+  return judged(reply, {
+    named: `PRD ${Number(prd)}`,
+    fileOf: (file) => treeFileOf(ctx, prd, file),
+    drift: (files) => files.flatMap((file) => driftOf(ctx, prd, file) ?? []),
+  });
+}
 
-/** A reading's verdict at the gate: `pending` waits; `unreachable` and `refused` (an approver gone,
- * an error page, a malformed reply) are held, never failed: only a drift fails. */
-export function verdictOf(reading: Pick<ApprovalReading, 'state'>): ApprovalVerdict {
-  switch (reading.state) {
-    case 'approved': return 'approved';
-    case 'pending': return 'waiting';
-    case 'drifted': return 'drifted';
-    case 'unreachable':
-    case 'refused': return 'held';
-  }
+/** PRD 1548: a product PRD's approval in force. It has no tree: its files are its dossier's versions, and
+ * every push that changes a pinned one voids the approval on the server, so the voids are its drift. */
+export function judgeProductApproval(prdId: ProductPrdId, reply: ApprovalReply): ApprovalReading {
+  return judged(reply, { named: `PRD ${prdId}`, fileOf: (file) => file.path, drift: () => [] });
 }
 
 /** A reading the server did not judge: `unreachable` when the call got no answer, `refused` with its
@@ -163,8 +142,8 @@ export function failedReading(error: unknown): ApprovalReading {
   return { state: 'refused', lines: [`refused (${error.status})`], ...none };
 }
 
-/** Asks the approval route through `call` and judges its reply against the tree. */
-export async function readApproval(ctx: { root: string; layout: Layout }, prd: PrdNumber, call: () => Promise<unknown>): Promise<ApprovalReading> {
+/** Asks through `call` and judges its reply with `judge`. */
+async function readWith(call: () => Promise<unknown>, judge: (reply: ApprovalReply) => ApprovalReading): Promise<ApprovalReading> {
   let body: unknown;
   try {
     body = await call();
@@ -173,5 +152,16 @@ export async function readApproval(ctx: { root: string; layout: Layout }, prd: P
   }
   const reply = parseApprovalReply(body);
   if (!reply) return { state: 'refused', lines: ['refused (malformed reply)'], url: null, approval: null, drift: [] };
-  return judgeApproval(prd, reply, checkoutTree(ctx, prd));
+  return judge(reply);
+}
+
+/** Asks the approval route through `call` and judges its reply against the tree. */
+export function readApproval(ctx: { root: string; layout: Layout }, prd: PrdNumber, call: () => Promise<unknown>): Promise<ApprovalReading> {
+  return readWith(call, (reply) => judgeApproval(ctx, prd, reply));
+}
+
+/** PRD 1548: asks the approval route for product PRD `prdId` (`?prd=<key>-<n>`) through `call`
+ * and judges its approval in force. */
+export function readProductApproval(prdId: ProductPrdId, call: () => Promise<unknown>): Promise<ApprovalReading> {
+  return readWith(call, (reply) => judgeProductApproval(prdId, reply));
 }

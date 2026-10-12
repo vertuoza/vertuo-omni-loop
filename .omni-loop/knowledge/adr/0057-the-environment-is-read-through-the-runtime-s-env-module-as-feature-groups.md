@@ -59,3 +59,11 @@ writes `process.env.X` again.
 - A new runtime needs its own env module, added to the guard's list, and its own docs check.
 - The guard reads `process` by name: a value aliased from `process` under another name
   (`const p = process; p.env`) is not read. Review is where such an alias is caught.
+- **One default reads the environment itself** (PRD 1628, decision `s2-02-token-from-environment`,
+  agreed by a person): the kit's sign-in store, `homeTokens` in `kit/lib/ask/client-tokens.ts` (and so
+  `signedInClient` and every command that falls back to it), takes `OMNI_TOKEN` from
+  `processOmniToken()` in `kit/lib/env/read.ts` when its caller passes neither a home folder nor a
+  token, so the twenty-odd commands that reach the Omni page need no new argument. The read stays
+  inside the kit's env module, so rule 4 holds; tests still pass a home or a token and never write
+  `process.env`, which leaves that default path proven by reasoning, not by a test. Threading the
+  group through each command instead is one argument per call site, whenever it is wanted.

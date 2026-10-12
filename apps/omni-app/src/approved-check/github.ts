@@ -1,4 +1,4 @@
-// The GitHub reads and the one write of the `omni/approved` check (PRD 1612). Every call goes through
+// The GitHub reads of the `omni/approved` check on a ◆ PRD of a repository (PRD 1612). Every call goes through
 // the one Octokit seam, `octokit.request(route, params)`, so a test stubs one function, and in the App
 // through the installation's shared budget client (../octokit-for.ts).
 //
@@ -13,10 +13,9 @@ import { parsePr, type PrNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { prdDirs } from '../evaluate/evaluate.ts';
 import { readBaseConfig, readPull, type PullFacts } from '../outbox-check/github.ts';
-import { CreatedSchema, PullsPageSchema, statusOf, TreeSchema, type GitHubClient, type Repo } from '../outbox-check/github-schema.ts';
+import { PullsPageSchema, statusOf, TreeSchema, type GitHubClient, type Repo } from '../outbox-check/github-schema.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { partOf } from './subject.ts';
-import type { ApprovedOutput } from './verdict.ts';
 
 /** A pull request, by its repository and number. */
 export type PullRef = Repo & { prNumber: PrNumber };
@@ -120,23 +119,4 @@ export async function openPullsOfPrd(octokit: GitHubClient, { owner, repo, prd }
     return [{ owner: targetOwner, repo: targetRepo, prNumber: parsePr(item.number) }];
   });
   return [...here, ...targets];
-}
-
-/** Posts the check `name` on `headSha`, completed with `output`. */
-export async function postApprovedCheck(
-  octokit: GitHubClient,
-  { owner, repo, name, headSha, output }: Repo & { name: string; headSha: string; output: ApprovedOutput },
-): Promise<number> {
-  const { data } = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
-    owner,
-    repo,
-    name,
-    head_sha: headSha,
-    status: 'completed',
-    conclusion: output.conclusion,
-    completed_at: new Date().toISOString(),
-    ...(output.detailsUrl ? { details_url: output.detailsUrl } : {}),
-    output: { title: output.title, summary: output.summary },
-  });
-  return CreatedSchema.parse(data).id;
 }

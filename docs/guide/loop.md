@@ -146,20 +146,25 @@ with `ci.approvedContext` in its config.
 
 - **Which pull requests get it.** The feature pull request of a PRD born on the server (◆), and every
   target pull request whose body starts `Part of <owner/repo>#<n>`, for PRD n of that
-  repository (a plan repository's PRD that lands in several).
+  repository (a plan repository's PRD that lands in several). A product's PRD gets it too, on each
+  target pull request that is `Part of <key>-<n>` ([Products](products.md)): one check, one set of
+  states, whichever kind of PRD it is.
   A sub-PR never gets it, nor the pull request of a PRD born in its repository (◇: its merged phase-0
   pull request was its approval), nor a pull request that names no PRD.
-- **Its four states**, said the same way on the check, in the terminal and on the attestation:
+- **Its states**, the same for every PRD. Each title is shown here for a ◆ PRD, judged at the pull
+  request's head:
 
   | state | conclusion | the check's title |
   |---|---|---|
-  | approved | success | `approved by @<login> · <k>/<k> pinned files match` |
-  | waiting | neutral | `waits for approval: <PRD page>` |
-  | drifted | failure | `≠ <file> · content` (or `· whitespace only`) `· run omni approval restore <n>, or approve again` |
-  | held | neutral | `server unreachable · held, not failed` |
+  | building | success | `building · <k> of <k> pinned`: every pinned file is the one approved |
+  | pending | failure | `pending · PRD <n> waits for approval` |
+  | drifted | failure | `drifted · ≠ <file> in <head> · content` (or `· whitespace only`, `· missing`, `· voided by <pusher>'s push`); its summary says to run `omni approval restore <n>`, or approve again |
+  | refused | failure | `refused · approver <login> is not a workspace member` |
+  | held | neutral | `held · server unreachable · held, not failed` |
 
   A drift is a failure: a pull request built on plan files nobody approved must not look fine. A
-  server that cannot be read is never one: the check is held, neutral, and reruns.
+  server that cannot be read, or that answered an error, is never one: the check is held, neutral,
+  and reruns.
 - **When it runs: webhooks only, no poll.** It reruns on a pull request when it is opened, pushed
   to, reopened, edited or marked ready. It reruns on every open pull request of a PRD when the PRD's
   issue gains or loses the `omni:approved` label: the Omni page adds it when a member approves, and
@@ -167,20 +172,12 @@ with `ci.approvedContext` in its config.
   once, and a void turns them back. Runs are debounced per pull request and spend the App's GitHub
   budget like its other checks.
 
-#### The attestation
+#### The Details
 
-The check's **Details** open the PRD's attestation on the Omni page,
-`/prd/<id>/attestation?head=<sha>`, the proof behind the check at that head:
-
-- **the seal:** `Approved · pinned`, `Waits for approval`, `Held · not failed`, or
-  `Seal stands · build refused` when a pinned file drifted;
-- **who and when:** the approver, a member of the workspace allowed to approve the product's PRDs;
-- **the policy line:** who may approve the product's PRDs, among the workspace's members;
-- **pinned vs now:** each approved file, `=` when it matches the head, `≠` with both hashes when it
-  does not, `?` when the head cannot be read;
-- **what to do,** on a drift: `omni approval restore <n>` with a **Copy** button, and **Approve
-  again** for a member allowed to approve;
-- **the target pull requests** of the PRD, each with its own state.
+The check's **Details** open the PRD's page on the Omni page, `/prd/<id>`, at the proof behind the
+check: a ◆ PRD's approval (`#approval`), with who approved it and when, and each pinned file; a
+product's PRD's attestation (`#attestation`, [Products](products.md)). The check's own summary says
+which head it read, and names each file that drifted.
 
 #### Restore a drifted file
 
@@ -205,8 +202,9 @@ repository, an admin adds it to the default branch's required checks on GitHub: 
 Branches** (or **Settings › Rules › Rulesets**), the rule of the default branch, **Require status
 checks to pass before merging**, then add `omni/approved` (or the name `ci.approvedContext` gives).
 The check must have run once on a pull request of the repository for GitHub to offer it. From then
-on, a drifted check blocks the merge. A neutral check (waiting, held) never blocks a merge, even when
-required: only a drift does. A repository that leaves it out keeps the check as a signal.
+on, a check that failed (pending, drifted, refused) blocks the merge. A held check is neutral and
+never blocks a merge, even when required. A repository that leaves it out keeps the check as a
+signal.
 
 ## The pull requests you will see
 

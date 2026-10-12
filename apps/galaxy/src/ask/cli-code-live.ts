@@ -20,14 +20,14 @@ import { serverEnv } from '../env';
 // Without Supabase configured (the demo galaxy, a closed build) every step answers that ask mode is
 // not available here.
 
-type Env = { url: string; key: string };
+export type Env = { url: string; key: string };
 type Cookie = { name: string; value: string };
 type CookieToSet = Cookie & { options: CookieOptions };
 
 const CODE_VERIFIER = /-code-verifier$/;
 
 /** A client that keeps nothing: acting as nobody, or as `accessToken`. */
-function detached({ url, key }: Env, accessToken?: string) {
+export function detached({ url, key }: Env, accessToken?: string) {
   return createClient<Database>(url, key, {
     ...(accessToken ? { global: { headers: { Authorization: `Bearer ${accessToken}` } } } : {}),
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -92,7 +92,8 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
   return { deps, spent };
 }
 
-/** /api/ask/token's dependencies: a client acting as nobody. */
+/** /api/ask/token's dependencies: a client acting as nobody. The kit tokens' exchange is added beside
+ * them (./kit-token-live.ts). */
 export function tokenDeps(): TokenDeps {
   const env = supabaseEnv();
   if (!env) return { connect: null };
