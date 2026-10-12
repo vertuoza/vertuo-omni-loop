@@ -27,8 +27,8 @@ type Fn = ReturnType<typeof appFunctions>[keyof ReturnType<typeof appFunctions>]
 /** The event that starts `fn`: its first trigger's, with data none of them accepts, or the cron's tick. */
 function startOf(fn: Fn) {
   const [trigger] = fn.opts.triggers ?? [];
-  if (trigger && 'event' in trigger) return { name: String(trigger.event), data: {} };
-  return { name: internalEvents.ScheduledTimer, data: { cron: trigger && 'cron' in trigger ? String(trigger.cron) : '' } };
+  if (trigger && 'event' in trigger) return { name: trigger.event, data: {} };
+  return { name: internalEvents.ScheduledTimer, data: { cron: trigger && 'cron' in trigger ? trigger.cron : '' } };
 }
 
 describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {

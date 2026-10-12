@@ -122,10 +122,9 @@ export function noteTo(fn: string, logger: Logger = log): (line: string) => void
 type RunContext = { runId?: unknown };
 type AnyHandler = (ctx: RunContext, ...rest: unknown[]) => unknown;
 type AnyOptions = { id?: unknown; onFailure?: unknown };
-type CreateFunction = (options: AnyOptions, handler: AnyHandler) => unknown;
 
 /** `handler`, its every run that ends writing one `inngest` line naming `fn` and the run. */
-function loggedFunctionHandler(logger: Logger, fn: string, handler: AnyHandler): AnyHandler {
+function loggedFunctionHandler(logger: Logger, fn: string, handler: (...args: unknown[]) => unknown): AnyHandler {
   return (ctx, ...rest) =>
     loggedRun(
       logger,
@@ -138,6 +137,15 @@ function loggedFunctionHandler(logger: Logger, fn: string, handler: AnyHandler):
     );
 }
 
+/** `value` as a function of unknown arguments, called on nothing; `undefined` when it is no function. */
+function callable(value: unknown): ((...args: unknown[]) => unknown) | undefined {
+  if (typeof value !== 'function') return undefined;
+  return (...args) => {
+    const result: unknown = Reflect.apply(value, undefined, args);
+    return result;
+  };
+}
+
 /**
  * `client`, whose `createFunction` makes functions whose every run writes one `inngest` line: the
  * function's id in `fn`, the run id, `ok` or `failed`. A failure handler's run writes its own line, its
@@ -145,14 +153,15 @@ function loggedFunctionHandler(logger: Logger, fn: string, handler: AnyHandler):
  * included, reaches Inngest as given; anything else of the client is the client's own.
  */
 export function loggedClient<C extends Inngest.Any>(client: C, logger: Logger = log): C {
-  const create = client.createFunction as unknown as CreateFunction;
-  const createLogged: CreateFunction = (options, handler) => {
+  const createLogged = (options: AnyOptions, handler: unknown): unknown => {
     const fn = typeof options.id === 'string' ? options.id : 'unknown';
-    const onFailure = typeof options.onFailure === 'function' ? (options.onFailure as AnyHandler) : undefined;
-    return create(
+    const onFailure = callable(options.onFailure);
+    const run = callable(handler);
+    const created: unknown = Reflect.apply(client.createFunction, client, [
       onFailure ? { ...options, onFailure: loggedFunctionHandler(logger, `${fn}-failure`, onFailure) } : options,
-      loggedFunctionHandler(logger, fn, handler),
-    );
+      run ? loggedFunctionHandler(logger, fn, run) : handler,
+    ]);
+    return created;
   };
   return new Proxy(client, {
     get: (target, property, receiver): unknown => (property === 'createFunction' ? createLogged : Reflect.get(target, property, receiver)),

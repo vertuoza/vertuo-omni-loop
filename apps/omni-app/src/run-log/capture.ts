@@ -4,6 +4,9 @@ import { vi } from 'vitest';
 import { z } from 'zod';
 import { createLogger, type Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 
+/** A log line, parsed. */
+const LineSchema = z.record(z.string(), z.unknown());
+
 /** A logger whose lines a test reads back, parsed; `advance` moves its clock. */
 export function capture() {
   const lines: string[] = [];
@@ -14,11 +17,9 @@ export function capture() {
     advance: (ms: number) => {
       now += ms;
     },
-    lines: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),
+    lines: () => lines.map((line) => LineSchema.parse(JSON.parse(line))),
   };
 }
-
-const LineSchema = z.record(z.string(), z.unknown());
 
 /**
  * The JSON lines `run` writes to stdout, parsed, stdout held meanwhile: what a module's default log
