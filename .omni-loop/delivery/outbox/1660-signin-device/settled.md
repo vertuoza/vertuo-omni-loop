@@ -159,3 +159,157 @@ B is a one-line table change in the controller and its test, before s4's kit rea
 ```
 
 <!-- /omni-outbox-settled: s1-02-poll-answer-codes -->
+
+<!-- omni-outbox-settled: s2-01-no-button-plain-form -->
+
+## s2-01-no-button-plain-form — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-no-button-plain-form
+prd: 1660
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+When someone presses No on the code check page, how should the page tell the server, and should it refuse a press that comes from another website?
+
+## The decision, in plain words
+
+No sends a plain form to the page's own address, which works without any script, and accepts it from anywhere: a press only refuses a sign-in nobody approved yet, and needs a code that lives ten minutes.
+
+## The intro, for fun
+
+Somebody pressed No, and the server has to believe them.
+
+## The punchline, for fun
+
+A stranger who guesses the code can only cancel a sign-in nobody wanted yet.
+
+## The options, in plain words
+
+A. A plain form to the page's own address, accepted from any origin
+B. The same form, refused when the browser says it came from another site
+
+## What I had to decide
+
+Keep No as a plain form open to any origin (A), or add a same-site check to it (B).
+
+## What I did meanwhile
+
+Built as A: the page's No button posts the code to /ask/device/deny, which marks the pending request denied and sends the browser to Nothing was signed in (src/ask/device-card.controller.ts).
+
+## What it costs to change later
+
+B is a header check in denyDevice and one test, at any time, with nothing stored to migrate.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says No marks the request denied without saying how the page reaches the server. (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-no-button-plain-form -->
+
+<!-- omni-outbox-settled: s2-02-code-panel-inline-style -->
+
+## s2-02-code-panel-inline-style — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-code-panel-inline-style
+prd: 1660
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+The code check page draws the code large on a darker panel and has a box to type a code, but the shared stylesheet of these pages is not part of this piece of work. Where should those two looks live?
+
+## The decision, in plain words
+
+They are written on the page's own card, from the same colour and type tokens the stylesheet uses, so the page follows the three themes; moving them into the shared stylesheet later changes nothing a person sees.
+
+## The intro, for fun
+
+Two new looks arrived, and the wardrobe was locked.
+
+## The punchline, for fun
+
+They dressed from the same rail, just in the hallway.
+
+## The options, in plain words
+
+A. Inline styles on the card, from the shared tokens
+B. Two named classes in the shared stylesheet
+
+## What I had to decide
+
+Keep the code panel and the code box styled on the card (A), or move them into the shared stylesheet as named classes (B).
+
+## What I did meanwhile
+
+Built as A: CODE_PANEL and CODE_BOX in src/ask/device-card.tsx, using --ask-mono, --ask-sunk, --ask-surface, --ask-ink and --ask-line-strong only.
+
+## What it costs to change later
+
+B is two classes in src/ask/ask.css and two className swaps, at any time.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- src/ask/ask.css is outside this slice's territory, so no class could be added there. (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-02-code-panel-inline-style -->
