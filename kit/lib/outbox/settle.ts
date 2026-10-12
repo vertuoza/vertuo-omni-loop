@@ -46,8 +46,8 @@ import type { makeMarkers } from '../markers.ts';
 import type { OutboxItem } from '../types.ts';
 import { SETTLED_FILE, parseOutboxItem, type ParsedOutboxItem } from './outbox.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
-import { OutboxItemIdSchema } from '../ids.ts';
-import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
+import { isProductPrdId, OutboxItemIdSchema } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, ProductPrdId, WorkSliceId } from '../ids.ts';
 
 /** The markers the ledger is written and read with. */
 export type Markers = ReturnType<typeof makeMarkers>;
@@ -520,6 +520,21 @@ function rawSettledEntries(text: string, markers: Pick<Markers, 'settledOpenRe' 
   return entries;
 }
 
+/** The ledger an item of PRD `prd` settles into: its `settled.md`, repo-relative and absolute, the text
+ * it holds today (its header when it is new) and the separator an entry appended to it takes; or the
+ * error for a PRD with no folder. A product PRD's (`mobile-12`, PRD 1548) has none: its ledger is on
+ * the server. */
+function ledgerOf(ctx: SettleContext, prd: PrdNumber | ProductPrdId): { settledFile: string; absoluteSettled: string; existing: string; separator: string } {
+  const none = new Error(`PRD ${prd} has no inbox or shipped folder`);
+  if (isProductPrdId(prd)) throw none;
+  const outboxDir = ctx.layout.outboxDir(prd);
+  if (outboxDir === null) throw none;
+  const settledFile = `${outboxDir}/${SETTLED_FILE}`;
+  const absoluteSettled = join(ctx.root, settledFile);
+  const existing = existsSync(absoluteSettled) ? readFileSync(absoluteSettled, 'utf8') : settledHeader(prd, { ctx });
+  return { settledFile, absoluteSettled, existing, separator: existing.endsWith('\n') ? '\n' : '\n\n' };
+}
+
 /** Accepts either a repo-relative path (what a skill passes) or an absolute one (what a human types). */
 function locate(root: string, file: string): { absoluteFile: string; relativeFile: string } {
   const absoluteFile = isAbsolute(file) ? file : join(root, file);
@@ -561,8 +576,7 @@ export function settleItem({
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
 
   const { item } = parsedItem;
-  const outboxDir = ctx.layout.outboxDir(item.prd);
-  if (outboxDir === null) throw new Error(`PRD ${item.prd} has no inbox or shipped folder`);
+  const { settledFile, absoluteSettled, existing, separator } = ledgerOf(ctx, item.prd);
 
   const judgement = judgeAnswer({
     choice: item.sections.whatIDidMeanwhile,
@@ -579,12 +593,6 @@ export function settleItem({
     };
   }
 
-  const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  const absoluteSettled = join(ctx.root, settledFile);
-  const existing = existsSync(absoluteSettled)
-    ? readFileSync(absoluteSettled, 'utf8')
-    : settledHeader(item.prd, { ctx });
-  const separator = existing.endsWith('\n') ? '\n' : '\n\n';
   const entry = renderSettledEntry({
     item,
     itemText,
@@ -686,15 +694,7 @@ export function adoptItem({
     };
   }
 
-  const outboxDir = ctx.layout.outboxDir(item.prd);
-  if (outboxDir === null) throw new Error(`PRD ${item.prd} has no inbox or shipped folder`);
-
-  const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  const absoluteSettled = join(ctx.root, settledFile);
-  const existing = existsSync(absoluteSettled)
-    ? readFileSync(absoluteSettled, 'utf8')
-    : settledHeader(item.prd, { ctx });
-  const separator = existing.endsWith('\n') ? '\n' : '\n\n';
+  const { settledFile, absoluteSettled, existing, separator } = ledgerOf(ctx, item.prd);
   const entry = renderAdoptedEntry({ item, itemText, markers: ctx.markers });
 
   // Append, never rewrite — the same discipline `settleItem` keeps, minus the open-file deletion:

@@ -52,7 +52,8 @@ import { SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import type { CoverageContext, RiskyChange } from './decision-coverage.ts';
 import { parseSettledEntries } from './settle.ts';
-import type { PrdNumber } from '../ids.ts';
+import { isProductPrdId } from '../ids.ts';
+import type { PrdNumber, ProductPrdId } from '../ids.ts';
 import type { KnowledgeSource } from '../knowledge/registers.ts';
 
 /** The part of the context the gate reads. */
@@ -343,7 +344,7 @@ function formatUnreworked(entry: UnreworkedEntry): string {
  * default, a fix's folder for a fix PR (PRD 1342).
  */
 export function formatReport(
-  prd: PrdNumber,
+  prd: PrdNumber | ProductPrdId,
   result: {
     ok?: boolean;
     items: readonly OpenItem[];
@@ -352,7 +353,7 @@ export function formatReport(
     unreworked?: readonly UnreworkedEntry[];
     unaccounted?: readonly UnaccountedChange[];
   },
-  { subject = `PRD #${prd}` }: { subject?: string } = {},
+  { subject = isProductPrdId(prd) ? `PRD ${prd}` : `PRD #${prd}` }: { subject?: string } = {},
 ): string {
   const lines: string[] = [];
 
