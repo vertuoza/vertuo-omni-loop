@@ -391,3 +391,157 @@ B is one new database function that deletes a kit token by its hash for the serv
 ```
 
 <!-- /omni-outbox-settled: s3-01-unhanded-token-left-unusable -->
+
+<!-- omni-outbox-settled: s4-01-poll-failure-ends-at-once -->
+
+## s4-01-poll-failure-ends-at-once — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-poll-failure-ends-at-once
+prd: 1660
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+While the terminal waits for the person to approve the sign-in, what should it do when one of its checks with the Omni page fails to get through?
+
+## The decision, in plain words
+
+It stops at once and says the page is unreachable, so the person runs the sign-in again, rather than quietly trying again for a while.
+
+## The intro, for fun
+
+The terminal knocked on the door, and nobody heard it once.
+
+## The punchline, for fun
+
+It went home instead of knocking again.
+
+## The options, in plain words
+
+A. A. End at once on the first failed check
+B. B. Keep waiting through up to three failed checks in a row, then end
+
+## What I had to decide
+
+Keep the sign-in ending on the first check that fails (A), or let it ride over a few failed checks in a row before giving up (B).
+
+## What I did meanwhile
+
+Built as A: kit/lib/ask/device.ts ends its wait with the reason unreachable as soon as one poll cannot reach the page or gets an answer it cannot read, and omni signin prints omni signin: unreachable, exit 1.
+
+## What it costs to change later
+
+B is a counter of failed polls in the device module and one test, at any time: nothing is stored, and the page does not change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists unreachable among the endings without saying whether a single failed poll during the ten minutes is enough to end the wait.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-poll-failure-ends-at-once -->
+
+<!-- omni-outbox-settled: s4-02-device-link-from-ask-url -->
+
+## s4-02-device-link-from-ask-url — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-device-link-from-ask-url
+prd: 1660
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+The terminal prints the link to approve the sign-in. Should it print the address the Omni page sends back, or build it from the address the repository's settings give for the Omni page?
+
+## The decision, in plain words
+
+It builds the link from the repository's own setting, the address the terminal already trusts and talks to, and only takes the short code from the page's answer.
+
+## The intro, for fun
+
+Two addresses for the same door walked into a terminal.
+
+## The punchline, for fun
+
+It picked the one written in its own notebook.
+
+## The options, in plain words
+
+A. A. Build the link from the configured address
+B. B. Print the address the page sends back
+
+## What I had to decide
+
+Keep the link built from the configured address (A), or print the address the page answers with (B).
+
+## What I did meanwhile
+
+Built as A: deviceLink in kit/lib/ask/device.ts makes the ask device page under ask.url with the user code, and the page's url field is not read.
+
+## What it costs to change later
+
+B is one line in the device module and its test, at any time.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec prints the link under ask.url while the page's answer also carries its own url, built from the server's own origin, which may differ behind a proxy.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-device-link-from-ask-url -->
