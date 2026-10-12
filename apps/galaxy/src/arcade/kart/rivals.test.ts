@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { kartAt, NO_FX, type Fx, type Kart } from './kart';
+import { kartAt, leanOf, NO_FX, type Fx, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
-import { advance, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
+import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
 import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
@@ -396,5 +396,42 @@ describe('a rival on a hill (PRD 1698)', () => {
     expect(down).toBeGreaterThan(flat * 1.05);
     expect(up).toBeGreaterThanOrEqual(flat * 0.67 - 1e-9);
     expect(down).toBeLessThanOrEqual(flat * 1.33 + 1e-9);
+  });
+});
+
+describe('a rival keeps its wheels on the road (PRD 1698)', () => {
+  const rivalAt = (kart: Kart, passed: number): Rival => ({ driver: driver('beaver'), kart, pace: { laps: 0, passed }, skill: 1, offset: 0, fx: NO_FX });
+
+  it('turns in for the next waypoint 64 before the corner\'s waypoint, not before', () => {
+    const i = 5;
+    const w = nth(track.waypoints, i), before = nth(track.waypoints, i - 1), next = nth(track.waypoints, i + 1);
+    const len = Math.hypot(w.x - before.x, w.y - before.y);
+    const dir = { x: (w.x - before.x) / len, y: (w.y - before.y) / len };
+    const angle = Math.atan2(dir.y, dir.x);
+    const at = (d: number): Rival => rivalAt(kartAt(w.x - dir.x * d, w.y - dir.y * d, angle), i);
+    const turn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const to = (r: Rival, p: { x: number; y: number }) => turn(Math.atan2(p.y - r.kart.y, p.x - r.kart.x) - r.kart.angle);
+    expect(RULES.rivalTurnIn).toBe(64);
+    expect(aimOf(track, at(66))).toBeCloseTo(to(at(66), w), 9);
+    expect(aimOf(track, at(62))).toBeCloseTo(to(at(62), next), 9);
+  });
+
+  it('steers back from the void when a wheel is over it, with the gas off', () => {
+    // Heading north-ish at the top edge of the straight, a wheel goes over before the rest.
+    let k: Kart = { ...kartAt(20 * TILE + 8, 6 * TILE + 10, -Math.PI / 2 + 0.4), speed: 80 };
+    while (leanOf(track.map, k) === 0 && k.y > 6 * TILE - 20) k = { ...k, y: k.y - 0.1 };
+    const lean = leanOf(track.map, k);
+    expect(lean).not.toBe(0);
+    const after = driveRival(track, rivalAt(k, 6), RULES.subStep, 0);
+    expect(after.kart.steer).toBe(lean > 0 ? -1 : 1);
+    expect(after.kart.speed).toBeLessThan(80); // the gas is off
+  });
+
+  it('looks a quarter of a second ahead: a wheel about to go over the void steers it back too', () => {
+    expect(RULES.rivalLook).toBe(0.25);
+    let k: Kart = { ...kartAt(20 * TILE + 8, 6 * TILE + 40, -Math.PI / 2 + 0.4), speed: 80 };
+    while (leanOf(track.map, { ...k, x: k.x + Math.cos(k.angle) * 20, y: k.y + Math.sin(k.angle) * 20 }) === 0 && k.y > 6 * TILE - 20) k = { ...k, y: k.y - 0.1 };
+    expect(leanOf(track.map, k)).toBe(0);
+    expect(driveRival(track, rivalAt(k, 6), RULES.subStep, 0).kart.steer).not.toBe(0);
   });
 });

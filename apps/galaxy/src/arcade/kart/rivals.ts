@@ -3,7 +3,7 @@
 // along it. Pure and seeded, like race.ts, which plays all of it.
 import type { Tint } from '@omni/design';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { slopeAt } from './relief';
 import { RULES } from './rules';
 import { LAPS, type Track } from './track';
@@ -114,10 +114,17 @@ export const lapOf = (pace: Pace): number => Math.min(pace.laps + 1, LAPS);
 
 const turn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
-/** How far a rival's kart must turn to face the point it aims at: the next waypoint, off the line by its offset (radians, positive to the right). */
+/** The step (dx, dy) from a kart to waypoint `i`. */
+const pointOf = (track: Track, i: number, kart: { x: number; y: number }): [number, number] => {
+  const w = at(track.waypoints, i, 'a waypoint');
+  return [w.x - kart.x, w.y - kart.y];
+};
+
+/** How far a rival's kart must turn to face the point it aims at: the next waypoint, off the line by its offset (radians, positive to the right). Within `RULES.rivalTurnIn` of a corner's waypoint it aims at the one after it (PRD 1698), so it takes the corner on the road. */
 export function aimOf(track: Track, r: Rival): number {
   const n = track.waypoints.length;
-  const i = r.pace.passed;
+  const near = r.pace.passed < n - 1 && Math.hypot(...pointOf(track, r.pace.passed, r.kart)) < RULES.rivalTurnIn;
+  const i = r.pace.passed + (near ? 1 : 0);
   const w = i < n
     ? at(track.waypoints, i, 'a waypoint')
     : { x: track.line.x + track.forward[0] * 3 * RULES.waypointReach, y: track.line.y + track.forward[1] * 3 * RULES.waypointReach };
@@ -128,8 +135,12 @@ export function aimOf(track: Track, r: Rival): number {
   return turn(Math.atan2(ty - r.kart.y, tx - r.kart.x) - r.kart.angle);
 }
 
-/** What a rival's hands do: steer at the point it aims at, and ease off in a sharp turn. */
+/** What a rival's hands do: steer at the point it aims at, and ease off in a sharp turn. A wheel over the void, now or `RULES.rivalLook` seconds ahead, steers it back from the edge with the gas off, and brakes it when it is faster than a corner allows. */
 function rivalPad(track: Track, r: Rival): Pad {
+  const { x, y, angle, speed } = r.kart;
+  const ahead = RULES.rivalLook * Math.max(0, speed);
+  const lean = leanOf(track.map, r.kart) || leanOf(track.map, { x: x + Math.cos(angle) * ahead, y: y + Math.sin(angle) * ahead, angle });
+  if (lean !== 0) return { left: lean > 0, right: lean < 0, accel: false, brake: speed > RULES.rivalCorner };
   const diff = aimOf(track, r);
   const sharp = Math.abs(diff) > RULES.rivalSharp && r.kart.speed > RULES.rivalCorner;
   return { left: diff < -RULES.rivalAim, right: diff > RULES.rivalAim, accel: !sharp, brake: sharp && Math.abs(diff) > RULES.rivalSharp * 1.6 };

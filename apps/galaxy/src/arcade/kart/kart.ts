@@ -1,5 +1,5 @@
 // A kart on the circuit (PRD 1359): its speed along the way it faces, steering that falls off with
-// speed, and the void that takes it once all of it has tipped over the edge. Pure: one
+// speed, and the wheels that lean it and slide it towards the void, and the void that takes it once both wheels of a side, or its centre, have tipped over the edge. Pure: one
 // step of a kart is one call, and the race plays `dt` as several short ones (race.ts).
 import type { Action } from '../keys';
 import type { KartItem as Item } from '../scenes/kart.ts';
@@ -89,15 +89,50 @@ export function tippedOver(map: readonly string[], k: { x: number; y: number }):
   return true;
 }
 
-/** A kart that has tipped over the edge and is not already falling starts to fall: at rest, its BOOST and any spin-out ended, the item it holds kept. Anything else is the same objects back. */
-export function fallIfOver<T extends { x: number; y: number; speed: number; steer: number }>(map: readonly string[], k: T, fx: Fx): { kart: T; fx: Fx } {
-  if (fx.fall > 0 || !tippedOver(map, k)) return { kart: k, fx };
+/** How many of a kart's wheels are over the void, on its left and on its right: the wheels stand `RULES.wheelAlong` ahead and behind its centre, `RULES.wheelAcross` to each side. */
+export function wheelsOver(map: readonly string[], k: { x: number; y: number; angle: number }): { left: number; right: number } {
+  const cos = Math.cos(k.angle), sin = Math.sin(k.angle);
+  let left = 0, right = 0;
+  for (const along of [RULES.wheelAlong, -RULES.wheelAlong]) {
+    for (const side of [-1, 1] as const) {
+      // Its right is a quarter turn clockwise from the way it faces, y down.
+      const x = k.x + cos * along - sin * side * RULES.wheelAcross, y = k.y + sin * along + cos * side * RULES.wheelAcross;
+      if (tileAt(map, Math.floor(x / TILE), Math.floor(y / TILE)) !== '~') continue;
+      if (side < 0) left++; else right++;
+    }
+  }
+  return { left, right };
+}
+
+/** The way a kart leans over the void, -1 (both wheels of its left over it) to 1 (both of its right): half a side for one more wheel out on that side. 0 when level. */
+export function leanOf(map: readonly string[], k: { x: number; y: number; angle: number }): number {
+  const { left, right } = wheelsOver(map, k);
+  return (right - left) / 2;
+}
+
+/** Whether a kart tips over on its side: both wheels of one side over the void. */
+export function tipsOver(map: readonly string[], k: { x: number; y: number; angle: number }): boolean {
+  const { left, right } = wheelsOver(map, k);
+  return left === 2 || right === 2;
+}
+
+/** A kart with more wheels over the void on one side slides towards that side at `RULES.tipPull` a second: the player can steer back onto the road. */
+function pulledOver(map: readonly string[], k: Kart, dt: number): Kart {
+  const { left, right } = wheelsOver(map, k);
+  if (left === right) return k;
+  const pull = Math.sign(right - left) * RULES.tipPull * dt;
+  return { ...k, x: k.x - Math.sin(k.angle) * pull, y: k.y + Math.cos(k.angle) * pull };
+}
+
+/** A kart that has tipped over the edge (its centre `RULES.overhang` past it) or on its side (both wheels of one side over the void) and is not already falling starts to fall: at rest, its BOOST and any spin-out ended, the item it holds kept. Anything else is the same objects back. */
+export function fallIfOver<T extends { x: number; y: number; angle: number; speed: number; steer: number }>(map: readonly string[], k: T, fx: Fx): { kart: T; fx: Fx } {
+  if (fx.fall > 0 || !(tippedOver(map, k) || tipsOver(map, k))) return { kart: k, fx };
   return { kart: { ...k, speed: 0, steer: 0 }, fx: { ...fx, boost: 0, spin: 0, fall: RULES.fallTime } };
 }
 
 /**
  * One short step of a kart with what is on it: a fall takes the input and holds the kart where it is, a spin-out takes the input and turns the kart on itself
- * (the speed it dropped to wears off like any other), a BOOST drives faster, a slope changes the top speed, and the timers run down. A kart that tips over the edge starts to fall.
+ * (the speed it dropped to wears off like any other), a BOOST drives faster, a slope changes the top speed, a wheel over the void draws it towards the edge, and the timers run down. A kart that tips over the edge or on its side starts to fall.
  * The kart's `fx` after the step is returned with it, and whether its fall ended in this step (`landed`):
  * the way back is the race's to place (rivals.ts), never this step's.
  */
@@ -107,7 +142,7 @@ export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pa
     return { kart: k, landed: fall === 0, fx: { ...fx, fall, blink: Math.max(0, fx.blink - dt) } };
   }
   const spinning = fx.spin > 0;
-  const moved = moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0, slope);
+  const moved = pulledOver(map, moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0, slope), dt);
   const kart = spinning ? { ...moved, angle: moved.angle + RULES.spinRate * dt, steer: 0 as const } : moved;
   const ran: Fx = { ...fx, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };
   return { ...fallIfOver(map, kart, ran), landed: false };

@@ -12,7 +12,7 @@ import { stripesOf } from '../theme';
 import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/common.ts';
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
-import { NO_FX, type Kart } from './kart';
+import { leanOf, NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
 import { chaseCamera, depthAt, project, renderTerrain, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
 import { groundAt, heightsOf, reliefRange } from './relief';
@@ -195,6 +195,24 @@ const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0
 /** How far a kart's fall has gone, 0 (just over the edge) to 1 (gone): it is drawn smaller and lower as it grows. */
 export const fallenOf = (fx: { fall: number }): number => (fx.fall > 0 ? 1 - Math.min(1, fx.fall / RULES.fallTime) : 0);
 
+/** How far a kart rolls over, in radians: a little for a lean (`lean` is -1 to 1, as `leanOf` gives it) and, once it tips, more and more as it falls, onto its side. Towards the side over the void: clockwise (positive) for its right. */
+const TILT = 0.5;
+const ROLL = 1.3;
+export function rollOf(lean: number, fallen: number): number {
+  return lean === 0 ? 0 : Math.sign(lean) * Math.min(Math.PI / 2, TILT * Math.min(0.5, Math.abs(lean)) + ROLL * fallen);
+}
+
+/** Draws `draw` turned by `roll` about the screen point x, y (where the kart's wheels touch the road). */
+function rolled(ctx: CanvasRenderingContext2D, roll: number, x: number, y: number, draw: () => void) {
+  if (roll === 0) { draw(); return; }
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(roll);
+  ctx.translate(-x, -y);
+  draw();
+  ctx.restore();
+}
+
 /** How fast a kart blinks once it is back on the road, in blinks a second: it is drawn on every other frame of the blink. */
 const BLINK_RATE = 12;
 /** Whether a blinking kart is hidden in this frame; a kart that is not blinking never is. */
@@ -217,13 +235,16 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
   const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - KART_FOOT + fallen * 18 * scale;
   const half = scale / 2;
-  shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05);
+  if (race.fx.fall <= 0) shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
-  const spin = race.fx.spin > 0 ? SPIN_VIEWS[Math.floor(s.t * 12) % SPIN_VIEWS.length] : undefined;
-  sprite(ctx, s, spin ?? viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
+  const roll = rollOf(leanOf(race.track.map, kart), fallen);
+  rolled(ctx, roll, x + (KART_W * scale) / 2, y + 18 * scale, () => {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
+    const spin = race.fx.spin > 0 ? SPIN_VIEWS[Math.floor(s.t * 12) % SPIN_VIEWS.length] : undefined;
+    sprite(ctx, s, spin ?? viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
+  });
 }
 
 /** How wide a kart stands in the world, in game pixels: a rival is drawn this wide, scaled by its distance. A kart falls once all of it is past the road's edge (`RULES.overhang`, half of it). */
@@ -237,7 +258,7 @@ export function viewFacing(rival: number, camera: number): string {
 const LEAN = 0.3;
 
 /** A rival's kart on the floor at `at`, its driver in the seat, as big as its distance makes it. */
-function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected) {
+function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected, lean: number) {
   const fallen = fallenOf(r.fx ?? NO_FX);
   if (fallen >= 1 || hiddenBlink(r.fx ?? NO_FX)) return;
   const scale = ((KART_WORLD * at.scale) / KART_W) * (1 - fallen);
@@ -248,10 +269,12 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
   const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale + fallen * 6 * at.scale;
   const half = scale / 2;
-  shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
-  ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
+  if ((r.fx ?? NO_FX).fall <= 0) shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05); // a falling kart casts none
+  rolled(ctx, rollOf(lean, fallen), at.sx, y + 18 * scale, () => {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
+    ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
+  });
 }
 
 /** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. `g` is the ground's height under it. */
@@ -535,7 +558,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held }
         // The arch spans the flat start straight and stays on top; the rest is hidden where the road in front covers it.
         const reach = at.scale * 40;
         const hid = thing.kind !== 'arch' && hideBehind(ctx, floor, v.w, v.h, { left: at.sx - reach, right: at.sx + reach, top: at.sy - reach * 1.5, bottom: at.sy + 2 }, at.z);
-        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at);
+        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at, leanOf(track.map, thing.rival.kart));
         else if (thing.kind === 'box') itemBox(ctx, s, at);
         else if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
         else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
