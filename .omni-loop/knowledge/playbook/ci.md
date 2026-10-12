@@ -70,6 +70,12 @@ Claude, or a hook that could not run (it says why on one stderr line and lets th
 - A green pull request whose merge turns `main` red missed a dependency its checks could not see.
   Fix it forward; revert only when the product is down.
 
+## Known reds
+<!-- slot: known-reds · optional -->
+
+## When to re-run
+<!-- slot: rerun · optional -->
+
 ## Budgets
 <!-- slot: budgets · optional -->
 What every agent session reads here has a ceiling in bytes (PRD 1679): the briefing, each playbook
@@ -90,9 +96,3 @@ sum. The ceilings live in `.omni-loop/budgets/context.json`, versioned and revie
   `[→ apps/galaxy/README.md#deploy-to-production]` runs past its section into the rest of the galaxy
   README. Once that pointer bug is fixed through `/omni:bug-fix`, lower the ceiling to the new size
   in the same pull request: a lowered ceiling is always green.
-
-## Known reds
-<!-- slot: known-reds · optional -->
-
-## When to re-run
-<!-- slot: rerun · optional -->
