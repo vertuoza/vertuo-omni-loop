@@ -505,7 +505,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'budgets', 'markers', 'signature',
     ]);
   });
 
@@ -847,5 +847,35 @@ describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
     ['an empty law branch', "branches:\n  law: ''\n", /c\.yml.*branches\.law/],
   ])('refuses %s, naming the key', (_what, section, message) => {
     expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+});
+
+describe('budgets.context (PRD 1679)', () => {
+  it('is off by default, its ceilings in .omni-loop/budgets/context.json', () => {
+    expect(parseConfig('kit: 1\n').budgets).toEqual({ context: { enabled: false, file: '.omni-loop/budgets/context.json' } });
+  });
+
+  it('reads enabled and file when the file sets them', () => {
+    const config = parseConfig('kit: 1\nbudgets:\n  context:\n    enabled: true\n    file: limits/context.json\n');
+    expect(config.budgets.context).toEqual({ enabled: true, file: 'limits/context.json' });
+    expect(parseConfig('kit: 1\nbudgets:\n  context:\n    enabled: true\n').budgets.context.file).toBe('.omni-loop/budgets/context.json');
+  });
+
+  it.each([
+    ['an unknown key under budgets.context', 'budgets:\n  context:\n    ceiling: 3\n', /c\.yml.*budgets\.context.*unrecognized: ceiling/],
+    ['a budget the kit does not measure yet', 'budgets:\n  perf: {}\n', /c\.yml.*budgets.*unrecognized: perf/],
+    ['an enabled that is no boolean', 'budgets:\n  context:\n    enabled: "yes"\n', /c\.yml.*budgets\.context\.enabled/],
+    ['an empty file', "budgets:\n  context:\n    file: ''\n", /c\.yml.*budgets\.context\.file/],
+  ])('refuses %s, naming the key', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+
+  it('fails omni check config on an unknown key under it', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nbudgets:\n  context:\n    size: 1\n' } });
+    const out: string[] = [];
+    const write = (s: string) => out.push(s);
+    const code = await main(['check', 'config'], { cwd: root, stdout: { write }, stderr: { write } });
+    expect(code).not.toBe(0);
+    expect(out.join('')).toMatch(/budgets\.context.*size/);
   });
 });

@@ -355,6 +355,15 @@ export const ConfigSchema = z
         avoid: z.array(text).default([]),
       }),
     }),
+    // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
+    // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
+    // default: a repository opts in. Shaped `budgets.<name>` so a later budget is a key beside it.
+    budgets: section({
+      context: section({
+        enabled: z.boolean().default(false),
+        file: text.default('.omni-loop/budgets/context.json'),
+      }),
+    }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
