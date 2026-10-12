@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 1689
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-duet-moving-pieces-ghosts-and-speed-ups -->
+
+## s1-01-duet-moving-pieces-ghosts-and-speed-ups — agreed
+
+- Verdict: agreed
+- Approved by: martl-vertuoza
+- Approved at: 2026-10-12T11:50:03Z
+- Channel: feature pull request #1694
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1694#issuecomment-6123677238
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-102
+- Raised: 2026-10-12
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built; BR-PRODUCT-102 reads as before, its speed being a wave's written speed.
+
+### The answer, as it was given
+
+```text
+A. Keep the new moving pieces, ghosts and end-of-wave speed-ups; endless keeps its written speeds (built).
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-duet-moving-pieces-ghosts-and-speed-ups
 prd: 1689
@@ -45,3 +78,7 @@ Wave text and a few constants in one file.
 
 - Whether the law's "speed" should count the end-of-wave speed-up: read as the written speed, the law's text is left as is (author).
 - Whether it feels right: proven passable, not played in the browser (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-01-duet-moving-pieces-ghosts-and-speed-ups -->
