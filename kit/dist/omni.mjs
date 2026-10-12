@@ -30664,6 +30664,9 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
     readConstituents: (repo) => call("GET", `/api/constituents?${new URLSearchParams({ repo })}`),
+    /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
+     * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
+    readLoop: (path, query) => call("GET", `/api/loop/${path}?${new URLSearchParams(query)}`),
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
     citeClaims: ({ repo, ids: ids2, by, ref = null }) => call("POST", "/api/business/citations", { body: { repo, ids: ids2, by, ref } }),
@@ -35890,20 +35893,6 @@ var GhPullRequestSchema = external_exports.looseObject({
   base: external_exports.looseObject({ ref: external_exports.string() }).nullish(),
   head: external_exports.looseObject({ ref: external_exports.string() }).nullish()
 });
-var GhPrListItemSchema = external_exports.looseObject({
-  number: PrNumberSchema.optional(),
-  title: external_exports.string().optional(),
-  headRefName: external_exports.string().optional(),
-  baseRefName: external_exports.string().optional(),
-  state: external_exports.string().optional(),
-  isDraft: external_exports.boolean().optional(),
-  mergedAt: external_exports.string().nullish(),
-  body: external_exports.string().optional(),
-  labels: external_exports.array(external_exports.union([external_exports.string(), external_exports.looseObject({ name: external_exports.string().nullish() })]).nullish()).nullish(),
-  updatedAt: external_exports.string().optional(),
-  createdAt: external_exports.string().nullish()
-});
-var GhPrListSchema = external_exports.array(GhPrListItemSchema);
 var GhPrStatesSchema = external_exports.array(external_exports.looseObject({ number: PrNumberSchema, state: external_exports.string().optional(), updatedAt: external_exports.unknown().optional() }));
 var GhGraphqlSchema = external_exports.looseObject({
   data: external_exports.unknown().optional(),
@@ -35913,9 +35902,6 @@ var GhReplyMutationSchema = external_exports.looseObject({
   data: external_exports.looseObject({
     addPullRequestReviewThreadReply: external_exports.looseObject({ comment: external_exports.looseObject({ url: external_exports.string().nullish() }).nullish() }).nullish()
   }).nullish()
-});
-var GhPrCommitsSchema = external_exports.looseObject({
-  commits: external_exports.array(external_exports.looseObject({ committedDate: external_exports.string().nullish(), authoredDate: external_exports.string().nullish() })).nullish()
 });
 
 // kit/bin/github.ts
@@ -38716,6 +38702,133 @@ function mergeAfterLine(step2) {
   return `Merge after landing ${step2.mergeAfter.landing} (${step2.mergeAfter.name}) is deployed.`;
 }
 
+// kit/lib/loop-reads/omni.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/loop-reads/contract.ts
+init_define_OMNI_BUNDLE();
+var LoopChangeStateSchema = external_exports.enum(["open", "draft", "merged", "closed"]);
+var LoopChangeSchema = external_exports.object({
+  number: PrNumberSchema,
+  title: external_exports.string(),
+  head: external_exports.string(),
+  base: external_exports.string(),
+  state: LoopChangeStateSchema,
+  createdAt: external_exports.string(),
+  updatedAt: external_exports.string(),
+  mergedAt: external_exports.string().nullable(),
+  labels: external_exports.array(external_exports.string()),
+  body: external_exports.string(),
+  url: external_exports.string(),
+  author: external_exports.string().nullable()
+});
+var LoopChangesSchema = external_exports.object({ changes: external_exports.array(LoopChangeSchema) });
+var LoopCheckSchema = external_exports.object({ name: external_exports.string(), state: external_exports.enum(["pending", "success", "failure", "neutral", "skipped"]) });
+var LoopThreadCommentSchema = external_exports.object({ author: external_exports.string().nullable(), body: external_exports.string(), createdAt: external_exports.string() });
+var LoopThreadSchema = external_exports.object({
+  id: external_exports.string().min(1),
+  path: external_exports.string().nullable(),
+  line: external_exports.number().int().nullable(),
+  resolved: external_exports.boolean(),
+  comments: external_exports.array(LoopThreadCommentSchema)
+});
+var LoopReviewSchema = external_exports.object({ checks: external_exports.array(LoopCheckSchema), mergeable: external_exports.boolean().nullable(), threads: external_exports.array(LoopThreadSchema) });
+var LoopChangeDetailFields = { lastCommitAt: external_exports.string().nullable(), files: external_exports.array(external_exports.string()) };
+var LoopChangeDetailSchema = LoopChangeSchema.extend({ ...LoopChangeDetailFields, review: LoopReviewSchema });
+var LoopCommentSchema = external_exports.object({
+  id: CommentIdSchema,
+  author: external_exports.string().nullable(),
+  body: external_exports.string(),
+  createdAt: external_exports.string(),
+  updatedAt: external_exports.string()
+});
+var LoopCommentsSchema = external_exports.object({ comments: external_exports.array(LoopCommentSchema) });
+var LoopIssueSchema = external_exports.object({
+  number: IssueNumberSchema,
+  title: external_exports.string(),
+  state: external_exports.enum(["open", "closed"]),
+  labels: external_exports.array(external_exports.string()),
+  body: external_exports.string()
+});
+var LoopIssuesSchema = external_exports.object({ issues: external_exports.array(LoopIssueSchema) });
+var LoopIssueDetailSchema = LoopIssueSchema.extend({ comments: external_exports.array(LoopCommentSchema), closedBy: external_exports.array(PrNumberSchema) });
+var LoopErrorSchema = external_exports.object({ error: external_exports.string() });
+
+// kit/lib/loop-reads/port.ts
+init_define_OMNI_BUNDLE();
+var LoopReadError = class extends Error {
+  line;
+  scope;
+  constructor(line, scope) {
+    super(line);
+    this.name = "LoopReadError";
+    this.line = line;
+    this.scope = scope;
+  }
+};
+function holdsOneRepository(error62) {
+  return error62 instanceof LoopReadError && error62.scope === "repository";
+}
+function boardReads(reads) {
+  return {
+    changes: (query) => reads.changes(query),
+    lastCommitAt: async (repo, number4) => (await reads.change(repo, number4)).lastCommitAt
+  };
+}
+
+// kit/lib/loop-reads/omni.ts
+var LOOP_READ_MS = 15e3;
+var NO_SIGN_IN = "no sign-in (omni signin)";
+var UNREACHABLE = "unreachable";
+var NO_OMNI_PAGE = "no Omni page is set here (ask.url)";
+var NO_LOOP_ROUTES = "this Omni page cannot read the loop yet";
+var UNREADABLE_ANSWER = "the Omni page answered outside the loop's contract";
+var REPOSITORY_STATUSES = /* @__PURE__ */ new Set([403, 424, 429]);
+function plainRefusal(status5, repo) {
+  if (status5 === 403) return `${repo} is not in your workspace`;
+  if (status5 === 424) return `the Omni app cannot read ${repo}`;
+  if (status5 === 429) return `the code host's budget for ${repo} is spent`;
+  if (status5 === 404) return NO_LOOP_ROUTES;
+  return `the Omni page answered ${status5}`;
+}
+var unstopped = (reason2) => reason2.replace(/\.$/, "");
+function lineOf(error62, repo) {
+  const { status: status5, reason: reason2 } = error62;
+  if (status5 === null) return new LoopReadError(error62.message.startsWith("not signed in") ? NO_SIGN_IN : UNREACHABLE, "everything");
+  if (status5 === 401) return new LoopReadError(NO_SIGN_IN, "everything");
+  const words4 = reason2 === null ? plainRefusal(status5, repo) : unstopped(reason2);
+  const scope = REPOSITORY_STATUSES.has(status5) || status5 === 404 && reason2 !== null ? "repository" : "everything";
+  return new LoopReadError(`refused (${status5}): ${words4}`, scope);
+}
+function queryOf(fields) {
+  return Object.fromEntries(Object.entries(fields).flatMap(([key2, value]) => value === void 0 ? [] : [[key2, String(value)]]));
+}
+function omniLoopReads({ askUrl: askUrl2, tokens, home, fetch = globalThis.fetch, callMs = LOOP_READ_MS }) {
+  const client = askUrl2 ? signedInClient({ askUrl: askUrl2, tokens, home, fetch, callMs }) : null;
+  async function read2(path, query, schema) {
+    if (!askUrl2) throw new LoopReadError(NO_OMNI_PAGE, "everything");
+    if (client === null) throw new LoopReadError(NO_SIGN_IN, "everything");
+    const repo = String(query.repo);
+    let body;
+    try {
+      body = await client.readLoop(path, queryOf(query));
+    } catch (error62) {
+      if (error62 instanceof AskCallError) throw lineOf(error62, repo);
+      throw error62;
+    }
+    const parsed2 = schema.safeParse(body);
+    if (!parsed2.success) throw new LoopReadError(`${UNREADABLE_ANSWER} (${path})`, "everything");
+    return parsed2.data;
+  }
+  return {
+    changes: async ({ repo, base, head, label: label2, state }) => (await read2("changes", { repo, base, head, label: label2, state }, LoopChangesSchema)).changes,
+    change: (repo, number4) => read2(`changes/${number4}`, { repo }, LoopChangeDetailSchema),
+    comments: async (repo, on2) => (await read2("comments", { repo, on: on2 }, LoopCommentsSchema)).comments,
+    issues: async ({ repo, label: label2, state }) => (await read2("issues", { repo, label: label2, state }, LoopIssuesSchema)).issues,
+    issue: (repo, number4) => read2(`issues/${number4}`, { repo }, LoopIssueDetailSchema)
+  };
+}
+
 // kit/bin/commands/board.ts
 var USAGE5 = "usage: omni board <prd> [--json] [--repo <owner/name>]";
 function readPlan(prd2, { ctx }) {
@@ -38735,46 +38848,29 @@ function topicFor(prd2, { ctx }) {
   if (!parsed2) throw usageError(`omni board: cannot read a topic from folder "${where.name}".`);
   return parsed2.topic;
 }
-var PR_FIELDS = ["number", "title", "headRefName", "baseRefName", "state", "isDraft", "mergedAt", "body", "labels", "updatedAt", "createdAt"];
-function narrowingArgs({ matchBy, featureBranch, subLabel }) {
-  return matchBy === "label" ? ["--label", subLabel] : ["--base", featureBranch];
+function narrowingOf({ matchBy, featureBranch, subLabel }) {
+  return matchBy === "label" ? { label: subLabel } : { base: featureBranch };
 }
-function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel, head = null }) {
-  const options = { encoding: "utf8", ...env ? { env } : {} };
-  const raw = exec(
-    "gh",
-    [
-      "pr",
-      "list",
-      "--repo",
-      repo,
-      "--json",
-      PR_FIELDS.join(","),
-      "--state",
-      "all",
-      "--limit",
-      "200",
-      ...head === null ? narrowingArgs({ matchBy, featureBranch, subLabel }) : ["--head", head]
-    ],
-    options
-  );
-  return GhPrListSchema.parse(JSON.parse(raw)).map((pr) => ({ ...pr, headCommitDate: null }));
+function boardPrOf(change) {
+  const state = change.state === "merged" ? "MERGED" : change.state === "closed" ? "CLOSED" : "OPEN";
+  return {
+    number: change.number,
+    title: change.title,
+    headRefName: change.head,
+    baseRefName: change.base,
+    state,
+    isDraft: change.state === "draft",
+    mergedAt: change.mergedAt,
+    body: change.body,
+    labels: change.labels,
+    updatedAt: change.updatedAt,
+    createdAt: change.createdAt,
+    headCommitDate: null
+  };
 }
 function couldBeStale(pr, now2, staleMinutes) {
   if (!pr.isDraft || pr.state !== "OPEN" || !pr.createdAt) return false;
   return now2 - new Date(pr.createdAt).getTime() > staleMinutes * 60 * 1e3;
-}
-function fetchHeadCommitDate({ repo, number: number4, exec, env }) {
-  const options = { encoding: "utf8", ...env ? { env } : {} };
-  const raw = exec("gh", ["pr", "view", String(number4), "--repo", repo, "--json", "commits"], options);
-  const commits = GhPrCommitsSchema.parse(JSON.parse(raw)).commits ?? [];
-  const last = commits.at(-1);
-  return last?.committedDate ?? last?.authoredDate ?? null;
-}
-function fetchHeadCommitDates(prs, { repo, exec, env, now: now2, staleMinutes }) {
-  return prs.map(
-    (pr) => couldBeStale(pr, now2, staleMinutes) ? { ...pr, headCommitDate: fetchHeadCommitDate({ repo, number: pr.number, exec, env }) } : pr
-  );
 }
 var STATE_WIDTH = "claimed-stale".length;
 function tableLine(row, repoWidth) {
@@ -38788,7 +38884,7 @@ function landingLine(landing) {
   const where = landing.repo === void 0 || landing.repo === null ? "" : `${landing.repo} `;
   return ` ${where}landing ${landing.landing} (${landing.name}) ${landing.branch} \u2014 ${counts2} \u2014 ${pr}${landing.current ? " \u2014 current" : ""}`;
 }
-function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now: now2 = Date.now() }) {
+async function buildBoard(prd2, { ctx, reads, repo: repoFlag, now: now2 = Date.now() }) {
   const { markdown } = readPlan(prd2, { ctx });
   let slices;
   try {
@@ -38802,8 +38898,7 @@ function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now: now2 = Date.now
   const landed = landings.length > 1 ? landings : null;
   const repo = repoSlug("board", ctx, repoFlag);
   const reader = {
-    exec,
-    env: githubEnv(ctx, { exec, env }),
+    reads,
     now: now2,
     matchBy: ctx.config.board.matchBy,
     featureBranch: fillBranch(ctx.config.branches.feature, { topic }),
@@ -38812,29 +38907,34 @@ function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now: now2 = Date.now
   };
   const board2 = (prs, more) => boardFor({ slices, prs, now: now2, limits: ctx.config.limits, config: ctx.config, prd: { topic }, ...more });
   if (slices.every((slice) => slice.repo === null)) {
-    return { slices, result: board2(readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
+    return { slices, result: board2(await readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
   }
   const chainOf = (name3) => landed === null ? null : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name3 }).map(
     (step2) => ({ landing: step2.planLanding, name: step2.name, branch: step2.branch, repo: name3 })
   );
-  const across = readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
+  const across = await readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
   const chains = landed === null ? null : across.chains;
   return { slices, result: board2(across.prs, { repos: across.repos, landings: chains }), unreadable: across.unreadable, landings: chains ?? landings };
 }
-function readPrs(slug, chain, reader) {
-  const { exec, env, now: now2, staleMinutes, ...narrowing } = reader;
-  const list5 = (more) => fetchPrList({ repo: slug, exec, env, ...narrowing, ...more });
+async function readPrs(slug, chain, reader) {
+  const { reads, now: now2, staleMinutes, ...narrowing } = reader;
+  const list5 = async (query) => (await reads.changes({ repo: slug, state: "all", ...query })).map(boardPrOf);
   let prs;
-  if (chain === null) prs = list5({});
+  if (chain === null) prs = await list5(narrowingOf(narrowing));
   else {
-    const subs = narrowing.matchBy === "label" ? list5({}) : chain.flatMap(({ branch }) => list5({ featureBranch: branch }));
+    const subs = narrowing.matchBy === "label" ? await list5(narrowingOf(narrowing)) : (await Promise.all(chain.map(({ branch }) => list5(narrowingOf({ ...narrowing, featureBranch: branch }))))).flat();
+    const heads = (await Promise.all(chain.map(({ branch }) => list5({ head: branch })))).flat();
     const byNumber2 = /* @__PURE__ */ new Map();
-    for (const pr of [...subs, ...chain.flatMap(({ branch }) => list5({ head: branch }))]) if (!byNumber2.has(pr.number)) byNumber2.set(pr.number, pr);
+    for (const pr of [...subs, ...heads]) if (!byNumber2.has(pr.number)) byNumber2.set(pr.number, pr);
     prs = [...byNumber2.values()];
   }
-  return fetchHeadCommitDates(prs, { repo: slug, exec, env, now: now2, staleMinutes });
+  return Promise.all(
+    prs.map(
+      async (pr) => pr.number !== void 0 && couldBeStale(pr, now2, staleMinutes) ? { ...pr, headCommitDate: await reads.lastCommitAt(slug, pr.number) } : pr
+    )
+  );
 }
-function readAcrossRepos(slices, { known: known2, chainOf, reader }) {
+async function readAcrossRepos(slices, { known: known2, chainOf, reader }) {
   const out = { prs: [], repos: {}, unreadable: [], chains: [] };
   for (const name3 of new Set(slices.map((slice) => slice.repo))) {
     const chain = chainOf(name3);
@@ -38847,11 +38947,12 @@ function readAcrossRepos(slices, { known: known2, chainOf, reader }) {
       continue;
     }
     try {
-      out.prs.push(...readPrs(slug, chain, reader).map((pr) => ({ ...pr, slug })));
+      out.prs.push(...(await readPrs(slug, chain, reader)).map((pr) => ({ ...pr, slug })));
       out.repos[key2] = { slug, readable: true };
     } catch (error62) {
+      if (!holdsOneRepository(error62)) throw error62;
       out.repos[key2] = { slug, readable: false };
-      out.unreadable.push({ repo: name3, slug, reason: ghReason(error62) });
+      out.unreadable.push({ repo: name3, slug, reason: error62.line });
     }
   }
   return out;
@@ -38864,15 +38965,6 @@ function knownRepositories(ctx, planSlug) {
   for (const target3 of ctx.config.plan?.targets ?? []) known2.set(shortName3(target3.repo), target3.repo);
   known2.set(shortName3(planSlug), planSlug);
   return known2;
-}
-function textOf2(value) {
-  if (typeof value === "string") return value;
-  return Buffer.isBuffer(value) ? value.toString() : "";
-}
-function ghReason(error62) {
-  const lines2 = `${textOf2(propertyOf(error62, "stderr"))}
-${textOf2(propertyOf(error62, "message"))}`.split("\n").map((line) => line.trim()).filter(Boolean);
-  return lines2[0] ?? "gh could not read it";
 }
 function printRows(stdout, result) {
   const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? "").length));
@@ -38901,11 +38993,22 @@ function printFrontier(stdout, result) {
   }
 }
 var board = {
-  run: synchronous((args, { ctx, stdout, exec, env }) => {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, reads, tokens, home, fetch, callMs }) {
     const { positional, flags } = parseArgs("board", args, { values: ["repo"], booleans: ["json"] });
     if (positional.length !== 1) throw usageError(USAGE5);
     const prd2 = prdArg("board", "<prd>", positional[0]);
-    const { slices, result, unreadable: unreadable2 } = buildBoard(prd2, { ctx, exec, env, repo: flags.repo });
+    const ctx = loadContext(cwd, { exec });
+    const loop2 = reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+    let built;
+    try {
+      built = await buildBoard(prd2, { ctx, reads: boardReads(loop2), repo: flags.repo });
+    } catch (error62) {
+      if (!(error62 instanceof LoopReadError)) throw error62;
+      println(stderr, error62.line);
+      return 1;
+    }
+    const { slices, result, unreadable: unreadable2 } = built;
     if (flags.json) {
       println(stdout, JSON.stringify(result, null, 2));
       return 0;
@@ -38917,7 +39020,7 @@ var board = {
     }
     printFrontier(stdout, result);
     return 0;
-  })
+  }
 };
 
 // kit/bin/commands/care.ts
@@ -39235,9 +39338,88 @@ function careState(response, { statusMarker, needsFixLabel, gateContexts = [] })
   };
 }
 
+// kit/lib/loop-reads/gh-bridge.ts
+init_define_OMNI_BUNDLE();
+var PR_FIELDS = ["number", "title", "headRefName", "baseRefName", "state", "isDraft", "mergedAt", "body", "labels", "updatedAt", "createdAt"];
+var GhPrSchema = external_exports.looseObject({
+  number: PrNumberSchema.optional(),
+  title: external_exports.string().optional(),
+  headRefName: external_exports.string().optional(),
+  baseRefName: external_exports.string().optional(),
+  state: external_exports.string().optional(),
+  isDraft: external_exports.boolean().optional(),
+  mergedAt: external_exports.string().nullish(),
+  body: external_exports.string().optional(),
+  labels: external_exports.array(external_exports.union([external_exports.string(), external_exports.looseObject({ name: external_exports.string().nullish() })]).nullish()).nullish(),
+  updatedAt: external_exports.string().optional(),
+  createdAt: external_exports.string().nullish()
+});
+var GhCommitsSchema = external_exports.looseObject({
+  commits: external_exports.array(external_exports.looseObject({ committedDate: external_exports.string().nullish(), authoredDate: external_exports.string().nullish() })).nullish()
+});
+function stateOf(pr) {
+  if (pr.state === "MERGED" || pr.mergedAt) return "merged";
+  if (pr.state === "OPEN") return pr.isDraft ? "draft" : "open";
+  return "closed";
+}
+function changeOf(pr, repo) {
+  return {
+    number: pr.number,
+    title: pr.title ?? "",
+    head: pr.headRefName ?? "",
+    base: pr.baseRefName ?? "",
+    state: stateOf(pr),
+    createdAt: pr.createdAt ?? "",
+    updatedAt: pr.updatedAt ?? "",
+    mergedAt: pr.mergedAt ?? null,
+    labels: (pr.labels ?? []).flatMap((label2) => {
+      const name3 = typeof label2 === "string" ? label2 : label2?.name;
+      return name3 ? [name3] : [];
+    }),
+    body: pr.body ?? "",
+    url: `https://github.com/${repo}/pull/${pr.number}`,
+    author: null
+  };
+}
+function textOf2(value) {
+  if (typeof value === "string") return value;
+  return Buffer.isBuffer(value) ? value.toString() : "";
+}
+function ghReason(error62) {
+  const lines2 = `${textOf2(propertyOf(error62, "stderr"))}
+${textOf2(propertyOf(error62, "message"))}`.split("\n").map((line) => line.trim()).filter(Boolean);
+  return lines2[0] ?? "gh could not read it";
+}
+function ghBoardReads({ exec, env }) {
+  const options = { encoding: "utf8", ...env ? { env } : {} };
+  const gh2 = (args) => {
+    try {
+      return exec("gh", args, options);
+    } catch (error62) {
+      throw new LoopReadError(ghReason(error62), "repository");
+    }
+  };
+  const later = (work) => new Promise((resolve9) => {
+    resolve9(work());
+  });
+  return {
+    changes: ({ repo, base, head, label: label2, state = "open" }) => later(() => {
+      const narrowing = head !== void 0 ? ["--head", head] : label2 !== void 0 ? ["--label", label2] : base !== void 0 ? ["--base", base] : [];
+      const raw = gh2(["pr", "list", "--repo", repo, "--json", PR_FIELDS.join(","), "--state", state, "--limit", "200", ...narrowing]);
+      const prs = external_exports.array(GhPrSchema).parse(JSON.parse(raw));
+      return prs.flatMap((pr) => pr.number === void 0 ? [] : [changeOf({ ...pr, number: pr.number }, repo)]);
+    }),
+    lastCommitAt: (repo, number4) => later(() => {
+      const raw = gh2(["pr", "view", String(number4), "--repo", repo, "--json", "commits"]);
+      const last = (GhCommitsSchema.parse(JSON.parse(raw)).commits ?? []).at(-1);
+      return last?.committedDate ?? last?.authoredDate ?? null;
+    })
+  };
+}
+
 // kit/bin/commands/care.ts
 var USAGE6 = "usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n       omni care list <prd> [--json]\n       omni care reply --verdict <fixed|pushed-back|asked> (--body <text> | --file <path>) [--thread <id>] [--repo <owner/name>]";
-var GhPrSchema = external_exports.looseObject({ number: PrNumberSchema, state: external_exports.string(), url: external_exports.string().nullish(), updatedAt: external_exports.unknown().optional() });
+var GhPrSchema2 = external_exports.looseObject({ number: PrNumberSchema, state: external_exports.string(), url: external_exports.string().nullish(), updatedAt: external_exports.unknown().optional() });
 var GhIssuesSchema = external_exports.array(external_exports.looseObject({ number: IssueNumberSchema, body: external_exports.string().nullish() }));
 var GhIssueViewSchema = external_exports.looseObject({
   comments: external_exports.array(external_exports.looseObject({ body: external_exports.string().nullish() })).nullish(),
@@ -39275,13 +39457,13 @@ function featureBranchFor(prd2, ctx) {
 }
 function findPr({ repo, branch }, gh2) {
   const raw = ghText(["pr", "list", "--repo", repo, "--head", branch, "--state", "all", "--json", "number,state,url,updatedAt", "--limit", "20"], gh2);
-  const prs = external_exports.array(GhPrSchema).parse(JSON.parse(raw));
+  const prs = external_exports.array(GhPrSchema2).parse(JSON.parse(raw));
   const open3 = prs.find((pr) => pr.state === "OPEN");
   const found2 = open3 ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
   return found2 ? { number: found2.number, state: found2.state, url: found2.url ?? null } : null;
 }
 function viewPr(repo, number4, gh2) {
-  const found2 = GhPrSchema.parse(JSON.parse(ghText(["pr", "view", String(number4), "--repo", repo, "--json", "number,state,url"], gh2)));
+  const found2 = GhPrSchema2.parse(JSON.parse(ghText(["pr", "view", String(number4), "--repo", repo, "--json", "number,state,url"], gh2)));
   return { number: found2.number, state: found2.state, url: found2.url ?? null };
 }
 function readFound(read2) {
@@ -39298,9 +39480,10 @@ function targetOf(ctx, flag) {
   const found2 = ctx.config.plan?.targets.find((target3) => target3.repo === flag);
   return found2 ? { name: shortName4(found2.repo), slug: found2.repo } : null;
 }
-function waveClaims(prd2, { ctx, exec, env, repo, target: target3 }) {
+async function waveClaims(prd2, { ctx, exec, env, repo, target: target3 }) {
   try {
-    const { result } = buildBoard(prd2, { ctx, exec, env, repo: target3 === null ? repo : void 0 });
+    const reads = ghBoardReads({ exec, env: githubEnv(ctx, { exec, env }) });
+    const { result } = await buildBoard(prd2, { ctx, reads, repo: target3 === null ? repo : void 0 });
     const claimed2 = claimedIn(result.slices, target3?.name ?? null);
     return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: landingsIn(result.landings, target3?.name ?? null) };
   } catch (error62) {
@@ -39342,13 +39525,13 @@ function readCare(prd2, number4, { scope, ctx, gh: gh2 }) {
   const waitsOn2 = waitingOn(state.status?.waitsOn, gh2);
   return { prd: prd2, ...scope.target === null ? {} : { target: scope.target }, ...state, ...waitsOn2 === null ? {} : { waitsOn: waitsOn2 } };
 }
-function runState2(args, { ctx, stdout, stderr, exec, env }) {
+async function runState2(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
   if (positional.length !== 1) throw usageError(USAGE6);
   const prd2 = prdArg("care", "<prd>", positional[0]);
   const gh2 = { exec, env: githubEnv(ctx, { exec, env }) };
   const scope = scopeOf(prd2, flags.repo, { ctx, gh: gh2 });
-  const { wave, landings } = waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
+  const { wave, landings } = await waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
   const landed = landings !== null && landings.length > 1 ? landings : null;
   const number4 = watchedPr({ flag: flags.pr, landed, find: () => findPr(scope, gh2)?.number ?? null });
   if (number4 === null) {
@@ -39491,13 +39674,13 @@ function postReply({ thread, verdict: verdict2, body }, { ctx, stdout, stderr, e
   }
 }
 var care = {
-  run: synchronous((args, io) => {
+  async run(args, io) {
     const [sub, ...rest] = args;
     if (sub === "state") return runState2(rest, io);
     if (sub === "list") return runList(rest, io);
     if (sub === "reply") return runReply(rest, io);
     throw usageError(USAGE6);
-  })
+  }
 };
 
 // kit/bin/commands/business.ts
@@ -42085,7 +42268,7 @@ function failed2(error62) {
   if (error62.status === 401) return "the sign-in was refused (omni signin)";
   return `refused (${error62.status})${error62.reason ? `: ${error62.reason}` : ""}`;
 }
-function stateOf(ctx, path) {
+function stateOf2(ctx, path) {
   const text14 = readUserFile("decide", ctx, path);
   try {
     return JSON.parse(text14);
@@ -42140,7 +42323,7 @@ var decide = {
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
     const { decision, stateFile, old, ref, json: json3 } = readArgs(args);
     const ctx = loadContext(cwd, { exec });
-    const state = stateOf(ctx, stateFile);
+    const state = stateOf2(ctx, stateFile);
     const read2 = await ask5({ ctx, decision, state, old, ref, tokens, home, fetch, callMs });
     report3({ stdout, stderr, decision, read: read2, json: json3 });
     return 0;
@@ -42949,7 +43132,7 @@ function runProductCall(call, io, addedLine2) {
 var USAGE14 = `usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status | ${PRODUCT_USAGE}`;
 var KINDS4 = ["prd", "visual", "bug", "concept"];
 var ISSUE_TITLE_MS = 5e3;
-var NO_SIGN_IN = "no sign-in (omni signin)";
+var NO_SIGN_IN2 = "no sign-in (omni signin)";
 function claudeSessionOf(session) {
   const id = session?.id.trim() ?? "";
   return id.length >= 1 && id.length <= TITLE_MAX2 ? id : null;
@@ -43127,7 +43310,7 @@ async function runProduct(call, { cwd, stdout, stderr, exec, tokens, home, fetch
   }
   const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
   if (!client) {
-    println(stderr, NO_SIGN_IN);
+    println(stderr, NO_SIGN_IN2);
     return 1;
   }
   const io = { repo: ctx.config.repo.slug, client, home: mainCheckout(ctx.root, exec) ?? ctx.root, scratch, stdout, stderr, now: now2 };
@@ -43164,7 +43347,7 @@ var dossier = {
     if (!repo) throw usageError(`omni dossier: no repository slug \u2014 set repo.slug in the config.`);
     const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
     if (!client) {
-      println(stderr, NO_SIGN_IN);
+      println(stderr, NO_SIGN_IN2);
       return 1;
     }
     const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now: now2 };
@@ -45586,7 +45769,7 @@ function listLines({ repo, url: url2, lanes }) {
 
 // kit/bin/commands/idea.ts
 var USAGE19 = "usage: omni idea add '<title>' --pitch '<pitch>' [--lane now|next|later] | omni idea list [--json]";
-var NO_SIGN_IN2 = "no sign-in (omni signin)";
+var NO_SIGN_IN3 = "no sign-in (omni signin)";
 function skipLine2(error62) {
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === null) return "unreachable";
@@ -45629,7 +45812,7 @@ function connect({ cwd, exec, stderr, tokens, home, fetch, callMs }) {
   if (!repo) throw usageError("omni idea: no repository slug \u2014 set repo.slug in the config.");
   const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
   if (!client) {
-    println(stderr, NO_SIGN_IN2);
+    println(stderr, NO_SIGN_IN3);
     return null;
   }
   return { client, repo };
@@ -48430,7 +48613,7 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
   const issueUrl2 = `https://github.com/${repo}/issues/${roadmap2.roadmap}`;
   return { ...body, humanWork: [...questionWork(roadmap2, answers2, { repo: shortName7(repo), issueUrl: issueUrl2 }), ...prdWork2] };
 }
-var GhPrSchema2 = external_exports.looseObject({
+var GhPrSchema3 = external_exports.looseObject({
   number: PrNumberSchema,
   url: external_exports.string(),
   state: external_exports.enum(["OPEN", "MERGED", "CLOSED"]),
@@ -48443,7 +48626,7 @@ var GhPrSchema2 = external_exports.looseObject({
 var shortName7 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function featurePr(slug, branch, { gh: gh2 }) {
   const raw = gh2(["pr", "list", "--repo", slug, "--head", branch, "--state", "all", "--json", "number,url,state,isDraft,createdAt,mergedAt,closedAt,updatedAt", "--limit", "20"]);
-  const prs = external_exports.array(GhPrSchema2).parse(JSON.parse(raw));
+  const prs = external_exports.array(GhPrSchema3).parse(JSON.parse(raw));
   return prs.find((pr) => pr.state === "OPEN") ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
 }
 function openItemsOn(ref, dir, git7) {
@@ -49696,12 +49879,13 @@ function outboxFacts(prd2, { branch, pr }, reader) {
   const { settle: settle3 } = planReplies({ comments, items, markers: reader.ctx.markers });
   return { questions: questions2, answered: settle3.length > 0 };
 }
-function boardFacts(prd2, reader) {
+async function boardFacts(prd2, reader) {
   const { ctx } = reader;
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null || !existsSync56(join80(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
-    const { result } = buildBoard(prd2, { ctx, exec: reader.exec, env: reader.env });
+    const reads = ghBoardReads({ exec: reader.exec, env: githubEnv(ctx, { exec: reader.exec, env: reader.env }) });
+    const { result } = await buildBoard(prd2, { ctx, reads });
     const having = (state) => result.slices.filter((row) => row.state === state).map((row) => row.id);
     const { stallDays } = ctx.config.limits;
     const board2 = {
@@ -49772,7 +49956,7 @@ function folderOf(prd2, ctx) {
   const parsed2 = where === null ? null : parseFolderName(where.name);
   return where === null || parsed2 === null ? null : { topic: parsed2.topic, shipped: where.state === "shipped" };
 }
-function readFacts2(prd2, reader, gate) {
+async function readFacts2(prd2, reader, gate) {
   const folder = folderOf(prd2, reader.ctx);
   const phase02 = openPhase0(prd2, reader);
   if (folder === null) return beforeInbox(prd2, phase02, reader);
@@ -49780,7 +49964,7 @@ function readFacts2(prd2, reader, gate) {
   const pr = featurePr2(branch, reader);
   const open3 = pr?.state === "OPEN" ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
-  const { board: board2, slices, claims } = boardFacts(prd2, reader);
+  const { board: board2, slices, claims } = await boardFacts(prd2, reader);
   const across = acrossFacts(branch, slices, reader);
   const outbox = outboxFacts(prd2, { branch, pr: open3 }, reader);
   const facts = { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: board2, outbox, ...across ? { across: across.across } : {}, approval: gate };
@@ -49842,7 +50026,7 @@ async function readPrd(prd2, reader) {
   const gate = approvalGate(await prdState(reader.ctx, prd2, { approval: reader.approval }));
   let read2;
   try {
-    read2 = readFacts2(prd2, reader, gate);
+    read2 = await readFacts2(prd2, reader, gate);
   } catch (error62) {
     if (isUsage(error62)) throw error62;
     const planPath = reader.ctx.layout.planPath(prd2);
@@ -53450,7 +53634,7 @@ var PITCH_MAKERS = Object.freeze({ start, film, check: check3, render, studio })
 // kit/bin/commands/pitch.ts
 var USAGE28 = "usage: omni pitch push <n> <dir>";
 var VERBS2 = "usage: omni pitch start|film|check|render|studio|push \u2026";
-var NO_SIGN_IN3 = "no sign-in (omni signin)";
+var NO_SIGN_IN4 = "no sign-in (omni signin)";
 function skipLine4(error62) {
   if (error62 instanceof PitchReplyError) return `refused (${error62.message})`;
   if (!(error62 instanceof AskCallError)) throw error62;
@@ -53480,7 +53664,7 @@ function localRun(cwd, dir, prd2) {
 async function send({ askUrl: askUrl2, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
   const client = signedInClient({ askUrl: askUrl2, tokens, home, fetch, callMs });
   if (!client) {
-    println(stderr, NO_SIGN_IN3);
+    println(stderr, NO_SIGN_IN4);
     return 1;
   }
   let pushed;
@@ -53739,7 +53923,7 @@ function storageState(accessToken, { host, now: now2 = Date.now() }) {
 
 // kit/bin/commands/proof.ts
 var USAGE29 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
-var NO_SIGN_IN4 = "no sign-in (omni signin)";
+var NO_SIGN_IN5 = "no sign-in (omni signin)";
 function skipLine5(error62) {
   if (error62 instanceof ProofReplyError) return `refused (${error62.message})`;
   if (!(error62 instanceof AskCallError)) throw error62;
@@ -53773,7 +53957,7 @@ function localRun2(cwd, dir) {
 async function send2({ toggle, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
   const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
   if (!client) {
-    println(stderr, NO_SIGN_IN4);
+    println(stderr, NO_SIGN_IN5);
     return 1;
   }
   let pushed;
@@ -53791,10 +53975,10 @@ var clock = (seconds4) => new Date(seconds4 * 1e3).toTimeString().slice(0, 5);
 async function renewedToken(askUrl2, { tokens, home, fetch, callMs }) {
   const host = credentialsHost(askUrl2);
   const store = tokens ?? homeTokens(home ? { home } : void 0);
-  if (!store.read(host)) return { line: NO_SIGN_IN4 };
+  if (!store.read(host)) return { line: NO_SIGN_IN5 };
   const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} }).renew();
   if (outcome === "renewed") return { host, token: defined(store.read(host), `the sign-in of ${host}`).access_token };
-  return { line: outcome === "refused" ? NO_SIGN_IN4 : "unreachable" };
+  return { line: outcome === "refused" ? NO_SIGN_IN5 : "unreachable" };
 }
 function sessionFor(token, host) {
   try {
@@ -53811,7 +53995,7 @@ async function writeSession({ askUrl: askUrl2, file: file2, target: target3 }, {
   const renewed2 = await renewedToken(askUrl2, io);
   const made = renewed2.token ? sessionFor(renewed2.token, target3 ?? renewed2.host) : null;
   if (!made) {
-    println(stderr, renewed2.line ?? NO_SIGN_IN4);
+    println(stderr, renewed2.line ?? NO_SIGN_IN5);
     return 1;
   }
   writeFileSync37(file2, JSON.stringify(made.state), { mode: 384 });
@@ -55651,6 +55835,24 @@ async function refreshWorkLinks(root, kind, n, io, timed, instant2) {
   const gh2 = (args) => timed("gh", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...ghEnv ? { env: ghEnv } : {} });
   await refreshLinks({ root, kind, n, now: instant2, build: () => buildLinks(ctx, kind, n, { gh: gh2, page: pageOf2(ctx, io), exec: timed }) });
 }
+async function refreshPrdBoard(root, prd2, io, timed, instant2) {
+  if (lockHeld(root, prd2, instant2)) return;
+  const read2 = async () => {
+    const ctx = loadContext(io.cwd, { exec: timed });
+    const reads = ghBoardReads({ exec: timed, env: githubEnv(ctx, { exec: timed, env: io.env }) });
+    return (await buildBoard(prd2, { ctx, reads, now: instant2 })).result.slices;
+  };
+  const built = await read2().then((slices) => ({ slices }), (error62) => ({ error: error62 }));
+  refreshBoard({
+    root,
+    prd: prd2,
+    now: instant2,
+    build: () => {
+      if ("error" in built) throw built.error;
+      return built.slices;
+    }
+  });
+}
 async function refresh(args, io) {
   const [, value] = args;
   const kind = kindOf3(args);
@@ -55663,8 +55865,7 @@ async function refresh(args, io) {
     if (kind === null || kind === "prd") {
       const prd2 = prdNumber(value);
       if (prd2 === null) return;
-      const build = () => buildBoard(prd2, { ctx: loadContext(io.cwd, { exec: timed }), exec: timed, env: io.env, now: instant2 }).result.slices;
-      refreshBoard({ root, prd: prd2, now: instant2, build });
+      await refreshPrdBoard(root, prd2, io, timed, instant2);
       if (kind === "prd") await refreshWorkLinks(root, kind, prd2, io, timed, instant2);
       return;
     }
