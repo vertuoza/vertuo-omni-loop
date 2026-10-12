@@ -111,6 +111,11 @@ describe('settledRaises', () => {
     expect(settledRaises([{ id: 'd', verdict: 'agreed', itemText: text(['Raise the design ceiling.']) }])).toEqual([]);
   });
 
+  it('reads a raise line however its words are spaced', () => {
+    const entry = { id: 'e', verdict: 'agreed', itemText: 'Budget raise:`session`  to  4096  bytes' };
+    expect(settledRaises([entry])).toEqual([{ id: 'e', target: 'session', ceiling: 4096 }]);
+  });
+
   it('writes the line it reads', () => {
     expect(raiseLine('context:AGENTS.md', 2048)).toBe('Budget raise: `context:AGENTS.md` to 2048 bytes');
   });

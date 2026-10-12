@@ -55,6 +55,7 @@ const STORES: readonly (readonly [string, Traits, () => Subject])[] = [
 
 const MEDIUM_ID = parseOutboxItemId('s7-01-default-timeout');
 const HIGH_ID = parseOutboxItemId('s7-02-default-country');
+const OPEN_ID = parseOutboxItemId('s7-03-default-currency');
 
 /** An item of PRD `prd` at `rank`, with every section an item carries. */
 function itemText(prd: OutboxPrd, id: string, rank: string): string {
@@ -179,6 +180,7 @@ describe.each(STORES)('the %s outbox store', (_name, traits, make) => {
     await store.settle(ref, AGREED);
     const medium = itemText(prd, MEDIUM_ID, 'medium');
     await store.adopt(medium);
+    await store.writeItem({ prd, id: OPEN_ID, text: itemText(prd, OPEN_ID, 'high') }, null);
     const entries = (await store.settledEntries(prd)).map((entry) => [entry.id, entry.verdict, entry.itemText]);
     expect(entries.sort()).toEqual([[HIGH_ID, 'agreed', high], [MEDIUM_ID, 'adopted', medium]].sort());
   });
