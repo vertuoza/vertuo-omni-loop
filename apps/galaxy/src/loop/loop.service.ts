@@ -4,6 +4,7 @@
 // (`LoopWorkspaces`, ./loop.repository.ts). It never sees a token.
 import { MAX_CHANGES, type Change, type ChangeDetail, type ChangesQuery } from './loop.contract';
 import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { LoopWorkspaces } from './loop.repository';
 
 /** The host cannot read the repository: its app is not installed there, or its token is refused. */
 export class HostUnreadable extends Error {
@@ -32,11 +33,6 @@ export type LoopHost = {
   changes(query: ChangesQuery, limit: number): Promise<Change[]>;
   /** One change, or null when the repository has none by that number. */
   change(repo: string, number: PrNumber): Promise<ChangeDetail | null>;
-};
-
-/** Where a repository belongs for a person: their workspace's id, or the database's reason why none. */
-export type LoopWorkspaces = {
-  workspaceOf(person: string, repo: string): Promise<{ workspace: string } | { refusal: string }>;
 };
 
 export type LoopRead<T> = { kind: 'ok'; reply: T } | { kind: 'outside'; reason: string } | { kind: 'missing' };

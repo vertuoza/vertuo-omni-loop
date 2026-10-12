@@ -4,12 +4,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types';
-import type { LoopWorkspaces } from './loop.service';
 
 type Db = SupabaseClient<Database>;
 
 /** The plain words when the database refuses without saying why. */
 const NO_REASON = 'This repository is not in your workspace.';
+
+/** Where a repository belongs for a person: their workspace's id, or the database's reason why none. */
+export type LoopWorkspaces = {
+  workspaceOf(person: string, repo: string): Promise<{ workspace: string } | { refusal: string }>;
+};
 
 export function loopRepository(db: Db): LoopWorkspaces {
   return {
