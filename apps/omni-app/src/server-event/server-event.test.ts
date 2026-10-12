@@ -45,8 +45,8 @@ describe('verifyServerEvent', () => {
 });
 
 describe('receiveServerEvent — one signed POST from galaxy (PRD 1548 s4)', () => {
-  it('sends a signed approval or void on as one Inngest event, and answers 202', async () => {
-    for (const event of ['approved', 'voided']) {
+  it('sends a signed approval, void, item opened or item settled on as one Inngest event, and answers 202 (PRD 1548 s8)', async () => {
+    for (const event of ['approved', 'voided', 'item-opened', 'item-settled']) {
       const run = deps();
       const reply = await receiveServerEvent(requestOf({ ...EVENT, event }), run.deps);
       expect(reply).toEqual({ status: 202, body: 'accepted' });

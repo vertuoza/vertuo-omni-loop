@@ -20,6 +20,7 @@ import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts
 import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
 import { createOutboxCheck } from './outbox-check/outbox-check.ts';
+import { productOutboxReader } from './outbox-check/product-outbox.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
 import { createServerEventRecheck } from './server-event/recheck.ts';
@@ -34,7 +35,7 @@ export function appFunctions(
   { octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase) })) }: { octokitFor?: AppOctokitFor } = {},
 ) {
   return {
-    outboxCheck: createOutboxCheck({ client: inngest, octokitFor }),
+    outboxCheck: createOutboxCheck({ client: inngest, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
     inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
     approvedCheck: createApprovedCheck({ client: inngest, octokitFor, readRecord: env.supabase ? recordReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
     retro: createRetro({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),

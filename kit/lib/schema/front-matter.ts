@@ -4,8 +4,8 @@
 // so every number here is coerced, and each schema is strict: a field it does not name is refused by
 // name. What each parser builds from it is a type in `kit/lib/types.ts`.
 import { z } from 'zod';
-import { OutboxItemIdSchema, PrdNumberSchema, WorkSliceIdSchema } from '../ids.ts';
-import type { PrdNumber } from '../ids.ts';
+import { OutboxItemIdSchema, PrdNumberSchema, ProductPrdIdSchema, WorkSliceIdSchema } from '../ids.ts';
+import type { PrdNumber, ProductPrdId } from '../ids.ts';
 
 /** The two ways a PRD's full prose is reached, in the order the plan lists them. */
 export const SPEC_VALUES = ['file', 'issue'] as const;
@@ -29,6 +29,17 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A `prd` value, read from its text into a `PrdNumber`. */
 const PrdField = z.coerce.number({ message: 'prd must be a number' }).int().positive().pipe(PrdNumberSchema);
+
+/** An outbox item's `prd` value (PRD 1548): a repository's PRD by its number, or a product's by its
+ * id (`mobile-12`), whose items live on the server. */
+const ItemPrdField = z.string().transform((raw, refinement): PrdNumber | ProductPrdId => {
+  const product = ProductPrdIdSchema.safeParse(raw);
+  if (product.success) return product.data;
+  const prd = PrdField.safeParse(raw);
+  if (prd.success) return prd.data;
+  refinement.addIssue({ code: 'custom', message: 'prd must be a number, or a product PRD like mobile-12' });
+  return z.NEVER;
+});
 
 /** A `slice` value: the slice the item or account was raised on (`s1`, `fix-s1-01-…`, `settle`). */
 const SliceField = z.string().trim().min(1, 'slice is required').pipe(WorkSliceIdSchema);
@@ -105,7 +116,7 @@ export const SpecFrontMatterSchema = z
 export const OutboxItemFrontMatterSchema = z
   .object({
     id: z.string().trim().min(1, 'id is required').pipe(OutboxItemIdSchema),
-    prd: PrdField,
+    prd: ItemPrdField,
     slice: SliceField,
     rank: z.enum(RANK_VALUES, {
       message: `rank must be one of: ${RANK_VALUES.join(', ')}`,

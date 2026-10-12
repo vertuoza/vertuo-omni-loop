@@ -55,11 +55,11 @@ describe('the presses', () => {
 });
 
 describe('the turn in play', () => {
-  it('turns the pair anticlockwise under ◀ and clockwise under ▶, at 1.25 turns a second', () => {
+  it('turns the pair anticlockwise under ◀ and clockwise under ▶, at 0.6 turns a second', () => {
     const left = stepped(playing(), held('left'), 1 / 60, 30);
-    expect(left.angle).toBeCloseTo(Math.PI * 2 * 1.25 * 0.5, 9);
+    expect(left.angle).toBeCloseTo(Math.PI * 2 * 0.6 * 0.5, 9);
     const right = stepped(playing(), held('right'), 1 / 60, 30);
-    expect(right.angle).toBeCloseTo(-Math.PI * 2 * 1.25 * 0.5, 9);
+    expect(right.angle).toBeCloseTo(-Math.PI * 2 * 0.6 * 0.5, 9);
     expect(stepped(playing(), held('left', 'right'), 1 / 60, 30).angle).toBe(0);
     expect(stepped(playing(), held(), 1 / 60, 30).angle).toBe(0);
   });
@@ -69,7 +69,7 @@ describe('the turn in play', () => {
     expect(half.angle).toBe(0);
     expect(half.carry).toBeCloseTo(RULES.subStep / 2, 12);
     const whole = step(half, held('left'), RULES.subStep / 2).run;
-    expect(whole.angle).toBeCloseTo(Math.PI * 2 * 1.25 * RULES.subStep, 12);
+    expect(whole.angle).toBeCloseTo(Math.PI * 2 * 0.6 * RULES.subStep, 12);
     expect(whole.carry).toBeCloseTo(0, 12);
   });
 
@@ -77,7 +77,7 @@ describe('the turn in play', () => {
     const slow = step(playing(), held('left'), 1).run;
     const capped = step(playing(), held('left'), RULES.maxDt).run;
     expect(slow.angle).toBe(capped.angle);
-    expect(slow.angle).toBeCloseTo(Math.PI * 2 * 1.25 * 3 * RULES.subStep, 12);
+    expect(slow.angle).toBeCloseTo(Math.PI * 2 * 0.6 * 3 * RULES.subStep, 12);
   });
 
   it('gives the same angle stepped at 1/60 s and at 1/120 s, for the same inputs', () => {

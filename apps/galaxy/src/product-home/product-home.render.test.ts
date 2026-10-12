@@ -41,7 +41,7 @@ describe('the Ledger, filled', () => {
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/roadmap">', text: 'Roadmap' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/bugs">', text: 'Bug fixes' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/visual">', text: 'Visual fixes' },
-      { tab: '<a class="section-tab" aria-label="Questions: 1 waiting" href="/app/products/demo-product-1/questions">', text: 'Questions 1' },
+      { tab: '<a class="section-tab" aria-label="Questions: 3 waiting" href="/app/products/demo-product-1/questions">', text: 'Questions 3' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/repositories">', text: 'Repositories & approvers' },
     ]);
   });
@@ -122,11 +122,17 @@ describe('the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs, filled
     expect(html).toContain('href="/visual/d-v1"');
   });
 
-  it('lists each question waiting on a person with its PRD, linking to the PRD page\'s Outbox tab where it is answered', () => {
-    const html = render({ kind: 'home', home: FILLED }, 'questions');
-    expect(current(html)).toBe('Questions 1');
-    expect(rowsOf(html)).toEqual(['912 Round per line or on the total? acme/widgets Quotes on the phone Answer on its Outbox tab → high']);
+  it('lists each open question with its PRD, its repository and who it is for: a product PRD\'s with its options and "other", a repository PRD\'s linking to its Outbox tab (PRD 1548 s9)', () => {
+    const html = render({ kind: 'home', home: FILLED, demo: true }, 'questions');
+    expect(current(html)).toBe('Questions 3');
+    const questions = [...html.matchAll(/<li class="product-home-row questions-row"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(group(m, 1)));
+    expect(questions).toEqual([
+      'widgets-12 Photos taken offline: send them on Wi-Fi only, or on any network? acme/mobile s2-01-upload-network for you Offline photo upload A · On Wi-Fi only (built). B · On any network, mobile data included. other… high',
+      'widgets-12 Keep the full-size photo once the site report has its copy? acme/api s3-02-keep-originals for irisa Offline photo upload A · Keep it for 30 days (built). B · Keep it for good. C · Delete it at once. other… medium',
+      '912 Round per line or on the total? acme/widgets s2-01 for you Quotes on the phone Answer on its Outbox tab → high',
+    ]);
     expect(html).toContain('href="/prd/demo-d-912?tab=outbox"');
+    expect(html).toContain('href="/prd/demo-d-918"');
   });
 });
 

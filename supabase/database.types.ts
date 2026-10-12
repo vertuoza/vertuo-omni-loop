@@ -1671,6 +1671,62 @@ export type Database = {
           },
         ]
       }
+      outbox_items: {
+        Row: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id: string
+          item: string
+          raised: string
+          raised_at: string
+          raised_by: string
+          rank: string
+          repository: string | null
+          slice: string
+          updated_at: string
+          wave: number
+        }
+        Insert: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id?: string
+          item: string
+          raised: string
+          raised_at?: string
+          raised_by: string
+          rank: string
+          repository?: string | null
+          slice: string
+          updated_at?: string
+          wave: number
+        }
+        Update: {
+          bears_on?: string
+          body?: string
+          dossier_id?: string
+          id?: string
+          item?: string
+          raised?: string
+          raised_at?: string
+          raised_by?: string
+          rank?: string
+          repository?: string | null
+          slice?: string
+          updated_at?: string
+          wave?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbox_items_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outbox_sends: {
         Row: {
           comment_url: string | null
@@ -1720,6 +1776,50 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outbox_settlements: {
+        Row: {
+          answer: string | null
+          basis: string
+          channel: string | null
+          id: string
+          item_id: string
+          settled_at: string
+          settled_by: string
+          settler_login: string
+          verdict: string
+        }
+        Insert: {
+          answer?: string | null
+          basis: string
+          channel?: string | null
+          id?: string
+          item_id: string
+          settled_at?: string
+          settled_by: string
+          settler_login: string
+          verdict: string
+        }
+        Update: {
+          answer?: string | null
+          basis?: string
+          channel?: string | null
+          id?: string
+          item_id?: string
+          settled_at?: string
+          settled_by?: string
+          settler_login?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbox_settlements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "outbox_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3813,6 +3913,94 @@ export type Database = {
           github_login: string
         }[]
       }
+      outbox_item_adopt: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_raised: string
+          p_rank: string
+          p_repository?: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: Json
+      }
+      outbox_item_of: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_dossier: string
+          p_item: string
+          p_raised: string
+          p_rank: string
+          p_repository: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: {
+          bears_on: string
+          body: string
+          dossier_id: string
+          id: string
+          item: string
+          raised: string
+          raised_at: string
+          raised_by: string
+          rank: string
+          repository: string | null
+          slice: string
+          updated_at: string
+          wave: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "outbox_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      outbox_item_put: {
+        Args: {
+          p_bears_on: string
+          p_body: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_raised: string
+          p_rank: string
+          p_repository?: string
+          p_slice: string
+          p_wave: number
+        }
+        Returns: Json
+      }
+      outbox_prd_of: {
+        Args: { p_prd: number; p_product: string; p_repo: string }
+        Returns: {
+          birthplace: string | null
+          claude_session_id: string | null
+          created_at: string
+          home_repo: string | null
+          id: string
+          kind: string
+          numbered_at: string | null
+          opened_by: string | null
+          prd: number | null
+          product_id: string | null
+          product_seq: number | null
+          title: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dossiers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       outbox_send_done: {
         Args: {
           p_comment_url?: string
@@ -3822,6 +4010,19 @@ export type Database = {
           p_send: string
         }
         Returns: undefined
+      }
+      outbox_settle: {
+        Args: {
+          p_answer: string
+          p_basis: string
+          p_channel: string
+          p_item: string
+          p_prd: number
+          p_product: string
+          p_repo?: string
+          p_verdict: string
+        }
+        Returns: Json
       }
       persona_add: {
         Args: {
