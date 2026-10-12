@@ -479,7 +479,7 @@ While the OPEN THE APP? confirm is open, the arcade's timed hand-overs (boot, in
 
 Serves: P-PRODUCT-41
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
-Enforced by: pending #1505
+Enforced by: apps/galaxy/src/arcade/leave.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
