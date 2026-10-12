@@ -10,8 +10,9 @@
 // The inbox check (PRD 675) listens to that same outbox check event, so every handled pull request
 // action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
 // the inbox check event alone, a re-run of an approved check run (PRD 1548) the approved check event
-// alone; a re-run of any other check run stays the outbox check event. The approved check listens to
-// the outbox check event too, so every handled pull request action re-evaluates it as well.
+// alone, a re-run of an `omni / budgets` check run (PRD 1679) the budgets check event alone; a re-run of
+// any other check run stays the outbox check event. The approved check and the budgets check listen to
+// the outbox check event too, so every handled pull request action re-evaluates them as well.
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
 // run, becomes one canon action event alone, carrying the button and the facts the check run's summary
@@ -35,6 +36,8 @@ import { PrNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
   APPROVED_CHECK_EVENT,
   APPROVED_EXTERNAL_ID,
+  BUDGETS_CHECK_EVENT,
+  BUDGETS_EXTERNAL_ID,
   HARVEST_EVENT,
   INBOX_CHECK_EVENT,
   INBOX_EXTERNAL_ID,
@@ -232,6 +235,7 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
 function rerunEventOf(externalId: string | null | undefined): string {
   if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
   if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  if (externalId === BUDGETS_EXTERNAL_ID) return BUDGETS_CHECK_EVENT;
   return OUTBOX_CHECK_EVENT;
 }
 
