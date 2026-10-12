@@ -12,7 +12,7 @@ function harness() {
   return {
     logger,
     lines,
-    advance(ms: number) {
+    advance: (ms: number) => {
       now += ms;
     },
     parsed: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),

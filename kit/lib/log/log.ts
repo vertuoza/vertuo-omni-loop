@@ -66,12 +66,13 @@ export type LogEntry = {
 /** Where a line goes: one call per line, without its newline. */
 export type LogSink = (line: string) => void;
 
+/** A logger; its members are plain functions, so `log.warn` can be handed on alone. */
 export type Logger = {
-  info(entry: LogEntry): void;
-  warn(entry: LogEntry): void;
-  error(entry: LogEntry): void;
+  info: (entry: LogEntry) => void;
+  warn: (entry: LogEntry) => void;
+  error: (entry: LogEntry) => void;
   /** Starts a stopwatch on the logger's clock; calling the result gives the milliseconds since. */
-  timer(): () => number;
+  timer: () => () => number;
 };
 
 const MAX_TEXT = 500;
