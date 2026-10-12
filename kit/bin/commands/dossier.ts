@@ -15,8 +15,8 @@
 //   record. It writes nothing.
 // - `status` prints `on` with the switch's source, or `off` with the reason, and calls nothing.
 // - `--kind visual|bug` (PRD 627), on `push` and `link`: issue n's fix instead of PRD n. `push` reads
-//   the fix's folder (`../../lib/dossier/folder.ts`, `readFixFolder`), titles it after its issue (asked
-//   of `gh`; the folder's topic when that fails) and sends its kind; no draft is chosen or recorded, a
+//   the fix's folder (`../../lib/dossier/folder.ts`, `readFixFolder`), titles it after its issue (read
+//   through `LoopReads`, PRD 1665: the Omni page; the folder's topic when that fails) and sends its kind; no draft is chosen or recorded, a
 //   fix never having one. `link` asks for the fix's dossier, with no fallback to the local record, which
 //   holds PRDs only. `--kind prd`, or no `--kind`, is the PRD's call, sent exactly as before.
 // - `--kind concept` (PRD 1272), on `push` and `link`: concept n (its issue's number) instead. `push`
@@ -36,7 +36,8 @@
 // Exit 2 is the kit not installed here, a config that does not read, or arguments it cannot run.
 //
 // It runs before a context exists, like `ask`, so that a test can hand it `tokens` (the token store),
-// `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
+// `home` (where the real one lives), `fetch` and `callMs`, or `reads`, a `LoopReads` of its own; it
+// loads the context itself.
 import { AskCallError, type askClient } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { field } from '../../lib/ask/schema.ts';
@@ -49,14 +50,17 @@ import { chooseDraft } from '../../lib/dossier/draft.ts';
 import { fixTitle, readConceptFolder, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.ts';
 import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
+import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { isOneOf } from '../../lib/narrow.ts';
 import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
 import { PRODUCT_USAGE, productCallOf, runProductCall } from './dossier-product.ts';
 import type { ProductCall } from './dossier-product.ts';
-import type { Exec, FreeCommand, FreeIo, Out, Vars } from '../io.ts';
+import type { FreeCommand, FreeIo, Out, Vars } from '../io.ts';
 
 /** What a test hands `omni dossier` beyond `main()`'s own. */
 type DossierOptions = {
+  reads?: LoopReads | undefined;
   tokens?: TokenStore | undefined;
   home?: string | undefined;
   fetch?: Fetch;
@@ -71,7 +75,8 @@ type VerbIo = {
   ctx: Context;
   repo: string;
   client: ReturnType<typeof askClient>;
-  exec: Exec;
+  /** The loop's reads: a fix's issue title. */
+  reads: LoopReads;
   home: string | null;
   claudeSessionId: string | null;
   stdout: Out;
@@ -83,7 +88,7 @@ const USAGE = `usage: omni dossier open "<title>" | omni dossier push <n> [--kin
 const KINDS = ['prd', 'visual', 'bug', 'concept'] as const;
 /** What a dossier other than a PRD's is of: a fix of its kind, or a concept (PRD 1272), each keyed by its issue. */
 type IssueKind = FixKind | 'concept';
-/** How long asking GitHub for a fix's issue title may take. */
+/** How long reading a fix's issue title may take. */
 const ISSUE_TITLE_MS = 5000;
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
@@ -138,13 +143,12 @@ async function open(title: string, { ctx, repo, client, home, claudeSessionId, s
   return 0;
 }
 
-/** Issue n's title, as `gh` reads it, or null when it cannot: the push then titles the fix after its folder. */
-function issueTitle(issue: IssueNumber, { ctx, repo, exec }: Pick<VerbIo, 'ctx' | 'repo' | 'exec'>): string | null {
+/** Issue n's title, as the loop's reads answer it, or null when they cannot: the push then titles the
+ * fix after its folder. */
+async function issueTitle(issue: IssueNumber, { repo, reads }: Pick<VerbIo, 'repo' | 'reads'>): Promise<string | null> {
   try {
-    const title = exec('gh', ['issue', 'view', String(issue), '--repo', repo, '--json', 'title', '--jq', '.title'], {
-      cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: ISSUE_TITLE_MS,
-    });
-    return typeof title === 'string' && title.trim() ? title.trim() : null;
+    const title = (await reads.issue(repo, issue)).title.trim();
+    return title || null;
   } catch {
     return null;
   }
@@ -164,11 +168,11 @@ function reportPush(result: unknown, tooLarge: readonly TooLarge[], { stdout, st
 }
 
 /** Issue n's fix of `kind`: its folder, sent with its kind. No draft: a fix never has one. */
-async function pushFix(issue: IssueNumber, kind: FixKind, { ctx, repo, client, exec, stdout, stderr }: VerbIo): Promise<number> {
+async function pushFix(issue: IssueNumber, kind: FixKind, { ctx, repo, client, reads, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readFixFolder(ctx, kind, issue);
   if (!folder) throw usageError(`omni dossier push: issue ${issue} has no ${kind} fix folder.`);
   // Titled after its issue, asked of GitHub only once the folder is there; after the folder when it cannot.
-  const title = fixTitle(issueTitle(issue, { ctx, repo, exec }), folder.title);
+  const title = fixTitle(await issueTitle(issue, { repo, reads }), folder.title);
   let result;
   try {
     result = await client.pushDossier({ repo, prd: issue, kind, title, artifacts: folder.artifacts.map(({ kind: k, content }) => ({ kind: k, content })) });
@@ -316,7 +320,7 @@ export const dossier = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now, scratch }: FreeIo & DossierOptions,
+    { cwd, stdout, stderr, exec, vars, reads, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now, scratch }: FreeIo & DossierOptions,
   ) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind', 'product', 'from', 'title'], booleans: ['new'] });
     const [verb = '', ...rest] = positional;
@@ -351,7 +355,8 @@ export const dossier = {
       println(stderr, NO_SIGN_IN);
       return 1;
     }
-    const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now };
+    const loop = reads ?? omniLoopReads({ askUrl: toggle.askUrl, tokens, home, fetch, callMs: callMs ?? ISSUE_TITLE_MS });
+    const options: VerbIo = { ctx, repo, client, reads: loop, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now };
     // `named` is set for `push` and `link`, the two verbs that read a number, and null for `open`.
     if (named === null) return open(title, options);
     if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);
