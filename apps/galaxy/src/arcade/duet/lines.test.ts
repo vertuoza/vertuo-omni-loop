@@ -8,7 +8,11 @@ import { CHAPTERS } from './waves';
 describe('the lines', () => {
   it('give every chapter wave its own line, and endless mode a few in turn', () => {
     expect(CHAPTER_LINES.map((c) => c.length)).toEqual(CHAPTERS.map((c) => c.waves.length));
-    CHAPTERS.forEach((c, i) => c.waves.forEach((_, k) => expect(lineOf({ chapter: i, wave: k, endless: false }), `${c.name} wave ${k + 1}`).not.toBe('')));
+    CHAPTERS.forEach((c, i) => {
+      c.waves.forEach((_, k) => {
+        expect(lineOf({ chapter: i, wave: k, endless: false }), `${c.name} wave ${k + 1}`).not.toBe('');
+      });
+    });
     expect(ENDLESS_LINES.length).toBeGreaterThanOrEqual(4);
     expect(lineOf({ chapter: 3, wave: 0, endless: true })).toBe(ENDLESS_LINES[0]);
     expect(lineOf({ chapter: 3, wave: ENDLESS_LINES.length, endless: true })).toBe(ENDLESS_LINES[0]);
