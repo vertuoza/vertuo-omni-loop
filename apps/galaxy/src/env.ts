@@ -140,13 +140,23 @@ const GALAXY = envGroup({
 });
 
 /**
+ * The commit this deployment was built from, which Vercel sets on every build and function (PRD 1723):
+ * `/api/health` says which commit is live. Unset off Vercel, and then the health says `null`.
+ */
+const VERCEL = envGroup({
+  label: 'the deployed commit',
+  schema: z.object({ commit: secret }),
+  variables: { commit: 'VERCEL_GIT_COMMIT_SHA' },
+});
+
+/**
  * The variables a person sets for the arcade, server and browser: `.env.example` and the README's list
  * name exactly these (`src/env-docs.test.ts`).
  */
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
   STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND,
-  KIT_TOKENS, DEMO, GALAXY,
+  KIT_TOKENS, DEMO, GALAXY, VERCEL,
 ]);
 
 /**
@@ -191,9 +201,18 @@ export function readEnv(raw: EnvSource) {
     kitTokenKey: reader.group(KIT_TOKENS)?.key ?? null,
     demo: reader.group(DEMO)?.flag ?? null,
     galaxyUrl: reader.group(GALAXY)?.url ?? null,
+    commit: reader.group(VERCEL)?.commit ?? null,
   };
   reader.done();
   return { ...env, mode: arcadeMode(source) };
+}
+
+/**
+ * The deployed commit alone, read from `raw` whatever the other groups hold: the health endpoint says
+ * which commit is live even when the rest of the environment does not parse.
+ */
+export function readCommit(raw: EnvSource): string | null {
+  return envReader(trimmed(raw)).group(VERCEL)?.commit ?? null;
 }
 
 /** The arcade server's groups, as `readEnv` gives them. */
@@ -217,6 +236,11 @@ let parsed: ArcadeEnv | undefined;
 export function serverEnv(): ArcadeEnv {
   parsed ??= readEnv(process.env);
   return parsed;
+}
+
+/** This deployment's commit, `VERCEL_GIT_COMMIT_SHA`, or null off Vercel. */
+export function serverCommit(): string | null {
+  return readCommit(process.env);
 }
 
 /** The runtime Next runs this code in: `nodejs`, `edge`, or unset outside Next (a script, a test). */
