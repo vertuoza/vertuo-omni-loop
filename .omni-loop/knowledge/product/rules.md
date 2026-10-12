@@ -391,7 +391,7 @@ The arcade reads high scores only for players who linked GitHub, separately from
 
 Serves: P-PRODUCT-30
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-04-scores-read-on-their-own, PRD #160
-Enforced by: pending #1497
+Enforced by: apps/galaxy/src/data/arcade.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161

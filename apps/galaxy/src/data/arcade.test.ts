@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
@@ -13,6 +15,13 @@ vi.mock('../env', async (actual) => {
 
 import { levelTag, XP_LINE, xpStatus } from '../arcade/games/room';
 import { present } from '../ask/test/test-item';
+import { demoAccount } from '../arcade/account-demo';
+import { setFleets } from '../arcade/fleets';
+import { xpStatus } from '../arcade/games/room';
+import { WIDE } from '../arcade/grid';
+import { isPlayer } from '../arcade/onboarding';
+import { ScreenContext } from '../arcade/Screen';
+import { GamesOverlay } from '../arcade/scenes/games.tsx';
 import type { DossierListRow } from '../dossier/store';
 import { afterReturn, afterStart } from '../arcade/onboarding';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
@@ -397,5 +406,60 @@ describe('the XP the arcade shows', () => {
     expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
     expect(data.fleets.map((f) => f.name)).toEqual(['beaver', 'pirates', 'invincible-team']);
     expect(data.crew?.map((p) => p.display_name)).toEqual(['ADA', 'BOTH']);
+  });
+});
+
+// Law BR-PRODUCT-36 (.omni-loop/knowledge/product/rules.md, #1497).
+describe('the high scores, read on their own', () => {
+  it('law BR-PRODUCT-36: are read only for a player who linked GitHub, apart from the galaxy', async () => {
+    const visitor = await page(PEOPLE.una, (world) => {
+      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.una.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' });
+    });
+    expect(visitor.data.view).not.toBeNull();
+    expect(visitor.reads.some((c) => c.table === 'arcade_scores')).toBe(false);
+    expect(visitor.data.scores).toEqual({});
+
+    const player = await page(PEOPLE.ada);
+    expect(player.reads.some((c) => c.table === 'arcade_scores')).toBe(true);
+    expect(player.data.scores?.invaders).toMatchObject({ mine: 1240 });
+  });
+
+  it('law BR-PRODUCT-36: a failed read shows SCORES OUT OF REACH on the cabinet, while the galaxy, level and XP still show and the game plays', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
+    expect(data.problem).toBeUndefined();
+    expect(data.view?.planets.length).toBeGreaterThan(0);
+    expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
+
+    setFleets(data.fleets);
+    const xp = xpStatus(isPlayer(data.session ?? null), data.xp ?? null);
+    const overlay = createElement(GamesOverlay, { xp, me: data.me ?? null, index: 0, scores: data.scores ?? {}, onPick: () => {} });
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, overlay));
+    const text = html.replace(/<!-- -->/g, '').replace(/<[^>]+>/g, '\n').replace(/&#x27;/g, "'").split('\n').map((t) => t.trim()).filter(Boolean);
+    expect(text).toContain('SCORES OUT OF REACH');
+    expect(text).toContain('A · PLAY');
+    expect(text.some((t) => /\bLV 3\b/.test(t))).toBe(true);
+    expect(text).toContain('180 / 300 XP');
+  });
+
+  it('law BR-PRODUCT-36: the demo\'s table holds only the guest\'s own best', async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal('window', { localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => { storage.set(k, v); } } });
+    try {
+      vi.useFakeTimers();
+      const guest = demoAccount();
+      const signing = guest.signIn(); await vi.runAllTimersAsync(); await signing;
+      const linking = guest.linkGithub(); await vi.runAllTimersAsync(); await linking;
+      vi.useRealTimers();
+      expect(await guest.scores('invaders')).toEqual({ top: [], mine: null });
+      const me = await guest.save({ team: 'octopod', display_name: 'INKY', hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 0, cape: 2 } }, null);
+      await guest.submitScore('invaders', 1240);
+      const board = await guest.scores('invaders');
+      expect(board.mine).toBe(1240);
+      expect(board.top).toEqual([containing({ id: me.id, best: 1240 })]);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
   });
 });
