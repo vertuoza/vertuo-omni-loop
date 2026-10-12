@@ -16,6 +16,11 @@
 //   person approves the request in any browser, then trades the code as above. Refused, expired or
 //   unreachable ends with one line, exit 1. A page with no device sign-in (404, or 503 without its
 //   database key) says so on stderr and runs the loopback.
+//   The loopback flow (taken anywhere else, or with `--loopback`) issues a device request too and
+//   prints it under its own link as the fallback, `Browser didn't open, or it's on another machine?
+//   <link>  (code <c>)`, then finishes on whichever comes back first, the other closed
+//   (`../../lib/ask/race.ts`). When the request cannot be issued, the line is left out and the
+//   loopback runs alone.
 // - `signout` forgets that host's sign-in on this computer.
 // - `whoami` prints the email kept for that host (the GitHub login when there is none), or `signed out`. Past its expiry, it renews the
 //   sign-in first: refused, it says the sign-in is no longer valid and exits 1.
@@ -37,8 +42,10 @@ import type { Fetch } from '../../lib/ask/client.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { askEndpoint, credentials, credentialsHost, exchangeCode, signedInLine, SignInError } from '../../lib/ask/credentials.ts';
 import { chooseFlow, DeviceError, startDevice } from '../../lib/ask/device.ts';
-import type { DeviceReason } from '../../lib/ask/device.ts';
+import type { Device, DeviceReason } from '../../lib/ask/device.ts';
 import { LOOPBACK_WAIT_MS, LoopbackError, startLoopback } from '../../lib/ask/loopback.ts';
+import { firstOf } from '../../lib/ask/race.ts';
+import type { Contender } from '../../lib/ask/race.ts';
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo, Vars } from '../io.ts';
@@ -113,6 +120,21 @@ const DEVICE_ENDINGS: Readonly<Record<Exclude<DeviceReason, 'unavailable'>, stri
   closed: 'the sign-in was stopped before it came back',
 };
 
+/** The line after `omni signin: ` for an error that ends a sign-in; `null` for any other error. A
+ * device request the page has no sign-in for only ever ends the race as unreachable. */
+function endingOf(error: unknown): string | null {
+  if (error instanceof DeviceError) return DEVICE_ENDINGS[error.reason === 'unavailable' ? 'unreachable' : error.reason];
+  if (error instanceof LoopbackError || error instanceof SignInError) return error.message;
+  return null;
+}
+
+/** The one-time code an approved sign-in request hands over. */
+async function codeOf(device: Device): Promise<string> {
+  const approval = await device.poll();
+  if (!('code' in approval)) throw new DeviceError('unreachable');
+  return approval.code;
+}
+
 /** What signing in needs, whichever flow brings the code back. */
 type SignInRun = Required<Pick<SigninOptions, 'openBrowser' | 'fetch' | 'waitMs'>> & Pick<SigninOptions, 'home' | 'onSignedIn'> & {
   askUrl: string;
@@ -141,23 +163,44 @@ async function openQuietly(openBrowser: SignInRun['openBrowser'], url: string): 
   }
 }
 
-/** Signs in by the browser coming back to a listener on 127.0.0.1. */
+/** The device request the loopback offers as its fallback; `null` when the page cannot issue one (an
+ * older page, or one that cannot be reached). */
+async function fallbackDevice({ askUrl, fetch }: SignInRun): Promise<Device | null> {
+  try {
+    return await startDevice({ askUrl, purpose: 'signin', fetch });
+  } catch (error) {
+    if (error instanceof DeviceError) return null;
+    throw error;
+  }
+}
+
+/** Signs in by the browser coming back to a listener on 127.0.0.1, or by the fallback device request,
+ * whichever comes back first. */
 async function signInByLoopback(run: SignInRun): Promise<number> {
   const { askUrl, stdout, stderr, openBrowser, waitMs } = run;
   const state = randomBytes(32).toString('base64url');
   const listener = await startLoopback({ state, timeoutMs: waitMs });
+  const issuing = fallbackDevice(run);
   try {
     const page = new URL(askEndpoint(askUrl, '/ask/signin'));
     page.search = new URLSearchParams({ port: String(listener.port), state }).toString();
     println(stdout, `Sign in in your browser: ${page}`);
     await openQuietly(openBrowser, page.toString());
-    return await finishSignIn(run, await listener.code);
+    const contenders: Contender<string>[] = [{ result: listener.code, close: () => listener.close() }];
+    const device = await issuing;
+    if (device) {
+      println(stdout, `Browser didn't open, or it's on another machine? ${device.url}  (code ${device.userCode})`);
+      contenders.push({ result: codeOf(device), close: () => device.close() });
+    }
+    return await finishSignIn(run, await firstOf(contenders));
   } catch (error) {
-    if (!(error instanceof LoopbackError) && !(error instanceof SignInError)) throw error;
-    println(stderr, `omni signin: ${error.message}`);
+    const ending = endingOf(error);
+    if (ending === null) throw error;
+    println(stderr, `omni signin: ${ending}`);
     return 1;
   } finally {
     await listener.close();
+    await (await issuing)?.close();
   }
 }
 
@@ -169,20 +212,15 @@ async function signInByDevice(run: SignInRun): Promise<number | null> {
     try {
       println(stdout, `Sign in at ${device.url}`);
       println(stdout, `Check that the page shows ${device.userCode}. Waiting (${Math.max(1, Math.round(device.waitMs / 60_000))} min)…`);
-      const approval = await device.poll();
-      if (!('code' in approval)) throw new DeviceError('unreachable');
-      return await finishSignIn(run, approval.code);
+      return await finishSignIn(run, await codeOf(device));
     } finally {
       await device.close();
     }
   } catch (error) {
-    if (error instanceof DeviceError) {
-      if (error.reason === 'unavailable') return null;
-      println(stderr, `omni signin: ${DEVICE_ENDINGS[error.reason]}`);
-      return 1;
-    }
-    if (!(error instanceof SignInError)) throw error;
-    println(stderr, `omni signin: ${error.message}`);
+    if (error instanceof DeviceError && error.reason === 'unavailable') return null;
+    const ending = endingOf(error);
+    if (ending === null) throw error;
+    println(stderr, `omni signin: ${ending}`);
     return 1;
   }
 }
@@ -196,8 +234,8 @@ export const signin = {
       cwd, stdout, stderr, exec, vars, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn, platform = process.platform,
     }: FreeIo & SigninOptions,
   ) {
-    const { positional, flags } = parseArgs('signin', args, { booleans: ['device'] });
-    if (positional.length > 0) throw usageError('usage: omni signin [--device]');
+    const { positional, flags } = parseArgs('signin', args, { booleans: ['device', 'loopback'] });
+    if (positional.length > 0 || (flags.device && flags.loopback)) throw usageError('usage: omni signin [--device | --loopback]');
     const { askUrl, repo } = signInConfig(cwd, exec);
     if (!askUrl) {
       println(stderr, ASK_URL_UNSET);
@@ -213,7 +251,8 @@ export const signin = {
       });
     }
     const run: SignInRun = { askUrl, repo, stdout, stderr, home, openBrowser, fetch, waitMs, onSignedIn };
-    if (chooseFlow(vars.session, platform, flags.device ? 'device' : null) === 'device') {
+    const forced = flags.device ? 'device' : flags.loopback ? 'loopback' : null;
+    if (chooseFlow(vars.session, platform, forced) === 'device') {
       const ended = await signInByDevice(run);
       if (ended !== null) return ended;
       println(stderr, NO_DEVICE_SIGN_IN);
