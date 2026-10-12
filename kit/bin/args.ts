@@ -2,8 +2,8 @@
 // upstream script's CLI half read); anything else is a usage error — exit 2, one line.
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { parseIssue, parsePr, parsePrd, WorkSliceIdSchema } from '../lib/ids.ts';
-import type { IssueNumber, PrdNumber, PrNumber, WorkSliceId } from '../lib/ids.ts';
+import { parseIssue, parsePr, parsePrd, ProductPrdIdSchema, WorkSliceIdSchema } from '../lib/ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber, ProductPrdId, WorkSliceId } from '../lib/ids.ts';
 import { at, isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
 import type { Out } from './io.ts';
 
@@ -63,6 +63,13 @@ export function positiveInt(command: string, what: string, value: string | true 
 /** A PRD number argument, read as `positiveInt` reads one. */
 export function prdArg(command: string, what: string, value: string | true | undefined): PrdNumber {
   return parsePrd(positiveInt(command, what, value));
+}
+
+/** A PRD argument of either birth (PRD 1548): a product's id (`mobile-12`), or a repository's number,
+ * read as `prdArg` reads one. */
+export function prdIdArg(command: string, what: string, value: string | true | undefined): PrdNumber | ProductPrdId {
+  const product = ProductPrdIdSchema.safeParse(value);
+  return product.success ? product.data : prdArg(command, what, value);
 }
 
 /** A pull request number argument, read as `positiveInt` reads one. */

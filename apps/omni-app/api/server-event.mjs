@@ -975,7 +975,7 @@ var LabeledEventSchema = z9.looseObject({
 // apps/omni-app/src/server-event/server-event.ts
 var SERVER_EVENT = "omni-loop/server.event.received";
 var SERVER_SIGNATURE_HEADER = STAGE_SIGNATURE_HEADER;
-var SERVER_EVENT_KINDS = ["approved", "voided"];
+var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ServerEventSchema = z10.object({
   event: z10.enum(SERVER_EVENT_KINDS),
