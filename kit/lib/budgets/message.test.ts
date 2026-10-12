@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { budgetTable, kb, neutralLines, redMessage, targetLabel } from './message.ts';
 import type { MessageContext } from './message.ts';
+import { parsePrd } from '../ids.ts';
 import type { TargetVerdict } from './ratchet.ts';
 
 const verdict = (over: Partial<TargetVerdict>): TargetVerdict => ({
@@ -10,7 +11,7 @@ const verdict = (over: Partial<TargetVerdict>): TargetVerdict => ({
 });
 
 const growth = { 'form:design': { files: [{ path: '.omni-loop/knowledge/playbook/design.md', bytesAdded: 1843 }], commits: [{ sha: 'abc1234', subject: 'docs: more design' }] } };
-const onPrd: MessageContext = { prd: 7, ceilingsFile: '.omni-loop/budgets/context.json', growth };
+const onPrd: MessageContext = { prd: parsePrd(7), ceilingsFile: '.omni-loop/budgets/context.json', growth };
 const noPrd: MessageContext = { ...onPrd, prd: null };
 
 describe('kb and targetLabel', () => {

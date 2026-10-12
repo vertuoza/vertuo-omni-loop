@@ -3,6 +3,7 @@
 // is a table of every target's size, ceiling and change; a neutral one says what could not be
 // measured, and that it blocks nothing (D6). Pure: what grew is gathered elsewhere
 // (`./message-growth.ts` from git, the Omni App from GitHub) and handed in.
+import type { PrdNumber, ProductPrdId } from '../ids.ts';
 import type { TargetVerdict } from './ratchet.ts';
 import { raiseLine } from './ratchet.ts';
 
@@ -15,7 +16,7 @@ export type Growth = { files: readonly GrownFile[]; commits: readonly { sha: str
 /** What every message reads besides the verdicts. */
 export type MessageContext = {
   /** The PRD the pull request belongs to, or `null` when it belongs to none. */
-  prd: string | number | null;
+  prd: PrdNumber | ProductPrdId | null;
   /** The ceilings file, as the config names it. */
   ceilingsFile: string;
   /** What grew, by target; a target missing here grew nothing that could be read. */

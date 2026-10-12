@@ -74,7 +74,7 @@ describe('ratchet: the verdict table', () => {
   });
 
   it('reads a ceiling the head names only for itself, never one inherited from the object', () => {
-    expect(one({ base: {}, head: { toString: 5 } as never })).toMatchObject({ ceiling: null, verdict: 'green' });
+    expect(one({ base: {}, head: { toString: 5 } })).toMatchObject({ ceiling: null, verdict: 'green' });
   });
 
   it('keeps the measure order', () => {
