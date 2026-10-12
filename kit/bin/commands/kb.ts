@@ -9,11 +9,15 @@
 // (PRD #149): its summary, or with `--json` the whole document. `laws` (PRD 1726) discloses only what
 // a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
 // the rules that govern those files, that slice's territory or that domain folder; `show briefing`
-// ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. None of them
+// ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
+// (PRD 1726) writes the CODEOWNERS block that makes `laws.owners` the owners of the thesis, the
+// registers and each locked law's test, and changes no line outside its markers. None of them
 // fails on what a form holds: a dead pointer or a kit default naming an unset config key is a
 // warning, and `omni check kb` grades.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { ownerHandle } from '../../lib/codeowners.ts';
+import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
@@ -41,7 +45,7 @@ type KbFlags = { json?: true };
 export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus>; ungoverned: number };
 
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […]`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -290,6 +294,32 @@ function laws(args: string[], io: CommandIo): number {
   return 0;
 }
 
+/**
+ * `omni kb owners`: writes the CODEOWNERS block for the thesis, the registers and each locked law's
+ * test, owned by `laws.owners`; refused while `laws.owners` is empty, since a line with no owner
+ * leaves its file unowned.
+ */
+function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
+  if (positional.length > 0) throw usageError('usage: omni kb owners [--json]');
+  const listed = ctx.config.laws.owners;
+  if (listed.length === 0) {
+    throw usageError('omni kb owners: laws.owners is empty — name who owns the laws (logins or teams) in .omni-loop/config.yml first.');
+  }
+  let written: ReturnType<typeof writeOwnersBlock>;
+  try {
+    written = writeOwnersBlock(ctx);
+  } catch (error) {
+    println(stderr, `omni kb owners: ${(error as Error).message}`);
+    return 1;
+  }
+  const who = listed.map(ownerHandle).join(', ');
+  const line = written.wrote
+    ? `kb owners — wrote ${written.file}: ${written.paths} path(s) owned by ${who}; no line outside its markers changed.`
+    : `kb owners — ${written.file} is up to date: ${written.paths} path(s) owned by ${who}.`;
+  println(stdout, flags.json ? JSON.stringify({ ...written, owners: listed }, null, 2) : line);
+  return 0;
+}
+
 export const kb: Command = {
   run: synchronous((args: string[], io: CommandIo): number => {
     if (args[0] === 'laws') return laws(args.slice(1), io);
@@ -299,6 +329,7 @@ export const kb: Command = {
     if (sub === 'show') return show(rest, flags, io);
     if (sub === 'status') return status(rest, flags, io);
     if (sub === 'graph') return graph(rest, flags, io);
+    if (sub === 'owners') return owners(rest, flags, io);
     throw usageError(USAGE);
   }),
 };

@@ -24,7 +24,9 @@
  *   test and a `Governs:` line, and carries no `Proposed:` line; the folder holds no more locks than
  *   `laws.max`, and none while `laws.owners` is empty (an imported copy is asked neither); every
  *   `Governs:` pattern is a regular expression, as a flow area's `paths` are; and `product/thesis.md`
- *   lists every locked law in its laws section, and nothing else (`thesis.ts`);
+ *   lists every locked law in its laws section, and nothing else (`thesis.ts`); and the CODEOWNERS
+ *   block `omni kb owners` writes is what it would write now (`codeowners-laws.ts`), present once a
+ *   law is locked;
  * - **honesty** — a path-shaped `Enforced by:` or `Source:` that does not exist is refused: a wrong
  *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves.
  *
@@ -59,6 +61,7 @@ import {
 } from './registers.ts';
 import { invalidGoverns } from './disclose.ts';
 import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
+import { ownersBlockProblems } from '../codeowners-laws.ts';
 
 /**
  * What grading needs of the context: the checkout, where the knowledge folder sits, the glossary's
@@ -554,6 +557,15 @@ function findThesisViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry[])
   return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text) => ({ text }));
 }
 
+/**
+ * The CODEOWNERS block against the locks (PRD 1726): what `omni kb owners` would write now, so a
+ * change to a law asks its owner. An imported copy is not asked: its CODEOWNERS is its target's.
+ */
+function findOwnersBlockViolations(ctx: CheckCtx, knowledge: Knowledge): Violation[] {
+  if (ctx.copyOf) return [];
+  return ownersBlockProblems(ctx, knowledge).map((text) => ({ text }));
+}
+
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
@@ -615,6 +627,7 @@ export function gradeKnowledge({
     ...findLockCountViolations(ctx, knowledge.entries),
     ...findGovernsViolations(knowledge.entries),
     ...findThesisViolations(ctx, knowledge.entries),
+    ...findOwnersBlockViolations(ctx, knowledge),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve)),
   ];
 

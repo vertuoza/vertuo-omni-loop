@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
+import { writeOwnersBlock } from '../codeowners-laws.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import { readKnowledge } from './registers.ts';
 import { assertDefined } from '../../test/assert.ts';
@@ -703,8 +704,12 @@ describe('a law is a locked entry (PRD 1726)', () => {
     text.split(/^## /m).slice(1).filter((entry) => entry.includes('\nLocked:')).map((entry) => entry.split('\n')[0]?.trim() ?? '');
   /** A thesis listing `ids` as its laws (PRD 1726, s2), as `omni check knowledge` asks once a law is locked. */
   const thesisOf = (ids: readonly string[]) => `# Thesis\n\n## The laws\n\n${ids.map((id) => `- ${id} — It holds. If broken: an advisor's customer is hurt.`).join('\n')}\n`;
-  const lawTree = (rules: string, principles = principle('P-ADVISOR-1'), thesis: string | null = thesisOf(lockedIn(rules))) =>
-    tree({ [ADVISOR_PRINCIPLES]: principles, [ADVISOR_RULES]: rules, [TEST]: '// a test\n', ...(thesis === null ? {} : { [THESIS]: thesis }) });
+  /** The laws' tree, its CODEOWNERS block written by `omni kb owners`' writer (s4), so only what a test changes is wrong. */
+  const lawTree = (rules: string, principles = principle('P-ADVISOR-1'), thesis: string | null = thesisOf(lockedIn(rules))) => {
+    const root = tree({ [ADVISOR_PRINCIPLES]: principles, [ADVISOR_RULES]: rules, [TEST]: '// a test\n', ...(thesis === null ? {} : { [THESIS]: thesis }) });
+    writeOwnersBlock(flatCtx(root, { laws: { source: 'knowledge', owners: ['pierrederval'] } }));
+    return root;
+  };
 
   it('refuses a Governs: pattern the flow areas’ matcher cannot read, a glob included', () => {
     const root = lawTree(rule('BR-ADVISOR-1', { extra: ['Governs: kit/lib/advisor/**, ^kit/lib/advisor\\.ts$'] }));
@@ -793,6 +798,37 @@ describe('a law is a locked entry (PRD 1726)', () => {
     ]);
     const unlocked = lawTree(rule('BR-ADVISOR-1'));
     expect(gradeWith(unlocked, { owners: [] }).violations).toEqual([]);
+  });
+
+  it('refuses a missing or stale CODEOWNERS block once a law is locked, and asks nothing while nothing is locked and no block is written', () => {
+    const root = lawTree(law('BR-ADVISOR-1'));
+    expect(gradeWith(root).violations).toEqual([]);
+    rmSync(join(root, '.github/CODEOWNERS'));
+    expect(gradeWith(root).violations).toEqual([
+      '.github/CODEOWNERS: has no "# BEGIN omni kb owners" block, and 1 law(s) are locked — run omni kb owners, so a change to a law needs its owner\'s approval.',
+    ]);
+    expect(gradeWith(root, {}, { copyOf: 'acme/back-end' }).violations).toEqual([]);
+    const stale = lawTree(law('BR-ADVISOR-1'));
+    expect(gradeWith(stale, { owners: ['someone-else'] }).violations).toEqual([
+      '.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.',
+    ]);
+    const unlocked = tree({ [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'), [ADVISOR_RULES]: rule('BR-ADVISOR-1') });
+    expect(gradeWith(unlocked).violations).toEqual([]);
+  });
+
+  it('goes red when a law is locked after the block was written, and when the markers do not pair up', () => {
+    const root = lawTree([law('BR-ADVISOR-1'), rule('BR-ADVISOR-2')].join('\n'));
+    writeFileSync(join(root, ADVISOR_RULES), [law('BR-ADVISOR-1'), law('BR-ADVISOR-2').replace(TEST, 'kit/lib/advisor-two.test.ts')].join('\n'));
+    writeFileSync(join(root, 'kit/lib/advisor-two.test.ts'), '// a test\n');
+    writeFileSync(join(root, THESIS), thesisOf(['BR-ADVISOR-1', 'BR-ADVISOR-2']));
+    expect(gradeWith(root).violations).toEqual([
+      '.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.',
+    ]);
+    const broken = lawTree(law('BR-ADVISOR-1'));
+    writeFileSync(join(broken, '.github/CODEOWNERS'), '# BEGIN omni kb owners\n/a @x\n');
+    expect(gradeWith(broken).violations).toEqual([
+      '.github/CODEOWNERS: its "# BEGIN omni kb owners" and "# END omni kb owners" lines do not pair up — keep exactly one of each, in that order, or remove both.',
+    ]);
   });
 
   it("never asks an imported copy for laws.max or laws.owners: the target's own config decides", () => {
