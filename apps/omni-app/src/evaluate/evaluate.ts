@@ -35,6 +35,7 @@ import {
 } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { visualRoot } from 'vertuo-omni-plan/kit/lib/visual/verdict.ts';
+import { proseLines } from './prose-lines.ts';
 
 export const NOT_ACTIVE_ON_REPO = 'omni-loop is not active on this repo';
 export const NOT_ACTIVE_ON_PR = 'omni-loop is not active on this PR';
@@ -215,17 +216,18 @@ export function prdOfTopic(topic: string, folderNames: string[], config: Config)
 export type PlanPrd = { repo: string; prd: PrdNumber };
 
 const CLOSES = /Closes #\d+/;
-const PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/m;
+const PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/;
 
 /**
  * The plan repository's PRD a target feature PR is part of, read from its body (issue 1202): a line
  * `Part of <owner>/<repo>#<n>` naming a repository other than `slug`, the one `/omni:ultra-yolo` opens
  * a target feature PR with. Null for any other body: one saying `Closes #<n>` (the single-repository
- * feature PR, gated here), one naming this same repository (a sub-PR's shape), or neither.
+ * feature PR, gated here), one naming this same repository (a sub-PR's shape), or neither. A line
+ * inside fenced code is a quoted example, never the claim (issue 1690).
  */
 export function planPrdOf(body: string, slug: string): PlanPrd | null {
   if (CLOSES.test(body)) return null;
-  const match = PART_OF.exec(body);
+  const match = proseLines(body).map((line) => PART_OF.exec(line)).find((found) => found !== null);
   if (!match) return null;
   const [, repo = '', prd = ''] = match;
   if (repo.toLowerCase() === slug.toLowerCase()) return null;

@@ -357,6 +357,12 @@ describe('planPrdOf — the plan repository PRD a target feature PR is part of (
   it('reads only a line that starts with `Part of`, never a mention inside a sentence', () => {
     expect(planPrdOf('This is not Part of acme/plan#8 at all.', 'acme/crew')).toBeNull();
   });
+
+  it('never reads a line inside a fenced code block (issue 1690), and reads the claim after one', () => {
+    expect(planPrdOf('A target PR says:\n\n```\nPart of acme/plan#8\n```\n', 'acme/crew')).toBeNull();
+    expect(planPrdOf('```md\r\nPart of acme/plan#8\r\n```\r\n', 'acme/crew')).toBeNull();
+    expect(planPrdOf('```\nPart of acme/other#9\n```\nPart of acme/plan#8\r\n', 'acme/crew')).toEqual({ repo: 'acme/plan', prd: 8 });
+  });
 });
 
 describe('deferredOutput — the check of a target feature PR', () => {

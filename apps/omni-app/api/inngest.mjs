@@ -4690,6 +4690,24 @@ function visualRoot(ctx) {
   return `${ctx.config.paths.delivery}/visual`;
 }
 
+// apps/omni-app/src/evaluate/prose-lines.ts
+var OPENING = /^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/;
+function proseLines(body) {
+  const out = [];
+  let fence = null;
+  for (const line of body.split(/\r?\n/)) {
+    if (fence !== null) {
+      const closing2 = new RegExp(`^ {0,3}${fence[0] === "`" ? "`" : "~"}{${fence.length},}[ \\t]*$`);
+      if (closing2.test(line)) fence = null;
+      continue;
+    }
+    const opening = OPENING.exec(line);
+    if (opening) fence = opening[1] ?? null;
+    else out.push(line);
+  }
+  return out;
+}
+
 // apps/omni-app/src/evaluate/evaluate.ts
 var NOT_ACTIVE_ON_REPO = "omni-loop is not active on this repo";
 var NOT_ACTIVE_ON_PR = "omni-loop is not active on this PR";
@@ -4801,10 +4819,10 @@ function prdOfTopic(topic, folderNames2, config) {
   return { skip: `No PRD folder for the topic \`${topic}\` under \`${config.paths.delivery}\`.` };
 }
 var CLOSES = /Closes #\d+/;
-var PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/m;
+var PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/;
 function planPrdOf(body, slug) {
   if (CLOSES.test(body)) return null;
-  const match = PART_OF.exec(body);
+  const match = proseLines(body).map((line) => PART_OF.exec(line)).find((found) => found !== null);
   if (!match) return null;
   const [, repo = "", prd = ""] = match;
   if (repo.toLowerCase() === slug.toLowerCase()) return null;
@@ -4860,11 +4878,11 @@ function planComment(prd, { ctx, comments, now }) {
 
 // apps/omni-app/src/approved-check/state.ts
 import { basename as basename5 } from "node:path";
-var PART_OF2 = /(?:^|[^\w-])Part of ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})(?![\w-])/;
+var PART_OF2 = /^ {0,3}Part of ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})(?![\w-])/;
 var KEY_MAX = 40;
 var SEQ_MAX = 2 ** 31 - 1;
 function productPrdOf(body) {
-  const match = PART_OF2.exec(body ?? "");
+  const match = proseLines(body ?? "").map((line) => PART_OF2.exec(line)).find((found) => found !== null);
   if (!match) return null;
   const [, key = "", digits = ""] = match;
   const seq = Number(digits);
