@@ -43,9 +43,9 @@ import { isOneOf, propertyOf } from '../../lib/narrow.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, prArg, prdArg, println, readUserFile, repoSlug, usageError } from '../args.ts';
 import { buildBoard } from './board.ts';
+import { ghBoardReads } from '../../lib/loop-reads/gh-bridge.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhGraphqlSchema, GhReplyMutationSchema } from '../schema.ts';
-import { synchronous } from '../synchronous.ts';
 import { IssueNumberSchema, PrNumberSchema } from '../../lib/ids.ts';
 import type { IssueNumber, PrNumber, PrdNumber } from '../../lib/ids.ts';
 
@@ -145,12 +145,14 @@ function targetOf(ctx: Context, flag: string | undefined): Target | null {
 /** Whether a wave holds claims: `holdsClaims` is `null` when the board could not be read. For a
  * target, only its own slices' claims count, and only its own landings are its chain; the board is
  * then the plan repository's own. */
-function waveClaims(
+async function waveClaims(
   prd: PrdNumber,
   { ctx, exec, env, repo, target }: { ctx: Context; exec: Exec; env: Env; repo: string | undefined; target: Target | null },
-): { wave: { holdsClaims: boolean | null; claimed: string[]; unreadable?: string }; landings: LandingRow[] | null } {
+): Promise<{ wave: { holdsClaims: boolean | null; claimed: string[]; unreadable?: string }; landings: LandingRow[] | null }> {
   try {
-    const { result } = buildBoard(prd, { ctx, exec, env, repo: target === null ? repo : undefined });
+    // The board's reads through `gh` until s4 of PRD 1665 hands this command the Omni page's.
+    const reads = ghBoardReads({ exec, env: githubEnv(ctx, { exec, env }) });
+    const { result } = await buildBoard(prd, { ctx, reads, repo: target === null ? repo : undefined });
     const claimed = claimedIn(result.slices, target?.name ?? null);
     return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: landingsIn(result.landings, target?.name ?? null) };
   } catch (error) {
@@ -208,14 +210,14 @@ function readCare(prd: PrdNumber, number: number, { scope, ctx, gh }: { scope: S
   return { prd, ...(scope.target === null ? {} : { target: scope.target }), ...state, ...(waitsOn === null ? {} : { waitsOn }) };
 }
 
-function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
+async function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): Promise<number> {
   const { positional, flags } = parseArgs('care', args, { values: ['pr', 'repo'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = prdArg('care', '<prd>', positional[0]);
   const gh: Gh = { exec, env: githubEnv(ctx, { exec, env }) };
   const scope = scopeOf(prd, flags.repo, { ctx, gh });
 
-  const { wave, landings } = waveClaims(prd, { ctx, exec, env, repo: flags.repo, target: scope.target });
+  const { wave, landings } = await waveClaims(prd, { ctx, exec, env, repo: flags.repo, target: scope.target });
   const landed = landings !== null && landings.length > 1 ? landings : null;
   const number = watchedPr({ flag: flags.pr, landed, find: () => findPr(scope, gh)?.number ?? null });
   if (number === null) {
@@ -393,11 +395,11 @@ function postReply({ thread, verdict, body }: { thread: string; verdict: string;
 }
 
 export const care: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
+  async run(args: string[], io: CommandIo): Promise<number> {
     const [sub, ...rest] = args;
     if (sub === 'state') return runState(rest, io);
     if (sub === 'list') return runList(rest, io);
     if (sub === 'reply') return runReply(rest, io);
     throw usageError(USAGE);
-  }),
+  },
 };

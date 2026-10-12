@@ -5,8 +5,6 @@ import { assertDefined } from '../test/assert.ts';
 import {
   GhCommentsSchema,
   GhGraphqlSchema,
-  GhPrCommitsSchema,
-  GhPrListSchema,
   GhPrStatesSchema,
   GhPullRequestSchema,
   GhReplyMutationSchema,
@@ -41,15 +39,7 @@ describe('the gh schemas', () => {
     expect(refusedAt(GhPullRequestSchema, { number: 43 })).toBe('html_url');
   });
 
-  it('keep a pull request list, and name a label of another shape', () => {
-    const list = [{ number: 1, headRefName: 'feat/x--s1', labels: [{ name: 'omni:sub' }, 'bug'] }];
-    expect(GhPrListSchema.parse(list)).toEqual(list);
-    expect(refusedAt(GhPrListSchema, [{ isDraft: 'yes' }])).toBe('0.isDraft');
-  });
-
-  it('keep a pull request\'s commits and states, and name what is not one', () => {
-    expect(GhPrCommitsSchema.parse({ commits: [{ committedDate: '2026-01-01' }] })).toEqual({ commits: [{ committedDate: '2026-01-01' }] });
-    expect(refusedAt(GhPrCommitsSchema, { commits: 'none' })).toBe('commits');
+  it('keep a pull request\'s states, and name what is not one', () => {
     expect(GhPrStatesSchema.parse([{ number: 9, state: 'OPEN' }])).toEqual([{ number: 9, state: 'OPEN' }]);
     expect(refusedAt(GhPrStatesSchema, [{ state: 'OPEN' }])).toBe('0.number');
   });
