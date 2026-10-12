@@ -3,7 +3,7 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { BOX_WORLD, boxFrame, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
+import { BOX_WORLD, boxFrame, minimapAt, minimapLit, minimapTiles, MINIMAP_TOP, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
 import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf, project, viewOf } from './mode7';
@@ -438,7 +438,7 @@ describe('the shadows and the effects', () => {
     const flashes = (kart: ReturnType<typeof createKart>, reduced: boolean) => {
       const r = recorder();
       kart.draw(r.ctx, { ...frame(WIDE), reduced });
-      return r.fills.filter((f) => f.style === DEFAULT_THEME.white && f.rect[2] === f.rect[3]);
+      return r.fills.filter((f) => f.style === DEFAULT_THEME.white && f.rect[2] === f.rect[3] && (f.rect[0] ?? 0) < minimapAt(WIDE, parseTrack()).x);
     };
     const kart = createKart({ seed: 3 });
     kart.press('start');
@@ -589,7 +589,7 @@ describe('the sky', () => {
 
   it('draws the comets in the frame, and they cross as time passes', () => {
     const times = Array.from({ length: 60 }, (_, i) => i * 0.5);
-    const drawn = times.map((t) => skyOf(7, at(t)).fills.filter((f) => (f.rect[1] ?? horizon) < horizon && f.rect[2] !== undefined && f.rect[2] < 16));
+    const drawn = times.map((t) => skyOf(7, at(t)).fills.filter((f) => (f.rect[1] ?? horizon) < horizon && f.rect[2] !== undefined && f.rect[2] < 16 && (f.rect[0] ?? 0) < minimapAt(WIDE, parseTrack()).x));
     expect(drawn.some((f) => f.length > 0)).toBe(true);
     expect(drawn.some((f) => f.length === 0)).toBe(true);
   });
@@ -740,5 +740,53 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     expect(leaning.filter((f) => !f.shadow)).toHaveLength(1);
     expect(s.filter((f) => f.falling).some((f) => f.shadow)).toBe(false);
     expect(s.filter((f) => !f.falling && f.roll === 0).some((f) => f.shadow)).toBe(true);
+  });
+});
+
+describe('the minimap (PRD 1698)', () => {
+  const track = parseTrack();
+  const inside = (grid: Grid, f: { rect: number[] }) => { const m = minimapAt(grid, track); const [x = 0, y = 0] = f.rect; return x >= m.mapX && y >= m.mapY && x < m.mapX + track.cols && y < m.mapY + track.rows; };
+
+  it.each([['wide', WIDE], ['tall', TALL]] as const)('stands in the top right corner, 8 in from the right edge and under the item panel, one pixel a tile, on the %s grid', (_n, grid) => {
+    const m = minimapAt(grid, track);
+    expect(m.x + m.w).toBe(grid.w - 8);
+    expect(m.y).toBeGreaterThanOrEqual(32);
+    expect(m.w).toBe(track.cols + 2);
+    expect(m.h).toBe(track.rows + 2);
+    const r = recorder();
+    createKart({ seed: 1 }).draw(r.ctx, frame(grid));
+    expect(r.fills.some((f) => f.style === DEFAULT_THEME.cyan && f.rect.join() === [m.x, m.y, m.w, m.h].join())).toBe(true);
+  });
+
+  it('shades the road by its height, lighter the higher, and the start line white', () => {
+    const tiles = minimapTiles(track, { low: 0, high: 26 });
+    const light = (c: string) => Number(/rgb\((\d+)/.exec(c)?.[1] ?? 0);
+    expect(tiles.length).toBeGreaterThan(100);
+    const shades = tiles.filter((t) => t.colour !== '#ffffff').map((t) => light(t.colour));
+    expect(Math.max(...shades)).toBeGreaterThan(Math.min(...shades));
+    expect(tiles.some((t) => t.colour === '#ffffff')).toBe(true);
+    const flat = minimapTiles(parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }), { low: 0, high: 0 });
+    expect(new Set(flat.filter((t) => t.colour !== '#ffffff').map((t) => t.colour)).size).toBe(1);
+  });
+
+  it('draws a gold pixel per box there to take, a dot per rival and the player\'s yellow dot last', () => {
+    const r = recorder();
+    createKart({ seed: 1 }).draw(r.ctx, frame(WIDE));
+    const gold = r.fills.filter((f) => f.style === DEFAULT_THEME.gold && inside(WIDE, f) && f.rect[2] === 1);
+    expect(gold).toHaveLength(track.boxes.length);
+    expect(r.fills.filter((f) => inside(WIDE, f) && f.rect[2] === 2 && f.rect[3] === 2)).toHaveLength(5);
+    const yellow = r.fills.map((f, i) => ({ f, i })).filter(({ f }) => f.style === DEFAULT_THEME.yellow && inside(WIDE, f) && f.rect[2] === 3);
+    expect(yellow).toHaveLength(1);
+    const after = r.fills.slice(sure(yellow[0], 'dot').i + 1).filter((f) => inside(WIDE, f));
+    expect(after.every((f) => f.rect[2] === 1 && f.rect[3] === 1)).toBe(true);
+    expect(after).toHaveLength(1);
+  });
+
+  it('blinks the player\'s dot while it falls, and not with reduced motion', () => {
+    expect(minimapLit({ t: 0.3, reduced: false }, { fall: 0 })).toBe(true);
+    expect(minimapLit({ t: 0, reduced: false }, { fall: 1 })).toBe(true);
+    expect(minimapLit({ t: 0.2, reduced: false }, { fall: 1 })).toBe(false);
+    expect(minimapLit({ t: 0.2, reduced: true }, { fall: 1 })).toBe(true);
+    expect(MINIMAP_TOP).toBeGreaterThanOrEqual(32);
   });
 });
