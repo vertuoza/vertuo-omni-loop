@@ -45,3 +45,12 @@ A re-run is allowed only when both hold: the failure matches a known red, and yo
 nothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`
 repair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the
 latest run instead.
+
+## Budgets
+<!-- slot: budgets · optional -->
+What every agent session reads (the briefing, each form as `omni kb show` prints it, the context
+files) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while
+`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which
+target grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.
+Only when it needs the room, raise its ceiling in the same pull request and file a high outbox item
+that says why; a person's answer turns it green. A pull request with no PRD cannot raise one.
