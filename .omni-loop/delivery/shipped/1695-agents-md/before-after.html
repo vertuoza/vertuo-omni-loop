@@ -1,0 +1,122 @@
+<title>AGENTS.md before and after</title>
+<style>
+/* Layout: one column; each part sets today beside after in two panes that stack on a phone.
+   Single dark look, on purpose: the Omni Loop's own tokens (packages/design/tokens.css). */
+:root {
+  --bg: #07061c;        /* void */
+  --pane: #0e0d33;      /* deep */
+  --fg: #f2f4ff;        /* white */
+  --muted: #8a90d6;     /* dim */
+  --line: #2a2766;
+  --accent: #a45cff;    /* plasma */
+  --good: #4ee08a;      /* green */
+  --bad: #ff3b5c;       /* red */
+  --code: #6ff0ff;      /* cyan */
+  --display: "Press Start 2P", ui-monospace, monospace;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 56px; display: grid; gap: 32px; }
+h1 { font: 18px/1.5 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 13px/1.5 var(--display); margin: 0; color: var(--accent); letter-spacing: .04em; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; color: var(--muted); }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pane { background: var(--pane); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pane.today { border-top: 3px solid var(--bad); }
+.pane.after { border-top: 3px solid var(--good); }
+pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--code); overflow-x: auto; white-space: pre; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: .92em; color: var(--code); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.no { color: var(--bad); } .yes { color: var(--good); }
+.note { color: var(--muted); font-size: 13.5px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Press+Start+2P&display=swap">
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>AGENTS.md for vertuo-omni-loop</h1>
+    <p class="lede">PRD #1695 · Bounded, docs only. Three files change: a root <code>AGENTS.md</code>, a root <code>CLAUDE.md</code> that imports it, and one line of <code>.omni-loop/config.yml</code>. <code>.claude/</code> stays where it is.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+
+    <h3>1 · What an agent reads when it opens the repository</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>vertuo-omni-loop/
+├── .claude/settings.json   SessionStart → omni kb show briefing
+├── .omni-loop/knowledge/playbook/   13 forms
+├── apps/galaxy/AGENTS.md   Next.js block, that folder only
+└── (no AGENTS.md, no CLAUDE.md at the root)</pre>
+        <ul>
+          <li><b>Claude Code:</b> gets the briefing from the hook. No commands, no map.</li>
+          <li><b>Codex, Cursor, Copilot, Gemini CLI:</b> <span class="no">nothing at all</span>. No briefing, no rules, no commands.</li>
+        </ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>vertuo-omni-loop/
+├── AGENTS.md    ≤150 lines, every agent reads it
+├── CLAUDE.md    @AGENTS.md
+├── .claude/settings.json   unchanged: hook, plugins, statusline
+├── .omni-loop/config.yml   paths.context: [AGENTS.md]
+└── apps/galaxy/AGENTS.md   unchanged, nested</pre>
+        <ul>
+          <li><b>Claude Code:</b> <code>CLAUDE.md</code> imports <code>AGENTS.md</code>, and the briefing still arrives through the hook.</li>
+          <li><b>Codex, Cursor, Copilot, Gemini CLI:</b> <span class="yes">read <code>AGENTS.md</code></span>, which tells them to run <code>omni kb show briefing</code> first.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>2 · The sections of the new AGENTS.md</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Section</th><th>What it holds</th><th>Source of truth</th></tr></thead>
+        <tbody>
+          <tr><td>What this repository is</td><td>One paragraph, then one line per top-level folder</td><td>README, folder READMEs</td></tr>
+          <tr><td>Before you change anything</td><td>Run <code>omni kb show briefing</code>, then the form the work touches</td><td>the playbook (wins any disagreement)</td></tr>
+          <tr><td>Setup</td><td>Node ≥ 22.18, <b>pnpm 9</b> (pnpm 12 refuses the lockfile), one frozen install</td><td>setup form, CI workflow</td></tr>
+          <tr><td>Commands</td><td>Each command with what it does, its measured time and what it needs</td><td>verification form, run green on 2026-10-12</td></tr>
+          <tr><td>Generated files</td><td><code>kit/dist/</code>, <code>apps/omni-app/api/</code>: never hand-edited; who rebuilds them</td><td><code>generated:</code> in config.yml, PRD 1138</td></tr>
+          <tr><td>Never</td><td>The briefing's Never lines, one short line each</td><td>briefing form</td></tr>
+          <tr><td>The loop</td><td>Seven stages, skills for Claude, <code>omni</code> commands for any agent</td><td><code>omni help</code></td></tr>
+          <tr><td>Where to read next</td><td>Knowledge registers, ADRs, playbook, guide, nested AGENTS.md</td><td>&mdash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>3 · The question behind the PRD: <code>.claude/</code> or <code>.agents/</code>?</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Assumed</h3>
+        <p>Claude has moved to <code>.agents/</code>, so this repository should move off <code>.claude/</code>.</p>
+      </div>
+      <div class="pane after">
+        <h3>Checked (code.claude.com, 2026-10-12)</h3>
+        <ul>
+          <li>Claude Code still reads settings, skills, hooks, commands and subagents from <code>.claude/</code>, and reads no <code>.agents/</code> directory.</li>
+          <li>The shared standard is the <b>file</b> <code>AGENTS.md</code> (agents.md, Agentic AI Foundation). Claude Code reads it natively when there is no CLAUDE.md, and recommends <code>CLAUDE.md</code> = <code>@AGENTS.md</code> when both are needed.</li>
+          <li>Moving <code>.claude/</code> would switch off the briefing hook, the plugins, the fallow gate and the statusline.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">The voice objected at the design (persona:B-E DEv): "I'd only trust it if every command in it actually runs, and it says which ones are slow." Accepted: every command is run green before it is listed, with its time.</p>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</div>
