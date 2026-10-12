@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 1672
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-duet-waves-in-a-vocabulary -->
+
+## s1-01-duet-waves-in-a-vocabulary — agreed
+
+- Verdict: agreed
+- Approved by: martl-vertuoza
+- Approved at: 2026-10-12T10:07:03Z
+- Channel: feature pull request #1681
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1681#issuecomment-6122096058
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-102
+- Raised: 2026-10-12
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built; BR-PRODUCT-102 reads as before, its "rows" now being chapter IV's runs of one pose.
+
+### The answer, as it was given
+
+```text
+A. Keep the new vocabulary and waves; endless mode reads chapter IV's runs as its rows (built).
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-duet-waves-in-a-vocabulary
 prd: 1672
@@ -45,3 +78,7 @@ The waves are text in one file and the obstacle sizes one constants block.
 
 - Whether the law's word "rows" should now read "runs of obstacles": left for a person, the meaning is unchanged (author).
 - Whether the new chapters feel right: they follow Duet's vocabulary and are proven passable, not played in the browser (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-01-duet-waves-in-a-vocabulary -->
