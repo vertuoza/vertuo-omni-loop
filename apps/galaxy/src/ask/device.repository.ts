@@ -45,8 +45,10 @@ export function deviceRepository(db: Db): DeviceStore {
       const token = request.purpose === 'token' ? request : null;
       const stored = called('ask_cli_device_issue', await db.rpc('ask_cli_device_issue', {
         p_device_hash: device_hash, p_user_code: user_code, p_purpose: request.purpose,
-        p_name: token?.name ?? null, p_days: token?.days ?? null, p_workspace: token?.workspace ?? null,
         p_now: now, p_expires_at: expires_at,
+        // A signin request leaves out name, days and workspace, which the function defaults to null.
+        ...(token === null ? {} : { p_name: token.name, p_days: token.days }),
+        ...(token?.workspace == null ? {} : { p_workspace: token.workspace }),
       }));
       return stored === true ? 'issued' : 'taken';
     },
@@ -65,7 +67,9 @@ export function deviceRepository(db: Db): DeviceStore {
     },
     async approve(userCode, purpose, payload, payloadExpiresAt, at) {
       const done = called('ask_cli_device_approve', await db.rpc('ask_cli_device_approve', {
-        p_user_code: userCode, p_purpose: purpose, p_payload: payload, p_payload_expires_at: payloadExpiresAt, p_now: at,
+        p_user_code: userCode, p_purpose: purpose, p_payload: payload, p_now: at,
+        // A signin code has no payload expiry, which the function defaults to null.
+        ...(payloadExpiresAt === null ? {} : { p_payload_expires_at: payloadExpiresAt }),
       }));
       return done === true;
     },

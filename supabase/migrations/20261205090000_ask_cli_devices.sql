@@ -58,8 +58,8 @@ revoke all on public.ask_cli_devices from anon, authenticated, service_role;
 
 -- POST /api/ask/device: a new pending request. Requests past their time go at the same moment.
 create function public.ask_cli_device_issue(
-  p_device_hash text, p_user_code text, p_purpose text, p_name text, p_days integer, p_workspace text,
-  p_now timestamptz, p_expires_at timestamptz
+  p_device_hash text, p_user_code text, p_purpose text, p_now timestamptz, p_expires_at timestamptz,
+  p_name text default null, p_days integer default null, p_workspace text default null
 ) returns boolean
 language plpgsql
 security definer
@@ -132,7 +132,7 @@ $$;
 -- The auth callback, once the person signed in: the payload goes on the request, only while it is
 -- pending, in time and of the purpose the payload is for. Whether it did.
 create function public.ask_cli_device_approve(
-  p_user_code text, p_purpose text, p_payload text, p_payload_expires_at timestamptz, p_now timestamptz
+  p_user_code text, p_purpose text, p_payload text, p_now timestamptz, p_payload_expires_at timestamptz default null
 ) returns boolean
 language plpgsql
 security definer
@@ -166,8 +166,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.ask_cli_device_issue(text, text, text, text, integer, text, timestamptz, timestamptz) from public, anon, authenticated;
-grant execute on function public.ask_cli_device_issue(text, text, text, text, integer, text, timestamptz, timestamptz) to service_role;
+revoke execute on function public.ask_cli_device_issue(text, text, text, timestamptz, timestamptz, text, integer, text) from public, anon, authenticated;
+grant execute on function public.ask_cli_device_issue(text, text, text, timestamptz, timestamptz, text, integer, text) to service_role;
 revoke execute on function public.ask_cli_device_read(text) from public, anon, authenticated;
 grant execute on function public.ask_cli_device_read(text) to service_role;
 revoke execute on function public.ask_cli_device_polled(text, timestamptz, integer) from public, anon, authenticated;
