@@ -267,7 +267,7 @@ describe('approved-check, a ◆ PRD of a repository — each state, named once (
   it('drifted content: failure, naming the file and the head, its summary `omni approval restore <n>`', async () => {
     const check = await checkOf(head({ [`${FOLDER}/plan.md`]: '# Plan\n\n| s1 | another kit |\n' }), answering(APPROVED));
     expect(check).toMatchObject({ conclusion: 'failure', output: { title: 'drifted · ≠ plan.md in head1 · content' } });
-    expect(String((check?.output as { summary: string }).summary)).toContain('Run `omni approval restore 1612`');
+    expect((check?.output as { summary: string }).summary).toContain('Run `omni approval restore 1612`');
   });
 
   it('drifted in spacing alone: failure, `· whitespace only`', async () => {

@@ -121,23 +121,23 @@ export function createApprovedCheck({
       if (!target) return { ...SILENT };
 
       let verdict: ApprovedVerdict;
-      let prd: string;
+      let named: string;
       if (target.kind === 'product') {
         const reading = await step.run('record', () => readingOf(readRecord, repository, target.prd, now, log));
         verdict = approvedVerdict(target.prd, reading);
-        prd = target.prd.id;
+        named = target.prd.id;
       } else {
         const judged = await step.run('record', () => budgeted(async () => judgedAt(await octokitFor(installationId), target, ask)));
         if (!judged) return { posted: false, reason: `PRD ${Number(target.prd)} was born in its repository (◇): its phase-0 PR approved it.` };
         verdict = repoApprovedVerdict(target.prd, judged.reading, judged.head);
-        prd = `${Number(target.prd)}`;
+        named = `${Number(target.prd)}`;
       }
 
       const anchor = target.kind === 'product' ? 'attestation' : 'approval';
       const checkRunId = await step.run('publish', () => budgeted(async () =>
         postApproved(await octokitFor(installationId), { owner, repo, headSha, name: target.name, verdict, galaxyUrl, anchor })));
 
-      return { checkRunId, name: target.name, prd, state: verdict.state, conclusion: verdict.conclusion };
+      return { checkRunId, name: target.name, prd: named, state: verdict.state, conclusion: verdict.conclusion };
     },
   );
 }
