@@ -105,6 +105,19 @@ describe('the /design page', () => {
     }
   });
 
+  // BR-PRODUCT-31: the public /design page dresses its heroes only in the six built-in fleets of the
+  // demo galaxy, never in any workspace's own fleets, whoever is viewing.
+  it('dresses its heroes only in the six built-in fleets of the demo galaxy, whoever is viewing (BR-PRODUCT-31)', () => {
+    const builtIn = Object.entries(DEMO_PROJECTS.teams);
+    expect(builtIn).toHaveLength(6);
+    expect(DesignScreen.length, 'the page takes nothing from its viewer').toBe(0);
+    const heroes = section('heroes');
+    expect(new Set(values(heroes, 'data-fleet'))).toEqual(new Set(builtIn.map(([name]) => name)));
+    expect(values(heroes, 'data-fleet')).toHaveLength(2 * builtIn.length);
+    const hexes = [...heroes.matchAll(/class="ds-hex">([^<]+)</g)].map((m) => m[1]);
+    expect(new Set(hexes)).toEqual(new Set(builtIn.map(([, fleet]) => fleet.color)));
+  });
+
   it('draws the three OmniMan poses at poster scale, in both frames', () => {
     const poses = section('poses');
     const scale: number = POSTER_SCALE;

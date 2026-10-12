@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FORWARD_SCRIPT, forwardOf } from './forward';
+import { DEEP_LINKS } from '../arcade/deep-link';
 import { runInNewContext } from 'node:vm';
 
 // The arcade's old deep links, opened on HOME: each goes on to the game at /play with the same hash,
@@ -38,5 +39,19 @@ describe('the script HOME runs before it paints', () => {
     expect(run('')).toEqual([]);
     expect(run('#top')).toEqual([]);
     expect(run('#planet-x')).toEqual([]);
+  });
+});
+
+// Law N-PRODUCT-11 (.omni-loop/knowledge/product/invariants.md, #1546).
+describe('a link that names an arcade screen, opened on HOME', () => {
+  it('law N-PRODUCT-11: goes on to /play for every screen the arcade\'s DEEP_LINKS table names, never staying on HOME', () => {
+    expect(DEEP_LINKS.length).toBeGreaterThan(0);
+    for (const screen of DEEP_LINKS) {
+      const hash = `#${screen}`;
+      expect(forwardOf(hash), hash).toBe(`/play${hash}`);
+      const went: string[] = [];
+      runInNewContext(FORWARD_SCRIPT, { location: { hash, replace: (to: string) => { went.push(to); } } });
+      expect(went, hash).toEqual([`/play${hash}`]);
+    }
   });
 });

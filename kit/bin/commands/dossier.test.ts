@@ -11,7 +11,10 @@ import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../../test/fixture.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import type { FetchInit } from '../../test/fixture.ts';
-import type { FakeExec } from '../../test/fixture.ts';
+import { parseIssue } from '../../lib/ids.ts';
+import { fakeLoopReads } from '../../lib/loop-reads/fake.ts';
+import { LoopReadError } from '../../lib/loop-reads/port.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 
 const BASE = 'https://omni.example';
 const HOST = 'omni.example';
@@ -233,19 +236,21 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     return { calls, fetch };
   }
 
-  /** git as it is; gh answers the issue's title with `title`, or fails when it is null. */
-  const withIssue = (title: string | null, seen: (readonly string[])[] = []) => (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
-    if (command !== 'gh') return realExec(command, args, options);
-    seen.push(args);
-    if (title === null) throw new Error('gh: not found');
-    return `${title}\n`;
+  /** The shared fake `LoopReads`, holding issue `n` of acme/widgets titled `title` (none when it is null). */
+  const withIssue = (n: number, title: string | null) =>
+    fakeLoopReads({ issues: { 'acme/widgets': title === null ? [] : [{ number: parseIssue(n), title: `${title}\n`, state: 'open', labels: [], body: '' }] } });
+
+  /** git as it is; any `gh` call throws, for the issue's title is read through `LoopReads` alone. */
+  const noGh = (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (command === 'gh') throw new Error(`unexpected gh ${args.join(' ')}`);
+    return realExec(command, args, options);
   };
 
-  async function run(args: string[], { root, fetch, exec }: { root: string; fetch: unknown; exec?: FakeExec }) {
+  async function run(args: string[], { root, fetch, reads = fakeLoopReads() }: { root: string; fetch: unknown; reads?: LoopReads }) {
     const out: string[] = [];
     const err: string[] = [];
     const code = await main(['dossier', ...args], {
-      cwd: root, tokens: signedIn(), env: {}, fetch, ...(exec ? { exec } : {}),
+      cwd: root, tokens: signedIn(), env: {}, fetch, exec: noGh, reads,
       stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
     });
     return { code, out: out.join(''), err: err.join('') };
@@ -268,10 +273,10 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     const { root, write } = checkout();
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
     const { calls, fetch } = recordingFetch(() => pushed(LINK));
-    const seen: never[] | undefined = [];
-    expect((await run(['push', '7'], { root, fetch, exec: withIssue('never asked', seen) })).code).toBe(0);
+    const reads = withIssue(7, 'never asked');
+    expect((await run(['push', '7'], { root, fetch, reads })).code).toBe(0);
     expect(calls.map((c) => c.body)).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [{ kind: 'spec', content: SPEC }] }]);
-    expect(seen).toEqual([]);
+    expect(reads.reads).toEqual([]);
   });
 
   it('push <n> --kind visual sends the fix\'s page and rounds with its kind and its issue\'s title, and prints the link', async () => {
@@ -280,8 +285,8 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write(`${VISUAL}/variations-r2.html`, 'round 2');
     write(`${VISUAL}/variations-r1.html`, 'round 1');
     const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/visual/d-1`));
-    const seen: never[] | undefined = [];
-    const result = await run(['push', '548', '--kind', 'visual'], { root, fetch, exec: withIssue('Visual: Omni links open in a new tab', seen) });
+    const reads = withIssue(548, 'Visual: Omni links open in a new tab');
+    const result = await run(['push', '548', '--kind', 'visual'], { root, fetch, reads });
     expect(result).toEqual({ code: 0, out: `${BASE}/visual/d-1\nadded: before-after v1\n`, err: '' });
     expect(calls).toEqual([{
       url: `${BASE}/api/dossiers/push`, method: 'POST',
@@ -290,7 +295,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
         artifacts: [{ kind: 'before-after', content: PAGE }, { kind: 'variations', content: 'round 1' }, { kind: 'variations', content: 'round 2' }],
       },
     }]);
-    expect(seen).toEqual([['issue', 'view', '548', '--repo', 'acme/widgets', '--json', 'title', '--jq', '.title']]);
+    expect(reads.reads).toEqual([{ read: 'issue', repo: 'acme/widgets', number: 548 }]);
     expect(existsSync(join(root, DOSSIERS_FILE))).toBe(false);
   });
 
@@ -298,8 +303,39 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     const { root, write } = checkout();
     write(`${BUGS}/bug.md`, '# Bug 571\n');
     const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/bugs/d-1`));
-    expect((await run(['push', '571', '--kind', 'bug'], { root, fetch, exec: withIssue(null) })).code).toBe(0);
+    expect((await run(['push', '571', '--kind', 'bug'], { root, fetch, reads: withIssue(571, null) })).code).toBe(0);
     expect(calls[0]?.body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
+  });
+
+  it('push <n> --kind bug titles it after the folder, and still pushes, whatever line the read stops on', async () => {
+    const { root, write } = checkout();
+    write(`${BUGS}/bug.md`, '# Bug 571\n');
+    for (const failing of [
+      { everything: new LoopReadError('no sign-in (omni signin)', 'everything') },
+      { everything: new LoopReadError('unreachable', 'everything') },
+      { everything: new LoopReadError('refused (404): this Omni page cannot read the loop yet', 'everything') },
+      { failing: { 'acme/widgets': new LoopReadError('refused (403): acme/widgets is not in your workspace', 'repository') } },
+    ]) {
+      const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/bugs/d-1`));
+      expect(await run(['push', '571', '--kind', 'bug'], { root, fetch, reads: fakeLoopReads(failing) })).toEqual({ code: 0, out: `${BASE}/bugs/d-1\nadded: before-after v1\n`, err: '' });
+      expect(calls[0]?.body?.title).toBe('number-args');
+    }
+  });
+
+  it('push <n> --kind bug asks the Omni page for the issue, signed in, when no reads are handed in', async () => {
+    const { root, write } = checkout();
+    write(`${BUGS}/bug.md`, '# Bug 571\n');
+    const { calls, fetch } = recordingFetch((url) =>
+      url.includes('/api/loop/issues/571')
+        ? json(200, { number: 571, title: 'Bug: number args', state: 'open', labels: [], body: '', comments: [], closedBy: [] })
+        : pushed(`${BASE}/bugs/d-1`));
+    const out: string[] = [];
+    const code = await main(['dossier', 'push', '571', '--kind', 'bug'], {
+      cwd: root, tokens: signedIn(), env: {}, fetch, exec: noGh, stdout: { write: (s) => out.push(s) }, stderr: { write: () => true },
+    });
+    expect(code).toBe(0);
+    expect(calls.map((c) => c.url)).toEqual([`${BASE}/api/loop/issues/571?repo=acme%2Fwidgets`, `${BASE}/api/dossiers/push`]);
+    expect(calls[1]?.body?.title).toBe('number args');
   });
 
   it('push <n> --kind prd is the PRD push', async () => {
@@ -315,7 +351,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     const { calls, fetch } = recordingFetch(() => pushed(LINK));
     for (const args of [['push', '548', '--kind', 'visual'], ['push', '7', '--kind', 'epic'], ['link', '7', '--kind', 'epic'], ['push', '7', '--kind'],
       ['open', 'An idea', '--kind', 'bug'], ['status', '--kind', 'bug']]) {
-      const result = await run(args, { root, fetch, exec: withIssue(null) });
+      const result = await run(args, { root, fetch });
       expect(result.code, JSON.stringify(args)).toBe(2);
       expect(result.err.trim().split('\n'), JSON.stringify(args)).toHaveLength(1);
     }
@@ -351,8 +387,8 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
       const { calls, fetch } = recordingFetch(() => json(200, {
         id: 'd-1', url: `${BASE}/concepts/d-1`, added: [{ kind: 'concept-record', version: 1 }, { kind: 'board', version: 2 }], unchanged: ['vision'],
       }));
-      const seen: never[] | undefined = [];
-      const result = await run(['push', '1269', '--kind', 'concept'], { root, fetch, exec: withIssue('never asked', seen) });
+      const reads = withIssue(1269, 'never asked');
+      const result = await run(['push', '1269', '--kind', 'concept'], { root, fetch, reads });
       expect(result).toEqual({ code: 0, out: `${BASE}/concepts/d-1\nadded: concept-record v1, board v2 · unchanged: vision\n`, err: '' });
       expect(calls).toEqual([{
         url: `${BASE}/api/dossiers/push`, method: 'POST',
@@ -364,7 +400,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
           ],
         },
       }]);
-      expect(seen).toEqual([]);
+      expect(reads.reads).toEqual([]);
       expect(existsSync(join(root, DOSSIERS_FILE))).toBe(false);
     });
 

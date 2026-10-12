@@ -1,6 +1,6 @@
 {
   "name": "vertuo-omni-plan",
-  "version": "0.0.353",
+  "version": "0.0.364",
   "private": true,
   "type": "module",
   "bin": {
@@ -60,9 +60,5 @@
     "yaml": "^2.5.0",
     "zod": "^4.6.5"
   },
-  "pnpm": {
-    "ignoredOptionalDependencies": [
-      "fallow-type-aware"
-    ]
-  }
+  "packageManager": "pnpm@12.11.2"
 }

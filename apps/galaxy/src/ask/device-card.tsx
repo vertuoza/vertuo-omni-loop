@@ -3,11 +3,13 @@ import { CliSignInCard } from './cli-code-card';
 import { devicePagePath } from './cli-code';
 import type { DeviceView } from './device-card.controller';
 import { AskUnreachable, Notice } from './page/Notice';
+import './device-card.css';
 
 // The device page's own card, /ask/device (PRD 1660; the `ask-device` screen and its mockup): the
 // question with the code, the box to type one, and the done, denied and expired states. The sign-in
 // card after Yes is CliSignInCard (./cli-code-card.tsx). Every sentence at rest stays within 7 words;
-// the only code it ever shows is the user code, XXXX-XXXX. It needs no script: Yes is a link, No and
+// the only code it ever shows is the user code, XXXX-XXXX, in the pixel face on the sunk panel
+// (PRD 1705: the one arcade touch inside the doorway's card; ./device-card.css). It needs no script: Yes is a link, No and
 // Continue are forms.
 
 /** The card's states (./device-card.controller.ts picks one). */
@@ -18,15 +20,6 @@ export type DeviceCardView =
   | { kind: 'denied' }
   | { kind: 'expired' };
 
-/** The code in large mono type on the sunk panel. */
-const CODE_PANEL: CSSProperties = {
-  font: '700 32px/1 var(--ask-mono)',
-  letterSpacing: '0.12em',
-  padding: '14px 20px',
-  borderRadius: 8,
-  background: 'var(--ask-sunk)',
-  color: 'var(--ask-ink)',
-};
 const ACTIONS: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, margin: 0 };
 const CODE_BOX: CSSProperties = {
   font: '600 18px/1 var(--ask-mono)',
@@ -57,7 +50,7 @@ export function DeviceCard({ view }: { view: DeviceCardView }) {
       return (
         <Card title="Sign a terminal in">
           <p className="ask-muted">Does your terminal show this code?</p>
-          <p style={CODE_PANEL}>{view.userCode}</p>
+          <p className="ask-device-code">{view.userCode}</p>
           <form method="post" action="/ask/device/deny" style={ACTIONS}>
             <a className="ask-button" href={devicePagePath({ user_code: view.userCode, yes: '1' })}>Yes, sign it in</a>
             <input type="hidden" name="user_code" value={view.userCode} />

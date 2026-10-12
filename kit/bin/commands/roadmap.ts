@@ -9,11 +9,13 @@
 //   to each (read from the roadmap issue's comments, `../../lib/roadmap/answers.ts`) and where each of
 //   its PRDs stands (read from their feature PRs, `../../lib/roadmap/push.ts`) and, since PRD 1217,
 //   the human work across them (`../../lib/roadmap/human-work.ts`) to the app's
-//   `POST /api/roadmaps`, with the terminal's sign-in. It never blocks the tick that runs it: the
-//   contract's 5-second limit and one token refresh, and anything that stops it is exit 1 with one
-//   line — `off` (no `ask.url`), `no sign-in (omni signin)`, `github unreachable`, `unreachable`,
-//   `refused (<status>)` or `refused (<status>): <the app's reason>`, or a roadmap.md that does not
-//   parse. Once the app took it, it keeps the roadmap page it printed as the roadmap's link in the
+//   `POST /api/roadmaps`, with the terminal's sign-in. The pull requests and the comments are read
+//   through `LoopReads` (PRD 1665: the Omni page, 15 seconds a read), never `gh`. It never blocks the
+//   tick that runs it: the contract's 5-second limit and one token refresh, and anything that stops it
+//   is exit 1 with one line — `off` (no `ask.url`), `no sign-in (omni signin)`, the line a read of the
+//   loop stops on (`unreachable`, `refused (403): <owner/repo> is not in your workspace`, …),
+//   `github unreachable` for any other failed read, `unreachable`, `refused (<status>)` or
+//   `refused (<status>): <the app's reason>`, or a roadmap.md that does not parse. Once the app took it, it keeps the roadmap page it printed as the roadmap's link in the
 //   main checkout (`../../lib/now/links.ts`, PRD 1208's s4), for `omni now`; a link it cannot keep
 //   changes nothing of the push.
 // - `answer <n> <question> "<answer>"` (slice s6) posts one comment on roadmap n's issue carrying the
@@ -21,7 +23,7 @@
 //   this very line. An unknown question, or an empty or too long answer, is exit 2.
 // - `prereqs <n> [--fix] [--json]` (PRD 1218, slice s3) runs roadmap n's `## Prerequisites` rows on
 //   this machine through `../../lib/roadmap/prereqs/` (with `--fix`, the agent rows' fixes once),
-//   reading the ticks from the roadmap issue's comments; prints one line per row grouped by category
+//   reading the ticks from the roadmap issue's comments (through `LoopReads`); prints one line per row grouped by category
 //   (`ok`, `fixed`, `ticked`, or `waits on you` with its card's command), or the result as JSON;
 //   keeps it as this machine's last result, and pushes it with the roadmap. A push that fails is one
 //   line on stderr and never changes the exit: 0 when every row is ok, fixed or ticked, 1 otherwise.
@@ -30,7 +32,8 @@
 //   other id is exit 2.
 //
 // It runs before a context exists, like `loop`, so that a test can hand it `tokens`, `home`, `fetch`
-// and `callMs`; it loads the context itself.
+// and `callMs`, or `reads`, a `LoopReads` of its own; it loads the context itself. Its writes (the
+// answer and tick comments) still go through `gh`.
 import { AskCallError } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
@@ -54,11 +57,14 @@ import { liveEnv, machineName } from '../../lib/roadmap/prereqs/live.ts';
 import { isMet, PREREQUISITE_STATES, runPrerequisites } from '../../lib/roadmap/prereqs/run.ts';
 import type { PrerequisiteResult, PrerequisiteState } from '../../lib/roadmap/prereqs/run.ts';
 import { readTicks, tickComment } from '../../lib/roadmap/prereqs/ticks.ts';
+import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import { LoopReadError } from '../../lib/loop-reads/port.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { readRoadmapPrds, roadmapPushBody } from '../../lib/roadmap/push.ts';
 import type { PushedPrerequisiteResult } from '../../lib/roadmap/push.ts';
 import { issueArg, parseArgs, println, usageError } from '../args.ts';
-import { githubClientFor, githubEnv } from '../github.ts';
-import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
+import { githubClientFor } from '../github.ts';
+import type { FreeCommand, FreeIo, Out } from '../io.ts';
 
 /** Keeps `page` as roadmap `n`'s link in the main checkout of `cwd`, at `now`; never throws. */
 function keepPage({ cwd, exec, now }: Io, n: IssueNumber, page: string): void {
@@ -74,6 +80,7 @@ function keepPage({ cwd, exec, now }: Io, n: IssueNumber, page: string): void {
  * `prereqs` the command runner its checks go through, this machine's name and the clock (which
  * also dates the roadmap page `push` keeps). */
 type RoadmapOptions = {
+  reads?: LoopReads | undefined;
   tokens?: TokenStore | undefined;
   home?: string | undefined;
   fetch?: Fetch;
@@ -165,12 +172,26 @@ function repoContext({ cwd, exec }: Io): { ctx: Context; repo: string } {
   return { ctx, repo };
 }
 
-/** The environment `gh` runs with, or undefined when none can be made. */
-function ghEnvOf(ctx: Context, exec: Exec, env: Env): Env | undefined {
+/** The loop's reads: the test's own, else the Omni page's with this computer's sign-in. */
+function loopReadsOf(ctx: Context, { reads, tokens, home, fetch }: Io): LoopReads {
+  return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch });
+}
+
+/** The line a failed read of the loop stops on: its own, or `github unreachable` for anything else. */
+const readLine = (error: unknown): string => (error instanceof LoopReadError ? error.line : 'github unreachable');
+
+/** What the code host says of the roadmap, read through the loop's reads: each PRD's standing, their
+ * human work (null when it cannot be read whole, PRD 1217) and the answers; the line it stops on when
+ * the loop cannot be read. */
+async function readLoop(ctx: Context, repo: string, roadmap: Roadmap, io: Io) {
+  const reads = loopReadsOf(ctx, io);
+  const git = (args: string[]) => io.exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   try {
-    return githubEnv(ctx, { exec, env });
-  } catch {
-    return undefined;
+    const { standings, prdWork } = await readRoadmapPrds(ctx, roadmap, { reads, git });
+    const comments = await reads.comments(repo, roadmap.roadmap);
+    return { standings, prdWork, answers: readAnswers(comments) };
+  } catch (error) {
+    return readLine(error);
   }
 }
 
@@ -179,21 +200,6 @@ function skipLine(error: unknown): string {
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) return 'unreachable';
   return error.reason ? `refused (${error.status}): ${error.reason}` : `refused (${error.status})`;
-}
-
-/** What GitHub says of the roadmap: each PRD's standing, their human work (null when it cannot be
- * read whole, PRD 1217) and the answers; null when GitHub cannot be read. */
-function readGithub(ctx: Context, roadmap: Roadmap, { exec, env }: Io) {
-  const ghEnv = ghEnvOf(ctx, exec, env);
-  const gh = (args: string[]) => exec('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(ghEnv ? { env: ghEnv } : {}) });
-  const git = (args: string[]) => exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-  try {
-    const { standings, prdWork } = readRoadmapPrds(ctx, roadmap, { gh, git });
-    const comments = githubClientFor(ctx, { issue: roadmap.roadmap, exec, env }).listComments();
-    return { standings, prdWork, answers: readAnswers(comments) };
-  } catch {
-    return null;
-  }
 }
 
 /** What a push sends, and where: the app's address, a signed-in client and the body. */
@@ -216,7 +222,7 @@ function keptResult(ctx: Context, n: IssueNumber, io: Io): PushedPrerequisiteRes
 
 /** Everything roadmap `n`'s push needs before it is sent, or the one line it stops with. The
  * prerequisites `result` is this machine's last unless one is given. */
-function pushInputs(n: IssueNumber, io: Io, given?: PushedPrerequisiteResult): PushInputs | string {
+async function pushInputs(n: IssueNumber, io: Io, given?: PushedPrerequisiteResult): Promise<PushInputs | string> {
   const { ctx, repo } = repoContext(io);
   const entry = roadmapFile(ctx, 'push', n);
   const askUrl = ctx.config.ask.url;
@@ -225,10 +231,10 @@ function pushInputs(n: IssueNumber, io: Io, given?: PushedPrerequisiteResult): P
   if (typeof read === 'string') return read;
   const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
   if (!client) return 'no sign-in (omni signin)';
-  const github = readGithub(ctx, read.roadmap, io);
-  if (github === null) return 'github unreachable';
+  const loop = await readLoop(ctx, repo, read.roadmap, io);
+  if (typeof loop === 'string') return loop;
   const result = given ?? keptResult(ctx, n, io);
-  return { askUrl, client, body: roadmapPushBody({ repo, roadmap: read.roadmap, document: read.document, ...github, result }) };
+  return { askUrl, client, body: roadmapPushBody({ repo, roadmap: read.roadmap, document: read.document, ...loop, result }) };
 }
 
 /** The app's reply to roadmap `n`'s push, printed: its link and any note, exit 0; 1 with no roadmap in it. */
@@ -250,7 +256,7 @@ async function pushCommand(rest: string[], io: Io): Promise<number> {
   const { positional } = parseArgs('roadmap push', rest);
   if (positional.length !== 1) throw usageError(USAGE);
   const n = issueArg('roadmap push', '<n>', positional[0]);
-  const inputs = pushInputs(n, io);
+  const inputs = await pushInputs(n, io);
   if (typeof inputs === 'string') return refuse(io.stderr, inputs);
   let reply: unknown;
   try {
@@ -342,12 +348,13 @@ function prereqsJson(result: LastResult, results: readonly PrerequisiteResult[])
   return JSON.stringify({ roadmap: result.roadmap, machine: result.machine, checkedAt: result.checkedAt, rows }, null, 2);
 }
 
-/** The ids ticked on roadmap `n`'s issue; none, with one line saying so, when GitHub cannot be read. */
-function readRoadmapTicks(ctx: Context, n: IssueNumber, io: Io): Set<string> {
+/** The ids ticked on roadmap `n`'s issue, read through the loop's reads; none, with one line saying
+ * which read stopped, when they cannot be made. */
+async function readRoadmapTicks(ctx: Context, repo: string, n: IssueNumber, io: Io): Promise<Set<string>> {
   try {
-    return readTicks(githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).listComments());
-  } catch {
-    println(io.stderr, `roadmap ${n}: the ticks could not be read (github unreachable) — every person row waits.`);
+    return readTicks(await loopReadsOf(ctx, io).comments(repo, n));
+  } catch (error) {
+    println(io.stderr, `roadmap ${n}: the ticks could not be read (${readLine(error)}) — every person row waits.`);
     return new Set();
   }
 }
@@ -359,9 +366,15 @@ function signedInHere(ctx: Context, io: Io): () => boolean {
 }
 
 /** Runs roadmap `n`'s prerequisites on this machine, fixing the agent rows with `fix`. */
-function runRoadmapPrerequisites(ctx: Context, n: IssueNumber, prerequisites: readonly RoadmapPrerequisite[], fix: boolean, io: Io): Promise<PrerequisiteResult[]> {
+async function runRoadmapPrerequisites(
+  { ctx, repo }: { ctx: Context; repo: string },
+  n: IssueNumber,
+  prerequisites: readonly RoadmapPrerequisite[],
+  fix: boolean,
+  io: Io,
+): Promise<PrerequisiteResult[]> {
   const env = { ...liveEnv({ root: ctx.root, labels: ctx.config.labels, signedIn: signedInHere(ctx, io) }), ...(io.prereqShell ? { shell: io.prereqShell } : {}) };
-  return runPrerequisites(prerequisites, { probes: (prerequisite) => probesFor(prerequisite, env), ticks: readRoadmapTicks(ctx, n, io), fix });
+  return runPrerequisites(prerequisites, { probes: (prerequisite) => probesFor(prerequisite, env), ticks: await readRoadmapTicks(ctx, repo, n, io), fix });
 }
 
 /** Sends the run to the roadmap's page: its link on stdout (stderr under `--json`), or one line on
@@ -374,7 +387,7 @@ async function pushPrereqs(n: IssueNumber, io: Io, result: LastResult, json: boo
 
 /** Roadmap `n`'s push with the run's `result`: the page's link, or why it was not sent. */
 async function sendPrereqs(n: IssueNumber, io: Io, { machine, checkedAt, rows }: LastResult): Promise<{ ok: true; url: string } | { ok: false; why: string }> {
-  const inputs = pushInputs(n, io, { machine, checkedAt, rows });
+  const inputs = await pushInputs(n, io, { machine, checkedAt, rows });
   if (typeof inputs === 'string') return { ok: false, why: inputs };
   let reply: unknown;
   try {
@@ -393,7 +406,7 @@ async function prereqsCommand(rest: string[], io: Io): Promise<number> {
   const { positional, flags } = parseArgs('roadmap prereqs', rest, { booleans: ['fix', 'json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const n = issueArg('roadmap prereqs', '<n>', positional[0]);
-  const { ctx } = repoContext(io);
+  const { ctx, repo } = repoContext(io);
   const read = readRoadmap(ctx, roadmapFile(ctx, 'prereqs', n));
   if (typeof read === 'string') return refuse(io.stderr, read);
   const prerequisites = read.roadmap.prerequisites ?? [];
@@ -401,7 +414,7 @@ async function prereqsCommand(rest: string[], io: Io): Promise<number> {
     println(io.stdout, `roadmap ${n} — no prerequisites: nothing to check.`);
     return 0;
   }
-  const results = await runRoadmapPrerequisites(ctx, n, prerequisites, flags.fix === true, io);
+  const results = await runRoadmapPrerequisites({ ctx, repo }, n, prerequisites, flags.fix === true, io);
   const machine = machineOf(io);
   const result = lastResultOf(results, { roadmap: n, machine, checkedAt: (io.now?.() ?? new Date()).toISOString() });
   writeLastResult(ctx.root, result);

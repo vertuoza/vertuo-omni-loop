@@ -220,7 +220,8 @@ passed. A slice of `src/Quote/` meets no hook at the same point, and the kit's s
 
 ### 5. The merge gate
 
-Before `/omni:wave` merges a sub-PR it asks the gate, which reads the sub-PR's checks, reviews and
+Before `/omni:wave` merges a sub-PR it handles the sub-PR's review threads (`omni care state <n>
+--pr 12`, as [the loop](./loop.md#slices-and-waves) says), then asks the gate, which reads the sub-PR's checks, reviews and
 diff from GitHub and applies the `subPr` rules of every area the slice's territory and its diff
 touch:
 

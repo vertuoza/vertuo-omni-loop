@@ -67,6 +67,27 @@ describe('an open round', () => {
     expect(sessionView(state([round({ ago: HOOK_WAIT_MS })]), NOW).kind).toBe('moved');
   });
 
+  // BR-PRODUCT-13: the page offers to send an answer only while the newest round is open, readable
+  // and younger than HOOK_WAIT_MS by the server's clock; after that the question has moved to the
+  // terminal, even without an abandon.
+  it('offers an answer only for the newest round while open, readable and younger than HOOK_WAIT_MS (BR-PRODUCT-13)', () => {
+    const young = HOOK_WAIT_MS - 1;
+    expect(sessionView(state([round({ ago: young })]), NOW).kind).toBe('open');
+    // Still open, never abandoned, but past the hook's wait on the clock it is given: moved.
+    const stale = sessionView(state([round({ ago: HOOK_WAIT_MS })]), NOW);
+    expect(stale.kind).toBe('moved');
+    expect(sessionView(state([round({ ago: HOOK_WAIT_MS + MIN, status: 'open' })]), NOW).kind).toBe('moved');
+    // The same round is open or moved by the clock passed in, not by its row.
+    const same = round({ ago: 0 });
+    expect(sessionView(state([same]), NOW + HOOK_WAIT_MS - 1).kind).toBe('open');
+    expect(sessionView(state([same]), NOW + HOOK_WAIT_MS).kind).toBe('moved');
+    // Unreadable questions: nothing to answer on the page.
+    expect(sessionView(state([round({ ago: MIN, questions: ['not a question', { question: '  ' }] })]), NOW).kind).toBe('moved');
+    expect(sessionView(state([round({ ago: MIN, questions: [] })]), NOW).kind).toBe('moved');
+    // Only the newest round counts: a young open round behind a stale newer one is not offered.
+    expect(sessionView(state([round({ ago: 2 * MIN }), round({ ago: MIN, status: 'abandoned' })]), NOW).kind).toBe('moved');
+  });
+
   it('says how many minutes are left, rounded up', () => {
     expect(minutesLeft(NOW + 9 * MIN, NOW)).toBe(9);
     expect(minutesLeft(NOW + 8 * MIN + 1, NOW)).toBe(9);

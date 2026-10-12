@@ -37,7 +37,7 @@ describe('/signup\'s screens', () => {
   it('says sign-up is not open without the App set up', () => {
     const html = render({ kind: 'install' }, null);
     expect(html).not.toContain('github.com/apps');
-    expect(html).toContain('sign-up is not open here');
+    expect(html).toContain('Sign-up is not open here.');
   });
 
   it('waits for one org\'s owner', () => {
@@ -57,7 +57,58 @@ describe('/signup\'s screens', () => {
   });
 
   it('says nothing was created when the installation is not the visitor\'s', () => {
-    expect(render({ kind: 'error', reason: 'not-yours' })).toContain('nothing was created');
+    expect(render({ kind: 'error', reason: 'not-yours' })).toContain('Nothing was created.');
+  });
+});
+
+describe('/signup\'s words, cut to the word pass (PRD 1705)', () => {
+  /** What a person reads, tags dropped and entities read back. */
+  const text = (html: string) => html.replace(/<[^>]+>/g, '\n').replace(/&#x27;/g, "'").split('\n').map((t) => t.trim()).filter(Boolean);
+  /** The sentences at rest: every text node, split at its full stops and question marks. */
+  const sentences = (html: string) => text(html).flatMap((t) => t.split(/(?<=[.?])\s/)).map((t) => t.trim()).filter(Boolean);
+  const SCREENS: SignupView[] = [
+    { kind: 'install' }, { kind: 'waiting', orgs: ['acme'] }, ...SETUP_ERRORS.map((reason) => ({ kind: 'error' as const, reason })),
+  ];
+
+  it('says one line before the install button, then three short ones, linking how sign-up works', () => {
+    expect(text(render({ kind: 'install' }))).toEqual([
+      'Install Omni Loop on your org', 'Pick the repositories it may read.', 'Install Omni Loop on GitHub',
+      'Not the owner? GitHub asks them.', 'Already in a workspace?', 'Sign in again', 'How sign-up works',
+    ]);
+    const html = render({ kind: 'install' });
+    expect(html).toContain('href="/docs/install#install-the-github-app"');
+    expect(html).toContain('href="/play"');
+  });
+
+  it('waits for an org\'s owner in two short lines', () => {
+    expect(text(render({ kind: 'waiting', orgs: ['acme'] }))).toEqual([
+      "Waiting for acme's owner", 'Only an org owner can install it.', 'Once approved, sign in again.', 'Sign in again',
+    ]);
+  });
+
+  it.each([
+    ['link', 'This link is not one GitHub sent', 'Start from the install button below.'],
+    ['github', 'GitHub did not answer', 'Nothing was created. Try again shortly.'],
+    ['unknown', 'GitHub knows no such installation', 'Nothing was created. Install from the button below.'],
+    ['not-yours', 'That installation is not yours', 'Nothing was created. Install it on your account or org.'],
+    ['no-org', 'No org of yours is waiting', 'Sign in again to join their workspaces.'],
+  ] as const)('says the %s error in its title and one line', (reason, title, line) => {
+    expect(text(render({ kind: 'error', reason }))).toEqual([title, line, 'Install Omni Loop on GitHub']);
+  });
+
+  it('keeps every sentence at rest within 7 words, on every screen and with no App set up', () => {
+    for (const view of SCREENS) {
+      for (const installUrl of [INSTALL, null]) {
+        for (const sentence of sentences(render(view, installUrl))) expect(sentence.split(/\s+/).length, sentence).toBeLessThanOrEqual(7);
+      }
+    }
+  });
+
+  it('says none of the old paragraphs', () => {
+    const all = SCREENS.map((view) => render(view)).join('');
+    for (const old of ['works on your GitHub org', 'you land in a workspace named after the org', 'with nothing to install', 'GitHub sends you back', 'neither are nor belong to', 'Every GitHub org you belong to', 'no GitHub App set up']) {
+      expect(all).not.toContain(old);
+    }
   });
 });
 

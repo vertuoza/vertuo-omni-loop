@@ -37,7 +37,6 @@ jobs:
       # of the services no step uses.
       - run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
       - name: Every new migration is dated after the newest on main

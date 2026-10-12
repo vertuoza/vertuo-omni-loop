@@ -4,8 +4,14 @@
 // questions on the feature branch with the replies to them, and its board (`buildBoard`), then
 // hands the facts to `decideNext` (`kit/lib/next/decide.ts`). It writes nothing on GitHub; the only
 // thing it writes is the remote-tracking ref of the feature branch, which it fetches to read the
-// outbox as it stands there. GitHub unreachable is a verdict (`wait: github unreachable`), never a
-// failure: a loop calling this every tick carries on.
+// outbox as it stands there. A repository the Omni page refuses alone is a verdict (`wait: github
+// unreachable`), never a failure: a loop calling this every tick carries on.
+//
+// PRD 1665, slice s4: every read goes through `LoopReads` (the Omni page, or a test's fake): the
+// phase-0 and feature changes, a ready change's review in place of the GraphQL care query, the
+// comments of a feature PR and of a roadmap's issue, and the board. No `gh` read is left. A read that
+// cannot be made at all (no sign-in, no answer, a page without the loop's routes) prints its one line
+// on stderr and exits 1.
 //
 // Slice s3, the loop plan: with no number, `omni next` drives your own PRDs in inbox, building or
 // outbox (the ones `omni status` marks yours). `--plan` orders every slice of the PRDs driven into
@@ -51,15 +57,17 @@
 // `omni approval`, so that a test can hand it `tokens`, `home`, `fetch` and `callMs`.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { z } from 'zod';
 import { prdState as stageAtGate } from '../../lib/approval/prd-state.ts';
 import type { ApprovalCall } from '../../lib/approval/prd-state.ts';
 import { fillBranch } from '../../lib/board.ts';
-import { CARE_QUERY, CareResponseSchema, careState } from '../../lib/care/state.ts';
+import { careState } from '../../lib/care/state.ts';
 import type { Context } from '../../lib/context.ts';
 import { gateApproval } from '../../lib/delivery/prd.ts';
-import { PrNumberSchema } from '../../lib/ids.ts';
 import type { IssueNumber, PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
+import type { LoopChange, LoopComment } from '../../lib/loop-reads/contract.ts';
+import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import { boardReads, LoopReadError } from '../../lib/loop-reads/port.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { parseSpec } from '../../lib/inbox/inbox.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
@@ -93,45 +101,33 @@ import { openItemsForPrd } from '../../lib/outbox/comment.ts';
 import type { OutboxItem } from '../../lib/types.ts';
 import { planReplies } from '../../lib/outbox/replies.ts';
 import { issueArg, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
-import { githubClientFor, githubEnv } from '../github.ts';
 import type { Env, Exec, FreeCommand } from '../io.ts';
-import { GhGraphqlSchema } from '../schema.ts';
 import { buildBoard, contextWithTargets } from './board.ts';
 import type { TargetsIo } from './board.ts';
 
-/** The answers of `gh pr list` this file reads: each names only the fields read. */
-const GhListedPrSchema = z.looseObject({
-  number: PrNumberSchema,
-  url: z.string(),
-  state: z.string(),
-  isDraft: z.boolean().nullish(),
-  updatedAt: z.string().nullish(),
-  body: z.string().nullish(),
-  author: z.looseObject({ login: z.string().nullish() }).nullish(),
-  labels: z.array(z.looseObject({ name: z.string().nullish() })).nullish(),
-});
+/** A change as this command reads one: its state in GitHub's words, a draft being open. */
+type ListedPr = { number: PrNumber; url: string; state: string; isDraft: boolean; updatedAt: string; body: string; author: string | null; labels: readonly string[] };
 
-/** What this file reads of a comment beyond its body: when it was last updated. */
-const GhCommentUpdatedSchema = z.looseObject({ body: z.string().nullish(), updated_at: z.string().nullish() });
-type ListedPr = z.infer<typeof GhListedPrSchema>;
+const GH_STATES: Record<LoopChange['state'], string> = { open: 'OPEN', draft: 'OPEN', merged: 'MERGED', closed: 'CLOSED' };
+
+function listedOf(change: LoopChange): ListedPr {
+  const { number, url, state, updatedAt, body, author, labels } = change;
+  return { number, url, state: GH_STATES[state], isDraft: state === 'draft', updatedAt, body, author, labels };
+}
 
 /** What every read of this command needs. */
-type Reader = { ctx: Context; exec: Exec; env: Env; slug: string; ghEnv: Env | undefined; approval: ApprovalCall };
+type Reader = { ctx: Context; exec: Exec; env: Env; slug: string; reads: LoopReads; approval: ApprovalCall };
 
 /** Ranks a person must answer: a medium decision is adopted, never asked. */
 const ASKED_RANKS = new Set(['human-action', 'high']);
-
-function gh(args: string[], { exec, ghEnv }: Reader): string {
-  return exec('gh', args, { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) });
-}
 
 function git(args: string[], { ctx, exec }: Reader): string {
   return exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
-function listPrs(args: string[], reader: Reader): ListedPr[] {
-  const raw = gh(['pr', 'list', '--repo', reader.slug, ...args, '--json', 'number,url,state,isDraft,updatedAt,body,author,labels', '--limit', '50'], reader);
-  return z.array(GhListedPrSchema).parse(JSON.parse(raw));
+/** The changes of the reader's repository from `branch` (`head`) or carrying `label`. */
+async function listPrs(query: { head: string; state: 'all' } | { label: string; state: 'open' }, reader: Reader): Promise<ListedPr[]> {
+  return (await reader.reads.changes({ repo: reader.slug, ...query })).map(listedOf);
 }
 
 /** The text `prLinks.phase0` puts in a phase-0 PR's body for PRD `prd`, as a pattern that ends there. */
@@ -141,32 +137,23 @@ function phase0Link(prd: PrdNumber, ctx: Context): RegExp {
 }
 
 /** PRD `prd`'s open phase-0 PR, found by its label and the link its body carries. */
-function openPhase0(prd: PrdNumber, reader: Reader): { url: string } | null {
+async function openPhase0(prd: PrdNumber, reader: Reader): Promise<{ url: string } | null> {
   const link = phase0Link(prd, reader.ctx);
-  const found = listPrs(['--label', reader.ctx.config.labels.phase0, '--state', 'open'], reader).find((pr) => link.test(pr.body ?? ''));
+  const found = (await listPrs({ label: reader.ctx.config.labels.phase0, state: 'open' }, reader)).find((pr) => link.test(pr.body));
   return found ? { url: found.url } : null;
 }
 
 /** The pull request from `branch`: the open one, else the one updated last. */
-function featurePr(branch: string, reader: Reader): ListedPr | null {
-  const prs = listPrs(['--head', branch, '--state', 'all'], reader);
+async function featurePr(branch: string, reader: Reader): Promise<ListedPr | null> {
+  const prs = await listPrs({ head: branch, state: 'all' }, reader);
   const open = prs.find((pr) => pr.state === 'OPEN');
-  return open ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
+  return open ?? [...prs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
 }
 
-/** The care state of a ready PR, as far as the verdict reads it. */
-function careFacts(number: PrNumber, reader: Reader): Pick<FeatureFacts, 'checks' | 'fixable' | 'stuck' | 'conflict' | 'threads'> {
-  const [owner, name] = reader.slug.split('/');
-  const raw = reader.exec('gh', ['api', 'graphql', '--input', '-'], {
-    encoding: 'utf8',
-    input: JSON.stringify({ query: CARE_QUERY, variables: { owner, name, number } }),
-    ...(reader.ghEnv ? { env: reader.ghEnv } : {}),
-  });
-  const parsed: unknown = JSON.parse(raw);
-  const first = GhGraphqlSchema.parse(parsed).errors?.[0];
-  if (first) throw new Error(first.message);
+/** The care state of a ready PR, as far as the verdict reads it: its review, read as one change. */
+async function careFacts(number: PrNumber, reader: Reader): Promise<Pick<FeatureFacts, 'checks' | 'fixable' | 'stuck' | 'conflict' | 'threads'>> {
   const { ctx } = reader;
-  const state = careState(CareResponseSchema.parse(parsed), {
+  const state = careState({ change: await reader.reads.change(reader.slug, number), comments: [] }, {
     statusMarker: ctx.markers.status,
     needsFixLabel: ctx.config.labels.needsFix,
     gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean),
@@ -180,11 +167,10 @@ function careFacts(number: PrNumber, reader: Reader): Pick<FeatureFacts, 'checks
   };
 }
 
-function featureFacts(pr: ListedPr, reader: Reader): FeatureFacts {
-  const isDraft = Boolean(pr.isDraft);
-  const base = { url: pr.url, state: pr.state, isDraft, author: pr.author?.login ?? null };
-  if (pr.state !== 'OPEN' || isDraft) return { ...base, checks: 'none', fixable: false, stuck: false, conflict: false, threads: 0 };
-  return { ...base, ...careFacts(pr.number, reader) };
+async function featureFacts(pr: ListedPr, reader: Reader): Promise<FeatureFacts> {
+  const base = { url: pr.url, state: pr.state, isDraft: pr.isDraft, author: pr.author };
+  if (pr.state !== 'OPEN' || pr.isDraft) return { ...base, checks: 'none', fixable: false, stuck: false, conflict: false, threads: 0 };
+  return { ...base, ...(await careFacts(pr.number, reader)) };
 }
 
 /** The PRD's open items: on the feature branch as last fetched, else in this checkout. */
@@ -201,24 +187,34 @@ function openItems(prd: PrdNumber, branch: string, reader: Reader): OutboxItem[]
   return openItemsOn(`${remote}/${branch}`, dir, (args) => git(args, reader)) ?? openItemsForPrd(prd, { ctx });
 }
 
+/**
+ * A conversation's comment as the reply reader reads one. The loop's facts carry no author's standing
+ * in the repository (PRD 1665), so every person's reply counts here, as a writer's would: this only
+ * says answers may be waiting, and the skill it launches reads the replies again.
+ */
+function replyCommentOf(comment: LoopComment) {
+  const { id, body, createdAt, author } = comment;
+  return { id, body, created_at: createdAt, author_association: 'COLLABORATOR', ...(author === null ? {} : { user: { login: author } }) };
+}
+
 /** The open questions, and whether a reply on the feature PR answers one of them. */
-function outboxFacts(prd: PrdNumber, { branch, pr }: { branch: string; pr: ListedPr | null }, reader: Reader): OutboxFacts {
+async function outboxFacts(prd: PrdNumber, { branch, pr }: { branch: string; pr: ListedPr | null }, reader: Reader): Promise<OutboxFacts> {
   const items = openItems(prd, branch, reader);
   const questions = items.filter((item) => ASKED_RANKS.has(item.rank)).length;
   if (questions === 0 || pr === null) return { questions, answered: false };
-  const comments = githubClientFor(reader.ctx, { repo: reader.slug, issue: pr.number, exec: reader.exec, env: reader.env }).listComments();
+  const comments = (await reader.reads.comments(reader.slug, pr.number)).map(replyCommentOf);
   const { settle } = planReplies({ comments, items, markers: reader.ctx.markers });
   return { questions, answered: settle.length > 0 };
 }
 
 /** The board's facts and its slices; `null` with no plan, `unreadable` when the board cannot be
  * built, its slices then read from the plan alone, each `unreadable`. */
-function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null | 'unreadable'; slices: PlanSliceInput[] | null; claims: Running | null } {
+async function boardFacts(prd: PrdNumber, reader: Reader): Promise<{ board: BoardFacts | null | 'unreadable'; slices: PlanSliceInput[] | null; claims: Running | null }> {
   const { ctx } = reader;
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null || !existsSync(join(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
-    const { result } = buildBoard(prd, { ctx, exec: reader.exec, env: reader.env });
+    const { result } = await buildBoard(prd, { ctx, reads: boardReads(reader.reads) });
     const having = (state: string) => result.slices.filter((row) => row.state === state).map((row) => row.id);
     const { stallDays } = ctx.config.limits;
     const board: BoardFacts = {
@@ -234,10 +230,14 @@ function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null 
     };
     const slices = result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...(repo === undefined ? {} : { repo }) }));
     return { board, slices, claims: liveClaims(result.slices, board.stalled) };
-  } catch {
+  } catch (error) {
+    if (stopsEverything(error)) throw error;
     return { board: 'unreadable', slices: planSlices(join(ctx.root, planPath)), claims: null };
   }
 }
+
+/** Whether `error` stops every read, not one repository's: it then stops the command (`run`). */
+const stopsEverything = (error: unknown): boolean => error instanceof LoopReadError && error.scope === 'everything';
 
 /** A board row, as far as its live claim is read. */
 type ClaimRow = { id: WorkSliceId; state: string; pr: { isDraft?: boolean | undefined; createdAt?: string | null | undefined } | null };
@@ -253,29 +253,30 @@ function liveClaims(rows: readonly ClaimRow[], stalled: BoardFacts['stalled']): 
 }
 
 /** Whether a listed PR carries `label`. */
-const hasLabel = (pr: ListedPr, label: string): boolean => (pr.labels ?? []).some((one) => one.name === label);
+const hasLabel = (pr: ListedPr, label: string): boolean => pr.labels.includes(label);
 
 /** When an open PR's agent was last seen on it: it carries `labels.inProgress` and its status comment
  * was updated within `limits.claimStaleMinutes`; `null` otherwise, or when its comments cannot be read. */
-function labelSeen(pr: ListedPr, slug: string, reader: Reader): string | null {
+async function labelSeen(pr: ListedPr, slug: string, reader: Reader): Promise<string | null> {
   const { ctx } = reader;
   if (pr.state !== 'OPEN' || !hasLabel(pr, ctx.config.labels.inProgress)) return null;
   try {
-    const comments = githubClientFor(ctx, { repo: slug, issue: pr.number, exec: reader.exec, env: reader.env }).listComments();
-    const status = comments.map((comment) => GhCommentUpdatedSchema.parse(comment)).filter((comment) => (comment.body ?? '').includes(ctx.markers.status));
-    const seen = status.map((comment) => comment.updated_at ?? '').filter(Boolean).sort().at(-1);
+    const comments = await reader.reads.comments(slug, pr.number);
+    const status = comments.filter((comment) => comment.body.includes(ctx.markers.status));
+    const seen = status.map((comment) => comment.updatedAt).filter(Boolean).sort().at(-1);
     if (seen === undefined) return null;
     return Date.now() - new Date(seen).getTime() <= ctx.config.limits.claimStaleMinutes * 60 * 1000 ? seen : null;
-  } catch {
+  } catch (error) {
+    if (stopsEverything(error)) throw error;
     return null;
   }
 }
 
 /** What a PRD runs now: its live claims, else a PR of it an agent holds (`labelSeen`); `null` when neither. */
-function runningOf(claims: Running | null, prs: readonly { slug: string; pr: ListedPr }[], reader: Reader): Running | null {
+async function runningOf(claims: Running | null, prs: readonly { slug: string; pr: ListedPr }[], reader: Reader): Promise<Running | null> {
   if (claims !== null) return claims;
   for (const { slug, pr } of prs) {
-    const since = labelSeen(pr, slug, reader);
+    const since = await labelSeen(pr, slug, reader);
     if (since !== null) return { kind: 'label', since };
   }
   return null;
@@ -312,29 +313,29 @@ function folderOf(prd: PrdNumber, ctx: Context): { topic: string; shipped: boole
 /** What one PRD was read as: its facts, its slices, and its feature PRs as a roadmap reads them. */
 type Read = { facts: PrdFacts; slices: PlanSliceInput[] | null; prs: PrStanding[]; running: Running | null };
 
-/** Everything PRD `prd`'s verdict is decided on, and its slices. Throws what `gh` throws when GitHub
- * cannot be read. */
-function readFacts(prd: PrdNumber, reader: Reader, gate: ApprovalGate | null): Read {
+/** Everything PRD `prd`'s verdict is decided on, and its slices. Throws the `LoopReadError` of a read
+ * that cannot be made. */
+async function readFacts(prd: PrdNumber, reader: Reader, gate: ApprovalGate | null): Promise<Read> {
   const folder = folderOf(prd, reader.ctx);
-  const phase0 = openPhase0(prd, reader);
+  const phase0 = await openPhase0(prd, reader);
   if (folder === null) return beforeInbox(prd, phase0, reader);
   const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
-  const pr = featurePr(branch, reader);
+  const pr = await featurePr(branch, reader);
   const open = pr?.state === 'OPEN' ? pr : null;
-  const feature = pr === null ? null : featureFacts(pr, reader);
-  const { board, slices, claims } = boardFacts(prd, reader);
-  const across = acrossFacts(branch, slices, reader);
-  const outbox = outboxFacts(prd, { branch, pr: open }, reader);
+  const feature = pr === null ? null : await featureFacts(pr, reader);
+  const { board, slices, claims } = await boardFacts(prd, reader);
+  const across = await acrossFacts(branch, slices, reader);
+  const outbox = await outboxFacts(prd, { branch, pr: open }, reader);
   const facts: PrdFacts = { prd, shipped: folder.shipped, phase0, feature, board, outbox, ...(across ? { across: across.across } : {}), approval: gate };
   const targets = (across?.listed ?? []).map(({ repo, pr: listed }) => ({ slug: targetSlug(repo, reader), pr: listed }));
-  const running = runningOf(claims, [...(open ? [{ slug: reader.slug, pr: open }] : []), ...targets], reader);
+  const running = await runningOf(claims, [...(open ? [{ slug: reader.slug, pr: open }] : []), ...targets], reader);
   return { facts, slices, prs: standingsOf(pr, outbox, across, reader), running };
 }
 
 /** A PRD with no folder yet: its open phase-0 PR is all there is, or it is a usage error. */
-function beforeInbox(prd: PrdNumber, phase0: { url: string } | null, reader: Reader): Read {
+async function beforeInbox(prd: PrdNumber, phase0: { url: string } | null, reader: Reader): Promise<Read> {
   if (phase0 === null) throw usageError(`omni next: PRD ${prd} has no inbox or shipped folder, and no open phase-0 PR.`);
-  const read = acrossFacts('', null, reader);
+  const read = await acrossFacts('', null, reader);
   const facts: PrdFacts = { prd, shipped: false, phase0, feature: null, board: null, outbox: { questions: 0, answered: false }, ...(read ? { across: read.across } : {}) };
   return { facts, slices: null, prs: [], running: null };
 }
@@ -359,25 +360,27 @@ function targetSlug(name: string, reader: Reader): string {
 const reposOf = (slices: readonly PlanSliceInput[] | null): string[] => [...new Set((slices ?? []).flatMap((slice) => (slice.repo ? [slice.repo] : [])))].sort();
 
 /** A target's feature PR from `branch`, read on that target, and the PR as listed; `unreadable` when
- * gh cannot read it. */
-function targetPr(branch: string, reader: Reader): { pr: TargetPr['pr']; listed: ListedPr | null } {
+ * the Omni page refuses that target. */
+async function targetPr(branch: string, reader: Reader): Promise<{ pr: TargetPr['pr']; listed: ListedPr | null }> {
   try {
-    const pr = featurePr(branch, reader);
-    return { pr: pr === null ? null : featureFacts(pr, reader), listed: pr };
-  } catch {
+    const pr = await featurePr(branch, reader);
+    return { pr: pr === null ? null : await featureFacts(pr, reader), listed: pr };
+  } catch (error) {
+    if (stopsEverything(error)) throw error;
     return { pr: 'unreadable', listed: null };
   }
 }
 
 /** In a plan repository: its short name, and the feature PR of each target a slice lands in, in
  * `plan.targets` order, each also as listed; `undefined` in any other repository. */
-function acrossFacts(branch: string, slices: readonly PlanSliceInput[] | null, reader: Reader): { across: AcrossFacts; listed: { repo: string; pr: ListedPr }[] } | undefined {
+async function acrossFacts(branch: string, slices: readonly PlanSliceInput[] | null, reader: Reader): Promise<{ across: AcrossFacts; listed: { repo: string; pr: ListedPr }[] } | undefined> {
   const targets = reader.ctx.config.plan?.targets;
   if (targets === undefined) return undefined;
   const repo = shortName(reader.slug);
   const named = new Set(reposOf(slices));
   const landed = targets.filter((target) => named.has(shortName(target.repo)) && shortName(target.repo) !== repo);
-  const read = landed.map((target) => ({ repo: shortName(target.repo), ...targetPr(branch, { ...reader, slug: target.repo }) }));
+  const read: { repo: string; pr: TargetPr['pr']; listed: ListedPr | null }[] = [];
+  for (const target of landed) read.push({ repo: shortName(target.repo), ...(await targetPr(branch, { ...reader, slug: target.repo })) });
   return {
     across: { repo, targets: read.map(({ repo: name, pr }) => ({ repo: name, pr })) },
     listed: read.flatMap(({ repo: name, listed }) => (listed ? [{ repo: name, pr: listed }] : [])),
@@ -390,7 +393,7 @@ const PR_STATES: readonly PrStanding['state'][] = ['OPEN', 'MERGED', 'CLOSED'];
 function standingPr(repo: string, pr: ListedPr, questions: number): PrStanding | null {
   const state = PR_STATES.find((known) => known === pr.state);
   if (state === undefined) return null;
-  return { repo, number: pr.number, url: pr.url, state, isDraft: Boolean(pr.isDraft), createdAt: null, mergedAt: null, closedAt: null, questions };
+  return { repo, number: pr.number, url: pr.url, state, isDraft: pr.isDraft, createdAt: null, mergedAt: null, closedAt: null, questions };
 }
 
 /** Whether an error is the command's own refusal, which `main()` prints as a usage error. */
@@ -405,15 +408,16 @@ function endedOf(facts: PrdFacts): Ended | null {
   return facts.shipped && feature === null ? 'shipped' : null;
 }
 
-/** PRD `prd`'s verdict, what the loop plan reads of it, and what it was read as; GitHub unreachable
- * is a `wait`. A ◆ PRD's approval is read first, through `prdState()`. */
+/** PRD `prd`'s verdict, what the loop plan reads of it, and what it was read as; its repository refused
+ * alone is a `wait`, a read that cannot be made at all stops the command. A ◆ PRD's approval is read
+ * first, through `prdState()`. */
 async function readPrd(prd: PrdNumber, reader: Reader): Promise<{ verdict: Verdict; input: PrdInput; read: Read }> {
   const gate = approvalGate(await stageAtGate(reader.ctx, prd, { approval: reader.approval }));
   let read: Read;
   try {
-    read = readFacts(prd, reader, gate);
+    read = await readFacts(prd, reader, gate);
   } catch (error) {
-    if (isUsage(error)) throw error;
+    if (isUsage(error) || stopsEverything(error)) throw error;
     const planPath = reader.ctx.layout.planPath(prd);
     const facts: PrdFacts = { prd, shipped: false, phase0: null, feature: 'unreadable', board: 'unreadable', outbox: 'unreadable', approval: gate };
     read = { facts, slices: planPath === null ? null : planSlices(join(reader.ctx.root, planPath)), prs: [], running: null };
@@ -470,13 +474,14 @@ type Out = { reader: Reader; out: (line: string) => void; json: boolean; roadmap
 /** The roadmap's issue on GitHub, where `omni roadmap answer` posts. */
 const issueUrl = (slug: string, n: IssueNumber): string => `https://github.com/${slug}/issues/${n}`;
 
-/** The answers and the prerequisite ticks on the roadmap's issue; none when GitHub cannot be read, so
- * a `person` question stays unanswered, and a `person` row unticked, until it can. */
-function issueReadOf(roadmap: Roadmap, reader: Reader): { answers: Map<string, string>; ticks: Set<string> } {
+/** The answers and the prerequisite ticks on the roadmap's issue; none when its repository is refused,
+ * so a `person` question stays unanswered, and a `person` row unticked, until it can be read. */
+async function issueReadOf(roadmap: Roadmap, reader: Reader): Promise<{ answers: Map<string, string>; ticks: Set<string> }> {
   try {
-    const comments = githubClientFor(reader.ctx, { issue: roadmap.roadmap, exec: reader.exec, env: reader.env }).listComments();
+    const comments = await reader.reads.comments(reader.slug, roadmap.roadmap);
     return { answers: readAnswers(comments), ticks: readTicks(comments) };
-  } catch {
+  } catch (error) {
+    if (stopsEverything(error)) throw error;
     return { answers: new Map(), ticks: new Set() };
   }
 }
@@ -488,7 +493,7 @@ function prerequisitesOf(roadmap: Roadmap, reader: Reader): Map<string, Prerequi
 }
 
 /** What the roadmap holds each of its PRDs on, from what the tick read of them. */
-function gatesOf(roadmap: Roadmap, reads: ReadonlyMap<PrdNumber, Read>, reader: Reader): Map<PrdNumber, Gate> {
+async function gatesOf(roadmap: Roadmap, reads: ReadonlyMap<PrdNumber, Read>, reader: Reader): Promise<Map<PrdNumber, Gate>> {
   const standings = new Map<string, PrdStanding>();
   const live = new Map<string, string>();
   for (const row of roadmap.prds) {
@@ -499,7 +504,7 @@ function gatesOf(roadmap: Roadmap, reads: ReadonlyMap<PrdNumber, Read>, reader: 
     const words = liveWords(prdState(standing), read.facts, read.slices);
     if (words !== null) live.set(row.id, words);
   }
-  const { answers, ticks } = issueReadOf(roadmap, reader);
+  const { answers, ticks } = await issueReadOf(roadmap, reader);
   // The roadmap's page is addressed by the app's id, which a tick cannot know: its holds link the issue.
   return roadmapGates({
     roadmap, answers, standings, live, issueLink: issueUrl(reader.slug, roadmap.roadmap),
@@ -563,7 +568,7 @@ function liveOf({ verdicts, inputs, reads }: Awaited<ReturnType<typeof readAll>>
 async function followKept(prds: readonly PrdNumber[], kept: readonly LoopPlan[], { reader, out, json, roadmap }: Out): Promise<number> {
   const read = await readAll(prds, reader, roadmap ?? null);
   const { plan, replanned } = currentPlan(kept, read.inputs, reader.ctx.root);
-  const gates = roadmap ? gatesOf(roadmap, read.reads, reader) : null;
+  const gates = roadmap ? await gatesOf(roadmap, read.reads, reader) : null;
   const live = liveOf(read, gates);
   const { config } = reader.ctx;
   const pool = followSteps(plan, live, config.limits.parallelSteps, config.generated ?? []);
@@ -629,15 +634,6 @@ async function yoursOrRefuse(reader: Reader, flag: string): Promise<PrdNumber[]>
   return prds;
 }
 
-/** The environment `gh` runs with, or undefined when none can be made. */
-function ghEnvOf(ctx: Context, exec: Exec, env: Env): Env | undefined {
-  try {
-    return githubEnv(ctx, { exec, env });
-  } catch {
-    return undefined;
-  }
-}
-
 /** One verdict per PRD named, outside any loop plan. */
 async function printVerdicts(named: readonly PrdNumber[], { reader, out, json }: Out): Promise<number> {
   const verdicts: Verdict[] = [];
@@ -674,20 +670,32 @@ function driveRoadmap(roadmap: Roadmap, plan: boolean, io: Out): Promise<number>
   return followKept(prds, last !== undefined && samePrds(prds, last) ? kept : [], io);
 }
 
+/** A tick, a plan or a roadmap's drive, as the flags ask. */
+async function drive(named: readonly PrdNumber[], { plan, roadmap }: { plan: boolean; roadmap: Roadmap | null }, io: Out): Promise<number> {
+  if (roadmap !== null) return driveRoadmap(roadmap, plan, io);
+  if (plan) return startPlan(named.length > 0 ? [...new Set(named)] : await yoursOrRefuse(io.reader, ' --plan'), io);
+  return tick(named, io);
+}
+
 export const next = {
   withoutContext: true,
   async run(args: string[], free: TargetsIo) {
-    const { stdout, exec, env, tokens, home, fetch = globalThis.fetch, callMs } = free;
+    const { stdout, stderr, exec, env, reads, tokens, home, fetch = globalThis.fetch, callMs } = free;
     const { positional, flags } = parseArgs('next', args, { booleans: ['json', 'plan'], values: ['roadmap'] });
     const named = positional.map((value) => prdArg('next', '<prd>', value));
     const ctx = await contextWithTargets('next', free);
     if (flags.roadmap !== undefined && named.length > 0) throw usageError("omni next: --roadmap <n> drives the roadmap's PRDs; name no PRD beside it.");
     const roadmap = flags.roadmap === undefined ? null : roadmapOf(issueArg('next', '--roadmap', flags.roadmap), ctx);
     const slug = repoSlug('next', ctx, undefined);
-    const reader: Reader = { ctx, exec, env, slug, ghEnv: ghEnvOf(ctx, exec, env), approval: gateApproval(ctx, { tokens, home, fetch, callMs }) };
+    const loop = reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+    const reader: Reader = { ctx, exec, env, slug, reads: loop, approval: gateApproval(ctx, { tokens, home, fetch, callMs }) };
     const io: Out = { reader, out: (line: string) => { println(stdout, line); }, json: flags.json === true, ...(roadmap ? { roadmap } : {}) };
-    if (roadmap !== null) return driveRoadmap(roadmap, flags.plan === true, io);
-    if (flags.plan) return startPlan(named.length > 0 ? [...new Set(named)] : await yoursOrRefuse(reader, ' --plan'), io);
-    return tick(named, io);
+    try {
+      return await drive(named, { plan: flags.plan === true, roadmap }, io);
+    } catch (error) {
+      if (!(error instanceof LoopReadError)) throw error;
+      println(stderr, error.line);
+      return 1;
+    }
   },
 } satisfies FreeCommand;

@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { Block } from './collide';
 import { RULES } from './rules';
 import {
-  blocksAt, CHAPTERS, ENDLESS_GROUPS, ENDLESS_SEED, endlessWave, endlessWaves, fallen, ghostShare, parseChapter, parseWave, passedAt, patternsOf, POSE,
-  RAMP, reachOf, ring, route, secondsOf, SHAPE, sightOf, spaceBetween, spacingProblems, speedAt, struck, throughHolding, timeAt, turnSeconds,
-  waveProblems, wayOf, windowOf, type Pattern, type Piece, type Wave,
+  blocksAt, CHAPTERS, ENDLESS_GROUPS, ENDLESS_SEED, endlessSpeed, endlessWave, endlessWaves, fallen, ghostShare, parseChapter, parseWave, passedAt, patternsOf,
+  placedAt, POSE, RAMP, reachOf, ring, route, secondsOf, SHAPE, sightOf, spaceBetween, spacingProblems, speedAt, struck, throughHolding, timeAt,
+  turnSeconds, waveProblems, wayOf, windowOf, type Pattern, type Piece, type Wave,
 } from './waves';
 
-// OMNI DUET's waves (PRD 1633, slice 3; issues 1672 and 1689): the vocabulary of obstacles set on the
-// circle, each still one dodged by one clear pose and each moving one by a turn, the four chapters
-// written in it, their spirals, zigzags, ghosts and end-of-wave speed-ups, the spacing a turn asks
-// for, and the check that proves every wave passable by a person (issue 1663).
+// OMNI DUET's waves (PRD 1633, slice 3; issues 1672, 1689 and 1692): the vocabulary of obstacles set on
+// the circle, each still one dodged by one clear pose and each moving one by a turn, the four chapters
+// written in it, their spirals, zigzags, rod chains, ghosts and end-of-wave speed-ups, the spacing a
+// turn asks for, and the check that proves every wave passable by a person (issue 1663).
 
 const R = RULES.radius;
 const at = (wave: Wave, seconds: number) => blocksAt(wave, Math.round(seconds / RULES.subStep));
@@ -24,7 +24,7 @@ function two(blocks: readonly Block[]): [Block, Block] {
 }
 
 /** Every still obstacle the legend can write, and every moving one: a centre block sliding or a rod, either way round. */
-const STILL = ['L half', 'R half', 'centre'];
+const STILL = ['L half', 'R half', 'centre', 'gate', 'upright', 'short'];
 const MOVING = ['centre slide', 'centre slide back', 'centre turn', 'centre turn back'];
 
 /** A person who reacts slower than the check's, with orbs 2 pixels wider: the room every wave keeps to spare. */
@@ -43,10 +43,13 @@ function strikes(words: string, angle: number, { speed = 60, distance = '0', r =
 describe('the vocabulary', () => {
   const posed = (words: string) => POSE[parseWave(`speed 60\n${words} · 0`, 'test').pieces[0]?.kind ?? 'centre'];
 
-  it('asks the pair upright for half bars, and level for the centre block', () => {
+  it('asks the pair upright for half bars and gates, and level for the centre block, the upright block and the short bar', () => {
     expect(posed('L half').pose).toBe('upright');
     expect(posed('R half').pose).toBe('upright');
+    expect(posed('gate').pose).toBe('upright');
     expect(posed('centre').pose).toBe('level');
+    expect(posed('upright').pose).toBe('level');
+    expect(posed('short').pose).toBe('level');
   });
 
   it('never moves a half bar: moving, it only ever moved away from the upright orbs', () => {
@@ -54,9 +57,13 @@ describe('the vocabulary', () => {
     expect(() => parseWave('speed 100\nR half turn back · 0', 'test')).toThrow('test, line 2: a half bar does not move');
   });
 
-  it('holds two obstacles only, as Duet has: no upright bar', () => {
-    expect(Object.keys(POSE)).toEqual(['half', 'centre']);
-    expect(() => parseWave('speed 100\nL upright · 0', 'test')).toThrow('test, line 2: "upright" is not in the legend');
+  it('holds Duet\'s shapes: the half bar, the centre block, the gate, the upright block and the short bar, only the centre block moving', () => {
+    expect(Object.keys(POSE)).toEqual(['half', 'centre', 'gate', 'upright', 'short']);
+    expect(() => parseWave('speed 100\nL upright · 0', 'test')).toThrow('test, line 2: an upright block has no side');
+    expect(() => parseWave('speed 100\nR gate · 0', 'test')).toThrow('test, line 2: a gate has no side');
+    expect(() => parseWave('speed 100\ngate slide · 0', 'test')).toThrow('test, line 2: a gate does not move');
+    expect(() => parseWave('speed 100\nshort turn · 0', 'test')).toThrow('test, line 2: a short bar does not move');
+    expect(() => parseWave('speed 100\nupright turn back · 0', 'test')).toThrow('test, line 2: an upright block does not move');
   });
 
   it.each(STILL)('%s: its one pose clears it, with room for orbs 2 pixels wider; the other pose hits it', (words) => {
@@ -102,6 +109,31 @@ describe('the vocabulary', () => {
     expect(centre?.h).toBeCloseTo(0.75 * R, 9);
   });
 
+  it('sets a gate\'s two bars at one height, 1.2 R long either side of a gap 0.8 R wide on the centre line, as one obstacle', () => {
+    const wave = parseWave('speed 60\ngate · 0', 'test');
+    const [left, right] = two(at(wave, 0));
+    expect(placedAt(wave, 0).map((p) => p.piece)).toEqual([wave.pieces[0], wave.pieces[0]]);
+    expect(left.cy).toBe(right.cy);
+    for (const bar of [left, right]) {
+      expect(bar.w).toBeCloseTo(1.2 * R, 9);
+      expect(bar.h).toBeCloseTo(0.3 * R, 9);
+    }
+    expect(left.cx + left.w / 2).toBeCloseTo(RULES.centre.x - 0.4 * R, 9);
+    expect(right.cx - right.w / 2).toBeCloseTo(RULES.centre.x + 0.4 * R, 9);
+    // Its outer ends reach past the level orbs.
+    expect(right.cx + right.w / 2).toBeGreaterThan(RULES.centre.x + R + RULES.orbRadius);
+  });
+
+  it('sets the upright block, 0.8 R wide and 1.3 R tall, and the short bar, 1 R long and 0.33 R thick, on the centre line', () => {
+    const [upright, short] = two(at(parseWave('speed 60\nupright · 0\nshort · 1R', 'test'), 0));
+    expect(upright).toMatchObject({ cx: RULES.centre.x, angle: 0 });
+    expect(upright.w).toBeCloseTo(0.8 * R, 9);
+    expect(upright.h).toBeCloseTo(1.3 * R, 9);
+    expect(short).toMatchObject({ cx: RULES.centre.x, angle: 0 });
+    expect(short.w).toBeCloseTo(R, 9);
+    expect(short.h).toBeCloseTo(0.33 * R, 9);
+  });
+
   it('makes a turning centre block a rod as Duet has, 2.2 R long and 0.33 R thick, turning about its middle on the centre line', () => {
     const [rod] = at(parseWave('speed 60\ncentre turn · 0', 'test'), 0);
     expect(rod?.cx).toBe(RULES.centre.x);
@@ -134,9 +166,19 @@ describe('the chapters', () => {
     }
   });
 
-  it('uses every kind of obstacle on both sides', () => {
+  it('uses every kind of obstacle, the half bar on both sides', () => {
     const used = new Set(CHAPTERS.flatMap((_, i) => pieces(i).map((p) => `${p.side} ${p.kind}`)));
-    expect(used).toEqual(new Set(['-1 half', '1 half', '0 centre']));
+    expect(used).toEqual(new Set(['-1 half', '1 half', '0 centre', '0 gate', '0 upright', '0 short']));
+  });
+
+  it('brings in one new shape a chapter: gates in I, short bars in II, upright blocks in III, rod chains in IV', () => {
+    const first = (kind: Piece['kind']) => CHAPTERS.findIndex((c) => c.waves.some((w) => w.pieces.some((p) => p.kind === kind)));
+    expect([first('gate'), first('short'), first('upright')]).toEqual([0, 1, 2]);
+    const chained = CHAPTERS.map((c) => c.waves.some((w) => w.pieces.some((p, k) => {
+      const before = w.pieces[k - 1];
+      return !!before && p.motion === 'turn' && before.motion === 'turn' && spaceBetween(before, p) < 1.75 * R;
+    })));
+    expect(chained).toEqual([false, false, false, true]);
   });
 
   it('raises the speed wave after wave within each chapter', () => {
@@ -253,7 +295,10 @@ describe('the obstacles', () => {
 
 describe('the spacing a turn asks for', () => {
   it('asks nothing between two obstacles of one pose, and a quarter turn plus a person\'s reaction between the two poses', () => {
-    const [half, centre, slide, rod] = [{ kind: 'half', motion: 'still' }, { kind: 'centre', motion: 'still' }, { kind: 'centre', motion: 'slide' }, { kind: 'centre', motion: 'turn' }] as const;
+    const [half, centre, slide, rod] = [
+      { kind: 'half', motion: 'still', back: false }, { kind: 'centre', motion: 'still', back: false },
+      { kind: 'centre', motion: 'slide', back: false }, { kind: 'centre', motion: 'turn', back: false },
+    ] as const;
     expect(turnSeconds(half, half)).toBe(0);
     expect(turnSeconds(centre, centre)).toBe(0);
     const quarter = 0.25 / RULES.turnsPerSecond + RULES.reactionSeconds;
@@ -262,7 +307,13 @@ describe('the spacing a turn asks for', () => {
     // A moving obstacle asks a turn: the same room before it, after it, and between two.
     expect(turnSeconds(centre, slide)).toBeCloseTo(quarter, 9);
     expect(turnSeconds(rod, centre)).toBeCloseTo(quarter, 9);
-    expect(turnSeconds(rod, rod)).toBeCloseTo(quarter, 9);
+    expect(turnSeconds(slide, slide)).toBeCloseTo(quarter, 9);
+    // A rod right behind a rod turning the same way is a chain: the turn held carries on. The other way round asks a change.
+    expect(turnSeconds(rod, rod)).toBe(0);
+    expect(turnSeconds(rod, { ...rod, back: true })).toBeCloseTo(quarter, 9);
+    expect(turnSeconds({ kind: 'gate', motion: 'still', back: false }, half)).toBe(0);
+    expect(turnSeconds({ kind: 'upright', motion: 'still', back: false }, { kind: 'short', motion: 'still', back: false })).toBe(0);
+    expect(turnSeconds({ kind: 'gate', motion: 'still', back: false }, { kind: 'short', motion: 'still', back: false })).toBeCloseTo(quarter, 9);
   });
 
   it('stands every chapter obstacle that asks another pose far enough behind the one before, at its wave\'s speed', () => {
@@ -271,7 +322,7 @@ describe('the spacing a turn asks for', () => {
 
   it('names an obstacle too close behind one of the other pose, and lets one of the same pose follow closely', () => {
     const close = parseChapter('V', 'CLOSE', ['speed 100\nL half · 0\nR half · 0.25R\ncentre · 1R']);
-    expect(spacingProblems([close])).toEqual(['chapter V · CLOSE, wave 1, line 4: 56.0 px behind, not 77.0']);
+    expect(spacingProblems([close])).toEqual(['chapter V · CLOSE, wave 1, line 4: 56.0 px behind, not 69.8']);
   });
 
   it('keeps the endless waves to it too, for the first 200', () => {
@@ -377,7 +428,7 @@ describe('what the waves ask of a person', () => {
     });
   });
 
-  it('keeps chapter I the gentlest: still half bars and centre blocks, two changes of pose a wave at the least, 1.75 R before a change, 1.5 R within a run', () => {
+  it('keeps chapter I the gentlest: still obstacles only, two changes of pose a wave at the least, 1.75 R before a change, 1.5 R within a run', () => {
     for (const [i, w] of (CHAPTERS[0]?.waves ?? []).entries()) {
       expect(changes(w), `DRIFT wave ${i + 1}`).toBeGreaterThanOrEqual(2);
       w.pieces.forEach((p, k) => {
@@ -400,16 +451,16 @@ describe('what the waves ask of a person', () => {
 describe('the speed-up at each wave\'s end', () => {
   const sample = parseWave('speed 120\ncentre · 0\nL half · 2R\ncentre turn · 2R', 'test');
 
-  it('keeps the wave\'s speed until its last 35%, then speeds the fall up evenly to 30% above it', () => {
+  it('keeps the wave\'s speed until its last 35%, then speeds the fall up evenly, lightly, to 10% above it', () => {
     const { from, seconds, gain } = sample.ramp;
     expect(gain).toBe(RAMP.full);
-    expect(RAMP.full).toBe(0.3);
+    expect(RAMP.full).toBe(0.1);
     expect(from / (from + seconds)).toBeCloseTo(1 - RAMP.share, 9);
     expect(speedAt(sample, 0)).toBe(120);
     expect(speedAt(sample, from)).toBe(120);
-    expect(speedAt(sample, from + seconds / 2)).toBeCloseTo(120 * 1.15, 9);
-    expect(speedAt(sample, from + seconds)).toBeCloseTo(156, 9);
-    expect(speedAt(sample, 60)).toBeCloseTo(156, 9);
+    expect(speedAt(sample, from + seconds / 2)).toBeCloseTo(120 * 1.05, 9);
+    expect(speedAt(sample, from + seconds)).toBeCloseTo(132, 9);
+    expect(speedAt(sample, 60)).toBeCloseTo(132, 9);
   });
 
   it('ends exactly as the wave\'s last obstacle reach is below the circle', () => {
@@ -429,17 +480,20 @@ describe('the speed-up at each wave\'s end', () => {
     expect((later?.cy ?? 0) - (start?.cy ?? 0)).toBeCloseTo(fallen(sample, 300 * RULES.subStep), 9);
   });
 
-  it('speeds chapter I up gently, by 15%, and every other wave by 30%, endless ones too, never the pair\'s turn', () => {
+  it('never speeds chapter I up, and every other wave by 10%, endless ones too, never the pair\'s turn', () => {
     CHAPTERS.forEach((c, i) => { for (const w of c.waves) expect(w.ramp.gain, c.name).toBe(i === 0 ? RAMP.gentle : RAMP.full); });
-    expect(RAMP.gentle).toBe(0.15);
+    expect(RAMP.gentle).toBe(0);
+    const [first] = CHAPTERS[0]?.waves ?? [];
+    if (!first) throw new Error('no wave');
+    expect(speedAt(first, 60)).toBe(first.speed);
     for (const w of endlessWaves(20)) expect(w.ramp.gain).toBe(RAMP.full);
     expect(RULES.turnsPerSecond).toBe(0.6);
   });
 
   it('asks the spacing at the speed the wave falls at as the obstacle arrives, its speed-up counted', () => {
-    // A quarter turn and a reaction take 0.667 s: 100 px at 150 px/s, 123 px at the speed the half bar arrives at, sped up.
-    const text = 'speed 150\ncentre · 0\ncentre · 1R\ncentre · 1R\ncentre · 1R\nL half · 2R';
-    expect(spacingProblems([parseChapter('V', 'LATE', [text])])).toEqual(['chapter V · LATE, wave 1, line 6: 112.0 px behind, not 123.2']);
+    // A quarter turn and a reaction take 0.667 s: 100 px at 150 px/s, 107 px at the speed the half bar arrives at, sped up.
+    const text = 'speed 150\ncentre · 0\ncentre · 1R\ncentre · 1R\ncentre · 1R\nL half · 1.85R';
+    expect(spacingProblems([parseChapter('V', 'LATE', [text])])).toEqual(['chapter V · LATE, wave 1, line 6: 103.6 px behind, not 107.4']);
     expect(spacingProblems([parseChapter('V', 'FLAT', [text], 0)])).toEqual([]);
   });
 });
@@ -540,6 +594,23 @@ describe('the spirals and the zigzags', () => {
     }
   });
 
+  it('read every rod chain as a spiral: two or three rods turning one way, 1.25 to 1.5 R apart, passed holding that turn', () => {
+    const waves = [...CHAPTERS.flatMap((c) => c.waves), ...endlessWaves(200)];
+    let chains = 0;
+    for (const w of waves) {
+      const spirals = patternsOf(w).filter((p) => p.shape === 'spiral');
+      w.pieces.forEach((p, k) => {
+        const before = w.pieces[k - 1];
+        if (!before || p.motion !== 'turn' || before.motion !== 'turn' || p.back !== before.back || spaceBetween(before, p) >= 1.75 * R) return;
+        chains++;
+        expect(spaceBetween(before, p) / R).toBeGreaterThanOrEqual(1.25 - 1e-9);
+        expect(spaceBetween(before, p) / R).toBeLessThanOrEqual(1.5 + 1e-9);
+        expect(spirals.some((s) => s.first <= k - 1 && k <= s.last), `a chain at obstacle ${k + 1}`).toBe(true);
+      });
+    }
+    expect(chains).toBeGreaterThan(10);
+  });
+
   it('come into endless mode: its groups hold both, and its waves chain them as asked', () => {
     const shapes = new Set(ENDLESS_GROUPS.flatMap((g) => patternsOf(parseWave(['speed 145', ...g.map((l, i) => (i === 0 ? `${l} · 0` : l))].join('\n'), 'group')).map((p) => p.shape)));
     expect(shapes).toEqual(new Set(['spiral', 'zigzag']));
@@ -591,19 +662,40 @@ describe('the endless waves', () => {
       expect(new Set(pieces.map((p) => POSE[p.kind].pose)).size, group.join(' / ')).toBe(1);
       expect(storm.some((w) => w.includes(pieces.map(written).join(' / '))), group.join(' / ')).toBe(true);
     }
-    const groups = new Set(ENDLESS_GROUPS.map((g) => g.map((l) => l.split(' · ')[0]).join(' / ')));
-    for (const w of endlessWaves(60)) {
-      const runs: string[][] = [];
-      w.pieces.forEach((p, k) => {
-        const before = w.pieces[k - 1];
-        const words = `${p.side < 0 ? 'L ' : p.side > 0 ? 'R ' : ''}${p.kind}${p.motion === 'still' ? '' : ` ${p.motion}`}${p.back ? ' back' : ''}`;
-        if (before && spaceBetween(before, p) < 2.5 * R - 1e-9) runs.at(-1)?.push(words);
-        else runs.push([words]);
-      });
-      expect(runs.length).toBeGreaterThanOrEqual(1);
-      expect(runs.length).toBeLessThanOrEqual(3);
-      for (const run of runs) expect(groups.has(run.join(' / ')), run.join(' / ')).toBe(true);
+    // A wave read back group by group: the fewest of chapter IV's groups that, one after another, say its obstacles.
+    const groups = ENDLESS_GROUPS.map((g) => g.map((l) => l.split(' · ')[0] ?? ''));
+    const fewest = (words: readonly string[], k = 0): number => (k === words.length ? 0
+      : Math.min(Infinity, ...groups.filter((g) => g.every((w, i) => words[k + i] === w)).map((g) => 1 + fewest(words, k + g.length))));
+    for (const [n, w] of endlessWaves(60).entries()) {
+      const words = w.pieces.map((p) => `${p.side < 0 ? 'L ' : p.side > 0 ? 'R ' : ''}${p.kind}${p.motion === 'still' ? '' : ` ${p.motion}`}${p.back ? ' back' : ''}`);
+      expect(fewest(words), `wave ${n + 1}: ${words.join(' / ')}`).toBeGreaterThanOrEqual(1);
+      expect(fewest(words), `wave ${n + 1}: ${words.join(' / ')}`).toBeLessThanOrEqual(3);
     }
+  });
+
+  it('start just above chapter IV\'s fastest and rise, one more every two waves, to a ceiling of 170 px/s, about 3 R a second, in a few dozen waves', () => {
+    const speeds = endlessWaves(200).map((w) => w.speed);
+    expect(speeds).toEqual(speeds.map((_, n) => endlessSpeed(n)));
+    expect(speeds[0]).toBeGreaterThan(fastestStorm);
+    expect(speeds[0]).toBeLessThanOrEqual(fastestStorm + 3);
+    expect(speeds[2]).toBe((speeds[0] ?? 0) + 1);
+    const top = endlessSpeed(100_000);
+    expect(top).toBe(170);
+    expect(top / R).toBeGreaterThan(2.9);
+    expect(top / R).toBeLessThan(3.1);
+    const reached = speeds.indexOf(top);
+    expect(reached).toBeGreaterThanOrEqual(24);
+    expect(reached).toBeLessThanOrEqual(60);
+  });
+
+  it('pack the obstacles of one pose 1.25 R apart, and leave a change of pose or a turn the room the spacing rule asks', () => {
+    const spaces = endlessWaves(200).flatMap((w) => w.pieces.slice(1).map((p, k) => {
+      const before = w.pieces[k] as Piece;
+      return { space: spaceBetween(before, p) / R, same: p.motion === 'still' && before.motion === 'still' && POSE[p.kind].pose === POSE[before.kind].pose };
+    }));
+    expect(Math.min(...spaces.filter((s) => s.same).map((s) => s.space))).toBeCloseTo(1.25, 9);
+    expect(spaces.filter((s) => s.same && s.space < 1.5 * R).length).toBeGreaterThan(20);
+    expect(Math.max(...spaces.filter((s) => !s.same).map((s) => s.space))).toBeLessThan(3);
   });
 
   it('stop rising at a ceiling: a slow rise, never past it', () => {
