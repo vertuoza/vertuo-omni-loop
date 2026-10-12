@@ -2,6 +2,7 @@
 // changes it. Pure: the arcade reaches this file with a dynamic `import()` once the cabinet is open
 // (guard.test.ts), and the browser's storage is handed in.
 import type { Action } from '../keys';
+import { COLORS, DESIGNS } from './look';
 
 // The look's sprites and tints reach the arcade through this module: it is the one loaded on demand.
 export { kartSprite, kartTint } from './look';
@@ -19,9 +20,8 @@ export type Laps = (typeof LAP_CHOICES)[number];
 export const DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
 
-/** The kart's colours and designs by name (the look's own table is slice 2's; the names are the spec's). */
-export const COLORS = ['FLEET', 'RED', 'ORANGE', 'YELLOW', 'GREEN', 'CYAN', 'BLUE', 'PINK'] as const;
-export const DESIGNS = ['CLASSIC', 'ROCKET', 'RACER'] as const;
+/** The kart's colours by name, read from the look's own table. */
+const COLOR_NAMES: readonly string[] = COLORS.map((c) => c.name);
 
 export interface KartOptions {
   /** One key each, as the keyboard types it (`e.key`); a letter in lower case. */
@@ -79,7 +79,7 @@ export function parseOptions(text: string | null | undefined): KartOptions {
   if (isLaps(raw.laps)) out.laps = raw.laps;
   if (isDifficulty(raw.difficulty)) out.difficulty = raw.difficulty;
   const look = isObject(raw.look) ? raw.look : {};
-  out.look = { color: nameOf(look.color, COLORS, 'FLEET'), design: nameOf(look.design, DESIGNS, 'CLASSIC') };
+  out.look = { color: nameOf(look.color, COLOR_NAMES, 'FLEET'), design: nameOf(look.design, DESIGNS, 'CLASSIC') };
   return out;
 }
 
@@ -180,7 +180,7 @@ type KartView = Extract<OptionsView, { screen: 'kart' }>;
 
 /** ◀ ▶ on KART: the colour or the design goes round its list; DEFAULTS has nothing to change. */
 function shiftLook(options: KartOptions, line: KartLine, by: 1 | -1): KartOptions {
-  if (line === 'color') return { ...options, look: { ...options.look, color: cycle(COLORS, options.look.color, by) } };
+  if (line === 'color') return { ...options, look: { ...options.look, color: cycle(COLOR_NAMES, options.look.color, by) } };
   if (line === 'design') return { ...options, look: { ...options.look, design: cycle(DESIGNS, options.look.design, by) } };
   return options;
 }
