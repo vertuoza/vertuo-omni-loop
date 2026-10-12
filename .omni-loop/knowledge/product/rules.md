@@ -490,7 +490,7 @@ On HOME, pressing Enter runs PRESS START unless the focus is on a button, link o
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
-Enforced by: pending #1506
+Enforced by: apps/galaxy/src/home/start.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
