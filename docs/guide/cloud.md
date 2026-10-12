@@ -80,9 +80,13 @@ a setup script. Make one for the loop, or edit the one you use.
 2. **Name** it, so you pick it again: `omni loop`, for example.
 3. **Network access:** a session must reach the Omni page. Allow the host of the repository's
    `ask.url` (read it with `omni config ask.url`; for the Omni Loop's own repository it is
-   `www.omni-loop.xyz`), and `openrouter.ai` too when you set `OPENROUTER_API_KEY` below:
-   - **Custom**, with those hosts listed one per line under **Allowed domains**, and **Also include
-     default list of common package managers** ticked, so the setup script can still install.
+   `www.omni-loop.xyz`), and `openrouter.ai` too when you set `OPENROUTER_API_KEY` below. When the
+   session works on the apps, add Vercel too: `*.vercel.app`, the deployments and their previews,
+   which `/omni:prove` films (`omni config proof.url`); and `vercel.com` and `api.vercel.com`, for
+   the `vercel` command and its API:
+   - **Custom**, with those hosts listed one per line under **Allowed domains** (a leading `*.`
+     matches every subdomain), and **Also include default list of common package managers**
+     ticked, so the setup script can still install.
    - Or **Full**, which allows every host.
 
    The default, **Trusted**, allows package registries and GitHub but not the Omni page: a session then
