@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 1692
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-duet-endless-pace-and-new-shapes -->
+
+## s1-01-duet-endless-pace-and-new-shapes — agreed
+
+- Verdict: agreed
+- Approved by: martl-vertuoza
+- Approved at: 2026-10-12T12:07:56Z
+- Channel: feature pull request #1702
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1702#issuecomment-6123957586
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-102
+- Raised: 2026-10-12
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built; BR-PRODUCT-102 reads as before, its ceiling now 170.
+
+### The answer, as it was given
+
+```text
+A. Keep the faster endless mode and the new shapes (built).
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-duet-endless-pace-and-new-shapes
 prd: 1692
@@ -44,3 +77,7 @@ A few constants and wave text in one file.
 ## What I could not know
 
 - Whether 170 px/s feels right as endless's ceiling: measured from the original, not played here (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-01-duet-endless-pace-and-new-shapes -->
