@@ -468,7 +468,7 @@ When a signed-in person with no galaxy on their page follows a link to the game'
 
 Serves: P-PRODUCT-40
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
-Enforced by: pending #1504
+Enforced by: apps/galaxy/src/arcade/deep-link.test.ts
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239

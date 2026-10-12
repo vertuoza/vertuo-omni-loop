@@ -4,9 +4,9 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { addressAt, DEEP_LINKS, landing, readHash } from './deep-link';
 import { xpStatus } from './games/room';
 import { levelUpFor } from './levelup';
-import { arrive } from './onboarding';
+import { afterStart, arrive } from './onboarding';
 import { twinEvents, twinGalaxy } from './test/twins.fake';
-import type { Session } from './types';
+import type { FleetRow, Player, Session } from './types';
 import { sure } from './test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
@@ -84,6 +84,30 @@ describe('every deep link, through the one door', () => {
   it('starts at the boot when the hash names no screen', () => {
     expect(landing('', { view, session: crew })).toBeNull();
     expect(landing('#title', { view, session: null })).toBeNull();
+  });
+});
+
+// BR-PRODUCT-43 (.omni-loop/knowledge/product/rules.md): a signed-in person whose page holds no
+// galaxy, following the link to the game's menu, starts from the intro as the home address does, then
+// reaches the outside-the-crew screen or the menu with the galaxy out of reach.
+describe('law BR-PRODUCT-43: the menu link without a galaxy', () => {
+  const fleets: FleetRow[] = [{ name: 'beaver', home: null, label: 'BEAVER', color: '#2fc6a4', motto: '', mascot: null, sort: 0, retired: false }];
+  const ready: Player = {
+    id: 'u1', display_name: 'ADA', team: 'beaver', team_since: '2026-09-25T10:00:00Z',
+    hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, github_login: 'ada-gh',
+  };
+
+  it('starts the arcade from the intro, as the home address does, for an account outside the crew and a crew member alike', () => {
+    for (const session of [outsider, crew]) {
+      const home = landing('', { view: null, session });
+      expect(home, session.email).toBeNull();
+      expect(landing('#menu', { view: null, session }), session.email).toEqual(home);
+    }
+  });
+
+  it('then shows the outside-the-crew screen to an account outside the crew, and the way to the menu to a player', () => {
+    expect(afterStart(outsider, null, fleets)).toBe('outsider');
+    expect(afterStart(crew, ready, fleets)).toBe('welcome');
   });
 });
 
