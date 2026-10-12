@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { Block } from './collide';
 import { RULES } from './rules';
 import {
-  blocksAt, CHAPTERS, ENDLESS_GROUPS, ENDLESS_SEED, endlessWave, endlessWaves, parseChapter, parseWave, passedAt, POSE, reachOf, ring, route,
-  SHAPE, spaceBetween, spacingProblems, struck, turnSeconds, waveProblems, type Piece, type Wave,
+  blocksAt, CHAPTERS, ENDLESS_GROUPS, ENDLESS_SEED, endlessWave, endlessWaves, fallen, ghostShare, parseChapter, parseWave, passedAt, patternsOf, POSE,
+  RAMP, reachOf, ring, route, secondsOf, SHAPE, sightOf, spaceBetween, spacingProblems, speedAt, struck, throughHolding, timeAt, turnSeconds,
+  waveProblems, wayOf, windowOf, type Pattern, type Piece, type Wave,
 } from './waves';
 
-// OMNI DUET's waves (PRD 1633, slice 3; issue 1672): the vocabulary of obstacles set on the circle,
-// each dodged by one clear pose, the four chapters written in it, the spacing a turn asks for, and the
-// check that proves every wave passable by a person (issue 1663).
+// OMNI DUET's waves (PRD 1633, slice 3; issues 1672 and 1689): the vocabulary of obstacles set on the
+// circle, each still one dodged by one clear pose and each moving one by a turn, the four chapters
+// written in it, their spirals, zigzags, ghosts and end-of-wave speed-ups, the spacing a turn asks
+// for, and the check that proves every wave passable by a person (issue 1663).
 
 const R = RULES.radius;
 const at = (wave: Wave, seconds: number) => blocksAt(wave, Math.round(seconds / RULES.subStep));
@@ -21,8 +23,15 @@ function two(blocks: readonly Block[]): [Block, Block] {
   return [a, b];
 }
 
-/** Every obstacle the legend can write: each kind on each of its sides, still, sliding and turning, either way round. */
-const EVERY = ['L half', 'R half', 'centre'].flatMap((w) => ['', ' slide', ' slide back', ' turn', ' turn back'].map((m) => `${w}${m}`));
+/** Every still obstacle the legend can write, and every moving one: a centre block sliding or a rod, either way round. */
+const STILL = ['L half', 'R half', 'centre'];
+const MOVING = ['centre slide', 'centre slide back', 'centre turn', 'centre turn back'];
+
+/** A person who reacts slower than the check's, with orbs 2 pixels wider: the room every wave keeps to spare. */
+const SPARE = { reactionSeconds: 0.4, orbRadius: RULES.orbRadius + 2 };
+
+/** One wave, as a chapter of its own for the checks. */
+const alone = (wave: Wave) => [{ numeral: 'X', name: 'ALONE', waves: [wave] }];
 
 /** Whether orbs held at `angle`, `r` wide, are struck by a wave of `words` alone, at any sub-step until it is passed. */
 function strikes(words: string, angle: number, { speed = 60, distance = '0', r = RULES.orbRadius }: { speed?: number; distance?: string; r?: number } = {}): boolean {
@@ -36,8 +45,13 @@ describe('the vocabulary', () => {
 
   it('asks the pair upright for half bars, and level for the centre block', () => {
     expect(posed('L half').pose).toBe('upright');
-    expect(posed('R half turn').pose).toBe('upright');
-    expect(posed('centre slide').pose).toBe('level');
+    expect(posed('R half').pose).toBe('upright');
+    expect(posed('centre').pose).toBe('level');
+  });
+
+  it('never moves a half bar: moving, it only ever moved away from the upright orbs', () => {
+    expect(() => parseWave('speed 100\nL half slide · 0', 'test')).toThrow('test, line 2: a half bar does not move');
+    expect(() => parseWave('speed 100\nR half turn back · 0', 'test')).toThrow('test, line 2: a half bar does not move');
   });
 
   it('holds two obstacles only, as Duet has: no upright bar', () => {
@@ -45,7 +59,7 @@ describe('the vocabulary', () => {
     expect(() => parseWave('speed 100\nL upright · 0', 'test')).toThrow('test, line 2: "upright" is not in the legend');
   });
 
-  it.each(EVERY)('%s: its one pose clears it, with room for orbs 2 pixels wider; the other pose hits it', (words) => {
+  it.each(STILL)('%s: its one pose clears it, with room for orbs 2 pixels wider; the other pose hits it', (words) => {
     const { angle } = posed(words);
     const other = angle === UPRIGHT ? LEVEL : UPRIGHT;
     for (const speed of [95, 125, 155]) {
@@ -53,6 +67,22 @@ describe('the vocabulary', () => {
         expect(strikes(words, angle, { speed, distance, r: RULES.orbRadius + 2 }), `${speed} px/s, ${distance}: its pose`).toBe(false);
         expect(strikes(words, angle + Math.PI, { speed, distance }), `${speed} px/s, ${distance}: its pose half a turn on`).toBe(false);
         expect(strikes(words, other, { speed, distance }), `${speed} px/s, ${distance}: the other pose`).toBe(true);
+      }
+    }
+  });
+
+  it.each(MOVING)('%s: every pose held still hits it, at every angle of the ring; a person turning the way it moves clears it, and only so', (words) => {
+    const { bins } = ring();
+    const way = wayOf(parseWave(`speed 60\n${words} · 0`, 'test').pieces[0] ?? { motion: 'still', back: false });
+    expect(way).not.toBe(0);
+    for (const speed of [95, 125, 155]) {
+      for (const distance of ['0', '1.3R']) {
+        for (let b = 0; b < bins; b++) expect(strikes(words, (b / bins) * Math.PI * 2, { speed, distance }), `${speed} px/s, ${distance}: held at bin ${b}`).toBe(true);
+        const wave = parseWave(`speed ${speed}\n${words} · ${distance}`, 'test');
+        expect(waveProblems(alone(wave), SPARE), `${speed} px/s, ${distance}: a person, with room to spare`).toEqual([]);
+        const seen = windowOf(wave, 0);
+        if (!seen) throw new Error('never in reach');
+        expect(throughHolding(wave, seen.first, seen.last, [0, way === 1 ? -1 : 1]), `${speed} px/s, ${distance}: never turning its way`).toBe(false);
       }
     }
   });
@@ -70,6 +100,14 @@ describe('the vocabulary', () => {
     expect(centre).toMatchObject({ cx: RULES.centre.x, angle: 0 });
     expect(centre?.w).toBeCloseTo(0.75 * R, 9);
     expect(centre?.h).toBeCloseTo(0.75 * R, 9);
+  });
+
+  it('makes a turning centre block a rod as Duet has, 2.2 R long and 0.33 R thick, turning about its middle on the centre line', () => {
+    const [rod] = at(parseWave('speed 60\ncentre turn · 0', 'test'), 0);
+    expect(rod?.cx).toBe(RULES.centre.x);
+    expect(rod?.w).toBeCloseTo(2.2 * R, 9);
+    expect(rod?.h).toBeCloseTo(0.33 * R, 9);
+    expect(SHAPE.spinTurnsPerSecond).toBe(RULES.turnsPerSecond);
   });
 });
 
@@ -110,12 +148,12 @@ describe('the chapters', () => {
 
 describe('the wave text', () => {
   it('reads the speed, then one obstacle a line, each its distance behind the one before', () => {
-    const wave = parseWave('speed 70\nL half · 0\ncentre slide · 2R\nR half turn back · 1.5R', 'test');
+    const wave = parseWave('speed 70\nL half · 0\ncentre slide ghost · 2R\ncentre turn back · 1.5R', 'test');
     expect(wave.speed).toBe(70);
-    expect(wave.pieces.map(({ kind, side, motion, back }) => ({ kind, side, motion, back }))).toEqual([
-      { kind: 'half', side: -1, motion: 'still', back: false },
-      { kind: 'centre', side: 0, motion: 'slide', back: false },
-      { kind: 'half', side: 1, motion: 'turn', back: true },
+    expect(wave.pieces.map(({ kind, side, motion, back, ghost }) => ({ kind, side, motion, back, ghost }))).toEqual([
+      { kind: 'half', side: -1, motion: 'still', back: false, ghost: false },
+      { kind: 'centre', side: 0, motion: 'slide', back: false, ghost: true },
+      { kind: 'centre', side: 0, motion: 'turn', back: true, ghost: false },
     ]);
     const [a, b, c] = wave.pieces as [Piece, Piece, Piece];
     expect(a.above).toBeCloseTo(reachOf(a), 9);
@@ -123,9 +161,13 @@ describe('the wave text', () => {
     expect(spaceBetween(b, c)).toBeCloseTo(1.5 * R, 9);
   });
 
-  it('counts a turning obstacle at the disc it sweeps', () => {
-    expect(reachOf({ kind: 'half', motion: 'turn' })).toBeCloseTo(Math.hypot(2 * R, 0.3 * R) / 2, 9);
-    expect(reachOf({ kind: 'half', motion: 'slide' })).toBeCloseTo(0.15 * R, 9);
+  it('counts a rod at the disc it sweeps', () => {
+    expect(reachOf({ kind: 'centre', motion: 'turn' })).toBeCloseTo(Math.hypot(2.2 * R, 0.33 * R) / 2, 9);
+    expect(reachOf({ kind: 'centre', motion: 'slide' })).toBeCloseTo(0.375 * R, 9);
+  });
+
+  it('refuses a ghost word anywhere but last', () => {
+    expect(() => parseWave('speed 60\ncentre ghost slide · 0', 'test')).toThrow('test, line 2: "ghost" is not in the legend');
   });
 
   it('refuses an unknown word with its chapter, wave and line', () => {
@@ -159,26 +201,32 @@ describe('the obstacles', () => {
     expect(at(parseWave('speed 60\ncentre · 1R', 'test'), 0)[0]?.cy).toBeCloseTo(-R - side / 2, 9);
   });
 
-  it('slide within their reach: a half bar only away from the centre line and back, a centre block either side', () => {
-    const slide = parseWave('speed 60\nL half slide · 0\ncentre slide back · 0', 'test');
-    const xs = (s: number) => at(slide, s).map((b) => b.cx);
-    const [half0 = 0, centre0 = 0] = xs(0);
-    expect(centre0).toBe(160);
-    for (let s = 0; s < 8; s += 0.05) {
-      const [half = 0, centre = 0] = xs(s);
-      expect(half).toBeLessThanOrEqual(half0 + 1e-9);
-      expect(half0 - half).toBeLessThanOrEqual(SHAPE.slideReach.half * R + 1e-9);
-      expect(Math.abs(centre - 160)).toBeLessThanOrEqual(SHAPE.slideReach.centre * R + 1e-9);
+  it('slide a centre block across the whole circle on a fixed path: at its far side as it crosses the centre\'s height, on the centre line at the upright orbs\' heights', () => {
+    for (const [words, far] of [['centre slide', -1], ['centre slide back', 1]] as const) {
+      for (const speed of [60, 150]) {
+        const wave = parseWave(`speed ${speed}\n${words} · 0`, 'test');
+        const xAt = (cy: number) => {
+          let tick = 0;
+          while ((blocksAt(wave, tick)[0]?.cy ?? Infinity) < cy) tick++;
+          const [b] = blocksAt(wave, tick);
+          return { x: (b?.cx ?? 0) - RULES.centre.x, y: (b?.cy ?? 0) - cy };
+        };
+        for (let tick = 0; !passedAt(wave, tick); tick++) expect(Math.abs((blocksAt(wave, tick)[0]?.cx ?? 0) - RULES.centre.x)).toBeLessThanOrEqual(SHAPE.slide.reach * R + 1e-9);
+        // A sub-step's fall from the height asked: the block within that much of it across.
+        const slack = (step: number) => step * 2 * SHAPE.slide.reach / SHAPE.slide.across + 1e-9;
+        const middle = xAt(RULES.centre.y), top = xAt(RULES.centre.y - R), bottom = xAt(RULES.centre.y + R);
+        expect(Math.abs(middle.x - far * R), `${words} at ${speed} px/s`).toBeLessThanOrEqual(slack(middle.y));
+        expect(Math.abs(top.x), `${words} at ${speed} px/s`).toBeLessThanOrEqual(slack(top.y));
+        expect(Math.abs(bottom.x), `${words} at ${speed} px/s`).toBeLessThanOrEqual(slack(bottom.y));
+      }
     }
-    const quarter = SHAPE.slideReach.centre / SHAPE.slideSpeed;
-    expect(xs(quarter)[1]).toBeCloseTo(160 - SHAPE.slideReach.centre * R, 0);
   });
 
-  it('turn about their middle at a constant rate, each the way it was written, standing as written as they cross the centre\'s height', () => {
+  it('turn a rod about its middle at a constant rate, the way it was written, lying level as it crosses the centre\'s height', () => {
     const quarter = 0.25 / SHAPE.spinTurnsPerSecond;
-    for (const [words, way] of [['centre turn', 1], ['R half turn back', -1]] as const) {
+    for (const [words, way] of [['centre turn', 1], ['centre turn back', -1]] as const) {
       const spin = parseWave(`speed 60\n${words} · 0`, 'test');
-      const crossing = (RULES.centre.y + (spin.pieces[0]?.above ?? 0)) / 60;
+      const crossing = timeAt(spin, RULES.centre.y + (spin.pieces[0]?.above ?? 0));
       expect(at(spin, crossing)[0]?.angle, words).toBeCloseTo(0, 1);
       const [later] = at(spin, crossing + quarter);
       expect(later?.angle, words).toBeCloseTo((way * Math.PI) / 2, 1);
@@ -188,8 +236,8 @@ describe('the obstacles', () => {
 
   it('count a wave passed once its last obstacle is entirely below the circle', () => {
     const bottom = RULES.centre.y + RULES.radius + RULES.orbRadius;
-    // The block's top edge is at -side + 60 t: it clears the circle's bottom once that passes `bottom`.
-    const clear = (bottom + side) / 60;
+    // The block's top edge is at -side plus the fall: it clears the circle's bottom once that passes `bottom`.
+    const clear = timeAt(wave, bottom + side);
     expect(passedAt(wave, Math.floor(clear / RULES.subStep) - 1)).toBe(false);
     expect(passedAt(wave, Math.ceil(clear / RULES.subStep) + 1)).toBe(true);
   });
@@ -205,11 +253,16 @@ describe('the obstacles', () => {
 
 describe('the spacing a turn asks for', () => {
   it('asks nothing between two obstacles of one pose, and a quarter turn plus a person\'s reaction between the two poses', () => {
-    expect(turnSeconds('half', 'half')).toBe(0);
-    expect(turnSeconds('centre', 'centre')).toBe(0);
+    const [half, centre, slide, rod] = [{ kind: 'half', motion: 'still' }, { kind: 'centre', motion: 'still' }, { kind: 'centre', motion: 'slide' }, { kind: 'centre', motion: 'turn' }] as const;
+    expect(turnSeconds(half, half)).toBe(0);
+    expect(turnSeconds(centre, centre)).toBe(0);
     const quarter = 0.25 / RULES.turnsPerSecond + RULES.reactionSeconds;
-    expect(turnSeconds('half', 'centre')).toBeCloseTo(quarter, 9);
-    expect(turnSeconds('centre', 'half')).toBeCloseTo(quarter, 9);
+    expect(turnSeconds(half, centre)).toBeCloseTo(quarter, 9);
+    expect(turnSeconds(centre, half)).toBeCloseTo(quarter, 9);
+    // A moving obstacle asks a turn: the same room before it, after it, and between two.
+    expect(turnSeconds(centre, slide)).toBeCloseTo(quarter, 9);
+    expect(turnSeconds(rod, centre)).toBeCloseTo(quarter, 9);
+    expect(turnSeconds(rod, rod)).toBeCloseTo(quarter, 9);
   });
 
   it('stands every chapter obstacle that asks another pose far enough behind the one before, at its wave\'s speed', () => {
@@ -218,7 +271,7 @@ describe('the spacing a turn asks for', () => {
 
   it('names an obstacle too close behind one of the other pose, and lets one of the same pose follow closely', () => {
     const close = parseChapter('V', 'CLOSE', ['speed 100\nL half · 0\nR half · 0.25R\ncentre · 1R']);
-    expect(spacingProblems([close])).toEqual(['chapter V · CLOSE, wave 1, line 4: 56.0 px behind, not 66.7']);
+    expect(spacingProblems([close])).toEqual(['chapter V · CLOSE, wave 1, line 4: 56.0 px behind, not 77.0']);
   });
 
   it('keeps the endless waves to it too, for the first 200', () => {
@@ -227,9 +280,6 @@ describe('the spacing a turn asks for', () => {
 });
 
 describe('every wave is passable by a person', () => {
-  /** A person who reacts slower than the check's, with orbs 2 pixels wider: the room every wave keeps to spare. */
-  const SPARE = { reactionSeconds: 0.4, orbRadius: RULES.orbRadius + 2 };
-
   it('turns on a ring of 100 bins, 1 a step: the run\'s own angles, exactly', () => {
     expect(ring()).toEqual({ bins: 100, move: 1 });
   });
@@ -287,13 +337,7 @@ describe('what the waves ask of a person', () => {
   };
 
   /** A wave's seconds, from its first obstacle entering the playfield to its last passing the orbs. */
-  const seconds = (wave: Wave) => {
-    let tick = 1;
-    while (!passedAt(wave, tick)) tick++;
-    const first = wave.pieces[0];
-    const enters = first ? (first.above - reachOf(first)) / wave.speed : 0;
-    return tick * RULES.subStep - enters;
-  };
+  const seconds = secondsOf;
 
   /** How many times a wave's obstacles ask the pair to change pose. */
   const changes = (wave: Wave) => wave.pieces.filter((p, k) => k > 0 && POSE[p.kind].pose !== POSE[wave.pieces[k - 1]?.kind ?? p.kind].pose).length;
@@ -350,6 +394,160 @@ describe('what the waves ask of a person', () => {
     const storm = (CHAPTERS[3]?.waves ?? []).flatMap((w) => w.pieces.slice(1).map((p, k) => ({ p, before: w.pieces[k] as Piece })));
     const same = storm.filter(({ p, before }) => POSE[p.kind].pose === POSE[before.kind].pose).map(({ p, before }) => spaceBetween(before, p) / R);
     expect(Math.min(...same)).toBeCloseTo(1.25, 9);
+  });
+});
+
+describe('the speed-up at each wave\'s end', () => {
+  const sample = parseWave('speed 120\ncentre · 0\nL half · 2R\ncentre turn · 2R', 'test');
+
+  it('keeps the wave\'s speed until its last 35%, then speeds the fall up evenly to 30% above it', () => {
+    const { from, seconds, gain } = sample.ramp;
+    expect(gain).toBe(RAMP.full);
+    expect(RAMP.full).toBe(0.3);
+    expect(from / (from + seconds)).toBeCloseTo(1 - RAMP.share, 9);
+    expect(speedAt(sample, 0)).toBe(120);
+    expect(speedAt(sample, from)).toBe(120);
+    expect(speedAt(sample, from + seconds / 2)).toBeCloseTo(120 * 1.15, 9);
+    expect(speedAt(sample, from + seconds)).toBeCloseTo(156, 9);
+    expect(speedAt(sample, 60)).toBeCloseTo(156, 9);
+  });
+
+  it('ends exactly as the wave\'s last obstacle reach is below the circle', () => {
+    const last = sample.pieces.at(-1);
+    if (!last) throw new Error('no obstacle');
+    const { from, seconds } = sample.ramp;
+    expect(fallen(sample, from + seconds)).toBeCloseTo(last.above + reachOf(last) + RULES.centre.y + RULES.radius + RULES.orbRadius, 6);
+  });
+
+  it('moves the obstacles by the speed integrated, and timeAt undoes it', () => {
+    let d = 0;
+    const dt = 1e-4;
+    for (let i = 0; i < 8 / dt; i++) d += speedAt(sample, (i + 0.5) * dt) * dt;
+    expect(fallen(sample, 8)).toBeCloseTo(d, 2);
+    for (const t of [0.5, sample.ramp.from + 0.1, sample.ramp.from + sample.ramp.seconds + 0.3]) expect(timeAt(sample, fallen(sample, t))).toBeCloseTo(t, 9);
+    const [start] = blocksAt(sample, 0), [later] = blocksAt(sample, 300);
+    expect((later?.cy ?? 0) - (start?.cy ?? 0)).toBeCloseTo(fallen(sample, 300 * RULES.subStep), 9);
+  });
+
+  it('speeds chapter I up gently, by 15%, and every other wave by 30%, endless ones too, never the pair\'s turn', () => {
+    CHAPTERS.forEach((c, i) => { for (const w of c.waves) expect(w.ramp.gain, c.name).toBe(i === 0 ? RAMP.gentle : RAMP.full); });
+    expect(RAMP.gentle).toBe(0.15);
+    for (const w of endlessWaves(20)) expect(w.ramp.gain).toBe(RAMP.full);
+    expect(RULES.turnsPerSecond).toBe(0.6);
+  });
+
+  it('asks the spacing at the speed the wave falls at as the obstacle arrives, its speed-up counted', () => {
+    // A quarter turn and a reaction take 0.667 s: 100 px at 150 px/s, 123 px at the speed the half bar arrives at, sped up.
+    const text = 'speed 150\ncentre · 0\ncentre · 1R\ncentre · 1R\ncentre · 1R\nL half · 2R';
+    expect(spacingProblems([parseChapter('V', 'LATE', [text])])).toEqual(['chapter V · LATE, wave 1, line 6: 112.0 px behind, not 123.2']);
+    expect(spacingProblems([parseChapter('V', 'FLAT', [text], 0)])).toEqual([]);
+  });
+});
+
+describe('the ghosts', () => {
+  const ghostly = (wave: Wave) => wave.pieces.some((p) => p.ghost);
+  const plain = (wave: Wave): Wave => ({ ...wave, pieces: wave.pieces.map((p) => ({ ...p, ghost: false })) });
+
+  it('are seen whole as they enter, fade, and are gone from 2 R above the circle\'s top', () => {
+    const gone = RULES.centre.y - RULES.radius - 2 * R;
+    expect(sightOf({ ghost: true }, { cy: -10 })).toBe(1);
+    expect(sightOf({ ghost: true }, { cy: 0 })).toBe(1);
+    expect(sightOf({ ghost: true }, { cy: gone / 2 })).toBeCloseTo(0.5, 9);
+    expect(sightOf({ ghost: true }, { cy: gone })).toBe(0);
+    expect(sightOf({ ghost: true }, { cy: RULES.centre.y })).toBe(0);
+    expect(sightOf({ ghost: false }, { cy: RULES.centre.y })).toBe(1);
+  });
+
+  it('strike as any obstacle does: a wave falls, strikes and is passed the same with or without them', () => {
+    const waves = [...(CHAPTERS[3]?.waves ?? []), ...endlessWaves(200)].filter(ghostly);
+    expect(waves.length).toBeGreaterThan(10);
+    for (const w of waves.slice(0, 12)) {
+      for (let tick = 0; tick < 600; tick += 7) expect(blocksAt(w, tick)).toEqual(blocksAt(plain(w), tick));
+      expect(route(w, 0)).toEqual(route(plain(w), 0));
+    }
+  });
+
+  it('hide some obstacles of chapter IV\'s last four waves, and none before them', () => {
+    CHAPTERS.forEach((c, i) => {
+      c.waves.forEach((w, k) => { expect(ghostly(w), `${c.name} wave ${k + 1}`).toBe(i === 3 && k >= 6); });
+    });
+  });
+
+  it('theme chapter IV\'s late waves as Duet\'s are: its eighth all rods, its ninth all ghosts', () => {
+    const storm = CHAPTERS[3]?.waves ?? [];
+    expect(storm[7]?.pieces.every((p) => p.motion === 'turn')).toBe(true);
+    expect(storm[8]?.pieces.every((p) => p.ghost)).toBe(true);
+  });
+
+  it('come into endless mode from its 11th wave, a share rising slowly to 40% at most, never every obstacle of a wave but in a ghost-themed one', () => {
+    for (const w of endlessWaves(10)) expect(ghostly(w)).toBe(false);
+    expect(ghostShare(9)).toBe(0);
+    expect(ghostShare(10)).toBeCloseTo(0.1, 9);
+    expect(ghostShare(60)).toBeCloseTo(0.2, 9);
+    expect(ghostShare(100_000)).toBe(0.4);
+    const waves = endlessWaves(200);
+    const all = waves.filter((w) => w.pieces.every((p) => p.ghost));
+    const some = waves.filter((w) => ghostly(w) && !w.pieces.every((p) => p.ghost));
+    expect(some.length).toBeGreaterThan(20);
+    expect(all.length).toBeGreaterThan(0);
+    expect(all.length).toBeLessThan(waves.length / 10);
+  });
+
+  it('let endless mode draw a wave of rods alone now and then', () => {
+    const waves = endlessWaves(200);
+    const turning = waves.filter((w) => w.pieces.every((p) => p.motion === 'turn'));
+    expect(turning.length).toBeGreaterThan(3);
+  });
+});
+
+describe('the spirals and the zigzags', () => {
+  /** Whether a pattern asks what it says: a spiral passed holding only its turn (or nothing), never without it; a zigzag asking ◀ and ▶ between every two of its obstacles. */
+  function asks(wave: Wave, p: Pattern): boolean {
+    const seen = (k: number) => { const s = windowOf(wave, k); if (!s) throw new Error(`obstacle ${k + 1} never in reach`); return s; };
+    if (p.shape === 'spiral') {
+      const way = wayOf(wave.pieces[p.first] ?? { motion: 'still', back: false });
+      const from = seen(p.first).first, to = seen(p.last).last;
+      return throughHolding(wave, from, to, [0, way]) && !throughHolding(wave, from, to, [0, way === 1 ? -1 : 1]);
+    }
+    for (let k = p.first; k < p.last; k++) {
+      const from = seen(k).first, to = seen(k + 1).last;
+      if (throughHolding(wave, from, to, [0, 1]) || throughHolding(wave, from, to, [0, -1])) return false;
+    }
+    return true;
+  }
+
+  it('reads a spiral from three moving obstacles the same way round, and a zigzag from three each the other way', () => {
+    const wave = parseWave('speed 100\ncentre slide · 0\ncentre turn · 2R\ncentre slide · 2R\ncentre turn back · 2R\ncentre slide · 2R\nL half · 2R', 'test');
+    expect(patternsOf(wave)).toEqual([{ shape: 'spiral', first: 0, last: 2 }, { shape: 'zigzag', first: 2, last: 4 }]);
+    expect(patternsOf(parseWave('speed 100\ncentre slide · 0\ncentre slide · 2R\ncentre · 2R\ncentre slide · 2R', 'test'))).toEqual([]);
+  });
+
+  it('holds at least two spirals and two zigzags in each chapter from II on, none in chapter I', () => {
+    CHAPTERS.forEach((c, i) => {
+      const found = c.waves.flatMap(patternsOf);
+      const count = (shape: Pattern['shape']) => found.filter((p) => p.shape === shape).length;
+      if (i === 0) expect(found, c.name).toEqual([]);
+      else {
+        expect(count('spiral'), c.name).toBeGreaterThanOrEqual(2);
+        expect(count('zigzag'), c.name).toBeGreaterThanOrEqual(2);
+      }
+    });
+  });
+
+  it('asks of a person what each says, in every chapter: a spiral one turn held through it, a zigzag a change of turn at every obstacle', () => {
+    for (const c of CHAPTERS) {
+      c.waves.forEach((w, i) => { for (const p of patternsOf(w)) expect(asks(w, p), `${c.name} wave ${i + 1}: ${p.shape} ${p.first + 1} to ${p.last + 1}`).toBe(true); });
+    }
+  });
+
+  it('come into endless mode: its groups hold both, and its waves chain them as asked', () => {
+    const shapes = new Set(ENDLESS_GROUPS.flatMap((g) => patternsOf(parseWave(['speed 145', ...g.map((l, i) => (i === 0 ? `${l} · 0` : l))].join('\n'), 'group')).map((p) => p.shape)));
+    expect(shapes).toEqual(new Set(['spiral', 'zigzag']));
+    const waves = endlessWaves(40);
+    const found = waves.flatMap((w) => patternsOf(w).map((p) => ({ w, p })));
+    expect(found.filter(({ p }) => p.shape === 'spiral').length).toBeGreaterThan(3);
+    expect(found.filter(({ p }) => p.shape === 'zigzag').length).toBeGreaterThan(3);
+    for (const { w, p } of found) expect(asks(w, p), `${p.shape} ${p.first + 1} to ${p.last + 1}`).toBe(true);
   });
 });
 
@@ -412,6 +610,16 @@ describe('the endless waves', () => {
     const speeds = endlessWaves(200).map((w) => w.speed);
     expect(Math.max(...speeds)).toBe(speeds[199]);
     expect(endlessWave(100_000).speed).toBe(speeds[199]);
+  });
+
+  it('ask to turn the pair in every one of the first 200, and last 8 seconds at most', () => {
+    const { bins } = ring();
+    endlessWaves(200).forEach((w, i) => {
+      let alive = Array.from({ length: bins }, (_, b) => (b / bins) * Math.PI * 2);
+      for (let tick = 1; alive.length && !passedAt(w, tick); tick++) alive = alive.filter((a) => !struck(a, blocksAt(w, tick)));
+      expect(alive, `wave ${i + 1}`).toEqual([]);
+      expect(secondsOf(w), `wave ${i + 1}`).toBeLessThanOrEqual(8);
+    });
   });
 
   it('pass for a person for the first 200, from any angle, holding anything: a hit begins the wave hit again from wherever the orbs stand', () => {
