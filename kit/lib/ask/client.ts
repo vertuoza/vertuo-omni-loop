@@ -18,7 +18,8 @@
 // asks a PRD's approvers (`POST /api/dossiers/approval/request`) and follows its approval as Server-Sent
 // Events (`GET /api/dossiers/approval/stream`, the one call whose body is a stream), for `omni wait approval`.
 // Since PRD 1548 it reads, raises and settles a product PRD's outbox items (`/api/outbox/items`), for the
-// outbox's `server` store.
+// outbox's `server` store. Since PRD 1665 it reads the loop's state (`GET /api/loop/*`), for the
+// `LoopReads` port (`../loop-reads/`).
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -510,6 +511,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
     readConstituents: (repo: string) => call('GET', `/api/constituents?${new URLSearchParams({ repo })}`),
+    /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
+     * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
+    readLoop: (path: string, query: Record<string, string>) => call('GET', `/api/loop/${path}?${new URLSearchParams(query)}`),
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
     citeClaims: ({ repo, ids, by, ref = null }: { repo: unknown; ids: unknown; by: unknown; ref?: unknown }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),
