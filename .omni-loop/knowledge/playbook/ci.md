@@ -10,7 +10,6 @@ evidence:
   - apps/omni-app/README.md@88dfe14
   - .github/workflows/checks.yml@2ee982c
   - scripts/settle-head.sh@e3cce31
-  - .claude/hooks/fallow-gate.sh@2ae0b9b
   - package.json@f886c74
   - apps/galaxy/package.json@7ae2649
   - scripts/lint-repository.ts@b154f4c
