@@ -21,11 +21,12 @@ const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit
 
 const ORDER = [
   'index', 'install', 'join', 'cloud', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e', 'use-cases',
-  'troubleshooting',
+  'troubleshooting', 'observability',
 ];
 const TITLES = [
   'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
   'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
+  'Observability',
 ];
 
 describe('docs/guide', () => {
@@ -33,7 +34,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its sixteen pages, in order, each with its title', () => {
+  it('holds its nineteen pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -43,8 +44,23 @@ describe('docs/guide', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
       '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
-      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs',
     ]);
+  });
+
+  it('explains watching the App and the arcade on Vercel: the phase 0 checklist, the JSON logs, a Health issue and OMNI_APP_URL (PRD 1723)', () => {
+    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'observability')?.body ?? '';
+    for (const heading of ['## Phase 0: the Vercel dashboard', '## Search the logs', '## A `Health: <app> is down` issue', '## Set `OMNI_APP_URL`']) {
+      expect(page, heading).toContain(heading);
+    }
+    for (const phrase of [
+      'Observability Plus', 'Spend Management', 'error anomaly', 'by email', 'Usage', 'one month after',
+      'kit/lib/log', '`event`', '`outcome`', '`repo`', '`prd`', '`ms`', '"outcome":"failed"',
+      'Health: galaxy is down', 'Health: omni-app is down', '/api/health', 'two probes', '30 seconds', 'closes it',
+      'OMNI_APP_URL', 'GALAXY_URL', 'ADR-0102',
+    ]) {
+      expect(page, phrase).toContain(phrase);
+    }
   });
 
   it('explains driving the loop: starting it, its plan, watching it on the Loop page, stopping and resuming (PRD 1139)', () => {

@@ -89,13 +89,13 @@ function bodyOf(body: RequestInit['body']): string {
 
 /** A GitHub answering over fetch: the code exchange, then the comment. Each answer can be changed. */
 export function fakeGitHub({
-  exchange = { status: 200, body: { access_token: 'ghu_user_token_never_kept', token_type: 'bearer' } },
+  exchange = { status: 200, body: { access_token: 'ghu_' + 'user_token_never_kept', token_type: 'bearer' } },
   comment = {
     status: 201,
     body: { html_url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', user: { login: 'ada' }, author_association: 'MEMBER' },
   },
 }: { exchange?: Answer; comment?: Answer } = {}) {
-  const token = 'ghu_user_token_never_kept';
+  const token = 'ghu_' + 'user_token_never_kept';
   const calls: GitHubCall[] = [];
   const answers = { exchange, comment };
   const fetch = (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {

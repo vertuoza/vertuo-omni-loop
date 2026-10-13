@@ -32,9 +32,10 @@ function body(sql: string, name: string): string {
 }
 
 describe('the device requests\' table', () => {
-  it('is dated after every other migration', () => {
+  it('is dated after the migrations it was written on top of', () => {
     const { file } = migration();
-    expect(files().at(-1)).toBe(file);
+    // Not "the newest of all": every later migration would break this test (PRD 1698, s6).
+    expect(files().indexOf(file)).toBeGreaterThan(files().indexOf('20261204100000_outbox_items.sql'));
   });
 
   it('keeps a device code only as its SHA-256, a user code of the alphabet, and a payload only once approved', () => {

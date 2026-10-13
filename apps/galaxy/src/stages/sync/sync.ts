@@ -28,6 +28,12 @@
 // read with their first approval (`approvals`), so their inbox is dated at that approval and never at a
 // phase-0 merge (./core.ts). Approvals that cannot be read are logged, and the repository's stages are
 // dated as for a PRD born in the repository.
+//
+// PRD 1723 (s7): each run, at its end, writes exactly one `stages-sync` line through the run logger
+// (kit/lib/log): `ok` with how many repositories it read, `refused` on a wrong bearer (401), `failed` when
+// the workspaces cannot be read (500) or the run throws, which is rethrown unchanged; each with its status
+// and how long it took. The per-repository sentences above are still written through `log`, and a run
+// logger that throws changes no answer.
 import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
@@ -37,6 +43,7 @@ import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A workspace, and where its repositories are found on GitHub. */
@@ -63,6 +70,8 @@ export type SyncDeps = {
   snapshots?: SnapshotSyncDeps;
   now(): string;
   log(line: string): void;
+  /** Where the run's one `stages-sync` line goes (PRD 1723): kit/lib/log's stdout logger, live. */
+  runLog: Logger;
 };
 
 /** What the sync needs to keep a workspace's fix facts fresh (PRD 691, s2). */
@@ -225,15 +234,62 @@ async function refreshConcepts(deps: SyncDeps, workspace: SyncWorkspace, syncedA
   }
 }
 
+/** Runs `step`, swallowing what it throws: the run line never changes the run's answer. */
+function quietly(step: () => void): void {
+  try {
+    step();
+  } catch {
+    // A log line never breaks a request.
+  }
+}
+
+/** A stopwatch on the run logger's clock that never throws; one that cannot be read gives 0, as the kit's own. */
+function stopwatch(runLog: Logger): () => number {
+  try {
+    const stop = runLog.timer();
+    return () => {
+      try {
+        return stop();
+      } catch {
+        return 0;
+      }
+    };
+  } catch {
+    return () => 0;
+  }
+}
+
+/** The `/api/stages/sync` run (PRD 587), logged as one `stages-sync` line at its end (PRD 1723, s7). */
 export async function syncStages(request: Request, deps: SyncDeps): Promise<Response> {
-  if (!bearerMatches(request, deps.secret)) return json(401, { error: 'A valid bearer secret is required.' });
+  const elapsed = stopwatch(deps.runLog);
+  let run: SyncRun;
+  try {
+    run = await runSync(request, deps);
+  } catch (error) {
+    quietly(() => { deps.runLog.error({ event: 'stages-sync', outcome: 'failed', ms: elapsed(), error }); });
+    throw error;
+  }
+  const ms = elapsed();
+  const { answer, repos } = run;
+  const { status } = answer;
+  if (status === 401) quietly(() => { deps.runLog.warn({ event: 'stages-sync', outcome: 'refused', status, ms }); });
+  else if (status >= 500) quietly(() => { deps.runLog.error({ event: 'stages-sync', outcome: 'failed', status, ms }); });
+  else quietly(() => { deps.runLog.info({ event: 'stages-sync', outcome: 'ok', status, ms, ...(repos === undefined ? {} : { repos }) }); });
+  return answer;
+}
+
+/** A run's answer, and how many repositories it read when it got that far. */
+type SyncRun = { answer: Response; repos?: number };
+
+async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
+  if (!bearerMatches(request, deps.secret)) return { answer: json(401, { error: 'A valid bearer secret is required.' }) };
   const syncedAt = deps.now();
   let workspaces: SyncWorkspace[];
   try {
     workspaces = await deps.workspaces();
   } catch (error) {
     deps.log(`stages sync: the workspaces cannot be read — ${why(error)}`);
-    return json(500, { error: 'The workspaces cannot be read.' });
+    return { answer: json(500, { error: 'The workspaces cannot be read.' }) };
   }
   const reply: SyncReply = { synced_at: syncedAt, repositories: [], skipped: [] };
   await deps.snapshots?.dropEtags(before(syncedAt, ETAG_MAX_IDLE_MS)).catch((error: unknown) => {
@@ -261,5 +317,5 @@ export async function syncStages(request: Request, deps: SyncDeps): Promise<Resp
     await refreshFixes(deps, workspace, syncedAt);
     await refreshConcepts(deps, workspace, syncedAt);
   }
-  return json(200, reply);
+  return { answer: json(200, reply), repos: reply.repositories.length };
 }

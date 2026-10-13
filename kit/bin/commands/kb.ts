@@ -16,13 +16,15 @@
 // warning, and `omni check kb` grades.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { formShowText } from '../../lib/budgets/index.ts';
 import { ownerHandle } from '../../lib/codeowners.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
+import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
 import { readKnowledge } from '../../lib/knowledge/registers.ts';
-import { readThesis, thesisPath } from '../../lib/knowledge/thesis.ts';
+import { readThesis } from '../../lib/knowledge/thesis.ts';
 import { messageOf } from '../../lib/narrow.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
@@ -35,7 +37,6 @@ import { parseArgs, prdArg, println, sliceArg, usageError, type Flags } from '..
 import type { Command, CommandIo, Exec } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
-import type { Decisions } from '../../lib/playbook/decisions.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 import { synchronous } from '../synchronous.ts';
 
@@ -57,46 +58,7 @@ function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo):
   return 0;
 }
 
-/** The decision records as text: one line each, every shared number flagged, the next free one. */
-function recordLines({ dir, records, shared, next }: Decisions): string[] {
-  const lines = [`## Records  [read live from ${dir}]`];
-  if (records.length === 0) lines.push('No decision records yet.');
-  lines.push(...records.map(({ number, file, title }) => `${number}  ${title ?? file}`));
-  lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(', ')}`));
-  lines.push(`Next free number: ${next}`);
-  return lines;
-}
-
-/** One resolved form as text: its title, its file and state, then each section under its label. */
-function showText(resolved: ResolvedForm, records: Decisions | null, laws: BriefingLaws | null): string {
-  const lines = [`# ${resolved.title}`, `${resolved.file} · ${resolved.state}`];
-  for (const section of resolved.sections) {
-    lines.push('', section.slot === null ? section.label : `## ${section.heading}  ${section.label}`);
-    if (section.text) lines.push(section.text);
-    // A hole shows the kit default, then its questions; repository text already holds its own.
-    if (section.source === 'hole') lines.push(...section.questions.map((question) => `TODO(human): ${question}`));
-  }
-  if (records) lines.push('', ...recordLines(records));
-  if (laws) lines.push('', ...laws.lines);
-  return lines.join('\n');
-}
-
-/** The briefing's closing section (PRD 1726): the thesis's laws, read live, or the locked laws when there is no thesis. */
-type BriefingLaws = { source: string; lines: string[] };
-
 const BRIEFING = 'briefing';
-
-function briefingLaws(ctx: Context): BriefingLaws {
-  const thesis = readThesis(ctx);
-  const file = thesisPath(ctx);
-  if (thesis?.lawsSection) {
-    return { source: file, lines: [`## The laws  [read live from ${file}]`, thesis.lawsSection] };
-  }
-  const { laws } = disclose(readKnowledge({ ctx }).entries, thesis, null);
-  const body = laws.length === 0 ? ['No law is locked yet.'] : laws.map((law) => lawLine(law, ctx.config.laws.owners));
-  const missing = thesis === null ? `no thesis at ${file}` : `no laws section in ${file}`;
-  return { source: ctx.layout.knowledgeRoot, lines: [`## The laws  [${missing}; read from the registers]`, ...body] };
-}
 
 function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
   const [id = ''] = positional;
@@ -104,12 +66,25 @@ function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: Com
     throw usageError(`usage: omni kb show <form> [--json] — the forms: ${FORM_IDS.join(', ')}`);
   }
   const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
-  const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
-  const laws = id === BRIEFING ? briefingLaws(ctx) : null;
   for (const problem of resolved.problems) println(stderr, `warning: ${problem}`);
-  const json = { ...resolved, ...(records ? { records } : {}), ...(laws ? { laws } : {}) };
-  println(stdout, flags.json ? JSON.stringify(json, null, 2) : showText(resolved, records, laws));
+  println(stdout, flags.json ? JSON.stringify(showJson(ctx, id, resolved), null, 2) : showText(ctx, id, resolved));
   return 0;
+}
+
+/** What `kb show <form> --json` prints: the resolved form, the decisions form's records, the briefing's laws. */
+function showJson(ctx: Context, id: string, resolved: ResolvedForm): object {
+  const extra = {
+    ...(id === DECISIONS_FORM ? { records: readDecisions({ ctx }) } : {}),
+    ...(id === BRIEFING ? { laws: briefingLaws(ctx) } : {}),
+  };
+  return { ...resolved, ...extra };
+}
+
+/** What `kb show <form>` prints, as the context measure counts it (PRD 1679). */
+function showText(ctx: Context, id: string, resolved: ResolvedForm): string {
+  const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
+  const laws = id === BRIEFING ? briefingLaws(ctx).lines : null;
+  return formShowText(resolved, records, laws);
 }
 
 const SOURCE_LABEL: Record<string, string> = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };

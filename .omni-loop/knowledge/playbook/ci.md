@@ -75,3 +75,24 @@ Claude, or a hook that could not run (it says why on one stderr line and lets th
 
 ## When to re-run
 <!-- slot: rerun · optional -->
+
+## Budgets
+<!-- slot: budgets · optional -->
+What every agent session reads here has a ceiling in bytes (PRD 1679): the briefing, each playbook
+form as `omni kb show` prints it, pointers expanded, each `paths.context` file, and `session`, their
+sum. The ceilings live in `.omni-loop/budgets/context.json`, versioned and reviewed like
+`mutation/floor.json`.
+
+- `omni check context` measures them against the base, inside `omni check all`; the omni-loop
+  GitHub App posts the same verdict as the `omni / budgets` check run on every pull request.
+- Red *over budget*: trim the target back under its ceiling without losing a rule; move detail into
+  a linked file. Red *needs a person's yes*: a raised ceiling waits for the high outbox item that
+  names it, until a person answers. Only a PRD's pull request can raise one; any other trims, or
+  makes the change through a PRD or `/omni:bug-fix`. Neutral: a target could not be measured; the
+  check says why and blocks nothing.
+- `omni budget measure context` prints today's sizes; `omni budget set context` writes a first
+  ceiling for a new target, rounded up to the next KiB, and never raises one.
+- To trim: `form:releasing` (about 134 KB) entered at its expanded size. Its pointer
+  `[→ apps/galaxy/README.md#deploy-to-production]` runs past its section into the rest of the galaxy
+  README. Once that pointer bug is fixed through `/omni:bug-fix`, lower the ceiling to the new size
+  in the same pull request: a lowered ceiling is always green.

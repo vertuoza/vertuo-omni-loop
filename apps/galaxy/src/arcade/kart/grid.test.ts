@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byArrival, placesOf, rowsOf, starterOf, startingOrder } from './grid';
+import { byArrival, gridLapsOf, placesOf, rowsOf, starterOf, startingOrder } from './grid';
 import type { GridPlayer } from './net';
 
 // The grid's rules (PRD 1572, slice 3): the starting order, the four places and who starts.
@@ -78,5 +78,23 @@ describe('what the grid lists', () => {
 
   it('a player who arrives during a race waits: the race is the next slices\'s', () => {
     expect(rowsOf([])).toEqual([]);
+  });
+});
+
+describe('the grid\'s laps (PRD 1762)', () => {
+  const withLaps = (id: string, arrival: number, laps?: number): GridPlayer => ({ ...p(id, arrival), ...(laps !== undefined ? { laps } : {}) });
+
+  it('is the first arrival\'s laps when every player carries laps', () => {
+    expect(gridLapsOf([withLaps('b', 2, 7), withLaps('a', 1, 5)])).toBe(5);
+  });
+
+  it('is 3 when one entry carries none, even the first arrival\'s own', () => {
+    expect(gridLapsOf([withLaps('a', 1, 5), withLaps('b', 2)])).toBe(3);
+    expect(gridLapsOf([withLaps('a', 1), withLaps('b', 2, 5)])).toBe(3);
+  });
+
+  it('is 3 for an empty grid, and ignores a player who waits without a place', () => {
+    expect(gridLapsOf([])).toBe(3);
+    expect(gridLapsOf([withLaps('a', 1, 5), withLaps('b', 2, 5), withLaps('c', 3, 5), withLaps('d', 4, 5), withLaps('e', 5)])).toBe(5);
   });
 });

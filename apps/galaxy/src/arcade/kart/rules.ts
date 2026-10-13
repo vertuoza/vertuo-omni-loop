@@ -1,6 +1,9 @@
 // OMNI KART's numbers (PRD 1359): one constants block, chosen by eye, so a follow-up tunes the feel
 // without touching the engine. World units are the circuit's texture pixels (a tile is 16), times in
 // seconds, speeds in units a second, angles in radians.
+/** How hard the rivals drive (PRD 1762). */
+export type Difficulty = 'easy' | 'normal' | 'hard';
+
 export const RULES = Object.freeze({
   /** A kart's body, as a circle: what karts are pushed apart by and what items reach. */
   radius: 5,
@@ -14,6 +17,8 @@ export const RULES = Object.freeze({
   reverseAccel: 50,
   /** A kart faster than the top speed it is at (once a BOOST is over) slows to it at this rate. */
   overspeedDrag: 220,
+  /** The slope on the top speed (PRD 1698): the share of it a unit of slope takes off uphill and adds downhill, within a third either way (kart.ts). */
+  climb: 1.2,
   /** The turn rate at best grip, the speed it is reached at, and the part of it that is left at the top speed. */
   steer: 2.6,
   gripSpeed: 25,
@@ -31,6 +36,10 @@ export const RULES = Object.freeze({
   rivalAim: 0.04,
   rivalSharp: 0.7,
   rivalCorner: 60,
+  /** How far ahead a rival looks for the edge, in seconds of its speed (PRD 1698): a wheel over the void there, or under it, steers it back. */
+  rivalLook: 0.25,
+  /** How close to a corner's waypoint a rival turns in for the next one. */
+  rivalTurnIn: 64,
   /** The rubber band: the most a rival's pace moves, and the gap in game pixels at which it moves that much. */
   rubber: 0.05,
   rubberRange: 400,
@@ -53,6 +62,10 @@ export const RULES = Object.freeze({
   blinkTime: 0.5,
   /** How far from the road a kart's centre goes before it falls: half its width as drawn (art.ts `KART_WORLD`), so it falls once all of it has tipped over the edge. */
   overhang: 7,
+  /** A kart's four wheels (PRD 1698): how far ahead and behind its centre they stand and how far to each side, and how fast a wheel over the void draws the kart towards the edge. */
+  wheelAlong: 6,
+  wheelAcross: 3,
+  tipPull: 16,
   spinSpeed: 0.3,
   spinRate: Math.PI * 2,
   /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */
@@ -60,6 +73,12 @@ export const RULES = Object.freeze({
   blobLateral: 12,
   orbRange: 130,
   orbLine: 0.18,
+  /** The rivals' difficulty (PRD 1762): per level, the range of a rival's own pace (a share of the player's top speed, never above 1), how far off the line it drives, the rubber band, and how long a rival holds an item before it uses it (seconds). NORMAL is the numbers above, unchanged. */
+  levels: {
+    easy: { skillMin: 0.8, skillMax: 0.88, lineOffset: 14, rubber: 0.1, hold: 2.5 },
+    normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0 },
+    hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0 },
+  },
   /** How long FINAL LAP shows once the third lap starts. */
   finalBanner: 2.5,
   countdown: 3,

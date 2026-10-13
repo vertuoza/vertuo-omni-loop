@@ -335,3 +335,32 @@ describe('items between players (PRD 1572, slice 6)', () => {
     expect(r.items.orbs).toEqual([]);
   });
 });
+
+describe('a MULTI race with looks and laps (PRD 1762)', () => {
+  const look = { color: 'RED', design: 'ROCKET' };
+  const dressed = (laps?: number) => newRace({ seed: 5, track, field: { me: 'a', order: [{ ...who('a'), look }, { ...who('b'), look: { color: 'PINK', design: 'RACER' } }, who('c')], ...(laps !== undefined ? { laps } : {}) } });
+
+  it('races 3 laps when the field says none, and the field\'s laps otherwise', () => {
+    expect(dressed().laps).toBe(3);
+    expect(dressed(5).laps).toBe(5);
+    expect(dressed(7).laps).toBe(7);
+  });
+
+  it('draws a remote kart with its look, and one with none as today', () => {
+    const race = dressed();
+    expect(rival(race, 'b').driver.look).toEqual({ color: 'PINK', design: 'RACER' });
+    expect(rival(race, 'c').driver.look).toBeUndefined();
+  });
+
+  it('gives the player\'s own kart the look its entry carries', () => {
+    expect(dressed().look).toEqual(look);
+    expect(multi().look).toBeUndefined();
+  });
+
+  it('puts the whole race\'s time on the results and the three-lap time apart, in a race of 5 laps', () => {
+    let r = press(dressed(5), 'start').race;
+    for (let i = 0; i < 12000 && r.phase !== 'finish'; i += 1) r = ['b', 'c'].reduce((x, id) => hear(x, id, state()), step(r, GAS, 0.05).race);
+    expect(r.phase).toBe('finish');
+    expect(r.finish?.threeLap).toBeLessThan(r.finish?.tenths ?? 0);
+  });
+});

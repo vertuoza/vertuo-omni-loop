@@ -3,7 +3,7 @@ import type { Action } from '../keys';
 import { tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
-import { LAPS, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
 // The race's phases and what each one lets the player do (PRD 1359, slice 2).
 
@@ -229,7 +229,7 @@ describe('the finish and the race time (slice 4)', () => {
     const r = finished();
     const res = resultsOf(r);
     expect(res.rows.filter((x) => !x.you).every((x) => x.tenths === null)).toBe(true);
-    expect(hudOf(r)).toEqual({ phase: 'finish', beat: null, results: res });
+    expect(hudOf(r)).toMatchObject({ phase: 'finish', beat: null, results: res });
   });
 
   it('puts a rival that crossed before the player ahead of the player, with its time', () => {
@@ -242,10 +242,28 @@ describe('the finish and the race time (slice 4)', () => {
     expect(r.finish?.place).toBe(2);
   });
 
+  it('shows the podium before the results: A on the podium shows the results, the time already sent', () => {
+    let r = nearLine();
+    let sent = 0;
+    while (r.phase === 'race') { const st = step(r, GAS, 0.05); sent += st.events.filter((e) => e.kind === 'finish').length; r = st.race; }
+    expect(sent).toBe(1);
+    expect(hudOf(r).podium?.steps).toHaveLength(3);
+    expect(press(r, 'a').events).toEqual([]);
+    const results = press(r, 'a').race;
+    expect(hudOf(results).podium).toBeUndefined();
+    expect(hudOf(results).results?.threeLap).toBe(r.finish?.threeLap);
+  });
+
+  it('shows no podium for a race left before the line', () => {
+    const left = pause(nearLine());
+    expect(hudOf(left).podium).toBeUndefined();
+    expect(press(left, 'a').events).toEqual([]);
+  });
+
   it('answers A on the results with another race, ignores START, and offers no pause', () => {
     let r = nearLine();
     while (r.phase === 'race') r = step(r, GAS, 0.05).race;
-    expect(press(r, 'a').events).toEqual([{ kind: 'again' }]);
+    expect(press(press(r, 'a').race, 'a').events).toEqual([{ kind: 'again' }]);
     expect(press(r, 'start').race.phase).toBe('finish');
     expect(press(r, 'select').events).toEqual([]);
     expect(pause(r).phase).toBe('finish');
@@ -336,7 +354,7 @@ describe('the cues an event makes', () => {
 // The fall into the void (PRD 1447, slice 2), on COMET RING.
 
 describe('the whole race over the void', () => {
-  it('lets every rival finish its three laps with at most one fall, the player standing still', () => {
+  it('lets every rival finish its three laps without a single fall, the player standing still', () => {
     for (const seed of [7, 1, 42]) {
       const falls = [0, 0, 0, 0, 0, 0];
       let r = press(newRace({ seed }), 'start').race;
@@ -348,7 +366,7 @@ describe('the whole race over the void', () => {
         for (const e of s.events) if (e.kind === 'fell') falls[e.racer] = (falls[e.racer] ?? 0) + 1;
       }
       expect(r.rivals.every((x) => x.doneAt != null)).toBe(true);
-      expect(falls.slice(1).every((n) => n <= 1)).toBe(true);
+      expect(falls.slice(1), `seed ${seed}`).toEqual([0, 0, 0, 0, 0]);
     }
   });
 
@@ -387,7 +405,7 @@ describe('a fall into the void', () => {
   });
 
   it('does not fall while any of it is still over the road, its centre over the void included', () => {
-    for (const y of [6 * TILE + 1, 6 * TILE - 1, 6 * TILE - RULES.overhang + 0.5]) {
+    for (const y of [6 * TILE + 1, 6 * TILE - 1, 6 * TILE - RULES.wheelAlong + 0.5]) {
       const r = edge();
       expect(step({ ...r, player: { ...r.player, y, speed: 0 } }, NONE, FRAME).race.fx.fall, `y ${y}`).toBe(0);
     }
@@ -438,12 +456,154 @@ describe('a fall into the void', () => {
 
   it('falls when another kart pushes it over the edge', () => {
     const r = racing();
-    // The player hangs over the edge, its centre 5.5 past it; the rival overlapping it from the road pushes it 2 further.
-    const rival = { ...first(r.rivals), kart: { ...first(r.rivals).kart, x: 20 * TILE + 8, y: 6 * TILE + 0.5, speed: 0 } };
-    const player = { ...r.player, x: 20 * TILE + 8, y: 6 * TILE - 5.5, speed: 0 };
+    // The player faces the edge and hangs over it, its centre 5.5 past it (a rear wheel on the road); the rival overlapping it from the road pushes it 2 further.
+    const rival = { ...first(r.rivals), kart: { ...first(r.rivals).kart, x: 20 * TILE + 8, y: 6 * TILE + 0.5, angle: -Math.PI / 2, speed: 0 } };
+    const player = { ...r.player, x: 20 * TILE + 8, y: 6 * TILE - 5.5, angle: -Math.PI / 2, speed: 0 };
     expect(step({ ...r, player }, NONE, 1 / 120).race.fx.fall).toBe(0);
     const s = step({ ...r, player, rivals: [rival, ...r.rivals.slice(1)] }, NONE, 1 / 120);
     expect(s.race.fx.fall).toBeGreaterThan(0);
     expect(s.events).toContainEqual({ kind: 'fell', racer: 0 });
+  });
+});
+
+describe('the hills under the player (PRD 1698)', () => {
+  // The start straight runs east from waypoint 13 to waypoint 0; a hump of 26 at its middle.
+  const n = track.waypoints.length;
+  const hump = parseTrack({ ...COMET_RING, relief: { heights: Array.from({ length: n }, () => 0), bumps: Array.from({ length: n }, (_, i) => (i === n - 1 ? 26 : 0)) } });
+  const a = hump.waypoints[n - 1], b = hump.waypoints[0];
+  if (!a || !b) throw new Error('no waypoints');
+  const speedAfter = (on: typeof hump, share: number): number => {
+    const x = a.x + 2.5 * TILE + share * (b.x - a.x - 5 * TILE);
+    const r = play(started(newRace({ seed: 7, track: on })), NONE, RULES.countdown + 0.05);
+    return play({ ...r, player: { x, y: a.y, angle: 0, speed: RULES.topSpeed, steer: 0 } }, GAS, 0.5).player.speed;
+  };
+
+  it('slows the player climbing and speeds it descending, as the flat circuit does not', () => {
+    const flat = speedAfter(track, 0.25);
+    expect(flat).toBeCloseTo(RULES.topSpeed, 0);
+    expect(speedAfter(hump, 0.25)).toBeLessThan(flat * 0.95);
+    expect(speedAfter(hump, 0.75)).toBeGreaterThan(flat * 1.05);
+  });
+});
+
+describe('the rivals\' difficulty (PRD 1762)', () => {
+  const LEVELS = ['easy', 'normal', 'hard'] as const;
+  const FRAME = 1 / 60;
+  /** Plays a whole race with the player standing still: each rival's finish time and falls. */
+  const run = (seed: number, difficulty: (typeof LEVELS)[number]) => {
+    const falls = [0, 0, 0, 0, 0, 0];
+    let r = press(newRace({ seed, difficulty }), 'start').race;
+    for (let t = 0; t < RULES.countdown + 0.05; t += 0.05) r = step(r, NONE, 0.05).race;
+    for (let t = 0; t < 900 && r.rivals.some((x) => x.doneAt == null); t += FRAME) {
+      const s = step(r, NONE, FRAME);
+      r = s.race;
+      for (const e of s.events) if (e.kind === 'fell') falls[e.racer] = (falls[e.racer] ?? 0) + 1;
+    }
+    return { times: r.rivals.map((x) => x.doneAt), falls: falls.slice(1) };
+  };
+  const results = new Map<string, ReturnType<typeof run>>();
+  for (const seed of [1, 7, 42]) for (const level of LEVELS) results.set(`${seed}/${level}`, run(seed, level));
+  const mean = (level: (typeof LEVELS)[number]) => {
+    const all = [1, 7, 42].flatMap((seed) => results.get(`${seed}/${level}`)?.times ?? []);
+    return all.reduce<number>((a, b) => a + (b ?? Infinity), 0) / all.length;
+  };
+
+  it('makes NORMAL when no level is given, and keeps the level on the race', () => {
+    expect(newRace({ seed: 1 }).difficulty).toBe('normal');
+    expect(newRace({ seed: 1, difficulty: 'hard' }).difficulty).toBe('hard');
+    expect(newRace({ seed: 1 }).rivals).toEqual(newRace({ seed: 1, difficulty: 'normal' }).rivals);
+  });
+
+  it('lets every rival finish without a fall at every level, on seeds 1, 7 and 42', () => {
+    for (const [key, out] of results) {
+      expect(out.times.every((t) => t != null), key).toBe(true);
+      expect(out.falls, key).toEqual([0, 0, 0, 0, 0]);
+    }
+  });
+
+  it('runs the rivals slower on EASY than on NORMAL, and slower on NORMAL than on HARD', () => {
+    expect(mean('easy')).toBeGreaterThan(mean('normal'));
+    expect(mean('normal')).toBeGreaterThan(mean('hard'));
+  });
+});
+
+describe('the laps of a SINGLE race (PRD 1762, slice 4)', () => {
+  const ahead = (laps: 3 | 5 | 7, done: number, clock: number): Race => {
+    const r = play(started(newRace({ seed: 7, laps })), NONE, RULES.countdown + 0.05);
+    const [fx, fy] = track.forward;
+    const player: Race['player'] = { ...r.player, x: track.line.x - fx * 3, y: track.line.y - fy * 3, angle: track.heading, speed: 100, steer: 0 };
+    return { ...r, clock, player, pace: { laps: done, passed: track.waypoints.length }, threeAt: done >= 3 ? 80 : null, finalAt: done >= laps - 1 ? 1 : null };
+  };
+  const run = (r: Race) => {
+    let s = r;
+    const events: RaceEvent[] = [];
+    for (let i = 0; i < 40 && s.phase === 'race'; i++) { const o = step(s, GAS, 0.05); s = o.race; events.push(...o.events); }
+    return { s, events };
+  };
+
+  it('races 3 laps when none is given, and counts the laps given on the HUD', () => {
+    expect(fresh().laps).toBe(3);
+    for (const laps of [3, 5, 7] as const) {
+      const r = play(started(newRace({ seed: 7, laps })), NONE, RULES.countdown + 0.05);
+      expect(r.laps).toBe(laps);
+      expect(hudOf(r).run?.laps).toBe(laps);
+    }
+  });
+
+  it('does not finish at the third crossing of a 5-lap race, and keeps the clock of that crossing', () => {
+    const { s, events } = run(ahead(5, 2, 70));
+    expect(s.phase).toBe('race');
+    expect(s.pace.laps).toBe(3);
+    expect(s.threeAt).not.toBeNull();
+    expect(events.some((e) => e.kind === 'finish')).toBe(false);
+    expect(hudOf(s).run?.lap).toBe(4);
+  });
+
+  it('shows FINAL LAP when the last lap of a 5-lap race begins, not before', () => {
+    const early = play(started(newRace({ seed: 7, laps: 5 })), NONE, RULES.countdown + 0.05);
+    expect(early.finalAt).toBeNull();
+    const [fx, fy] = track.forward;
+    const at = (done: number): Race => ({ ...early, clock: 90, player: { ...early.player, x: track.line.x - fx * 3, y: track.line.y - fy * 3, angle: track.heading, speed: 100, steer: 0 }, pace: { laps: done, passed: track.waypoints.length } });
+    expect(run(at(2)).events.some((e) => e.kind === 'finalLap')).toBe(false);
+    expect(run(at(3)).events.some((e) => e.kind === 'finalLap')).toBe(true);
+  });
+
+  it('finishes a 5-lap race at the fifth crossing, sending the clock of the third and listing the whole race', () => {
+    const { s, events } = run(ahead(5, 4, 120));
+    expect(s.phase).toBe('finish');
+    expect(s.finish?.tenths).toBeGreaterThan(s.finish?.threeLap ?? 0);
+    expect(s.finish?.threeLap).toBe(800);
+    expect(events.filter((e) => e.kind === 'finish')).toEqual([{ kind: 'finish', tenths: 800 }]);
+    expect(s.finish?.rows.find((x) => x.you)?.tenths).toBe(s.finish?.tenths);
+  });
+
+  it('sends today\'s race time in a 3-lap race', () => {
+    const { s, events } = run(ahead(3, 2, 70));
+    expect(s.phase).toBe('finish');
+    expect(s.finish?.threeLap).toBe(s.finish?.tenths);
+    expect(events.filter((e) => e.kind === 'finish')).toEqual([{ kind: 'finish', tenths: s.finish?.tenths }]);
+  });
+
+  it('counts the same laps for the rivals', () => {
+    const base = ahead(5, 2, 70);
+    const withRival = (laps: number): Race => ({ ...base, rivals: base.rivals.map((v, i) => (i === 0 ? { ...v, pace: { laps, passed: 0 } } : v)) });
+    expect(step(withRival(3), NONE, 0.05).race.rivals[0]?.doneAt).toBeUndefined();
+    expect(step(withRival(5), NONE, 0.05).race.rivals[0]?.doneAt).toBeDefined();
+  });
+
+  it('runs the difficulty it is given', () => {
+    expect(newRace({ seed: 7, difficulty: 'hard' }).difficulty).toBe('hard');
+  });
+});
+
+describe('the look a race carries (PRD 1762)', () => {
+  it('carries the player\'s look, and none when it is not given', () => {
+    expect(newRace({ seed: 1, look: { color: 'RED', design: 'RACER' } }).look).toEqual({ color: 'RED', design: 'RACER' });
+    expect(newRace({ seed: 1 }).look).toBeUndefined();
+  });
+
+  it('leaves the rivals as they were: a driver without a look has none', () => {
+    const race = newRace({ seed: 1, look: { color: 'RED', design: 'RACER' } });
+    expect(race.rivals.every((r) => r.driver.look === undefined)).toBe(true);
   });
 });

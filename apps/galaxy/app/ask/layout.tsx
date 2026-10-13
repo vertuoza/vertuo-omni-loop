@@ -4,17 +4,15 @@ import '../../src/ask/ask.css';
 import '../../src/ask/page/share.css';
 import '../../src/ask/page/history.css';
 import { TOKENS } from '../../src/ask/theme-tokens';
-import { AppShell } from '../../src/nav/AppShell';
-import { viewerLive } from '../../src/nav/viewer';
 
 // Every /ask page: a reading surface apart from the arcade. The tokens come first as CSS custom
 // properties; the theme script is the ask root's first child, so it marks the root with the stored
 // theme before anything in it is parsed, and before the first paint. The faces, all from
 // @omni/design's fonts.css and served from this origin: Atkinson Hyperlegible Next to read,
-// JetBrains Mono for previews, and the pixel face for the wordmark only. The page sits inside the app
-// shell (PRD 438): the sidebar holds Questions, with how many questions wait for the person looking;
-// each page but a single question starts with the Questions tabs, Open questions · Shared with me ·
-// History (PRD 733); the top bar the page's title, the theme switch and Game mode.
+// JetBrains Mono for previews, and the pixel face for the wordmark only. The frame is the route
+// group's (PRD 1705): (shell)/layout.tsx puts the Questions pages inside the app shell (PRD 438), and
+// (doorway)/layout.tsx puts the two terminal sign-ins, /ask/signin and /ask/device, in the doorway,
+// with no part of the app around them.
 
 export const metadata: Metadata = {
   title: 'Ask · OMNI LOOP',
@@ -29,6 +27,6 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-export default async function AskLayout({ children }: { children: React.ReactNode }) {
-  return <AppShell viewer={await viewerLive()}>{children}</AppShell>;
+export default function AskLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

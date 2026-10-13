@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { KartGridView } from '../scenes/kart.ts';
 import { createHub } from './hub.fake';
 import { GRID_LINES, openGrid, type GridSession } from './hub';
-import type { GridPlayer } from './net';
+import { presenceOf, type GridPlayer } from './net';
 import type { KartLinkEvents } from '../types';
 
 // The grid, through the in-memory hub (PRD 1572, slice 3): two to five players see the same grid in
@@ -161,5 +161,47 @@ describe('the grid over the hub', () => {
     expect(got).toHaveLength(1);
     hub.advance(10);
     expect(got.sort()).toEqual(['a<b:late', 'b<a:hi', 'c<b:late']);
+  });
+});
+
+describe('the grid\'s looks and laps (PRD 1762)', () => {
+  const dressed = (id: string, arrival: number, laps?: number, look?: { color: string; design: string }): GridPlayer => ({ ...who(id, arrival), ...(laps !== undefined ? { laps } : {}), ...(look ? { look } : {}) });
+
+  it('titles the grid with the first arrival\'s laps when every entry carries laps, and lists each kart in its look', () => {
+    const r = room();
+    r.join(dressed('a', 1, 5, { color: 'RED', design: 'ROCKET' }));
+    r.join(dressed('b', 2, 7));
+    expect(r.view('b').laps).toBe(5);
+    expect(r.view('a').rows.find((x) => x.id === 'a')?.look).toEqual({ color: 'RED', design: 'ROCKET' });
+    expect(r.view('a').rows.find((x) => x.id === 'b')?.look).toBeUndefined();
+  });
+
+  it('says 3 laps when an entry carries none', () => {
+    const r = room();
+    r.join(dressed('a', 1, 5));
+    r.join(who('b', 2));
+    expect(r.view('a').laps).toBe(3);
+  });
+
+  it('sends the first arrival\'s laps on the start, and 3 from an old entry', () => {
+    const r = room();
+    r.join(dressed('a', 1, 5));
+    r.join(dressed('b', 2, 7));
+    expect(r.sessions.get('a')?.start()?.laps).toBe(5);
+    const old = room();
+    old.join(dressed('a', 1, 5));
+    old.join(who('b', 2));
+    expect(old.sessions.get('a')?.start()?.laps).toBe(3);
+  });
+
+  it('reads a start without laps as 3 laps', () => {
+    const hub = createHub();
+    const got: number[] = [];
+    const me = dressed('b', 2, 5);
+    openGrid(hub.link('b'), me, () => undefined, (s) => { got.push(s.laps); });
+    const sender = hub.link('a');
+    sender.join({}, { presence: () => undefined, message: () => undefined, status: () => undefined });
+    sender.send({ kind: 'start', race: 'r', seed: 1, order: [presenceOf(dressed('a', 1)), presenceOf(me)] });
+    expect(got).toEqual([3]);
   });
 });

@@ -3,9 +3,10 @@
 // this holds the link's life: joining, joined, dropped and trying again by itself, refused.
 import type { KartLink, KartLinkStatus } from '../types';
 import { GRID_JOINING_LINE, GRID_OUT_LINE, type KartGridView } from '../scenes/kart.ts';
-import { placesOf, rowsOf, startingOrder, starterOf } from './grid';
+import { gridLapsOf, placesOf, rowsOf, startingOrder, starterOf } from './grid';
 import { presenceOf, readGrid, readMessage, type GridPlayer } from './net';
 import { RULES } from './rules';
+import { LAPS } from './track';
 
 /** What the GRID says besides the players. */
 export const GRID_LINES = Object.freeze({
@@ -38,14 +39,18 @@ function lineFor(players: readonly GridPlayer[], me: GridPlayer, racers: number)
 function gridView(state: KartGridView['state'], players: readonly GridPlayer[], me: GridPlayer, racers: number): KartGridView {
   if (state === 'out') return { state, rows: [], line: GRID_LINES.out };
   const everyone = players.some((p) => p.id === me.id) ? players : [...players, me];
-  const rows = rowsOf(everyone).map(({ player, seat }) => ({ id: player.id, name: player.name, hero: player.hero, fleet: player.fleet, best: player.best, you: player.id === me.id, seat }));
-  if (state === 'joining') return { state, rows, line: GRID_LINES.joining };
-  if (state === 'reconnecting') return { state, rows, line: GRID_LINES.reconnecting };
-  return { state, rows, line: lineFor(everyone, me, racers) };
+  const rows = rowsOf(everyone).map(({ player, seat }) => ({ id: player.id, name: player.name, hero: player.hero, fleet: player.fleet, best: player.best, ...(player.look ? { look: player.look } : {}), you: player.id === me.id, seat }));
+  const laps = gridLapsOf(everyone);
+  if (state === 'joining') return { state, rows, line: GRID_LINES.joining, laps };
+  if (state === 'reconnecting') return { state, rows, line: GRID_LINES.reconnecting, laps };
+  return { state, rows, line: lineFor(everyone, me, racers), laps };
 }
 
 /** A race that starts: its id, its seed and the players in their starting order. */
-export interface RaceStart { race: string; seed: number; order: readonly GridPlayer[] }
+export interface RaceStart { race: string; seed: number; /** How many laps every player races (PRD 1762). */ laps: number; order: readonly GridPlayer[] }
+
+/** The race a `start` message begins: a start without laps races 3 (PRD 1762). */
+const raceStartOf = (m: { race: string; seed: number; laps?: number | undefined; order: readonly GridPlayer[] }): RaceStart => ({ race: m.race, seed: m.seed, laps: m.laps ?? LAPS, order: m.order });
 
 /** The player's grid: what it shows now, a new try after it was out of reach, starting the race, the race's messages and leaving the channel. */
 export interface GridSession {
@@ -103,7 +108,7 @@ export function openGrid(link: KartLink, me: GridPlayer, onChange: (view: KartGr
     if (!message.order.some((p) => p.id === from)) return;
     raced(message.order);
     if (!message.order.some((p) => p.id === me.id)) { tell(); return; }
-    onStart({ race: message.race, seed: message.seed, order: message.order });
+    onStart(raceStartOf(message));
   };
   const join = () => {
     state = 'joining';
@@ -125,7 +130,7 @@ export function openGrid(link: KartLink, me: GridPlayer, onChange: (view: KartGr
       const { seated } = placesOf(everyone);
       if (gone || state !== 'joined' || racers() > 0 || starterOf(everyone)?.id !== me.id || seated.length < 2) return null;
       const seed = Math.floor(Math.random() * 2 ** 31);
-      const start: RaceStart = { race: `${me.id.slice(0, 24)}-${Date.now().toString(36)}`, seed, order: startingOrder(seated) };
+      const start: RaceStart = { race: `${me.id.slice(0, 24)}-${Date.now().toString(36)}`, seed, laps: gridLapsOf(everyone), order: startingOrder(seated) };
       link.send({ kind: 'start', ...start });
       raced(start.order);
       return start;

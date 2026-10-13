@@ -8,6 +8,7 @@ import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { type AppEvent, inngest } from '../inngest-client.ts';
+import { stdoutLines } from '../run-log/capture.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
 import { checkRunAt, fakeGitHub, outputOf } from './fake-github.ts';
@@ -115,6 +116,16 @@ describe('the outbox check of a product PRD\'s target PR — one gate on the pro
       expect(checkRunAt(t.github.state, -1)).toMatchObject({ conclusion: 'neutral', output: { title: 'held · server unreachable since 2026-10-11 10:05 UTC · held, not failed' } });
       expect(t.logged).toEqual([expect.stringMatching(/^outbox check of acme\/widgets for mobile-12 is held: (connection refused|the App cannot read the server here)$/)]);
     }
+  });
+
+  it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {
+    const t = setUp({ read: null });
+    const fn = createOutboxCheck({ client: inngest, octokitFor: () => t.github.octokit, readProductOutbox: null, galaxyUrl: GALAXY, now: () => new Date('2026-10-11T10:05:00.000Z') });
+    const [event] = await deliver(targetPull());
+    const lines = await stdoutLines(() => new InngestTestEngine({ function: fn, events: [event as never] }).execute());
+    expect(lines.filter((line) => line.event === 'note')).toEqual([
+      { level: 'warn', event: 'note', fn: 'outbox-check', message: 'outbox check of acme/widgets for mobile-12 is held: the App cannot read the server here' },
+    ]);
   });
 
   it('fails a body naming a PRD no product holding this repository has', async () => {
