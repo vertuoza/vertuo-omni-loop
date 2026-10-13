@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 import {
-  chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, renderTerrain, skyShift, spritesInView, viewOf, type Deck, type Texture, type View,
+  chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, renderTerrain, roofedOf, ROOF, skyShift, spritesInView, TUNNEL, viewOf, type Deck, type Texture, type View,
 } from './mode7';
 import { groundAt, heightsOf, reliefRange } from './relief';
 import { BEYOND, deckOf, paintTrack } from './texture';
-import { parseTrack } from './track';
+import { COMET_RING, parseTrack, TILE } from './track';
 
 const WIDE = { w: 640, h: 360 }, TALL = { w: 320, h: 288 };
 const at = (angle: number, screen = WIDE): View => viewOf(screen, { x: 500, y: 400, angle });
@@ -317,5 +317,114 @@ describe('renderFloor stays the flat floor', () => {
     const out = new Uint32Array(32 * 24);
     renderFloor(v, paintTrack(parseTrack()), out, BEYOND);
     expect(out.some((p) => p >>> 24 === 0xff)).toBe(true);
+  });
+});
+
+describe('the tunnel (PRD 1775)', () => {
+  const SCREEN = { w: 128, h: 96 };
+  const ROAD = 0xff808080;
+  const deck: Deck = { thickness: 12, wall: Uint32Array.of(0xff0000ff), stripe: Uint32Array.of(0xff0000fe), glow: 18, glowPx: Uint32Array.of(0x80ffffff) };
+  const FLAT = { low: 0, high: 0 };
+  // A 64×256 world: a road 16 wide going north at x 24..40 over void, roofed from y 16 to y 240.
+  const texture: Texture = { w: 64, h: 256, px: Uint32Array.from({ length: 64 * 256 }, (_, i) => (i % 64 >= 24 && i % 64 < 40 ? ROAD : 0)) };
+  const roofed = Uint8Array.from({ length: 64 * 256 }, (_, i) => (i % 64 >= 24 && i % 64 < 40 && Math.floor(i / 64) >= 16 && Math.floor(i / 64) < 240 ? 1 : 0));
+  const heights = new Float32Array(64 * 256);
+  const draw = (v: View, mask: Uint8Array | null = roofed) => {
+    const out = new Uint32Array(v.w * v.h), depth = new Float32Array(v.w * v.h);
+    const samples = renderTerrain(v, texture, heights, FLAT, deck, out, depth, mask ?? undefined);
+    return { out, depth, samples };
+  };
+  const rect = (out: Uint32Array, v: View, rows: [number, number], cols: [number, number] = [0, v.w]) => {
+    const seen: number[] = [];
+    for (let r = rows[0]; r < rows[1]; r++) for (let c = cols[0]; c < cols[1]; c++) seen.push(out[r * v.w + c] ?? 0);
+    return seen;
+  };
+  const ceiling = new Set<number>([TUNNEL.ceilingA, TUNNEL.ceilingB, TUNNEL.ceilingSeam, TUNNEL.strip]);
+  const inside = viewOf(SCREEN, { x: 32, y: 200, angle: -Math.PI / 2 });
+
+  it('puts the roof 44 over the ground', () => {
+    expect(ROOF).toBe(44);
+  });
+
+  it('marks the pixels of roofed road in the map', () => {
+    const t = roofedOf({ map: ['~T~', '~#~'] }, { w: 3 * TILE, h: 2 * TILE, px: new Uint32Array(3 * TILE * 2 * TILE) });
+    expect(t[8 * 48 + 24]).toBe(1);
+    expect(t[8 * 48 + 8]).toBe(0);
+    expect(t[24 * 48 + 24]).toBe(0);
+  });
+
+  it('draws ceiling, not sky, at the top of the frame with the camera inside: metal panels crossed by strips of light', () => {
+    const { out } = draw(inside);
+    const top = rect(out, inside, [0, 4], [50, 78]);
+    expect(top.every((p) => ceiling.has(p))).toBe(true);
+    expect(top).toContain(TUNNEL.strip);
+    expect(top.some((p) => p !== TUNNEL.strip)).toBe(true);
+    const sky = draw(inside, null).out;
+    expect(rect(sky, inside, [0, 4], [50, 78]).every((p) => p === 0)).toBe(true);
+  });
+
+  it('shows portholes on the starfield in the walls, and the road below', () => {
+    const { out, depth } = draw(inside);
+    const wall = rect(out, inside, [inside.horizon - 20, inside.horizon + 14], [0, 24]);
+    expect(wall.some((p) => p === TUNNEL.wallInA || p === TUNNEL.wallInB)).toBe(true);
+    expect(wall).toContain(TUNNEL.rim);
+    let holes = 0;
+    for (let r = inside.horizon - 20; r < inside.horizon + 14; r++) for (let c = 0; c < 24; c++) if (out[r * inside.w + c] === 0 && (depth[r * inside.w + c] ?? Infinity) < Infinity) holes++;
+    expect(holes).toBeGreaterThan(0);
+    expect(rect(out, inside, [inside.h - 4, inside.h], [60, 68])).toContain(ROAD);
+  });
+
+  it('frames each end with a lit portal, seen from outside', () => {
+    const south = viewOf(SCREEN, { x: 32, y: 250, angle: -Math.PI / 2 });
+    expect(rect(draw(south).out, south, [0, south.h])).toContain(TUNNEL.portal);
+    const north = viewOf(SCREEN, { x: 32, y: 4, angle: Math.PI / 2 });
+    expect(rect(draw(north).out, north, [0, north.h])).toContain(TUNNEL.portal);
+    expect(rect(draw(south, null).out, south, [0, south.h])).not.toContain(TUNNEL.portal);
+  });
+
+  it('shows the roof\'s top to an eye above it, and the road under it stays hidden', () => {
+    const above = viewOf(SCREEN, { x: 32, y: 250, angle: -Math.PI / 2 }, 40);
+    const seen = rect(draw(above).out, above, [0, above.h]);
+    expect(seen.some((p) => p === TUNNEL.roofA || p === TUNNEL.roofB || p === TUNNEL.roofSeam)).toBe(true);
+    const under = viewOf(SCREEN, { x: 32, y: 250, angle: -Math.PI / 2 });
+    expect(rect(draw(under).out, under, [0, under.h]).some((p) => p === TUNNEL.roofA || p === TUNNEL.roofB || p === TUNNEL.roofSeam)).toBe(false);
+  });
+
+  it('hides a sprite behind a wall, on the far side from the camera: the depth buffer says so', () => {
+    const v = viewOf({ w: 128, h: 288 }, { x: 12, y: 30, angle: 0 });
+    const behind = sure(project(v, 36, 30, 0), 'the sprite');
+    const head = Math.round(behind.sy) - 8; // a little above its feet, under the wall's top
+    const { depth } = draw(v);
+    expect(depth[head * v.w + Math.round(behind.sx)]).toBeLessThan(behind.z - 5);
+    expect(depth[head * v.w + Math.round(behind.sx)]).toBeLessThan(14); // the wall stands 12 away, the sprite 24
+  });
+
+  describe('the cost guard, inside the tunnel and around it', () => {
+    const rows = COMET_RING.rows.map((row, y) => (y >= 6 && y <= 10 ? row.split('').map((c, x) => (x >= 37 && x <= 55 && c === '#' ? 'T' : c)).join('') : row));
+    const track = parseTrack({ ...COMET_RING, rows });
+    const tex = paintTrack(track);
+    const mask = roofedOf(track, tex);
+    const hs = heightsOf(track, tex);
+    const range = reliefRange(track);
+    const edge = deckOf();
+    const KART_FOOT = 6;
+    it('has roofed road on the top leg', () => {
+      expect(mask.some((m) => m === 1)).toBe(true);
+    });
+    it.each([['wide', WIDE], ['tall', TALL]] as const)('takes at most 600 samples a column at every waypoint and at points inside the tunnel, on the %s grid', (_name, grid) => {
+      const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
+      const stops = [
+        ...track.waypoints.map((w, i) => ({ ...w, next: sure(track.waypoints[(i + 1) % track.waypoints.length], 'the next waypoint') })),
+        ...[54, 50, 46, 42, 38].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 36.5 * TILE, y: 8.5 * TILE } })),
+        ...[54, 46, 38].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 56.5 * TILE, y: 8.5 * TILE } })),
+      ];
+      stops.forEach((w, i) => {
+        const angle = Math.atan2(w.next.y - w.y, w.next.x - w.x);
+        const v = viewOf(grid, chaseCamera({ x: w.x, y: w.y, angle }, depthAt(grid, grid.h - KART_FOOT)), groundAt(track, w.x, w.y));
+        const samples = renderTerrain(v, tex, hs, range, edge, out, depth, mask);
+        expect(samples, `stop ${i}`).toBeGreaterThan(50);
+        expect(samples, `stop ${i}`).toBeLessThanOrEqual(600);
+      });
+    });
   });
 });
