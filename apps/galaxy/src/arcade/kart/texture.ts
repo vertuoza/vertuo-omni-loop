@@ -51,12 +51,32 @@ const startAt = (px: number, py: number, grain: number, t: Tones): number => {
 };
 const roadAt = (grain: number, t: Tones): number => (grain < 0.08 ? t[2] : grain > 0.96 ? t[0] : t[1]);
 
-/** The void tiles joined to the map's border through void: the outside of the circuit. One byte per tile, 1 when outside. */
+/** How many void tiles lie from the ramp at tx, ty in the direction dx, dy before road follows them (at most 8), 0 when none or when no road follows. */
+function gapAhead(map: readonly string[], tx: number, ty: number, [dx, dy]: readonly [number, number]): number {
+  let n = 1;
+  while (n <= 8 && tileAt(map, tx + dx * n, ty + dy * n) === '~') n++;
+  return n > 1 && isRoad(tileAt(map, tx + dx * n, ty + dy * n)) ? n - 1 : 0;
+}
+
+/** The void tiles of the gaps (PRD 1775): a run of void that a ramp leads into and road follows. A kart flies over one, so it closes the circuit's inside as the road does. One byte per tile, 1 in a gap. */
+function gapsOf({ cols, rows, map }: FloorMap): Uint8Array {
+  const gap = new Uint8Array(cols * rows);
+  const ramps = map.flatMap((row, ty) => Array.from(row).flatMap((c, tx) => (c === '^' ? [[tx, ty] as const] : [])));
+  for (const [tx, ty] of ramps) {
+    for (const step of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (let k = 1; k <= gapAhead(map, tx, ty, step); k++) gap[(ty + step[1] * k) * cols + tx + step[0] * k] = 1;
+    }
+  }
+  return gap;
+}
+
+/** The void tiles joined to the map's border through void, a gap closing the way as the road does: the outside of the circuit. One byte per tile, 1 when outside. */
 function outsideVoid({ cols, rows, map }: FloorMap): Uint8Array {
   const out = new Uint8Array(cols * rows);
+  const gaps = gapsOf({ cols, rows, map });
   const todo: [number, number][] = [];
   const take = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= cols || y >= rows || out[y * cols + x] || tileAt(map, x, y) !== '~') return;
+    if (x < 0 || y < 0 || x >= cols || y >= rows || out[y * cols + x] || gaps[y * cols + x] || tileAt(map, x, y) !== '~') return;
     out[y * cols + x] = 1;
     todo.push([x, y]);
   };

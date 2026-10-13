@@ -821,7 +821,8 @@ describe('the minimap (PRD 1698)', () => {
     const shades = tiles.filter((t) => t.colour !== '#ffffff').map((t) => light(t.colour));
     expect(Math.max(...shades)).toBeGreaterThan(Math.min(...shades));
     expect(tiles.some((t) => t.colour === '#ffffff')).toBe(true);
-    const flat = minimapTiles(parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }), { low: 0, high: 0 });
+    const open = COMET_RING.rows.map((r) => r.replaceAll('T', '#'));
+    const flat = minimapTiles(parseTrack({ rows: open, waypoints: COMET_RING.waypoints }), { low: 0, high: 0 });
     expect(new Set(flat.filter((t) => t.colour !== '#ffffff').map((t) => t.colour)).size).toBe(1);
   });
 
@@ -989,14 +990,13 @@ describe('the tunnel in the game and on the minimap', () => {
   const rows = ['~~~~~~~~', '~#TTT#w~', '~~~~~~~~'];
 
   it('passes the roofed road to the terrain, so the tunnel shows in the game', () => {
-    const at = COMET_RING.rows.findIndex((r) => r.includes('######'));
-    const roofedRows = COMET_RING.rows.map((r, y) => (y === at ? r.replace('####', 'TTTT') : r));
-    createKart({ seed: 3, track: parseTrack({ rows: roofedRows, waypoints: COMET_RING.waypoints }) }).draw(recorder().ctx, frame(WIDE));
+    createKart({ seed: 3 }).draw(recorder().ctx, frame(WIDE));
     const roofed = sure(sure(terrain[0], 'a terrain pass').roofed, 'the roofed mask');
     expect(roofed).toBeInstanceOf(Uint8Array);
     expect(roofed.some((p) => p === 1)).toBe(true);
     terrain.length = 0;
-    createKart({ seed: 3 }).draw(recorder().ctx, frame(WIDE));
+    const open = COMET_RING.rows.map((r) => r.replaceAll('T', '#'));
+    createKart({ seed: 3, track: parseTrack({ rows: open, waypoints: COMET_RING.waypoints }) }).draw(recorder().ctx, frame(WIDE));
     expect(sure(sure(terrain[0], 'a terrain pass').roofed, 'the roofed mask').every((p) => p === 0)).toBe(true);
   });
 
