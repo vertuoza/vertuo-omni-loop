@@ -325,15 +325,14 @@ function targetReachViolations(slices: readonly Slice[], targets: readonly Targe
  * asks nothing: then the cell is checked for its form alone, `none` beside a kind.
  */
 function contractViolations(slice: Slice, asks: { kinds: readonly string[] } | null): string[] {
-  const choices = asks === null ? '' : `${asks.kinds.join(', ')} or none`;
   const { contract } = slice;
-  if (contract === null) return asks === null ? [] : [`${slice.id}: contract: declares nothing — ${choices}`];
-  if (contract === 'none') return [];
-  const strangers = asks === null ? [] : contract.kinds.filter((word) => word !== 'none' && !asks.kinds.includes(word));
-  return [
-    ...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository — ${choices}`),
-    ...(contract.kinds.includes('none') ? [`${slice.id}: contract: "none" beside a kind — one or the other`] : []),
-  ];
+  const words = contract === null || contract === 'none' ? [] : contract.kinds;
+  const beside = words.includes('none') ? [`${slice.id}: contract: "none" beside a kind — one or the other`] : [];
+  if (asks === null) return beside;
+  const choices = `${asks.kinds.join(', ')} or none`;
+  if (contract === null) return [`${slice.id}: contract: declares nothing — ${choices}`];
+  const strangers = words.filter((word) => word !== 'none' && !asks.kinds.includes(word));
+  return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository — ${choices}`), ...beside];
 }
 
 /** What an ordinary repository's plan may not carry: either table of a plan repository. */
