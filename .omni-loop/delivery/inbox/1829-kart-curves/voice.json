@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-13",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Moving every read of the void in the engine to a new road query is where bugs slip into production, and the kart shipped two this week; with the three guards in the design, the risk is tested before the merge rather than hoped away.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Curves and a vaulted tunnel are more polish on an arcade I already see as a gimmick; at least the best times stay and nothing touches the database.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Three asks from one message, kept in one PRD: a circuit in curves, a tunnel through a bend and a walkway worth the risk make the race feel new.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "One road query in place of a dozen tile tests spread across the kart is cohesion, but it is a wide change: the plan has to land it in slices that keep the race green at every step.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The harder walkway was the quick win the reporter felt first; folded into one large PRD it reaches players later, though it is what they asked for.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "Refaire d'un coup la géométrie que lisent la physique, les rivaux, le rendu et la minimap, c'est exactement le gros changement qui laisse passer des bugs en prod, et le kart en a eu deux cette semaine (#1813, #1820). Je veux qu'un test prouve, avant le merge, que chaque point de la ligne de course est sur la route sauf les trous déclarés, que les rivaux finissent leurs 3 tours sans tomber, et qu'une vue est vérifiée dans chaque virage.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ~ · persona:Lead Engineer ~ · persona:Irisa ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-13",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The spec names each guard as a test and an acceptance criterion: the racing line on the road, the rivals without a fall at every level, a frame checked in every curve, and the frame cost held at 600 samples.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Still a game feature to me; the spec at least keeps it inside the kart, ships no migration and reverts whole.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Every corner, the tunnel and the walkway are pinned down with numbers a slice can build against, so it can ship without another round of questions.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The rows keep only the features and every module asks one query; the spec lists each module it moves and asks for slices that keep the race green.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "It is clear what the player gets, but it is one long delivery before the walkway is fixed.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Irisa ~ · persona:B-E DEv ~"
+    }
+  ]
+}
