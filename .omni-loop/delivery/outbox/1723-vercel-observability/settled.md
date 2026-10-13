@@ -235,3 +235,238 @@ Moving it later is one line of the menu file and the matching lines of two check
 ```
 
 <!-- /omni-outbox-settled: s5-01-guide-tests-list-the-new-page -->
+
+<!-- omni-outbox-settled: s6-01-note-lines -->
+
+## s6-01-note-lines — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-note-lines
+prd: 1723
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+The App's other sentences, like a forward to the arcade that failed, are now structured lines too and needed a name to search them by, apart from each run's own line. Is the name we picked the one you want?
+
+## The decision, in plain words
+
+Those sentences are written as warnings named 'note', with the part of the App that said them beside it and the sentence itself as the message, so a search for a run's line never also finds them.
+
+## The intro, for fun
+
+Every log line needs a name tag, and the small talk got one too.
+
+## The punchline, for fun
+
+Now even the grumbling is searchable.
+
+## The options, in plain words
+
+A. Keep 'note' as the name, with the part of the App that said it beside it (as built).
+B. Name each sentence after the part of the App that said it, as the run lines are named after what ran.
+
+## What I had to decide
+
+Answer A to keep the name 'note' with the part of the App beside it, or B to name each sentence after the part of the App that said it.
+
+## What I did meanwhile
+
+Every such sentence is written as a 'note' warning, the part of the App that said it beside it, the sentence as the message.
+
+## What it costs to change later
+
+Renaming it later is a one-word change in one place; only searches someone saved would need the new name.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says these sentences become warnings with the sentence as the message, and names the four run names, but not what these other lines are called.
+- The GitHub budget's own sentences, from the shared GitHub client, are written the same way, named after GitHub.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-note-lines -->
+
+<!-- omni-outbox-settled: s6-02-run-duration-and-outcome -->
+
+## s6-02-run-duration-and-outcome — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-run-duration-and-outcome
+prd: 1723
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+Each call to the App and each background job now writes one line saying how it ended and how long it took, but the spec did not say which answers count as refused or failed, nor what a job of several steps is timed by. Are the readings we picked the ones you want?
+
+## The decision, in plain words
+
+A call the App turns away (a wrong signature, a wrong method, a body it cannot read) is refused; an answer of the server-error kind, like a missing secret or a job that could not be sent on, is failed. A background job's duration is the time of the last step, the one that ended it, not the whole job from start to end, because each step runs separately.
+
+## The intro, for fun
+
+Every run now gets a stopwatch and a verdict at the finish line.
+
+## The punchline, for fun
+
+The stopwatch only sees the last lap, but it never lies about it.
+
+## The options, in plain words
+
+A. Turned-away calls are refused, server-error answers failed, a background job timed by the step that ended it (as built).
+B. The same readings, but a background job timed from its first step to its end, carried from step to step.
+
+## What I had to decide
+
+Answer A to keep these readings, or B to time a background job from its very first step to its end.
+
+## What I did meanwhile
+
+Turned-away calls are written refused, server-error answers failed, and a background job's duration is that of the step that ended it.
+
+## What it costs to change later
+
+Changing what refused and failed mean is one small rule in one place. Timing a whole job would need its start time carried through every step, a bigger but still contained change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec asks for each run's duration in milliseconds, but a background job made of several steps runs as separate calls, so a single clock cannot see it whole.
+- A job that fails and is retried writes one failed line per try, each try being a run of its own.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-run-duration-and-outcome -->
+
+<!-- omni-outbox-settled: s7-01-stages-sync-line-counts -->
+
+## s7-01-stages-sync-line-counts — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-stages-sync-line-counts
+prd: 1723
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 2
+---
+
+## The question, in plain words
+
+When the quarter-hour sync writes its one summary line, which repositories count as read, and how is a run that cannot even list the workspaces marked?
+
+## The decision, in plain words
+
+Only the repositories the sync read and recorded count; the ones it skipped do not. A run that cannot list the workspaces, and so answers with a server error, is marked failed, like a run that crashes.
+
+## The intro, for fun
+
+Counting sheep is easy until one of them refuses to be read.
+
+## The punchline, for fun
+
+We counted the ones that answered and called the silent night a failure.
+
+## The options, in plain words
+
+A. Count the repositories read and recorded; a server error without a crash is failed (built).
+B. Count every repository the sync tried, skipped ones included.
+C. Keep the count, but mark a server error without a crash as refused instead of failed.
+
+## What I had to decide
+
+Keep A unless the team wants the summary to count every repository the sync tried, or wants a server error without a crash marked differently.
+
+## What I did meanwhile
+
+The summary line counts the repositories that landed and marks a server error as failed.
+
+## What it costs to change later
+
+Changing either is a one-line edit in the sync and its test; no stored data depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the line carries how many repositories the run read, without saying whether a skipped one counts (author)
+- The spec names a thrown run as failed, not a server error answered without a crash (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-01-stages-sync-line-counts -->
