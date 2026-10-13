@@ -453,6 +453,40 @@ describe('the way back', () => {
       expect(tileAt(track.map, Math.floor(back.x / TILE), Math.floor(back.y / TILE))).not.toBe('~');
     }
   });
+
+  it('is never over the void, wherever on the racing line the kart fell: every point of every segment, not only at the waypoints (the guard of bug 1820)', () => {
+    const over: string[] = [];
+    for (let k = 0; k + 1 < track.waypoints.length; k++) {
+      const a = wp(k), b = wp(k + 1);
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      for (let s = 0; s <= len; s += 4) {
+        const back = comeBack(track, { laps: 0, passed: k + 1 }, fell(a.x + ((b.x - a.x) * s) / len, a.y + ((b.y - a.y) * s) / len), down).kart;
+        if (tileAt(track.map, Math.floor(back.x / TILE), Math.floor(back.y / TILE)) === '~') over.push(`segment ${k}, ${s} along`);
+      }
+    }
+    expect(over).toEqual([]);
+  });
+
+  it('is never over the void where the racing line crosses the gap jump: it is before the ramp, on the run-up pad, at rest (bug 1820)', () => {
+    for (const row of [15, 16, 17]) {
+      const back = comeBack(track, { laps: 0, passed: 5 }, fell(56.5 * TILE, (row + 0.5) * TILE), down).kart;
+      expect(tileAt(track.map, Math.floor(back.x / TILE), Math.floor(back.y / TILE)), `row ${row}`).toBe('+');
+      expect(back.speed).toBe(0);
+      expect(Math.sin(back.angle)).toBeCloseTo(-1, 6);
+    }
+  });
+
+  it('brings the slowest rival that fell into the gap jump back where it clears it (bug 1820)', () => {
+    let rival: Rival = { driver: driver('beaver'), kart: fell(56.5 * TILE, 16.5 * TILE), pace: { laps: 0, passed: 5 }, skill: RULES.levels.easy.skillMin, offset: 0, fx: { ...NO_FX, fall: 0.001 } };
+    let falls = 0;
+    for (let t = 0; t < 8 && rival.kart.y > 12 * TILE; t += RULES.subStep) {
+      const was = (rival.fx ?? NO_FX).fall > 0;
+      rival = driveRival(track, rival, RULES.subStep, progressOf(track, rival.pace, rival.kart));
+      if ((rival.fx ?? NO_FX).fall > 0 && !was) falls++;
+    }
+    expect(falls).toBe(0);
+    expect(rival.kart.y).toBeLessThan(12 * TILE);
+  });
 });
 
 describe('a falling rival', () => {

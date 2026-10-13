@@ -62,6 +62,8 @@ export const RULES = Object.freeze({
   /** The fall into the void (PRD 1447): how long a kart falls, and how long it blinks once it is back on the road. */
   fallTime: 1,
   blinkTime: 0.5,
+  /** How far behind a gap across the racing line a kart that fell into it comes back (bug 1820): 6.5 tiles, so that from rest it reaches the gap fast enough to clear it, on COMET RING from the run-up pad. */
+  runUp: 104,
   /** How far from the road a kart's centre goes before it falls: half its width as drawn (art.ts `KART_WORLD`), so it falls once all of it has tipped over the edge. */
   overhang: 7,
   /** A kart's four wheels (PRD 1698): how far ahead and behind its centre they stand and how far to each side, and how fast a wheel over the void draws the kart towards the edge. */
