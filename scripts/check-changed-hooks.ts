@@ -10,6 +10,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { accessSync, constants } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
+import { processEnv, withStepVariables } from '../kit/lib/env/read.ts';
 import { changedFiles, pickSteps, planChecks, runChecks } from './check-changed-steps.ts';
 
 /** Runs `file` with `args` in `cwd`, its output on the terminal, and answers its exit code. */
@@ -35,7 +36,7 @@ const realIO = (): HookIO => ({
   },
   write: (text) => process.stdout.write(text),
   warn: (text) => process.stderr.write(text),
-  path: process.env.PATH ?? '',
+  path: processEnv().PATH ?? '',
 });
 
 const executable = (file: string): boolean => {
@@ -84,7 +85,7 @@ export function prePush(root: string, dirs: readonly string[], io: HookIO): numb
   const base = io.git(root, ['merge-base', 'HEAD', ref]);
   if (!base) return refuse(io, 'pre-push', `no merge-base with ${ref}: run git fetch origin`);
   const steps = pickSteps(planChecks(changedFiles(root, base), base), ['typecheck', 'lint']);
-  const env = { ...process.env, PATH: dirs.join(delimiter) };
+  const env = withStepVariables({ PATH: dirs.join(delimiter) });
   const code = runChecks(steps, { spawn: (step) => io.run(pnpm, step.args, root, env), now: () => performance.now(), write: io.write });
   return code === 0 ? 0 : refuse(io, 'pre-push', `refused: fix what failed above (measured against ${ref})`);
 }

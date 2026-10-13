@@ -55,7 +55,7 @@ function readOnly(argv: readonly string[]): string[] | null {
   try {
     return onlySteps(argv);
   } catch (error) {
-    process.stderr.write(`check:changed: ${(error as Error).message}\n`);
+    process.stderr.write(`check:changed: ${error instanceof Error ? error.message : String(error)}\n`);
     return process.exit(2);
   }
 }

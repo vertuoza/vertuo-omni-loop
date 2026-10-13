@@ -70,7 +70,7 @@ export function planChecks({ tracked, untracked }: Changes, base: string): Step[
 }
 
 /** The names a step of `planChecks` can have, in the order it plans them. */
-const STEP_NAMES = ['typecheck', 'lint', 'tests', 'fallow'] as const;
+const STEP_NAMES: readonly string[] = ['typecheck', 'lint', 'tests', 'fallow'];
 
 /**
  * The step names `--only a,b` (or `--only=a,b`) asks for, or null when the flag is absent: every step
@@ -83,7 +83,7 @@ export function onlySteps(argv: readonly string[]): string[] | null {
   if (at < 0 && inline === undefined) return null;
   if (!value || value.startsWith('--')) throw new Error(`--only needs a comma-separated list of steps: ${STEP_NAMES.join(', ')}`);
   const names = value.split(',').map((name) => name.trim()).filter(Boolean);
-  const unknown = names.find((name) => !(STEP_NAMES as readonly string[]).includes(name));
+  const unknown = names.find((name) => !STEP_NAMES.includes(name));
   if (unknown !== undefined) throw new Error(`--only: unknown step "${unknown}"; the steps are ${STEP_NAMES.join(', ')}`);
   return names;
 }
