@@ -55,7 +55,7 @@
 | s1 | vertuo-backend-php | the kernel renders the mail types… | `packages/services/kernel/src/graphql/…`   | <span class="green">api</span>      | —          | 1    |
 | s2 | vertuo-apps        | the V3 page lists the templates…   | `apps/vertuo-front/src/views/…`            | —        | s1         | 2    |
 | s4 | vertuo-backend-php | the kernel creates and edits…      | `packages/services/kernel/src/usecases/…`  | <span class="green">none</span>     | s1         | 2    |</pre>
-      <p>A column read by its name: <code>api</code>, <code>db</code>, <code>api, db</code> or <code>none</code> on every slice of a repository that asks; <code>—</code> on the others. s4 changes nothing for its callers and now says so.</p>
+      <p>A column read by its name: one or more of the receiving repository's kinds (<code>api</code>, <code>db</code>, <code>api, db</code> by default) or <code>none</code> on every slice of a repository that asks; <code>—</code> on the others. s4 changes nothing for its callers and now says so.</p>
     </div>
   </div>
 
@@ -76,8 +76,9 @@ flow:
   areas:
     migrations: …
 <span class="green">contracts:
-  declare: true</span></pre>
-      <p>One boolean, <code>false</code> by default. Any plan that lands a slice here, from any plan repository, then declares. The plan repository lists nothing.</p>
+  declare: true
+  kinds: [api, db]   # optional, the default</span></pre>
+      <p>One boolean, <code>false</code> by default, and the repository's own kinds, <code>[api, db]</code> by default: a worker could name <code>[api, event]</code>, with no kit release. Any plan that lands a slice here, from any plan repository, then declares. The plan repository lists nothing.</p>
     </div>
   </div>
 
@@ -95,9 +96,9 @@ collisions: none
 waves: 1 → s1, s3 · 2 → s2, s4, s5 · 3 → s6, s7
 collisions: none
 <span class="green">contracts: s1 api · s6 api</span>
-<span class="red">s4: contract: declares nothing — api, db, "api, db" or none</span>
+<span class="red">s4: contract: declares nothing — api, db or none</span>
 <span class="red">not ok</span></pre>
-      <p>The planner's "check until green" step fixes s4 before the plan is pushed. A word outside the vocabulary is refused the same way, in any repository: <code>s3: contract: "graphql" is no contract kind — …</code>.</p>
+      <p>The planner's "check until green" step fixes s4 before the plan is pushed. A word outside the repository's kinds is refused the same way: <code>s3: contract: "graphql" is no kind of this repository — api, db or none</code>.</p>
     </div>
   </div>
 
@@ -139,10 +140,10 @@ vertuo-backend-php  back-end  own  v0.0.395  <span class="red">stale (flow not c
   <h2>Where it lands</h2>
   <table class="t">
     <tr><th>Piece</th><th>Today</th><th>After</th></tr>
-    <tr><td><code>Slice</code> (<code>kit/lib/types.ts</code>)</td><td>id, repo, title, territory, blockedBy, wave, landing</td><td>+ <code>contract</code>: kinds, <code>none</code>, unknown words, or <code>null</code></td></tr>
-    <tr><td><code>parseConfig</code></td><td>no <code>contracts</code> section</td><td><code>contracts.declare</code>, boolean, <code>false</code></td></tr>
+    <tr><td><code>Slice</code> (<code>kit/lib/types.ts</code>)</td><td>id, repo, title, territory, blockedBy, wave, landing</td><td>+ <code>contract</code>: the cell's kinds, <code>none</code>, or <code>null</code></td></tr>
+    <tr><td><code>parseConfig</code></td><td>no <code>contracts</code> section</td><td><code>contracts.declare</code>, boolean, <code>false</code>; <code>contracts.kinds</code>, <code>[api, db]</code></td></tr>
     <tr><td><code>FlowConfig</code> / the copy</td><td>flow, landings, pr; imported targets only</td><td>+ contracts; every target with a planning config</td></tr>
-    <tr><td><code>omni flow show</code></td><td>areas and hooks</td><td>+ <code>contracts: declare | none</code></td></tr>
+    <tr><td><code>omni flow show</code></td><td>areas and hooks</td><td>+ <code>contracts: declare &lt;kinds&gt; | none</code></td></tr>
     <tr><td><code>/omni:plan</code></td><td>header row fixed</td><td>+ <code>contract</code> after <code>territory</code> when a repository asks</td></tr>
   </table>
 </div>
