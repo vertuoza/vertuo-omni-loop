@@ -3,6 +3,7 @@ import { sure } from '../test/sure';
 import {
   chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, renderTerrain, roofedOf, ROOF, skyShift, spritesInView, TUNNEL, viewOf, type Deck, type Texture, type View,
 } from './mode7';
+import { RULES } from './rules';
 import { groundAt, heightsOf, reliefRange } from './relief';
 import { BEYOND, deckOf, paintTrack } from './texture';
 import { cornersOf, groundOf, parseTrack, pointAtPx, TILE } from './track';
@@ -347,6 +348,25 @@ describe('the tunnel (PRD 1775)', () => {
     expect(ROOF).toBe(44);
   });
 
+  it('vaults the ceiling: ROOF over the centre line, falling along an arc toward the walls, still above the eye (PRD 1829)', () => {
+    const { out, depth } = draw(inside);
+    const seen: { off: number; up: number }[] = [];
+    for (let r = 0; r < inside.horizon; r++) {
+      for (let c = 0; c < inside.w; c++) {
+        if (!ceiling.has(out[r * inside.w + c] ?? 0)) continue;
+        const z = depth[r * inside.w + c] ?? 0, across = (c + 0.5 - inside.w / 2) / inside.focal;
+        const x = inside.x + (Math.cos(inside.angle) - Math.sin(inside.angle) * across) * z;
+        seen.push({ off: Math.abs(x - 32), up: inside.height - (z * (r + 0.5 - inside.horizon)) / inside.focal });
+      }
+    }
+    const centre = seen.filter((s) => s.off < 1.5), side = seen.filter((s) => s.off > 6);
+    expect(centre.length).toBeGreaterThan(0);
+    expect(side.length).toBeGreaterThan(0);
+    for (const s of centre) expect(s.up).toBeGreaterThan(ROOF - 1);
+    for (const s of side) expect(s.up).toBeLessThan(ROOF - RULES.vault / 4);
+    for (const s of seen) { expect(s.up).toBeGreaterThanOrEqual(ROOF - RULES.vault - 1); expect(s.up).toBeGreaterThan(inside.height); }
+  });
+
   it('marks the pixels of roofed road in the map', () => {
     const t = roofedOf(groundOf(['~T~', '~#~']), { w: 3 * TILE, h: 2 * TILE, px: new Uint32Array(3 * TILE * 2 * TILE) });
     expect(t[8 * 48 + 24]).toBe(1);
@@ -429,7 +449,7 @@ describe('the tunnel (PRD 1775)', () => {
       const v = viewOf(grid, chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT)), groundAt(track, kart.x, kart.y));
       const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
       renderTerrain(v, tex, hs, range, edge, out, depth, mask);
-      return { v, out };
+      return { v, out, depth };
     };
     // The kart from three tiles before the tunnel to two tiles past it, half a tile at a time.
     const stops = Array.from({ length: 2 * (span.length + 5) + 1 }, (_, k) => -3 + k / 2);
@@ -450,6 +470,25 @@ describe('the tunnel (PRD 1775)', () => {
         expect(sides.some((p) => lit.has(p)), `kart ${tx} tiles into the span`).toBe(false);
         expect(sides.some((p) => p === TUNNEL.wallInA || p === TUNNEL.wallInB), `kart ${tx} tiles into the span`).toBe(true);
       }
+    });
+
+    it('lifts the top of the frame to ceiling inside the bend, and holds the ceiling over the road\'s edge lower than over its centre (criterion 8)', () => {
+      const { v, out, depth } = frame(WIDE, 6);
+      expect(rect(out, v, [0, 3], [Math.round(v.w * 0.3), Math.round(v.w * 0.7)]).every((p) => ceiling.has(p))).toBe(true);
+      // A ceiling pixel `r` rows from the top, `z` ahead: the height it stands at is read back from the projection.
+      const heightOf = (r: number, c: number) => v.height - (depth[r * v.w + c] ?? 0) * (r + 0.5 - v.horizon) / v.focal;
+      const heights: number[] = [];
+      for (let r = 0; r < v.horizon; r++) for (let c = 0; c < v.w; c++) if (ceiling.has(out[r * v.w + c] ?? 0)) heights.push(heightOf(r, c));
+      expect(Math.max(...heights)).toBeGreaterThan(ROOF - 4);
+      expect(Math.min(...heights)).toBeLessThan(ROOF - RULES.vault / 2);
+      expect(Math.min(...heights)).toBeGreaterThanOrEqual(ROOF - RULES.vault - 1);
+      expect(Math.min(...heights)).toBeGreaterThan(v.height);
+    });
+
+    it('hides the exit portal from the entry portal: nothing lit stands far down the bend (criterion 8)', () => {
+      const { v, out, depth } = frame(WIDE, 0.5);
+      for (let i = 0; i < out.length; i++) if (out[i] === TUNNEL.portal) expect(depth[i] ?? 0, `pixel ${i}`).toBeLessThan(6 * TILE);
+      expect(v.w).toBe(WIDE.w);
     });
 
     it('roofs the frame without holes over the tunnel\'s hump: in every column, nothing is missing between two pixels of ceiling', () => {
