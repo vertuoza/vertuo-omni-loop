@@ -223,6 +223,8 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     expect(config.commands.test).toBe('pnpm test');
     expect(config.commands.preflight).toBe('pnpm run quality:preflight');
     expect(config.commands.preflightFull).toBe('pnpm run quality:preflight');
+    expect(config.commands.setup).toBe('pnpm install --frozen-lockfile');
+    expect(read('.omni-loop/config.yml')).toMatch(/^commands:\n {2}setup: pnpm install --frozen-lockfile\n/m);
     expect(config.repo.slug).toBe('acme/widgets');
     expect(config.repo.defaultBranch).toBe('trunk');
     expect(config.laws.source).toBe('none');
@@ -339,13 +341,14 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const { code } = await init(root, [], { options: { ask: () => { asked += 1; return 'x'; } } });
     expect(code).toBe(0);
     expect(asked).toBe(0);
-    expect(readConfig(read).commands).toMatchObject({ test: null, preflight: null, preflightFull: null });
+    expect(readConfig(read).commands).toMatchObject({ setup: null, test: null, preflight: null, preflightFull: null });
+    expect(read('.omni-loop/config.yml')).toMatch(/^commands:\n {2}setup: null\n/m);
   });
 
   it('on a terminal it asks once per unknown command, and an empty answer means none', async () => {
     const { root, read } = makeRepo({ git: true });
     const questions: unknown[] = [];
-    const answers = ['make check', '', 'make all'];
+    const answers = ['', 'make check', '', 'make all'];
     const s = io();
     const tty = { isTTY: true, write: s.stdout.write };
     // A home of its own and a sign-in that does not happen: on a terminal, init would otherwise run the
@@ -356,14 +359,40 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
       ask: (question: string) => { questions.push(question); return answers.shift(); },
     });
     expect(code).toBe(0);
-    expect(questions).toHaveLength(3);
-    expect(readConfig(read).commands).toMatchObject({ test: 'make check', preflight: null, preflightFull: 'make all' });
+    expect(questions).toHaveLength(4);
+    expect(questions[0]).toMatch(/^commands\.setup: .*\(empty for none\): $/);
+    expect(readConfig(read).commands).toMatchObject({ setup: null, test: 'make check', preflight: null, preflightFull: 'make all' });
+  });
+
+  it('on a terminal it asks for the setup when no lockfile proposes one, and never when one does (PRD 1804)', async () => {
+    const run = async (files: Record<string, string>, answer: string) => {
+      const { root, read } = makeRepo({ git: true, files: { Makefile: fixture('make/Makefile'), ...files } });
+      const questions: string[] = [];
+      const s = io();
+      await main(['init'], {
+        cwd: root, stdout: { isTTY: true, write: s.stdout.write }, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
+        home: freshHome(), signIn: () => Promise.resolve(1),
+        ask: (question: string) => { questions.push(question); return answer; },
+      });
+      return { questions, setup: readConfig(read).commands.setup };
+    };
+    expect(await run({}, 'make deps')).toEqual({ questions: [expect.stringMatching(/^commands\.setup: /)], setup: 'make deps' });
+    expect(await run({ 'composer.lock': '' }, 'never asked')).toEqual({ questions: [], setup: 'composer install' });
   });
 
   it('--test, --preflight and --preflight-full override detection (AC 3)', async () => {
     const { root, read } = makeRepo({ git: true, files: { 'package.json': fixture('pnpm/package.json'), 'pnpm-lock.yaml': '' } });
     await init(root, ['--test', 'vendor/bin/phpunit', '--preflight', 'make ci', '--preflight-full', 'make ci-full']);
     expect(readConfig(read).commands).toMatchObject({ test: 'vendor/bin/phpunit', preflight: 'make ci', preflightFull: 'make ci-full' });
+  });
+
+  it('--setup overrides the setup the lockfile proposes, and fills it when none does (PRD 1804)', async () => {
+    const locked = makeRepo({ git: true, files: { 'package.json': fixture('pnpm/package.json'), 'pnpm-lock.yaml': '' } });
+    await init(locked.root, ['--setup', 'pnpm install']);
+    expect(readConfig(locked.read).commands.setup).toBe('pnpm install');
+    const bare = makeRepo({ git: true });
+    await init(bare.root, ['--setup', 'make deps']);
+    expect(readConfig(bare.read).commands.setup).toBe('make deps');
   });
 
   it('laws.source is knowledge with a register entry, claudeMdInvariants with the CLAUDE.md heading', async () => {

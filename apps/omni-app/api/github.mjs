@@ -805,6 +805,9 @@ var ConfigSchema = z7.object({
     runner: text2.default("ubuntu-latest")
   }),
   commands: section({
+    // PRD 1804: what prepares a fresh checkout to run the preflight (an install). Only the
+    // multi-repository skills read it, from a target's default branch; `null` means none.
+    setup: nullableText.default(null),
     preflight: nullableText.default(null),
     preflightFull: nullableText.default(null),
     checks: z7.array(text2).default([]),

@@ -132,6 +132,15 @@ describe('omni help', () => {
     expect(care.out).toMatch(/^\/omni:mega-pr-care <n> \[--once\] +for you\n/);
   });
 
+  it('names the committed setup, run before the preflight, for every skill that runs one in a target (PRD 1804)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    for (const name of ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'mega-bug-fix', 'mega-pr-care']) {
+      const { code, out } = await run(['help', name], root);
+      expect(code, name).toBe(0);
+      expect(out.replace(/\s+/g, ' '), name).toContain('committed setup, then its own committed preflight');
+    }
+  });
+
   it('prints /omni:roadmap after omni roadmap, and /omni:mega-roadmap, each with its drive line (PRD 1162)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const both = await run(['help', 'roadmap'], root);
