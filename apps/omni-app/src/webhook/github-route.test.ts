@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { EnvError, readEnv } from '../env.ts';
+import { capture, throwing } from '../run-log/capture.ts';
 import { githubRoute } from './github-route.ts';
 
 /** `/api/github`'s handlers over `source`, as the route reads the process's environment. */
@@ -111,10 +112,72 @@ describe('/api/github', () => {
     expect(JSON.parse(StagePostSchema.parse(call[1]).body)).toEqual({ repository: 'o/r', issue: 9 });
   });
 
-  it('answers 405 to anything but POST', () => {
-    const response = route().GET();
+  it('answers 405 to anything but POST', async () => {
+    const response = await route().GET(new Request('https://omni-loop.example/api/github'));
     expect(response.status).toBe(405);
     expect(response.headers.get('allow')).toBe('POST');
+  });
+});
+
+describe('/api/github — one webhook line per delivery (PRD 1723 s6)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const delivered = (headers: Record<string, string>) =>
+    new Request('https://omni-loop.example/api/github', {
+      method: 'POST',
+      body,
+      headers: { 'x-github-event': 'pull_request', 'x-github-delivery': 'del-42', ...headers },
+    });
+  const logged = (send: () => Promise<unknown>) => {
+    const log = capture();
+    return { log, route: githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { send, logger: log.logger }) };
+  };
+
+  it('logs ok with the delivery id, the repository and the GitHub event', async () => {
+    const { log, route: logRoute } = logged(() => Promise.resolve());
+    const response = await logRoute.POST(delivered({ 'x-hub-signature-256': sign(body) }));
+    expect(response.status).toBe(200);
+    expect(log.lines()).toEqual([
+      { level: 'info', event: 'webhook', outcome: 'ok', ms: 0, deliveryId: 'del-42', fn: 'pull_request', repo: 'o/r', status: 200 },
+    ]);
+  });
+
+  it('logs refused on a bad signature, naming no repository', async () => {
+    const { log, route: logRoute } = logged(() => Promise.resolve());
+    const response = await logRoute.POST(delivered({ 'x-hub-signature-256': 'sha256=' + '0'.repeat(64) }));
+    expect(response.status).toBe(401);
+    expect(log.lines()).toEqual([{ level: 'warn', event: 'webhook', outcome: 'refused', ms: 0, deliveryId: 'del-42', fn: 'pull_request', status: 401 }]);
+  });
+
+  it('logs refused on a GET, 405', async () => {
+    const { log, route: logRoute } = logged(() => Promise.resolve());
+    expect((await logRoute.GET(new Request('https://omni-loop.example/api/github'))).status).toBe(405);
+    expect(log.lines()).toEqual([{ level: 'warn', event: 'webhook', outcome: 'refused', ms: 0, status: 405 }]);
+  });
+
+  it('logs failed on a thrown error, and rethrows the very error', async () => {
+    const { log, route: logRoute } = logged(() => Promise.resolve());
+    const thrown = new Error('the body could not be read');
+    const request = delivered({ 'x-hub-signature-256': sign(body) });
+    vi.spyOn(request, 'text').mockRejectedValue(thrown);
+    await expect(logRoute.POST(request)).rejects.toBe(thrown);
+    expect(log.lines()).toEqual([
+      { level: 'error', event: 'webhook', outcome: 'failed', ms: 0, deliveryId: 'del-42', fn: 'pull_request', error: { name: 'Error', message: 'the body could not be read' } },
+    ]);
+  });
+
+  it('logs failed when the event could not be sent on, 502', async () => {
+    const { log, route: logRoute } = logged(() => Promise.reject(new Error('inngest is down')));
+    expect((await logRoute.POST(delivered({ 'x-hub-signature-256': sign(body) }))).status).toBe(502);
+    expect(log.lines()).toEqual([expect.objectContaining({ level: 'error', outcome: 'failed', status: 502, repo: 'o/r' })]);
+  });
+
+  it('answers the same when the logger throws', async () => {
+    const route = githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { send: () => Promise.resolve(), logger: throwing });
+    expect((await route.POST(delivered({ 'x-hub-signature-256': sign(body) }))).status).toBe(200);
+    expect((await route.GET(new Request('https://omni-loop.example/api/github'))).status).toBe(405);
   });
 });
 

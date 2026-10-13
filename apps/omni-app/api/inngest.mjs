@@ -424,8 +424,8 @@ function wait(ms2) {
 var DEFAULT_GALAXY_URL = "https://www.omni-loop.xyz";
 var VERCEL = envGroup({
   label: "the Vercel environment",
-  schema: z3.object({ name: z3.string().optional() }),
-  variables: { name: "VERCEL_ENV" }
+  schema: z3.object({ name: z3.string().optional(), commit: z3.string().optional() }),
+  variables: { name: "VERCEL_ENV", commit: "VERCEL_GIT_COMMIT_SHA" }
 });
 var secretGroup = (label2, variable, required) => envGroup({ label: label2, schema: z3.object({ secret: z3.string() }), variables: { secret: variable }, ...required ? { required } : {} });
 var WEBHOOK = secretGroup("the webhook secret", "GITHUB_WEBHOOK_SECRET", "production");
@@ -540,7 +540,7 @@ function fromStore(res, kept3) {
   out.set("etag", kept3.etag);
   return new Response(kept3.body, { status: 200, headers: out });
 }
-function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url, init), clock = Date.now, log = (line) => {
+function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url, init), clock = Date.now, log: log2 = (line) => {
   console.error(line);
 } }) {
   let storeDown = false;
@@ -551,7 +551,7 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
       storeDown = false;
       return value;
     } catch (error) {
-      if (!storeDown) log(`GitHub budget store failed, calling GitHub without it: ${error instanceof Error ? error.message : String(error)}`);
+      if (!storeDown) log2(`GitHub budget store failed, calling GitHub without it: ${error instanceof Error ? error.message : String(error)}`);
       storeDown = true;
       return null;
     }
@@ -563,7 +563,7 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const pauseUntil = await pauseOf(res, at3);
     if (pauseUntil === null) return;
     await stored((s) => s.pause(installation, answeredResource, pauseUntil, at3));
-    log(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
+    log2(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
     throw new GithubPaused(pauseUntil);
   }
   async function conditionalOf(installation, url, resource, method) {
@@ -677,6 +677,110 @@ function supabaseGithubStore(db) {
     }
   };
 }
+
+// kit/lib/log/log.ts
+var LOG_FIELDS = [
+  "level",
+  "event",
+  "outcome",
+  "ms",
+  "repo",
+  "prd",
+  "deliveryId",
+  "runId",
+  "fn",
+  "status",
+  "error",
+  "message",
+  "repos",
+  "dropped"
+];
+var MAX_TEXT = 500;
+var MASK2 = "***";
+var ALLOWED = new Set(LOG_FIELDS.filter((field4) => field4 !== "level" && field4 !== "dropped"));
+var CUT = /* @__PURE__ */ new Set(["message"]);
+var CREDENTIALS = [
+  [/github_pat_[A-Za-z0-9_]+/g, MASK2],
+  [/gh[pousr]_[A-Za-z0-9_]+/g, MASK2],
+  [/omk_[A-Za-z0-9_-]+/g, MASK2],
+  [/\bsk-[A-Za-z0-9_-]+/g, MASK2],
+  [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK2}`],
+  [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK2}`]
+];
+function maskCredentials(text14) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text14);
+}
+var cut = (text14) => text14.length > MAX_TEXT ? text14.slice(0, MAX_TEXT) : text14;
+function errorOf(value) {
+  if (value instanceof Error) {
+    return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
+  }
+  return { name: "Error", message: cut(maskCredentials(typeof value === "string" ? value : String(value))) };
+}
+function scalarOf(field4, value) {
+  if (typeof value === "string") {
+    const masked = maskCredentials(value);
+    return CUT.has(field4) ? cut(masked) : masked;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : void 0;
+  if (typeof value === "boolean" || value === null) return value;
+  return void 0;
+}
+function lineOf(level, entry) {
+  const line = { level };
+  let dropped = 0;
+  for (const [field4, value] of Object.entries(entry)) {
+    if (value === void 0) continue;
+    if (!ALLOWED.has(field4)) {
+      dropped += 1;
+      continue;
+    }
+    if (field4 === "error") {
+      line.error = errorOf(value);
+      continue;
+    }
+    const scalar2 = scalarOf(field4, value);
+    if (scalar2 === void 0) dropped += 1;
+    else line[field4] = scalar2;
+  }
+  if (dropped > 0) line.dropped = dropped;
+  return JSON.stringify(line);
+}
+var stdout = (line) => {
+  process.stdout.write(`${line}
+`);
+};
+function createLogger({ sink = stdout, clock = Date.now } = {}) {
+  const write2 = (level, entry) => {
+    try {
+      sink(lineOf(level, entry));
+    } catch {
+    }
+  };
+  const now = () => {
+    try {
+      return clock();
+    } catch {
+      return Number.NaN;
+    }
+  };
+  return {
+    info: (entry) => {
+      write2("info", entry);
+    },
+    warn: (entry) => {
+      write2("warn", entry);
+    },
+    error: (entry) => {
+      write2("error", entry);
+    },
+    timer: () => {
+      const start = now();
+      return () => Math.max(0, Math.round(now() - start)) || 0;
+    }
+  };
+}
+var log = createLogger();
 
 // apps/omni-app/src/canon/live.ts
 import { createClient } from "@supabase/supabase-js";
@@ -1050,7 +1154,7 @@ function hookRefProblem(ref) {
   if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
   if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
   if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
-    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+    return `${path} sits under .claude/, which only Claude Code reads \u2014 move it to .agents/hooks/, or mark it { path: ${path}, alias: claude }`;
   }
   return null;
 }
@@ -1271,7 +1375,7 @@ var ConfigSchema = z8.object({
     adr: text3.default(".omni-loop/knowledge/adr"),
     playbook: text3.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z8.array(text3).default(["CLAUDE.md"])
+    context: z8.array(text3).default(["AGENTS.md", "CLAUDE.md"])
   }),
   labels: section({
     prd: labelName.default("omni:prd"),
@@ -1343,6 +1447,9 @@ var ConfigSchema = z8.object({
   }).prefault({}),
   laws: section({
     source: z8.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    // The heading under which the context files (`paths.context`, in order) list the ADRs that are
+    // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
+    // read (PRD 1739), so every config that sets them still reads.
     claudeMdHeading: text3.default("## Invariants"),
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
@@ -1568,8 +1675,8 @@ var PrdNumberSchema = IssueNumberSchema.brand();
 var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
 var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z9.string().regex(PRODUCT_PRD).refine((id) => {
-  const cut = id.lastIndexOf("-");
-  return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
+  const cut2 = id.lastIndexOf("-");
+  return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z9.number().int().positive().brand();
 var CommentIdSchema = z9.number().int().positive().brand();
@@ -1594,8 +1701,8 @@ function parseProductPrdId(value) {
 }
 var isProductPrdId = (id) => typeof id === "string";
 function productPrdParts(id) {
-  const cut = id.lastIndexOf("-");
-  return { key: id.slice(0, cut), seq: Number(id.slice(cut + 1)) };
+  const cut2 = id.lastIndexOf("-");
+  return { key: id.slice(0, cut2), seq: Number(id.slice(cut2 + 1)) };
 }
 function parsePr(value) {
   return parseId(PrNumberSchema, numeric(value), "pull request number", value);
@@ -1667,6 +1774,97 @@ function firstLine(reason2) {
   return said.split("\n")[0] || "unknown error";
 }
 var printed = (value) => String(value);
+
+// apps/omni-app/src/run-log/run-log.ts
+function write(logger, line) {
+  const entry = { event: line.event };
+  for (const [field4, value] of Object.entries(line)) {
+    if (value !== void 0) Object.assign(entry, { [field4]: value });
+  }
+  try {
+    if (line.outcome === "ok") logger.info(entry);
+    else if (line.outcome === "refused") logger.warn(entry);
+    else logger.error(entry);
+  } catch {
+  }
+}
+function stopwatch(logger) {
+  try {
+    const elapsed = logger.timer();
+    return () => {
+      try {
+        return elapsed();
+      } catch {
+        return void 0;
+      }
+    };
+  } catch {
+    return () => void 0;
+  }
+}
+async function loggedRun(logger, event, run, outcomeOf2) {
+  const elapsed = stopwatch(logger);
+  const fields = {};
+  const note = (more) => {
+    Object.assign(fields, more);
+  };
+  let value;
+  try {
+    value = await run(note);
+  } catch (error) {
+    write(logger, { event, outcome: "failed", ms: elapsed(), ...fields, error });
+    throw error;
+  }
+  let outcome2;
+  try {
+    outcome2 = outcomeOf2(value);
+  } catch {
+    outcome2 = "ok";
+  }
+  write(logger, { event, outcome: outcome2, ms: elapsed(), ...fields });
+  return value;
+}
+function noteTo(fn, logger = log) {
+  return (line) => {
+    try {
+      logger.warn({ event: "note", fn, message: line });
+    } catch {
+    }
+  };
+}
+function loggedFunctionHandler(logger, fn, handler2) {
+  return (ctx, ...rest) => loggedRun(
+    logger,
+    "inngest",
+    async (note) => {
+      note({ fn, runId: typeof ctx.runId === "string" ? ctx.runId : void 0 });
+      return await handler2(ctx, ...rest);
+    },
+    () => "ok"
+  );
+}
+function callable(value) {
+  if (typeof value !== "function") return void 0;
+  return (...args) => {
+    const result = Reflect.apply(value, void 0, args);
+    return result;
+  };
+}
+function loggedClient(client, logger = log) {
+  const createLogged = (options, handler2) => {
+    const fn = typeof options.id === "string" ? options.id : "unknown";
+    const onFailure = callable(options.onFailure);
+    const run = callable(handler2);
+    const created = Reflect.apply(client.createFunction, client, [
+      onFailure ? { ...options, onFailure: loggedFunctionHandler(logger, `${fn}-failure`, onFailure) } : options,
+      run ? loggedFunctionHandler(logger, fn, run) : handler2
+    ]);
+    return created;
+  };
+  return new Proxy(client, {
+    get: (target2, property, receiver) => property === "createFunction" ? createLogged : Reflect.get(target2, property, receiver)
+  });
+}
 
 // apps/omni-app/src/stage-forward/stage-forward.ts
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
@@ -6109,6 +6307,11 @@ import { dirname as dirname5, join as join22 } from "node:path";
 
 // kit/lib/env/read.ts
 import { z as z25 } from "zod";
+var OMNI_SESSION = envGroup({
+  label: "the agent session",
+  schema: z25.object({ id: z25.string() }),
+  variables: { id: "OMNI_SESSION_ID" }
+});
 var CLAUDE_SESSION = envGroup({
   label: "the Claude session",
   schema: z25.object({ id: z25.string() }),
@@ -6174,7 +6377,7 @@ var PACKAGE_MANAGER = envGroup({
   schema: z25.object({ execPath: z25.string() }),
   variables: { execPath: "npm_execpath" }
 });
-var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN]);
+var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
 var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
 
@@ -6234,7 +6437,7 @@ function headDrift(drift, reading, head) {
   const voided = (reading.approval?.voids ?? []).find((v) => v.kind === drift.kind);
   return { file, how: "voided", where: voided ? `${voided.pusher}'s push` : null };
 }
-function lineOf({ file, how, where }) {
+function lineOf2({ file, how, where }) {
   if (how === "voided") return `\u2260 ${file} \xB7 voided by ${where ?? "a push"}`;
   return how === "missing" ? `\u2260 ${file} \xB7 missing` : `\u2260 ${file} in ${where ?? "the head"} \xB7 ${how}`;
 }
@@ -6253,7 +6456,7 @@ function repoApprovedVerdict(prd, reading, head) {
       return verdict("pending", "failure", `pending \xB7 PRD ${n} waits for approval`, reading.lines);
     case "drifted": {
       const drift = reading.drift.map((d) => headDrift(d, reading, head));
-      const lines = drift.map(lineOf);
+      const lines = drift.map(lineOf2);
       const restore = `Run \`omni approval restore ${n}\` to write each drifted file back to its approved content, or approve again on the PRD page.`;
       return verdict("drifted", "failure", `drifted \xB7 ${lines[0] ?? ""}`, [...lines, "", restore], drift);
     }
@@ -6286,9 +6489,7 @@ function createApprovedCheck({
   galaxyUrl,
   ask: ask3 = NO_JUDGE2,
   now = () => /* @__PURE__ */ new Date(),
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("approved-check")
 }) {
   return client.createFunction(
     {
@@ -6300,13 +6501,13 @@ function createApprovedCheck({
     },
     async ({ event, step }) => {
       const { installationId, owner, repo, repository, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
-      const budgeted = (work) => onBudget(`${owner}/${repo}#${prNumber}`, log, work);
+      const budgeted = (work) => onBudget(`${owner}/${repo}#${prNumber}`, log2, work);
       const target2 = await step.run("target", () => budgeted(async () => targetOf(await octokitFor(installationId), { owner, repo, prNumber })));
       if (!target2) return { ...SILENT };
       let verdict;
       let named;
       if (target2.kind === "product") {
-        const reading = await step.run("record", () => readingOf(readRecord, repository, target2.prd, now, log));
+        const reading = await step.run("record", () => readingOf(readRecord, repository, target2.prd, now, log2));
         verdict = approvedVerdict(target2.prd, reading);
         named = target2.prd.id;
       } else {
@@ -6324,9 +6525,7 @@ function createApprovedCheck({
 function createApprovedRerun({
   client,
   octokitFor,
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("approved-rerun")
 }) {
   return client.createFunction(
     {
@@ -6338,7 +6537,7 @@ function createApprovedRerun({
     },
     async ({ event, step }) => {
       const { installationId, owner, repo, prd, trigger } = ApprovedLabelDataSchema.parse(event.data);
-      const pulls = await step.run("find", () => onBudget(`${owner}/${repo} PRD ${Number(prd)}`, log, async () => {
+      const pulls = await step.run("find", () => onBudget(`${owner}/${repo} PRD ${Number(prd)}`, log2, async () => {
         const octokit = await octokitFor(installationId);
         const found = await openPullsOfPrd(octokit, { owner, repo, prd });
         return Promise.all(found.map(async (pull) => ({ ...pull, headSha: (await readPull2(octokit, pull)).headSha })));
@@ -6384,9 +6583,9 @@ async function judgedAt(octokit, target2, ask3) {
   const reading = await readingAt(octokit, target2.source, { prd: target2.prd, dir: target2.dir }, ask3);
   return reading ? { reading, head: target2.source.ref } : null;
 }
-async function readingOf(readRecord, repository, prd, now, log) {
+async function readingOf(readRecord, repository, prd, now, log2) {
   const held = (why) => {
-    log(`approved check of ${repository} for ${prd.id} is held: ${why}`);
+    log2(`approved check of ${repository} for ${prd.id} is held: ${why}`);
     return { reachable: false, since: now().toISOString() };
   };
   if (!readRecord) return held("the App cannot read the server here");
@@ -6421,13 +6620,13 @@ function refusalIn(error) {
   }
   return null;
 }
-async function onBudget(where, log, work) {
+async function onBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
     const refused4 = refusalIn(error);
     if (!refused4) throw error;
-    log(`approved check of ${where} waits for the GitHub budget: ${refused4.message}`);
+    log2(`approved check of ${where} waits for the GitHub budget: ${refused4.message}`);
     throw new RetryAfterError(refused4.message, new Date(refused4.until), { cause: refused4 });
   }
 }
@@ -6573,9 +6772,7 @@ function createOutboxCheck({
   readProductOutbox = null,
   galaxyUrl = "",
   now = () => /* @__PURE__ */ new Date(),
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("outbox-check")
 }) {
   return client.createFunction(
     {
@@ -6589,13 +6786,13 @@ function createOutboxCheck({
     async ({ event, step }) => {
       const request = CheckRequestDataSchema.parse(event.data);
       const { installationId, owner, repo, prNumber, headSha } = request;
-      const budgeted = (work) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
+      const budgeted = (work) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log2, work);
       const started = await step.run("in-progress", () => budgeted(async () => {
         const octokit = await octokitFor(installationId);
         const { active, name, gated, reason: reason2, deferTo, product } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
         if (!active) return null;
         if (!gated && product) {
-          const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log);
+          const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log2);
           const verdict2 = productOutboxVerdict(product, reading, galaxyUrl);
           const [checkRunId2] = await completeAsProduct(octokit, { owner, repo, headSha, name, verdict: verdict2 });
           return { checkRunId: checkRunId2, name, skipped: true, conclusion: verdict2.conclusion };
@@ -6633,9 +6830,9 @@ function createOutboxCheck({
     }
   );
 }
-async function outboxReadingOf(read, repository, prd, now, log) {
+async function outboxReadingOf(read, repository, prd, now, log2) {
   const held = (why) => {
-    log(`outbox check of ${repository} for ${prd.id} is held: ${why}`);
+    log2(`outbox check of ${repository} for ${prd.id} is held: ${why}`);
     return { reachable: false, since: now().toISOString() };
   };
   if (!read) return held("the App cannot read the server here");
@@ -6661,13 +6858,13 @@ function budgetRefusal(error) {
   }
   return null;
 }
-async function waitingOnBudget(where, log, work) {
+async function waitingOnBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
     const refused4 = budgetRefusal(error);
     if (!refused4) throw error;
-    log(`outbox check of ${where} waits for the GitHub budget: ${refused4.message}`);
+    log2(`outbox check of ${where} waits for the GitHub budget: ${refused4.message}`);
     throw new RetryAfterError2(refused4.message, new Date(refused4.until), { cause: refused4 });
   }
 }
@@ -6834,6 +7031,41 @@ function readTarget(path, index, { ctx }) {
   const pages2 = readdirSync11(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => `${dir}/${entry.name}`).sort();
   return { text: pages2.join("\n"), missing: null };
 }
+function headingAnchor(heading) {
+  return heading.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+}
+function headingsOf(lines) {
+  const headings = [];
+  let fenced = false;
+  for (const [index, line] of lines.entries()) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    const heading = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (heading) headings.push({ index, depth: heading[1]?.length ?? 0, anchor: headingAnchor(heading[2] ?? "") });
+  }
+  return headings;
+}
+function sectionOf(text14, anchor) {
+  const lines = text14.split("\n");
+  const headings = headingsOf(lines);
+  const start = headings.find((heading) => heading.anchor === anchor);
+  if (!start) return null;
+  const end = headings.find((heading) => heading.index > start.index && heading.depth <= start.depth);
+  return lines.slice(start.index, end?.index).join("\n").trim();
+}
+function resolvePointer(base, see, { ctx, heading, file, problems }) {
+  const { path, anchor } = see;
+  const target2 = readTarget(path, null, { ctx });
+  const pointer = anchor ? `${path}#${anchor}` : path;
+  const label2 = `[\u2192 ${pointer}]`;
+  if (target2.missing) {
+    problems.push(`${file}: "## ${heading}" See: ${path} does not exist`);
+    return { ...base, source: "pointer", label: label2, text: "", questions: [] };
+  }
+  if (!anchor) return { ...base, source: "pointer", label: label2, text: target2.text, questions: [] };
+  const section4 = sectionOf(target2.text, anchor);
+  if (section4 === null) problems.push(`${file}: "## ${heading}" See: ${pointer} names no heading of ${path}`);
+  return { ...base, source: "pointer", label: label2, text: section4 ?? "", questions: [] };
+}
 function repoLabel(slot) {
   const parts = ["repo"];
   if (slot.by === "human") parts.push("by human");
@@ -6847,11 +7079,7 @@ function resolveSlot(kitSlot, repoSlot, { ctx, formId, file, problems }) {
     return { ...base, source: "repo", label: repoLabel(repoSlot), text: body.text, questions: body.questions };
   }
   if (repoSlot !== null && body?.kind === "pointer") {
-    const { path, anchor } = body.see;
-    const target2 = readTarget(path, null, { ctx });
-    if (target2.missing) problems.push(`${file}: "## ${repoSlot.heading}" See: ${path} does not exist`);
-    const pointer = anchor ? `${path}#${anchor}` : path;
-    return { ...base, source: "pointer", label: `[\u2192 ${pointer}]`, text: target2.text, questions: [] };
+    return resolvePointer(base, body.see, { ctx, heading: repoSlot.heading, file, problems });
   }
   const kit = fillConfig(kitSlot.body.text, ctx.config);
   for (const { key, reason: reason2 } of kit.unresolved) {
@@ -7013,8 +7241,8 @@ function targetGrowth({ ctx, target: target2, base, exec = execFileSync4 }) {
     const bytesAdded = head - baseSize(ctx, base, path, exec);
     return bytesAdded === 0 ? [] : [{ path, bytesAdded }];
   });
-  const log = paths.length === 0 ? null : git(ctx, ["log", `--max-count=${MAX_COMMITS}`, "--format=%h%x09%s", `${base}..HEAD`, "--", ...paths], exec);
-  const commits = (log ?? "").split("\n").filter(Boolean).map((line) => {
+  const log2 = paths.length === 0 ? null : git(ctx, ["log", `--max-count=${MAX_COMMITS}`, "--format=%h%x09%s", `${base}..HEAD`, "--", ...paths], exec);
+  const commits = (log2 ?? "").split("\n").filter(Boolean).map((line) => {
     const [sha = "", ...subject] = line.split("	");
     return { sha, subject: subject.join("	") };
   });
@@ -7229,6 +7457,14 @@ function invariantAdrs(text14, heading) {
   }
   return ids;
 }
+function invariantsFile(root, context, heading) {
+  const wanted = heading.trim();
+  for (const name of context) {
+    const file = join34(root, name);
+    if (existsSync25(file) && readFileSync23(file, "utf8").split("\n").some((line) => line.trim() === wanted)) return name;
+  }
+  return null;
+}
 function adrFiles(ctx, number) {
   const dir = join34(ctx.root, ctx.layout.adrDir);
   if (!existsSync25(dir)) return [];
@@ -7240,8 +7476,8 @@ function lawsFor(ctx) {
   let invariants = null;
   const invariantSet = () => {
     if (invariants === null) {
-      const file = join34(ctx.root, "CLAUDE.md");
-      invariants = existsSync25(file) ? invariantAdrs(readFileSync23(file, "utf8"), claudeMdHeading) : /* @__PURE__ */ new Set();
+      const name = invariantsFile(ctx.root, ctx.config.paths.context, claudeMdHeading);
+      invariants = name === null ? /* @__PURE__ */ new Set() : invariantAdrs(readFileSync23(join34(ctx.root, name), "utf8"), claudeMdHeading);
     }
     return invariants;
   };
@@ -7897,9 +8133,9 @@ var ServerAnswerSchema = AnswerSchema.partial({ approvedBy: true, approvedAt: tr
 var refOf = (prd, id) => `${prd}/${id}`;
 var ledgerOf2 = (prd) => `PRD ${prd}'s ledger on the Omni page`;
 function refParts(ref) {
-  const cut = ref.lastIndexOf("/");
-  const prd = ProductPrdIdSchema.safeParse(ref.slice(0, Math.max(cut, 0)));
-  const id = OutboxItemIdSchema.safeParse(ref.slice(cut + 1));
+  const cut2 = ref.lastIndexOf("/");
+  const prd = ProductPrdIdSchema.safeParse(ref.slice(0, Math.max(cut2, 0)));
+  const id = OutboxItemIdSchema.safeParse(ref.slice(cut2 + 1));
   return prd.success && id.success ? { prd: prd.data, id: id.data } : null;
 }
 function productPrd(prd) {
@@ -7938,9 +8174,9 @@ function serverOutboxStore({ ctx, connect, now }) {
     const { key, seq } = productPrdParts(prd);
     await ask3((client) => client.putOutboxItem({ key, seq, repo, body, adopt }));
   }
-  async function answered(write) {
+  async function answered(write2) {
     try {
-      return await write();
+      return await write2();
     } catch (error) {
       if (error instanceof OutboxServerError && ANSWERED_REFUSALS.has(error.status)) return { ok: false, errors: [error.message] };
       throw error;
@@ -8098,20 +8334,20 @@ async function raisesFor({
   prd,
   repository,
   readOutboxRows,
-  log
+  log: log2
 }) {
   if (prd === null) return [];
   let store;
   if (!isProductPrdId(prd)) store = gitOutboxStore(ctx);
   else if (readOutboxRows) store = serverOutboxStore({ ctx, connect: () => readOnlyClient(repository, prd, readOutboxRows), now: Date.now });
   else {
-    log(`budgets check of ${repository}: the raises of PRD ${prd} are not read, the App cannot read the server here`);
+    log2(`budgets check of ${repository}: the raises of PRD ${prd} are not read, the App cannot read the server here`);
     return [];
   }
   try {
     return settledRaises(await store.settledEntries(prd));
   } catch (error) {
-    log(`budgets check of ${repository}: the raises of PRD ${prd} could not be read \u2014 ${error instanceof Error ? error.message : String(error)}`);
+    log2(`budgets check of ${repository}: the raises of PRD ${prd} could not be read \u2014 ${error instanceof Error ? error.message : String(error)}`);
     return [];
   }
 }
@@ -8180,14 +8416,14 @@ async function growthOf(octokit, ctx, { owner, repo, pr, targets, range, baseFol
     if (!existsSync31(file) || !statSync8(file).isFile()) throw new Error(`${path} is not at the base`);
     return String(statSync8(file).size);
   };
-  const log = (paths) => {
+  const log2 = (paths) => {
     for (const path of paths) asked.add(path);
     const touched2 = range.commits.filter(({ sha }) => paths.some((path) => changedBy.get(path)?.has(sha)));
     return touched2.slice(0, MAX_COMMITS2).map(({ sha, subject }) => `${sha.slice(0, 7)}	${subject}`).join("\n");
   };
   const exec = (_file, args) => {
     if (args[0] === "cat-file") return size((args[2] ?? "").slice(range.base.length + 1));
-    return log(args.slice(args.indexOf("--") + 1));
+    return log2(args.slice(args.indexOf("--") + 1));
   };
   const gather = () => Object.fromEntries(targets.map((target2) => [target2, targetGrowth({ ctx, target: target2, base: range.base, exec })]));
   await snapshot(octokit, { owner, repo, ref: range.base, paths: [...sessionPaths(ctx, contextBudget(ctx.config).file), ...pointedPaths(ctx)], dest: baseFolder });
@@ -8198,7 +8434,7 @@ async function growthOf(octokit, ctx, { owner, repo, pr, targets, range, baseFol
   }
   return gather();
 }
-async function measurePull(octokit, { owner, repo, pr }, { readOutboxRows, log }) {
+async function measurePull(octokit, { owner, repo, pr }, { readOutboxRows, log: log2 }) {
   const head = mkdtempSync7(join41(tmpdir7(), "omni-budgets-head-"));
   const base = mkdtempSync7(join41(tmpdir7(), "omni-budgets-base-"));
   try {
@@ -8226,7 +8462,7 @@ async function measurePull(octokit, { owner, repo, pr }, { readOutboxRows, log }
       base: baseCeilings(base, file),
       head: ceilings,
       measures: measureContextBudget({ ctx }),
-      raises: await raisesFor({ ctx, prd, repository: `${owner}/${repo}`, readOutboxRows, log })
+      raises: await raisesFor({ ctx, prd, repository: `${owner}/${repo}`, readOutboxRows, log: log2 })
     });
     const red = verdicts.filter(({ verdict }) => verdict === "over-budget" || verdict === "needs-yes").map(({ target: target2 }) => target2);
     const growth = red.length === 0 ? {} : await growthOf(octokit, ctx, { owner, repo, pr, targets: red, range, baseFolder: base });
@@ -8252,7 +8488,7 @@ function createBudgetsCheck({
   client,
   octokitFor,
   readOutboxRows = null,
-  log = (line) => {
+  log: log2 = (line) => {
     console.error(line);
   }
 }) {
@@ -8267,10 +8503,10 @@ function createBudgetsCheck({
     },
     async ({ event, step }) => {
       const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
-      const budgeted = (work) => onBudget2(`${owner}/${repo}#${prNumber}`, log, work);
+      const budgeted = (work) => onBudget2(`${owner}/${repo}#${prNumber}`, log2, work);
       const pr = await step.run("target", () => budgeted(async () => budgetedPull(await octokitFor(installationId), { owner, repo, prNumber })));
       if (!pr) return { ...SILENT3 };
-      const output = await step.run("measure", () => budgeted(async () => measurePull(await octokitFor(installationId), { owner, repo, pr: { ...pr, headSha } }, { readOutboxRows, log })));
+      const output = await step.run("measure", () => budgeted(async () => measurePull(await octokitFor(installationId), { owner, repo, pr: { ...pr, headSha } }, { readOutboxRows, log: log2 })));
       const checkRunId = await step.run("publish", () => budgeted(async () => postBudgets(await octokitFor(installationId), { owner, repo, headSha, output })));
       return { checkRunId, name: BUDGETS_CHECK_NAME, conclusion: output.conclusion };
     }
@@ -8311,13 +8547,13 @@ function refusalOf(error, depth = 0) {
   if (error instanceof GithubPaused || error instanceof GithubDeferred) return error;
   return error instanceof Error && depth < 3 ? refusalOf(error.cause, depth + 1) : null;
 }
-async function onBudget2(where, log, work) {
+async function onBudget2(where, log2, work) {
   try {
     return await work();
   } catch (error) {
     const refused4 = refusalOf(error);
     if (!refused4) throw error;
-    log(`budgets check of ${where} waits for the GitHub budget: ${refused4.message}`);
+    log2(`budgets check of ${where} waits for the GitHub budget: ${refused4.message}`);
     throw new RetryAfterError3(refused4.message, new Date(refused4.until), { cause: refused4 });
   }
 }
@@ -10738,8 +10974,8 @@ function mergedLine(merge) {
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length <= SLUG_MAX) return slug;
-  const cut = slug.slice(0, SLUG_MAX + 1);
-  return cut.slice(0, cut.lastIndexOf("-") > 0 ? cut.lastIndexOf("-") : SLUG_MAX);
+  const cut2 = slug.slice(0, SLUG_MAX + 1);
+  return cut2.slice(0, cut2.lastIndexOf("-") > 0 ? cut2.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
@@ -10749,7 +10985,7 @@ function chosenOption(candidate) {
   const option = candidate.item?.sections?.options?.[0];
   return option ? `The option chosen: ${option.letter}. ${option.text}` : null;
 }
-function sectionOf(candidate, key) {
+function sectionOf2(candidate, key) {
   return (candidate.item?.sections?.[key] ?? "").trim() || "(not recorded)";
 }
 function proofOf({
@@ -10860,7 +11096,7 @@ function renderRecord({
     "",
     "## Context",
     "",
-    sectionOf(candidate, "whatIHadToDecide"),
+    sectionOf2(candidate, "whatIHadToDecide"),
     "",
     "## Decision",
     "",
@@ -10869,7 +11105,7 @@ function renderRecord({
     ...option ? [option, ""] : [],
     "## Consequences",
     "",
-    sectionOf(candidate, "whatItCostsToChangeLater"),
+    sectionOf2(candidate, "whatItCostsToChangeLater"),
     "",
     "## Source",
     "",
@@ -10912,13 +11148,13 @@ function writeRegisterEntry({
   proposed,
   proposedLine,
   enforced,
-  write
+  write: write2
 }) {
   const place = placeOf2(ctx, reply.place);
   const id = numbering.entry(reply.kind, place.code);
   const { serves, principleId } = servedBy2(reply, () => numbering.entry("principle", place.code));
   const path = `${place.dir}/${LAYER[reply.kind]}`;
-  if (!write) return { touched: [], landedAs: [id, ...principleId ? [principleId] : []], path };
+  if (!write2) return { touched: [], landedAs: [id, ...principleId ? [principleId] : []], path };
   const fields = [
     ...serves ? [["Serves", serves]] : [],
     ["Source", source],
@@ -11070,9 +11306,9 @@ function landLaw({
     return { kind: "stays-here", touched: [], landedAs: [], status: null, note: lawWorthNote(chosen.worth), extra: { law } };
   }
   const yes = chosen.path === "yes";
-  const write = !yes || issue !== null;
-  const entry = writeRegisterEntry({ ...run, reply, enforced: issue === null ? enforcedValue(proof.kept) : `pending #${issue}`, write });
-  if (!write) {
+  const write2 = !yes || issue !== null;
+  const entry = writeRegisterEntry({ ...run, reply, enforced: issue === null ? enforcedValue(proof.kept) : `pending #${issue}`, write: write2 });
+  if (!write2) {
     const at3 = { entry: defined(entry.landedAs[0], `the id of ${candidate.id}`), register: entry.path, statement: oneLine2(reply.statement), source };
     return { heldBack: { id: candidate.id, ...at3, title: `Law: ${at3.statement}`, body: lawIssueBody(at3) } };
   }
@@ -11143,7 +11379,7 @@ function applyHarvestEdits({ root, edits }) {
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
-  for (const write of writes) byPath.set(write.path, write.text);
+  for (const write2 of writes) byPath.set(write2.path, write2.text);
   return [...byPath].map(([path, text14]) => ({ path, text: text14 }));
 }
 function prepareHarvest({
@@ -11896,7 +12132,7 @@ function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks
 }
 function toCommit(edits, filesBefore) {
   const deleted = new Set(edits.deletes);
-  const written = new Set(edits.writes.map((write) => write.path));
+  const written = new Set(edits.writes.map((write2) => write2.path));
   const moves = [];
   const deletes = [...edits.deletes];
   for (const move2 of edits.moves) {
@@ -11951,14 +12187,14 @@ async function worthAnswered(step, { judge: judge3, laws, classified, questions,
   const worth = judge3 && asksWorth(replies) ? await lawAnswers(step, judge3, { questions: () => questions(replies), repo, prd }) : {};
   return replies.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
 }
-async function writeWithLaws(step, { write, open }) {
-  const first = await write("write");
+async function writeWithLaws(step, { write: write2, open }) {
+  const first = await write2("write");
   if (first.lawIssues.length === 0) return first;
   const opened = {};
   for (const issue of first.lawIssues) {
     opened[issue.id] = (await savedStep(step, `law-issue:${issue.id}`, LawIssueOpenedSchema, () => open(issue))).number;
   }
-  return write("write:laws", opened);
+  return write2("write:laws", opened);
 }
 function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudge: lawJudge2 = null, fetch: fetch2 = globalThis.fetch, now = today }) {
   return client.createFunction(
@@ -12626,7 +12862,7 @@ function checked({ data, error }) {
 // apps/omni-app/src/pr-stats/pr-stats.ts
 var PR_STATS_FUNCTION_ID = "pr-stats";
 var EVERY_15_MINUTES = "*/15 * * * *";
-function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore, log = console.log, clock = Date.now }) {
+function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore, log: log2 = noteTo("pr-stats"), clock = Date.now }) {
   return client.createFunction(
     {
       id: PR_STATS_FUNCTION_ID,
@@ -12638,7 +12874,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
     },
     async ({ step }) => {
       if (!supabase) {
-        log("prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.");
+        log2("prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.");
         return { skipped: "no store" };
       }
       const store = storeFor(supabase);
@@ -14366,12 +14602,12 @@ var ci = Object.freeze({
     return lines;
   }
 });
-function redRun(job, log) {
+function redRun(job, log2) {
   const base = { id: job.id, check: job.check, slice: job.slice, commit: short(job.sha), attempt: job.attempt, url: job.url };
-  if (!log) return { ...base, reporter: null, tests: [], counts: null, log: "not read" };
-  if (log.tail === null) return { ...base, reporter: null, tests: [], counts: null, log: `not read (${log.status})` };
-  const read = readTestLog(log.tail);
-  return { ...base, ...read, log: "read", ...read.reporter === null ? { excerpt: log.tail } : {} };
+  if (!log2) return { ...base, reporter: null, tests: [], counts: null, log: "not read" };
+  if (log2.tail === null) return { ...base, reporter: null, tests: [], counts: null, log: `not read (${log2.status})` };
+  const read = readTestLog(log2.tail);
+  return { ...base, ...read, log: "read", ...read.reporter === null ? { excerpt: log2.tail } : {} };
 }
 function checksOf(jobs) {
   const jobsByName = /* @__PURE__ */ new Map();
@@ -15879,11 +16115,11 @@ function render({
     ""
   ];
   const byRun = (run) => kinds.filter((kind) => kind.runs.includes(run));
-  const sectionOf2 = (kind) => kindSection(kind, runs, findings, prose, issues);
-  const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf2(kind);
+  const sectionOf3 = (kind) => kindSection(kind, runs, findings, prose, issues);
+  const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf3(kind);
   lines.push(...byRun("merge").flatMap(mergeSectionOf));
   lines.push(...rulesSection2(latest.rules));
-  lines.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf2));
+  lines.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf3));
   return {
     markdown: `${lines.join("\n").replace(/\n+$/, "")}
 `,
@@ -16276,9 +16512,9 @@ async function commentTargets({ step, octokitFor, id, targets, prefix, ...text14
   }
   return out;
 }
-async function refusedAs2(write) {
+async function refusedAs2(write2) {
   try {
-    return await write();
+    return await write2();
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
     if (status === 401 || status === 403 || status === 404) return { refused: status };
@@ -16611,16 +16847,14 @@ function createServerEventRecheck({
   client,
   octokitFor,
   readTargets: readTargets2,
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("server-event-recheck")
 }) {
   return client.createFunction(
     { id: SERVER_EVENT_FUNCTION_ID, name: "omni-loop \xB7 server event", triggers: [{ event: SERVER_EVENT }], debounce: SERVER_EVENT_DEBOUNCE, retries: 3 },
     async ({ event, step }) => {
       const { event: what, dossier } = ServerEventSchema.parse(event.data);
       if (!readTargets2) {
-        log(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
+        log2(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
         return { rechecked: NONE };
       }
       const targets = await step.run("targets", () => readTargets2(dossier));
@@ -16634,7 +16868,7 @@ function createServerEventRecheck({
           } catch (error) {
             const refused4 = refusalIn2(error);
             if (!refused4) throw error;
-            log(`server event: ${where} waits for the GitHub budget: ${refused4.message}`);
+            log2(`server event: ${where} waits for the GitHub budget: ${refused4.message}`);
             throw new RetryAfterError4(refused4.message, new Date(refused4.until), { cause: refused4 });
           }
         });
@@ -16682,29 +16916,33 @@ function targetsReader(connection) {
 }
 
 // apps/omni-app/src/functions.ts
-function appFunctions(env, { octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase) })) } = {}) {
+function appFunctions(env, {
+  logger = log,
+  octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase), log: noteTo("github", logger) }))
+} = {}) {
+  const inngest2 = loggedClient(inngest, logger);
   return {
-    outboxCheck: createOutboxCheck({ client: inngest, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
-    inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
+    outboxCheck: createOutboxCheck({ client: inngest2, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
+    inboxCheck: createInboxCheck({ client: inngest2, octokitFor, canon: liveCanon(env) }),
     approvedCheck: createApprovedCheck({
-      client: inngest,
+      client: inngest2,
       octokitFor,
       readRecord: env.supabase ? recordReader(env.supabase) : null,
       galaxyUrl: env.galaxyUrl,
       ask: (repo, prd) => askJudge(repo, prd, { galaxyUrl: env.galaxyUrl, secret: env.stageEvents?.secret })
     }),
-    approvedRerun: createApprovedRerun({ client: inngest, octokitFor }),
-    budgetsCheck: createBudgetsCheck({ client: inngest, octokitFor, readOutboxRows: env.supabase ? outboxRowsReader(env.supabase) : null }),
-    retro: createRetro({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
+    approvedRerun: createApprovedRerun({ client: inngest2, octokitFor }),
+    budgetsCheck: createBudgetsCheck({ client: inngest2, octokitFor, readOutboxRows: env.supabase ? outboxRowsReader(env.supabase) : null }),
+    retro: createRetro({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
     knowledgeHarvest: createKnowledgeHarvest({
-      client: inngest,
+      client: inngest2,
       octokitFor,
       openrouter: env.openrouter,
       lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(env.galaxyUrl), secret: env.lawJudge.secret }) : null
     }),
-    prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
-    canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
-    serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null })
+    prStats: createPrStats({ client: inngest2, octokitFor, supabase: env.supabase }),
+    canonAction: createCanonAction({ client: inngest2, octokitFor, galaxyUrl: env.galaxyUrl }),
+    serverEvent: createServerEventRecheck({ client: inngest2, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null })
   };
 }
 

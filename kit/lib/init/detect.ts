@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from '../context.ts';
 import { readRegisters } from '../knowledge/registers.ts';
+import { invariantsFile } from '../laws.ts';
 import type { ConfigValues, InitCommands } from './config-text.ts';
 import { ScriptsFileSchema } from './schema.ts';
 
@@ -73,16 +74,11 @@ export function detectCommands(root: string): InitCommands {
 /**
  * `knowledge` when the knowledge registers hold at least one principle, rule or invariant — not
  * when the folder merely exists, since every install lays down the forms and empty registers there —
- * else `claudeMdInvariants` when CLAUDE.md carries the invariants heading, else `none`. `ctx` carries
+ * else `claudeMdInvariants` when one of the context files carries the invariants heading, else `none`. `ctx` carries
  * the schema's defaults.
  */
 export function detectLawsSource({ ctx }: { ctx: Context }): ConfigValues['lawsSource'] {
   const { principles, rules, invariants } = readRegisters({ ctx });
   if (principles.length + rules.length + invariants.length > 0) return 'knowledge';
-  const claudeMd = join(ctx.root, 'CLAUDE.md');
-  const heading = ctx.config.laws.claudeMdHeading;
-  if (existsSync(claudeMd) && readFileSync(claudeMd, 'utf8').split('\n').some((line) => line.trim() === heading)) {
-    return 'claudeMdInvariants';
-  }
-  return 'none';
+  return invariantsFile(ctx.root, ctx.config.paths.context, ctx.config.laws.claudeMdHeading) === null ? 'none' : 'claudeMdInvariants';
 }

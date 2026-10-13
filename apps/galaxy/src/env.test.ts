@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
-import { readEnv } from './env';
+import { readCommit, readEnv } from './env';
 
 vi.mock('server-only', () => ({}));
 
@@ -26,6 +26,7 @@ describe('readEnv, the arcade server\'s environment', () => {
       supabase: null, serviceRole: null, githubApp: null, githubAppSlug: null, githubOAuth: null, openrouter: null,
       stagesSyncSecret: null, stageEventSecret: null, secretsMasterKey: null, constituentJudgeSecret: null,
       lawJudgeSecret: null, businessRecheckSecret: null, webPush: null, resend: null, kitTokenKey: null, demo: null, galaxyUrl: null,
+      commit: null,
     });
   });
 
@@ -109,5 +110,17 @@ describe('readEnv, the arcade server\'s environment', () => {
   it('keeps the arcade\'s mode rule: a build that asks for the demo by name gets it', () => {
     expect(readEnv({ NODE_ENV: 'production', OMNI_LOOP_DEMO: '1' }).mode).toBe('demo');
     expect(readEnv({ NODE_ENV: 'production', OMNI_LOOP_DEMO: 'true' }).mode).toBe('closed');
+  });
+
+  it('gives the deployed commit Vercel sets, or null (PRD 1723)', () => {
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+    expect(readEnv({ VERCEL_GIT_COMMIT_SHA: sha }).commit).toBe(sha);
+    expect(readEnv({ VERCEL_GIT_COMMIT_SHA: ' ' }).commit).toBeNull();
+  });
+
+  it('reads the deployed commit alone, even when another group is broken (PRD 1723)', () => {
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+    expect(readCommit({ VERCEL_GIT_COMMIT_SHA: ` ${sha} `, GALAXY_URL: 'localhost' })).toBe(sha);
+    expect(readCommit({})).toBeNull();
   });
 });

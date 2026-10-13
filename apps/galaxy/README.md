@@ -1590,6 +1590,7 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each
      token's stored sign-in; without it no token is made or traded
    - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
+   - the deployed commit: `VERCEL_GIT_COMMIT_SHA`, set by Vercel (PRD 1723)
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
@@ -1672,6 +1673,8 @@ To see the effect: Vercel › Usage › Build CPU Minutes, per day, against the 
 - `/releases` keeps serving its last good render while the project is paused or out of reach, and
   the releases workflow fails loudly in Actions until it wakes. `public.releases` rebuilds from
   `main`'s history: empty it and run the sync.
+- **`GET /api/health`** (PRD 1723): `200` or `503` with the env and Supabase checks and the live
+  commit; [the observability guide](../../docs/guide/observability.md) says the rest.
 
 ## Share it without a server
 

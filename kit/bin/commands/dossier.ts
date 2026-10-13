@@ -1,13 +1,15 @@
 // `omni dossier open "<title>" | push <n> | link <n> | status` — a PRD's dossier on the Omni page (PRD 216's
 // spec, "The kit"): its artifacts, every version of each, uploaded with the terminal's sign-in.
 //
-// - `open` opens a draft for this repository, sending the Claude session id `CLAUDE_CODE_SESSION_ID`
-//   gives when it is set, prints the draft's link, and records the draft in the main checkout's
-//   `.omni-loop/local/dossiers.json` (`../../lib/dossier/local.ts`).
+// - `open` opens a draft for this repository, sending the session id (PRD 1739,
+//   `../../lib/dossier/session.ts`): `OMNI_SESSION_ID`, else `CLAUDE_CODE_SESSION_ID`, else the id
+//   stored for the checkout, else one it generates and stores in the main checkout's
+//   `.omni-loop/local/session.json`. It prints the draft's link, and records the draft in the main
+//   checkout's `.omni-loop/local/dossiers.json` (`../../lib/dossier/local.ts`).
 // - `push <n>` sends whichever of PRD n's `spec.md`, `plan.md`, `before-after.html` and `voice.json`
 //   (PRD 822, as the `voice` artifact) exist, whole,
-//   with the spec's title. It names the draft to number when one is recorded for it
-//   (`../../lib/dossier/draft.ts`), prints the dossier's link and the versions it added, and records
+//   with the spec's title. It names the draft to number when one is recorded for it and the session
+//   id, read in the same order but never generated (`../../lib/dossier/draft.ts`), prints the dossier's link and the versions it added, and records
 //   the draft as numbered. A draft the server no longer has is forgotten, and the push goes by the key.
 // - `link <n>` prints PRD n's link (PRD 413): it asks the app by the repository and the number, so it
 //   works on a machine that never opened or pushed the dossier, and prints `none` when the app has
@@ -49,6 +51,8 @@ import { loadContext } from '../../lib/context.ts';
 import { chooseDraft } from '../../lib/dossier/draft.ts';
 import { fixTitle, readConceptFolder, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.ts';
+import { openSessionId, sessionIdOf } from '../../lib/dossier/session.ts';
+import type { AgentSession } from '../../lib/env/read.ts';
 import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
 import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
 import type { LoopReads } from '../../lib/loop-reads/port.ts';
@@ -56,7 +60,7 @@ import { isOneOf } from '../../lib/narrow.ts';
 import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
 import { PRODUCT_USAGE, productCallOf, runProductCall } from './dossier-product.ts';
 import type { ProductCall } from './dossier-product.ts';
-import type { FreeCommand, FreeIo, Out, Vars } from '../io.ts';
+import type { FreeCommand, FreeIo, Out } from '../io.ts';
 
 /** What a test hands `omni dossier` beyond `main()`'s own. */
 type DossierOptions = {
@@ -78,7 +82,8 @@ type VerbIo = {
   /** The loop's reads: a fix's issue title. */
   reads: LoopReads;
   home: string | null;
-  claudeSessionId: string | null;
+  /** The session the variables name, before the stored id (PRD 1739). */
+  session: AgentSession | null;
   stdout: Out;
   stderr: Out;
   now: () => number;
@@ -91,12 +96,6 @@ type IssueKind = FixKind | 'concept';
 /** How long reading a fix's issue title may take. */
 const ISSUE_TITLE_MS = 5000;
 const NO_SIGN_IN = 'no sign-in (omni signin)';
-
-/** The Claude session id this terminal runs in, or null: sent only when it could be a real one. */
-function claudeSessionOf(session: Vars['claudeSession']): string | null {
-  const id = session?.id.trim() ?? '';
-  return id.length >= 1 && id.length <= TITLE_MAX ? id : null;
-}
 
 /** The one line a failed call is reported with: a 403 carries the server's reason (PRD 459), when it
  * gave one — which workspace owns the repository, or how to get one. */
@@ -124,7 +123,9 @@ export function addedLine({ added, unchanged }: { added?: unknown; unchanged?: u
   return parts.join(' · ');
 }
 
-async function open(title: string, { ctx, repo, client, home, claudeSessionId, stdout, stderr, now }: VerbIo): Promise<number> {
+async function open(title: string, { ctx, repo, client, home, session, stdout, stderr, now }: VerbIo): Promise<number> {
+  const where = home ?? ctx.root;
+  const claudeSessionId = openSessionId(session, where);
   let draft: unknown;
   try {
     draft = await client.openDossier({ title, repo, claudeSessionId });
@@ -138,7 +139,7 @@ async function open(title: string, { ctx, repo, client, home, claudeSessionId, s
     println(stderr, 'refused (no dossier in the reply)');
     return 1;
   }
-  recordDraft(home ?? ctx.root, { id, url, claudeSessionId, prd: null, openedAt: new Date(now()).toISOString() });
+  recordDraft(where, { id, url, claudeSessionId, prd: null, openedAt: new Date(now()).toISOString() });
   println(stdout, url);
   return 0;
 }
@@ -183,11 +184,11 @@ async function pushFix(issue: IssueNumber, kind: FixKind, { ctx, repo, client, r
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 
-async function push(prd: PrdNumber, product: string | null, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
+async function push(prd: PrdNumber, product: string | null, { ctx, repo, client, home, session, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readDossierFolder(ctx, prd);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
-  const draft = chooseDraft(readDossiers(where), { prd, claudeSessionId });
+  const draft = chooseDraft(readDossiers(where), { prd, claudeSessionId: sessionIdOf(session, where) });
   const body = { repo, prd, title: folder.title, product, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
 
   let result: unknown;
@@ -356,7 +357,7 @@ export const dossier = {
       return 1;
     }
     const loop = reads ?? omniLoopReads({ askUrl: toggle.askUrl, tokens, home, fetch, callMs: callMs ?? ISSUE_TITLE_MS });
-    const options: VerbIo = { ctx, repo, client, reads: loop, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now };
+    const options: VerbIo = { ctx, repo, client, reads: loop, home: mainCheckout(ctx.root, exec), session: vars.agentSession, stdout, stderr, now };
     // `named` is set for `push` and `link`, the two verbs that read a number, and null for `open`.
     if (named === null) return open(title, options);
     if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);

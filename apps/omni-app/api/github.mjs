@@ -208,8 +208,8 @@ var Thrown = z2.object({ name: z2.unknown().optional(), message: z2.unknown().op
 var DEFAULT_GALAXY_URL = "https://www.omni-loop.xyz";
 var VERCEL = envGroup({
   label: "the Vercel environment",
-  schema: z3.object({ name: z3.string().optional() }),
-  variables: { name: "VERCEL_ENV" }
+  schema: z3.object({ name: z3.string().optional(), commit: z3.string().optional() }),
+  variables: { name: "VERCEL_ENV", commit: "VERCEL_GIT_COMMIT_SHA" }
 });
 var secretGroup = (label, variable, required) => envGroup({ label, schema: z3.object({ secret: z3.string() }), variables: { secret: variable }, ...required ? { required } : {} });
 var WEBHOOK = secretGroup("the webhook secret", "GITHUB_WEBHOOK_SECRET", "production");
@@ -260,6 +260,110 @@ function processEnv() {
   return process.env;
 }
 
+// kit/lib/log/log.ts
+var LOG_FIELDS = [
+  "level",
+  "event",
+  "outcome",
+  "ms",
+  "repo",
+  "prd",
+  "deliveryId",
+  "runId",
+  "fn",
+  "status",
+  "error",
+  "message",
+  "repos",
+  "dropped"
+];
+var MAX_TEXT = 500;
+var MASK = "***";
+var ALLOWED = new Set(LOG_FIELDS.filter((field) => field !== "level" && field !== "dropped"));
+var CUT = /* @__PURE__ */ new Set(["message"]);
+var CREDENTIALS = [
+  [/github_pat_[A-Za-z0-9_]+/g, MASK],
+  [/gh[pousr]_[A-Za-z0-9_]+/g, MASK],
+  [/omk_[A-Za-z0-9_-]+/g, MASK],
+  [/\bsk-[A-Za-z0-9_-]+/g, MASK],
+  [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK}`],
+  [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK}`]
+];
+function maskCredentials(text3) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text3);
+}
+var cut = (text3) => text3.length > MAX_TEXT ? text3.slice(0, MAX_TEXT) : text3;
+function errorOf(value) {
+  if (value instanceof Error) {
+    return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
+  }
+  return { name: "Error", message: cut(maskCredentials(typeof value === "string" ? value : String(value))) };
+}
+function scalarOf(field, value) {
+  if (typeof value === "string") {
+    const masked = maskCredentials(value);
+    return CUT.has(field) ? cut(masked) : masked;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : void 0;
+  if (typeof value === "boolean" || value === null) return value;
+  return void 0;
+}
+function lineOf(level, entry) {
+  const line = { level };
+  let dropped = 0;
+  for (const [field, value] of Object.entries(entry)) {
+    if (value === void 0) continue;
+    if (!ALLOWED.has(field)) {
+      dropped += 1;
+      continue;
+    }
+    if (field === "error") {
+      line.error = errorOf(value);
+      continue;
+    }
+    const scalar = scalarOf(field, value);
+    if (scalar === void 0) dropped += 1;
+    else line[field] = scalar;
+  }
+  if (dropped > 0) line.dropped = dropped;
+  return JSON.stringify(line);
+}
+var stdout = (line) => {
+  process.stdout.write(`${line}
+`);
+};
+function createLogger({ sink = stdout, clock = Date.now } = {}) {
+  const write2 = (level, entry) => {
+    try {
+      sink(lineOf(level, entry));
+    } catch {
+    }
+  };
+  const now2 = () => {
+    try {
+      return clock();
+    } catch {
+      return Number.NaN;
+    }
+  };
+  return {
+    info: (entry) => {
+      write2("info", entry);
+    },
+    warn: (entry) => {
+      write2("warn", entry);
+    },
+    error: (entry) => {
+      write2("error", entry);
+    },
+    timer: () => {
+      const start = now2();
+      return () => Math.max(0, Math.round(now2() - start)) || 0;
+    }
+  };
+}
+var log = createLogger();
+
 // apps/omni-app/src/inngest-client.ts
 import { Inngest } from "inngest";
 import { z as z5 } from "zod";
@@ -271,8 +375,8 @@ var PrdNumberSchema = IssueNumberSchema.brand();
 var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
 var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
-  const cut = id.lastIndexOf("-");
-  return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
+  const cut2 = id.lastIndexOf("-");
+  return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
@@ -427,7 +531,7 @@ function hookRefProblem(ref) {
   if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
   if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
   if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
-    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+    return `${path} sits under .claude/, which only Claude Code reads \u2014 move it to .agents/hooks/, or mark it { path: ${path}, alias: claude }`;
   }
   return null;
 }
@@ -648,7 +752,7 @@ var ConfigSchema = z7.object({
     adr: text2.default(".omni-loop/knowledge/adr"),
     playbook: text2.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z7.array(text2).default(["CLAUDE.md"])
+    context: z7.array(text2).default(["AGENTS.md", "CLAUDE.md"])
   }),
   labels: section({
     prd: labelName.default("omni:prd"),
@@ -720,6 +824,9 @@ var ConfigSchema = z7.object({
   }).prefault({}),
   laws: section({
     source: z7.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    // The heading under which the context files (`paths.context`, in order) list the ADRs that are
+    // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
+    // read (PRD 1739), so every config that sets them still reads.
     claudeMdHeading: text2.default("## Invariants"),
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
@@ -974,6 +1081,80 @@ function messageOf2(error) {
   return messageField(error) ?? error;
 }
 
+// apps/omni-app/src/run-log/run-log.ts
+function outcomeOfStatus(status) {
+  if (status < 400) return "ok";
+  return status < 500 ? "refused" : "failed";
+}
+function write(logger, line) {
+  const entry = { event: line.event };
+  for (const [field, value] of Object.entries(line)) {
+    if (value !== void 0) Object.assign(entry, { [field]: value });
+  }
+  try {
+    if (line.outcome === "ok") logger.info(entry);
+    else if (line.outcome === "refused") logger.warn(entry);
+    else logger.error(entry);
+  } catch {
+  }
+}
+function stopwatch(logger) {
+  try {
+    const elapsed = logger.timer();
+    return () => {
+      try {
+        return elapsed();
+      } catch {
+        return void 0;
+      }
+    };
+  } catch {
+    return () => void 0;
+  }
+}
+async function loggedRun(logger, event, run, outcomeOf) {
+  const elapsed = stopwatch(logger);
+  const fields = {};
+  const note = (more) => {
+    Object.assign(fields, more);
+  };
+  let value;
+  try {
+    value = await run(note);
+  } catch (error) {
+    write(logger, { event, outcome: "failed", ms: elapsed(), ...fields, error });
+    throw error;
+  }
+  let outcome;
+  try {
+    outcome = outcomeOf(value);
+  } catch {
+    outcome = "ok";
+  }
+  write(logger, { event, outcome, ms: elapsed(), ...fields });
+  return value;
+}
+function loggedHandler(logger, event, handler) {
+  return (request) => loggedRun(
+    logger,
+    event,
+    async (note) => {
+      const response = await handler(request, note);
+      note({ status: response.status });
+      return response;
+    },
+    (response) => outcomeOfStatus(response.status)
+  );
+}
+function noteTo(fn, logger = log) {
+  return (line) => {
+    try {
+      logger.warn({ event: "note", fn, message: line });
+    } catch {
+    }
+  };
+}
+
 // apps/omni-app/src/stage-forward/stage-forward.ts
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
 var DEFAULT_SHAPES = (() => {
@@ -1055,9 +1236,9 @@ function forwardStageEvent(stageEvent, post) {
   const what = `${stageEvent.stage} of ${stageEvent.repository} ${stageEvent.prd ? `#${stageEvent.prd}` : stageEvent.topic}`;
   return postSigned(stageEvent, post, { name: "stage event", what });
 }
-async function postSigned(payload, { url, secret, fetch: post = fetch, log = console.error }, { name, what }) {
+async function postSigned(payload, { url, secret, fetch: post = fetch, log: log2 = noteTo("stage-forward") }, { name, what }) {
   if (!secret) {
-    log(`${name}: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
+    log2(`${name}: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
     return;
   }
   const body = JSON.stringify(payload);
@@ -1068,9 +1249,9 @@ async function postSigned(payload, { url, secret, fetch: post = fetch, log = con
       headers: { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
       signal: AbortSignal.timeout(1e4)
     });
-    if (!response.ok) log(`${name}: galaxy answered ${response.status} to the ${what}`);
+    if (!response.ok) log2(`${name}: galaxy answered ${response.status} to the ${what}`);
   } catch (error) {
-    log(`${name}: the ${what} could not be sent \u2014 ${String(messageOf2(error))}`);
+    log2(`${name}: the ${what} could not be sent \u2014 ${String(messageOf2(error))}`);
   }
 }
 function prdOf(body, prLinks) {
@@ -1350,7 +1531,8 @@ async function receiveWebhook({
   send,
   sendApproved = () => Promise.resolve(),
   forward,
-  touch = () => Promise.resolve()
+  touch = () => Promise.resolve(),
+  log: log2 = noteTo("webhook")
 }) {
   if (!secret) return reply(500, "webhook secret is not configured");
   const signature = header(headers, "x-hub-signature-256");
@@ -1367,14 +1549,14 @@ async function receiveWebhook({
     try {
       await forward(stageEvent);
     } catch (error) {
-      console.error(`stage event: could not forward \u2014 ${String(messageOf2(error))}`);
+      log2(`stage event: could not forward \u2014 ${String(messageOf2(error))}`);
     }
   }
   await Promise.all(toTouches(event, payload).map(async (one) => {
     try {
       await touch(one);
     } catch (error) {
-      console.error(`touch: could not forward \u2014 ${String(messageOf2(error))}`);
+      log2(`touch: could not forward \u2014 ${String(messageOf2(error))}`);
     }
   }));
   const events = toEvents(event, payload);
@@ -1513,13 +1695,29 @@ function reply(status, body) {
 }
 
 // apps/omni-app/src/webhook/github-route.ts
-function githubRoute(env, { send = (events) => inngest.send(events) } = {}) {
+function repositoryOf(body) {
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed !== "object" || parsed === null || !("repository" in parsed)) return void 0;
+    const { repository } = parsed;
+    if (typeof repository !== "object" || repository === null || !("full_name" in repository)) return void 0;
+    return typeof repository.full_name === "string" ? repository.full_name : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function githubRoute(env, {
+  send = (events) => inngest.send(events),
+  logger = log
+} = {}) {
   const stage = { url: stageEventUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   const touched = { url: touchedUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   return {
-    POST: async (request) => {
+    POST: loggedHandler(logger, "webhook", async (request, note) => {
+      note({ deliveryId: request.headers.get("x-github-delivery") ?? void 0, fn: request.headers.get("x-github-event") ?? void 0 });
+      const text3 = await request.text();
       const { status, body } = await receiveWebhook({
-        body: await request.text(),
+        body: text3,
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
@@ -1527,9 +1725,10 @@ function githubRoute(env, { send = (events) => inngest.send(events) } = {}) {
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });
+      if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text3) });
       return new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8" } });
-    },
-    GET: () => new Response("method not allowed", { status: 405, headers: { allow: "POST" } })
+    }),
+    GET: loggedHandler(logger, "webhook", () => new Response("method not allowed", { status: 405, headers: { allow: "POST" } }))
   };
 }
 
