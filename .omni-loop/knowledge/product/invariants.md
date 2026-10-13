@@ -6,6 +6,7 @@ The kit runs only inside a repository under git; tracked files always come from 
 
 Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s3-01-tracked-files-need-git, PRD #3
 Enforced by: kit/lib/check-report.test.ts
+Governs: ^kit/lib/check-report\., ^kit/lib/git\.
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
@@ -16,6 +17,8 @@ A raised item is graded by the same check the outbox gate uses before anything i
 
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s13-01-item-new-json-shape-and-input-flag-rename, PRD #7
 Enforced by: kit/bin/item.test.ts
+Governs: ^kit/bin/commands/item\.ts$, ^kit/bin/item\.test\.ts$, ^kit/lib/outbox/
+Proposed law: If a raised question skipped the gate's own check, a badly ranked question could slip past, and the person who answers would decide without the facts they need.
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -26,6 +29,8 @@ The outbox gate reads its settings from the base branch, so a pull request can n
 
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s1-01-evaluate-reads-two-snapshots, PRD #28
 Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
+Governs: ^apps/omni-app/src/outbox-check/
+Proposed law: If a pull request could change the rules it is judged by, any change could switch its own gate off, and every reviewer would trust a green check that means nothing.
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
@@ -36,6 +41,7 @@ kit/build.ts builds a byte-identical bundle wherever it is started from, with th
 
 Source: .omni-loop/delivery/shipped/0039-omni-init/outbox/settled.md, entry s3-03-build-script-outfile-and-fixed-working-dir, PRD #39
 Enforced by: kit/test/dist.test.ts
+Governs: ^kit/build\.ts$, ^kit/test/dist\.test\.ts$
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #40
@@ -46,6 +52,8 @@ A plugin hook that cannot run never blocks a person's message or question: each 
 
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s1-03-hooks-never-block, PRD #71
 Enforced by: kit/bin/ask-hook.test.ts
+Governs: ^kit/lib/ask/hook\., ^kit/plugin/hooks/, ^kit/bin/ask-hook\.test\.ts$
+Proposed law: If a broken hook could block a message, a person would be locked out of their own terminal by a tool that was meant to help them.
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -56,6 +64,8 @@ The ask hooks send no call unless ask.url is set in the repository's config and 
 
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s1-04-where-the-hooks-send-calls, PRD #71
 Enforced by: kit/bin/ask-hook.test.ts
+Governs: ^kit/lib/ask/, ^kit/plugin/hooks/, ^kit/bin/ask-hook\.test\.ts$
+Proposed law: If the ask hooks could call any address, a person's questions and answers could be sent to a server they never chose.
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -66,6 +76,7 @@ Each game/cli script parses its own arguments in openWorkspace() before any read
 
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s4-01-game-scripts-refuse-stray-arguments, PRD #100
 Enforced by: game/cli/scripts.test.ts
+Governs: ^game/cli/
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -76,6 +87,7 @@ A player with no level is stored in player_xp with level 0, never an empty value
 
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s1-03-no-level-stored-as-zero, PRD #160
 Enforced by: apps/galaxy/src/arcade/games/room.test.ts
+Governs: ^apps/galaxy/src/arcade/games/room\., ^supabase/migrations/
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
@@ -86,6 +98,7 @@ The front page forwards to /play every link that names a screen in the arcade's 
 
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s1-01-forward-every-arcade-link, PRD #261
 Enforced by: apps/galaxy/src/home/forward.test.ts
+Governs: ^apps/galaxy/src/home/forward\., ^apps/galaxy/src/arcade/deep-link\.
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
@@ -96,6 +109,7 @@ Run in a folder where the loop is not installed, omni now does not refuse: it re
 
 Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s1-01-now-runs-without-a-kit, PRD #1208
 Enforced by: kit/lib/launch/launch.test.ts, kit/bin/now.test.ts, kit/bin/omni.test.ts
+Governs: ^kit/lib/launch/launch\., ^kit/bin/commands/now\.ts$, ^kit/bin/now\.test\.ts$, ^kit/bin/omni\.
 Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1210
@@ -106,6 +120,8 @@ omni init writes no file outside .omni-loop/ except two keys of .claude/settings
 
 Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s7-01-init-wires-the-band-outside-its-territory, PRD #1208
 Enforced by: kit/lib/init/settings.test.ts, kit/bin/init.test.ts
+Governs: ^kit/lib/init/, ^kit/bin/commands/init\.ts$, ^kit/bin/init\.test\.ts$
+Proposed law: If the install wrote outside its own folder, it could overwrite a person's own settings without them knowing.
 Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1210
@@ -116,6 +132,8 @@ The terminal checks for a bug fix, a visual fix, coverage and the status gate co
 
 Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s7-02-terminal-checks-read-the-base-rules, PRD #1342
 Enforced by: kit/bin/law-demoted.test.ts
+Governs: ^kit/bin/law-demoted\.test\.ts$, ^kit/lib/outbox/, ^kit/bin/commands/(bug|visual|check|status)\.ts$
+Proposed law: If the terminal checks stopped comparing with the base branch, a rule could quietly lose its test, and the team would only learn it once the server refused the pull request.
 Stated: 2026-10-10
 Decided: nobody — adopted when raised (medium), 2026-10-10
 Merged: @pierrederval, 2026-10-10, PR #1343
