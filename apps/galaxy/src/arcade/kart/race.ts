@@ -234,7 +234,7 @@ const STRAIGHT = 0.1;
 
 /** A kart's own short step: it drives with the pad, its pace follows, and a fall that ends brings it back on the line (the jump is never passed to `advance()`). */
 function roll(track: Track, own: { player: Kart; fx: Fx; pace: Pace }, pad: Pad, dt: number): { player: Kart; fx: Fx; pace: Pace } {
-  const moved = stepFx(track.map, own.player, pad, dt, 1, own.fx, slopeAt(track, own.player.x, own.player.y, own.player.angle));
+  const moved = stepFx(track, own.player, pad, dt, 1, own.fx, slopeAt(track, own.player.x, own.player.y, own.player.angle));
   const pace = advance(track, own.pace, own.player, moved.kart);
   if (!moved.landed) return { player: moved.kart, fx: moved.fx, pace };
   const back = comeBack(track, pace, moved.kart, moved.fx);
@@ -257,10 +257,10 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     if (p) player = p;
     rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart } : r; });
     // A kart pushed over the edge by another falls too.
-    const dropped = fallIfOver(track.map, player, fx);
+    const dropped = fallIfOver(track, player, fx);
     player = dropped.kart;
     fx = dropped.fx;
-    rivals = rivals.map((r) => { const d = fallIfOver(track.map, r.kart, r.fx ?? NO_FX); return d.kart === r.kart && d.fx === (r.fx ?? NO_FX) ? r : { ...r, kart: d.kart, fx: d.fx }; });
+    rivals = rivals.map((r) => { const d = fallIfOver(track, r.kart, r.fx ?? NO_FX); return d.kart === r.kart && d.fx === (r.fx ?? NO_FX) ? r : { ...r, kart: d.kart, fx: d.fx }; });
     // The items: the rivals use what they hold by their rules, then the boxes, BLOBs and ORBs act.
     let racers = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
     rivals.forEach((r, j) => {
@@ -274,7 +274,7 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     const paces = [pace, ...rivals.map((r) => r.pace)];
     const progress = racers.map((r, k) => progressOf(track, paces[k] ?? pace, r.kart));
     const places = progress.map((mine) => 1 + progress.filter((o) => o > mine).length);
-    const acted = stepItems(track.map, items, racers, places, dt / steps);
+    const acted = stepItems(track, items, racers, places, dt / steps);
     items = acted.world;
     events.push(...acted.events);
     const [mine, ...theirs] = acted.racers;
@@ -303,13 +303,13 @@ function driveMulti(race: Race, held: ReadonlySet<Action>, dt: number, clock: nu
     ({ player, fx, pace } = roll(track, { player, fx, pace }, pad, dt / steps));
     const [pushed] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
     if (pushed) player = { ...pushed, x: player.x + (pushed.x - player.x) * 2, y: player.y + (pushed.y - player.y) * 2 };
-    const dropped = fallIfOver(track.map, player, fx);
+    const dropped = fallIfOver(track, player, fx);
     player = dropped.kart;
     fx = dropped.fx;
     // Only the player's own kart takes a box; the item it draws is by its place among the players.
     const mine = progressOf(track, pace, player);
     const place = 1 + rivals.filter((r) => progressOf(track, r.pace, r.kart) > mine).length;
-    const acted = stepItems(track.map, items, [{ kart: player, fx }], [place], dt / steps);
+    const acted = stepItems(track, items, [{ kart: player, fx }], [place], dt / steps);
     items = acted.world;
     events.push(...acted.events);
     const [self] = acted.racers;

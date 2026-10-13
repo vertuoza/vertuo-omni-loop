@@ -5,7 +5,7 @@ import {
 } from './mode7';
 import { groundAt, heightsOf, reliefRange } from './relief';
 import { BEYOND, deckOf, paintTrack } from './texture';
-import { parseTrack, TILE } from './track';
+import { groundOf, parseTrack, TILE } from './track';
 
 const WIDE = { w: 640, h: 360 }, TALL = { w: 320, h: 288 };
 const at = (angle: number, screen = WIDE): View => viewOf(screen, { x: 500, y: 400, angle });
@@ -348,7 +348,7 @@ describe('the tunnel (PRD 1775)', () => {
   });
 
   it('marks the pixels of roofed road in the map', () => {
-    const t = roofedOf({ map: ['~T~', '~#~'] }, { w: 3 * TILE, h: 2 * TILE, px: new Uint32Array(3 * TILE * 2 * TILE) });
+    const t = roofedOf(groundOf(['~T~', '~#~']), { w: 3 * TILE, h: 2 * TILE, px: new Uint32Array(3 * TILE * 2 * TILE) });
     expect(t[8 * 48 + 24]).toBe(1);
     expect(t[8 * 48 + 8]).toBe(0);
     expect(t[24 * 48 + 24]).toBe(0);

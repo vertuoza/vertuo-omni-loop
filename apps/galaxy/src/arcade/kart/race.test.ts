@@ -5,7 +5,7 @@ import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent }
 import { advance, crossedAnyGate, START_PACE } from './rivals';
 import { sure } from '../test/sure';
 import { RULES } from './rules';
-import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, LAPS, parseTrack, roadAt, TILE, tileAt } from './track';
 
 // The race's phases and what each one lets the player do (PRD 1359, slice 2).
 
@@ -117,7 +117,7 @@ describe('a step', () => {
     let r = racing();
     for (let i = 0; i < 400; i++) {
       r = step(r, new Set<Action>(['a', i % 90 < 45 ? 'left' : 'right']), i % 7 === 0 ? 1 : 0.05).race;
-      expect(!tippedOver(track.map, r.player) || r.fx.fall > 0, `frame ${i}`).toBe(true);
+      expect(!tippedOver(track, r.player) || r.fx.fall > 0, `frame ${i}`).toBe(true);
     }
   });
 
@@ -394,7 +394,7 @@ describe('a fall into the void', () => {
     const r = racing();
     return { ...r, items: { ...r.items, boxes: [] }, player: { ...r.player, x: 20 * TILE + 8, y: 6 * TILE + 8, angle: -Math.PI / 2, speed: 80, steer: 0 }, fx: { ...r.fx, item: 'blob', boost: 1 } };
   };
-  const overVoid = (r: Race) => tileAt(r.track.map, Math.floor(r.player.x / TILE), Math.floor(r.player.y / TILE)) === '~';
+  const overVoid = (r: Race) => !roadAt(r.track, r.player.x, r.player.y);
   const falling = (r: Race, held: ReadonlySet<Action> = NONE): Race => { let x = r; while (x.fx.fall <= 0) x = step(x, held, FRAME).race; return x; };
   const landed = (r: Race, held: ReadonlySet<Action> = NONE): Race => { let x = r; while (x.fx.fall > 0) x = step(x, held, FRAME).race; return x; };
 

@@ -11,7 +11,7 @@
 // the road's edge showing the side of a thick deck over the void; `renderFloor` is the flat floor.
 
 import { pack } from './texture';
-import { TILE, tileAt } from './track';
+import { roofAt, TILE, type Ground } from './track';
 
 export interface View {
   /** The screen, in pixels. */
@@ -250,15 +250,11 @@ export const TUNNEL = Object.freeze({
   rim: pack('#ffe29a'), portal: pack('#fff0a8'),
 });
 
-/** A tile of roofed road in a circuit's map. */
-const ROOFED_TILE = 'T';
-
 /** Which pixels of `texture` are roofed road (1) and which are not (0): what `renderTerrain` draws the tunnel from. */
-export function roofedOf(track: { readonly map: readonly string[] }, texture: Texture): Uint8Array {
+export function roofedOf(track: Pick<Ground, 'size' | 'roof'>, texture: Texture): Uint8Array {
   const out = new Uint8Array(texture.w * texture.h);
   for (let y = 0; y < texture.h; y++) {
-    const ty = Math.floor(y / TILE);
-    for (let x = 0; x < texture.w; x++) if (tileAt(track.map, Math.floor(x / TILE), ty) === ROOFED_TILE) out[y * texture.w + x] = 1;
+    for (let x = 0; x < texture.w; x++) if (roofAt(track, x, y)) out[y * texture.w + x] = 1;
   }
   return out;
 }
