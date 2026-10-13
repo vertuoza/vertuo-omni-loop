@@ -65,10 +65,10 @@ export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false
 }
 
 /** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left, the seconds of falling left (PRD 1447) and the seconds it still blinks after the way back. */
-export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number; readonly fall: number; readonly blink: number }
+export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number; readonly fall: number; readonly blink: number; /** How long, in seconds, both wheels of one side have been over the void in a row (PRD 1775): the kart tips over once it reaches `RULES.tipGrace`. */ readonly tip: number }
 
 /** A kart with nothing held and nothing on it. */
-export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0, blink: 0 });
+export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0, blink: 0, tip: 0 });
 
 const HANDS_OFF: Pad = { left: false, right: false, accel: false, brake: false };
 
@@ -124,15 +124,24 @@ function pulledOver(map: readonly string[], k: Kart, dt: number): Kart {
   return { ...k, x: k.x - Math.sin(k.angle) * pull, y: k.y + Math.cos(k.angle) * pull };
 }
 
-/** A kart that has tipped over the edge (its centre `RULES.overhang` past it) or on its side (both wheels of one side over the void) and is not already falling starts to fall: at rest, its BOOST and any spin-out ended, the item it holds kept. Anything else is the same objects back. */
-export function fallIfOver<T extends { x: number; y: number; angle: number; speed: number; steer: number }>(map: readonly string[], k: T, fx: Fx): { kart: T; fx: Fx } {
-  if (fx.fall > 0 || !(tippedOver(map, k) || tipsOver(map, k))) return { kart: k, fx };
-  return { kart: { ...k, speed: 0, steer: 0 }, fx: { ...fx, boost: 0, spin: 0, fall: RULES.fallTime } };
+/**
+ * A kart whose centre is `RULES.overhang` past the edge and is not already falling starts to fall at once: at rest, its BOOST and any spin-out ended, the item it holds kept.
+ * One with both wheels of one side over the void counts `dt` more seconds, and falls the same way once it has stayed out `RULES.tipGrace` in a row; a wheel back over the road starts the count again from 0.
+ * With `dt` 0 (after a push) the count is only read, never moved. Anything else is the same objects back.
+ */
+export function fallIfOver<T extends { x: number; y: number; angle: number; speed: number; steer: number }>(map: readonly string[], k: T, fx: Fx, dt = 0): { kart: T; fx: Fx } {
+  if (fx.fall > 0) return { kart: k, fx };
+  const tips = tipsOver(map, k);
+  const tip = tips ? fx.tip + dt : dt > 0 ? 0 : fx.tip;
+  if (tippedOver(map, k) || (tips && tip >= RULES.tipGrace - 1e-9)) {
+    return { kart: { ...k, speed: 0, steer: 0 }, fx: { ...fx, boost: 0, spin: 0, fall: RULES.fallTime, tip: 0 } };
+  }
+  return tip === fx.tip ? { kart: k, fx } : { kart: k, fx: { ...fx, tip } };
 }
 
 /**
  * One short step of a kart with what is on it: a fall takes the input and holds the kart where it is, a spin-out takes the input and turns the kart on itself
- * (the speed it dropped to wears off like any other), a BOOST drives faster, a slope changes the top speed, a wheel over the void draws it towards the edge, and the timers run down. A kart that tips over the edge or on its side starts to fall.
+ * (the speed it dropped to wears off like any other), a BOOST drives faster, a slope changes the top speed, a wheel over the void draws it towards the edge, and the timers run down. A kart that tips over the edge, or stays on its side over the void for the grace, starts to fall.
  * The kart's `fx` after the step is returned with it, and whether its fall ended in this step (`landed`):
  * the way back is the race's to place (rivals.ts), never this step's.
  */
@@ -145,5 +154,5 @@ export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pa
   const moved = pulledOver(map, moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0, slope), dt);
   const kart = spinning ? { ...moved, angle: moved.angle + RULES.spinRate * dt, steer: 0 as const } : moved;
   const ran: Fx = { ...fx, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };
-  return { ...fallIfOver(map, kart, ran), landed: false };
+  return { ...fallIfOver(map, kart, ran, dt), landed: false };
 }

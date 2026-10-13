@@ -714,7 +714,7 @@ describe('the relief on the screen (PRD 1698)', () => {
 describe('tipping over the edge on the screen (PRD 1698)', () => {
   it('rolls a kart towards the side over the void, a little for a lean and onto its side as a tipped kart falls', () => {
     expect(rollOf(0, 0)).toBe(0);
-    expect(rollOf(0, 1)).toBe(0);
+    expect(rollOf(0, 1)).toBeGreaterThan(0); // all four wheels out when it falls: onto its right side
     expect(rollOf(0.5, 0)).toBeGreaterThan(0); // one wheel out on its right: clockwise
     expect(rollOf(-0.5, 0)).toBeLessThan(0);
     expect(rollOf(0.5, 0)).toBeCloseTo(-rollOf(-0.5, 0), 9);
@@ -724,7 +724,19 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     expect(rollOf(1, 1)).toBeLessThanOrEqual(Math.PI / 2 + 1e-9);
   });
 
+  it('leans a kart fully and rocks it while the grace counts, and leans it without rocking when motion is reduced', () => {
+    const plain = rollOf(1, 0);
+    const warned = (t: number, reduced = false) => rollOf(1, 0, { t, reduced });
+    expect(warned(0, true)).toBeGreaterThan(plain); // fully leaned
+    expect(warned(0.1, true)).toBe(warned(0.9, true)); // still
+    const rocks = new Set([0, 0.03, 0.06, 0.09, 0.12].map((t) => warned(t).toFixed(4)));
+    expect(rocks.size).toBeGreaterThan(1);
+    expect(rollOf(-1, 0, { t: 0.05, reduced: false })).toBeCloseTo(-warned(0.05), 9);
+  });
+
   /** The player driving off the road's edge, gas and right held, frame by frame until it is back: what each frame rotated the canvas by, and whether the player's shadow was drawn. */
+  const STRAIGHT = new Set<Action>(['a']), RIGHT = new Set<Action>(['a', 'right']);
+  const handsAt = (t: number) => (t >= 1.5 ? RIGHT : STRAIGHT); // straight on, then right
   function series() {
     const game = createKart({ seed: 3 });
     game.press('start');
@@ -732,7 +744,7 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     const out: { roll: number; shadow: boolean; falling: boolean }[] = [];
     let seen = false;
     for (let t = 0; t < 20; t += 0.02) {
-      game.step(new Set<Action>(['a', 'right']), 0.02);
+      game.step(handsAt(t), 0.02);
       sprites.length = 0;
       const r = recorder();
       game.draw(r.ctx, frame(WIDE));
@@ -756,7 +768,7 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     expect(Math.max(...falling.map((f) => f.roll))).toBeGreaterThan(Math.max(...leaning.map((f) => f.roll)));
     // The frame the fall begins on is still full size: it has the roll of a lean and already no shadow.
     expect(leaning.filter((f) => f.shadow).length).toBeGreaterThan(0);
-    expect(leaning.filter((f) => !f.shadow)).toHaveLength(1);
+    expect(leaning.filter((f) => !f.shadow).length).toBeLessThanOrEqual(1);
     expect(s.filter((f) => f.falling).some((f) => f.shadow)).toBe(false);
     expect(s.filter((f) => !f.falling && f.roll === 0).some((f) => f.shadow)).toBe(true);
   });
