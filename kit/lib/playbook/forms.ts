@@ -70,7 +70,7 @@ export const FORMS: readonly FormSpec[] = Object.freeze([
   form('architecture', 'core', [req('layout'), req('boundaries'), opt('patterns')]),
   form('testing', 'core', [req('commands'), req('layout'), opt('levels'), req('never'), opt('data')]),
   form('verification', 'core', [req('preflight'), opt('before-push'), opt('checks')]),
-  form('ci', 'core', [req('workflows'), req('gating'), opt('known-reds'), opt('rerun')]),
+  form('ci', 'core', [req('workflows'), req('gating'), opt('known-reds'), opt('rerun'), opt('budgets')]),
   form('pull-requests', 'core', [req('body'), opt('title'), opt('labels'), opt('reviewers')]),
   form('decisions', 'core', [req('where'), req('format'), opt('numbering')]),
   form('definition-of-done', 'extended', [req('done'), opt('docs'), opt('commits')]),

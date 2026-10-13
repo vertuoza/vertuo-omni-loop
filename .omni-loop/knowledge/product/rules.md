@@ -35,7 +35,7 @@ Merged: @pierrederval, 2026-09-25, PR #9
 
 ## BR-PRODUCT-4
 
-Every slice is claimed by a draft pull request before it is built, however it is started: the wave claims under --in-wave, and do-work run alone opens the claim itself when none exists.
+Every slice is claimed by a draft pull request before it is built, however it is started, except in a plan of fewer slices than `wave.inlineBelow`, which is built on its feature branch and whose feature PR is the record of every slice: the wave claims under --in-wave, and do-work run alone opens the claim itself when none exists.
 
 Serves: P-PRODUCT-4
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s5-02-claim-first-alone, PRD #7

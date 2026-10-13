@@ -1,12 +1,13 @@
-// `omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|all]` — the repository's guards.
+// `omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|context|all]` — the repository's guards.
 // Each prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
 // every guard, and skips `coverage` — never fails on it — when the default branch's remote ref is
-// absent; `design` then grades the library without comparing its locks.
+// absent; `design` then grades the library without comparing its locks. `context` (PRD 1679) runs in
+// `all` only while `budgets.context.enabled` is true.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-outbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-decision-coverage.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatFailure, formatPass, trackedFiles } from '../../lib/check-report.ts';
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
@@ -25,17 +26,27 @@ import { riskyChanges } from '../../lib/outbox/decision-coverage.ts';
 import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
-import { CONFIG_FILE, ConfigError, designScreensDir } from '../../lib/config.ts';
+import { CONFIG_FILE, ConfigError, contextBudget, designScreensDir } from '../../lib/config.ts';
+import { prdOfBranch } from '../../lib/ask/context.ts';
+import { currentBranch } from '../../lib/ask/title.ts';
+import { parseCeilings, readCeilings } from '../../lib/budgets/ceilings.ts';
+import type { Ceilings } from '../../lib/budgets/ceilings.ts';
+import { measureContextBudget } from '../../lib/budgets/measure.ts';
+import { budgetTable, neutralLines, redMessage } from '../../lib/budgets/message.ts';
+import { targetGrowth } from '../../lib/budgets/message-growth.ts';
+import { overall, ratchet, settledRaises } from '../../lib/budgets/ratchet.ts';
+import type { Raise } from '../../lib/budgets/ratchet.ts';
+import { messageOf } from '../../lib/narrow.ts';
+import { outboxStore } from '../../lib/outbox/stores.ts';
 import { gradeDesign, headSnapshot, snapshotAt } from '../../lib/design/check-design.ts';
 import { DEFAULT_HOOK_MAX_BYTES, hookFileViolations } from '../../lib/flow/schema.ts';
 import { generatedViolations, readGround } from '../../lib/generated/check.ts';
 import { parseArgs, prdArg, println, usageError, type Flags } from '../args.ts';
 import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { loadContext, type Context } from '../../lib/context.ts';
-import { synchronous } from '../synchronous.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|all] [--base <ref>] [--prd <n>]';
+const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|context|all] [--base <ref>] [--prd <n>]';
 
 /** Prints a guard's result; `true` when it is green. */
 function report(stdout: Out, title: string, violations: readonly string[], passLine: string): boolean {
@@ -229,6 +240,80 @@ function mergeBase(ctx: Context, base: string, exec: Exec): string | null {
   }
 }
 
+/** The ceilings file as commit `ref` holds it; `null` when it holds none, or none that parses: an install. */
+function ceilingsAt(ctx: Context, ref: string, file: string, exec: Exec): Ceilings | null {
+  let text: string;
+  try {
+    text = exec('git', ['show', `${ref}:${file}`], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return null;
+  }
+  try {
+    return parseCeilings(text, file);
+  } catch {
+    return null;
+  }
+}
+
+/** The PRD this checkout's pull request belongs to: `--prd`, else the one its branch works on. */
+function prdOfCheckout(ctx: Context, prd: PrdNumber | null, exec: Exec): PrdNumber | null {
+  if (prd !== null) return prd;
+  const inbox = join(ctx.root, ctx.config.paths.delivery, 'inbox');
+  const folders = existsSync(inbox) ? readdirSync(inbox) : [];
+  return prdOfBranch(currentBranch(ctx.root, exec), { branches: ctx.config.branches, folders });
+}
+
+/** The raises a person said yes to in PRD `prd`'s outbox, read through its store; none without a PRD. */
+async function raisesOf(ctx: Context, prd: PrdNumber | null): Promise<Raise[]> {
+  if (prd === null) return [];
+  try {
+    return settledRaises(await outboxStore(ctx, prd).settledEntries(prd));
+  } catch {
+    return [];
+  }
+}
+
+const CONTEXT_TITLE = 'check context — what every agent reads here is over its budget:';
+
+// PRD 1679: what every agent session reads, measured and held to its ceilings by the ratchet against
+// the base. Red on a target over budget or a ceiling raised with no person's yes; neutral — green,
+// with why — when a target cannot be measured (D6); off while `budgets.context.enabled` is.
+async function checkContext(io: CommandIo, { base, baseKnown, prd }: Range): Promise<boolean> {
+  const { ctx, stdout, exec } = io;
+  const budget = contextBudget(ctx.config);
+  if (!budget.enabled) {
+    println(stdout, formatPass('check context — budgets are off (budgets.context.enabled); nothing to check.'));
+    return true;
+  }
+  let head: Ceilings;
+  try {
+    head = readCeilings({ root: ctx.root, file: budget.file });
+  } catch (error) {
+    return report(stdout, CONTEXT_TITLE, [messageOf(error)], '');
+  }
+  const ref = baseKnown ? mergeBase(ctx, base, exec) : null;
+  const owner = prdOfCheckout(ctx, prd, exec);
+  const verdicts = ratchet({
+    base: ref === null ? null : ceilingsAt(ctx, ref, budget.file, exec),
+    head,
+    measures: measureContextBudget({ ctx }),
+    raises: await raisesOf(ctx, owner),
+  });
+  const compared = ref === null ? `raises not compared — no ${base}` : `compared with ${base}`;
+  const state = overall(verdicts);
+  if (state === 'red') {
+    const red = verdicts.filter(({ verdict }) => verdict === 'over-budget' || verdict === 'needs-yes');
+    const growth = Object.fromEntries(red.map(({ target }) => [target, targetGrowth({ ctx, target, base: ref, exec })]));
+    const context = { prd: owner, ceilingsFile: budget.file, growth };
+    const lines = red.flatMap((verdict, index) => [...(index > 0 ? [''] : []), ...redMessage(verdict, context)]);
+    return report(stdout, CONTEXT_TITLE, [...lines, '', ...budgetTable(verdicts)], '');
+  }
+  const word = state === 'neutral' ? 'neutral, nothing blocked' : 'every target under its ceiling';
+  println(stdout, formatPass(`check context — ${verdicts.length} target(s), ${word}; ${compared}.`));
+  for (const line of [...neutralLines(verdicts), ...budgetTable(verdicts)]) println(stdout, `  ${line}`);
+  return true;
+}
+
 /** The repository's context; for `check config`, an invalid config is a red guard, never a stop. */
 function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Context | null {
   try {
@@ -241,7 +326,7 @@ function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Contex
   }
 }
 
-const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'design', 'coverage', 'all'];
+const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'design', 'coverage', 'context', 'all'];
 
 /** The guards that run alone and take nothing but the command's io. */
 const SINGLE_GUARDS: Readonly<Record<string, (io: CommandIo) => boolean>> = {
@@ -276,7 +361,8 @@ function rangeOf(guard: string, flags: Flags<'base' | 'prd', never>, io: Command
     throw usageError(`omni check: no ${base} — fetch it or pass another --base <ref>.`);
   }
   const coverageRuns = guard === 'coverage' || (guard === 'all' && baseKnown);
-  if (prd !== null && !coverageRuns) println(io.stderr, `omni check: --prd ${prd} ignored — the coverage guard did not run.`);
+  const contextRuns = guard === 'context' || (guard === 'all' && contextBudget(ctx.config).enabled);
+  if (prd !== null && !coverageRuns && !contextRuns) println(io.stderr, `omni check: --prd ${prd} ignored — neither the coverage nor the context guard ran.`);
   return { base, baseKnown, prd };
 }
 
@@ -286,19 +372,22 @@ function coverageOnly(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
   return checkCoverage(io, { base, prd });
 }
 
-/** `omni check all`: every guard, coverage skipped when the base is absent. */
-function allGuards(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
+/** `omni check all`: every guard, coverage skipped when the base is absent, context while budgets are on. */
+async function allGuards(io: CommandIo, range: Range): Promise<boolean> {
+  const { base, baseKnown, prd } = range;
   const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io), checkDesign(io, { base, baseKnown })];
   if (baseKnown) results.push(checkCoverage(io, { base, prd }));
   else println(io.stdout, `coverage: skipped — no ${base}`);
+  if (contextBudget(io.ctx.config).enabled) results.push(await checkContext(io, range));
   return results.every(Boolean);
 }
 
 /** Runs the guard named; `true` when it is green. */
-function runGuard(guard: string, io: CommandIo, range: Range): boolean {
+async function runGuard(guard: string, io: CommandIo, range: Range): Promise<boolean> {
   const single = SINGLE_GUARDS[guard];
   if (single) return single(io);
   if (guard === 'design') return checkDesign(io, range);
+  if (guard === 'context') return checkContext(io, range);
   return guard === 'coverage' ? coverageOnly(io, range) : allGuards(io, range);
 }
 
@@ -306,13 +395,13 @@ function runGuard(guard: string, io: CommandIo, range: Range): boolean {
 // into a red guard (exit 1); every other guard still stops on it with exit 2, as before.
 export const check: FreeCommand = {
   withoutContext: true,
-  run: synchronous((args: string[], free: FreeIo): number => {
+  async run(args: string[], free: FreeIo): Promise<number> {
     const { cwd, stdout, stderr, exec, env, vars } = free;
     const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
     const guard = guardOf(positional);
     const ctx = contextFor(guard, cwd, exec, stdout);
     if (ctx === null) return 1;
     const io: CommandIo = { ctx, stdout, stderr, exec, env, vars };
-    return runGuard(guard, io, rangeOf(guard, flags, io)) ? 0 : 1;
-  }),
+    return (await runGuard(guard, io, rangeOf(guard, flags, io))) ? 0 : 1;
+  },
 };

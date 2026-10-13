@@ -1,5 +1,6 @@
 // The grid's rules (PRD 1572), pure: who holds a place, who waits, the starting order and who starts.
 import { RULES } from './rules';
+import { LAPS } from './track';
 import type { GridPlayer } from './net';
 
 /** Players in the order they arrived on the grid; two at the same instant go by id, so every browser agrees. */
@@ -35,4 +36,11 @@ export function rowsOf(players: readonly GridPlayer[]): { player: GridPlayer; se
     ...startingOrder(seated).map((player) => ({ player, seat: true })),
     ...waiting.map((player) => ({ player, seat: false })),
   ];
+}
+
+/** How many laps the grid will run (PRD 1762): the first arrival's `laps` when every player holding a place carries `laps`, and 3 otherwise. */
+export function gridLapsOf(players: readonly GridPlayer[]): number {
+  const { seated } = placesOf(players);
+  const first = seated[0]?.laps;
+  return first !== undefined && seated.every((p) => p.laps !== undefined) ? first : LAPS;
 }

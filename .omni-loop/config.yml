@@ -70,3 +70,10 @@ design:
     - apps/galaxy/app/
     - apps/omni-app/src/
     - packages/design/
+# Context budgets (PRD 1679): what every agent session reads here (the briefing, each playbook form as
+# `omni kb show` prints it, the `paths.context` files, and `session`, their sum) has a ceiling in bytes
+# in .omni-loop/budgets/context.json. `omni check context` (in `omni check all`) and the App's
+# `omni / budgets` check hold them; a raised ceiling waits for a person's yes on a high outbox item.
+budgets:
+  context:
+    enabled: true

@@ -7,13 +7,14 @@
 // it (mode7.ts). Only the map's characters decide what a tile is, never a colour.
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { rampFrom, rng } from '@omni/design';
-import type { Texture } from './mode7';
+import type { Deck, Texture } from './mode7';
 import { cornersOf, isRoad, TILE, tileAt, type Corner, type Track } from './track';
 
 /** The colours the circuit is painted from: the road is the middle of a four-tone ramp. The floor's own, none equal to a theme token (ADR-0046). */
 export const SURFACE = Object.freeze({
   road: '#6d7194', neonCyan: '#19e6ff', neonMagenta: '#ff2bd6',
   lineLight: '#f1f1f8', lineDark: '#14122e', chevron: '#ffe94d',
+  deckTop: '#a3a8cf', deck: '#4b5080', deckDark: '#1a1b3b',
 });
 
 /** The void's pixel: see-through, so the floor has none there and the space behind it shows. */
@@ -105,6 +106,33 @@ function paint(c: string, w: Where, grain: number, ctx: Ctx): number {
     case 'S': return startAt(px, py, grain, ctx.ramps.road);
     default: return ctx.seam ? ctx.ramps.road[3] : roadAt(grain, ctx.ramps.road); // '#' and '?': road
   }
+}
+
+/** A `#rrggbb` colour `t` of the way from `a` to `b`, packed, with the opacity `alpha` (0 to 1). */
+function blend(a: string, b: string, t: number, alpha = 1): number {
+  const x = Number.parseInt(a.slice(1), 16), y = Number.parseInt(b.slice(1), 16);
+  const ch = (shift: number) => Math.round(((x >> shift) & 0xff) * (1 - t) + ((y >> shift) & 0xff) * t);
+  return ((Math.round(alpha * 255) << 24) | (ch(0) << 16) | (ch(8) << 8) | ch(16)) >>> 0;
+}
+
+/** How deep the side of the road's deck is under its edge, and its glow under that, in world units (PRD 1698). */
+export const DECK_DEPTH = 12;
+export const DECK_GLOW = 18;
+
+/**
+ * The side of the road's deck over the void (mode7.ts): a light lip under the edge, metal shading darker down the
+ * side, every other panel a shade darker still, a magenta neon line along its foot, and a magenta glow fading away
+ * under it, so the circuit reads as a thick deck floating in space, never a sheet.
+ */
+export function deckOf(): Deck {
+  const LEVELS = 10;
+  const shade = (dark: number) => Uint32Array.from({ length: LEVELS }, (_, i) => {
+    if (i === 0) return blend(SURFACE.deckTop, SURFACE.deckDark, dark);
+    if (i === LEVELS - 1) return pack(SURFACE.neonMagenta);
+    return blend(SURFACE.deck, SURFACE.deckDark, Math.min(1, ((i - 1) / (LEVELS - 3)) * 0.85 + dark));
+  });
+  const glowPx = Uint32Array.from({ length: 6 }, (_, i) => blend(SURFACE.neonMagenta, SURFACE.neonMagenta, 0, 0.5 * (1 - i / 6)));
+  return { thickness: DECK_DEPTH, wall: shade(0), stripe: shade(0.15), glow: DECK_GLOW, glowPx };
 }
 
 /** The texture's colour past the map's edge: the void, see-through too. */

@@ -13,6 +13,10 @@
 // With `plan: { product }` (PRD 1548, s10), `state` and `list` read the product's targets from the
 // Omni page (`contextWithTargets`, `./board.ts`); `reply` reads none.
 //
+// Issue #1178: when `--pr` names a sub-PR, one of the board's slice PRs, the state carries its `slice`
+// and the round is a sub-PR's (`decideSubPrRound`): its review threads only, which `/omni:wave` judges
+// before it merges the sub-PR, whatever the wave's own claims, its CI and its conflict say.
+//
 // `omni care list <prd> [--json]` — PRD 1118, in a plan repository only: every pull request one
 // `/omni:mega-pr-care` run looks after, in merge order (`mergeOrder`): the target and landing PRs, the
 // bug-fix and record PRs of each bug linked by its `For PRD #<prd>` line, then the plan PR. A
@@ -29,7 +33,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { landingChain, landingPrToWatch } from '../../lib/care/chain.ts';
-import { decideRound } from '../../lib/care/decide.ts';
+import { decideRound, decideSubPrRound } from '../../lib/care/decide.ts';
 import type { Waiting } from '../../lib/care/decide.ts';
 import { FIX_PLAN_MARKER, fixPlanRows, foundEntry, linksPrd, mergeOrder } from '../../lib/care/list.ts';
 import type { CareListEntry, Found, FoundPr, TargetStep } from '../../lib/care/list.ts';
@@ -55,7 +59,7 @@ import { buildBoard, loopReadsFor, runWithTargets } from './board.ts';
 import type { TargetsIo, TargetsSubcommand } from './board.ts';
 import type { CommandIo, Env, Exec, FreeCommand } from '../io.ts';
 import { GhGraphqlSchema, GhReplyMutationSchema } from '../schema.ts';
-import type { IssueNumber, PrNumber, PrdNumber } from '../../lib/ids.ts';
+import type { IssueNumber, PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 
 const USAGE =
   'usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n' +
@@ -158,13 +162,14 @@ function targetOf(ctx: Context, flag: string | undefined): Target | null {
 async function waveClaims(
   prd: PrdNumber,
   { ctx, reads, repo, target }: { ctx: Context; reads: LoopReads; repo: string | undefined; target: Target | null },
-): Promise<{ wave: { holdsClaims: boolean | null; claimed: string[]; unreadable?: string }; landings: LandingRow[] | null }> {
+): Promise<{ wave: { holdsClaims: boolean | null; claimed: string[]; unreadable?: string }; landings: LandingRow[] | null; sliceOf: (pr: PrNumber) => WorkSliceId | null }> {
   try {
     const { result } = await buildBoard(prd, { ctx, reads: boardReads(reads), repo: target === null ? repo : undefined });
     const claimed = claimedIn(result.slices, target?.name ?? null);
-    return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: landingsIn(result.landings, target?.name ?? null) };
+    const sliceOf = (pr: PrNumber) => result.slices.find((row) => row.pr?.number === pr && (target === null || row.repo === target.name))?.id ?? null;
+    return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: landingsIn(result.landings, target?.name ?? null), sliceOf };
   } catch (error) {
-    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine(error) }, landings: null };
+    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine(error) }, landings: null, sliceOf: () => null };
   }
 }
 
@@ -220,15 +225,21 @@ async function readCare(prd: PrdNumber, number: PrNumber, { scope, ctx, reads }:
   return { prd, ...(scope.target === null ? {} : { target: scope.target }), ...state, ...(waitsOn === null ? {} : { waitsOn }) };
 }
 
-async function runState(args: string[], { ctx, stdout, stderr, exec, env, reads }: Io): Promise<number> {
-  const { positional, flags } = parseArgs('care', args, { values: ['pr', 'repo'] });
-  if (positional.length !== 1) throw usageError(USAGE);
-  const prd = prdArg('care', '<prd>', positional[0]);
-  const scope = scopeOf(prd, flags.repo, { ctx, exec, env });
+/** What a round's printing reads: the PRD, where its PR lives, and the wave's claims. */
+type StateRun = { prd: PrdNumber; scope: Scope; claims: Awaited<ReturnType<typeof waveClaims>>; ctx: Context; reads: LoopReads; stdout: CommandIo['stdout'] };
 
-  const { wave, landings } = await waveClaims(prd, { ctx, reads, repo: flags.repo, target: scope.target });
-  const landed = landings !== null && landings.length > 1 ? landings : null;
-  const number = await watchedPr({ flag: flags.pr, landed, find: async () => (await findPr(scope, reads))?.number ?? null });
+/** Issue #1178: a sub-PR's care state, its `slice` named, and its round, its threads only. */
+async function printSubPr(number: PrNumber, slice: WorkSliceId, { prd, scope, claims, ctx, reads, stdout }: StateRun): Promise<number> {
+  const state = await readCare(prd, number, { scope, ctx, reads });
+  println(stdout, JSON.stringify({ ...state, slice, wave: claims.wave, round: decideSubPrRound(state) }, null, 2));
+  return 0;
+}
+
+/** The feature PR's (or the watched landing PR's) care state and its round; exit 1 with no PR. */
+async function printFeature(flag: string | undefined, run: StateRun & { stderr: CommandIo['stderr'] }): Promise<number> {
+  const { prd, scope, claims, ctx, reads, stdout, stderr } = run;
+  const landed = claims.landings !== null && claims.landings.length > 1 ? claims.landings : null;
+  const number = await watchedPr({ flag, landed, find: async () => (await findPr(scope, reads))?.number ?? null });
   if (number === null) {
     const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(', ');
     println(stderr, `omni care: PRD ${prd} has no feature PR yet (no pull request from ${from}).`);
@@ -236,9 +247,22 @@ async function runState(args: string[], { ctx, stdout, stderr, exec, env, reads 
   }
   const { waitsOn, ...state } = await readCare(prd, number, { scope, ctx, reads });
   const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);
-  const full = { ...state, wave, ...(landed === null ? {} : { landings: landed, chain }), ...(waitsOn === undefined ? {} : { waitsOn }) };
+  const full = { ...state, wave: claims.wave, ...(landed === null ? {} : { landings: landed, chain }), ...(waitsOn === undefined ? {} : { waitsOn }) };
   println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
   return 0;
+}
+
+async function runState(args: string[], { ctx, stdout, stderr, exec, env, reads }: Io): Promise<number> {
+  const { positional, flags } = parseArgs('care', args, { values: ['pr', 'repo'] });
+  if (positional.length !== 1) throw usageError(USAGE);
+  const prd = prdArg('care', '<prd>', positional[0]);
+  const scope = scopeOf(prd, flags.repo, { ctx, exec, env });
+  const claims = await waveClaims(prd, { ctx, reads, repo: flags.repo, target: scope.target });
+  const run: StateRun = { prd, scope, claims, ctx, reads, stdout };
+  const named = flags.pr === undefined ? null : prArg('care', '--pr', flags.pr);
+  const slice = named === null ? null : claims.sliceOf(named);
+  if (named !== null && slice !== null) return printSubPr(named, slice, run);
+  return printFeature(flags.pr, { ...run, stderr });
 }
 
 /** A plan's slices, its `## Repositories` order and its graded landings, with the PRD's topic. */

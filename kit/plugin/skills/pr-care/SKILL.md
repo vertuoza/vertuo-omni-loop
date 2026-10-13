@@ -10,7 +10,7 @@ branch shape or command you can read with `omni config <key>`. `<remote>` is `re
 
 This skill looks after the **feature PR** only: the one pull request PRD n sends to the default
 branch. For a PRD of several landings, that is the first **landing PR** still open (the one
-`care state` names), and the chain of landing PRs behind it, kept stacked as each one merges. Phase-0 PRs, sub-PRs, retro, knowledge and fix PRs are out of its scope. A person runs it in
+`care state` names), and the chain of landing PRs behind it, kept stacked as each one merges. Phase-0 PRs, sub-PRs, retro, knowledge and fix PRs are out of its scope; a sub-PR's review threads are judged by `/omni:wave` before it merges the sub-PR, with **3. Review threads** below. A person runs it in
 a terminal and leaves it running: it watches on this machine, needs no new secret or runner, and
 stops when the terminal does, which the PRD page's watcher line makes visible.
 
@@ -132,6 +132,31 @@ The actions, in the order the decision always gives them:
 
 Running CI (`checks.state` `running`) lists no CI action: the round handles the rest and the next
 round reads it again.
+
+### A red `omni / budgets`
+
+The `omni / budgets` check (PRD 1679) is red when something every agent session reads grew past
+its ceiling, or when a ceiling went up with no person's yes. It is a red check like any other:
+`fix-ci` takes it, attempts and **Stuck** path included. Read what it says, and run
+`node .omni-loop/bin/omni.mjs check context --base <remote>/<pr.base> --prd <n>` in the worktree:
+it prints the same verdict, target by target. Then, for each red target:
+
+1. **Trim first.** Shorten the files behind it (the check names them, and the commits that grew
+   them) back under the ceiling without losing a rule: move detail into a linked file that is not
+   measured, cut what is said twice. Run the preflight and the check again, commit, push.
+2. **Only when it cannot be trimmed without dropping a rule,** raise its ceiling in the ceilings
+   file `budgets.context.file` names, to the measured size rounded up to the next KiB, and file a
+   high outbox item of PRD n that says why the room is needed: `omni item new` as `/omni:do-work`
+   step 3 writes one, with `hardToRevert: true` by rule (no Jev step: the item is high whatever
+   anyone says), and its `decide` carrying the exact line ``Budget raise: `<target>` to <bytes> bytes``
+   (the target as the check names it, the new ceiling in bytes), which the check matches. Commit the
+   ceiling and the item together, and push. The check stays red until a person answers the item;
+   their answer turns it green with no new push. A raise waiting for a person is the gate doing its
+   job, not an attempt: say so in the status comment.
+3. A ceiling already raised with its item filed and red only for the person's yes: nothing to do.
+
+Never force the check green another way: never lower what is measured by moving a rule out of
+reach of the agents that need it, never raise a ceiling without the item, never answer the item.
 
 ### The landing chain
 
@@ -266,3 +291,5 @@ thread ended as: `#<pr.number>: merged. 4 fixed, 2 pushed back, 1 asked.`
 - **Never resolve a thread without a reply** that says why, and never resolve an asked one.
 - **Never argue twice:** a person's word after a care reply sends the thread to the PM.
 - **Never push a fix whose preflight is red,** and never lower a check to turn it green.
+- **Never force `omni / budgets` green:** trim first; a raise always carries its high item, which
+  only a person answers.

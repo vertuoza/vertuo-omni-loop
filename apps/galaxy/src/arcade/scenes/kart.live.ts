@@ -6,6 +6,7 @@ import type { GridSession, RaceStart } from '../kart/index';
 import type { GridPlayer } from '../kart/net';
 import type { createHeld } from '../held';
 import type { ScoreSend } from './invaders-score';
+import type { KartOptions } from '../kart/options';
 import type { ArcadeKart, KartGame } from './kart.ts';
 
 type Ref<T> = RefObject<T>;
@@ -71,7 +72,8 @@ export function useKartLive(p: KartLiveParts) {
 }
 
 /** The kart state once its game has loaded (or failed to): a MULTI race that began while it was loading keeps its own game. */
-export function loadedInto(k: ArcadeKart | null, game: KartGame | null): ArcadeKart | null {
-  if (!k || k.choice.step === 'live') return k;
-  return { ...k, status: game ? 'ready' : 'failed', game, hud: game ? game.hud() : null };
+export function loadedInto(k: ArcadeKart | null, game: KartGame | null, options: KartOptions | null = k?.options ?? null): ArcadeKart | null {
+  if (!k) return k;
+  if (k.choice.step === 'live') return options && !k.options ? { ...k, options } : k;
+  return { ...k, status: game ? 'ready' : 'failed', game, hud: game ? game.hud() : null, options };
 }

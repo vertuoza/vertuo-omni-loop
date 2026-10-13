@@ -22,6 +22,19 @@ export const CHAPTER_TITLES: readonly { numeral: string; name: string }[] = Obje
 /** The lives a run starts with. */
 const LIVES = 3;
 
+/** How long the contact that cost a life stays on the screen, under a fading flash, before the ready screen clears. */
+export const CRASH_SECONDS = 0.5;
+
+/** The contact that cost a life, as it stood: the wave, the sub-step and the pair's angle, and the seconds it still shows. */
+export interface Crash {
+  readonly chapter: number;
+  readonly endless: boolean;
+  readonly wave: number;
+  readonly tick: number;
+  readonly angle: number;
+  readonly left: number;
+}
+
 /** What a wave passed in a chapter adds to the score. */
 export const WAVE_POINTS = 10;
 
@@ -68,6 +81,8 @@ export interface Run {
   readonly carry: number;
   /** The warm orb's angle over the last sub-steps, newest first: its trail (the cool orb's is opposite). */
   readonly trail: readonly number[];
+  /** The contact that cost the last life lost, while it still shows; null otherwise. */
+  readonly crash: Crash | null;
 }
 
 /**
@@ -82,7 +97,7 @@ export interface Stepped { run: Run; events: readonly RunEvent[] }
 export function newRun({ seed }: { seed: number }): Run {
   return {
     phase: 'ready', seed, chapter: 0, endless: false, wave: 0, tick: 0, banner: 0, lives: LIVES, score: 0, chapterScore: 0, waveScore: 0,
-    passed: 0, started: false, resume: 'play', angle: 0, carry: 0, trail: [],
+    passed: 0, started: false, resume: 'play', angle: 0, carry: 0, trail: [], crash: null,
   };
 }
 
@@ -94,15 +109,21 @@ export function waveOf(run: Run): Wave | undefined {
 /** How many waves the run's chapter has: none counted in endless mode, which never ends. */
 export const wavesIn = (run: Run): number => (run.endless ? 0 : CHAPTERS[run.chapter]?.waves.length ?? 0);
 
+/** The wave a crash happened in. */
+export function crashWave(crash: Crash): Wave | undefined {
+  return crash.endless ? endlessWave(crash.wave) : CHAPTERS[crash.chapter]?.waves[crash.wave];
+}
+
 /**
  * The run after a hit: a life gone and, on a ready screen, the chapter from its first wave with the
  * score it began with, or in endless mode the wave hit with the score it began with; or over.
  */
 function hit(run: Run): Stepped {
   const lives = run.lives - 1;
+  const crash: Crash = { chapter: run.chapter, endless: run.endless, wave: run.wave, tick: run.tick, angle: run.angle, left: CRASH_SECONDS };
   const back = run.endless
-    ? { ...run, lives, score: run.waveScore, tick: 0, carry: 0, trail: [] }
-    : { ...run, lives, score: run.chapterScore, waveScore: run.chapterScore, wave: 0, tick: 0, carry: 0, trail: [] };
+    ? { ...run, lives, score: run.waveScore, tick: 0, carry: 0, trail: [], crash }
+    : { ...run, lives, score: run.chapterScore, waveScore: run.chapterScore, wave: 0, tick: 0, carry: 0, trail: [], crash };
   if (lives <= 0) return { run: { ...back, lives: 0, phase: 'over' }, events: ['hit', 'over'] };
   return { run: { ...back, phase: 'ready' }, events: ['hit'] };
 }
@@ -139,7 +160,7 @@ function sub(run: Run, held: ReadonlySet<Action>): Stepped {
 
 /** Plays `dt` seconds (at most `RULES.maxDt`) with `held`: in play and on a banner, whole sub-steps, the rest carried. Otherwise nothing moves. */
 export function step(run: Run, held: ReadonlySet<Action>, dt: number): Stepped {
-  if (run.phase !== 'play' && run.phase !== 'chapter') return { run, events: [] };
+  if (run.phase !== 'play' && run.phase !== 'chapter') return { run: faded(run, dt), events: [] };
   let carry = run.carry + Math.min(Math.max(0, dt), RULES.maxDt);
   let r = run;
   const events: RunEvent[] = [];
@@ -151,6 +172,13 @@ export function step(run: Run, held: ReadonlySet<Action>, dt: number): Stepped {
     if (r.phase !== 'play' && r.phase !== 'chapter') return { run: { ...r, carry: 0 }, events };
   }
   return { run: { ...r, carry }, events };
+}
+
+/** The run with its crash shown `dt` seconds longer (at most `RULES.maxDt`), gone once its time is up; the same run when none shows. */
+function faded(run: Run, dt: number): Run {
+  if (!run.crash) return run;
+  const left = run.crash.left - Math.min(Math.max(0, dt), RULES.maxDt);
+  return { ...run, crash: left > 0 ? { ...run.crash, left } : null };
 }
 
 /** The run paused, from play or a banner; anything else has nothing to pause. */
@@ -165,7 +193,7 @@ const ended = (run: Run): Stepped => ({ run: { ...run, phase: 'over', carry: 0 }
 /** What each phase does with a press: a move, or undefined when the press does nothing there. */
 const PRESSES: Readonly<Record<Phase, (run: Run, action: Action) => Stepped | undefined>> = {
   ready: (run, action) => {
-    if (action === 'start') return { run: { ...run, phase: 'play', started: true, carry: 0 }, events: ['start'] };
+    if (action === 'start') return { run: { ...run, phase: 'play', started: true, carry: 0, crash: null }, events: ['start'] };
     if (action === 'b') return run.started ? ended(run) : { run, events: ['leave'] };
     return undefined;
   },

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -142,6 +143,17 @@ describe('the device page\'s card (PRD 1660)', () => {
     expect(html({ kind: 'denied' })).toContain('Got this link from someone? Ignore it.');
     expect(html({ kind: 'expired' })).toContain('This link has expired');
     expect(html({ kind: 'expired' })).toContain('Run <code>omni signin</code> again.');
+  });
+
+  it('shows the code in the pixel face on the sunk panel, and keeps the typed box in the mono face (PRD 1705)', () => {
+    expect(html({ kind: 'confirm', userCode: CODE })).toContain(`<p class="ask-device-code">${CODE}</p>`);
+    expect(html({ kind: 'enter' })).not.toContain('ask-device-code');
+    expect(html({ kind: 'enter' })).toContain('var(--ask-mono)');
+    const css = readFileSync(new URL('./device-card.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).toMatch(/\.ask-device-code \{[^}]*font: 24px\/1 var\(--ask-px\)/);
+    expect(css).toMatch(/\.ask-device-code \{[^}]*background: var\(--ask-sunk\)/);
+    expect(css).toMatch(/@media \(max-width: 899px\) \{\s*\.ask-device-code \{ font-size: 16px; \}/);
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
 
   it('keeps every sentence at rest within 7 words, and never shows anything but the user code', () => {
