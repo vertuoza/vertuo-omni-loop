@@ -5,12 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // crew gets the chart, the outsider and the signed-out visitor do not, and a build without a
 // knowledge base answers 'none'. Nothing reads Supabase or the disk.
 
-const given = vi.hoisted(() => ({
-  database: true,
-  user: null as { id: string } | null,
-  workspace: null as { id: string } | null,
-  root: '/checkout' as string | null,
-}));
+interface Given { database: boolean; user: { id: string } | null; workspace: { id: string } | null; root: string | null }
+const given = vi.hoisted((): Given => ({ database: true, user: null, workspace: null, root: '/checkout' }));
 const loadKnowledge = vi.hoisted(() => vi.fn(() => ({ version: 1, repo: 'acme/widgets', domains: [], entries: [], links: [], loose: [], unserved: [] })));
 
 vi.mock('server-only', () => ({}));
