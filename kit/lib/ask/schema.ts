@@ -61,3 +61,46 @@ export type Tokens = z.infer<typeof TokensSchema>;
 
 /** The token exchange's reply, as a sign-in keeps it: both tokens are required. */
 export const TokenReplySchema = z.object({ access_token: text, refresh_token: text });
+
+// The question an agent asks the person on the page (PRD 1831): `AskUserQuestion`'s input shape, plus
+// an optional `lead` (the text written before asking, PRD 752) and `context` (the round's skill and
+// model, PRD 144: `repo`, `branch` and `prd` are read by the CLI itself). Claude's hook builds the
+// same object from its stdin and transcript, and an agent writes it to a file for `omni ask
+// question`. Unlike the reads above it is strict: an unknown field is refused, and named.
+
+/** One option of a question. */
+const QuestionOptionSchema = z.strictObject({ label: text, description: z.string() });
+
+/** One question, as `AskUserQuestion` takes it. */
+const QuestionSchema = z.strictObject({
+  question: text,
+  header: z.string(),
+  options: z.array(QuestionOptionSchema),
+  multiSelect: z.boolean(),
+});
+
+/** The round's context, as far as the agent knows it. */
+const QuestionContextSchema = z.strictObject({
+  skill: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+});
+
+const QuestionFileSchema = z.strictObject({
+  questions: z.array(QuestionSchema).min(1),
+  lead: z.string().optional(),
+  context: QuestionContextSchema.optional(),
+});
+export type QuestionFile = z.infer<typeof QuestionFileSchema>;
+
+/**
+ * `value` read as a question file, or the first field it gets wrong, as a dotted path
+ * (`questions.0.header`; an unknown field is named itself, `(file)` the file as a whole).
+ */
+export function readQuestionFile(value: unknown): { ok: true; value: QuestionFile } | { ok: false; field: string; message: string } {
+  const parsed = QuestionFileSchema.safeParse(value);
+  if (parsed.success) return { ok: true, value: parsed.data };
+  const [issue] = parsed.error.issues;
+  const path = issue ? issue.path.map(String) : [];
+  if (issue?.code === 'unrecognized_keys') path.push(issue.keys[0] ?? '');
+  return { ok: false, field: path.length > 0 ? path.join('.') : '(file)', message: issue?.message ?? 'not a question file' };
+}
