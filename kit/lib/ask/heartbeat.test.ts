@@ -1,7 +1,7 @@
 // The heartbeat's pure parts (PRD 757): the work finder and the throttle's window.
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
-import { claimWindow, findWork, forgetWindow, HEARTBEAT_EVERY_MS } from './heartbeat.ts';
+import { beatsAfter, claimWindow, findWork, forgetWindow, HEARTBEAT_EVERY_MS, startHeartbeat, windowDue } from './heartbeat.ts';
 
 const BRANCHES = { feature: 'feat/{topic}', phase0: 'docs/phase-0-{topic}', slice: 'feat/{topic}--{slice}', fix: 'fix/{topic}' };
 const FOLDERS = {
@@ -70,5 +70,49 @@ describe('the throttle window', () => {
     expect(claimWindow(root, 'claude-a', 1)).toBe(true);
     forgetWindow(root, 'claude-a');
     expect(claimWindow(root, 'claude-a', 2)).toBe(true);
+  });
+});
+
+describe('windowDue, the window read without claiming it (PRD 1831)', () => {
+  it('is due with no window, not due inside one, due again once it is 60 s old, and writes nothing', () => {
+    const { root } = makeRepo({ git: true });
+    expect(windowDue(root, 'claude-a', 1_000_000)).toBe(true);
+    expect(windowDue(root, 'claude-a', 1_000_000)).toBe(true);
+    claimWindow(root, 'claude-a', 1_000_000);
+    expect(windowDue(root, 'claude-a', 1_000_001)).toBe(false);
+    expect(windowDue(root, 'claude-a', 1_000_000 + HEARTBEAT_EVERY_MS)).toBe(true);
+    expect(windowDue(root, '../escape', 1)).toBe(false);
+  });
+});
+
+describe('beatsAfter, the commands that send the heartbeat (PRD 1831)', () => {
+  it('is every command but heartbeat, ask hook, session end and statusline', () => {
+    for (const argv of [['status'], ['prd', '7'], ['ask', 'on'], ['ask', 'question', '--file', 'q.json'], ['session', 'start'], ['help', 'heartbeat']]) {
+      expect(beatsAfter(argv), argv.join(' ')).toBe(true);
+    }
+    for (const argv of [['heartbeat'], ['heartbeat', '--end'], ['ask', 'hook', 'pre'], ['ask', 'hook', 'end'], ['session', 'end'], ['statusline'], ['statusline', '--refresh', '7'], []]) {
+      expect(beatsAfter(argv), argv.join(' ')).toBe(false);
+    }
+  });
+});
+
+describe('startHeartbeat, the detached child (PRD 1831)', () => {
+  it('starts `node <script> heartbeat --claimed` detached in cwd, its output ignored, and lets it go', () => {
+    const calls: { command: string; args: readonly string[]; options: unknown }[] = [];
+    let unrefs = 0;
+    const spawn = (command: string, args: readonly string[], options: unknown) => {
+      calls.push({ command, args, options });
+      return { on: () => undefined, unref: () => { unrefs += 1; } };
+    };
+    startHeartbeat({ spawn, script: '/kit/omni.mjs', cwd: '/repo', env: { OMNI_SESSION_ID: 's' } });
+    expect(calls).toEqual([{ command: process.execPath, args: ['/kit/omni.mjs', 'heartbeat', '--claimed'], options: { cwd: '/repo', detached: true, stdio: 'ignore', windowsHide: true, env: { OMNI_SESSION_ID: 's' } } }]);
+    expect(unrefs).toBe(1);
+  });
+
+  it('never throws when the child cannot start', () => {
+    const spawn = () => {
+      throw new Error('EAGAIN');
+    };
+    expect(() => { startHeartbeat({ spawn, script: '/kit/omni.mjs', cwd: '/repo', env: {} }); }).not.toThrow();
   });
 });

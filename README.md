@@ -69,6 +69,12 @@ the command with one line naming the variables, never a value (ADR-0057). Every 
   `omni dossier open` tags a draft with, under any coding agent; set, it wins over the session id
   Claude Code sets. Unset under an agent that gives none, `omni dossier open` generates one
   and keeps it for the checkout in `.omni-loop/local/session.json`.
+- `OMNI_HEARTBEAT`: `off` stops the heartbeat every `omni` command run in a session sends the Omni
+  page, at most once a minute and in the background; `on`, or unset, keeps it. Claude Code's own
+  hook still runs `omni heartbeat` after each tool call.
+- `OMNI_ASK`: `on` turns ask mode on with no `omni ask on`, as a cloud session's fresh clone needs, so
+  `omni ask question` asks the person on the Omni page; `off` turns it off whatever `omni ask on`
+  wrote; unset, `omni ask on` and `omni ask off` decide.
 <!-- /omni:env-variables -->
 
 The app and the arcade each list their own: [`apps/omni-app/README.md`](apps/omni-app/README.md),

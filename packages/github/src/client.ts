@@ -4,8 +4,12 @@
 // answer) or `background` (the sync, a recount, a refresh, a check).
 //
 // - A GET is sent with the stored ETag of its (installation, URL) as If-None-Match; a 304, which GitHub
-//   does not count, answers the stored body. A 200 with an ETag is stored. GraphQL is never stored.
-// - Every answer's x-ratelimit-* headers update the installation's budget for the answer's resource.
+//   does not count, answers the stored body. A 200 with an ETag is stored, unless its body is over
+//   MAX_STORED_BODY (a list page that changes on every update). GraphQL is never stored. A 304 marks
+//   its ETag read at most once every TOUCH_EVERY_MS: the mark only keeps it from the sync's prune.
+// - Every answer's x-ratelimit-* headers update the installation's budget for the answer's resource,
+//   when they say something the stored budget does not (worthWriting): a write per answer cost the
+//   database a sixth of its time (#1851).
 // - A background call is refused with GithubDeferred, unsent, while the resource's remaining is below
 //   20% of its limit and its window has not reset. An interactive call may spend it to zero.
 // - A 403 or 429 that says the limit is spent (nothing remaining, a retry-after, or the secondary-limit
@@ -58,6 +62,14 @@ export const BACKGROUND_FLOOR = 0.2;
 /** A pause when GitHub says the limit is spent but gives no time to wait. */
 const DEFAULT_PAUSE_MS = 60_000;
 const SECONDARY = /secondary rate limit/i;
+/** The budget is written again once its remaining moved by this share of its limit... */
+const BUDGET_STEP = 0.02;
+/** ...or once the stored one is this old. */
+const BUDGET_FRESH_MS = 60_000;
+/** A 304 marks its ETag read once a day at most; the sync drops ETags not read for 7 days. */
+const TOUCH_EVERY_MS = 24 * 3_600_000;
+/** A body longer than this (in UTF-16 units, as it is read) is not stored with its ETag. */
+const MAX_STORED_BODY = 512 * 1024;
 
 /** A background call refused, unsent, because the budget is below its floor until `until` (epoch ms). */
 export class GithubDeferred extends Error {
@@ -122,6 +134,19 @@ async function saysSpent(res: Response): Promise<boolean> {
   return SECONDARY.test(await res.clone().text().catch(() => ''));
 }
 
+/**
+ * Whether an answer's budget is worth a write over the stored one: there is none, it is another window
+ * or limit, it is BUDGET_FRESH_MS old, its remaining moved by BUDGET_STEP of the limit, or the answer is
+ * within BUDGET_STEP of the background floor, where the refusal below turns on the stored remaining.
+ */
+function worthWriting(known: StoredBudget | null, reported: { limit: number; remaining: number; resetAt: number }, at: number): boolean {
+  if (!known || known.limit !== reported.limit || known.resetAt !== reported.resetAt) return true;
+  const step = reported.limit * BUDGET_STEP;
+  return at - known.updatedAt >= BUDGET_FRESH_MS
+    || Math.abs(known.remaining - reported.remaining) >= step
+    || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
+}
+
 /** Refused unsent: a pause on the resource, or a background call below the floor of a window not yet reset. */
 function refusal(budget: StoredBudget | null, priority: Priority, now: number): Error | null {
   if (!budget) return null;
@@ -154,11 +179,13 @@ export function githubClient({ store, fetch: send = (url, init) => globalThis.fe
     }
   }
 
-  /** What an answer says of the budget, stored; the pause it asks for, if any, stored and thrown. */
-  async function record(installation: number, resource: Resource, res: Response, at: number): Promise<void> {
+  /** What an answer says of the budget, stored when `known` (the budget read before the call) does not
+   * say it already; the pause it asks for, if any, stored and thrown. */
+  async function record(installation: number, resource: Resource, known: StoredBudget | null, res: Response, at: number): Promise<void> {
     const reported = budgetOf(res.headers);
     const answeredResource = res.headers.get('x-ratelimit-resource') || resource;
-    if (reported?.limit) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at }));
+    const stale = answeredResource === resource ? known : null;
+    if (reported?.limit && worthWriting(stale, reported, at)) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at }));
     const pauseUntil = await pauseOf(res, at);
     if (pauseUntil === null) return;
     await stored((s) => s.pause(installation, answeredResource, pauseUntil, at));
@@ -175,12 +202,13 @@ export function githubClient({ store, fetch: send = (url, init) => globalThis.fe
   /** The answer the caller gets: a 304 as the stored 200, and a new 200 with an ETag kept for next time. */
   async function answerOf(installation: number, url: string, res: Response, { conditional, kept }: { conditional: boolean; kept: StoredEtag | null }, at: number): Promise<Response> {
     if (res.status === 304 && kept) {
-      await stored((s) => s.touchEtag(installation, url, at));
+      if (at - kept.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at));
       return fromStore(res, kept);
     }
     const etag = res.headers.get('etag');
     if (!conditional || res.status !== 200 || !etag) return res;
     const body = await res.clone().text();
+    if (body.length > MAX_STORED_BODY) return res;
     await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get('content-type'), at }));
     return res;
   }
@@ -189,7 +217,8 @@ export function githubClient({ store, fetch: send = (url, init) => globalThis.fe
     const { installation, priority, ...rest } = init;
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
-    const refused = refusal(await stored((s) => s.budget(installation, resource)), priority, clock());
+    const known = await stored((s) => s.budget(installation, resource));
+    const refused = refusal(known, priority, clock());
     if (refused) throw refused;
 
     const etag = await conditionalOf(installation, url, resource, rest.method);
@@ -198,7 +227,7 @@ export function githubClient({ store, fetch: send = (url, init) => globalThis.fe
     const res = await send(url, headers === undefined ? rest : { ...rest, headers });
 
     const answered = clock();
-    await record(installation, resource, res, answered);
+    await record(installation, resource, known, res, answered);
     return answerOf(installation, url, res, etag, answered);
   }
 

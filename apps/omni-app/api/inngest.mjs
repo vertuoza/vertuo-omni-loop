@@ -480,6 +480,10 @@ function processEnv() {
 var BACKGROUND_FLOOR = 0.2;
 var DEFAULT_PAUSE_MS = 6e4;
 var SECONDARY = /secondary rate limit/i;
+var BUDGET_STEP = 0.02;
+var BUDGET_FRESH_MS = 6e4;
+var TOUCH_EVERY_MS = 24 * 36e5;
+var MAX_STORED_BODY = 512 * 1024;
 var GithubDeferred = class extends Error {
   until;
   constructor(until) {
@@ -528,6 +532,11 @@ async function saysSpent(res) {
   if (res.headers.get("x-ratelimit-remaining") === "0" || res.status === 429) return true;
   return SECONDARY.test(await res.clone().text().catch(() => ""));
 }
+function worthWriting(known, reported, at3) {
+  if (!known || known.limit !== reported.limit || known.resetAt !== reported.resetAt) return true;
+  const step = reported.limit * BUDGET_STEP;
+  return at3 - known.updatedAt >= BUDGET_FRESH_MS || Math.abs(known.remaining - reported.remaining) >= step || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
+}
 function refusal(budget, priority, now) {
   if (!budget) return null;
   if (budget.pausedUntil !== null && budget.pausedUntil > now) return new GithubPaused(budget.pausedUntil);
@@ -556,10 +565,11 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
       return null;
     }
   }
-  async function record(installation, resource, res, at3) {
+  async function record(installation, resource, known, res, at3) {
     const reported = budgetOf(res.headers);
     const answeredResource = res.headers.get("x-ratelimit-resource") || resource;
-    if (reported?.limit) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at: at3 }));
+    const stale = answeredResource === resource ? known : null;
+    if (reported?.limit && worthWriting(stale, reported, at3)) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at: at3 }));
     const pauseUntil = await pauseOf(res, at3);
     if (pauseUntil === null) return;
     await stored((s) => s.pause(installation, answeredResource, pauseUntil, at3));
@@ -572,12 +582,13 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
   }
   async function answerOf(installation, url, res, { conditional, kept: kept3 }, at3) {
     if (res.status === 304 && kept3) {
-      await stored((s) => s.touchEtag(installation, url, at3));
+      if (at3 - kept3.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at3));
       return fromStore(res, kept3);
     }
     const etag = res.headers.get("etag");
     if (!conditional || res.status !== 200 || !etag) return res;
     const body = await res.clone().text();
+    if (body.length > MAX_STORED_BODY) return res;
     await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get("content-type"), at: at3 }));
     return res;
   }
@@ -585,13 +596,14 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const { installation, priority, ...rest } = init;
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
-    const refused4 = refusal(await stored((s) => s.budget(installation, resource)), priority, clock());
+    const known = await stored((s) => s.budget(installation, resource));
+    const refused4 = refusal(known, priority, clock());
     if (refused4) throw refused4;
     const etag = await conditionalOf(installation, url, resource, rest.method);
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
     const answered = clock();
-    await record(installation, resource, res, answered);
+    await record(installation, resource, known, res, answered);
     return answerOf(installation, url, res, etag, answered);
   }
   const stripPriority = (init) => {
@@ -6389,6 +6401,22 @@ var RoundFileSchema = z22.object({
 var HeartbeatWindowSchema = z22.object({ sentAt: z22.number() });
 var TokensSchema = z22.looseObject({ access_token: text4 });
 var TokenReplySchema = z22.object({ access_token: text4, refresh_token: text4 });
+var QuestionOptionSchema = z22.strictObject({ label: text4, description: z22.string() });
+var QuestionSchema = z22.strictObject({
+  question: text4,
+  header: z22.string(),
+  options: z22.array(QuestionOptionSchema),
+  multiSelect: z22.boolean()
+});
+var QuestionContextSchema = z22.strictObject({
+  skill: z22.string().nullable().optional(),
+  model: z22.string().nullable().optional()
+});
+var QuestionFileSchema = z22.strictObject({
+  questions: z22.array(QuestionSchema).min(1),
+  lead: z22.string().optional(),
+  context: QuestionContextSchema.optional()
+});
 
 // kit/lib/ask/client.ts
 var AskCallError = class extends Error {
@@ -6567,14 +6595,29 @@ var SESSION = envGroup({
     waylandDisplay: "WAYLAND_DISPLAY"
   }
 });
+var HEARTBEAT = envGroup({
+  label: "the heartbeat",
+  schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
+  variables: { switch: "OMNI_HEARTBEAT" }
+});
+var ASK = envGroup({
+  label: "ask mode",
+  schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
+  variables: { switch: "OMNI_ASK" }
+});
+var TEST_RUNNER = envGroup({
+  label: "the test runner",
+  schema: z25.object({ vitest: z25.string() }),
+  variables: { vitest: "VITEST" }
+});
 var PACKAGE_MANAGER = envGroup({
   label: "the package manager",
   schema: z25.object({ execPath: z25.string() }),
   variables: { execPath: "npm_execpath" }
 });
-var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION]);
+var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync15, rmSync as rmSync5, writeFileSync as writeFileSync5 } from "node:fs";

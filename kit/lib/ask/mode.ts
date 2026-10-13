@@ -8,6 +8,12 @@
 //   names it), then deletes the flag and every terminal's file, even when the server cannot be told;
 //   a session left open reads as closed on its own after 12 hours without a call.
 // - `status` reads the checkout alone, as the hooks do, and calls nothing.
+//
+// Since PRD 1831 `OMNI_ASK` switches the mode with no file (`askMode`): `on` turns it on against
+// `ask.url` in a checkout with no `ask.json`, as a cloud session's fresh clone has; `off` turns it off
+// whatever the file says; unset, the file decides, as it always has.
+import { loadConfig } from '../config.ts';
+import type { AskSwitch } from '../env/read.ts';
 import { defined, messageOf } from '../narrow.ts';
 import { askClient } from './client.ts';
 import type { Fetch, TokenStore } from './client.ts';
@@ -84,8 +90,25 @@ export async function turnOff({ root, askUrl, tokens, fetch }: {
   return { leftOpen };
 }
 
+/**
+ * The mode in this checkout as `OMNI_ASK` (`askSwitch`) and `ask.json` say: the host it is on against
+ * and the URL its calls go to, or `null` when it is off. `on` needs only `ask.url`; `off` wins over
+ * the file; `null` reads the file alone ({@link activeMode}).
+ */
+export function askMode(root: string, askSwitch: AskSwitch): { host: string; baseUrl: string } | null {
+  if (askSwitch === 'off') return null;
+  if (askSwitch === null) return activeMode(root);
+  let baseUrl: string | null;
+  try {
+    baseUrl = loadConfig(root).ask.url;
+  } catch {
+    return null;
+  }
+  return baseUrl ? { host: hostOf(baseUrl), baseUrl } : null;
+}
+
 /** The person's page while the mode is on as the hooks read it, or `null` when it is off. */
-export function modeStatus(root: string): string | null {
-  const mode = activeMode(root);
+export function modeStatus(root: string, askSwitch: AskSwitch = null): string | null {
+  const mode = askMode(root, askSwitch);
   return mode ? pageUrl(mode.baseUrl) : null;
 }
