@@ -5,7 +5,7 @@
 // planet.ts), with the same rows.
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
-import type { GalaxyView, Planet } from '@omni/galaxy';
+import type { GalaxyView, LogLine, Planet } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
 import { FleetSprite, Sprite } from '../Sprite';
 import { useScreen } from '../Screen';
@@ -61,10 +61,25 @@ export function dossierOf(dossiers: DossiersRead | undefined, planet: PlanetRef,
  * on every other tab.
  */
 export function dossierLink(dossiers: DossiersRead | undefined, planet: PlanetRef, tab: number, planets: readonly Pick<Planet, 'prd' | 'key'>[] = []): string | null {
-  if (tab !== DOSSIER_TAB) return null;
-  const d = dossierOf(dossiers, planet, planets);
-  return typeof d === 'object' ? d.url : null;
+  return startLink(dossierOf(dossiers, planet, planets), tab);
 }
+
+/**
+ * The page START opens from a planet whose DOSSIER tab shows `dossier`, on `tab` (PRD 1808): only once
+ * the dossier has arrived, and only for one with a page to open. Null while it is on its way.
+ */
+export function startLink(dossier: DossierShown | 'loading', tab: number): string | null {
+  return tab === DOSSIER_TAB && typeof dossier === 'object' ? dossier.url : null;
+}
+
+/** What the overlay shows of a planet's details while they are read (PRD 1808): LOADING…, as the arcade says it. */
+const LOADING = 'LOADING…';
+
+/** The LOG tab's line when the planet's log could not be read. */
+const LOG_OUT_OF_REACH = 'LOG OUT OF REACH';
+
+/** The log the LOG tab shows: its last lines, on their way, or out of reach. */
+export type LogShown = readonly Pick<LogLine, 'at' | 'text'>[] | 'loading' | 'unreadable';
 
 /** One line of the status tab: its label and its value. */
 export interface StatusRow {
@@ -185,7 +200,8 @@ function day(iso: string): string {
  * and answered, and the last three answered, each question with its answer on one line. START opens the
  * page to share in a new tab; the hint is a button too. Reading a spec in pixel type would help nobody.
  */
-function DossierTab({ dossier }: { dossier: DossierShown }) {
+function DossierTab({ dossier }: { dossier: DossierShown | 'loading' }) {
+  if (dossier === 'loading') return <p className="empty">{LOADING}</p>;
   if (dossier === 'unreadable') return <p className="empty">DOSSIERS OUT OF REACH</p>;
   if (dossier === 'none') return <p className="empty">NO DOSSIER YET. ONE OPENS WITH THE PRD&apos;S BRAINSTORM.</p>;
   return (
@@ -220,18 +236,24 @@ function DossierTab({ dossier }: { dossier: DossierShown }) {
   );
 }
 
-function LogTab({ p }: { p: Planet }) {
+function LogTab({ log }: { log: LogShown }) {
+  if (log === 'loading') return <p className="empty">{LOADING}</p>;
+  if (log === 'unreadable') return <p className="empty">{LOG_OUT_OF_REACH}</p>;
   return (
     <ol className="log">
-      {p.log.slice(0, 8).map((l, i) => (
+      {log.slice(0, 8).map((l, i) => (
         <li key={`${l.at}-${i}`}><time>{shortDate(l.at)}</time> {l.text}</li>
       ))}
     </ol>
   );
 }
 
-export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
-  view: GalaxyView; planet: Planet; tab: number; onTab: (t: number) => void; dossier: DossierShown;
+/**
+ * The planet, opened at once from what the map knows (PRD 1808): its DOSSIER and LOG tabs show LOADING…
+ * until the planet's details arrive, then their content, or their out-of-reach line.
+ */
+export function PlanetOverlay({ view, planet: p, tab, onTab, dossier, log }: {
+  view: GalaxyView; planet: Planet; tab: number; onTab: (t: number) => void; dossier: DossierShown | 'loading'; log: LogShown;
 }) {
   const { grid } = useScreen();
   return (
@@ -257,7 +279,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
           {tab === 0 && <StatusTab p={p} view={view} />}
           {tab === 1 && <ZonesTab p={p} />}
           {tab === 2 && <EntropyTab p={p} view={view} />}
-          {tab === 3 && <LogTab p={p} />}
+          {tab === 3 && <LogTab log={log} />}
           {tab === DOSSIER_TAB && <DossierTab dossier={dossier} />}
         </div>
       </section>

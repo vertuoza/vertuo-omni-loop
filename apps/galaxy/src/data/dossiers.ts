@@ -1,15 +1,15 @@
 // The planets' dossiers (PRD 216), for the planet's DOSSIER tab, read as the signed-in member in the
-// workspace the arcade plays, on their own after the galaxy, as XP and the high scores are: a read that
-// fails leaves the galaxy shown, and the tab says DOSSIERS OUT OF REACH.
+// workspace the arcade plays, one planet at a time when its overlay opens (PRD 1808: GET
+// /api/arcade/planets/<key>, `readPlanetDossier`): a read that fails leaves the planet shown, and the tab
+// says DOSSIERS OUT OF REACH. /play itself reads none.
 //
 // A planet's dossier is the one whose home repository is the workspace's plan repository
 // (`<github_org>/<plan_repo>`, in lower case, as the dossier keeps it) and whose number is the planet's
-// PRD. The workspace row gives the plan repository, the dossiers table the ids of its PRDs' dossiers,
-// and each of the galaxy's planets that has one is then read by its id: dossier_list(p_dossier) for its
-// latest version of each kind and its question counts (supabase/migrations/20260928110000_dossier_list.sql),
-// dossier_rounds(p_dossier) for its last three answered rounds (…100000_dossier_rounds.sql). Both
-// compute a dossier's rounds, so neither is ever asked for every dossier at once. All of it runs as the
-// member, so row-level security and PRD 144's access rules decide what comes back.
+// PRD. It is read by its id: dossier_list(p_dossier) for its latest version of each kind and its question
+// counts (supabase/migrations/20260928110000_dossier_list.sql), dossier_rounds(p_dossier) for its last
+// three answered rounds (…100000_dossier_rounds.sql). Both compute a dossier's rounds, so neither is
+// ever asked for every dossier at once. All of it runs as the member, so row-level security and PRD
+// 144's access rules decide what comes back.
 //
 // The demo galaxy and the single-file artifact have no database: they get demo dossiers for a few of the
 // demo world's planets (`demoDossiers`), shaped by the same function, and in the artifact, which has no
@@ -19,11 +19,11 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import { readQuestions, shownLabel } from '../ask/answer-model';
 import { dossierPath } from '../dossier/page/view';
 import { ARTIFACT_KINDS, dossierList, dossierRounds, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
-import type { DossierAnswer, DossierLatest, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
+import type { DossierAnswer, DossierLatest, PlanetDossier, PlanetDossierRead } from '../arcade/types';
 import { z } from 'zod';
 import { type PrdNumber, PrdNumberSchema, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orThrow, parseRows } from './parse-rows';
-import { listOf, numberOf } from './unparsed';
+import { numberOf } from './unparsed';
 
 /** How many answered rounds the tab lists. */
 export const LAST_ANSWERS = 3;
@@ -104,52 +104,11 @@ export function planetDossier(row: DossierListRow, rounds: DossierRoundRow[], ur
 
 type Db = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 
-/** The workspace's plan repository as a dossier's home repository, or null when it has none. */
-async function planRepo(db: Db, workspace: string): Promise<string | null> {
-  const { data, error } = await db.from('workspaces').select('github_org, plan_repo').eq('id', workspace).maybeSingle();
-  if (error) throw new Error(`Supabase: could not read the workspace's plan repository (${error.message})`);
-  const row = data;
-  return row?.github_org && row.plan_repo ? `${row.github_org}/${row.plan_repo}`.toLowerCase() : null;
-}
-
-/** The ids of the plan repository's PRDs' dossiers, by PRD number. */
-async function dossierIds(db: Db, workspace: string, home: string): Promise<Map<number, string>> {
-  const { data, error } = await db.from('dossiers').select('id, prd').eq('workspace_id', workspace).eq('home_repo', home);
-  if (error) throw new Error(`Supabase: could not read the dossiers (${error.message})`);
-  const ids = new Map<number, string>();
-  for (const row of listOf(data)) if (row.prd !== null) ids.set(numberOf(row.prd), row.id);
-  return ids;
-}
-
 /** One planet's dossier, or null when it is gone; 'unreadable' when it could not be read. */
 async function readOne(db: Db, id: string): Promise<PlanetDossierRead | null> {
   try {
     const [rows, rounds] = await Promise.all([dossierList(db, id), dossierRounds(db, id)]);
     return rows[0] ? planetDossier(rows[0], rounds, dossierPath(id)) : null;
-  } catch (err) {
-    console.error(err);
-    return 'unreadable';
-  }
-}
-
-/**
- * The dossiers of the planets numbered `prds`, by PRD number, as the arcade takes them: a planet with
- * none is absent. 'unreadable' when the workspace or its dossiers cannot be read; a planet whose own
- * dossier cannot be read is 'unreadable' alone. Never throws: dossiers out of reach never take the
- * galaxy with them.
- */
-export async function readDossiers(db: Db, workspace: string, prds: readonly number[]): Promise<DossiersRead> {
-  if (!prds.length) return {};
-  try {
-    const home = await planRepo(db, workspace);
-    if (!home) return {};
-    const ids = await dossierIds(db, workspace, home);
-    const found = [...new Set(prds)].flatMap((prd) => {
-      const id = ids.get(prd);
-      return id === undefined ? [] : [[prd, id] as const];
-    });
-    const read = await Promise.all(found.map(async ([prd, id]) => [prd, await readOne(db, id)] as const));
-    return Object.fromEntries(read.filter((e): e is readonly [number, PlanetDossierRead] => e[1] !== null));
   } catch (err) {
     console.error(err);
     return 'unreadable';

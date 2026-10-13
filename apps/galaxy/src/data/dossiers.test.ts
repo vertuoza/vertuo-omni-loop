@@ -1,17 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
-import { demoDossiers, planetDossier, readDossiers, workspaceDossiers } from './dossiers';
+import { demoDossiers, planetDossier, workspaceDossiers } from './dossiers';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const NOW = new Date('2026-09-27T10:00:00Z');
-const containing = (fields: object): unknown => expect.objectContaining(fields);
 const HOME = 'vertuoza/vertuo-omni-plan';
 
 /** A dossier as dossier_list() lists it: Vertuoza's plan repository's PRD `prd`, unless told otherwise. */
@@ -87,98 +86,6 @@ describe('planetDossier', () => {
     const older = round(1, [], { 'Asked by an older kit?': 'Yes' }, '2026-09-22T10:00:00Z');
     const empty = round(2, [{ question: 'Answered with nothing?' }], {}, '2026-09-23T10:00:00Z');
     expect(planetDossier(row, [older, empty], null).last).toEqual([{ question: 'Asked by an older kit?', answer: 'Yes', more: 0, at: '2026-09-22T10:00:00Z' }]);
-  });
-});
-
-describe('readDossiers', () => {
-  afterEach(() => { vi.restoreAllMocks(); });
-
-  const planets = [12, 13, 14];
-  const DOSSIERS: FakeDossier[] = [
-    { row: listed('d-12', 12, { asked: 2, answered: 1, latest: { spec: { id: 'v1', version: 1, source: 'kit', created_at: '2026-09-21T08:00:00Z' } } }),
-      rounds: [ask(1, 'Which formats first?', 'CSV', '2026-09-21T10:00:00Z'), round(2, [{ question: 'Open?' }], null, null)] },
-    { row: listed('d-13', 13, { asked: 0, answered: 0 }), rounds: [] },
-    { row: listed('d-draft', null), rounds: [] }, // a draft: no planet has its number
-    { row: listed('d-14-core', 14, { home_repo: 'vertuoza/vertuo-core' }), rounds: [] }, // PRD 14 of another repository
-    { row: listed('d-99', 99), rounds: [] }, // the plan repository's, but no planet of this galaxy
-    { row: listed('d-acme-12', 12, { workspace_id: ACME, home_repo: 'acme/acme-plan' }), rounds: [] },
-  ];
-
-  function world(person: FakeUser = PEOPLE.ada, dossiers = DOSSIERS) {
-    const galaxy = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
-    const fake = withDossiers(galaxy, dossiers);
-    const db = fake.client(person) as unknown as SupabaseClient<Database>;
-    return { galaxy, fake, read: (workspace = VERTUOZA, prds = planets) => readDossiers(db, workspace, prds) };
-  }
-
-  it('reads each planet\'s dossier: its plan repository\'s PRD of the planet\'s number, with a link to its page', async () => {
-    const { read } = world();
-    const got = await read();
-    expect(Object.keys(got)).toEqual(['12', '13']);
-    expect(got).toEqual({
-      12: {
-        id: 'd-12', url: '/prd/d-12', asked: 2, answered: 1,
-        latest: { 'before-after': null, spec: { version: 1, at: '2026-09-21T08:00:00Z' }, plan: null },
-        last: [{ question: 'Which formats first?', answer: 'CSV', more: 0, at: '2026-09-21T10:00:00Z' }],
-      },
-      13: { id: 'd-13', url: '/prd/d-13', asked: 0, answered: 0, latest: { 'before-after': null, spec: null, plan: null }, last: [] },
-    });
-  });
-
-  it('finds the plan repository from the workspace, in lower case, and reads only the workspace played', async () => {
-    const { galaxy, fake, read } = world();
-    present(galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = 'Vertuo-Omni-Plan';
-    await read();
-    expect(galaxy.calls.filter((c) => c.kind === 'from')).toEqual([{ kind: 'from', table: 'workspaces', op: 'select', eq: { id: VERTUOZA } }]);
-    expect(fake.calls[0]).toEqual({ kind: 'from', table: 'dossiers', eq: { workspace_id: VERTUOZA, home_repo: HOME } });
-  });
-
-  it('passes each dossier to dossier_list() and dossier_rounds(), never asking either for every dossier at once', async () => {
-    const { fake, read } = world();
-    await read();
-    const rpcs = fake.calls.filter((c) => c.kind === 'rpc');
-    expect(rpcs).toHaveLength(4);
-    for (const call of rpcs) expect(['d-12', 'd-13']).toContain(call.args.p_dossier);
-  });
-
-  it('reads nothing more for a galaxy with no planet, or a workspace with no plan repository', async () => {
-    const empty = world();
-    expect(await empty.read(VERTUOZA, [])).toEqual({});
-    expect(empty.fake.calls).toEqual([]);
-    const unplanned = world();
-    present(unplanned.galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = null;
-    expect(await unplanned.read()).toEqual({});
-    expect(unplanned.fake.calls).toEqual([]);
-  });
-
-  it('reads a member of two workspaces\' dossiers in the one played only', async () => {
-    const { read } = world(PEOPLE.both);
-    expect(Object.keys(await read(ACME, [12]))).toEqual(['12']);
-    expect((await read(ACME, [12]))[12]).toMatchObject({ id: 'd-acme-12' });
-  });
-
-  it('leaves out a dossier dossier_list() no longer lists (deleted in between)', async () => {
-    const { fake, read } = world();
-    fake.state.gone.add('d-13');
-    expect(Object.keys(await read())).toEqual(['12']);
-  });
-
-  it('is out of reach when the workspace or the dossiers cannot be read, and says so in the log', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    const a = world();
-    a.galaxy.state.failOn = 'workspaces';
-    expect(await a.read()).toBe('unreadable');
-    const b = world();
-    b.fake.state.failOn = 'dossiers';
-    expect(await b.read()).toBe('unreadable');
-    expect(console.error).toHaveBeenCalledTimes(2);
-  });
-
-  it('keeps the other planets when one planet\'s dossier cannot be read', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { fake, read } = world();
-    fake.state.failOn = 'd-12';
-    expect(await read()).toEqual({ 12: 'unreadable', 13: containing({ id: 'd-13' }) });
   });
 });
 

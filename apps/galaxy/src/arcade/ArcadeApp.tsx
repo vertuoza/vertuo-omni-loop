@@ -27,7 +27,8 @@ import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './scenes/menu.tsx';
 import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
-import { dossierLink, dossierOf, PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
+import { PLANET_TABS, PlanetOverlay, startLink } from './scenes/planet.tsx';
+import { useOpenPlanetDetails } from './planet-details';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
@@ -231,9 +232,11 @@ export interface ArcadeProps {
    */
   scores?: Record<string, ScoresRead>;
   /**
-   * The planets' dossiers, by planet key or PRD number (PRD 216, PRD 728): the planet's DOSSIER tab shows its own, NO DOSSIER
-   * YET without one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open
-   * carries its link, and START opens it from the tab; the single-file artifact's carry none.
+   * The planets' dossiers, by planet key or PRD number (PRD 216, PRD 728), in a page with no database
+   * (the demo, the single-file artifact): the planet's DOSSIER tab shows its own, NO DOSSIER YET without
+   * one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open carries its
+   * link, and START opens it from the tab; the single-file artifact's carry none. A Supabase account's
+   * page carries none: the game reads a planet's dossier and log when it is opened (PRD 1808).
    */
   dossiers?: DossiersRead;
   /**
@@ -292,6 +295,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, [graph, chart, ui.sun, systemGrid]);
   const uiRef = useRef(ui);
   uiRef.current = ui;
+  // The open planet's dossier and log (PRD 1808): read when the planet is opened, kept for the session.
+  const details = useOpenPlanetDetails(view, dossiers, ui, account.kind);
   const meRef = useRef(me);
   meRef.current = me;
   const sessionRef = useRef(session);
@@ -876,8 +881,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'down') { go({ sel: (u.sel + 1) % planets }, 'move'); return; }
         if (action === 'start') {
           // On the DOSSIER tab, START opens the PRD's page to share; elsewhere it goes back to the map.
-          const on = view?.planets[u.sel];
-          const url = on ? dossierLink(dossiers, on, u.tab, view.planets) : null;
+          // Only once the dossier has arrived (PRD 1808): while it is on its way, START goes back to the map.
+          const url = startLink(details.dossier, u.tab);
           if (url) { sfx('select'); openPage(url); return; }
         }
         go({ scene: 'map' }, 'back'); return; // B, or START with no page to open
@@ -1025,7 +1030,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, details.dossier, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -1269,7 +1274,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'duet': return <DuetLayer duet={duet} send={send} />;
       case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} podiumKart={podiumKart} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
-      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
+      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={details.dossier} log={details.log} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
