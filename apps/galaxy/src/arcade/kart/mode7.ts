@@ -10,6 +10,8 @@
 // its size. The road has ups and downs (relief.ts, PRD 1698): `renderTerrain` draws it column by column,
 // the road's edge showing the side of a thick deck over the void; `renderFloor` is the flat floor.
 
+import { TILE, tileAt } from './track';
+
 export interface View {
   /** The screen, in pixels. */
   readonly w: number;
@@ -123,7 +125,7 @@ const PANEL = 6;
 /** The most samples a column of the floor takes (PRD 1698): the floor of a frame costs at most `w` × this. */
 const MAX_SAMPLES = 600;
 const sampleZ = new Float32Array(MAX_SAMPLES), sampleUp = new Float32Array(MAX_SAMPLES), sampleAlong = new Float32Array(MAX_SAMPLES);
-const samplePx = new Uint32Array(MAX_SAMPLES);
+const samplePx = new Uint32Array(MAX_SAMPLES), sampleRoof = new Uint8Array(MAX_SAMPLES);
 
 /** A colour of `glow` (its alpha says how much) laid over the packed pixel `under`; the glow itself over nothing. */
 function over(under: number, glow: number): number {
@@ -139,10 +141,10 @@ function over(under: number, glow: number): number {
 const read = (list: ArrayLike<number>, i: number): number => list[i] ?? 0;
 
 /** What drawing a frame's columns shares: the screen, the deck, the buffers drawn into, and the screen row of a point `up` high, `z` away. */
-interface Pass { readonly v: View; readonly deck: Deck; readonly out: Uint32Array; readonly depth: Float32Array; row(up: number, z: number): number }
+interface Pass { readonly v: View; readonly deck: Deck; readonly out: Uint32Array; readonly depth: Float32Array; readonly texture: Texture; readonly roofed?: Uint8Array | undefined; row(up: number, z: number): number }
 
 /** The ground of column `col` sampled outwards from `first`, about a row a sample and at most `MAX_SAMPLES` of them, into the scratch arrays; how many it took. */
-function sampleColumn(v: View, texture: Texture, heights: Float32Array, col: number, bounds: { first: number; far: number; k: number }): number {
+function sampleColumn(v: View, texture: Texture, heights: Float32Array, col: number, bounds: { first: number; far: number; k: number; roofed?: Uint8Array | undefined }): number {
   const across = (col + 0.5 - v.w / 2) / v.focal;
   const cos = Math.cos(v.angle), sin = Math.sin(v.angle);
   const dx = cos - sin * across, dy = sin + cos * across;
@@ -156,6 +158,7 @@ function sampleColumn(v: View, texture: Texture, heights: Float32Array, col: num
     samplePx[n] = read(texture.px, i);
     sampleUp[n] = read(heights, i);
     sampleAlong[n] = wx + wy;
+    sampleRoof[n] = bounds.roofed ? read(bounds.roofed, i) : 0;
     n++;
   }
   return n;
@@ -204,8 +207,11 @@ function paintSample(p: Pass, col: number, i: number): void {
  * under every pixel of `texture`, `range` the lowest and the highest of them. `depth` gets how far every pixel drawn
  * of the road is (Infinity elsewhere), so a sprite behind a hill is hidden (art.ts). The void, and the space above
  * the road, stay see-through. Returns the most samples a column took.
+ * `roofed` (PRD 1775, `roofedOf`) marks the pixels of the tunnel's roofed road: over each stands a roof `ROOF` up, with
+ * a wall on every edge toward the void and a lit portal where it meets the open road; only the columns whose ray
+ * reaches a roofed pixel pay for it, and the samples a column takes do not change.
  */
-export function renderTerrain(v: View, texture: Texture, heights: Float32Array, range: { low: number; high: number }, deck: Deck, out: Uint32Array, depth: Float32Array): number {
+export function renderTerrain(v: View, texture: Texture, heights: Float32Array, range: { low: number; high: number }, deck: Deck, out: Uint32Array, depth: Float32Array, roofed?: Uint8Array): number {
   out.fill(0);
   depth.fill(Infinity);
   const above = v.height - range.high;
@@ -214,15 +220,172 @@ export function renderTerrain(v: View, texture: Texture, heights: Float32Array, 
     far: Math.hypot(texture.w, texture.h),
     // A step of z²/k moves a point of the lowest ground (the deck's underside) one row at most.
     k: (v.height - range.low + deck.thickness) * v.focal,
+    roofed,
   };
-  const pass: Pass = { v, deck, out, depth, row: (up, z) => v.horizon + ((v.height - up) * v.focal) / z - 0.5 };
+  const pass: Pass = { v, deck, out, depth, texture, roofed, row: (up, z) => v.horizon + ((v.height - up) * v.focal) / z - 0.5 };
   let most = 0;
   for (let col = 0; col < v.w; col++) {
     const n = sampleColumn(v, texture, heights, col, bounds);
     most = Math.max(most, n);
-    for (let i = n - 1; i >= 0; i--) paintSample(pass, col, i);
+    const across = (col + 0.5 - v.w / 2) / v.focal;
+    const ray = { dx: Math.cos(v.angle) - Math.sin(v.angle) * across, dy: Math.sin(v.angle) + Math.cos(v.angle) * across };
+    for (let i = n - 1; i >= 0; i--) {
+      paintSample(pass, col, i);
+      if (roofed && (read(sampleRoof, i) || read(sampleRoof, i - 1))) paintTunnel(pass, col, i, ray);
+    }
+    if (roofed) paintNearWall(pass, col, ray, heights, bounds.first);
   }
   return most;
+}
+
+/** How high the tunnel's roof stands over its ground, in world units (PRD 1775). */
+export const ROOF = 44;
+
+/** The tunnel's colours, packed like the floor's: panels, seams, strips of light, portal frame and porthole rim. */
+export const TUNNEL = Object.freeze({
+  ceilingA: 0xff4a3f38, ceilingB: 0xff574b43, ceilingSeam: 0xff2a221e, strip: 0xfff4f0d0,
+  roofA: 0xff6a5d55, roofB: 0xff796c63, roofSeam: 0xff958a80,
+  wallInA: 0xff5a4a40, wallInB: 0xff6b5a4e, wallOutA: 0xff6f6258, wallOutB: 0xff7d7066, wallSeam: 0xff2e2620, trim: 0xff3a302a,
+  rim: 0xffffe29a, portal: 0xfffff0a8,
+});
+
+/** A tile of roofed road in a circuit's map. */
+const ROOFED_TILE = 'T';
+
+/** Which pixels of `texture` are roofed road (1) and which are not (0): what `renderTerrain` draws the tunnel from. */
+export function roofedOf(track: { readonly map: readonly string[] }, texture: Texture): Uint8Array {
+  const out = new Uint8Array(texture.w * texture.h);
+  for (let y = 0; y < texture.h; y++) {
+    const ty = Math.floor(y / TILE);
+    for (let x = 0; x < texture.w; x++) if (tileAt(track.map, Math.floor(x / TILE), ty) === ROOFED_TILE) out[y * texture.w + x] = 1;
+  }
+  return out;
+}
+
+const mod = (a: number, b: number): number => ((a % b) + b) % b;
+
+/** Whether the point `wx`, `wy` is on the checkerboard's first colour, a tile a square. */
+const checker = (wx: number, wy: number): boolean => (Math.floor(wx / TILE) + Math.floor(wy / TILE)) % 2 === 0;
+/** Whether the point `wx`, `wy` is on a seam between two panels. */
+const seam = (wx: number, wy: number): boolean => mod(wx, TILE) < 1 || mod(wy, TILE) < 1;
+
+/** The roof's top at `wx`, `wy`: panels a tile wide, seams between. */
+function roofTop(wx: number, wy: number): number {
+  if (seam(wx, wy)) return TUNNEL.roofSeam;
+  return checker(wx, wy) ? TUNNEL.roofA : TUNNEL.roofB;
+}
+
+/** The ceiling's pixel under the roof at `wx`, `wy`: panels a tile wide, seams between, strips of light. */
+function ceilingPixel(wx: number, wy: number): number {
+  if (mod(wx, 32) < 4 || mod(wy, 32) < 3) return TUNNEL.strip;
+  if (seam(wx, wy)) return TUNNEL.ceilingSeam;
+  return checker(wx, wy) ? TUNNEL.ceilingA : TUNNEL.ceilingB;
+}
+
+/** Whether the pixel at `wx`, `wy` is roofed. */
+function roofedAt(p: Pass, wx: number, wy: number): boolean {
+  const tx = Math.floor(wx), ty = Math.floor(wy);
+  return tx >= 0 && ty >= 0 && tx < p.texture.w && ty < p.texture.h && read(p.roofed ?? [], ty * p.texture.w + tx) === 1;
+}
+
+/** The distance at which the ray of `ray`, between `near` and `far` (the first not like the second), stops being roofed. */
+function roofEdge(p: Pass, ray: { dx: number; dy: number }, near: number, far: number): number {
+  const { v } = p;
+  const was = roofedAt(p, v.x + ray.dx * near, v.y + ray.dy * near);
+  let lo = near, hi = far;
+  for (let k = 0; k < 6; k++) {
+    const mid = (lo + hi) / 2;
+    if (roofedAt(p, v.x + ray.dx * mid, v.y + ray.dy * mid) === was) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/** Where a wall or a portal stands on a ray: its distance, the ground under it, and the way it faces. */
+interface Edge { z: number; ground: number; inside: boolean; portal: boolean; sideways: boolean; wx: number; wy: number }
+
+/** The wall's panel at `along` its length: two tones a tile wide, a dark seam between, lighter inside than out. */
+function wallPanel(inside: boolean, along: number): number {
+  if (mod(along, TILE) < 1) return TUNNEL.wallSeam;
+  const tones = inside ? [TUNNEL.wallInA, TUNNEL.wallInB] : [TUNNEL.wallOutA, TUNNEL.wallOutB];
+  return tones[Math.floor(along / TILE) % 2 === 0 ? 0 : 1] ?? TUNNEL.wallSeam;
+}
+
+/** The wall's pixel `u` units over its ground, at `along` its length: trim at the ends, a porthole on the starfield (0) with a rim inside, panels between. */
+function wallPixel(edge: Edge, along: number, u: number): number {
+  if (u > ROOF - 2 || u < 1.5) return TUNNEL.trim;
+  const ring = edge.inside ? Math.hypot(mod(along, TILE) - TILE / 2, u - ROOF / 2) : Infinity;
+  if (ring < 4.5) return 0;
+  return ring < 6 ? TUNNEL.rim : wallPanel(edge.inside, along);
+}
+
+/** The wall (or the portal's frame) standing on the roofed edge at distance `z` of column `col`: from the ground up to the roof. */
+function paintWall(p: Pass, col: number, edge: Edge): void {
+  const { v, out, depth } = p;
+  const { z, ground } = edge;
+  const top = Math.max(0, Math.ceil(p.row(ground + ROOF, z))), bottom = Math.min(v.h, Math.ceil(p.row(ground, z)));
+  const along = edge.sideways ? edge.wx : edge.wy; // across the edge's plane, along the wall
+  const reach = 3; // how far a lateral neighbour has to be to tell the opening's side
+  const side = edge.sideways ? [roofedAt(p, edge.wx - reach, edge.wy), roofedAt(p, edge.wx + reach, edge.wy)] : [roofedAt(p, edge.wx, edge.wy - reach), roofedAt(p, edge.wx, edge.wy + reach)];
+  const post = edge.portal && side.includes(false);
+  for (let r = top; r < bottom; r++) {
+    const u = v.height - ((r + 0.5 - v.horizon) * z) / v.focal - ground; // the height over the ground
+    const lit = post || u > ROOF - 5;
+    if (edge.portal && !lit) continue;
+    out[r * v.w + col] = edge.portal ? TUNNEL.portal : wallPixel(edge, along, u);
+    depth[r * v.w + col] = z;
+  }
+}
+
+/** The ceiling (or, from above, the roof's top) over the stretch of column `col` between `near` and `far`, at the roof of ground `ground`. */
+function paintRoof(p: Pass, col: number, span: { near: number; far: number; ground: number; ray: { dx: number; dy: number } }): void {
+  const { v, out, depth } = p;
+  const level = span.ground + ROOF, lift = v.height - level;
+  if (Math.abs(lift) < 0.01) return;
+  const a = p.row(level, span.near), b = p.row(level, span.far);
+  const lo = Math.max(0, Math.ceil(Math.min(a, b))), hi = Math.min(v.h, Math.ceil(Math.max(a, b)));
+  for (let r = lo; r < hi; r++) {
+    const z = (lift * v.focal) / (r + 0.5 - v.horizon);
+    if (z <= 0) continue;
+    const i = r * v.w + col;
+    const wx = v.x + span.ray.dx * z, wy = v.y + span.ray.dy * z;
+    out[i] = lift < 0 ? ceilingPixel(wx, wy) : roofTop(wx, wy);
+    depth[i] = z;
+  }
+}
+
+/** The wall (or portal) the ray of column `col` meets before the first sample: nearer than anything the samples reach, whether the camera stands on roofed road or beside it. */
+function paintNearWall(p: Pass, col: number, ray: { dx: number; dy: number }, heights: Float32Array, first: number): void {
+  const { v, texture } = p;
+  const at = (z: number) => ({ x: v.x + ray.dx * z, y: v.y + ray.dy * z });
+  const index = (z: number) => { const { x, y } = at(z); return x >= 0 && y >= 0 && x < texture.w && y < texture.h ? Math.floor(y) * texture.w + Math.floor(x) : -1; };
+  const was = roofedAt(p, at(NEAR).x, at(NEAR).y);
+  for (let z = NEAR + 2; z < first + 2; z += 2) {
+    const here = at(z), there = at(z - 2);
+    if (roofedAt(p, here.x, here.y) === was) continue;
+    const roofedSide = was ? z - 2 : z, openSide = was ? z : z - 2;
+    paintWall(p, col, {
+      z: roofEdge(p, ray, z - 2, z), ground: read(heights, index(roofedSide)), inside: was,
+      portal: read(texture.px, index(openSide)) !== 0, sideways: Math.floor(there.x) !== Math.floor(here.x), wx: at(roofEdge(p, ray, z - 2, z)).x, wy: at(roofEdge(p, ray, z - 2, z)).y,
+    });
+    return;
+  }
+}
+
+/** What the roofed road adds to the stretch of column `col` between samples `i - 1` and `i`: its roof or ceiling, and the wall or portal standing where the roof ends. */
+function paintTunnel(p: Pass, col: number, i: number, ray: { dx: number; dy: number }): void {
+  const { v } = p;
+  const b = read(sampleRoof, i) === 1, a = i > 0 ? read(sampleRoof, i - 1) === 1 : b;
+  const z1 = read(sampleZ, i), z0 = i > 0 ? read(sampleZ, i - 1) : z1 * 0.98;
+  const ground = b ? read(sampleUp, i) : read(sampleUp, i - 1);
+  if (a === b) { paintRoof(p, col, { near: z0, far: z1, ground, ray }); return; }
+  const zb = roofEdge(p, ray, z0, z1);
+  const wx = v.x + ray.dx * zb, wy = v.y + ray.dy * zb;
+  const before = { x: v.x + ray.dx * z0, y: v.y + ray.dy * z0 }, after = { x: v.x + ray.dx * z1, y: v.y + ray.dy * z1 };
+  const sideways = Math.floor(before.x) !== Math.floor(after.x);
+  const beyond = b ? read(samplePx, i - 1) : read(samplePx, i); // the side that is not roofed: the void has no colour
+  const wall = { z: zb, ground, inside: a, portal: beyond !== 0, sideways, wx, wy };
+  const piece = { near: a ? z0 : zb, far: b ? z1 : zb, ground, ray };
+  if (b) { paintRoof(p, col, piece); paintWall(p, col, wall); } else { paintWall(p, col, wall); paintRoof(p, col, piece); }
 }
 
 /** How far the sky has scrolled sideways, in pixels of a panorama `panorama` wide, for a camera looking along `angle`: turning right scrolls it left. */

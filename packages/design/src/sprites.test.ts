@@ -72,6 +72,9 @@ const FORGED: Record<string, string> = {
   'sky-station': '2967f65def823c9b',
   // OMNI KART's glowing item box (PRD 1427, slice 7), pinned as first drawn.
   'item-box': 'a2e51adbe48f7ba2',
+  // OMNI KART's station props and the convoys' ship (PRD 1775, slice 3), pinned as first drawn.
+  'prop-lamp': '4c1c91fa944df708', 'prop-dish': '472acd4a9fbeb209', 'prop-crane': '8562301b2aaf134c',
+  'prop-container': 'c57be83ea8ce7498', 'sky-convoy': '50a0915d98867e40',
 };
 const FORGED_WOUNDED: Record<string, string> = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
@@ -500,5 +503,33 @@ describe('the app selector\'s sprites (PRD 932)', () => {
     expect([...tones].some((p) => tone('C').includes(p)), 'screen glow').toBe(true);
     expect([...tones].some((p) => tone('M').includes(p)), 'marquee').toBe(true);
     expect([...tones].some((p) => RAMPS.Y.includes(p)), 'lights').toBe(true);
+  });
+});
+
+describe('OMNI KART\'s station sprites (PRD 1775)', () => {
+  const SIZES: Record<string, [number, number]> = {
+    'prop-lamp': [10, 26], 'prop-dish': [20, 20], 'prop-crane': [32, 40], 'prop-container': [24, 16], 'sky-convoy': [14, 8],
+  };
+
+  it.each(Object.keys(SIZES))('%s has two frames of its declared size, in palette colours only', (name) => {
+    const def = SPRITE_DEFS[name];
+    expect(def, name).toBeDefined();
+    expect([def?.w, def?.h]).toEqual(SIZES[name]);
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual(SIZES[name]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(w * h * 0.1);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it.each(['prop-lamp', 'prop-dish'])('%s moves: its two frames differ', (name) => {
+    expect(spritePixels(name, { frame: 0 }).pixels.join()).not.toBe(spritePixels(name, { frame: 1 }).pixels.join());
+  });
+
+  it('draws the five apart from each other', () => {
+    const seen = new Set(Object.keys(SIZES).map((n) => spritePixels(n, { frame: 0 }).pixels.join()));
+    expect(seen.size).toBe(5);
   });
 });

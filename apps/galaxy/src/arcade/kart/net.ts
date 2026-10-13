@@ -79,6 +79,8 @@ const State = z.object({
   passed: z.number().int().min(0).max(1000),
   spin: z.number().min(0),
   fall: z.number().min(0),
+  /** Its height over the ground (PRD 1775); optional so a player on the previous build does not break the race, and read as 0 when missing. */
+  height: z.number().min(0).optional(),
 });
 
 /** A player leaves the race. */
