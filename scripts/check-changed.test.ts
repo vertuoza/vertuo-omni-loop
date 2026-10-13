@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { rmSync } from 'node:fs';
 import { makeRepo } from '../kit/test/fixture.ts';
-import { type Changes, type Step, changedFiles, mergeBase, planChecks, runChecks, unlinted } from './check-changed-steps.ts';
+import { type Changes, type Step, changedFiles, mergeBase, onlySteps, pickSteps, planChecks, runChecks, unlinted } from './check-changed-steps.ts';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -105,6 +105,35 @@ describe('the steps a change gives', () => {
 
   it('a change to no source file gives the typecheck alone', () => {
     expect(names(planChecks(tracked('README.md', 'docs/guide/loop.md'), 'origin/main'))).toEqual(['typecheck']);
+  });
+});
+
+describe('a subset of the steps (`--only`, PRD 1814: the pre-push hook)', () => {
+  it('typecheck and lint keep their order and arguments, and drop the tests and the audit', () => {
+    const steps = planChecks(tracked('kit/lib/a.ts'), 'origin/main');
+    expect(pickSteps(steps, ['typecheck', 'lint'])).toEqual([
+      { name: 'typecheck', command: 'pnpm', args: ['typecheck'] },
+      { name: 'lint', command: 'pnpm', args: ['lint', 'kit/lib/a.ts'] },
+    ]);
+  });
+
+  it('a change to a shared file still gives typecheck and lint only, never the whole suite', () => {
+    expect(names(pickSteps(planChecks(tracked('kit/lib/a.ts', 'pnpm-lock.yaml'), 'origin/main'), ['typecheck', 'lint']))).toEqual(['typecheck', 'lint']);
+  });
+
+  it('no TypeScript changed gives the typecheck alone', () => {
+    expect(names(pickSteps(planChecks(tracked('README.md'), 'origin/main'), ['typecheck', 'lint']))).toEqual(['typecheck']);
+  });
+
+  it('reads `--only a,b` and `--only=a,b`, and no flag keeps every step', () => {
+    expect(onlySteps(['--base', 'origin/x', '--only', 'typecheck,lint'])).toEqual(['typecheck', 'lint']);
+    expect(onlySteps(['--only=lint'])).toEqual(['lint']);
+    expect(onlySteps(['--base', 'origin/x'])).toBeNull();
+  });
+
+  it('refuses a step name it does not know', () => {
+    expect(() => onlySteps(['--only', 'typecheck,tset'])).toThrow(/unknown step "tset".*typecheck, lint, tests, fallow/);
+    expect(() => onlySteps(['--only'])).toThrow(/--only needs/);
   });
 });
 
