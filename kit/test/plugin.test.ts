@@ -1374,7 +1374,7 @@ describe('the ultra skills in this repository', () => {
       expect(guardrails, skill).toMatch(/any repository's default branch/);
       expect(guardrails, skill).toMatch(/Never add `labels\.outboxGo`/);
       expect(guardrails, skill).toMatch(/never create a label in a target/i);
-      expect(guardrails, skill).toMatch(/other than its own committed preflight/);
+      expect(guardrails.replace(/\s+/g, ' '), skill).toContain('other than its own committed setup, then its own committed preflight');
     }
   });
 
@@ -1494,7 +1494,7 @@ describe('the mega-pr-care skill in this repository', () => {
     expect(guardrails).toMatch(/never mark a pull request ready/);
     expect(guardrails).toMatch(/Never add `labels\.outboxGo`/);
     expect(guardrails).toMatch(/Never create a label in a target/);
-    expect(guardrails).toMatch(/other than its own committed preflight/);
+    expect(guardrails.replace(/\s+/g, ' ')).toContain('other than its own committed setup, then its own committed preflight');
     expect(text).not.toMatch(/\bgh pr merge\b/);
     expect(text).not.toMatch(/\bgh pr ready\b/);
   });
@@ -1582,7 +1582,52 @@ describe('the mega-bug-fix skill in this repository', () => {
     const never = skillSection(text, 'Never');
     expect(never).toMatch(/Never merge/);
     expect(never).toMatch(/Never create a label in a target/);
+    expect(never.replace(/\s+/g, ' ')).toContain('other than its own committed setup, then its own committed preflight');
     expect(text).not.toMatch(/\bgh pr merge\b/);
+  });
+});
+
+// PRD 1804, slice s2: a target may commit `commands.setup`. Wherever a multi-repository skill runs a
+// target's committed preflight, its committed setup runs first, in the same worktree, read from the
+// same config on the target's default branch. A red setup holds the slice or target as stuck,
+// quoting its failing line, spends no attempt and never edits the target; a target with no
+// preflight still runs nothing, and one with no setup runs its preflight alone.
+describe('a target runs its committed setup before its committed preflight', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const flat = (text: string) => text.replace(/\s+/g, ' ');
+  /** The words a skill states the rule in: do-work's target section, the whole text of the others. */
+  const ruleOf = (skill: string) => {
+    const text = read(skill);
+    return flat(skill === 'do-work' ? skillSection(text, 'Under `--target <name>`') : text);
+  };
+  const TARGET_SKILLS = ['do-work', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix', 'mega-bug-fix', 'mega-pr-care'];
+
+  for (const skill of TARGET_SKILLS) {
+    it(`/omni:${skill} runs the setup, then the preflight, and holds a red setup as stuck`, () => {
+      const rule = ruleOf(skill);
+      expect(rule, skill).toMatch(/A red setup/i);
+      expect(rule, skill).toMatch(/quoting (its|the) (setup's )?failing line/);
+      expect(rule, skill).toMatch(/toward no (`limits\.attempts`|attempt)/);
+      expect(rule, skill).toContain('never edited to make it pass');
+      expect(rule, skill).toMatch(/without a preflight runs nothing[^.]*its setup included|no preflight; run nothing, its setup included/i);
+      expect(rule, skill).toMatch(/without a setup runs its preflight alone|the preflight runs alone/i);
+    });
+  }
+
+  it("/omni:do-work reads the setup from the target's default branch and runs it in the slice's worktree before the preflight", () => {
+    const target = ruleOf('do-work');
+    const at = (mention: string) => target.indexOf(mention);
+    expect(at(':.omni-loop/config.yml`')).toBeGreaterThan(0);
+    expect(at('`commands.setup`')).toBeGreaterThan(at(':.omni-loop/config.yml`'));
+    expect(target).toContain("Both run in the slice's worktree, the setup first");
+  });
+
+  it('every skill that builds or fixes in a target keeps the guardrail: no command beyond its setup and preflight', () => {
+    for (const skill of TARGET_SKILLS) expect(ruleOf(skill), skill).toContain('other than its own committed setup, then its own committed preflight');
+  });
+
+  it("/omni:mega-drive's summary names the setup before the preflight", () => {
+    expect(flat(read('mega-drive'))).toContain("a target's own committed setup, then its own committed preflight");
   });
 });
 

@@ -106,6 +106,15 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ncommands:\n  design: ""\n')).toThrow(/commands\.design/);
   });
 
+  it('has no setup command unless the config sets one, and refuses one that is not text (PRD 1804)', () => {
+    expect(parseConfig('kit: 1\n').commands.setup).toBeNull();
+    expect(parseConfig('kit: 1\ncommands:\n  setup: pnpm install --frozen-lockfile\n').commands.setup).toBe('pnpm install --frozen-lockfile');
+    expect(parseConfig('kit: 1\ncommands:\n  setup: null\n').commands.setup).toBeNull();
+    expect(() => parseConfig('kit: 1\ncommands:\n  setup: ""\n')).toThrow(/commands\.setup/);
+    expect(() => parseConfig('kit: 1\ncommands:\n  setup: 3\n')).toThrow(/commands\.setup/);
+    expect(() => parseConfig('kit: 1\ncommands:\n  setup: [npm ci]\n')).toThrow(/commands\.setup/);
+  });
+
   it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
     expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
     expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
@@ -431,6 +440,15 @@ describe('omni config', () => {
         printed.push(s.out.join('').replace(/\s/g, ''));
       }
       expect(printed).toEqual(values);
+    }
+  });
+
+  it('prints commands.setup as committed, and null when the key is absent (PRD 1804)', async () => {
+    for (const [text, value] of [['kit: 1\n', 'null'], ['kit: 1\ncommands:\n  setup: composer install\n', 'composer install']] as const) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const s = io();
+      expect(await main(['config', 'commands.setup'], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
     }
   });
 

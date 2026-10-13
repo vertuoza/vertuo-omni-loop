@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Target Setup</title>
+<style>
+/* Layout: a run log of one target slice, today on the left, after on the right; each row is one moment of the run. */
+:root {
+  --bg: #f3f4f6; --panel: #ffffff; --fg: #1b1d22; --muted: #5b616d; --line: #d8dbe1;
+  --today: #b0412e; --after: #2b6b4f; --cmd: #2f4f8f; --chip: #eaecf0;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121418; --panel: #1a1d22; --fg: #e6e8ec; --muted: #9ea4af; --line: #2c3038;
+  --today: #e6826c; --after: #6fc59c; --cmd: #8fb0ef; --chip: #23272e; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121418; --panel: #1a1d22; --fg: #e6e8ec; --muted: #9ea4af; --line: #2c3038;
+  --today: #e6826c; --after: #6fc59c; --cmd: #8fb0ef; --chip: #23272e; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-block: 32px 56px; padding-inline: 20px; display: grid; gap: 28px; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.1rem; margin: 0; text-wrap: balance; }
+h3 { font-size: .95rem; margin: 0; }
+p { margin: 0; max-width: 72ch; }
+.lede { color: var(--muted); }
+.eyebrow { font: 600 .72rem/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+code, pre { font-family: var(--mono); font-size: .84rem; }
+code { background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+pre { margin: 0; background: var(--chip); padding: 12px 14px; border-radius: 6px; overflow-x: auto; line-height: 1.5; }
+section { display: grid; gap: 14px; }
+.ledger { display: grid; gap: 14px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.row > h3 { grid-column: 1 / -1; }
+.side { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.side .eyebrow.today { color: var(--today); }
+.side .eyebrow.after { color: var(--after); }
+.run { font-family: var(--mono); font-size: .84rem; background: var(--chip); border-radius: 6px; padding: 12px 14px; display: grid; gap: 4px; overflow-x: auto; }
+.run .c { color: var(--cmd); }
+.run .bad { color: var(--today); }
+.run .ok { color: var(--after); }
+.run .note { color: var(--muted); }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); }
+.wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.same { display: grid; gap: 6px; padding-left: 1.1rem; margin: 0; }
+@media (max-width: 720px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <span class="eyebrow">PRD #1804 · before / after</span>
+    <h1>Targets declare a setup command, run before their preflight</h1>
+    <p class="lede">What a target slice of <code>/omni:ultra-yolo</code> runs, today and after. The change is to the
+      config and to the words of the multi-repository skills; no screen changes.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+
+    <div class="ledger">
+      <div class="row">
+        <h3>The target's committed config</h3>
+        <div class="side">
+          <span class="eyebrow today">Today</span>
+          <pre>commands:
+  preflight: pnpm test</pre>
+          <p>One command the kit may run. There is no place to say how to install.</p>
+        </div>
+        <div class="side">
+          <span class="eyebrow after">After</span>
+          <pre>commands:
+  setup: pnpm install --frozen-lockfile
+  preflight: pnpm test</pre>
+          <p>An optional <code>setup</code>, committed by the target's team. <code>omni init</code> proposes it from the lockfile.</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <h3>A slice in a fresh worktree of the target</h3>
+        <div class="side">
+          <span class="eyebrow today">Today</span>
+          <div class="run">
+            <span class="c">$ pnpm test</span>
+            <span class="bad">sh: vitest: command not found</span>
+            <span class="note"># red for want of an install</span>
+            <span class="note"># "never install in a target": named as a human step, CI decides</span>
+          </div>
+        </div>
+        <div class="side">
+          <span class="eyebrow after">After</span>
+          <div class="run">
+            <span class="c">$ pnpm install --frozen-lockfile</span>
+            <span class="ok">Done in 9.8s</span>
+            <span class="c">$ pnpm test</span>
+            <span class="ok">Test Files  42 passed (42)</span>
+            <span class="note"># the preflight is a real local check again</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <h3>When the install itself fails</h3>
+        <div class="side">
+          <span class="eyebrow today">Today</span>
+          <p>Nothing installs, so the preflight is red for every target that needs dependencies.</p>
+        </div>
+        <div class="side">
+          <span class="eyebrow after">After</span>
+          <div class="run">
+            <span class="c">$ pnpm install --frozen-lockfile</span>
+            <span class="bad">ERR_PNPM_OUTDATED_LOCKFILE</span>
+            <span class="note"># slice stuck, the failing line quoted; no fix attempt spent,</span>
+            <span class="note"># the target is never edited to make its install pass</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <h3>The rule the skills state</h3>
+        <div class="side">
+          <span class="eyebrow today">Today</span>
+          <p>"The one command ever run beyond <code>git</code> and <code>gh</code> is its own committed preflight."</p>
+        </div>
+        <div class="side">
+          <span class="eyebrow after">After</span>
+          <p>"The only commands ever run beyond <code>git</code> and <code>gh</code> are its own committed setup, then its own committed preflight."</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What <code>omni init</code> proposes</h2>
+    <div class="wrap">
+      <table>
+        <thead><tr><th>lockfile (first found)</th><th><code>commands.setup</code></th></tr></thead>
+        <tbody>
+          <tr><td><code>pnpm-lock.yaml</code></td><td><code>pnpm install --frozen-lockfile</code></td></tr>
+          <tr><td><code>yarn.lock</code></td><td><code>yarn install --immutable</code></td></tr>
+          <tr><td><code>bun.lock</code>, <code>bun.lockb</code></td><td><code>bun install --frozen-lockfile</code></td></tr>
+          <tr><td><code>package-lock.json</code></td><td><code>npm ci</code></td></tr>
+          <tr><td><code>composer.lock</code></td><td><code>composer install</code></td></tr>
+          <tr><td>none</td><td><code>null</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <ul class="same">
+      <li>A target without <code>setup</code> runs its preflight alone, as today.</li>
+      <li>A target without a preflight runs nothing, its setup included: CI is its check.</li>
+      <li>Both commands are read from the target's default branch, never from a slice branch or an imported playbook copy.</li>
+      <li>The kit's own-repository flows (<code>/omni:wave</code>, <code>/omni:bug-fix</code>, <code>/omni:do-work</code> without <code>--target</code>) are untouched.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</main>
+</body>
+</html>
