@@ -28,8 +28,8 @@ in whichever repository it writes, as its own steps say. The status comment it r
 and comments are never signed.
 
 **Nothing runs in a target from here.** This skill runs no command in a target repository: the
-skill a step agent runs works there under its own rules (a target's own committed preflight, nothing from
-an imported copy's playbook).
+skill a step agent runs works there under its own rules (a target's own committed setup, then its own
+committed preflight, nothing from an imported copy's playbook).
 
 ## Input
 

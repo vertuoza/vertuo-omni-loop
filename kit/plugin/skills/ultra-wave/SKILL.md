@@ -24,7 +24,11 @@ that line. Comments are never signed. A command that prints nothing means signin
 nothing.
 
 **Code runs only from a target's own config,** as `/omni:ultra-yolo` says: in a target, beyond `git`
-and `gh`, only its own committed preflight ever runs, and a target without one runs nothing.
+and `gh`, only its own committed setup, then its own committed preflight ever run, in the same
+worktree, the setup first. A target without a preflight runs nothing, its setup included; one without
+a setup runs its preflight alone. A red setup holds that slice, or that target's check, as stuck,
+quoting its failing line: it counts toward no `limits.attempts`, and the target is never edited to
+make it pass.
 
 **A target's flow** is its own committed one, read in its clone, never the plan repository's and
 never the imported copy (that copy is for planning only). Run the plan repository's `omni` with the
@@ -162,7 +166,7 @@ As `/omni:wave` step 4, with `--repo <slug>` on every `gh` call and git in the t
 2. **Territory.** `gh pr diff <n> --repo <slug> --name-only`, against the row's `territory`: paths
    in the target. A breach is reported and never fatal, as there.
 3. **Mergeable.** A conflict is resolved in a detached worktree of the clone, as there; the
-   preflight it runs is the target's own, or none.
+   preflight it runs is the target's own, after its own setup, or none.
 4. **Ready** through `/omni:pr --repo <slug>`'s sub-PR lifecycle; that skill owns `gh pr ready`.
 5. **Merge, through the gate,** as `/omni:wave` step 4 item 6, with the target's rules. In the
    target's clone (**A target's flow**):
@@ -209,9 +213,12 @@ merged relays nothing; its `<out>` stays, named in the report.
    `node .omni-loop/bin/omni.mjs check all`, as there. Push `HEAD:<feature branch>` and remove the
    worktree.
 3. **Each touched target,** in a detached worktree of its clone at its feature branch: its own
-   preflight, when it has one. Red: fix it there, inside the PRD's slices only, each fix counting
-   toward `limits.attempts`, and push to the target's feature branch. Still red: the wave is stuck,
-   naming the target and the step. No preflight: nothing runs; say `none — CI is the check`.
+   setup, when it has one, then its own preflight, when it has one. A red setup: the wave is stuck,
+   naming the target and quoting the failing line, counting toward no attempt, the target never
+   edited to make it pass. A red preflight: fix it there, inside the PRD's slices only, each fix
+   counting toward `limits.attempts`, and push to the target's feature branch. Still red: the wave
+   is stuck, naming the target and the step. No preflight: nothing runs, its setup included; say
+   `none — CI is the check`.
 4. **Both feature PRs.** Tick each merged slice in its target PR's **Slices** checklist
    (`#<sub-PR> <title>`, `gh pr edit <n> --repo <slug> --body-file <file>`), and in the plan PR's
    (`<slug>#<sub-PR> <title>`), each body keeping its `omni sign footer` line. Rewrite the plan PR's
@@ -233,9 +240,9 @@ with its reason. This is what `/omni:ultra-yolo` reads.
   PR. Check the base before every merge.
 - **Never add `labels.outboxGo`,** and **never create a label in a target**: a missing one is a human
   step.
-- **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`, the plan repository's own `omni` reading its flow, and its own hooks, followed only in its
-  worktree).
+- **Never run a command in a target other than its own committed setup, then its own committed
+  preflight** (beyond `git` and `gh`, the plan repository's own `omni` reading its flow, and its own
+  hooks, followed only in its worktree).
 - Merge only with the command `omni flow check merge` prints, after its `ok`: never a merge command
   written by hand.
 - Every item ends up in the plan repository's outbox; a refused one is named, never dropped.

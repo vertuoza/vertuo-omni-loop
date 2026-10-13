@@ -27765,6 +27765,9 @@ var ConfigSchema = external_exports.object({
     runner: text2.default("ubuntu-latest")
   }),
   commands: section({
+    // PRD 1804: what prepares a fresh checkout to run the preflight (an install). Only the
+    // multi-repository skills read it, from a target's default branch; `null` means none.
+    setup: nullableText.default(null),
     preflight: nullableText.default(null),
     preflightFull: nullableText.default(null),
     checks: external_exports.array(text2).default([]),
@@ -45994,9 +45997,9 @@ var ENTRIES = deepFreeze([
     name: "init",
     kind: "command",
     who: "you",
-    usage: ["omni init [--force] [--test <cmd>] [--preflight <cmd>]", "  [--preflight-full <cmd>]"],
+    usage: ["omni init [--force] [--setup <cmd>] [--test <cmd>]", "  [--preflight <cmd>] [--preflight-full <cmd>]"],
     summary: "install the loop on this repository",
-    detail: "Installs the Omni Loop on the repository it runs in: writes .omni-loop/config.yml, copies the running omni to .omni-loop/bin/omni.mjs, lays down the blank playbook forms and creates the loop labels the repository lacks, switches the status line on in .claude/settings.json, then prints the steps a person still has to take. It writes nothing outside .omni-loop/ but that statusLine key, and never replaces someone else's. --force writes the config, the copy and the kit's own status line again; the other flags give the commands that test the repository."
+    detail: "Installs the Omni Loop on the repository it runs in: writes .omni-loop/config.yml, copies the running omni to .omni-loop/bin/omni.mjs, lays down the blank playbook forms and creates the loop labels the repository lacks, switches the status line on in .claude/settings.json, then prints the steps a person still has to take. It writes nothing outside .omni-loop/ but that statusLine key, and never replaces someone else's. --force writes the config, the copy and the kit's own status line again; --setup gives the command that prepares a fresh checkout (its install), and the other flags give the commands that test the repository."
   },
   {
     name: "config",
@@ -46385,7 +46388,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:ultra-yolo <n>"],
     label: "/omni:ultra-yolo <n>",
     summary: "build a PRD across repositories, one gate",
-    detail: "Builds a PRD whose plan lands slices in other repositories, from its plan repository: records each target that moved since the plan was read, opens a draft feature PR in each target, runs /omni:ultra-wave until every slice is merged there, marks each target PR ready once its CI is green, then runs one outbox gate in the plan repository. Green, it ships and marks the plan PR ready last; red, /omni:ultra-yolo-fix takes the answers. In a target it runs only its own committed preflight, and it never merges into any default branch.",
+    detail: "Builds a PRD whose plan lands slices in other repositories, from its plan repository: records each target that moved since the plan was read, opens a draft feature PR in each target, runs /omni:ultra-wave until every slice is merged there, marks each target PR ready once its CI is green, then runs one outbox gate in the plan repository. Green, it ships and marks the plan PR ready last; red, /omni:ultra-yolo-fix takes the answers. In a target it runs only its own committed setup, then its own committed preflight, and it never merges into any default branch.",
     group: "multi-repo",
     when: "Use it when a multi-repository PRD's phase-0 PR is merged in its plan repository and you want it built in every target.",
     example: {
@@ -46400,7 +46403,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:mega-pr-care <n> [--once]"],
     label: "/omni:mega-pr-care <n>",
     summary: "look after every PR of a PRD across repositories",
-    detail: "The /omni:pr-care of a plan repository: looks after the plan PR, every target and landing PR and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or closed or you stop it. Each target PR is read against the target's own default branch, landings, wave claims and review form; a red that waits on another repository's PR spends no attempt. In a target it runs only its own committed preflight, and it never merges. --once runs one round and returns, for /omni:mega-drive.",
+    detail: "The /omni:pr-care of a plan repository: looks after the plan PR, every target and landing PR and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or closed or you stop it. Each target PR is read against the target's own default branch, landings, wave claims and review form; a red that waits on another repository's PR spends no attempt. In a target it runs only its own committed setup, then its own committed preflight, and it never merges. --once runs one round and returns, for /omni:mega-drive.",
     group: "multi-repo",
     when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
     example: {
@@ -46415,7 +46418,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:mega-bug-fix <line or n> [--prd <prd>]"],
     label: "/omni:mega-bug-fix",
     summary: "a bug across repositories, to one PR per target",
-    detail: "The /omni:bug-fix of a plan repository, for a bug that shows in one target while its cause sits in another: the issue, its triage and a fix plan stay in the plan repository, provider first. Each target gets one fix PR into its default branch, red proven by its own preflight or its CI before the fix, saying which PR to merge first; a record PR closes the issue and is merged last. --prd <n> links it to a PRD, so /omni:mega-pr-care looks after its PRs. A change that would break today's consumer stops it, with the /omni:mega-brainstorm line. It never merges.",
+    detail: "The /omni:bug-fix of a plan repository, for a bug that shows in one target while its cause sits in another: the issue, its triage and a fix plan stay in the plan repository, provider first. Each target gets one fix PR into its default branch, red proven by its own preflight or its CI before the fix, saying which PR to merge first; a record PR closes the issue and is merged last. --prd <n> links it to a PRD, so /omni:mega-pr-care looks after its PRs. A change that would break today's consumer stops it, with the /omni:mega-brainstorm line. In a target it runs only its own committed setup, then its own committed preflight. It never merges.",
     group: "multi-repo",
     when: "Use it when a bug shows in one target repository and its cause may sit in another.",
     example: {
@@ -46445,7 +46448,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:ultra-yolo-fix <n>"],
     label: "/omni:ultra-yolo-fix",
     summary: "rework what you answered, in each repository",
-    detail: "The /omni:yolo-fix of a PRD built by /omni:ultra-yolo: reads and settles the answers on the plan PR, in the plan repository, lands each rework in the repository its decision was taken in, checks each target again, then runs the one gate. It asks no question of its own and never merges into any default branch.",
+    detail: "The /omni:yolo-fix of a PRD built by /omni:ultra-yolo: reads and settles the answers on the plan PR, in the plan repository, lands each rework in the repository its decision was taken in, checks each target again, then runs the one gate. It asks no question of its own; in a target it runs only its own committed setup, then its own committed preflight, and it never merges into any default branch.",
     group: "multi-repo",
     when: "Use it when you have answered the outbox questions on a multi-repository PRD's plan PR.",
     example: {
@@ -46520,7 +46523,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:ultra-wave <n>"],
     label: "/omni:ultra-wave <n>",
     summary: "build one wave across repositories",
-    detail: "The /omni:wave of a plan repository: claims each slice that can run in its own target, has one agent build each there through /omni:do-work --target, merges each sub-PR into its target's feature branch, relays every decision into the plan repository's outbox and adopts its medium ones. /omni:ultra-yolo runs it for each wave. It never merges into any default branch.",
+    detail: "The /omni:wave of a plan repository: claims each slice that can run in its own target, has one agent build each there through /omni:do-work --target, merges each sub-PR into its target's feature branch, relays every decision into the plan repository's outbox and adopts its medium ones. /omni:ultra-yolo runs it for each wave. In a target it runs only its own committed setup, then its own committed preflight, and it never merges into any default branch.",
     group: "multi-repo",
     when: "Use it when you want one wave of a multi-repository PRD built; /omni:ultra-yolo runs it for each wave.",
     example: {
@@ -47106,8 +47109,9 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     "# Whether a skill may create a missing loop label while it runs (omni init creates them regardless).",
     section4("labels", { autoCreate: false }),
     "",
-    "# What the loop runs. null: not known yet; fill it in before the loop needs it.",
-    section4("commands", { test: commands.test, preflight: commands.preflight, preflightFull: commands.preflightFull }),
+    "# What the loop runs. null: not known yet; fill it in before the loop needs it. setup prepares a",
+    "# fresh checkout for the preflight, proposed from the lockfile; null: none needed.",
+    section4("commands", { setup: commands.setup, test: commands.test, preflight: commands.preflight, preflightFull: commands.preflightFull }),
     "",
     "# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants (the ADRs",
     "# the context files list under the invariants heading) or none.",
@@ -47133,8 +47137,19 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync54, readFileSync as readFileSync58 } from "node:fs";
 import { join as join75 } from "node:path";
-var COMMAND_KEYS = Object.freeze(["test", "preflight", "preflightFull"]);
+var COMMAND_KEYS = Object.freeze(["setup", "test", "preflight", "preflightFull"]);
 var NONE2 = Object.freeze({ test: null, preflight: null, preflightFull: null });
+var SETUPS = [
+  [["pnpm-lock.yaml"], "pnpm install --frozen-lockfile"],
+  [["yarn.lock"], "yarn install --immutable"],
+  [["bun.lock", "bun.lockb"], "bun install --frozen-lockfile"],
+  [["package-lock.json"], "npm ci"],
+  [["composer.lock"], "composer install"]
+];
+function detectSetup(root) {
+  const found2 = SETUPS.find(([lockfiles]) => lockfiles.some((file2) => existsSync54(join75(root, file2))));
+  return found2 ? found2[1] : null;
+}
 function readScripts(file2) {
   let value;
   try {
@@ -47181,7 +47196,7 @@ var SOURCES2 = [
 ];
 function detectCommands(root) {
   const source2 = SOURCES2.find(({ file: file2 }) => existsSync54(join75(root, file2)));
-  return source2 ? source2.read(root) : { ...NONE2 };
+  return { setup: detectSetup(root), ...source2 ? source2.read(root) : NONE2 };
 }
 function detectLawsSource({ ctx }) {
   const { principles, rules, invariants } = readRegisters({ ctx });
@@ -47742,8 +47757,9 @@ function installLines({ branch, commit, push: push4, pr }, { paths, remote, base
 
 // kit/bin/commands/init.ts
 var BIN_FILE2 = join80(LOOP_DIR2, "bin", "omni.mjs");
-var FLAGS = Object.freeze({ test: "test", preflight: "preflight", preflightFull: "preflight-full" });
+var FLAGS = Object.freeze({ setup: "setup", test: "test", preflight: "preflight", preflightFull: "preflight-full" });
 var QUESTIONS = {
+  setup: "the command that prepares a fresh checkout to run the preflight, as an install",
   test: "the command that runs the tests",
   preflight: "the command a slice must pass before its sub-PR is ready",
   preflightFull: "the full preflight, run before a feature PR is ready"
@@ -47792,7 +47808,7 @@ var init = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env, vars, stdin = process.stdin, bundle = runningBundle(), ask: ask6 = askTerminal, home: userHome, signIn }) {
     const { positional, flags } = parseArgs("init", args, { values: Object.values(FLAGS), booleans: ["force"] });
-    if (positional.length) throw usageError("usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]");
+    if (positional.length) throw usageError("usage: omni init [--force] [--setup <cmd>] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]");
     const force = flags.force === true;
     const root = findRoot(cwd, exec);
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
@@ -47864,7 +47880,8 @@ var init = {
         forms: formsDone,
         settings,
         labels: labels2,
-        unfilled: COMMAND_KEYS.filter((key2) => config3.commands[key2] === null).map((key2) => ({ key: key2, flag: FLAGS[key2] })),
+        // A setup left null means none is needed (PRD 1804): it is never listed as unfilled.
+        unfilled: COMMAND_KEYS.filter((key2) => key2 !== "setup" && config3.commands[key2] === null).map((key2) => ({ key: key2, flag: FLAGS[key2] })),
         notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR2) }
       })
     ];

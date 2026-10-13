@@ -39,7 +39,7 @@ prints `hooks none` and `kitStep: run`: the step runs as written.
 | feature branch | shaped like `branches.feature` | the branch the slice is cut from and its sub-PR targets |
 | `--in-wave` | — | set by `/omni:wave` only. Changes three things, below: the claimed slice branch is checked out rather than cut, medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
 | `--inline` | — | set by `/omni:wave` only, when the board says `inline` (`wave.inlineBelow`): the plan is small enough for the feature PR to be the record of every slice. The slice is built on the feature branch itself, with no claim, no slice branch and no sub-PR: see **Under `--inline`** |
-| `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository, or for a product PRD (`mobile-12`) in any kitted checkout of its product: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which preflight runs and what the result carries: see **Under `--target <name>`** |
+| `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository, or for a product PRD (`mobile-12`) in any kitted checkout of its product: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which setup and preflight run and what the result carries: see **Under `--target <name>`** |
 
 Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) instead.
 
@@ -454,7 +454,8 @@ with these differences.
   target's knowledge is read where `plan.targets` says it lives (`own`: in the target;
   `imported`: the draft copy in this repository; `none`: the guide only). Its playbook forms bind
   this slice only as reading: **never run a command from an imported copy's playbook**, and never
-  run a target command that is not its preflight (below), not even an install.
+  run a target command other than its own committed setup, then its own committed preflight
+  (below), not even an install beyond that setup.
 - **Items and accounts go to scratch.** Make one folder outside both repositories
   (`mktemp -d`), and write every item there:
   `node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --out <scratch dir> --json`,
@@ -475,13 +476,18 @@ with these differences.
   repository's checkout, never in the target: this slice changes nothing there, so they only prove
   it stayed so. `commands.checks` and acceptance are the plan repository's, and do not run on a
   target slice; say so in the hand-off.
-- **Its preflight is the target's own committed one.** Read the target's `.omni-loop/config.yml` as
-  committed on its default branch, never from the slice branch:
+- **Its setup, then its preflight, are the target's own committed ones.** Read the target's
+  `.omni-loop/config.yml` as committed on its default branch, never from the slice branch:
   `git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`, where the
   default branch is `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`. Its
-  `commands.preflightFull`, else `commands.preflight`, is the preflight, run in the slice's worktree.
-  No such file, or both null: the target has no preflight; run nothing, and the result says
-  `"preflight": "none — CI is the check"`.
+  `commands.preflightFull`, else `commands.preflight`, is the preflight; its `commands.setup`, when
+  it has one, is the setup. Both run in the slice's worktree, the setup first: the worktree is
+  fresh, so the setup runs in it before every preflight, never once per clone. No such file, or both
+  preflight keys null: the target has no preflight; run nothing, its setup included, and the result
+  says `"preflight": "none — CI is the check"`. No setup (the key absent or null): the preflight
+  runs alone. **A red setup** holds the slice: return `red`, its `summary` quoting the setup's
+  failing line; it counts toward no `limits.attempts`, and the target is never edited to make it
+  pass, since a broken install belongs to the target's team.
 - **Ship.** Commit in the slice's worktree, signed as above (`omni sign trailer` is run from the
   plan repository), push the slice branch to the clone's remote, heartbeat included, and hand off
   to `/omni:pr --repo <slug>` for the sub-PR into the target's feature branch.

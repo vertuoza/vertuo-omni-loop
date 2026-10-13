@@ -11,7 +11,7 @@ import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../confi
 import type { Config } from '../types.ts';
 
 /** The commands `omni init` writes, each `null` when not known yet. */
-export type InitCommands = { test: string | null; preflight: string | null; preflightFull: string | null };
+export type InitCommands = { setup: string | null; test: string | null; preflight: string | null; preflightFull: string | null };
 
 /** What `renderConfig` fills in: everything else keeps its schema default. */
 export type ConfigValues = {
@@ -39,8 +39,9 @@ export function renderConfig({ slug, defaultBranch, commands, lawsSource }: Conf
     '# Whether a skill may create a missing loop label while it runs (omni init creates them regardless).',
     section('labels', { autoCreate: false }),
     '',
-    '# What the loop runs. null: not known yet; fill it in before the loop needs it.',
-    section('commands', { test: commands.test, preflight: commands.preflight, preflightFull: commands.preflightFull }),
+    '# What the loop runs. null: not known yet; fill it in before the loop needs it. setup prepares a',
+    '# fresh checkout for the preflight, proposed from the lockfile; null: none needed.',
+    section('commands', { setup: commands.setup, test: commands.test, preflight: commands.preflight, preflightFull: commands.preflightFull }),
     '',
     '# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants (the ADRs',
     '# the context files list under the invariants heading) or none.',
