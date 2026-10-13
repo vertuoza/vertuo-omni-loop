@@ -1,6 +1,6 @@
 ---
 name: ask
-description: Switches ask mode on or off in this checkout, or says whether it is on. While it is on, every question the agent asks the person (in Claude: through AskUserQuestion) goes to a web page the person reads and answers, a tab per terminal, and the terminal takes over whenever the page cannot answer. Runs omni ask on, off or status and prints the page's link. Triggers on "ask mode on", "ask me on the page", "turn ask mode off", "is ask mode on", "/omni:ask on", "/omni:ask off", "/omni:ask status".
+description: Switches ask mode on or off in this checkout, or says whether it is on. While it is on, every question the agent asks the person goes to a web page the person reads and answers, a tab per terminal, and the terminal takes over whenever the page cannot answer. Runs omni ask on, off or status and prints the page's link. Triggers on "ask mode on", "ask me on the page", "turn ask mode off", "is ask mode on", "/omni:ask on", "/omni:ask off", "/omni:ask status".
 ---
 
 # Ask: questions on a web page
