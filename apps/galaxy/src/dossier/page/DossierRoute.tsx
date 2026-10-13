@@ -36,6 +36,7 @@ import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
 import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
+import { liveSendSetup } from '../../runners/send/send.live';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
@@ -88,6 +89,9 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // any member, and dossier_approve() decides.
 // PRD 1548 s4: a product PRD's attestation is read as the member beside it (./Attestation.service.ts); one
 // that cannot be read is left out, never the page.
+// PRD 1830 s4: a numbered PRD's page reads, beside its approval, the workspace's runners the viewer may
+// send to that hold its repository (../../runners/send/send.live.ts), for Send to terminal beside each
+// button that copies a line a runner runs. None, or a read that fails, leaves the button out, never the page.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -266,12 +270,13 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const { prd } = read.dossier;
   if (prd !== null && kindOf(read.dossier) === 'prd') {
     const approval = approvalOf(db, read, user.id);
+    const send = liveSendSetup(user.id, dossier.workspace_id, dossier.home_repo);
     read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval) };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
     const voice = shownVoice(first, (shownId) => readContent(db, shownId), () => readVoiceCast(db, dossier.workspace_id));
-    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read, prd)} markdown={markdown} voice={voice} supabase={env} live={live} />;
+    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read, prd)} markdown={markdown} voice={voice} supabase={env} live={live} send={await send} />;
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
