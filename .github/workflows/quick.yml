@@ -1,0 +1,53 @@
+# The `quick` check (PRD 1814): every pull request `checks` does not grade, a draft or one whose base is
+# not main (a sub-PR into a feature branch, a slice, a rework), gets one `quick` check on every push.
+# It runs `pnpm check:changed` against its base: the typecheck, lint of the changed files, the related
+# tests (the whole suite when a shared file changed) and the fallow audit. A ready pull request into
+# main is graded by `checks` instead, and its `quick` reports skipped.
+#
+# `settle` is the same gate as `checks` (scripts/settle-head.sh carries the numbers): a burst of pushes
+# costs one run, and a pull request that changes only docs answers stale at once, so `quick` skips. A
+# phase-0 PR (head `docs/phase-0-<topic>`, `branches.phase0` in .omni-loop/config.yml) carries only a
+# PRD's docs: `settle` does not run for it, and the omni-loop App's inbox check grades it.
+# scripts/quick-workflow.test.ts holds this shape.
+name: quick
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: read
+# A group of its own, apart from `checks`: a newer push on the branch cancels the run before it. A
+# ready_for_review run into main runs nothing here, so cancelling a draft run then leaves `checks`.
+concurrency:
+  group: quick-${{ github.head_ref }}
+  cancel-in-progress: true
+jobs:
+  settle:
+    if: (github.event.pull_request.draft == true || github.base_ref != 'main') && !startsWith(github.head_ref, 'docs/phase-0-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      stale: ${{ steps.gate.outputs.stale }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SETTLE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SETTLE_PR: ${{ github.event.pull_request.number }}
+        run: bash scripts/settle-head.sh
+
+  quick:
+    needs: settle
+    if: needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # The whole history, so check:changed finds the merge-base with the base branch.
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:changed --base origin/${{ github.base_ref }}
