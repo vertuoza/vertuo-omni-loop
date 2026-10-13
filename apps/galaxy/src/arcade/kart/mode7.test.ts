@@ -549,5 +549,28 @@ describe('the tunnel (PRD 1775)', () => {
         expect(middle.filter((p) => p !== 0 && p !== BEYOND && !side.has(p)).length / middle.length, `arc of waypoint ${c.index}`).toBeGreaterThan(0.5);
       }
     });
+    it('draws a frame inside the tunnel in at most five times what a frame on open road takes, on the wide grid (bug 1868)', () => {
+      const out = new Uint32Array(WIDE.w * WIDE.h), depth = new Float32Array(WIDE.w * WIDE.h);
+      const viewAt = (k: { x: number; y: number; angle: number }) => viewOf(WIDE, chaseCamera(k, depthAt(WIDE, WIDE.h - KART_FOOT)), groundAt(track, k.x, k.y));
+      const roofedUnder = (k: { x: number; y: number }) => mask[Math.floor(k.y) * tex.w + Math.floor(k.x)] === 1;
+      const karts = cornersOf(track).map((c) => onLine(c.start + c.length / 2)).filter((k) => !roofedUnder(k));
+      const kartsInside = [3, 5, 7, 9, 11].map((d) => onLine(span.start + d));
+      expect(karts.length).toBeGreaterThan(3);
+      expect(kartsInside.every(roofedUnder)).toBe(true);
+      const open = karts.map(viewAt), inside = kartsInside.map(viewAt);
+      const time = (v: View) => {
+        const t = performance.now();
+        renderTerrain(v, tex, hs, range, edge, out, depth, mask);
+        return performance.now() - t;
+      };
+      const median = (ms: number[]) => sure([...ms].sort((a, b) => a - b)[Math.floor(ms.length / 2)], 'a time');
+      [...open, ...inside].forEach(time); // warm up
+      const onRoad: number[] = [], underRoof: number[] = [];
+      for (let round = 0; round < 3; round++) {
+        open.forEach((v) => onRoad.push(time(v)));
+        inside.forEach((v) => underRoof.push(time(v)));
+      }
+      expect(median(underRoof) / median(onRoad)).toBeLessThanOrEqual(5);
+    });
   });
 });
