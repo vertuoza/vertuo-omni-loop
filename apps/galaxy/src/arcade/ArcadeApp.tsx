@@ -4,7 +4,7 @@ import { cssVars } from './css-vars';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/design';
 import {
-  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
+  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type FrameState, type SceneName,
 } from './scenes';
 import { useForm, type Form } from './form';
 import { useFullscreen } from './fullscreen';
@@ -27,7 +27,9 @@ import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './scenes/menu.tsx';
 import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
-import { dossierLink, dossierOf, PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
+import { PLANET_TABS, PlanetOverlay, startLink } from './scenes/planet.tsx';
+import { useOpenPlanetDetails } from './planet-details';
+import { useChart, type ArcadeChart } from './chart-source';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
@@ -218,8 +220,12 @@ export interface ArcadeProps {
   problem?: string | null;
   /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words, its theme colours the arcade. The house brand when none is given. */
   brand?: Brand;
-  /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
-  knowledge?: ChartSource | undefined;
+  /**
+   * The star chart's knowledge: the demo's in the page, `'fetch'` for the crew's, read from
+   * /api/arcade/chart when the chart opens (PRD 1808); `'none'` in a build without it, nothing past the
+   * crew's gate (see ChartSource, src/arcade/chart-source.ts).
+   */
+  knowledge?: ArcadeChart | undefined;
   /**
    * The player's XP: their player_xp row, null when they have none, 'unreadable' when it could not be
    * read (the default: a page that says nothing of XP shows no level, and never guesses one).
@@ -231,9 +237,11 @@ export interface ArcadeProps {
    */
   scores?: Record<string, ScoresRead>;
   /**
-   * The planets' dossiers, by planet key or PRD number (PRD 216, PRD 728): the planet's DOSSIER tab shows its own, NO DOSSIER
-   * YET without one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open
-   * carries its link, and START opens it from the tab; the single-file artifact's carry none.
+   * The planets' dossiers, by planet key or PRD number (PRD 216, PRD 728), in a page with no database
+   * (the demo, the single-file artifact): the planet's DOSSIER tab shows its own, NO DOSSIER YET without
+   * one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open carries its
+   * link, and START opens it from the tab; the single-file artifact's carry none. A Supabase account's
+   * page carries none: the game reads a planet's dossier and log when it is opened (PRD 1808).
    */
   dossiers?: DossiersRead;
   /**
@@ -267,9 +275,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   formRef.current = form;
   const mapGrid = gridFor(form, 'map');
   const layout = useMemo(() => (view ? layoutMap(view, mapGrid) : []), [view, mapGrid]);
-  const graph = knowledge && knowledge !== 'none' ? knowledge : null;
   const chartGrid = gridFor(form, 'chart'), systemGrid = gridFor(form, 'system');
-  const chart = useMemo(() => (graph ? layoutChart(graph, chartGrid) : { suns: [], lanes: [] }), [graph, chartGrid]);
   const start = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
   const now = () => (performance.now() - start.current) / 1000;
   const firstPlanet = view ? Math.max(0, view.planets.findIndex((p) => p.state === 'distress')) : 0;
@@ -286,12 +292,18 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }));
   const [muted, setMuted] = useState(false);
   const [gamesSeen, setGamesSeen] = useState(true); // read from this device on the first render
+  // The star chart (PRD 1808): the crew's is read when the chart opens, kept for the session.
+  const charted = useChart(knowledge, ui.scene);
+  const graph = charted.graph;
+  const chart = useMemo(() => (graph ? layoutChart(graph, chartGrid) : { suns: [], lanes: [] }), [graph, chartGrid]);
   const system = useMemo(() => {
     const sun = chart.suns[ui.sun];
     return graph && sun ? layoutSystem(graph, sun.name, systemGrid) : null;
   }, [graph, chart, ui.sun, systemGrid]);
   const uiRef = useRef(ui);
   uiRef.current = ui;
+  // The open planet's dossier and log (PRD 1808): read when the planet is opened, kept for the session.
+  const details = useOpenPlanetDetails(view, dossiers, ui, account.kind);
   const meRef = useRef(me);
   meRef.current = me;
   const sessionRef = useRef(session);
@@ -726,7 +738,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const items = menuFor(meRef.current, sessionRef.current, active, !gamesSeen, Boolean(app));
     const item = items[i];
     if (!item) return;
-    const door = doorOf(item, { view, chart: knowledge, problem });
+    const door = doorOf(item, { view, chart: charted.menu, problem });
     if (door) {
       if ('scene' in door) go({ scene: door.scene, menu: i, card: false }, 'select');
       else go({ menu: i, toast: door.refused }, 'buzz');
@@ -737,7 +749,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (item.id === 'play') { open(afterGate(meRef.current, fleets), { flow: 'onboard', menu: i }, 'select'); return; }
     if (item.id === 'app') { askLeave({ menu: i }); return; }
     if (item.id === 'signout') { signOut(); return; }
-  }, [view, fleets, active, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
+  }, [view, fleets, active, charted.menu, go, open, signOut, problem, gamesSeen, app, askLeave]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
@@ -876,8 +888,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'down') { go({ sel: (u.sel + 1) % planets }, 'move'); return; }
         if (action === 'start') {
           // On the DOSSIER tab, START opens the PRD's page to share; elsewhere it goes back to the map.
-          const on = view?.planets[u.sel];
-          const url = on ? dossierLink(dossiers, on, u.tab, view.planets) : null;
+          // Only once the dossier has arrived (PRD 1808): while it is on its way, START goes back to the map.
+          const url = startLink(details.dossier, u.tab);
           if (url) { sfx('select'); openPage(url); return; }
         }
         go({ scene: 'map' }, 'back'); return; // B, or START with no page to open
@@ -1025,7 +1037,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, details.dossier, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -1117,8 +1129,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const grid = sceneGrid(ui.scene, form, hud, pf, kart, duet);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
-  const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
-  frameRef.current = { view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system };
+  const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge: charted.source, chart, system });
+  frameRef.current = { view, layout, active, me, grid, page, mark, logo, theme, knowledge: charted.source, chart, system };
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
@@ -1255,7 +1267,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'hero': return <BuilderOverlay hero={ui.hero} row={ui.heroRow} team={me?.team ?? null} name={displayName} error={ui.error} onRow={(i) => { if (i === ui.heroRow) act('a'); else go({ heroRow: i }, 'move'); }} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
-      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;
+      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={charted.menu} xp={xpNow} />;
       case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} scores={scores} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
       case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
@@ -1269,14 +1281,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'duet': return <DuetLayer duet={duet} send={send} />;
       case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} podiumKart={podiumKart} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
-      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
+      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={details.dossier} log={details.log} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
-      case 'chart': return <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+      case 'chart': return <ChartOverlay source={charted.shown} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
       case 'system': return graph && system
         ? <SystemOverlay graph={graph} layout={system} world={ui.world} card={ui.card} cardPage={ui.cardPage} onRead={() => { act('a'); }} onPage={(cardPage) => { go({ cardPage }, 'tab'); }} />
-        : <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+        : <ChartOverlay source={charted.shown} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
       case 'away': return undefined;
     }
   })();

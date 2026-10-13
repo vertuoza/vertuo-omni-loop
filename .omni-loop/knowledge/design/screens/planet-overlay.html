@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>planet-overlay · draft</title>
+<style>
+  :root {
+    --void: #07061c; --deep: #0e0d33; --navy: #2f3fc4; --navy-dark: #1a2170; --white: #f2f4ff;
+    --plasma: #a45cff; --yellow: #ffd84a; --red: #ff3b5c; --cyan: #6ff0ff; --green: #4ee08a;
+    --slate: #5b5f80; --dim: #8a90d6; --cab: #120f3a;
+    --page: #f6f6fb; --ink: #1a1a2e; --muted: #5a5a72; --edge: #d9d9e6; --card: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --page: #0f0f1a; --ink: #ececf6; --muted: #a3a3bd; --edge: #2c2c42; --card: #17172a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 40px 0 8px; padding-top: 16px; border-top: 1px solid var(--edge); }
+  h3 { font-size: 15px; margin: 24px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  p.lede { color: var(--muted); margin: 0 0 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+  .col > .label { font-weight: 600; font-size: 13px; margin-bottom: 6px; color: var(--muted); }
+  .cap { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+  .flow { background: var(--card); border: 1px solid var(--edge); border-radius: 8px; padding: 14px; font-size: 14px; }
+  .flow ol { margin: 0; padding-left: 20px; }
+  .flow li { margin: 4px 0; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .bad { color: #c0264a; } .good { color: #1d8f55; }
+  @media (prefers-color-scheme: dark) { .bad { color: #ff7a93; } .good { color: #4ee08a; } }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--card); }
+  th, td { border: 1px solid var(--edge); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { font-weight: 600; }
+  code { font-size: 13px; }
+
+  /* The arcade's screens, drawn with its own named colours and pixel feel. */
+  .cab { background: var(--void); border: 3px solid var(--navy); border-radius: 4px; padding: 12px; color: var(--white);
+         font: 11px/1.6 "Press Start 2P", ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: .02em; min-height: 250px; }
+  .cab header { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .cab .prd { color: var(--dim); }
+  .cab h4 { margin: 0; font: inherit; font-size: 12px; color: var(--yellow); }
+  .cab .chip { border: 2px solid var(--green); color: var(--green); padding: 0 4px; font-size: 9px; }
+  .cab .caption { color: var(--cyan); margin: 6px 0 10px; font-size: 9px; }
+  .cab .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .cab .tabs span { padding: 2px 6px; background: var(--deep); color: var(--dim); font-size: 9px; }
+  .cab .tabs span.on { background: var(--navy); color: var(--white); }
+  .cab dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 9px; }
+  .cab dt { color: var(--dim); } .cab dd { margin: 0; }
+  .cab .note { color: var(--dim); font-size: 9px; margin: 8px 0 0; }
+  .cab .loading { color: var(--yellow); font-size: 10px; margin: 18px 0; }
+  .cab .start { margin-top: 10px; color: var(--plasma); font-size: 9px; }
+  .cab .start.off { color: var(--slate); }
+  .cab footer { margin-top: 12px; color: var(--slate); font-size: 8px; }
+  .cab .menu div { display: flex; justify-content: space-between; padding: 4px 6px; font-size: 10px; }
+  .cab .menu .sel { background: var(--navy); }
+  .cab .menu small { color: var(--cyan); font-size: 8px; }
+  .cab svg { display: block; margin: 10px auto 0; }
+</style>
+</head>
+<body>
+<main>
+<div class="cab" data-screen="planet-overlay">
+        <header><span class="prd">#1762</span><h4>KART OPTIONS</h4><span class="chip">TERRAFORMED</span></header>
+        <p class="caption">ZONES 6/6 · ENTROPY 0</p>
+        <div class="tabs"><span>STATUS</span><span>ZONES</span><span>ENTROPY</span><span>LOG</span><span class="on">DOSSIER</span></div>
+        <p class="loading" role="status">LOADING…</p>
+        <p class="start off" data-primary>START OPEN</p>
+        <footer>◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP</footer>
+      </div>
+</main>
+</body>
+</html>

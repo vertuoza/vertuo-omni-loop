@@ -202,6 +202,14 @@ describe('the chart\'s text', () => {
     expect(text.join(' ')).not.toMatch(/P-PRODUCT|holds/);
   });
 
+  // PRD 1808: the crew's chart is read when it opens; until it arrives, the chart says so, and B leaves.
+  it('says LOADING… while the crew\'s chart is on its way, with the way back', () => {
+    const text = textOf(createElement(ChartOverlay, { source: 'loading', layout: { suns: [], lanes: [] }, sun: 0, onEnter: () => {} }), WIDE);
+    expect(text).toContain('LOADING…');
+    expect(text.join(' ')).toMatch(/MENU/);
+    expect(text.join(' ')).not.toMatch(/OUT OF REACH|NO STAR CHART/);
+  });
+
   it('says a build without a star chart has none', () => {
     const text = textOf(createElement(ChartOverlay, { source: 'none', layout: { suns: [], lanes: [] }, sun: 0, onEnter: () => {} }), TALL);
     expect(text).toContain('NO STAR CHART IN THIS BUILD');

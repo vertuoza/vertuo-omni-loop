@@ -8,7 +8,7 @@ import type { KnowledgeEntry, KnowledgeGraph } from '../../data/knowledge';
 import { cited, servedBy, serving } from '../../data/knowledge';
 import { Hint } from '../hint';
 import { useScreen } from '../Screen';
-import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
+import type { ChartLayout, ChartShown, SystemLayout } from './chart-layout.ts';
 import { KIND_LOOK, kindCss } from './chart.ts';
 import type { GridName } from './common.ts';
 import './common.css';
@@ -27,17 +27,22 @@ export function chartRefusal(source: 'none' | null): string {
   return source === 'none' ? 'NO STAR CHART IN THIS BUILD' : 'THE STAR CHART IS OUT OF REACH';
 }
 
-/** The chart without a graph: the reason, and the way back. */
-function NoChart({ source }: { source: 'none' | null }) {
+/** What the chart says while the crew's chart is on its way (PRD 1808): LOADING…, as the arcade says it. */
+const CHART_LOADING = 'LOADING…';
+
+/** The chart without a graph: the reason (or LOADING… while it is read), and the way back. */
+function NoChart({ source }: { source: 'none' | 'loading' | null }) {
   return (
     <div className="chart chart-none">
       <h2>STAR CHART</h2>
-      <p className="chart-why">{chartRefusal(source)}</p>
-      <p className="chart-more">
-        {source === 'none'
-          ? 'THIS SHARED PAGE CARRIES NO KNOWLEDGE BASE. THE CREW READS IT IN THE ARCADE AND AT /KNOWLEDGE.'
-          : 'ONLY THE CREW READS THE KNOWLEDGE BASE, AND IT COULD NOT BE READ HERE.'}
-      </p>
+      <p className="chart-why">{source === 'loading' ? CHART_LOADING : chartRefusal(source)}</p>
+      {source !== 'loading' && (
+        <p className="chart-more">
+          {source === 'none'
+            ? 'THIS SHARED PAGE CARRIES NO KNOWLEDGE BASE. THE CREW READS IT IN THE ARCADE AND AT /KNOWLEDGE.'
+            : 'ONLY THE CREW READS THE KNOWLEDGE BASE, AND IT COULD NOT BE READ HERE.'}
+        </p>
+      )}
       <p className="hint chart-foot"><Hint k="B"> MENU</Hint></p>
     </div>
   );
@@ -45,8 +50,8 @@ function NoChart({ source }: { source: 'none' | null }) {
 
 // ── chart ────────────────────────────────────────────────────────────────────
 
-export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartSource; layout: ChartLayout; sun: number; onEnter: () => void }) {
-  if (!source || source === 'none') return <NoChart source={source} />;
+export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartShown; layout: ChartLayout; sun: number; onEnter: () => void }) {
+  if (!source || source === 'none' || source === 'loading') return <NoChart source={source} />;
   const cur = layout.suns[sun];
   const s = cur?.system;
   return (
