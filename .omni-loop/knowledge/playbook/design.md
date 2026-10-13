@@ -115,9 +115,8 @@ form, or one section of it, at that page with a `See:` line.
   START, so a click opens SELECT YOUR APP (`apps/galaxy/src/home/press-start-guard.test.ts`).
 - **On a phone the arcade is a Game Boy:** edge to edge, and never zoomed by a pinch or a double tap
   (`apps/galaxy/app/layout.tsx`).
-- TODO(human): the root layout's viewport (`maximumScale: 1`, `userScalable: false`) is set for the
-  Game Boy, and the app pages under `/app` inherit it: their layout overrides only the theme colour
-  (`apps/galaxy/app/app/layout.tsx`). Is turning off zoom on the reading pages on purpose?
+- **The reading pages zoom:** every reading section's layout lets a person pinch or double-tap zoom
+  (`apps/galaxy/src/ask/reading-viewport.ts`, bug 1826); only the arcade is never zoomed.
 - TODO(human): HOME's poster carries a kicker above its headline, `★` glyphs before its promises,
   and hard offset shadows (`box-shadow: 3px 3px 0 var(--magenta)`, `apps/galaxy/src/home/home.css`),
   all on the craft floor's refuse list. They read as the print ad's; is each of them on purpose?

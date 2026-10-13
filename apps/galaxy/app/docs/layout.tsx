@@ -3,7 +3,8 @@ import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/docs/docs.css';
 import { ThemeScript } from '../../src/ask/theme-script';
-import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
+import { READING_VIEWPORT } from '../../src/ask/reading-viewport';
+import { themeCss } from '../../src/ask/theme-tokens';
 import { TopBar } from '../../src/nav/TopBar';
 
 // /docs, the guide (PRD 346): public, indexed, and built statically, on the ask pages' reading surface
@@ -16,12 +17,8 @@ export const metadata: Metadata = {
   description: 'How to start with Omni Loop: join a team that runs it or install it, see how the loop works, and ship a first PRD.',
 };
 
-// One colour for the browser's bar, Omni's ground: this metadata is static and cannot read the stored
-// choice, and Omni is the default (PRD 284).
-export const viewport: Viewport = {
-  themeColor: TOKENS.omni.ground,
-  colorScheme: 'light dark',
-};
+// The reading surface's viewport: Omni's ground for the browser's bar (PRD 284), and zoom (bug 1826).
+export const viewport: Viewport = READING_VIEWPORT;
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
