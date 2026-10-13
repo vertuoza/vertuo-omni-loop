@@ -7,11 +7,14 @@ import type { GalaxyView } from '@omni/galaxy';
 
 const LIMIT = 2 * 1024 * 1024;
 const stored: unknown[] = [];
+/** An entry already in the cache under the key: returned as it is, without computing. */
+let kept: { value: unknown } | null = null;
 
 vi.mock('server-only', () => ({}));
 // Next's unstable_cache, as far as the season cache sees it: the value compute returns is the entry it stores.
 vi.mock('next/cache', () => ({
   unstable_cache: (compute: () => Promise<unknown>) => async () => {
+    if (kept) return kept.value;
     const value = await compute();
     stored.push(value);
     return value;
@@ -69,5 +72,19 @@ describe('the season in Next\'s data cache', () => {
     const read = await nextCache(['season', 'broken'], compute);
     expect(compute).toHaveBeenCalledTimes(2);
     expect(read).toBe(season);
+  });
+
+  it('folds the season again when the entry was stored before seasons were packed, or does not unpack', async () => {
+    const season = { ...grownSeason(), generatedAt: '2026-10-13T09:00:00Z', season: 'S1', totals: {}, rules: {} } as unknown as GalaxyView;
+    for (const old of [{ planets: [], source: 'supabase' }, 'not gzip at all', null]) {
+      kept = { value: old };
+      try {
+        const compute = vi.fn(() => Promise.resolve(season));
+        expect(await nextCache(['season', 'old'], compute)).toBe(season);
+        expect(compute).toHaveBeenCalledTimes(1);
+      } finally {
+        kept = null;
+      }
+    }
   });
 });

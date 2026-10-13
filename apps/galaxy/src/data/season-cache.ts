@@ -52,16 +52,24 @@ const isSeason = (value: unknown): value is GalaxyView =>
     return kind === 'array' ? Array.isArray(field) : typeof field === kind && field !== null;
   });
 
-/** The season a packed entry holds, or null when it holds none. */
-function unpackSeason(packed: string): GalaxyView | null {
-  const value: unknown = JSON.parse(gunzipSync(Buffer.from(packed, 'base64')).toString('utf8'));
-  return isSeason(value) ? value : null;
+/** The season a packed entry holds, or null when it holds none: an entry stored before seasons were
+ * packed (the season itself, from a workspace still under 2 MB), or one that does not unpack. */
+function unpackSeason(entry: unknown): GalaxyView | null {
+  if (typeof entry !== 'string') return null;
+  try {
+    const value: unknown = JSON.parse(gunzipSync(Buffer.from(entry, 'base64')).toString('utf8'));
+    return isSeason(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Next's data cache: the key names the entry, and an entry lives a day at most. An entry that holds
  * no season is folded again, as on a miss. */
-export const nextCache: SeasonCache = async (key, compute) =>
-  unpackSeason(await unstable_cache(async () => packSeason(await compute()), key, { revalidate: DAY })()) ?? compute();
+export const nextCache: SeasonCache = async (key, compute) => {
+  const entry: unknown = await unstable_cache(async () => packSeason(await compute()), key, { revalidate: DAY })();
+  return unpackSeason(entry) ?? compute();
+};
 
 /** The cache and the service client of this deployment, or null when it holds no service key. */
 let live: SeasonDeps | undefined;

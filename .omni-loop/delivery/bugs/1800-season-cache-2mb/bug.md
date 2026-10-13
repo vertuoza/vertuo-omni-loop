@@ -17,13 +17,15 @@ Next's data cache refuses an entry over 2 MB and keeps nothing ("items over 2MB 
 and production's season had grown to 2.06 MB of JSON, most of it the planets' logs and open wounds,
 so the pages folded the whole ledger on every view. The season cache now hands Next the season's JSON
 gzipped in base64 (202 KB for production's season, 10 ms to pack, 5 ms to unpack), and reads it back
-through a check of a season's fields; an entry that holds none is folded again, as on a miss.
+through a check of a season's fields; an entry that holds none (one stored before seasons were
+packed, or one that does not unpack) is folded again, as on a miss.
 
 ## Guard
 
 The reproduction: a season grown past 2 MB must reach Next as an entry under the limit and read back
 as folded (red on main's cache, 2,156,998 bytes). Two more tests hold the read-back path: a whole
-season is folded once and read from the stored entry, and an entry holding no season is folded again.
+season is folded once and read from the stored entry, and an entry holding no season, stored before
+seasons were packed, or not unpacking is folded again.
 
 ## Mutation
 
