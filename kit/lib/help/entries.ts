@@ -505,7 +505,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'init',
     kind: 'command',
     who: 'you',
-    usage: ['omni init [--force] [--test <cmd>] [--preflight <cmd>]', '  [--preflight-full <cmd>]'],
+    usage: ['omni init [--force] [--setup <cmd>] [--test <cmd>]', '  [--preflight <cmd>] [--preflight-full <cmd>]'],
     summary: 'install the loop on this repository',
     detail:
       'Installs the Omni Loop on the repository it runs in: writes .omni-loop/config.yml, copies ' +
@@ -513,8 +513,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the loop labels the repository lacks, switches the status line on in .claude/settings.json, ' +
       'then prints the steps a person still has to take. It writes nothing outside .omni-loop/ but ' +
       "that statusLine key, and never replaces someone else's. --force writes the config, the copy " +
-      "and the kit's own status line again; the other flags give the commands that test the " +
-      'repository.',
+      "and the kit's own status line again; --setup gives the command that prepares a fresh " +
+      'checkout (its install), and the other flags give the commands that test the repository.',
   },
   {
     name: 'config',
