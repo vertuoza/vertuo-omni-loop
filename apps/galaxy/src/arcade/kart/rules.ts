@@ -35,6 +35,8 @@ export const RULES = Object.freeze({
   cornerGate: 104,
   rivalAim: 0.04,
   rivalSharp: 0.7,
+  /** A rival with a wheel over the void keeps the gas on below this speed, so one that has stalled on the edge can still steer clear (PRD 1775). */
+  rivalCrawl: 12,
   rivalCorner: 60,
   /** How far ahead a rival looks for the edge, in seconds of its speed (PRD 1698): a wheel over the void there, or under it, steers it back. */
   rivalLook: 0.25,
@@ -65,7 +67,9 @@ export const RULES = Object.freeze({
   /** A kart's four wheels (PRD 1698): how far ahead and behind its centre they stand and how far to each side, and how fast a wheel over the void draws the kart towards the edge. */
   wheelAlong: 6,
   wheelAcross: 3,
-  tipPull: 16,
+  tipPull: 8,
+  /** How long both wheels of one side stay over the void, in a row, before the kart tips over (PRD 1775). */
+  tipGrace: 0.5,
   spinSpeed: 0.3,
   spinRate: Math.PI * 2,
   /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */

@@ -137,12 +137,12 @@ export function aimOf(track: Track, r: Rival): number {
   return turn(Math.atan2(ty - r.kart.y, tx - r.kart.x) - r.kart.angle);
 }
 
-/** What a rival's hands do: steer at the point it aims at, and ease off in a sharp turn. A wheel over the void, now or `RULES.rivalLook` seconds ahead, steers it back from the edge with the gas off, and brakes it when it is faster than a corner allows. */
+/** What a rival's hands do: steer at the point it aims at, and ease off in a sharp turn. A wheel over the void, now or `RULES.rivalLook` seconds ahead, steers it back from the edge with the gas off (but for a crawl under `RULES.rivalCrawl`, so a stalled kart pulls clear), and brakes it when it is faster than a corner allows. */
 function rivalPad(track: Track, r: Rival): Pad {
   const { x, y, angle, speed } = r.kart;
   const ahead = RULES.rivalLook * Math.max(0, speed);
   const lean = leanOf(track.map, r.kart) || leanOf(track.map, { x: x + Math.cos(angle) * ahead, y: y + Math.sin(angle) * ahead, angle });
-  if (lean !== 0) return { left: lean > 0, right: lean < 0, accel: false, brake: speed > RULES.rivalCorner };
+  if (lean !== 0) return { left: lean > 0, right: lean < 0, accel: speed < RULES.rivalCrawl, brake: speed > RULES.rivalCorner };
   const diff = aimOf(track, r);
   const sharp = Math.abs(diff) > RULES.rivalSharp && r.kart.speed > RULES.rivalCorner;
   return { left: diff < -RULES.rivalAim, right: diff > RULES.rivalAim, accel: !sharp, brake: sharp && Math.abs(diff) > RULES.rivalSharp * 1.6 };

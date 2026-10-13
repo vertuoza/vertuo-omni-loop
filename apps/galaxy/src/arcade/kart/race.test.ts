@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { tippedOver } from './kart';
+import { NO_FX, tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
@@ -116,6 +116,15 @@ describe('a step', () => {
     for (let i = 0; i < 400; i++) {
       r = step(r, new Set<Action>(['a', i % 90 < 45 ? 'left' : 'right']), i % 7 === 0 ? 1 : 0.05).race;
       expect(!tippedOver(track.map, r.player) || r.fx.fall > 0, `frame ${i}`).toBe(true);
+    }
+  });
+
+  it('never leaves a kart tipped over on its side for longer than the grace without falling', () => {
+    let r = racing();
+    for (let i = 0; i < 400; i++) {
+      r = step(r, new Set<Action>(['a', i % 90 < 45 ? 'left' : 'right']), i % 7 === 0 ? 1 : 0.05).race;
+      expect(r.fx.tip <= RULES.tipGrace + 1e-9 || r.fx.fall > 0, `frame ${i}`).toBe(true);
+      for (const x of r.rivals) expect((x.fx ?? NO_FX).tip <= RULES.tipGrace + 1e-9 || (x.fx ?? NO_FX).fall > 0).toBe(true);
     }
   });
 

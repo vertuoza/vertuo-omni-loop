@@ -342,7 +342,7 @@ describe('the way back', () => {
     expect(back.kart.speed).toBe(0);
     expect(back.kart.steer).toBe(0);
     expect(Math.cos(back.kart.angle)).toBeCloseTo(-1, 6);
-    expect(back.fx).toEqual({ item: 'blob', boost: 0, spin: 0, fall: 0, blink: RULES.blinkTime });
+    expect(back.fx).toEqual({ item: 'blob', boost: 0, spin: 0, fall: 0, blink: RULES.blinkTime, tip: 0 });
   });
 
   it('is the nearest point in a corner too: on the segment it is on, not on the next one', () => {

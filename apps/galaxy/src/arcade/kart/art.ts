@@ -199,9 +199,19 @@ export const fallenOf = (fx: { fall: number }): number => (fx.fall > 0 ? 1 - Mat
 /** How far a kart rolls over, in radians: a little for a lean (`lean` is -1 to 1, as `leanOf` gives it) and, once it tips, more and more as it falls, onto its side. Towards the side over the void: clockwise (positive) for its right. */
 const TILT = 0.5;
 const ROLL = 1.3;
-export function rollOf(lean: number, fallen: number): number {
-  return lean === 0 ? 0 : Math.sign(lean) * Math.min(Math.PI / 2, TILT * Math.min(0.5, Math.abs(lean)) + ROLL * fallen);
+export function rollOf(lean: number, fallen: number, warning?: { t: number; reduced: boolean }): number {
+  // A kart that falls with all four wheels over the void (the grace let it drive on) has no side to lean on: it rolls to its right.
+  if (lean === 0 && fallen <= 0) return 0;
+  if (lean === 0) return Math.min(Math.PI / 2, ROLL * fallen);
+  // While the grace counts (PRD 1775) the kart leans fully, and rocks unless motion is reduced.
+  const lent = warning ? TILT * Math.min(1, Math.abs(lean)) + (warning.reduced ? 0 : ROCK * Math.sin(warning.t * ROCK_RATE)) : TILT * Math.min(0.5, Math.abs(lean));
+  return Math.sign(lean) * Math.min(Math.PI / 2, Math.max(0, lent + ROLL * fallen));
 }
+/** The rock of a kart on the edge: its size in radians and its speed in radians a second. */
+const ROCK = 0.12;
+const ROCK_RATE = 28;
+/** What makes a kart rock while its grace counts: the clock and the motion setting, none when no count runs. */
+const warningOf = (fx: { tip: number }, s: { t: number; reduced: boolean }) => (fx.tip > 0 ? { t: s.t, reduced: s.reduced } : undefined);
 
 /** Draws `draw` turned by `roll` about the screen point x, y (where the kart's wheels touch the road). */
 function rolled(ctx: CanvasRenderingContext2D, roll: number, x: number, y: number, draw: () => void) {
@@ -239,7 +249,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   if (race.fx.fall <= 0) shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
-  const roll = rollOf(leanOf(race.track.map, kart), fallen);
+  const roll = rollOf(leanOf(race.track.map, kart), fallen, warningOf(race.fx, s));
   rolled(ctx, roll, x + (KART_W * scale) / 2, y + 18 * scale, () => {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
@@ -260,8 +270,9 @@ const LEAN = 0.3;
 
 /** A rival's kart on the floor at `at`, its driver in the seat, as big as its distance makes it. */
 function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected, lean: number) {
-  const fallen = fallenOf(r.fx ?? NO_FX);
-  if (fallen >= 1 || hiddenBlink(r.fx ?? NO_FX)) return;
+  const fx = r.fx ?? NO_FX;
+  const fallen = fallenOf(fx);
+  if (fallen >= 1 || hiddenBlink(fx)) return;
   const scale = ((KART_WORLD * at.scale) / KART_W) * (1 - fallen);
   if (scale < 0.15) return;
   const frame = s.reduced ? 0 : Math.floor(s.t * Math.abs(r.kart.speed) * 0.12) % 2;
@@ -270,8 +281,8 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
   const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale + fallen * 6 * at.scale;
   const half = scale / 2;
-  if ((r.fx ?? NO_FX).fall <= 0) shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05); // a falling kart casts none
-  rolled(ctx, rollOf(lean, fallen), at.sx, y + 18 * scale, () => {
+  if (fx.fall <= 0) shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05); // a falling kart casts none
+  rolled(ctx, rollOf(lean, fallen, warningOf(fx, s)), at.sx, y + 18 * scale, () => {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
     ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);

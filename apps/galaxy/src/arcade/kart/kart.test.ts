@@ -294,12 +294,12 @@ describe('the four wheels (PRD 1698)', () => {
     expect(leanOf(EDGE, atEdge(100, 0))).toBe(0);
   });
 
-  it('slides a leaning kart towards the void at 16 a second', () => {
-    expect(RULES.tipPull).toBe(16);
+  it('slides a leaning kart towards the void at 8 a second', () => {
+    expect(RULES.tipPull).toBe(8);
     const before = atEdge(314.5, SE);
     const { kart, fx } = stepFx(EDGE, before, NONE, 0.1, 1, NO_FX);
     expect(fx.fall).toBe(0);
-    expect(Math.hypot(kart.x - before.x, kart.y - before.y)).toBeCloseTo(1.6, 6);
+    expect(Math.hypot(kart.x - before.x, kart.y - before.y)).toBeCloseTo(0.8, 6);
     expect(kart.x).toBeGreaterThan(before.x); // the void is east
     // Level, it is not moved at all.
     expect(stepFx(EDGE, atEdge(100, SE), NONE, 0.1, 1, NO_FX).kart).toMatchObject({ x: 100, y });
@@ -315,15 +315,33 @@ describe('the four wheels (PRD 1698)', () => {
     expect(leanOf(EDGE, k)).toBe(0);
   });
 
-  it('tips over once both wheels of one side are over the void, into today\'s fall', () => {
+  it('tips over once both wheels of one side have stayed over the void for 0.5 s in a row, into today\'s fall', () => {
+    expect(RULES.tipGrace).toBe(0.5);
     expect(tipsOver(EDGE, atEdge(316, SE))).toBe(false);
     expect(tipsOver(EDGE, atEdge(322.5, SE))).toBe(true);
     expect(tipsOver(EDGE, atEdge(316, 0))).toBe(false);
-    const { fx, kart } = stepFx(EDGE, atEdge(322.5, SE, 50), NONE, RULES.subStep, 1, { ...NO_FX, item: 'orb', boost: 1 });
-    expect(fx.fall).toBe(RULES.fallTime);
-    expect(kart.speed).toBe(0);
-    expect(fx.boost).toBe(0);
-    expect(fx.item).toBe('orb');
+    // Held there (the same kart each step): no fall at 0.49 s, a fall at 0.5 s.
+    const held = atEdge(322.5, SE);
+    let fx: Fx = { ...NO_FX, item: 'orb', boost: 1 };
+    for (let i = 0; i < 49; i++) { fx = stepFx(EDGE, held, NONE, 0.01, 1, { ...fx, boost: 1 }).fx; expect(fx.fall).toBe(0); }
+    expect(fx.tip).toBeCloseTo(0.49, 6);
+    const end = stepFx(EDGE, held, NONE, 0.01, 1, fx);
+    expect(end.fx.fall).toBe(RULES.fallTime);
+    expect(end.kart.speed).toBe(0);
+    expect(end.fx.boost).toBe(0);
+    expect(end.fx.item).toBe('orb');
+    expect(end.fx.tip).toBe(0);
+  });
+
+  it('starts the count again from 0 when one wheel is back over the road', () => {
+    const held = atEdge(322.5, SE);
+    let fx = stepFx(EDGE, held, NONE, 0.4, 1, NO_FX).fx;
+    expect(fx.tip).toBeCloseTo(0.4, 6);
+    fx = stepFx(EDGE, atEdge(316, SE), NONE, 0.01, 1, fx).fx; // only one wheel out
+    expect(fx.tip).toBe(0);
+    fx = stepFx(EDGE, held, NONE, 0.4, 1, fx).fx; // a later count starts from 0
+    expect(fx.tip).toBeCloseTo(0.4, 6);
+    expect(fx.fall).toBe(0);
   });
 
   it('still falls with its centre 7 past the edge, whichever way it faces', () => {
