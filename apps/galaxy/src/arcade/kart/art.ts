@@ -7,14 +7,14 @@
 // under it, and a hill's crest hides what is behind it. It also holds the race the arcade steps.
 import { drawPlanet, drawStarfield, fleetSprite, spriteImage, spriteSize, woundTint, type Tint } from '@omni/design';
 import type { Action } from '../keys';
-import { heroOf } from '../fleets';
+import { allFleets, fleet, heroOf, SOLO, type FleetLook } from '../fleets';
 import { stripesOf } from '../theme';
-import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/common.ts';
+import { H, nebulaFor, pedestal, sprite, stars, W, type FrameState } from '../scenes/common.ts';
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import { leanOf, NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
-import { chaseCamera, depthAt, project, renderTerrain, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
+import { chaseCamera, depthAt, project, renderTerrain, roofedOf, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
 import { groundAt, heightsOf, reliefRange } from './relief';
 import type { GridSession, RaceStart } from './hub';
 import type { Item } from './items';
@@ -30,7 +30,7 @@ import { isRoad, parseTrack, tileAt, type PropKind, type Track } from './track';
 interface Floor { image: ImageData; pixels: Uint32Array; depth: Float32Array; canvas: HTMLCanvasElement }
 
 /** The circuit's ground, once painted: its texture, the height under each of its pixels, the lowest and highest of them, and the side of its deck. */
-interface Ground { texture: Texture; heights: Float32Array; range: { low: number; high: number }; deck: Deck }
+interface Ground { texture: Texture; heights: Float32Array; range: { low: number; high: number }; deck: Deck; roofed: Uint8Array }
 
 /**
  * Where the part of a sprite `z` away, in the screen box `box`, is covered by nearer road: for each column of the box,
@@ -118,9 +118,81 @@ export function cometsOf(seed: number, t: number, w: number, sky: number, reduce
   return out;
 }
 
-/** The planet's seed, and the second planet's. */
+/** The planet's seed, and the second planet's, and the big planet rising at the horizon (PRD 1775). */
 const PLANET_SEED = 1359;
 const MOON_SEED = 1427;
+const BIG_PLANET_SEED = 1775;
+
+/** A ship of a convoy, or a rock of the belt, in the panorama: how far along it (in pixels, wrapped), how high, and (a rock) how big. */
+export interface SkyBit { x: number; y: number; size: number }
+
+/** How many convoys cross the sky, how many ships each holds, how far apart they fly, and how fast the convoys go, in pixels a second. */
+export const CONVOYS = 3;
+export const CONVOY_SHIPS = 3;
+const CONVOY_GAP = 18;
+const CONVOY_SPEED = 5;
+
+/**
+ * The ships of the convoys crossing the sky's panorama (PRD 1775), `CONVOYS` convoys of `CONVOY_SHIPS` ships in a
+ * line, seeded from the race: slowly, along the panorama `span` pixels wide, each convoy at its own height in the
+ * sky `sky` rows deep. With motion reduced they stand still.
+ */
+export function convoyShips(seed: number, t: number, span: number, sky: number, reduced: boolean): SkyBit[] {
+  const next = stream(seed ^ 0x636f76);
+  const out: SkyBit[] = [];
+  for (let c = 0; c < CONVOYS; c++) {
+    const start = next() * span, y = Math.floor(10 + next() * Math.max(1, sky * 0.5)), speed = CONVOY_SPEED * (0.7 + next() * 0.6);
+    for (let i = 0; i < CONVOY_SHIPS; i++) out.push({ x: wrap(start + (reduced ? 0 : t * speed) - i * CONVOY_GAP, span), y: Math.min(y + (i % 2) * 3, sky - 1), size: 1 });
+  }
+  return out;
+}
+
+/** How many rocks the asteroid belt holds. */
+export const BELT_ROCKS = 70;
+
+/** The asteroid belt (PRD 1775): rocks scattered along a band of the panorama `span` pixels wide, in the middle of the sky `sky` rows deep, seeded from the race. */
+export function beltRocks(seed: number, span: number, sky: number): SkyBit[] {
+  const next = stream(seed ^ 0x62656c);
+  const out: SkyBit[] = [];
+  for (let i = 0; i < BELT_ROCKS; i++) out.push({ x: Math.floor(next() * span), y: Math.floor(sky * (0.55 + next() * 0.2)), size: next() < 0.25 ? 2 : 1 });
+  return out;
+}
+
+/** The big planet rising at the horizon (PRD 1775): the biggest of the sky, across the horizon, turning very slowly. */
+function risingPlanet(ctx: CanvasRenderingContext2D, s: FrameState, v: View, shift: number) {
+  drawPlanet(ctx, {
+    cx: Math.round(wrap(shift * 0.4 + v.w * 1.3, v.w * PANORAMA) - v.w * 0.3), cy: v.horizon + Math.round(v.horizon * 0.1), r: Math.round(v.horizon * 0.75), seed: BIG_PLANET_SEED,
+    rot: s.reduced ? 0 : s.t * 0.01, progress: 0.8, mood: 'alive', atmosphere: s.theme.plasma,
+  });
+}
+
+/** The comets crossing the sky: a head and a tail fading behind it. */
+function cometsIn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: number) {
+  for (const c of cometsOf(seed, s.t, v.w, v.horizon, s.reduced)) {
+    for (let i = 0; i < c.tail; i += 2) {
+      ctx.globalAlpha = 1 - i / c.tail;
+      ctx.fillStyle = i === 0 ? s.theme.white : s.theme.cyan;
+      ctx.fillRect(c.x - c.dir * i, c.y, 2, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+/** The asteroid belt across the panorama, behind the planets: dark rocks, the bigger ones with a dim glint. */
+function beltOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: number, shift: number) {
+  const span = v.w * PANORAMA, rocks = beltRocks(seed, span, v.horizon);
+  const at = (r: SkyBit) => Math.round(wrap(shift * 0.7 + r.x, span) - v.w * 0.2);
+  ctx.fillStyle = s.theme['plasma-dark'];
+  for (const r of rocks) ctx.fillRect(at(r), r.y, r.size + 1, r.size);
+  ctx.fillStyle = s.theme.dim;
+  for (const r of rocks.filter((x) => x.size > 1)) ctx.fillRect(at(r), r.y, 1, 1);
+}
+
+/** The convoys' ships crossing the panorama, over the planets. */
+function convoysOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: number, shift: number) {
+  const span = v.w * PANORAMA;
+  for (const c of convoyShips(seed, s.t, span, v.horizon, s.reduced)) sprite(ctx, s, 'sky-convoy', Math.round(wrap(shift * 0.6 + c.x, span) - v.w * 0.2), c.y);
+}
 
 /**
  * The space the circuit floats in (PRD 1447), all round it: above the horizon, and under it, where the floor
@@ -137,6 +209,9 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: numb
   drawStarfield(ctx, stars, shift / 6, { w: W, h: H, speed: 1 });
   ctx.drawImage(nebulaFor('kart-sky', 1, 360, 150), Math.round(wrap(shift * 0.5 + 40, v.w * 3) - v.w * 0.5 - 20), Math.round(sky - 130));
   ctx.drawImage(nebulaFor('kart-deep', 2, 420, 160), Math.round(wrap(shift * 0.5 + v.w * 1.6, v.w * 3) - v.w * 0.5 - 20), Math.round(sky + under * 0.15));
+  // A big planet rises at the horizon, behind everything else in the sky; the asteroid belt runs across the panorama in front of it, behind the planets.
+  risingPlanet(ctx, s, v, shift);
+  beltOf(ctx, s, v, seed, shift);
   drawPlanet(ctx, {
     cx: Math.round(wrap(shift + v.w * 0.7, v.w * PANORAMA) - v.w * 0.2), cy: sky - 20, r: Math.round(sky * 0.28), seed: PLANET_SEED,
     rot: s.reduced ? 0 : s.t * 0.05, progress: 0.6, mood: 'alive', atmosphere: s.theme.cyan,
@@ -147,14 +222,8 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: numb
     rot: s.reduced ? 0 : s.t * 0.03, progress: 0.3, mood: 'alive', atmosphere: s.theme.gold,
   });
   sprite(ctx, s, 'sky-station', Math.round(wrap(shift * 0.6 + v.w * 0.45, v.w * PANORAMA) - v.w * 0.1), Math.round(sky * 0.3), { frame: s.reduced ? 0 : Math.floor(s.t * 1.5) % 2 });
-  for (const c of cometsOf(seed, s.t, v.w, sky, s.reduced)) {
-    for (let i = 0; i < c.tail; i += 2) {
-      ctx.globalAlpha = 1 - i / c.tail;
-      ctx.fillStyle = i === 0 ? s.theme.white : s.theme.cyan;
-      ctx.fillRect(c.x - c.dir * i, c.y, 2, 1);
-    }
-    ctx.globalAlpha = 1;
-  }
+  convoysOf(ctx, s, v, seed, shift);
+  cometsIn(ctx, s, v, seed);
   // The galaxy's disc seen edge on: a glow along the horizon, brightest on it and fading above and below.
   ctx.fillStyle = s.theme['plasma-dark'];
   for (let i = 0; i < HAZE; i++) {
@@ -298,7 +367,7 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
 /** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. `g` is the ground's height under it. */
 type Thing = { x: number; y: number; g: number } & (
   { kind: 'rival'; rival: Rival } | { kind: 'box' } | { kind: 'blob' } | { kind: 'orb' }
-  | { kind: 'prop'; prop: PropKind } | { kind: 'arch'; leg: 0 | 1 }
+  | { kind: 'prop'; prop: PropKind } | { kind: 'stand'; at: number } | { kind: 'arch'; leg: 0 | 1 }
 );
 
 /** Where the minimap stands (PRD 1698): this far in from the right edge, and under the item panel of the race's line (its top at 8, about 24 high). */
@@ -314,9 +383,12 @@ export function minimapAt(grid: { w: number }, track: Pick<Track, 'cols' | 'rows
   return { x, y: MINIMAP_TOP, w, h, mapX: x + FRAME, mapY: MINIMAP_TOP + FRAME };
 }
 
+/** How much lighter the tunnel is on the minimap than the road at its height. */
+const TUNNEL_LIGHTER = 45;
+
 interface MinimapTile { x: number; y: number; colour: string }
 
-/** The road's tiles seen from above, each with its colour: the higher the ground, the lighter, the start line white. Measured once per circuit. */
+/** The road's tiles seen from above, each with its colour: the higher the ground, the lighter, the start line white, the tunnel lighter than the road. Measured once per circuit. */
 export function minimapTiles(track: Track, range: { low: number; high: number }): MinimapTile[] {
   const out: MinimapTile[] = [];
   const span = range.high - range.low;
@@ -327,7 +399,9 @@ export function minimapTiles(track: Track, range: { low: number; high: number })
       if (c === 'S') { out.push({ x, y, colour: '#ffffff' }); continue; }
       const t = span > 0 ? (groundAt(track, (x + 0.5) * TILE, (y + 0.5) * TILE) - range.low) / span : 0;
       const k = Math.round(70 + 120 * Math.min(1, Math.max(0, t)));
-      out.push({ x, y, colour: `rgb(${k}, ${k + 20}, ${Math.min(255, k + 60)})` });
+      // The tunnel's roofed road is a lighter tint of the road's own (PRD 1775); the walkway and the spur are road like the rest.
+      const l = c === 'T' ? Math.min(255, k + TUNNEL_LIGHTER) : k;
+      out.push({ x, y, colour: `rgb(${l}, ${Math.min(255, l + 20)}, ${Math.min(255, l + 60)})` });
     }
   }
   return out;
@@ -380,6 +454,10 @@ export const PROP_ART: Readonly<Record<PropKind, { sprite: string; world: number
   asteroid: { sprite: 'prop-asteroid', world: 26 },
   satellite: { sprite: 'prop-satellite', world: 26 },
   wreck: { sprite: 'prop-wreck', world: 30 },
+  lamp: { sprite: 'prop-lamp', world: 8 },
+  dish: { sprite: 'prop-dish', world: 18 },
+  crane: { sprite: 'prop-crane', world: 34 },
+  container: { sprite: 'prop-container', world: 24 },
 };
 
 /** The arch's leg and beam, and how wide a leg stands in the world. */
@@ -387,9 +465,36 @@ const ARCH_LEG = 'arch-leg';
 const ARCH_BEAM = 'arch-beam';
 export const ARCH_WORLD = 10;
 
-/** The frame a prop shows: a beacon blinks and a satellite turns, and both stand still when motion is reduced. */
+/** The frame a prop shows: a beacon blinks, a satellite and a dish turn, a lamp pulses, and all of them stand still when motion is reduced. */
 export const propFrame = (kind: PropKind, s: FrameState): number =>
-  s.reduced ? 0 : kind === 'beacon' ? Math.floor(s.t * 2) % 2 : kind === 'satellite' ? Math.floor(s.t * 1.2) % 2 : 0;
+  s.reduced ? 0 : kind === 'beacon' ? Math.floor(s.t * 2) % 2 : kind === 'satellite' ? Math.floor(s.t * 1.2) % 2 : kind === 'lamp' ? Math.floor(s.t * 3) % 2 : kind === 'dish' ? Math.floor(s.t * 1.5) % 2 : 0;
+
+/** How wide a stand's ship stands in the world, and how high over the void the stand floats, in world units. */
+const STAND_WORLD = 22;
+export const STAND_LIFT = 10;
+
+/**
+ * What each of `count` stands shows (PRD 1775): the active fleets (not retired), in their order, starting again from
+ * the first when there are fewer fleets than stands. With no active fleet every stand shows the neutral ship.
+ */
+export function standLooks(count: number, fleets: readonly string[] = allFleets().filter((f) => !f.retired).map((f) => f.name)): FleetLook[] {
+  return Array.from({ length: count }, (_, i) => (fleets.length ? fleet(fleets[i % fleets.length]) : SOLO));
+}
+
+/** How far a stand's ship bobs over the void, in game pixels at a distance of one: still when motion is reduced. */
+export const standBob = (s: { t: number; reduced: boolean }, i: number): number => (s.reduced ? 0 : Math.sin(s.t * 1.6 + i * 1.3) * 2);
+
+/** A stand floating over the void: a platform lit in the fleet's colour with the fleet's ship on it, bobbing gently. */
+function standShip(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected, looks: readonly FleetLook[], i: number) {
+  const look = looks[i] ?? SOLO;
+  const { w, h } = spriteSize(look.sprite);
+  const scale = (STAND_WORLD * at.scale) / w;
+  if (w * scale < 2) return;
+  ctx.imageSmoothingEnabled = false;
+  const bob = standBob(s, i) * at.scale;
+  pedestal(ctx, Math.round(at.sx), Math.round(at.sy), Math.max(2, Math.round(STAND_WORLD * 0.5 * at.scale)), look.color);
+  sprite(ctx, s, look.sprite, at.sx - (w * scale) / 2, at.sy - h * scale - 3 * at.scale + bob, { scale, ...(look.tint ? { tint: look.tint } : {}) });
+}
 
 /** A prop standing on its void tile, as big as its distance makes it. */
 function propSprite(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected, kind: PropKind) {
@@ -424,6 +529,14 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
     ctx.restore();
   }
   sprite(ctx, s, ARCH_LEG, at.sx - (w * scale) / 2, top, { scale });
+}
+
+/** What stands off the road, or is thrown over it: a prop, a stand, the arch's leg, a BLOB or an ORB. */
+function scenery(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: Track, looks: readonly FleetLook[], thing: Exclude<Thing, { kind: 'rival' } | { kind: 'box' }>, at: Projected) {
+  if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
+  else if (thing.kind === 'stand') standShip(ctx, s, at, looks, thing.at);
+  else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
+  else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
 }
 
 /** How wide an item stands in the world, in game pixels. */
@@ -509,12 +622,13 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
   const groundOf = (): Ground => {
     if (ground) return ground;
     texture ??= paintTrack(track);
-    ground = { texture, heights: heightsOf(track, texture), range: reliefRange(track), deck: deckOf() };
+    ground = { texture, heights: heightsOf(track, texture), range: reliefRange(track), deck: deckOf(), roofed: roofedOf(track, texture) };
     return ground;
   };
   // What stands still on the circuit stands on the ground under it, measured once.
   const standing = [
     ...track.props.map(({ kind, x, y }): Thing => ({ kind: 'prop', prop: kind, x, y, g: groundAt(track, x, y) })),
+    ...track.stands.map(({ x, y }, at): Thing => ({ kind: 'stand', at, x, y, g: groundAt(track, x, y) + STAND_LIFT })),
     ...track.arch.map(({ x, y }, leg): Thing => ({ kind: 'arch', leg: leg === 0 ? 0 : 1, x, y, g: groundAt(track, x, y) })),
   ];
   const floors = new Map<string, Floor>();
@@ -649,11 +763,11 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
     speed: () => Math.min(1, Math.max(0, race.player.speed / RULES.topSpeed)),
     hud: () => hudOf(race),
     draw(ctx, s) {
-      const { texture, heights, range, deck } = groundOf();
+      const { texture, heights, range, deck, roofed } = groundOf();
       const v = viewFor(s.grid, track, race.player);
       skyOf(ctx, s, v, seed);
       const floor = floorFor(v);
-      renderTerrain(v, texture, heights, range, deck, floor.pixels, floor.depth);
+      renderTerrain(v, texture, heights, range, deck, floor.pixels, floor.depth, roofed);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);
       ctx.drawImage(floor.canvas, 0, 0);
       const things: Thing[] = [
@@ -663,6 +777,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
         ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y, g: groundAt(track, rival.kart.x, rival.kart.y) + (rival.kart.height ?? 0) })),
         ...standing,
       ];
+      const looks = standLooks(track.stands.length);
       // The farthest first, so a near kart covers a far item; a hill's crest nearer than a thing hides it.
       for (const { sprite: thing, at } of spritesInView(v, things, (t) => t.g)) {
         // The arch spans the flat start straight and stays on top; the rest is hidden where the road in front covers it.
@@ -670,9 +785,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
         const hid = thing.kind !== 'arch' && hideBehind(ctx, floor, v.w, v.h, { left: at.sx - reach, right: at.sx + reach, top: at.sy - reach * 1.5, bottom: at.sy + 2 }, at.z);
         if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at, leanOf(track.map, thing.rival.kart), shadeUnder(v, track, thing.rival.kart));
         else if (thing.kind === 'box') itemBox(ctx, s, at);
-        else if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
-        else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
-        else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
+        else scenery(ctx, s, v, track, looks, thing, at);
         if (hid) ctx.restore();
       }
       particlesOn(ctx, s, v, particles, track);
