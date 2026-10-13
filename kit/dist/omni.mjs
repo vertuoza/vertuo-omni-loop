@@ -48272,12 +48272,21 @@ function show3(positional, flags, { ctx, stdout, stderr }) {
     throw usageError(`usage: omni kb show <form> [--json] \u2014 the forms: ${FORM_IDS.join(", ")}`);
   }
   const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
-  const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
-  const laws2 = id === BRIEFING2 ? briefingLaws(ctx) : null;
   for (const problem of resolved.problems) println(stderr, `warning: ${problem}`);
-  const json3 = { ...resolved, ...records ? { records } : {}, ...laws2 ? { laws: laws2 } : {} };
-  println(stdout, flags.json ? JSON.stringify(json3, null, 2) : formShowText(resolved, records, laws2?.lines ?? null));
+  println(stdout, flags.json ? JSON.stringify(showJson(ctx, id, resolved), null, 2) : showText(ctx, id, resolved));
   return 0;
+}
+function showJson(ctx, id, resolved) {
+  const extra = {
+    ...id === DECISIONS_FORM ? { records: readDecisions({ ctx }) } : {},
+    ...id === BRIEFING2 ? { laws: briefingLaws(ctx) } : {}
+  };
+  return { ...resolved, ...extra };
+}
+function showText(ctx, id, resolved) {
+  const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
+  const laws2 = id === BRIEFING2 ? briefingLaws(ctx).lines : null;
+  return formShowText(resolved, records, laws2);
 }
 var SOURCE_LABEL = { repo: "repo", pointer: "pointer", kit: "kit default" };
 function registerLines(registers) {
