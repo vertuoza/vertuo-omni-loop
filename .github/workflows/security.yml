@@ -1,0 +1,105 @@
+# Secret scanning and push protection, kept on (PRD 1717): once a day at 06:17 UTC, and on demand,
+# `node scripts/security-settings.ts` reads the repository's two settings and its open secret scanning
+# alerts. On red it opens one issue labelled omni:security, titled `Security settings: <what is wrong>`
+# (the script's summary line), whose body is the script's output, or comments the new output on the
+# one already open; on green it closes the open one with a comment. A red day also fails the run. It
+# checks out the repository read-only, installs nothing (the script uses Node's built-ins only) and
+# pushes nothing.
+#
+# Off until the repository secret SECURITY_READ_TOKEN is set: the token job says whether it is, and
+# the watch job runs only when it is. The workflow's own GITHUB_TOKEN reads neither the settings nor
+# the alerts, so the script reads with that token; the issue is written with GITHUB_TOKEN.
+# Setup, by an admin of the repository:
+#   1. Create a fine-grained token: GitHub › Settings › Developer settings › Personal access tokens ›
+#      Fine-grained tokens › Generate new token. Resource owner vertuoza, "Only select repositories":
+#      vertuoza/vertuo-omni-loop, and two repository permissions, nothing else:
+#      Administration: read and Secret scanning alerts: read (GitHub adds Metadata: read itself).
+#   2. Store it as the repository secret SECURITY_READ_TOKEN: the repository's Settings › Secrets and
+#      variables › Actions › New repository secret. When it expires, the run goes red with the HTTP
+#      status of the failed read; a new token in the same secret fixes it.
+#   3. Create the label once (labels.autoCreate is false here, so nothing else creates it):
+#      gh label create omni:security --color B60205 --description "Secret scanning or push protection is off, or an alert is open"
+name: security
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  token:
+    # A job's `if` cannot read a secret: this job reads it and says only whether it is set.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      set: ${{ steps.token.outputs.set }}
+    steps:
+      - id: token
+        env:
+          SECURITY_READ_TOKEN: ${{ secrets.SECURITY_READ_TOKEN }}
+        run: |
+          if [ -n "$SECURITY_READ_TOKEN" ]; then echo "set=true" >> "$GITHUB_OUTPUT"; else echo "set=false" >> "$GITHUB_OUTPUT"; fi
+
+  watch:
+    needs: token
+    if: needs.token.outputs.set == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: security    # two runs never open two issues
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Read the settings and the open alerts
+        id: report
+        env:
+          GH_TOKEN: ${{ secrets.SECURITY_READ_TOKEN }}
+        run: |
+          code=0
+          node scripts/security-settings.ts > "$RUNNER_TEMP/security.txt" 2>&1 || code=$?
+          cat "$RUNNER_TEMP/security.txt"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Open, update or close the omni:security issue
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CODE: ${{ steps.report.outputs.code }}
+          REPORT: ${{ runner.temp }}/security.txt
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --label omni:security --state open --json number --jq '.[0].number // empty')
+          summary=$(tail -n 1 "$REPORT")
+          if [ "$CODE" = "0" ]; then
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "$summary, read by $RUN_URL"
+            fi
+            exit 0
+          fi
+          case "$summary" in
+            'security settings: red: '*) wrong=${summary#security settings: red: } ;;
+            *) wrong='the check did not finish' ;;
+          esac
+          body="$RUNNER_TEMP/security-issue.md"
+          {
+            echo "\`node scripts/security-settings.ts\` is red, read by $RUN_URL. Each line names its fix."
+            echo
+            echo '```text'
+            cat "$REPORT"
+            echo '```'
+          } > "$body"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file "$body"
+          else
+            gh issue create --title "Security settings: $wrong" --label omni:security --body-file "$body"
+          fi
+      - name: Fail the run on red
+        env:
+          CODE: ${{ steps.report.outputs.code }}
+        run: |
+          exit "$CODE"

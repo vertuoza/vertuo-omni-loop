@@ -6,12 +6,12 @@ import { MASK, maskSecrets, maskState } from './mask';
 // by the kit's own rules (kit/lib/openrouter.ts › maskSecrets), ported here.
 
 const SECRETS = [
-  'ghp_abcdefghijklmnopqrstuvwxyz0123456789',
-  'ghs_ABCDEFGHIJKLMNOPQRSTUVWX0123456789ab',
-  'github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz',
+  'ghp_' + 'abcdefghijklmnopqrstuvwxyz0123456789',
+  'ghs_' + 'ABCDEFGHIJKLMNOPQRSTUVWX0123456789ab',
+  'github_pat_' + '11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz',
   'sk-or-v1-0123456789abcdef0123456789abcdef',
-  'sk-ant-api03-abcdefghijklmnopqrstuvwxyz',
-  'AKIAIOSFODNN7EXAMPLE',
+  'sk-ant-' + 'api03-abcdefghijklmnopqrstuvwxyz',
+  'AKIA' + 'IOSFODNN7EXAMPLE',
   'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
 ];
 

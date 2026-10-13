@@ -1,6 +1,6 @@
 // `/api/server-event` (PRD 1548 s4): galaxy tells the App that the server changed a product PRD, so the
-// App re-posts both its checks, `omni/approved` and the outbox check, on that PRD's open target pull
-// requests without waiting for a webhook.
+// App re-posts its checks, `omni/approved`, the outbox check and `omni / budgets` (PRD 1679), on that
+// PRD's open target pull requests without waiting for a webhook.
 //
 // Galaxy POSTs `{ event, dossier, at }` here, signed with an HMAC-SHA256 over the exact body under
 // `STAGE_EVENT_SECRET`, the secret both apps already share for the stage events, in the same

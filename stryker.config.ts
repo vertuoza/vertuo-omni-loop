@@ -11,6 +11,8 @@ export default {
     'kit/lib/config.ts',
     'kit/lib/layout.ts',
     'kit/lib/ids.ts',
+    // PRD 1679: the budgets' ratchet, which turns a pull request red or lets a raise through.
+    'kit/lib/budgets/ratchet.ts',
     '!kit/lib/**/*.test.ts',
   ],
   // Named, not globbed: under pnpm, Stryker's own folder cannot see its sibling plugins.

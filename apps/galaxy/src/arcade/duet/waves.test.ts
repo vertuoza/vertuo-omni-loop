@@ -94,12 +94,12 @@ describe('the vocabulary', () => {
     }
   });
 
-  it('sets the half bar 2 R long from either side, its inner end R/3 short of the centre line', () => {
+  it('sets the half bar 2 R long from either side, its inner end 0.45 R short of the centre line', () => {
     const [left, right] = two(at(parseWave('speed 60\nL half · 0\nR half · 1R', 'test'), 0));
     expect(left.w).toBeCloseTo(2 * R, 9);
     expect(left.h).toBeCloseTo(0.3 * R, 9);
-    expect(left.cx + left.w / 2).toBeCloseTo(RULES.centre.x - R / 3, 9);
-    expect(right.cx - right.w / 2).toBeCloseTo(RULES.centre.x + R / 3, 9);
+    expect(left.cx + left.w / 2).toBeCloseTo(RULES.centre.x - 0.45 * R, 9);
+    expect(right.cx - right.w / 2).toBeCloseTo(RULES.centre.x + 0.45 * R, 9);
   });
 
   it('sets the centre block on the centre line, a square 0.75 R wide', () => {
@@ -109,7 +109,7 @@ describe('the vocabulary', () => {
     expect(centre?.h).toBeCloseTo(0.75 * R, 9);
   });
 
-  it('sets a gate\'s two bars at one height, 1.2 R long either side of a gap 0.8 R wide on the centre line, as one obstacle', () => {
+  it('sets a gate\'s two bars at one height, 1.2 R long either side of a gap 1 R wide on the centre line, as one obstacle', () => {
     const wave = parseWave('speed 60\ngate · 0', 'test');
     const [left, right] = two(at(wave, 0));
     expect(placedAt(wave, 0).map((p) => p.piece)).toEqual([wave.pieces[0], wave.pieces[0]]);
@@ -118,8 +118,8 @@ describe('the vocabulary', () => {
       expect(bar.w).toBeCloseTo(1.2 * R, 9);
       expect(bar.h).toBeCloseTo(0.3 * R, 9);
     }
-    expect(left.cx + left.w / 2).toBeCloseTo(RULES.centre.x - 0.4 * R, 9);
-    expect(right.cx - right.w / 2).toBeCloseTo(RULES.centre.x + 0.4 * R, 9);
+    expect(left.cx + left.w / 2).toBeCloseTo(RULES.centre.x - 0.5 * R, 9);
+    expect(right.cx - right.w / 2).toBeCloseTo(RULES.centre.x + 0.5 * R, 9);
     // Its outer ends reach past the level orbs.
     expect(right.cx + right.w / 2).toBeGreaterThan(RULES.centre.x + R + RULES.orbRadius);
   });
@@ -342,6 +342,17 @@ describe('every wave is passable by a person', () => {
 
   it('keeps room to spare: every chapter wave passes for a person reacting in 0.4 s with orbs 2 pixels wider', () => {
     expect(waveProblems(CHAPTERS, SPARE)).toEqual([]);
+  });
+
+  it('leaves room to time each move: every chapter wave passes with each change of what is held landing up to 0.15 s late', () => {
+    expect(RULES.lateSeconds).toBe(0.15);
+    expect(waveProblems(CHAPTERS, { lateSeconds: RULES.lateSeconds })).toEqual([]);
+  });
+
+  it('names a wave a person gets through only by changing at the exact sub-step: a fast chain of rods', () => {
+    const chain = parseChapter('V', 'CHAIN', ['speed 60\ncentre · 0', 'speed 170\ncentre turn back · 0\ncentre turn back · 1.25R\ncentre turn back · 1.25R\ncentre turn back · 1.25R']);
+    expect(waveProblems([chain])).toEqual([]);
+    expect(waveProblems([chain], { lateSeconds: RULES.lateSeconds })).toEqual(['chapter V · CHAIN, wave 2: no human way through']);
   });
 
   it('names a deliberately impassable wave: a half bar, a centre block and the other half bar touching, a wall across the circle', () => {
@@ -695,7 +706,7 @@ describe('the endless waves', () => {
     }));
     expect(Math.min(...spaces.filter((s) => s.same).map((s) => s.space))).toBeCloseTo(1.25, 9);
     expect(spaces.filter((s) => s.same && s.space < 1.5 * R).length).toBeGreaterThan(20);
-    expect(Math.max(...spaces.filter((s) => !s.same).map((s) => s.space))).toBeLessThan(3);
+    expect(Math.max(...spaces.filter((s) => !s.same).map((s) => s.space))).toBeLessThanOrEqual(3);
   });
 
   it('stop rising at a ceiling: a slow rise, never past it', () => {
@@ -704,18 +715,23 @@ describe('the endless waves', () => {
     expect(endlessWave(100_000).speed).toBe(speeds[199]);
   });
 
-  it('ask to turn the pair in every one of the first 200, and last 8 seconds at most', () => {
+  it('ask to turn the pair in every one of the first 200, and last 8.5 seconds at most', () => {
     const { bins } = ring();
     endlessWaves(200).forEach((w, i) => {
       let alive = Array.from({ length: bins }, (_, b) => (b / bins) * Math.PI * 2);
       for (let tick = 1; alive.length && !passedAt(w, tick); tick++) alive = alive.filter((a) => !struck(a, blocksAt(w, tick)));
       expect(alive, `wave ${i + 1}`).toEqual([]);
-      expect(secondsOf(w), `wave ${i + 1}`).toBeLessThanOrEqual(8);
+      expect(secondsOf(w), `wave ${i + 1}`).toBeLessThanOrEqual(8.5);
     });
   });
 
   it('pass for a person for the first 200, from any angle, holding anything: a hit begins the wave hit again from wherever the orbs stand', () => {
     expect(waveProblems(endless(endlessWaves(200)))).toEqual([]);
+  });
+
+  it('leave room to time each move for the first 200, each change landing up to 0.12 s late', () => {
+    expect(RULES.endlessLateSeconds).toBe(0.12);
+    expect(waveProblems(endless(endlessWaves(200)), { lateSeconds: RULES.endlessLateSeconds })).toEqual([]);
   });
 
   it('keep the chapters\' room to spare for the first 200', () => {

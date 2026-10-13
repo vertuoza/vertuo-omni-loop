@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EnvError, gitWithoutPrompt, OMNI_TOKEN_PATTERN, PLATFORM_VARIABLES, omniTokenOf, readEnv, requireGroup, SUPABASE, VARIABLES, withGithubToken, withStepVariables, WORKSPACE } from './read.ts';
+import { EnvError, GAME_VARIABLES, gitWithoutPrompt, OMNI_TOKEN_PATTERN, PLATFORM_VARIABLES, omniTokenOf, readEnv, requireGroup, SUPABASE, VARIABLES, withGithubToken, withStepVariables, WORKSPACE } from './read.ts';
 
 const SECRET = 'sk-fake-secret-0123456789';
 /** A kit token as `omni setup-token` prints it: `omk_` and 43 base64url characters. */
@@ -39,6 +39,31 @@ describe('readEnv', () => {
     expect(env.workspace).toEqual({ slug: 'vertuoza' });
     expect(env.supabase).toEqual({ url: 'http://127.0.0.1:54321', key: SECRET });
     expect(env.packageManager).toEqual({ execPath: '/bin/pnpm.cjs' });
+  });
+
+  it('reads the optional members from their own variables', () => {
+    const env = readEnv({ PROOF_STORAGE_STATE: '/tmp/state.json', GITHUB_STEP_SUMMARY: '/tmp/summary' });
+    expect(env.proof).toEqual({ storageState: '/tmp/state.json' });
+    expect(env.githubActions).toEqual({ summary: '/tmp/summary' });
+  });
+
+  it('lists the game\'s variables, the workspace and the Supabase pair, for game/README.md', () => {
+    expect(GAME_VARIABLES).toEqual(['OMNI_LOOP_WORKSPACE', 'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
+  });
+
+  it('names the group a half-set pair belongs to, and why a value is refused', () => {
+    const messageOf = (source: Record<string, string>): string => {
+      try {
+        readEnv(source);
+      } catch (error) {
+        if (error instanceof EnvError) return error.message;
+      }
+      return '';
+    };
+    expect(messageOf({ OPENROUTER_MODEL: 'm' })).toContain('(OpenRouter: set all of them, or none)');
+    expect(messageOf({ SUPABASE_SERVICE_ROLE_KEY: SECRET })).toContain('(the Supabase pair: set all of them, or none)');
+    expect(messageOf({ OMNI_LOOP_WORKSPACE: '  ' })).toBe('environment: OMNI_LOOP_WORKSPACE is not valid: a workspace slug');
+    expect(messageOf({ OMNI_TOKEN: 'omk_short' })).toBe('environment: OMNI_TOKEN is not valid: it is not a kit token: make one with omni setup-token');
   });
 
   describe('OMNI_TOKEN, the kit token a cloud session signs in with (PRD 1628)', () => {

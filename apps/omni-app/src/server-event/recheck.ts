@@ -9,7 +9,9 @@
 //   step "recheck"             one outbox check event per kept pull request (OUTBOX_CHECK_EVENT), the one the
 //                              webhook sends, which the outbox check (../outbox-check/outbox-check.ts) and
 //                              the approved check (../approved-check/approved-check.ts) both run, the inbox
-//                              check too: each verdict is that function's alone
+//                              check too, and the budgets check (../budgets-check/budgets-check.ts), so an
+//                              `item-settled` that answers a ceiling's raise turns `omni / budgets` green
+//                              with no new push (PRD 1679): each verdict is that function's alone
 //
 // Debounced per PRD: the burst of events one approval or one push makes re-checks once, from the last.
 // The installation's GitHub budget is shared with galaxy (PRD 902): a read it refuses is never sent; the

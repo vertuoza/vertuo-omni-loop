@@ -35,3 +35,14 @@ export function hintKey(key: string, form: Form): string | null {
   if (form === 'full' || !(key in ON_PAD)) return key;
   return ON_PAD[key] ?? null;
 }
+
+const LABELS: Record<string, string> = { ArrowUp: '▲', ArrowDown: '▼', ArrowLeft: '◀', ArrowRight: '▶', ' ': 'SPACE' };
+
+/** How a key reads on screen: the arrows as ▲ ▼ ◀ ▶, the space bar as SPACE, a letter in capitals, any other key by its name in capitals. */
+export const keyLabel = (key: string): string => LABELS[key] ?? key.toUpperCase();
+
+/** The player's five race keys, one per action (OMNI KART's options). */
+export interface DriveKeys { gas: string; brake: string; left: string; right: string; item: string }
+
+/** The line the countdown shows: `▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM`, with the player's own keys. */
+export const driveLine = (k: DriveKeys): string => `${keyLabel(k.gas)} GAS ${keyLabel(k.left)} ${keyLabel(k.right)} STEER ${keyLabel(k.brake)} BRAKE ${keyLabel(k.item)} ITEM`;

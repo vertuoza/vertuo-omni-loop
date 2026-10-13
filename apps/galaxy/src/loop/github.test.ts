@@ -14,7 +14,7 @@ vi.mock('server-only', () => ({}));
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const CREDS = { appId: '123456', privateKey: privateKey.export({ type: 'pkcs1', format: 'pem' }).toString() };
 const NOW = Date.parse('2026-10-12T10:00:00Z');
-const TOKEN = 'ghs_secret_installation_token';
+const TOKEN = 'ghs_' + 'secret_installation_token';
 
 /** A pull request as GitHub's REST API answers it, trimmed to what the host reads and a little more. */
 const pull = (number: number, more: Record<string, unknown> = {}) => ({

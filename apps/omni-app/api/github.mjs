@@ -392,6 +392,8 @@ var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_CHECK_EVENT = "omni-loop/approved.check.requested";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
 var APPROVED_LABEL_EVENT = "omni-loop/approved.label.changed";
+var BUDGETS_CHECK_EVENT = "omni-loop/budgets.check.requested";
+var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
 var RETRO_EVENT = "omni-loop/retro.requested";
 var HARVEST_EVENT = "omni-loop/knowledge.harvest.requested";
 var inngest = new Inngest({ id: APP_ID });
@@ -712,6 +714,7 @@ var generatedEntry = z7.object({
   from: z7.array(text2).min(1, "at least one source prefix"),
   build: z7.string().trim().min(1)
 }).strict();
+var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z7.object({
   kit: z7.literal(CONFIG_VERSION),
   repo: section({
@@ -850,6 +853,10 @@ var ConfigSchema = z7.object({
     // and a config that does not set it parses exactly as before.
     hookMaxBytes: z7.number().int().positive().optional()
   }),
+  // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
+  // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
+  // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
+  wave: section({ inlineBelow: z7.number().int().min(0).default(0) }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
@@ -928,7 +935,12 @@ var ConfigSchema = z7.object({
   flow: FlowSchema.optional(),
   // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
   // it has none, and parses with no `generated` key.
-  generated: z7.array(generatedEntry).optional()
+  generated: z7.array(generatedEntry).optional(),
+  // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
+  // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
+  // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
+  // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
+  budgets: z7.object({ context: section({ enabled: z7.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional()
 }).strict().superRefine(({ pr, flow }, issues) => {
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
@@ -1293,7 +1305,7 @@ var FORMS = Object.freeze([
   form("architecture", "core", [req("layout"), req("boundaries"), opt("patterns")]),
   form("testing", "core", [req("commands"), req("layout"), opt("levels"), req("never"), opt("data")]),
   form("verification", "core", [req("preflight"), opt("before-push"), opt("checks")]),
-  form("ci", "core", [req("workflows"), req("gating"), opt("known-reds"), opt("rerun")]),
+  form("ci", "core", [req("workflows"), req("gating"), opt("known-reds"), opt("rerun"), opt("budgets")]),
   form("pull-requests", "core", [req("body"), opt("title"), opt("labels"), opt("reviewers")]),
   form("decisions", "core", [req("where"), req("format"), opt("numbering")]),
   form("definition-of-done", "extended", [req("done"), opt("docs"), opt("commits")]),
@@ -1585,6 +1597,7 @@ function toCheckRequests(event, delivery) {
 function rerunEventOf(externalId) {
   if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
   if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  if (externalId === BUDGETS_EXTERNAL_ID) return BUDGETS_CHECK_EVENT;
   return OUTBOX_CHECK_EVENT;
 }
 function toRetroRequests(event, delivery) {

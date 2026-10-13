@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { RULES } from './rules';
-import { BANNER_SECONDS, CHAPTER_TITLES, ENDLESS_POINTS, newRun, pause, press, step, WAVE_POINTS, waveOf, wavesIn, type Run, type RunEvent } from './run';
+import { BANNER_SECONDS, CHAPTER_TITLES, CRASH_SECONDS, ENDLESS_POINTS, newRun, pause, press, step, WAVE_POINTS, waveOf, wavesIn, type Run, type RunEvent } from './run';
 import { blocksAt, ring, route, struck } from './waves';
 
 // OMNI DUET's run (PRD 1633): the ready screen, START into play, B back to the room, and the orbs turned
@@ -113,6 +113,13 @@ function pilot(run: Run, dt = RULES.subStep): { run: Run; events: RunEvent[] } {
   return { run: r, events };
 }
 
+/** The run once the contact of its last hit has shown its time: the crash gone, nothing else moved. */
+function shown(run: Run): Run {
+  let r = run;
+  while (r.crash) r = step(r, held(), RULES.maxDt).run;
+  return r;
+}
+
 /** Holds the orbs still until something happens: a pass, a hit, or nothing in a minute. */
 function holdStill(run: Run): { run: Run; events: RunEvent[] } {
   let r = run;
@@ -155,6 +162,17 @@ describe('the waves in play', () => {
 });
 
 describe('a hit', () => {
+  it('keeps the contact on the screen for CRASH_SECONDS, then lets it go; START lets it go at once', () => {
+    const { run } = holdStill(pilot(playing()).run);
+    expect(run.crash).toMatchObject({ chapter: 0, wave: 1, left: CRASH_SECONDS });
+    expect(run.crash?.tick).toBeGreaterThan(0);
+    const half = stepped(run, held(), RULES.maxDt, 5);
+    expect(half).toMatchObject({ phase: 'ready', tick: 0, wave: 0 });
+    expect(half.crash?.left).toBeCloseTo(CRASH_SECONDS - 5 * RULES.maxDt, 9);
+    expect(shown(run)).toEqual({ ...run, crash: null });
+    expect(press(run, 'start').run.crash).toBeNull();
+  });
+
   it('costs a life, restarts the chapter from its first wave, and shows the ready screen', () => {
     const passedOne = pilot(playing()).run; // no wave is passed by orbs held still
     const { run, events } = holdStill(passedOne);
@@ -192,7 +210,9 @@ describe('a hit', () => {
     }
     expect(events).toEqual(['hit', 'over']);
     expect(run).toMatchObject({ phase: 'over', lives: 0, score: 0 });
-    expect(step(run, held('left'), RULES.maxDt).run).toBe(run);
+    const still = shown(run);
+    expect(still.crash).toBeNull();
+    expect(step(still, held('left'), RULES.maxDt).run).toBe(still);
     expect(press(run, 'start').events).toEqual([]);
     expect(press(run, 'b').events).toEqual(['leave']);
     const again = press(run, 'a');
@@ -342,7 +362,8 @@ describe('endless mode', () => {
     const { run, events } = crash(start);
     expect(events).toEqual(['hit']);
     expect(run).toMatchObject({ phase: 'ready', endless: true, wave: 3, tick: 0, lives: 2, score: start.score });
-    expect(step(run, held('left'), RULES.maxDt).run).toBe(run);
+    const still = shown(run);
+    expect(step(still, held('left'), RULES.maxDt).run).toBe(still);
     const again = press(run, 'start');
     expect(again.run).toMatchObject({ phase: 'play', endless: true, wave: 3 });
   });

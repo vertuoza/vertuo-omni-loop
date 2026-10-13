@@ -721,6 +721,13 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
   kart: { w: 28, h: 18, draw: kartDraw(0) },
   'kart-left': { w: 28, h: 18, draw: kartDraw(-1) },
   'kart-right': { w: 28, h: 18, draw: kartDraw(1) },
+  // The kart's two other designs (PRD 1762): ROCKET and RACER, each straight and leaning.
+  'kart-rocket': { w: 28, h: 18, draw: rocketDraw(0) },
+  'kart-rocket-left': { w: 28, h: 18, draw: rocketDraw(-1) },
+  'kart-rocket-right': { w: 28, h: 18, draw: rocketDraw(1) },
+  'kart-racer': { w: 28, h: 18, draw: racerDraw(0) },
+  'kart-racer-left': { w: 28, h: 18, draw: racerDraw(-1) },
+  'kart-racer-right': { w: 28, h: 18, draw: racerDraw(1) },
   // OMNI KART's ORB (PRD 1359): a glowing orb thrown ahead; the second frame pulses its halo.
   orb: {
     w: 16, h: 16,
@@ -805,6 +812,42 @@ function kartDraw(lean: -1 | 0 | 1): SpriteDef['draw'] {
     d.ellipse(14 + s, 6, 5, 2.5, 'N'); // the seat back, the driver's shoulders sit over it
     d.rect(10 + s, 15, 2, 2, 'L', 1).rect(16 + s, 15, 2, 2, 'L', 1); // the exhausts
     d.px(5 + s, 11, 'R').px(6 + s, 11, 'R').px(21 + s, 11, 'R').px(22 + s, 11, 'R'); // the tail lights
+  };
+}
+
+/** The wheels and tread every kart design shares, leaning `lean`; returns the body's slide over its wheels. */
+function kartWheels(d: Painter, f: number, lean: -1 | 0 | 1): number {
+  const wl = lean < 0 ? 7 : lean > 0 ? 9 : 8, wr = lean > 0 ? 7 : lean < 0 ? 9 : 8;
+  const tread = (x: number, y: number) => { for (let r = 0; r < 4; r++) d.rect(x + 1, y + 1 + r * 2 + f, 4, 1, 'n', 3); };
+  d.rect(1, wl, 6, 9, 'n', 1); tread(1, wl);
+  d.rect(21, wr, 6, 9, 'n', 1); tread(21, wr);
+  d.rect(6, 12, 16, 2, 'L', 2); // the rear axle
+  return lean * 2;
+}
+
+/** ROCKET (PRD 1762): a slim rocket body with a pointed nose, side fins and a lit engine, seen from behind. */
+function rocketDraw(lean: -1 | 0 | 1): SpriteDef['draw'] {
+  return (d, f) => {
+    const s = kartWheels(d, f, lean);
+    d.poly([[11 + s, 1], [17 + s, 1], [20 + s, 14], [8 + s, 14]], 'W'); // the tube
+    d.poly([[8 + s, 8], [3 + s, 15], [8 + s, 14]], 'N').poly([[20 + s, 8], [25 + s, 15], [20 + s, 14]], 'N'); // the fins
+    d.rect(9 + s, 13, 10, 3, 'N');
+    d.ellipse(14 + s, 5, 2.5, 2, 'N'); // the cockpit
+    d.rect(12 + s, 15, 4, 2, 'L', 1); // the engine
+    d.px(9 + s, 11, 'R').px(10 + s, 11, 'R').px(18 + s, 11, 'R').px(19 + s, 11, 'R'); // the tail lights
+  };
+}
+
+/** RACER (PRD 1762): a low, wide body under a rear wing, seen from behind. */
+function racerDraw(lean: -1 | 0 | 1): SpriteDef['draw'] {
+  return (d, f) => {
+    const s = kartWheels(d, f, lean);
+    d.poly([[5 + s, 8], [23 + s, 8], [26 + s, 14], [2 + s, 14]], 'W'); // the low body
+    d.rect(3 + s, 13, 22, 3, 'N');
+    d.rect(4 + s, 2, 20, 3, 'N').rect(6 + s, 5, 2, 4, 'L', 2).rect(20 + s, 5, 2, 4, 'L', 2); // the wing and its struts
+    d.rect(11 + s, 6, 6, 3, 'N'); // the driver's helmet rest
+    d.rect(9 + s, 15, 3, 2, 'L', 1).rect(16 + s, 15, 3, 2, 'L', 1); // the exhausts
+    d.px(4 + s, 11, 'R').px(5 + s, 11, 'R').px(22 + s, 11, 'R').px(23 + s, 11, 'R'); // the tail lights
   };
 }
 

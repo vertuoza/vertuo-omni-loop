@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "The options are pure modules I can read, but the design changes the messages of a live race, and nothing yet says what a grid with an old tab and a new one does.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "An options screen, kart paint and a podium are more polish on what I already see as a gimmick; at least it needs no migration and no table.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Five asks from one sentence in one PRD, with the circuit and the tunnel split into their own: the kart becomes a game players can tune and own.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Each piece has one purpose and NORMAL keeps today's numbers, which keeps it reviewable; I want the keys scoped to the race so the arcade keeps one set of menu keys.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Arrows and SPACE by default, a colour of my own and a podium: wins a player feels in the first race, without any setup.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "You are changing the messages of a live race. During a deploy, an old tab will ignore `laps` and run 3 laps while the others run 5: exactly the bug in production I fear.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ~ · persona:B-E DEv ~ · persona:F-E Developer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A grid with any entry lacking `laps` runs three, and a test races an old tab beside a new one on the in-memory hub; the options read back field by field, so a bad store cannot break /play.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Still a toy to me, but a contained one: no migration, no change to the score function, and a revert leaves nothing behind.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Fourteen observable criteria, a clear split from the circuit and tunnel PRDs, and nothing asked of anyone before it can be built.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The player's keys hold in the race only, the touch pad and the other games are untouched, and NORMAL is held to today's numbers by a test.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The keys change for everyone, but the countdown names the new ones, and a longer race still counts on the board.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-12",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The deploy window I feared is held: a grid with any entry missing its laps runs three, and state messages accept four to seven. The keyboard routing in ArcadeApp still has no test of its own, and nobody has raced the podium or the new sprites in a browser: that is what I check first.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "What was promised held: no migration, no change to the score function or the grid's policies, and a revert leaves only unread options in a browser. Still a toy to me, but a clean one.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The release note says it in two sentences: your own keys, laps, rivals and kart, kept in your browser, and a podium at the end of every race.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Seven slices in five waves, each wave green together, three medium trade-offs adopted in the open. Two fixes landed on the branch, casts and a duplicated colour list, and four slices wrote outside their territory, mostly in the kart's art file.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Arrows and SPACE work from the first race, the countdown names them, and a five-lap race still counts on the board. The extra press on the podium is one more step before racing again.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    }
+  ]
+}

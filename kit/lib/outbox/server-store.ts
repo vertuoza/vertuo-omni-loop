@@ -110,6 +110,13 @@ function parsedRow(prd: ProductPrdId, row: Row): OutboxItem | null {
   return parsed.ok ? parsed.item : null;
 }
 
+/** A row as a ledger entry, its id, verdict, basis and item text; none while it is open. */
+function settledEntriesOf(row: Row): SettledEntryView[] {
+  if (row.settlement === null) return [];
+  const { verdict, basis } = row.settlement;
+  return [{ id: row.item, verdict, closed: true, fields: { Verdict: verdict, Basis: basis }, answerText: '', itemText: row.body, became: [] }];
+}
+
 /** The `server` store of the repository `ctx`, reaching the Omni page through `connect`'s client;
  * `now` dates the held line. */
 export function serverOutboxStore({ ctx, connect, now }: { ctx: Context; connect: () => OutboxServerClient; now: () => number }): OutboxStore {
@@ -259,16 +266,11 @@ export function serverOutboxStore({ ctx, connect, now }: { ctx: Context; connect
     },
 
     async adoptedEntries(prd) {
-      const adopted = (await rows(productPrd(prd))).filter((row) => row.settlement?.verdict === ADOPTED_VERDICT);
-      return adopted.map((row): SettledEntryView => ({
-        id: row.item,
-        verdict: ADOPTED_VERDICT,
-        closed: true,
-        fields: { Verdict: ADOPTED_VERDICT, Basis: row.settlement?.basis ?? '' },
-        answerText: '',
-        itemText: row.body,
-        became: [],
-      }));
+      return (await rows(productPrd(prd))).flatMap(settledEntriesOf).filter((entry) => entry.verdict === ADOPTED_VERDICT);
+    },
+
+    async settledEntries(prd) {
+      return (await rows(productPrd(prd))).flatMap(settledEntriesOf);
     },
 
     // A product PRD's questions are answered on its Questions tab: no reply on GitHub settles one.
