@@ -4,8 +4,7 @@ import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { Brand } from '../arcade/brand';
-import type { DossiersRead, FleetRow, Player, ScoresRead, Session, XpRead } from '../arcade/types';
-import { readDossiers } from './dossiers';
+import type { FleetRow, Player, ScoresRead, Session, XpRead } from '../arcade/types';
 import { loadCrew, loadFleets, loadGalaxy, loadMe } from './load-galaxy';
 import { readScores } from './scores';
 import { textOf } from './unparsed';
@@ -25,9 +24,9 @@ import { readXp } from './xp';
 // - A member with GitHub linked also gets their player_xp row in that workspace, by lower-cased
 //   login, and each game's crew table (its top five, and their own best): each read on its own, so
 //   XP or scores out of reach leave the galaxy shown, and say so.
-// - Every member, visitor or player, also gets the planets' dossiers (PRD 216: each planet's PRD in the
-//   workspace's plan repository, src/data/dossiers.ts), read on their own after the galaxy in the same
-//   way: out of reach, the planet's DOSSIER tab says so and the rest of the planet is unchanged.
+// - No planet's dossier and no planet's log (PRD 1808): the map needs neither, and every planet goes to
+//   the browser with an empty `log`. The planet's overlay reads its dossier and its last log lines when
+//   it is opened, from GET /api/arcade/planets/<key> (src/arcade-api/planet.controller.ts).
 // - The database out of reach: the attract mode and a message saying so, with no fleet: never the
 //   demo's, which are nobody's (PRD 400).
 
@@ -45,8 +44,6 @@ export interface ArcadeData {
   xp?: XpRead;
   /** Each game's crew table, by the game's id: none for a visitor, 'unreadable' when one could not be read. */
   scores?: Record<string, ScoresRead>;
-  /** The planets' dossiers, by PRD number: 'unreadable' when they could not be read. */
-  dossiers?: DossiersRead;
   brand?: Brand;
   problem?: string;
   /** The member owns the workspace played (PRD 400): the fleet screens point an owner at /app/settings/fleets. */
@@ -82,6 +79,9 @@ async function ownsWorkspace(db: SupabaseClient<Database>, workspace: string, us
   }
 }
 
+/** The galaxy as the map needs it: every planet with an empty log, which the planet's overlay reads when opened (PRD 1808). */
+const withoutLogs = (view: GalaxyView): GalaxyView => ({ ...view, planets: view.planets.map((p) => ({ ...p, log: [] })) });
+
 /** Who is at the cabinet. `crew`: they belong to a workspace, whatever their email's domain. */
 const sessionOf = (user: User, crew: boolean): Session =>
   ({ id: user.id, email: user.email ?? '', givenName: givenName(user), crew, github: githubLogin(user) });
@@ -98,13 +98,11 @@ export async function arcadeFor(db: SupabaseClient<Database>, user: User | null,
     ]);
     const session = sessionOf(user, true);
     const login = me?.github_login ?? session.github;
-    const prds = view.planets.map((p) => p.prd);
-    const [xp, scores, dossiers] = await Promise.all([
+    const [xp, scores] = await Promise.all([
       login ? readXp(db, id, login) : null,
       login ? readScores(db, id, user.id) : {},
-      readDossiers(db, id, prds),
     ]);
-    return { view, fleets, session, workspace: id, me, crew, xp, scores, dossiers, brand: brandOf(workspace), owner };
+    return { view: withoutLogs(view), fleets, session, workspace: id, me, crew, xp, scores, brand: brandOf(workspace), owner };
   } catch (err) {
     // Out of reach: whether they belong to a workspace may be unknown, so nobody is turned away as an
     // outsider; the arcade says the galaxy is out of reach instead.

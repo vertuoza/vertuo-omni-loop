@@ -42,7 +42,7 @@ vi.mock('../data/load-knowledge', () => ({ loadKnowledge }));
 const { default: Page } = await import('../../app/play/page.tsx');
 
 const user = (email: string) => ({ id: 'u1', email, user_metadata: { given_name: 'Ada' }, identities: [] as [] });
-const propsOf = async () => ((await Page()) as ReactElement<{ knowledge?: unknown; view: unknown; app?: string }>).props;
+const propsOf = async () => ((await Page()) as ReactElement<{ knowledge?: unknown; view: unknown; app?: string; dossiers?: unknown }>).props;
 
 beforeEach(() => {
   loadKnowledge.mockClear();
@@ -61,8 +61,11 @@ describe('the arcade page and the star chart', () => {
   it('gives a crew member signed in the knowledge, with the galaxy', async () => {
     Object.assign(given, { mode: 'supabase', user: user('ada@vertuoza.com') });
     const props = await propsOf();
-    expect(props.view).toBe(given.view);
+    // The galaxy with its planets' logs left out (PRD 1808): the planet's overlay reads them when opened.
+    expect(props.view).toEqual(given.view);
     expect(props.knowledge).toBe(given.graph);
+    // And no dossier: the planet's overlay reads its own when opened (PRD 1808).
+    expect(props).not.toHaveProperty('dossiers');
   });
 
   it.each([

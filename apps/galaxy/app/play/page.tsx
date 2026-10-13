@@ -18,8 +18,9 @@ import { APP_HOME } from '../../src/switch/switch';
 // player's XP and the crew's high scores come with the workspace's data (none at all for anyone
 // else: the arcade never reads them in the browser); the demo's guest borrows the demo world's
 // highest XP (src/data/xp.ts), and the demo account keeps its scores in the browser. The planets'
-// dossiers come the same way: read with the workspace's data for its crew, demo dossiers in the
-// demo, each linking to its page at /prd/<id>. Every page hands the arcade the app's home, whoever
+// dossiers and logs are not sent to the crew (PRD 1808): the planet's overlay reads them when it is
+// opened, from /api/arcade/planets/<key>. The demo keeps its demo dossiers and logs in the page, each
+// dossier linking to its page at /prd/<id>. Every page hands the arcade the app's home, whoever
 // is at it: the arcade leaves for it from SELECT MODE's APP MODE row, after OPEN THE APP?
 // (PRD 238).
 
