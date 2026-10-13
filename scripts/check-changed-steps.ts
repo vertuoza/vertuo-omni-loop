@@ -69,6 +69,30 @@ export function planChecks({ tracked, untracked }: Changes, base: string): Step[
   ];
 }
 
+/** The names a step of `planChecks` can have, in the order it plans them. */
+const STEP_NAMES = ['typecheck', 'lint', 'tests', 'fallow'] as const;
+
+/**
+ * The step names `--only a,b` (or `--only=a,b`) asks for, or null when the flag is absent: every step
+ * runs. The pre-push hook asks for `typecheck,lint` (PRD 1814). Throws on a name no step has.
+ */
+export function onlySteps(argv: readonly string[]): string[] | null {
+  const at = argv.indexOf('--only');
+  const inline = argv.find((arg) => arg.startsWith('--only='));
+  const value = at >= 0 ? argv[at + 1] : inline?.slice('--only='.length);
+  if (at < 0 && inline === undefined) return null;
+  if (!value || value.startsWith('--')) throw new Error(`--only needs a comma-separated list of steps: ${STEP_NAMES.join(', ')}`);
+  const names = value.split(',').map((name) => name.trim()).filter(Boolean);
+  const unknown = names.find((name) => !(STEP_NAMES as readonly string[]).includes(name));
+  if (unknown !== undefined) throw new Error(`--only: unknown step "${unknown}"; the steps are ${STEP_NAMES.join(', ')}`);
+  return names;
+}
+
+/** The steps of `steps` whose name is in `names`, in the order planned. */
+export function pickSteps(steps: readonly Step[], names: readonly string[]): Step[] {
+  return steps.filter((step) => names.includes(step.name));
+}
+
 /** The untracked TypeScript files of `changes`: `pnpm lint` lints them once git adds them. */
 export function unlinted({ untracked }: Changes): string[] {
   return untracked.filter((path) => TYPESCRIPT.test(path));
