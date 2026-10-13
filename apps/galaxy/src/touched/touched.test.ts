@@ -146,6 +146,23 @@ describe('POST /api/github/touched', () => {
     expect(store.rows.get('d1')?.staleSince).toBeNull();
   });
 
+  it('reads no snapshot for a touch that names no PRD, pull request or issue (#1854)', async () => {
+    const { post, keep, deps } = setup();
+    keep('d1', summary(parsePrd(902)));
+    const read = vi.spyOn(deps, 'snapshotsOf');
+    expect((await post({ repository: REPO, branch: 'main' })).status).toBe(202);
+    expect((await post({ repository: REPO, branch: 'feat/no-such-topic' })).status).toBe(202);
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('asks the store for the touched repository\'s snapshots only (#1854)', async () => {
+    const { post, keep, deps } = setup();
+    keep('d1', summary(parsePrd(902)));
+    const read = vi.spyOn(deps, 'snapshotsOf');
+    await post({ repository: REPO, issue: 902 });
+    expect(read).toHaveBeenCalledWith(WS, REPO);
+  });
+
   it('marks stale the dossier of the PRD issue it names, and refreshes it after the response', async () => {
     const { post, keep, store, reads, runLater } = setup();
     keep('d1', summary(parsePrd(902)));
