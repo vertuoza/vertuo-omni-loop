@@ -61,7 +61,7 @@ function Action({ job, primary }: { job: Job; primary: boolean }) {
 
 function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean }) {
   return (
-    <details className="runners-job">
+    <details className="runners-job" id={`job-${job.id}`}>
       <summary className="runners-row">
         <code data-content>{job.line}</code>
         <span className="runners-muted" data-content title={job.repo}>{repoName(job.repo)}</span>

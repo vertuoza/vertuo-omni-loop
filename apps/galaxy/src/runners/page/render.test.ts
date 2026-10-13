@@ -42,6 +42,10 @@ describe('the board', () => {
     expect(t).toContain('Line Repository Sent by Where Status');
   });
 
+  it('gives each job row the anchor Send to terminal\'s View job links to, #job-<id>', () => {
+    for (const job of demo().board.jobs) expect(html).toContain(`id="job-${job.id}"`);
+  });
+
   it('shows each runner state: Busy, Online, and Offline with when it was last seen', () => {
     expect(t).toContain('acme-agents Busy');
     expect(t).toContain('mac-mini-office Online');
