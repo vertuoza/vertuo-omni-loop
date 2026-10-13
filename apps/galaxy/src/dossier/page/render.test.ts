@@ -12,7 +12,9 @@ import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
 import { headHeight } from './PinnedHead';
 import { Taken, takenLine } from './QuickAnswer';
-import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
+import { COPY_WORDS, copyCommand, StageHeaderCopy } from './StageHeaderCopy';
+import { SendToTerminalScope } from '../../runners/send/SendToTerminal';
+import type { SendSetup } from '../../runners/send/targets';
 import { PitchAction, PitchPanel, pitchCommand, PITCH_HINT } from './PitchAction';
 import { StageAction } from './StageHeader';
 import { stageView } from './stage';
@@ -794,6 +796,22 @@ describe('the pieces the browser takes over', () => {
   });
 });
 
+describe('Send to terminal beside a copy button (PRD 1830 s4)', () => {
+  const setup: SendSetup = { repo: 'vertuoza/vertuo-omni-loop', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
+  const copy = (command: string, given: SendSetup | null) =>
+    renderToStaticMarkup(createElement(SendToTerminalScope, { setup: given, children: createElement(StageHeaderCopy, { label: 'Copy', command }) }));
+
+  it('shows beside a line a runner runs, when the page gives the viewer a runner', () => {
+    expect(copy('/omni:pr-care 216', setup)).toContain('<code class="stage-command">/omni:pr-care 216</code><span class="send-terminal">');
+  });
+
+  it('is not drawn with no runner, or beside a line a runner does not run (the rework, a concept\'s brainstorm)', () => {
+    expect(copy('/omni:pr-care 216', null)).not.toContain('Send to terminal');
+    expect(copy('/omni:brainstorm --rework 216', setup)).not.toContain('Send to terminal');
+    expect(copy('/omni:brainstorm --concept 1272 a2', setup)).not.toContain('Send to terminal');
+  });
+});
+
 describe('the Pitch panel (PRD 859)', () => {
   const html = (node: ReturnType<typeof createElement>) => renderToStaticMarkup(node);
   const noop = () => {};
@@ -816,6 +834,16 @@ describe('the Pitch panel (PRD 859)', () => {
     expect(shown).toContain('<button type="button" class="ask-button" title="/omni:pitch 216 --for customers">Copy</button>');
     expect(shown).toContain(PITCH_HINT);
     expect(PITCH_HINT).toBe('Run it in Claude Code, in this repository. The pitch shows on the Pitch tab.');
+  });
+
+  it('gives Send to terminal beside Copy when the page gives the viewer a runner, never in the demo (PRD 1830 s4)', () => {
+    const setup: SendSetup = { repo: 'vertuoza/vertuo-omni-loop', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
+    const scoped = (disabled: boolean) => html(createElement(SendToTerminalScope, {
+      setup, children: createElement(PitchPanel, { prd: parsePrd(216), audience: 'customers', disabled, copied: 'idle', onChoose: noop, onCopy: noop }),
+    }));
+    expect(panel()).not.toContain('Send to terminal');
+    expect(scoped(false)).toContain('>Copy</button><span class="send-terminal"><button type="button" class="ask-button" aria-expanded="false">Send to terminal</button>');
+    expect(scoped(true)).not.toContain('Send to terminal');
   });
 
   it('with Inside chosen, shows --for inside, and Copy carries the shown command', () => {
