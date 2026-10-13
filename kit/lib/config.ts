@@ -66,6 +66,34 @@ const lawOwner = z
   .string()
   .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, 'a GitHub login or <org>/<team>, without @');
 
+/**
+ * The kinds of contract a slice may declare (PRD 1870) when a repository's `contracts.kinds` names
+ * none of its own:
+ *
+ * - `api` — a GraphQL type, field or argument, or a REST route or payload: what the repository's
+ *   callers call.
+ * - `db` — a migration, or any other change to a stored shape: what the repository keeps.
+ *
+ * A repository whose callers depend on something else names its own words (`kinds: [api, event]`);
+ * `none`, the word for a slice that changes nothing for its callers, is never one of them.
+ */
+export const DEFAULT_CONTRACT_KINDS: readonly string[] = Object.freeze(['api', 'db']);
+
+// PRD 1870: a kind is one lowercase word, never `none`, which a plan's `contract` cell keeps for a
+// slice that changes nothing for its callers.
+const contractKind = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]*$/, 'one lowercase word, such as api or db')
+  .refine((kind) => kind !== 'none', 'none is what a slice declares when it changes nothing — it is no kind');
+
+const contractKinds = z
+  .array(contractKind)
+  .min(1, 'at least one kind, such as api')
+  .superRefine((kinds, issues) => {
+    const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
+    if (twice !== undefined) issues.addIssue({ code: 'custom', message: `"${twice}" is listed twice` });
+  });
+
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
 
@@ -295,6 +323,14 @@ export const ConfigSchema = z
     // repository's migrations directories, say). Regex sources over repository paths, compiled once
     // by `omni plan check`; empty, no plan is refused for what it puts together.
     landings: section({ alone: z.array(regexSource).default([]) }),
+    // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
+    // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
+    // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
+    // it names none; `omni plan check` refuses a word outside them.
+    contracts: section({
+      declare: z.boolean().default(false),
+      kinds: contractKinds.default(() => [...DEFAULT_CONTRACT_KINDS]),
+    }),
     notify: section({
       slack: z
         .object({ channelVar: text.default('OMNI_SLACK_CHANNEL'), tokenSecret: text.default('SLACK_BOT_TOKEN') })
