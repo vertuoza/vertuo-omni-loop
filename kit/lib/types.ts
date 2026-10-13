@@ -48,6 +48,12 @@ export type Slice = {
   /** The landing the slice reaches the default branch in: 1 for a plan with no `landing` column.
    * An unreadable cell reads as `NaN`, which the plan check refuses. */
   landing: number;
+  /** What the slice changes for its repository's callers, from the plan's `contract` column (PRD
+   * 1870): `{ kinds }` for a cell of words (`api, db`), lowercased, in the cell's order; `'none'` for
+   * a lone `none`, a slice that changes nothing for them; `null` for an empty cell, an em dash, or a
+   * plan with no such column. The words are the receiving repository's (its `contracts.kinds`), not
+   * the kit's: `none` beside a word is kept among them, for the plan check to refuse. */
+  contract: { kinds: string[] } | 'none' | null;
 };
 
 export type SpecSource = (typeof SPEC_VALUES)[number];
