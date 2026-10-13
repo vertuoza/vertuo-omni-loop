@@ -2,7 +2,7 @@ import type { JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, RunnerRow, Runn
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
 // rows the two tables hold, the claim's rules as runner_claim() applies them, and runners_mark_lost(),
-// as supabase/migrations/20261207090000_runners.sql writes them and supabase/checks/runners.sql proves
+// as supabase/migrations/20261207100000_runners.sql writes them and supabase/checks/runners.sql proves
 // them. A realistic workspace: Olga owns it and plays in the fleet cia, Mo plays in cia, Pia in pirates,
 // Sam in no fleet; Eve belongs to another workspace.
 

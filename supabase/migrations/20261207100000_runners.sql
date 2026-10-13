@@ -155,13 +155,15 @@ grant execute on function public.runners_mark_lost(timestamptz) to service_role;
 alter table public.runners enable row level security;
 alter table public.runner_jobs enable row level security;
 
+-- The person's workspaces are read once per statement, never once per row (bug #1832): an uncorrelated
+-- subquery over their own memberships, which the policy on workspace_members lets them read.
 create policy "a member reads their workspace's runners" on public.runners
   for select to authenticated
-  using (public.is_member(workspace_id));
+  using (workspace_id in (select m.workspace_id from public.workspace_members m where m.user_id = (select auth.uid())));
 
 create policy "a member reads their workspace's runner jobs" on public.runner_jobs
   for select to authenticated
-  using (public.is_member(workspace_id));
+  using (workspace_id in (select m.workspace_id from public.workspace_members m where m.user_id = (select auth.uid())));
 
 -- Explicit grants, and nothing more (config.toml › auto_expose_new_tables = false). Nobody signed in
 -- writes the tables: the routes do, as the service role.
