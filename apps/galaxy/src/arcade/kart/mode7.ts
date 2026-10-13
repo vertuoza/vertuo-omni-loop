@@ -10,6 +10,7 @@
 // its size. The road has ups and downs (relief.ts, PRD 1698): `renderTerrain` draws it column by column,
 // the road's edge showing the side of a thick deck over the void; `renderFloor` is the flat floor.
 
+import { pack } from './texture';
 import { TILE, tileAt } from './track';
 
 export interface View {
@@ -241,12 +242,12 @@ export function renderTerrain(v: View, texture: Texture, heights: Float32Array, 
 /** How high the tunnel's roof stands over its ground, in world units (PRD 1775). */
 export const ROOF = 44;
 
-/** The tunnel's colours, packed like the floor's: panels, seams, strips of light, portal frame and porthole rim. */
+/** The tunnel's colours, packed like the floor's: panels, seams, strips of light, and the lit portal frame and porthole rims, warm (bug 1813). */
 export const TUNNEL = Object.freeze({
-  ceilingA: 0xff4a3f38, ceilingB: 0xff574b43, ceilingSeam: 0xff2a221e, strip: 0xfff4f0d0,
-  roofA: 0xff6a5d55, roofB: 0xff796c63, roofSeam: 0xff958a80,
-  wallInA: 0xff5a4a40, wallInB: 0xff6b5a4e, wallOutA: 0xff6f6258, wallOutB: 0xff7d7066, wallSeam: 0xff2e2620, trim: 0xff3a302a,
-  rim: 0xffffe29a, portal: 0xfffff0a8,
+  ceilingA: pack('#383f4a'), ceilingB: pack('#434b57'), ceilingSeam: pack('#1e222a'), strip: pack('#d0f0f4'),
+  roofA: pack('#555d6a'), roofB: pack('#636c79'), roofSeam: pack('#808a95'),
+  wallInA: pack('#404a5a'), wallInB: pack('#4e5a6b'), wallOutA: pack('#58626f'), wallOutB: pack('#66707d'), wallSeam: pack('#20262e'), trim: pack('#2a303a'),
+  rim: pack('#ffe29a'), portal: pack('#fff0a8'),
 });
 
 /** A tile of roofed road in a circuit's map. */
@@ -300,8 +301,25 @@ function roofEdge(p: Pass, ray: { dx: number; dy: number }, near: number, far: n
   return (lo + hi) / 2;
 }
 
-/** Where a wall or a portal stands on a ray: its distance, the ground under it, and the way it faces. */
-interface Edge { z: number; ground: number; inside: boolean; portal: boolean; sideways: boolean; wx: number; wy: number }
+/** Where a wall or a portal stands on a ray: its distance, the ground under it, the way it faces, and a point a step under its roof. */
+interface Edge { z: number; ground: number; inside: boolean; portal: boolean; sideways: boolean; wx: number; wy: number; under: { x: number; y: number } }
+
+/** How far past a roofed edge its open side is read: past the neon the texture paints on the void's first pixels, so only open road reads there. */
+const PAST_EDGE = TILE / 2;
+
+/**
+ * The edge where the roof ends `at.z` along the ray: which way it runs, read in the roofed mask around it (a ray between
+ * two samples can cross both a row and a column of pixels), and whether its open side is road (a portal) or the void (a wall).
+ */
+function edgeAt(p: Pass, ray: { dx: number; dy: number }, at: { z: number; ground: number; inside: boolean }): Edge {
+  const { v, texture } = p;
+  const wx = v.x + ray.dx * at.z, wy = v.y + ray.dy * at.z;
+  const sideways = roofedAt(p, wx, wy - 1) !== roofedAt(p, wx, wy + 1); // the roof ends across y: the wall runs along x
+  const [nx, ny] = sideways ? [0, roofedAt(p, wx, wy - 1) ? -1 : 1] : [roofedAt(p, wx - 1, wy) ? -1 : 1, 0]; // a step under the roof
+  const ox = Math.floor(wx - nx * PAST_EDGE), oy = Math.floor(wy - ny * PAST_EDGE);
+  const open = ox >= 0 && oy >= 0 && ox < texture.w && oy < texture.h ? read(texture.px, oy * texture.w + ox) : 0;
+  return { ...at, portal: open !== 0, sideways, wx, wy, under: { x: wx + nx, y: wy + ny } };
+}
 
 /** The wall's panel at `along` its length: two tones a tile wide, a dark seam between, lighter inside than out. */
 function wallPanel(inside: boolean, along: number): number {
@@ -324,8 +342,9 @@ function paintWall(p: Pass, col: number, edge: Edge): void {
   const { z, ground } = edge;
   const top = Math.max(0, Math.ceil(p.row(ground + ROOF, z))), bottom = Math.min(v.h, Math.ceil(p.row(ground, z)));
   const along = edge.sideways ? edge.wx : edge.wy; // across the edge's plane, along the wall
-  const reach = 3; // how far a lateral neighbour has to be to tell the opening's side
-  const side = edge.sideways ? [roofedAt(p, edge.wx - reach, edge.wy), roofedAt(p, edge.wx + reach, edge.wy)] : [roofedAt(p, edge.wx, edge.wy - reach), roofedAt(p, edge.wx, edge.wy + reach)];
+  const reach = 3; // how far along the edge, under the roof, a neighbour has to be to tell the opening's side
+  const { x, y } = edge.under;
+  const side = edge.sideways ? [roofedAt(p, x - reach, y), roofedAt(p, x + reach, y)] : [roofedAt(p, x, y - reach), roofedAt(p, x, y + reach)];
   const post = edge.portal && side.includes(false);
   for (let r = top; r < bottom; r++) {
     const u = v.height - ((r + 0.5 - v.horizon) * z) / v.focal - ground; // the height over the ground
@@ -336,17 +355,22 @@ function paintWall(p: Pass, col: number, edge: Edge): void {
   }
 }
 
-/** The ceiling (or, from above, the roof's top) over the stretch of column `col` between `near` and `far`, at the roof of ground `ground`. */
-function paintRoof(p: Pass, col: number, span: { near: number; far: number; ground: number; ray: { dx: number; dy: number } }): void {
+/**
+ * The ceiling (or, from above, the roof's top) over the stretch of column `col` between `near` and `far`, at the roof of
+ * ground `ground`. Where the roof at `near` stood farther from the eye (`nearGround`, a hump's far side), the stretch
+ * reaches back to it, so the face of the step leaves no gap (bug 1813).
+ */
+function paintRoof(p: Pass, col: number, span: { near: number; far: number; ground: number; ray: { dx: number; dy: number }; nearGround?: number }): void {
   const { v, out, depth } = p;
   const level = span.ground + ROOF, lift = v.height - level;
   if (Math.abs(lift) < 0.01) return;
-  const a = p.row(level, span.near), b = p.row(level, span.far);
+  const step = (span.nearGround ?? span.ground) + ROOF;
+  const a = p.row(lift < 0 ? Math.max(level, step) : Math.min(level, step), span.near), b = p.row(level, span.far);
   const lo = Math.max(0, Math.ceil(Math.min(a, b))), hi = Math.min(v.h, Math.ceil(Math.max(a, b)));
   for (let r = lo; r < hi; r++) {
-    const z = (lift * v.focal) / (r + 0.5 - v.horizon);
-    if (z <= 0) continue;
-    const i = r * v.w + col;
+    const flat = (lift * v.focal) / (r + 0.5 - v.horizon); // the row's distance on the roof at `level`
+    if (flat <= 0) continue;
+    const z = Math.max(flat, span.near), i = r * v.w + col;
     const wx = v.x + span.ray.dx * z, wy = v.y + span.ray.dy * z;
     out[i] = lift < 0 ? ceilingPixel(wx, wy) : roofTop(wx, wy);
     depth[i] = z;
@@ -360,30 +384,22 @@ function paintNearWall(p: Pass, col: number, ray: { dx: number; dy: number }, he
   const index = (z: number) => { const { x, y } = at(z); return x >= 0 && y >= 0 && x < texture.w && y < texture.h ? Math.floor(y) * texture.w + Math.floor(x) : -1; };
   const was = roofedAt(p, at(NEAR).x, at(NEAR).y);
   for (let z = NEAR + 2; z < first + 2; z += 2) {
-    const here = at(z), there = at(z - 2);
+    const here = at(z);
     if (roofedAt(p, here.x, here.y) === was) continue;
-    const roofedSide = was ? z - 2 : z, openSide = was ? z : z - 2;
-    paintWall(p, col, {
-      z: roofEdge(p, ray, z - 2, z), ground: read(heights, index(roofedSide)), inside: was,
-      portal: read(texture.px, index(openSide)) !== 0, sideways: Math.floor(there.x) !== Math.floor(here.x), wx: at(roofEdge(p, ray, z - 2, z)).x, wy: at(roofEdge(p, ray, z - 2, z)).y,
-    });
+    const roofedSide = was ? z - 2 : z;
+    paintWall(p, col, edgeAt(p, ray, { z: roofEdge(p, ray, z - 2, z), ground: read(heights, index(roofedSide)), inside: was }));
     return;
   }
 }
 
 /** What the roofed road adds to the stretch of column `col` between samples `i - 1` and `i`: its roof or ceiling, and the wall or portal standing where the roof ends. */
 function paintTunnel(p: Pass, col: number, i: number, ray: { dx: number; dy: number }): void {
-  const { v } = p;
   const b = read(sampleRoof, i) === 1, a = i > 0 ? read(sampleRoof, i - 1) === 1 : b;
   const z1 = read(sampleZ, i), z0 = i > 0 ? read(sampleZ, i - 1) : z1 * 0.98;
   const ground = b ? read(sampleUp, i) : read(sampleUp, i - 1);
-  if (a === b) { paintRoof(p, col, { near: z0, far: z1, ground, ray }); return; }
+  if (a === b) { paintRoof(p, col, { near: z0, far: z1, ground, ray, nearGround: i > 0 ? read(sampleUp, i - 1) : ground }); return; }
   const zb = roofEdge(p, ray, z0, z1);
-  const wx = v.x + ray.dx * zb, wy = v.y + ray.dy * zb;
-  const before = { x: v.x + ray.dx * z0, y: v.y + ray.dy * z0 }, after = { x: v.x + ray.dx * z1, y: v.y + ray.dy * z1 };
-  const sideways = Math.floor(before.x) !== Math.floor(after.x);
-  const beyond = b ? read(samplePx, i - 1) : read(samplePx, i); // the side that is not roofed: the void has no colour
-  const wall = { z: zb, ground, inside: a, portal: beyond !== 0, sideways, wx, wy };
+  const wall = edgeAt(p, ray, { z: zb, ground, inside: a });
   const piece = { near: a ? z0 : zb, far: b ? z1 : zb, ground, ray };
   if (b) { paintRoof(p, col, piece); paintWall(p, col, wall); } else { paintWall(p, col, wall); paintRoof(p, col, piece); }
 }
