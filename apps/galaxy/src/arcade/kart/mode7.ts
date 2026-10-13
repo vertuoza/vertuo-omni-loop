@@ -10,6 +10,7 @@
 // its size. The road has ups and downs (relief.ts, PRD 1698): `renderTerrain` draws it column by column,
 // the road's edge showing the side of a thick deck over the void; `renderFloor` is the flat floor.
 
+import { RULES } from './rules';
 import { pack } from './texture';
 import { roofAt, TILE, type Ground } from './track';
 
@@ -142,7 +143,7 @@ function over(under: number, glow: number): number {
 const read = (list: ArrayLike<number>, i: number): number => list[i] ?? 0;
 
 /** What drawing a frame's columns shares: the screen, the deck, the buffers drawn into, and the screen row of a point `up` high, `z` away. */
-interface Pass { readonly v: View; readonly deck: Deck; readonly out: Uint32Array; readonly depth: Float32Array; readonly texture: Texture; readonly roofed?: Uint8Array | undefined; row(up: number, z: number): number }
+interface Pass { readonly v: View; readonly deck: Deck; readonly out: Uint32Array; readonly depth: Float32Array; readonly texture: Texture; readonly roofed?: Uint8Array | undefined; readonly vault?: Vault | undefined; row(up: number, z: number): number }
 
 /** The ground of column `col` sampled outwards from `first`, about a row a sample and at most `MAX_SAMPLES` of them, into the scratch arrays; how many it took. */
 function sampleColumn(v: View, texture: Texture, heights: Float32Array, col: number, bounds: { first: number; far: number; k: number; roofed?: Uint8Array | undefined }): number {
@@ -223,7 +224,7 @@ export function renderTerrain(v: View, texture: Texture, heights: Float32Array, 
     k: (v.height - range.low + deck.thickness) * v.focal,
     roofed,
   };
-  const pass: Pass = { v, deck, out, depth, texture, roofed, row: (up, z) => v.horizon + ((v.height - up) * v.focal) / z - 0.5 };
+  const pass: Pass = { v, deck, out, depth, texture, roofed, vault: roofed ? vaultOf(texture, roofed) : undefined, row: (up, z) => v.horizon + ((v.height - up) * v.focal) / z - 0.5 };
   let most = 0;
   for (let col = 0; col < v.w; col++) {
     const n = sampleColumn(v, texture, heights, col, bounds);
@@ -241,6 +242,59 @@ export function renderTerrain(v: View, texture: Texture, heights: Float32Array, 
 
 /** How high the tunnel's roof stands over its ground, in world units (PRD 1775). */
 export const ROOF = 44;
+
+/** How far each pixel of the texture stands from the void, and the farthest of the roofed ones: what the vault's arc is read from (PRD 1829). */
+interface Vault { readonly w: number; readonly dist: Float32Array; readonly half: number }
+const vaults = new WeakMap<Uint8Array, { texture: Texture; vault: Vault }>();
+
+/** The distance, in pixels, from every pixel of `texture` to the nearest void pixel (0 at it), by a two-pass chamfer; memoised on the mask. */
+function vaultOf(texture: Texture, roofed: Uint8Array): Vault {
+  const known = vaults.get(roofed);
+  if (known && known.texture === texture) return known.vault;
+  const dist = chamfer(texture);
+  let half = 0;
+  for (let i = 0; i < dist.length; i++) if (read(roofed, i) === 1) half = Math.max(half, read(dist, i));
+  const vault = { w: texture.w, dist, half };
+  vaults.set(roofed, { texture, vault });
+  return vault;
+}
+
+/** Each pixel's distance to the nearest void pixel: one pass down and to the right from the neighbours already seen, one back up and to the left. */
+function chamfer(texture: Texture): Float32Array {
+  const { w, h } = texture;
+  const dist = new Float32Array(w * h);
+  const at = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h ? Infinity : read(dist, y * w + x));
+  const D = Math.SQRT2;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      dist[y * w + x] = read(texture.px, y * w + x) === 0 ? 0 : Math.min(at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + D, at(x + 1, y - 1) + D);
+    }
+  }
+  for (let y = h - 1; y >= 0; y--) {
+    for (let x = w - 1; x >= 0; x--) {
+      const d = Math.min(read(dist, y * w + x), at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + D, at(x - 1, y + 1) + D);
+      dist[y * w + x] = Number.isFinite(d) ? d : 0;
+    }
+  }
+  return dist;
+}
+
+/** How much of a quarter circle the vault is: a shallower arc than a full one, so its slope at the wall is finite and the wall can meet it. */
+const VAULT_ARC = 0.8;
+
+/**
+ * The ceiling's height over its ground at `wx`, `wy` (PRD 1829): `ROOF` over the centre of the road, falling along an arc
+ * to `ROOF - RULES.vault` at the walls, where it meets them.
+ */
+function ceilingAt(p: Pass, wx: number, wy: number): number {
+  const vault = p.vault;
+  if (!vault || vault.half <= 0) return ROOF;
+  const tx = Math.floor(wx), ty = Math.floor(wy);
+  if (tx < 0 || ty < 0 || tx >= vault.w) return ROOF - RULES.vault;
+  const d = Math.max(0, read(vault.dist, ty * vault.w + tx) - 1); // the road's first pixel is at the wall: the ceiling meets it there
+  const t = Math.max(0, Math.min(1, 1 - d / Math.max(1, vault.half - 1)));
+  return ROOF - RULES.vault * (1 - Math.sqrt(1 - (VAULT_ARC * t) ** 2)) / (1 - Math.sqrt(1 - VAULT_ARC ** 2));
+}
 
 /** The tunnel's colours, packed like the floor's: panels, seams, strips of light, and the lit portal frame and porthole rims, warm (bug 1813). */
 export const TUNNEL = Object.freeze({
@@ -325,8 +379,8 @@ function wallPanel(inside: boolean, along: number): number {
 }
 
 /** The wall's pixel `u` units over its ground, at `along` its length: trim at the ends, a porthole on the starfield (0) with a rim inside, panels between. */
-function wallPixel(edge: Edge, along: number, u: number): number {
-  if (u > ROOF - 2 || u < 1.5) return TUNNEL.trim;
+function wallPixel(edge: Edge, along: number, u: number, top: number): number {
+  if (u > top - 2 || u < 1.5) return TUNNEL.trim;
   const ring = edge.inside ? Math.hypot(mod(along, TILE) - TILE / 2, u - ROOF / 2) : Infinity;
   if (ring < 4.5) return 0;
   return ring < 6 ? TUNNEL.rim : wallPanel(edge.inside, along);
@@ -336,7 +390,9 @@ function wallPixel(edge: Edge, along: number, u: number): number {
 function paintWall(p: Pass, col: number, edge: Edge): void {
   const { v, out, depth } = p;
   const { z, ground } = edge;
-  const top = Math.max(0, Math.ceil(p.row(ground + ROOF, z))), bottom = Math.min(v.h, Math.ceil(p.row(ground, z)));
+  // The wall meets the vault where it ends: at the ceiling over the road just inside it, a side wall's lowest, a portal's as high as the road's width gives.
+  const reachUp = ceilingAt(p, edge.under.x, edge.under.y);
+  const top = Math.max(0, Math.ceil(p.row(ground + reachUp, z))), bottom = Math.min(v.h, Math.ceil(p.row(ground, z)));
   const along = edge.sideways ? edge.wx : edge.wy; // across the edge's plane, along the wall
   const reach = 3; // how far along the edge, under the roof, a neighbour has to be to tell the opening's side
   const { x, y } = edge.under;
@@ -344,31 +400,111 @@ function paintWall(p: Pass, col: number, edge: Edge): void {
   const post = edge.portal && side.includes(false);
   for (let r = top; r < bottom; r++) {
     const u = v.height - ((r + 0.5 - v.horizon) * z) / v.focal - ground; // the height over the ground
-    const lit = post || u > ROOF - 5;
+    const lit = post || u > reachUp - 5;
     if (edge.portal && !lit) continue;
-    out[r * v.w + col] = edge.portal ? TUNNEL.portal : wallPixel(edge, along, u);
+    out[r * v.w + col] = edge.portal ? TUNNEL.portal : wallPixel(edge, along, u, reachUp);
     depth[r * v.w + col] = z;
   }
+}
+
+/** A stretch of a column's roof: from `near` to `far` over ground `ground`; `first` when nothing is nearer, `toWall` when it ends at a wall. */
+interface RoofSpan { near: number; far: number; ground: number; ray: { dx: number; dy: number }; nearGround?: number; first?: boolean; toWall?: boolean }
+
+/** The roof's top, seen from above, over the rows `lo` to `hi`: flat. */
+function paintRoofTop(p: Pass, col: number, span: RoofSpan, rows: { lo: number; hi: number; lift: number }): void {
+  const { v, out, depth } = p;
+  for (let r = rows.lo; r < rows.hi; r++) {
+    const flat = (rows.lift * v.focal) / (r + 0.5 - v.horizon); // the row's distance on the roof at its level
+    if (flat <= 0) continue;
+    const z = Math.max(flat, span.near), i = r * v.w + col;
+    out[i] = roofTop(v.x + span.ray.dx * z, v.y + span.ray.dy * z);
+    depth[i] = z;
+  }
+}
+
+/** The screen rows a span's ceiling can show in, `lo0` to `hi0` being those of its flat roof: the vault lowers it, so they reach further down. */
+function ceilingRows(p: Pass, span: RoofSpan, flat: { lo: number; hi: number }, stepped: boolean): { lo: number; hi: number } {
+  const rowAt = (z: number, up: number) => p.row(span.ground + up, z);
+  if (span.first) { // nothing is nearer than the first sample: the lowered ceiling reaches up to the top of the frame
+    return { lo: 0, hi: Math.min(p.v.h, Math.max(flat.hi, Math.ceil(rowAt(span.far, ceilingOver(p, span, span.far))) + 2)) };
+  }
+  if (stepped) { // the face of a step in the ground has to be reached: the rows of the highest ceiling and of the lowest
+    const low = [rowAt(span.near, ROOF - RULES.vault), rowAt(span.far, ROOF - RULES.vault)];
+    return { lo: Math.min(flat.lo, Math.max(0, Math.ceil(Math.min(...low)))), hi: Math.max(flat.hi, Math.min(p.v.h, Math.ceil(Math.max(...low)))) };
+  }
+  const rows = [span.near, (span.near + span.far) / 2, span.far].map((z) => rowAt(z, ceilingOver(p, span, z)));
+  return { lo: Math.max(0, Math.floor(Math.min(...rows)) - 2), hi: Math.min(p.v.h, Math.ceil(Math.max(...rows)) + 2) };
+}
+
+/** The ceiling's height over the ground, where the ray of `span` is `z` ahead. */
+function ceilingOver(p: Pass, span: RoofSpan, z: number): number {
+  return ceilingAt(p, p.v.x + span.ray.dx * z, p.v.y + span.ray.dy * z);
+}
+
+/** What a row whose ceiling is not met inside `span` shows: its far edge at a wall, its near edge for the first span or a step's face, else nothing (another stretch draws it). */
+function missedAt(span: RoofSpan, edge: 'near' | 'far', drawn: boolean): number | null {
+  if (edge === 'far') return span.toWall ? span.far : null;
+  return span.first || drawn ? span.near : null;
+}
+
+/** The distances between which the ray of a row, `up` from the horizon, can meet the ceiling in `span`: where it would meet its lowest, and its highest. */
+function ceilingRange(p: Pass, span: RoofSpan, up: number, lift: number): { from: number; to: number } {
+  const lowest = span.ground + ROOF - RULES.vault;
+  return { from: Math.max(span.first ? 0 : span.near, ((p.v.height - lowest) * p.v.focal) / up), to: Math.min(span.far, (lift * p.v.focal) / up) };
+}
+
+/** Which side of `span` the ceiling a row shows lies on, when it lies outside it. */
+function ceilingMiss(span: RoofSpan, range: { from: number; to: number }, toRow: (z: number) => number): 'near' | 'far' | null {
+  if (range.from > range.to) return range.from > span.far ? 'far' : 'near';
+  if (!span.first && toRow(range.from) < range.from) return 'near';
+  return range.to === span.far && toRow(range.to) > range.to ? 'far' : null;
+}
+
+/** The distance in `range` where the row the ray meets the ceiling at (`toRow`) is the distance itself, halving the stretch. */
+function bisectCeiling(toRow: (z: number) => number, range: { from: number; to: number }): number {
+  let n = range.from, f = range.to;
+  for (let k = 0; k < 7; k++) {
+    const mid = (n + f) / 2;
+    if (toRow(mid) >= mid) n = mid; else f = mid;
+  }
+  return (n + f) / 2;
+}
+
+/**
+ * Where the ray of row `r` meets the ceiling within `span`: the distance, or null when a nearer or a farther stretch draws it.
+ * The first span, a step's face (`flat.stepped`, in the rows `flat.rows` of the flat roof) and a span that ends at a wall draw
+ * what lies outside it.
+ */
+function ceilingHit(p: Pass, span: RoofSpan, r: number, flat: { lift: number; stepped: boolean; rows: { lo: number; hi: number } }): number | null {
+  const up = r + 0.5 - p.v.horizon;
+  const toRow = (z: number) => ((p.v.height - span.ground - ceilingOver(p, span, z)) * p.v.focal) / up;
+  const range = ceilingRange(p, span, up, flat.lift);
+  const miss = ceilingMiss(span, range, toRow);
+  if (miss === null) return bisectCeiling(toRow, range);
+  return missedAt(span, miss, flat.stepped && r >= flat.rows.lo && r < flat.rows.hi);
 }
 
 /**
  * The ceiling (or, from above, the roof's top) over the stretch of column `col` between `near` and `far`, at the roof of
  * ground `ground`. Where the roof at `near` stood farther from the eye (`nearGround`, a hump's far side), the stretch
- * reaches back to it, so the face of the step leaves no gap (bug 1813).
+ * reaches back to it, so the face of the step leaves no gap (bug 1813). From below the ceiling is vaulted (PRD 1829): its height
+ * falls toward the walls, so each row looks for where its ray meets it.
  */
-function paintRoof(p: Pass, col: number, span: { near: number; far: number; ground: number; ray: { dx: number; dy: number }; nearGround?: number }): void {
+function paintRoof(p: Pass, col: number, span: RoofSpan): void {
   const { v, out, depth } = p;
   const level = span.ground + ROOF, lift = v.height - level;
   if (Math.abs(lift) < 0.01) return;
   const step = (span.nearGround ?? span.ground) + ROOF;
   const a = p.row(lift < 0 ? Math.max(level, step) : Math.min(level, step), span.near), b = p.row(level, span.far);
-  const lo = Math.max(0, Math.ceil(Math.min(a, b))), hi = Math.min(v.h, Math.ceil(Math.max(a, b)));
-  for (let r = lo; r < hi; r++) {
-    const flat = (lift * v.focal) / (r + 0.5 - v.horizon); // the row's distance on the roof at `level`
-    if (flat <= 0) continue;
-    const z = Math.max(flat, span.near), i = r * v.w + col;
-    const wx = v.x + span.ray.dx * z, wy = v.y + span.ray.dy * z;
-    out[i] = lift < 0 ? ceilingPixel(wx, wy) : roofTop(wx, wy);
+  const flat = { lo: Math.max(0, Math.ceil(Math.min(a, b))), hi: Math.min(v.h, Math.ceil(Math.max(a, b))) };
+  if (lift >= 0) { paintRoofTop(p, col, span, { ...flat, lift }); return; }
+  const stepped = span.nearGround !== undefined && span.nearGround !== span.ground;
+  const rows = ceilingRows(p, span, flat, stepped);
+  for (let r = rows.lo; r < rows.hi && r + 0.5 < v.horizon; r++) {
+    const z = ceilingHit(p, span, r, { lift, stepped, rows: flat });
+    if (z === null) continue;
+    const i = r * v.w + col, wx = v.x + span.ray.dx * z, wy = v.y + span.ray.dy * z;
+    out[i] = ceilingPixel(wx, wy);
     depth[i] = z;
   }
 }
@@ -383,7 +519,10 @@ function paintNearWall(p: Pass, col: number, ray: { dx: number; dy: number }, he
     const here = at(z);
     if (roofedAt(p, here.x, here.y) === was) continue;
     const roofedSide = was ? z - 2 : z;
-    paintWall(p, col, edgeAt(p, ray, { z: roofEdge(p, ray, z - 2, z), ground: read(heights, index(roofedSide)), inside: was }));
+    const wall = edgeAt(p, ray, { z: roofEdge(p, ray, z - 2, z), ground: read(heights, index(roofedSide)), inside: was });
+    // From inside, the vault lowers the ceiling over what lies nearer than the first sample: it runs up to the wall.
+    if (was) paintRoof(p, col, { near: NEAR, far: wall.z, ground: wall.ground, ray, first: true, toWall: true });
+    paintWall(p, col, wall);
     return;
   }
 }
@@ -393,7 +532,7 @@ function paintTunnel(p: Pass, col: number, i: number, ray: { dx: number; dy: num
   const b = read(sampleRoof, i) === 1, a = i > 0 ? read(sampleRoof, i - 1) === 1 : b;
   const z1 = read(sampleZ, i), z0 = i > 0 ? read(sampleZ, i - 1) : z1 * 0.98;
   const ground = b ? read(sampleUp, i) : read(sampleUp, i - 1);
-  if (a === b) { paintRoof(p, col, { near: z0, far: z1, ground, ray, nearGround: i > 0 ? read(sampleUp, i - 1) : ground }); return; }
+  if (a === b) { paintRoof(p, col, { near: z0, far: z1, ground, ray, nearGround: i > 0 ? read(sampleUp, i - 1) : ground, first: i === 0 }); return; }
   const zb = roofEdge(p, ray, z0, z1);
   const wall = edgeAt(p, ray, { z: zb, ground, inside: a });
   const piece = { near: a ? z0 : zb, far: b ? z1 : zb, ground, ray };
