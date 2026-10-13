@@ -919,3 +919,5 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .send-choices:disabled .send-choice { cursor: not-allowed; color: var(--ask-muted); }
 .send-state { color: var(--ask-muted); font-size: 13px; }
 .send-pick > .stage-action { justify-self: start; }
+/* With the picker open, Send is the one primary action: the copy button beside it reads as a secondary one. */
+.stage-copy:has(.send-pick) > .stage-action { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); }

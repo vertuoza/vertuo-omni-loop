@@ -50,7 +50,7 @@ describe('Send to terminal', () => {
 
   it('shows the button alone while closed', () => {
     const html = view({ kind: 'closed' });
-    expect(html).toContain('<button type="button" class="ask-button" aria-expanded="false">Send to terminal</button>');
+    expect(html).toContain('<button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
     expect(html).not.toContain('role="group"');
   });
 

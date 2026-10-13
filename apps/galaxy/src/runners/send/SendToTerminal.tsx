@@ -59,7 +59,7 @@ export function SendToTerminalView({ line, setup, state, name, onToggle, onChoos
   const open = state.kind === 'open' ? state : null;
   return (
     <span className="send-terminal">
-      <button type="button" className="ask-button" aria-expanded={open !== null} onClick={onToggle}>Send to terminal</button>
+      <button type="button" className="ask-button quiet" aria-expanded={open !== null} onClick={onToggle}>Send to terminal</button>
       {open && (
         <div className="send-pick" role="group" aria-label="Send to terminal">
           {GROUPS.map(({ group, heading }) => {

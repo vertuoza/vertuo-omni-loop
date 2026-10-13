@@ -406,7 +406,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     expect(given.sendAsked).toEqual([[BOB.id, FAKE_WORKSPACE, 'acme/widgets']]);
     given.send = { repo: 'acme/widgets', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
     const page = await html(numbered);
-    expect(page).toContain('title="/omni:yolo 7">Build it</button><code class="stage-command">/omni:yolo 7</code><span class="send-terminal"><button type="button" class="ask-button" aria-expanded="false">Send to terminal</button>');
+    expect(page).toContain('title="/omni:yolo 7">Build it</button><code class="stage-command">/omni:yolo 7</code><span class="send-terminal"><button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
   });
 
   it('shows the stored stage when GitHub did not answer, and still shows the dossier', async () => {

@@ -842,7 +842,7 @@ describe('the Pitch panel (PRD 859)', () => {
       setup, children: createElement(PitchPanel, { prd: parsePrd(216), audience: 'customers', disabled, copied: 'idle', onChoose: noop, onCopy: noop }),
     }));
     expect(panel()).not.toContain('Send to terminal');
-    expect(scoped(false)).toContain('>Copy</button><span class="send-terminal"><button type="button" class="ask-button" aria-expanded="false">Send to terminal</button>');
+    expect(scoped(false)).toContain('>Copy</button><span class="send-terminal"><button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
     expect(scoped(true)).not.toContain('Send to terminal');
   });
 
