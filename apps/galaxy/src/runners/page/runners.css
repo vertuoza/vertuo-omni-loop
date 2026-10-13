@@ -14,7 +14,7 @@
 .runners-table > .runners-row:first-child { border-top: 0; }
 .runners-head { font: 700 12px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 10px; }
 .runners-runners .runners-row { grid-template-columns: minmax(140px, 1.2fr) 150px 140px 70px minmax(0, 2fr) 70px; }
-.runners-jobs .runners-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px 140px 130px 120px; }
+.runners-jobs .runners-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 110px minmax(0, 1.5fr) 130px 120px; }
 .runners-name { font-weight: 700; }
 .runners-repos { font: 500 13px/1.6 var(--ask-mono); }
 .runners-jobs code { font: 500 13px/1.5 var(--ask-mono); }
