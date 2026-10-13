@@ -41,6 +41,7 @@ function setup({ topics = new Map<string, PrdNumber>(), workspaces = [WS] } = {}
   const reads: Reads = [];
   const later: (() => Promise<void>)[] = [];
   const log = vi.fn();
+  const note = vi.fn();
   let gate: Promise<void> | null = null;
   const snapshot: SnapshotDeps & { store: FakeSnapshotStore } = {
     store,
@@ -65,6 +66,7 @@ function setup({ topics = new Map<string, PrdNumber>(), workspaces = [WS] } = {}
       .map(([dossierId, row]) => ({ dossierId, summary: row.summary }))),
     snapshot,
     log,
+    note,
   };
   const keep = (id: string, value: GithubSummary, more: { staleSince?: string | null; refreshingUntil?: string | null } = {}) => {
     store.rows.set(id, { workspaceId: WS, summary: value, readAt: '2026-10-05T09:00:00Z', staleSince: null, refreshingUntil: null, ...more });
@@ -81,7 +83,7 @@ function setup({ topics = new Map<string, PrdNumber>(), workspaces = [WS] } = {}
     gate = new Promise((resolve) => { open = resolve; });
     return () => { gate = null; open(); };
   };
-  return { store, reads, later, log, deps, keep, post, runLater, hold };
+  return { store, reads, later, log, note, deps, keep, post, runLater, hold };
 }
 
 describe('parseTouch', () => {
@@ -131,18 +133,18 @@ describe('POST /api/github/touched', () => {
   });
 
   it('answers an unknown repository 202, and logs it', async () => {
-    const { post, log, later } = setup();
+    const { post, note, later } = setup();
     const reply = await post({ repository: 'other/repo', issue: 1 });
     expect(reply).toEqual({ status: 202, body: { stale: 0 } });
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('other/repo'));
+    expect(note).toHaveBeenCalledWith(expect.objectContaining({ repo: 'other/repo' }));
     expect(later).toEqual([]);
   });
 
   it('answers a touch that matches no dossier 202, and logs it', async () => {
-    const { post, keep, log, store } = setup();
+    const { post, keep, note, store } = setup();
     keep('d1', summary(parsePrd(902)));
     expect((await post({ repository: REPO, issue: 5 })).status).toBe(202);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('matched no dossier'));
+    expect(JSON.stringify(note.mock.calls)).toContain('matched no dossier');
     expect(store.rows.get('d1')?.staleSince).toBeNull();
   });
 
@@ -161,6 +163,18 @@ describe('POST /api/github/touched', () => {
     const read = vi.spyOn(deps, 'snapshotsOf');
     await post({ repository: REPO, issue: 902 });
     expect(read).toHaveBeenCalledWith(WS, REPO);
+  });
+
+  it('writes a touch that matches no dossier as an info line, never an error (#1864)', async () => {
+    const { post, keep, log, note } = setup();
+    keep('d1', summary(parsePrd(902)));
+    expect((await post({ repository: REPO, pr: 1856, branch: 'chore/galaxy-season-timings' })).status).toBe(202);
+    expect((await post({ repository: 'other/repo', issue: 1 })).status).toBe(202);
+    expect(log).not.toHaveBeenCalled();
+    expect(note.mock.calls).toEqual([
+      [{ event: 'touch', outcome: 'ok', status: 202, repo: REPO, message: `${REPO} pull request #1856 on chore/galaxy-season-timings matched no dossier` }],
+      [{ event: 'touch', outcome: 'ok', status: 202, repo: 'other/repo', message: 'other/repo issue #1 matched no dossier' }],
+    ]);
   });
 
   it('marks stale the dossier of the PRD issue it names, and refreshes it after the response', async () => {
