@@ -913,7 +913,7 @@ describe('the stands', () => {
 function voidTilesInView(): [number, number][] {
   const base = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints });
   const v = viewFor(WIDE, base, newRace({ seed: 3, track: base, cast: [] }).player);
-  const tiles = COMET_RING.rows.flatMap((row, y) => [...row].flatMap((c, x) => (c === '~' ? [{ at: [x, y] as [number, number], p: project(v, (x + 0.5) * TILE, (y + 0.5) * TILE, 0) }] : [])));
+  const tiles = COMET_RING.rows.flatMap((row, y) => Array.from(row).flatMap((c, x) => (c === '~' ? [{ at: [x, y] as [number, number], p: project(v, (x + 0.5) * TILE, (y + 0.5) * TILE, 0) }] : [])));
   const seen = tiles.flatMap(({ at, p }) => (p && p.sx > 20 && p.sx < WIDE.w - 20 && p.sy < WIDE.h - 10 && p.z > 60 && p.z < 160 ? [{ at, z: p.z }] : []));
   return seen.sort((x, y) => x.z - y.z).map((o) => o.at);
 }
