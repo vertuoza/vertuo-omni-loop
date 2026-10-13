@@ -7426,11 +7426,6 @@ function disclose(entries, thesis, what) {
     ungoverned
   };
 }
-var handle = (owner) => owner.startsWith("@") ? owner : `@${owner}`;
-function lawLine({ id, sentence: sentence2 }, owners) {
-  const who = owners.length === 0 ? "its owner" : owners.map(handle).join(" or ");
-  return `law ${id} \u2014 ${sentence2} Changing it needs ${who} to approve the pull request.`;
-}
 
 // kit/lib/knowledge/thesis.ts
 import { existsSync as existsSync22, readFileSync as readFileSync19 } from "node:fs";
@@ -7487,14 +7482,17 @@ function thesisProblems(thesis, entries, expected) {
 // kit/lib/knowledge/briefing-laws.ts
 function briefingLaws(ctx) {
   const thesis = readThesis(ctx);
-  const file = thesisPath(ctx);
-  if (thesis?.lawsSection) {
-    return { source: file, lines: [`## The laws  [read live from ${file}]`, thesis.lawsSection] };
-  }
+  const source = thesis === null ? ctx.layout.knowledgeRoot : thesisPath(ctx);
   const { laws } = disclose(readKnowledge({ ctx }).entries, thesis, null);
-  const body = laws.length === 0 ? ["No law is locked yet."] : laws.map((law) => lawLine(law, ctx.config.laws.owners));
-  const missing = thesis === null ? `no thesis at ${file}` : `no laws section in ${file}`;
-  return { source: ctx.layout.knowledgeRoot, lines: [`## The laws  [${missing}; read from the registers]`, ...body] };
+  if (laws.length === 0) return { source, lines: ["## The laws", "No law is locked yet."] };
+  const ids = laws.map(({ id }) => id).join(", ");
+  return {
+    source,
+    lines: [
+      `## The laws  [${laws.length} locked]`,
+      `Locked: ${ids}. Before you change a file, run \`omni kb laws --paths <file>\u2026\` (or \`--slice <prd> <slice>\`) to read the laws it touches; only their owner can approve a change to one.`
+    ]
+  };
 }
 
 // kit/lib/playbook/decisions.ts
@@ -11436,7 +11434,7 @@ var PREFIX = { principle: "P", rule: "BR", invariant: "N" };
 var LAYER = { principle: "principles.md", rule: "rules.md", invariant: "invariants.md" };
 var NONE_YET = /^None yet\./;
 var day = (value) => plainText(value).slice(0, 10);
-var handle2 = (who) => String(who).startsWith("@") ? String(who) : `@${String(who)}`;
+var handle = (who) => String(who).startsWith("@") ? String(who) : `@${String(who)}`;
 var oneLine2 = (value) => plainText(value).replace(/\s+/g, " ").trim();
 function answeredByPerson(candidate) {
   if (candidate.verdict === "agreed") return true;
@@ -11448,12 +11446,12 @@ function decidedLine(candidate) {
     if (candidate.approvedBy === null || candidate.approvedBy === "nobody") {
       return `nobody \u2014 adopted when raised (medium), ${when}`;
     }
-    return `${handle2(candidate.approvedBy)} \u2014 merged over a red outbox, ${when}`;
+    return `${handle(candidate.approvedBy)} \u2014 merged over a red outbox, ${when}`;
   }
-  return `${handle2(candidate.approvedBy)} via ${candidate.channel}, ${when}`;
+  return `${handle(candidate.approvedBy)} via ${candidate.channel}, ${when}`;
 }
 function mergedLine(merge) {
-  return `${handle2(merge.by)}, ${day(merge.at)}, PR #${merge.pr}`;
+  return `${handle(merge.by)}, ${day(merge.at)}, PR #${merge.pr}`;
 }
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");

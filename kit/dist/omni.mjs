@@ -37817,14 +37817,17 @@ function thesisProblems(thesis, entries4, expected) {
 // kit/lib/knowledge/briefing-laws.ts
 function briefingLaws(ctx) {
   const thesis = readThesis(ctx);
-  const file2 = thesisPath(ctx);
-  if (thesis?.lawsSection) {
-    return { source: file2, lines: [`## The laws  [read live from ${file2}]`, thesis.lawsSection] };
-  }
+  const source2 = thesis === null ? ctx.layout.knowledgeRoot : thesisPath(ctx);
   const { laws: laws2 } = disclose(readKnowledge({ ctx }).entries, thesis, null);
-  const body = laws2.length === 0 ? ["No law is locked yet."] : laws2.map((law) => lawLine(law, ctx.config.laws.owners));
-  const missing = thesis === null ? `no thesis at ${file2}` : `no laws section in ${file2}`;
-  return { source: ctx.layout.knowledgeRoot, lines: [`## The laws  [${missing}; read from the registers]`, ...body] };
+  if (laws2.length === 0) return { source: source2, lines: ["## The laws", "No law is locked yet."] };
+  const ids2 = laws2.map(({ id }) => id).join(", ");
+  return {
+    source: source2,
+    lines: [
+      `## The laws  [${laws2.length} locked]`,
+      `Locked: ${ids2}. Before you change a file, run \`omni kb laws --paths <file>\u2026\` (or \`--slice <prd> <slice>\`) to read the laws it touches; only their owner can approve a change to one.`
+    ]
+  };
 }
 
 // kit/lib/playbook/decisions.ts
