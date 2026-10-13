@@ -53,7 +53,11 @@ const SAMPLE_STEP = 0.5;
 const EPS = 1e-9;
 
 /** An element the caller knows is there (the indexes are always wrapped into range). */
-const nth = <T>(xs: readonly T[], i: number): T => xs[i] as T;
+function nth<T>(xs: readonly T[], i: number): T {
+  const x = xs[i];
+  if (x === undefined) throw new Error(`no element at ${i}`);
+  return x;
+}
 
 /** Compiles the waypoints into straights and arcs; refuses a corner whose arc does not fit its legs. */
 export function buildLine(spec: LineSpec): Line {
@@ -167,7 +171,8 @@ export function locate(line: Line, x: number, y: number): Located {
       best = { along: p.along, across: p.tx * dy - p.ty * dx, dist, x: p.x, y: p.y, tx: p.tx, ty: p.ty };
     }
   }
-  return best as Located;
+  if (best === null) throw new Error('a line has segments');
+  return best;
 }
 
 const inGap = (gaps: readonly Gap[], along: number): boolean => gaps.some((g) => along >= g.from && along < g.from + g.length);
