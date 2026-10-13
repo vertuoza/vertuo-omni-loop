@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { repoOfRemote } from '../../lib/runner/checkouts.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
-import { tmuxArgs } from '../../lib/runner/terminal.ts';
+import { tmuxArgs, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { JobSession, Terminal } from '../../lib/runner/terminal.ts';
 import { main } from '../omni.ts';
 
@@ -92,20 +92,25 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = f
   return { calls, fetch, updates };
 }
 
-/** The fake tmux: runs the session's command as a child process, its variables added to this one's. */
-function fakeTerminal() {
+/** The fake tmux: runs the session's command as a child process, its variables added to this one's.
+ * `dies` starts each session's command as one that ends at once, writing no exit code. */
+function fakeTerminal({ dies = false }: { dies?: boolean } = {}) {
   const sessions: JobSession[] = [];
   const stopped: string[] = [];
   const children = new Map<string, ChildProcess>();
   const terminal: Terminal = {
     start(session) {
       sessions.push(session);
-      const [file = '', ...args] = session.argv;
+      const [file = '', ...args] = dies ? ['false'] : session.argv;
       children.set(session.name, spawn(file, args, { cwd: session.cwd, env: { ...process.env, ...session.env }, stdio: 'ignore' }));
     },
     stop(name) {
       stopped.push(name);
       children.get(name)?.kill('SIGKILL');
+    },
+    alive(name) {
+      const child = children.get(name);
+      return child !== undefined && child.exitCode === null && child.signalCode === null;
     },
   };
   return { terminal, sessions, stopped };
@@ -288,6 +293,16 @@ describe('omni runner', () => {
     expect(run.stdout.text()).not.toContain('refused (409)');
   });
 
+  it('fails a job whose session ends before it writes its exit code, at once, not after the timeout', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 18, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { terminal: fakeTerminal({ dies: true }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', reason: 'the job stopped before it wrote its exit code' });
+  });
+
   it('tries an unreachable app again after 5 s, doubling up to 60 s, while its jobs keep running', async () => {
     const f = fixture();
     const waits: number[] = [];
@@ -405,6 +420,16 @@ describe('the runner pieces', () => {
     expect(tmuxArgs({ name: 'job-7', cwd: '/w', env: { OMNI_RUNNER: 'box-1' }, argv: ['node', 'omni.mjs', 'runner', 'job'] })).toEqual([
       'new-session', '-d', '-s', 'job-7', '-c', '/w', '-e', 'OMNI_RUNNER=box-1', 'node', 'omni.mjs', 'runner', 'job',
     ]);
+  });
+
+  it('reads a tmux session as alive while a pane runs, and as ended once every pane is dead or the session is gone', () => {
+    const panes = (out: string | null) => tmuxTerminal(() => {
+      if (out === null) throw new Error("can't find session: job-7");
+      return out;
+    });
+    expect(panes('0\n').alive('job-7')).toBe(true);
+    expect(panes('1\n').alive('job-7')).toBe(false);
+    expect(panes(null).alive('job-7')).toBe(false);
   });
 
   it("reads a checkout's origin as owner/name", () => {
