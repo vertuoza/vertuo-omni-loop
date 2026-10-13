@@ -656,6 +656,7 @@ var proofUrl = z7.string().refine((value) => {
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
+var lawOwner = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
   repo: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -831,7 +832,12 @@ var ConfigSchema = z7.object({
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
     // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
-    requireProof: z7.boolean().default(false)
+    requireProof: z7.boolean().default(false),
+    // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
+    max: z7.number().int().positive().default(20),
+    // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
+    // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
+    owners: z7.array(lawOwner).default([])
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),
@@ -1047,6 +1053,13 @@ var ComparePageSchema = z8.looseObject({
   files: z8.array(z8.looseObject({ filename: z8.string(), status: z8.string() })).nullish(),
   commits: z8.array(z8.looseObject({ sha: z8.string(), commit: z8.looseObject({ message: z8.string().nullish() }).nullish() })).nullish()
 });
+var ReviewsPageSchema = z8.array(
+  z8.looseObject({
+    user: z8.looseObject({ login: z8.string() }).nullish(),
+    state: z8.string(),
+    commit_id: z8.string().nullish()
+  })
+);
 var CheckRunsSchema = z8.looseObject({
   check_runs: z8.array(z8.looseObject({ id: z8.number(), status: z8.string().nullish() })).nullish()
 });
@@ -1478,6 +1491,7 @@ var printed = (value) => String(value);
 // apps/omni-app/src/webhook/webhook.ts
 var CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["opened", "synchronize", "reopened", "ready_for_review", "labeled", "unlabeled", "edited"]),
+  pull_request_review: Object.freeze(["submitted", "dismissed"]),
   check_run: Object.freeze(["rerequested"])
 });
 var RETRO_ACTIONS = Object.freeze({
@@ -1492,6 +1506,7 @@ var APPROVED_LABEL_ACTIONS = Object.freeze({
 var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
+  pull_request_review: CHECK_ACTIONS.pull_request_review,
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
@@ -1585,7 +1600,7 @@ function toCheckRequests(event, delivery) {
   if (!source) return [];
   const trigger = `${event}.${String(payload.action)}`;
   const name = event === "check_run" ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
-  const pulls = event === "pull_request" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
+  const pulls = event !== "check_run" ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }] : (payload.check_run?.pull_requests ?? []).map((pull) => ({
     number: pull.number,
     sha: pull.head?.sha ?? payload.check_run?.head_sha,
     base: pull.base?.ref

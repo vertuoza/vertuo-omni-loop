@@ -724,6 +724,7 @@ var proofUrl = z7.string().refine((value) => {
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
+var lawOwner = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
   repo: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -899,7 +900,12 @@ var ConfigSchema = z7.object({
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
     // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
-    requireProof: z7.boolean().default(false)
+    requireProof: z7.boolean().default(false),
+    // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
+    max: z7.number().int().positive().default(20),
+    // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
+    // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
+    owners: z7.array(lawOwner).default([])
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),
@@ -1115,6 +1121,13 @@ var ComparePageSchema = z8.looseObject({
   files: z8.array(z8.looseObject({ filename: z8.string(), status: z8.string() })).nullish(),
   commits: z8.array(z8.looseObject({ sha: z8.string(), commit: z8.looseObject({ message: z8.string().nullish() }).nullish() })).nullish()
 });
+var ReviewsPageSchema = z8.array(
+  z8.looseObject({
+    user: z8.looseObject({ login: z8.string() }).nullish(),
+    state: z8.string(),
+    commit_id: z8.string().nullish()
+  })
+);
 var CheckRunsSchema = z8.looseObject({
   check_runs: z8.array(z8.looseObject({ id: z8.number(), status: z8.string().nullish() })).nullish()
 });

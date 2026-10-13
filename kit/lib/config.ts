@@ -61,6 +61,11 @@ const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'the name of an env
 // PRD 1407: a selector the word pass reads — tags, ids, classes and attributes, no combinator.
 const wordSelector = text.refine((value) => parseSelector(value) !== null, 'a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator');
 
+// PRD 1726: a law's owner — a GitHub login or an `<org>/<team>`, without the `@` CODEOWNERS adds.
+const lawOwner = z
+  .string()
+  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, 'a GitHub login or <org>/<team>, without @');
+
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
 
@@ -273,6 +278,11 @@ export const ConfigSchema = z
       // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
       // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
       requireProof: z.boolean().default(false),
+      // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
+      max: z.number().int().positive().default(20),
+      // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
+      // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
+      owners: z.array(lawOwner).default([]),
     }),
     risk: section({
       storedShape: z.array(regexSource).default([]),

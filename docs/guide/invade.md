@@ -66,9 +66,15 @@ Everything it writes is under `.omni-loop/knowledge/`, plus a proposed change to
   [design craft](/docs/design) on. With it already on, invade also fills the playbook's `design`
   form from your tokens, components and screens, and proposes `design.paths`.
 
-Every entry it writes carries a `Proposed:` line. **A proposed entry is not a law yet:** the loop
-reads it to understand your product, but it never stops the loop's work. It becomes a law when a
+Every entry it writes carries a `Proposed:` line. **A proposed entry is not a rule yet:** the loop
+reads it to understand your product, but it never stops the loop's work. It becomes a rule when a
 person deletes its `Proposed:` line. Merging the pull request confirms nothing.
+
+- **Your thesis:** a first draft of `product/thesis.md`, the page a newcomer reads first, in plain
+  words, with a `TODO(human):` question wherever your repository does not show the answer.
+- **Candidate laws:** at most `laws.max` of the rules that cost the most when broken, each with a
+  `Proposed law:` sentence (what breaks, and who gets hurt) and the `Governs:` line of the files it
+  rules over. It locks none: [Lock a law](/docs/loop#lock-a-law) says how a CODEOWNER does.
 
 ## The pull request it opens
 
@@ -77,6 +83,7 @@ titled `docs(knowledge): invade — set up the knowledge base`. Its description 
 
 - **Map, as answered:** your answers to its questions.
 - **Proposed entries:** how many entries each register file got.
+- **Candidate laws:** each one in plain words, and who locks them.
 - **Forms:** which forms are filled, pointed or still blank.
 - **Open questions:** a checkbox per `TODO(human):` line it left.
 - **Config:** each setting it proposes to change, and the file that shows why.

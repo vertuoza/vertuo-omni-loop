@@ -60,6 +60,16 @@ export const ComparePageSchema = z.looseObject({
     .nullish(),
 });
 
+/** One page of `GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews`, oldest first. */
+export const ReviewsPageSchema = z.array(
+  z.looseObject({
+    user: z.looseObject({ login: z.string() }).nullish(),
+    state: z.string(),
+    commit_id: z.string().nullish(),
+  }),
+);
+export type Review = z.infer<typeof ReviewsPageSchema>[number];
+
 /** `GET /repos/{owner}/{repo}/commits/{ref}/check-runs`. */
 export const CheckRunsSchema = z.looseObject({
   check_runs: z.array(z.looseObject({ id: z.number(), status: z.string().nullish() })).nullish(),

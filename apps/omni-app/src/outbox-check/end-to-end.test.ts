@@ -51,6 +51,14 @@ function pullRequestDelivery(pull: Pull, action = 'synchronize'): Delivery {
   };
 }
 
+/** A review of the pull request, submitted or dismissed (PRD 1726). */
+function reviewDelivery(pull: Pull, action = 'submitted'): Delivery {
+  return {
+    event: 'pull_request_review',
+    payload: { action, installation: { id: 7 }, repository: REPOSITORY, review: { state: 'approved' }, pull_request: pull },
+  };
+}
+
 function rerunDelivery(pull: Pull): Delivery {
   return {
     event: 'check_run',
@@ -225,6 +233,92 @@ describe('end to end — a signed webhook to a completed check', () => {
     await deliver(github, pullRequestDelivery(knowledge, 'opened'));
     expect(latest(github)).toMatchObject({ conclusion: 'success', output: { title: 'Knowledge PR: 1 law touched' } });
     expect(outputOf(latest(github)).summary).toContain('N-PRODUCT-1: A widget is never shown without its colour.');
+  });
+
+  describe('13. a change to a locked law waits for its CODEOWNER’s approval on GitHub (PRD 1726)', () => {
+    const LAW_TITLE = "Locked law changed without its CODEOWNER's approval — N-PRODUCT-1";
+    const INVARIANTS = '.omni-loop/knowledge/product/invariants.md';
+    const knowledgePull = () => ({ ...featurePull(), head: { ref: 'docs/knowledge-widget', sha: 'head1' } });
+    const review = (login: string, state = 'APPROVED', commit = 'head1') => ({ user: { login }, state, commit_id: commit });
+    /** A knowledge PR rewording the locked N-PRODUCT-1, on a base whose CODEOWNERS gives it to @ann. */
+    const knowledgeGitHub = (reviews: ReturnType<typeof review>[] = [], base = 'base-locked') =>
+      fakeGitHub({
+        commits: { base1: fixture(base), head1: fixture('head-locked-edited') },
+        pull: knowledgePull(),
+        files: [{ filename: INVARIANTS, status: 'modified' }],
+        reviews,
+      });
+
+    it('no approval: a knowledge PR, never blocked before, is red, naming the law and its owner', async () => {
+      const github = knowledgeGitHub();
+      await deliver(github, pullRequestDelivery(knowledgePull(), 'opened'));
+      expect(latest(github)).toMatchObject({ name: 'outbox', conclusion: 'failure', output: { title: LAW_TITLE } });
+      expect(outputOf(latest(github)).summary).toContain(`N-PRODUCT-1: waiting for an approving review of the head commit from @ann, who own \`${INVARIANTS}\`.`);
+      expect(outputOf(latest(github)).summary).toContain('Knowledge PR: never blocked.');
+    });
+
+    it('a non-owner’s approval, an owner’s comment, or an owner’s approval of an older commit leaves it red', async () => {
+      const github = knowledgeGitHub([review('bob'), review('ann', 'COMMENTED'), review('ann', 'APPROVED', 'head0')]);
+      await deliver(github, pullRequestDelivery(knowledgePull(), 'opened'));
+      expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: LAW_TITLE } });
+    });
+
+    it('a CODEOWNER’s approval, read from the base, turns it green on the review alone, and a dismissal red again', async () => {
+      const github = knowledgeGitHub();
+      await deliver(github, pullRequestDelivery(knowledgePull(), 'opened'));
+      expect(latest(github)).toMatchObject({ conclusion: 'failure' });
+
+      github.state.reviews.push(review('ann'));
+      const sent = await deliver(github, reviewDelivery(knowledgePull(), 'submitted'));
+      expect(sent).toHaveLength(1);
+      expect(latest(github)).toMatchObject({ head_sha: 'head1', conclusion: 'success', output: { title: 'Knowledge PR: 1 law touched' } });
+      expect(outputOf(latest(github)).summary).toContain('Locked laws changed (N-PRODUCT-1): approved by their CODEOWNERS, @ann.');
+      const githubFolders = github.state.requests.map((r) => String(r.tree_sha)).filter((sha) => sha.endsWith(':.github'));
+      expect(githubFolders.length).toBeGreaterThan(0);
+      expect(githubFolders.every((sha) => sha === 'base1:.github')).toBe(true);
+
+      github.state.reviews.push(review('ann', 'DISMISSED'));
+      await deliver(github, reviewDelivery(knowledgePull(), 'dismissed'));
+      expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: LAW_TITLE } });
+    });
+
+    it('no CODEOWNERS on the base: red, naming the law, whoever approved', async () => {
+      const github = knowledgeGitHub([review('ann')], 'base-locked-unowned');
+      await deliver(github, pullRequestDelivery(knowledgePull(), 'opened'));
+      expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: LAW_TITLE } });
+      expect(outputOf(latest(github)).summary).toContain('N-PRODUCT-1: no CODEOWNERS file owns');
+    });
+
+    it('an enforce PR that changes a locked law’s test is red until its owner approves', async () => {
+      const pull = { ...featurePull(), head: { ref: 'test/law-N-PRODUCT-1', sha: 'head1' } };
+      const files = [{ filename: 'src/widget.test.ts', status: 'modified' }];
+      const github = fakeGitHub({ commits: { base1: fixture('base-locked'), head1: fixture('base-locked') }, pull, files });
+      await deliver(github, pullRequestDelivery(pull, 'opened'));
+      expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: LAW_TITLE } });
+      expect(outputOf(latest(github)).summary).toContain('who own `src/widget.test.ts`');
+
+      github.state.reviews.push(review('ann'));
+      await deliver(github, reviewDelivery(pull));
+      expect(latest(github)).toMatchObject({ conclusion: 'success' });
+    });
+
+    it('the omni:outbox-go label does not clear it: a feature PR stays red, never neutral', async () => {
+      const pull = { ...featurePull(), labels: ['omni:outbox-go'] };
+      const files = [{ filename: INVARIANTS, status: 'modified' }];
+      const github = fakeGitHub({ commits: { base1: fixture('base-locked'), head1: fixture('head-locked-edited') }, pull, files });
+      await deliver(github, pullRequestDelivery(pull, 'labeled'));
+      expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: LAW_TITLE } });
+      expect(outputOf(latest(github)).summary).toContain('no outbox item, label or trailer does');
+    });
+
+    it('a rule’s test change still needs a high item, as before, and nothing more', async () => {
+      const pull = { ...featurePull(), head: { ref: 'fix/77-crash', sha: 'head1' } };
+      const files = [{ filename: 'src/name.test.ts', status: 'modified' }];
+      const github = fakeGitHub({ commits: { base1: fixture('base-locked'), head1: fixture('base-locked') }, pull, files });
+      await deliver(github, pullRequestDelivery(pull, 'opened'));
+      expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: '1 unaccounted change to a law — N-PRODUCT-2' } });
+      expect(github.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews');
+    });
   });
 
   it('5. a repository with no .omni-loop/config.yml gets no outbox check at all (PRD 359)', async () => {

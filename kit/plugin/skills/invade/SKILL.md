@@ -1,6 +1,6 @@
 ---
 name: invade
-description: Set up a repository's knowledge base from what the repository can prove — explore it read-only in four facets (its domains, the truth it writes down, the truth its code enforces, its decisions and words), show one map and take every answer in one message, then write proposed register entries (an index entry pointing at each rule a page already states, a drafted entry for each truth only the code enforces), fill the playbook forms from evidence with every command run green, leave an honest TODO(human) question where proof is missing, with design craft on draft one screen of the screen library per screen it can prove (never locked, never a law, every undecided point an open question, the drafts listed for their owner), propose the config the exploration learned — and end with one docs-only pull request a person merges. Every entry it writes is proposed, never a law until a person confirms it. With --refresh it redoes only what went stale. Never rewrites what a person wrote, never merges. Triggers on "invade this repository", "set up the knowledge base", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:invade".
+description: Set up a repository's knowledge base from what the repository can prove — explore it read-only in four facets (its domains, the truth it writes down, the truth its code enforces, its decisions and words), show one map and take every answer in one message, then write proposed register entries (an index entry pointing at each rule a page already states, a drafted entry for each truth only the code enforces), fill the playbook forms from evidence with every command run green, leave an honest TODO(human) question where proof is missing, with design craft on draft one screen of the screen library per screen it can prove (never locked, never a law, every undecided point an open question, the drafts listed for their owner), draft the product's thesis in plain words and propose at most laws.max candidate laws (locking none, naming who locks them), propose the config the exploration learned — and end with one docs-only pull request a person merges. Every entry it writes is proposed, never a law until a person confirms it. With --refresh it redoes only what went stale. Never rewrites what a person wrote, never merges. Triggers on "invade this repository", "set up the knowledge base", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:invade".
 ---
 
 # Invade: explore a repository, set up its knowledge base
@@ -33,8 +33,10 @@ wrong claim is worse than an honest hole.
 
 **Proposed, never a law.** Every register entry this skill writes carries `Proposed: invade <today>`.
 A proposed entry resolves (an outbox item may name it in `bearsOn`), but it floors nothing and never
-stops a slice. It becomes a law only when a person deletes its `Proposed:` line (and, on a principle,
-adds `Decided:`). Merging this skill's pull request confirms nothing.
+stops a slice. It becomes a confirmed rule only when a person deletes its `Proposed:` line (and, on a
+principle, adds `Decided:`), and a law only when a CODEOWNER also locks it with a `Locked:` line.
+This skill never writes `Locked:`: it proposes a law with a `Proposed law:` line (**The thesis and
+candidate laws**). Merging this skill's pull request confirms nothing and locks nothing.
 
 ## Input
 
@@ -160,8 +162,8 @@ The same holds for the registers: an entry is this skill's only while it carries
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the
    repository is not installed, and the kit's one-line install, `omni init`, comes first (it writes
    the config, the bin and the blank forms); then run `/omni:invade` again. Keep the JSON; later
-   steps read `repo.*`, `branches.invade`, `worktrees`, `paths.*`, `commands.*`, `ci.*` and
-   `laws.source` from it. `<remote>` below is `repo.remote`, `<invade branch>` is `branches.invade`, and `<today>`
+   steps read `repo.*`, `branches.invade`, `worktrees`, `paths.*`, `commands.*`, `ci.*`,
+   `laws.source`, `laws.max` and `laws.owners` from it. `<remote>` below is `repo.remote`, `<invade branch>` is `branches.invade`, and `<today>`
    is `date -u +%F`.
 2. **The branch.** `git fetch <remote>`, then look for a pull request an earlier run left open:
    `gh pr list --head <invade branch> --base <repo.defaultBranch> --state open --json number,url`.
@@ -336,6 +338,67 @@ From the map as answered (see **A register entry, read and written** for the sha
 
 Commit the registers as their own commit, so a person can drop them alone:
 `docs(knowledge): propose register entries from the repository`.
+
+### The thesis and candidate laws
+
+Only when the front door holds the registers (`laws.source` is `knowledge`, or step 7 proposes it).
+
+**The thesis.** Draft `<paths.knowledge>/product/thesis.md`, the one page a newcomer reads first,
+from what the repository proves: its README, its docs and the rules its code enforces. Every
+sentence is plain words a junior developer or a junior PM understands without opening code: one
+idea per sentence, no file path in a statement. Exactly four sections:
+
+```markdown
+# <the product's name>
+
+## Who it is for
+- <one kind of person, one line, from the README or the docs>
+
+## What it promises
+<three to five sentences>
+
+## The laws
+No law is locked yet.
+
+## What it refuses
+- <what the product will never do, one line each>
+```
+
+- **Evidence or a question.** A sentence no file shows is never written: in its place, a
+  `TODO(human): <the question, in plain words>` line, as a form's hole is. A section with no evidence
+  at all holds only its question.
+- **The laws section names no id.** `omni check knowledge` refuses a thesis whose laws section names
+  an entry nobody locked, and this skill locks nothing: it holds `No law is locked yet.`, or, when
+  a person locked laws already, their lines as they are.
+- **Whose it is.** A thesis this skill wrote, and whose text no person changed since, is redone on
+  `--refresh`; one a person wrote or edited is a person's, kept as written, and a contradiction is
+  named under **Reviewer focus**.
+
+**Candidate laws.** Of the entries the registers hold, pick the few truths that cost the most when
+broken, at most `laws.max` (`omni config laws.max`), counting the `Proposed law:` lines already
+there. Each is a rule or an invariant with an `Enforced by:` test, never a principle. On each entry
+this skill wrote (one carrying `Proposed: invade`), add two lines:
+
+```markdown
+Governs: ^<a path prefix the rule rules over>, ^<another>
+Proposed law: <one plain sentence: what breaks, and who gets hurt>.
+```
+
+- **A person's entry is never edited** (**A register entry, read and written**), not even to add
+  these two lines: a candidate among them is listed in the pull request's **Candidate laws** with
+  its sentence and its `Governs:` written there, for its owner to add.
+- `Governs:` lists regular expressions over repository paths, comma-separated, written as a flow
+  area's `paths` are (`^kit/lib/outbox/`): the files the rule rules over, starting from the folder
+  of its `Enforced by:` test and of the code that test reads.
+- The `Proposed law:` sentence is for a junior developer or a junior PM: what breaks for whom, with
+  no id, no path and no code (`If a quote's total leaves out the tax, customers are billed the wrong amount.`).
+- **Lock none.** Never write `Locked:`, never touch a `Locked:` line a person wrote, and never write
+  a law line in the thesis. Too few truths worth a law: propose fewer, or none; never pad to the cap.
+- `node .omni-loop/bin/omni.mjs check knowledge` exits `0` once they are written, and
+  `node .omni-loop/bin/omni.mjs kb laws --paths <a file one Governs: names>` prints its rule.
+
+Commit them as their own commit:
+`docs(knowledge): draft the thesis and propose candidate laws`.
 
 ## 4. Point before writing
 
@@ -636,6 +699,18 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
    `Decided:` line saying who decided it and when), in this pull request or any later one. Merging
    confirms nothing.
 
+   ## Candidate laws
+
+   | Entry | If it breaks | Governs | Written |
+   |---|---|---|---|
+   | `<id>` | <its `Proposed law:` sentence> | `<its Governs: patterns>` | on the entry \| for its owner to add |
+
+   None is locked. A law is locked by <each of `laws.owners`, as @<login>; or, when it is empty,
+   "a CODEOWNER, once `laws.owners` names one">: in a later pull request, they confirm the entry,
+   replace its `Proposed law:` line with `Locked: @<login>, <date>`, add its line to the thesis's
+   laws section, and approve that pull request on GitHub. A candidate they strike loses its
+   `Proposed law:` line and stays a rule.
+
    ## Forms
 
    ```text
@@ -661,6 +736,7 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
    ````
 
    The **Draft screens** section is there only when step 5 drafted a screen; otherwise leave it
+   out. The **Candidate laws** section is there only when step 3 proposed one; otherwise leave it
    out.
 
    **Every hole is a checkbox**, one per entry in `questions` of
@@ -693,6 +769,8 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
   entries this skill wrote whose `Source:` or `Enforced by:` changed or is gone, fixed or removed.
   **A confirmed entry is never touched** (one without a `Proposed:` line): when the evidence now
   contradicts it, keep it as written and say so under **Reviewer focus**.
+- **The thesis and candidate laws:** the thesis redone only while it is still this skill's; new
+  candidates only for new entries, the cap counting every `Proposed law:` line already there.
 - **Draft screens,** with the design flag on: only a screen the re-run facets found that the
   library does not hold, asked at the map, and the drafts whose **Source** names `/omni:invade` and
   that are still `status: draft`, whose evidence changed or is gone: redone from it, or removed. A
@@ -729,6 +807,8 @@ at, at Settings › Business › Draft from my repos, and every drafted claim wa
   a question belongs.
 - Never invents a visual direction: the `design` form describes the product's own look from its
   files, and what it does on purpose is a person's to confirm.
+- Never writes a `Locked:` line: at most `laws.max` candidate laws, each a `Proposed law:` line in
+  plain words with its `Governs:` line, and its pull request names who locks them.
 - Never locks a screen or a law, and never writes a law: every screen it drafts is a draft from
   evidence, every undecided point an open question, and the `language` slot a person's.
 - Asks once, at the map; writes nothing before the answer.

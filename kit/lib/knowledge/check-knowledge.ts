@@ -20,6 +20,13 @@
  *   looked up; with `laws.requireProof: true`, a rule or an invariant may no longer say `unenforced`:
  *   it names its test, or its law issue. A proposed entry is no law yet, and an imported copy's own
  *   config is its target's, so neither is asked;
+ * - **laws** (PRD 1726) — a `Locked:` entry is a rule or an invariant, never a principle, names its
+ *   test and a `Governs:` line, and carries no `Proposed:` line; the folder holds no more locks than
+ *   `laws.max`, and none while `laws.owners` is empty (an imported copy is asked neither); every
+ *   `Governs:` pattern is a regular expression, as a flow area's `paths` are; and `product/thesis.md`
+ *   lists every locked law in its laws section, and nothing else (`thesis.ts`); and the CODEOWNERS
+ *   block `omni kb owners` writes is what it would write now (`codeowners-laws.ts`), present once a
+ *   law is locked;
  * - **honesty** — a path-shaped `Enforced by:` or `Source:` that does not exist is refused: a wrong
  *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves.
  *
@@ -52,15 +59,24 @@ import {
   type KnowledgeCtx,
   type KnowledgeEntry,
 } from './registers.ts';
+import { invalidGoverns } from './disclose.ts';
+import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
+import { ownersBlockProblems } from '../codeowners-laws.ts';
 
 /**
  * What grading needs of the context: the checkout, where the knowledge folder sits, the glossary's
  * path, and — in an imported copy's context — the target it copies.
  */
 export type CheckCtx = KnowledgeCtx & {
-  config: { paths: { glossary: string | null }; laws?: { requireProof: boolean } };
+  config: {
+    paths: { glossary: string | null };
+    laws?: { requireProof: boolean; max?: number; owners?: readonly string[] };
+  };
   copyOf?: string;
 };
+
+/** `laws.max`'s default (PRD 1726), for a context whose config carries none. */
+const DEFAULT_LAWS_MAX = 20;
 
 /** A violation: the file, the id and what is wrong — or a problem the parser already wrote. */
 export type Violation =
@@ -383,6 +399,7 @@ export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEn
   for (const entry of entries) {
     violations.push(...idShapeViolations(entry));
     violations.push(...entry.problems.map((problem) => ({ text: problem })));
+    violations.push(...lockViolations(entry));
 
     if (entry.scope === 'cross-domain' && !entry.kind) {
       violations.push(
@@ -468,6 +485,87 @@ function proofViolations(ctx: CheckCtx, entry: KnowledgeEntry, requireProof: boo
   return missingPathViolations(ctx, entry, 'Enforced by', entry.enforcedBy, { onlyPathLike: false });
 }
 
+/**
+ * A locked entry's own lines (PRD 1726): a principle is never locked; a law names its test on
+ * `Enforced by:` (a path — never `unenforced` or `pending #<n>`) and the paths it rules over on
+ * `Governs:`; and a person locked it, so no `Proposed:` line stays beside the lock.
+ */
+function lockViolations(entry: KnowledgeEntry): Violation[] {
+  if (entry.locked === null) return [];
+  if (entry.kind === 'principle') {
+    return [violation(entry.file, entry.id, 'is locked, but a principle is never a law — lock a rule or an invariant that serves it.')];
+  }
+  const violations: Violation[] = [];
+  if (!entry.enforced) {
+    violations.push(violation(entry.file, entry.id, 'is locked, but "Enforced by:" names no test — a law is proven: name its test\'s path.'));
+  }
+  if (entry.governs === null) {
+    violations.push(violation(entry.file, entry.id, 'is locked, but carries no "Governs:" line — a law names the paths it rules over.'));
+  }
+  if (entry.proposed !== null) {
+    violations.push(violation(entry.file, entry.id, 'is locked and proposed at once — a person locked it: remove its "Proposed:" line.'));
+  }
+  return violations;
+}
+
+/**
+ * The folder's locks against its config (PRD 1726): no more than `laws.max`, and none while
+ * `laws.owners` names nobody who may lock one. A malformed lock and a locked principle count: each
+ * is a lock someone meant. An imported copy's config is its target's, so neither is asked of it.
+ */
+function findLockCountViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry[]): Violation[] {
+  if (ctx.copyOf) return [];
+  const locks = entries.filter((entry) => entry.locked !== null).length;
+  if (locks === 0) return [];
+  const max = ctx.config.laws?.max ?? DEFAULT_LAWS_MAX;
+  const owners = ctx.config.laws?.owners ?? [];
+  const counted = `${locks} locked ${locks === 1 ? 'entry' : 'entries'}`;
+  const where = ctx.layout.knowledgeRoot;
+  const violations: Violation[] = [];
+  if (locks > max) {
+    violations.push({
+      text: `${where}: ${counted}, more than laws.max (${max}) — a law is one of the few truths that cost the most when broken: strike one, or raise laws.max.`,
+    });
+  }
+  if (owners.length === 0) {
+    violations.push({
+      text: `${where}: ${counted}, and laws.owners is empty — name who may lock a law and approve a change to one in laws.owners before locking.`,
+    });
+  }
+  return violations;
+}
+
+/**
+ * Every `Governs:` pattern the flow areas' matcher could not read (PRD 1726): each is a regular
+ * expression over repository paths, as an area's `paths` are, so a glob like `**` is refused.
+ */
+function findGovernsViolations(entries: readonly KnowledgeEntry[]): Violation[] {
+  return entries.flatMap((entry) =>
+    invalidGoverns(entry.governs ?? []).map((source) =>
+      violation(entry.file, entry.id, `"Governs:" lists "${source}", which is not a regular expression over paths — write it as a flow area's paths are written, such as ^kit/lib/outbox/.`),
+    ),
+  );
+}
+
+/**
+ * The thesis against the locks (PRD 1726): its laws section lists every locked law and nothing else,
+ * each line with its `If broken:`; once a law is locked, the thesis must exist. An imported copy is
+ * not asked: it is a draft of its target's folder.
+ */
+function findThesisViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry[]): Violation[] {
+  if (ctx.copyOf) return [];
+  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text) => ({ text }));
+}
+
+/**
+ * The CODEOWNERS block against the locks (PRD 1726): what `omni kb owners` would write now, so a
+ * change to a law asks its owner. An imported copy is not asked: its CODEOWNERS is its target's.
+ */
+function findOwnersBlockViolations(ctx: CheckCtx, knowledge: Knowledge): Violation[] {
+  if (ctx.copyOf) return [];
+  return ownersBlockProblems(ctx, knowledge).map((text) => ({ text }));
+}
+
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
@@ -526,6 +624,10 @@ export function gradeKnowledge({
     ...findCrossDomainFileViolations(knowledge),
     ...findReusedIds(knowledge.entries),
     ...findEntryViolations(ctx, knowledge.entries),
+    ...findLockCountViolations(ctx, knowledge.entries),
+    ...findGovernsViolations(knowledge.entries),
+    ...findThesisViolations(ctx, knowledge.entries),
+    ...findOwnersBlockViolations(ctx, knowledge),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve)),
   ];
 

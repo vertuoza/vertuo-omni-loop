@@ -15,6 +15,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from '../context.ts';
+import { briefingLaws } from '../knowledge/briefing-laws.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../playbook/forms.ts';
 import { readDecisions } from '../playbook/decisions.ts';
 import type { Decisions } from '../playbook/decisions.ts';
@@ -45,10 +46,11 @@ function recordLines({ dir, records, shared, next }: Decisions): string[] {
 
 /**
  * One resolved form as `omni kb show <form>` prints it, without its last newline: its title, its file
- * and state, then each section under its label, then — for the decisions form — the records. The
- * command prints this text, so the measure and what a session reads are one.
+ * and state, then each section under its label, then — for the decisions form — the records, and —
+ * for the briefing — its laws section (PRD 1726). The command prints this text, so the measure and
+ * what a session reads are one.
  */
-export function formShowText(resolved: ResolvedForm, records: Decisions | null): string {
+export function formShowText(resolved: ResolvedForm, records: Decisions | null, laws: readonly string[] | null = null): string {
   const lines = [`# ${resolved.title}`, `${resolved.file} · ${resolved.state}`];
   for (const section of resolved.sections) {
     lines.push('', section.slot === null ? section.label : `## ${section.heading}  ${section.label}`);
@@ -57,6 +59,7 @@ export function formShowText(resolved: ResolvedForm, records: Decisions | null):
     if (section.source === 'hole') lines.push(...section.questions.map((question) => `TODO(human): ${question}`));
   }
   if (records) lines.push('', ...recordLines(records));
+  if (laws) lines.push('', ...laws);
   return lines.join('\n');
 }
 
@@ -70,7 +73,8 @@ function measureForm(ctx: Ctx, form: string): Measure {
   const broken = resolved.problems.filter((problem) => !harmless(problem));
   if (broken.length > 0) return { target, error: broken.join('; ') };
   const records = form === DECISIONS_FORM ? readDecisions({ ctx }) : null;
-  return { target, bytes: Buffer.byteLength(`${formShowText(resolved, records)}\n`, 'utf8') };
+  const laws = form === BRIEFING ? briefingLaws(ctx).lines : null;
+  return { target, bytes: Buffer.byteLength(`${formShowText(resolved, records, laws)}\n`, 'utf8') };
 }
 
 /** One `paths.context` file, measured as it lies on disk. */

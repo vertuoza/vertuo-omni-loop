@@ -9,6 +9,8 @@ import {
   diskSource,
   idParts,
   idsCitedIn,
+  isConfirmedRule,
+  isLaw,
   memorySource,
   parseEntryFile,
   readKnowledge,
@@ -420,5 +422,92 @@ describe('parseEntryFile — a harvested entry carries Merged: as its own field 
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe('a law is a locked entry (PRD 1726)', () => {
+  const ruleWith = (...extra: string[]) =>
+    ['## BR-ADVISOR-1', '', 'A statement.', '', 'Serves: P-ADVISOR-1', 'Source: PRD #1726', 'Enforced by: kit/lib/x.test.ts', 'Stated: 2026-10-12', ...extra, ''].join('\n');
+  const LOCK = 'Locked: @o, 2026-10-14';
+
+  it('reads Locked:, Governs: and Proposed law:', () => {
+    const [rule] = entriesOf(
+      'r.md',
+      ruleWith(
+        'Locked: @pierrederval, 2026-10-14',
+        'Governs: `apps/omni-app/src/outbox-check/**`, kit/lib/outbox/**',
+        'Proposed law: a red outbox lets an unanswered decision ship, and the owner learns of it in production.',
+      ),
+      DOMAIN_RULES,
+    );
+    expect(rule.locked).toEqual({ by: 'pierrederval', on: '2026-10-14' });
+    expect(rule.governs).toEqual(['apps/omni-app/src/outbox-check/**', 'kit/lib/outbox/**']);
+    expect(rule.proposedLaw).toBe('a red outbox lets an unanswered decision ship, and the owner learns of it in production.');
+    expect(rule.problems).toEqual([]);
+  });
+
+  it('reads a team as the one who locked', () => {
+    const [rule] = entriesOf('r.md', ruleWith('Locked: @vertuoza/core, 2026-10-14'), DOMAIN_RULES);
+    expect(rule.locked).toEqual({ by: 'vertuoza/core', on: '2026-10-14' });
+  });
+
+  it('reads an entry without them as null, and keeps Proposed: apart from Proposed law:', () => {
+    const [plain] = entriesOf('r.md', ruleWith(), DOMAIN_RULES);
+    expect(plain.locked).toBeNull();
+    expect(plain.governs).toBeNull();
+    expect(plain.proposedLaw).toBeNull();
+    const [both] = entriesOf('r.md', ruleWith('Proposed: invade 2026-10-12', 'Proposed law: it breaks, and people get hurt.'), DOMAIN_RULES);
+    expect(both.proposed).toEqual({ by: 'invade', on: '2026-10-12' });
+    expect(both.proposedLaw).toBe('it breaks, and people get hurt.');
+  });
+
+  it('reads a continued Governs: line as one list', () => {
+    const [rule] = entriesOf('r.md', ruleWith('Governs: kit/lib/a/**,', '  kit/lib/b.ts'), DOMAIN_RULES);
+    expect(rule.governs).toEqual(['kit/lib/a/**', 'kit/lib/b.ts']);
+  });
+
+  it.each([
+    ['Locked: pierrederval, 2026-10-14'],
+    ['Locked: @pierrederval'],
+    ['Locked: @pierrederval 2026-10-14'],
+    ['Locked: @pierrederval, 14/10/2026'],
+    ['Locked: @, 2026-10-14'],
+    ['Locked:'],
+  ])('refuses the malformed "%s", naming the file, and still reads the entry as locked', (line) => {
+    const [rule] = entriesOf('docs/knowledge/domains/advisor/rules.md', ruleWith(line), DOMAIN_RULES);
+    expect(rule.locked).toEqual({ by: null, on: null });
+    expect(rule.problems).toEqual([
+      `docs/knowledge/domains/advisor/rules.md: BR-ADVISOR-1 — "${line}" is not "Locked: @<login>, <YYYY-MM-DD>".`,
+    ]);
+  });
+
+  it('refuses an empty Governs: and an empty Proposed law:, naming the file', () => {
+    const [rule] = entriesOf('r.md', ruleWith('Governs: , ``', 'Proposed law:'), DOMAIN_RULES);
+    expect(rule.governs).toEqual([]);
+    expect(rule.proposedLaw).toBe('');
+    expect(rule.problems).toEqual([
+      'r.md: BR-ADVISOR-1 — "Governs:" names no path — list the paths it rules over, comma-separated.',
+      'r.md: BR-ADVISOR-1 — "Proposed law:" says nothing — write one plain sentence: what breaks, and who gets hurt.',
+    ]);
+  });
+
+  it('isLaw: a locked rule or invariant, never a principle, never an unlocked entry', () => {
+    const [locked] = entriesOf('r.md', ruleWith(LOCK), DOMAIN_RULES);
+    const [unlocked] = entriesOf('r.md', ruleWith(), DOMAIN_RULES);
+    const [invariant] = entriesOf('i.md', ruleWith(LOCK).replace('BR-', 'N-'), { ...DOMAIN_RULES, kind: 'invariant' });
+    const [principle] = entriesOf('p.md', `## P-ADVISOR-1\n\nx\n\n${LOCK}\n`, { ...DOMAIN_RULES, kind: 'principle' });
+    expect([locked, invariant, unlocked, principle].map(isLaw)).toEqual([true, true, false, false]);
+  });
+
+  it('isConfirmedRule: a rule or invariant no Proposed: line holds back, locked or not — every law is one', () => {
+    const [locked] = entriesOf('r.md', ruleWith(LOCK), DOMAIN_RULES);
+    const [unlocked] = entriesOf('r.md', ruleWith(), DOMAIN_RULES);
+    const [proposed] = entriesOf('r.md', ruleWith('Proposed: invade 2026-10-12'), DOMAIN_RULES);
+    const [principle] = entriesOf('p.md', '## P-ADVISOR-1\n\nx\n', { ...DOMAIN_RULES, kind: 'principle' });
+    const [lockedProposed] = entriesOf('r.md', ruleWith(LOCK, 'Proposed: invade 2026-10-12'), DOMAIN_RULES);
+    const all = [locked, unlocked, proposed, principle, lockedProposed];
+    expect(all.map(isConfirmedRule)).toEqual([true, true, false, false, true]);
+    expect(isLaw(lockedProposed)).toBe(true);
+    expect(all.filter(isLaw).every(isConfirmedRule)).toBe(true);
   });
 });

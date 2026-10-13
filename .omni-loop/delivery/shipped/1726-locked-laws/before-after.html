@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Locked Laws</title>
+<style>
+/* Layout: one ledger, today on the left, after on the right; each row is one question a reader asks about the product's laws. */
+:root {
+  --bg: #f4f5f2; --panel: #ffffff; --fg: #1c1f1a; --muted: #5d6458; --line: #d9ddd3;
+  --today: #a2472f; --after: #2f6a4a; --law: #6b3fa0; --chip: #eceee8;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #131512; --panel: #1b1e1a; --fg: #e7e9e3; --muted: #a0a799; --line: #2e322b;
+  --today: #e08268; --after: #74c79a; --law: #b896e6; --chip: #252923; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #131512; --panel: #1b1e1a; --fg: #e7e9e3; --muted: #a0a799; --line: #2e322b;
+  --today: #e08268; --after: #74c79a; --law: #b896e6; --chip: #252923; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-block: 32px 56px; padding-inline: 20px; display: grid; gap: 28px; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.1rem; margin: 0; text-wrap: balance; }
+h3 { font-size: .95rem; margin: 0; }
+p { margin: 0; max-width: 72ch; }
+.lede { color: var(--muted); }
+.eyebrow { font: 600 .72rem/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+code, pre { font-family: var(--mono); font-size: .84rem; }
+code { background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+pre { margin: 0; background: var(--chip); padding: 12px 14px; border-radius: 6px; overflow-x: auto; line-height: 1.5; }
+.tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.tier { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.tier .word { font: 700 1.15rem/1.2 var(--sans); }
+.tier.law { border-color: var(--law); }
+.tier.law .word { color: var(--law); }
+.ledger { display: grid; gap: 14px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.row > header { grid-column: 1 / -1; display: grid; gap: 2px; }
+.side { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.side .tag { font: 700 .7rem/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; }
+.today .tag { color: var(--today); }
+.after .tag { color: var(--after); }
+.side p, .side li { font-size: .92rem; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.pill { display: inline-block; font: 600 .75rem/1.6 var(--sans); padding: 0 8px; border-radius: 999px; background: var(--chip); }
+.red { color: var(--today); } .green { color: var(--after); }
+.note { border-top: 1px solid var(--line); padding-top: 18px; color: var(--muted); }
+@media (max-width: 720px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <span class="eyebrow">PRD 1726 · before / after</span>
+    <h1>Locked laws: a thesis, twenty laws a CODEOWNER owns, and only what a change touches</h1>
+    <p class="lede">Today the knowledge base is 189 entries of equal weight, harvested after the fact, and an agent reads all of them or none. After, a junior reads one page, the twenty laws belong to a person, and an agent gets only the entries that govern its files.</p>
+  </header>
+
+  <section style="display:grid;gap:14px">
+    <h2>Functional</h2>
+    <div class="tiers">
+      <div class="tier"><span class="eyebrow">the why</span><span class="word">Principle</span><p>A person's decision about what the product should be. Changed by a person, as today. Never a law.</p></div>
+      <div class="tier"><span class="eyebrow">HIGH</span><span class="word">Rule</span><p>What may or may not happen, with a test. Any person amends one by answering its high outbox item: today's gate, unchanged.</p></div>
+      <div class="tier law"><span class="eyebrow">MUST · at most 20</span><span class="word">Law</span><p>A rule or invariant a CODEOWNER locked. Changed only with a CODEOWNER's approval of the pull request on GitHub.</p></div>
+    </div>
+
+    <div class="ledger">
+      <article class="row">
+        <header><h3>What does a newcomer read first?</h3></header>
+        <div class="side today"><span class="tag">Today</span>
+          <p>Nothing says what the product promises. Three registers: 81 principles, 96 rules and 12 invariants. 106 of the 108 rules and invariants say <code>Decided: nobody — adopted when raised (medium)</code>.</p>
+        </div>
+        <div class="side after"><span class="tag">After</span>
+          <p><code>product/thesis.md</code>, in words a junior understands: who it is for, what it promises, the laws one line each, and what it refuses.</p>
+<pre>N-PRODUCT-4 — A pull request can never change the
+rules it is judged by. If broken: an agent could
+switch off the gate on its own PR.</pre>
+        </div>
+      </article>
+
+      <article class="row">
+        <header><h3>What is a law?</h3></header>
+        <div class="side today"><span class="tag">Today</span>
+          <p>Anything not proposed. <code>laws.ts</code> counts principles as laws, and <code>decision-coverage.ts</code> does not.</p>
+        </div>
+        <div class="side after"><span class="tag">After</span>
+          <p>A locked entry: the same id, the same test, plus two lines.</p>
+<pre>Locked: @pierrederval, 2026-10-14
+Governs: apps/omni-app/src/outbox-check/**, kit/lib/outbox/**</pre>
+          <p>An agent only writes <code>Proposed law: &lt;what breaks, who gets hurt&gt;</code>.</p>
+        </div>
+      </article>
+
+      <article class="row">
+        <header><h3>What does an agent read before it builds a slice?</h3></header>
+        <div class="side today"><span class="tag">Today</span>
+          <ul><li><code>/omni:do-work</code>: the whole knowledge folder, 189 entries</li><li>brainstorm, plan, wave, bug-fix: none of it</li></ul>
+        </div>
+        <div class="side after"><span class="tag">After</span>
+<pre>$ omni kb laws --slice 1726 s3
+laws (always)
+  N-PRODUCT-4  A PR never changes the rules it is judged by
+  …
+rules governing this slice's files
+  BR-PRODUCT-3 The outbox gate stays red until a person answers
+  BR-PRODUCT-5 A feature PR stays draft while a question is open
+2 laws · 2 rules · `omni knowledge &lt;id&gt;` for one in full</pre>
+        </div>
+      </article>
+
+      <article class="row">
+        <header><h3>An agent's PR changes a law's test. What happens?</h3></header>
+        <div class="side today"><span class="tag">Today</span>
+          <p><code>law-proof</code> needs a high item, and <span class="pill">any person</span> may answer it. A knowledge or enforce PR is never blocked. No CODEOWNERS file exists.</p>
+        </div>
+        <div class="side after"><span class="tag">After</span>
+          <p><code>law-locked</code> on every kind of PR: <span class="pill red">red</span> until a person CODEOWNERS lists for those files approves on GitHub, then <span class="pill green">green</span>. An outbox item, a label or a typed trailer does not clear it. With no CODEOWNER, it stays red and names the law. The merge records <code>Law-Change-Approved-By: @login</code>.</p>
+          <p>A <strong>rule's</strong> test: unchanged, a high item any person answers.</p>
+        </div>
+      </article>
+
+      <article class="row">
+        <header><h3>A PM's quick win touches a file a law governs</h3></header>
+        <div class="side today"><span class="tag">Today</span>
+          <p>They find out from a red check at the end.</p>
+        </div>
+        <div class="side after"><span class="tag">After</span>
+          <p>The brainstorm names the law and its CODEOWNER in the spec's Risks, and the plan marks the slice <code>law: N-PRODUCT-4 · owner @pierrederval</code>, so the approval is asked for before anything is built.</p>
+        </div>
+      </article>
+
+      <article class="row">
+        <header><h3>A new repository installs the kit</h3></header>
+        <div class="side today"><span class="tag">Today</span>
+          <p><code>/omni:invade</code> writes proposed entries and an index, with no thesis.</p>
+        </div>
+        <div class="side after"><span class="tag">After</span>
+          <p>Invade also drafts <code>thesis.md</code> from evidence (a <code>TODO(human)</code> where there is none), proposes up to 20 candidate laws with their <code>Governs:</code>, locks none, and names who locks them. <code>omni kb owners</code> writes the CODEOWNERS block.</p>
+        </div>
+      </article>
+
+      <article class="row">
+        <header><h3>This repository's 108 rules and invariants</h3></header>
+        <div class="side today"><span class="tag">Today</span>
+          <p>All weigh the same; none says which files it governs.</p>
+        </div>
+        <div class="side after"><span class="tag">After</span>
+          <ul><li>every one gets <code>Governs:</code></li><li>at most 20 are proposed as laws, in plain words, in <strong>one high item</strong> for @pierrederval to lock or strike</li><li>the rest stay rules (medium items, reversible)</li></ul>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section style="display:grid;gap:8px">
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+
+  <p class="note">The CLI output above is illustrative; the ids are this repository's real entries. Locks happen on an approved pull request; a lock button on the PRD page is out of scope.</p>
+</main>
+</body>
+</html>

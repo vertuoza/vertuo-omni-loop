@@ -277,6 +277,30 @@ describe('toCheckRequests', () => {
     expect(toCheckRequests('pull_request', mergedPayload())).toEqual([]);
   });
 
+  it('turns a review submitted or dismissed into the outbox check of its pull request (PRD 1726); no other review action', () => {
+    expect(CHECK_ACTIONS.pull_request_review).toEqual(['submitted', 'dismissed']);
+    for (const action of ['submitted', 'dismissed']) {
+      expect(toCheckRequests('pull_request_review', pullRequestPayload(action, { review: { state: 'approved' } }))).toEqual([
+        {
+          name: OUTBOX_CHECK_EVENT,
+          data: {
+            installationId: 4242,
+            owner: 'vertuoza',
+            repo: 'vertuo-omni-loop',
+            repository: 'vertuoza/vertuo-omni-loop',
+            prNumber: parsePr(28),
+            headSha: 'abc123',
+            trigger: `pull_request_review.${action}`,
+          },
+        },
+      ]);
+    }
+    expect(toCheckRequests('pull_request_review', pullRequestPayload('edited'))).toEqual([]);
+    const subPr = { number: 28, head: { sha: 'abc123', ref: 'feat/x--s1' }, base: { ref: 'feat/x' } };
+    expect(toCheckRequests('pull_request_review', pullRequestPayload('submitted', { pull_request: subPr }))).toEqual([]);
+    expect(HANDLED.pull_request_review).toEqual(['submitted', 'dismissed']);
+  });
+
   it('reads the pull request number as one (PRD 1049): a delivery naming no pull request number becomes nothing', () => {
     const [request] = toCheckRequests('pull_request', pullRequestPayload('synchronize'));
     expect(request?.data.prNumber).toBe(parsePr(28));
