@@ -75,6 +75,10 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 4. `node .omni-loop/bin/omni.mjs flow show`: what this repository changes from the kit's defaults,
    area by area (its `rules.plan`, which step 5 grades, and its hooks). An area that names a
    `knowledge` domain sends you to that folder under `paths.knowledge` for every slice touching it.
+   Keep its `contracts:` line: `contracts: declare <kinds>` means this repository asks every slice
+   to declare its contract (step 4), `contracts: none` that it asks nothing. In a plan repository,
+   run `node .omni-loop/bin/omni.mjs flow show --repo <name>` too, for each target a slice may land
+   in, and keep each target's line.
 
 **Stop with `needs clarification`** when the spec's acceptance criteria are missing, ambiguous, or
 contradict the spec itself or an ADR it cites. The criteria are the spec's acceptance section, or,
@@ -112,6 +116,7 @@ For each slice, decide:
 | **id** | `s1`, `s2`, … in build order |
 | **slice** | what it makes true, in the spec's own words |
 | **territory** | the path prefixes it owns, each backticked (below) |
+| **contract** | only when the receiving repository asks (step 1): what the slice changes for its callers, in that repository's kinds, or `none` (step 4) |
 | **blocked by** | the ids whose work it needs, comma-separated; `—` for none |
 | **wave** | `1` with no blockers, else one more than its highest blocker's wave; raised further when territories collide |
 
@@ -174,6 +179,15 @@ require. These four parts are the whole shape:
    | s1 | <what it makes true> | `<dir>/` `<file prefix>*` | — | 1 |
    ```
 
+   or, when the repository asks for contracts (**Contracts**, below), with `contract` after
+   `territory`:
+
+   ```markdown
+   | id | slice | territory | contract | blocked by | wave |
+   | --- | --- | --- | --- | --- | --- |
+   | s1 | <what it makes true> | `<dir>/` | api, db | — | 1 |
+   ```
+
 3. Under the table, the **shared-ground note**: each prefix more than one slice declares, which
    slices, and how the waves keep them apart. A generated path is never in it.
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
@@ -209,6 +223,24 @@ so whoever builds the slice knows before starting that the feature PR waits for 
 approval on GitHub. A slice that changes two laws carries two marks. A slice that only reads the
 law's files, or that touches rules but no locked law, is not marked. Like `ui: yes`, the mark
 changes no territory, blocker or wave, and `omni plan check` does not read it.
+
+**Contracts.** A repository asks each slice it receives to say what the slice changes for its
+callers when `omni flow show` printed `contracts: declare <kinds>` for it (step 1): this repository
+in an ordinary one, a target through `omni flow show --repo <name>` in a plan repository. Then the
+slice table carries a `contract` column after `territory`, in both header variants (the one above
+and the plan repository's, below). Read each slice, then write in its cell:
+
+- one or more of the kinds that line names, comma-separated (`api`, `api, db`), when the slice
+  changes that for its callers. The words are the receiving repository's own, never the kit's. For
+  the default kinds, `api` is a GraphQL type, field or argument, or a REST route or payload, and
+  `db` is a migration or a stored shape;
+- `none` when the slice changes nothing for its callers. `none` is a decision, never a blank:
+  a downstream gate holds a declared kind for the people who own it and lets `none` through;
+- `—` on a slice whose repository asks nothing (in a plan repository, a target whose line says
+  `contracts: none`, or the plan repository's own docs slices).
+
+When no repository a slice lands in asks, write no column. The column is read by name, like
+`landing`, and `omni plan check` refuses an undeclared cell (step 5).
 
 **Landings.** A PRD reaches the default branch in one pull request unless something in it must be
 deployed apart from the rest: a database migration the code needs in place first, or a contract
@@ -268,7 +300,14 @@ check` refuses a `repo` column outside a plan repository.
 
   `repo` is a repository's **short name**, the part after the `/`: a target's from `plan.targets`,
   or the plan repository's own (from `repo.slug`) for a docs change the feature needs there. The
-  slice's territory is a path in that repository.
+  slice's territory is a path in that repository. When a target a slice lands in asks for
+  contracts (**Contracts**, above), the row gains `contract` after `territory`:
+
+  ```markdown
+  | id | repo | slice | territory | contract | blocked by | wave |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | s1 | <name> | <what it makes true> | `<dir>/` | none | — | 1 |
+  ```
 - `## Repositories` has one row per repository a slice names, and no other:
 
   ```markdown
@@ -297,7 +336,12 @@ It prints the waves and the collision matrix (and, for more than one landing, a 
 then every violation: a duplicate id, a blocker that names no slice, sits in another landing, or sits
 in the same or a later wave, two slices sharing ground in one wave of one landing, landing numbers
 with a gap, a `## Landings` table that does not match the slice table, and, with `landings.alone`
-set, a land-alone path sharing a slice or a landing with anything else. Fix
+set, a land-alone path sharing a slice or a landing with anything else. Where the receiving
+repository asks for contracts, it refuses three more, each naming the slice: a cell that declares
+nothing (`<id>: contract: declares nothing — <kinds> or none`), a word that is not one of that
+repository's kinds (`<id>: contract: "<word>" is no kind of this repository — <kinds> or none`),
+and, wherever the slice sits, `none` beside a kind (`<id>: contract: "none" beside a kind — one or
+the other`). It prints the declared contracts on a `contracts:` line after the waves. Fix
 the plan and rerun until it exits `0`. A same-wave collision is resolved by moving one slice to a
 later wave (and every slice it blocks with it), or by narrowing a territory so the two no longer
 meet. Merging the two into one slice is also allowed. **Never** leave the check red, and never
