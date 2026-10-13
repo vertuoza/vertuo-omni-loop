@@ -20,8 +20,8 @@ Use this page when getting a checkout ready to build, test, and run locally.
 
 ## Prerequisites
 <!-- slot: prerequisites · required · by: terraform -->
-- Node 22 or later: the `engines` field of `package.json`, and the version the `game` workflow
-  sets up.
+- Node 22.18 or later (`engines` in `package.json`), the first Node 22 that runs the scripts'
+  TypeScript natively; the workflows set up the latest Node 22.
 - pnpm 12: `packageManager` in `package.json` pins it, every workflow's `pnpm/action-setup` reads
   that pin, and any pnpm 10 or later hands off to it. Its settings (`allowBuilds`,
   `ignoredOptionalDependencies`) live in `pnpm-workspace.yaml`.
