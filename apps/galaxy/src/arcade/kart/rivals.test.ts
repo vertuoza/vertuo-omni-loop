@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { kartAt, leanOf, NO_FX, type Fx, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
-import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
+import { advance, aimOf, crossedAnyGate, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
 import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
@@ -230,6 +230,71 @@ describe('laps', () => {
     const r = play(racing(), GAS, 1.5);
     expect(r.pace.laps).toBe(0);
     expect(hudOf(r).run?.lap).toBe(1);
+  });
+});
+
+describe('shortcut gates (PRD 1775)', () => {
+  // A shortcut on COMET RING's fixture: a leg north from [54, 56] to [54, 40], its gate across the road at row 48, skipping waypoints 2 and 3.
+  const cut = parseTrack({ ...COMET_RING, shortcuts: [{ leg: [[54, 56], [54, 40]], gate: [[52, 48], [56, 48]], skips: 2 }] });
+  const n = cut.waypoints.length;
+  const at48 = (dy: number) => ({ x: 54.5 * TILE, y: 48.5 * TILE + dy });
+
+  it('credits the two waypoints when the gate is crossed forwards and the first of them is the next to pass', () => {
+    expect(advance(cut, { laps: 0, passed: 2 }, at48(4), at48(-4))).toEqual({ laps: 0, passed: 4 });
+  });
+
+  it('lets the lap count at the line after a gate that skipped the last two waypoints', () => {
+    const last = parseTrack({ ...COMET_RING, shortcuts: [{ leg: [[54, 56], [54, 40]], gate: [[52, 48], [56, 48]], skips: n - 2 }] });
+    const pace = advance(last, { laps: 0, passed: n - 2 }, at48(4), at48(-4));
+    expect(pace).toEqual({ laps: 0, passed: n });
+    const before = { x: last.line.x - 4, y: last.line.y }, after = { x: last.line.x + 4, y: last.line.y };
+    expect(advance(last, pace, before, after)).toEqual({ laps: 1, passed: 0 });
+  });
+
+  it('credits nothing backwards, nor with another waypoint next', () => {
+    expect(advance(cut, { laps: 0, passed: 2 }, at48(-4), at48(4))).toEqual({ laps: 0, passed: 2 });
+    for (const passed of [0, 1, 3, 4]) expect(advance(cut, { laps: 0, passed }, at48(4), at48(-4))).toEqual({ laps: 0, passed });
+  });
+
+  it('credits nothing to a kart that crosses beside the gate', () => {
+    const wide = (dy: number) => ({ x: 60.5 * TILE, y: 48.5 * TILE + dy });
+    expect(advance(cut, { laps: 0, passed: 2 }, wide(4), wide(-4))).toEqual({ laps: 0, passed: 2 });
+  });
+
+  it('gives no waypoint to a lap that leaves the racing line anywhere but at a shortcut', () => {
+    const away = { x: 30 * TILE, y: 30 * TILE };
+    expect(advance(cut, { laps: 0, passed: 2 }, away, { x: away.x + 20, y: away.y })).toEqual({ laps: 0, passed: 2 });
+  });
+
+  it('never has a rival take the gate: five rivals race without crossing a gate beside their line', () => {
+    const beside = parseTrack({ ...COMET_RING, shortcuts: [{ leg: [[54, 56], [54, 40]], gate: [[52, 48], [52, 50]], skips: 2 }] });
+    let race = racing(7);
+    let crossed = false;
+    for (let t = 0; t < 40 && !crossed; t += 0.05) {
+      const before = race.rivals.map((r) => r.kart);
+      race = play(race, GAS, 0.05);
+      crossed = race.rivals.some((r, i) => crossedAnyGate(beside, before[i] ?? r.kart, r.kart));
+    }
+    expect(crossed).toBe(false);
+  });
+});
+
+describe('a rival and the gap ahead of a ramp (PRD 1775)', () => {
+  const lane = 2 * TILE;
+  // A road two tiles wide, a gap in its north half only: a kart on the seam has one wheel over the gap.
+  const gap = ['~'.repeat(40), '#'.repeat(14) + '^' + '~'.repeat(3) + '#'.repeat(22), '#'.repeat(14) + '^' + '#'.repeat(25), '~'.repeat(40)];
+  const noRamp = ['~'.repeat(40), '#'.repeat(14) + '#' + '~'.repeat(3) + '#'.repeat(22), '#'.repeat(40), '~'.repeat(40)];
+  const rival = (x: number): Rival => ({ driver: driver('beaver'), kart: { ...kartAt(x, lane, 0), speed: 100 }, pace: START_PACE, skill: 1, offset: 0 });
+  const speedAfter = (map: readonly string[], x: number) => driveRival({ ...track, map }, rival(x), RULES.subStep, 0).kart.speed;
+
+  it('does not brake for the void beyond a ramp it is driving at, as it does for a void beyond plain road', () => {
+    const x = 13.5 * TILE;
+    expect(speedAfter(gap, x)).toBeGreaterThan(speedAfter(noRamp, x));
+  });
+
+  it('does not brake in the air over the void', () => {
+    const flying: Rival = { ...rival(15.5 * TILE), kart: { ...kartAt(15.5 * TILE, lane, 0), speed: 100, height: 8, lift: 20 } };
+    expect(driveRival({ ...track, map: gap }, flying, RULES.subStep, 0).kart.speed).toBe(100);
   });
 });
 
