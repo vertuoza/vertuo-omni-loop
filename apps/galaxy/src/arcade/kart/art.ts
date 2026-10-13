@@ -165,6 +165,11 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: numb
   ctx.globalAlpha = 1;
 }
 
+/** Where the ground under a kart in the air lands on the screen: its shadow falls there. Null for a kart on the road. */
+function shadeUnder(v: View, track: Pick<Track, 'waypoints' | 'relief'>, k: { x: number; y: number; height?: number }): Projected | null {
+  return k.height ? project(v, k.x, k.y, groundAt(track, k.x, k.y)) : null;
+}
+
 /** A shadow on the floor: a dark ellipse `w` wide centred at (cx, cy), drawn as three rows. Every kart casts one, drawn before the kart. */
 export const SHADOW = 'rgba(8, 6, 24, 0.45)';
 function shadow(ctx: CanvasRenderingContext2D, cx: number, cy: number, w: number) {
@@ -188,7 +193,7 @@ const KART_FOOT = 6;
 export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: number; y: number; angle: number } => chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT));
 
 /** The camera's view of the race on `grid`: behind the player's kart, its eye 28 over the ground under it. */
-export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'waypoints' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y));
+export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'waypoints' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y) + (kart.height ?? 0));
 
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): KartView => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
@@ -237,7 +242,7 @@ const SPIN_VIEWS = ['kart', 'kart-right', 'kart', 'kart-left'] as const;
  * the hero in its seat (head and shoulders, half the kart's scale). The wheels' tread turns with the
  * speed.
  */
-function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
+function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race, shade: Projected | null = null) {
   const fallen = fallenOf(race.fx);
   if (fallen >= 1 || hiddenBlink(race.fx)) return;
   const scale = (s.grid.w >= W ? 4 : 2) * (1 - fallen);
@@ -246,7 +251,8 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
   const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - KART_FOOT + fallen * 18 * scale;
   const half = scale / 2;
-  if (race.fx.fall <= 0) shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
+  // A kart in the air casts its shadow on the ground under it, where the camera sees that point: lower on the screen the higher it flies.
+  if (race.fx.fall <= 0) shadow(ctx, shade ? shade.sx : x + (KART_W * scale) / 2, shade ? Math.min(s.grid.h - 2, shade.sy) : y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
   const roll = rollOf(leanOf(race.track.map, kart), fallen, warningOf(race.fx, s));
@@ -269,7 +275,7 @@ export function viewFacing(rival: number, camera: number): KartView {
 const LEAN = 0.3;
 
 /** A rival's kart on the floor at `at`, its driver in the seat, as big as its distance makes it. */
-function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected, lean: number) {
+function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected, lean: number, shade: Projected | null = null) {
   const fx = r.fx ?? NO_FX;
   const fallen = fallenOf(fx);
   if (fallen >= 1 || hiddenBlink(fx)) return;
@@ -281,7 +287,7 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
   const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale + fallen * 6 * at.scale;
   const half = scale / 2;
-  if (fx.fall <= 0) shadow(ctx, at.sx, at.sy - 2 * scale, KART_W * scale * 1.05); // a falling kart casts none
+  if (fx.fall <= 0) shadow(ctx, shade ? shade.sx : at.sx, (shade ?? at).sy - 2 * scale, KART_W * scale * 1.05); // a falling kart casts none, one in the air casts it on the ground under it
   rolled(ctx, rollOf(lean, fallen, warningOf(fx, s)), at.sx, y + 18 * scale, () => {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
@@ -596,7 +602,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
       if (sinceSent >= every - 1e-9) {
         sinceSent = Math.min(sinceSent - every, every);
         const { player, pace, fx } = race;
-        link.session.send({ kind: 'state', race: link.start.race, x: player.x, y: player.y, angle: player.angle, speed: player.speed, steer: player.steer, laps: pace.laps, passed: pace.passed, spin: fx.spin, fall: fx.fall });
+        link.session.send({ kind: 'state', race: link.start.race, x: player.x, y: player.y, angle: player.angle, speed: player.speed, steer: player.steer, laps: pace.laps, passed: pace.passed, spin: fx.spin, fall: fx.fall, ...(player.height ? { height: player.height } : {}) });
       }
     }
     // Crossing the line at the end of the last lap tells the others the time, and gives it to the arcade for the score, as a solo race does.
@@ -654,7 +660,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
         ...race.items.boxes.filter((b) => b.back <= 0).map((b): Thing => ({ kind: 'box', x: b.x, y: b.y, g: groundAt(track, b.x, b.y) })),
         ...race.items.blobs.map((b): Thing => ({ kind: 'blob', x: b.x, y: b.y, g: groundAt(track, b.x, b.y) })),
         ...race.items.orbs.map((o): Thing => ({ kind: 'orb', x: o.x, y: o.y, g: groundAt(track, o.x, o.y) })),
-        ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y, g: groundAt(track, rival.kart.x, rival.kart.y) })),
+        ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y, g: groundAt(track, rival.kart.x, rival.kart.y) + (rival.kart.height ?? 0) })),
         ...standing,
       ];
       // The farthest first, so a near kart covers a far item; a hill's crest nearer than a thing hides it.
@@ -662,7 +668,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
         // The arch spans the flat start straight and stays on top; the rest is hidden where the road in front covers it.
         const reach = at.scale * 40;
         const hid = thing.kind !== 'arch' && hideBehind(ctx, floor, v.w, v.h, { left: at.sx - reach, right: at.sx + reach, top: at.sy - reach * 1.5, bottom: at.sy + 2 }, at.z);
-        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at, leanOf(track.map, thing.rival.kart));
+        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at, leanOf(track.map, thing.rival.kart), shadeUnder(v, track, thing.rival.kart));
         else if (thing.kind === 'box') itemBox(ctx, s, at);
         else if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
         else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
@@ -670,7 +676,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
         if (hid) ctx.restore();
       }
       particlesOn(ctx, s, v, particles, track);
-      playerKart(ctx, s, race);
+      playerKart(ctx, s, race, shadeUnder(v, track, race.player));
       minimap(ctx, s, track, tilesOf(range), race);
     },
   };

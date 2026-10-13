@@ -3,7 +3,7 @@
 // along it. Pure and seeded, like race.ts, which plays all of it.
 import type { Tint } from '@omni/design';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { airborne, leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
 import type { KartLook } from './look';
 import { slopeAt } from './relief';
 import { RULES, type Difficulty } from './rules';
@@ -177,14 +177,14 @@ export function driveRival(track: Track, r: Rival, dt: number, playerProgress: n
   return { ...r, ...comeBack(track, pace, stepped.kart, stepped.fx), pace };
 }
 
-/** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap; a kart marked in `falling` touches none. */
+/** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap; a kart marked in `falling` touches none, and one in the air is touched only by another in the air. */
 export function pushApart(karts: readonly Kart[], falling: readonly boolean[] = []): Kart[] {
   const out = karts.map((k) => ({ ...k }));
   const reach = RULES.radius * 2;
   for (let i = 0; i < out.length; i++) {
     for (let j = i + 1; j < out.length; j++) {
-      if (falling[i] || falling[j]) continue; // a falling kart is out of the contacts
       const a = at(out, i, 'a kart'), b = at(out, j, 'a kart');
+      if (falling[i] || falling[j] || airborne(a) !== airborne(b)) continue; // a falling kart is out of the contacts, and a kart on the ground does not push one in the air
       const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.hypot(dx, dy);
       if (d >= reach) continue;

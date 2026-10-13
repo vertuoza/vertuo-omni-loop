@@ -70,6 +70,10 @@ export const RULES = Object.freeze({
   tipPull: 8,
   /** How long both wheels of one side stay over the void, in a row, before the kart tips over (PRD 1775). */
   tipGrace: 0.5,
+  /** The jump (PRD 1775): the vertical speed a kart leaves a ramp with (a share of its speed), gravity in units a second squared, and the share of its turn rate a kart in the air keeps. */
+  launch: 0.9,
+  gravity: 400,
+  airSteer: 0.3,
   spinSpeed: 0.3,
   spinRate: Math.PI * 2,
   /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */
