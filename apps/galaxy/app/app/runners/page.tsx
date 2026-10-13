@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { firstParam as one, memberSession } from '../../../src/data/member-session';
-import { supabaseEnv } from '../../../src/data/supabase-server';
 import { demoRunnersPage } from '../../../src/runners/page/demo';
-import { runnersPageReads } from '../../../src/runners/page/live';
+import { runnersPageReads, runnersPageSupabase } from '../../../src/runners/page/live';
 import { loadRunnersPage } from '../../../src/runners/page/load';
 import type { RunnersPageView } from '../../../src/runners/page/model';
 import { RunnersPage } from '../../../src/runners/page/RunnersPage';
@@ -29,5 +28,5 @@ async function viewOf(now: Date): Promise<RunnersPageView> {
 
 export default async function RunnersRoute({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
-  return <RunnersPage view={await viewOf(new Date())} supabase={supabaseEnv()} signinError={one(query.signin_error)} />;
+  return <RunnersPage view={await viewOf(new Date())} supabase={runnersPageSupabase()} signinError={one(query.signin_error)} />;
 }

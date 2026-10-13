@@ -11,7 +11,9 @@ export type Fleet = { name: string; label: string };
 
 /** The page in each situation: before the board (the shared gate), the board, or a read that failed. */
 export type RunnersPageView =
-  | { kind: 'closed' | 'sign-in' | 'no-workspace' }
+  | { kind: 'closed' }
+  | { kind: 'sign-in' }
+  | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
   | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; now: string };
 
