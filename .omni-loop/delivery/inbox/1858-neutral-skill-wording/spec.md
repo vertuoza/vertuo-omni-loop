@@ -10,7 +10,7 @@ phase0: server
 
 **Date:** 2026-10-13 · **PRD:** #1858 · **Touches:** `kit/plugin/skills/*/SKILL.md` (and
 `pixel-perfect`'s reference files), `kit/templates/playbook/briefing.md`, `kit/test/plugin.test.ts`,
-a new `kit/test/agent-neutral.test.ts`, a new `kit/test/skill-steps.test.ts` and its snapshot, the
+a new `kit/test/agent-neutral.test.ts`, a new `kit/test/skill-steps.test.ts` and its snapshot, `.omni-loop/budgets/context.json`, the
 rebuilt `kit/dist/` · **Kind:** Architectural
 
 ## Problem
@@ -84,7 +84,17 @@ says, in plain words:
   context (in Claude: `/clear`), or open a new terminal: everything the next session needs is in
   the repository and on GitHub.
 
-### 4. The guards
+The section holds at most 950 bytes as `omni kb show briefing` prints it: every session of every
+repository reads it.
+
+### 4. This repository's context budget
+
+The briefing measures 2 877 bytes against a ceiling of 3 072, and `session` (the briefing plus
+`AGENTS.md`) 9 200 against 9 216: the section does not fit. `.omni-loop/budgets/context.json`
+raises `briefing` to 4 096 and `session` to 10 240, every other ceiling unchanged, and
+`omni check context` stays green.
+
+### 5. The guards
 
 - **`kit/test/agent-neutral.test.ts`** reads every `SKILL.md` and reference file under
   `kit/plugin/skills/` and fails, naming the file and the line, on any of these names outside an
@@ -96,8 +106,9 @@ says, in plain words:
   `kit/test/skill-steps.snapshot.json`, taken from `main` before any skill is reworded: for each
   skill, the sorted set of `omni <verb>` commands it names and of guard phrases it states (`omni plan
   check`, `omni flow check merge`, `omni phase0`, `omni ship`, `omni status`, `never merge`, `draft`,
-  `labels.outboxGo`). A skill that loses one fails, naming it. Step 0's `kb show briefing` → `session
-  start` is the one change the snapshot records, in the same commit as the rewording.
+  `labels.outboxGo`). A skill that loses one fails, naming it. The test reads step 0's `kb show
+  briefing` and `session start` as the same step, the one swap allowed: the snapshot itself is never
+  edited once taken.
 - **`kit/test/plugin.test.ts`**: each assertion of a Claude string is rewritten to assert its new
   wording (`start a fresh session (in Claude: /clear)`, `(in Claude: /loop /omni:drive`, …). Its
   other assertions (names, descriptions, commands in `COMMAND_TABLE`, signing) stay.
@@ -110,6 +121,10 @@ says, in plain words:
   refusal): the same slices, worktrees, sub-PRs and guards, only slower.
 - **The bracket form is fixed**, `(in Claude: …)`, so a test can find it and a person can scan for
   it. Proposed by the person: "start a fresh session (in Claude: "/clear")".
+- **Budgets raised here, the section kept in the briefing** (the person's choice over a separate
+  `agents` form with a pointer line, or trimming `AGENTS.md`): `briefing` 3 072 → 4 096, `session`
+  9 216 → 10 240 in `.omni-loop/budgets/context.json`. This is the person's yes that a raised
+  ceiling waits for (PRD 1679), given at the design: no outbox item is raised for it.
 - **The briefing carries the shared procedures** (asking, parallel agents, waiting, a fresh
   session), so each skill's text stays short and every agent reads them at step 0.
 - **The voice objected at the design** (persona:F-E Developer): *"Rewording all 33 skills changes the
@@ -137,7 +152,7 @@ says, in plain words:
 In: every `SKILL.md` under `kit/plugin/skills/` and `pixel-perfect`'s reference files, by the mapping
 above; the **Any agent** section of `kit/templates/playbook/briefing.md`; the two new tests and the
 snapshot; the rewritten assertions of `kit/test/plugin.test.ts` and of any other test that reads a
-reworded line; the rebuilt `kit/dist/`.
+reworded line; `.omni-loop/budgets/context.json`'s `briefing` and `session`; the rebuilt `kit/dist/`.
 
 Out: `omni help` and `kit/lib/help/entries.ts`, `omni init`, `.agents/skills/`, the status line and
 `plugin-hud` (PRD 3); a step runner (PRD 4); `kit/porting/` notes (history); this repository's own
@@ -173,6 +188,9 @@ and tests, with no state.
 - **A skill now runs `omni session start` at step 0:** it prints the constituents too (up to 3 s
   when the Omni page is slow), and stores a session id when none resolves. Both are PRD 1831's
   behaviour; a subagent's step 0 prints them again.
+- **Every installed repository's briefing grows by up to 950 bytes** on `omni update`: a
+  repository with context budgets on and less room than that sees `omni check context` red until a
+  person raises its ceiling. The release note says so.
 - **One after another is slower:** a wave of five slices on an agent with no subagents takes five
   builds' time. Nothing changes for Claude.
 
@@ -215,8 +233,10 @@ needs @pierrederval to approve the pull request on GitHub.
    when the agent cannot start agents.
 5. `omni kb show briefing` in a repository whose briefing has no **Any agent** section prints it as
    a kit default, with the skills, asking, parallel agents, waiting and fresh-session paragraphs.
-6. `kit/test/skill-steps.test.ts` passes against a snapshot taken from `main` before the rewording,
+6. `.omni-loop/budgets/context.json` holds `briefing` 4096 and `session` 10240, the **Any agent**
+   section is at most 950 bytes, and `omni check context` is green.
+7. `kit/test/skill-steps.test.ts` passes against a snapshot taken from `main` before the rewording,
    and fails when a skill loses an `omni` command or a guard.
-7. `kit/test/plugin.test.ts` asserts the new wording, and no test asserts a Claude string outside a
+8. `kit/test/plugin.test.ts` asserts the new wording, and no test asserts a Claude string outside a
    bracket.
-8. `pnpm test`, `pnpm lint` and `pnpm typecheck` are green, and `kit/dist/` is rebuilt.
+9. `pnpm test`, `pnpm lint` and `pnpm typecheck` are green, and `kit/dist/` is rebuilt.
