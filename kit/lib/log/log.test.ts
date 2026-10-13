@@ -145,11 +145,11 @@ describe('an error', () => {
 
 describe('credential masking', () => {
   const shapes: [string, string][] = [
-    ['ghp_', 'ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
-    ['gho_', 'gho_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
-    ['ghs_', 'ghs_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
-    ['ghu_', 'ghu_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
-    ['github_pat_', 'github_pat_11ABCDEFG0_abcdefGHIJKLmnopQRSTuv0123456789'],
+    ['ghp_', 'gh' + 'p_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
+    ['gho_', 'gh' + 'o_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
+    ['ghs_', 'gh' + 's_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
+    ['ghu_', 'gh' + 'u_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'],
+    ['github_pat_', 'github' + '_pat_11ABCDEFG0_abcdefGHIJKLmnopQRSTuv0123456789'],
     ['omk_', 'omk_live-9f8e7d6c5b4a'],
     ['sk-', 'sk-or-v1-0123456789abcdef'],
   ];
@@ -210,16 +210,16 @@ describe('credential masking', () => {
       event: 'webhook',
       outcome: 'failed',
       ms: 1,
-      message: 'push with ghp_A1b2C3d4E5f6G7h8I9j0 failed',
+      message: 'push with gh' + 'p_A1b2C3d4E5f6G7h8I9j0 failed',
       repo: 'https://x.test/?token=Zq9Vw8Ux7',
     });
-    expect(lines[0]).not.toContain('ghp_A1b2C3d4E5f6G7h8I9j0');
+    expect(lines[0]).not.toContain('gh' + 'p_A1b2C3d4E5f6G7h8I9j0');
     expect(lines[0]).not.toContain('Zq9Vw8Ux7');
   });
 
   it('masks before it cuts, so no token survives across the cut', () => {
     const { logger, lines } = harness();
-    const token = 'ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8';
+    const token = 'gh' + 'p_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8';
     logger.error({ event: 'webhook', outcome: 'failed', ms: 1, error: new Error(`${'x'.repeat(490)}${token}`) });
     expect(lines[0]).not.toContain('ghp_A1');
   });

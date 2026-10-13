@@ -20,6 +20,7 @@ const ids = {
   prStats: 'pr-stats',
   canonAction: 'canon-action',
   serverEvent: 'server-event',
+  budgetsCheck: 'budgets-check',
 };
 
 type Fn = ReturnType<typeof appFunctions>[keyof ReturnType<typeof appFunctions>];
@@ -32,7 +33,7 @@ function startOf(fn: Fn) {
 }
 
 describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
-  it('serves the nine functions by these ids', () => {
+  it('serves the ten functions by these ids', () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     expect(Object.fromEntries(Object.entries(functions).map(([name, fn]) => [name, fn.opts.id]))).toEqual(ids);
   });
@@ -53,7 +54,7 @@ describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
   it('a failure handler’s run logs its own line, and fails or ends exactly as it did', async () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     const withFailure = Object.entries(functions).filter(([, fn]) => typeof fn.opts.onFailure === 'function');
-    expect(withFailure.map(([name]) => name).sort()).toEqual(['inboxCheck', 'knowledgeHarvest', 'outboxCheck', 'retro']);
+    expect(withFailure.map(([name]) => name).sort()).toEqual(['budgetsCheck', 'inboxCheck', 'knowledgeHarvest', 'outboxCheck', 'retro']);
     for (const [name] of withFailure) {
       const log = capture();
       const fn = appFunctions(readEnv({}), { octokitFor, logger: log.logger })[name as keyof typeof ids];

@@ -42,10 +42,7 @@ fails when `apps/galaxy/.env.example` or a README's marked list (the names betwe
 `omni:env-variables` comments) and the module's `VARIABLES` differ, either way: add the variable to
 the list in the same change. ADR-0057 records the rule.
 
-New server code logs through `kit/lib/log`: one JSON line per run, at its end, with its `event`,
-`outcome` and `ms`, never a bare `console.error` or `console.log` string. The logger writes only its
-allow-listed fields, masks what looks like a credential and never throws. Galaxy's existing page and
-route strings stay as they are until someone changes them. ADR-0102 records the rule.
+New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0102).
 
 - **A new migration takes the next free version.** Supabase keys applied migrations by version, so
   `supabase/migrations/<version>_<name>.sql` takes a version after the latest one on both the branch
