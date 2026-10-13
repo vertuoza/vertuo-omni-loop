@@ -1,5 +1,6 @@
 // What `omni init` reads from a repository's own files: the commands it runs (package.json,
-// composer.json or a Makefile — the first that exists wins) and where its laws live.
+// composer.json or a Makefile — the first that exists wins), the install its lockfile names (PRD
+// 1804) and where its laws live.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from '../context.ts';
@@ -8,9 +9,30 @@ import { invariantsFile } from '../laws.ts';
 import type { ConfigValues, InitCommands } from './config-text.ts';
 import { ScriptsFileSchema } from './schema.ts';
 
-export const COMMAND_KEYS = Object.freeze(['test', 'preflight', 'preflightFull'] as const);
+export const COMMAND_KEYS = Object.freeze(['setup', 'test', 'preflight', 'preflightFull'] as const);
 
-const NONE: Readonly<InitCommands> = Object.freeze({ test: null, preflight: null, preflightFull: null });
+/** The commands a scripts file names: every one but the setup, which the lockfile names. */
+type ScriptCommands = Omit<InitCommands, 'setup'>;
+
+const NONE: Readonly<ScriptCommands> = Object.freeze({ test: null, preflight: null, preflightFull: null });
+
+/**
+ * The install each lockfile names, in the order they are tried: the first that exists wins. A
+ * proposal written into the config a team reviews, never a command the kit runs on its own.
+ */
+const SETUPS: readonly (readonly [lockfiles: readonly string[], setup: string])[] = [
+  [['pnpm-lock.yaml'], 'pnpm install --frozen-lockfile'],
+  [['yarn.lock'], 'yarn install --immutable'],
+  [['bun.lock', 'bun.lockb'], 'bun install --frozen-lockfile'],
+  [['package-lock.json'], 'npm ci'],
+  [['composer.lock'], 'composer install'],
+];
+
+/** The setup the first lockfile present proposes, `null` when there is none. */
+function detectSetup(root: string): string | null {
+  const found = SETUPS.find(([lockfiles]) => lockfiles.some((file) => existsSync(join(root, file))));
+  return found ? found[1] : null;
+}
 
 /** A package.json's or composer.json's scripts by name: none when the file is missing, not JSON or of another shape. */
 function readScripts(file: string): Record<string, unknown> {
@@ -32,7 +54,7 @@ function packageManager(root: string): string {
   return 'npm';
 }
 
-function fromPackageJson(root: string): InitCommands {
+function fromPackageJson(root: string): ScriptCommands {
   const scripts = readScripts(join(root, 'package.json'));
   const pm = packageManager(root);
   const has = (name: string): boolean => Object.hasOwn(scripts, name);
@@ -43,14 +65,14 @@ function fromPackageJson(root: string): InitCommands {
   return { test, preflight, preflightFull };
 }
 
-function fromComposer(root: string): InitCommands {
+function fromComposer(root: string): ScriptCommands {
   const scripts = readScripts(join(root, 'composer.json'));
   const test = Object.hasOwn(scripts, 'test') ? 'composer test' : null;
   const preflight = Object.hasOwn(scripts, 'preflight') ? 'composer preflight' : test;
   return { test, preflight, preflightFull: preflight };
 }
 
-function fromMakefile(root: string): InitCommands {
+function fromMakefile(root: string): ScriptCommands {
   const text = readFileSync(join(root, 'Makefile'), 'utf8');
   // A rule `name:` (or `name: deps`), never a `name := value` assignment.
   const target = (name: string): boolean => new RegExp(`^${name}\\s*:(?!=)`, 'm').test(text);
@@ -59,16 +81,19 @@ function fromMakefile(root: string): InitCommands {
   return { test, preflight, preflightFull: preflight };
 }
 
-const SOURCES: { file: string; read: (root: string) => InitCommands }[] = [
+const SOURCES: { file: string; read: (root: string) => ScriptCommands }[] = [
   { file: 'package.json', read: fromPackageJson },
   { file: 'composer.json', read: fromComposer },
   { file: 'Makefile', read: fromMakefile },
 ];
 
-/** `{ test, preflight, preflightFull }` from the first source file that exists, each `null` when unknown. */
+/**
+ * `{ setup, test, preflight, preflightFull }`: the setup from the first lockfile that exists, the
+ * others from the first source file that exists, each `null` when unknown.
+ */
 export function detectCommands(root: string): InitCommands {
   const source = SOURCES.find(({ file }) => existsSync(join(root, file)));
-  return source ? source.read(root) : { ...NONE };
+  return { setup: detectSetup(root), ...(source ? source.read(root) : NONE) };
 }
 
 /**
