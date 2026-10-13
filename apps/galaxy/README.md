@@ -319,13 +319,16 @@ the database's policies decide what they see:
   players' names and heroes, and their own best (`src/data/scores.ts`), sorted in the game's direction: highest first for a score, fastest first for OMNI KART's time (PRD 1440). Each is read on its own,
   after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
   no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
-- **The planets' dossiers**, for every member, visitor or player (`src/data/dossiers.ts`): the
-  workspace's plan repository from `workspaces`, the ids of its PRDs' dossiers from `dossiers`, then,
-  for each planet that has one, `dossier_list(p_dossier)` (its latest version of each kind, its
-  question counts) and `dossier_rounds(p_dossier)` (its last three answered rounds), one dossier at a
-  time, never the whole list. Read on its own after the galaxy, like XP: when it fails, the galaxy
-  stays and the DOSSIER tab says DOSSIERS OUT OF REACH; one planet's dossier out of reach leaves the
-  others shown.
+- **The planets' dossiers and logs**, read when a planet is opened, never on the page's load (PRD
+  1808): `GET /api/arcade/planets/<key>` (`src/arcade-api/planet.controller.ts`) answers one planet's
+  dossier (`dossier_list(p_dossier)` and `dossier_rounds(p_dossier)`, through `src/data/dossiers.ts`)
+  and the last eight lines of its log, from the cached season. The arcade keeps each answer for the
+  session (`src/arcade/planet-details.ts`); the planet's DOSSIER and LOG tabs say LOADING… until it
+  arrives, and DOSSIERS OUT OF REACH or LOG OUT OF REACH when it cannot be read, the next open asking
+  again. `/play` sends every planet with an empty log.
+- **The star chart**, read when it is opened (PRD 1808): `GET /api/arcade/chart`
+  (`src/arcade-api/chart.controller.ts`) answers the crew the knowledge graph, kept for the session
+  (`src/arcade/chart-source.ts`); the menu's STAR CHART row shows its tally once it has been read.
 - **Crew means "has a workspace"**, never an email domain. Joining happens at sign-in, where
   GitHub's token is at hand ([Sign-in and sign-up](#sign-in-and-sign-up)); a signed-in person who
   belongs to none gets the "wrong cartridge" screen, pointing at `/signup`, and reads nothing.
