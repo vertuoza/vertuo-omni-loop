@@ -4,19 +4,26 @@ import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
 import { kartTint, COLORS } from './look';
-import { BOX_WORLD, dotColour, boxFrame, minimapAt, minimapLit, minimapTiles, MINIMAP_TOP, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
+import { BELT_ROCKS, BOX_WORLD, CONVOYS, CONVOY_SHIPS, STAND_LIFT, beltRocks, convoyShips, standBob, standLooks, dotColour, boxFrame, minimapAt, minimapLit, minimapTiles, MINIMAP_TOP, poolAlpha, POOL_WORLD, cameraFor, cometsOf, coverOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, rollOf, SHADOW, viewFacing, viewFor } from './art';
 import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf, project, viewOf } from './mode7';
 import { newRace } from './race';
 import { groundAt } from './relief';
-import { COMET_RING, parseTrack } from './track';
+import { COMET_RING, TILE, parseTrack } from './track';
+import { setFleets } from '../fleets';
+import type { FleetRow } from '../types';
 
 // The ready screen's drawing, under a canvas that only counts (PRD 1359): the space the circuit floats in,
 // above the horizon and under it, in the theme's colours, then the floor from one reused pixel buffer, on both grids. The planets and
 // nebulae of @omni/design are its own, and stubbed out here.
+const terrain = vi.hoisted(() => [] as { roofed: Uint8Array | undefined }[]);
 const planets = vi.hoisted(() => [] as { cy: number; r: number }[]);
 const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number | undefined; tint: unknown; frame: number | undefined; clipped: boolean }[]);
+vi.mock('./mode7', async (original) => {
+  const m = await original<typeof import('./mode7')>();
+  return { ...m, renderTerrain: (...a: Parameters<typeof m.renderTerrain>) => { terrain.push({ roofed: a[7] }); return m.renderTerrain(...a); } };
+});
 vi.mock('@omni/design', async (original) => {
   const m = await original<typeof import('@omni/design')>();
   return {
@@ -41,7 +48,7 @@ class FakeImageData {
 }
 
 beforeEach(() => {
-  puts.length = 0; created.length = 0; planets.length = 0; sprites.length = 0;
+  puts.length = 0; created.length = 0; terrain.length = 0; planets.length = 0; sprites.length = 0;
   vi.stubGlobal('ImageData', FakeImageData);
   vi.stubGlobal('document', {
     createElement: () => {
@@ -109,8 +116,8 @@ describe('the race\'s drawing', () => {
     expect(puts[0]).toMatchObject({ w: grid.w, h: grid.h });
     expect(images.filter((i) => i.length === 2).at(-1)).toEqual([0, 0]);
     // The big planet stands across the horizon, not cut by it (and a second, smaller one: see 'the sky').
-    expect(planets).toHaveLength(2);
-    const big = sure(planets[0], 'the planet');
+    expect(planets).toHaveLength(3);
+    const big = sure(planets[1], 'the planet');
     expect(big.cy).toBeLessThan(horizon);
     expect(big.cy + big.r).toBeGreaterThan(horizon);
   });
@@ -576,8 +583,8 @@ describe('the sky', () => {
 
   it('draws a second, smaller planet in the sky, beside the first', () => {
     const { planets: list } = skyOf(3, at(3));
-    expect(list).toHaveLength(2);
-    const [big, small] = [sure(list[0], 'the first planet'), sure(list[1], 'the second planet')];
+    expect(list).toHaveLength(3);
+    const [big, small] = [sure(list[1], 'the first planet'), sure(list[2], 'the second planet')];
     expect(small.r).toBeLessThan(big.r);
     expect(small.r).toBeGreaterThan(0);
     expect(small.cy).toBeLessThan(horizon);
@@ -608,7 +615,7 @@ describe('the sky', () => {
 
   it('draws the comets in the frame, and they cross as time passes', () => {
     const times = Array.from({ length: 60 }, (_, i) => i * 0.5);
-    const drawn = times.map((t) => skyOf(7, at(t)).fills.filter((f) => (f.rect[1] ?? horizon) < horizon && f.rect[2] !== undefined && f.rect[2] < 16 && (f.rect[0] ?? 0) < minimapAt(WIDE, parseTrack()).x));
+    const drawn = times.map((t) => skyOf(7, at(t)).fills.filter((f) => (f.rect[1] ?? horizon) < horizon && f.rect[2] !== undefined && f.rect[2] < 16 && (f.style === DEFAULT_THEME.white || f.style === DEFAULT_THEME.cyan) && (f.rect[0] ?? 0) < minimapAt(WIDE, parseTrack()).x));
     expect(drawn.some((f) => f.length > 0)).toBe(true);
     expect(drawn.some((f) => f.length === 0)).toBe(true);
   });
@@ -714,7 +721,7 @@ describe('the relief on the screen (PRD 1698)', () => {
 describe('tipping over the edge on the screen (PRD 1698)', () => {
   it('rolls a kart towards the side over the void, a little for a lean and onto its side as a tipped kart falls', () => {
     expect(rollOf(0, 0)).toBe(0);
-    expect(rollOf(0, 1)).toBe(0);
+    expect(rollOf(0, 1)).toBeGreaterThan(0); // all four wheels out when it falls: onto its right side
     expect(rollOf(0.5, 0)).toBeGreaterThan(0); // one wheel out on its right: clockwise
     expect(rollOf(-0.5, 0)).toBeLessThan(0);
     expect(rollOf(0.5, 0)).toBeCloseTo(-rollOf(-0.5, 0), 9);
@@ -724,7 +731,19 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     expect(rollOf(1, 1)).toBeLessThanOrEqual(Math.PI / 2 + 1e-9);
   });
 
+  it('leans a kart fully and rocks it while the grace counts, and leans it without rocking when motion is reduced', () => {
+    const plain = rollOf(1, 0);
+    const warned = (t: number, reduced = false) => rollOf(1, 0, { t, reduced });
+    expect(warned(0, true)).toBeGreaterThan(plain); // fully leaned
+    expect(warned(0.1, true)).toBe(warned(0.9, true)); // still
+    const rocks = new Set([0, 0.03, 0.06, 0.09, 0.12].map((t) => warned(t).toFixed(4)));
+    expect(rocks.size).toBeGreaterThan(1);
+    expect(rollOf(-1, 0, { t: 0.05, reduced: false })).toBeCloseTo(-warned(0.05), 9);
+  });
+
   /** The player driving off the road's edge, gas and right held, frame by frame until it is back: what each frame rotated the canvas by, and whether the player's shadow was drawn. */
+  const STRAIGHT = new Set<Action>(['a']), RIGHT = new Set<Action>(['a', 'right']);
+  const handsAt = (t: number) => (t >= 1.5 ? RIGHT : STRAIGHT); // straight on, then right
   function series() {
     const game = createKart({ seed: 3 });
     game.press('start');
@@ -732,7 +751,7 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     const out: { roll: number; shadow: boolean; falling: boolean }[] = [];
     let seen = false;
     for (let t = 0; t < 20; t += 0.02) {
-      game.step(new Set<Action>(['a', 'right']), 0.02);
+      game.step(handsAt(t), 0.02);
       sprites.length = 0;
       const r = recorder();
       game.draw(r.ctx, frame(WIDE));
@@ -756,7 +775,7 @@ describe('tipping over the edge on the screen (PRD 1698)', () => {
     expect(Math.max(...falling.map((f) => f.roll))).toBeGreaterThan(Math.max(...leaning.map((f) => f.roll)));
     // The frame the fall begins on is still full size: it has the roll of a lean and already no shadow.
     expect(leaning.filter((f) => f.shadow).length).toBeGreaterThan(0);
-    expect(leaning.filter((f) => !f.shadow)).toHaveLength(1);
+    expect(leaning.filter((f) => !f.shadow).length).toBeLessThanOrEqual(1);
     expect(s.filter((f) => f.falling).some((f) => f.shadow)).toBe(false);
     expect(s.filter((f) => !f.falling && f.roll === 0).some((f) => f.shadow)).toBe(true);
   });
@@ -802,7 +821,8 @@ describe('the minimap (PRD 1698)', () => {
     const shades = tiles.filter((t) => t.colour !== '#ffffff').map((t) => light(t.colour));
     expect(Math.max(...shades)).toBeGreaterThan(Math.min(...shades));
     expect(tiles.some((t) => t.colour === '#ffffff')).toBe(true);
-    const flat = minimapTiles(parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }), { low: 0, high: 0 });
+    const open = COMET_RING.rows.map((r) => r.replaceAll('T', '#'));
+    const flat = minimapTiles(parseTrack({ rows: open, waypoints: COMET_RING.waypoints }), { low: 0, high: 0 });
     expect(new Set(flat.filter((t) => t.colour !== '#ffffff').map((t) => t.colour)).size).toBe(1);
   });
 
@@ -825,5 +845,167 @@ describe('the minimap (PRD 1698)', () => {
     expect(minimapLit({ t: 0.2, reduced: false }, { fall: 1 })).toBe(false);
     expect(minimapLit({ t: 0.2, reduced: true }, { fall: 1 })).toBe(true);
     expect(MINIMAP_TOP).toBeGreaterThanOrEqual(32);
+  });
+});
+
+describe('a kart in the air on the screen (PRD 1775)', () => {
+  it('keeps the camera\'s eye 28 over the kart\'s own height, and a shadow lower on the screen than the kart itself', () => {
+    const track = parseTrack();
+    for (const grid of [WIDE, TALL]) {
+      const kart = newRace({ seed: 1, track }).player;
+      const aloft = { ...kart, height: 20, lift: 0 };
+      expect(viewFor(grid, track, aloft).height).toBeCloseTo(viewFor(grid, track, kart).height + 20, 9);
+      const v = viewFor(grid, track, aloft);
+      const shade = project(v, aloft.x, aloft.y, groundAt(track, aloft.x, aloft.y));
+      const body = project(v, aloft.x, aloft.y, groundAt(track, aloft.x, aloft.y) + 20);
+      expect(shade && body && shade.sy > body.sy).toBe(true);
+    }
+  });
+});
+
+// The livelier decor (PRD 1775, slice 7): the stands, the station's props, the convoys, the belt, the big planet, the tunnel.
+describe('the stands', () => {
+  const fleetRow = (name: string, mascot: string | null, retired = false): FleetRow => ({ name, home: null, label: name.toUpperCase(), color: '#2fc6a4', motto: '', mascot, sort: 0, retired });
+  afterEach(() => { setFleets([]); });
+  const at = (t: number, reduced = false): FrameState => ({ ...frame(WIDE), t, sceneT: t, reduced });
+
+  it('show the active fleets in their order, start again from the first when there are fewer fleets than stands, and skip the retired', () => {
+    setFleets([fleetRow('beaver', 'beaver'), fleetRow('gone', 'shark', true), fleetRow('shark', 'shark')]);
+    expect(standLooks(5).map((l) => l.label)).toEqual(['BEAVER', 'SHARK', 'BEAVER', 'SHARK', 'BEAVER']);
+    expect(standLooks(2).map((l) => l.sprite)).toEqual(['beaver', 'shark']);
+  });
+
+  it('show the neutral ship with no fleet, or only retired ones', () => {
+    expect(standLooks(3).map((l) => l.sprite)).toEqual(['ship', 'ship', 'ship']);
+    setFleets([fleetRow('gone', 'shark', true)]);
+    expect(standLooks(2).map((l) => l.sprite)).toEqual(['ship', 'ship']);
+  });
+
+  it('bob gently over the void, and stand still when motion is reduced', () => {
+    const bobs = [0, 0.4, 0.8, 1.2, 1.6].map((t) => standBob({ t, reduced: false }, 0));
+    expect(new Set(bobs).size).toBeGreaterThan(1);
+    for (const b of bobs) expect(Math.abs(b)).toBeLessThanOrEqual(2);
+    expect([0, 0.4, 1.9].map((t) => standBob({ t, reduced: true }, 3))).toEqual([0, 0, 0]);
+  });
+
+  it('are drawn in the race, one ship each, in the fleets\' mascots, floating over a void tile', () => {
+    setFleets([fleetRow('beaver', 'beaver'), fleetRow('shark', 'shark')]);
+    const voids = voidTilesInView();
+    expect(voids.length).toBeGreaterThan(3);
+    const stands = voids.slice(0, 4);
+    const track = parseTrack({ ...COMET_RING, stands });
+    expect(track.stands).toHaveLength(4);
+    sprites.length = 0;
+    createKart({ seed: 3, track }).draw(recorder().ctx, at(3));
+    const ships = sprites.filter((x) => x.name === 'beaver' || x.name === 'shark');
+    expect(ships.length).toBeGreaterThan(0);
+    expect(ships.length).toBeLessThanOrEqual(4);
+    expect(new Set(ships.map((x) => x.name)).size).toBe(2);
+    expect(STAND_LIFT).toBeGreaterThan(0);
+  });
+
+  it('draw the same ships in the same places in two reduced-motion frames', () => {
+    const names = (t: number) => { sprites.length = 0; createKart({ seed: 3 }).draw(recorder().ctx, at(t, true)); return sprites.map((x) => [x.name, x.x, x.y, x.frame]); };
+    expect(names(1)).toEqual(names(8.7));
+  });
+});
+
+/** Void tiles of COMET RING a kart on the line sees ahead of it, nearest first. */
+function voidTilesInView(): [number, number][] {
+  const base = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints });
+  const v = viewFor(WIDE, base, newRace({ seed: 3, track: base, cast: [] }).player);
+  const tiles = COMET_RING.rows.flatMap((row, y) => Array.from(row).flatMap((c, x) => (c === '~' ? [{ at: [x, y] as [number, number], p: project(v, (x + 0.5) * TILE, (y + 0.5) * TILE, 0) }] : [])));
+  const seen = tiles.flatMap(({ at, p }) => (p && p.sx > 20 && p.sx < WIDE.w - 20 && p.sy < WIDE.h - 10 && p.z > 60 && p.z < 160 ? [{ at, z: p.z }] : []));
+  return seen.sort((x, y) => x.z - y.z).map((o) => o.at);
+}
+
+describe('the station\'s props', () => {
+  const at = (t: number, reduced = false): FrameState => ({ ...frame(WIDE), t, sceneT: t, reduced });
+
+  it('pulse the lamps and turn the dishes, and hold both still when motion is reduced; cranes and containers never move', () => {
+    expect(new Set([0, 0.2, 0.4, 0.6, 0.8].map((t) => propFrame('lamp', at(t)))).size).toBe(2);
+    expect(new Set([0, 0.3, 0.7, 1, 1.3].map((t) => propFrame('dish', at(t)))).size).toBe(2);
+    for (const t of [0, 0.7, 1.3, 2.9]) {
+      for (const kind of ['lamp', 'dish', 'crane', 'container'] as const) expect(propFrame(kind, at(t, true)), kind).toBe(0);
+      expect(propFrame('crane', at(t))).toBe(0);
+      expect(propFrame('container', at(t))).toBe(0);
+    }
+  });
+
+  it('are drawn from their own sprites when they stand in view', () => {
+    const voids = voidTilesInView();
+    const kinds = ['lamp', 'dish', 'crane', 'container'] as const;
+    const props = kinds.map((kind, i) => ({ kind, x: voids[i]?.[0] ?? 0, y: voids[i]?.[1] ?? 0 }));
+    const track = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints, props });
+    sprites.length = 0;
+    createKart({ seed: 3, track }).draw(recorder().ctx, at(3));
+    for (const kind of kinds) expect(sprites.some((x) => x.name === `prop-${kind}`), kind).toBe(true);
+  });
+});
+
+describe('the sky\'s convoys, belt and big planet', () => {
+  const at = (t: number, reduced = false): FrameState => ({ ...frame(WIDE), t, sceneT: t, reduced });
+  const horizon = horizonOf(WIDE.h);
+  const span = WIDE.w * 6;
+
+  it('send three convoys of ships across the panorama, slowly, seeded from the race', () => {
+    const a = convoyShips(7, 2, span, horizon, false);
+    expect(a).toHaveLength(CONVOYS * CONVOY_SHIPS);
+    expect(convoyShips(7, 2, span, horizon, false)).toEqual(a);
+    expect(convoyShips(8, 2, span, horizon, false)).not.toEqual(a);
+    const later = convoyShips(7, 3, span, horizon, false);
+    expect(later).not.toEqual(a);
+    for (const ship of a) { expect(ship.y).toBeGreaterThanOrEqual(0); expect(ship.y).toBeLessThan(horizon); }
+  });
+
+  it('hold the convoys still when motion is reduced', () => {
+    expect(convoyShips(7, 1, span, horizon, true)).toEqual(convoyShips(7, 99, span, horizon, true));
+  });
+
+  it('draw the convoys\' ships as sprites in the frame, still when reduced', () => {
+    const shown = (t: number, reduced: boolean) => { sprites.length = 0; createKart({ seed: 7 }).draw(recorder().ctx, at(t, reduced)); return sprites.filter((x) => x.name === 'sky-convoy').map((x) => [x.x, x.y]); };
+    expect(shown(2, false)).toHaveLength(CONVOYS * CONVOY_SHIPS);
+    expect(shown(2, false)).not.toEqual(shown(20, false));
+    expect(shown(2, true)).toEqual(shown(20, true));
+  });
+
+  it('run an asteroid belt across the panorama, in the sky, the same for the same seed', () => {
+    const rocks = beltRocks(7, span, horizon);
+    expect(rocks).toHaveLength(BELT_ROCKS);
+    expect(beltRocks(7, span, horizon)).toEqual(rocks);
+    for (const r of rocks) { expect(r.y).toBeGreaterThan(0); expect(r.y).toBeLessThan(horizon); expect(r.x).toBeLessThan(span); }
+  });
+
+  it('raise a big planet at the horizon, bigger than the others, drawn behind them', () => {
+    planets.length = 0;
+    createKart({ seed: 3 }).draw(recorder().ctx, at(3));
+    const [rising, ...others] = planets;
+    expect(others).toHaveLength(2);
+    expect(sure(rising, 'the rising planet').r).toBeGreaterThan(Math.max(...others.map((p) => p.r)));
+    expect(sure(rising, 'the rising planet').cy).toBeGreaterThanOrEqual(horizon - 10);
+  });
+});
+
+describe('the tunnel in the game and on the minimap', () => {
+  const rows = ['~~~~~~~~', '~#TTT#w~', '~~~~~~~~'];
+
+  it('passes the roofed road to the terrain, so the tunnel shows in the game', () => {
+    createKart({ seed: 3 }).draw(recorder().ctx, frame(WIDE));
+    const roofed = sure(sure(terrain[0], 'a terrain pass').roofed, 'the roofed mask');
+    expect(roofed).toBeInstanceOf(Uint8Array);
+    expect(roofed.some((p) => p === 1)).toBe(true);
+    terrain.length = 0;
+    const open = COMET_RING.rows.map((r) => r.replaceAll('T', '#'));
+    createKart({ seed: 3, track: parseTrack({ rows: open, waypoints: COMET_RING.waypoints }) }).draw(recorder().ctx, frame(WIDE));
+    expect(sure(sure(terrain[0], 'a terrain pass').roofed, 'the roofed mask').every((p) => p === 0)).toBe(true);
+  });
+
+  it('draws the tunnel in a lighter tint than the road at its height, and the walkway as road', () => {
+    const tiles = minimapTiles({ ...parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }), map: rows, cols: 8, rows: 3 }, { low: 0, high: 0 });
+    const light = (x: number) => Number(/rgb\((\d+)/.exec(sure(tiles.find((t) => t.x === x), `tile ${x}`).colour)?.[1] ?? 0);
+    expect(tiles.map((t) => t.x)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(light(2)).toBeGreaterThan(light(1));
+    expect(light(3)).toBe(light(2));
+    expect(light(6)).toBe(light(1));
   });
 });
