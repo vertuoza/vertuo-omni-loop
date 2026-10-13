@@ -917,18 +917,26 @@ off, no row exists, and every player sees NO XP YET.
   under confetti that stands still under reduced motion, and `YOU 5TH` under them when the player is off it. In MULTI a step shows `…`
   until its driver crosses, and a player who is OUT never stands on one. A shows RESULTS; the time was already sent at the finish, and
   a race left before the line has no podium.
-  **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
-  in space, all in code, no image file. **The void** (PRD 1447): everything off the road is the void,
-  written `~` in the map: the floor has nothing there, and the space the circuit floats in shows all round
+  **The space circuit** (PRD 1427): COMET RING is drawn as a circuit
+  in space, all in code, no image file. **The centre line** (PRD 1829): its road is drawn from a centre line, the 14 waypoints in driving
+  order, each corner a circular arc of its own radius, the road 5 tiles wide; every point within half the width of the line is road, except
+  a gap declared on it, and the shortcuts are pieces of their own with their own width and gaps. The map is 72 × 72 tiles and its rows keep
+  the features only (`+` pads, `^` ramps, `?` boxes, `S` places, `=` the start line) on a background of `.`; the road, the kerbs, the roof
+  and the walkway come from the line, baked once into `roadAt(track, x, y)`, the one question the kart, the rivals, the texture, the minimap,
+  the stands and the props ask of the void. Its waypoints and radii, in tiles: `[62, 62]` 8, `[62, 46]` 3, `[49, 46]` 3, `[49, 34]` 3,
+  `[64, 34]` 3, `[64, 10]` 5, `[41, 10]` 6, `[41, 26]` 4, `[23, 26]` 4, `[23, 10]` 4, `[8, 10]` 6, `[8, 46]` 4, `[21, 46]` 3, `[21, 62]` 3.
+  A curve of 5 or more is taken flat out (the top speed turns on a circle of about 4.4 tiles); a hairpin of 3 asks to lift, to about 0.78 of
+  the top speed, and a curve of 4 to about 0.85. The lap is about 249 tiles. **The void** (PRD 1447): everything off the road is the void,
+  where `roadAt` says no: the floor has nothing there, and the space the circuit floats in shows all round
   it, under the horizon as above it, its stars, nebulae and planets with the galaxy's glow along the
-  horizon. A neon edge sits on the void's side of the road's edge (cyan outside the circuit, magenta
-  inside); the map holds road and void only, and past its edge is void too. The kerbs alternate the two neons, the road has panel seams and three chevrons before
+  horizon. A neon edge sits on the void's side of the road's edge, round on a curve (cyan outside the circuit, magenta
+  inside); past the map's edge is void too. The kerbs alternate the two neons along the curves, the road has panel seams and three chevrons before
   each corner. Nothing off the road slows or bounces a kart: **the fall** is the only cost. A kart
-  falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width;
+  falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width, against the round edge of an arc as against a straight one;
   it may hang over until then), and for 1 second takes no input, stays where it went over,
   shrinks as it sinks and keeps its item, and a BOOST or a spin-out ends. **The way back:** it
-  returns at rest on the racing line, at the point nearest where it fell on the segment it was on
-  (never past the next waypoint, never across the start line), facing the race, and blinks for half
+  returns at rest on the racing line, at the point of the racing line nearest where it fell, between the last waypoint it passed and the next
+  (never across the start line), and behind the gap by the run-up where that point is over a gap, facing the race, and blinks for half
   a second while it drives; its laps and waypoints are kept, the race clock never stops, and rivals
   fall and return by the same rule. The player's fall plays the `fall` sound; a rival's is silent.
   Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
@@ -941,8 +949,8 @@ off, no row exists, and every player sees NO XP YET.
   **The relief** (PRD 1698): COMET RING rises and falls along its racing line. Its relief is one block
   beside the map: a `heights` list (one per waypoint) and a `bumps` list (one per leg, positive a hump,
   negative a dip). Each leg eases from one height to the next with its bump in the middle, and is level
-  for 2.5 tiles at both ends, so every corner is level and two legs meet at the same height; the
-  ground anywhere is that of the nearest leg (`relief.ts`, pure), and a circuit with no relief is flat.
+  for 2.5 tiles at both ends, and the road is level over the whole of each arc, so a curve never twists and two legs meet at the same
+  height; the ground anywhere is that of the nearest point of the centre line (`relief.ts`, pure), and a circuit with no relief is flat.
   The relief spans 26 world units at most, under the camera's eye (28), and the circuit's checks refuse
   a relief that spans more or has a height or a bump missing or not a number, as they refuse a broken
   map. The camera's eye stands 28 over the ground under the player's kart, so a crest hides the road
@@ -963,31 +971,41 @@ off, no row exists, and every player sees NO XP YET.
   the way back above, a wheel back on the road starting the count again, and a centre 7 past the
   edge still falls at once. A leaning kart is drawn rolled towards the void, a falling one rolls over as it
   sinks, and it casts no shadow while it falls. A rival looks a quarter of a second ahead, steers back
-  from a wheel over the void there, brakes when it is faster than a corner allows and turns in 64
-  before the corner's waypoint, so it finishes three laps without falling (seeds 1, 7 and 42).
-  **The station** (PRD 1775): COMET RING is a space station now, all of it tiles of the same 64 × 64 map.
+  from a wheel over the void there, aims at a point of the racing line ahead of it, along the arcs, and brakes for the tightest arc it is in or about to enter when it is faster than that arc allows, so it finishes three laps without falling (seeds 1, 7 and 42).
+  **The station** (PRD 1775): COMET RING is a space station now, all on the same 72 × 72 map.
   **Boost pads** (`+`) give the BOOST of the item, 1.4 times the top speed for 1.5 seconds, started again
   on every pad, and keep the item in the kart's hand; there is one before each jump and one out of each of
-  the corners `[18, 56]`, `[44, 28]` and `[8, 40]`. **Jumps:** a kart that leaves a ramp (`^`) takes off with a
+  the corners `[49, 34]`, `[8, 46]` and `[21, 62]`. **Jumps:** a kart that leaves a ramp (`^`) takes off with a
   vertical speed of 0.9 of its speed, flies under a gravity of 400, steers at 0.3 of its turn rate, takes no
   box or pad and cannot tip over, and lands by the ordinary rules; the camera and the sprite follow its
   height, with a shadow on the ground, and MULTI carries the height. The **gap jump** on the long descent
-  `[56, 28]` to `[56, 8]` (a pad, a ramp on the hump's crest, 3 tiles of void) is cleared from the pad and
-  at top speed, and not under 80% of it; the **bump jump** on the west leg `[8, 8]` to `[8, 40]` is air time
+  `[64, 34]` to `[64, 10]` (a pad, a ramp on the hump's crest, 3 tiles of void) is cleared from the pad and
+  at top speed, and not under 80% of it; the **bump jump** on the west leg `[8, 10]` to `[8, 46]` is air time
   over road. **Shortcuts**, hard to reach and never taken by rivals: the **hidden ramp** at the corner
-  `[54, 40]` runs straight on north over a spur to a ramp with no pad, 5 tiles of void, and lands on
-  `[44, 28]` to `[56, 28]`, which only the BOOST of an item clears; the **walkway** at the corner `[36, 8]`
-  (`w`, 2 tiles wide) runs straight on west over the void to `[20, 8]`. Each has a gate across it after its
-  hard part: a kart that crosses it forwards while the next waypoint it must pass is the first one the
-  shortcut skips is credited with both, and each shortcut is a leg of its own in the relief. **The tunnel**
-  (`T`, 13 tiles of roofed road on `[56, 8]` to `[36, 8]`) has a roof 44 over the road, a ceiling with strips of
-  light, walls with portholes and a lit portal at each end; what is behind a wall is not drawn, and the floor
-  still takes at most 600 samples a column inside it. **The decor:** twelve stands float over the void
+  `[62, 46]` runs straight on north over a spur, 5 tiles wide, to a ramp with no pad, 5 tiles of void, and lands on
+  `[49, 34]` to `[64, 34]`, which only the BOOST of an item clears. **The walkway** (PRD 1829) is one tile wide
+  and leaves the middle of the curve of waypoint 6 `[41, 10]`, over the void, about 1.8 tiles south of the top
+  straight's axis, so it cannot be lined up on the straight and is taken out of the curve with a flick of the
+  wheel; no straight and no rail lead to it, it opens from the arc's outer edge. It heads west to the corner of
+  waypoint 9 `[23, 10]` with a ramp, then a gap in its middle: a kart at the top speed, without a BOOST, on its
+  line clears the gap and lands on it; at 0.9 of the top speed it falls in, and half a tile off its line it tips over.
+  A kart that falls comes back on the racing line, in the U-loop, so a missed walkway costs the U-loop and a fall.
+  Each shortcut has a gate across it after its hard part: a kart that crosses it forwards while the next
+  waypoint it must pass is the first one the shortcut skips (the walkway skips waypoints 7 and 8) is credited with
+  both, and each shortcut is a leg of its own in the relief. **The tunnel** is a span of the centre line: it
+  starts where the curve of waypoint 5 `[64, 10]` starts, right after the gap jump's landing, and runs 13 tiles
+  along the line, the quarter circle of the curve then about 5 tiles of the straight west, so its exit is hidden
+  until a kart is in the bend. Its walls stand on the road's two edges and follow the curve; its ceiling is 44
+  over the centre line and falls along an arc to `RULES.vault` (10) lower where it meets the walls, with panels
+  and strips of light that follow the vault, and a lit portal across the road, square to the line, at each end;
+  what is behind a wall is not drawn, and the floor still takes at most 600 samples a column inside it, in the
+  curve and on the straight. **The decor:** twelve stands float over the void
   (four on each side of the start straight and four beside the gap jump), each showing an active fleet's
   ship; neon lamps, antenna dishes, docking cranes and cargo containers stand on the void near the road and
   around the station; convoys, an asteroid belt and a big planet cross the sky; the minimap shows the walkway
   and the spur as road and the tunnel in a lighter tint. A rival throws nothing from the air. **A softer
   edge** (see the four wheels above) keeps a kart that clips the void for less than half a second on the road.
+  **The best times** set on the earlier circuit are kept, no row deleted; the lap is about 5 % longer than it was.
   **The minimap** (PRD 1698): in the top right corner under the item panel, over the sky, on both
   grids, 8 game pixels in from the right edge: one game pixel a tile, the road shaded by its height
   (the higher, the lighter), the start line light, over a dark cyan-framed panel. It shows a gold

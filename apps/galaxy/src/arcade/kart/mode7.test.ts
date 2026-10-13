@@ -3,9 +3,10 @@ import { sure } from '../test/sure';
 import {
   chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, renderTerrain, roofedOf, ROOF, skyShift, spritesInView, TUNNEL, viewOf, type Deck, type Texture, type View,
 } from './mode7';
+import { RULES } from './rules';
 import { groundAt, heightsOf, reliefRange } from './relief';
 import { BEYOND, deckOf, paintTrack } from './texture';
-import { parseTrack, TILE } from './track';
+import { cornersOf, groundOf, parseTrack, pointAtPx, TILE } from './track';
 
 const WIDE = { w: 640, h: 360 }, TALL = { w: 320, h: 288 };
 const at = (angle: number, screen = WIDE): View => viewOf(screen, { x: 500, y: 400, angle });
@@ -347,8 +348,27 @@ describe('the tunnel (PRD 1775)', () => {
     expect(ROOF).toBe(44);
   });
 
+  it('vaults the ceiling: ROOF over the centre line, falling along an arc toward the walls, still above the eye (PRD 1829)', () => {
+    const { out, depth } = draw(inside);
+    const seen: { off: number; up: number }[] = [];
+    for (let r = 0; r < inside.horizon; r++) {
+      for (let c = 0; c < inside.w; c++) {
+        if (!ceiling.has(out[r * inside.w + c] ?? 0)) continue;
+        const z = depth[r * inside.w + c] ?? 0, across = (c + 0.5 - inside.w / 2) / inside.focal;
+        const x = inside.x + (Math.cos(inside.angle) - Math.sin(inside.angle) * across) * z;
+        seen.push({ off: Math.abs(x - 32), up: inside.height - (z * (r + 0.5 - inside.horizon)) / inside.focal });
+      }
+    }
+    const centre = seen.filter((s) => s.off < 1.5), side = seen.filter((s) => s.off > 6);
+    expect(centre.length).toBeGreaterThan(0);
+    expect(side.length).toBeGreaterThan(0);
+    for (const s of centre) expect(s.up).toBeGreaterThan(ROOF - 1);
+    for (const s of side) expect(s.up).toBeLessThan(ROOF - RULES.vault / 4);
+    for (const s of seen) { expect(s.up).toBeGreaterThanOrEqual(ROOF - RULES.vault - 1); expect(s.up).toBeGreaterThan(inside.height); }
+  });
+
   it('marks the pixels of roofed road in the map', () => {
-    const t = roofedOf({ map: ['~T~', '~#~'] }, { w: 3 * TILE, h: 2 * TILE, px: new Uint32Array(3 * TILE * 2 * TILE) });
+    const t = roofedOf(groundOf(['~T~', '~#~']), { w: 3 * TILE, h: 2 * TILE, px: new Uint32Array(3 * TILE * 2 * TILE) });
     expect(t[8 * 48 + 24]).toBe(1);
     expect(t[8 * 48 + 8]).toBe(0);
     expect(t[24 * 48 + 24]).toBe(0);
@@ -420,37 +440,59 @@ describe('the tunnel (PRD 1775)', () => {
     const range = reliefRange(track);
     const edge = deckOf();
     const KART_FOOT = 6;
+    const span = sure(track.span, 'the tunnel\'s span');
     const lit = new Set<number>([TUNNEL.portal]);
-    const frame = (grid: { w: number; h: number }, tx: number) => {
-      const kart = { x: tx * TILE, y: 8.5 * TILE, angle: Math.PI };
+    /** The chase camera on the racing line, `d` tiles along it from where the tunnel's span starts. */
+    const frame = (grid: { w: number; h: number }, d: number) => {
+      const p = pointAtPx(track, (span.start + d) * TILE);
+      const kart = { x: p.x, y: p.y, angle: Math.atan2(p.ty, p.tx) };
       const v = viewOf(grid, chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT)), groundAt(track, kart.x, kart.y));
       const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
       renderTerrain(v, tex, hs, range, edge, out, depth, mask);
-      return { v, out };
+      return { v, out, depth };
     };
-    // The kart from three tiles before the tunnel's east portal (x 53) to past its west one (x 40), half a tile at a time.
-    const stops = Array.from({ length: 2 * (57 - 38) + 1 }, (_, k) => 57 - k / 2);
+    // The kart from three tiles before the tunnel to two tiles past it, half a tile at a time.
+    const stops = Array.from({ length: 2 * (span.length + 5) + 1 }, (_, k) => -3 + k / 2);
 
     it.each([['wide', WIDE], ['tall', TALL]] as const)('keeps the road ahead in sight at every step: the middle of the screen, from the horizon down, is mostly road, on the %s grid', (_name, grid) => {
       const tunnel = new Set<number>(Object.values(TUNNEL));
       for (const tx of stops) {
         const { v, out } = frame(grid, tx);
         const ahead = rect(out, v, [v.horizon, v.h], [Math.round(v.w * 0.4), Math.round(v.w * 0.6)]);
-        expect(ahead.filter((p) => p !== 0 && !tunnel.has(p)).length / ahead.length, `kart at tile ${tx}`).toBeGreaterThan(0.5);
+        expect(ahead.filter((p) => p !== 0 && !tunnel.has(p)).length / ahead.length, `kart ${tx} tiles into the span`).toBeGreaterThan(0.5);
       }
     });
 
     it('draws the side walls as walls, not as portals, though the road\'s neon edge runs along them', () => {
-      for (const tx of [50, 47, 44]) {
+      for (const tx of [8, 9, 10]) {
         const { v, out } = frame(WIDE, tx);
         const sides = [...rect(out, v, [0, v.h], [0, v.w / 5]), ...rect(out, v, [0, v.h], [v.w - v.w / 5, v.w])];
-        expect(sides.some((p) => lit.has(p)), `kart at tile ${tx}`).toBe(false);
-        expect(sides.some((p) => p === TUNNEL.wallInA || p === TUNNEL.wallInB), `kart at tile ${tx}`).toBe(true);
+        expect(sides.some((p) => lit.has(p)), `kart ${tx} tiles into the span`).toBe(false);
+        expect(sides.some((p) => p === TUNNEL.wallInA || p === TUNNEL.wallInB), `kart ${tx} tiles into the span`).toBe(true);
       }
     });
 
+    it('lifts the top of the frame to ceiling inside the bend, and holds the ceiling over the road\'s edge lower than over its centre (criterion 8)', () => {
+      const { v, out, depth } = frame(WIDE, 6);
+      expect(rect(out, v, [0, 3], [Math.round(v.w * 0.3), Math.round(v.w * 0.7)]).every((p) => ceiling.has(p))).toBe(true);
+      // A ceiling pixel `r` rows from the top, `z` ahead: the height it stands at is read back from the projection.
+      const heightOf = (r: number, c: number) => v.height - (depth[r * v.w + c] ?? 0) * (r + 0.5 - v.horizon) / v.focal;
+      const heights: number[] = [];
+      for (let r = 0; r < v.horizon; r++) for (let c = 0; c < v.w; c++) if (ceiling.has(out[r * v.w + c] ?? 0)) heights.push(heightOf(r, c));
+      expect(Math.max(...heights)).toBeGreaterThan(ROOF - 4);
+      expect(Math.min(...heights)).toBeLessThan(ROOF - RULES.vault / 2);
+      expect(Math.min(...heights)).toBeGreaterThanOrEqual(ROOF - RULES.vault - 1);
+      expect(Math.min(...heights)).toBeGreaterThan(v.height);
+    });
+
+    it('hides the exit portal from the entry portal: nothing lit stands far down the bend (criterion 8)', () => {
+      const { v, out, depth } = frame(WIDE, 0.5);
+      for (let i = 0; i < out.length; i++) if (out[i] === TUNNEL.portal) expect(depth[i] ?? 0, `pixel ${i}`).toBeLessThan(6 * TILE);
+      expect(v.w).toBe(WIDE.w);
+    });
+
     it('roofs the frame without holes over the tunnel\'s hump: in every column, nothing is missing between two pixels of ceiling', () => {
-      for (const tx of [50, 48, 46, 44, 42]) {
+      for (const tx of [3, 5, 7, 9, 11]) {
         const { v, out } = frame(WIDE, tx);
         let holes = 0;
         for (let c = 0; c < v.w; c++) {
@@ -458,7 +500,7 @@ describe('the tunnel (PRD 1775)', () => {
           const first = rows.findIndex((p) => ceiling.has(p)), last = rows.findLastIndex((p) => ceiling.has(p));
           for (let r = first; first >= 0 && r < last; r++) if (rows[r] === 0) holes++;
         }
-        expect(holes, `kart at tile ${tx}`).toBe(0);
+        expect(holes, `kart ${tx} tiles into the span`).toBe(0);
       }
     });
   });
@@ -471,24 +513,64 @@ describe('the tunnel (PRD 1775)', () => {
     const range = reliefRange(track);
     const edge = deckOf();
     const KART_FOOT = 6;
-    it('has roofed road on the top leg: 13 tiles of it, between the corners [56, 8] and [36, 8]', () => {
+    const span = sure(track.span, 'the tunnel\'s span');
+    it('has roofed road: 13 tiles of it, from the arc of waypoint 5, and only on the road', () => {
+      expect(span.length).toBe(13);
       expect(mask.some((m) => m === 1)).toBe(true);
-      expect(track.map.flatMap((row) => Array.from(row)).filter((c) => c === 'T')).toHaveLength(13 * 5);
     });
-    it.each([['wide', WIDE], ['tall', TALL]] as const)('takes at most 600 samples a column at every waypoint and at points inside the tunnel, on the %s grid', (_name, grid) => {
+    const side = new Set<number>([...edge.wall, ...edge.stripe, ...edge.glowPx]);
+    /** The chase camera on the racing line `d` tiles along it, looking the way it runs. */
+    const onLine = (d: number) => {
+      const p = pointAtPx(track, d * TILE);
+      return { x: p.x, y: p.y, angle: Math.atan2(p.ty, p.tx) };
+    };
+    it.each([['wide', WIDE], ['tall', TALL]] as const)('takes at most 600 samples a column at the middle of every arc and at points inside the tunnel, on the %s grid', (_name, grid) => {
       const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
       const stops = [
-        ...track.waypoints.map((w, i) => ({ ...w, next: sure(track.waypoints[(i + 1) % track.waypoints.length], 'the next waypoint') })),
-        ...[52, 49, 46, 43, 40].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 36.5 * TILE, y: 8.5 * TILE } })),
-        ...[51, 46, 41].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 56.5 * TILE, y: 8.5 * TILE } })),
+        ...cornersOf(track).map((c) => c.start + c.length / 2),
+        ...[0, 3, 6, 9, 12].map((d) => span.start + d),
       ];
-      stops.forEach((w, i) => {
-        const angle = Math.atan2(w.next.y - w.y, w.next.x - w.x);
-        const v = viewOf(grid, chaseCamera({ x: w.x, y: w.y, angle }, depthAt(grid, grid.h - KART_FOOT)), groundAt(track, w.x, w.y));
+      stops.forEach((d, i) => {
+        const k = onLine(d);
+        const v = viewOf(grid, chaseCamera(k, depthAt(grid, grid.h - KART_FOOT)), groundAt(track, k.x, k.y));
         const samples = renderTerrain(v, tex, hs, range, edge, out, depth, mask);
         expect(samples, `stop ${i}`).toBeGreaterThan(50);
         expect(samples, `stop ${i}`).toBeLessThanOrEqual(600);
       });
+    });
+    it.each([['wide', WIDE], ['tall', TALL]] as const)('shows mostly road in the middle of the screen, from the horizon down, at the middle of every arc, on the %s grid', (_name, grid) => {
+      const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
+      for (const c of cornersOf(track)) {
+        const k = onLine(c.start + c.length / 2);
+        const v = viewOf(grid, chaseCamera(k, depthAt(grid, grid.h - KART_FOOT)), groundAt(track, k.x, k.y));
+        out.fill(0);
+        renderTerrain(v, tex, hs, range, edge, out, depth, mask);
+        const middle = rect(out, v, [v.horizon, v.h], [Math.round(v.w * 0.4), Math.round(v.w * 0.6)]);
+        expect(middle.filter((p) => p !== 0 && p !== BEYOND && !side.has(p)).length / middle.length, `arc of waypoint ${c.index}`).toBeGreaterThan(0.5);
+      }
+    });
+    it('draws a frame inside the tunnel in at most five times what a frame on open road takes, on the wide grid (bug 1868)', () => {
+      const out = new Uint32Array(WIDE.w * WIDE.h), depth = new Float32Array(WIDE.w * WIDE.h);
+      const viewAt = (k: { x: number; y: number; angle: number }) => viewOf(WIDE, chaseCamera(k, depthAt(WIDE, WIDE.h - KART_FOOT)), groundAt(track, k.x, k.y));
+      const roofedUnder = (k: { x: number; y: number }) => mask[Math.floor(k.y) * tex.w + Math.floor(k.x)] === 1;
+      const karts = cornersOf(track).map((c) => onLine(c.start + c.length / 2)).filter((k) => !roofedUnder(k));
+      const kartsInside = [3, 5, 7, 9, 11].map((d) => onLine(span.start + d));
+      expect(karts.length).toBeGreaterThan(3);
+      expect(kartsInside.every(roofedUnder)).toBe(true);
+      const open = karts.map(viewAt), inside = kartsInside.map(viewAt);
+      const time = (v: View) => {
+        const t = performance.now();
+        renderTerrain(v, tex, hs, range, edge, out, depth, mask);
+        return performance.now() - t;
+      };
+      const median = (ms: number[]) => sure([...ms].sort((a, b) => a - b)[Math.floor(ms.length / 2)], 'a time');
+      [...open, ...inside].forEach(time); // warm up
+      const onRoad: number[] = [], underRoof: number[] = [];
+      for (let round = 0; round < 3; round++) {
+        open.forEach((v) => onRoad.push(time(v)));
+        inside.forEach((v) => underRoof.push(time(v)));
+      }
+      expect(median(underRoof) / median(onRoad)).toBeLessThanOrEqual(5);
     });
   });
 });

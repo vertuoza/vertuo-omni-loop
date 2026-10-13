@@ -10,7 +10,7 @@ import type { Action } from '../keys';
 import { horizonOf, project, viewOf } from './mode7';
 import { newRace } from './race';
 import { groundAt } from './relief';
-import { COMET_RING, TILE, parseTrack } from './track';
+import { COMET_RING, TILE, parseTrack, roadAt, type TrackSource } from './track';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
 
@@ -544,7 +544,8 @@ describe('the props and the arch', () => {
     const horizon = horizonOf(WIDE.h);
     // On a flat circuit: a prop on raised ground stands higher, which this proportion leaves out.
     sprites.length = 0;
-    createKart({ seed: 3, track: parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints, ...(COMET_RING.props ? { props: COMET_RING.props } : {}) }) }).draw(recorder().ctx, frame(WIDE));
+    const zeros = Array.from({ length: COMET_RING.waypoints.length }, () => 0);
+    createKart({ seed: 3, track: parseTrack({ ...COMET_RING, relief: { heights: zeros, bumps: zeros } }) }).draw(recorder().ctx, frame(WIDE));
     const pylons = named([...sprites], 'prop-pylon').map((x) => ({ ...x, scale: sure(x.scale, 'a scale') }));
     expect(pylons.length).toBeGreaterThan(1);
     expect(pylons.map((x) => x.scale)).toEqual([...pylons.map((x) => x.scale)].sort((a, b) => a - b));
@@ -680,13 +681,13 @@ describe('the relief on the screen (PRD 1698)', () => {
   const n = COMET_RING.waypoints.length;
   // The start straight runs east from waypoint 13 to waypoint 0, with a hump of 26 at its middle.
   const hump = parseTrack({ ...COMET_RING, relief: { heights: Array.from({ length: n }, () => 0), bumps: Array.from({ length: n }, (_, i) => (i === n - 1 ? 26 : 0)) } });
-  const flat = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints });
+  const flat = parseTrack({ ...COMET_RING, relief: { heights: Array.from({ length: n }, () => 0), bumps: Array.from({ length: n }, () => 0) } });
 
   it('puts the camera\'s eye 28 over the ground under the player\'s kart', () => {
     for (const grid of [WIDE, TALL]) {
       const kart = newRace({ seed: 1, track: hump }).player;
       expect(viewFor(grid, hump, kart).height).toBeCloseTo(28 + groundAt(hump, kart.x, kart.y), 9);
-      const up = { ...kart, x: 36.5 * 16, y: 56.5 * 16 };
+      const up = { ...kart, x: 39.5 * 16, y: 62.5 * 16 };
       expect(groundAt(hump, up.x, up.y)).toBeCloseTo(26, 6);
       expect(viewFor(grid, hump, up).height).toBeCloseTo(54, 6);
       expect(viewFor(grid, flat, up).height).toBe(28);
@@ -711,7 +712,7 @@ describe('the relief on the screen (PRD 1698)', () => {
       return [...sprites];
     };
     const onFlat = clipped(flat), onHill = clipped(hump);
-    expect(onFlat.some((x) => x.clipped)).toBe(false);
+    expect(onFlat.filter((x) => x.clipped).map((x) => [x.name, x.x, x.y])).toEqual([]);
     expect(onHill.filter((x) => x.name.startsWith('arch')).every((x) => !x.clipped)).toBe(true);
     expect(onHill.filter((x) => x.name.startsWith('arch')).length).toBeGreaterThan(0);
     expect(onHill.some((x) => x.clipped)).toBe(true);
@@ -814,6 +815,29 @@ describe('the minimap (PRD 1698)', () => {
     expect(r.fills.some((f) => f.style === DEFAULT_THEME.cyan && f.rect.join() === [m.x, m.y, m.w, m.h].join())).toBe(true);
   });
 
+  it('shows the curved circuit: the middle of each arc is on it, the square corner a bend cuts off is not', () => {
+    const present = new Set(minimapTiles(track, { low: 0, high: 0 }).map((t) => `${t.x},${t.y}`));
+    const wps = COMET_RING.waypoints;
+    const n = wps.length;
+    const unit = (a: readonly [number, number, number], b: readonly [number, number, number]) => {
+      const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      return { x: (b[0] - a[0]) / d, y: (b[1] - a[1]) / d };
+    };
+    for (const i of [1, 2, 3, 7, 8, 10, 11, 12]) {
+      const w = sure(wps[i], 'a waypoint');
+      const a = unit(w, sure(wps[(i + n - 1) % n], 'the waypoint before')), b = unit(w, sure(wps[(i + 1) % n], 'the waypoint after'));
+      const bis = { x: a.x + b.x, y: a.y + b.y };
+      const len = Math.hypot(bis.x, bis.y);
+      const inward = { x: bis.x / len, y: bis.y / len };
+      const r = w[2];
+      // The arc's middle lies r·(√2 − 1) from the corner point towards the inside; the square corner of the road lies 2.5·√2 outside.
+      const mid = { x: w[0] + 0.5 + inward.x * r * (Math.SQRT2 - 1), y: w[1] + 0.5 + inward.y * r * (Math.SQRT2 - 1) };
+      const outer = { x: w[0] + 0.5 - inward.x * 2.5 * Math.SQRT2, y: w[1] + 0.5 - inward.y * 2.5 * Math.SQRT2 };
+      expect(present.has(`${Math.floor(mid.x)},${Math.floor(mid.y)}`), `the arc of waypoint ${i}`).toBe(true);
+      expect(present.has(`${Math.floor(outer.x)},${Math.floor(outer.y)}`), `the square corner of waypoint ${i}`).toBe(false);
+    }
+  });
+
   it('shades the road by its height, lighter the higher, and the start line white', () => {
     const tiles = minimapTiles(track, { low: 0, high: 26 });
     const light = (c: string) => Number(/rgb\((\d+)/.exec(c)?.[1] ?? 0);
@@ -821,8 +845,7 @@ describe('the minimap (PRD 1698)', () => {
     const shades = tiles.filter((t) => t.colour !== '#ffffff').map((t) => light(t.colour));
     expect(Math.max(...shades)).toBeGreaterThan(Math.min(...shades));
     expect(tiles.some((t) => t.colour === '#ffffff')).toBe(true);
-    const open = COMET_RING.rows.map((r) => r.replaceAll('T', '#'));
-    const flat = minimapTiles(parseTrack({ rows: open, waypoints: COMET_RING.waypoints }), { low: 0, high: 0 });
+    const flat = minimapTiles(parseTrack(openSource()), { low: 0, high: 0 });
     expect(new Set(flat.filter((t) => t.colour !== '#ffffff').map((t) => t.colour)).size).toBe(1);
   });
 
@@ -910,11 +933,15 @@ describe('the stands', () => {
   });
 });
 
+/** Whether a tile, or one of its neighbours, holds some road: the stands and the props stand further out. */
+const nearRoad = (track: ReturnType<typeof parseTrack>, x: number, y: number) =>
+  [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => roadAt(track, (x + dx + 0.5) * TILE, (y + dy + 0.5) * TILE)));
+
 /** Void tiles of COMET RING a kart on the line sees ahead of it, nearest first. */
 function voidTilesInView(): [number, number][] {
-  const base = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints });
+  const base = parseTrack({ ...COMET_RING, props: [], stands: [] });
   const v = viewFor(WIDE, base, newRace({ seed: 3, track: base, cast: [] }).player);
-  const tiles = COMET_RING.rows.flatMap((row, y) => Array.from(row).flatMap((c, x) => (c === '~' ? [{ at: [x, y] as [number, number], p: project(v, (x + 0.5) * TILE, (y + 0.5) * TILE, 0) }] : [])));
+  const tiles = COMET_RING.rows.flatMap((row, y) => Array.from(row).flatMap((c, x) => (c === '.' && !nearRoad(base, x, y) ? [{ at: [x, y] as [number, number], p: project(v, (x + 0.5) * TILE, (y + 0.5) * TILE, 0) }] : [])));
   const seen = tiles.flatMap(({ at, p }) => (p && p.sx > 20 && p.sx < WIDE.w - 20 && p.sy < WIDE.h - 10 && p.z > 60 && p.z < 160 ? [{ at, z: p.z }] : []));
   return seen.sort((x, y) => x.z - y.z).map((o) => o.at);
 }
@@ -936,7 +963,7 @@ describe('the station\'s props', () => {
     const voids = voidTilesInView();
     const kinds = ['lamp', 'dish', 'crane', 'container'] as const;
     const props = kinds.map((kind, i) => ({ kind, x: voids[i]?.[0] ?? 0, y: voids[i]?.[1] ?? 0 }));
-    const track = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints, props });
+    const track = parseTrack({ ...COMET_RING, props });
     sprites.length = 0;
     createKart({ seed: 3, track }).draw(recorder().ctx, at(3));
     for (const kind of kinds) expect(sprites.some((x) => x.name === `prop-${kind}`), kind).toBe(true);
@@ -986,8 +1013,10 @@ describe('the sky\'s convoys, belt and big planet', () => {
   });
 });
 
+/** COMET RING with no tunnel: the same road, no roof. */
+const openSource = (): TrackSource => Object.fromEntries(Object.entries(COMET_RING).filter(([k]) => k !== 'span')) as unknown as TrackSource;
+
 describe('the tunnel in the game and on the minimap', () => {
-  const rows = ['~~~~~~~~', '~#TTT#w~', '~~~~~~~~'];
 
   it('passes the roofed road to the terrain, so the tunnel shows in the game', () => {
     createKart({ seed: 3 }).draw(recorder().ctx, frame(WIDE));
@@ -995,17 +1024,16 @@ describe('the tunnel in the game and on the minimap', () => {
     expect(roofed).toBeInstanceOf(Uint8Array);
     expect(roofed.some((p) => p === 1)).toBe(true);
     terrain.length = 0;
-    const open = COMET_RING.rows.map((r) => r.replaceAll('T', '#'));
-    createKart({ seed: 3, track: parseTrack({ rows: open, waypoints: COMET_RING.waypoints }) }).draw(recorder().ctx, frame(WIDE));
+    createKart({ seed: 3, track: parseTrack(openSource()) }).draw(recorder().ctx, frame(WIDE));
     expect(sure(sure(terrain[0], 'a terrain pass').roofed, 'the roofed mask').every((p) => p === 0)).toBe(true);
   });
 
   it('draws the tunnel in a lighter tint than the road at its height, and the walkway as road', () => {
-    const tiles = minimapTiles({ ...parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }), map: rows, cols: 8, rows: 3 }, { low: 0, high: 0 });
-    const light = (x: number) => Number(/rgb\((\d+)/.exec(sure(tiles.find((t) => t.x === x), `tile ${x}`).colour)?.[1] ?? 0);
-    expect(tiles.map((t) => t.x)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(light(2)).toBeGreaterThan(light(1));
-    expect(light(3)).toBe(light(2));
-    expect(light(6)).toBe(light(1));
+    const tiles = minimapTiles(parseTrack(), { low: 0, high: 0 });
+    const light = (x: number, y: number) => Number(/rgb\((\d+)/.exec(sure(tiles.find((t) => t.x === x && t.y === y), `tile ${x},${y}`).colour)?.[1] ?? 0);
+    // The tunnel starts at (64.5, 15.5); the road before it, and the walkway, are not roofed.
+    expect(light(64, 14)).toBeGreaterThan(light(64, 17));
+    expect(light(64, 14)).toBeGreaterThan(light(64, 29));
+    expect(light(34, 12)).toBe(light(64, 29));
   });
 });

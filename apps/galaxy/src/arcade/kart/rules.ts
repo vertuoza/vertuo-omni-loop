@@ -27,21 +27,29 @@ export const RULES = Object.freeze({
   maxDt: 0.05,
   subStep: 1 / 120,
   /** The countdown before the race, and how long GO shows once it has begun. */
-  /** The rivals: the slowest top speed (a share of the player's), how far off the line they drive, how close a waypoint counts as passed, the angle a turn is steered from, and when a turn is sharp. */
+  /** The rivals: the slowest top speed (a share of the player's), how far off the line they drive, how far past the road a waypoint's gate counts as passed, and the angle a turn is steered from. */
   skillMin: 0.92,
   lineOffset: 14,
-  waypointReach: 40,
-  /** How far from a waypoint crossing its corner's diagonal passes it too: out over the void on the inside, so a corner cut on the inside still counts. */
-  cornerGate: 104,
+  /** How far past the road's width a waypoint's gate still counts (PRD 1829): out over the void on the inside of a bend, so a corner cut on the inside still counts. */
+  gateSlack: 48,
   rivalAim: 0.04,
-  rivalSharp: 0.7,
   /** A rival with a wheel over the void keeps the gas on below this speed, so one that has stalled on the edge can still steer clear (PRD 1775). */
   rivalCrawl: 12,
   rivalCorner: 60,
   /** How far ahead a rival looks for the edge, in seconds of its speed (PRD 1698): a wheel over the void there, or under it, steers it back. */
   rivalLook: 0.25,
-  /** How close to a corner's waypoint a rival turns in for the next one. */
-  rivalTurnIn: 64,
+  /** Where a rival aims on the centre line (PRD 1829): seconds of its speed ahead of it, at least this many pixels. */
+  rivalAhead: 0.3,
+  rivalAheadMin: 20,
+  /** How much of a turn's radius a rival keeps in hand when it picks its speed for it, how far (pixels, and seconds of its speed) it looks ahead for a turn, and the share of that speed over which it brakes rather than lifts. */
+  rivalCurve: 0.9,
+  rivalHorizon: 40,
+  rivalHorizonTime: 0.3,
+  rivalBrake: 1.1,
+  /** How far before a ramp (game pixels) no rival throws a BLOB or an ORB, at or at a kart on the way to it: a spin there is a fall into the gap beyond. */
+  rampCalm: 160,
+  /** How far past a gate's line (game pixels) a kart still counts as through it, when it was pushed over the line between two steps. */
+  gateSlab: 8,
   /** The rubber band: the most a rival's pace moves, and the gap in game pixels at which it moves that much. */
   rubber: 0.05,
   rubberRange: 400,
@@ -89,6 +97,8 @@ export const RULES = Object.freeze({
     normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0 },
     hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0 },
   },
+  /** The tunnel's vault (PRD 1829): how far the ceiling falls from its height over the centre line (mode7.ts `ROOF`) to where it meets the walls; the eye stands 28 up, so the ceiling stays above it. */
+  vault: 10,
   /** How long FINAL LAP shows once the third lap starts. */
   finalBanner: 2.5,
   countdown: 3,

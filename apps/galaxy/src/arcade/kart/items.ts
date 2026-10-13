@@ -5,7 +5,7 @@ import type { KartItem as Item } from '../scenes/kart.ts';
 import { airborne, type Fx, type Kart } from './kart';
 import { RULES, type Difficulty } from './rules';
 import { draw } from './rivals';
-import { isRoad, TILE, tileAt, type Track } from './track';
+import { roadAt, type Ground, type Track } from './track';
 
 export type { Item };
 
@@ -71,11 +71,11 @@ export function spendItem(world: World, r: Racer): { world: World; racer: Racer 
 }
 
 /** One ORB after `dt` seconds: straight on at twice the top speed, turned back at the road's edge; null once it is gone (a third bounce, or its life). */
-function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
+function flyOrb(map: Ground, o: Orb, dt: number): Orb | null {
   const speed = RULES.topSpeed * RULES.orbSpeed * dt;
   let dx = Math.cos(o.angle) * speed, dy = Math.sin(o.angle) * speed;
   let bounces = o.bounces;
-  const off = (x: number, y: number) => !isRoad(tileAt(map, Math.floor(x / TILE), Math.floor(y / TILE)));
+  const off = (x: number, y: number) => !roadAt(map, x, y);
   if (off(o.x + dx, o.y)) { dx = -dx; bounces++; }
   if (off(o.x, o.y + dy)) { dy = -dy; bounces++; }
   if (off(o.x + dx, o.y + dy)) { dx = -dx; dy = -dy; bounces++; }
@@ -89,7 +89,7 @@ function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
  * item its place draws, the first kart over a BLOB spins out and the BLOB is gone, and ORBs fly, bouncing
  * off the road's edge, until one hits a kart (which spins out). A kart in the air takes no box and is hit by nothing: items pass under it. `places[i]` is racer i's place, 1 to 6.
  */
-export function stepItems(map: readonly string[], world: World, racers: readonly Racer[], places: readonly number[], dt: number): { world: World; racers: Racer[]; events: ItemEvent[] } {
+export function stepItems(map: Ground, world: World, racers: readonly Racer[], places: readonly number[], dt: number): { world: World; racers: Racer[]; events: ItemEvent[] } {
   let rng = world.rng;
   const out = racers.map((r) => r);
   const events: ItemEvent[] = [];

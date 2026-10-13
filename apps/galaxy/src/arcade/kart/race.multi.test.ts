@@ -3,7 +3,7 @@ import type { Action } from '../keys';
 import type { GridPlayer, ItemMessage, StateMessage } from './net';
 import { away, dropOut, finishOf, hear, hudOf, lift, newRace, plant, pause, press, step, type Race } from './race';
 import { RULES } from './rules';
-import { parseTrack } from './track';
+import { parseTrack, TILE } from './track';
 
 // A MULTI race, played by the pure engine (PRD 1572, slice 4): the players on the first places in the
 // starting order, no CPU kart, remote karts read from their states and never driven, only the player's
@@ -327,7 +327,7 @@ describe('items between players (PRD 1572, slice 6)', () => {
   });
 
   it('flies a remote ORB along its way, and ends it with its life', () => {
-    let r = plant(racing(), 'b', sent({ item: 'orb', x: 100, y: 100, angle: 0 }));
+    let r = plant(racing(), 'b', sent({ item: 'orb', x: 40 * TILE, y: 62.5 * TILE, angle: 0 }));
     const x0 = r.items.orbs[0]?.x ?? 0;
     r = play(r, NONE, 0.2);
     expect(r.items.orbs[0]?.x).toBeGreaterThan(x0);
