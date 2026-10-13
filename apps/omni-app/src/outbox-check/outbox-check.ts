@@ -61,6 +61,7 @@ import {
   type GitHubClient,
 } from './github.ts';
 import { messageField } from './github-schema.ts';
+import { lawGateAt, withLawGate } from './law-locked.ts';
 import { productOutboxVerdict, type OutboxReading, type ProductOutboxReader } from './product-outbox.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
 
@@ -248,13 +249,16 @@ async function evaluateAt(
       changes = await changedFiles(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     }
 
-    return evaluate({
+    const verdict = evaluate({
       base,
       head,
       pr: { baseRef: pr.baseRef, headRef: pr.headRef, headSha, labels: pr.labels },
       changes,
       comments,
     });
+    // A change to a locked law (PRD 1726) is cleared by its CODEOWNERS' review alone, whatever `evaluate` said.
+    if (!config || changes === null || verdict.conclusion === 'skipped') return verdict;
+    return withLawGate(verdict, await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes }));
   } finally {
     rmSync(base, { recursive: true, force: true });
     rmSync(head, { recursive: true, force: true });

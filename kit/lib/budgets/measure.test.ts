@@ -2,6 +2,7 @@
 // section points at a guide), two `paths.context` files — each count the bytes `resolveForm` prints.
 import { describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.ts';
+import { briefingLaws } from '../knowledge/briefing-laws.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../playbook/forms.ts';
 import { readDecisions } from '../playbook/decisions.ts';
 import { resolveForm } from '../playbook/resolve.ts';
@@ -48,7 +49,8 @@ function fixture({ context = ['CLAUDE.md', 'AGENTS.md'], files = {} }: { context
 function printed(ctx: Context, form: string): number {
   const resolved = resolveForm(form, { ctx, template: formTemplate(form) });
   const records = form === DECISIONS_FORM ? readDecisions({ ctx }) : null;
-  return Buffer.byteLength(`${formShowText(resolved, records)}\n`);
+  const laws = form === BRIEFING ? briefingLaws(ctx).lines : null;
+  return Buffer.byteLength(`${formShowText(resolved, records, laws)}\n`);
 }
 
 const byTarget = (measures: readonly Measure[]) => new Map(measures.map((one) => [one.target, one]));

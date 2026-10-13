@@ -239,8 +239,74 @@ left to a person.
 
 When your repository keeps its laws in the knowledge base (`laws.source: knowledge` in
 `.omni-loop/config.yml`), each rule and invariant there says what must stay true, and its
-`Enforced by:` line names how. A **law** is a decision worth a test, and it carries that test.
-Everything in this section is off unless `laws.source` is `knowledge`.
+`Enforced by:` line names how. A rule is a decision worth a test, and it carries that test; the
+few rules that cost the most when broken are **locked** as laws (below). Everything in this section
+is off unless `laws.source` is `knowledge`.
+
+### Principles, rules and laws
+
+The knowledge base holds three tiers, one word each:
+
+| Tier | What it is | Who changes it | How many |
+|---|---|---|---|
+| **Principle** | the why: a person's decision about what the product should be | a person | any |
+| **Rule** | what may or may not happen, proven by a test | any person, by answering its `high` question on the pull request | any |
+| **Law** | a rule or an invariant a CODEOWNER **locked** | only with a CODEOWNER's approval of the pull request on GitHub | at most `laws.max` (20 by default) |
+
+A principle is never a law. A law keeps its id and its test, and gains two lines:
+
+```markdown file=.omni-loop/knowledge/domains/quote/rules.md
+Locked: @ana, 2026-10-14
+Governs: ^src/quotes/, ^src/invoices/total
+```
+
+`Governs:` lists the files the entry rules over, as regular expressions over paths, written the
+same way as a flow area's `paths`. Any rule may carry it; every law must.
+
+**The thesis** (`.omni-loop/knowledge/product/thesis.md`) is the page a newcomer reads first, in
+plain words: who the product is for, what it promises, its laws (one line each: what breaks if it
+is broken, and for whom) and what it refuses. `omni check knowledge` refuses a thesis whose laws
+section forgets a locked law, or names one nobody locked.
+
+**Agents read only what a change touches.** Instead of the whole knowledge base, a skill asks for
+the entries that govern the files it will change:
+
+```bash terminal
+omni kb laws --paths src/quotes/total.ts
+```
+
+It prints every locked law, one plain line each with who must approve a change to it, then the
+rules whose `Governs:` matches those files. `--slice <prd> <slice>` does the same for a slice of a
+plan, and `--area <domain>` lists one domain's rules. `/omni:brainstorm` names each locked law its
+design touches, and the person who must approve it, in the spec's **Risks**, so you know before
+anything is built; `/omni:plan` marks a slice that changes one `law: <id> · owner @<login>`;
+`/omni:do-work` and `/omni:bug-fix` read only these lines.
+
+### Lock a law
+
+No agent locks a law. `/omni:invade` and the loop only **propose** one, with a line a junior
+developer or a junior PM can read:
+
+```markdown file=.omni-loop/knowledge/domains/quote/rules.md
+Proposed law: If a quote's total leaves out the tax, customers are billed the wrong amount.
+```
+
+A person locks it, in a pull request of their own:
+
+1. Name the owners once: `laws.owners` in `.omni-loop/config.yml` (logins or teams), then
+   `omni kb owners` writes them into `.github/CODEOWNERS` for the laws' files, the thesis and the
+   registers. `omni check knowledge` refuses a lock while no owner is named.
+2. Replace the entry's `Proposed law:` line with `Locked: @<your login>, <today>`, make sure it has
+   its `Governs:` line and its test, and add its line to the thesis's laws section.
+3. A CODEOWNER of those files approves the pull request on GitHub.
+
+From then on, any pull request that adds or removes a `Locked:` line, edits a law, changes its test
+or deletes it keeps its outbox check red (`law-locked`), knowledge and enforce pull requests
+included, until a CODEOWNER of the files it changed approves it. An outbox answer, a label or a
+commit trailer does not clear it, and an approval re-runs the check without a new push. When the
+pull request merges, `/omni:pr` has written one `Law-Change-Approved-By: @<login>` line per
+approving CODEOWNER in its description, so the history says who agreed. A change to a rule that is
+not locked still needs only a `high` question, which any person may answer.
 
 `Enforced by:` reads one of three ways:
 
@@ -306,9 +372,10 @@ From then on, `omni check knowledge` refuses a rule or an invariant whose `Enfor
 `unenforced`: each one names a test, or `pending #<n>`. Until a repository runs its sweep,
 `laws.requireProof` stays `false` and nothing changes, so a kit update never turns your checks red.
 
-### A person answers every change to a law
+### A person answers every change to a rule
 
-Four changes count as a change to a law:
+Four changes count as a change to a rule, locked or not (a locked one also needs its CODEOWNER,
+[above](#lock-a-law)):
 
 - **`law-proof`**: the law's test changes;
 - **`law-text`**: a register of the knowledge base, or a decision record, changes;

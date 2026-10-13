@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { parseConfig } from './config.ts';
-import { invariantAdrs, invariantsFile, lawsFor } from './laws.ts';
+import { invariantAdrs, invariantsFile, lawsFor, lockedLaws } from './laws.ts';
 
 const ADR = '.omni-loop/knowledge/adr';
 
@@ -140,5 +140,36 @@ describe('lawsFor', () => {
     const { ctx } = makeRepo({ config: { laws: { source: 'knowledge' } }, files: { '.omni-loop/knowledge/product/principles.md': confirmed } });
     expect(lawsFor(ctx).resolve('P-PRODUCT-1')).toEqual({ ok: true });
     expect(lawsFor(ctx).floorsHigh('P-PRODUCT-1')).toBe(true);
+  });
+});
+
+describe('lockedLaws — a law is a locked rule or invariant (PRD 1726)', () => {
+  const RULES = '.omni-loop/knowledge/product/rules.md';
+  const PRINCIPLES = '.omni-loop/knowledge/product/principles.md';
+  const entry = (id: string, ...extra: string[]) =>
+    [`## ${id}`, '', 'x', '', 'Serves: P-PRODUCT-1', 'Source: PRD #1726', 'Enforced by: unenforced', 'Stated: 2026-10-12', ...extra, ''].join('\n');
+  const files = {
+    [PRINCIPLES]: '# Principles\n\n## P-PRODUCT-1\n\nx\n\nWhy: y\nDecided: z\nSource: PRD #3\nLocked: @o, 2026-10-14\n',
+    [RULES]: `# Rules\n\n${entry('BR-PRODUCT-1', 'Locked: @o, 2026-10-14')}\n${entry('BR-PRODUCT-2')}\n${entry('BR-PRODUCT-3', 'Proposed: invade 2026-10-12')}`,
+  };
+
+  it('under knowledge: only the locked rule, never the locked principle, the confirmed rule or the proposed one', () => {
+    const { ctx } = makeRepo({ config: { laws: { source: 'knowledge' } }, files });
+    expect(lockedLaws(ctx).map((law) => law.id)).toEqual(['BR-PRODUCT-1']);
+  });
+
+  it('a confirmed rule that is not locked still floors high: the rules keep their gate', () => {
+    const { ctx } = makeRepo({ config: { laws: { source: 'knowledge' } }, files });
+    const laws = lawsFor(ctx);
+    expect(laws.floorsHigh('BR-PRODUCT-1')).toBe(true);
+    expect(laws.floorsHigh('BR-PRODUCT-2')).toBe(true);
+    expect(laws.floorsHigh('BR-PRODUCT-3')).toBe(false);
+  });
+
+  it('under any other source: none, whatever the folder holds', () => {
+    for (const source of ['none', 'claudeMdInvariants']) {
+      const { ctx } = makeRepo({ config: { laws: { source } }, files });
+      expect(lockedLaws(ctx)).toEqual([]);
+    }
   });
 });
