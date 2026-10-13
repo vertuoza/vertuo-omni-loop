@@ -1,0 +1,70 @@
+/* The Runners page (PRD 1830 s3), on the ask pages' reading surface, as the `runners` screen draws it:
+   two tables, the runners and the jobs, each a grid of rows in a card, a job opening onto its log tail.
+   Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than the window: under 860 px a
+   row folds to its first cell and its last, the others below, and the column heads hide. */
+
+.runners { display: grid; gap: 22px; min-width: 0; }
+.runners h2 { margin: 0 0 8px; font-size: 17px; }
+.runners-section { min-width: 0; }
+.runners-muted { color: var(--ask-muted); font-size: 14px; margin: 0; }
+
+.runners-table { border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
+.runners-row { display: grid; gap: 14px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--ask-line); min-width: 0; }
+.runners-row > * { min-width: 0; overflow-wrap: anywhere; }
+.runners-table > .runners-row:first-child { border-top: 0; }
+.runners-head { font: 700 12px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 10px; }
+.runners-runners .runners-row { grid-template-columns: minmax(140px, 1.2fr) 150px 140px 70px minmax(0, 2fr) 70px; }
+.runners-jobs .runners-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px 140px 130px 120px; }
+.runners-name { font-weight: 700; }
+.runners-repos { font: 500 13px/1.6 var(--ask-mono); }
+.runners-jobs code { font: 500 13px/1.5 var(--ask-mono); }
+
+.runners-state { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.runners-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ask-muted); flex: none; }
+.runners-state.is-online .runners-dot { background: var(--ask-green); }
+.runners-state.is-busy .runners-dot { background: var(--ask-plasma); }
+.runners-state.is-offline { color: var(--ask-muted); }
+
+.runners-fleet { display: grid; gap: 4px; }
+.runners-fleet select {
+  font: 500 14px/1 var(--ask-body); color: var(--ask-ink); background: var(--ask-sunk);
+  border: 1px solid var(--ask-line-strong); border-radius: 6px; padding: 5px 8px; max-width: 100%;
+}
+
+.runners-status { font: 700 13px/1 var(--ask-body); padding: 4px 9px; border-radius: 999px; justify-self: start; border: 1px solid var(--ask-line-strong); white-space: nowrap; }
+.runners-status.is-queue { color: var(--ask-cyan); border-color: var(--ask-cyan); }
+.runners-status.is-run { color: var(--ask-plasma); border-color: var(--ask-plasma); }
+.runners-status.is-done { color: var(--ask-green); border-color: var(--ask-green); }
+.runners-status.is-fail { color: var(--ask-red); border-color: var(--ask-red); }
+.runners-status.is-off { color: var(--ask-muted); }
+
+.runners-action { display: grid; gap: 4px; justify-items: start; }
+.runners-ghost {
+  display: inline-flex; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--ask-line-strong);
+  font: 700 13px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; cursor: pointer;
+}
+.runners-ghost.is-primary { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.runners-ghost:disabled { color: var(--ask-muted); cursor: not-allowed; }
+.runners-problem { color: var(--ask-red); font-size: 13px; }
+
+.runners-job { border-top: 1px solid var(--ask-line); }
+.runners-job > summary { list-style: none; cursor: pointer; border-top: 0; }
+.runners-job > summary::-webkit-details-marker { display: none; }
+.runners-job[open] > summary { background: var(--ask-sunk); }
+.runners-log {
+  margin: 0; padding: 12px 16px; background: var(--ask-sunk); border-top: 1px solid var(--ask-line);
+  font: 12.5px/1.55 var(--ask-mono); color: var(--ask-muted); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+.runners-start { display: grid; gap: 8px; }
+.runners-start h2 { margin: 0; }
+.runners-start .roadmap-command { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.runners-start .roadmap-command code {
+  font-family: var(--ask-mono); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong);
+  border-radius: 4px; padding: 4px 8px; overflow-wrap: anywhere; min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .runners-runners .runners-row, .runners-jobs .runners-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
+  .runners-head { display: none; }
+}
