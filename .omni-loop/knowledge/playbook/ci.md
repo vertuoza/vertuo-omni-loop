@@ -92,7 +92,7 @@ sum. The ceilings live in `.omni-loop/budgets/context.json`, versioned and revie
   check says why and blocks nothing.
 - `omni budget measure context` prints today's sizes; `omni budget set context` writes a first
   ceiling for a new target, rounded up to the next KiB, and never raises one.
-- To trim: `form:releasing` (about 134 KB) entered at its expanded size. Its pointer
-  `[→ apps/galaxy/README.md#deploy-to-production]` runs past its section into the rest of the galaxy
-  README. Once that pointer bug is fixed through `/omni:bug-fix`, lower the ceiling to the new size
-  in the same pull request: a lowered ceiling is always green.
+- `form:releasing` entered at its expanded size (about 145 KB): its pointer
+  `[→ apps/galaxy/README.md#deploy-to-production]` printed the rest of the galaxy README. Bug 1778
+  made a section pointer print only its section, and lowered the ceiling to about 19 KB in the same
+  pull request: a lowered ceiling is always green.

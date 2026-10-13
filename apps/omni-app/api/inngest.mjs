@@ -7546,6 +7546,41 @@ function readTarget(path, index, { ctx }) {
   const pages2 = readdirSync11(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => `${dir}/${entry.name}`).sort();
   return { text: pages2.join("\n"), missing: null };
 }
+function headingAnchor(heading) {
+  return heading.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+}
+function headingsOf(lines) {
+  const headings = [];
+  let fenced = false;
+  for (const [index, line] of lines.entries()) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    const heading = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (heading) headings.push({ index, depth: heading[1]?.length ?? 0, anchor: headingAnchor(heading[2] ?? "") });
+  }
+  return headings;
+}
+function sectionOf(text14, anchor) {
+  const lines = text14.split("\n");
+  const headings = headingsOf(lines);
+  const start = headings.find((heading) => heading.anchor === anchor);
+  if (!start) return null;
+  const end = headings.find((heading) => heading.index > start.index && heading.depth <= start.depth);
+  return lines.slice(start.index, end?.index).join("\n").trim();
+}
+function resolvePointer(base, see, { ctx, heading, file, problems }) {
+  const { path, anchor } = see;
+  const target2 = readTarget(path, null, { ctx });
+  const pointer = anchor ? `${path}#${anchor}` : path;
+  const label2 = `[\u2192 ${pointer}]`;
+  if (target2.missing) {
+    problems.push(`${file}: "## ${heading}" See: ${path} does not exist`);
+    return { ...base, source: "pointer", label: label2, text: "", questions: [] };
+  }
+  if (!anchor) return { ...base, source: "pointer", label: label2, text: target2.text, questions: [] };
+  const section4 = sectionOf(target2.text, anchor);
+  if (section4 === null) problems.push(`${file}: "## ${heading}" See: ${pointer} names no heading of ${path}`);
+  return { ...base, source: "pointer", label: label2, text: section4 ?? "", questions: [] };
+}
 function repoLabel(slot) {
   const parts = ["repo"];
   if (slot.by === "human") parts.push("by human");
@@ -7559,11 +7594,7 @@ function resolveSlot(kitSlot, repoSlot, { ctx, formId, file, problems }) {
     return { ...base, source: "repo", label: repoLabel(repoSlot), text: body.text, questions: body.questions };
   }
   if (repoSlot !== null && body?.kind === "pointer") {
-    const { path, anchor } = body.see;
-    const target2 = readTarget(path, null, { ctx });
-    if (target2.missing) problems.push(`${file}: "## ${repoSlot.heading}" See: ${path} does not exist`);
-    const pointer = anchor ? `${path}#${anchor}` : path;
-    return { ...base, source: "pointer", label: `[\u2192 ${pointer}]`, text: target2.text, questions: [] };
+    return resolvePointer(base, body.see, { ctx, heading: repoSlot.heading, file, problems });
   }
   const kit = fillConfig(kitSlot.body.text, ctx.config);
   for (const { key, reason: reason2 } of kit.unresolved) {
@@ -11422,7 +11453,7 @@ function chosenOption(candidate) {
   const option = candidate.item?.sections?.options?.[0];
   return option ? `The option chosen: ${option.letter}. ${option.text}` : null;
 }
-function sectionOf(candidate, key) {
+function sectionOf2(candidate, key) {
   return (candidate.item?.sections?.[key] ?? "").trim() || "(not recorded)";
 }
 function proofOf({
@@ -11533,7 +11564,7 @@ function renderRecord({
     "",
     "## Context",
     "",
-    sectionOf(candidate, "whatIHadToDecide"),
+    sectionOf2(candidate, "whatIHadToDecide"),
     "",
     "## Decision",
     "",
@@ -11542,7 +11573,7 @@ function renderRecord({
     ...option ? [option, ""] : [],
     "## Consequences",
     "",
-    sectionOf(candidate, "whatItCostsToChangeLater"),
+    sectionOf2(candidate, "whatItCostsToChangeLater"),
     "",
     "## Source",
     "",
@@ -16552,11 +16583,11 @@ function render({
     ""
   ];
   const byRun = (run) => kinds.filter((kind) => kind.runs.includes(run));
-  const sectionOf2 = (kind) => kindSection(kind, runs, findings, prose, issues);
-  const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf2(kind);
+  const sectionOf3 = (kind) => kindSection(kind, runs, findings, prose, issues);
+  const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf3(kind);
   lines.push(...byRun("merge").flatMap(mergeSectionOf));
   lines.push(...rulesSection2(latest.rules));
-  lines.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf2));
+  lines.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf3));
   return {
     markdown: `${lines.join("\n").replace(/\n+$/, "")}
 `,

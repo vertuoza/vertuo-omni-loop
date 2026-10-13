@@ -10,9 +10,9 @@
   "form:design": 8192,
   "form:glossary": 1024,
   "form:pull-requests": 2048,
-  "form:releasing": 148480,
+  "form:releasing": 19456,
   "form:review": 1024,
-  "form:setup": 8192,
+  "form:setup": 2048,
   "form:testing": 5120,
   "form:verification": 4096,
   "session": 9216

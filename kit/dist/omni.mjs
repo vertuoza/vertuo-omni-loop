@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.374" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.375" };
   }
 });
 
@@ -29116,6 +29116,41 @@ function readTarget(path, index, { ctx }) {
   const pages = readdirSync3(absolute, { withFileTypes: true }).filter((entry3) => entry3.isFile() && entry3.name.endsWith(".md")).map((entry3) => `${dir}/${entry3.name}`).sort();
   return { text: pages.join("\n"), missing: null };
 }
+function headingAnchor(heading2) {
+  return heading2.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+}
+function headingsOf(lines2) {
+  const headings = [];
+  let fenced = false;
+  for (const [index, line] of lines2.entries()) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    const heading2 = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (heading2) headings.push({ index, depth: heading2[1]?.length ?? 0, anchor: headingAnchor(heading2[2] ?? "") });
+  }
+  return headings;
+}
+function sectionOf(text14, anchor2) {
+  const lines2 = text14.split("\n");
+  const headings = headingsOf(lines2);
+  const start2 = headings.find((heading2) => heading2.anchor === anchor2);
+  if (!start2) return null;
+  const end2 = headings.find((heading2) => heading2.index > start2.index && heading2.depth <= start2.depth);
+  return lines2.slice(start2.index, end2?.index).join("\n").trim();
+}
+function resolvePointer(base, see, { ctx, heading: heading2, file: file2, problems }) {
+  const { path, anchor: anchor2 } = see;
+  const target3 = readTarget(path, null, { ctx });
+  const pointer = anchor2 ? `${path}#${anchor2}` : path;
+  const label2 = `[\u2192 ${pointer}]`;
+  if (target3.missing) {
+    problems.push(`${file2}: "## ${heading2}" See: ${path} does not exist`);
+    return { ...base, source: "pointer", label: label2, text: "", questions: [] };
+  }
+  if (!anchor2) return { ...base, source: "pointer", label: label2, text: target3.text, questions: [] };
+  const section6 = sectionOf(target3.text, anchor2);
+  if (section6 === null) problems.push(`${file2}: "## ${heading2}" See: ${pointer} names no heading of ${path}`);
+  return { ...base, source: "pointer", label: label2, text: section6 ?? "", questions: [] };
+}
 function repoLabel(slot) {
   const parts = ["repo"];
   if (slot.by === "human") parts.push("by human");
@@ -29129,11 +29164,7 @@ function resolveSlot(kitSlot, repoSlot, { ctx, formId, file: file2, problems }) 
     return { ...base, source: "repo", label: repoLabel(repoSlot), text: body.text, questions: body.questions };
   }
   if (repoSlot !== null && body?.kind === "pointer") {
-    const { path, anchor: anchor2 } = body.see;
-    const target3 = readTarget(path, null, { ctx });
-    if (target3.missing) problems.push(`${file2}: "## ${repoSlot.heading}" See: ${path} does not exist`);
-    const pointer = anchor2 ? `${path}#${anchor2}` : path;
-    return { ...base, source: "pointer", label: `[\u2192 ${pointer}]`, text: target3.text, questions: [] };
+    return resolvePointer(base, body.see, { ctx, heading: repoSlot.heading, file: file2, problems });
   }
   const kit = fillConfig(kitSlot.body.text, ctx.config);
   for (const { key: key2, reason: reason2 } of kit.unresolved) {
@@ -44759,7 +44790,7 @@ function chosenOption(candidate) {
   const option = candidate.item?.sections?.options?.[0];
   return option ? `The option chosen: ${option.letter}. ${option.text}` : null;
 }
-function sectionOf(candidate, key2) {
+function sectionOf2(candidate, key2) {
   return (candidate.item?.sections?.[key2] ?? "").trim() || "(not recorded)";
 }
 function proofOf({
@@ -44870,7 +44901,7 @@ function renderRecord({
     "",
     "## Context",
     "",
-    sectionOf(candidate, "whatIHadToDecide"),
+    sectionOf2(candidate, "whatIHadToDecide"),
     "",
     "## Decision",
     "",
@@ -44879,7 +44910,7 @@ function renderRecord({
     ...option ? [option, ""] : [],
     "## Consequences",
     "",
-    sectionOf(candidate, "whatItCostsToChangeLater"),
+    sectionOf2(candidate, "whatItCostsToChangeLater"),
     "",
     "## Source",
     "",

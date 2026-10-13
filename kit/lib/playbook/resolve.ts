@@ -117,6 +117,61 @@ function readTarget(path: string, index: string | null, { ctx }: { ctx: Pick<Con
   return { text: pages.join('\n'), missing: null };
 }
 
+/** A heading's anchor as GitHub writes it: lower case, punctuation dropped, spaces to hyphens. */
+function headingAnchor(heading: string): string {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .replace(/\s/g, '-');
+}
+
+/** Each heading of `lines` with its line index, its depth and its anchor; a fenced code block holds none. */
+function headingsOf(lines: string[]): { index: number; depth: number; anchor: string }[] {
+  const headings: { index: number; depth: number; anchor: string }[] = [];
+  let fenced = false;
+  for (const [index, line] of lines.entries()) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    const heading = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (heading) headings.push({ index, depth: heading[1]?.length ?? 0, anchor: headingAnchor(heading[2] ?? '') });
+  }
+  return headings;
+}
+
+/**
+ * The section of `text` whose heading's anchor is `anchor`: that heading and every line under it,
+ * its own subsections included, up to the next heading of its level or higher. `null` when no
+ * heading has that anchor.
+ */
+function sectionOf(text: string, anchor: string): string | null {
+  const lines = text.split('\n');
+  const headings = headingsOf(lines);
+  const start = headings.find((heading) => heading.anchor === anchor);
+  if (!start) return null;
+  const end = headings.find((heading) => heading.index > start.index && heading.depth <= start.depth);
+  return lines.slice(start.index, end?.index).join('\n').trim();
+}
+
+/** A `See: <path>[#anchor]` slot: the page it names, or only the section its anchor names. */
+function resolvePointer(
+  base: { slot: string; heading: string },
+  see: { path: string; anchor: string | null },
+  { ctx, heading, file, problems }: { ctx: Ctx; heading: string; file: string; problems: string[] },
+): Section {
+  const { path, anchor } = see;
+  const target = readTarget(path, null, { ctx });
+  const pointer = anchor ? `${path}#${anchor}` : path;
+  const label = `[→ ${pointer}]`;
+  if (target.missing) {
+    problems.push(`${file}: "## ${heading}" See: ${path} does not exist`);
+    return { ...base, source: 'pointer', label, text: '', questions: [] };
+  }
+  if (!anchor) return { ...base, source: 'pointer', label, text: target.text, questions: [] };
+  const section = sectionOf(target.text, anchor);
+  if (section === null) problems.push(`${file}: "## ${heading}" See: ${pointer} names no heading of ${path}`);
+  return { ...base, source: 'pointer', label, text: section ?? '', questions: [] };
+}
+
 /** `[repo]`, `[repo · by human]`, `[repo · verified <date>]`, or both. */
 function repoLabel(slot: Slot): string {
   const parts = ['repo'];
@@ -138,11 +193,7 @@ function resolveSlot(
     return { ...base, source: 'repo', label: repoLabel(repoSlot), text: body.text, questions: body.questions };
   }
   if (repoSlot !== null && body?.kind === 'pointer') {
-    const { path, anchor } = body.see;
-    const target = readTarget(path, null, { ctx });
-    if (target.missing) problems.push(`${file}: "## ${repoSlot.heading}" See: ${path} does not exist`);
-    const pointer = anchor ? `${path}#${anchor}` : path;
-    return { ...base, source: 'pointer', label: `[→ ${pointer}]`, text: target.text, questions: [] };
+    return resolvePointer(base, body.see, { ctx, heading: repoSlot.heading, file, problems });
   }
 
   const kit = fillConfig(kitSlot.body.text, ctx.config);
