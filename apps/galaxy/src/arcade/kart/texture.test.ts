@@ -3,7 +3,7 @@ import { rampFrom } from '@omni/design';
 import { TOKENS } from '../theme';
 import { sure } from '../test/sure';
 import { BEYOND, DECK_DEPTH, DECK_GLOW, deckOf, pack, paintTrack, SURFACE, VOID } from './texture';
-import { COMET_RING, cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
+import { cornersOf, parseTrack, pointAtPx, TILE } from './track';
 
 describe('pack', () => {
   it('packs #rrggbb as an opaque little-endian pixel: 0xAABBGGRR', () => {
@@ -23,87 +23,142 @@ describe('SURFACE', () => {
 describe('paintTrack', () => {
   const track = parseTrack();
   const texture = paintTrack(track);
-  const pixel = (x: number, y: number) => sure(texture.px[y * texture.w + x], `pixel ${x},${y}`);
+  const pixel = (x: number, y: number) => sure(texture.px[Math.floor(y) * texture.w + Math.floor(x)], `pixel ${x},${y}`);
   const tile = (tx: number, ty: number) => {
     const out = new Set<number>();
     for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) out.add(pixel(tx * TILE + x, ty * TILE + y));
     return out;
   };
   const cyan = pack(SURFACE.neonCyan), magenta = pack(SURFACE.neonMagenta);
-  const tilesOf = (c: string) => track.map.flatMap((row, y) => Array.from(row).flatMap((t, x) => (t === c ? [[x, y] as const] : [])));
+  const roadAt = (x: number, y: number) => track.road[Math.floor(y) * track.size.w + Math.floor(x)] === 1;
+  /** A point `across` px to the left of the way the centre line runs at `along` px, and the unit step there. */
+  const beside = (along: number, across: number) => {
+    const p = pointAtPx(track, along);
+    return { x: p.x + p.ty * across, y: p.y - p.tx * across, tx: p.tx, ty: p.ty };
+  };
+  const half = (track.centre.width / 2) * TILE;
 
   it('is one 16×16 tile per map tile, every pixel opaque or see-through', () => {
-    expect(texture.w).toBe(64 * TILE);
-    expect(texture.h).toBe(64 * TILE);
-    expect(texture.px).toHaveLength(1024 * 1024);
+    expect(texture.w).toBe(72 * TILE);
+    expect(texture.h).toBe(72 * TILE);
+    expect(texture.px).toHaveLength(72 * TILE * 72 * TILE);
     for (let i = 0; i < texture.px.length; i += 997) expect([0, 0xff]).toContain(sure(texture.px[i], 'a pixel') >>> 24);
-    for (const [tx, ty] of tilesOf('#').filter((_, i) => i % 7 === 0)) for (const c of tile(tx, ty)) expect(c >>> 24, `road ${tx},${ty}`).toBe(0xff);
+    for (let i = 0; i < texture.px.length; i += 61) if (track.road[i] === 1) expect(sure(texture.px[i], 'a road pixel') >>> 24).toBe(0xff);
   });
 
-  it('leaves a void tile see-through, the floor having none there: nothing on it but its neon edge', () => {
+  it('leaves the void see-through, the floor having none there: nothing on it but its neon edge', () => {
     expect(VOID >>> 24).toBe(0);
-    const edge = new Set([cyan, magenta]);
-    for (const [tx, ty] of tilesOf('~').filter((_, i) => i % 11 === 0)) {
-      for (const c of tile(tx, ty)) expect(c === VOID || edge.has(c), `void ${tx},${ty}`).toBe(true);
+    for (let i = 0; i < texture.px.length; i += 13) {
+      if (track.road[i] === 1) continue;
+      const c = sure(texture.px[i], 'a pixel');
+      expect(c === VOID || c === cyan || c === magenta, `void pixel ${i}`).toBe(true);
     }
     // Deep in the void, a tile is see-through and nothing else.
     expect(tile(1, 1)).toEqual(new Set([VOID]));
   });
 
   it('paints the road in the road ramp, with a darker seam across the way forward every four tiles', () => {
-    const road = new Set(rampFrom(SURFACE.road).map(pack));
+    const ramp = rampFrom(SURFACE.road).map(pack);
     const seam = pack(sure(rampFrom(SURFACE.road)[3], 'the dark tone'));
-    for (const c of tile(35, 56)) expect(road.has(c)).toBe(true);
-    // The start straight runs east: a seam is the first pixel column of a tile whose column is a multiple of 4.
-    for (let y = 0; y < TILE; y++) {
-      expect(pixel(36 * TILE, 56 * TILE + y)).toBe(seam);   // tile 36: 36 % 4 === 0
-      expect(pixel(35 * TILE, 56 * TILE + y)).not.toBe(seam);
-      expect(pixel(37 * TILE, 56 * TILE + y)).not.toBe(seam);
+    const road = new Set(ramp.slice(0, 3));
+    // The start straight runs east at y 62.5: its seams are single columns, 4 tiles apart.
+    const y = 62 * TILE + 3;
+    const seams: number[] = [];
+    for (let x = 38 * TILE; x < 54 * TILE; x++) {
+      const c = pixel(x, y);
+      if (c === seam) seams.push(x);
+      else expect(road.has(c), `pixel ${x},${y}`).toBe(true);
     }
-    // A leg running north: the seam is a pixel row, on tiles whose row is a multiple of 4.
-    for (let x = 0; x < TILE; x++) {
-      expect(pixel(54 * TILE + x, 48 * TILE)).toBe(seam);
-      expect(pixel(54 * TILE + x, 47 * TILE)).not.toBe(seam);
+    expect(seams.length).toBeGreaterThanOrEqual(3);
+    seams.slice(1).forEach((x, i) => { expect(x - sure(seams[i], 'a seam')).toBe(4 * TILE); });
+    // A leg running south draws its seam across it, a pixel row.
+    const rows: number[] = [];
+    for (let py = 50 * TILE; py < 59 * TILE; py++) if (pixel(21.5 * TILE + 30, py) === seam) rows.push(py);
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    rows.slice(1).forEach((r, i) => { expect(r - sure(rows[i], 'a seam')).toBe(4 * TILE); });
+  });
+
+  it('paints neon on the void\'s side of the road\'s edge: the whole edge, two pixels deep, cyan outside the circuit and magenta inside', () => {
+    // The start straight's road is rows 960 to 1039; the void south of it is outside the circuit, the void north of it in its heart.
+    for (let x = 38 * TILE; x < 52 * TILE; x += 5) {
+      expect([pixel(x, 1039)].every((c) => c !== cyan && c !== magenta), 'the last road row').toBe(true);
+      for (const y of [1040, 1041]) expect(pixel(x, y), `south ${x},${y}`).toBe(cyan);
+      expect(pixel(x, 1042)).toBe(VOID);
+      for (const y of [958, 959]) expect(pixel(x, y), `north ${x},${y}`).toBe(magenta);
+      expect(pixel(x, 957)).toBe(VOID);
     }
   });
 
-  it('paints neon on a void tile only where a side meets the road: cyan outside the circuit, magenta inside', () => {
-    const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-    const space = new Set([VOID]);
-    const seen = { cyan: 0, magenta: 0 };
-    for (const [tx, ty] of tilesOf('~')) {
-      const facing = sides.some(([dx, dy]) => isRoad(tileAt(track.map, tx + dx, ty + dy)));
-      const neon = [...tile(tx, ty)].filter((c) => !space.has(c));
-      if (!facing) { expect(neon, `void ${tx},${ty}`).toEqual([]); continue; }
-      expect(neon).toHaveLength(1);
-      expect([cyan, magenta]).toContain(neon[0]);
-      if (neon[0] === cyan) seen.cyan++; else seen.magenta++;
+  it('paints neon only where a side of the road is, and all along it', () => {
+    const w = track.size.w;
+    const near = (i: number, reach: number) => {
+      const x = i % w, y = (i - x) / w;
+      for (let dy = -reach; dy <= reach; dy++) for (let dx = -reach; dx <= reach; dx++) if (track.road[(y + dy) * w + x + dx] === 1) return true;
+      return false;
+    };
+    for (let i = 3 * w; i < texture.px.length - 3 * w; i += 7) {
+      const x = i % w;
+      if (track.road[i] === 1 || x < 3 || x > w - 4) continue;
+      const c = sure(texture.px[i], 'a pixel');
+      if (c !== VOID) expect(near(i, 2), `neon pixel ${i}`).toBe(true);
+      else expect(near(i, 1), `void pixel ${i}`).toBe(false);
     }
-    expect(seen.cyan).toBeGreaterThan(0);
-    expect(seen.magenta).toBeGreaterThan(0);
-    // The void beside the start straight, outside the circuit, is cyan; the infield's, in the loop's heart, magenta.
-    expect(pixel(15 * TILE + 15, 56 * TILE + 5)).toBe(cyan);
-    expect(pixel(21 * TILE, 40 * TILE + 5)).toBe(magenta);
   });
 
-  it('puts the neon on the void\'s side of the road\'s edge: the whole edge, two pixels deep', () => {
-    // Tile 15,56 is void outside the circuit with road to its east.
-    for (let y = 0; y < TILE; y++) for (const x of [14, 15]) expect(pixel(15 * TILE + x, 56 * TILE + y)).toBe(cyan);
-    expect(pixel(15 * TILE + 13, 56 * TILE + 8)).not.toBe(cyan);
-    // And the road's own tile stays road: no neon on it.
-    expect(pixel(16 * TILE + 1, 57 * TILE + 8)).not.toBe(cyan);
+  describe('the round edge', () => {
+    const arcs = cornersOf(track);
+    /** The point of an arc's outer edge at `k` of the way round it, `out` px beyond (negative: inside) the road's edge. */
+    const outer = (c: (typeof arcs)[number], k: number, out: number) => beside((c.start + c.length * k) * TILE, (c.turn === 'left' ? -1 : 1) * (half + out));
+
+    it('has neon on its void side, two pixels deep, and none past it', () => {
+      let tested = 0;
+      for (const c of arcs) {
+        for (const k of [0.25, 0.5, 0.75]) {
+          const [on, deep] = [outer(c, k, 1), outer(c, k, 5)];
+          if (roadAt(on.x, on.y)) continue; // a shortcut's road leaves the circuit here
+          tested++;
+          expect([cyan, magenta], `arc ${c.index}, ${k}`).toContain(pixel(on.x, on.y));
+          expect(roadAt(deep.x, deep.y) || pixel(deep.x, deep.y) === VOID, `arc ${c.index}, ${k}`).toBe(true);
+        }
+      }
+      expect(tested).toBeGreaterThanOrEqual(arcs.length * 3 - 6);
+    });
+
+    it('has kerbs on the road along it, alternating cyan and magenta every four pixels, and none on the straights', () => {
+      for (const c of arcs) {
+        const colours: number[] = [];
+        for (let s = 1; s < c.length * TILE - 1; s++) {
+          const p = outer(c, s / (c.length * TILE), -4);
+          colours.push(pixel(p.x, p.y));
+        }
+        const neon = colours.filter((x) => x === cyan || x === magenta);
+        expect(new Set(neon), `arc ${c.index}`).toEqual(new Set([cyan, magenta]));
+        expect(neon.length / colours.length, `arc ${c.index}`).toBeGreaterThan(0.85); // a chevron or a piece's road may cross it
+        const inner = outer(c, 0.5, -TILE * 1.5);
+        expect([cyan, magenta], `arc ${c.index}`).not.toContain(pixel(inner.x, inner.y));
+      }
+      const straight = beside(track.startAlong + 8 * TILE, half - 4);
+      expect([cyan, magenta]).not.toContain(pixel(straight.x, straight.y));
+    });
+
+    it('follows the arc: the colour changes every four pixels of the way round', () => {
+      const c = sure(arcs[0], 'an arc');
+      let changes = 0, last = 0;
+      for (let s = 0; s < c.length * TILE; s++) {
+        const p = outer(c, s / (c.length * TILE), -4);
+        const colour = pixel(p.x, p.y);
+        if (s > 0 && colour !== last) changes++;
+        last = colour;
+      }
+      expect(changes).toBeGreaterThanOrEqual(Math.floor((c.length * TILE) / 4) - 4);
+      expect(changes).toBeLessThanOrEqual(Math.ceil((c.length * TILE) / 4) + 4);
+    });
   });
 
-  it('alternates the two neon colours along a kerb', () => {
-    const [tx, ty] = sure(tilesOf('r')[0], 'a kerb');
-    expect(tile(tx, ty)).toEqual(new Set([cyan, magenta]));
-    expect(pixel(tx * TILE, ty * TILE)).not.toBe(pixel(tx * TILE + 4, ty * TILE));
-  });
-
-  it('tells the surfaces apart: road, void, kerb and the start line differ', () => {
-    const kinds = [tile(35, 56), tile(1, 1), tile(6, 40), tile(30, 56)];
+  it('tells the surfaces apart: road, void and the start line differ', () => {
+    const kinds = [tile(40, 62), tile(1, 1), tile(34, 61)];
     for (const [i, a] of kinds.entries()) for (const b of kinds.slice(i + 1)) expect([...a].some((c) => !b.has(c))).toBe(true);
-    expect(tile(30, 56).size).toBeLessThanOrEqual(2); // the start line's chequer: light and dark
+    expect(tile(34, 61).size).toBeLessThanOrEqual(2); // the start line's chequer: light and dark
   });
 
   it('paints the same texture every time, and reads the void past the map: see-through too', () => {
@@ -112,38 +167,39 @@ describe('paintTrack', () => {
   });
 
   describe('the chevrons', () => {
-    // COMET RING's pads, ramps, tunnel and walkway paint their own tiles; the chevrons are held on the plain road of the same circuit.
-    const plainRows = COMET_RING.rows.map((row, y) => row.replace(/[+^Tw]/g, '#').replace(/~/g, (_, x: number) => (y >= 15 && y <= 17 && x >= 54 && x <= 58 ? '#' : '~')));
-    const plain = parseTrack({ rows: plainRows, waypoints: COMET_RING.waypoints });
-    const plainTexture = paintTrack(plain);
     const chevron = pack(SURFACE.chevron);
-    const chevronsOf = (tx: number, ty: number) => {
-      const out: [number, number][] = [];
-      for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) if (sure(plainTexture.px[(ty * TILE + y) * plainTexture.w + tx * TILE + x], 'a pixel') === chevron) out.push([x, y]);
+    const corners = cornersOf(track);
+    const pointing = (c: (typeof corners)[number]): [number, number] => {
+      const [ix, iy] = c.into;
+      return c.turn === 'right' ? [-iy, ix] : [iy, -ix];
+    };
+    /** The chevron-coloured pixels within half a tile of a point, as (along the arrow, across it) from the point. */
+    const around = (at: { x: number; y: number }, to: [number, number]) => {
+      const out: { u: number; v: number }[] = [];
+      for (let y = Math.floor(at.y - TILE / 2); y < at.y + TILE / 2; y++) {
+        for (let x = Math.floor(at.x - TILE / 2); x < at.x + TILE / 2; x++) {
+          if (pixel(x, y) !== chevron) continue;
+          const cx = x + 0.5 - at.x, cy = y + 0.5 - at.y;
+          out.push({ u: cx * to[0] + cy * to[1], v: Math.abs(cx * -to[1] + cy * to[0]) });
+        }
+      }
       return out;
     };
-    const corners = cornersOf(plain);
 
-    it('stand three before each corner, on road tiles of the leg into it, the last two tiles before it', () => {
+    it('stand three before each corner, on the straight into its arc, the last one a tile and a half before it', () => {
       for (const c of corners) {
-        const [ix, iy] = c.into;
-        for (const k of [2, 3, 4]) {
-          const [tx, ty] = [c.x - ix * k, c.y - iy * k];
-          expect(isRoad(tileAt(plain.map, tx, ty)), `corner ${c.index}, ${k} tiles before`).toBe(true);
-          expect(chevronsOf(tx, ty).length, `corner ${c.index}, ${k} tiles before`).toBeGreaterThan(0);
+        for (const k of [0, 1, 2]) {
+          const at = pointAtPx(track, (c.start - 1.5 - k) * TILE);
+          expect(around(at, pointing(c)).length, `corner ${c.index}, chevron ${k}`).toBeGreaterThan(0);
         }
-        for (const k of [0, 1, 5]) expect(chevronsOf(c.x - ix * k, c.y - iy * k), `corner ${c.index}, ${k} tiles before`).toEqual([]);
+        const inArc = pointAtPx(track, (c.start + c.length / 2) * TILE);
+        expect(around(inArc, pointing(c)), `corner ${c.index}, in the arc`).toEqual([]);
       }
     });
 
     it('point the way the corner turns: the tip on the middle line, the arms trailing behind it', () => {
       for (const c of corners) {
-        const [ix, iy] = c.into;
-        const to = c.turn === 'right' ? [-iy, ix] : [iy, -ix];
-        const px = chevronsOf(c.x - ix * 2, c.y - iy * 2).map(([x, y]) => ({
-          u: (x - 7.5) * sure(to[0], 'to x') + (y - 7.5) * sure(to[1], 'to y'),
-          v: Math.abs((x - 7.5) * -sure(to[1], 'to y') + (y - 7.5) * sure(to[0], 'to x')),
-        }));
+        const px = around(pointAtPx(track, (c.start - 2.5) * TILE), pointing(c));
         const tip = px.reduce((a, b) => (b.u > a.u ? b : a));
         const tail = px.reduce((a, b) => (b.u < a.u ? b : a));
         expect(tip.v, `corner ${c.index}`).toBeLessThanOrEqual(1);
@@ -151,11 +207,15 @@ describe('paintTrack', () => {
       }
     });
 
-    it('are the only chevron-coloured pixels on the floor', () => {
-      let n = 0;
-      for (let i = 0; i < plainTexture.px.length; i++) if (plainTexture.px[i] === chevron) n++;
-      const perTile = chevronsOf(sure(corners[0], 'a corner').x - sure(corners[0], 'a corner').into[0] * 2, sure(corners[0], 'a corner').y - sure(corners[0], 'a corner').into[1] * 2).length;
-      expect(n).toBe(perTile * corners.length * 3);
+    it('are the only chevron-coloured pixels on the floor, but the ramps\' arrows', () => {
+      const ramps = track.map.flatMap((row, y) => Array.from(row).flatMap((t, x) => (t === '^' ? [{ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE }] : [])));
+      const stamps = corners.flatMap((c) => [0, 1, 2].map((k) => pointAtPx(track, (c.start - 1.5 - k) * TILE)));
+      for (let i = 0; i < texture.px.length; i++) {
+        if (texture.px[i] !== chevron) continue;
+        const x = (i % texture.w) + 0.5, y = Math.floor(i / texture.w) + 0.5;
+        const ok = stamps.some((s) => Math.abs(s.x - x) <= TILE / 2 && Math.abs(s.y - y) <= TILE / 2) || ramps.some((r) => Math.hypot(r.x - x, r.y - y) <= 3 * TILE);
+        expect(ok, `chevron pixel ${x},${y}`).toBe(true);
+      }
     });
   });
 });
@@ -189,20 +249,9 @@ describe('the deck (PRD 1698)', () => {
 });
 
 describe('the station\'s tiles (PRD 1775)', () => {
-  // A small fixture: a road running east along row 5 (waypoints at its ends), with a ramp, a pad, a tunnel and a walkway.
-  const rows = [
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '########+###^######TTTTT#########wwww~~~~~~~',
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-  ];
-  const map = rows;
-  const track = { cols: 44, rows: 7, map, waypoints: [{ x: 8, y: 5.5 * TILE }, { x: 32 * TILE, y: 5.5 * TILE }] };
+  const track = parseTrack();
   const texture = paintTrack(track);
-  const pixel = (x: number, y: number) => sure(texture.px[y * texture.w + x], `pixel ${x},${y}`);
+  const pixel = (x: number, y: number) => sure(texture.px[Math.floor(y) * texture.w + Math.floor(x)], `pixel ${x},${y}`);
   const tile = (tx: number, ty: number) => {
     const out = new Set<number>();
     for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) out.add(pixel(tx * TILE + x, ty * TILE + y));
@@ -210,66 +259,77 @@ describe('the station\'s tiles (PRD 1775)', () => {
   };
   const colours = (...hex: string[]) => new Set(hex.map(pack));
   const inside = (got: Set<number>, allowed: Set<number>) => [...got].every((c) => allowed.has(c));
+  const onLine = (d: number) => pointAtPx(track, (sure(track.span, 'the span').start + d) * TILE);
+  const tileOf = (d: number): [number, number] => {
+    const p = onLine(d);
+    return [Math.floor(p.x / TILE), Math.floor(p.y / TILE)];
+  };
+  /** The pixels of a tile painted `colour`, as (x, y) from the tile's corner. */
+  const where = (tx: number, ty: number, colour: number) => {
+    const out: [number, number][] = [];
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) if (pixel(tx * TILE + x, ty * TILE + y) === colour) out.push([x, y]);
+    return out;
+  };
 
-  it('paints a pad cyan, with chevrons pointing the way of the race (east)', () => {
-    const pad = tile(8, 5);
+  it('paints a pad cyan, with chevrons pointing the way of the race (north on the gap jump\'s run-up, east on the start straight)', () => {
+    const pad = tile(64, 26);
     expect(inside(pad, colours(SURFACE.pad, SURFACE.padChevron))).toBe(true);
     expect(pad.has(pack(SURFACE.padChevron))).toBe(true);
     expect(pad.has(pack(SURFACE.pad))).toBe(true);
-    // The tip is on the east of the tile: more chevron pixels east of the middle's tip than at the tail.
-    const col = (x: number) => Array.from({ length: TILE }, (_, y) => pixel(8 * TILE + x, 5 * TILE + y)).filter((c) => c === pack(SURFACE.padChevron)).length;
-    expect(col(11)).toBeGreaterThan(0);
-    expect(col(2)).toBe(0);
+    const north = where(64, 26, pack(SURFACE.padChevron));
+    const tipUp = north.reduce((a, b) => (b[1] < a[1] ? b : a)), tail = north.reduce((a, b) => (b[1] > a[1] ? b : a));
+    expect(Math.abs(tipUp[0] - 7.5)).toBeLessThanOrEqual(1);
+    expect(Math.abs(tail[0] - 7.5)).toBeGreaterThanOrEqual(5);
+    const east = where(25, 63, pack(SURFACE.padChevron));
+    const tipRight = east.reduce((a, b) => (b[0] > a[0] ? b : a)), back = east.reduce((a, b) => (b[0] < a[0] ? b : a));
+    expect(Math.abs(tipRight[1] - 7.5)).toBeLessThanOrEqual(1);
+    expect(Math.abs(back[1] - 7.5)).toBeGreaterThanOrEqual(5);
   });
 
   it('paints a ramp in yellow and black stripes', () => {
-    expect(tile(12, 5)).toEqual(colours(SURFACE.rampYellow, SURFACE.rampBlack));
+    expect(tile(64, 22)).toEqual(colours(SURFACE.rampYellow, SURFACE.rampBlack));
+    expect(tile(8, 28)).toEqual(colours(SURFACE.rampYellow, SURFACE.rampBlack));
   });
 
-  it('paints a yellow arrow on each of the two road tiles before a ramp, and on no other', () => {
+  it('paints a yellow arrow on each of the two road tiles before a ramp, pointing the way of the race, and on no other', () => {
     const yellow = pack(SURFACE.chevron);
-    expect(tile(11, 5).has(yellow)).toBe(true);
-    expect(tile(10, 5).has(yellow)).toBe(true);
-    expect(tile(9, 5).has(yellow)).toBe(false);
-    expect(tile(13, 5).has(yellow)).toBe(false); // after the ramp
-    // The tip points east: no yellow in the tile's first columns' middle, some in the last ones.
-    const mid = (x: number) => pixel(11 * TILE + x, 5 * TILE + 7) === yellow || pixel(11 * TILE + x, 5 * TILE + 8) === yellow;
-    expect(mid(11)).toBe(true);
-    expect(mid(2)).toBe(false);
+    expect(where(64, 23, yellow).length).toBeGreaterThan(0);
+    expect(where(64, 24, yellow).length).toBeGreaterThan(0);
+    expect(where(64, 25, yellow)).toEqual([]);
+    const tip = where(64, 23, yellow).reduce((a, b) => (b[1] < a[1] ? b : a));
+    expect(Math.abs(tip[0] - 7.5)).toBeLessThanOrEqual(1);
   });
 
   it('paints roofed road and the road within three tiles of it as station plating, a seam and a rivet', () => {
     const plating = colours(SURFACE.plate, SURFACE.plateSeam, SURFACE.plateRivet);
-    expect(inside(tile(21, 5), plating)).toBe(true);   // roofed
-    expect(inside(tile(18, 5), plating)).toBe(true);   // 1 before the portal
-    expect(inside(tile(16, 5), plating)).toBe(true);   // 3 before
-    expect(inside(tile(24, 5), plating)).toBe(true);   // after the roof
-    expect(inside(tile(26, 5), plating)).toBe(true);
-    expect(tile(21, 5).has(pack(SURFACE.plateRivet))).toBe(true);
-    expect(tile(21, 5).has(pack(SURFACE.plateSeam))).toBe(true);
-    expect(inside(tile(15, 5), plating)).toBe(false);  // 4 before: plain road
-    expect(inside(tile(27, 5), plating)).toBe(false);
+    // The tunnel's straight, 13 tiles in from the arc of waypoint 5: roofed; and 1 and 2 tiles past its end.
+    const [rx, ry] = tileOf(10.4);
+    expect(inside(tile(rx, ry), plating)).toBe(true);
+    expect(tile(rx, ry).has(pack(SURFACE.plateRivet))).toBe(true);
+    expect(tile(rx, ry).has(pack(SURFACE.plateSeam))).toBe(true);
+    for (const d of [13.5, 14.5]) expect(inside(tile(...tileOf(d)), plating), `${d} in`).toBe(true);
+    expect(inside(tile(...tileOf(18.5)), plating)).toBe(false); // plain road again
   });
 
-  it('paints a walkway as a dark grating, magenta where it meets the void', () => {
-    const magenta = pack(SURFACE.neonMagenta);
-    // Tile 34 has void above and below: magenta on its top and bottom edges, grating between; tile 33 (road to its west) none on the west side.
-    expect(inside(tile(34, 5), colours(SURFACE.grating, SURFACE.gratingBar, SURFACE.neonMagenta))).toBe(true);
-    for (let x = 0; x < TILE; x++) {
-      expect(pixel(34 * TILE + x, 5 * TILE)).toBe(magenta);
-      expect(pixel(34 * TILE + x, 5 * TILE + TILE - 1)).toBe(magenta);
-    }
-    expect(pixel(34 * TILE + 5, 5 * TILE + 5)).not.toBe(magenta);
-    expect(pixel(33 * TILE, 5 * TILE + 5)).not.toBe(magenta); // 33 meets road to its west
-    expect(tile(34, 5).has(pack(SURFACE.gratingBar))).toBe(true);
-    expect(tile(34, 5).has(pack(SURFACE.grating))).toBe(true);
-    // The end that meets the void is magenta too.
-    expect(pixel(36 * TILE + TILE - 1, 5 * TILE + 5)).toBe(magenta);
+  it('paints a walkway as a dark grating, magenta where it meets the void, as wide as its piece', () => {
+    const piece = sure(track.centre.pieces.find((p) => p.surface === 'grating'), 'the walkway');
+    const x = 35 * TILE + 5;
+    const column = Array.from({ length: track.size.h }, (_, y) => y).filter((y) => track.road[y * track.size.w + x] === 1 && Math.abs(y - piece.from.y * TILE) < 3 * TILE);
+    expect(column.length).toBeGreaterThanOrEqual(piece.width * TILE - 1);
+    expect(column.length).toBeLessThanOrEqual(piece.width * TILE + 1);
+    const colours3 = colours(SURFACE.grating, SURFACE.gratingBar, SURFACE.neonMagenta);
+    for (const y of column) expect(colours3.has(pixel(x, y)), `row ${y}`).toBe(true);
+    expect(pixel(x, sure(column[0], 'the top row'))).toBe(pack(SURFACE.neonMagenta));
+    expect(pixel(x, sure(column.at(-1), 'the bottom row'))).toBe(pack(SURFACE.neonMagenta));
+    const middle = sure(column[Math.floor(column.length / 2)], 'a middle row');
+    expect(pixel(x, middle)).not.toBe(pack(SURFACE.neonMagenta));
+    const seen = new Set(column.map((y) => pixel(x, y)));
+    expect(seen.has(pack(SURFACE.grating)) || seen.has(pack(SURFACE.gratingBar))).toBe(true);
   });
 
   it('paints COMET RING\'s own pads, ramps, plating and walkway', () => {
-    const comet = paintTrack(parseTrack());
-    const seen = new Set<number>(comet.px);
+    const seen = new Set<number>(texture.px);
     for (const colour of [SURFACE.pad, SURFACE.padChevron, SURFACE.rampYellow, SURFACE.rampBlack, SURFACE.plate, SURFACE.grating, SURFACE.gratingBar]) expect(seen.has(pack(colour)), colour).toBe(true);
   });
 });
+

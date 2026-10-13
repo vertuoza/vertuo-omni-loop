@@ -24,7 +24,7 @@ import { RULES, type Difficulty } from './rules';
 import { COLORS, DEFAULT_LOOK, kartSprite, kartTint, type KartLook, type KartView } from './look';
 import type { Driver, Rival } from './rivals';
 import { deckOf, paintTrack } from './texture';
-import { isRoad, parseTrack, tileAt, type PropKind, type Track } from './track';
+import { parseTrack, roadAt, roofAt, tileAt, type PropKind, type Track } from './track';
 
 /** A buffer the floor is rendered into, how far each of its pixels is (Infinity where it shows no road), and the canvas it is drawn from. */
 interface Floor { image: ImageData; pixels: Uint32Array; depth: Float32Array; canvas: HTMLCanvasElement }
@@ -235,7 +235,7 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: numb
 }
 
 /** Where the ground under a kart in the air lands on the screen: its shadow falls there. Null for a kart on the road. */
-function shadeUnder(v: View, track: Pick<Track, 'waypoints' | 'relief'>, k: { x: number; y: number; height?: number }): Projected | null {
+function shadeUnder(v: View, track: Pick<Track, 'centre' | 'relief'>, k: { x: number; y: number; height?: number }): Projected | null {
   return k.height ? project(v, k.x, k.y, groundAt(track, k.x, k.y)) : null;
 }
 
@@ -262,7 +262,7 @@ const KART_FOOT = 6;
 export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: number; y: number; angle: number } => chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT));
 
 /** The camera's view of the race on `grid`: behind the player's kart, its eye 28 over the ground under it. */
-export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'waypoints' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y) + (kart.height ?? 0));
+export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'centre' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y) + (kart.height ?? 0));
 
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): KartView => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
@@ -395,12 +395,15 @@ export function minimapTiles(track: Track, range: { low: number; high: number })
   for (let y = 0; y < track.rows; y++) {
     for (let x = 0; x < track.cols; x++) {
       const c = tileAt(track.map, x, y);
-      if (!isRoad(c)) continue;
+      // A tile is road on the minimap when its middle is, or a point near a corner of it: a round edge cuts the tile.
+      const spots = [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]] as const;
+      const seen = spots.find(([sx, sy]) => roadAt(track, (x + sx) * TILE, (y + sy) * TILE));
+      if (!seen) continue;
       if (c === 'S') { out.push({ x, y, colour: '#ffffff' }); continue; }
-      const t = span > 0 ? (groundAt(track, (x + 0.5) * TILE, (y + 0.5) * TILE) - range.low) / span : 0;
+      const t = span > 0 ? (groundAt(track, (x + seen[0]) * TILE, (y + seen[1]) * TILE) - range.low) / span : 0;
       const k = Math.round(70 + 120 * Math.min(1, Math.max(0, t)));
       // The tunnel's roofed road is a lighter tint of the road's own (PRD 1775); the walkway and the spur are road like the rest.
-      const l = c === 'T' ? Math.min(255, k + TUNNEL_LIGHTER) : k;
+      const l = roofAt(track, (x + seen[0]) * TILE, (y + seen[1]) * TILE) ? Math.min(255, k + TUNNEL_LIGHTER) : k;
       out.push({ x, y, colour: `rgb(${l}, ${Math.min(255, l + 20)}, ${Math.min(255, l + 60)})` });
     }
   }

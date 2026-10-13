@@ -9,14 +9,14 @@ export type Waypoint = { x: number; y: number; radius: number };
 export type Gap = { from: number; length: number };
 
 /** A straight centre line of its own width and gaps, added to the road (a shortcut's spur, the walkway). Its ends are square. */
-export type Piece = { from: { x: number; y: number }; to: { x: number; y: number }; width: number; gaps?: readonly Gap[] };
+export type Piece = { from: { x: number; y: number }; to: { x: number; y: number }; width: number; gaps?: readonly Gap[]; /** How it is drawn: a walkway's grating (PRD 1829); road like the rest when left out. */ surface?: 'grating' };
 
 /** A stretch of the centre line, from a distance along it, a length; it wraps past the end of the closed line. */
 export type Span = { start: number; length: number };
 
 export type LineSpec = { points: readonly Waypoint[]; width: number; gaps?: readonly Gap[]; pieces?: readonly Piece[] };
 
-type Straight = { kind: 'straight'; start: number; len: number; x: number; y: number; tx: number; ty: number };
+type Straight = { kind: 'straight'; start: number; len: number; x: number; y: number; tx: number; ty: number; leg: number /* the index of the waypoint it leaves */ };
 type Arc = {
   kind: 'arc';
   start: number;
@@ -99,7 +99,7 @@ export function buildLine(spec: LineSpec): Line {
     const ey = next.p.y - next.before.y * next.tangent;
     const len = Math.hypot(ex - sx, ey - sy);
     if (len > EPS) {
-      segments.push({ kind: 'straight', start: at, len, x: sx, y: sy, tx: c.after.x, ty: c.after.y });
+      segments.push({ kind: 'straight', start: at, len, x: sx, y: sy, tx: c.after.x, ty: c.after.y, leg: i });
       at += len;
     }
     if (next.tangent > 0) {
@@ -134,6 +134,12 @@ const sampleOf = (seg: Segment, local: number): Sample => {
     ty: Math.cos(a) * seg.dir,
   };
 };
+
+/** The segment of the line a distance along it falls in (wrapping around the closed line). */
+export function segmentAt(line: Line, along: number): Line['segments'][number] {
+  const d = wrap(line, along);
+  return line.segments.find((s) => d < s.start + s.len) ?? nth(line.segments, line.segments.length - 1);
+}
 
 /** The point of the line at a distance along it (wrapping around the closed line) and its tangent. */
 export function pointAt(line: Line, along: number): Sample {
@@ -177,7 +183,8 @@ export function locate(line: Line, x: number, y: number): Located {
 
 const inGap = (gaps: readonly Gap[], along: number): boolean => gaps.some((g) => along >= g.from && along < g.from + g.length);
 
-const onPiece = (piece: Piece, x: number, y: number): boolean => {
+/** Whether (x, y) lies within a piece's rectangle (ends square), gaps included; with `gap`, the distance along the piece is read as well. */
+const inPiece = (piece: Piece, x: number, y: number): { along: number } | null => {
   const dx = piece.to.x - piece.from.x;
   const dy = piece.to.y - piece.from.y;
   const len = Math.hypot(dx, dy);
@@ -185,9 +192,28 @@ const onPiece = (piece: Piece, x: number, y: number): boolean => {
   const uy = dy / len;
   const along = (x - piece.from.x) * ux + (y - piece.from.y) * uy;
   const across = (x - piece.from.x) * -uy + (y - piece.from.y) * ux;
-  if (along < 0 || along > len || Math.abs(across) > piece.width / 2) return false;
-  return !inGap(piece.gaps ?? [], along);
+  return along < 0 || along > len || Math.abs(across) > piece.width / 2 ? null : { along };
 };
+
+const onPiece = (piece: Piece, x: number, y: number): boolean => {
+  const at = inPiece(piece, x, y);
+  return at !== null && !inGap(piece.gaps ?? [], at.along);
+};
+
+/** Whether (x, y), in tiles, lies in a gap: within the width of the line, or of a piece, over a stretch that is void across the road. */
+export function inGapAt(line: Line, x: number, y: number): boolean {
+  const at = locate(line, x, y);
+  if (at.dist <= line.width / 2 && inGap(line.gaps, at.along)) return true;
+  return line.pieces.some((p) => {
+    const where = inPiece(p, x, y);
+    return where !== null && inGap(p.gaps ?? [], where.along);
+  });
+}
+
+/** The piece (a shortcut's own road) that (x, y) lies on, in tiles, or none. */
+export function pieceAt(line: Line, x: number, y: number): Piece | undefined {
+  return line.pieces.find((p) => onPiece(p, x, y));
+}
 
 /** Whether (x, y), in tiles, is road: within half the width of the centre line and outside its gaps, or on a piece. */
 export function isRoad(line: Line, x: number, y: number): boolean {

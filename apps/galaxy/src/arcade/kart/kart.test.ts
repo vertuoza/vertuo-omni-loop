@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { airborne, driveKart, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
-import { groundOf, isRoad, TILE, tileAt, type Ground } from './track';
+import { sure } from '../test/sure';
+import { cornersOf, groundOf, parseTrack, pointAtPx, roadAt, TILE, tileAt, type Ground } from './track';
 
 // The kart's own rules (PRD 1359, slice 2): speed, steering and the void off the road, on small hand-drawn maps
 // so each rule is proved alone.
@@ -151,7 +152,7 @@ describe('the pad', () => {
 
   it('puts a kart on a starting place at rest', () => {
     expect(kartAt(1, 2, 3)).toEqual({ x: 1, y: 2, angle: 3, speed: 0, steer: 0 });
-    expect(isRoad(tileAt(MAP, 3, 2))).toBe(true);
+    expect(roadAt(MAP_G, 3 * TILE + 1, 2 * TILE + 1)).toBe(true);
   });
 });
 
@@ -444,5 +445,33 @@ describe('the jump (PRD 1775)', () => {
     expect(airborne(landed.kart)).toBe(false);
     expect(landed.fx.tip).toBeCloseTo(0.02, 6);
     expect(landed.fx.fall).toBe(0);
+  });
+});
+
+describe('the round edge of an arc (PRD 1829)', () => {
+  const ring = parseTrack();
+  const HALF = 2.5 * TILE;
+  // The middle of the arc of waypoint 0, a point `out` px outside its centre line (the outside of the bend), and the way a kart runs there.
+  const corner = sure(cornersOf(ring).find((c) => c.index === 0), 'the arc of waypoint 0');
+  const mid = pointAtPx(ring, (corner.start + corner.length / 2) * TILE);
+  const outward = corner.turn === 'left' ? { x: -mid.ty, y: mid.tx } : { x: mid.ty, y: -mid.tx };
+  const beyond = (out: number): Kart => kartAt(mid.x + outward.x * out, mid.y + outward.y * out, Math.atan2(mid.ty, mid.tx));
+
+  it('is where the road ends, as far from the centre line as half its width, all along the arc', () => {
+    expect(roadAt(ring, beyond(HALF - 1).x, beyond(HALF - 1).y)).toBe(true);
+    expect(roadAt(ring, beyond(HALF + 1).x, beyond(HALF + 1).y)).toBe(false);
+  });
+
+  it('tips a kart over once it is more than its overhang past the round edge, and not before', () => {
+    expect(tippedOver(ring, beyond(HALF + RULES.overhang - 1))).toBe(false);
+    expect(tippedOver(ring, beyond(HALF + RULES.overhang + 1))).toBe(true);
+    expect(tippedOver(ring, beyond(HALF - 1))).toBe(false);
+  });
+
+  it('puts the wheels beyond the edge on the outside of the bend, and leans the kart that way', () => {
+    const k = beyond(HALF + 1);
+    expect(wheelsOver(ring, k)).toEqual(corner.turn === 'left' ? { left: 0, right: 2 } : { left: 2, right: 0 });
+    expect(leanOf(ring, k)).toBe(corner.turn === 'left' ? 1 : -1);
+    expect(wheelsOver(ring, beyond(0))).toEqual({ left: 0, right: 0 });
   });
 });
