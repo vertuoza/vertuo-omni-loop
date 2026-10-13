@@ -7,6 +7,7 @@
 // The app unreachable: every call is tried again after 5 s, doubling up to 60 s, and the running jobs
 // keep going. The sign-in refused: the runner stops taking jobs and ends on one line. Stopped
 // (Ctrl-C): it stops taking jobs and waits for the running ones.
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
@@ -81,7 +82,7 @@ type Loop = RunnerOptions & {
 /** Where a job runs and what it writes. */
 type Place = { checkout: string; worktree: string; session: string; line: string; log: string; exit: string };
 
-const QUIET = { encoding: 'utf8' as const, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'] };
+const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
 
 const readText = (path: string): string => {
   try {
