@@ -1249,3 +1249,157 @@ Changing where the lines go is one paragraph of the pull request skill.
 ```
 
 <!-- /omni-outbox-settled: s5-03-law-approval-record-in-the-pr-description -->
+
+<!-- omni-outbox-settled: s6-02-keep-the-rest-as-rules -->
+
+## s6-02-keep-the-rest-as-rules — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-keep-the-rest-as-rules
+prd: 1726
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 4
+---
+
+## The question, in plain words
+
+Ninety-one of the product's rules and invariants were not proposed as laws. Should they stay ordinary rules that any person can amend by answering a question?
+
+## The decision, in plain words
+
+Yes: they describe how a screen, a game, a report or a command behaves, and breaking one costs a fix, not a person's trust or data. They keep their tests and their high questions, exactly as before.
+
+## The intro, for fun
+
+Ninety-one rules were told they are doing great right where they are.
+
+## The punchline, for fun
+
+Nobody was demoted; they simply did not apply.
+
+## The options, in plain words
+
+A. Keep all ninety-one as rules.
+B. Promote some of them to candidate laws, named in the answer.
+
+## What I had to decide
+
+Whether every rule and invariant not listed as a candidate law stays a rule. They fall in four groups. The arcade and its games (BR-PRODUCT-27, 30 to 37, 42 to 49, 56 to 58, 101, 102, N-PRODUCT-10, N-PRODUCT-11): how a game plays and what a screen shows. The Omni page (BR-PRODUCT-13, 14, 38, 40, 41, 50 to 55, 60 to 62, 65 to 68, 70, 73 to 75, 92, 93): what a page counts, lists or names. The retro, credits and the game's points (BR-PRODUCT-16 to 22, 24 to 26, 77 to 80): how a report or a score is computed. The kit's commands and skills (BR-PRODUCT-1, 2, 4, 7 to 11, 15, 23, 69, 71, 72, 76, 81, 83 to 91, 95, N-PRODUCT-2, 5, 9, 12): how a command or a skill behaves. A person may still promote any of them later by adding a Proposed law line.
+
+## What I did meanwhile
+
+Each of them now says which paths it governs, so an agent reads it only when it touches those paths. None carries a Proposed law line.
+
+## What it costs to change later
+
+Promoting one later is adding one line on its entry and asking the owner to lock it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The grouping and the verdicts were judged from each entry's text and its test; no person was asked which of them have hurt users before.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-keep-the-rest-as-rules -->
+
+<!-- omni-outbox-settled: s6-03-database-rules-govern-every-migration -->
+
+## s6-03-database-rules-govern-every-migration — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-database-rules-govern-every-migration
+prd: 1726
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 4
+---
+
+## The question, in plain words
+
+Rules proven against the database read every migration, since a later migration may redefine a function. Should each such rule govern the whole migrations folder, rather than the few migration files it names today?
+
+## The decision, in plain words
+
+Yes: each rule proven against the database governs its own test and the whole migrations folder, so any new migration shows an agent every database rule. Rules proven by code alone govern only that code and its test.
+
+## The intro, for fun
+
+Twenty-one database rules were asked which migrations they care about.
+
+## The punchline, for fun
+
+All of them, they said, including the ones not written yet.
+
+## The options, in plain words
+
+A. Govern the whole migrations folder.
+B. Govern only the migration files each test names, and accept that a later redefinition is missed.
+
+## What I had to decide
+
+How wide the governed paths of the rules proven against the database are: BR-PRODUCT-12, 27 to 29, 35, 39 to 41, 46, 47, 59, 62 to 65, 67, 70, 74, 78, 81 and N-PRODUCT-10. Their tests read the newest definition of a function from any migration, so a narrower list would miss a later redefinition.
+
+## What I did meanwhile
+
+Each of them governs its own test file and every migration. An agent writing a migration therefore sees these twenty-one database rules, and no more.
+
+## What it costs to change later
+
+Narrowing one later is editing one line of its entry.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Which migration first defines each function was not traced file by file; the width follows how the tests read the folder.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-database-rules-govern-every-migration -->
