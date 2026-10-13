@@ -183,3 +183,89 @@ describe('the deck (PRD 1698)', () => {
     for (const p of deck.glowPx) expect(p & 0xffffff).toBe(pack(SURFACE.neonMagenta) & 0xffffff);
   });
 });
+
+describe('the station\'s tiles (PRD 1775)', () => {
+  // A small fixture: a road running east along row 5 (waypoints at its ends), with a ramp, a pad, a tunnel and a walkway.
+  const rows = [
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    '########+###^######TTTTT#########wwww~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  ];
+  const map = rows;
+  const track = { cols: 44, rows: 7, map, waypoints: [{ x: 8, y: 5.5 * TILE }, { x: 32 * TILE, y: 5.5 * TILE }] };
+  const texture = paintTrack(track);
+  const pixel = (x: number, y: number) => sure(texture.px[y * texture.w + x], `pixel ${x},${y}`);
+  const tile = (tx: number, ty: number) => {
+    const out = new Set<number>();
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) out.add(pixel(tx * TILE + x, ty * TILE + y));
+    return out;
+  };
+  const colours = (...hex: string[]) => new Set(hex.map(pack));
+  const inside = (got: Set<number>, allowed: Set<number>) => [...got].every((c) => allowed.has(c));
+
+  it('paints a pad cyan, with chevrons pointing the way of the race (east)', () => {
+    const pad = tile(8, 5);
+    expect(inside(pad, colours(SURFACE.pad, SURFACE.padChevron))).toBe(true);
+    expect(pad.has(pack(SURFACE.padChevron))).toBe(true);
+    expect(pad.has(pack(SURFACE.pad))).toBe(true);
+    // The tip is on the east of the tile: more chevron pixels east of the middle's tip than at the tail.
+    const col = (x: number) => Array.from({ length: TILE }, (_, y) => pixel(8 * TILE + x, 5 * TILE + y)).filter((c) => c === pack(SURFACE.padChevron)).length;
+    expect(col(11)).toBeGreaterThan(0);
+    expect(col(2)).toBe(0);
+  });
+
+  it('paints a ramp in yellow and black stripes', () => {
+    expect(tile(12, 5)).toEqual(colours(SURFACE.rampYellow, SURFACE.rampBlack));
+  });
+
+  it('paints a yellow arrow on each of the two road tiles before a ramp, and on no other', () => {
+    const yellow = pack(SURFACE.chevron);
+    expect(tile(11, 5).has(yellow)).toBe(true);
+    expect(tile(10, 5).has(yellow)).toBe(true);
+    expect(tile(9, 5).has(yellow)).toBe(false);
+    expect(tile(13, 5).has(yellow)).toBe(false); // after the ramp
+    // The tip points east: no yellow in the tile's first columns' middle, some in the last ones.
+    const mid = (x: number) => pixel(11 * TILE + x, 5 * TILE + 7) === yellow || pixel(11 * TILE + x, 5 * TILE + 8) === yellow;
+    expect(mid(11)).toBe(true);
+    expect(mid(2)).toBe(false);
+  });
+
+  it('paints roofed road and the road within three tiles of it as station plating, a seam and a rivet', () => {
+    const plating = colours(SURFACE.plate, SURFACE.plateSeam, SURFACE.plateRivet);
+    expect(inside(tile(21, 5), plating)).toBe(true);   // roofed
+    expect(inside(tile(18, 5), plating)).toBe(true);   // 1 before the portal
+    expect(inside(tile(16, 5), plating)).toBe(true);   // 3 before
+    expect(inside(tile(24, 5), plating)).toBe(true);   // after the roof
+    expect(inside(tile(26, 5), plating)).toBe(true);
+    expect(tile(21, 5).has(pack(SURFACE.plateRivet))).toBe(true);
+    expect(tile(21, 5).has(pack(SURFACE.plateSeam))).toBe(true);
+    expect(inside(tile(15, 5), plating)).toBe(false);  // 4 before: plain road
+    expect(inside(tile(27, 5), plating)).toBe(false);
+  });
+
+  it('paints a walkway as a dark grating, magenta where it meets the void', () => {
+    const magenta = pack(SURFACE.neonMagenta);
+    // Tile 34 has void above and below: magenta on its top and bottom edges, grating between; tile 33 (road to its west) none on the west side.
+    expect(inside(tile(34, 5), colours(SURFACE.grating, SURFACE.gratingBar, SURFACE.neonMagenta))).toBe(true);
+    for (let x = 0; x < TILE; x++) {
+      expect(pixel(34 * TILE + x, 5 * TILE)).toBe(magenta);
+      expect(pixel(34 * TILE + x, 5 * TILE + TILE - 1)).toBe(magenta);
+    }
+    expect(pixel(34 * TILE + 5, 5 * TILE + 5)).not.toBe(magenta);
+    expect(pixel(33 * TILE, 5 * TILE + 5)).not.toBe(magenta); // 33 meets road to its west
+    expect(tile(34, 5).has(pack(SURFACE.gratingBar))).toBe(true);
+    expect(tile(34, 5).has(pack(SURFACE.grating))).toBe(true);
+    // The end that meets the void is magenta too.
+    expect(pixel(36 * TILE + TILE - 1, 5 * TILE + 5)).toBe(magenta);
+  });
+
+  it('leaves COMET RING\'s own road as it was: no pad, no ramp, no plating', () => {
+    const comet = paintTrack(parseTrack());
+    const bad = new Set([SURFACE.pad, SURFACE.padChevron, SURFACE.rampYellow, SURFACE.rampBlack, SURFACE.plate, SURFACE.plateSeam, SURFACE.plateRivet, SURFACE.grating, SURFACE.gratingBar].map(pack));
+    for (let i = 0; i < comet.px.length; i++) if (bad.has(sure(comet.px[i], 'a pixel'))) throw new Error(`pixel ${i} is a station colour`);
+  });
+});

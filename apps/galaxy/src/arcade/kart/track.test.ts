@@ -326,3 +326,73 @@ describe('the relief (PRD 1698)', () => {
     expect(trackProblems(reliefed({ heights: zero.map((h, i) => (i === 3 ? 26 : h)), bumps: zero }))).toEqual([]);
   });
 });
+
+describe('the station tiles (PRD 1775)', () => {
+  it('reads a pad, a ramp, roofed road and a walkway as road to the wheels', () => {
+    for (const c of ['+', '^', 'T', 'w']) expect(isRoad(c), c).toBe(true);
+    expect(isRoad('~')).toBe(false);
+    expect(isRoad('x')).toBe(false);
+  });
+
+  it('accepts them in the map: the circuit\'s checks pass', () => {
+    expect(trackProblems(altered((r) => { set(r, 54, 52, '+'); set(r, 54, 51, '^'); set(r, 54, 50, 'T'); set(r, 54, 49, 'w'); }))).toEqual([]);
+  });
+
+  it('keeps COMET RING itself as it was: no stand, no shortcut', () => {
+    expect(COMET_RING.stands).toBeUndefined();
+    expect(COMET_RING.shortcuts).toBeUndefined();
+    const track = parseTrack();
+    expect(track.stands).toEqual([]);
+    expect(track.shortcuts).toEqual([]);
+  });
+});
+
+describe('stands (PRD 1775)', () => {
+  const withStands = (stands: [number, number][]): TrackSource => ({ ...COMET_RING, stands });
+
+  it('accepts a stand on a void tile and gives it at its tile\'s centre', () => {
+    expect(trackProblems(withStands([[2, 2], [30, 60]]))).toEqual([]);
+    expect(parseTrack(withStands([[2, 3]])).stands).toEqual([{ x: 2.5 * TILE, y: 3.5 * TILE }]);
+  });
+
+  it('refuses a stand on the road, on a pad, or off the map', () => {
+    expect(trackProblems(withStands([[7, 7]])).join()).toContain('row 7, col 7: a stand floats on a road tile');
+    expect(trackProblems({ ...altered((r) => { set(r, 2, 2, '+'); }), stands: [[2, 2]] }).join()).toContain('on a boost pad tile');
+    expect(trackProblems(withStands([[70, 2]])).join()).toContain('off the map');
+  });
+});
+
+describe('shortcuts (PRD 1775)', () => {
+  const good = { leg: [[54, 40], [44, 28]], gate: [[50, 36], [50, 36]], skips: 2 } as const;
+  const withShortcut = (sc: unknown): TrackSource => ({ ...COMET_RING, shortcuts: [sc as never] });
+  // A gate on road: the road tile [54, 50], a leg between two waypoints.
+  const onRoad = { leg: [[54, 56], [54, 40]], gate: [[52, 48], [56, 48]], skips: 2 } as const;
+
+  it('accepts a shortcut whose waypoints exist, whose leg ends are on road and whose gate crosses road', () => {
+    expect(trackProblems(withShortcut(onRoad))).toEqual([]);
+  });
+
+  it('carries it in tile centres: the leg, the gate and the first waypoint it skips', () => {
+    const [sc] = parseTrack(withShortcut(onRoad)).shortcuts;
+    expect(sc).toEqual({
+      from: { x: 54.5 * TILE, y: 56.5 * TILE }, to: { x: 54.5 * TILE, y: 40.5 * TILE },
+      gate: [{ x: 52.5 * TILE, y: 48.5 * TILE }, { x: 56.5 * TILE, y: 48.5 * TILE }], skips: 2,
+    });
+  });
+
+  it('refuses skipped waypoints that do not exist', () => {
+    const n = COMET_RING.waypoints.length;
+    expect(trackProblems(withShortcut({ ...onRoad, skips: n - 1 })).join()).toContain(`skips waypoints ${n - 1} and ${n}`);
+    expect(trackProblems(withShortcut({ ...onRoad, skips: -1 })).join()).toContain('shortcut 0 skips');
+    expect(trackProblems(withShortcut({ ...onRoad, skips: n - 2 }))).toEqual([]);
+  });
+
+  it('refuses a leg whose end is off the road', () => {
+    expect(trackProblems(withShortcut({ ...onRoad, leg: [[1, 1], [54, 40]] })).join()).toContain('row 1, col 1: an end of shortcut 0\'s leg is off the road');
+    expect(trackProblems(withShortcut({ ...onRoad, leg: [[54, 56], [1, 1]] })).join()).toContain('an end of shortcut 0');
+  });
+
+  it('refuses a gate that crosses no road', () => {
+    expect(trackProblems(withShortcut({ ...good, gate: [[1, 1], [3, 1]] })).join()).toContain('the gate of shortcut 0 crosses no road');
+  });
+});
