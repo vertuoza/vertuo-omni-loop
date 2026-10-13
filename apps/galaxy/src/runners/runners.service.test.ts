@@ -84,12 +84,12 @@ describe('the long poll', () => {
     expect(state.runners[0]?.last_seen_at).toBe(T0.toISOString());
   });
 
-  it('holds up to 50 seconds, checking in each time it looks, then answers none', async () => {
+  it('holds up to 40 seconds, checking in each time it looks, then answers none', async () => {
     const { service, state, slept } = world();
     expect(value(await service.next(OLGA, SHARED))).toBeNull();
-    expect(slept.reduce((sum, ms) => sum + ms, 0)).toBeLessThanOrEqual(50_000);
-    expect(slept.length).toBe(50_000 / NEXT_POLL_MS);
-    expect(Date.parse(state.runners[0]?.last_seen_at ?? '')).toBeGreaterThan(at(45).getTime());
+    expect(slept.reduce((sum, ms) => sum + ms, 0)).toBeLessThanOrEqual(40_000);
+    expect(slept.length).toBe(40_000 / NEXT_POLL_MS);
+    expect(Date.parse(state.runners[0]?.last_seen_at ?? '')).toBeGreaterThan(at(35).getTime());
   });
 
   it('answers a job queued while it holds', async () => {

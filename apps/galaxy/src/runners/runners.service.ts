@@ -4,7 +4,7 @@
 //
 // - A runner registers by name, in the workspace its repositories belong to for its owner; a name is
 //   its owner's alone.
-// - `next` counts as a check-in, then holds up to 50 s for a job the runner may claim (runner_claim()).
+// - `next` counts as a check-in, then holds up to 40 s for a job the runner may claim (runner_claim()).
 // - A runner silent for over 90 s leaves its claimed and running jobs failed, `runner lost`: each
 //   `next`, each job update and each read of the Runners page marks them first, before it counts the
 //   caller's own check-in, so a runner back from silence finds its jobs lost. Nothing is retried.
@@ -182,7 +182,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return ok({ id: runner.id, name: runner.name, fleet: runner.fleet });
     },
 
-    /** Counts as a check-in, then holds up to 50 s for a job the runner may claim; null when none came. */
+    /** Counts as a check-in, then holds up to 40 s for a job the runner may claim; null when none came. */
     async next(caller: string, runnerId: string): Promise<Served<RunnerJob | null>> {
       const owned = await ownRunner(caller, runnerId);
       if (!owned.ok) return owned;

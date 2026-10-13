@@ -11,6 +11,8 @@ export type JobSession = { name: string; cwd: string; env: Readonly<Record<strin
 export type Terminal = {
   start(session: JobSession): void;
   stop(name: string): void;
+  /** Whether the session still runs its command: false once it ended, or when it is gone. */
+  alive(name: string): boolean;
 };
 
 /** The arguments of `tmux` that start `session`, detached. */
@@ -29,6 +31,14 @@ export function tmuxTerminal(exec: ExecText): Terminal {
         exec('tmux', ['kill-session', '-t', name], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
       } catch {
         // A session that already ended has nothing left to stop.
+      }
+    },
+    alive(name) {
+      // A pane kept after its command ended (`remain-on-exit`) reads `1`; a session that is gone throws.
+      try {
+        return exec('tmux', ['list-panes', '-t', name, '-F', '#{pane_dead}'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).split('\n').includes('0');
+      } catch {
+        return false;
       }
     },
   };

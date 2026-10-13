@@ -11,7 +11,7 @@ import type { RunnersService, Served } from './runners.service';
 // the real service on a fake store and each route stays one line:
 //
 //   POST  /api/runners/register            the kit's sign-in   registers the runner
-//   GET   /api/runners/next?runner=<id>    the kit's sign-in   holds up to 50 s: the job claimed, or 204
+//   GET   /api/runners/next?runner=<id>    the kit's sign-in   holds up to 40 s: the job claimed, or 204
 //   POST  /api/runners/jobs/<id>           the kit's sign-in   a report: status, log tail, PR link, exit code
 //   POST  /api/runners/jobs                the session         queues a job
 //   POST  /api/runners/jobs/<id>/cancel    the session         cancels a job
@@ -102,7 +102,7 @@ export async function registerRunner(request: Request, deps: RunnersDeps): Promi
   });
 }
 
-/** GET /api/runners/next?runner=<id>: the job the runner claimed within 50 s, or 204. */
+/** GET /api/runners/next?runner=<id>: the job the runner claimed within 40 s, or 204. */
 export async function nextJob(request: Request, deps: RunnersDeps): Promise<Response> {
   return answer(await kitCaller(request, deps), deps, RunnerJobSchema, async (service, caller) => {
     const query = NextQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
