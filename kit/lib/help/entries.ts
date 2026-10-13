@@ -444,6 +444,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'prints the same for skills: state, product, statement, never and syncedAt.',
   },
   {
+    name: 'session',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni session start', 'omni session end'],
+    summary: "a session's start and end, for any coding agent, with no hook",
+    detail:
+      'start is what an agent runs first: it prints the constituents (as omni constituents does), then ' +
+      'the briefing (as omni kb show briefing does), then a last line session: <id>. The id is ' +
+      "OMNI_SESSION_ID, else CLAUDE_CODE_SESSION_ID, else the one stored for this checkout; with none, " +
+      'it makes one and stores it, so every later omni command of the checkout uses the same session. ' +
+      'end is what an agent runs last: it closes the session on your ask page and tells the Omni page ' +
+      'the session stopped. Both print what they can and always exit 0, the Omni page reachable or not.',
+  },
+  {
     name: 'decide',
     kind: 'command',
     who: 'skills',
@@ -893,11 +907,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'ask',
     kind: 'command',
     who: 'skills',
-    usage: ['omni ask on|off|status', 'omni ask hook <pre|post|prompt|end>'],
-    summary: 'ask mode, as /omni:ask switches it',
+    usage: [
+      'omni ask on|off|status',
+      'omni ask question --file <q.json> [--wait <seconds>]',
+      'omni ask wait <round> [--wait <seconds>]',
+      'omni ask answer <round> --file <a.json>',
+      'omni ask hook <pre|post|prompt|end>',
+    ],
+    summary: 'ask mode, and the questions any agent asks the person on the page',
     detail:
-      "Ask mode in this checkout: on prints the page where Claude's questions are answered, off " +
-      "closes every terminal's session there, status says which. hook is what the plugin's hooks " +
+      "Ask mode in this checkout: on prints the page where the agent's questions are answered, off " +
+      "closes every terminal's session there, status says which. OMNI_ASK=on turns the mode on with " +
+      'no omni ask on, as a cloud session needs; OMNI_ASK=off turns it off whatever on wrote. ' +
+      'question asks the person on the page from any agent, with no hook: q.json holds questions, ' +
+      'as AskUserQuestion takes them, and may add lead and context. It exits 0 with { round, answers, ' +
+      'shots } once answered; exits 3, printing nothing, when the agent should ask in its own chat ' +
+      '(the mode off, no sign-in, the page unreachable or the round abandoned), the reason on stderr; ' +
+      'exits 4 with round <id> when the wait ran out, 110 seconds by default, 10 to 540. wait resumes ' +
+      'that round, with the same exits. answer sends what the person said in the chat to the page, ' +
+      "marked as given via the terminal, and never fails the agent. hook is what the plugin's hooks " +
       'run around each question; with the mode off it prints nothing. /omni:ask runs on, off and ' +
       'status for you.',
   },
@@ -906,12 +934,15 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     kind: 'command',
     who: 'skills',
     usage: ['omni heartbeat [--end]'],
-    summary: 'tells the Omni page this Claude session is working',
+    summary: 'tells the Omni page this session is working',
     detail:
-      "What the plugin's hooks run after every tool call: at most once a minute per Claude session, " +
-      'it tells the Omni page that the session is working, and on which draft, PRD or fix. --end, ' +
-      "run when the session ends, says it stopped. It sends only when you are signed in and dossiers " +
-      'are on, sends no path, command or text, prints nothing and always exits 0.',
+      'At most once a minute per session, it tells the Omni page that the session is working, and ' +
+      "on which draft, PRD or fix. The plugin's hooks run it after every tool call, and any omni " +
+      'command run in a session sends it too, in the background; OMNI_HEARTBEAT=off stops that. ' +
+      'With nothing on stdin it takes the session id OMNI_SESSION_ID, CLAUDE_CODE_SESSION_ID or ' +
+      'the stored one gives. --end, run when the session ends, says it stopped. It sends only when ' +
+      'you are signed in and dossiers are on, sends no path, command or text, prints nothing and ' +
+      'always exits 0.',
   },
   {
     name: 'budget',

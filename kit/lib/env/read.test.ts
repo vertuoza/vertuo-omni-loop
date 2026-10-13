@@ -18,6 +18,8 @@ describe('readEnv', () => {
       packageManager: null,
       omniToken: null,
       session: { remote: false, display: false },
+      heartbeat: true,
+      ask: null,
     });
   });
 
@@ -89,6 +91,46 @@ describe('readEnv', () => {
       expect(VARIABLES).not.toContain('CLAUDE_CODE_SESSION_ID');
       expect(PLATFORM_VARIABLES).toContain('CLAUDE_CODE_SESSION_ID');
       expect(PLATFORM_VARIABLES).not.toContain('OMNI_SESSION_ID');
+    });
+  });
+
+  describe('OMNI_HEARTBEAT, the switch of the heartbeat any command sends (PRD 1831)', () => {
+    it('is on unless OMNI_HEARTBEAT is off or the command runs under vitest', () => {
+      expect(readEnv({}).heartbeat).toBe(true);
+      expect(readEnv({ OMNI_HEARTBEAT: 'on' }).heartbeat).toBe(true);
+      expect(readEnv({ OMNI_HEARTBEAT: '' }).heartbeat).toBe(true);
+      expect(readEnv({ OMNI_HEARTBEAT: 'off' }).heartbeat).toBe(false);
+      expect(readEnv({ VITEST: 'true' }).heartbeat).toBe(false);
+      expect(readEnv({ OMNI_HEARTBEAT: 'on', VITEST: 'true' }).heartbeat).toBe(false);
+    });
+
+    it('stops on a value other than on or off, naming the variable', () => {
+      expect(() => readEnv({ OMNI_HEARTBEAT: 'no' })).toThrow(EnvError);
+      expect(() => readEnv({ OMNI_HEARTBEAT: 'no' })).toThrow(/OMNI_HEARTBEAT/);
+    });
+
+    it('lists OMNI_HEARTBEAT for a person to set, and VITEST as the platform\'s', () => {
+      expect(VARIABLES).toContain('OMNI_HEARTBEAT');
+      expect(PLATFORM_VARIABLES).toContain('VITEST');
+      expect(VARIABLES).not.toContain('VITEST');
+    });
+  });
+
+  describe('OMNI_ASK, ask mode switched with no file (PRD 1831)', () => {
+    it('reads on and off, and an unset or empty one as none', () => {
+      expect(readEnv({}).ask).toBeNull();
+      expect(readEnv({ OMNI_ASK: '' }).ask).toBeNull();
+      expect(readEnv({ OMNI_ASK: 'on' }).ask).toBe('on');
+      expect(readEnv({ OMNI_ASK: 'off' }).ask).toBe('off');
+    });
+
+    it('stops on a value other than on or off, naming the variable', () => {
+      expect(() => readEnv({ OMNI_ASK: 'yes' })).toThrow(EnvError);
+      expect(() => readEnv({ OMNI_ASK: 'yes' })).toThrow(/OMNI_ASK/);
+    });
+
+    it('lists OMNI_ASK for a person to set', () => {
+      expect(VARIABLES).toContain('OMNI_ASK');
     });
   });
 
