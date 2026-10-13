@@ -434,6 +434,20 @@ describe('the star chart on the menu', () => {
     expect(hintOf('none')).toBe('NOT IN THIS BUILD');
   });
 
+  // PRD 1808: the crew's chart is read when it opens, so the menu shows no tally until it has been read.
+  it('shows no tally beside the crew\'s chart until it has been read in the session, then its tally', () => {
+    const rowOf = (source: KnowledgeGraph | 'unread') => {
+      const text = textOf(createElement(MenuOverlay, { view, items, index: 0, me: player, onPick: () => {}, chart: source }), WIDE);
+      return text.slice(text.indexOf('STAR CHART'), text.indexOf('FLEETS'));
+    };
+    expect(rowOf('unread')).toEqual(['STAR CHART']);
+    expect(rowOf(graph)).toEqual(['STAR CHART', '2 SYSTEMS · 3 WORLDS']);
+  });
+
+  it('opens the crew\'s chart before it is read: the chart reads it (PRD 1808)', () => {
+    expect(doorOf(chart, { view, chart: 'unread', problem: null })).toEqual({ scene: 'chart' });
+  });
+
   it('opens the chart only with a graph, and says why not otherwise', () => {
     expect(doorOf(chart, { view, chart: graph, problem: null })).toEqual({ scene: 'chart' });
     expect(doorOf(chart, { view: null, chart: graph, problem: null })).toEqual({ scene: 'chart' });

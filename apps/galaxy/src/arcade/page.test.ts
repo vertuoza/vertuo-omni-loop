@@ -3,7 +3,8 @@ import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The arcade page (app/play/page.tsx), called as the server calls it, with its data sources stubbed: which
-// visitor's page carries the star chart's knowledge, and that every page hands the arcade the app it
+// visitor's page carries the star chart's knowledge (the demo's alone; the crew's is read when the chart
+// opens, PRD 1808), and that every page hands the arcade the app it
 // leaves for. The props it returns are what reaches the browser.
 const given = vi.hoisted(() => ({
   mode: 'demo',
@@ -58,12 +59,14 @@ describe('the arcade page and the star chart', () => {
     expect(loadKnowledge).toHaveBeenCalledOnce();
   });
 
-  it('gives a crew member signed in the knowledge, with the galaxy', async () => {
+  it('gives a crew member signed in the galaxy and no star chart: the game reads it when the chart opens', async () => {
     Object.assign(given, { mode: 'supabase', user: user('ada@vertuoza.com') });
     const props = await propsOf();
     // The galaxy with its planets' logs left out (PRD 1808): the planet's overlay reads them when opened.
     expect(props.view).toEqual(given.view);
-    expect(props.knowledge).toBe(given.graph);
+    // No star chart either (PRD 1808): only the word that the chart reads /api/arcade/chart when it opens.
+    expect(props.knowledge).toBe('fetch');
+    expect(loadKnowledge).not.toHaveBeenCalled();
     // And no dossier: the planet's overlay reads its own when opened (PRD 1808).
     expect(props).not.toHaveProperty('dossiers');
   });

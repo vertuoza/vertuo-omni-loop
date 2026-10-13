@@ -4,7 +4,7 @@ import { cssVars } from './css-vars';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/design';
 import {
-  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
+  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type FrameState, type SceneName,
 } from './scenes';
 import { useForm, type Form } from './form';
 import { useFullscreen } from './fullscreen';
@@ -29,6 +29,7 @@ import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
 import { PLANET_TABS, PlanetOverlay, startLink } from './scenes/planet.tsx';
 import { useOpenPlanetDetails } from './planet-details';
+import { useChart, type ArcadeChart } from './chart-source';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
@@ -219,8 +220,12 @@ export interface ArcadeProps {
   problem?: string | null;
   /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words, its theme colours the arcade. The house brand when none is given. */
   brand?: Brand;
-  /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
-  knowledge?: ChartSource | undefined;
+  /**
+   * The star chart's knowledge: the demo's in the page, `'fetch'` for the crew's, read from
+   * /api/arcade/chart when the chart opens (PRD 1808); `'none'` in a build without it, nothing past the
+   * crew's gate (see ChartSource, src/arcade/chart-source.ts).
+   */
+  knowledge?: ArcadeChart | undefined;
   /**
    * The player's XP: their player_xp row, null when they have none, 'unreadable' when it could not be
    * read (the default: a page that says nothing of XP shows no level, and never guesses one).
@@ -270,9 +275,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   formRef.current = form;
   const mapGrid = gridFor(form, 'map');
   const layout = useMemo(() => (view ? layoutMap(view, mapGrid) : []), [view, mapGrid]);
-  const graph = knowledge && knowledge !== 'none' ? knowledge : null;
   const chartGrid = gridFor(form, 'chart'), systemGrid = gridFor(form, 'system');
-  const chart = useMemo(() => (graph ? layoutChart(graph, chartGrid) : { suns: [], lanes: [] }), [graph, chartGrid]);
   const start = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
   const now = () => (performance.now() - start.current) / 1000;
   const firstPlanet = view ? Math.max(0, view.planets.findIndex((p) => p.state === 'distress')) : 0;
@@ -289,6 +292,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }));
   const [muted, setMuted] = useState(false);
   const [gamesSeen, setGamesSeen] = useState(true); // read from this device on the first render
+  // The star chart (PRD 1808): the crew's is read when the chart opens, kept for the session.
+  const charted = useChart(knowledge, ui.scene);
+  const graph = charted.graph;
+  const chart = useMemo(() => (graph ? layoutChart(graph, chartGrid) : { suns: [], lanes: [] }), [graph, chartGrid]);
   const system = useMemo(() => {
     const sun = chart.suns[ui.sun];
     return graph && sun ? layoutSystem(graph, sun.name, systemGrid) : null;
@@ -731,7 +738,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const items = menuFor(meRef.current, sessionRef.current, active, !gamesSeen, Boolean(app));
     const item = items[i];
     if (!item) return;
-    const door = doorOf(item, { view, chart: knowledge, problem });
+    const door = doorOf(item, { view, chart: charted.menu, problem });
     if (door) {
       if ('scene' in door) go({ scene: door.scene, menu: i, card: false }, 'select');
       else go({ menu: i, toast: door.refused }, 'buzz');
@@ -742,7 +749,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (item.id === 'play') { open(afterGate(meRef.current, fleets), { flow: 'onboard', menu: i }, 'select'); return; }
     if (item.id === 'app') { askLeave({ menu: i }); return; }
     if (item.id === 'signout') { signOut(); return; }
-  }, [view, fleets, active, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
+  }, [view, fleets, active, charted.menu, go, open, signOut, problem, gamesSeen, app, askLeave]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
@@ -1122,8 +1129,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const grid = sceneGrid(ui.scene, form, hud, pf, kart, duet);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
-  const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
-  frameRef.current = { view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system };
+  const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge: charted.source, chart, system });
+  frameRef.current = { view, layout, active, me, grid, page, mark, logo, theme, knowledge: charted.source, chart, system };
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
@@ -1260,7 +1267,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'hero': return <BuilderOverlay hero={ui.hero} row={ui.heroRow} team={me?.team ?? null} name={displayName} error={ui.error} onRow={(i) => { if (i === ui.heroRow) act('a'); else go({ heroRow: i }, 'move'); }} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
-      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;
+      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={charted.menu} xp={xpNow} />;
       case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} scores={scores} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
       case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
@@ -1278,10 +1285,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
-      case 'chart': return <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+      case 'chart': return <ChartOverlay source={charted.shown} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
       case 'system': return graph && system
         ? <SystemOverlay graph={graph} layout={system} world={ui.world} card={ui.card} cardPage={ui.cardPage} onRead={() => { act('a'); }} onPage={(cardPage) => { go({ cardPage }, 'tab'); }} />
-        : <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+        : <ChartOverlay source={charted.shown} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
       case 'away': return undefined;
     }
   })();

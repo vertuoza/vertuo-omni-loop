@@ -19,6 +19,15 @@ export type Dir = 'up' | 'down' | 'left' | 'right';
  */
 export type ChartSource = KnowledgeGraph | 'none' | null;
 
+/** What the chart's screen shows: its source, or `'loading'` while the crew's chart is on its way (PRD 1808). */
+export type ChartShown = ChartSource | 'loading';
+
+/**
+ * What the menu's STAR CHART row knows: its source, or `'unread'` when the crew's chart has not been read
+ * in this session (PRD 1808): no tally, and the door opens on the chart, which reads it.
+ */
+export type MenuChart = ChartSource | 'unread';
+
 // ── The chart: a sun per domain ──────────────────────────────────────────────
 
 /**
