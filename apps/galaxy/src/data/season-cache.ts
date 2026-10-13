@@ -5,6 +5,7 @@ import { unstable_cache } from 'next/cache';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { GalaxyView, LedgerEvent, Projects } from '@omni/galaxy';
+import { log, type LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import { serverEnv } from '../env';
 
 // The season, cached per workspace (PRD 657, s8). Folding the whole ledger through buildGalaxy on every
@@ -29,8 +30,9 @@ export interface Kept<T> { revalidate: number; is: (value: unknown) => value is 
 /** The data cache: the value under `key`, computed by `compute` when absent. */
 export type SeasonCache = <T>(key: string[], compute: () => Promise<T>, kept: Kept<T>) => Promise<T>;
 
-/** What the cached read needs: the cache and the service role's client. Null: the season is not cached. */
-export type SeasonDeps = { cache: SeasonCache; service: SupabaseClient<Database> } | null;
+/** What the cached read needs: the cache, the service role's client, and where each load writes its one
+ * line (none: nothing is logged). Null: the season is not cached. */
+export type SeasonDeps = { cache: SeasonCache; service: SupabaseClient<Database>; log?: (entry: LogEntry) => void } | null;
 
 /** The workspace's newest ledger event, as the viewer read it, and how many events its ledger holds. */
 export interface Newest { id: string; at: string; count: number }
@@ -108,5 +110,5 @@ export function liveSeason(): SeasonDeps {
   const key = serviceRole?.key;
   if (!url || !key) return (live = null);
   const service = createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
-  return (live = { cache: nextCache, service });
+  return (live = { cache: nextCache, service, log: (entry) => { (entry.outcome === 'failed' ? log.error : log.info)(entry); } });
 }
