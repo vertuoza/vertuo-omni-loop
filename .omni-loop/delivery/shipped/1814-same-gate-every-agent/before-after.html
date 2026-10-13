@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Same gate, every agent</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e2e1dc;
+    --ok: #1f7a4d; --ok-bg: #e5f3ea; --no: #a8321f; --no-bg: #f8e6e2; --warn: #8a5a00; --warn-bg: #fbf0d9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151514; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9a9993; --line: #33332f;
+      --ok: #6fd09c; --ok-bg: #173325; --no: #f08a76; --no-bg: #3a1d17; --warn: #e8bd62; --warn-bg: #352a12;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151514; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9a9993; --line: #33332f;
+    --ok: #6fd09c; --ok-bg: #173325; --no: #f08a76; --no-bg: #3a1d17; --warn: #e8bd62; --warn-bg: #352a12;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; }
+  h3 { font-size: 15px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  p.lede { color: var(--muted); margin: 0 0 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  .ok, .no, .warn { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .ok { color: var(--ok); background: var(--ok-bg); }
+  .no { color: var(--no); background: var(--no-bg); }
+  .warn { color: var(--warn); background: var(--warn-bg); }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+  .same { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Same gate for every agent</h1>
+  <p class="lede">PRD 1814: git hooks for everyone, and a quick CI check on every pull request. Today beside after.</p>
+
+  <h2>Functional</h2>
+
+  <div class="pair">
+    <section class="card">
+      <h3>Today: who is checked, where</h3>
+      <table>
+        <tr><th></th><th>Claude</th><th>Codex · Cursor · a person</th></tr>
+        <tr><td><code>git commit</code></td><td><span class="warn">fallow, Claude hook</span></td><td><span class="no">nothing</span></td></tr>
+        <tr><td><code>git push</code></td><td><span class="warn">fallow, Claude hook</span></td><td><span class="no">nothing</span></td></tr>
+        <tr><td>tool missing (<code>jq</code>, fallow)</td><td><span class="no">lets it through</span></td><td>n/a</td></tr>
+      </table>
+      <table style="margin-top:14px">
+        <tr><th>Pull request</th><th>CI</th></tr>
+        <tr><td>draft, any base</td><td><span class="no">none</span></td></tr>
+        <tr><td>sub-PR into a feature branch</td><td><span class="no">none: "its only grade" is the agent's word</span></td></tr>
+        <tr><td>ready, into <code>main</code></td><td><span class="ok">checks</span></td></tr>
+        <tr><td>phase-0 · docs-only</td><td><span class="ok">App's inbox check</span></td></tr>
+      </table>
+    </section>
+
+    <section class="card">
+      <h3>After: one gate, below any agent</h3>
+      <table>
+        <tr><th></th><th>Claude</th><th>Codex · Cursor · a person</th></tr>
+        <tr><td><code>git commit</code></td><td colspan="2"><span class="ok">pre-commit: fallow audit, ~0.5 s</span></td></tr>
+        <tr><td><code>git push</code></td><td colspan="2"><span class="ok">pre-push: typecheck + lint, ~10 s</span></td></tr>
+        <tr><td>tool missing</td><td colspan="2"><span class="ok">refused: "run pnpm install"</span></td></tr>
+      </table>
+      <table style="margin-top:14px">
+        <tr><th>Pull request</th><th>CI</th></tr>
+        <tr><td>draft, any base</td><td><span class="ok">quick</span></td></tr>
+        <tr><td>sub-PR into a feature branch</td><td><span class="ok">quick</span></td></tr>
+        <tr><td>ready, into <code>main</code></td><td><span class="ok">checks</span> <span class="same">(unchanged)</span></td></tr>
+        <tr><td>phase-0 · docs-only</td><td><span class="ok">App's inbox check</span> <span class="same">(unchanged)</span></td></tr>
+      </table>
+    </section>
+  </div>
+
+  <div class="pair" style="margin-top:16px">
+    <section class="card">
+      <h3>Today: what installs it</h3>
+      <ul>
+        <li><code>.claude/settings.json</code> › <code>PreToolUse</code> runs <code>.claude/hooks/fallow-gate.sh</code> on a Claude Bash call that looks like a commit or push.</li>
+        <li>It fails open on a missing <code>jq</code>, a missing fallow, or an audit error.</li>
+        <li>The verification form says "a commit hook runs …", but git has none.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h3>After: what installs it</h3>
+      <ul>
+        <li><code>pnpm install</code> → <code>prepare</code> → <code>git config core.hooksPath .githooks</code>, for every worktree of the checkout.</li>
+        <li><code>.githooks/pre-commit</code> and <code>.githooks/pre-push</code>, tracked, plain shell, no hook manager.</li>
+        <li>The Claude-only hook and its settings entry are deleted; the briefing hook stays.</li>
+        <li><code>.github/workflows/quick.yml</code>: settle 30 s, then <code>pnpm check:changed --base origin/&lt;base&gt;</code>.</li>
+        <li><code>--no-verify</code> stays the emergency hatch; the PR says why.</li>
+      </ul>
+    </section>
+  </div>
+
+  <p class="same" style="margin-top:16px">Stays the same: the <code>checks</code> workflow and its settle gate, the full <code>pnpm test</code> and <code>pnpm lint</code> before a PR is marked ready, the App's checks, and the kit's <code>omni init</code> (shipping this to other repositories is a later PRD).</p>
+
+  <h2>Pixel perfect</h2>
+  <p>Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>

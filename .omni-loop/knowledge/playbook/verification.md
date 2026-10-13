@@ -15,6 +15,8 @@ evidence:
   - scripts/lint.ts@efc3f1b
   - scripts/lint-repository.ts@b154f4c
   - .github/workflows/checks.yml@2ee982c
+  - scripts/check-changed-hooks.ts@c844953
+  - .github/workflows/quick.yml@2fe8e9e
 terraformed: 2026-09-25
 ---
 
@@ -47,14 +49,14 @@ step printed with its time and the run ending with the total:
    change touches a file every test depends on: `package.json`, `pnpm-lock.yaml`, a
    `tsconfig*.json`, `vitest.config.ts`, `eslint.config.ts` or a test setup file;
 4. **fallow:** `pnpm fallow:audit` with `FALLOW_AUDIT_BASE` set to the merge-base, so a worktree's
-   own code is audited (the commit hook audits the main checkout, not the worktree).
+   own code is audited.
 
 With no source file and no shared file changed, it runs the typecheck alone.
 
 **Once, before a sub-pull request is marked ready** (and before every push to a ready pull request
-into `main`), run the full `pnpm test` (the preflight, unchanged) and the full `pnpm lint`. A
-sub-pull request runs no CI, so these are its only grade: `check:changed` is for iterating and
-never stands in for them, since a break in a file the change did not touch slips past it.
+into `main`), run the full `pnpm test` (the preflight, unchanged) and the full `pnpm lint`. The
+`quick` workflow grades a draft and a sub-pull request with `check:changed`, which never stands in
+for them: a break in a file the change did not touch slips past it.
 
 **Mutation, when the change touches the delivery core** (PRD 1072, ADR-0059): after writing its
 tests, and in a bug fix, run `pnpm mutation:changed --base origin/<feature branch>` (a few minutes per
@@ -62,9 +64,11 @@ file) and add or tighten a test for each survivor in the code you changed. A pul
 floor in `mutation/floor.json`; the `mutation` workflow runs the whole core every night at 02:00 UTC and on
 demand, outside the required checks, and shows a module below its floor in its job summary.
 
-A commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of
-skipping it, and then it protects nothing. So a green commit is not a green branch. Never skip a
-hook.
+`pnpm install` turns on two git hooks (`.githooks/`) for every agent and person: **pre-commit**
+runs `fallow audit` of the work tree committed (~1 s), **pre-push** `check:changed`'s typecheck and
+lint from the upstream, else `origin/main` (~10 s). Both fail closed. Tests are left to CI: a hook
+that costs minutes buys the habit of skipping it. A green commit is not a green branch. Never skip
+a hook.
 
 ## Checks
 <!-- slot: checks · optional -->

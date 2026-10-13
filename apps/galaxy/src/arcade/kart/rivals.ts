@@ -7,7 +7,7 @@ import { airborne, leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from '.
 import type { KartLook } from './look';
 import { slopeAt } from './relief';
 import { RULES, type Difficulty } from './rules';
-import { LAPS, TILE, tileAt, type Track } from './track';
+import { isRoad, LAPS, TILE, tileAt, type Track } from './track';
 
 /** Who drives a rival's kart: its sprite and its tint, as `fleetSprite` gives them, and its fleet's colour, which the kart takes. */
 export interface Driver { sprite: string; tint: Tint | null; color: string | null; /** The kart's look (PRD 1762); none draws the fleet's colour and CLASSIC. */ look?: KartLook; /** Who it is, as the results table names it. */ name?: string }
@@ -202,10 +202,16 @@ export function rubber(rivalProgress: number, playerProgress: number, level: Dif
  * The kart's way back after its fall (PRD 1447): at rest, on the point of the racing line nearest to where it fell, on the
  * segment `progressOf()` measures it along and never at that segment's ends (never at the next waypoint, never on the start
  * line), facing the segment's direction, blinking. Its `Pace` is not touched: the jump is never passed to `advance()`.
+ * Where that point is over the void, a gap across the line (bug 1820), the way back is behind the gap by `RULES.runUp`, so
+ * that from rest the kart can clear it, and never before the segment's start.
  */
 export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: Kart; fx: Fx } {
   const { a, dx, dy, len } = segmentOf(track, pace);
-  const along = Math.min(Math.max(0, len - 1), Math.max(0, ((kart.x - a.x) * dx + (kart.y - a.y) * dy) / len));
+  const roadAt = (s: number) => isRoad(tileAt(track.map, Math.floor((a.x + (dx / len) * s) / TILE), Math.floor((a.y + (dy / len) * s) / TILE)));
+  /** From `s` back along the segment to the first point over road, its start at most. */
+  const toRoad = (s: number) => { let t = s; while (t > 0 && !roadAt(t)) t = Math.max(0, t - 1); return t; };
+  const nearest = Math.min(Math.max(0, len - 1), Math.max(0, ((kart.x - a.x) * dx + (kart.y - a.y) * dy) / len));
+  const along = roadAt(nearest) ? nearest : toRoad(Math.max(0, toRoad(nearest) - RULES.runUp));
   return {
     kart: { x: a.x + (dx / len) * along, y: a.y + (dy / len) * along, angle: Math.atan2(dy, dx), speed: 0, steer: 0 },
     fx: { ...fx, fall: 0, blink: RULES.blinkTime },

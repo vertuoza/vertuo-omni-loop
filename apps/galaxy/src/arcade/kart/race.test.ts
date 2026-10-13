@@ -475,6 +475,51 @@ describe('a fall into the void', () => {
     expect(s.race.fx.fall).toBeGreaterThan(0);
     expect(s.events).toContainEqual({ kind: 'fell', racer: 0 });
   });
+
+  // The gap jump (PRD 1775) is 3 tiles of void across the racing line, so the nearest point of the line is no way back there (bug 1820).
+  describe('into the gap jump, where the racing line crosses the void (bug 1820)', () => {
+    /** The racing player on the gap jump's ramp, heading north up `[56, 28]` -> `[56, 8]` far too slowly to clear the gap. */
+    const short = (): Race => {
+      const r = racing();
+      return { ...r, items: { ...r.items, boxes: [] }, player: { ...r.player, x: 56.5 * TILE, y: 18.5 * TILE, angle: -Math.PI / 2, speed: 30, steer: 0 }, pace: { laps: 1, passed: 5 } };
+    };
+    const tile = (r: Race) => tileAt(r.track.map, Math.floor(r.player.x / TILE), Math.floor(r.player.y / TILE));
+    /** The race played with `held` until `done` holds, 4 seconds at most. */
+    const until = (r: Race, held: ReadonlySet<Action>, done: (x: Race) => boolean): Race => {
+      let x = r;
+      for (let t = 0; t < 4 && !done(x); t += FRAME) x = step(x, held, FRAME).race;
+      return x;
+    };
+    const fallen = (): Race => until(short(), GAS, (x) => x.fx.fall > 0);
+    const back = (): Race => until(fallen(), NONE, (x) => x.fx.fall <= 0);
+
+    it('comes back on the road, at rest on the run-up pad before the ramp, and does not fall again', () => {
+      const down = fallen();
+      expect(down.fx.fall).toBeGreaterThan(0);
+      expect(overVoid(down)).toBe(true);
+      const fellAt = down.player.y;
+      let r = back();
+      expect(r.fx.fall, 'still falling 3 s after its fall ended').toBe(0);
+      expect(overVoid(r)).toBe(false);
+      expect(tile(r)).toBe('+');
+      expect(r.player.y).toBeGreaterThan(fellAt);
+      expect(r.player.speed).toBe(0);
+      expect(r.pace).toEqual({ laps: 1, passed: 5 });
+      for (let i = 0; i < 60; i++) { r = step(r, NONE, FRAME).race; expect(r.fx.fall, `frame ${i}`).toBe(0); }
+    });
+
+    it('clears the gap from there with the gas held, and drives on towards the tunnel', () => {
+      let r = back();
+      let falls = 0;
+      for (let i = 0; i < 6 / FRAME && r.player.y > 12 * TILE; i++) {
+        const s = step(r, GAS, FRAME);
+        r = s.race;
+        falls += s.events.filter((e) => e.kind === 'fell' && e.racer === 0).length;
+      }
+      expect(falls).toBe(0);
+      expect(r.player.y).toBeLessThan(12 * TILE);
+    });
+  });
 });
 
 describe('the hills under the player (PRD 1698)', () => {
