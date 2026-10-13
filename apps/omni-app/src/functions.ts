@@ -9,7 +9,13 @@
 // installation's budget through the shared client (PRD 902), on the store galaxy writes too; the retro also looks up its
 // installation on each target of a multi-repository PRD as the App itself (PRD 1130). A test hands `octokitFor` a
 // stubbed GitHub.
+//
+// Every function is created on the client through ./run-log/run-log.ts (PRD 1723 s6): each run that ends, its failure
+// handler's included, writes one `inngest` line with the function's id in `fn`, the run id, `ok` or `failed`, and its
+// `ms`. What a run throws is rethrown unchanged, so the retries and the failure handlers fire as before. The shared
+// GitHub client's sentences (a budget paused or deferred) are JSON note lines too. A test hands `logger` a logger it reads.
 import { githubClient } from '@omni/github';
+import { log, type Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import type { AppEnv } from './env.ts';
 import { liveCanon } from './canon/live.ts';
 import { createApprovedCheck, createApprovedRerun } from './approved-check/approved-check.ts';
@@ -17,7 +23,7 @@ import { askJudge } from './approved-check/judge-client.ts';
 import { recordReader } from './approved-check/record.ts';
 import { createCanonAction } from './inbox-check/canon-action.ts';
 import { createInboxCheck } from './inbox-check/inbox-check.ts';
-import { inngest } from './inngest-client.ts';
+import { inngest as appInngest } from './inngest-client.ts';
 import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts';
 import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
@@ -25,6 +31,7 @@ import { createOutboxCheck } from './outbox-check/outbox-check.ts';
 import { productOutboxReader } from './outbox-check/product-outbox.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
+import { loggedClient, noteTo } from './run-log/run-log.ts';
 import { createServerEventRecheck } from './server-event/recheck.ts';
 import { targetsReader } from './server-event/targets.ts';
 
@@ -34,8 +41,12 @@ type AppOctokitFor = ReturnType<typeof installationOctokitFor>;
 /** The functions, by name, in the order they are served, bound to `env`. */
 export function appFunctions(
   env: AppEnv,
-  { octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase) })) }: { octokitFor?: AppOctokitFor } = {},
+  {
+    logger = log,
+    octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase), log: noteTo('github', logger) })),
+  }: { octokitFor?: AppOctokitFor; logger?: Logger } = {},
 ) {
+  const inngest = loggedClient(appInngest, logger);
   return {
     outboxCheck: createOutboxCheck({ client: inngest, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
     inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
