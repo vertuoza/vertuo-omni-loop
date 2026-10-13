@@ -27617,6 +27617,12 @@ var proofUrl = external_exports.string().refine((value) => {
 var envName = external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = external_exports.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
+var contractKind = external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
+var contractKinds = external_exports.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+  const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
+  if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = external_exports.object({
   repo: external_exports.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -27810,6 +27816,14 @@ var ConfigSchema = external_exports.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: external_exports.array(regexSource).default([]) }),
+  // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
+  // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
+  // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
+  // it names none; `omni plan check` refuses a word outside them.
+  contracts: section({
+    declare: external_exports.boolean().default(false),
+    kinds: contractKinds.default(() => [...DEFAULT_CONTRACT_KINDS])
+  }),
   notify: section({
     slack: external_exports.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
@@ -36808,7 +36822,8 @@ function parsePlanSlices(markdown) {
       territory: territoryPrefixes(row[column("territory")]),
       blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
       wave: column("wave") === -1 ? null : Number(row[column("wave")]),
-      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")])
+      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")]),
+      contract: column("contract") === -1 ? null : contractCell(row[column("contract")])
     });
   }
   if (slices.length === 0) {
@@ -36819,6 +36834,13 @@ function parsePlanSlices(markdown) {
 function landingCell(cell2) {
   const text14 = plainCell(cell2);
   return NOTHING.test(text14) ? 1 : Number(text14);
+}
+function contractCell(cell2) {
+  const text14 = plainCell(cell2);
+  if (NOTHING.test(text14)) return null;
+  const kinds = text14.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  if (kinds.length === 0) return null;
+  return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
 function plainCell(cell2) {
   return (cell2 ?? "").replace(/`/g, "").trim();
