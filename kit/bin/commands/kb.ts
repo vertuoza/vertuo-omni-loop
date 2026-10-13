@@ -32,6 +32,7 @@ import { parseArgs, prdArg, println, sliceArg, usageError, type Flags } from '..
 import type { Command, CommandIo, Exec } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
+import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 import { synchronous } from '../synchronous.ts';
 
 /** The one flag every `omni kb` verb reads. */
@@ -60,12 +61,25 @@ function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: Com
     throw usageError(`usage: omni kb show <form> [--json] — the forms: ${FORM_IDS.join(', ')}`);
   }
   const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
-  const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
-  const laws = id === BRIEFING ? briefingLaws(ctx) : null;
   for (const problem of resolved.problems) println(stderr, `warning: ${problem}`);
-  const json = { ...resolved, ...(records ? { records } : {}), ...(laws ? { laws } : {}) };
-  println(stdout, flags.json ? JSON.stringify(json, null, 2) : formShowText(resolved, records, laws?.lines ?? null));
+  println(stdout, flags.json ? JSON.stringify(showJson(ctx, id, resolved), null, 2) : showText(ctx, id, resolved));
   return 0;
+}
+
+/** What `kb show <form> --json` prints: the resolved form, the decisions form's records, the briefing's laws. */
+function showJson(ctx: Context, id: string, resolved: ResolvedForm): object {
+  const extra = {
+    ...(id === DECISIONS_FORM ? { records: readDecisions({ ctx }) } : {}),
+    ...(id === BRIEFING ? { laws: briefingLaws(ctx) } : {}),
+  };
+  return { ...resolved, ...extra };
+}
+
+/** What `kb show <form>` prints, as the context measure counts it (PRD 1679). */
+function showText(ctx: Context, id: string, resolved: ResolvedForm): string {
+  const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
+  const laws = id === BRIEFING ? briefingLaws(ctx).lines : null;
+  return formShowText(resolved, records, laws);
 }
 
 const SOURCE_LABEL: Record<string, string> = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };
