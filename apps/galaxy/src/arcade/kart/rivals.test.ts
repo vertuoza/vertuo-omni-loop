@@ -465,3 +465,17 @@ describe('a rival keeps its wheels on the road (PRD 1698)', () => {
     expect(driveRival(track, rivalAt(k, 6), RULES.subStep, 0).kart.steer).not.toBe(0);
   });
 });
+
+describe('a kart in the air (PRD 1775)', () => {
+  it('is not pushed by a kart on the ground, and does not push it', () => {
+    const ground = kartAt(100, 100, 0), air = { ...kartAt(104, 100, 0), height: 5, lift: 10 };
+    const [a, b] = pushApart([ground, air]);
+    expect(a?.x).toBe(100);
+    expect(b?.x).toBe(104);
+  });
+
+  it('is pushed by another kart in the air', () => {
+    const [a, b] = pushApart([{ ...kartAt(100, 100, 0), height: 5 }, { ...kartAt(104, 100, 0), height: 5 }]);
+    expect((b?.x ?? 0) - (a?.x ?? 0)).toBeGreaterThan(4);
+  });
+});

@@ -839,3 +839,18 @@ describe('the minimap (PRD 1698)', () => {
     expect(MINIMAP_TOP).toBeGreaterThanOrEqual(32);
   });
 });
+
+describe('a kart in the air on the screen (PRD 1775)', () => {
+  it('keeps the camera\'s eye 28 over the kart\'s own height, and a shadow lower on the screen than the kart itself', () => {
+    const track = parseTrack();
+    for (const grid of [WIDE, TALL]) {
+      const kart = newRace({ seed: 1, track }).player;
+      const aloft = { ...kart, height: 20, lift: 0 };
+      expect(viewFor(grid, track, aloft).height).toBeCloseTo(viewFor(grid, track, kart).height + 20, 9);
+      const v = viewFor(grid, track, aloft);
+      const shade = project(v, aloft.x, aloft.y, groundAt(track, aloft.x, aloft.y));
+      const body = project(v, aloft.x, aloft.y, groundAt(track, aloft.x, aloft.y) + 20);
+      expect(shade && body && shade.sy > body.sy).toBe(true);
+    }
+  });
+});

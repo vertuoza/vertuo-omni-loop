@@ -178,3 +178,11 @@ describe('the item and hit messages (PRD 1572, slice 6)', () => {
     expect(readMessage({ kind: 'hit', race: 'other', id: 'u1:3' }, 'r')).toBeNull();
   });
 });
+
+describe('a state\'s height (PRD 1775)', () => {
+  it('reads the height it carries, and reads a state without one as it was', () => {
+    expect(readMessage({ ...state, height: 12.5 })).toEqual({ ...state, height: 12.5 });
+    expect(readMessage(state)).toEqual(state);
+    expect(readMessage({ ...state, height: -1 })).toBeNull();
+  });
+});

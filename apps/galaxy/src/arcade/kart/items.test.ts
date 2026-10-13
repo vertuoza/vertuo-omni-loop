@@ -338,3 +338,20 @@ describe('how long a rival holds an item, by level (PRD 1762)', () => {
     expect(RULES.levels.easy.hold).toBeGreaterThan(RULES.levels.hard.hold);
   });
 });
+
+describe('a kart in the air (PRD 1775)', () => {
+  const aloft = (r: Racer): Racer => ({ ...r, kart: { ...r.kart, height: 6, lift: 20 } });
+
+  it('takes no box', () => {
+    const { racers } = step(track.map, world(), [aloft(onBox())], [1], 0.01);
+    expect(racers[0]?.fx.item).toBeNull();
+  });
+
+  it('passes over a BLOB and under an ORB without being hit', () => {
+    const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y }], orbs: [{ x: line.x, y: line.y, angle: heading, bounces: 0, age: 0 }] };
+    const r = step(track.map, w, [aloft(racer())], [1], 0.01);
+    expect(r.racers[0]?.fx.spin).toBe(0);
+    expect(r.world.blobs).toHaveLength(1);
+    expect(r.events.filter((e) => e.kind === 'hit')).toHaveLength(0);
+  });
+});

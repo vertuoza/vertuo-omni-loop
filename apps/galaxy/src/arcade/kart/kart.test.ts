@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { driveKart, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
+import { airborne, driveKart, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
 import { isRoad, TILE, tileAt } from './track';
 
@@ -351,5 +351,92 @@ describe('the four wheels (PRD 1698)', () => {
       expect(tippedOver(EDGE, k)).toBe(true);
       expect(stepFx(EDGE, k, NONE, RULES.subStep, 1, NO_FX).fx.fall).toBe(RULES.fallTime);
     }
+  });
+});
+
+// Boost pads and jumps (PRD 1775, slice 4): on a fixture road, a pad at column 10 and a ramp at column 14,
+// road beyond the ramp or void beyond it.
+const PAD_MAP = ['~'.repeat(40), '#'.repeat(10) + '+' + '#'.repeat(3) + '^' + '#'.repeat(25), '~'.repeat(40)] as const;
+const GAP_MAP = ['~'.repeat(40), '#'.repeat(10) + '+' + '#'.repeat(3) + '^' + '~'.repeat(3) + '#'.repeat(22), '~'.repeat(40)] as const;
+const lane = 1.5 * TILE;
+const run = (map: readonly string[], k: Kart, fx: Fx, seconds: number, p: Pad = NONE, dt = RULES.subStep) => {
+  let kart = k, f = fx;
+  for (let t = 0; t < seconds; t += dt) ({ kart, fx: f } = stepFx(map, kart, p, dt, 1, f));
+  return { kart, fx: f };
+};
+
+describe('the boost pad (PRD 1775)', () => {
+  it('gives the BOOST on the ground, started again on every pad, and keeps the held item', () => {
+    const k = { ...kartAt(10 * TILE + 2, lane, 0), speed: 80 };
+    const { fx } = stepFx(PAD_MAP, k, NONE, RULES.subStep, 1, { ...NO_FX, item: 'blob', boost: 0.2 });
+    expect(fx.boost).toBe(RULES.boostTime);
+    expect(fx.item).toBe('blob');
+  });
+
+  it('gives nothing to a kart in the air', () => {
+    const k = { ...kartAt(10 * TILE + 2, lane, 0), speed: 80, height: 5, lift: 10 };
+    expect(stepFx(PAD_MAP, k, NONE, RULES.subStep, 1, NO_FX).fx.boost).toBe(0);
+  });
+});
+
+describe('the jump (PRD 1775)', () => {
+  const onRamp = { ...kartAt(14 * TILE + 15.9, lane, 0), speed: 100 };
+
+  it('takes off leaving a ramp forwards at 0.9 of the speed, and gravity brings it down', () => {
+    const left = stepFx(PAD_MAP, onRamp, NONE, RULES.subStep, 1, NO_FX).kart;
+    expect(left.lift).toBeCloseTo(RULES.launch * left.speed, 6);
+    expect(airborne(left)).toBe(true);
+    const next = stepFx(PAD_MAP, left, NONE, RULES.subStep, 1, NO_FX).kart;
+    expect(next.lift).toBeCloseTo((left.lift ?? 0) - RULES.gravity * RULES.subStep, 6);
+    expect(next.height ?? 0).toBeGreaterThan(0);
+  });
+
+  it('does not take off reversing', () => {
+    const back = { ...kartAt(14 * TILE + 0.05, lane, 0), speed: -20 };
+    expect(airborne(stepFx(PAD_MAP, back, NONE, 0.05, 1, NO_FX).kart)).toBe(false);
+  });
+
+  it('flies higher and farther the faster it goes', () => {
+    const peak = (speed: number) => {
+      let kart: Kart = { ...kartAt(14 * TILE + 15.9, lane, 0), speed };
+      let fx = NO_FX, top = 0, steps = 0;
+      do { ({ kart, fx } = stepFx(PAD_MAP, kart, NONE, RULES.subStep, 1, fx)); top = Math.max(top, kart.height ?? 0); steps++; } while (airborne(kart) && steps < 2000);
+      return { top, far: kart.x };
+    };
+    expect(peak(100).top).toBeGreaterThan(peak(60).top);
+    expect(peak(100).far).toBeGreaterThan(peak(60).far);
+  });
+
+  it('holds its speed in the air, steers at 0.3 of its turn rate and never tips over', () => {
+    const k: Kart = { ...kartAt(5 * TILE, lane, 0), speed: 90, height: 10, lift: 50 };
+    const flown = stepFx(PAD_MAP, k, pad({ left: true, brake: true }), 0.05, 1, NO_FX).kart;
+    expect(flown.speed).toBe(90);
+    expect(flown.angle).toBeCloseTo(-turnRate(90) * RULES.airSteer * 0.05, 6);
+    const over = { ...k, x: 5 * TILE, y: 0.2 * TILE, height: 30, lift: 0 }; // over the void beside the road
+    const held = stepFx(PAD_MAP, over, NONE, 0.02, 1, NO_FX);
+    expect(held.fx.fall).toBe(0);
+    expect(held.fx.tip).toBe(0);
+  });
+
+  it('lands on the road and drives on with its speed', () => {
+    const { kart, fx } = run(PAD_MAP, onRamp, NO_FX, 1, pad({ accel: true }));
+    expect(airborne(kart)).toBe(false);
+    expect(kart.height).toBeUndefined();
+    expect(fx.fall).toBe(0);
+    expect(kart.speed).toBeGreaterThan(0);
+  });
+
+  it('lands with its centre over the void and falls by today\'s fall', () => {
+    const { fx } = run(GAP_MAP, { ...onRamp, speed: 40 }, NO_FX, 3);
+    expect(fx.fall).toBeGreaterThan(0);
+  });
+
+  it('lands with both wheels of one side over the void and the grace counts', () => {
+    const edge = 1 * TILE - 2; // the row's top edge: the left wheels hang over the void
+    const k: Kart = { ...kartAt(20 * TILE, edge, 0), speed: 60, height: 0.01, lift: -50 };
+    const landed = stepFx(PAD_MAP, k, NONE, 0.02, 1, NO_FX);
+    expect(airborne(landed.kart)).toBe(false);
+    expect(landed.fx.tip).toBeCloseTo(0.02, 6);
+    expect(landed.fx.fall).toBe(0);
   });
 });
