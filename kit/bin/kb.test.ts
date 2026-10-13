@@ -974,28 +974,26 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
     expect(await omni(root, ['kb', 'laws', '--area', 'product', 'stray'])).toMatchObject({ code: 2 });
   });
 
-  it('omni kb show briefing ends with the thesis’s laws section, read live', async () => {
+  it('omni kb show briefing ends with the locked laws by id and where to read them, never their full text', async () => {
     const { root } = makeRepo({ git: true, files: files() });
     const { code, out } = await omni(root, ['kb', 'show', 'briefing']);
     expect(code).toBe(0);
-    const section = [`## The laws  [read live from ${K}/product/thesis.md]`, '- BR-PRODUCT-1 — Only a person merges into main. If broken: unreviewed code reaches every user.'];
+    const section = [
+      '## The laws  [1 locked]',
+      'Locked: BR-PRODUCT-1. Before you change a file, run `omni kb laws --paths <file>…` (or `--slice <prd> <slice>`) to read the laws it touches; only their owner can approve a change to one.',
+    ];
     expect(out.trimEnd().split('\n').slice(-2)).toEqual(section);
+    expect(out).not.toContain('If broken:');
     const json: unknown = JSON.parse((await omni(root, ['kb', 'show', 'briefing', '--json'])).out);
     expect(dig(json, 'laws')).toEqual({ source: `${K}/product/thesis.md`, lines: section });
     expect((await omni(root, ['kb', 'show', 'testing'])).out).not.toContain('## The laws');
   });
 
-  it('the briefing reads the registers when the thesis has no laws section, and says so when nothing is locked', async () => {
+  it('the briefing reads the locks from the registers, and says so when nothing is locked', async () => {
     const { root } = makeRepo({ git: true, files: files({ [`${K}/product/thesis.md`]: '# Thesis\n' }) });
-    expect((await omni(root, ['kb', 'show', 'briefing'])).out.trimEnd().split('\n').slice(-2)).toEqual([
-      `## The laws  [no laws section in ${K}/product/thesis.md; read from the registers]`,
-      'law BR-PRODUCT-1 — An agent never merges into main. Changing it needs @pierrederval to approve the pull request.',
-    ]);
+    expect((await omni(root, ['kb', 'show', 'briefing'])).out.trimEnd().split('\n').at(-2)).toBe('## The laws  [1 locked]');
     const { root: empty } = makeRepo({ git: true, files: CONFIG });
-    expect((await omni(empty, ['kb', 'show', 'briefing'])).out.trimEnd().split('\n').slice(-2)).toEqual([
-      `## The laws  [no thesis at ${K}/product/thesis.md; read from the registers]`,
-      'No law is locked yet.',
-    ]);
+    expect((await omni(empty, ['kb', 'show', 'briefing'])).out.trimEnd().split('\n').slice(-2)).toEqual(['## The laws', 'No law is locked yet.']);
   });
 
   it('omni kb status counts the rules with no Governs: as a backlog', async () => {

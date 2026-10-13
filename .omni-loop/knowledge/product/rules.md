@@ -32,7 +32,7 @@ Serves: P-PRODUCT-3
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s4-03-outbox-check-red-is-the-gate, PRD #7
 Enforced by: kit/test/plugin.test.ts
 Governs: ^kit/plugin/skills/(pr)/, ^kit/test/plugin\.test\.ts$
-Proposed law: If an agent could apply the override label itself, it could wave its own work through the gate, and no person would have answered the open questions.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -57,7 +57,7 @@ Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md, entry s9-01-gate-red-stays-draft, PRD #7
 Enforced by: kit/test/plugin.test.ts
 Governs: ^kit/plugin/skills/(yolo|pr)/, ^kit/test/plugin\.test\.ts$
-Proposed law: If a feature could be marked ready while a question is open, a person could merge work whose open decisions nobody answered.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
@@ -70,7 +70,7 @@ Serves: P-PRODUCT-5
 Source: .omni-loop/delivery/shipped/0028-omni-app-outbox-check/outbox/settled.md, entry s5-01-check-grades-changed-files, PRD #28
 Enforced by: apps/omni-app/src/outbox-check/outbox-check.test.ts
 Governs: ^apps/omni-app/src/outbox-check/, ^kit/lib/outbox/
-Proposed law: If the live check stopped reading the changed files, a risky change nobody explained could reach the main branch, and the reviewer would never be told.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
@@ -143,7 +143,7 @@ Serves: P-PRODUCT-11
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s2-04-round-moves-forward, PRD #71
 Enforced by: apps/galaxy/src/ask/rounds-sql.test.ts
 Governs: ^apps/galaxy/src/ask/rounds-sql\.test\.ts$, ^supabase/migrations/
-Proposed law: If an answer could change after it was given, the terminal would have acted on words the person no longer stands behind, and nobody could tell what was really decided.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
@@ -336,7 +336,7 @@ Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-03-link-github-needs-a-workspace, PRD #100
 Enforced by: apps/galaxy/src/data/link-github-sql.test.ts
 Governs: ^apps/galaxy/src/data/link-github-sql\.test\.ts$, ^supabase/migrations/
-Proposed law: If someone outside every workspace could link a GitHub account, a stranger could tie themselves to a team and see what that team sees.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -349,7 +349,7 @@ Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
 Enforced by: apps/galaxy/src/ask/workspace-gate-sql.test.ts
 Governs: ^apps/galaxy/src/ask/workspace-gate-sql\.test\.ts$, ^supabase/migrations/
-Proposed law: If ask mode let in someone who is not a member, a stranger could read a team's questions and answers.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
@@ -470,7 +470,7 @@ Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s2-02-session-of-owner-in-no-workspace, PRD #144
 Enforced by: apps/galaxy/src/ask/workspace-sql.test.ts
 Governs: ^apps/galaxy/src/ask/workspace-sql\.test\.ts$, ^supabase/migrations/
-Proposed law: If a session that belongs to no workspace could be read, a question could leak to the wrong people, and if it were deleted its owner would lose it.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
@@ -711,7 +711,7 @@ Serves: P-PRODUCT-55
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
 Enforced by: apps/galaxy/src/jev/jev-key-sql.test.ts
 Governs: ^apps/galaxy/src/jev/jev-key-sql\.test\.ts$, ^supabase/migrations/
-Proposed law: If anyone but the owner could see the stored key, a member could copy the workspace's paid AI key and run up its bill.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
@@ -760,7 +760,7 @@ Serves: P-PRODUCT-58
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
 Enforced by: apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts
 Governs: ^apps/galaxy/src/agent-connect/tokens/repo-scope-sql\.test\.ts$, ^supabase/migrations/
-Proposed law: If an agent link could read a repository outside its workspace, an agent could read another team's private work.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -773,7 +773,7 @@ Serves: P-PRODUCT-26
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-02-left-maker-links-listed, PRD #855
 Enforced by: apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts
 Governs: ^apps/galaxy/src/agent-connect/tokens/tokens-sql\.test\.ts$, ^supabase/migrations/
-Proposed law: If links kept working after their maker left, a person who left the team could still read its work through an agent.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
@@ -1124,7 +1124,7 @@ Serves: P-PRODUCT-66
 Source: .omni-loop/delivery/shipped/1318-layered-data-access/outbox/settled.md, entry s3-01-cookie-session-on-every-ask-route, PRD #1318
 Enforced by: apps/galaxy/src/ask/api.test.ts
 Governs: ^apps/galaxy/src/ask/api\.
-Proposed law: If a terminal token could mark an answer as given on the page, an agent could answer a question in a person's name.
+Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-09
 Decided: @pierrederval, 2026-10-09
 
