@@ -3,7 +3,7 @@ import { rampFrom } from '@omni/design';
 import { TOKENS } from '../theme';
 import { sure } from '../test/sure';
 import { BEYOND, DECK_DEPTH, DECK_GLOW, deckOf, pack, paintTrack, SURFACE, VOID } from './texture';
-import { cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
 
 describe('pack', () => {
   it('packs #rrggbb as an opaque little-endian pixel: 0xAABBGGRR', () => {
@@ -112,20 +112,24 @@ describe('paintTrack', () => {
   });
 
   describe('the chevrons', () => {
+    // COMET RING's pads, ramps, tunnel and walkway paint their own tiles; the chevrons are held on the plain road of the same circuit.
+    const plainRows = COMET_RING.rows.map((row, y) => row.replace(/[+^Tw]/g, '#').replace(/~/g, (_, x: number) => (y >= 15 && y <= 17 && x >= 54 && x <= 58 ? '#' : '~')));
+    const plain = parseTrack({ rows: plainRows, waypoints: COMET_RING.waypoints });
+    const plainTexture = paintTrack(plain);
     const chevron = pack(SURFACE.chevron);
     const chevronsOf = (tx: number, ty: number) => {
       const out: [number, number][] = [];
-      for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) if (pixel(tx * TILE + x, ty * TILE + y) === chevron) out.push([x, y]);
+      for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) if (sure(plainTexture.px[(ty * TILE + y) * plainTexture.w + tx * TILE + x], 'a pixel') === chevron) out.push([x, y]);
       return out;
     };
-    const corners = cornersOf(track);
+    const corners = cornersOf(plain);
 
     it('stand three before each corner, on road tiles of the leg into it, the last two tiles before it', () => {
       for (const c of corners) {
         const [ix, iy] = c.into;
         for (const k of [2, 3, 4]) {
           const [tx, ty] = [c.x - ix * k, c.y - iy * k];
-          expect(isRoad(tileAt(track.map, tx, ty)), `corner ${c.index}, ${k} tiles before`).toBe(true);
+          expect(isRoad(tileAt(plain.map, tx, ty)), `corner ${c.index}, ${k} tiles before`).toBe(true);
           expect(chevronsOf(tx, ty).length, `corner ${c.index}, ${k} tiles before`).toBeGreaterThan(0);
         }
         for (const k of [0, 1, 5]) expect(chevronsOf(c.x - ix * k, c.y - iy * k), `corner ${c.index}, ${k} tiles before`).toEqual([]);
@@ -149,7 +153,7 @@ describe('paintTrack', () => {
 
     it('are the only chevron-coloured pixels on the floor', () => {
       let n = 0;
-      for (let i = 0; i < texture.px.length; i++) if (texture.px[i] === chevron) n++;
+      for (let i = 0; i < plainTexture.px.length; i++) if (plainTexture.px[i] === chevron) n++;
       const perTile = chevronsOf(sure(corners[0], 'a corner').x - sure(corners[0], 'a corner').into[0] * 2, sure(corners[0], 'a corner').y - sure(corners[0], 'a corner').into[1] * 2).length;
       expect(n).toBe(perTile * corners.length * 3);
     });
@@ -263,9 +267,9 @@ describe('the station\'s tiles (PRD 1775)', () => {
     expect(pixel(36 * TILE + TILE - 1, 5 * TILE + 5)).toBe(magenta);
   });
 
-  it('leaves COMET RING\'s own road as it was: no pad, no ramp, no plating', () => {
+  it('paints COMET RING\'s own pads, ramps, plating and walkway', () => {
     const comet = paintTrack(parseTrack());
-    const bad = new Set([SURFACE.pad, SURFACE.padChevron, SURFACE.rampYellow, SURFACE.rampBlack, SURFACE.plate, SURFACE.plateSeam, SURFACE.plateRivet, SURFACE.grating, SURFACE.gratingBar].map(pack));
-    for (let i = 0; i < comet.px.length; i++) if (bad.has(sure(comet.px[i], 'a pixel'))) throw new Error(`pixel ${i} is a station colour`);
+    const seen = new Set<number>(comet.px);
+    for (const colour of [SURFACE.pad, SURFACE.padChevron, SURFACE.rampYellow, SURFACE.rampBlack, SURFACE.plate, SURFACE.grating, SURFACE.gratingBar]) expect(seen.has(pack(colour)), colour).toBe(true);
   });
 });

@@ -129,7 +129,7 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
 /** Whether rival `i` (which has held its item `held` seconds) uses what it holds now, by plain rules: BOOST on a straight, BLOB with a kart close behind, ORB with a kart ahead in range and in line. `straight`: it is facing where it goes. */
 export function wantsToUse(racers: readonly Racer[], i: number, straight: boolean, level: Difficulty = 'normal', held = Infinity): boolean {
   const me = racers[i];
-  if (!me?.fx.item || me.fx.spin > 0 || me.fx.fall > 0) return false;
+  if (!me?.fx.item || me.fx.spin > 0 || me.fx.fall > 0 || airborne(me.kart)) return false; // nothing is thrown from the air (PRD 1775): a BLOB would land on the ramp it left
   if (held < RULES.levels[level].hold) return false; // the level's patience: an item is held this long before it is used
   if (me.fx.item === 'boost') return straight;
   const [cos, sin] = [Math.cos(me.kart.angle), Math.sin(me.kart.angle)];

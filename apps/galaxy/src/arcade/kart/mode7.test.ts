@@ -5,7 +5,7 @@ import {
 } from './mode7';
 import { groundAt, heightsOf, reliefRange } from './relief';
 import { BEYOND, deckOf, paintTrack } from './texture';
-import { COMET_RING, parseTrack, TILE } from './track';
+import { parseTrack, TILE } from './track';
 
 const WIDE = { w: 640, h: 360 }, TALL = { w: 320, h: 288 };
 const at = (angle: number, screen = WIDE): View => viewOf(screen, { x: 500, y: 400, angle });
@@ -295,6 +295,7 @@ describe('renderTerrain (PRD 1698)', () => {
     const heights = heightsOf(track, texture);
     const range = reliefRange(track);
     const edge = deckOf();
+    const mask = roofedOf(track, texture);
     const KART_FOOT = 6;
     it.each([['wide', WIDE], ['tall', TALL]] as const)('takes at most 600 samples a column at every waypoint of COMET RING, facing the next one, on the %s grid', (_name, grid) => {
       const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
@@ -303,7 +304,7 @@ describe('renderTerrain (PRD 1698)', () => {
         const angle = Math.atan2(next.y - w.y, next.x - w.x);
         const camera = chaseCamera({ x: w.x, y: w.y, angle }, depthAt(grid, grid.h - KART_FOOT));
         const v = viewOf(grid, camera, groundAt(track, w.x, w.y));
-        const samples = renderTerrain(v, texture, heights, range, edge, out, depth);
+        const samples = renderTerrain(v, texture, heights, range, edge, out, depth, mask);
         expect(samples, `waypoint ${i}`).toBeGreaterThan(50);
         expect(samples, `waypoint ${i}`).toBeLessThanOrEqual(600);
       });
@@ -400,23 +401,23 @@ describe('the tunnel (PRD 1775)', () => {
   });
 
   describe('the cost guard, inside the tunnel and around it', () => {
-    const rows = COMET_RING.rows.map((row, y) => (y >= 6 && y <= 10 ? row.split('').map((c, x) => (x >= 37 && x <= 55 && c === '#' ? 'T' : c)).join('') : row));
-    const track = parseTrack({ ...COMET_RING, rows });
+    const track = parseTrack();
     const tex = paintTrack(track);
     const mask = roofedOf(track, tex);
     const hs = heightsOf(track, tex);
     const range = reliefRange(track);
     const edge = deckOf();
     const KART_FOOT = 6;
-    it('has roofed road on the top leg', () => {
+    it('has roofed road on the top leg: 13 tiles of it, between the corners [56, 8] and [36, 8]', () => {
       expect(mask.some((m) => m === 1)).toBe(true);
+      expect(track.map.flatMap((row) => Array.from(row)).filter((c) => c === 'T')).toHaveLength(13 * 5);
     });
     it.each([['wide', WIDE], ['tall', TALL]] as const)('takes at most 600 samples a column at every waypoint and at points inside the tunnel, on the %s grid', (_name, grid) => {
       const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
       const stops = [
         ...track.waypoints.map((w, i) => ({ ...w, next: sure(track.waypoints[(i + 1) % track.waypoints.length], 'the next waypoint') })),
-        ...[54, 50, 46, 42, 38].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 36.5 * TILE, y: 8.5 * TILE } })),
-        ...[54, 46, 38].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 56.5 * TILE, y: 8.5 * TILE } })),
+        ...[52, 49, 46, 43, 40].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 36.5 * TILE, y: 8.5 * TILE } })),
+        ...[51, 46, 41].map((tx) => ({ x: (tx + 0.5) * TILE, y: 8.5 * TILE, next: { x: 56.5 * TILE, y: 8.5 * TILE } })),
       ];
       stops.forEach((w, i) => {
         const angle = Math.atan2(w.next.y - w.y, w.next.x - w.x);

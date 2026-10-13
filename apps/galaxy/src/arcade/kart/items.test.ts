@@ -212,6 +212,13 @@ describe('the rivals\' rules', () => {
     expect(wantsToUse([me], 0, false)).toBe(false);
   });
 
+  it('uses nothing in the air (PRD 1775): a BLOB thrown from a flight would land on the ramp it left', () => {
+    const flying = (item: Item): Racer => { const r = at(0, 0, { item }); return { ...r, kart: { ...r.kart, height: 4, lift: 10 } }; };
+    expect(wantsToUse([flying('boost')], 0, true)).toBe(false);
+    expect(wantsToUse([flying('blob'), at(25)], 0, true)).toBe(false);
+    expect(wantsToUse([flying('orb'), at(-25)], 0, true)).toBe(false);
+  });
+
   it('uses a BLOB when a kart is close behind, not when it is ahead or far', () => {
     const me = at(0, 0, { item: 'blob' });
     expect(wantsToUse([me, at(25)], 0, true)).toBe(true);

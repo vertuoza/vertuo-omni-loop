@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
+import { airborne, NO_FX, stepFx, type Kart } from './kart';
+import { RULES } from './rules';
 import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, legHeight, LEVEL, parseTrack, RELIEF_SPAN, TILE, tileAt, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
@@ -58,9 +60,13 @@ describe('the void (PRD 1447)', () => {
   it('keeps every point of the racing line over road, sampled along each segment', () => {
     waypoints.forEach(([x, y], i) => {
       const [nx, ny] = sure(waypoints[(i + 1) % waypoints.length], 'the next waypoint');
+      // A gap (PRD 1775) is flown over: its void follows a ramp.
+      let last = '#';
       for (let s = 0; s <= 64; s++) {
         const px = (x + 0.5 + ((nx - x) * s) / 64) * TILE, py = (y + 0.5 + ((ny - y) * s) / 64) * TILE;
-        expect(isRoad(tileAt(rows, Math.floor(px / TILE), Math.floor(py / TILE))), `segment ${i}, sample ${s}`).toBe(true);
+        const tile = tileAt(rows, Math.floor(px / TILE), Math.floor(py / TILE));
+        expect(isRoad(tile) || last === '^', `segment ${i}, sample ${s}`).toBe(true);
+        if (tile !== '~') last = tile;
       }
     });
   });
@@ -208,14 +214,14 @@ describe('the props (PRD 1427)', () => {
   });
   const withProp = (kind: (typeof PROP_KINDS)[number], x: number, y: number): TrackSource => ({ ...COMET_RING, props: [{ kind, x, y }] });
 
-  it('stand on COMET RING and pass every check: the five original kinds, each on a void tile (the station\'s four are laid out by its circuit, PRD 1775 s8)', () => {
+  it('stand on COMET RING and pass every check: the five original kinds and the station\'s four, each on a void tile', () => {
     expect(trackProblems(COMET_RING)).toEqual([]);
-    for (const kind of PROP_KINDS.slice(0, 5)) expect(props.some((p) => p.kind === kind), kind).toBe(true);
+    for (const kind of PROP_KINDS) expect(props.some((p) => p.kind === kind), kind).toBe(true);
     for (const { x, y } of props) expect(tileAt(rows, x, y)).toBe('~');
   });
 
   it('put pylons and beacons along the circuit\'s edge, and the rest deeper in', () => {
-    for (const { kind, x, y } of props) expect(nearRoad(x, y), `${kind} at ${x},${y}`).toBe(kind === 'pylon' || kind === 'beacon');
+    for (const { kind, x, y } of props.filter((p) => !['lamp', 'dish', 'crane', 'container'].includes(p.kind))) expect(nearRoad(x, y), `${kind} at ${x},${y}`).toBe(kind === 'pylon' || kind === 'beacon');
   });
 
   it('accept the station\'s lamps, dishes, cranes and containers on void tiles and refuse them on the road, the walkway, the spur and the tunnel', () => {
@@ -350,12 +356,12 @@ describe('the station tiles (PRD 1775)', () => {
     expect(trackProblems(altered((r) => { set(r, 54, 52, '+'); set(r, 54, 51, '^'); set(r, 54, 50, 'T'); set(r, 54, 49, 'w'); }))).toEqual([]);
   });
 
-  it('keeps COMET RING itself as it was: no stand, no shortcut', () => {
-    expect(COMET_RING.stands).toBeUndefined();
-    expect(COMET_RING.shortcuts).toBeUndefined();
+  it('lays COMET RING out: twelve stands and the two shortcuts, each on the road it should be', () => {
+    expect(COMET_RING.stands).toHaveLength(12);
     const track = parseTrack();
-    expect(track.stands).toEqual([]);
-    expect(track.shortcuts).toEqual([]);
+    expect(track.stands).toHaveLength(12);
+    expect(track.shortcuts).toHaveLength(2);
+    expect(COMET_RING.shortcuts?.map((s) => s.skips)).toEqual([2, 7]);
   });
 });
 
@@ -406,5 +412,108 @@ describe('shortcuts (PRD 1775)', () => {
 
   it('refuses a gate that crosses no road', () => {
     expect(trackProblems(withShortcut({ ...good, gate: [[1, 1], [3, 1]] })).join()).toContain('the gate of shortcut 0 crosses no road');
+  });
+});
+
+describe('COMET RING laid out (PRD 1775)', () => {
+  const { rows } = COMET_RING;
+  const tiles = (c: string) => rows.flatMap((row, y) => Array.from(row).flatMap((t, x) => (t === c ? [[x, y] as const] : [])));
+
+  it('holds every stand and every prop on a void tile', () => {
+    for (const [x, y] of COMET_RING.stands ?? []) expect(tileAt(rows, x, y), `stand ${x},${y}`).toBe('~');
+    for (const { x, y } of COMET_RING.props ?? []) expect(tileAt(rows, x, y), `prop ${x},${y}`).toBe('~');
+  });
+
+  it('lays eight stands along the start straight, four on each side, and four beside the gap jump', () => {
+    const stands = COMET_RING.stands ?? [];
+    expect(stands.filter(([, y]) => y < 54 && y > 48)).toHaveLength(4);
+    expect(stands.filter(([, y]) => y > 58)).toHaveLength(4);
+    expect(stands.filter(([x, y]) => x > 50 && y < 30)).toHaveLength(4);
+  });
+
+  it('carries a walkway 2 tiles wide from the corner [36, 8] to the corner [20, 8]', () => {
+    const walk = tiles('w');
+    expect(walk).toHaveLength(22);
+    const columns = new Set(walk.map(([x]) => x));
+    expect([...columns].sort((a, b) => a - b)).toEqual(Array.from({ length: 11 }, (_, i) => 23 + i));
+    for (const x of columns) expect(walk.filter(([wx]) => wx === x), `column ${x}`).toHaveLength(2);
+    expect(tileAt(rows, 22, 8)).not.toBe('~');
+    expect(tileAt(rows, 34, 8)).not.toBe('~');
+  });
+
+  it('roofs 13 tiles of the top leg between its corners', () => {
+    const roofed = tiles('T');
+    expect(roofed).toHaveLength(13 * 5);
+    expect(new Set(roofed.map(([x]) => x))).toEqual(new Set(Array.from({ length: 13 }, (_, i) => 40 + i)));
+    expect(new Set(roofed.map(([, y]) => y))).toEqual(new Set([6, 7, 8, 9, 10]));
+  });
+
+  it('puts a pad before each jump and out of the corners [18, 56], [44, 28] and [8, 40], and a ramp on each jump', () => {
+    const pads = tiles('+');
+    for (const [x, y] of [[56, 24], [8, 21], [21, 56], [49, 28], [11, 40]] as const) expect(pads.some(([px, py]) => px === x && py === y), `pad ${x},${y}`).toBe(true);
+    const ramps = tiles('^');
+    for (const [x, y] of [[56, 18], [8, 24], [54, 36]] as const) expect(ramps.some(([rx, ry]) => rx === x && ry === y), `ramp ${x},${y}`).toBe(true);
+    expect(tileAt(rows, 54, 37)).toBe('#'); // the spur's ramp has no pad before it
+    expect(tiles('+').some(([x, y]) => x >= 52 && x <= 56 && y >= 31)).toBe(false);
+  });
+
+  it('opens a gap of 3 tiles across the whole road after the gap jump\'s ramp and 5 tiles after the spur\'s', () => {
+    for (let x = 54; x <= 58; x++) {
+      expect([tileAt(rows, x, 18), tileAt(rows, x, 17), tileAt(rows, x, 16), tileAt(rows, x, 15), tileAt(rows, x, 14)]).toEqual(['^', '~', '~', '~', '#']);
+    }
+    for (let x = 52; x <= 56; x++) {
+      expect([36, 35, 34, 33, 32, 31].map((y) => tileAt(rows, x, y)).join('')).toBe('^~~~~~');
+      expect(isRoad(tileAt(rows, x, 30))).toBe(true);
+    }
+  });
+});
+
+describe('the jumps, flown over COMET RING (PRD 1775)', () => {
+  const track = parseTrack();
+  /** A kart on a ramp's far edge, facing `angle`, at `speed` (with `boost` seconds of BOOST on it): flown until it lands or falls. Where it ends, and whether it fell. */
+  function fly(at: { x: number; y: number }, angle: number, speed: number, boost = 0) {
+    const hands = { left: false, right: false, accel: true, brake: false };
+    let kart: Kart = { x: at.x, y: at.y, angle, speed, steer: 0 };
+    let fx = { ...NO_FX, boost };
+    let flown = false;
+    for (let i = 0; i < 1200; i++) {
+      ({ kart, fx } = stepFx(track.map, kart, hands, 1 / 120, 1, fx));
+      flown ||= (kart.height ?? 0) > 0;
+      if (fx.fall > 0 || (flown && !airborne(kart))) return { fell: fx.fall > 0, x: kart.x, y: kart.y };
+    }
+    throw new Error('the kart never landed');
+  }
+  const north = -Math.PI / 2;
+  const gapJump = { x: 56.5 * TILE, y: 18 * TILE + 1 };
+  const hiddenRamp = { x: 54.5 * TILE, y: 36 * TILE + 1 };
+  const rowOf = (y: number) => Math.floor(y / TILE);
+
+  it('clears the gap jump from the pad, and at top speed without a BOOST', () => {
+    const run = fly({ x: 56.5 * TILE, y: 24.5 * TILE }, north, RULES.topSpeed);
+    expect(run.fell).toBe(false);
+    expect(isRoad(tileAt(track.map, Math.floor(run.x / TILE), rowOf(run.y)))).toBe(true);
+    const top = fly(gapJump, north, RULES.topSpeed);
+    expect(top.fell).toBe(false);
+    expect(rowOf(top.y)).toBeLessThanOrEqual(14);
+  });
+
+  it('falls into the gap jump at 0.8 of the top speed', () => {
+    expect(fly(gapJump, north, 0.8 * RULES.topSpeed).fell).toBe(true);
+  });
+
+  it('does not clear the hidden ramp at top speed without a BOOST, and lands on [44, 28] -> [56, 28] with the item\'s BOOST', () => {
+    expect(fly(hiddenRamp, north, RULES.topSpeed).fell).toBe(true);
+    const boosted = fly(hiddenRamp, north, RULES.topSpeed * RULES.boostFactor, RULES.boostTime);
+    expect(boosted.fell).toBe(false);
+    expect(rowOf(boosted.y)).toBeGreaterThanOrEqual(26);
+    expect(rowOf(boosted.y)).toBeLessThanOrEqual(30);
+    expect(isRoad(tileAt(track.map, Math.floor(boosted.x / TILE), rowOf(boosted.y)))).toBe(true);
+  });
+
+  it('flies the bump jump over road all the way: no fall at any speed from 0.5 to 1.4 of the top speed', () => {
+    for (const share of [0.5, 0.8, 1, 1.4]) {
+      const run = fly({ x: 8.5 * TILE, y: 24 * TILE + 15 }, Math.PI / 2, share * RULES.topSpeed);
+      expect(run.fell, `${share}`).toBe(false);
+    }
   });
 });
