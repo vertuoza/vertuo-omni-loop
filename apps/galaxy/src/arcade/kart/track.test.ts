@@ -357,7 +357,7 @@ describe('stands (PRD 1775)', () => {
 
   it('refuses a stand on the road, on a pad, or off the map', () => {
     expect(trackProblems(withStands([[7, 7]])).join()).toContain('row 7, col 7: a stand floats on a road tile');
-    expect(trackProblems(altered((r) => { set(r, 2, 2, '+'); }).rows ? { ...altered((r) => { set(r, 2, 2, '+'); }), stands: [[2, 2]] } : COMET_RING).join()).toContain('on a boost pad tile');
+    expect(trackProblems({ ...altered((r) => { set(r, 2, 2, '+'); }), stands: [[2, 2]] }).join()).toContain('on a boost pad tile');
     expect(trackProblems(withStands([[70, 2]])).join()).toContain('off the map');
   });
 });
