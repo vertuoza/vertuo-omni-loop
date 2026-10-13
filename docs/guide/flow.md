@@ -88,7 +88,7 @@ is not marked `alias: claude`, and the reserved key `flow.on`. For instance:
 ```text terminal
 check config — the config does not hold what it claims:
   .omni-loop/config.yml is not a valid Omni Loop config: flow.areas.kernel.hooks.plan.slice.replace: plan.slice takes before and after hooks only: its act is never replaced
-  flow.areas.kernel.hooks.do-work.test: .claude/hooks/tests.md sits under .claude/ — mark it { path: .claude/hooks/tests.md, alias: claude }, or move it out of .claude/
+  flow.areas.kernel.hooks.do-work.test: .claude/hooks/tests.md sits under .claude/, which only Claude Code reads — move it to .agents/hooks/, or mark it { path: .claude/hooks/tests.md, alias: claude }
 ```
 
 ### 2. The plan is refused, then green
@@ -332,9 +332,10 @@ nothing is skipped silently.
 ### Not tied to one agent
 
 Nothing under `flow` names a Claude path, a slash command or a Claude tool. `omni flow show <point>
---json` is self-sufficient: any agent that knows nothing of the kit follows it. A hook that only
-Claude Code can read is marked as such, `{ path: <path>, alias: claude }`, and is the only kind
-allowed under `.claude/`.
+--json` is self-sufficient: any agent that knows nothing of the kit follows it. Put hook files under
+`.agents/hooks/`, the folder several agents share: a hook there is a plain path, with no alias. A
+hook that only Claude Code can read is marked as such, `{ path: <path>, alias: claude }`, and is the
+only kind allowed under `.claude/`.
 
 ## The two older keys
 

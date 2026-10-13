@@ -117,7 +117,7 @@ function isPendingAcceptance(file: string, ctx: Phase0Ctx): boolean {
  * name as prose rather than as one fixed directory: anywhere under the delivery tree
  * (`ctx.config.paths.delivery` — every PRD's own folder, not only the one a verdict is grading),
  * the knowledge folder or the ADR directory, the configured glossary file, or one of the
- * configured context files (`CLAUDE.md` by default). Checked AFTER the PRD-specific kinds and the
+ * configured context files (`AGENTS.md` and `CLAUDE.md` by default). Checked AFTER the PRD-specific kinds and the
  * acceptance-pending kind, exactly as upstream checked its specific kinds before falling back to a
  * bare documentation prefix — so this never reclassifies a path {@link classifyPhase0Path} already
  * named `spec`/`plan`/`before-after`/`pending-acceptance`.

@@ -13,12 +13,40 @@ import { envGroup, envReader, variablesOf, type EnvSource } from './group.ts';
 
 export { EnvError, requireGroup, type EnvSource } from './group.ts';
 
-/** The Claude Code session a command runs in: the status line and the dossier record it. */
+/**
+ * The session a person names for any agent (PRD 1739), set in a wrapper script: it wins over the
+ * agent's own. The status line, `omni now` and the dossier record it.
+ */
+const OMNI_SESSION = envGroup({
+  label: 'the agent session',
+  schema: z.object({ id: z.string() }),
+  variables: { id: 'OMNI_SESSION_ID' },
+});
+
+/** The Claude Code session a command runs in, read when `OMNI_SESSION_ID` gives none. */
 const CLAUDE_SESSION = envGroup({
   label: 'the Claude session',
   schema: z.object({ id: z.string() }),
   variables: { id: 'CLAUDE_CODE_SESSION_ID' },
 });
+
+/** The longest session id a command takes. */
+const SESSION_ID_MAX = 200;
+
+/** The agent session a command runs in. */
+export type AgentSession = { id: string };
+
+/**
+ * The first of `sessions` whose id could be a real one, trimmed: 1 to 200 characters once trimmed.
+ * `OMNI_SESSION_ID`, then `CLAUDE_CODE_SESSION_ID`; `null` when neither gives one.
+ */
+function agentSessionOf(...sessions: ({ id: string } | null)[]): AgentSession | null {
+  for (const session of sessions) {
+    const id = session?.id.trim() ?? '';
+    if (id.length >= 1 && id.length <= SESSION_ID_MAX) return { id };
+  }
+  return null;
+}
 
 /** OpenRouter, which `omni harvest` asks where each decision belongs; the model has a default. */
 const OPENROUTER = envGroup({
@@ -115,7 +143,7 @@ const PACKAGE_MANAGER = envGroup({
  * The variables a person sets for the kit, the game and the scripts: the root README's list names
  * exactly these (`scripts/env-docs.test.ts`).
  */
-export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN]);
+export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN, OMNI_SESSION]);
 
 /** The game's own, a part of {@link VARIABLES}: `game/README.md`'s list names exactly these. */
 export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABASE]);
@@ -154,7 +182,7 @@ function sessionOf(group: z.output<typeof SESSION.schema> | null): Session {
 export function readEnv(source: EnvSource) {
   const reader = envReader(source);
   const env = {
-    claudeSession: reader.group(CLAUDE_SESSION),
+    agentSession: agentSessionOf(reader.group(OMNI_SESSION), reader.group(CLAUDE_SESSION)),
     openrouter: reader.group(OPENROUTER),
     proof: reader.group(PROOF),
     terminal: terminalOf(reader.group(TERMINAL)),

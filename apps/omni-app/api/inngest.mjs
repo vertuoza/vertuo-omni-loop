@@ -1154,7 +1154,7 @@ function hookRefProblem(ref) {
   if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
   if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
   if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
-    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+    return `${path} sits under .claude/, which only Claude Code reads \u2014 move it to .agents/hooks/, or mark it { path: ${path}, alias: claude }`;
   }
   return null;
 }
@@ -1375,7 +1375,7 @@ var ConfigSchema = z8.object({
     adr: text3.default(".omni-loop/knowledge/adr"),
     playbook: text3.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z8.array(text3).default(["CLAUDE.md"])
+    context: z8.array(text3).default(["AGENTS.md", "CLAUDE.md"])
   }),
   labels: section({
     prd: labelName.default("omni:prd"),
@@ -1447,6 +1447,9 @@ var ConfigSchema = z8.object({
   }).prefault({}),
   laws: section({
     source: z8.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    // The heading under which the context files (`paths.context`, in order) list the ADRs that are
+    // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
+    // read (PRD 1739), so every config that sets them still reads.
     claudeMdHeading: text3.default("## Invariants"),
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
@@ -6304,6 +6307,11 @@ import { dirname as dirname5, join as join22 } from "node:path";
 
 // kit/lib/env/read.ts
 import { z as z25 } from "zod";
+var OMNI_SESSION = envGroup({
+  label: "the agent session",
+  schema: z25.object({ id: z25.string() }),
+  variables: { id: "OMNI_SESSION_ID" }
+});
 var CLAUDE_SESSION = envGroup({
   label: "the Claude session",
   schema: z25.object({ id: z25.string() }),
@@ -6369,7 +6377,7 @@ var PACKAGE_MANAGER = envGroup({
   schema: z25.object({ execPath: z25.string() }),
   variables: { execPath: "npm_execpath" }
 });
-var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN]);
+var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
 var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
 
@@ -7449,6 +7457,14 @@ function invariantAdrs(text14, heading) {
   }
   return ids;
 }
+function invariantsFile(root, context, heading) {
+  const wanted = heading.trim();
+  for (const name of context) {
+    const file = join34(root, name);
+    if (existsSync25(file) && readFileSync23(file, "utf8").split("\n").some((line) => line.trim() === wanted)) return name;
+  }
+  return null;
+}
 function adrFiles(ctx, number) {
   const dir = join34(ctx.root, ctx.layout.adrDir);
   if (!existsSync25(dir)) return [];
@@ -7460,8 +7476,8 @@ function lawsFor(ctx) {
   let invariants = null;
   const invariantSet = () => {
     if (invariants === null) {
-      const file = join34(ctx.root, "CLAUDE.md");
-      invariants = existsSync25(file) ? invariantAdrs(readFileSync23(file, "utf8"), claudeMdHeading) : /* @__PURE__ */ new Set();
+      const name = invariantsFile(ctx.root, ctx.config.paths.context, claudeMdHeading);
+      invariants = name === null ? /* @__PURE__ */ new Set() : invariantAdrs(readFileSync23(join34(ctx.root, name), "utf8"), claudeMdHeading);
     }
     return invariants;
   };
