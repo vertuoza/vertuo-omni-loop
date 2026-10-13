@@ -400,6 +400,69 @@ describe('the tunnel (PRD 1775)', () => {
     expect(depth[head * v.w + Math.round(behind.sx)]).toBeLessThan(14); // the wall stands 12 away, the sprite 24
   });
 
+  it('frames the portal\'s opening without filling it: straight through it, from the horizon down, the opening shows mostly the road inside', () => {
+    const south = viewOf(SCREEN, { x: 32, y: 250, angle: -Math.PI / 2 });
+    const ahead = rect(draw(south).out, south, [south.horizon, south.h], [60, 68]);
+    expect(ahead.filter((p) => p === ROAD).length / ahead.length).toBeGreaterThan(0.5);
+  });
+
+  it('lights the portal\'s frame and the portholes\' rims warm, as the PRD\'s yellow frame, not cyan (bug 1813)', () => {
+    const rgb = (p: number) => ({ r: p & 0xff, b: (p >>> 16) & 0xff });
+    expect(rgb(TUNNEL.portal).r).toBeGreaterThan(rgb(TUNNEL.portal).b);
+    expect(rgb(TUNNEL.rim).r).toBeGreaterThan(rgb(TUNNEL.rim).b);
+  });
+
+  describe('driving into COMET RING\'s tunnel, as the race does (bug 1813)', () => {
+    const track = parseTrack();
+    const tex = paintTrack(track);
+    const mask = roofedOf(track, tex);
+    const hs = heightsOf(track, tex);
+    const range = reliefRange(track);
+    const edge = deckOf();
+    const KART_FOOT = 6;
+    const lit = new Set<number>([TUNNEL.portal]);
+    const frame = (grid: { w: number; h: number }, tx: number) => {
+      const kart = { x: tx * TILE, y: 8.5 * TILE, angle: Math.PI };
+      const v = viewOf(grid, chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT)), groundAt(track, kart.x, kart.y));
+      const out = new Uint32Array(grid.w * grid.h), depth = new Float32Array(grid.w * grid.h);
+      renderTerrain(v, tex, hs, range, edge, out, depth, mask);
+      return { v, out };
+    };
+    // The kart from three tiles before the tunnel's east portal (x 53) to past its west one (x 40), half a tile at a time.
+    const stops = Array.from({ length: 2 * (57 - 38) + 1 }, (_, k) => 57 - k / 2);
+
+    it.each([['wide', WIDE], ['tall', TALL]] as const)('keeps the road ahead in sight at every step: the middle of the screen, from the horizon down, is mostly road, on the %s grid', (_name, grid) => {
+      const tunnel = new Set<number>(Object.values(TUNNEL));
+      for (const tx of stops) {
+        const { v, out } = frame(grid, tx);
+        const ahead = rect(out, v, [v.horizon, v.h], [Math.round(v.w * 0.4), Math.round(v.w * 0.6)]);
+        expect(ahead.filter((p) => p !== 0 && !tunnel.has(p)).length / ahead.length, `kart at tile ${tx}`).toBeGreaterThan(0.5);
+      }
+    });
+
+    it('draws the side walls as walls, not as portals, though the road\'s neon edge runs along them', () => {
+      for (const tx of [50, 47, 44]) {
+        const { v, out } = frame(WIDE, tx);
+        const sides = [...rect(out, v, [0, v.h], [0, v.w / 5]), ...rect(out, v, [0, v.h], [v.w - v.w / 5, v.w])];
+        expect(sides.some((p) => lit.has(p)), `kart at tile ${tx}`).toBe(false);
+        expect(sides.some((p) => p === TUNNEL.wallInA || p === TUNNEL.wallInB), `kart at tile ${tx}`).toBe(true);
+      }
+    });
+
+    it('roofs the frame without holes over the tunnel\'s hump: in every column, nothing is missing between two pixels of ceiling', () => {
+      for (const tx of [50, 48, 46, 44, 42]) {
+        const { v, out } = frame(WIDE, tx);
+        let holes = 0;
+        for (let c = 0; c < v.w; c++) {
+          const rows = Array.from({ length: v.horizon }, (_, r) => out[r * v.w + c] ?? 0);
+          const first = rows.findIndex((p) => ceiling.has(p)), last = rows.findLastIndex((p) => ceiling.has(p));
+          for (let r = first; first >= 0 && r < last; r++) if (rows[r] === 0) holes++;
+        }
+        expect(holes, `kart at tile ${tx}`).toBe(0);
+      }
+    });
+  });
+
   describe('the cost guard, inside the tunnel and around it', () => {
     const track = parseTrack();
     const tex = paintTrack(track);
