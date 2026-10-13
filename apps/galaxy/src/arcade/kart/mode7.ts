@@ -243,18 +243,22 @@ export function renderTerrain(v: View, texture: Texture, heights: Float32Array, 
 /** How high the tunnel's roof stands over its ground, in world units (PRD 1775). */
 export const ROOF = 44;
 
-/** How far each pixel of the texture stands from the void, and the farthest of the roofed ones: what the vault's arc is read from (PRD 1829). */
-interface Vault { readonly w: number; readonly dist: Float32Array; readonly half: number }
+/**
+ * The ceiling's height over its ground at every pixel of the texture, and off it (PRD 1829): read from how far the pixel stands
+ * from the void, once for the texture rather than at every ray (bug 1868).
+ */
+interface Vault { readonly w: number; readonly h: number; readonly ceiling: Float32Array; readonly beyond: number }
 const vaults = new WeakMap<Uint8Array, { texture: Texture; vault: Vault }>();
 
-/** The distance, in pixels, from every pixel of `texture` to the nearest void pixel (0 at it), by a two-pass chamfer; memoised on the mask. */
+/** The vault of `texture` under the mask `roofed`, from each pixel's distance to the nearest void pixel (0 at it), by a two-pass chamfer; memoised on the mask. */
 function vaultOf(texture: Texture, roofed: Uint8Array): Vault {
   const known = vaults.get(roofed);
   if (known && known.texture === texture) return known.vault;
   const dist = chamfer(texture);
   let half = 0;
   for (let i = 0; i < dist.length; i++) if (read(roofed, i) === 1) half = Math.max(half, read(dist, i));
-  const vault = { w: texture.w, dist, half };
+  const ceiling = dist.map((d) => arcAt(d, half));
+  const vault = { w: texture.w, h: texture.h, ceiling, beyond: half > 0 ? ROOF - RULES.vault : ROOF };
   vaults.set(roofed, { texture, vault });
   return vault;
 }
@@ -283,17 +287,23 @@ function chamfer(texture: Texture): Float32Array {
 const VAULT_ARC = 0.8;
 
 /**
- * The ceiling's height over its ground at `wx`, `wy` (PRD 1829): `ROOF` over the centre of the road, falling along an arc
- * to `ROOF - RULES.vault` at the walls, where it meets them.
+ * The ceiling's height over its ground `dist` pixels from the void, the farthest roofed pixel standing `half` from it (PRD 1829):
+ * `ROOF` over the centre of the road, falling along an arc to `ROOF - RULES.vault` at the walls, where it meets them.
  */
+function arcAt(dist: number, half: number): number {
+  if (half <= 0) return ROOF;
+  const d = Math.max(0, dist - 1); // the road's first pixel is at the wall: the ceiling meets it there
+  const t = Math.max(0, Math.min(1, 1 - d / Math.max(1, half - 1)));
+  return ROOF - RULES.vault * (1 - Math.sqrt(1 - (VAULT_ARC * t) ** 2)) / (1 - Math.sqrt(1 - VAULT_ARC ** 2));
+}
+
+/** The ceiling's height over its ground at `wx`, `wy`. */
 function ceilingAt(p: Pass, wx: number, wy: number): number {
   const vault = p.vault;
-  if (!vault || vault.half <= 0) return ROOF;
+  if (!vault) return ROOF;
   const tx = Math.floor(wx), ty = Math.floor(wy);
-  if (tx < 0 || ty < 0 || tx >= vault.w) return ROOF - RULES.vault;
-  const d = Math.max(0, read(vault.dist, ty * vault.w + tx) - 1); // the road's first pixel is at the wall: the ceiling meets it there
-  const t = Math.max(0, Math.min(1, 1 - d / Math.max(1, vault.half - 1)));
-  return ROOF - RULES.vault * (1 - Math.sqrt(1 - (VAULT_ARC * t) ** 2)) / (1 - Math.sqrt(1 - VAULT_ARC ** 2));
+  if (tx < 0 || ty < 0 || tx >= vault.w || ty >= vault.h) return vault.beyond;
+  return read(vault.ceiling, ty * vault.w + tx);
 }
 
 /** The tunnel's colours, packed like the floor's: panels, seams, strips of light, and the lit portal frame and porthole rims, warm (bug 1813). */
@@ -422,91 +432,85 @@ function paintRoofTop(p: Pass, col: number, span: RoofSpan, rows: { lo: number; 
   }
 }
 
-/** The screen rows a span's ceiling can show in, `lo0` to `hi0` being those of its flat roof: the vault lowers it, so they reach further down. */
-function ceilingRows(p: Pass, span: RoofSpan, flat: { lo: number; hi: number }, stepped: boolean): { lo: number; hi: number } {
-  const rowAt = (z: number, up: number) => p.row(span.ground + up, z);
-  if (span.first) { // nothing is nearer than the first sample: the lowered ceiling reaches up to the top of the frame
-    return { lo: 0, hi: Math.min(p.v.h, Math.max(flat.hi, Math.ceil(rowAt(span.far, ceilingOver(p, span, span.far))) + 2)) };
-  }
-  if (stepped) { // the face of a step in the ground has to be reached: the rows of the highest ceiling and of the lowest
-    const low = [rowAt(span.near, ROOF - RULES.vault), rowAt(span.far, ROOF - RULES.vault)];
-    return { lo: Math.min(flat.lo, Math.max(0, Math.ceil(Math.min(...low)))), hi: Math.max(flat.hi, Math.min(p.v.h, Math.ceil(Math.max(...low)))) };
-  }
-  const rows = [span.near, (span.near + span.far) / 2, span.far].map((z) => rowAt(z, ceilingOver(p, span, z)));
-  return { lo: Math.max(0, Math.floor(Math.min(...rows)) - 2), hi: Math.min(p.v.h, Math.ceil(Math.max(...rows)) + 2) };
-}
-
 /** The ceiling's height over the ground, where the ray of `span` is `z` ahead. */
 function ceilingOver(p: Pass, span: RoofSpan, z: number): number {
   return ceilingAt(p, p.v.x + span.ray.dx * z, p.v.y + span.ray.dy * z);
 }
 
-/** What a row whose ceiling is not met inside `span` shows: its far edge at a wall, its near edge for the first span or a step's face, else nothing (another stretch draws it). */
-function missedAt(span: RoofSpan, edge: 'near' | 'far', drawn: boolean): number | null {
-  if (edge === 'far') return span.toWall ? span.far : null;
-  return span.first || drawn ? span.near : null;
+/** How long a piece of a span's ceiling is at most, in world units: it is read at both ends of the piece and runs straight between (bug 1868). */
+const PIECE = 2;
+
+/** Where the ceiling of `span` is looked for from: its near end, or, for the first span, as near as the top row of the frame can meet it. */
+function ceilingStart(p: Pass, span: RoofSpan): number {
+  if (!span.first) return span.near;
+  const { v } = p;
+  const top = ((v.height - span.ground - (ROOF - RULES.vault)) * v.focal) / (0.5 - v.horizon); // where the top row's ray meets the lowest ceiling
+  return Math.min(span.near, Math.max(0.5, top));
 }
 
-/** The distances between which the ray of a row, `up` from the horizon, can meet the ceiling in `span`: where it would meet its lowest, and its highest. */
-function ceilingRange(p: Pass, span: RoofSpan, up: number, lift: number): { from: number; to: number } {
-  const lowest = span.ground + ROOF - RULES.vault;
-  return { from: Math.max(span.first ? 0 : span.near, ((p.v.height - lowest) * p.v.focal) / up), to: Math.min(span.far, (lift * p.v.focal) / up) };
-}
-
-/** Which side of `span` the ceiling a row shows lies on, when it lies outside it. */
-function ceilingMiss(span: RoofSpan, range: { from: number; to: number }, toRow: (z: number) => number): 'near' | 'far' | null {
-  if (range.from > range.to) return range.from > span.far ? 'far' : 'near';
-  if (!span.first && toRow(range.from) < range.from) return 'near';
-  return range.to === span.far && toRow(range.to) > range.to ? 'far' : null;
-}
-
-/** The distance in `range` where the row the ray meets the ceiling at (`toRow`) is the distance itself, halving the stretch. */
-function bisectCeiling(toRow: (z: number) => number, range: { from: number; to: number }): number {
-  let n = range.from, f = range.to;
-  for (let k = 0; k < 7; k++) {
-    const mid = (n + f) / 2;
-    if (toRow(mid) >= mid) n = mid; else f = mid;
-  }
-  return (n + f) / 2;
+/** Row `r` of column `col` shows the ceiling `z` ahead on the ray of `span`. */
+function paintCeilingAt(p: Pass, col: number, span: RoofSpan, r: number, z: number): void {
+  const i = r * p.v.w + col;
+  p.out[i] = ceilingPixel(p.v.x + span.ray.dx * z, p.v.y + span.ray.dy * z);
+  p.depth[i] = z;
 }
 
 /**
- * Where the ray of row `r` meets the ceiling within `span`: the distance, or null when a nearer or a farther stretch draws it.
- * The first span, a step's face (`flat.stepped`, in the rows `flat.rows` of the flat roof) and a span that ends at a wall draw
- * what lies outside it.
+ * The ceiling over `span` from `start` to its far end, from the far end in, so the nearest ceiling a ray meets is the one it
+ * keeps. Straight within a piece, the ceiling a ray enters there is met at a distance solved in one step: the rows between the
+ * piece's two ends, nothing else. The ceiling's height at `start`.
  */
-function ceilingHit(p: Pass, span: RoofSpan, r: number, flat: { lift: number; stepped: boolean; rows: { lo: number; hi: number } }): number | null {
-  const up = r + 0.5 - p.v.horizon;
-  const toRow = (z: number) => ((p.v.height - span.ground - ceilingOver(p, span, z)) * p.v.focal) / up;
-  const range = ceilingRange(p, span, up, flat.lift);
-  const miss = ceilingMiss(span, range, toRow);
-  if (miss === null) return bisectCeiling(toRow, range);
-  return missedAt(span, miss, flat.stepped && r >= flat.rows.lo && r < flat.rows.hi);
+function paintPieces(p: Pass, col: number, span: RoofSpan, start: number, above: number): number {
+  const { v } = p;
+  const eye = v.height - span.ground;
+  const n = Math.max(1, Math.ceil((span.far - start) / PIECE)), dz = (span.far - start) / n;
+  let z1 = span.far, c1 = ceilingOver(p, span, z1);
+  for (let k = n - 1; k >= 0 && dz > 0; k--) {
+    const z0 = start + k * dz, c0 = ceilingOver(p, span, z0);
+    const slope = (c1 - c0) / dz, r1 = p.row(span.ground + c1, z1);
+    for (let r = Math.max(0, Math.floor(p.row(span.ground + c0, z0)) + 1); r <= r1 && r < above; r++) {
+      paintCeilingAt(p, col, span, r, ((eye - c0 + slope * z0) * v.focal) / (r + 0.5 - v.horizon + slope * v.focal));
+    }
+    z1 = z0;
+    c1 = c0;
+  }
+  return c1;
+}
+
+/**
+ * The vaulted ceiling over the stretch `span` of column `col`, seen from below (PRD 1829). A span that ends at a wall shows its
+ * far end in the rows that pass under it there, where the wall stands; the first span, and a step's face in the rows `flat` of
+ * the flat roof, show their near end in the rows that meet the ceiling nearer than it is looked for.
+ */
+function paintCeiling(p: Pass, col: number, span: RoofSpan, flat: { lo: number; hi: number }, stepped: boolean): void {
+  const above = Math.min(p.v.h, Math.ceil(p.v.horizon - 0.5)); // the rows whose centre is above the horizon
+  if (span.toWall) {
+    const last = p.row(span.ground + ceilingOver(p, span, span.far), span.far);
+    const to = Math.min(above, Math.max(flat.hi, Math.ceil(last) + 2));
+    for (let r = Math.max(0, Math.floor(last) + 1); r < to; r++) paintCeilingAt(p, col, span, r, span.far);
+  }
+  const start = ceilingStart(p, span);
+  const atStart = paintPieces(p, col, span, start, above);
+  if (!span.first && !stepped) return;
+  const first = p.row(span.ground + atStart, start), to = span.first ? above : Math.min(above, flat.hi);
+  for (let r = span.first ? 0 : flat.lo; r <= first && r < to; r++) paintCeilingAt(p, col, span, r, span.near);
 }
 
 /**
  * The ceiling (or, from above, the roof's top) over the stretch of column `col` between `near` and `far`, at the roof of
  * ground `ground`. Where the roof at `near` stood farther from the eye (`nearGround`, a hump's far side), the stretch
  * reaches back to it, so the face of the step leaves no gap (bug 1813). From below the ceiling is vaulted (PRD 1829): its height
- * falls toward the walls, so each row looks for where its ray meets it.
+ * falls toward the walls, so each row solves where its ray meets it.
  */
 function paintRoof(p: Pass, col: number, span: RoofSpan): void {
-  const { v, out, depth } = p;
+  const { v } = p;
   const level = span.ground + ROOF, lift = v.height - level;
   if (Math.abs(lift) < 0.01) return;
   const step = (span.nearGround ?? span.ground) + ROOF;
   const a = p.row(lift < 0 ? Math.max(level, step) : Math.min(level, step), span.near), b = p.row(level, span.far);
   const flat = { lo: Math.max(0, Math.ceil(Math.min(a, b))), hi: Math.min(v.h, Math.ceil(Math.max(a, b))) };
   if (lift >= 0) { paintRoofTop(p, col, span, { ...flat, lift }); return; }
-  const stepped = span.nearGround !== undefined && span.nearGround !== span.ground;
-  const rows = ceilingRows(p, span, flat, stepped);
-  for (let r = rows.lo; r < rows.hi && r + 0.5 < v.horizon; r++) {
-    const z = ceilingHit(p, span, r, { lift, stepped, rows: flat });
-    if (z === null) continue;
-    const i = r * v.w + col, wx = v.x + span.ray.dx * z, wy = v.y + span.ray.dy * z;
-    out[i] = ceilingPixel(wx, wy);
-    depth[i] = z;
-  }
+  paintCeiling(p, col, span, flat, span.nearGround !== undefined && span.nearGround !== span.ground);
 }
 
 /** The wall (or portal) the ray of column `col` meets before the first sample: nearer than anything the samples reach, whether the camera stands on roofed road or beside it. */
