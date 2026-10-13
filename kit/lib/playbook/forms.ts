@@ -65,7 +65,7 @@ const form = (id: string, kind: FormSpec['kind'], slots: SlotSpec[], { pointerOn
 
 /** The fifteen forms, in the spec's order: eight core, then seven extended. */
 export const FORMS: readonly FormSpec[] = Object.freeze([
-  form('briefing', 'core', [req('never'), opt('hooks'), opt('links'), opt('next')]),
+  form('briefing', 'core', [req('never'), opt('hooks'), opt('links'), opt('agents'), opt('next')]),
   form('setup', 'core', [req('prerequisites'), req('install'), opt('run'), opt('env')]),
   form('architecture', 'core', [req('layout'), req('boundaries'), opt('patterns')]),
   form('testing', 'core', [req('commands'), req('layout'), opt('levels'), req('never'), opt('data')]),
