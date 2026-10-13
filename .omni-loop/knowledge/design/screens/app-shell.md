@@ -80,4 +80,4 @@ Dark · Game mode · My profile · Sign out · Sign in with GitHub.
 - apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
 - /omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html (the `/ask` pages it no longer frames)
-- /omni:brainstorm, PRD 1830: .omni-loop/delivery/inbox/1830-runners/before-after.html (the Runners entry)
+- /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (the Runners entry)

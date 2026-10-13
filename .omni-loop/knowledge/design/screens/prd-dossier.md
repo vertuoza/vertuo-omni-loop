@@ -87,4 +87,4 @@ Repo, Repos, On GitHub, Opened.
 - apps/galaxy/src/dossier/page/view.ts@84c8451
 - apps/galaxy/src/page-width.test.ts@7302b0d
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
-- /omni:brainstorm, PRD 1830: .omni-loop/delivery/inbox/1830-runners/before-after.html (Send to terminal)
+- /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (Send to terminal)

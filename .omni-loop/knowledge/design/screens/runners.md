@@ -56,4 +56,4 @@ Cancel · Send again.
 
 ## Source
 
-/omni:brainstorm, PRD 1830: .omni-loop/delivery/inbox/1830-runners/before-after.html
+/omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html
