@@ -34,4 +34,12 @@
 /kit/bin/init.test.ts @pierrederval
 # law N-PRODUCT-14: its test.
 /kit/bin/law-demoted.test.ts @pierrederval
+# law N-PRODUCT-15: its test.
+/kit/lib/flow/merge-gate.test.ts @pierrederval
+# law N-PRODUCT-16: its test.
+/supabase/checks/access.sql @pierrederval
+/game/ledger.test.ts @pierrederval
+# law N-PRODUCT-17: its test.
+/scripts/public-env-guard.test.ts @pierrederval
+/scripts/env-guard.test.ts @pierrederval
 # END omni kb owners

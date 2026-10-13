@@ -137,3 +137,36 @@ Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-10
 Decided: nobody — adopted when raised (medium), 2026-10-10
 Merged: @pierrederval, 2026-10-10, PR #1343
+
+## N-PRODUCT-15
+
+The loop's merge gate never merges a pull request into the default branch: `omni flow check merge` refuses one whose base is the default branch, and no skill runs a merge there. Only a person merges into it.
+
+Source: .omni-loop/delivery/shipped/1726-locked-laws/outbox/settled.md, entry s6-01-candidate-laws-to-lock, PRD #1726
+Enforced by: kit/lib/flow/merge-gate.test.ts, kit/test/plugin.test.ts
+Governs: ^kit/lib/flow/merge-gate\., ^kit/plugin/skills/
+Locked: @pierrederval, 2026-10-13
+Stated: 2026-10-13
+Decided: @pierrederval via the terminal, 2026-10-13
+
+## N-PRODUCT-16
+
+The game's ledger is append-only: no role may update or delete a row of `ledger_events`, a trigger refuses either, and the game only ever appends events it has not seen.
+
+Source: .omni-loop/delivery/shipped/1726-locked-laws/outbox/settled.md, entry s6-01-candidate-laws-to-lock, PRD #1726
+Enforced by: supabase/checks/access.sql, game/ledger.test.ts
+Governs: ^supabase/migrations/, ^supabase/checks/access\.sql$, ^game/ledger\., ^game/sources/supabase\.
+Locked: @pierrederval, 2026-10-13
+Stated: 2026-10-13
+Decided: @pierrederval via the terminal, 2026-10-13
+
+## N-PRODUCT-17
+
+No secret reaches the browser: the arcade gives the browser only the two public Supabase values, and no other variable in `apps/` or `packages/` carries the `NEXT_PUBLIC_` prefix that Next inlines into the browser's code.
+
+Source: .omni-loop/delivery/shipped/1726-locked-laws/outbox/settled.md, entry s6-01-candidate-laws-to-lock, PRD #1726
+Enforced by: scripts/public-env-guard.test.ts, scripts/env-guard.test.ts
+Governs: ^apps/galaxy/src/env(\.client)?\.ts$, ^apps/galaxy/\.env\.example$, ^scripts/(public-env|env)-guard\.test\.ts$
+Locked: @pierrederval, 2026-10-13
+Stated: 2026-10-13
+Decided: @pierrederval via the terminal, 2026-10-13
