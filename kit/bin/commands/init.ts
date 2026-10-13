@@ -1,4 +1,4 @@
-// `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
+// `omni init [--force] [--setup <cmd>] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
 // loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
 // `.omni-loop/bin/omni.mjs`, lays down the blank knowledge forms as `omni kb init` does, switches on
 // the kit's status line in `.claude/settings.json` and creates the loop labels the repository lacks.
@@ -55,8 +55,9 @@ type InitOptions = {
 
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
 
-const FLAGS = Object.freeze({ test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' });
+const FLAGS = Object.freeze({ setup: 'setup', test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' });
 const QUESTIONS: Record<keyof InitCommands, string> = {
+  setup: 'the command that prepares a fresh checkout to run the preflight, as an install',
   test: 'the command that runs the tests',
   preflight: 'the command a slice must pass before its sub-PR is ready',
   preflightFull: 'the full preflight, run before a feature PR is ready',
@@ -122,7 +123,7 @@ export const init = {
     { cwd, stdout, stderr, exec, env, vars, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal, home: userHome, signIn }: FreeIo & InitOptions,
   ) {
     const { positional, flags } = parseArgs('init', args, { values: Object.values(FLAGS), booleans: ['force'] });
-    if (positional.length) throw usageError('usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]');
+    if (positional.length) throw usageError('usage: omni init [--force] [--setup <cmd>] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]');
     const force = flags.force === true;
     const root = findRoot(cwd, exec);
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
@@ -218,7 +219,8 @@ export const init = {
         forms: formsDone,
         settings,
         labels,
-        unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+        // A setup left null means none is needed (PRD 1804): it is never listed as unfilled.
+        unfilled: COMMAND_KEYS.filter((key) => key !== 'setup' && config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
         notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) },
       }),
     ];
