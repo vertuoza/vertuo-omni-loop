@@ -1209,7 +1209,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'target, runs /omni:ultra-wave until every slice is merged there, marks each target PR ready ' +
       "once its CI is green, then runs one outbox gate in the plan repository. Green, it ships and " +
       'marks the plan PR ready last; red, /omni:ultra-yolo-fix takes the answers. In a target it ' +
-      'runs only its own committed preflight, and it never merges into any default branch.',
+      'runs only its own committed setup, then its own committed preflight, and it never merges into ' +
+      'any default branch.',
     group: 'multi-repo',
     when: "Use it when a multi-repository PRD's phase-0 PR is merged in its plan repository and you want it built in every target.",
     example: {
@@ -1229,7 +1230,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or ' +
       "closed or you stop it. Each target PR is read against the target's own default branch, " +
       "landings, wave claims and review form; a red that waits on another repository's PR spends " +
-      'no attempt. In a target it runs only its own committed preflight, and it never merges. ' +
+      'no attempt. In a target it runs only its own committed setup, then its own committed ' +
+      'preflight, and it never merges. ' +
       '--once runs one round and returns, for /omni:mega-drive.',
     group: 'multi-repo',
     when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
@@ -1251,7 +1253,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'first. Each target gets one fix PR into its default branch, red proven by its own preflight ' +
       'or its CI before the fix, saying which PR to merge first; a record PR closes the issue and is ' +
       'merged last. --prd <n> links it to a PRD, so /omni:mega-pr-care looks after its PRs. A change ' +
-      "that would break today's consumer stops it, with the /omni:mega-brainstorm line. It never merges.",
+      "that would break today's consumer stops it, with the /omni:mega-brainstorm line. In a target " +
+      'it runs only its own committed setup, then its own committed preflight. It never merges.',
     group: 'multi-repo',
     when: 'Use it when a bug shows in one target repository and its cause may sit in another.',
     example: {
@@ -1288,8 +1291,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'The /omni:yolo-fix of a PRD built by /omni:ultra-yolo: reads and settles the answers on ' +
       'the plan PR, in the plan repository, lands each rework in the repository its decision was ' +
-      'taken in, checks each target again, then runs the one gate. It asks no question of its own ' +
-      'and never merges into any default branch.',
+      'taken in, checks each target again, then runs the one gate. It asks no question of its own; ' +
+      'in a target it runs only its own committed setup, then its own committed preflight, and it ' +
+      'never merges into any default branch.',
     group: 'multi-repo',
     when: "Use it when you have answered the outbox questions on a multi-repository PRD's plan PR.",
     example: {
@@ -1391,8 +1395,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'The /omni:wave of a plan repository: claims each slice that can run in its own target, has ' +
       'one agent build each there through /omni:do-work --target, merges each sub-PR into its ' +
       "target's feature branch, relays every decision into the plan repository's outbox and " +
-      'adopts its medium ones. /omni:ultra-yolo runs it for each wave. It never merges into any ' +
-      'default branch.',
+      'adopts its medium ones. /omni:ultra-yolo runs it for each wave. In a target it runs only its ' +
+      'own committed setup, then its own committed preflight, and it never merges into any default ' +
+      'branch.',
     group: 'multi-repo',
     when: 'Use it when you want one wave of a multi-repository PRD built; /omni:ultra-yolo runs it for each wave.',
     example: {

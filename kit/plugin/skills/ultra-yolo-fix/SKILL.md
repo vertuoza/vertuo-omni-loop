@@ -116,7 +116,10 @@ a target (one whose `repo` is the plan repository's own runs exactly as there):
    `node .omni-loop/bin/omni.mjs item relay <out> --prd <prd>` into the plan feature branch. A
    rework raises no item, so only its account moves.
 4. **Check** as `/omni:ultra-wave` step 5, without its adopt step: the plan repository's check, then
-   each touched target's own preflight, when it has one.
+   each touched target's own setup, when it has one, then its own preflight, when it has one, in
+   the same worktree. A red setup holds that target as stuck, quoting its failing line, counting
+   toward no attempt, the target never edited to make it pass; a target without a preflight runs
+   nothing, its setup included, and a target without a setup runs its preflight alone.
 
 ## 6. Close each reworked item
 
@@ -127,7 +130,7 @@ number in its target; the commit message names each as `<slug>#<sub-PR>`.
 ## 7. Finish, gate, ship before ready
 
 `/omni:ultra-yolo` steps 4 and 5, as written: finish each touched target (meet its default branch,
-its preflight, push, the body, its target PR ready and its CI followed until green or stuck), then
+its setup then its preflight, push, the body, its target PR ready and its CI followed until green or stuck), then
 the one gate in the plan repository. The release note is rewritten as `/omni:yolo-fix` step 7 says
 when a merged rework changed what the PRD does. The plan PR is marked ready only on a green gate,
 after `omni ship` is committed and pushed, and after every target PR is ready with green CI.
@@ -145,8 +148,8 @@ with one difference: the held ending's command is `/omni:ultra-yolo-fix <n>`.
 - **Never merge into any repository's default branch.** The settle sub-PR merges into the plan
   feature branch; each rework into its target's feature branch; a person merges every feature PR.
 - **Never add `labels.outboxGo`,** and **never create a label in a target**.
-- **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`), and never one from an imported copy's playbook.
+- **Never run a command in a target other than its own committed setup, then its own committed
+  preflight** (beyond `git` and `gh`), and never one from an imported copy's playbook.
 - **A rework lands in its `repo`,** never in another repository, and never wider than its bound.
 - `/omni:yolo-fix`'s guardrails hold as written: raise no item, one rework per drifted item, the
   ledger grows only, and the plan PR is never marked ready while the gate is red.
