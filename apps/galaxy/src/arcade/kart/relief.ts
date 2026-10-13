@@ -85,10 +85,11 @@ export function reliefRange(track: Ground): { low: number; high: number } {
 }
 
 /** The ground's height under every pixel of the circuit's texture that is not the void (0 under the void): what the floor is rendered from. */
-const made = new WeakMap<Texture, Float32Array>();
+/** Read once per texture and relief: circuits that differ in their relief alone share a texture. */
+const made = new WeakMap<Texture, { relief: Ground['relief']; heights: Float32Array }>();
 export function heightsOf(track: Ground, texture: Texture): Float32Array {
   const known = made.get(texture);
-  if (known && known.length === texture.w * texture.h) return known;
+  if (known && known.relief === track.relief && known.heights.length === texture.w * texture.h) return known.heights;
   const out = new Float32Array(texture.w * texture.h);
   if (!flat(track)) {
     for (let y = 0; y < texture.h; y++) {
@@ -98,6 +99,6 @@ export function heightsOf(track: Ground, texture: Texture): Float32Array {
       }
     }
   }
-  made.set(texture, out);
+  made.set(texture, { relief: track.relief, heights: out });
   return out;
 }

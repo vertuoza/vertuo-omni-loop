@@ -1,16 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 import { airborne, NO_FX, stepFx, type Kart } from './kart';
+import { buildLine, inGapAt, pointAt } from './line';
+import { comeBack } from './rivals';
 import { RULES } from './rules';
-import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, legHeight, LEVEL, parseTrack, RELIEF_SPAN, roadAt, roofAt, TILE, tileAt, trackProblems, type TrackSource } from './track';
+import { COMET_RING, PROP_KINDS, cornersOf, LAPS, legHeight, LEVEL, locatePx, parseTrack, pointAtPx, RELIEF_SPAN, roadAt, roofAt, TILE, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
-function altered(edit: (rows: string[][]) => void, waypoints: TrackSource['waypoints'] = COMET_RING.waypoints): TrackSource {
+function altered(edit: (rows: string[][]) => void, change: Partial<TrackSource> = {}): TrackSource {
   const rows = COMET_RING.rows.map((r) => Array.from(r));
   edit(rows);
-  return { rows: rows.map((r) => r.join('')), waypoints };
+  return { ...COMET_RING, ...change, rows: rows.map((r) => r.join('')) };
 }
 const set = (rows: string[][], x: number, y: number, c: string) => { sure(rows[y], `row ${y}`)[x] = c; };
+const track = parseTrack();
+/** COMET RING with one optional field left out. */
+const without = (key: 'props' | 'relief'): TrackSource => Object.fromEntries(Object.entries(COMET_RING).filter(([k]) => k !== key)) as unknown as TrackSource;
+/** Whether the pixel x, y is void inside a gap: a kart flies over it. */
+const inGap = (x: number, y: number) => track.gap?.[Math.floor(y) * track.size.w + Math.floor(x)] === 1;
 
 describe('COMET RING', () => {
   it('passes every circuit check', () => {
@@ -18,76 +25,93 @@ describe('COMET RING', () => {
     expect(trackProblems(COMET_RING)).toEqual([]);
   });
 
-  it('is a 64×64 map of equal rows, raced over 3 laps', () => {
-    expect(COMET_RING.rows).toHaveLength(64);
-    for (const row of COMET_RING.rows) expect(row).toHaveLength(64);
+  it('is a 72×72 map of equal rows, raced over 3 laps', () => {
+    expect(COMET_RING.rows).toHaveLength(72);
+    for (const row of COMET_RING.rows) expect(row).toHaveLength(72);
     expect(LAPS).toBe(3);
     expect(TILE).toBe(16);
+    expect(track.size).toEqual({ w: 72 * TILE, h: 72 * TILE });
   });
 
-  it('keeps its road four to six tiles wide, on every straight of the racing line', () => {
-    const { rows, waypoints } = COMET_RING;
-    waypoints.forEach(([x, y], i) => {
-      const [nx, ny] = sure(waypoints[(i + 1) % waypoints.length], 'the next waypoint');
-      const vertical = x === nx;
-      const mid: [number, number] = [Math.round((x + nx) / 2), Math.round((y + ny) / 2)];
-      let width = 0;
-      for (let d = -8; d <= 8; d++) if (isRoad(vertical ? tileAt(rows, mid[0] + d, mid[1]) : tileAt(rows, mid[0], mid[1] + d))) width++;
-      expect(width, `between waypoints ${i} and ${(i + 1) % waypoints.length}`).toBeGreaterThanOrEqual(4);
-      expect(width).toBeLessThanOrEqual(6);
-    });
+  it('is 14 waypoints, each with the radius of its corner, and a road 5 tiles wide', () => {
+    expect(COMET_RING.waypoints).toEqual([
+      [62, 62, 8], [62, 46, 3], [49, 46, 3], [49, 34, 3], [64, 34, 3], [64, 10, 5], [41, 10, 6],
+      [41, 26, 4], [23, 26, 4], [23, 10, 4], [8, 10, 6], [8, 46, 4], [21, 46, 3], [21, 62, 3],
+    ]);
+    expect(COMET_RING.width).toBe(5);
+    expect(track.centre.width).toBe(5);
+  });
+
+  it('is a lap of about 249 tiles', () => {
+    expect(track.length / TILE).toBeGreaterThan(245);
+    expect(track.length / TILE).toBeLessThan(253);
+  });
+
+  it('holds the features only in its rows: lines, boxes, starts, pads and ramps on ground', () => {
+    const chars = new Set(COMET_RING.rows.flatMap((row) => Array.from(row)));
+    expect([...chars].sort()).toEqual(['+', '.', '=', '?', 'S', '^']);
+  });
+
+  it('counts 40 boxes, 6 starting places, 12 stands and 2 shortcuts, skipping 2 and 7', () => {
+    expect(track.boxes).toHaveLength(40);
+    expect(track.places).toHaveLength(6);
+    expect(track.stands).toHaveLength(12);
+    expect(track.shortcuts).toHaveLength(2);
+    expect(COMET_RING.shortcuts?.map((s) => s.skips)).toEqual([2, 7]);
+  });
+
+  it('has a gate at the middle of every arc', () => {
+    expect(track.gates).toHaveLength(14);
+    track.gates.forEach((g, i) => { expect(g.index).toBe(i); });
   });
 });
 
-describe('the void (PRD 1447)', () => {
-  const { rows, waypoints } = COMET_RING;
+describe('the centre line, over the baked pixels (PRD 1829)', () => {
+  const rel = (along: number) => along;
+  const samples = Array.from({ length: Math.floor(track.length / 4) }, (_, i) => pointAtPx(track, rel(i * 4)));
 
-  it('holds only road tiles and void tiles on COMET RING: road, kerb, line, box, start and ~', () => {
-    for (const [y, row] of rows.entries()) {
-      for (const [x, c] of Array.from(row).entries()) expect(isRoad(c) || c === '~', `row ${y}, col ${x}: '${c}'`).toBe(true);
-    }
-    expect(rows.some((row) => row.includes('~'))).toBe(true);
-  });
-
-  it('reads the void past the map\'s edge', () => {
-    for (const [x, y] of [[-1, 0], [0, -1], [64, 3], [3, 64], [-40, 200]] as const) expect(tileAt(rows, x, y), `${x},${y}`).toBe('~');
-  });
-
-  it('bakes roadAt and roofAt (PRD 1829): at every pixel of COMET RING, the road is the tile\'s and the roof is the T tiles', () => {
-    const track = parseTrack();
-    expect(track.size).toEqual({ w: (rows[0]?.length ?? 0) * TILE, h: rows.length * TILE });
-    for (let y = 0; y < track.size.h; y++) {
-      for (let x = 0; x < track.size.w; x++) {
-        const c = tileAt(rows, Math.floor(x / TILE), Math.floor(y / TILE));
-        if (roadAt(track, x + 0.5, y + 0.5) !== isRoad(c) || roofAt(track, x + 0.5, y + 0.5) !== (c === 'T')) throw new Error(`pixel ${x},${y} disagrees with tile '${c}'`);
-      }
+  it('has road under every racing-line point sampled every 4 units, but the gap jump\'s gap', () => {
+    const off = samples.filter((p) => !roadAt(track, p.x, p.y));
+    expect(off.length).toBeGreaterThan(0);
+    expect(off.filter((p) => !inGap(p.x, p.y)).map((p) => `${(p.x / TILE).toFixed(1)},${(p.y / TILE).toFixed(1)}`)).toEqual([]);
+    // The gap is the one of the gap jump: on the leg north of waypoint 4, past the ramp of row 22.
+    for (const p of off) {
+      expect(p.x / TILE).toBeGreaterThan(62);
+      expect(p.y / TILE).toBeGreaterThan(18);
+      expect(p.y / TILE).toBeLessThan(22.5);
     }
   });
 
-  it('reads the void past the map\'s edge at the pixel', () => {
-    const track = parseTrack();
+  it('brings a kart that fell anywhere on the racing line back onto the road', () => {
+    const rels = track.gates.map((g) => (((g.along - track.startAlong) % track.length) + track.length) % track.length);
+    for (const p of samples) {
+      const at = (((p.along - track.startAlong) % track.length) + track.length) % track.length;
+      const passed = rels.filter((r) => r <= at).length;
+      const back = comeBack(track, { laps: 0, passed }, { x: p.x, y: p.y, angle: 0, speed: 0, steer: 0 }, NO_FX);
+      expect(roadAt(track, back.kart.x, back.kart.y), `from ${(p.x / TILE).toFixed(1)},${(p.y / TILE).toFixed(1)}`).toBe(true);
+    }
+  });
+
+  it('reads road at the pixel: the roof only where the tunnel is, void past the map\'s edge', () => {
     for (const [x, y] of [[-0.5, 40], [40, -0.5], [track.size.w, 40], [40, track.size.h], [-400, 2000]] as const) {
       expect(roadAt(track, x, y), `${x},${y}`).toBe(false);
       expect(roofAt(track, x, y), `${x},${y}`).toBe(false);
     }
+    const roofed = samples.filter((p) => roofAt(track, p.x, p.y));
+    expect(roofed.length).toBeGreaterThan(0);
+    for (const p of roofed) expect(roadAt(track, p.x, p.y)).toBe(true);
   });
 
-  it('is a tile the map may hold: a void is not an unknown character', () => {
-    expect(trackProblems(altered((r) => { set(r, 0, 0, '~'); }))).toEqual([]);
-  });
-
-  it('keeps every point of the racing line over road, sampled along each segment', () => {
-    waypoints.forEach(([x, y], i) => {
-      const [nx, ny] = sure(waypoints[(i + 1) % waypoints.length], 'the next waypoint');
-      // A gap (PRD 1775) is flown over: its void follows a ramp.
-      let last = '#';
-      for (let s = 0; s <= 64; s++) {
-        const px = (x + 0.5 + ((nx - x) * s) / 64) * TILE, py = (y + 0.5 + ((ny - y) * s) / 64) * TILE;
-        const tile = tileAt(rows, Math.floor(px / TILE), Math.floor(py / TILE));
-        expect(isRoad(tile) || last === '^', `segment ${i}, sample ${s}`).toBe(true);
-        if (tile !== '~') last = tile;
-      }
-    });
+  it('runs the tunnel 13 tiles from where the curve of waypoint 5 starts', () => {
+    const arc = sure(track.centre.segments.find((s) => s.kind === 'arc' && s.corner === 5), 'the arc of waypoint 5');
+    expect(track.span?.start).toBeCloseTo(arc.start, 1);
+    expect(track.span?.length).toBe(13);
+    const at = (along: number) => pointAt(track.centre, along);
+    const span = sure(track.span, 'the tunnel');
+    const inside = at(span.start + 6), before = at(span.start - 2), after = at(span.start + span.length + 2);
+    expect(roofAt(track, inside.x * TILE, inside.y * TILE)).toBe(true);
+    expect(roofAt(track, before.x * TILE, before.y * TILE)).toBe(false);
+    expect(roofAt(track, after.x * TILE, after.y * TILE)).toBe(false);
   });
 });
 
@@ -96,88 +120,71 @@ describe('trackProblems', () => {
     expect(trackProblems(altered((r) => { set(r, 10, 5, 'q'); }))).toEqual(["row 5, col 10: unknown character 'q'"]);
   });
 
-  it('refuses rows of unequal length, with the row and the column it stops at', () => {
-    const src = altered(() => {});
-    const short = { ...src, rows: src.rows.map((r, y) => (y === 7 ? r.slice(0, 60) : r)) };
-    expect(trackProblems(short)).toEqual(['row 7, col 60: this row is 60 tiles long, the first is 64']);
-  });
-
-  it('refuses a waypoint off the road', () => {
-    const waypoints = COMET_RING.waypoints.map((w, i) => (i === 3 ? [50, 34] as const : w));
-    expect(trackProblems(altered(() => {}, waypoints))).toContain('row 34, col 50: waypoint 3 is off the road');
-  });
-
-  it('refuses two consecutive waypoints not joined by road, naming the first tile that is not road', () => {
-    const problems = trackProblems(altered((r) => { set(r, 54, 48, '~'); }));
-    expect(problems).toEqual(['row 48, col 54: waypoints 0 and 1 are not joined by road']);
-  });
-
-  it('refuses the last waypoint not joined to the first', () => {
-    const problems = trackProblems(altered((r) => { set(r, 40, 56, '~'); }));
-    expect(problems.some((p) => p.includes('waypoints 13 and 0 are not joined by road'))).toBe(true);
-  });
-
-  it('refuses a map that holds a verge `.` or a wall `X`: the legend has neither', () => {
-    for (const c of ['.', 'X']) {
+  it('refuses a map that holds a wall `X` or the old road tiles: the legend is `. = ? S + ^`', () => {
+    for (const c of ['X', '#', '~', 'r', 'T', 'w']) {
       expect(trackProblems(altered((r) => { set(r, 0, 0, c); })), c).toEqual([`row 0, col 0: unknown character '${c}'`]);
     }
   });
 
+  it('refuses rows of unequal length, with the row and the column it stops at', () => {
+    const src = altered(() => {});
+    const short = { ...src, rows: src.rows.map((r, y) => (y === 7 ? r.slice(0, 60) : r)) };
+    expect(trackProblems(short)).toEqual(['row 7, col 60: this row is 60 tiles long, the first is 72']);
+  });
+
+  it('refuses a corner whose arc does not fit its legs, naming it', () => {
+    const waypoints = COMET_RING.waypoints.map((w, i) => (i === 3 ? [49, 34, 30] as const : w));
+    expect(trackProblems(altered(() => {}, { waypoints })).join()).toContain('the centre line cannot be drawn');
+  });
+
   it('refuses a seventh starting place, and a missing one', () => {
-    expect(trackProblems(altered((r) => { set(r, 22, 58, 'S'); }))).toEqual(['row 58, col 28: 6 starting places expected, 7 found']);
-    expect(trackProblems(altered((r) => { set(r, 25, 54, '#'); }))).toEqual(['row 58, col 28: 6 starting places expected, 5 found']);
+    expect(trackProblems(altered((r) => { set(r, 27, 60, 'S'); })).join()).toContain('6 starting places expected, 7 found');
+    expect(trackProblems(altered((r) => { set(r, 29, 60, '.'); })).join()).toContain('6 starting places expected, 5 found');
   });
 
   it('refuses a starting place ahead of the line, and one off the road', () => {
-    const ahead = trackProblems(altered((r) => { set(r, 25, 54, '#'); set(r, 33, 54, 'S'); }));
-    expect(ahead).toEqual(['row 54, col 33: starting place is not behind the start line']);
-    const off = trackProblems(altered((r) => { set(r, 25, 54, '#'); set(r, 25, 60, 'S'); }));
-    expect(off).toContain('row 60, col 25: starting place off the road');
+    const ahead = trackProblems(altered((r) => { set(r, 29, 60, '.'); set(r, 36, 60, 'S'); }));
+    expect(ahead).toEqual(['row 60, col 36: starting place is not behind the start line']);
+    const off = trackProblems(altered((r) => { set(r, 29, 60, '.'); set(r, 29, 58, 'S'); }));
+    expect(off).toContain('row 58, col 29: starting place off the road');
   });
 
-  it('refuses a start line that stops short of a wall, with the tile that is still road', () => {
-    expect(trackProblems(altered((r) => { set(r, 30, 58, '#'); }))).toEqual([
-      'row 58, col 30: the start line does not cross the road from wall to wall',
-    ]);
+  it('refuses a start line that stops short of the road\'s edge, and one with a gap, a crooked one, and none', () => {
+    expect(trackProblems(altered((r) => { set(r, 34, 64, '.'); })).join()).toContain('row 64, col 34: the start line does not cross the road from wall to wall');
+    expect(trackProblems(altered((r) => { set(r, 34, 62, '.'); }))).toEqual(['row 63, col 34: the start line has a gap']);
+    expect(trackProblems(altered((r) => { set(r, 35, 60, '='); }))).toEqual(['row 60, col 34: the start line is not one straight run']);
+    expect(trackProblems(altered((r) => { for (let y = 60; y <= 64; y++) set(r, 34, y, '.'); }))).toEqual(['row 0, col 0: no start line']);
   });
 
-  it('refuses a start line with a gap, and a line that is not one straight run, and no line at all', () => {
-    expect(trackProblems(altered((r) => { set(r, 30, 56, '#'); }))).toEqual(['row 57, col 30: the start line has a gap']);
-    expect(trackProblems(altered((r) => { set(r, 31, 56, '='); }))).toEqual(['row 54, col 30: the start line is not one straight run']);
-    expect(trackProblems(altered((r) => { for (let y = 54; y <= 58; y++) set(r, 30, y, '#'); }))).toEqual(['row 0, col 0: no start line']);
+  it('refuses a start line off the road', () => {
+    expect(trackProblems(altered((r) => { set(r, 34, 59, '='); })).join()).toContain('row 59, col 34: start line off the road');
   });
 
-  it('refuses an item box off the road', () => {
-    expect(trackProblems(altered((r) => { set(r, 30, 14, '?'); }))).toEqual(['row 14, col 30: item box off the road']);
-    expect(trackProblems(altered((r) => { set(r, 30, 61, '?'); }))).toEqual(['row 61, col 30: item box off the road']);
+  it('refuses an item box, a boost pad and a ramp off the road', () => {
+    expect(trackProblems(altered((r) => { set(r, 2, 2, '?'); }))).toEqual(['row 2, col 2: item box off the road']);
+    expect(trackProblems(altered((r) => { set(r, 2, 2, '+'); }))).toEqual(['row 2, col 2: boost pad off the road']);
+    expect(trackProblems(altered((r) => { set(r, 2, 2, '^'); }))).toEqual(['row 2, col 2: ramp off the road']);
+  });
+
+  it('accepts a pad, a ramp and a box on the road, wherever the road runs', () => {
+    expect(trackProblems(altered((r) => { set(r, 44, 62, '+'); set(r, 45, 62, '^'); set(r, 46, 62, '?'); }))).toEqual([]);
+  });
+
+  it('refuses a feature on the round edge of a corner, where only half the tile is road', () => {
+    // The outer edge of the curve of waypoint 0 (centre [62.5, 54.5], radius 8): a tile beyond the arc's outer edge.
+    expect(trackProblems(altered((r) => { set(r, 68, 62, '?'); })).join()).toContain('item box off the road');
   });
 
   it('reports every problem it finds', () => {
-    expect(trackProblems(altered((r) => { set(r, 30, 14, '?'); set(r, 31, 14, '?'); })).length).toBe(2);
+    expect(trackProblems(altered((r) => { set(r, 2, 2, '?'); set(r, 3, 2, '?'); })).length).toBe(2);
   });
 });
 
 describe('parseTrack', () => {
-  const track = parseTrack();
-
   it('puts the racing line, the boxes and the starting places at their tile centres, in game pixels', () => {
-    expect(track.size).toEqual({ w: 1024, h: 1024 });
-    expect(track.waypoints[0]).toEqual({ x: 54.5 * 16, y: 56.5 * 16 });
+    expect(track.waypoints[0]).toEqual({ x: 62.5 * 16, y: 62.5 * 16 });
     expect(track.waypoints).toHaveLength(COMET_RING.waypoints.length);
-    expect(track.boxes).toHaveLength(40);
-  });
-
-  it('stands the boxes in ten lines of four across the road, each line on a row or a column of tiles', () => {
-    // A line is a group of boxes within three tiles of one another; across the road, it shares one row or one column.
-    const tiles = track.boxes.map((b) => [Math.floor(b.x / 16), Math.floor(b.y / 16)] as const);
-    const lines: (readonly (readonly [number, number])[])[] = [];
-    for (const t of tiles) {
-      const line = lines.find((l) => l.some((o) => Math.abs(o[0] - t[0]) + Math.abs(o[1] - t[1]) <= 3));
-      if (line) (line as (readonly [number, number])[]).push(t); else lines.push([t]);
-    }
-    expect(lines).toHaveLength(10);
-    for (const l of lines) expect(new Set(l.map((t) => t[0])).size === 1 || new Set(l.map((t) => t[1])).size === 1).toBe(true);
-    expect(lines.every((l) => l.length === 4)).toBe(true);
+    expect(track.boxes[0]).toEqual({ x: (sure(COMET_RING.rows.map((r, y) => [r.indexOf('?'), y] as const).find(([x]) => x >= 0), 'a box')[0] + 0.5) * 16, y: (COMET_RING.rows.findIndex((r) => r.includes('?')) + 0.5) * 16 });
   });
 
   it('points the karts down the start straight, towards the first waypoint', () => {
@@ -187,124 +194,107 @@ describe('parseTrack', () => {
 
   it('stands six places behind the line, pole first and the last place farthest back', () => {
     expect(track.places).toHaveLength(6);
-    const lineX = 30.5 * 16;
+    const lineX = 34.5 * 16;
     const depths = track.places.map((p) => lineX - p.x);
     for (const d of depths) expect(d).toBeGreaterThan(0);
     expect(depths).toEqual([...depths].sort((a, b) => a - b));
-    expect(sure(track.places[5], 'the last place')).toEqual({ x: 25.5 * 16, y: 58.5 * 16 });
+    for (const p of track.places) expect(roadAt(track, p.x, p.y)).toBe(true);
   });
 
   it('throws, naming what is wrong, on a circuit that is not drivable', () => {
     expect(() => parseTrack(altered((r) => { set(r, 10, 5, 'q'); }))).toThrow(/row 5, col 10: unknown character 'q'/);
   });
+
+  it('puts the start line on the lap\'s start, and the gates of the waypoints in lap order', () => {
+    const rels = track.gates.map((g) => (((g.along - track.startAlong) % track.length) + track.length) % track.length);
+    expect(rels).toEqual([...rels].sort((a, b) => a - b));
+  });
 });
 
 describe('cornersOf', () => {
-  const corners = cornersOf(parseTrack());
+  // The lap starts on the start straight, so the arc of waypoint 0 comes last.
+  const corners = cornersOf(track).sort((a, b) => a.index - b.index);
   const L = 'left', R = 'right';
 
-  it("lists COMET RING's corners: every waypoint, the line turning 90° at each, and the way it turns", () => {
-    expect(corners.map((c) => [c.x, c.y, c.turn])).toEqual([
-      [54, 56, L], [54, 40, L], [44, 40, R], [44, 28, R], [56, 28, L], [56, 8, L], [36, 8, L],
-      [36, 20, R], [20, 20, R], [20, 8, L], [8, 8, L], [8, 40, L], [18, 40, R], [18, 56, L],
+  it("lists COMET RING's corners: every arc, with its radius and the way it turns", () => {
+    expect(cornersOf(track)).toHaveLength(14);
+    expect(corners.map((c) => [c.index, c.radius, c.turn])).toEqual([
+      [0, 8, L], [1, 3, L], [2, 3, R], [3, 3, R], [4, 3, L], [5, 5, L], [6, 6, L],
+      [7, 4, R], [8, 4, R], [9, 4, L], [10, 6, L], [11, 4, L], [12, 3, R], [13, 3, L],
     ]);
   });
 
-  it('gives the step of the leg into each corner, the last waypoint joining the first', () => {
-    expect(sure(corners[0], 'the first corner').into).toEqual([1, 0]);
-    expect(sure(corners[1], 'the second corner').into).toEqual([0, -1]);
+  it('gives the unit step of the line into each arc', () => {
+    expect(sure(corners[0], 'the first corner').into[0]).toBeCloseTo(1, 6);
+    expect(sure(corners[1], 'the second corner').into[1]).toBeCloseTo(-1, 6);
+    expect(sure(corners[2], 'the third corner').into[0]).toBeCloseTo(-1, 6);
   });
 
-  it('leaves out a waypoint where the line turns under 30°, and keeps one past it', () => {
-    const pt = (x: number, y: number) => ({ x, y });
+  it('leaves out an arc that turns the line by 30° or less, and keeps one past it', () => {
     const a = Math.tan(Math.PI / 6);
-    const ring = (y: number) => [pt(0, 0), pt(100, 0), pt(200, y), pt(100, 300), pt(0, 300)];
-    expect(cornersOf({ waypoints: ring(100 * a - 5) }).map((c) => c.index)).not.toContain(1);
-    expect(cornersOf({ waypoints: ring(100 * a + 5) }).map((c) => c.index)).toContain(1);
+    const ring = (y: number) => buildLine({ width: 5, points: [{ x: 0, y: 0, radius: 2 }, { x: 100, y: 0, radius: 2 }, { x: 200, y, radius: 2 }, { x: 100, y: 300, radius: 2 }, { x: 0, y: 300, radius: 2 }] });
+    expect(cornersOf({ centre: ring(100 * a - 5) }).map((c) => c.index)).not.toContain(1);
+    expect(cornersOf({ centre: ring(100 * a + 5) }).map((c) => c.index)).toContain(1);
   });
 });
 
 describe('the props (PRD 1427)', () => {
   const { props = [], rows } = COMET_RING;
-  /** Whether a tile beside x, y has road within two tiles: it hangs at the road's edge, not deeper in the void. */
-  const nearRoad = (x: number, y: number) => ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([dx, dy]) => {
-    for (let ox = -2; ox <= 2; ox++) for (let oy = -2; oy <= 2; oy++) if (isRoad(tileAt(rows, x + dx + ox, y + dy + oy))) return true;
-    return false;
-  });
+  /** How far the tile x, y is from the centre line, in tiles. */
+  const farFrom = (x: number, y: number) => locatePx(track, (x + 0.5) * TILE, (y + 0.5) * TILE).dist / TILE;
+  const mean = (kinds: readonly string[]) => {
+    const far = props.filter((p) => kinds.includes(p.kind)).map((p) => farFrom(p.x, p.y));
+    return far.reduce((a, b) => a + b, 0) / far.length;
+  };
   const withProp = (kind: (typeof PROP_KINDS)[number], x: number, y: number): TrackSource => ({ ...COMET_RING, props: [{ kind, x, y }] });
 
-  it('stand on COMET RING and pass every check: the five original kinds and the station\'s four, each on a void tile', () => {
+  it('stand on COMET RING and pass every check: the five original kinds and the station\'s four, each clear of the road', () => {
     expect(trackProblems(COMET_RING)).toEqual([]);
     for (const kind of PROP_KINDS) expect(props.some((p) => p.kind === kind), kind).toBe(true);
-    for (const { x, y } of props) expect(tileAt(rows, x, y)).toBe('~');
+    for (const { x, y } of props) expect(roadAt(track, (x + 0.5) * TILE, (y + 0.5) * TILE), `${x},${y}`).toBe(false);
   });
 
-  it('put pylons and beacons along the circuit\'s edge, and the rest deeper in', () => {
-    for (const { kind, x, y } of props.filter((p) => !['lamp', 'dish', 'crane', 'container'].includes(p.kind))) expect(nearRoad(x, y), `${kind} at ${x},${y}`).toBe(kind === 'pylon' || kind === 'beacon');
+  it('put pylons and beacons along the circuit\'s edge, and the asteroids, satellites and wrecks deeper in', () => {
+    expect(mean(['pylon', 'beacon'])).toBeLessThan(6);
+    expect(mean(['asteroid', 'satellite', 'wreck'])).toBeGreaterThan(7);
   });
 
-  it('accept the station\'s lamps, dishes, cranes and containers on void tiles and refuse them on the road, the walkway, the spur and the tunnel', () => {
-    const fixture = (kind: (typeof PROP_KINDS)[number], x: number, y: number): TrackSource => ({
-      rows: ['~~~~~~', '~#TTw~', '~~~~~~'], waypoints: [[1, 1], [4, 1]], props: [{ kind, x, y }],
-    });
-    for (const kind of ['lamp', 'dish', 'crane', 'container'] as const) {
-      expect(trackProblems(fixture(kind, 0, 0)).filter((p) => p.includes('stands')), kind).toEqual([]);
-      for (const [x, what] of [[1, 'road'], [2, 'roofed road'], [4, 'walkway']] as const) {
-        expect(trackProblems(fixture(kind, x, 1)), `${kind} on ${what}`).toContain(`row 1, col ${x}: a ${kind} stands on a ${what} tile, props stand on void tiles only`);
-      }
-    }
-  });
-
-  it('are refused on a road, kerb, line, box or start tile, naming the tile with its row and column', () => {
-    const first = (c: string): [number, number] => {
-      const y = rows.findIndex((r) => r.includes(c));
-      return [sure(rows[y], 'a row').indexOf(c), y];
-    };
-    const cases = [['road', '#'], ['kerb', 'r'], ['line', '='], ['box', '?'], ['start', 'S']] as const;
-    for (const [what, c] of cases) {
-      const [x, y] = first(c);
-      expect(trackProblems(withProp('pylon', x, y)), what).toEqual([`row ${y}, col ${x}: a pylon stands on a ${what} tile, props stand on void tiles only`]);
-    }
-  });
-
-  it('are refused on a road tile, a tile that is not void', () => {
-    const src = { ...altered((r) => { set(r, 0, 0, '#'); }), props: [{ kind: 'pylon' as const, x: 0, y: 0 }] };
-    expect(trackProblems(src)).toEqual(['row 0, col 0: a pylon stands on a road tile, props stand on void tiles only']);
+  it('are refused on the road and within a tile of its edge, naming the tile with its row and column', () => {
+    expect(trackProblems(withProp('pylon', 40, 62))).toEqual(['row 62, col 40: a pylon stands on the road or within a tile of its edge, props stand on void tiles only']);
+    expect(trackProblems(withProp('crane', 40, 59)).join()).toContain('a crane stands on the road or within a tile of its edge');
   });
 
   it('are refused off the map and of a kind that does not exist', () => {
-    expect(trackProblems(withProp('wreck', 70, 3))).toEqual(['row 3, col 70: a wreck stands off the map, props stand on void tiles only']);
+    expect(trackProblems(withProp('wreck', 80, 3))).toEqual(['row 3, col 80: a wreck stands off the map, props stand on void tiles only']);
     expect(trackProblems({ ...COMET_RING, props: [JSON.parse('{"kind":"tree","x":0,"y":0}')] })).toEqual(["row 0, col 0: unknown prop kind 'tree'"]);
   });
 
   it('are left out of a circuit that has none', () => {
-    expect(trackProblems({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints })).toEqual([]);
-    expect(parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }).props).toEqual([]);
+    expect(trackProblems(without('props'))).toEqual([]);
+    expect(parseTrack(without('props')).props).toEqual([]);
   });
 
   it('reach the parsed circuit at their tile centres, in game pixels', () => {
-    const track = parseTrack();
     expect(track.props).toHaveLength(props.length);
     const [first] = props, [placed] = track.props;
     expect(placed).toEqual({ kind: sure(first, 'a prop').kind, x: (sure(first, 'a prop').x + 0.5) * TILE, y: (sure(first, 'a prop').y + 0.5) * TILE });
+    expect(rows).toHaveLength(72);
   });
 });
 
 describe('the arch (PRD 1427)', () => {
   it('stands its legs on the first void tile beyond each end of the start line', () => {
     const tiles = (p: { x: number; y: number }): [number, number] => [Math.floor(p.x / TILE), Math.floor(p.y / TILE)];
-    const [top, bottom] = parseTrack().arch.map(tiles);
+    const [top, bottom] = track.arch.map(tiles);
     const [col, topY] = sure(top, 'the first leg'), [botCol, botY] = sure(bottom, 'the second leg');
     const ys = COMET_RING.rows.flatMap((row, y) => (row[col] === '=' ? [y] : []));
     expect(botCol).toBe(col);
     expect(ys.length).toBeGreaterThan(0);
-    expect(tileAt(COMET_RING.rows, col, topY)).toBe('~');
-    expect(tileAt(COMET_RING.rows, col, botY)).toBe('~');
-    // The first void: nothing between a leg and the line's end is void.
-    for (let y = topY + 1; y < Math.min(...ys); y++) expect(tileAt(COMET_RING.rows, col, y)).not.toBe('~');
-    for (let y = Math.max(...ys) + 1; y < botY; y++) expect(tileAt(COMET_RING.rows, col, y)).not.toBe('~');
-    expect(topY).toBeLessThan(Math.min(...ys));
-    expect(botY).toBeGreaterThan(Math.max(...ys));
+    expect(roadAt(track, (col + 0.5) * TILE, (topY + 0.5) * TILE)).toBe(false);
+    expect(roadAt(track, (col + 0.5) * TILE, (botY + 0.5) * TILE)).toBe(false);
+    // The first void: the road runs from the line's end to the leg.
+    expect(topY).toBe(Math.min(...ys) - 1);
+    expect(botY).toBe(Math.max(...ys) + 1);
   });
 });
 
@@ -312,27 +302,27 @@ describe('the relief (PRD 1698)', () => {
   const n = COMET_RING.waypoints.length;
   const heights = COMET_RING.relief?.heights ?? [];
   const bumps = COMET_RING.relief?.bumps ?? [];
-  const reliefed = (relief: unknown): TrackSource => ({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints, relief: relief as NonNullable<TrackSource['relief']> });
+  const reliefed = (relief: unknown): TrackSource => ({ ...COMET_RING, relief: relief as NonNullable<TrackSource['relief']> });
 
   it('is one height a waypoint and one bump a leg, the road level in every corner', () => {
     expect(heights).toHaveLength(n);
     expect(bumps).toHaveLength(n);
-    expect(parseTrack().relief).toEqual({ heights, bumps });
+    expect(track.relief).toEqual({ heights, bumps });
   });
 
   it('is a flat road for a circuit that has none', () => {
-    const track = parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints });
-    expect(track.relief.heights.every((h) => h === 0) && track.relief.bumps.every((b) => b === 0)).toBe(true);
+    const flat = parseTrack(without('relief'));
+    expect(flat.relief.heights.every((h) => h === 0) && flat.relief.bumps.every((b) => b === 0)).toBe(true);
   });
 
   it('eases a leg from one height to the next with its bump at the middle, and no step anywhere', () => {
     const relief = { heights: [0, 10], bumps: [6, 0] };
     const length = 20 * TILE;
     expect(legHeight(relief, 0, 0, length)).toBeCloseTo(0, 9);
-    expect(legHeight(relief, 0, LEVEL, length)).toBeCloseTo(0, 9);
     expect(legHeight(relief, 0, length / 2, length)).toBeCloseTo(5 + 6, 9);
-    expect(legHeight(relief, 0, length - LEVEL, length)).toBeCloseTo(10, 9);
     expect(legHeight(relief, 0, length, length)).toBeCloseTo(10, 9);
+    expect(legHeight(relief, 0, LEVEL, length, LEVEL)).toBeCloseTo(0, 9);
+    expect(legHeight(relief, 0, length - LEVEL, length, LEVEL)).toBeCloseTo(10, 9);
   });
 
   it('passes the circuit\'s checks and spans 26 at most', () => {
@@ -364,56 +354,34 @@ describe('the relief (PRD 1698)', () => {
   });
 });
 
-describe('the station tiles (PRD 1775)', () => {
-  it('reads a pad, a ramp, roofed road and a walkway as road to the wheels', () => {
-    for (const c of ['+', '^', 'T', 'w']) expect(isRoad(c), c).toBe(true);
-    expect(isRoad('~')).toBe(false);
-    expect(isRoad('x')).toBe(false);
-  });
-
-  it('accepts them in the map: the circuit\'s checks pass', () => {
-    expect(trackProblems(altered((r) => { set(r, 54, 52, '+'); set(r, 54, 51, '^'); set(r, 54, 50, 'T'); set(r, 54, 49, 'w'); }))).toEqual([]);
-  });
-
-  it('lays COMET RING out: twelve stands and the two shortcuts, each on the road it should be', () => {
-    expect(COMET_RING.stands).toHaveLength(12);
-    const track = parseTrack();
-    expect(track.stands).toHaveLength(12);
-    expect(track.shortcuts).toHaveLength(2);
-    expect(COMET_RING.shortcuts?.map((s) => s.skips)).toEqual([2, 7]);
-  });
-});
-
 describe('stands (PRD 1775)', () => {
   const withStands = (stands: [number, number][]): TrackSource => ({ ...COMET_RING, stands });
 
   it('accepts a stand on a void tile and gives it at its tile\'s centre', () => {
-    expect(trackProblems(withStands([[2, 2], [30, 60]]))).toEqual([]);
+    expect(trackProblems(withStands([[2, 2], [30, 67]]))).toEqual([]);
     expect(parseTrack(withStands([[2, 3]])).stands).toEqual([{ x: 2.5 * TILE, y: 3.5 * TILE }]);
   });
 
-  it('refuses a stand on the road, on a pad, or off the map', () => {
-    expect(trackProblems(withStands([[7, 7]])).join()).toContain('row 7, col 7: a stand floats on a road tile');
-    expect(trackProblems({ ...altered((r) => { set(r, 2, 2, '+'); }), stands: [[2, 2]] }).join()).toContain('on a boost pad tile');
-    expect(trackProblems(withStands([[70, 2]])).join()).toContain('off the map');
+  it('refuses a stand on the road, within a tile of its edge, or off the map', () => {
+    expect(trackProblems(withStands([[40, 62]])).join()).toContain('row 62, col 40: a stand floats on the road or within a tile of its edge');
+    expect(trackProblems(withStands([[40, 59]])).join()).toContain('a stand floats on the road or within a tile of its edge');
+    expect(trackProblems(withStands([[80, 2]])).join()).toContain('off the map');
   });
 });
 
 describe('shortcuts (PRD 1775)', () => {
-  const good = { leg: [[54, 40], [44, 28]], gate: [[50, 36], [50, 36]], skips: 2 } as const;
   const withShortcut = (sc: unknown): TrackSource => ({ ...COMET_RING, shortcuts: [sc as never] });
-  // A gate on road: the road tile [54, 50], a leg between two waypoints.
-  const onRoad = { leg: [[54, 56], [54, 40]], gate: [[52, 48], [56, 48]], skips: 2 } as const;
+  const onRoad = { leg: [[62.5, 46.5], [62.5, 34.5]], gate: [[60, 36.5], [65, 36.5]], skips: 2 } as const;
 
   it('accepts a shortcut whose waypoints exist, whose leg ends are on road and whose gate crosses road', () => {
     expect(trackProblems(withShortcut(onRoad))).toEqual([]);
   });
 
-  it('carries it in tile centres: the leg, the gate and the first waypoint it skips', () => {
+  it('carries it in game pixels: the leg, the gate and the first waypoint it skips', () => {
     const [sc] = parseTrack(withShortcut(onRoad)).shortcuts;
     expect(sc).toEqual({
-      from: { x: 54.5 * TILE, y: 56.5 * TILE }, to: { x: 54.5 * TILE, y: 40.5 * TILE },
-      gate: [{ x: 52.5 * TILE, y: 48.5 * TILE }, { x: 56.5 * TILE, y: 48.5 * TILE }], skips: 2,
+      from: { x: 62.5 * TILE, y: 46.5 * TILE }, to: { x: 62.5 * TILE, y: 34.5 * TILE },
+      gate: [{ x: 60 * TILE, y: 36.5 * TILE }, { x: 65 * TILE, y: 36.5 * TILE }], skips: 2,
     });
   });
 
@@ -425,70 +393,81 @@ describe('shortcuts (PRD 1775)', () => {
   });
 
   it('refuses a leg whose end is off the road', () => {
-    expect(trackProblems(withShortcut({ ...onRoad, leg: [[1, 1], [54, 40]] })).join()).toContain('row 1, col 1: an end of shortcut 0\'s leg is off the road');
-    expect(trackProblems(withShortcut({ ...onRoad, leg: [[54, 56], [1, 1]] })).join()).toContain('an end of shortcut 0');
+    expect(trackProblems(withShortcut({ ...onRoad, leg: [[1, 1], [62.5, 34.5]] })).join()).toContain('row 1, col 1: an end of shortcut 0\'s leg is off the road');
+    expect(trackProblems(withShortcut({ ...onRoad, leg: [[62.5, 46.5], [1, 1]] })).join()).toContain('an end of shortcut 0');
   });
 
   it('refuses a gate that crosses no road', () => {
-    expect(trackProblems(withShortcut({ ...good, gate: [[1, 1], [3, 1]] })).join()).toContain('the gate of shortcut 0 crosses no road');
+    expect(trackProblems(withShortcut({ ...onRoad, gate: [[1, 1], [3, 1]] })).join()).toContain('the gate of shortcut 0 crosses no road');
   });
 });
 
-describe('COMET RING laid out (PRD 1775)', () => {
+describe('COMET RING laid out (PRD 1829)', () => {
   const { rows } = COMET_RING;
   const tiles = (c: string) => rows.flatMap((row, y) => Array.from(row).flatMap((t, x) => (t === c ? [[x, y] as const] : [])));
+  const px = (x: number, y: number) => [x * TILE, y * TILE] as const;
 
-  it('holds every stand and every prop on a void tile', () => {
-    for (const [x, y] of COMET_RING.stands ?? []) expect(tileAt(rows, x, y), `stand ${x},${y}`).toBe('~');
-    for (const { x, y } of COMET_RING.props ?? []) expect(tileAt(rows, x, y), `prop ${x},${y}`).toBe('~');
+  it('holds every stand and every prop clear of the road', () => {
+    for (const [x, y] of COMET_RING.stands ?? []) expect(roadAt(track, (x + 0.5) * TILE, (y + 0.5) * TILE), `stand ${x},${y}`).toBe(false);
+    for (const { x, y } of COMET_RING.props ?? []) expect(roadAt(track, (x + 0.5) * TILE, (y + 0.5) * TILE), `prop ${x},${y}`).toBe(false);
   });
 
   it('lays eight stands along the start straight, four on each side, and four beside the gap jump', () => {
     const stands = COMET_RING.stands ?? [];
-    expect(stands.filter(([, y]) => y < 54 && y > 48)).toHaveLength(4);
-    expect(stands.filter(([, y]) => y > 58)).toHaveLength(4);
-    expect(stands.filter(([x, y]) => x > 50 && y < 30)).toHaveLength(4);
+    expect(stands.filter(([, y]) => y < 60 && y > 50)).toHaveLength(4);
+    expect(stands.filter(([, y]) => y > 65)).toHaveLength(4);
+    expect(stands.filter(([x, y]) => x > 55 && y < 30)).toHaveLength(4);
   });
 
-  it('carries a walkway 2 tiles wide from the corner [36, 8] to the corner [20, 8]', () => {
-    const walk = tiles('w');
-    expect(walk).toHaveLength(22);
-    const columns = new Set(walk.map(([x]) => x));
-    expect([...columns].sort((a, b) => a - b)).toEqual(Array.from({ length: 11 }, (_, i) => 23 + i));
-    for (const x of columns) expect(walk.filter(([wx]) => wx === x), `column ${x}`).toHaveLength(2);
-    expect(tileAt(rows, 22, 8)).not.toBe('~');
-    expect(tileAt(rows, 34, 8)).not.toBe('~');
+  it('carries a walkway 2 tiles wide, from the middle of the curve of waypoint 6 west over the void', () => {
+    const walk = sure(track.centre.pieces.find((p) => p.surface === 'grating'), 'the walkway');
+    expect(walk.width).toBe(2);
+    expect(walk.from.y).toBeCloseTo(walk.to.y, 9);
+    expect(walk.from.x).toBeGreaterThan(walk.to.x);
+    // Between the two curves it joins, over the void.
+    for (let k = 0; k <= 10; k++) {
+      const x = 28 + k;
+      expect(roadAt(track, x * TILE, walk.from.y * TILE), `x ${x.toFixed(1)}`).toBe(true);
+      expect(roadAt(track, x * TILE, (walk.from.y + 1.5) * TILE), `x ${x.toFixed(1)} beside it`).toBe(false);
+    }
   });
 
-  it('roofs 13 tiles of the top leg between its corners', () => {
-    const roofed = tiles('T');
-    expect(roofed).toHaveLength(13 * 5);
-    expect(new Set(roofed.map(([x]) => x))).toEqual(new Set(Array.from({ length: 13 }, (_, i) => 40 + i)));
-    expect(new Set(roofed.map(([, y]) => y))).toEqual(new Set([6, 7, 8, 9, 10]));
+  it('roofs 13 tiles of the road from where the curve of waypoint 5 starts', () => {
+    const span = sure(track.span, 'the tunnel');
+    expect(span.length).toBe(13);
+    let roofed = 0;
+    for (let a = span.start; a < span.start + span.length; a += 0.5) {
+      const p = pointAt(track.centre, a);
+      if (roofAt(track, p.x * TILE, p.y * TILE)) roofed++;
+    }
+    expect(roofed).toBeGreaterThanOrEqual(24);
+    expect(roofed).toBeLessThanOrEqual(26);
   });
 
-  it('puts a pad before each jump and out of the corners [18, 56], [44, 28] and [8, 40], and a ramp on each jump', () => {
+  it('puts a pad before each jump, and a ramp on each jump', () => {
     const pads = tiles('+');
-    for (const [x, y] of [[56, 24], [8, 21], [21, 56], [49, 28], [11, 40]] as const) expect(pads.some(([px, py]) => px === x && py === y), `pad ${x},${y}`).toBe(true);
+    for (const [x, y] of [[64, 26], [8, 25], [13, 46], [55, 34], [25, 62]] as const) expect(pads.some(([px2, py]) => px2 === x && py === y), `pad ${x},${y}`).toBe(true);
     const ramps = tiles('^');
-    for (const [x, y] of [[56, 18], [8, 24], [54, 36]] as const) expect(ramps.some(([rx, ry]) => rx === x && ry === y), `ramp ${x},${y}`).toBe(true);
-    expect(tileAt(rows, 54, 37)).toBe('#'); // the spur's ramp has no pad before it
-    expect(tiles('+').some(([x, y]) => x >= 52 && x <= 56 && y >= 31)).toBe(false);
+    for (const [x, y] of [[64, 22], [8, 28], [62, 42]] as const) expect(ramps.some(([rx, ry]) => rx === x && ry === y), `ramp ${x},${y}`).toBe(true);
+    // The spur's ramp has no pad before it.
+    expect(pads.some(([x, y]) => x >= 60 && x <= 64 && y >= 43 && y <= 48)).toBe(false);
   });
 
   it('opens a gap of 3 tiles across the whole road after the gap jump\'s ramp and 5 tiles after the spur\'s', () => {
-    for (let x = 54; x <= 58; x++) {
-      expect([tileAt(rows, x, 18), tileAt(rows, x, 17), tileAt(rows, x, 16), tileAt(rows, x, 15), tileAt(rows, x, 14)]).toEqual(['^', '~', '~', '~', '#']);
+    for (const x of [62.5, 63.5, 64.5, 65.5, 66.5]) {
+      const col = px(x, 0)[0];
+      expect([22.5, 21.5, 20.5, 19.5, 18.5].map((y) => roadAt(track, col, y * TILE))).toEqual([true, false, false, false, true]);
+      expect(inGap(col, 20.5 * TILE)).toBe(true);
     }
-    for (let x = 52; x <= 56; x++) {
-      expect([36, 35, 34, 33, 32, 31].map((y) => tileAt(rows, x, y)).join('')).toBe('^~~~~~');
-      expect(isRoad(tileAt(rows, x, 30))).toBe(true);
+    for (const x of [60.5, 61.5, 62.5, 63.5, 64.5]) {
+      const col = px(x, 0)[0];
+      expect([42.5, 41.5, 40.5, 39.5, 38.5, 37.5, 36.5].map((y) => roadAt(track, col, y * TILE))).toEqual([true, false, false, false, false, false, true]);
     }
+    expect(inGapAt(track.centre, 64.5, 20.5)).toBe(true);
   });
 });
 
 describe('the jumps, flown over COMET RING (PRD 1775)', () => {
-  const track = parseTrack();
   /** A kart on a ramp's far edge, facing `angle`, at `speed` (with `boost` seconds of BOOST on it): flown until it lands or falls. Where it ends, and whether it fell. */
   function fly(at: { x: number; y: number }, angle: number, speed: number, boost = 0) {
     const hands = { left: false, right: false, accel: true, brake: false };
@@ -503,35 +482,35 @@ describe('the jumps, flown over COMET RING (PRD 1775)', () => {
     throw new Error('the kart never landed');
   }
   const north = -Math.PI / 2;
-  const gapJump = { x: 56.5 * TILE, y: 18 * TILE + 1 };
-  const hiddenRamp = { x: 54.5 * TILE, y: 36 * TILE + 1 };
+  const gapJump = { x: 64.5 * TILE, y: 22 * TILE + 1 };
+  const hiddenRamp = { x: 62.5 * TILE, y: 42 * TILE + 1 };
   const rowOf = (y: number) => Math.floor(y / TILE);
 
   it('clears the gap jump from the pad, and at top speed without a BOOST', () => {
-    const run = fly({ x: 56.5 * TILE, y: 24.5 * TILE }, north, RULES.topSpeed);
+    const run = fly({ x: 64.5 * TILE, y: 26.5 * TILE }, north, RULES.topSpeed);
     expect(run.fell).toBe(false);
-    expect(isRoad(tileAt(track.map, Math.floor(run.x / TILE), rowOf(run.y)))).toBe(true);
+    expect(roadAt(track, run.x, run.y)).toBe(true);
     const top = fly(gapJump, north, RULES.topSpeed);
     expect(top.fell).toBe(false);
-    expect(rowOf(top.y)).toBeLessThanOrEqual(14);
+    expect(rowOf(top.y)).toBeLessThanOrEqual(18);
   });
 
   it('falls into the gap jump at 0.8 of the top speed', () => {
     expect(fly(gapJump, north, 0.8 * RULES.topSpeed).fell).toBe(true);
   });
 
-  it('does not clear the hidden ramp at top speed without a BOOST, and lands on [44, 28] -> [56, 28] with the item\'s BOOST', () => {
+  it('does not clear the hidden ramp at top speed without a BOOST, and lands back on the road with the item\'s BOOST', () => {
     expect(fly(hiddenRamp, north, RULES.topSpeed).fell).toBe(true);
     const boosted = fly(hiddenRamp, north, RULES.topSpeed * RULES.boostFactor, RULES.boostTime);
     expect(boosted.fell).toBe(false);
-    expect(rowOf(boosted.y)).toBeGreaterThanOrEqual(26);
-    expect(rowOf(boosted.y)).toBeLessThanOrEqual(30);
-    expect(isRoad(tileAt(track.map, Math.floor(boosted.x / TILE), rowOf(boosted.y)))).toBe(true);
+    expect(rowOf(boosted.y)).toBeGreaterThanOrEqual(31);
+    expect(rowOf(boosted.y)).toBeLessThanOrEqual(36);
+    expect(roadAt(track, boosted.x, boosted.y)).toBe(true);
   });
 
   it('flies the bump jump over road all the way: no fall at any speed from 0.5 to 1.4 of the top speed', () => {
     for (const share of [0.5, 0.8, 1, 1.4]) {
-      const run = fly({ x: 8.5 * TILE, y: 24 * TILE + 15 }, Math.PI / 2, share * RULES.topSpeed);
+      const run = fly({ x: 8.5 * TILE, y: 28 * TILE + 15 }, Math.PI / 2, share * RULES.topSpeed);
       expect(run.fell, `${share}`).toBe(false);
     }
   });
