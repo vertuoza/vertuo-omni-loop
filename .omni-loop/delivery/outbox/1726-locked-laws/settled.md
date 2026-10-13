@@ -862,3 +862,390 @@ Nothing to undo: the line follows the webhook's table.
 ```
 
 <!-- /omni-outbox-settled: s3-06-manifest-test-outside-territory -->
+
+<!-- omni-outbox-settled: s4-01-owners-block-names-each-register-file -->
+
+## s4-01-owners-block-names-each-register-file — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-owners-block-names-each-register-file
+prd: 1726
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+Should the list of protected files name each knowledge file one by one, principles included, or protect the whole knowledge folder in one line?
+
+## The decision, in plain words
+
+Each file one by one: the thesis, every principles, rules and invariants file, every cross-domain file, and each law's test. A new knowledge area makes the list out of date until the command is run again.
+
+## The intro, for fun
+
+Someone had to decide how long the guest list is.
+
+## The punchline, for fun
+
+Every name is on it, so a newcomer has to be added by hand.
+
+## The options, in plain words
+
+A. A. Name each register file, principles included, and each law's test, one line each.
+B. B. Own the rules and invariants files only, leaving principles to anyone.
+C. C. Own the whole knowledge folder with one pattern, the playbook and decision records included.
+
+## What I had to decide
+
+Whether the owners block lists each register file, principles included, or one pattern for the whole knowledge folder.
+
+## What I did meanwhile
+
+The block lists the thesis (even before it exists), every principles.md, rules.md and invariants.md of the product and of each domain, every cross-domain file, then every path a locked law's Enforced by: line names, each path once and anchored at the root. The playbook, the decision records and domain READMEs are not owned. Adding a domain makes omni check knowledge red until omni kb owners is run again.
+
+## What it costs to change later
+
+Changing it later is a few lines in one function and its tests; the next omni kb owners run rewrites the block.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says "the register files" without saying whether principles count or whether a folder pattern would do; principles are owned because a principle is a register file and the thesis rests on them.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-owners-block-names-each-register-file -->
+
+<!-- omni-outbox-settled: s4-02-owners-block-goes-where-github-reads -->
+
+## s4-02-owners-block-goes-where-github-reads — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-owners-block-goes-where-github-reads
+prd: 1726
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+When a repository already keeps its owners file at the top level or in its docs folder, where should the owners command write?
+
+## The decision, in plain words
+
+Into the owners file GitHub already reads, and a new one only when there is none, so the team's own file is never hidden. The knowledge check asks for the owners list only once a law is locked or the list was written.
+
+## The intro, for fun
+
+Two owners files walk into a repository.
+
+## The punchline, for fun
+
+GitHub only listens to the first one it meets.
+
+## The options, in plain words
+
+A. A. Write into the owners file GitHub reads, and ask for the list only once a law is locked or the list exists.
+B. B. Always write a new owners file in the hidden GitHub folder, even when that hides the team's own file.
+C. C. Write as in A, but ask for the owners list in every repository that keeps knowledge, locked laws or not.
+
+## What I had to decide
+
+Which CODEOWNERS file omni kb owners writes, and when omni check knowledge asks for the block.
+
+## What I did meanwhile
+
+omni kb owners writes into the first of .github/CODEOWNERS, CODEOWNERS and docs/CODEOWNERS that exists (GitHub's order), and creates .github/CODEOWNERS only when none does. omni check knowledge reads the same file: it asks nothing while laws.owners is empty (the lock count already refuses a lock then), nor when nothing is locked and no block is written; it goes red when a law is locked and there is no block, when the block differs from what kb owners would write, or when its markers do not pair up. kb owners refuses an empty laws.owners and unpaired markers, writing nothing.
+
+## What it costs to change later
+
+Changing it later is one constant and one condition in one module; no stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names .github/CODEOWNERS; writing there when a root or docs/ CODEOWNERS exists would make GitHub ignore the older file, so the file GitHub reads was taken instead.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-owners-block-goes-where-github-reads -->
+
+<!-- omni-outbox-settled: s5-01-invade-proposes-laws-on-its-own-entries-only -->
+
+## s5-01-invade-proposes-laws-on-its-own-entries-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-invade-proposes-laws-on-its-own-entries-only
+prd: 1726
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+When the setup step picks a candidate law among rules a person already wrote, should it add the proposal to that rule, or only list it for its owner?
+
+## The decision, in plain words
+
+It adds the proposal only to rules it wrote itself. A candidate among a person's rules is listed in its pull request, with the sentence ready, for the owner to add.
+
+## The intro, for fun
+
+Two promises met: never touch a person's rule, and propose laws on existing rules.
+
+## The punchline, for fun
+
+The older promise won, and the new one waits politely in the pull request.
+
+## The options, in plain words
+
+A. A. Propose on its own entries only; list a person's entry in the pull request for its owner to add.
+B. B. Add the Governs and Proposed law lines to a person's entry too, as the only exception to never touching it.
+
+## What I had to decide
+
+Keep A, or choose B and the setup step adds the two proposal lines to a person's rule too.
+
+## What I did meanwhile
+
+Candidate laws on a person's rules appear only in the setup pull request's Candidate laws table.
+
+## What it costs to change later
+
+Changing it is one paragraph of the invade skill and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says candidates go on existing or drafted entries, while the invade skill forbids changing any field of a person's entry; which wins is not settled (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-01-invade-proposes-laws-on-its-own-entries-only -->
+
+<!-- omni-outbox-settled: s5-02-law-tiers-in-the-loop-page-not-a-new-page -->
+
+## s5-02-law-tiers-in-the-loop-page-not-a-new-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-law-tiers-in-the-loop-page-not-a-new-page
+prd: 1726
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+Should the user guide explain principles, rules and laws on a page of their own, or inside the page that already explains laws and their tests?
+
+## The decision, in plain words
+
+It is a new part of the page on how the loop works, beside laws and their tests, with a short pointer from the setup page. No new page was added.
+
+## The intro, for fun
+
+The guide already had a room for laws, so the new tiers moved in there.
+
+## The punchline, for fun
+
+No new door to find, just a bigger room.
+
+## The options, in plain words
+
+A. A. A section in How the loop works, linked from Invade.
+B. B. A page of its own, Laws, added to the guide's page list and its test.
+
+## What I had to decide
+
+Keep A, or choose B and the guide gets its own Laws page in its sidebar.
+
+## What I did meanwhile
+
+Readers find the three tiers and how to lock a law under How the loop works.
+
+## What it costs to change later
+
+Moving the section to its own page is a cut and paste plus the guide's page list and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- A new page would change the docs site's own test of the page order, which lies outside this slice's territory (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-02-law-tiers-in-the-loop-page-not-a-new-page -->
+
+<!-- omni-outbox-settled: s5-03-law-approval-record-in-the-pr-description -->
+
+## s5-03-law-approval-record-in-the-pr-description — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-12
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-law-approval-record-in-the-pr-description
+prd: 1726
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+Where does the record of who approved a change to a locked law live, so the merge keeps it?
+
+## The decision, in plain words
+
+The pull request skill writes one approval line per approving owner in the pull request's description, just above its signature, taken only from what the outbox check says.
+
+## The intro, for fun
+
+Someone approved the law change; history wants their name in ink.
+
+## The punchline, for fun
+
+The ink is the pull request description, copied from the check that saw the approval.
+
+## The options, in plain words
+
+A. A. Lines in the pull request description, from the outbox check's summary.
+B. B. Lines the person merging adds to the merge commit message, the skill only reminding them.
+
+## What I had to decide
+
+Keep A, or choose B and the record is written in the merge commit message by whoever merges.
+
+## What I did meanwhile
+
+A squash merge carries the lines in its message; a merge commit keeps them in the pull request.
+
+## What it costs to change later
+
+Changing where the lines go is one paragraph of the pull request skill.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No command reports the approvers locally, so the skill reads them from the outbox check's summary; a repository without the GitHub App gets no record (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-03-law-approval-record-in-the-pr-description -->
