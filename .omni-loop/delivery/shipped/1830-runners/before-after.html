@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1830 · Runners · before/after</title>
+<style>
+
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  
+  
+  
+  .bar { padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 15px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .page { padding: 24px; display: grid; gap: 22px; }
+  h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+  h2 { margin: 0 0 8px; font-size: 17px; }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  code { font: 500 13px/1.5 var(--ask-mono); }
+  .table { border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
+  .row { display: grid; gap: 14px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--ask-line); min-width: 0; }
+  .row:first-child { border-top: 0; }
+  .head { font: 700 12px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 10px; }
+  .runners .row { grid-template-columns: minmax(140px, 1.2fr) 130px 140px 70px minmax(0, 2fr) 70px; }
+  .jobs .row { grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px 120px 110px 120px; }
+  .name { font-weight: 700; }
+  .muted { color: var(--ask-muted); font-size: 14px; }
+  .state { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ask-muted); }
+  .on .dot { background: var(--ask-green); } .busy .dot { background: var(--ask-plasma); } .off { color: var(--ask-muted); }
+  select { font: 500 14px/1 var(--ask-body); color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 6px; padding: 5px 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; font: 500 13px/1.6 var(--ask-mono); }
+  .status { font: 700 13px/1 var(--ask-body); padding: 4px 9px; border-radius: 999px; justify-self: start; border: 1px solid var(--ask-line-strong); }
+  .s-run { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .s-done { border-color: var(--ask-green); color: var(--ask-green); }
+  .s-fail { border-color: var(--ask-red); color: var(--ask-red); }
+  .s-queue { color: var(--ask-cyan); border-color: var(--ask-cyan); }
+  .ghost { display: inline-flex; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 13px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; }
+  .log { margin: 0; padding: 12px 16px; background: var(--ask-sunk); border-top: 1px solid var(--ask-line); font: 12.5px/1.55 var(--ask-mono); color: var(--ask-muted); white-space: pre-wrap; }
+  .log b { color: var(--ask-ink); font-weight: 500; }
+  @media (max-width: 860px) { .runners .row, .jobs .row { grid-template-columns: 1fr auto; } .head { display: none; } .hide-s { display: none; } }
+
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 16px/1.55 var(--ask-body); }
+  .doc { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+  .doc > h1 { font-size: 28px; margin: 0 0 4px; }
+  .doc > p.lead { margin: 0 0 24px; color: var(--ask-muted); max-width: 85ch; }
+  .part { margin: 36px 0 0; font: 700 13px/1 var(--ask-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ask-plasma); }
+  h3.pair { margin: 18px 0 10px; font-size: 18px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .cols.stack { grid-template-columns: 1fr; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .col > .tag { display: inline-block; margin: 0 0 8px; font: 700 12px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; }
+  .tag.today { color: var(--ask-muted); border: 1px solid var(--ask-line-strong); }
+  .tag.after { color: var(--ask-on-plasma); background: var(--ask-plasma); }
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; }
+  .cap { margin: 8px 0 0; font-size: 14px; color: var(--ask-muted); max-width: 90ch; }
+  .flow { list-style: none; margin: 0; padding: 16px; display: grid; gap: 8px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; counter-reset: s; }
+  .flow li { counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 8px; font-size: 15px; }
+  .flow li::before { content: counter(s); font: 700 13px/26px var(--ask-body); text-align: center; border-radius: 50%; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); }
+  .flow li.gap { color: var(--ask-red); }
+  .who { font: 700 12px/1.6 var(--ask-mono); color: var(--ask-cyan); }
+  .plain { padding: 14px 16px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; font-size: 15px; }
+  .plain ul { margin: 0; padding-left: 18px; }
+  /* the PRD page's head (dossier/page/StageHeader.tsx, dossier.css) */
+  .dhead { padding: 18px 20px; display: grid; gap: 12px; }
+  .dtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .dtitle strong { font-size: 22px; margin-right: auto; }
+  .ask-button { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--ask-line-strong); background: var(--ask-surface); color: var(--ask-ink); font: 700 15px/1 var(--ask-body); white-space: nowrap; }
+  .ask-button.stage-action { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .stage-command { padding: 4px 8px; border-radius: 6px; background: var(--ask-sunk); border: 1px solid var(--ask-line); }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 14px; color: var(--ask-muted); }
+  .facts b { color: var(--ask-ink); font-weight: 600; }
+  .pick { justify-self: end; width: min(340px, 100%); padding: 12px; display: grid; gap: 6px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; }
+  .pick label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+  .pick .grp { margin-top: 4px; font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .pick .state { margin-left: auto; }
+  .pick .ask-button { justify-self: end; margin-top: 6px; }
+  .queued { font-size: 14px; color: var(--ask-green); }
+  .side { display: grid; grid-template-columns: 190px 1fr; min-height: 240px; }
+  .side nav { padding: 14px 10px; background: var(--ask-surface); border-right: 1px solid var(--ask-line); font-size: 14px; display: grid; align-content: start; gap: 2px; }
+  .side nav span { padding: 5px 8px; border-radius: 6px; }
+  .side nav .grp { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); padding-top: 10px; }
+  .side nav .new { background: var(--ask-plasma-soft); color: var(--ask-plasma); font-weight: 700; }
+  .side .empty { padding: 24px; color: var(--ask-muted); }
+</style>
+</head>
+<body>
+<div class="doc">
+<h1>Runners: send work from the Omni app to a terminal</h1>
+<p class="lead">PRD 1830. A server running <code>omni runner</code> shows up on a new Runners page. A line the app lets you copy can be sent to it instead, and the job's log and pull request come back to the app.</p>
+
+<h2 class="part">Functional</h2>
+
+<h3 class="pair">How a command gets run</h3>
+<div class="cols">
+  <div class="col"><span class="tag today">Today</span>
+    <ol class="flow">
+      <li><span>On a PRD's page, <b>Build it</b> copies <code>/omni:yolo 1717</code>.</span></li>
+      <li><span>You open a terminal on a computer with the repository, Claude Code and its sign-ins.</span></li>
+      <li><span>You paste it, or SSH to the agent box and type <code>yolo 1717</code>.</span></li>
+      <li class="gap"><span>The app never sees the run: no log, no state, no link to the pull request until it shows on GitHub.</span></li>
+    </ol>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+    <ol class="flow">
+      <li><span><b>Send to terminal</b> beside Build it. Pick a fleet or a runner, then press Send. <span class="who">app → runner_jobs: queued</span></span></li>
+      <li><span>A free runner you may use claims it from its open <code>next</code> call. <span class="who">for update skip locked · claimed</span></span></li>
+      <li><span>It runs the line in a worktree, in tmux <code>job-&lt;id&gt;</code>, and sends the last log lines every 5 s. <span class="who">running</span></span></li>
+      <li><span>It ends <b>Done</b> with the pull request's link, or <b>Failed</b> with why. You can cancel at any time. <span class="who">done · failed · cancelled</span></span></li>
+    </ol>
+  </div>
+</div>
+
+<h3 class="pair">Who talks to whom</h3>
+<div class="cols">
+  <div class="col"><span class="tag today">Today</span>
+    <div class="plain"><ul>
+      <li>Terminals push their status to the app (<code>working_pings</code>, one per Claude session).</li>
+      <li>Terminals ask the app for answers (<code>/api/ask/rounds/&lt;id&gt;/wait</code>) and approvals.</li>
+      <li>The app sends a terminal nothing.</li>
+    </ul></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+    <div class="plain"><ul>
+      <li><code>POST /api/runners/register</code>: name, slots, repositories, kit version.</li>
+      <li><code>GET /api/runners/next</code>: a check-in that holds up to 50 s and answers a job or 204. Outbound only, so no port opens on the server.</li>
+      <li><code>POST /api/runners/jobs/&lt;id&gt;</code>: status, log tail, PR link. It answers <code>{cancel: true}</code> when a cancel waits.</li>
+      <li>Only the lines <code>/omni:yolo · yolo-fix · pr-care · do-work · wave · bug-fix · visual-fix · plan · pitch · prove</code>, checked by the app and again by the runner.</li>
+      <li>A runner silent for 90 s: its jobs become <b>Failed, runner lost</b>, and nothing is retried by itself.</li>
+    </ul></div>
+  </div>
+</div>
+
+<h2 class="part">Pixel perfect</h2>
+<p class="cap">screens: prd-dossier · app-shell · runners (new)</p>
+
+<h3 class="pair">A PRD's head, in the inbox stage</h3>
+<div class="cols">
+  <div class="col"><span class="tag today">Today</span>
+    <div class="frame"><div class="dhead" data-screen="prd-head-today">
+      <div class="dtitle"><strong data-content>Faster quote search</strong><button class="ask-button stage-action" type="button" data-primary>Build it</button><code class="stage-command" data-content>/omni:yolo 1717</code><button class="ask-button" type="button">Copy link</button></div>
+      <div class="facts"><span>Stage <b>inbox</b></span><span>Approval <b>approved</b></span><span>Repo <b data-content>vertuo-omni-loop</b></span></div>
+    </div></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+    <div class="frame"><div class="dhead" data-screen="prd-head-after">
+      <div class="dtitle"><strong data-content>Faster quote search</strong><button class="ask-button" type="button">Build it</button><code class="stage-command" data-content>/omni:yolo 1717</code><button class="ask-button" type="button">Send to terminal</button><button class="ask-button" type="button">Copy link</button></div>
+      <div class="pick" role="dialog" aria-label="Send to terminal">
+        <label><input type="radio" name="t"> Any runner</label>
+        <span class="grp">Fleets</span>
+        <label><input type="radio" name="t" checked> Cyan <span class="state on"><i class="dot"></i>1 online</span></label>
+        <span class="grp">Runners</span>
+        <label><input type="radio" name="t"> vertuo-agents <span class="state busy"><i class="dot"></i>Busy</span></label>
+        <label><input type="radio" name="t"> mac-mini-office <span class="state on"><i class="dot"></i>Online</span></label>
+        <button class="ask-button stage-action" type="button" data-primary>Send</button>
+      </div>
+      <div class="facts"><span>Stage <b>inbox</b></span><span>Approval <b>approved</b></span><span>Repo <b data-content>vertuo-omni-loop</b></span></div>
+    </div></div>
+    <p class="cap">With the picker open, Send is the one primary action. Once sent, the picker gives way to <span class="queued">Queued for Cyan · View job</span>. With no runner the viewer may use, Send to terminal is not drawn and the head is as it is today.</p>
+  </div>
+</div>
+
+<h3 class="pair">The Runners page</h3>
+<div class="cols stack">
+  <div class="col"><span class="tag today">Today</span>
+    <div class="frame"><div class="side">
+      <nav data-screen="sidebar-today"><span class="grp">Dashboard</span><span>Home</span><span>Fleet</span><span>Loop</span><span>Workspace</span><span>Engineering</span></nav>
+      <p class="empty">There is no page for runners. The app cannot say which machines run agents or what they are doing.</p>
+    </div></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+    <div class="frame"><div class="side">
+      <nav data-screen="sidebar-after"><span class="grp">Dashboard</span><span>Home</span><span>Fleet</span><span>Loop</span><span class="new">Runners</span><span>Workspace</span><span>Engineering</span></nav>
+      <div class="page" data-screen="runners-after">
+    <header><h1>Runners</h1></header>
+    <section>
+      <h2>Runners</h2>
+      <div class="table runners">
+        <div class="row head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span></div>
+        <div class="row"><span class="name">vertuo-agents</span><span class="state busy"><i class="dot"></i>Busy</span>
+          <select aria-label="Fleet of vertuo-agents"><option>Cyan</option><option>Shared</option></select>
+          <span data-content>4 of 4</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.388</span></div>
+        <div class="row"><span class="name">mac-mini-office</span><span class="state on"><i class="dot"></i>Online</span>
+          <select aria-label="Fleet of mac-mini-office"><option>Shared</option><option>Cyan</option></select>
+          <span data-content>1 of 2</span><span class="chips hide-s" data-content>vertuo-omni-loop · vertuo-apps</span><span class="muted hide-s" data-content>0.0.388</span></div>
+        <div class="row"><span class="name">pierre-laptop</span><span class="state off"><i class="dot"></i>Offline, 3 h ago</span>
+          <select aria-label="Fleet of pierre-laptop"><option>Shared</option></select>
+          <span data-content>0 of 1</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.385</span></div>
+      </div>
+    </section>
+    <section>
+      <h2>Jobs</h2>
+      <div class="table jobs">
+        <div class="row head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span></span></div>
+        <div class="row"><code data-content>/omni:yolo 1717</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>vertuo-agents</span><span class="status s-run">Running 12 min</span><button class="ghost" type="button">Cancel</button></div>
+        <pre class="log" data-content><b>log, last lines</b>
+wave 1 · slice s1-02 · tests green
+opened https://github.com/vertuoza/vertuo-omni-loop/pull/1841</pre>
+        <div class="row"><code data-content>/omni:pr-care 1801</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@irisa</span><span data-content>Cyan</span><span class="status s-queue">Queued</span><button class="ghost" type="button">Cancel</button></div>
+        <div class="row"><code data-content>/omni:bug-fix 1790</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@paul</span><span data-content>Any runner</span><span class="status s-done">Done</span><a href="#">PR #1838</a></div>
+        <div class="row"><code data-content>/omni:yolo 1702</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>pierre-laptop</span><span class="status s-fail">Runner lost</span><button class="ghost" type="button" data-primary>Send again</button></div>
+      </div>
+    </section>
+  </div>
+    </div></div>
+    <p class="cap">A workspace owner changes a runner's fleet in its row; for everyone else the fleet is plain text. Opening a job shows its log tail. With no runner yet, the page shows the <code>omni runner</code> command to copy.</p>
+  </div>
+</div>
+</div>
+</body>
+</html>

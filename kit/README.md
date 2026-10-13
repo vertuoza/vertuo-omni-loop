@@ -83,6 +83,34 @@ signs in; nothing is pasted back. `--device` and `--loopback` force one flow or 
 without the device sign-in says so and the browser on this machine takes over. `omni setup-token`
 then prints the token, its expiry and the line to paste it by, and keeps it nowhere.
 
+**Runners** (PRD 1830) run the `/omni:` lines people send from the Omni app with Send to terminal,
+on a machine set up for it, with no one at a terminal. Start one with
+`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]`:
+
+- **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts
+  it may work in right under `--repos` (each known by its `origin`, `owner/name`, and in the
+  workspace), Claude Code installed and signed in, and tmux. It refuses to start, in one line, when
+  `claude` is missing or signed out. It opens no port: it asks the Omni page for work.
+- **What it does:** it registers under `--name` and shows on the page's Runners page, online, busy or
+  offline; a workspace owner gives it to a fleet there. It runs at most `--slots` jobs at once (8 at
+  most). Each job runs in a worktree `~/wt/<repo>-job-<id>` on branch `agent/job-<id>` from the
+  default branch, after `pnpm install --frozen-lockfile` when there is a lockfile, in the tmux session
+  `job-<id>` (attach to it over SSH to watch), logged to `~/logs/job-<id>.log`. The line goes to
+  `claude --dangerously-skip-permissions -p` from a file, never through a shell. Every 5 seconds it
+  sends the page the log's tail; at the end, done with the last pull request of the job's repository
+  the run printed, or failed with its exit code. The worktree goes, the branch stays.
+- **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
+  `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
+  200 characters at most. The runner checks the line again before it runs it, whatever the page sent.
+- **Who sent it:** a job runs under the runner owner's GitHub and Claude accounts, with
+  `OMNI_SENT_BY` and `OMNI_RUNNER` set, and `/omni:pr` writes
+  `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens.
+- **When things go wrong:** the page unreachable, it tries again after 5 s, doubling up to 60 s, and
+  its jobs keep running; a refused sign-in stops it with `no sign-in (omni setup-token)`; a job past
+  `--timeout` is stopped and marked failed, reason `timeout`; a cancel from the page stops the job
+  within a few seconds. Ctrl-C stops taking jobs and waits for the running ones. A job is never run
+  again by itself: Send again on the Runners page does.
+
 **The status line** shows two lines at the bottom of every Claude Code session opened in the
 repository or one of its worktrees: the model, how full the context window is (a bar of 10 cells,
 green under 50 %, yellow from 50, red from 80), the 5-hour usage and when it resets, and `ask on`

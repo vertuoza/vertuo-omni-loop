@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { SendToTerminal } from '../../runners/send/SendToTerminal';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -7,6 +8,8 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // Customers (selected first) and Inside, the command for the one chosen, `/omni:pitch <n> --for
 // <audience>`, with Copy, and one line saying where to run it. The pitch is made on the person's
 // computer; the page only hands over the command. In the demo the panel opens, disabled.
+// PRD 1830 s4: beside Copy, Send to terminal hands the command to a runner instead, when the page gives
+// the viewer one; never in the demo.
 
 export type PitchAudience = 'customers' | 'inside';
 
@@ -43,6 +46,7 @@ export function PitchPanel({ prd, audience, disabled, copied, onChoose, onCopy }
         <code className="stage-command pitch-command">{command}</code>
         <button type="button" className="ask-button" disabled={disabled} title={command} onClick={onCopy}>Copy</button>
         {copied !== 'idle' && <span className="ask-hint" role="status">{COPY_WORDS[copied]}</span>}
+        {!disabled && <SendToTerminal line={command} />}
       </span>
       <p className="ask-hint pitch-hint">{PITCH_HINT}</p>
       {disabled && <p className="ask-hint pitch-hint">The demo cannot make a pitch.</p>}

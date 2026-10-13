@@ -6595,6 +6595,11 @@ var SESSION = envGroup({
     waylandDisplay: "WAYLAND_DISPLAY"
   }
 });
+var RUNNER_SENDER = envGroup({
+  label: "the runner job's sender",
+  schema: z25.object({ sentBy: z25.string().optional(), runner: z25.string().optional() }),
+  variables: { sentBy: "OMNI_SENT_BY", runner: "OMNI_RUNNER" }
+});
 var HEARTBEAT = envGroup({
   label: "the heartbeat",
   schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
@@ -6617,7 +6622,7 @@ var PACKAGE_MANAGER = envGroup({
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync15, rmSync as rmSync5, writeFileSync as writeFileSync5 } from "node:fs";

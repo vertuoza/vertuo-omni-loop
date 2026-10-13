@@ -41,6 +41,9 @@ const given = vi.hoisted(() => ({
   // Its voids and the members its product asks to approve (PRD 1322 s7): none of either by default.
   voids: null as unknown as import('vitest').Mock<() => Promise<unknown[]>>,
   asked: null as unknown as import('vitest').Mock<() => Promise<string[]>>,
+  // Where the viewer may send a line (PRD 1830 s4), and who asked: no runner by default.
+  send: null as import('../../runners/send/targets').SendSetup | null,
+  sendAsked: [] as unknown[][],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -76,6 +79,12 @@ vi.mock('./approval', async (original) => ({
   readApproval: (db: unknown, id: string) => given.approval(db, id),
   readVoids: () => given.voids(),
   readAskedApprovers: () => given.asked(),
+}));
+vi.mock('../../runners/send/send.live', () => ({
+  liveSendSetup: (...args: unknown[]) => {
+    given.sendAsked.push(args);
+    return Promise.resolve(given.send);
+  },
 }));
 vi.mock('../../stages/store', async (original) => ({
   ...(await original<typeof import('../../stages/store')>()),
@@ -128,6 +137,8 @@ beforeEach(async () => {
   given.approval = vi.fn(() => Promise.resolve(null));
   given.voids = vi.fn(() => Promise.resolve([]));
   given.asked = vi.fn(() => Promise.resolve([]));
+  given.send = null;
+  given.sendAsked = [];
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -385,6 +396,17 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     expect(page).toContain('<strong>Stage: inbox</strong>');
     expect(page).toContain('title="/omni:yolo 7">Build it</button>');
     expect(page).toContain('>phase-0 #12</a> <span class="ask-hint">✓</span>');
+  });
+
+  it('puts Send to terminal beside Build it when the viewer has a runner to send to, and nowhere otherwise (PRD 1830 s4)', async () => {
+    given.summary.mockResolvedValue(inbox);
+    await stored('inbox');
+    given.token = 'bob';
+    expect(await html(numbered)).not.toContain('Send to terminal');
+    expect(given.sendAsked).toEqual([[BOB.id, FAKE_WORKSPACE, 'acme/widgets']]);
+    given.send = { repo: 'acme/widgets', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
+    const page = await html(numbered);
+    expect(page).toContain('title="/omni:yolo 7">Build it</button><code class="stage-command">/omni:yolo 7</code><span class="send-terminal"><button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
   });
 
   it('shows the stored stage when GitHub did not answer, and still shows the dossier', async () => {

@@ -7,6 +7,7 @@ vi.mock('next/cache', () => ({ unstable_cache: () => { throw new Error('the live
 
 import { item } from '../ask/test/test-item';
 import { loadGalaxy } from './load-galaxy';
+import type { LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import { seasonKey, type SeasonCache } from './season-cache';
 
 // PRD 657, s8: the season, cached per workspace. The viewer's own reads decide the key (the newest
@@ -231,5 +232,39 @@ describe('the season cache', () => {
     const view = await loadGalaxy(w.viewer.db, WS, NOW, null);
     expect(w.viewer.ledgerPages()).toHaveLength(1);
     expect(view.planets.map((p) => p.prd)).toEqual([12]);
+  });
+
+  describe('its log line (ADR-0102: one per load)', () => {
+    const STAGE = '\\d+ ms';
+    it('says a miss, and what each stage of it took', async () => {
+      const w = world();
+      const lines: LogEntry[] = [];
+      await loadGalaxy(w.viewer.db, WS, NOW, { cache: w.memory.cache, service: w.service.db, log: (entry) => { lines.push(entry); } });
+      w.tables.ledger_events.push(event('planet:13:charted', '2026-09-26T09:00:00Z', 13, { title: 'Timings' }));
+      await loadGalaxy(w.viewer.db, WS, NOW, { cache: w.memory.cache, service: w.service.db, log: (entry) => { lines.push(entry); } });
+      expect(lines.map((l) => [l.event, l.outcome, typeof l.ms])).toEqual([['galaxy-season', 'ok', 'number'], ['galaxy-season', 'ok', 'number']]);
+      expect(lines[0]?.message).toMatch(new RegExp(`^miss · viewer ${STAGE} · ledger cache miss: whole ledger, 1 row ${STAGE} · fold 1 event ${STAGE} · season ${STAGE}$`));
+      expect(lines[1]?.message).toMatch(new RegExp(`^miss · viewer ${STAGE} · ledger cache ${STAGE} · after its tail, 1 new row ${STAGE} · fold 2 events ${STAGE} · season ${STAGE}$`));
+    });
+
+    it('says a hit, and says why the whole ledger was read again', async () => {
+      const w = world();
+      const lines: LogEntry[] = [];
+      const deps = { cache: w.memory.cache, service: w.service.db, log: (entry: LogEntry) => { lines.push(entry); } };
+      await loadGalaxy(w.viewer.db, WS, NOW, deps);
+      await loadGalaxy(w.viewer.db, WS, NOW, deps);
+      expect(lines[1]?.message).toMatch(new RegExp(`^hit · viewer ${STAGE} · season ${STAGE}$`));
+      w.tables.ledger_events.push(event('planet:9:charted', '2026-09-01T09:00:00Z', 9, { title: 'Backfilled' }));
+      await loadGalaxy(w.viewer.db, WS, NOW, deps);
+      expect(lines[2]?.message).toContain('· whole ledger again (an event behind its tail), 2 rows ');
+    });
+
+    it('logs a load that fails as failed, and still throws', async () => {
+      const w = world();
+      const lines: LogEntry[] = [];
+      const broken = { from: () => { throw new Error('down'); } } as unknown as typeof w.service.db;
+      await expect(loadGalaxy(w.viewer.db, WS, NOW, { cache: w.memory.cache, service: broken, log: (entry) => { lines.push(entry); } })).rejects.toThrow('down');
+      expect(lines).toMatchObject([{ event: 'galaxy-season', outcome: 'failed', error: new Error('down') }]);
+    });
   });
 });

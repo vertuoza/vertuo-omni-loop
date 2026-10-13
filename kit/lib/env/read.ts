@@ -133,6 +133,17 @@ const SESSION = envGroup({
 });
 
 /**
+ * Who sent the job a runner runs (PRD 1830): `omni runner` sets both on each job's session, and
+ * `omni runner sender` reads them for `/omni:pr`'s body. Each may be missing: a half-set pair writes
+ * no line, and stops no command.
+ */
+const RUNNER_SENDER = envGroup({
+  label: "the runner job's sender",
+  schema: z.object({ sentBy: z.string().optional(), runner: z.string().optional() }),
+  variables: { sentBy: 'OMNI_SENT_BY', runner: 'OMNI_RUNNER' },
+});
+
+/**
  * The heartbeat any `omni` command sends (PRD 1831): `off` turns it off. `omni heartbeat` itself, which
  * Claude Code's hook runs, does not read it.
  */
@@ -186,9 +197,9 @@ export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABAS
 /**
  * The variables the platform sets, read here but never set by a person, so no docs list names them:
  * Claude Code's session, the terminal, the GitHub Actions runner, the package manager, the session
- * a sign-in reads and the test runner.
+ * a sign-in reads, the test runner, and the sender `omni runner` sets on each job.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -213,6 +224,11 @@ function sessionOf(group: z.output<typeof SESSION.schema> | null): Session {
   return { remote, display };
 }
 
+/** Who sent a runner's job, when both its variables are set. */
+function senderOf(group: z.output<typeof RUNNER_SENDER.schema> | null): { sentBy: string; runner: string } | null {
+  return group?.sentBy && group.runner ? { sentBy: group.sentBy, runner: group.runner } : null;
+}
+
 /** Every group of the kit, the game and the scripts, read from `source`; throws one `EnvError` naming every problem. */
 export function readEnv(source: EnvSource) {
   const reader = envReader(source);
@@ -227,6 +243,7 @@ export function readEnv(source: EnvSource) {
     packageManager: reader.group(PACKAGE_MANAGER),
     omniToken: reader.group(OMNI_TOKEN),
     session: sessionOf(reader.group(SESSION)),
+    runnerSender: senderOf(reader.group(RUNNER_SENDER)),
     heartbeat: heartbeatOf(reader.group(HEARTBEAT), reader.group(TEST_RUNNER)),
     ask: (reader.group(ASK)?.switch ?? null) satisfies AskSwitch,
   };

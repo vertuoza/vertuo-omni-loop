@@ -18,9 +18,16 @@ describe('readEnv', () => {
       packageManager: null,
       omniToken: null,
       session: { remote: false, display: false },
+      runnerSender: null,
       heartbeat: true,
       ask: null,
     });
+  });
+
+  it("reads a runner job's sender only when both its variables are set, and stops nothing when one is", () => {
+    expect(readEnv({ OMNI_SENT_BY: 'ada', OMNI_RUNNER: 'box-1' }).runnerSender).toEqual({ sentBy: 'ada', runner: 'box-1' });
+    expect(readEnv({ OMNI_SENT_BY: 'ada' }).runnerSender).toBeNull();
+    expect(readEnv({ OMNI_RUNNER: 'box-1' }).runnerSender).toBeNull();
   });
 
   it('gives each group typed when its variables are set', () => {
