@@ -63,8 +63,9 @@ export function jobRow(more: Partial<JobRow> = {}): JobRow {
 }
 
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [] as JobRow[], now = () => T0 } = {}) {
-  const state = { runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), calls: [] as string[] };
+export function fakeStore({ runners = RUNNERS, jobs = [], now = () => T0 }: { runners?: RunnerRow[]; jobs?: JobRow[]; now?: () => Date } = {}) {
+  const calls: string[] = [];
+  const state = { runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), calls };
   const stamp = () => now().toISOString();
   // As runner_claim() reads them: a queued job of its workspace, for a repository it holds…
   const takeable = (runner: RunnerRow, job: JobRow) =>
