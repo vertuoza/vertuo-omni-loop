@@ -540,7 +540,7 @@ function fromStore(res, kept3) {
   out.set("etag", kept3.etag);
   return new Response(kept3.body, { status: 200, headers: out });
 }
-function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url, init), clock = Date.now, log = (line) => {
+function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url, init), clock = Date.now, log: log2 = (line) => {
   console.error(line);
 } }) {
   let storeDown = false;
@@ -551,7 +551,7 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
       storeDown = false;
       return value;
     } catch (error) {
-      if (!storeDown) log(`GitHub budget store failed, calling GitHub without it: ${error instanceof Error ? error.message : String(error)}`);
+      if (!storeDown) log2(`GitHub budget store failed, calling GitHub without it: ${error instanceof Error ? error.message : String(error)}`);
       storeDown = true;
       return null;
     }
@@ -563,7 +563,7 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const pauseUntil = await pauseOf(res, at3);
     if (pauseUntil === null) return;
     await stored((s) => s.pause(installation, answeredResource, pauseUntil, at3));
-    log(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
+    log2(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
     throw new GithubPaused(pauseUntil);
   }
   async function conditionalOf(installation, url, resource, method) {
@@ -677,6 +677,110 @@ function supabaseGithubStore(db) {
     }
   };
 }
+
+// kit/lib/log/log.ts
+var LOG_FIELDS = [
+  "level",
+  "event",
+  "outcome",
+  "ms",
+  "repo",
+  "prd",
+  "deliveryId",
+  "runId",
+  "fn",
+  "status",
+  "error",
+  "message",
+  "repos",
+  "dropped"
+];
+var MAX_TEXT = 500;
+var MASK2 = "***";
+var ALLOWED = new Set(LOG_FIELDS.filter((field3) => field3 !== "level" && field3 !== "dropped"));
+var CUT = /* @__PURE__ */ new Set(["message"]);
+var CREDENTIALS = [
+  [/github_pat_[A-Za-z0-9_]+/g, MASK2],
+  [/gh[pousr]_[A-Za-z0-9_]+/g, MASK2],
+  [/omk_[A-Za-z0-9_-]+/g, MASK2],
+  [/\bsk-[A-Za-z0-9_-]+/g, MASK2],
+  [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK2}`],
+  [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK2}`]
+];
+function maskCredentials(text13) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text13);
+}
+var cut = (text13) => text13.length > MAX_TEXT ? text13.slice(0, MAX_TEXT) : text13;
+function errorOf(value) {
+  if (value instanceof Error) {
+    return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
+  }
+  return { name: "Error", message: cut(maskCredentials(typeof value === "string" ? value : String(value))) };
+}
+function scalarOf(field3, value) {
+  if (typeof value === "string") {
+    const masked = maskCredentials(value);
+    return CUT.has(field3) ? cut(masked) : masked;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : void 0;
+  if (typeof value === "boolean" || value === null) return value;
+  return void 0;
+}
+function lineOf(level, entry) {
+  const line = { level };
+  let dropped = 0;
+  for (const [field3, value] of Object.entries(entry)) {
+    if (value === void 0) continue;
+    if (!ALLOWED.has(field3)) {
+      dropped += 1;
+      continue;
+    }
+    if (field3 === "error") {
+      line.error = errorOf(value);
+      continue;
+    }
+    const scalar2 = scalarOf(field3, value);
+    if (scalar2 === void 0) dropped += 1;
+    else line[field3] = scalar2;
+  }
+  if (dropped > 0) line.dropped = dropped;
+  return JSON.stringify(line);
+}
+var stdout = (line) => {
+  process.stdout.write(`${line}
+`);
+};
+function createLogger({ sink = stdout, clock = Date.now } = {}) {
+  const write2 = (level, entry) => {
+    try {
+      sink(lineOf(level, entry));
+    } catch {
+    }
+  };
+  const now = () => {
+    try {
+      return clock();
+    } catch {
+      return Number.NaN;
+    }
+  };
+  return {
+    info: (entry) => {
+      write2("info", entry);
+    },
+    warn: (entry) => {
+      write2("warn", entry);
+    },
+    error: (entry) => {
+      write2("error", entry);
+    },
+    timer: () => {
+      const start = now();
+      return () => Math.max(0, Math.round(now() - start)) || 0;
+    }
+  };
+}
+var log = createLogger();
 
 // apps/omni-app/src/canon/live.ts
 import { createClient } from "@supabase/supabase-js";
@@ -1555,8 +1659,8 @@ var PrdNumberSchema = IssueNumberSchema.brand();
 var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
 var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z9.string().regex(PRODUCT_PRD).refine((id) => {
-  const cut = id.lastIndexOf("-");
-  return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
+  const cut2 = id.lastIndexOf("-");
+  return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z9.number().int().positive().brand();
 var CommentIdSchema = z9.number().int().positive().brand();
@@ -1647,6 +1751,97 @@ function firstLine(reason2) {
   return said.split("\n")[0] || "unknown error";
 }
 var printed = (value) => String(value);
+
+// apps/omni-app/src/run-log/run-log.ts
+function write(logger, line) {
+  const entry = { event: line.event };
+  for (const [field3, value] of Object.entries(line)) {
+    if (value !== void 0) Object.assign(entry, { [field3]: value });
+  }
+  try {
+    if (line.outcome === "ok") logger.info(entry);
+    else if (line.outcome === "refused") logger.warn(entry);
+    else logger.error(entry);
+  } catch {
+  }
+}
+function stopwatch(logger) {
+  try {
+    const elapsed = logger.timer();
+    return () => {
+      try {
+        return elapsed();
+      } catch {
+        return void 0;
+      }
+    };
+  } catch {
+    return () => void 0;
+  }
+}
+async function loggedRun(logger, event, run, outcomeOf2) {
+  const elapsed = stopwatch(logger);
+  const fields = {};
+  const note = (more) => {
+    Object.assign(fields, more);
+  };
+  let value;
+  try {
+    value = await run(note);
+  } catch (error) {
+    write(logger, { event, outcome: "failed", ms: elapsed(), ...fields, error });
+    throw error;
+  }
+  let outcome2;
+  try {
+    outcome2 = outcomeOf2(value);
+  } catch {
+    outcome2 = "ok";
+  }
+  write(logger, { event, outcome: outcome2, ms: elapsed(), ...fields });
+  return value;
+}
+function noteTo(fn, logger = log) {
+  return (line) => {
+    try {
+      logger.warn({ event: "note", fn, message: line });
+    } catch {
+    }
+  };
+}
+function loggedFunctionHandler(logger, fn, handler2) {
+  return (ctx, ...rest) => loggedRun(
+    logger,
+    "inngest",
+    async (note) => {
+      note({ fn, runId: typeof ctx.runId === "string" ? ctx.runId : void 0 });
+      return await handler2(ctx, ...rest);
+    },
+    () => "ok"
+  );
+}
+function callable(value) {
+  if (typeof value !== "function") return void 0;
+  return (...args) => {
+    const result = Reflect.apply(value, void 0, args);
+    return result;
+  };
+}
+function loggedClient(client, logger = log) {
+  const createLogged = (options, handler2) => {
+    const fn = typeof options.id === "string" ? options.id : "unknown";
+    const onFailure = callable(options.onFailure);
+    const run = callable(handler2);
+    const created = Reflect.apply(client.createFunction, client, [
+      onFailure ? { ...options, onFailure: loggedFunctionHandler(logger, `${fn}-failure`, onFailure) } : options,
+      run ? loggedFunctionHandler(logger, fn, run) : handler2
+    ]);
+    return created;
+  };
+  return new Proxy(client, {
+    get: (target2, property, receiver) => property === "createFunction" ? createLogged : Reflect.get(target2, property, receiver)
+  });
+}
 
 // apps/omni-app/src/stage-forward/stage-forward.ts
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
@@ -5818,7 +6013,7 @@ function headDrift(drift, reading, head) {
   const voided = (reading.approval?.voids ?? []).find((v) => v.kind === drift.kind);
   return { file, how: "voided", where: voided ? `${voided.pusher}'s push` : null };
 }
-function lineOf({ file, how, where }) {
+function lineOf2({ file, how, where }) {
   if (how === "voided") return `\u2260 ${file} \xB7 voided by ${where ?? "a push"}`;
   return how === "missing" ? `\u2260 ${file} \xB7 missing` : `\u2260 ${file} in ${where ?? "the head"} \xB7 ${how}`;
 }
@@ -5837,7 +6032,7 @@ function repoApprovedVerdict(prd, reading, head) {
       return verdict("pending", "failure", `pending \xB7 PRD ${n} waits for approval`, reading.lines);
     case "drifted": {
       const drift = reading.drift.map((d) => headDrift(d, reading, head));
-      const lines = drift.map(lineOf);
+      const lines = drift.map(lineOf2);
       const restore = `Run \`omni approval restore ${n}\` to write each drifted file back to its approved content, or approve again on the PRD page.`;
       return verdict("drifted", "failure", `drifted \xB7 ${lines[0] ?? ""}`, [...lines, "", restore], drift);
     }
@@ -5870,9 +6065,7 @@ function createApprovedCheck({
   galaxyUrl,
   ask: ask3 = NO_JUDGE2,
   now = () => /* @__PURE__ */ new Date(),
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("approved-check")
 }) {
   return client.createFunction(
     {
@@ -5884,13 +6077,13 @@ function createApprovedCheck({
     },
     async ({ event, step }) => {
       const { installationId, owner, repo, repository, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
-      const budgeted = (work) => onBudget(`${owner}/${repo}#${prNumber}`, log, work);
+      const budgeted = (work) => onBudget(`${owner}/${repo}#${prNumber}`, log2, work);
       const target2 = await step.run("target", () => budgeted(async () => targetOf(await octokitFor(installationId), { owner, repo, prNumber })));
       if (!target2) return { ...SILENT };
       let verdict;
       let named;
       if (target2.kind === "product") {
-        const reading = await step.run("record", () => readingOf(readRecord, repository, target2.prd, now, log));
+        const reading = await step.run("record", () => readingOf(readRecord, repository, target2.prd, now, log2));
         verdict = approvedVerdict(target2.prd, reading);
         named = target2.prd.id;
       } else {
@@ -5908,9 +6101,7 @@ function createApprovedCheck({
 function createApprovedRerun({
   client,
   octokitFor,
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("approved-rerun")
 }) {
   return client.createFunction(
     {
@@ -5922,7 +6113,7 @@ function createApprovedRerun({
     },
     async ({ event, step }) => {
       const { installationId, owner, repo, prd, trigger } = ApprovedLabelDataSchema.parse(event.data);
-      const pulls = await step.run("find", () => onBudget(`${owner}/${repo} PRD ${Number(prd)}`, log, async () => {
+      const pulls = await step.run("find", () => onBudget(`${owner}/${repo} PRD ${Number(prd)}`, log2, async () => {
         const octokit = await octokitFor(installationId);
         const found = await openPullsOfPrd(octokit, { owner, repo, prd });
         return Promise.all(found.map(async (pull) => ({ ...pull, headSha: (await readPull2(octokit, pull)).headSha })));
@@ -5968,9 +6159,9 @@ async function judgedAt(octokit, target2, ask3) {
   const reading = await readingAt(octokit, target2.source, { prd: target2.prd, dir: target2.dir }, ask3);
   return reading ? { reading, head: target2.source.ref } : null;
 }
-async function readingOf(readRecord, repository, prd, now, log) {
+async function readingOf(readRecord, repository, prd, now, log2) {
   const held = (why) => {
-    log(`approved check of ${repository} for ${prd.id} is held: ${why}`);
+    log2(`approved check of ${repository} for ${prd.id} is held: ${why}`);
     return { reachable: false, since: now().toISOString() };
   };
   if (!readRecord) return held("the App cannot read the server here");
@@ -6005,13 +6196,13 @@ function refusalIn(error) {
   }
   return null;
 }
-async function onBudget(where, log, work) {
+async function onBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
     const refused4 = refusalIn(error);
     if (!refused4) throw error;
-    log(`approved check of ${where} waits for the GitHub budget: ${refused4.message}`);
+    log2(`approved check of ${where} waits for the GitHub budget: ${refused4.message}`);
     throw new RetryAfterError(refused4.message, new Date(refused4.until), { cause: refused4 });
   }
 }
@@ -6276,9 +6467,7 @@ function createOutboxCheck({
   readProductOutbox = null,
   galaxyUrl = "",
   now = () => /* @__PURE__ */ new Date(),
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("outbox-check")
 }) {
   return client.createFunction(
     {
@@ -6292,13 +6481,13 @@ function createOutboxCheck({
     async ({ event, step }) => {
       const request = CheckRequestDataSchema.parse(event.data);
       const { installationId, owner, repo, prNumber, headSha } = request;
-      const budgeted = (work) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
+      const budgeted = (work) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log2, work);
       const started = await step.run("in-progress", () => budgeted(async () => {
         const octokit = await octokitFor(installationId);
         const { active, name, gated, reason: reason2, deferTo, product } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
         if (!active) return null;
         if (!gated && product) {
-          const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log);
+          const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log2);
           const verdict2 = productOutboxVerdict(product, reading, galaxyUrl);
           const [checkRunId2] = await completeAsProduct(octokit, { owner, repo, headSha, name, verdict: verdict2 });
           return { checkRunId: checkRunId2, name, skipped: true, conclusion: verdict2.conclusion };
@@ -6336,9 +6525,9 @@ function createOutboxCheck({
     }
   );
 }
-async function outboxReadingOf(read, repository, prd, now, log) {
+async function outboxReadingOf(read, repository, prd, now, log2) {
   const held = (why) => {
-    log(`outbox check of ${repository} for ${prd.id} is held: ${why}`);
+    log2(`outbox check of ${repository} for ${prd.id} is held: ${why}`);
     return { reachable: false, since: now().toISOString() };
   };
   if (!read) return held("the App cannot read the server here");
@@ -6364,13 +6553,13 @@ function budgetRefusal(error) {
   }
   return null;
 }
-async function waitingOnBudget(where, log, work) {
+async function waitingOnBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
     const refused4 = budgetRefusal(error);
     if (!refused4) throw error;
-    log(`outbox check of ${where} waits for the GitHub budget: ${refused4.message}`);
+    log2(`outbox check of ${where} waits for the GitHub budget: ${refused4.message}`);
     throw new RetryAfterError2(refused4.message, new Date(refused4.until), { cause: refused4 });
   }
 }
@@ -8941,8 +9130,8 @@ function mergedLine(merge) {
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length <= SLUG_MAX) return slug;
-  const cut = slug.slice(0, SLUG_MAX + 1);
-  return cut.slice(0, cut.lastIndexOf("-") > 0 ? cut.lastIndexOf("-") : SLUG_MAX);
+  const cut2 = slug.slice(0, SLUG_MAX + 1);
+  return cut2.slice(0, cut2.lastIndexOf("-") > 0 ? cut2.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
@@ -9115,13 +9304,13 @@ function writeRegisterEntry({
   proposed,
   proposedLine,
   enforced,
-  write
+  write: write2
 }) {
   const place = placeOf2(ctx, reply.place);
   const id = numbering.entry(reply.kind, place.code);
   const { serves, principleId } = servedBy2(reply, () => numbering.entry("principle", place.code));
   const path = `${place.dir}/${LAYER[reply.kind]}`;
-  if (!write) return { touched: [], landedAs: [id, ...principleId ? [principleId] : []], path };
+  if (!write2) return { touched: [], landedAs: [id, ...principleId ? [principleId] : []], path };
   const fields = [
     ...serves ? [["Serves", serves]] : [],
     ["Source", source],
@@ -9273,9 +9462,9 @@ function landLaw({
     return { kind: "stays-here", touched: [], landedAs: [], status: null, note: lawWorthNote(chosen.worth), extra: { law } };
   }
   const yes = chosen.path === "yes";
-  const write = !yes || issue !== null;
-  const entry = writeRegisterEntry({ ...run, reply, enforced: issue === null ? enforcedValue(proof.kept) : `pending #${issue}`, write });
-  if (!write) {
+  const write2 = !yes || issue !== null;
+  const entry = writeRegisterEntry({ ...run, reply, enforced: issue === null ? enforcedValue(proof.kept) : `pending #${issue}`, write: write2 });
+  if (!write2) {
     const at3 = { entry: defined(entry.landedAs[0], `the id of ${candidate.id}`), register: entry.path, statement: oneLine2(reply.statement), source };
     return { heldBack: { id: candidate.id, ...at3, title: `Law: ${at3.statement}`, body: lawIssueBody(at3) } };
   }
@@ -9346,7 +9535,7 @@ function applyHarvestEdits({ root, edits }) {
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
-  for (const write of writes) byPath.set(write.path, write.text);
+  for (const write2 of writes) byPath.set(write2.path, write2.text);
   return [...byPath].map(([path, text13]) => ({ path, text: text13 }));
 }
 function prepareHarvest({
@@ -10099,7 +10288,7 @@ function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks
 }
 function toCommit(edits, filesBefore) {
   const deleted = new Set(edits.deletes);
-  const written = new Set(edits.writes.map((write) => write.path));
+  const written = new Set(edits.writes.map((write2) => write2.path));
   const moves = [];
   const deletes = [...edits.deletes];
   for (const move of edits.moves) {
@@ -10154,14 +10343,14 @@ async function worthAnswered(step, { judge: judge2, laws, classified, questions,
   const worth = judge2 && asksWorth(replies) ? await lawAnswers(step, judge2, { questions: () => questions(replies), repo, prd }) : {};
   return replies.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
 }
-async function writeWithLaws(step, { write, open }) {
-  const first = await write("write");
+async function writeWithLaws(step, { write: write2, open }) {
+  const first = await write2("write");
   if (first.lawIssues.length === 0) return first;
   const opened = {};
   for (const issue of first.lawIssues) {
     opened[issue.id] = (await savedStep(step, `law-issue:${issue.id}`, LawIssueOpenedSchema, () => open(issue))).number;
   }
-  return write("write:laws", opened);
+  return write2("write:laws", opened);
 }
 function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudge: lawJudge2 = null, fetch: fetch2 = globalThis.fetch, now = today }) {
   return client.createFunction(
@@ -10829,7 +11018,7 @@ function checked({ data, error }) {
 // apps/omni-app/src/pr-stats/pr-stats.ts
 var PR_STATS_FUNCTION_ID = "pr-stats";
 var EVERY_15_MINUTES = "*/15 * * * *";
-function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore, log = console.log, clock = Date.now }) {
+function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore, log: log2 = noteTo("pr-stats"), clock = Date.now }) {
   return client.createFunction(
     {
       id: PR_STATS_FUNCTION_ID,
@@ -10841,7 +11030,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
     },
     async ({ step }) => {
       if (!supabase) {
-        log("prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.");
+        log2("prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.");
         return { skipped: "no store" };
       }
       const store = storeFor(supabase);
@@ -12567,12 +12756,12 @@ var ci = Object.freeze({
     return lines;
   }
 });
-function redRun(job, log) {
+function redRun(job, log2) {
   const base = { id: job.id, check: job.check, slice: job.slice, commit: short(job.sha), attempt: job.attempt, url: job.url };
-  if (!log) return { ...base, reporter: null, tests: [], counts: null, log: "not read" };
-  if (log.tail === null) return { ...base, reporter: null, tests: [], counts: null, log: `not read (${log.status})` };
-  const read = readTestLog(log.tail);
-  return { ...base, ...read, log: "read", ...read.reporter === null ? { excerpt: log.tail } : {} };
+  if (!log2) return { ...base, reporter: null, tests: [], counts: null, log: "not read" };
+  if (log2.tail === null) return { ...base, reporter: null, tests: [], counts: null, log: `not read (${log2.status})` };
+  const read = readTestLog(log2.tail);
+  return { ...base, ...read, log: "read", ...read.reporter === null ? { excerpt: log2.tail } : {} };
 }
 function checksOf(jobs) {
   const jobsByName = /* @__PURE__ */ new Map();
@@ -14477,9 +14666,9 @@ async function commentTargets({ step, octokitFor, id, targets, prefix, ...text13
   }
   return out;
 }
-async function refusedAs2(write) {
+async function refusedAs2(write2) {
   try {
-    return await write();
+    return await write2();
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
     if (status === 401 || status === 403 || status === 404) return { refused: status };
@@ -14812,16 +15001,14 @@ function createServerEventRecheck({
   client,
   octokitFor,
   readTargets: readTargets2,
-  log = (line) => {
-    console.error(line);
-  }
+  log: log2 = noteTo("server-event-recheck")
 }) {
   return client.createFunction(
     { id: SERVER_EVENT_FUNCTION_ID, name: "omni-loop \xB7 server event", triggers: [{ event: SERVER_EVENT }], debounce: SERVER_EVENT_DEBOUNCE, retries: 3 },
     async ({ event, step }) => {
       const { event: what, dossier } = ServerEventSchema.parse(event.data);
       if (!readTargets2) {
-        log(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
+        log2(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
         return { rechecked: NONE };
       }
       const targets = await step.run("targets", () => readTargets2(dossier));
@@ -14835,7 +15022,7 @@ function createServerEventRecheck({
           } catch (error) {
             const refused4 = refusalIn2(error);
             if (!refused4) throw error;
-            log(`server event: ${where} waits for the GitHub budget: ${refused4.message}`);
+            log2(`server event: ${where} waits for the GitHub budget: ${refused4.message}`);
             throw new RetryAfterError3(refused4.message, new Date(refused4.until), { cause: refused4 });
           }
         });
@@ -14883,28 +15070,32 @@ function targetsReader(connection) {
 }
 
 // apps/omni-app/src/functions.ts
-function appFunctions(env, { octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase) })) } = {}) {
+function appFunctions(env, {
+  logger = log,
+  octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase), log: noteTo("github", logger) }))
+} = {}) {
+  const inngest2 = loggedClient(inngest, logger);
   return {
-    outboxCheck: createOutboxCheck({ client: inngest, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
-    inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
+    outboxCheck: createOutboxCheck({ client: inngest2, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
+    inboxCheck: createInboxCheck({ client: inngest2, octokitFor, canon: liveCanon(env) }),
     approvedCheck: createApprovedCheck({
-      client: inngest,
+      client: inngest2,
       octokitFor,
       readRecord: env.supabase ? recordReader(env.supabase) : null,
       galaxyUrl: env.galaxyUrl,
       ask: (repo, prd) => askJudge(repo, prd, { galaxyUrl: env.galaxyUrl, secret: env.stageEvents?.secret })
     }),
-    approvedRerun: createApprovedRerun({ client: inngest, octokitFor }),
-    retro: createRetro({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
+    approvedRerun: createApprovedRerun({ client: inngest2, octokitFor }),
+    retro: createRetro({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
     knowledgeHarvest: createKnowledgeHarvest({
-      client: inngest,
+      client: inngest2,
       octokitFor,
       openrouter: env.openrouter,
       lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(env.galaxyUrl), secret: env.lawJudge.secret }) : null
     }),
-    prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
-    canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
-    serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null })
+    prStats: createPrStats({ client: inngest2, octokitFor, supabase: env.supabase }),
+    canonAction: createCanonAction({ client: inngest2, octokitFor, galaxyUrl: env.galaxyUrl }),
+    serverEvent: createServerEventRecheck({ client: inngest2, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null })
   };
 }
 
