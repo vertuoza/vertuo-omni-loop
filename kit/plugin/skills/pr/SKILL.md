@@ -184,6 +184,12 @@ evidence, below the lines this skill adds. Otherwise use the shapes below as the
 are Conventional Commits for all three kinds. Every body, template or not, ends with the
 `omni sign footer` line (**Signing**).
 
+**Sent from the Omni app.** Before opening a pull request, run
+`node .omni-loop/bin/omni.mjs runner sender`. A job a runner runs prints one line
+(`Sent from the Omni app by @<login> on runner <name>`): every pull request this skill opens then
+carries it, as a paragraph of its own just above the `omni sign footer` line, and a body rewritten
+later keeps it. It prints nothing: add nothing.
+
 **Feature PR**, top of the body:
 
 ```markdown
