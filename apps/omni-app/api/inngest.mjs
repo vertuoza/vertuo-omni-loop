@@ -6588,6 +6588,11 @@ var HEARTBEAT = envGroup({
   schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
   variables: { switch: "OMNI_HEARTBEAT" }
 });
+var ASK = envGroup({
+  label: "ask mode",
+  schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
+  variables: { switch: "OMNI_ASK" }
+});
 var TEST_RUNNER = envGroup({
   label: "the test runner",
   schema: z25.object({ vitest: z25.string() }),
@@ -6598,7 +6603,7 @@ var PACKAGE_MANAGER = envGroup({
   schema: z25.object({ execPath: z25.string() }),
   variables: { execPath: "npm_execpath" }
 });
-var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT]);
+var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
 var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER]);
 
