@@ -17,7 +17,7 @@ import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad 
 import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES, type Difficulty } from './rules';
-import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
+import { advance, aimOf, approachesRamp, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
 import { LAPS, parseTrack, PLACES, type Track } from './track';
 
 /** Frames add up to a countdown's end only to within what a float keeps. */
@@ -265,7 +265,8 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     let racers = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
     rivals.forEach((r, j) => {
       const holder = racers[j + 1];
-      if (!holder || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0, race.difficulty, r.held ?? 0)) return;
+      const calm = holder?.fx.item !== 'boost' && racers.some((x) => approachesRamp(track, x.kart));
+      if (!holder || calm || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0, race.difficulty, r.held ?? 0)) return;
       const used = spendItem(items, holder);
       if (holder.fx.item) events.push({ kind: 'item', racer: j + 1, item: holder.fx.item });
       items = used.world;

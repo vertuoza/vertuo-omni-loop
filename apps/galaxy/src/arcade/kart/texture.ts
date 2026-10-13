@@ -8,7 +8,8 @@
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { rampFrom, rng } from '@omni/design';
 import type { Deck, Texture } from './mode7';
-import { cornersOf, isRoad, TILE, tileAt, type Corner, type Track } from './track';
+import { inSpan, locate, pieceAt, segmentAt } from './line';
+import { cornersOf, pointAtPx, TILE, type Corner, type Track } from './track';
 
 /** The colours the circuit is painted from: the road is the middle of a four-tone ramp. The floor's own, none equal to a theme token (ADR-0046). */
 export const SURFACE = Object.freeze({
@@ -23,11 +24,6 @@ export const SURFACE = Object.freeze({
 /** The void's pixel: see-through, so the floor has none there and the space behind it shows. */
 export const VOID = 0;
 
-/** The neon edge's width in pixels. */
-const EDGE = 2;
-/** How many tiles before a corner its chevrons stand: the last one this far, then the two before it. */
-const CHEVRON_FROM = 2;
-const CHEVRONS = 3;
 
 /** A `#rrggbb` colour packed as a canvas's little-endian pixel holds it. */
 export function pack(hex: string): number {
@@ -41,91 +37,63 @@ function tones(hex: string): [number, number, number, number] {
   return [pack(at(r, 0, 'a light tone')), pack(at(r, 1, 'a base tone')), pack(at(r, 2, 'a shade tone')), pack(at(r, 3, 'a dark tone'))];
 }
 
+
 type Tones = ReturnType<typeof tones>;
 type Ramps = { road: Tones };
-type FloorMap = Pick<Track, 'cols' | 'rows' | 'map'>;
 
 const startAt = (px: number, py: number, grain: number, t: Tones): number => {
   if (px === 0 || py === 0 || px === TILE - 1 || py === TILE - 1) return t[0];
   return grain < 0.1 ? t[2] : t[1];
 };
-const roadAt = (grain: number, t: Tones): number => (grain < 0.08 ? t[2] : grain > 0.96 ? t[0] : t[1]);
+const grainAt = (grain: number, t: Tones): number => (grain < 0.08 ? t[2] : grain > 0.96 ? t[0] : t[1]);
 
-/** How many void tiles lie from the ramp at tx, ty in the direction dx, dy before road follows them (at most 8), 0 when none or when no road follows. */
-function gapAhead(map: readonly string[], tx: number, ty: number, [dx, dy]: readonly [number, number]): number {
-  let n = 1;
-  while (n <= 8 && tileAt(map, tx + dx * n, ty + dy * n) === '~') n++;
-  return n > 1 && isRoad(tileAt(map, tx + dx * n, ty + dy * n)) ? n - 1 : 0;
-}
-
-/** The void tiles of the gaps (PRD 1775): a run of void that a ramp leads into and road follows. A kart flies over one, so it closes the circuit's inside as the road does. One byte per tile, 1 in a gap. */
-function gapsOf({ cols, rows, map }: FloorMap): Uint8Array {
-  const gap = new Uint8Array(cols * rows);
-  const ramps = map.flatMap((row, ty) => Array.from(row).flatMap((c, tx) => (c === '^' ? [[tx, ty] as const] : [])));
-  for (const [tx, ty] of ramps) {
-    for (const step of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      for (let k = 1; k <= gapAhead(map, tx, ty, step); k++) gap[(ty + step[1] * k) * cols + tx + step[0] * k] = 1;
-    }
-  }
-  return gap;
-}
-
-/** The void tiles joined to the map's border through void, a gap closing the way as the road does: the outside of the circuit. One byte per tile, 1 when outside. */
-function outsideVoid({ cols, rows, map }: FloorMap): Uint8Array {
-  const out = new Uint8Array(cols * rows);
-  const gaps = gapsOf({ cols, rows, map });
-  const todo: [number, number][] = [];
+/** The void pixels joined to the map's border through void, a gap closing the way as the road does: the outside of the circuit. One byte per pixel, 1 when outside. */
+function outsideVoid({ size, road, gap }: Pick<Track, 'size' | 'road' | 'gap'>): Uint8Array {
+  const { w, h } = size;
+  const out = new Uint8Array(w * h);
+  const todo = new Int32Array(w * h);
+  let top = 0;
   const take = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= cols || y >= rows || out[y * cols + x] || gaps[y * cols + x] || tileAt(map, x, y) !== '~') return;
-    out[y * cols + x] = 1;
-    todo.push([x, y]);
+    const i = y * w + x;
+    if (x < 0 || y < 0 || x >= w || y >= h || out[i] === 1 || road[i] === 1 || gap?.[i] === 1) return;
+    out[i] = 1;
+    todo[top++] = i;
   };
-  for (let x = 0; x < cols; x++) { take(x, 0); take(x, rows - 1); }
-  for (let y = 0; y < rows; y++) { take(0, y); take(cols - 1, y); }
-  for (let next = todo.pop(); next; next = todo.pop()) {
-    take(next[0] + 1, next[1]); take(next[0] - 1, next[1]); take(next[0], next[1] + 1); take(next[0], next[1] - 1);
+  for (let x = 0; x < w; x++) { take(x, 0); take(x, h - 1); }
+  for (let y = 0; y < h; y++) { take(0, y); take(w - 1, y); }
+  while (top > 0) {
+    const i = todo[--top] ?? 0;
+    const x = i % w, y = (i - x) / w;
+    take(x + 1, y); take(x - 1, y); take(x, y + 1); take(x, y - 1);
   }
   return out;
 }
 
-/** Whether a pixel of a void tile is on a side that meets the road, within the neon edge. */
-function onEdge(map: readonly string[], tx: number, ty: number, px: number, py: number): boolean {
-  return (px < EDGE && isRoad(tileAt(map, tx - 1, ty))) || (px >= TILE - EDGE && isRoad(tileAt(map, tx + 1, ty)))
-    || (py < EDGE && isRoad(tileAt(map, tx, ty - 1))) || (py >= TILE - EDGE && isRoad(tileAt(map, tx, ty + 1)));
-}
+/** The pixels around one that make its neon edge: its eight neighbours, and two off along an axis. */
+const EDGE_AROUND: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1], [2, 0], [-2, 0], [0, 2], [0, -2]];
 
-/** The way forward through a tile: the unit step along the nearest leg of the racing line, in the direction of the race. */
-function travelStep(waypoints: Track['waypoints'], tx: number, ty: number): [number, number] {
-  const cx = (tx + 0.5) * TILE, cy = (ty + 0.5) * TILE;
-  let step: [number, number] = [1, 0], nearest = Infinity;
-  waypoints.forEach((a, i) => {
-    const b = at(waypoints, (i + 1) % waypoints.length, 'the next waypoint');
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const t = Math.max(0, Math.min(1, ((cx - a.x) * dx + (cy - a.y) * dy) / (dx * dx + dy * dy || 1)));
-    const d = (a.x + t * dx - cx) ** 2 + (a.y + t * dy - cy) ** 2;
-    if (d < nearest) { nearest = d; step = Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]; }
+/** Whether one of the pixels around x, y (its neon edge) is road (`wantRoad`) or not road (past the map's edge included). */
+function edgeHas({ size, road }: Pick<Track, 'size' | 'road'>, x: number, y: number, wantRoad: boolean): boolean {
+  return EDGE_AROUND.some(([dx, dy]) => {
+    const px = x + dx, py = y + dy;
+    const onRoad = px >= 0 && py >= 0 && px < size.w && py < size.h && road[py * size.w + px] === 1;
+    return onRoad === wantRoad;
   });
-  return step;
 }
 
-/** The axis the way forward runs along: 'x' east or west, 'y' north or south. */
-const travelAxis = (waypoints: Track['waypoints'], tx: number, ty: number): 'x' | 'y' => (travelStep(waypoints, tx, ty)[0] === 0 ? 'y' : 'x');
-
-interface Where { tx: number; ty: number; px: number; py: number }
+interface Where { px: number; py: number }
 interface Ctx {
-  map: readonly string[]; ramps: Ramps; neon: number; seam: boolean;
+  ramps: Ramps;
   /** The way of the race through the tile being painted. */
   step: readonly [number, number];
-  /** Whether the tile is station plating: roofed road, or road within three tiles of it. */
-  plated: boolean;
 }
 
-const kerbAt = (px: number): number => pack((px >> 2) % 2 === 0 ? SURFACE.neonCyan : SURFACE.neonMagenta);
+const kerbAt = (along: number): number => pack((Math.floor(along / 4) % 2 + 2) % 2 === 0 ? SURFACE.neonCyan : SURFACE.neonMagenta);
 const lineAt = (px: number, py: number): number => pack(((px >> 2) + (py >> 2)) % 2 === 0 ? SURFACE.lineLight : SURFACE.lineDark);
 
 /** A pad's pixel: cyan, with a chevron pointing the way of the race. */
 function padAt({ px, py }: Where, ctx: Ctx): number {
-  return pack(onChevron(px, py, ctx.step) ? SURFACE.padChevron : SURFACE.pad);
+  return pack(onChevron(px - (TILE - 1) / 2, py - (TILE - 1) / 2, ctx.step) ? SURFACE.padChevron : SURFACE.pad);
 }
 
 /** A ramp's pixel: yellow and black diagonal stripes. */
@@ -139,44 +107,10 @@ function plateAt({ px, py }: Where): number {
   return pack((px % 8 === 1 || px % 8 === 7) && (py % 8 === 1 || py % 8 === 7) ? SURFACE.plateRivet : SURFACE.plate);
 }
 
-/** Whether a pixel of a walkway tile is on a side that meets the void, within the neon edge. */
-function onVoidEdge(map: readonly string[], { tx, ty, px, py }: Where): boolean {
-  const gone = (x: number, y: number) => tileAt(map, x, y) === '~';
-  return (px < EDGE && gone(tx - 1, ty)) || (px >= TILE - EDGE && gone(tx + 1, ty)) || (py < EDGE && gone(tx, ty - 1)) || (py >= TILE - EDGE && gone(tx, ty + 1));
-}
-
 /** A walkway's pixel: a dark grating, magenta where it meets the void. */
-function gratingAt(w: Where, ctx: Ctx): number {
-  if (onVoidEdge(ctx.map, w)) return pack(SURFACE.neonMagenta);
-  return pack((w.px % 4 === 0 || w.py % 4 === 0) ? SURFACE.gratingBar : SURFACE.grating);
-}
-
-/** A void tile's pixel: neon where a side meets the road, else nothing. */
-function edged({ tx, ty, px, py }: Where, ctx: Ctx): number {
-  return onEdge(ctx.map, tx, ty, px, py) ? ctx.neon : VOID;
-}
-
-/** How each kind of tile with a look of its own paints a pixel; the road (`#` and `?`) is the rest. */
-const PAINTERS: Readonly<Record<string, (w: Where, grain: number, ctx: Ctx) => number>> = {
-  '~': (w, _g, ctx) => edged(w, ctx),
-  r: (w) => kerbAt(w.px),
-  '=': (w) => lineAt(w.px, w.py),
-  S: (w, g, ctx) => startAt(w.px, w.py, g, ctx.ramps.road),
-  '+': (w, _g, ctx) => padAt(w, ctx),
-  '^': rampAt,
-  w: (w, _g, ctx) => gratingAt(w, ctx),
-  T: plateAt,
-};
-
-/** A road pixel: plating near a tunnel, else the road's grain, darker on a seam. */
-function roadPixel(w: Where, grain: number, ctx: Ctx): number {
-  if (ctx.plated) return plateAt(w);
-  return ctx.seam ? ctx.ramps.road[3] : roadAt(grain, ctx.ramps.road);
-}
-
-/** The colour of the pixel at px, py inside the tile tx, ty of kind `c`, seeded by the tile's place so the grain is the same every time. */
-function paint(c: string, w: Where, grain: number, ctx: Ctx): number {
-  return (PAINTERS[c] ?? roadPixel)(w, grain, ctx);
+function gratingAt({ px, py }: Where, edge: boolean): number {
+  if (edge) return pack(SURFACE.neonMagenta);
+  return pack((px % 4 === 0 || py % 4 === 0) ? SURFACE.gratingBar : SURFACE.grating);
 }
 
 /** A `#rrggbb` colour `t` of the way from `a` to `b`, packed, with the opacity `alpha` (0 to 1). */
@@ -209,22 +143,17 @@ export function deckOf(): Deck {
 /** The texture's colour past the map's edge: the void, see-through too. */
 export const BEYOND = VOID;
 
-/** Whether the pixel x, y of a tile is on a chevron `►` pointing along `to` (a unit step), its arms trailing back. */
-function onChevron(x: number, y: number, to: readonly [number, number]): boolean {
-  const cx = x - (TILE - 1) / 2, cy = y - (TILE - 1) / 2;
+/** Whether the point `cx`, `cy` from a chevron's middle is on a chevron `►` pointing along `to` (a unit vector), its arms trailing back. */
+function onChevron(cx: number, cy: number, to: readonly [number, number]): boolean {
   const u = cx * to[0] + cy * to[1];             // along the arrow
   const v = Math.abs(cx * -to[1] + cy * to[0]);  // across it
   const back = 4 - v - u;
   return v <= 6 && back >= 0 && back < 3;
 }
 
-/** The road tiles that carry a corner's chevrons: along the leg into it, the last one two tiles before it. */
-function chevronTiles(corner: Corner, map: readonly string[]): [number, number][] {
-  const [ix, iy] = corner.into;
-  const out: [number, number][] = [];
-  for (let k = CHEVRON_FROM; k < CHEVRON_FROM + CHEVRONS; k++) out.push([corner.x - ix * k, corner.y - iy * k]);
-  return out.filter(([tx, ty]) => tileAt(map, tx, ty) === '#');
-}
+/** How many tiles before a corner's arc its chevrons stand: the last one this far, then the two before it. */
+const CHEVRON_FROM = 1.5;
+const CHEVRONS = 3;
 
 /** The way a corner's chevrons point: the leg into it, turned a quarter to the side the line turns. */
 const pointing = (corner: Corner): [number, number] => {
@@ -232,89 +161,128 @@ const pointing = (corner: Corner): [number, number] => {
   return corner.turn === 'right' ? [-iy, ix] : [iy, -ix];
 };
 
-/** One chevron stamped on the tile tx, ty. */
-function stamp(px: Uint32Array, w: number, tile: readonly [number, number], to: readonly [number, number]): void {
-  const colour = pack(SURFACE.chevron);
-  for (let y = 0; y < TILE; y++) {
-    for (let x = 0; x < TILE; x++) if (onChevron(x, y, to)) px[(tile[1] * TILE + y) * w + tile[0] * TILE + x] = colour;
+/** One chevron stamped on the road around the point `x`, `y` (in game pixels), pointing along `to`. */
+function stamp(track: Track, px: Uint32Array, at: { x: number; y: number }, to: readonly [number, number]): void {
+  const w = track.size.w, colour = pack(SURFACE.chevron);
+  for (let y = Math.floor(at.y - TILE / 2); y < at.y + TILE / 2; y++) {
+    for (let x = Math.floor(at.x - TILE / 2); x < at.x + TILE / 2; x++) {
+      if (x < 0 || y < 0 || x >= w || y >= track.size.h || track.road[y * w + x] !== 1) continue;
+      if (onChevron(x + 0.5 - at.x, y + 0.5 - at.y, to)) px[y * w + x] = colour;
+    }
   }
 }
 
-/** The three chevrons before every corner, pointing the way it turns. */
-function paintChevrons(track: Pick<Track, 'map' | 'waypoints'>, px: Uint32Array, w: number): void {
+/** The three chevrons before every corner, on the straight into its arc, pointing the way it turns. */
+function paintChevrons(track: Track, px: Uint32Array): void {
   for (const corner of cornersOf(track)) {
-    for (const tile of chevronTiles(corner, track.map)) stamp(px, w, tile, pointing(corner));
+    for (let k = 0; k < CHEVRONS; k++) {
+      stamp(track, px, pointAtPx(track, (corner.start - CHEVRON_FROM - k) * TILE), pointing(corner));
+    }
   }
 }
 
-/** How far from a roofed tile the road is still station plating, in tiles. */
+/** How far from the tunnel's span the road is still station plating, in tiles. */
 const PLATING = 3;
 
-/** Whether a roofed tile is within `PLATING` tiles of the tile tx, ty, in either direction. */
-function nearRoof(map: readonly string[], tx: number, ty: number): boolean {
-  for (let dy = -PLATING; dy <= PLATING; dy++) {
-    for (let dx = -PLATING; dx <= PLATING; dx++) if (tileAt(map, tx + dx, ty + dy) === 'T') return true;
+/** The way of the race through a tile of the circuit: the direction of the piece it is on, or the centre line's tangent there. */
+function stepOf(track: Track, tx: number, ty: number): [number, number] {
+  const x = (tx + 0.5), y = (ty + 0.5);
+  const piece = track.centre.pieces.find((p) => {
+    const dx = p.to.x - p.from.x, dy = p.to.y - p.from.y, len = Math.hypot(dx, dy);
+    const along = ((x - p.from.x) * dx + (y - p.from.y) * dy) / len, across = Math.abs((x - p.from.x) * -dy + (y - p.from.y) * dx) / len;
+    return along >= 0 && along <= len && across <= p.width / 2;
+  });
+  if (piece && onlyPiece(track, x, y)) {
+    const dx = piece.to.x - piece.from.x, dy = piece.to.y - piece.from.y, len = Math.hypot(dx, dy);
+    return Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx / len), 0] : [0, Math.sign(dy / len)];
   }
-  return false;
+  const l = locate(track.centre, x, y);
+  return Math.abs(l.tx) >= Math.abs(l.ty) ? [Math.sign(l.tx), 0] : [0, Math.sign(l.ty)];
 }
 
-/** The ramp tiles' road tiles two steps back: the two tiles before each ramp, along the race, that carry a yellow arrow. */
-function arrowTiles(track: Pick<Track, 'cols' | 'rows' | 'map' | 'waypoints'>): { tile: [number, number]; to: [number, number] }[] {
-  const out: { tile: [number, number]; to: [number, number] }[] = [];
+/** Whether the point `x`, `y` (tile units) is road of a piece alone: more than half the road's width from the centre line. */
+const onlyPiece = (track: Pick<Track, 'centre'>, x: number, y: number): boolean => locate(track.centre, x, y).dist > track.centre.width / 2;
+
+/** The yellow arrows on the two road tiles before each ramp, pointing the way of the race. */
+function paintArrows(track: Track, px: Uint32Array): void {
   for (let ty = 0; ty < track.rows; ty++) {
     for (let tx = 0; tx < track.cols; tx++) {
-      if (tileAt(track.map, tx, ty) !== '^') continue;
-      const to = travelStep(track.waypoints, tx, ty);
+      if (track.map[ty]?.[tx] !== '^') continue;
+      const to = stepOf(track, tx, ty);
       for (const k of [1, 2]) {
         const tile: [number, number] = [tx - to[0] * k, ty - to[1] * k];
-        if (tileAt(track.map, tile[0], tile[1]) === '#') out.push({ tile, to });
+        const c = track.map[tile[1]]?.[tile[0]];
+        if (c === '.' ) stamp(track, px, { x: (tile[0] + 0.5) * TILE, y: (tile[1] + 0.5) * TILE }, to);
       }
     }
   }
-  return out;
 }
 
-/** The yellow arrows on the two road tiles before each ramp, pointing the way of the race. */
-function paintArrows(track: Pick<Track, 'cols' | 'rows' | 'map' | 'waypoints'>, px: Uint32Array, w: number): void {
-  for (const { tile, to } of arrowTiles(track)) stamp(px, w, tile, to);
+const painted = new WeakMap<Uint8Array, Texture>();
+
+const mod = (a: number, n: number): number => ((a % n) + n) % n;
+
+/** What one pass over the pixels reads: the circuit, its road's tones, and the way of the race through the tile being painted. */
+interface Paint { track: Track; ramps: Ramps; ctx: Ctx; plate: (along: number) => boolean }
+
+/** A road pixel of a piece alone (further from the centre line than half its width): a walkway's grating, magenta where it meets the void; the spur is road like the rest. */
+function pieceRoadAt(p: Paint, x: number, y: number, where: Where, grain: number): number {
+  const { track, ramps } = p;
+  const grating = track.centre.pieces.some((piece) => piece.surface === 'grating' && pieceAt(track.centre, (x + 0.5) / TILE, (y + 0.5) / TILE) === piece);
+  if (grating) return gratingAt(where, edgeHas(track, x, y, false));
+  return grainAt(grain, ramps.road);
 }
 
-/** The axis whose tile coordinate carries a seam on this tile (every fourth tile along the way forward), or null for no seam. */
-function seamAxis(c: string, waypoints: Track['waypoints'], tx: number, ty: number): 'x' | 'y' | null {
-  if (c !== '#' && c !== '?') return null;
-  const axis = travelAxis(waypoints, tx, ty);
-  return (axis === 'x' ? tx : ty) % 4 === 0 ? axis : null;
+/** A road pixel of the centre line's own road: the kerb on a round edge, plating by the tunnel, a seam across the way forward, else the road's grain. */
+function lineRoadAt(p: Paint, at: ReturnType<typeof locate>, where: Where, grain: number): number {
+  const { track, ramps } = p;
+  const alongPx = at.along * TILE;
+  if (segmentAt(track.centre, at.along).kind === 'arc' && at.dist > track.centre.width / 2 - 0.5) return kerbAt(alongPx);
+  if (p.plate(at.along)) return plateAt(where);
+  return mod(alongPx, 4 * TILE) < 1 ? ramps.road[3] : grainAt(grain, ramps.road);
 }
 
-/** One tile's 16×16 pixels, a seam being the tile's first pixel line across the way forward. */
-function paintTile(px: Uint32Array, w: number, track: Pick<Track, 'map' | 'waypoints'>, where: { tx: number; ty: number }, ctx: Ctx, rand: () => number): void {
-  const { tx, ty } = where;
-  const c = tileAt(track.map, tx, ty);
-  const seam = seamAxis(c, track.waypoints, tx, ty);
-  ctx.step = travelStep(track.waypoints, tx, ty);
-  ctx.plated = (c === '#' || c === '?') && nearRoof(track.map, tx, ty);
-  for (let y = 0; y < TILE; y++) {
-    for (let x = 0; x < TILE; x++) {
-      ctx.seam = seam !== null && (seam === 'x' ? x : y) === 0;
-      px[(ty * TILE + y) * w + tx * TILE + x] = paint(c, { tx, ty, px: x, py: y }, rand(), ctx);
-    }
+/** The pixel x, y of the road, by the tile of the map's features it is on, else by where it sits against the centre line. */
+function roadPixelAt(p: Paint, x: number, y: number, grain: number): number {
+  const { track, ramps, ctx } = p;
+  const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), where: Where = { px: x - tx * TILE, py: y - ty * TILE };
+  const c = track.map[ty]?.[tx] ?? '.';
+  if (c === '=') return lineAt(where.px, where.py);
+  if (c === 'S') return startAt(where.px, where.py, grain, ramps.road);
+  if (c === '^') return rampAt(where);
+  if (c === '+') {
+    ctx.step = stepOf(track, tx, ty);
+    return padAt(where, ctx);
   }
+  const at = locate(track.centre, (x + 0.5) / TILE, (y + 0.5) / TILE);
+  return at.dist > track.centre.width / 2 ? pieceRoadAt(p, x, y, where, grain) : lineRoadAt(p, at, where, grain);
 }
 
-/** The circuit painted: `cols × 16` by `rows × 16` pixels. */
-export function paintTrack(track: Pick<Track, 'cols' | 'rows' | 'map' | 'waypoints'>): Texture {
-  const w = track.cols * TILE, h = track.rows * TILE;
+/** The circuit painted: `cols × 16` by `rows × 16` pixels, every pixel read from the centre line and the features' tiles. */
+export function paintTrack(track: Track): Texture {
+  const known = painted.get(track.road);
+  if (known) return known;
+  const { w, h } = track.size;
   const px = new Uint32Array(w * h);
-  const ramps = { road: tones(SURFACE.road) };
+  const { span } = track;
+  const p: Paint = {
+    track, ramps: { road: tones(SURFACE.road) }, ctx: { ramps: { road: tones(SURFACE.road) }, step: [1, 0] },
+    plate: (along) => span !== null && inSpan(track.centre, { start: span.start - PLATING, length: span.length + 2 * PLATING }, along),
+  };
   const outside = outsideVoid(track);
   const rand = rng(1359);
-  for (let ty = 0; ty < track.rows; ty++) {
-    for (let tx = 0; tx < track.cols; tx++) {
-      const neon = pack(outside[ty * track.cols + tx] ? SURFACE.neonCyan : SURFACE.neonMagenta);
-      paintTile(px, w, track, { tx, ty }, { map: track.map, ramps, neon, seam: false, step: [1, 0], plated: false }, rand);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const grain = rand();
+      if (track.road[i] === 1) px[i] = roadPixelAt(p, x, y, grain);
+      else if (edgeHas(track, x, y, true)) px[i] = pack(outside[i] === 1 ? SURFACE.neonCyan : SURFACE.neonMagenta);
+      else px[i] = VOID;
     }
   }
-  paintChevrons(track, px, w);
-  paintArrows(track, px, w);
-  return { w, h, px };
+  paintChevrons(track, px);
+  paintArrows(track, px);
+  const texture = { w, h, px };
+  painted.set(track.road, texture);
+  return texture;
 }
