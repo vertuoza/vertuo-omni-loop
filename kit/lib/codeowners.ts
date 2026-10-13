@@ -16,7 +16,12 @@
  *
  * An owner is `@login`, `@org/team` or an e-mail. Only `@login` names a person a review can be
  * matched to ({@link isOwnedBy}): a team's members cannot be read with the App's permissions, so a
- * team or an e-mail never clears a law on its own (fail closed). The writer (`omni kb owners`) is s4's.
+ * team or an e-mail never clears a law on its own (fail closed).
+ *
+ * It also writes one block of the file (PRD 1726, slice s4): the lines between {@link OWNERS_BEGIN}
+ * and {@link OWNERS_END}, which `omni kb owners` keeps in step with the locked laws
+ * (`codeowners-laws.ts`). {@link withOwnersBlock} replaces that block, or appends it, and leaves
+ * every line outside the markers as it was.
  */
 
 /** The folders GitHub looks for the file in, in the order it looks: `''` is the root. */
@@ -105,4 +110,85 @@ export function isPersonOwner(owner: string): boolean {
 export function isOwnedBy(owners: readonly string[], login: string): boolean {
   const wanted = `@${login}`.toLowerCase();
   return owners.some((owner) => isPersonOwner(owner) && owner.toLowerCase() === wanted);
+}
+
+/** The line that opens the block `omni kb owners` writes (PRD 1726). */
+export const OWNERS_BEGIN = '# BEGIN omni kb owners';
+
+/** The line that closes it. */
+const OWNERS_END = '# END omni kb owners';
+
+/** One path the block owns, and the comment that says why. */
+export type OwnedPath = { path: string; why: string };
+
+/** An owner as CODEOWNERS writes it: a login or a team gains its `@`, an e-mail stays as it is. */
+export function ownerHandle(owner: string): string {
+  const trimmed = owner.trim();
+  return trimmed.includes('@') ? trimmed : `@${trimmed}`;
+}
+
+/** A repository path as a CODEOWNERS pattern of that one path: anchored at the root, its special characters escaped. */
+export function exactPattern(path: string): string {
+  return `/${path.replace(/^\/+/, '').replace(/[\\\s#*?[\]!]/g, (char) => `\\${char}`)}`;
+}
+
+/**
+ * The whole block, its markers included: a line per path, grouped under its `why` comment in the
+ * order given, each owned by every one of `owners`. A path listed twice is written once, under its
+ * first `why`.
+ */
+export function ownersBlock(paths: readonly OwnedPath[], owners: readonly string[]): string {
+  const handles = owners.map(ownerHandle).join(' ');
+  const lines = [OWNERS_BEGIN, '# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines.'];
+  const seen = new Set<string>();
+  let why: string | null = null;
+  for (const owned of paths) {
+    if (seen.has(owned.path)) continue;
+    seen.add(owned.path);
+    if (owned.why !== why) lines.push(`# ${owned.why}`);
+    why = owned.why;
+    lines.push(`${exactPattern(owned.path)} ${handles}`);
+  }
+  lines.push(OWNERS_END);
+  return lines.join('\n');
+}
+
+/** Where the block sits in `text`'s lines: the index of its opening and its closing marker. */
+type BlockSpan = { begin: number; end: number };
+
+/**
+ * The block's span in `lines`, `null` when the file holds none. Throws when the markers do not pair
+ * up: one of them alone, either twice, or the closing one first.
+ */
+function blockSpan(lines: readonly string[]): BlockSpan | null {
+  const at = (marker: string) => lines.flatMap((line, index) => (line.trim() === marker ? [index] : []));
+  const begins = at(OWNERS_BEGIN);
+  const ends = at(OWNERS_END);
+  if (begins.length === 0 && ends.length === 0) return null;
+  const [begin] = begins;
+  const [end] = ends;
+  if (begins.length !== 1 || ends.length !== 1 || begin === undefined || end === undefined || end < begin) {
+    throw new Error(`its "${OWNERS_BEGIN}" and "${OWNERS_END}" lines do not pair up — keep exactly one of each, in that order, or remove both`);
+  }
+  return { begin, end };
+}
+
+/** The block `text` holds, its markers included, `null` when it holds none; throws when its markers do not pair up. */
+export function ownersBlockIn(text: string): string | null {
+  const lines = text.split('\n');
+  const span = blockSpan(lines);
+  return span === null ? null : lines.slice(span.begin, span.end + 1).map((line) => line.replace(/\r$/, '')).join('\n');
+}
+
+/**
+ * `text` with its block replaced by `block`, or with `block` appended after a blank line when it has
+ * none (`null`: no file yet). Every line outside the markers is kept byte for byte; throws when the
+ * markers do not pair up.
+ */
+export function withOwnersBlock(text: string | null, block: string): string {
+  if (text === null || text === '') return `${block}\n`;
+  const lines = text.split('\n');
+  const span = blockSpan(lines);
+  if (span === null) return `${text}${text.endsWith('\n') ? '' : '\n'}\n${block}\n`;
+  return [...lines.slice(0, span.begin), block, ...lines.slice(span.end + 1)].join('\n');
 }
