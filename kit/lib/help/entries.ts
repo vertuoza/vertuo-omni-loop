@@ -444,6 +444,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'prints the same for skills: state, product, statement, never and syncedAt.',
   },
   {
+    name: 'session',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni session start', 'omni session end'],
+    summary: "a session's start and end, for any coding agent, with no hook",
+    detail:
+      'start is what an agent runs first: it prints the constituents (as omni constituents does), then ' +
+      'the briefing (as omni kb show briefing does), then a last line session: <id>. The id is ' +
+      "OMNI_SESSION_ID, else CLAUDE_CODE_SESSION_ID, else the one stored for this checkout; with none, " +
+      'it makes one and stores it, so every later omni command of the checkout uses the same session. ' +
+      'end is what an agent runs last: it closes the session on your ask page and tells the Omni page ' +
+      'the session stopped. Both print what they can and always exit 0, the Omni page reachable or not.',
+  },
+  {
     name: 'decide',
     kind: 'command',
     who: 'skills',
