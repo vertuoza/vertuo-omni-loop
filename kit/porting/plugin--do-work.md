@@ -237,6 +237,18 @@ the library read in step 1, the locked screen built as written, and the high ite
 
 `kit/test/design-skills.test.ts`.
 
+## PRD #1679, slice s4 — a red context budget
+
+- **Step 1, item 2:** the ceilings file `budgets.context.file` names joins the outbox item and
+  account files a slice may change outside its territory, for a budget raise only.
+- **Step 5, item 2** meets `omni check context` red in `omni check all`: trim first, inside the
+  territory; only when a rule would be lost, raise the ceiling and file a high item carrying the
+  raise line the ratchet matches. Never a forced green.
+
+### Tests
+
+`kit/test/plugin.test.ts`, the block "the context budget in the skills (PRD 1679)".
+
 ## Issue 1722 — `--inline`, a slice built on the feature branch
 
 Not a re-port: a kit-local flag, set by `/omni:wave` only when `omni board --json` says `inline`

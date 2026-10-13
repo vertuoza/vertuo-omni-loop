@@ -63,7 +63,8 @@ never overrides this skill's rules.
 
 1. `node .omni-loop/bin/omni.mjs prd <n>` — where the PRD lives: its plan, its spec, its outbox dir.
 2. The slice's row in the plan: its **territory** (the only paths you may create or change, plus
-   outbox item and account files), what blocks it, its wave. Read the plan's "done when" for it.
+   outbox item and account files, and the ceilings file `budgets.context.file` names, for a budget
+   raise, step 5), what blocks it, its wave. Read the plan's "done when" for it.
 3. The spec, in full.
 4. Every file in `paths.context`, the glossary at `paths.glossary` when set, and — when
    `laws.source` is `knowledge` — the knowledge folder at `paths.knowledge` (principles, rules,
@@ -333,6 +334,27 @@ carries here, and what done means. What they ask of a push or a hand-off is part
    sources only.
 2. **Checks:** every command in `commands.checks`, then
    `node .omni-loop/bin/omni.mjs check all`. Fix until green.
+
+   **A red budget.** While `budgets.context.enabled` is on, `check all` runs `check context`: red
+   when something every agent session reads grew past its ceiling, or a ceiling went up with no
+   person's yes. Run
+   `node .omni-loop/bin/omni.mjs check context --base <repo.remote>/<feature branch> --prd <n>` to
+   see what this slice grew, target by target. A target this slice did not grow (red already on the
+   feature branch) is not this slice's: name it in your risks. For each target it grew:
+   - **Trim first,** inside the territory: shorten what the slice added back under the ceiling
+     without losing a rule (move detail into a linked file that is not measured, cut what is said
+     twice), commit, run the checks again.
+   - **Only when it cannot be trimmed without dropping a rule,** raise the ceiling in the ceilings
+     file `budgets.context.file` names, to the measured size rounded up to the next KiB, and record
+     it through step 3 with `hardToRevert: true` by rule (skip the Jev step: the item is high
+     whatever anyone says), its `decide` carrying the exact line
+     ``Budget raise: `<target>` to <bytes> bytes`` (the target as the check names it, the new
+     ceiling in bytes), which the check matches. Commit the ceiling and the item together. The check
+     stays red until a person answers the item: that red is the gate doing its job, not a failure to
+     fix, and the slice ends as it would have, the item in its result.
+
+   Never force the check green another way: never move a rule out of the agents' reach to shrink a
+   target, never raise a ceiling without the item, never settle the item.
 3. **Acceptance,** only when `acceptance.enabled`: a pending scenario file for this slice (its name
    ends in `acceptance.pendingSuffix`, under `acceptance.dir`) now has its steps, so `git mv` it to
    drop the suffix. Then run `acceptance.run` **twice**; a scenario that passes once has not been

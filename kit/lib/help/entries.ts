@@ -203,16 +203,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'check',
     kind: 'command',
     who: 'you',
-    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all]', '  [--base <ref>] [--prd <n>]'],
+    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|', '  coverage|context|all] [--base <ref>] [--prd <n>]'],
     label: 'omni check [all]',
     summary: "the repository's guards",
     detail:
       "The repository's guards, each printing its violations or one line saying it passed: config " +
       '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
       '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers), kb (the ' +
-      "playbook's forms), releases (the release notes) and coverage (every risky change of a branch " +
-      'accounted for, against --base). all, the default, runs every one, and skips coverage when ' +
-      '{remote}/{defaultBranch} has not been fetched. Exit 1 on any violation.',
+      "playbook's forms), releases (the release notes), coverage (every risky change of a branch " +
+      'accounted for, against --base) and context (what every agent session reads, held to the ' +
+      'ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling ' +
+      "raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit " +
+      '0, when a target cannot be measured). all, the default, runs every one, skips coverage when ' +
+      '{remote}/{defaultBranch} has not been fetched, and runs context only while ' +
+      'budgets.context.enabled is true. Exit 1 on any violation.',
   },
   {
     name: 'flow',
@@ -906,6 +910,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'it tells the Omni page that the session is working, and on which draft, PRD or fix. --end, ' +
       "run when the session ends, says it stopped. It sends only when you are signed in and dossiers " +
       'are on, sends no path, command or text, prints nothing and always exits 0.',
+  },
+  {
+    name: 'budget',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni budget measure context [--json]', 'omni budget set context'],
+    summary: 'how many bytes every agent session reads here, and the ceilings they are held to',
+    detail:
+      'measure prints one size per target: the briefing, each playbook form as omni kb show prints it, ' +
+      'its pointers expanded, each file paths.context names, and session, the briefing and those files ' +
+      'together, which every session loads before its first step. Bytes, with about a quarter as many ' +
+      'tokens beside them. --json prints the same as one object. A target it cannot measure (a missing ' +
+      'file, a pointer that leads nowhere) says why, and it exits 1. set writes a first ceiling for each ' +
+      'target that has none into the file budgets.context.file names, at its size rounded up to the next ' +
+      'KiB, and never raises a ceiling that exists; on a target it cannot measure it writes nothing.',
   },
   {
     name: 'generated',
