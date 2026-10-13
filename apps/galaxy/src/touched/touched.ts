@@ -5,7 +5,8 @@
 //
 //   - a missing secret, or a bad or missing signature → 401, nothing marked;
 //   - a signed body that is not a touch → 400;
-//   - no workspace owns the repository, or no dossier's snapshot matches → 202, logged;
+//   - no workspace owns the repository, or no dossier's snapshot matches → 202, an info line (most
+//     touches: every repository of the organisation sends them, #1864);
 //   - matched → each dossier's snapshot is marked stale (../dossier/snapshot/), and one refresh per
 //     dossier runs after the response, under the snapshot's lease → 200.
 //
@@ -23,6 +24,7 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import { refreshSnapshot, staleSnapshot, type SnapshotDeps, type SnapshotDossier } from '../dossier/snapshot/snapshot';
+import { log as runLog, type LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import { STAGE_SIGNATURE_HEADER, verifySignature } from '../stages/event/event';
 
 export type Touch = { repository: string; issue?: IssueNumber; pr?: PrNumber; branch?: string };
@@ -41,7 +43,10 @@ export type TouchedDeps = {
   snapshotsOf: (workspace: string, repository: string) => Promise<TouchedSnapshot[]>;
   /** The snapshot's own deps: its store, the reader, the clock, and what runs after the response. */
   snapshot: SnapshotDeps;
+  /** Where a failure is written: console.error by default. */
   log?: (line: string) => void;
+  /** Where an ordinary outcome is written (a touch that matches no dossier): kit/lib/log's info by default. */
+  note?: (entry: LogEntry) => void;
 };
 
 export type Reply = { status: number; body: { ok?: true; stale?: number; error?: string } };
@@ -173,7 +178,7 @@ export async function receiveTouch(request: { body: string; headers: Headers }, 
     const dossiers: SnapshotDossier[] = [];
     for (const workspace of await deps.workspacesOf(touch.repository)) dossiers.push(...(await resolve(touch, workspace, deps)));
     if (dossiers.length === 0) {
-      log(`touch: ${what} matched no dossier`);
+      (deps.note ?? runLog.info)({ event: 'touch', outcome: 'ok', status: 202, repo: touch.repository, message: `${what} matched no dossier` });
       return { status: 202, body: { stale: 0 } };
     }
     for (const dossier of dossiers) {
