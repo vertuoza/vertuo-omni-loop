@@ -7,7 +7,7 @@ import { airborne, leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from '.
 import type { KartLook } from './look';
 import { slopeAt } from './relief';
 import { RULES, type Difficulty } from './rules';
-import { isRoad, LAPS, TILE, tileAt, type Track } from './track';
+import { LAPS, roadAt, TILE, tileAt, type Track } from './track';
 
 /** Who drives a rival's kart: its sprite and its tint, as `fleetSprite` gives them, and its fleet's colour, which the kart takes. */
 export interface Driver { sprite: string; tint: Tint | null; color: string | null; /** The kart's look (PRD 1762); none draws the fleet's colour and CLASSIC. */ look?: KartLook; /** Who it is, as the results table names it. */ name?: string }
@@ -185,7 +185,7 @@ function rivalPad(track: Track, r: Rival): Pad {
   const { x, y, angle, speed } = r.kart;
   const ahead = RULES.rivalLook * Math.max(0, speed);
   const flying = airborne(r.kart); // in the air nothing is under the wheels to steer from
-  const lean = flying ? 0 : leanOf(track.map, r.kart) || (rampAhead(track, r.kart, ahead) ? 0 : leanOf(track.map, { x: x + Math.cos(angle) * ahead, y: y + Math.sin(angle) * ahead, angle }));
+  const lean = flying ? 0 : leanOf(track, r.kart) || (rampAhead(track, r.kart, ahead) ? 0 : leanOf(track, { x: x + Math.cos(angle) * ahead, y: y + Math.sin(angle) * ahead, angle }));
   if (lean !== 0) return { left: lean > 0, right: lean < 0, accel: speed < RULES.rivalCrawl, brake: speed > RULES.rivalCorner };
   const diff = aimOf(track, r);
   const sharp = Math.abs(diff) > RULES.rivalSharp && r.kart.speed > RULES.rivalCorner;
@@ -207,11 +207,11 @@ export function rubber(rivalProgress: number, playerProgress: number, level: Dif
  */
 export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: Kart; fx: Fx } {
   const { a, dx, dy, len } = segmentOf(track, pace);
-  const roadAt = (s: number) => isRoad(tileAt(track.map, Math.floor((a.x + (dx / len) * s) / TILE), Math.floor((a.y + (dy / len) * s) / TILE)));
+  const roadAlong = (s: number) => roadAt(track, a.x + (dx / len) * s, a.y + (dy / len) * s);
   /** From `s` back along the segment to the first point over road, its start at most. */
-  const toRoad = (s: number) => { let t = s; while (t > 0 && !roadAt(t)) t = Math.max(0, t - 1); return t; };
+  const toRoad = (s: number) => { let t = s; while (t > 0 && !roadAlong(t)) t = Math.max(0, t - 1); return t; };
   const nearest = Math.min(Math.max(0, len - 1), Math.max(0, ((kart.x - a.x) * dx + (kart.y - a.y) * dy) / len));
-  const along = roadAt(nearest) ? nearest : toRoad(Math.max(0, toRoad(nearest) - RULES.runUp));
+  const along = roadAlong(nearest) ? nearest : toRoad(Math.max(0, toRoad(nearest) - RULES.runUp));
   return {
     kart: { x: a.x + (dx / len) * along, y: a.y + (dy / len) * along, angle: Math.atan2(dy, dx), speed: 0, steer: 0 },
     fx: { ...fx, fall: 0, blink: RULES.blinkTime },
@@ -221,7 +221,7 @@ export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: 
 /** One short step of a rival, the player being `playerProgress` along: it drives its kart at its own pace, and its pace follows. A rival whose fall ends comes back on the line. */
 export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number, level: Difficulty = 'normal'): Rival {
   const band = rubber(progressOf(track, r.pace, r.kart), playerProgress, level);
-  const stepped = stepFx(track.map, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX, slopeAt(track, r.kart.x, r.kart.y, r.kart.angle));
+  const stepped = stepFx(track, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX, slopeAt(track, r.kart.x, r.kart.y, r.kart.angle));
   const pace = advance(track, r.pace, r.kart, stepped.kart);
   if (!stepped.landed) return { ...r, kart: stepped.kart, fx: stepped.fx, pace };
   return { ...r, ...comeBack(track, pace, stepped.kart, stepped.fx), pace };

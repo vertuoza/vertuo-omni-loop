@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 import { airborne, NO_FX, stepFx, type Kart } from './kart';
 import { RULES } from './rules';
-import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, legHeight, LEVEL, parseTrack, RELIEF_SPAN, TILE, tileAt, trackProblems, type TrackSource } from './track';
+import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, legHeight, LEVEL, parseTrack, RELIEF_SPAN, roadAt, roofAt, TILE, tileAt, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, waypoints: TrackSource['waypoints'] = COMET_RING.waypoints): TrackSource {
@@ -51,6 +51,25 @@ describe('the void (PRD 1447)', () => {
 
   it('reads the void past the map\'s edge', () => {
     for (const [x, y] of [[-1, 0], [0, -1], [64, 3], [3, 64], [-40, 200]] as const) expect(tileAt(rows, x, y), `${x},${y}`).toBe('~');
+  });
+
+  it('bakes roadAt and roofAt (PRD 1829): at every pixel of COMET RING, the road is the tile\'s and the roof is the T tiles', () => {
+    const track = parseTrack();
+    expect(track.size).toEqual({ w: (rows[0]?.length ?? 0) * TILE, h: rows.length * TILE });
+    for (let y = 0; y < track.size.h; y++) {
+      for (let x = 0; x < track.size.w; x++) {
+        const c = tileAt(rows, Math.floor(x / TILE), Math.floor(y / TILE));
+        if (roadAt(track, x + 0.5, y + 0.5) !== isRoad(c) || roofAt(track, x + 0.5, y + 0.5) !== (c === 'T')) throw new Error(`pixel ${x},${y} disagrees with tile '${c}'`);
+      }
+    }
+  });
+
+  it('reads the void past the map\'s edge at the pixel', () => {
+    const track = parseTrack();
+    for (const [x, y] of [[-0.5, 40], [40, -0.5], [track.size.w, 40], [40, track.size.h], [-400, 2000]] as const) {
+      expect(roadAt(track, x, y), `${x},${y}`).toBe(false);
+      expect(roofAt(track, x, y), `${x},${y}`).toBe(false);
+    }
   });
 
   it('is a tile the map may hold: a void is not an unknown character', () => {
@@ -477,7 +496,7 @@ describe('the jumps, flown over COMET RING (PRD 1775)', () => {
     let fx = { ...NO_FX, boost };
     let flown = false;
     for (let i = 0; i < 1200; i++) {
-      ({ kart, fx } = stepFx(track.map, kart, hands, 1 / 120, 1, fx));
+      ({ kart, fx } = stepFx(track, kart, hands, 1 / 120, 1, fx));
       flown ||= (kart.height ?? 0) > 0;
       if (fx.fall > 0 || (flown && !airborne(kart))) return { fell: fx.fall > 0, x: kart.x, y: kart.y };
     }

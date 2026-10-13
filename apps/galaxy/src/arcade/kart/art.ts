@@ -324,7 +324,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race, sh
   if (race.fx.fall <= 0) shadow(ctx, shade ? shade.sx : x + (KART_W * scale) / 2, shade ? Math.min(s.grid.h - 2, shade.sy) : y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
-  const roll = rollOf(leanOf(race.track.map, kart), fallen, warningOf(race.fx, s));
+  const roll = rollOf(leanOf(race.track, kart), fallen, warningOf(race.fx, s));
   rolled(ctx, roll, x + (KART_W * scale) / 2, y + 18 * scale, () => {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
@@ -783,7 +783,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
         // The arch spans the flat start straight and stays on top; the rest is hidden where the road in front covers it.
         const reach = at.scale * 40;
         const hid = thing.kind !== 'arch' && hideBehind(ctx, floor, v.w, v.h, { left: at.sx - reach, right: at.sx + reach, top: at.sy - reach * 1.5, bottom: at.sy + 2 }, at.z);
-        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at, leanOf(track.map, thing.rival.kart), shadeUnder(v, track, thing.rival.kart));
+        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at, leanOf(track, thing.rival.kart), shadeUnder(v, track, thing.rival.kart));
         else if (thing.kind === 'box') itemBox(ctx, s, at);
         else scenery(ctx, s, v, track, looks, thing, at);
         if (hid) ctx.restore();

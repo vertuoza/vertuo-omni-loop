@@ -3,7 +3,7 @@ import { kartAt, leanOf, NO_FX, type Fx, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
 import { advance, aimOf, crossedAnyGate, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
-import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, LAPS, groundOf, parseTrack, roadAt, TILE, tileAt } from './track';
 
 /** The longest a rival's three laps are given in these tests, in seconds. */
 const LIMIT_SECONDS = 150;
@@ -285,7 +285,7 @@ describe('a rival and the gap ahead of a ramp (PRD 1775)', () => {
   const gap = ['~'.repeat(40), '#'.repeat(14) + '^' + '~'.repeat(3) + '#'.repeat(22), '#'.repeat(14) + '^' + '#'.repeat(25), '~'.repeat(40)];
   const noRamp = ['~'.repeat(40), '#'.repeat(14) + '#' + '~'.repeat(3) + '#'.repeat(22), '#'.repeat(40), '~'.repeat(40)];
   const rival = (x: number): Rival => ({ driver: driver('beaver'), kart: { ...kartAt(x, lane, 0), speed: 100 }, pace: START_PACE, skill: 1, offset: 0 });
-  const speedAfter = (map: readonly string[], x: number) => driveRival({ ...track, map }, rival(x), RULES.subStep, 0).kart.speed;
+  const speedAfter = (map: readonly string[], x: number) => driveRival({ ...track, ...groundOf(map) }, rival(x), RULES.subStep, 0).kart.speed;
 
   it('does not brake for the void beyond a ramp it is driving at, as it does for a void beyond plain road', () => {
     const x = 13.5 * TILE;
@@ -294,7 +294,7 @@ describe('a rival and the gap ahead of a ramp (PRD 1775)', () => {
 
   it('does not brake in the air over the void', () => {
     const flying: Rival = { ...rival(15.5 * TILE), kart: { ...kartAt(15.5 * TILE, lane, 0), speed: 100, height: 8, lift: 20 } };
-    expect(driveRival({ ...track, map: gap }, flying, RULES.subStep, 0).kart.speed).toBe(100);
+    expect(driveRival({ ...track, ...groundOf(gap) }, flying, RULES.subStep, 0).kart.speed).toBe(100);
   });
 });
 
@@ -450,7 +450,7 @@ describe('the way back', () => {
     for (let i = 0; i < track.waypoints.length; i++) {
       const w = wp(i);
       const back = comeBack(track, { laps: 0, passed: i }, fell(w.x + 3, w.y + 3), down).kart;
-      expect(tileAt(track.map, Math.floor(back.x / TILE), Math.floor(back.y / TILE))).not.toBe('~');
+      expect(roadAt(track, back.x, back.y)).toBe(true);
     }
   });
 
@@ -461,7 +461,7 @@ describe('the way back', () => {
       const len = Math.hypot(b.x - a.x, b.y - a.y);
       for (let s = 0; s <= len; s += 4) {
         const back = comeBack(track, { laps: 0, passed: k + 1 }, fell(a.x + ((b.x - a.x) * s) / len, a.y + ((b.y - a.y) * s) / len), down).kart;
-        if (tileAt(track.map, Math.floor(back.x / TILE), Math.floor(back.y / TILE)) === '~') over.push(`segment ${k}, ${s} along`);
+        if (!roadAt(track, back.x, back.y)) over.push(`segment ${k}, ${s} along`);
       }
     }
     expect(over).toEqual([]);
@@ -548,8 +548,8 @@ describe('a rival keeps its wheels on the road (PRD 1698)', () => {
   it('steers back from the void when a wheel is over it, with the gas off', () => {
     // Heading north-ish at the top edge of the straight, a wheel goes over before the rest.
     let k: Kart = { ...kartAt(20 * TILE + 8, 6 * TILE + 10, -Math.PI / 2 + 0.4), speed: 80 };
-    while (leanOf(track.map, k) === 0 && k.y > 6 * TILE - 20) k = { ...k, y: k.y - 0.1 };
-    const lean = leanOf(track.map, k);
+    while (leanOf(track, k) === 0 && k.y > 6 * TILE - 20) k = { ...k, y: k.y - 0.1 };
+    const lean = leanOf(track, k);
     expect(lean).not.toBe(0);
     const after = driveRival(track, rivalAt(k, 6), RULES.subStep, 0);
     expect(after.kart.steer).toBe(lean > 0 ? -1 : 1);
@@ -559,8 +559,8 @@ describe('a rival keeps its wheels on the road (PRD 1698)', () => {
   it('looks a quarter of a second ahead: a wheel about to go over the void steers it back too', () => {
     expect(RULES.rivalLook).toBe(0.25);
     let k: Kart = { ...kartAt(20 * TILE + 8, 6 * TILE + 40, -Math.PI / 2 + 0.4), speed: 80 };
-    while (leanOf(track.map, { ...k, x: k.x + Math.cos(k.angle) * 20, y: k.y + Math.sin(k.angle) * 20 }) === 0 && k.y > 6 * TILE - 20) k = { ...k, y: k.y - 0.1 };
-    expect(leanOf(track.map, k)).toBe(0);
+    while (leanOf(track, { ...k, x: k.x + Math.cos(k.angle) * 20, y: k.y + Math.sin(k.angle) * 20 }) === 0 && k.y > 6 * TILE - 20) k = { ...k, y: k.y - 0.1 };
+    expect(leanOf(track, k)).toBe(0);
     expect(driveRival(track, rivalAt(k, 6), RULES.subStep, 0).kart.steer).not.toBe(0);
   });
 });

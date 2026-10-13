@@ -226,6 +226,56 @@ export function tileAt(rows: readonly string[], x: number, y: number): string {
   return rows[y]?.[x] ?? '~';
 }
 
+/**
+ * What the engine reads of the circuit: the map's rows (the pads and the ramps are still tiles), its side in game
+ * pixels, and two masks of the whole map at the pixel, baked once by `groundOf` and read in constant time by
+ * `roadAt` and `roofAt` (PRD 1829).
+ */
+export interface Ground {
+  readonly map: readonly string[];
+  readonly size: { readonly w: number; readonly h: number };
+  /** 1 where the pixel is road under the wheels, row by row, `size.w` to a row. */
+  readonly road: Uint8Array;
+  /** 1 where the pixel is roofed road (a roof stands over it), laid out as `road`. */
+  readonly roof: Uint8Array;
+}
+
+/** Marks the pixels of the tile at column `tx`, row `ty` in `mask`, a map `w` pixels wide. */
+function paintTile(mask: Uint8Array, w: number, tx: number, ty: number): void {
+  for (let y = ty * TILE; y < (ty + 1) * TILE; y++) mask.fill(1, y * w + tx * TILE, y * w + (tx + 1) * TILE);
+}
+
+/** The ground of `rows`: its road and its roof, read from the tiles at every pixel. */
+export function groundOf(rows: readonly string[]): Ground {
+  const cols = rows[0]?.length ?? 0;
+  const w = cols * TILE, h = rows.length * TILE;
+  const road = new Uint8Array(w * h), roof = new Uint8Array(w * h);
+  rows.forEach((row, ty) => {
+    Array.from(row).forEach((c, tx) => {
+      if (isRoad(c)) paintTile(road, w, tx, ty);
+      if (c === 'T') paintTile(roof, w, tx, ty);
+    });
+  });
+  return { map: rows, size: { w, h }, road, roof };
+}
+
+const pixelIn = (g: Pick<Ground, 'size'>, x: number, y: number): number => {
+  const px = Math.floor(x), py = Math.floor(y);
+  return px >= 0 && py >= 0 && px < g.size.w && py < g.size.h ? py * g.size.w + px : -1;
+};
+
+/** Whether the pixel at `x`, `y` is road under the wheels; the void past the map's edge. */
+export function roadAt(g: Pick<Ground, 'size' | 'road'>, x: number, y: number): boolean {
+  const i = pixelIn(g, x, y);
+  return i >= 0 && g.road[i] === 1;
+}
+
+/** Whether the pixel at `x`, `y` is roofed road. */
+export function roofAt(g: Pick<Ground, 'size' | 'roof'>, x: number, y: number): boolean {
+  const i = pixelIn(g, x, y);
+  return i >= 0 && g.roof[i] === 1;
+}
+
 const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 /** Whether the tile at x, y has at least three road tiles among its four neighbours: it stands on the road, not beside it. */
@@ -443,12 +493,9 @@ function shortcutProblems({ rows, waypoints, shortcuts = [] }: TrackSource): str
 }
 
 /** A circuit ready to race on: its tiles, the racing line and the starting places, in game pixels. */
-export interface Track {
+export interface Track extends Ground {
   readonly cols: number;
   readonly rows: number;
-  /** The map's side in game pixels. */
-  readonly size: { w: number; h: number };
-  readonly map: readonly string[];
   /** The racing line, in driving order, at the tile centres. */
   readonly waypoints: readonly { x: number; y: number }[];
   /** The line's direction of travel, a unit step. */
@@ -538,7 +585,7 @@ export function parseTrack(src: TrackSource = COMET_RING): Track {
   const legs = archLegs(src.rows, line);
   const cols = src.rows[0]?.length ?? 0;
   return {
-    cols, rows: src.rows.length, size: { w: cols * TILE, h: src.rows.length * TILE }, map: src.rows,
+    cols, rows: src.rows.length, ...groundOf(src.rows),
     waypoints: src.waypoints.map(centre), forward: line.forward, heading: Math.atan2(line.forward[1], line.forward[0]),
     places, boxes: tilesOf(src.rows, '?').map(centre), line: lineCentre(line.tiles, line.forward),
     relief: src.relief ?? { heights: src.waypoints.map(() => 0), bumps: src.waypoints.map(() => 0) },
