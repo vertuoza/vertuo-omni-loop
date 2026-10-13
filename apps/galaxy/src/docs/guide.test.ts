@@ -20,11 +20,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'cloud', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e', 'use-cases',
-  'troubleshooting', 'observability',
+  'index', 'install', 'join', 'cloud', 'any-agent', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e',
+  'use-cases', 'troubleshooting', 'observability',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
+  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Any coding agent', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
   'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
   'Observability',
 ];
@@ -34,7 +34,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its nineteen pages, in order, each with its title', () => {
+  it('holds its twenty pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -43,7 +43,7 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
       '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs',
     ]);
   });
@@ -142,6 +142,21 @@ describe('docs/guide', () => {
       expect(cloud, phrase).toContain(phrase);
     }
     for (const slug of ['install', 'join']) expect(body(slug), slug).toContain('](/docs/cloud)');
+  });
+
+  it('walks any coding agent through the session and the questions, and names OMNI_ASK=on for the cloud (PRD 1831)', () => {
+    const { pages } = readGuide(GUIDE);
+    const body = (slug: string) => pages.find((page) => page.slug === slug)?.body ?? '';
+    const agent = body('any-agent');
+    for (const phrase of [
+      '```bash agent\nomni session start\n```', '```bash agent\nomni ask question --file q.json\n```', '```bash agent\nomni ask wait <round>\n```',
+      '```bash agent\nomni ask answer <round> --file a.json\n```', '```bash agent\nomni session end\n```', '```json file=q.json', '```json file=a.json',
+      '| `3` |', '| `4` |', 'asks you in its own chat', 'resumes with `omni ask wait`', '110 seconds', 'OMNI_ASK=on', 'OMNI_HEARTBEAT=off', '](/docs/cloud)',
+    ]) {
+      expect(agent, phrase).toContain(phrase);
+    }
+    const cloud = body('cloud');
+    for (const phrase of ['`OMNI_TOKEN=omk_…`', '`OMNI_ASK=on`', 'allow the host', '](/docs/any-agent)']) expect(cloud, phrase).toContain(phrase);
   });
 
   it('says why the phase-0 pull request goes into the default branch, and links it where a PRD is approved', () => {

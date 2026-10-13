@@ -1,0 +1,129 @@
+<title>Hook-free omni before and after</title>
+<style>
+/* Layout: one column; each change sets today beside after in two panes that stack on a phone.
+   Single dark look, on purpose: the Omni Loop's own tokens (packages/design/tokens.css). */
+:root {
+  --bg: #07061c;        /* void */
+  --pane: #0e0d33;      /* deep */
+  --fg: #f2f4ff;        /* white */
+  --muted: #8a90d6;     /* dim */
+  --line: #2a2766;
+  --accent: #a45cff;    /* plasma */
+  --good: #4ee08a;      /* green */
+  --bad: #ff3b5c;       /* red */
+  --code: #6ff0ff;      /* cyan */
+  --display: "Press Start 2P", ui-monospace, monospace;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 32px; }
+h1 { font: 18px/1.5 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 13px/1.5 var(--display); margin: 0; color: var(--accent); letter-spacing: .04em; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; color: var(--muted); }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pane { background: var(--pane); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pane.today { border-top: 3px solid var(--bad); }
+.pane.after { border-top: 3px solid var(--good); }
+pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--code); overflow-x: auto; white-space: pre; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: .92em; color: var(--code); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.no { color: var(--bad); } .yes { color: var(--good); }
+.note { color: var(--muted); font-size: 13.5px; }
+.flow { display: grid; gap: 8px; }
+.step { border-left: 2px solid var(--line); padding-left: 10px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Press+Start+2P&display=swap">
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Hook-free omni commands</h1>
+    <p class="lede">PRD #1831 · Architectural · first of four PRDs toward a kit any coding agent drives. Every job Claude's hooks do becomes an <code>omni</code> command any agent runs from a shell, on a laptop or in a cloud session (Claude Code on the web, Codex on chatgpt.com). Claude keeps its hooks, unchanged.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+
+    <h3>1 · Which agent gets each job</h3>
+    <div class="tbl"><table>
+      <tr><th>Job</th><th>Today: Claude hook only</th><th>Claude, after</th><th>Any agent, after (laptop or cloud)</th></tr>
+      <tr><td>Constituents + briefing at start</td><td><code>SessionStart</code> → <code>omni constituents</code></td><td class="yes">same hook</td><td class="yes"><code>omni session start</code></td></tr>
+      <tr><td>Ask the person on the page</td><td><code>PreToolUse(AskUserQuestion)</code> → <code>ask hook pre</code></td><td class="yes">same hook, shared core</td><td class="yes"><code>omni ask question --file q.json</code></td></tr>
+      <tr><td>Terminal answer to the page</td><td><code>PostToolUse(AskUserQuestion)</code></td><td class="yes">same hook</td><td class="yes"><code>omni ask answer &lt;round&gt; --file a.json</code></td></tr>
+      <tr><td>Heartbeat</td><td><code>PostToolUse(*)</code> → <code>omni heartbeat</code></td><td class="yes">same hook</td><td class="yes">any <code>omni</code> command, ≤ 1/min, detached</td></tr>
+      <tr><td>Close at the end</td><td><code>SessionEnd</code></td><td class="yes">same hook</td><td class="yes"><code>omni session end</code> (best effort)</td></tr>
+      <tr><td>Other agents</td><td class="no">none of the above</td><td></td><td></td></tr>
+    </table></div>
+
+    <h3>2 · An agent asks a question</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+        <div class="flow">
+          <div class="step">Claude calls <code>AskUserQuestion</code></div>
+          <div class="step">the hook reads stdin + Claude's transcript, posts the round, waits up to 540 s</div>
+          <div class="step">the answer comes back as the tool's input</div>
+          <div class="step no">Codex, Cursor, Gemini CLI, a cloud session without the plugin: the page is never reached; the question stays in the terminal</div>
+        </div>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>$ omni ask question --file q.json      # AskUserQuestion's shape
+                                       # + optional lead, context
+exit 0  {"round":"r_8f…","answers":{…},"shots":[…]}
+exit 3  (stderr: ask mode is off)      → ask in your own chat,
+                                         then omni ask answer
+exit 4  round r_8f…                    → omni ask wait r_8f…
+exit 2  q.json: questions[0].header is missing</pre>
+        <p class="note">Waits 110 s by default, under a cloud shell's 2-minute limit; <code>--wait</code> takes 10 to 540. Resume as often as you like.</p>
+      </div>
+    </div>
+
+    <h3>3 · A session in the cloud</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+        <ul>
+          <li><code>OMNI_TOKEN</code> signs <code>omni</code> in (PRD 1628)</li>
+          <li class="no">ask mode needs <code>.omni-loop/local/ask.json</code>: a fresh clone has none</li>
+          <li class="no">the hooks need Claude's plugin and its stdin; Codex on the web has neither</li>
+          <li class="no">a 540 s wait outlives a 2-minute shell</li>
+        </ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre># the cloud environment's variables
+OMNI_TOKEN=omk_…
+OMNI_ASK=on
+# network access: allow the Omni page's host
+
+$ omni session start      # constituents, briefing,
+                          # session: 3c1e…
+$ omni ask question --file q.json
+$ omni session end</pre>
+        <p class="note">Nothing reads stdin, needs a TTY or <code>~/.config/omni</code>. An unreachable page is exit 3: the agent asks in its chat, as today.</p>
+      </div>
+    </div>
+
+    <h3>4 · What stays the same</h3>
+    <ul>
+      <li><code>kit/plugin/hooks/hooks.json</code>, byte for byte, and Claude's 540 s wait</li>
+      <li>the Omni page's API: the wire field <code>claudeSessionId</code> keeps its name</li>
+      <li>every skill's wording: PRD 2 of the series switches them to these commands</li>
+      <li><code>omni init</code>, the status line, the HUD: PRD 3</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</div>

@@ -12,6 +12,13 @@
 // records it as kind `prd`. `omni roadmap check <n>`, `omni roadmap push <n>` and
 // `omni next --roadmap <n>` record roadmap `<n>` (PRD 1208's s3). A record that cannot be written is ignored: the command runs, prints and exits exactly as
 // it does without one.
+//
+// After a command, the heartbeat (PRD 1831): when the session id resolves (the same order), the
+// checkout's dossiers are on and the computer is signed in (or `OMNI_TOKEN` is set), the entry claims
+// the session's once-a-minute window and starts `omni heartbeat --claimed` as a detached child, never
+// waiting for it. Never under `OMNI_HEARTBEAT=off` or vitest, and never after `omni heartbeat`,
+// `omni ask hook`, `omni session end` or `omni statusline` (`./commands/heartbeat.ts`). Anything it
+// cannot read or start is ignored: the command's output and exit code are the same with or without it.
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +27,8 @@ import { loadContext } from '../lib/context.ts';
 import { mainCheckout } from '../lib/dossier/local.ts';
 import { sessionIdOf } from '../lib/dossier/session.ts';
 import { processEnv, readEnv } from '../lib/env/read.ts';
+import { sendHeartbeat } from './commands/heartbeat.ts';
+import type { HeartbeatSeams } from './commands/heartbeat.ts';
 import type { IssueNumber, PrdNumber } from '../lib/ids.ts';
 import { propertyOf } from '../lib/narrow.ts';
 import { handOver, planLaunch } from '../lib/launch/launch.ts';
@@ -193,8 +202,9 @@ export async function main(
     stderr = process.stderr,
     exec = execFileSync,
     env = processEnv(),
+    heartbeat: seams = {},
     ...more
-  }: { cwd?: string; stdout?: Out; stderr?: Out; exec?: Exec; env?: Env; [option: string]: unknown } = {},
+  }: { cwd?: string; stdout?: Out; stderr?: Out; exec?: Exec; env?: Env; heartbeat?: HeartbeatSeams; [option: string]: unknown } = {},
 ): Promise<number> {
   const [first = '', ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? 'help' : first === VERSION_FLAG ? 'version' : first;
@@ -208,12 +218,16 @@ export async function main(
     // one `EnvError` line, naming each variable concerned and never a value, before any work.
     const vars = readEnv(env);
     recordWork(argv, { cwd, vars, exec });
-    // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
-    // bundle and prompt; an option left out keeps the command's own default. `script` is this
-    // `omni`'s own file, which the status line's background refresh runs.
-    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, script: self, ...more });
-    const ctx = loadContext(cwd, { exec });
-    return await command.run(rest, { ctx, stdout, stderr, exec, env, vars });
+    try {
+      // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
+      // bundle and prompt; an option left out keeps the command's own default. `script` is this
+      // `omni`'s own file, which the status line's background refresh runs.
+      if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, script: self, ...more });
+      const ctx = loadContext(cwd, { exec });
+      return await command.run(rest, { ctx, stdout, stderr, exec, env, vars });
+    } finally {
+      sendHeartbeat(argv, { cwd, exec, env, vars, script: self, seams });
+    }
   } catch (error) {
     if (error instanceof ConfigError || (error instanceof Error && STOPPING_ERRORS.includes(error.name))) {
       stderr.write(`${error.message.split('\n')[0]}\n`);
