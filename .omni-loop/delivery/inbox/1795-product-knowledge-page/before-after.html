@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1795 — before and after</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d7dce1;--card:#f6f8fa;--term:#0f1720;--termfg:#d8e1e8;--ok:#1a7f37;--bad:#cf222e;--note:#9a6700;--accent:#5b3cc4}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1317;--fg:#e8ecef;--muted:#9aa5ae;--line:#2b333b;--card:#161b21;--term:#05080b;--termfg:#d8e1e8;--ok:#3fb950;--bad:#f85149;--note:#d29922;--accent:#a48cff}}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 16px 48px;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,sans-serif}
+main{max-width:1080px;margin:0 auto}
+h1{font-size:1.4rem;margin:0 0 4px}
+p.lead{color:var(--muted);margin:0 0 28px}
+h2{font-size:1.1rem;margin:36px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:.95rem;margin:24px 0 10px}
+p.why{color:var(--muted);margin:0 0 14px;max-width:72ch}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.card h4{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+.card.after h4{color:var(--accent)}
+pre{margin:0;background:var(--term);color:var(--termfg);border-radius:6px;padding:12px;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto;white-space:pre}
+.p{color:#8b949e}.ok{color:#3fb950}.bad{color:#ff7b72}.note{color:#e3b341}.dim{color:#8b949e}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.wrap{overflow-x:auto}
+.tag{display:inline-block;font-size:.75rem;font-weight:600;padding:1px 8px;border-radius:99px;border:1px solid currentColor}
+.t-ok{color:var(--ok)}.t-bad{color:var(--bad)}.t-note{color:var(--note)}
+ul{margin:6px 0 0;padding-left:20px}li{margin:3px 0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.9rem}
+.box{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 10px}
+.arrow{color:var(--muted)}
+.pixel{margin-top:40px;padding:14px 16px;border:1px dashed var(--line);border-radius:8px;font-weight:600}
+</style></head><body><main>
+<h1>Product knowledge on the Omni page: Legal and Glossary</h1>
+<p class="lead">PRD 1795 · P3 of the roadmap "Governed knowledge"</p>
+
+<h2>Functional</h2>
+
+<h3>1. Where the knowledge lives</h3>
+<div class="cols">
+<section class="card"><h4>Today</h4>
+<div class="flow"><span class="box">repo A · registers</span><span class="box">repo B · registers</span></div>
+<ul>
+<li>Each repository keeps its own principles, rules and invariants.</li>
+<li>A law's requirement would be copied into each repository, with no source and no owner.</li>
+<li>Each repository has its own glossary form and its own avoided words.</li>
+</ul></section>
+<section class="card after"><h4>After</h4>
+<div class="flow"><span class="box">Omni page · product Invoicing<br><b>Legal</b> · <b>Glossary</b></span><span class="arrow">→</span><span class="box">repo A</span><span class="box">repo B</span></div>
+<ul>
+<li>The product holds Legal entries (<code>L-INVOICING-1</code>, a sentence, a source law, an owner) and glossary terms (term, meaning, words to avoid).</li>
+<li>A Legal owner and a Glossary owner, each with a delegate, edit them; other members propose.</li>
+<li>Every repository of the product reads the same copy.</li>
+</ul></section>
+</div>
+
+<h3>2. Who changes what</h3>
+<div class="cols">
+<section class="card"><h4>Today</h4><p>Nobody: product knowledge does not exist on the Omni page.</p></section>
+<section class="card after"><h4>After</h4>
+<div class="wrap"><table>
+<tr><th>Who</th><th>Legal</th><th>Glossary</th></tr>
+<tr><td>Workspace owner</td><td>names its owner and delegate</td><td>names its owner and delegate</td></tr>
+<tr><td>Its owner or delegate</td><td>adds, edits, retires; approves proposals</td><td>adds, edits, removes; approves proposals</td></tr>
+<tr><td>Other member</td><td>proposes</td><td>proposes</td></tr>
+<tr><td>Outside the workspace</td><td>reads nothing</td><td>reads nothing</td></tr>
+</table></div>
+<p class="why" style="margin-top:10px">No owner named yet: the workspace's owners decide. A Legal entry is retired, never deleted; its id is never reused.</p>
+</section>
+</div>
+
+<h3>3. Reading it from a repository</h3>
+<div class="cols">
+<section class="card"><h4>Today</h4>
+<pre><span class="p">$</span> omni kb legal
+<span class="bad">usage: omni kb init | omni kb show &lt;form&gt; | omni kb status
+  | omni kb graph | omni kb laws | omni kb owners</span>   <span class="dim"># exit 2</span>
+<span class="dim"># no product knowledge to read: each repository
+# keeps its own registers and glossary form</span></pre></section>
+<section class="card after"><h4>After</h4>
+<pre><span class="p">$</span> omni kb legal
+<span class="dim">Legal of product Invoicing · read 2026-10-13 10:42</span>
+L-INVOICING-1 — Invoice numbers follow each other with no gaps.
+  Source law: Belgian VAT Code · owner @anna
+<span class="p">$</span> omni kb glossary
+Credit note — a document that cancels all or part of an invoice.
+  Avoid: refund
+<span class="p">$</span> omni kb legal   <span class="dim"># on a train</span>
+<span class="note">last read 2026-10-13: the Omni page is unreachable</span>
+L-INVOICING-1 — Invoice numbers follow each other with no gaps.</pre></section>
+</div>
+
+<h3>4. A rule serves a Legal entry: the knowledge check</h3>
+<div class="cols">
+<section class="card"><h4>Today</h4>
+<pre>BR-BILLING-4 — A credit note takes the next number.
+Serves: L-INVOICING-1
+
+<span class="p">$</span> omni check knowledge
+<span class="bad">BR-BILLING-4 serves "L-INVOICING-1", which is not
+one principle id.</span></pre></section>
+<section class="card after"><h4>After</h4>
+<div class="wrap"><table>
+<tr><th>What the check finds</th><th>Result</th></tr>
+<tr><td>The product holds L-INVOICING-1, active</td><td><span class="tag t-ok">pass</span></td></tr>
+<tr><td>The product does not hold it</td><td><span class="tag t-bad">fail</span> names the id</td></tr>
+<tr><td>The product retired it</td><td><span class="tag t-bad">fail</span> names the id</td></tr>
+<tr><td>The repository belongs to no product</td><td><span class="tag t-bad">fail</span></td></tr>
+<tr><td>The page is unreachable</td><td><span class="tag t-note">pass</span> "Legal not verified: page unreachable"</td></tr>
+<tr><td>Not signed in</td><td><span class="tag t-note">pass</span> "Legal not verified: not signed in"</td></tr>
+<tr><td><code>L-invoicing-1</code> or another bad shape</td><td><span class="tag t-bad">fail</span> offline</td></tr>
+</table></div>
+<p class="why" style="margin-top:10px">The check never blocks on the network.</p>
+</section>
+</div>
+
+<h3>5. The words check</h3>
+<div class="cols">
+<section class="card"><h4>Today</h4>
+<pre><span class="p">$</span> omni design words before-after.html
+<span class="dim">avoid list: design form + design.words.avoid</span>
+<span class="ok">no finding</span>   <span class="dim"># "refund" is on no list here</span></pre></section>
+<section class="card after"><h4>After</h4>
+<pre><span class="p">$</span> omni design words before-after.html
+<span class="dim">avoid list: design form + design.words.avoid
+            + product glossary (local copy)</span>
+<span class="bad">"refund": avoid, the product says "Credit note"</span></pre>
+<p class="why" style="margin-top:10px">Read from the local copy only: the words check never calls the server.</p>
+</section>
+</div>
+
+<p class="pixel">Pixel perfect: screens drawn when the PRD is planned</p>
+</main></body></html>
