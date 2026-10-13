@@ -55,11 +55,21 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
         calls.push({ kind: 'from', table: 'dossiers', eq: { ...this.eqs } });
         if (world.state.fail) return { data: null, error: world.state.fail };
         if (state.failOn === 'dossiers') return refused('dossiers');
-        const names = this.columns.split(',').map((c) => c.trim());
+        // The plain columns, and one embedded workspace (`workspace:workspaces(github_org, plan_repo)`).
+        const embed = /(\w+):workspaces\(([^)]*)\)/.exec(this.columns);
+        const names = this.columns.replace(/,?\s*\w+:workspaces\([^)]*\)/, '').split(',').map((c) => c.trim()).filter(Boolean);
+        const workspaceOf = (d: FakeDossier): Record<string, unknown> | null => {
+          const w = world.tables.workspaces.find((row) => row.id === d.row.workspace_id);
+          const inner = (embed?.[2] ?? '').split(',').map((c) => c.trim());
+          return w && readable(d) ? Object.fromEntries(inner.map((n) => [n, copyOf(w[n] ?? null)])) : null;
+        };
         const rows = dossiers
           .filter(readable)
           .filter((d) => Object.entries(this.eqs).every(([column, value]) => propertyOf(d.row, column) === value))
-          .map((d) => Object.fromEntries(names.map((n) => [n, copyOf(propertyOf(d.row, n))])));
+          .map((d) => ({
+            ...Object.fromEntries(names.map((n) => [n, copyOf(propertyOf(d.row, n))])),
+            ...(embed?.[1] ? { [embed[1]]: workspaceOf(d) } : {}),
+          }));
         return { data: rows, error: null };
       }
     }
