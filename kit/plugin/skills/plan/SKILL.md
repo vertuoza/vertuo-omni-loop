@@ -35,7 +35,7 @@ says. With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the st
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
 is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.landing`, `worktrees`,
-`paths.*`, `labels.*`, `prLinks.feature` and `acceptance.*` from it.
+`paths.*`, `labels.*`, `prLinks.feature`, `acceptance.*` and `laws.source` from it.
 
 Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and, when it
 prints `true`, `node .omni-loop/bin/omni.mjs config design.paths`. Keep both. Anything but `true`
@@ -192,6 +192,23 @@ glob reaches into the prefix) is marked `ui: yes` on its done-when heading, afte
 A slice no glob meets is not marked. With the flag off, or `design.paths` empty, mark nothing:
 `/omni:do-work` then reads `omni design touched` on the built diff and judges for itself. The mark
 never changes a slice's territory, blockers or wave, and `omni plan check` does not read it.
+
+**Law slices.** Only when `laws.source` is `knowledge`. Once the table is written, run
+`node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>` for each slice. A slice that will change a
+locked law it prints (the law's text in its register, or the test its `Enforced by:` names, sits
+in the territory) is marked on its done-when heading, after its id, with the law's id and the
+person the law line names:
+
+```markdown
+**s2** (`law: BR-QUOTE-3 · owner @ana`)
+- <its observable conditions>
+```
+
+Under the heading, one plain sentence says what breaks, and who gets hurt, if the law is broken,
+so whoever builds the slice knows before starting that the feature PR waits for that person's
+approval on GitHub. A slice that changes two laws carries two marks. A slice that only reads the
+law's files, or that touches rules but no locked law, is not marked. Like `ui: yes`, the mark
+changes no territory, blocker or wave, and `omni plan check` does not read it.
 
 **Landings.** A PRD reaches the default branch in one pull request unless something in it must be
 deployed apart from the rest: a database migration the code needs in place first, or a contract
