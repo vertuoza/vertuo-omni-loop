@@ -10,12 +10,12 @@ description: Build ONE slice of a PRD to standard — grounded in the repository
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Flow points.** A repository may hook the loop at named points (the `flow` of its config). At each
 point this skill names, run `node .omni-loop/bin/omni.mjs flow show <point> --prd <n> --slice <id>`
@@ -53,7 +53,7 @@ Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`.
 prints. Anything but `true` (or a failure) means design craft is off here: step 4's design review
 does not run, and the sub-PR has no **Design review** section. Nothing else in this skill changes.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -148,7 +148,8 @@ building, commit and push work in progress at least every half of
 - **Follow local patterns;** let abstractions earn their keep. Narrow, behavioural seams; small
   ports over broad clients; one responsibility per module.
 - **Reviewable commits:** one coherent change each, no unrelated formatting, each ending with the
-  co-author trailer your session requires, then the `omni sign trailer` line (**Signing**).
+  co-author trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its
+  session gives), then the `omni sign trailer` line (**Signing**).
 
 ## 3. Record the decision, keep building
 
@@ -418,10 +419,10 @@ differences.
 - **The built mark.** Once the preflight and the checks are green, and before that push, make the
   slice's last commit, an empty one (`git commit --allow-empty`) when nothing is left to commit,
   titled `chore(delivery): slice <id> of PRD <n> built`. Its message ends with the trailer block:
-  the line `Omni-Slice: <id>` first, then the co-author trailer your session requires, then the line
-  `omni sign trailer` prints as the message's last line, with no blank line between them. That line
-  is how `omni board` reads the slice as built, so it is on this commit alone, never on a
-  work-in-progress commit.
+  the line `Omni-Slice: <id>` first, then the co-author trailer your agent adds, if it adds one
+  (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer` prints
+  as the message's last line, with no blank line between them. That line is how `omni board` reads
+  the slice as built, so it is on this commit alone, never on a work-in-progress commit.
 - **A slice that does not end `done`** (`red`, `stopped`, `blocked`) makes no built mark and pushes
   nothing to the feature branch, which stays as green as the last slice left it. Everything it did
   goes to the slice branch (`branches.slice` filled with the topic and the slice id) with a plain

@@ -20,9 +20,10 @@ person merges** every pull request it opens.
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
 **Signing,** as `/omni:bug-fix`: every commit, in any repository, ends with the co-author trailer
-your session requires, then the line `omni sign trailer` prints (run from the plan repository).
-Every pull request or issue it opens, in any repository, ends its body with the line
-`omni sign footer` prints. Comments are never signed.
+your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives), then the
+line `omni sign trailer` prints (run from the plan repository). Every pull request or issue it
+opens, in any repository, ends its body with the line `omni sign footer` prints. Comments are never
+signed.
 
 **Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
 and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
@@ -62,7 +63,7 @@ With no input, say that this skill takes a description of the bug or an issue, a
    not a plan repository: /omni:bug-fix
    ```
 
-2. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then the `bug-fixing` and
+2. The briefing (`node .omni-loop/bin/omni.mjs session start`), then the `bug-fixing` and
    `testing` forms, as `/omni:bug-fix` step 0. In a target, its own committed forms are read in its
    clone, `(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs kb show testing)`,
    never the imported copy.

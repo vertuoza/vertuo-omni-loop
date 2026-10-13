@@ -10,12 +10,12 @@ description: Build a whole PRD with nothing asked along the way — plan it if n
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **It asks nothing along the way.** Every decision a slice meets becomes an outbox item
 (`/omni:do-work` records it and carries on); a person reads them all once, at the end: on the
@@ -45,7 +45,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`, and `<feature branch>` is `branches.feature` with `{topic}`
 filled by the PRD folder's topic (the folder `omni prd` names is `<n>-<topic>`).
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -414,9 +414,9 @@ to answer on the pull request, as it always has.
 By now the outbox comment, the draft feature PR and its final status comment are written, so
 nothing is lost if the person walks away. Count the open `human-action` and `high` items
 (`node .omni-loop/bin/omni.mjs status <prd>` lists them); mediums are never asked here: they are
-already adopted, and whoever objects does so on the Omni page or on the pull request. Then ask
-**one opening question** through `AskUserQuestion`: "<k> questions keep the outbox red." with three
-choices:
+already adopted, and whoever objects does so on the Omni page or on the pull request. Then ask the
+person **one opening question** (in Claude: `AskUserQuestion`), as the briefing's **Any agent**
+says: "<k> questions keep the outbox red." with three choices:
 
 | choice | then |
 |---|---|
@@ -431,13 +431,14 @@ With ask mode on, this question and the ones below go to the ask page like any o
 1. `node .omni-loop/bin/omni.mjs answers ask <prd> --pr <feature PR> --json`. Exit 1 says in one
    line that nothing is open to ask or the switch is off: print it and carry on. Exit 2: step 7,
    naming it.
-2. For each of its `batches`, one `AskUserQuestion` call holding the batch's questions in the order
-   given: each question's `header`, its `text` (with its `steps`, for a human action) as the
-   question, and its `options` as the choices, label and text. Keep one pick per question,
-   `{ "number": <its number>, "pick": <the chosen option's pick> }`. `Other` is the person's own
-   words: words that start with an option's letter, or with `not done`, are that pick with the rest
-   as its `reason`; any other words are `{ "number": <n>, "pick": "prose", "text": <the words> }`.
-   `Not done` needs a reason: when it came without one, ask for it once more.
+2. For each of its `batches`, one round of questions to the person (in Claude: one `AskUserQuestion`
+   call) holding the batch's questions in the order given: each question's `header`, its `text`
+   (with its `steps`, for a human action) as the question, and its `options` as the choices, label
+   and text. Keep one pick per question, `{ "number": <its number>, "pick": <the chosen option's
+   pick> }`. `Other` is the person's own words: words that start with an option's letter, or with
+   `not done`, are that pick with the rest as its `reason`; any other words are `{ "number": <n>,
+   "pick": "prose", "text": <the words> }`. `Not done` needs a reason: when it came without one, ask
+   for it once more.
 3. Write the picks as one JSON array to a scratch file (never in the repository), then:
 
    ```bash
@@ -562,7 +563,8 @@ ending's last line.
    and a knowledge PR (the decisions, written back): review and merge each.
 
 Merging #<feature PR> is yours. Until then, to keep it green, conflict-free and its review
-comments handled while you do other things, type /clear (or open a new terminal), then run:
+comments handled while you do other things, start a fresh session (in Claude: `/clear`), or open a
+new terminal, then run:
 
 /omni:pr-care <n>
 ```
@@ -578,7 +580,8 @@ names the red check instead: `(its CI is red: <check>; it must be green before y
 1. Read the questions: https://github.com/<owner>/<repo>/pull/<feature PR>#issuecomment-<id>
 2. Answer each one in a comment on that PR, as the questions explain: `2: A`,
    `2: B because …`, or `go with recommendation` for all of them. Nothing changes until step 3.
-3. Once you've answered, type /clear (or open a new terminal), then run:
+3. Once you've answered, start a fresh session (in Claude: `/clear`), or open a new terminal, then
+   run:
 
 /omni:yolo-fix <n>
 ```
@@ -594,7 +597,7 @@ that stayed red.
 
 1. See what holds it: https://github.com/<owner>/<repo>/pull/<the PR that holds it>
 2. <the one thing a person must do: the human steps of the final status comment>
-3. Once that's done, type /clear (or open a new terminal), then run:
+3. Once that's done, start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:yolo <n>
 ```

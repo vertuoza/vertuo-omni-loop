@@ -17,7 +17,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 below is read with `node .omni-loop/bin/omni.mjs config <key>`; never write a label, branch, check
 name or command from memory. `<remote>` below is `repo.remote`.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -87,8 +87,9 @@ null, say so in the body's **Verified** line and in the status comment.
 The loop signs its own work with two lines the CLI prints, so no skill spells a name or an address.
 
 - **Every commit** this skill makes (the claim, a fix, a resolved conflict) ends with the co-author
-  trailer your session requires, then the line `omni sign trailer` prints as the message's last
-  line, with no blank line between them.
+  trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives),
+  then the line `omni sign trailer` prints as the message's last line, with no blank line between
+  them.
 - **Every pull request** this skill opens, of any kind, ends its body with the line
   `omni sign footer` prints, as a paragraph of its own just above your session's own attribution
   lines (last, when the session adds none). A body rewritten later keeps that line.
@@ -349,8 +350,9 @@ Claim mode takes one slice of a PRD, given its plan id and title. It does not lo
 1. Cut the slice branch (`branches.slice`, with `{topic}` and `{slice}` filled) from the feature
    branch (`branches.feature`): `git fetch <remote> && git switch -c <slice branch> <remote>/<feature branch>`.
 2. Make one empty claim commit, `git commit --allow-empty -m "chore(<slice>): claim"`, its message
-   ending with the co-author trailer your session requires, then the `omni sign trailer` line
-   (**Signing**). Then run `git push -u <remote> <slice branch>`.
+   ending with the co-author trailer your agent adds, if it adds one (in Claude: the
+   `Co-Authored-By` line its session gives), then the `omni sign trailer` line (**Signing**). Then
+   run `git push -u <remote> <slice branch>`.
 3. Open the draft sub-PR at point `pr.open` (its `before` and `after` hooks; never a `replace`):
    `gh pr create --draft --base <feature branch> --head <slice branch>
    --title "<slice>: <title>" --body-file <file>`. Its body starts with `prLinks.sub` filled (the
@@ -396,7 +398,7 @@ workflow; when the app is not installed, that check is simply absent.
 | every counted check green and `mergeable: MERGEABLE` | Done. A standalone PR gets `gh pr ready <n>` if it is still a draft. A feature PR stays in draft (see **Merging and ready**). `gh pr edit <n> --remove-label "<labels.inProgress>"`, final status comment. Stop. |
 
 **Watch in the background.** A foreground command is killed after at most 10 minutes. Run the watch
-with Bash `run_in_background: true` and act when it wakes you:
+in the background and act when it ends (in Claude: Bash with `run_in_background: true`):
 
 ```bash
 gh pr checks <n> --watch --fail-fast --interval 60     # add --required when ci.branchProtection is true

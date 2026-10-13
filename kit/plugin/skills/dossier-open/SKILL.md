@@ -1,6 +1,6 @@
 ---
 name: dossier-open
-description: Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the people the idea is for can follow it before the first question is asked. Runs omni dossier open with one line of the idea and prints the draft's link as "follow along at …". Never stops the skill that runs it — /omni:brainstorm follows it at step 0 and carries on whatever it prints. Triggers on "open a dossier", "open a draft dossier", "/omni:dossier-open".
+description: Opens a draft dossier for an idea on the Omni page, linked to this session, so the people the idea is for can follow it before the first question is asked. Runs omni dossier open with one line of the idea and prints the draft's link as "follow along at …". Never stops the skill that runs it — /omni:brainstorm follows it at step 0 and carries on whatever it prints. Triggers on "open a dossier", "open a draft dossier", "/omni:dossier-open".
 ---
 
 # Dossier open: a draft for an idea
@@ -12,8 +12,8 @@ whatever the command prints, that skill carries on.
 A **dossier** keeps a PRD's spec, plan and before/after page on the Omni page, every version of
 each, with the questions that shaped it, for everyone in the workspace to read. A **draft** is a
 dossier with no PRD number yet: `/omni:dossier-push` numbers it once the PRD exists. The command
-sends the Claude session id this terminal runs in, when Claude Code gives one, so the questions this
-session asks while ask mode is on show on the draft as they are answered.
+sends the id of the session this terminal runs in, when there is one, so the questions this session
+asks while ask mode is on show on the draft as they are answered.
 
 ## Input
 

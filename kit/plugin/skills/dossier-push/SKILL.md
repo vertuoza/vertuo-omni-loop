@@ -14,7 +14,7 @@ of `spec.md`, `plan.md` and `before-after.html` exist, whole, with the title fro
 matter. The Omni page adds a **version** of a file only when its content differs from that file's
 latest version, so pushing the same files twice adds nothing, and pushing after every change is
 cheap. The first push numbers the draft `/omni:dossier-open` opened for this idea, when the command
-can tell which draft that is (by this Claude session, or as the only draft not numbered yet);
+can tell which draft that is (by this session, or as the only draft not numbered yet);
 otherwise it finds or creates PRD n's dossier by its number.
 
 With `--kind visual` or `--kind bug` (PRD 627), `<n>` is a fix's issue number, not a PRD's: the

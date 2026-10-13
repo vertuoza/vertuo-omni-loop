@@ -80,10 +80,11 @@ question through the session's question tool.
    is not this command's: name it, and leave it.
 7. **Commit** the one file, and nothing else, on the branch checked out: never on the default
    branch (`omni config repo.defaultBranch`), where it asks the person which branch to commit it
-   on. The message is `design: lock <screen or law> — @<login>`, then the co-author trailer the
-   session requires, then the line `node .omni-loop/bin/omni.mjs sign trailer` prints as its last
-   line, no blank line between them (it prints nothing when signing is off: add nothing). It
-   pushes nothing: the person pushes it, or the pull request of that branch carries it.
+   on. The message is `design: lock <screen or law> — @<login>`, then the co-author trailer your
+   agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives), then the
+   line `node .omni-loop/bin/omni.mjs sign trailer` prints as its last line, no blank line between
+   them (it prints nothing when signing is off: add nothing). It pushes nothing: the person pushes
+   it, or the pull request of that branch carries it.
 
 Report in three lines: what was locked, the lock as written, and the commit.
 

@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Drives your PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /loop /omni:drive [<n>…], or a roadmap's PRDs with --roadmap <n> — on its first tick it orders every slice of the PRDs driven into a loop plan (omni next --plan) and opens the loop on the Loop page (omni loop push start); every tick it reads the steps that share no ground with what runs (omni next --json) and launches one background agent per step, each in its own worktree running that step's one skill, /omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once, parks a PRD that waits on a person on its feature PR's status comment, records a tick per step launched and per step finished with omni loop push tick, naming what runs and what is held, and sets the next wake; under --roadmap it checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts, holds a blocked PRD until its blockers merged, naming the pull request it waits on, or until the prerequisite it waits on is met, and pushes the roadmap after each tick; once nothing runs and every PRD is parked or done it stops itself, listing what waits on whom and each open prerequisite with its command. A closed terminal resumes the same loop and plan. A plan repository gets the /loop /omni:mega-drive line. Never merges into the default branch, never answers the outbox. Triggers on "drive my PRDs", "run the loop", "keep building until it needs me", "/loop /omni:drive", "/omni:drive".
+description: Drives your PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /omni:drive [<n>…] on a loop (in Claude: /loop /omni:drive), or a roadmap's PRDs with --roadmap <n> — on its first tick it orders every slice of the PRDs driven into a loop plan (omni next --plan) and opens the loop on the Loop page (omni loop push start); every tick it reads the steps that share no ground with what runs (omni next --json) and starts one agent per step, each in its own worktree running that step's one skill, /omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once, parks a PRD that waits on a person on its feature PR's status comment, records a tick per step launched and per step finished with omni loop push tick, naming what runs and what is held, and sets the next wake; under --roadmap it checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts, holds a blocked PRD until its blockers merged, naming the pull request it waits on, or until the prerequisite it waits on is met, and pushes the roadmap after each tick; once nothing runs and every PRD is parked or done it stops itself, listing what waits on whom and each open prerequisite with its command. A closed terminal resumes the same loop and plan. A plan repository gets the /omni:mega-drive line. Never merges into the default branch, never answers the outbox. Triggers on "drive my PRDs", "run the loop", "keep building until it needs me", "/omni:drive" (in Claude: "/loop /omni:drive").
 ---
 
 # Drive: a pool of loop plan steps, filled each tick
@@ -8,11 +8,12 @@ description: Drives your PRDs as a rolling pool of up to limits.parallelSteps st
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-This skill is one **tick**. Something runs it again and again: in Claude Code that is `/loop`
-(**Waking up**, at the end, is the only part that is Claude Code's). Everything else is the kit's,
+This skill is one **tick**. Something runs this tick again after the wait it names (in Claude:
+`/loop /omni:drive`, with no interval; **Waking up**, at the end, is the only part that is
+Claude Code's). Everything else is the kit's,
 and any runner that calls `omni next` and `omni loop push` the same way drives the loop the same way.
 Each tick fills a rolling **pool**: up to `limits.parallelSteps` steps of a frozen **loop plan** run
-at once, each as its own background agent in its own worktree, and no two of them share a PRD or a
+at once, each run by its own agent in its own worktree, and no two of them share a PRD or a
 path. A tick launches the steps `omni next` offers for the free slots, records the steps it launched
 and the ones that finished on the Loop page, and picks when to look again. The loop ends itself once
 nothing runs and nothing can move without a person. With `limits.parallelSteps: 1`, it takes one step
@@ -26,12 +27,13 @@ steps say. The status comment it rewrites is a comment, and comments are never s
 
 | input | example | what it is |
 |---|---|---|
-| nothing | `/loop /omni:drive` | drive your own PRDs in inbox, building or outbox, as `omni status` marks them |
-| PRD numbers | `/loop /omni:drive 1017 1030` | drive these PRDs, someone else's included: naming them is the ask |
-| `--roadmap <n>` | `/loop /omni:drive --roadmap 1170` | drive exactly roadmap n's PRDs, someone else's included, each held until its blockers' feature PRs merged. Name no PRD beside it |
+| nothing | `/omni:drive` | drive your own PRDs in inbox, building or outbox, as `omni status` marks them |
+| PRD numbers | `/omni:drive 1017 1030` | drive these PRDs, someone else's included: naming them is the ask |
+| `--roadmap <n>` | `/omni:drive --roadmap 1170` | drive exactly roadmap n's PRDs, someone else's included, each held until its blockers' feature PRs merged. Name no PRD beside it |
 
-Below, `[--roadmap <n>]` means: pass `--roadmap <n>` when the loop was asked for one, and nothing
-otherwise.
+Each runs as a loop, this tick again after the wait it names (in Claude: `/loop` before it, as
+`/loop /omni:drive --roadmap 1170`). Below, `[--roadmap <n>]` means: pass `--roadmap <n>` when
+the loop was asked for one, and nothing otherwise.
 
 ## Step 0
 
@@ -43,10 +45,10 @@ its PRDs land in other repositories and the single-repository skills stall on th
 exactly one line, the arguments it was given carried over, and no wake:
 
 ```text
-a plan repository: /loop /omni:mega-drive [<n>…] [--roadmap <n>]
+a plan repository: /omni:mega-drive [<n>…] [--roadmap <n>] (in Claude: /loop /omni:mega-drive)
 ```
 
-Then print the briefing, `node .omni-loop/bin/omni.mjs kb show briefing`. Its rules bind every step
+Then print the briefing, `node .omni-loop/bin/omni.mjs session start`. Its rules bind every step
 below, and the skill a tick runs reads it again on its own.
 
 ## 1. Open or resume the loop
@@ -163,8 +165,9 @@ its step the same way: record its tick with the line, never a failure.
 **Launch.** Count this session's **step agents**, the ones it launched that have not returned yet.
 One whose step `running` does not list yet (launched a moment ago, before its claim or label shows on
 GitHub) has ground the collision check cannot see: while there is one, launch nothing this tick.
-Otherwise launch one background agent per entry of `steps` whose PRD has no step agent of this
-session still running, all in one message, each with `isolation: "worktree"`, so its claim commits
+Otherwise start one agent per entry of `steps` whose PRD has no step agent of this session still
+running, each in its own worktree, all at once (in Claude: one message with several Agent calls,
+each `isolation: "worktree"`, in the background), so its claim commits
 and its `git switch --detach` happen in its own worktree, never in the loop's checkout. This
 session never has more than `limits.parallelSteps` step agents running at once. Each agent runs its
 entry's one skill, `verdict.skill`: `/omni:wave <prd>`, `/omni:yolo <prd>`, `/omni:yolo-fix <prd>`,
@@ -298,12 +301,13 @@ still runs, `stop` is no stop: record the tick as step 4 says and wait for it.
 
 ## Waking up
 
-**Claude Code.** Run as `/loop /omni:drive [<n>…] [--roadmap <n>]` with no interval, so the loop paces itself: end
-each tick by scheduling the next `/loop` wake after the `--wake-in` seconds of step 4. A step agent
-that returns wakes the session at once: take it as a tick, so its finish is recorded and its slot
-filled, without waiting for the wake. A tick that stops (step 5), or that ends without a wake (step
-1), schedules none, which ends the `/loop`. Under `/loop <interval>`, the interval wins: a tick that
-wakes early takes its `wait` as it is.
+Run this tick again after the wait it names: end each tick by scheduling the next one after the
+`--wake-in` seconds of step 4 (in Claude: run as `/loop /omni:drive [<n>…] [--roadmap <n>]` with no
+interval, so the loop paces itself, and schedule the next `/loop` wake). A step agent that returns
+wakes the session at once: take it as a tick, so its finish is recorded and its slot filled, without
+waiting for the wake. A tick that stops (step 5), or that ends without a wake (step 1), schedules
+none, which ends the loop. Under a fixed interval (in Claude: `/loop <interval>`), the interval
+wins: a tick that wakes early takes its `wait` as it is.
 
 Any other runner calls the skill again after the same delay, and runs each step as its own process
 in its own worktree.

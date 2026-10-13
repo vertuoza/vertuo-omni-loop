@@ -1,6 +1,6 @@
 ---
 name: roadmap
-description: Turns a milestone plan into a roadmap in one sitting — reads a page, a file or pasted text, shows one map of its PRDs (each blocker with its why, each wave), its open questions and its prerequisites by category, and takes every answer in one message; then writes every PRD as /omni:brainstorm writes one (issue, inbox folder, spec with its blocked-by, before/after) with no plan, opens the roadmap issue, writes roadmap.md with its Prerequisites rows and their author cards, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR for the whole roadmap, pushes it to the roadmap's page with omni roadmap push, checks the prerequisites once with omni roadmap prereqs --fix, and hands off the open ones and the /loop /omni:drive --roadmap line. In a plan repository it prints the /omni:mega-roadmap line. Writes no code, merges nothing. Triggers on "write a roadmap", "turn this plan into PRDs", "a milestone of PRDs", "/omni:roadmap".
+description: Turns a milestone plan into a roadmap in one sitting — reads a page, a file or pasted text, shows one map of its PRDs (each blocker with its why, each wave), its open questions and its prerequisites by category, and takes every answer in one message; then writes every PRD as /omni:brainstorm writes one (issue, inbox folder, spec with its blocked-by, before/after) with no plan, opens the roadmap issue, writes roadmap.md with its Prerequisites rows and their author cards, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR for the whole roadmap, pushes it to the roadmap's page with omni roadmap push, checks the prerequisites once with omni roadmap prereqs --fix, and hands off the open ones and the /omni:drive --roadmap line (in Claude: /loop /omni:drive --roadmap). In a plan repository it prints the /omni:mega-roadmap line. Writes no code, merges nothing. Triggers on "write a roadmap", "turn this plan into PRDs", "a milestone of PRDs", "/omni:roadmap".
 ---
 
 # Roadmap: a milestone into PRDs, in one sitting
@@ -21,12 +21,12 @@ planned when the loop reaches it, against the code that exists then.
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 ## Input
 
@@ -52,7 +52,7 @@ the source carried over, writing nothing:
 a plan repository: /omni:mega-roadmap <source>
 ```
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`.
 Its rules bind every step below.
 
 ## 1. Read the source
@@ -316,9 +316,10 @@ then the command alone on the reply's last line.
 1. Review the roadmap: https://github.com/<owner>/<repo>/pull/<phase-0 PR>
    (where each PRD stands: <the roadmap's page, or the roadmap issue's link>)
 2. Merge that PR. → every PRD of the roadmap moves into the inbox.
-3. Once it's merged, type /clear (or open a new terminal), then run:
+3. Once it's merged, start a fresh session (in Claude: `/clear`), or open a new terminal, then
+   run the line below on a loop (in Claude: `/loop /omni:drive --roadmap <n>`):
 
-/loop /omni:drive --roadmap <n>
+/omni:drive --roadmap <n>
 ```
 
 The drive builds every PRD whose blockers merged, planning each when it starts, and holds the others,

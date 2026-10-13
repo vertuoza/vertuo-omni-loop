@@ -22,12 +22,12 @@ wide (3); **rounds 2 and on**, deepen (4); the **crown** (5); the **record** (6)
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 ## Input
 
@@ -46,7 +46,7 @@ Omni Loop kit is not installed in this repository. Keep the JSON; later steps re
 `branches.concept`, `worktrees`, `paths.delivery`, `paths.knowledge`, `labels.concept`,
 `labels.autoCreate` and `limits.beforeAfterMaxBytes` from it. `<remote>` below is `repo.remote`.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`.
 Its rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -59,7 +59,7 @@ is off too: step 2 reads no screen library, no page is marked or word-passed (**
 step 6 writes no draft screen.
 
 Then, before your first question, follow `/omni:dossier-open` with one line of the brief: it opens a
-draft dossier for it on the Omni page, linked to this Claude session, and prints its link as
+draft dossier for it on the Omni page, linked to this session, and prints its link as
 "follow along at …". Whatever it prints, carry on: a draft that did not open stops nothing. The
 draft stays a draft; no step below pushes to it: step 6 sends the concept to a page of its own.
 
@@ -226,8 +226,8 @@ unmark a primary action or reword the finding away. A finding a concept keeps on
 direction is exactly that) is said on the board beside it.
 
 Open each board in the person's browser when the session can, and give its path either way. Then
-ask **one question** per round through the session's question tool (AskUserQuestion; ask mode
-carries it to the Omni page when it is on). Its answer is one of:
+ask the person **one question** per round, as the briefing's **Any agent** says (in Claude:
+`AskUserQuestion`; ask mode carries it to the Omni page when it is on). Its answer is one of:
 
 - the **reactions line**, from the button, or the same in the person's words;
 - **another round**, with a note;
@@ -613,8 +613,8 @@ area, in build order, the wedge first.
    (its thread, where each area's PRD will be named: https://github.com/<owner>/<repo>/issues/<n>)
    (its page, with the vision tour and every board: <concept page link>)
 2. Merge that PR. → concept <n> moves into the inbox.
-3. Once it's merged, type /clear (or open a new terminal), then brainstorm one area at a time, in
-   this order, the wedge first:
+3. Once it's merged, start a fresh session (in Claude: `/clear`), or open a new terminal, then
+   brainstorm one area at a time, in this order, the wedge first:
    - /omni:brainstorm --concept <n> <wedge id>
    - /omni:brainstorm --concept <n> <area id>
    - …

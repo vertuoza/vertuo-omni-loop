@@ -1,6 +1,6 @@
 ---
 name: mega-roadmap
-description: The roadmap of a plan repository — turns a milestone plan whose items span several target repositories into a roadmap in one sitting. Surveys the targets through omni targets and reads each one the roadmap touches from a shallow read-only clone in the scratch folder (nothing runs in it), shows one map of its PRDs (the repositories of each, every blocker with its why, each wave, every read-only target and consumer order the check would refuse) and takes every answer in one message; then writes every PRD as /omni:mega-brainstorm writes one (issue, inbox folder, spec with its Repositories section and its blocked-by, before/after grouped by repository) with no plan, opens the roadmap issue, writes roadmap.md with its repos column, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR, pushes it to the roadmap's page with omni roadmap push, checks its prerequisites (each naming the targets it concerns) once with omni roadmap prereqs --fix in the plan repository, and hands off the /loop /omni:mega-drive --roadmap line. Outside a plan repository it prints the /omni:roadmap line. Writes nothing in any target, merges nothing. Triggers on "mega-roadmap", "a roadmap across repositories", "turn the crew plan into PRDs across the repositories", "/omni:mega-roadmap".
+description: The roadmap of a plan repository — turns a milestone plan whose items span several target repositories into a roadmap in one sitting. Surveys the targets through omni targets and reads each one the roadmap touches from a shallow read-only clone in the scratch folder (nothing runs in it), shows one map of its PRDs (the repositories of each, every blocker with its why, each wave, every read-only target and consumer order the check would refuse) and takes every answer in one message; then writes every PRD as /omni:mega-brainstorm writes one (issue, inbox folder, spec with its Repositories section and its blocked-by, before/after grouped by repository) with no plan, opens the roadmap issue, writes roadmap.md with its repos column, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR, pushes it to the roadmap's page with omni roadmap push, checks its prerequisites (each naming the targets it concerns) once with omni roadmap prereqs --fix in the plan repository, and hands off the /omni:mega-drive --roadmap line (in Claude: /loop /omni:mega-drive --roadmap). Outside a plan repository it prints the /omni:roadmap line. Writes nothing in any target, merges nothing. Triggers on "mega-roadmap", "a roadmap across repositories", "turn the crew plan into PRDs across the repositories", "/omni:mega-roadmap".
 ---
 
 # Mega-roadmap: a milestone into PRDs across repositories
@@ -20,12 +20,12 @@ written; where they say the same thing, their words are the rule.
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Only here, never there.** Everything this skill writes lands in the plan repository: the issues,
 the branch, the files, the pull request. It writes nothing in any target repository: no branch, no
@@ -52,7 +52,7 @@ roadmap's number, `<prd>` one PRD's.
    not a plan repository: /omni:roadmap <source>
    ```
 
-3. Then the briefing, `node .omni-loop/bin/omni.mjs kb show briefing`, as `/omni:roadmap` step 0.
+3. Then the briefing, `node .omni-loop/bin/omni.mjs session start`, as `/omni:roadmap` step 0.
 4. **The scratch folder:** `mktemp -d`, outside the plan repository and outside its worktrees. Every
    clone of step 1 goes there, and the folder is deleted when the skill ends, whatever the outcome.
 
@@ -190,9 +190,10 @@ command on the reply's last line drives the roadmap across the repositories:
 1. Review the roadmap: https://github.com/<owner>/<repo>/pull/<phase-0 PR>
    (where each PRD stands: <the roadmap's page, or the roadmap issue's link>)
 2. Merge that PR. → every PRD of the roadmap moves into the inbox.
-3. Once it's merged, type /clear (or open a new terminal), then run:
+3. Once it's merged, start a fresh session (in Claude: `/clear`), or open a new terminal, then
+   run the line below on a loop (in Claude: `/loop /omni:mega-drive --roadmap <n>`):
 
-/loop /omni:mega-drive --roadmap <n>
+/omni:mega-drive --roadmap <n>
 ```
 
 ## Guardrails
