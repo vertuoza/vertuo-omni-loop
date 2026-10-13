@@ -62,6 +62,9 @@ export type OutboxStore = {
   openItems(prd: OutboxPrd): Promise<OutboxItem[]>;
   /** Every entry of PRD `prd`'s ledger adopted without an answer. */
   adoptedEntries(prd: OutboxPrd): Promise<SettledEntryView[]>;
+  /** Every entry of PRD `prd`'s ledger, the latest per item, whatever its verdict (PRD 1679: the
+   * context budget's ratchet reads the raises a person said yes to). */
+  settledEntries(prd: OutboxPrd): Promise<SettledEntryView[]>;
   /** Reads the replies on the feature pull request and settles what they answer. */
   replies(request: RepliesRequest, client: RepliesClient): Promise<ReturnType<typeof readReplies>>;
   /** Writes the outbox comment on the feature pull request of PRD `prd`. */

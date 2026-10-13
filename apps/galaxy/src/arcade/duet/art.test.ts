@@ -5,7 +5,7 @@ import type { FrameState } from '../scenes/common.ts';
 import { createDuet, drawField, hudOf } from './art';
 import { CHAPTER_LINES, ENDLESS_LINES, LINE_SECONDS } from './lines';
 import { RULES } from './rules';
-import { newRun, pause, press, step, type Run } from './run';
+import { CRASH_SECONDS, newRun, pause, press, step, type Run } from './run';
 import { blocksAt, CHAPTERS } from './waves';
 
 // OMNI DUET's playfield and what the text layer reads of a run (PRD 1633, slice 3; issue 1692): the
@@ -127,6 +127,23 @@ describe('the playfield', () => {
     const { ctx, colours } = recorder();
     drawField(ctx, frame, newRun({ seed: 1 }));
     for (const c of entropy) expect(colours.has(c), c).toBe(false);
+  });
+
+  it('shows the contact that cost a life: the blocks stay where they struck under a fading flash, then the ready screen clears', () => {
+    let run = press(newRun({ seed: 1 }), 'start').run;
+    for (let hit = false; !hit;) { const s = step(run, new Set(), RULES.subStep); run = s.run; hit = s.events.includes('hit'); }
+    expect(run.phase).toBe('ready');
+    const { ctx, colours } = recorder();
+    drawField(ctx, frame, run);
+    for (const c of entropy) expect(colours.has(c), c).toBe(true);
+    const flash = (r: Run, s: FrameState = frame) => fills(r, s).filter((f) => f.colour === DEFAULT_THEME.white && f.w === RULES.field.w && f.h === RULES.field.h);
+    expect(flash(run).length).toBe(1);
+    expect(flash(run, { ...frame, reduced: true })).toEqual([]);
+    for (let i = 0; i < Math.ceil(CRASH_SECONDS / RULES.maxDt) + 1; i++) run = step(run, new Set(), RULES.maxDt).run;
+    const later = recorder();
+    drawField(later.ctx, frame, run);
+    for (const c of entropy) expect(later.colours.has(c), c).toBe(false);
+    expect(flash(run)).toEqual([]);
   });
 
   it('keeps the wave\'s blocks where they stood under the pause', () => {

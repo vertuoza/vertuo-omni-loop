@@ -324,3 +324,17 @@ describe('items with an id (PRD 1572, slice 6)', () => {
     expect(step(track.map, w, [racer(line.x, line.y - 400)], [1], 0.05).world.orbs[0]?.id).toBe('b:2');
   });
 });
+
+describe('how long a rival holds an item, by level (PRD 1762)', () => {
+  const me = racer(line.x, line.y, { item: 'boost' });
+  it('uses a BOOST at once on NORMAL and HARD, and only after the hold on EASY', () => {
+    for (const level of ['normal', 'hard'] as const) expect(wantsToUse([me], 0, true, level, 0)).toBe(true);
+    expect(wantsToUse([me], 0, true, 'easy', 0)).toBe(false);
+    expect(wantsToUse([me], 0, true, 'easy', RULES.levels.easy.hold - 0.1)).toBe(false);
+    expect(wantsToUse([me], 0, true, 'easy', RULES.levels.easy.hold)).toBe(true);
+  });
+
+  it('holds an EASY rival\'s item longer than a HARD one\'s', () => {
+    expect(RULES.levels.easy.hold).toBeGreaterThan(RULES.levels.hard.hold);
+  });
+});

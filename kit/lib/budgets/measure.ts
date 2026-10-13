@@ -1,0 +1,100 @@
+// The context measure (PRD 1679): how many bytes each thing every agent session reads holds, as the
+// session reads it. A target is one of:
+//
+// | target           | what it is                                                                  |
+// |------------------|-----------------------------------------------------------------------------|
+// | `briefing`       | what `omni kb show briefing` prints                                         |
+// | `form:<name>`    | each other playbook form as `omni kb show <name>` prints it, pointers expanded |
+// | `context:<path>` | each file `paths.context` names                                             |
+// | `session`        | `briefing` plus every `context:` target: what a session loads before its first step |
+//
+// Bytes, never tokens (D2): the same number on every machine and model. Skills, ADRs and registers
+// are not measured (D10). A target that cannot be measured (a context file missing, a pointer that
+// leads nowhere, a form that does not parse) is a measurement error naming why, never a guess; and
+// `session` is one too when any of its parts is.
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Context } from '../context.ts';
+import { DECISIONS_FORM, FORM_IDS } from '../playbook/forms.ts';
+import { readDecisions } from '../playbook/decisions.ts';
+import type { Decisions } from '../playbook/decisions.ts';
+import { resolveForm } from '../playbook/resolve.ts';
+import type { ResolvedForm } from '../playbook/resolve.ts';
+import { formTemplate } from '../playbook/templates.ts';
+
+/** The form every session loads first, measured as its own target. */
+export const BRIEFING = 'briefing';
+/** The target that sums what a session loads before its first step. */
+export const SESSION = 'session';
+
+/** What the measure reads of a context. */
+type Ctx = Pick<Context, 'root' | 'layout' | 'config'>;
+
+/** One target's size in bytes, or why it could not be measured. */
+export type Measure = { target: string; bytes: number } | { target: string; error: string };
+
+/** The decision records as `omni kb show decisions` prints them. */
+function recordLines({ dir, records, shared, next }: Decisions): string[] {
+  const lines = [`## Records  [read live from ${dir}]`];
+  if (records.length === 0) lines.push('No decision records yet.');
+  lines.push(...records.map(({ number, file, title }) => `${number}  ${title ?? file}`));
+  lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(', ')}`));
+  lines.push(`Next free number: ${next}`);
+  return lines;
+}
+
+/**
+ * One resolved form as `omni kb show <form>` prints it, without its last newline: its title, its file
+ * and state, then each section under its label, then — for the decisions form — the records. The
+ * command prints this text, so the measure and what a session reads are one.
+ */
+export function formShowText(resolved: ResolvedForm, records: Decisions | null): string {
+  const lines = [`# ${resolved.title}`, `${resolved.file} · ${resolved.state}`];
+  for (const section of resolved.sections) {
+    lines.push('', section.slot === null ? section.label : `## ${section.heading}  ${section.label}`);
+    if (section.text) lines.push(section.text);
+    // A hole shows the kit default, then its questions; repository text already holds its own.
+    if (section.source === 'hole') lines.push(...section.questions.map((question) => `TODO(human): ${question}`));
+  }
+  if (records) lines.push('', ...recordLines(records));
+  return lines.join('\n');
+}
+
+/** A problem `resolveForm` reports that leaves the form's text standing: a kit default's unset key. */
+const harmless = (problem: string): boolean => problem.startsWith('kit default ');
+
+/** One form, measured as `omni kb show` prints it, its trailing newline counted. */
+function measureForm(ctx: Ctx, form: string): Measure {
+  const target = form === BRIEFING ? BRIEFING : `form:${form}`;
+  const resolved = resolveForm(form, { ctx, template: formTemplate(form) });
+  const broken = resolved.problems.filter((problem) => !harmless(problem));
+  if (broken.length > 0) return { target, error: broken.join('; ') };
+  const records = form === DECISIONS_FORM ? readDecisions({ ctx }) : null;
+  return { target, bytes: Buffer.byteLength(`${formShowText(resolved, records)}\n`, 'utf8') };
+}
+
+/** One `paths.context` file, measured as it lies on disk. */
+function measureContext(ctx: Ctx, path: string): Measure {
+  const target = `context:${path}`;
+  const file = join(ctx.root, path);
+  if (!existsSync(file) || !statSync(file).isFile()) return { target, error: `${path} does not exist` };
+  return { target, bytes: readFileSync(file).byteLength };
+}
+
+/** `briefing` plus every `context:` target, or an error naming each part that could not be measured. */
+function measureSession(parts: readonly Measure[]): Measure {
+  const failed = parts.filter((part) => 'error' in part).map(({ target }) => target);
+  if (failed.length > 0) return { target: SESSION, error: `cannot sum ${failed.join(', ')}` };
+  return { target: SESSION, bytes: parts.reduce((sum, part) => sum + ('bytes' in part ? part.bytes : 0), 0) };
+}
+
+/**
+ * Every target of the repository at `ctx`, in a fixed order: `briefing`, each other form in the kit's
+ * order, each context file in the config's order, then `session`.
+ */
+export function measureContextBudget({ ctx }: { ctx: Ctx }): Measure[] {
+  const briefing = measureForm(ctx, BRIEFING);
+  const forms = FORM_IDS.filter((form) => form !== BRIEFING).map((form) => measureForm(ctx, form));
+  const contexts = ctx.config.paths.context.map((path) => measureContext(ctx, path));
+  return [briefing, ...forms, ...contexts, measureSession([briefing, ...contexts])];
+}

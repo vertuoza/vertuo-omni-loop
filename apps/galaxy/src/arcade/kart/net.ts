@@ -4,12 +4,15 @@
 import { z } from 'zod';
 import { StoredHero } from '../../data/players';
 import { RULES } from './rules';
-import { LAPS } from './track';
+import { readLook, type KartLook } from './look';
 
 /**
  * A player on the grid, as they say it themselves: their id, name, hero, fleet and best time at OMNI
  * KART in tenths of a second (null before a first race), and when they arrived on the grid (ms).
  */
+/** The most laps a race runs (PRD 1762). */
+const MAX_LAPS = 7;
+
 const Entry = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(64),
@@ -17,12 +20,17 @@ const Entry = z.object({
   fleet: z.string().nullable(),
   best: z.number().int().positive().nullable(),
   arrival: z.number(),
+  /** The player's kart's colour and design (PRD 1762); an entry without one is drawn as today. A field that does not read is none. */
+  look: z.object({ color: z.string().max(32), design: z.string().max(32) }).transform((l): KartLook => readLook(l)).optional().catch(undefined),
+  /** The laps the player chose (PRD 1762); an entry without them, or with a count that is not one, counts as a tab without `laps`. */
+  laps: z.number().int().min(1).max(MAX_LAPS).optional().catch(undefined),
 });
 export type GridPlayer = z.infer<typeof Entry>;
 
 /** What a player tracks on the grid: their entry, nothing else. */
 export const presenceOf = (player: GridPlayer): Record<string, unknown> => ({
   id: player.id, name: player.name, hero: player.hero, fleet: player.fleet, best: player.best, arrival: player.arrival,
+  ...(player.look ? { look: player.look } : {}), ...(player.laps !== undefined ? { laps: player.laps } : {}),
 });
 
 /** A Presence entry read back: the player it says, or null when a field is missing or wrong. */
@@ -53,6 +61,8 @@ const Start = z.object({
   kind: z.literal('start'),
   race: RaceId,
   seed: z.number().int().nonnegative(),
+  /** How many laps every player races (PRD 1762); a start without it races 3. */
+  laps: z.number().int().min(1).max(MAX_LAPS).optional(),
   order: z.array(Entry).min(2).max(RULES.places),
 });
 
@@ -65,7 +75,7 @@ const State = z.object({
   angle: z.number(),
   speed: z.number(),
   steer: z.union([z.literal(-1), z.literal(0), z.literal(1)]),
-  laps: z.number().int().min(0).max(LAPS),
+  laps: z.number().int().min(0).max(MAX_LAPS),
   passed: z.number().int().min(0).max(1000),
   spin: z.number().min(0),
   fall: z.number().min(0),

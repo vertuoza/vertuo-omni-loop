@@ -11,6 +11,7 @@ import { COMMAND_TABLE } from '../bin/commands/index.ts';
 import { INLINE_SLICE_TRAILER } from '../lib/board.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../lib/status/format.ts';
 import { dig } from '../bin/dig.ts';
+import { raiseLine, settledRaises } from '../lib/budgets/ratchet.ts';
 import { assertDefined } from './assert.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -2930,6 +2931,65 @@ describe('a slice is claimed before it is built', () => {
       "**Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the claimed status) before you build anything.",
     );
     expect(doWork.indexOf('## 1. Read before you build')).toBeLessThan(doWork.indexOf('## 2. Build'));
+  });
+});
+
+// PRD 1679: what every agent reads is held to its ceilings. The agents meet a red budget the same
+// way everywhere: trim first, raise only with a high item a person answers, never a forced green.
+describe('the context budget in the skills (PRD 1679)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const flat = (text: string) => text.replace(/\s+/g, ' ');
+  const RAISE = 'Budget raise: `<target>` to <bytes> bytes';
+
+  it('the raise line the skills give is the one the ratchet matches', () => {
+    const line = RAISE.replace('<target>', 'form:design').replace('<bytes>', '10240');
+    expect(line).toBe(raiseLine('form:design', 10240));
+    expect(settledRaises([{ id: 'x', verdict: 'agreed', itemText: `decide: ${line}` }])).toEqual([{ id: 'x', target: 'form:design', ceiling: 10240 }]);
+  });
+
+  it('/omni:pr-care handles a red omni / budgets: trim first, else raise with a high item, never a forced green', () => {
+    const text = read('pr-care');
+    const round = flat(skillSection(text, '2. A round'));
+    expect(round).toContain('`omni / budgets`');
+    expect(round).toContain('omni.mjs check context');
+    expect(round).toMatch(/[Tt]rim first/);
+    expect(round).toContain(RAISE);
+    expect(round).toContain('`hardToRevert: true`');
+    expect(round).toMatch(/[Nn]ever force the check green/);
+    expect(flat(skillSection(text, 'Guardrails'))).toMatch(/[Nn]ever force `omni \/ budgets` green/);
+  });
+
+  it('/omni:do-work meets omni check context red before it pushes, inside its territory', () => {
+    const text = read('do-work');
+    const ship = flat(skillSection(text, '5. Ship'));
+    expect(ship).toContain('omni.mjs check context');
+    expect(ship).toMatch(/[Tt]rim first/);
+    expect(ship).toContain('inside the territory');
+    expect(ship).toContain(RAISE);
+    expect(ship).toContain('`hardToRevert: true`');
+    expect(ship).toMatch(/[Nn]ever force the check green/);
+    expect(flat(skillSection(text, '1. Read before you build'))).toContain('the ceilings file `budgets.context.file` names, for a budget raise');
+  });
+
+  it('/omni:invade measures, writes the ceilings, proposes the flag, fills the ci form and flags the targets over the guideline', () => {
+    const text = read('invade');
+    const map = flat(skillSection(text, '2. The map'));
+    expect(map).toContain('omni.mjs budget measure context');
+    expect(map).toContain('16 KiB');
+    expect(map).toContain('24 KiB');
+    expect(map).toContain('TODO(human)');
+    const config = flat(skillSection(text, '7. Propose config'));
+    expect(config).toContain('omni.mjs budget set context');
+    expect(config).toContain('`budgets.context.enabled`');
+    expect(config).toContain('**Budgets** section');
+    expect(config).toMatch(/never a check/);
+    expect(flat(skillSection(text, '8. One docs-only pull request'))).toContain('the ceilings file');
+  });
+
+  it('the ci form template has an optional Budgets section', () => {
+    const template = readFileSync(join(repoRoot, 'kit/templates/playbook/ci.md'), 'utf8');
+    expect(template).toContain('## Budgets\n<!-- slot: budgets · optional -->');
+    expect(flat(template)).toContain('omni check context');
   });
 });
 

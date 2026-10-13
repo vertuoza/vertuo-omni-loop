@@ -115,6 +115,7 @@ describe('the finish and the results', () => {
     t.go();
     t.play(RULES.countdown + 0.5);
     finish(t, 'p0');
+    expect(t.game('p0').press('a')).toEqual({ quit: false, again: false, grid: false }); // A on the podium shows the results
     expect(t.game('p0').press('a')).toEqual({ quit: false, again: false, grid: true });
     t.hub.advance(100);
     const grid = sure(t.sessions.get('p0'), 'session');

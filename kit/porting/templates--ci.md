@@ -2,7 +2,7 @@
 
 Source: `docs/agents/ci-triage.md` @ `vertuo-ai-domain@db67fd9da`, with the PR gate's "a skipped job
 counts as a failure" from `docs/agents/verification.md`. The kit default of the ci form: slots
-`workflows`, `gating`, `known-reds`, `rerun`, in the spec's order.
+`workflows`, `gating`, `known-reds`, `rerun`, in the spec's order, then `budgets` (PRD 1679).
 
 ## Read from config instead of hard-coded
 
@@ -51,3 +51,6 @@ counts as a failure" from `docs/agents/verification.md`. The kit default of the 
 ## Added
 
 - The spec's slot markers and headings (`What gates a merge`, `Known reds`, `When to re-run`).
+- The slot `budgets` (PRD 1679), the kit's own with no upstream text: what every session reads has a
+  ceiling per target, `omni check context` and the `omni / budgets` check name the target that
+  grew, trim first, and a raise is a high outbox item a person answers.
