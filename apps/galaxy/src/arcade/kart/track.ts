@@ -123,7 +123,7 @@ const COMET_RING_ROWS = [
   '................?..................................?....................',
   '........................................................................',
   '................?..................................?....................',
-  '................?..................................?....................',
+  '................?................^.................?....................',
   '........................................................................',
   '........................................................................',
   '........................................................................',
@@ -185,8 +185,12 @@ const COMET_RING_ROWS = [
   '........................................................................',
 ] as const;
 
-/** The walkway's start, the middle of the arc of waypoint 6 (centre (47.5, 16.5), radius 6, at 45° towards the north-west), in tile units; its axis lies about 1.8 tiles south of the top straight's. */
-const WALK = { x: 47.5 - 6 / Math.SQRT2, y: 16.5 - 6 / Math.SQRT2 };
+/**
+ * The walkway's start, at the middle of the arc of waypoint 6 (centre (47.5, 16.5), radius 6, at 45° towards the north-west), in tile units.
+ * Its axis lies on the row 12's middle, 2 tiles south of the top straight's (the arc's own middle is at 12.26, about 1.8): a ramp is a tile
+ * of the rows and must be road to its corners, so the one-tile walkway lies on the grid.
+ */
+const WALK = { x: 47.5 - 6 / Math.SQRT2, y: 12.5 };
 
 export const COMET_RING: TrackSource = {
   rows: COMET_RING_ROWS,
@@ -202,7 +206,8 @@ export const COMET_RING: TrackSource = {
     // The hidden ramp's spur: leaves the corner of waypoint 1 straight on north, five tiles wide as the road; its ramp is on row 42, then a gap of 5 tiles.
     { from: [62.5, 49.5], to: [62.5, 35.5], width: 5, gaps: [{ from: 7.5, length: 5 }] },
     // The walkway: leaves the middle of the curve of waypoint 6 and heads west over the void to the curve of waypoint 9.
-    { from: [WALK.x, WALK.y], to: [24.5, WALK.y], width: 2, surface: 'grating' },
+    // One tile wide, a ramp (row 12, column 33) and then a gap in its middle.
+    { from: [WALK.x, WALK.y], to: [24.5, WALK.y], width: 1, surface: 'grating', gaps: [{ from: WALK.x - 33, length: 3.35 }] },
   ],
   // The tunnel: from where the curve of waypoint 5 starts, 13 tiles along the line: the quarter circle of the curve, then the straight west.
   span: { from: [64.5, 15.5], length: 13 },

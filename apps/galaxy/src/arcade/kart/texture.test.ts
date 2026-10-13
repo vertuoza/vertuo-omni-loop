@@ -110,12 +110,20 @@ describe('paintTrack', () => {
     /** The point of an arc's outer edge at `k` of the way round it, `out` px beyond (negative: inside) the road's edge. */
     const outer = (c: (typeof arcs)[number], k: number, out: number) => beside((c.start + c.length * k) * TILE, (c.turn === 'left' ? -1 : 1) * (half + out));
 
+    /** Whether a point lies within 8 pixels of a shortcut's piece. */
+    const nearPiece = (x: number, y: number) => track.centre.pieces.some((p) => {
+      const [x0, x1] = [Math.min(p.from.x, p.to.x) * TILE - 8, Math.max(p.from.x, p.to.x) * TILE + 8];
+      const [y0, y1] = [Math.min(p.from.y, p.to.y) * TILE - p.width * TILE / 2 - 8, Math.max(p.from.y, p.to.y) * TILE + p.width * TILE / 2 + 8];
+      return x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    });
+
     it('has neon on its void side, two pixels deep, and none past it', () => {
       let tested = 0;
       for (const c of arcs) {
         for (const k of [0.25, 0.5, 0.75]) {
           const [on, deep] = [outer(c, k, 1), outer(c, k, 5)];
           if (roadAt(on.x, on.y)) continue; // a shortcut's road leaves the circuit here
+          if (nearPiece(on.x, on.y)) continue; // and the walkway's own neon, one tile wide, lies beside it
           tested++;
           expect([cyan, magenta], `arc ${c.index}, ${k}`).toContain(pixel(on.x, on.y));
           expect(roadAt(deep.x, deep.y) || pixel(deep.x, deep.y) === VOID, `arc ${c.index}, ${k}`).toBe(true);
@@ -313,7 +321,7 @@ describe('the station\'s tiles (PRD 1775)', () => {
 
   it('paints a walkway as a dark grating, magenta where it meets the void, as wide as its piece', () => {
     const piece = sure(track.centre.pieces.find((p) => p.surface === 'grating'), 'the walkway');
-    const x = 35 * TILE + 5;
+    const x = 36 * TILE + 5;
     const column = Array.from({ length: track.size.h }, (_, y) => y).filter((y) => track.road[y * track.size.w + x] === 1 && Math.abs(y - piece.from.y * TILE) < 3 * TILE);
     expect(column.length).toBeGreaterThanOrEqual(piece.width * TILE - 1);
     expect(column.length).toBeLessThanOrEqual(piece.width * TILE + 1);
