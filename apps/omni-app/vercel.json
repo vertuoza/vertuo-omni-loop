@@ -12,6 +12,9 @@
     },
     "api/server-event.mjs": {
       "maxDuration": 60
+    },
+    "api/health.mjs": {
+      "maxDuration": 10
     }
   }
 }

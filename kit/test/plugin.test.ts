@@ -8,8 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { COMMAND_TABLE } from '../bin/commands/index.ts';
+import { INLINE_SLICE_TRAILER } from '../lib/board.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../lib/status/format.ts';
 import { dig } from '../bin/dig.ts';
+import { raiseLine, settledRaises } from '../lib/budgets/ratchet.ts';
 import { assertDefined } from './assert.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -2230,6 +2232,17 @@ describe('generated files in the skills that build, plan and finish', () => {
     ])).toEqual([]);
   });
 
+  // Issue #1178: a reviewer bot's threads on a sub-PR were merged past into the feature branch.
+  it("/omni:wave judges a sub-PR's review threads as /omni:pr-care does before its merge gate, and an asked thread holds that sub-PR", () => {
+    const text = read('wave');
+    expect(missingInOrder(skillSection(text, '4.'), [
+      '**Ready.**', '**Review threads.**', 'omni.mjs care state <prd> --pr <n>', '`act`', '`judge`', '`mark-asked`',
+      "`/omni:pr-care`'s **3. Review threads**", 'kb show review', '`omni care reply`', '`hold`', 'do not merge', '`clear`',
+      '**Merge, through the gate.**', 'flow check merge --pr <n>', '| held: a review thread left asked',
+    ])).toEqual([]);
+    expect(skillSection(text, 'Guardrails')).toMatch(/Never merge a sub-PR before its review threads are read/);
+  });
+
   it("/omni:yolo's finish rebuilds after meeting its base, and commits the rebuilt paths alone", () => {
     expect(missingInOrder(skillSection(read('yolo'), '4.'), [
       '**Meet its base:**', 'git merge <remote>/<base>', 'generated entry', 'is never a reason to stop',
@@ -2271,6 +2284,57 @@ describe('generated files in the skills that build, plan and finish', () => {
     expect(missingInOrder('a b c', ['a', 'b', 'c'])).toEqual([]);
     expect(missingInOrder('a c', ['a', 'b', 'c'])).toEqual(['b, after a']);
     expect(missingInOrder('b a', ['a', 'b'])).toEqual(['b, after a']);
+  });
+});
+
+describe('the default branch met before the plan, the board and the first wave (issue 1179)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  /** The `### <heading>` part of a section, up to the next `###` or `##`. */
+  const subsection = (text: string, heading: string) => {
+    const lines = text.split('\n');
+    const from = lines.findIndex((line: string) => line === `### ${heading}`);
+    if (from < 0) return '';
+    const to = lines.findIndex((line: string, index: number) => index > from && /^##+ /.test(line));
+    return lines.slice(from, to < 0 ? undefined : to).join('\n');
+  };
+  const inOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention: string) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+
+  it('/omni:yolo meets the default branch in step 1, before `omni prd` reads the plan', () => {
+    const step1 = skillSection(read('yolo'), '1.');
+    expect(inOrder(step1, ['git switch --detach <remote>/<feature branch>', '**meet the default branch**', 'omni.mjs prd <n>'])).toEqual([]);
+  });
+
+  it("/omni:yolo's Meet the default branch merges in a detached worktree, keeps the default branch's side of the PRD's folder, sends any other conflict to Stuck, signs and pushes", () => {
+    const part = subsection(read('yolo'), 'Meet the default branch');
+    expect(inOrder(part, [
+      '`base`', '`behind`',
+      'git merge-base --is-ancestor <remote>/<repo.defaultBranch> <remote>/<feature branch>',
+      'git worktree add --detach <path> <remote>/<feature branch>',
+      'git merge --no-ff --no-commit <remote>/<repo.defaultBranch>',
+      "**A conflict in the PRD's folder**", 'git checkout --theirs -- <path>', 'git add -- <path>',
+      '**Any other conflict:**', 'git merge --abort', '**Stuck**',
+      'omni sign trailer', 'git push <remote> HEAD:<feature branch>',
+    ])).toEqual([]);
+  });
+
+  it('/omni:yolo checks `base.behind` before each wave, and Landings meets it for a landing based on the default branch', () => {
+    const text = read('yolo');
+    expect(inOrder(skillSection(text, '3.'), ['omni.mjs board <prd> --json', 'follow `/omni:wave <prd>`', '`base.behind`', '**meet the default branch**'])).toEqual([]);
+    expect(skillSection(text, 'Landings')).toMatch(/landing 1, or a landing whose previous PR has\s+merged\), \*\*meet the default branch\*\*/);
+  });
+
+  it('/omni:wave never claims on a branch the board says is behind: it meets the default branch first, then reads the board again', () => {
+    const text = read('wave');
+    expect(inOrder(skillSection(text, '1.'), ['`base.behind`', "`/omni:yolo`'s **Meet\nthe default branch**", 'read the\nboard again'])).toEqual([]);
+    expect(skillSection(text, 'Guardrails')).toContain('Never claim on a branch behind the default branch');
   });
 });
 
@@ -2966,5 +3030,117 @@ describe('locked laws in the skills: each reads only what a change touches, and 
     for (const skill of ['brainstorm', 'plan', 'do-work', 'bug-fix', 'pr', 'invade']) {
       expect(flat(read(skill)), skill).toContain('what breaks, and who gets hurt');
     }
+  });
+});
+
+// PRD 1679: what every agent reads is held to its ceilings. The agents meet a red budget the same
+// way everywhere: trim first, raise only with a high item a person answers, never a forced green.
+describe('the context budget in the skills (PRD 1679)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const flat = (text: string) => text.replace(/\s+/g, ' ');
+  const RAISE = 'Budget raise: `<target>` to <bytes> bytes';
+
+  it('the raise line the skills give is the one the ratchet matches', () => {
+    const line = RAISE.replace('<target>', 'form:design').replace('<bytes>', '10240');
+    expect(line).toBe(raiseLine('form:design', 10240));
+    expect(settledRaises([{ id: 'x', verdict: 'agreed', itemText: `decide: ${line}` }])).toEqual([{ id: 'x', target: 'form:design', ceiling: 10240 }]);
+  });
+
+  it('/omni:pr-care handles a red omni / budgets: trim first, else raise with a high item, never a forced green', () => {
+    const text = read('pr-care');
+    const round = flat(skillSection(text, '2. A round'));
+    expect(round).toContain('`omni / budgets`');
+    expect(round).toContain('omni.mjs check context');
+    expect(round).toMatch(/[Tt]rim first/);
+    expect(round).toContain(RAISE);
+    expect(round).toContain('`hardToRevert: true`');
+    expect(round).toMatch(/[Nn]ever force the check green/);
+    expect(flat(skillSection(text, 'Guardrails'))).toMatch(/[Nn]ever force `omni \/ budgets` green/);
+  });
+
+  it('/omni:do-work meets omni check context red before it pushes, inside its territory', () => {
+    const text = read('do-work');
+    const ship = flat(skillSection(text, '5. Ship'));
+    expect(ship).toContain('omni.mjs check context');
+    expect(ship).toMatch(/[Tt]rim first/);
+    expect(ship).toContain('inside the territory');
+    expect(ship).toContain(RAISE);
+    expect(ship).toContain('`hardToRevert: true`');
+    expect(ship).toMatch(/[Nn]ever force the check green/);
+    expect(flat(skillSection(text, '1. Read before you build'))).toContain('the ceilings file `budgets.context.file` names, for a budget raise');
+  });
+
+  it('/omni:invade measures, writes the ceilings, proposes the flag, fills the ci form and flags the targets over the guideline', () => {
+    const text = read('invade');
+    const map = flat(skillSection(text, '2. The map'));
+    expect(map).toContain('omni.mjs budget measure context');
+    expect(map).toContain('16 KiB');
+    expect(map).toContain('24 KiB');
+    expect(map).toContain('TODO(human)');
+    const config = flat(skillSection(text, '7. Propose config'));
+    expect(config).toContain('omni.mjs budget set context');
+    expect(config).toContain('`budgets.context.enabled`');
+    expect(config).toContain('**Budgets** section');
+    expect(config).toMatch(/never a check/);
+    expect(flat(skillSection(text, '8. One docs-only pull request'))).toContain('the ceilings file');
+  });
+
+  it('the ci form template has an optional Budgets section', () => {
+    const template = readFileSync(join(repoRoot, 'kit/templates/playbook/ci.md'), 'utf8');
+    expect(template).toContain('## Budgets\n<!-- slot: budgets · optional -->');
+    expect(flat(template)).toContain('omni check context');
+  });
+});
+
+// Issue 1722: a plan with fewer slices than `wave.inlineBelow` is built on its feature branch, one slice
+// after the other, with no claim and no sub-PR. The wave says so only when the board does, the slice
+// leaves the `Omni-Slice` trailer the board reads, and a slice that does not end `done` never pushes to
+// the feature branch.
+describe('the inline wave (issue 1722)', () => {
+  const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, `skills/${name}/SKILL.md`), 'utf8');
+  const flat = (text: string) => text.replace(/\s+/g, ' ');
+
+  it('/omni:wave goes inline only when the board says inline, and skips the claim, the dispatch and the merge', () => {
+    const wave = read('wave');
+    const board = flat(skillSection(wave, '1. The board'));
+    expect(board).toContain("The board's `inline` (`omni board <prd> --json`) is `true` when");
+    expect(board).toContain('skip steps 2, 3 and 4, follow **Inline wave** below, then steps 5 and 6');
+    expect(board).toContain('`wave.inlineBelow` at its default `0`): every step runs as written');
+    expect(wave.indexOf('## Inline wave')).toBeGreaterThan(wave.indexOf('## 1. The board'));
+    expect(wave.indexOf('## Inline wave')).toBeLessThan(wave.indexOf('## 2. Claim every slice first'));
+  });
+
+  it('/omni:wave builds the inline slices one at a time through do-work --inline, never side by side', () => {
+    const inline = flat(skillSection(read('wave'), 'Inline wave'));
+    expect(inline).toContain('**one slice at a time**');
+    expect(inline).toContain('`/omni:do-work --inline`');
+    expect(inline).toContain('no slice is claimed, none opens a sub-PR, and nobody merges one');
+    expect(inline).toContain('`Omni-Slice: <id>` trailer line');
+    expect(inline).toContain('its commits carry no `Omni-Slice` line, so the board still holds it');
+  });
+
+  it('/omni:wave never inlines a PRD that has a sub-PR, and still checks the wave together', () => {
+    const wave = read('wave');
+    expect(flat(skillSection(wave, 'Guardrails'))).toContain('never inline a PRD that already has a sub-PR');
+    expect(skillSection(wave, '5. Check the wave together')).toContain('(and `--inline`)');
+  });
+
+  it('/omni:do-work --inline builds on the feature branch, makes the built mark, pushes once and never opens a sub-PR', () => {
+    const doWork = read('do-work');
+    expect(doWork).toMatch(/^\| `--inline` \| — \| set by `\/omni:wave` only/m);
+    expect(flat(skillSection(doWork, '1. Read before you build'))).toContain(
+      '**Under `--inline`:** there is no claim and no slice branch. `git fetch <repo.remote>`, then `git switch --detach <repo.remote>/<feature branch>`',
+    );
+    const inline = flat(skillSection(doWork, 'Under `--inline`'));
+    expect(inline).toContain('`/omni:pr`\'s Claim mode never runs');
+    expect(inline).toContain('**Push once, at step 5**, with `git push <repo.remote> HEAD:<feature branch>`');
+    expect(inline).toContain('the line `Omni-Slice: <id>` first, then the co-author trailer your session requires, then the line `omni sign trailer` prints as the message\'s last line');
+    expect(inline).toContain('makes no built mark and pushes nothing to the feature branch');
+    expect(inline).toContain('and no pull request is opened');
+  });
+
+  it('the trailer the skills ask for is the one the board reads', () => {
+    expect(read('do-work')).toContain(`${INLINE_SLICE_TRAILER}: <id>`);
+    expect(read('wave')).toContain(`${INLINE_SLICE_TRAILER}: <id>`);
   });
 });

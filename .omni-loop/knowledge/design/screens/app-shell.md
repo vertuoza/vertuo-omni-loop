@@ -4,7 +4,7 @@ status: draft
 kind: shared
 mock: app-shell.html
 implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css]
-reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
+reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/(shell)/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
 routes: [/app, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
 supersedes: null
 ---
@@ -15,7 +15,9 @@ The frame around every app page: the sidebar on the left (where a person can go)
 over the page (where they are and how they see it). One wrapper, `AppShell`
 (`apps/galaxy/src/nav/AppShell.tsx`), used by the layout of each app section, so a change here
 changes what a person sees on every page listed in `routes`. Each of those pages lists these files
-in its `reads`, never in its `implements`.
+in its `reads`, never in its `implements`. The pages a person meets before the app,
+`/ask/device`, `/ask/signin` and `/signup`, are outside it: they sit in the `doorway` frame
+(PRD 1705), mounted by `apps/galaxy/app/ask/(doorway)/layout.tsx`.
 
 ## Regions
 
@@ -77,3 +79,4 @@ Dark · Game mode · My profile · Sign out · Sign in with GitHub.
 - apps/galaxy/src/nav/sidebar.css, app-bar.css
 - apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
+- /omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html (the `/ask` pages it no longer frames)

@@ -1,6 +1,6 @@
 // `/api/server-event` (PRD 1548 s4): galaxy tells the App that the server changed a product PRD, so the
-// App re-posts both its checks, `omni/approved` and the outbox check, on that PRD's open target pull
-// requests without waiting for a webhook.
+// App re-posts its checks, `omni/approved`, the outbox check and `omni / budgets` (PRD 1679), on that
+// PRD's open target pull requests without waiting for a webhook.
 //
 // Galaxy POSTs `{ event, dossier, at }` here, signed with an HMAC-SHA256 over the exact body under
 // `STAGE_EVENT_SECRET`, the secret both apps already share for the stage events, in the same
@@ -18,10 +18,15 @@
 //   - a signed body that is not a server event → 400;
 //   - a server event → 202, one Inngest event sent (SERVER_EVENT), which ./recheck.ts runs, debounced
 //     per PRD; an Inngest send that fails → 500, said in the log.
+//
+// Every call, a GET included, writes one `server-event` line (PRD 1723 s6, ../run-log/run-log.ts): `ok`,
+// `refused` (401, 400, 405) or `failed` (500, or a thrown error, rethrown unchanged).
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
+import { log, type Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
 import { inngest } from '../inngest-client.ts';
+import { loggedHandler, noteTo } from '../run-log/run-log.ts';
 import { STAGE_SIGNATURE_HEADER } from '../stage-forward/stage-forward.ts';
 
 /** The Inngest event the route sends for a server event; ./recheck.ts listens to it. */
@@ -57,7 +62,7 @@ export type Reply = { status: number; body: string };
 /** One server event in: verified, parsed and sent on as an Inngest event. Never throws. */
 export async function receiveServerEvent(
   request: { body: string; headers: Headers },
-  { secret, send, log = console.error }: { secret: string | undefined; send: (events: ServerEventRequest[]) => Promise<unknown>; log?: (line: string) => void },
+  { secret, send, log = noteTo('server-event') }: { secret: string | undefined; send: (events: ServerEventRequest[]) => Promise<unknown>; log?: (line: string) => void },
 ): Promise<Reply> {
   if (!secret) {
     log('server event: STAGE_EVENT_SECRET is not set on this deployment, every server event is refused');
@@ -84,16 +89,19 @@ export async function receiveServerEvent(
 /** The groups the route reads. */
 export type ServerEventRouteEnv = Pick<AppEnv, 'stageEvents'>;
 
-/** `POST` and `GET` of `/api/server-event`, bound to `env`; `send` is the app's Inngest client's unless given. */
+/**
+ * `POST` and `GET` of `/api/server-event`, bound to `env`; `send` is the app's Inngest client's unless
+ * given, `logger` the structured logger's.
+ */
 export function serverEventRoute(
   env: ServerEventRouteEnv,
-  { send = (events: ServerEventRequest[]) => inngest.send(events) }: { send?: (events: ServerEventRequest[]) => Promise<unknown> } = {},
+  { send = (events: ServerEventRequest[]) => inngest.send(events), logger = log }: { send?: (events: ServerEventRequest[]) => Promise<unknown>; logger?: Logger } = {},
 ) {
   return {
-    POST: async (request: Request): Promise<Response> => {
+    POST: loggedHandler(logger, 'server-event', async (request) => {
       const { status, body } = await receiveServerEvent({ body: await request.text(), headers: request.headers }, { secret: env.stageEvents?.secret, send });
       return new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
-    },
-    GET: (): Response => new Response('method not allowed', { status: 405, headers: { allow: 'POST' } }),
+    }),
+    GET: loggedHandler(logger, 'server-event', () => new Response('method not allowed', { status: 405, headers: { allow: 'POST' } })),
   };
 }

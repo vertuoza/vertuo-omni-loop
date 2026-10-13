@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { CODEOWNERS_FILES, isOwnedBy, isPersonOwner, ownersOf, parseCodeowners, patternMatcher, readCodeowners } from './codeowners.ts';
+import {
+  CODEOWNERS_FILES,
+  exactPattern,
+  isOwnedBy,
+  isPersonOwner,
+  ownerHandle,
+  ownersBlock,
+  ownersBlockIn,
+  ownersOf,
+  parseCodeowners,
+  patternMatcher,
+  readCodeowners,
+  withOwnersBlock,
+} from './codeowners.ts';
 
 /** Whether `pattern` owns each path, in order. */
 const owns = (pattern: string, paths: string[]) => paths.map(patternMatcher(pattern));
@@ -95,5 +108,79 @@ describe('isOwnedBy — only a person matches a review', () => {
     expect(isOwnedBy(['ann@acme.com'], 'ann@acme.com')).toBe(false);
     expect(isPersonOwner('@ann')).toBe(true);
     expect(['@acme/core', 'ann@acme.com', '@', 'ann', '@a b'].map(isPersonOwner)).toEqual([false, false, false, false, false]);
+  });
+});
+
+describe('the block omni kb owners writes (PRD 1726, s4)', () => {
+  const PATHS = [
+    { path: 'k/product/thesis.md', why: 'The registers.' },
+    { path: 'k/product/rules.md', why: 'The registers.' },
+    { path: 'a.test.ts', why: 'law BR-X-1: its test.' },
+    { path: 'k/product/rules.md', why: 'law BR-X-2: its test.' },
+  ];
+  const BLOCK = ownersBlock(PATHS, ['pierrederval', 'acme/keepers']);
+
+  it('writes a line per path, once, under its first reason, each owned by every owner, between its markers', () => {
+    expect(BLOCK.split('\n')).toEqual([
+      '# BEGIN omni kb owners',
+      '# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines.',
+      '# The registers.',
+      '/k/product/thesis.md @pierrederval @acme/keepers',
+      '/k/product/rules.md @pierrederval @acme/keepers',
+      '# law BR-X-1: its test.',
+      '/a.test.ts @pierrederval @acme/keepers',
+      '# END omni kb owners',
+    ]);
+  });
+
+  it('each line owns exactly its path, as GitHub reads it', () => {
+    const rules = parseCodeowners(BLOCK);
+    expect(ownersOf({ rules }, 'a.test.ts')).toEqual(['@pierrederval', '@acme/keepers']);
+    expect(ownersOf({ rules }, 'x/a.test.ts')).toEqual([]);
+    expect(ownersOf({ rules }, 'k/product/rules.md')).toEqual(['@pierrederval', '@acme/keepers']);
+  });
+
+  it('anchors a path at the root and escapes what GitHub would read as a pattern or a comment', () => {
+    expect(exactPattern('kit/a.test.ts')).toBe('/kit/a.test.ts');
+    expect(exactPattern('/kit/a b#[1]*?!.ts')).toBe('/kit/a\\ b\\#\\[1\\]\\*\\?\\!.ts');
+    expect(ownerHandle(' pierrederval ')).toBe('@pierrederval');
+    expect(ownerHandle('@acme/keepers')).toBe('@acme/keepers');
+    expect(ownerHandle('a@b.co')).toBe('a@b.co');
+  });
+
+  it('appends the block to a file that has none, after a blank line, and writes a new file whole', () => {
+    expect(withOwnersBlock(null, BLOCK)).toBe(`${BLOCK}\n`);
+    expect(withOwnersBlock('', BLOCK)).toBe(`${BLOCK}\n`);
+    expect(withOwnersBlock('* @a', BLOCK)).toBe(`* @a\n\n${BLOCK}\n`);
+    expect(withOwnersBlock('* @a\n', BLOCK)).toBe(`* @a\n\n${BLOCK}\n`);
+  });
+
+  it('replaces only its own block, every line outside the markers kept byte for byte', () => {
+    const before = '# top\r\n* @a\n';
+    const after = '\n/z @b  # tail\r\n';
+    const old = '# BEGIN omni kb owners\r\n/old @x\n  # END omni kb owners  ';
+    const next = withOwnersBlock(`${before}${old}${after}`, BLOCK);
+    expect(next).toBe(`${before}${BLOCK}${after}`);
+    expect(ownersBlockIn(next)).toBe(BLOCK);
+    expect(withOwnersBlock(next, BLOCK)).toBe(next);
+  });
+
+  it('reads the block, carriage returns dropped, and none from a file without markers', () => {
+    expect(ownersBlockIn('* @a\n')).toBeNull();
+    expect(ownersBlockIn('# BEGIN omni kb owners\r\n/a @x\r\n# END omni kb owners\r\n')).toBe('# BEGIN omni kb owners\n/a @x\n# END omni kb owners');
+  });
+
+  it('refuses markers that do not pair up: one alone, either twice, or the end first', () => {
+    const unpaired = /lines do not pair up/;
+    for (const text of [
+      '# BEGIN omni kb owners\n',
+      '# END omni kb owners\n',
+      '# BEGIN omni kb owners\n# END omni kb owners\n# BEGIN omni kb owners\n# END omni kb owners\n',
+      '# BEGIN omni kb owners\n# END omni kb owners\n# END omni kb owners\n',
+      '# END omni kb owners\n# BEGIN omni kb owners\n',
+    ]) {
+      expect(() => ownersBlockIn(text), text).toThrow(unpaired);
+      expect(() => withOwnersBlock(text, BLOCK), text).toThrow(unpaired);
+    }
   });
 });

@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OMNI KART options</title>
+<style>
+/* Layout: today beside after, one row per change a racer meets, in the order they meet it (ready screen, keys, kart, laps, grid, finish); stacks at phone width. Omni app look outside, arcade screens inside (their colours are the game's own, in both themes). */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ /* the arcade screen's own colours, the same in both themes */
+ --scr:#0b0a2e;--scrPanel:#16144a;--scrEdge:#3b3896;--scrInk:#f1f1f8;--scrDim:#8f8cc4;
+ --scrYellow:#ffd23f;--scrGold:#ffb800;--cyan:#19e6ff;--magenta:#ff2bd6;
+ --trim:#1a1b3b;--wheel:#0d0c22;--light:#ff3b5c;--helmet:#e9e8f7;--flame:#ffb800;
+ /* the kart's eight colours, illustrative: FLEET shown as one fleet's colour */
+ --k-fleet:#8a63ff;--k-red:#ff4d5e;--k-orange:#ff8f3d;--k-yellow:#ffd23f;--k-green:#3ddc84;--k-cyan:#19e6ff;--k-blue:#3d7bff;--k-pink:#ff5fd2;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side > p{margin:0;color:var(--muted);font-size:14px}
+ul{margin:0;padding-left:20px;display:grid;gap:6px}
+li{color:var(--muted);font-size:14px}
+li b{color:var(--ink);font-weight:600}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+
+/* the arcade screen: a dark field holding one or two game panels */
+.screen{background:var(--scr);border-radius:8px;padding:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:center}
+.panel{background:var(--scrPanel);border:2px solid var(--scrEdge);border-radius:4px;padding:12px 14px;color:var(--scrInk);font:700 13px/1.6 var(--mono);letter-spacing:.08em;min-width:0;flex:1 1 210px;max-width:300px;display:grid;gap:8px;align-content:start}
+.panel .title{color:var(--scrYellow);text-align:center;margin:0}
+.panel ul{list-style:none;padding:0;margin:0;gap:2px}
+.panel li{color:var(--scrInk);font-size:13px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.panel li.dim{color:var(--scrDim)}
+.panel li.cur::before{content:"▶";color:var(--scrYellow);width:1em;margin-right:-.2em}
+.panel li:not(.cur){padding-left:1.2em}
+.panel li .v{color:var(--cyan);margin-left:auto}
+.panel li.new{color:var(--scrYellow)}
+.panel .hint{color:var(--scrDim);font-size:11px;margin:0;text-align:center}
+.panel .hint b{color:var(--scrInk);border:1px solid var(--scrDim);border-radius:3px;padding:0 4px;font-weight:700}
+.panel .flash{color:var(--magenta);text-align:center;margin:0;font-size:12px}
+.panel .big{color:var(--scrYellow);text-align:center;font-size:20px;margin:0}
+.panel table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.panel td{padding:1px 4px;font-size:12px;color:var(--scrInk)}
+.panel td:last-child{text-align:right;color:var(--cyan)}
+.panel tr.you td{color:var(--scrYellow)}
+.panel .score{color:var(--scrYellow);text-align:center;margin:0}
+.panel .score small{display:block;color:var(--scrDim);font-size:10px}
+
+/* the karts: rear views on CLASSIC's 28×18 grid */
+svg.kart{display:block;width:84px;height:54px;shape-rendering:crispEdges;overflow:visible}
+svg.kart.sm{width:56px;height:36px}
+svg.kart.xs{width:42px;height:27px}
+.kfleet{color:var(--k-fleet)}.kred{color:var(--k-red)}.korange{color:var(--k-orange)}.kyellow{color:var(--k-yellow)}
+.kgreen{color:var(--k-green)}.kcyan{color:var(--k-cyan)}.kblue{color:var(--k-blue)}.kpink{color:var(--k-pink)}
+.preview{display:grid;place-items:center;padding:6px 0;background:radial-gradient(closest-side,#2a2780,transparent);border-radius:4px}
+.swatches{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
+.swatches span{width:15px;height:15px;border-radius:3px;background:currentColor;outline:2px solid transparent;outline-offset:2px}
+.swatches span.on{outline-color:var(--scrYellow)}
+.designs{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.designs figure{margin:0;display:grid;justify-items:center;gap:2px;color:var(--scrDim);font:700 10px var(--mono);letter-spacing:.1em}
+.designs figure.on figcaption{color:var(--scrYellow)}
+
+/* the grid's rows */
+.grid li{justify-content:flex-start;align-items:center}
+.grid li .n{flex:1}
+.grid li .t{color:var(--cyan)}
+
+/* the podium: second, first, third */
+.podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:4px;padding-top:4px}
+.step{display:grid;justify-items:center;gap:2px}
+.step .who{font-size:10px;color:var(--scrInk)}
+.step .block{width:100%;display:grid;place-items:center;color:var(--scr);font:400 22px var(--display);border-radius:2px 2px 0 0}
+.step.p1 .block{height:58px;background:var(--scrGold)}
+.step.p2 .block{height:40px;background:#c9cbe6}
+.step.p3 .block{height:28px;background:#d98a4a}
+.step.wait .who{color:var(--scrDim)}
+.confetti{height:10px;background:
+ radial-gradient(circle,var(--magenta) 1.5px,transparent 2px) 0 0/22px 10px,
+ radial-gradient(circle,var(--cyan) 1.5px,transparent 2px) 11px 4px/22px 10px,
+ radial-gradient(circle,var(--scrYellow) 1.5px,transparent 2px) 6px 2px/17px 10px}
+
+/* the race HUD strip */
+.hud{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:700 13px var(--mono);letter-spacing:.08em;color:var(--scrInk);width:100%}
+.hud .y{color:var(--scrYellow)}
+.hud .keys{width:100%;text-align:center;color:var(--scrDim);font-size:11px}
+.hud .keys b{color:var(--scrInk);border:1px solid var(--scrDim);border-radius:3px;padding:0 4px}
+.road{width:100%;height:60px;background:linear-gradient(to bottom,transparent 0 30%,#5d6185 30% 100%);clip-path:polygon(38% 30%,62% 30%,100% 100%,0 100%);position:relative}
+.levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:460px){.levels{grid-template-columns:1fr}}
+.levels div{border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:4px;min-width:0}
+.levels b{font:700 12px var(--mono);letter-spacing:.1em}
+.levels span{color:var(--muted);font-size:13px}
+.keytable{width:100%;border-collapse:collapse;font-size:14px}
+.keytable th,.keytable td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.keytable th{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.keytable td:first-child{font:700 12px var(--mono);letter-spacing:.08em}
+.keytable td{color:var(--muted)}
+.keytable .none{color:var(--magenta)}
+.tablewrap{overflow-x:auto}
+footer{color:var(--muted);font-size:13px;display:grid;gap:8px}
+footer ul{gap:4px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <symbol id="classic" viewBox="0 0 28 18">
+   <rect x="11" y="1" width="6" height="5" fill="var(--helmet)"/><rect x="12" y="3" width="4" height="1" fill="var(--trim)"/>
+   <rect x="0" y="9" width="5" height="8" fill="var(--wheel)"/><rect x="23" y="9" width="5" height="8" fill="var(--wheel)"/>
+   <rect x="6" y="6" width="16" height="2" fill="currentColor"/><rect x="4" y="8" width="20" height="7" fill="currentColor"/>
+   <rect x="6" y="10" width="3" height="2" fill="var(--light)"/><rect x="19" y="10" width="3" height="2" fill="var(--light)"/>
+   <rect x="5" y="14" width="18" height="2" fill="var(--trim)"/><rect x="13" y="16" width="2" height="2" fill="var(--lineStrong)"/>
+  </symbol>
+  <symbol id="rocket" viewBox="0 0 28 18">
+   <rect x="11" y="0" width="6" height="5" fill="var(--helmet)"/><rect x="12" y="2" width="4" height="1" fill="var(--trim)"/>
+   <rect x="3" y="3" width="2" height="7" fill="currentColor"/><rect x="23" y="3" width="2" height="7" fill="currentColor"/>
+   <rect x="1" y="10" width="4" height="7" fill="var(--wheel)"/><rect x="23" y="10" width="4" height="7" fill="var(--wheel)"/>
+   <rect x="7" y="5" width="14" height="2" fill="currentColor"/><rect x="5" y="7" width="18" height="8" fill="currentColor"/>
+   <rect x="7" y="9" width="2" height="2" fill="var(--light)"/><rect x="19" y="9" width="2" height="2" fill="var(--light)"/>
+   <rect x="11" y="11" width="6" height="5" fill="var(--trim)"/><rect x="12" y="16" width="4" height="2" fill="var(--flame)"/>
+  </symbol>
+  <symbol id="racer" viewBox="0 0 28 18">
+   <rect x="2" y="2" width="24" height="2" fill="currentColor"/><rect x="7" y="4" width="1" height="4" fill="var(--trim)"/><rect x="20" y="4" width="1" height="4" fill="var(--trim)"/>
+   <rect x="11" y="6" width="6" height="4" fill="var(--helmet)"/><rect x="12" y="8" width="4" height="1" fill="var(--trim)"/>
+   <rect x="0" y="10" width="6" height="7" fill="var(--wheel)"/><rect x="22" y="10" width="6" height="7" fill="var(--wheel)"/>
+   <rect x="5" y="10" width="18" height="5" fill="currentColor"/>
+   <rect x="7" y="11" width="2" height="1" fill="var(--light)"/><rect x="13" y="11" width="2" height="1" fill="var(--light)"/><rect x="19" y="11" width="2" height="1" fill="var(--light)"/>
+   <rect x="6" y="14" width="16" height="2" fill="var(--trim)"/>
+  </symbol>
+ </defs>
+</svg>
+<div class="wrap">
+
+<header>
+ <p class="tag">PRD 1762 · OMNI KART · today and after</p>
+ <h1>OMNI KART options and podium</h1>
+ <p class="lead">OMNI KART gets an OPTIONS screen kept in the player's browser: the keys that drive the kart, the race's laps, the rivals' difficulty, and the kart's colour and design. The arrows drive and SPACE fires the item without setting anything. Every race that ends at the line now shows a podium before the results.</p>
+</header>
+
+<section class="row" aria-labelledby="r-ready">
+ <h2 id="r-ready">The ready screen</h2>
+ <div class="pair">
+  <div class="side">
+   <p class="tag">Today</p>
+   <div class="screen">
+    <div class="panel">
+     <p class="title">COMET RING · 3 LAPS</p>
+     <ul><li class="cur">SINGLE</li><li>MULTI</li></ul>
+     <p class="hint"><b>B</b> GAME ROOM</p>
+    </div>
+   </div>
+   <p>Two lines. Nothing about the race or the kart can be changed.</p>
+  </div>
+  <div class="side after">
+   <p class="tag now">After</p>
+   <div class="screen">
+    <div class="panel">
+     <p class="title">COMET RING · 3 LAPS</p>
+     <ul><li>SINGLE</li><li>MULTI</li><li class="cur new">OPTIONS</li></ul>
+     <p class="hint"><b>B</b> GAME ROOM</p>
+    </div>
+    <div class="panel">
+     <p class="title">OPTIONS</p>
+     <ul>
+      <li class="cur">KEYS <span class="v">›</span></li>
+      <li>LAPS <span class="v">◀ 3 ▶</span></li>
+      <li>DIFFICULTY <span class="v">◀ NORMAL ▶</span></li>
+      <li>KART <span class="v">›</span></li>
+      <li>DEFAULTS</li>
+     </ul>
+     <p class="hint"><b>A</b> OPEN <b>B</b> BACK</p>
+    </div>
+   </div>
+   <p>A third line, OPTIONS. Every change is kept at once in this browser, and DEFAULTS puts everything back.</p>
+  </div>
+ </div>
+</section>
+
+<section class="row" aria-labelledby="r-keys">
+ <h2 id="r-keys">The keys</h2>
+ <div class="pair">
+  <div class="side">
+   <p class="tag">Today</p>
+   <div class="tablewrap">
+    <table class="keytable">
+     <thead><tr><th>Action</th><th>Keys in a race</th></tr></thead>
+     <tbody>
+      <tr><td>GAS</td><td>A, Z, K or SPACE</td></tr>
+      <tr><td>BRAKE</td><td>▼</td></tr>
+      <tr><td>STEER</td><td>◀ ▶</td></tr>
+      <tr><td>ITEM</td><td>B, X, J or ESC</td></tr>
+      <tr><td>▲</td><td class="none">does nothing</td></tr>
+     </tbody>
+    </table>
+   </div>
+   <p>Fixed for every player and shared with every game of the arcade. A player who reaches for ▲ to drive does not move.</p>
+  </div>
+  <div class="side after">
+   <p class="tag now">After</p>
+   <div class="screen">
+    <div class="panel">
+     <p class="title">KEYS</p>
+     <ul>
+      <li>GAS <span class="v">▲</span></li>
+      <li>BRAKE <span class="v">▼</span></li>
+      <li>LEFT <span class="v">◀</span></li>
+      <li>RIGHT <span class="v">▶</span></li>
+      <li class="cur">ITEM <span class="v">SPACE</span></li>
+     </ul>
+     <p class="hint"><b>A</b> CHANGE <b>B</b> BACK</p>
+    </div>
+    <div class="panel">
+     <p class="title">KEYS</p>
+     <ul>
+      <li class="dim">GAS <span class="v">▲</span></li>
+      <li class="cur">ITEM <span class="v">…</span></li>
+     </ul>
+     <p class="big">PRESS A KEY</p>
+     <p class="flash">KEY USED BY THE ARCADE</p>
+     <p class="hint"><b>ESC</b> CANCEL</p>
+    </div>
+   </div>
+   <ul>
+    <li><b>One key per action, by default ▲ ▼ ◀ ▶ and SPACE.</b> A key another action holds swaps with it.</li>
+    <li><b>ENTER, TAB, SHIFT, ESC, M and F stay the arcade's</b> and cannot be bound.</li>
+    <li><b>These keys drive the countdown and the race only.</b> Menus, pause, podium and results keep the arcade's keys. The on-screen pad on a phone does not change.</li>
+   </ul>
+  </div>
+ </div>
+</section>
+
+<section class="row" aria-labelledby="r-kart">
+ <h2 id="r-kart">The kart</h2>
+ <div class="pair">
+  <div class="side">
+   <p class="tag">Today</p>
+   <div class="screen">
+    <div class="panel">
+     <p class="title">ONE SHAPE</p>
+     <div class="designs">
+      <figure><svg class="kart sm kfleet" viewBox="0 0 28 18" role="img" aria-label="Today's kart in a violet fleet colour"><use href="#classic"/></svg><figcaption>YOU</figcaption></figure>
+      <figure><svg class="kart sm kgreen" viewBox="0 0 28 18" role="img" aria-label="Today's kart in a green fleet colour"><use href="#classic"/></svg><figcaption>LUNA</figcaption></figure>
+      <figure><svg class="kart sm korange" viewBox="0 0 28 18" role="img" aria-label="Today's kart in an orange fleet colour"><use href="#classic"/></svg><figcaption>ZED</figcaption></figure>
+     </div>
+    </div>
+   </div>
+   <p>Every kart has the same shape, painted in its driver's suit colour (their fleet's). A player cannot change it.</p>
+  </div>
+  <div class="side after">
+   <p class="tag now">After</p>
+   <div class="screen">
+    <div class="panel">
+     <p class="title">KART</p>
+     <div class="preview"><svg class="kart kcyan" viewBox="0 0 28 18" role="img" aria-label="Preview: a cyan ROCKET kart"><use href="#rocket"/></svg></div>
+     <ul>
+      <li class="cur">COLOR <span class="v">◀ CYAN ▶</span></li>
+      <li>DESIGN <span class="v">◀ ROCKET ▶</span></li>
+     </ul>
+     <div class="swatches" role="img" aria-label="Eight colours: fleet, red, orange, yellow, green, cyan (picked), blue, pink">
+      <span class="kfleet"></span><span class="kred"></span><span class="korange"></span><span class="kyellow"></span><span class="kgreen"></span><span class="kcyan on"></span><span class="kblue"></span><span class="kpink"></span>
+     </div>
+     <p class="hint"><b>B</b> BACK</p>
+    </div>
+    <div class="panel">
+     <p class="title">3 DESIGNS</p>
+     <div class="designs">
+      <figure><svg class="kart sm kfleet" viewBox="0 0 28 18" role="img" aria-label="CLASSIC"><use href="#classic"/></svg><figcaption>CLASSIC</figcaption></figure>
+      <figure class="on"><svg class="kart sm kcyan" viewBox="0 0 28 18" role="img" aria-label="ROCKET"><use href="#rocket"/></svg><figcaption>ROCKET</figcaption></figure>
+      <figure><svg class="kart sm kpink" viewBox="0 0 28 18" role="img" aria-label="RACER"><use href="#racer"/></svg><figcaption>RACER</figcaption></figure>
+     </div>
+    </div>
+   </div>
+   <ul>
+    <li><b>Eight colours:</b> FLEET (today's colour, the default), RED, ORANGE, YELLOW, GREEN, CYAN, BLUE and PINK. None of them equals a workspace theme colour.</li>
+    <li><b>Three designs:</b> CLASSIC (today's), ROCKET and RACER. Each keeps CLASSIC's 28×18 size, so a design changes the look and nothing about how the kart drives.</li>
+    <li>The rivals in SINGLE keep their fleet colour and CLASSIC.</li>
+   </ul>
+   <p>Colours and art here are illustrative. The final pixels are drawn in the sprite library.</p>
+  </div>
+ </div>
+</section>
+
+<section class="row" aria-labelledby="r-laps">
+ <h2 id="r-laps">Laps and difficulty</h2>
+ <div class="pair">
+  <div class="side">
+   <p class="tag">Today</p>
+   <div class="screen">
+    <div class="hud"><span>LAP <span class="y">2/3</span></span><span>3RD</span><span>0:51.2</span></div>
+    <div class="road" role="img" aria-label="The road ahead"></div>
+   </div>
+   <p>Every race is three laps, against rivals of one strength.</p>
+  </div>
+  <div class="side after">
+   <p class="tag now">After</p>
+   <div class="screen">
+    <div class="hud"><span class="keys">YOUR KEYS <b>▲</b> GAS <b>◀ ▶</b> STEER <b>▼</b> BRAKE <b>SPACE</b> ITEM</span></div>
+    <div class="hud"><span>LAP <span class="y">4/5</span></span><span>2ND</span><span>1:47.9</span></div>
+    <div class="road" role="img" aria-label="The road ahead"></div>
+   </div>
+   <ul>
+    <li><b>LAPS is 3, 5 or 7.</b> The countdown names the player's keys, and the HUD counts the race's laps.</li>
+    <li><b>The board always gets a three-lap time:</b> the clock at the third crossing of the line, even in a race of 5 or 7. The results show it as <code>3-LAP TIME</code>.</li>
+   </ul>
+   <div class="levels">
+    <div><b>EASY</b><span>Slower rivals that ease off when they lead and hold their items longer.</span></div>
+    <div><b>NORMAL</b><span>Today's rivals, every number unchanged. The default.</span></div>
+    <div><b>HARD</b><span>Rivals up to your top speed, on a tighter line, quicker with their items.</span></div>
+   </div>
+   <p>The difficulty plays in SINGLE only. On no level does a rival's own pace go above the player's top speed, and on every level rivals finish without falling.</p>
+  </div>
+ </div>
+</section>
+
+<section class="row" aria-labelledby="r-grid">
+ <h2 id="r-grid">The MULTI grid</h2>
+ <div class="pair">
+  <div class="side">
+   <p class="tag">Today</p>
+   <div class="screen">
+    <div class="panel grid">
+     <p class="title">GRID</p>
+     <ul>
+      <li><span class="n">MIRA</span><span class="t">1:21.7</span></li>
+      <li class="new"><span class="n">YOU</span><span class="t">1:24.0</span></li>
+      <li><span class="n">KAI</span><span class="t">NO TIME</span></li>
+     </ul>
+     <p class="hint"><b>B</b> BACK</p>
+    </div>
+   </div>
+   <p>Three laps for everyone. Each player shows with their hero, and their kart wears their fleet's colour.</p>
+  </div>
+  <div class="side after">
+   <p class="tag now">After</p>
+   <div class="screen">
+    <div class="panel grid">
+     <p class="title">GRID · 5 LAPS</p>
+     <ul>
+      <li><svg class="kart xs kpink" viewBox="0 0 28 18" role="img" aria-label="Pink RACER"><use href="#racer"/></svg><span class="n">MIRA</span><span class="t">1:21.7</span></li>
+      <li class="new"><svg class="kart xs kcyan" viewBox="0 0 28 18" role="img" aria-label="Cyan ROCKET"><use href="#rocket"/></svg><span class="n">YOU</span><span class="t">1:24.0</span></li>
+      <li><svg class="kart xs kgreen" viewBox="0 0 28 18" role="img" aria-label="Green CLASSIC"><use href="#classic"/></svg><span class="n">KAI</span><span class="t">NO TIME</span></li>
+     </ul>
+     <p class="hint"><b>B</b> BACK</p>
+    </div>
+    <div class="panel grid">
+     <p class="title">GRID · 3 LAPS</p>
+     <ul>
+      <li><svg class="kart xs kpink" viewBox="0 0 28 18" role="img" aria-label="Pink RACER"><use href="#racer"/></svg><span class="n">MIRA</span><span class="t">1:21.7</span></li>
+      <li><svg class="kart xs kfleet" viewBox="0 0 28 18" role="img" aria-label="Today's kart"><use href="#classic"/></svg><span class="n">LEO</span><span class="t">OLD TAB</span></li>
+     </ul>
+     <p class="hint">A TAB OPENED BEFORE THE DEPLOY</p>
+    </div>
+   </div>
+   <ul>
+    <li><b>Everyone sees each player's kart in their look.</b> A player without one is drawn as today.</li>
+    <li><b>The race runs the laps of the first player on the grid,</b> the one who starts it, and the grid says how many.</li>
+    <li><b>If any player is on a tab opened before the deploy, the race runs 3 laps.</b> Nobody runs 3 while the others run 5.</li>
+   </ul>
+  </div>
+ </div>
+</section>
+
+<section class="row" aria-labelledby="r-finish">
+ <h2 id="r-finish">The finish</h2>
+ <div class="pair">
+  <div class="side">
+   <p class="tag">Today</p>
+   <div class="screen">
+    <div class="panel">
+     <p class="title">RESULTS</p>
+     <table>
+      <tr class="you"><td>1ST</td><td>YOU</td><td>1:23.4</td></tr>
+      <tr><td>2ND</td><td>LUNA</td><td>1:24.9</td></tr>
+      <tr><td>3RD</td><td>ZED</td><td>1:26.1</td></tr>
+      <tr><td>4TH</td><td>MIRA</td><td>--</td></tr>
+     </table>
+     <p class="score">TIME 1:23.4</p>
+     <p class="hint"><b>A</b> RACE AGAIN <b>B</b> GAME ROOM</p>
+    </div>
+   </div>
+   <p>The race ends on a table of names and times.</p>
+  </div>
+  <div class="side after">
+   <p class="tag now">After</p>
+   <div class="screen">
+    <div class="panel">
+     <p class="title">PODIUM</p>
+     <div class="confetti" aria-hidden="true"></div>
+     <div class="podium">
+      <div class="step p2"><svg class="kart sm kgreen" viewBox="0 0 28 18" role="img" aria-label="LUNA, green CLASSIC"><use href="#classic"/></svg><span class="who">LUNA</span><div class="block">2</div></div>
+      <div class="step p1"><svg class="kart sm kcyan" viewBox="0 0 28 18" role="img" aria-label="You, cyan ROCKET"><use href="#rocket"/></svg><span class="who">YOU</span><div class="block">1</div></div>
+      <div class="step p3"><svg class="kart sm korange" viewBox="0 0 28 18" role="img" aria-label="ZED, orange CLASSIC"><use href="#classic"/></svg><span class="who">ZED</span><div class="block">3</div></div>
+     </div>
+     <p class="hint"><b>A</b> RESULTS</p>
+    </div>
+    <div class="panel">
+     <p class="title">RESULTS · 5 LAPS</p>
+     <table>
+      <tr class="you"><td>1ST</td><td>YOU</td><td>2:19.8</td></tr>
+      <tr><td>2ND</td><td>LUNA</td><td>2:22.3</td></tr>
+      <tr><td>3RD</td><td>ZED</td><td>2:24.0</td></tr>
+     </table>
+     <p class="score">3-LAP TIME 1:23.4<small>SENT TO THE BOARD</small></p>
+     <p class="hint"><b>A</b> RACE AGAIN <b>B</b> GAME ROOM</p>
+    </div>
+   </div>
+   <ul>
+    <li><b>The first three stand on the podium</b> with their driver and their kart in its look. The player's place shows under the steps when they are not on it (<code>YOU 5TH</code>).</li>
+    <li><b>In MULTI, a step waits with <code>…</code></b> until its driver crosses the line. A player who left never stands on it.</li>
+    <li>The time is still sent at the finish, never later. A race left before the line has no podium. The confetti stays still with reduced motion.</li>
+   </ul>
+  </div>
+ </div>
+</section>
+
+<footer>
+ <p class="tag">Stays the same</p>
+ <ul>
+  <li>The on-screen pad on a phone, the keys of the menus, and the keys of every other game of the arcade.</li>
+  <li>The board's rule (the lowest three-lap time is kept), <code>submit_score()</code>, the scores' table and the kart grid's access rules. There is no migration.</li>
+  <li>COMET RING, its boxes and its tip-over. The circuit's changes come in their own PRD, and so does the tunnel.</li>
+  <li>The cabinet's still: CLASSIC in FLEET colour is today's kart.</li>
+ </ul>
+</footer>
+
+</div>
+</body>
+</html>

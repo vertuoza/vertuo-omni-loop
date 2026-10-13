@@ -401,6 +401,35 @@ each by its own agent in its own copy of the repository, each ending in its own 
 The loop merges them into the feature branch one at a time, checks the wave as a whole, then starts
 the next wave.
 
+When a reviewer, a bot or a person, has left comments on a sub-pull request, the wave handles them
+before it merges it, as `/omni:pr-care` handles the feature pull request's: each one is fixed,
+pushed back with its reason, or left open for you. A comment left open for you holds that slice
+alone, unmerged, and the wave says which; the rest of the wave goes on. Only the comments posted
+when the wave reaches the slice count: it waits for no review still to come.
+
+### A small plan builds without sub-pull-requests
+
+A sub-pull request costs more than the work of its slice: a worktree of its own and an install, the
+preflight before the pull request opens, its CI run, the claim, the status comment and the merge.
+For a plan of one or two slices the feature pull request already is the record of the whole
+feature, so a repository can ask for those to be built on the feature branch directly:
+
+```yaml file=.omni-loop/config.yml
+wave:
+  inlineBelow: 3   # a plan with fewer slices than this builds inline; 0 (the default) never does
+```
+
+Below the threshold, `/omni:wave` builds each slice with `/omni:do-work --inline`, one after the
+other, committed on the feature branch itself: no claim, no sub-pull request, no merge by an agent.
+Everything else stays: the territory, the outbox questions and their accounts, the check of the
+wave, and the feature pull request as the one pull request into the default branch, which ticks each
+slice as `built inline` with its commit. A slice that stays red, or stops, pushes nothing to the
+feature branch: its work waits on its slice branch, with no pull request, and the wave says so.
+`omni board` reads a slice as merged once a commit on the feature branch carries its
+`Omni-Slice: <id>` trailer line, and says `inline: true` in its `--json`. A PRD that already has a
+sub-pull request finishes with them; a PRD of several landings counts the slices of the landing it
+builds; a PRD that spans repositories never builds inline.
+
 When `/loop /omni:drive` drives several PRDs, their waves also run side by side: a **pool** of up to
 `limits.parallelSteps` steps at once, 3 by default, each step its own agent in its own worktree. A
 step joins the pool only when it passes four rules against every step running: it is of **another

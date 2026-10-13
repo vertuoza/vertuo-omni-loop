@@ -297,6 +297,13 @@ and how many register entries each would produce. Then ask, as **one numbered li
 Say under each default what it produces ("index: 12 entries in `domains/quote/rules.md`"), so a
 person sees the size of the proposal before anything is written.
 
+Under the list, the map shows **what every session reads** (PRD 1679): run
+`node .omni-loop/bin/omni.mjs budget measure context` and print each target and its size. Every
+target above the kit's guideline, a form over 16 KiB or a `session` over 24 KiB, is listed as a
+`TODO(human)` to trim, naming the target, its size and the guideline
+(`TODO(human): the releasing form prints 130 KB, over the 16 KiB guideline for a form. Trim it?`).
+It asks nothing: no answer is needed, and step 7 writes the same lines into the ci form.
+
 The person answers in **one message**. **Nothing is written before that answer:** no register, no
 form, no config. A reply that changes a default is taken as said; an item the reply does not mention
 takes its default. A reply that is not an answer (a question back, "wait") is answered in one line and
@@ -594,6 +601,7 @@ counts as unset. Then the keys the exploration and the map settle:
 | `design.paths` | the flag is `true` and the list is empty: one glob per tracked folder or file kind facet 4's `design` row found holding screens, styles, tokens or components, each named in the body with the file that shows it |
 | `commands.design` | the flag is `true`, the key is `null`, and a design linter is already among the dependencies (never one this run installs): its command over the screens' folders, run once from the worktree's root. It is proposed when it runs to its report, whatever it finds, since the design review only reports; one that cannot start is a question, never proposed |
 | `flow.areas.migrations` | the enforced-truth facet found a tracked folder of database migrations, and no area of `flow` nor pattern of `landings.alone` already matches it: an area named `migrations` whose `paths` is one anchored pattern per such folder, with `rules.plan` `[{ slice: { alone: true } }, { landing: alone }]` (see **A proposed flow**) |
+| `budgets.context.enabled` | the key is not `true`: `true`, once the ceilings are written (**Budgets**, below) |
 
 `proof.bypassEnv` is proposed by its name only, the environment variable a person fills, never its value.
 Nothing else in the config is proposed. A command for which nothing runs green keeps its value, and
@@ -601,6 +609,24 @@ the verification form asks. Edit the config file (`.omni-loop/config.yml`), then
 `node .omni-loop/bin/omni.mjs config`: it must still print. The config change is **its own commit**,
 so the pull request's diff is the proposal and a person can drop it alone. A key that turns
 `omni check all` red is left out, and named in the body.
+
+**Budgets** (PRD 1679). Once every form is written (steps 5 and 6, so the sizes are the ones this
+pull request merges), and before the config commit:
+
+1. Run `node .omni-loop/bin/omni.mjs budget measure context` again. A target it cannot measure (a
+   missing context file, a pointer that leads nowhere) is a question in the form that holds it, and
+   is fixed or asked before going on.
+2. Fill the ci form's **Budgets** section: the ceilings file, that what grows past a ceiling is
+   trimmed first and raised only through a high outbox item a person answers, and one
+   `TODO(human)` line per target above the guideline, as the map listed them with this run's sizes
+   (a form over 16 KiB, a `session` over 24 KiB). The guideline is a hint for a person, never a
+   check: nothing turns red on it. The section is written before the ceilings, so the ci form's
+   own ceiling counts it.
+3. Run `node .omni-loop/bin/omni.mjs budget set context`: it writes the ceilings file
+   `budgets.context.file` names, each target at today's size rounded up to the next KiB, so
+   installing never turns anything red. It never raises a ceiling that exists; on `--refresh` it
+   writes only the targets that have none yet. Commit the file with the config.
+4. Propose `budgets.context.enabled: true` (the table above).
 
 **A proposed flow.** The repository's flow (the `flow` section: rules, areas and hooks) is proposed
 from what the repository proves, never applied: it lands in the same config commit, a person merges or drops it.
@@ -630,7 +656,8 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
 
 1. **Docs-only.** `git diff --name-only <remote>/<repo.defaultBranch>...HEAD` names only files
    under the front door (the registers, the forms, repatriated records), the draft screens of the
-   screen library, and the config file. Anything else leaves the branch.
+   screen library, the config file, and the ceilings file `budgets.context.file` names. Anything
+   else leaves the branch.
 2. **Checks,** all green before the pull request is opened (warnings allowed):
    `node .omni-loop/bin/omni.mjs check knowledge` exits `0`, with one warning per proposed entry;
    `node .omni-loop/bin/omni.mjs check kb` exits `0`: no error, and one warning per question (a blank

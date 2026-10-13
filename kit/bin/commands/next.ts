@@ -214,7 +214,7 @@ async function boardFacts(prd: PrdNumber, reader: Reader): Promise<{ board: Boar
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null || !existsSync(join(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
-    const { result } = await buildBoard(prd, { ctx, reads: boardReads(reader.reads) });
+    const { result } = await buildBoard(prd, { ctx, reads: boardReads(reader.reads), exec: reader.exec });
     const having = (state: string) => result.slices.filter((row) => row.state === state).map((row) => row.id);
     const { stallDays } = ctx.config.limits;
     const board: BoardFacts = {

@@ -1,6 +1,6 @@
 // PRD #45, slice s3: `omni kb init | show | status` and `omni check kb`, each through `main()` on a
 // fixture repository. The kit's own templates are the kit defaults throughout.
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../lib/config.ts';
@@ -1012,8 +1012,9 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       return { code, text: `${out}${err}` };
     };
 
-    it('passes when the thesis lists every locked law and nothing else', async () => {
+    it('passes when the thesis lists every locked law and nothing else, and the CODEOWNERS block is written', async () => {
       const { root } = makeRepo({ git: true, files: files() });
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0 });
       expect(await check(root)).toMatchObject({ code: 0 });
     });
 
@@ -1048,6 +1049,108 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       const { code, text } = await check(makeRepo({ git: true, files: globbed }).root);
       expect(code).toBe(1);
       expect(text).toContain(`${K}/product/rules.md: BR-PRODUCT-4 — "Governs:" lists "game/**", which is not a regular expression over paths`);
+    });
+  });
+
+  describe('omni kb owners — the CODEOWNERS block (PRD 1726, s4)', () => {
+    const BLOCK = [
+      '# BEGIN omni kb owners',
+      '# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines.',
+      '# The thesis and the registers: what the product promises, and its laws.',
+      `/${K}/product/thesis.md @pierrederval`,
+      `/${K}/product/principles.md @pierrederval`,
+      `/${K}/product/rules.md @pierrederval`,
+      `/${K}/product/invariants.md @pierrederval`,
+      '# law BR-PRODUCT-1: its test.',
+      `/${TEST_FILE} @pierrederval`,
+      '# END omni kb owners',
+    ].join('\n');
+    const check = async (root: string) => {
+      const { code, out } = await omni(root, ['check', 'knowledge']);
+      return { code, out };
+    };
+
+    it('writes .github/CODEOWNERS when the repository has none: the thesis, each register file and each law’s test, owned by laws.owners', async () => {
+      const { root, read } = makeRepo({ git: true, files: files() });
+      const { code, out } = await omni(root, ['kb', 'owners']);
+      expect(code).toBe(0);
+      expect(out).toBe('kb owners — wrote .github/CODEOWNERS: 5 path(s) owned by @pierrederval; no line outside its markers changed.\n');
+      expect(read('.github/CODEOWNERS')).toBe(`${BLOCK}\n`);
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: 'kb owners — .github/CODEOWNERS is up to date: 5 path(s) owned by @pierrederval.\n' });
+    });
+
+    it('leaves every line outside its markers byte-identical, and replaces only its own block', async () => {
+      const before = '# Team rules\r\n*.ts @acme/devs\n\n/docs/  @writer # docs\n';
+      const after = '\n# Kept after the block\n/apps/ @acme/apps';
+      const { root, read } = makeRepo({ git: true, files: files({ '.github/CODEOWNERS': before }) });
+      await omni(root, ['kb', 'owners']);
+      expect(read('.github/CODEOWNERS')).toBe(`${before}\n${BLOCK}\n`);
+      const stale = BLOCK.replace('@pierrederval', '@old');
+      const { root: replaced, read: readReplaced } = makeRepo({ git: true, files: files({ '.github/CODEOWNERS': `${before}${stale}${after}` }) });
+      await omni(replaced, ['kb', 'owners']);
+      expect(readReplaced('.github/CODEOWNERS')).toBe(`${before}${BLOCK}${after}`);
+    });
+
+    it('writes into the CODEOWNERS GitHub reads, never shadowing a root or docs/ file with a new .github/ one', async () => {
+      const { root, read } = makeRepo({ git: true, files: files({ 'docs/CODEOWNERS': '* @acme/all\n' }) });
+      expect((await omni(root, ['kb', 'owners'])).out).toContain('wrote docs/CODEOWNERS');
+      expect(read('docs/CODEOWNERS')).toBe(`* @acme/all\n\n${BLOCK}\n`);
+      expect(existsSync(join(root, '.github/CODEOWNERS'))).toBe(false);
+    });
+
+    it('owns every domain’s and cross-domain register file, every path a law’s Enforced by: names, and each team as written', async () => {
+      const domain = {
+        [`${K}/domains/quote/README.md`]: '# Quote\n\nGlossary term: Quote\n',
+        [`${K}/domains/quote/principles.md`]: '# Principles\n',
+        [`${K}/domains/quote/rules.md`]: '# Rules\n',
+        [`${K}/domains/quote/invariants.md`]: '# Invariants\n',
+        [`${K}/product/rules.md`]: `# Rules\n\n${RULES.replace(`Enforced by: ${TEST_FILE}`, `Enforced by: \`${TEST_FILE}\`, game/ledger.ts#history`)}`,
+        '.omni-loop/config.yml': `${CONFIG_TEXT}laws:\n  owners: [pierrederval, acme/law-keepers]\n`,
+      };
+      const { root, read } = makeRepo({ git: true, files: files(domain) });
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0 });
+      const lines = read('.github/CODEOWNERS').split('\n');
+      expect(lines).toContain(`/${K}/domains/quote/rules.md @pierrederval @acme/law-keepers`);
+      expect(lines).toContain(`/${TEST_FILE} @pierrederval @acme/law-keepers`);
+      expect(lines).toContain('/game/ledger.ts @pierrederval @acme/law-keepers');
+      expect(lines.filter((line) => line.startsWith(`/${K}/`))).toHaveLength(7);
+      expect(await check(root)).toMatchObject({ code: 0 });
+    });
+
+    it('refuses while laws.owners is empty, a stray argument, and markers that do not pair up, writing nothing', async () => {
+      const { root } = makeRepo({ git: true, files: files({ '.omni-loop/config.yml': CONFIG_TEXT }) });
+      await refused(root, ['kb', 'owners'], 'laws.owners is empty');
+      expect(existsSync(join(root, '.github/CODEOWNERS'))).toBe(false);
+      const { root: other } = makeRepo({ git: true, files: files() });
+      await refused(other, ['kb', 'owners', 'stray'], 'usage: omni kb owners');
+      const broken = '# END omni kb owners\n# BEGIN omni kb owners\n';
+      const { root: unpaired, read } = makeRepo({ git: true, files: files({ '.github/CODEOWNERS': broken }) });
+      expect(await omni(unpaired, ['kb', 'owners'])).toMatchObject({
+        code: 1,
+        err: 'omni kb owners: .github/CODEOWNERS: its "# BEGIN omni kb owners" and "# END omni kb owners" lines do not pair up — keep exactly one of each, in that order, or remove both.\n',
+      });
+      expect(read('.github/CODEOWNERS')).toBe(broken);
+    });
+
+    it('omni check knowledge goes red on a missing or stale block, and green once kb owners wrote it', async () => {
+      const { root, write } = makeRepo({ git: true, files: files() });
+      const missing = await check(root);
+      expect(missing.code).toBe(1);
+      expect(missing.out).toContain('.github/CODEOWNERS: has no "# BEGIN omni kb owners" block, and 1 law(s) are locked — run omni kb owners');
+      await omni(root, ['kb', 'owners']);
+      expect(await check(root)).toMatchObject({ code: 0 });
+      write('.omni-loop/config.yml', `${CONFIG_TEXT}laws:\n  owners: [someone-else]\n`);
+      const stale = await check(root);
+      expect(stale.code).toBe(1);
+      expect(stale.out).toContain('.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.');
+      await omni(root, ['kb', 'owners']);
+      expect(await check(root)).toMatchObject({ code: 0 });
+    });
+
+    it('--json says which file it wrote, how many paths and for whom', async () => {
+      const { root } = makeRepo({ git: true, files: files() });
+      const parsed: unknown = JSON.parse((await omni(root, ['kb', 'owners', '--json'])).out);
+      expect(parsed).toEqual({ file: '.github/CODEOWNERS', wrote: true, paths: 5, owners: ['pierrederval'] });
     });
   });
 });

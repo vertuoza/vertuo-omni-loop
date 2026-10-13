@@ -13,6 +13,7 @@ import { approval } from './approval.ts';
 import { wait } from './approval-wait.ts';
 import { ask } from './ask.ts';
 import { board } from './board.ts';
+import { budget } from './budget.ts';
 import { care } from './care.ts';
 import { business } from './business.ts';
 import { bug } from './bug.ts';
@@ -60,4 +61,4 @@ import { update } from './update.ts';
 import { version } from './version.ts';
 import { visual } from './visual.ts';
 
-export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, approval, wait, status, settle, adopt, replies, answers, comment, ship, harvest, check, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, budget, approval, wait, status, settle, adopt, replies, answers, comment, ship, harvest, check, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product });

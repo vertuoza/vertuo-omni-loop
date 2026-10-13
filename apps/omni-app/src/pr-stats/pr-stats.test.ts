@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { inngest } from '../inngest-client.ts';
 import { fakeGitHub, fakeStore, pull } from './fake.ts';
 import { readEnv } from '../env.ts';
+import { stdoutLines } from '../run-log/capture.ts';
 import { createPrStats, EVERY_15_MINUTES, PR_STATS_FUNCTION_ID } from './pr-stats.ts';
 
 const NOW = Date.parse('2026-09-29T12:00:00Z');
@@ -41,6 +42,14 @@ describe('prStats — the Inngest function', () => {
     expect(octokitFor.mock.calls.map(([id]) => id).sort()).toEqual([7, 9]);
     expect(result).toMatchObject({ repositories: 2, collected: 2, failed: 0, saved: 2 });
     expect([...store.state.pulls.keys()].sort()).toEqual(['ws-acme|acme/web|4', 'ws-vertuoza|vertuoza/apps|1']);
+  });
+
+  it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {
+    const fn = createPrStats({ client: inngest, octokitFor: vi.fn(), supabase: readEnv({}).supabase, storeFor: vi.fn() });
+    const lines = await stdoutLines(() => engine(fn).execute());
+    expect(lines.filter((line) => line.event === 'note')).toEqual([
+      { level: 'warn', event: 'note', fn: 'pr-stats', message: 'prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.' },
+    ]);
   });
 
   it('logs one line and writes nothing when the Supabase pair is not set', async () => {
