@@ -128,5 +128,29 @@ one principle id.</span></pre></section>
 </section>
 </div>
 
+<h3>6. Any agent reads it, and phase 0 is judged against it</h3>
+<div class="cols">
+<section class="card"><h4>Today</h4>
+<pre><span class="p">$</span> omni business show --json
+{"state": "confirmed", "claims": [...], "personas": [...]}
+<span class="dim"># the MCP link's get_business answers the same:
+# claims and personas, no Legal entry, no glossary</span>
+
+<span class="dim">canon check on a phase-0 spec: judged against the
+claims, the personas and the Never lines only</span></pre></section>
+<section class="card after"><h4>After</h4>
+<pre><span class="p">$</span> omni business show --json
+{"state": "confirmed", "claims": [...], "personas": [...],
+ "legal": [{"id": "L-INVOICING-1", ...}],
+ "glossary": [{"term": "Credit note", "avoid": ["refund"]}]}
+<span class="dim"># get_business answers the same, to any agent</span>
+
+<span class="bad">canon check: red</span>
+"Credit notes reuse the cancelled invoice's number."
+<span class="dim">breaks</span> L-INVOICING-1  <span class="dim">[Rewrite] [Change the entry]</span></pre>
+<p class="why" style="margin-top:10px">Red never blocks a merge. Every change to an entry is logged, as the Never lines are.</p>
+</section>
+</div>
+
 <p class="pixel">Pixel perfect: screens drawn when the PRD is planned</p>
 </main></body></html>

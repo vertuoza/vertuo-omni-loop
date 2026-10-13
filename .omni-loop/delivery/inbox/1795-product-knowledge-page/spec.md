@@ -26,8 +26,28 @@ their repository links (`20261129090000_product_repositories.sql`), their approv
 (`20261124090000_product_approvers.sql`) and the product home at `/app/products/<id>`
 (`apps/galaxy/src/product-home/tabs.ts`). A repository finds its product with `omni product which`
 and `omni product use <key>` (`kit/bin/commands/product.ts`, `kit/bin/commands/product-checkout.ts`).
-Nothing on the product holds knowledge yet, and a rule's `Serves:` line can only name a principle
-(`servesViolations`, `kit/lib/knowledge/check-knowledge.ts:344`).
+A rule's `Serves:` line can only name a principle (`servesViolations`,
+`kit/lib/knowledge/check-knowledge.ts:344`).
+
+The product already holds the business knowledge of concept #746, and Legal and Glossary are built on
+it, not beside it:
+
+- **Business claims and personas** (PRDs 748, 774, 799): `public.claims`, read by
+  `GET /api/business?repo=` through `businessReader()` (`apps/galaxy/src/business-api/read.ts`),
+  which `omni business show --json` prints.
+- **The constituents** (PRD 871, `supabase/migrations/20261029090000_constituents.sql`): a product's
+  Statement and Never lines (`never#<n>`). Rows are written only by `security definer` functions, every
+  change is appended to `constituent_events` in the same transaction, a removal marks the row removed
+  and keeps it, and an id is never reused. `omni constituents` syncs them at every session's start to
+  `.omni-loop/local/constituents.json`.
+- **The canon check** (PRD 839, `apps/omni-app/src/canon/`): the phase-0 gate judges a spec against
+  the claims, the personas and the constituents, and turns red, naming the spec sentence and the
+  `never#<n>` it breaks.
+- **Any agent's link** (PRD 855, `apps/galaxy/src/agent-connect/mcp/server.ts`): a read-only MCP
+  server whose `get_business` answers exactly the body `GET /api/business` answers, so the terminal
+  and an editor's agent cannot read different things.
+
+None of them holds what the law requires or the product's words.
 
 ## Solution
 
@@ -46,7 +66,8 @@ links: **Legal** entries and **Glossary** terms.
   retired.
 - A Legal entry is **active** or **retired**. Retiring keeps the entry and its id, and marks it
   retired. Nothing deletes a Legal entry.
-- A glossary term is unique in its product, compared without case. Removing a term deletes it.
+- A glossary term is unique among its product's live terms, compared without case. Removing a term
+  marks it removed and keeps it, as a removed Never line is kept; the same word may be added again.
 
 ### Who changes it
 
@@ -66,23 +87,27 @@ with who rejected it, and changes nothing.
 
 ### Where it is stored
 
-New tables in Supabase, one migration dated after the newest on `main`, written like
-`20261124090000_product_approvers.sql`: every member of the workspace reads, nobody signed in writes
-a table directly, and every change goes through a `security definer` function that checks the
-caller's role and refuses with `42501` (not allowed), `P0002` (no such product or entry) or `22023`
-(a bad value).
+New tables in Supabase, one migration dated after the newest on `main`, written the way the
+constituents are (`20261029090000_constituents.sql`): every member of the workspace reads, nobody
+signed in writes a table directly, and every change goes through a `security definer` function that
+checks the caller's role, appends its event in the same transaction, and refuses with `42501` (not
+allowed), `P0002` (no such product or entry) or `22023` (a bad value, the field in `hint`).
 
 - `product_knowledge_owners` — product, kind (`legal`, `glossary`), role (`owner`, `delegate`),
-  member.
-- `product_legal` — product, code, number, statement, source law link, owner, state (`active`,
-  `retired`), who changed it last and when.
-- `product_glossary` — product, term, meaning, words to avoid, who changed it last and when.
+  member. Not `product_approvers`: that list says who approves a PRD's phase 0, not who answers for
+  the law.
+- `product_legal` — product, code, number, statement, source law link, owner, `retired_at` and
+  `retired_by` (null while active).
+- `product_glossary` — product, term, meaning, words to avoid, `removed_at` and `removed_by`.
+- `product_knowledge_events` — the append-only log, as `constituent_events`: the entry, who, what
+  (`added`, `edited`, `retired`, `removed`, `proposed`, `approved`, `rejected`), when, the fields
+  before and after. Nobody updates or deletes one.
 - `product_knowledge_proposals` — product, kind, what it proposes (add, edit, retire or remove, with
   the proposed fields), who proposed it, state (`open`, `approved`, `rejected`), who decided it and
   when.
 
 A new check, `supabase/checks/product_knowledge.sql`, proves each row of the table "Who changes it"
-above, on fixture workspaces, the way `supabase/checks/product_approvers.sql` does.
+above, on fixture workspaces, the way `supabase/checks/constituents.sql` does.
 
 ### The product's knowledge page
 
@@ -97,21 +122,24 @@ delegate. The server side follows the product pages' layering
 
 ### Every repository reads it
 
-A new route, `GET /api/products/knowledge?repo=<owner/name>&product=<key>`, answers the product's
-active Legal entries and its glossary terms, in one reply, to a signed-in member, the way
-`GET /api/products/targets` answers targets (`apps/galaxy/app/api/products/targets/route.ts`).
-The product is the one named by `product`, else the one product the repository belongs to. A
-repository in several products with no `product` given is refused, the refusal naming
-`omni product use <key>`.
+No new route. The business read, `GET /api/business?repo=<owner/name>`, gains two fields: `legal`,
+the product's active Legal entries, and `glossary`, its live terms, each `[]` when there are none.
+They go through `businessReader()` and its schema like `claims` and `personas`, so:
 
-Two new verbs of `omni kb`, with the computer's sign-in (`signedInClient`, `kit/lib/ask/credentials.ts`):
+- `omni business show --json` prints them;
+- the MCP link's `get_business` answers them, its description naming Legal entries and the
+  glossary, so an editor's agent cites `L-INVOICING-1` as it cites `region#1`;
+- the product is the one the business read already resolves for the repository, and a repository the
+  read refuses is refused the same way.
+
+Two new verbs of `omni kb` read that same route, with the computer's sign-in (`signedInClient`,
+`kit/lib/ask/credentials.ts`):
 
 ```
 omni kb legal       the product's active Legal entries, one line each
 omni kb glossary    the product's glossary terms, one line each
 ```
 
-- The product is the one this checkout remembers (`omni product use`), else the server's answer.
 - Each read is kept in `.omni-loop/local/product-knowledge.json` (`{ product, readAt, legal,
   glossary }`), the way `kit/lib/product/targets.ts` keeps `product-targets.json`.
 - When the server cannot be reached (no answer within 5 seconds, or a 5xx), the command prints the
@@ -147,9 +175,22 @@ and `design.words.avoid`, without duplicates. A finding on a product word names 
 `"refund": avoid, the product says "Credit note"`. It never calls the server; with no copy it uses
 the two lists it has today.
 
+### The canon check reads Legal
+
+The canon gate (`apps/omni-app/src/canon/`) reads the product's active Legal entries beside the
+claims, the personas and the constituents, and judges a phase-0 spec against them as it judges a
+Never line:
+
+- A "broken" finding is kept only when its quote is in the spec word for word and it cites a live
+  `L-<CODE>-<n>`. The check is then red, names the spec sentence and the entry, and carries Rewrite and
+  "Change the entry", which links to the entry on the Knowledge tab.
+- Red never blocks a merge, and the gate stays neutral on its own failure, as it does today.
+- The verdict cache key (ADR-0066) gains the newest `product_knowledge_events` id, so a changed Legal
+  entry re-judges.
+
 ## Decisions
 
-- **Q4 — recommended default, accepted when the phase-0 PR merges:** Per product, on the product's Omni page, read by every repository of the product through the CLI. (Where are Legal entries and the glossary kept?)
+- **Q4 — recommended default, accepted when the phase-0 PR merges:** Per product, on the product's Omni page, read by every repository of the product through the CLI and by any agent through the MCP link. (Where are Legal entries and the glossary kept?)
 - **Q5 — recommended default, accepted when the phase-0 PR merges:** Named owners per product, each with a delegate; other members propose. (Who edits a product's Legal and Glossary entries?)
 - **Q6 — recommended default, accepted when the phase-0 PR merges:** Pass with a note, using the last copy read; never block on the network. (What does the knowledge check do when the Omni page cannot be reached?)
 - **Legal and Glossary live per product on the Omni page, not in git.** Every repository of the
@@ -166,6 +207,15 @@ the two lists it has today.
 - **The words check reads only the local copy.** `omni kb glossary` refreshes it; the words check
   stays offline and fast.
 - **The new tab is named Knowledge and sits after Questions** on the product home.
+- **Built on concept #746's business knowledge, not beside it** (the person, reviewing the roadmap
+  against the concept's areas): the store follows the constituents' shape (definer functions, an
+  append-only event log, nothing deleted, ids never reused); the read is the business read, so
+  `omni business show --json` and the MCP's `get_business` carry Legal and the glossary with no new
+  route; and the canon check judges a spec against Legal as against a Never line.
+- **A removed glossary term is kept, marked removed,** as a removed Never line is (decided here), so
+  every product knowledge change has a history.
+- **Owners are their own list, not `product_approvers`** (decided here): approving a PRD's phase 0
+  and answering for the law are different jobs; a later PRD can merge them.
 
 ## User stories
 
@@ -181,12 +231,18 @@ the two lists it has today.
    when that entry does not exist or was retired, and never fails because the page is down.
 6. As a designer, the words check flags "refund" in any repository of the product, because the
    product's glossary says "Credit note".
+7. As an agent in an editor, connected through the MCP link, I read the product's Legal entries and
+   glossary in `get_business` and cite their ids, with no checkout of the kit.
+8. As a PM, a phase-0 spec that breaks `L-INVOICING-1` is flagged red before any code exists, naming
+   the sentence and the entry.
 
 ## Scope
 
-**In:** the four tables, their functions and policies, and the check
+**In:** the five tables, their functions and policies, and the check
 `supabase/checks/product_knowledge.sql`; the Knowledge tab with its Legal and Glossary sections,
-proposals and owner controls; the route `GET /api/products/knowledge`; `omni kb legal` and
+proposals and owner controls; `legal` and `glossary` in the business read (`businessReader()`),
+hence in `omni business show --json` and the MCP's `get_business`; Legal in the canon gate;
+`omni kb legal` and
 `omni kb glossary` with the local copy; `Serves:` naming an `L-` id and its verification in
 `omni check knowledge`; the glossary's avoided words in `omni design words`; `omni help` lines for
 the two verbs; `docs/guide/products.md` gains a section on product knowledge.
@@ -200,18 +256,26 @@ the two verbs; `docs/guide/products.md` gains a section on product knowledge.
   Omni page only.
 - Reading product knowledge in `/omni:brainstorm`, `/omni:plan` or `/omni:do-work`.
 - Importing a repository's `glossary` form into a product glossary.
+- Legal or glossary terms in the `omni constituents` session-start sync: the business read is their
+  one read.
 
 ## Test seams
 
 - **Database:** `supabase/checks/product_knowledge.sql`, run by the `supabase` workflow after the
   migrations, on fixture workspaces with an owner, a Legal owner, a delegate, a plain member and an
   account of another workspace. One transaction, rolled back. It proves each permission of "Who
-  changes it", the id numbering and its never-reuse, retire-not-delete, a glossary term unique
-  without case, and that nobody signed in writes a table directly.
+  changes it", the id numbering and its never-reuse, retire-not-delete, remove-not-delete for a
+  term, a live glossary term unique without case, one event per change written in the same
+  transaction, and that nobody signed in writes a table directly.
 - **App:** the service of `apps/galaxy/src/product-knowledge/` tested against a fake repository
-  (who may decide, who may only propose, the repository in several products); the route's reply
-  shape tested against a zod contract shared with the kit, as `ProductTargetsSchema` is shared; the
-  Knowledge tab's component tested for an owner, a delegate, a member and a workspace owner.
+  (who may decide, who may only propose); `apps/galaxy/src/business-api/` tests of the read with
+  `legal` and `glossary`, empty and filled, against the business schema the kit shares; the MCP
+  server's test (`apps/galaxy/src/agent-connect/mcp/server.test.ts`) proving `get_business` answers
+  the same two fields as the route; the Knowledge tab's component tested for an owner, a delegate, a
+  member and a workspace owner.
+- **Canon gate:** `apps/omni-app/src/canon/` tests: a spec quoting a sentence that breaks a live
+  Legal entry is red with the entry's id; a retired entry is never cited; a quote not in the spec is
+  dropped; a changed entry changes the cache key.
 - **Kit:** `kit/bin/kb.test.ts` and a new `kit/lib/product/knowledge.test.ts` on a fixture repository
   (`makeRepo()`, `kit/test/fixture.ts`), with a stubbed `fetch` as `kit/bin/commands/product-checkout.test.ts`
   does: a fresh read, a 5xx, a timeout, a 4xx, no copy. `kit/lib/knowledge/check-knowledge` tests:
@@ -222,19 +286,24 @@ the two verbs; `docs/guide/products.md` gains a section on product knowledge.
 ## Risks
 
 - **What a merge publishes.** The migration reaches the production database through the `supabase`
-  workflow; the Knowledge tab and the route deploy with `apps/galaxy`; the two verbs and the new
-  `Serves:` rule ship in `kit/dist/omni.mjs` to every repository that updates the kit. Rollback: a
-  follow-up migration drops the four tables and their functions (nothing else reads them), and a
-  revert of the pull request removes the tab, the route and the kit changes. A repository whose rule
+  workflow; the Knowledge tab and the two new fields of the business read deploy with `apps/galaxy`,
+  and reach every agent link at once; the canon gate's change deploys with the Omni App and judges
+  every phase-0 PR of a product with Legal entries; the two verbs and the new `Serves:` rule ship in
+  `kit/dist/omni.mjs` to every repository that updates the kit. Rollback: a follow-up migration drops
+  the five tables and their functions (nothing else reads them), and a revert of the pull request
+  removes the tab, the two fields, the gate's Legal input and the kit changes. A repository whose rule
   serves an `L-` id then fails `omni check knowledge` until that line is changed back to a principle.
 - **A wrong answer from the page could fail a check.** Only an answer the server gives can fail it;
   no answer never does. A check run on a stale local copy is not possible: the check reads the page
   each time and uses no copy.
+- **The canon gate could flag too much.** A Legal entry is phrased as a requirement, so a spec that
+  merely mentions its subject could be judged broken. The gate keeps only a word-for-word quote that
+  cites a live entry, and red never blocks a merge.
 - **Two lists of avoided words could disagree.** The product's list is added to the repository's,
   never replaces it.
 - **The locked laws this design bears on:**
   - BR-PRODUCT-28: a stranger could tie themselves to a team and see what that team sees, if the
-    knowledge route answered a non-member. Changing it needs @pierrederval to approve the pull
+    business read answered Legal or the glossary to a non-member. Changing it needs @pierrederval to approve the pull
     request on GitHub.
   - BR-PRODUCT-63: an agent could read another team's private knowledge, if a sign-in read a product
     of another workspace. Changing it needs @pierrederval to approve the pull request on GitHub.
@@ -277,3 +346,12 @@ the two verbs; `docs/guide/products.md` gains a section on product knowledge.
 13. With a local copy whose glossary says "Credit note — avoid: refund", `omni design words` on a
     page whose marked screen says "refund" reports it and names "Credit note", without calling the
     server.
+14. `GET /api/business?repo=<a repository of the product>` answers `legal` and `glossary`, each `[]`
+    when the product has none, and `omni business show --json` prints them.
+15. The MCP link's `get_business` answers the same `legal` and `glossary` as the route, for the same
+    repository.
+16. A removed glossary term is kept, marked removed, with its event in `product_knowledge_events`;
+    every add, edit, retirement, removal and decision has exactly one event.
+17. A phase-0 spec quoting a sentence that breaks the live entry `L-INVOICING-1` turns the canon check
+    red, naming the sentence and `L-INVOICING-1`, and a person can still merge it; a retired entry is
+    never cited.

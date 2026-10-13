@@ -22,14 +22,16 @@ Nobody can see the product's knowledge whole:
 3. **A person without a checkout sees nothing.** A PM or a lawyer reading a Legal entry cannot ask
    which rules, in which repositories, serve it.
 4. **An agent in one repository cannot ask about the others.** `omni kb graph` answers for the
-   checkout it runs in, and the agent has no clone of the other repositories.
+   checkout it runs in, and the agent has no clone of the other repositories. An agent in an editor,
+   connected through the read-only MCP link (PRD 855, `apps/galaxy/src/agent-connect/mcp/server.ts`),
+   reads the business, its claims and personas, and nothing of the knowledge.
 
 ## Solution
 
 Each repository pushes its graph, in P5's node and edge types, to the Omni page. The server stores it
 per repository and commit, joins every repository of a product with that product's Legal and
-Glossary, and serves the joined graph as P5's neighbourhood JSON, through one authenticated API and
-one read-only page.
+Glossary and Never lines, and serves the joined graph as P5's neighbourhood JSON, through one
+authenticated API, one tool of the MCP link and one read-only page.
 
 ### The push: `omni kb graph push`
 
@@ -77,7 +79,8 @@ repository and commit, with the graph as `jsonb`, `pushed_at` and `pushed_by`.
 
 A pure function, `joinProductGraph`, in `apps/galaxy/src/knowledge-graph/join.ts`, takes the latest
 graph of each repository of the product (its `product_repositories` links with `knowledge = 'own'`),
-the product's active Legal entries and its Glossary terms (P3's tables), and returns one graph:
+the product's active Legal entries and its Glossary terms (P3's tables), its live Never lines (PRD
+871's `constituents`), and returns one graph:
 
 - **Repository nodes get their repository.** Each repository node's id is prefixed with the
   repository's short name and a slash, `vertuo-omni-loop/BR-PRODUCT-3`,
@@ -85,7 +88,10 @@ the product's active Legal entries and its Glossary terms (P3's tables), and ret
   hold a `BR-PRODUCT-3` never collide.
 - **Product nodes are the product's own.** A Legal entry is a `legal` node with its id
   (`L-INVOICING-1`, as P3 names it), a Glossary term a `term` node `term:<word>`, as P5 names them,
-  both with `origin: "product"` and `repo: null`, read from P3's tables at request time.
+  both with `origin: "product"` and `repo: null`, read from P3's tables at request time. A live Never
+  line is a `never` node with its id (`never#3`), read from `constituents` the same way. No edge
+  reaches a Never line yet, since no register line names one: it is found by search and shown beside
+  Legal, so the page holds the product's whole law.
 - **A rule in one repository serving a Legal entry of the product.** A `serves` edge whose target is
   an `L-…` id becomes an edge to the product's Legal node. An `L-…` id the product does not hold, or
   has retired, is listed under `unresolved`, with the repository, the node and the id, never dropped.
@@ -116,7 +122,8 @@ Authorization: Bearer <access token>
   every repository of the product. `depth` defaults to 1 and takes 1 to 3.
 - **The shape is P5's neighbourhood JSON, at `version: 2`.** P5 adds a field only with a new
   version, so the server's answer is version 2: version 1's fields, plus `repo` on each node,
-  `unresolved` and `repositories`, and the product state `server`. P5's CLI reads both versions.
+  `unresolved` and `repositories`, the node kind `never`, and the product state `server`. P5's CLI
+  reads both versions.
 - Refusals follow ADR-0029, each `{error}` in plain words: 400 no `id`, or a `depth` outside 1 to 3;
   401 no valid bearer token; 404 a product key the caller cannot read (the same answer for one that
   does not exist); 404 an `id` absent from the joined graph; 503 no database here.
@@ -127,6 +134,16 @@ Authorization: Bearer <access token>
   ids), and refuses an unknown field. It refuses with 403 a repository no workspace of the caller
   tracks, as `src/roadmap/api.ts` does. It answers `{repo, commit, nodes, edges, products: [{key,
   href}]}`; a repository in no product is stored, and `products` is empty.
+
+### Any agent reads it: the MCP link's `get_knowledge_graph`
+
+The MCP link gains a fourth tool, `get_knowledge_graph {id, depth?, repo?}`, beside `get_business`,
+`get_claims` and `report_unknown`. It answers exactly the body the read route answers for the
+product the link's business resolves for `repo` (as `get_business` resolves it), through the same
+reader, so the two cannot differ. The link's read-only token is checked by the database as it is for
+`get_business` (ADR-0051); a refused token, an unknown `id` or a `depth` outside 1 to 3 answer one
+line as a tool error, as `LINK_REFUSED` does today. Its description tells the agent to cite the ids
+it relies on, `L-INVOICING-1` or `vertuo-omni-loop/BR-PRODUCT-3`.
 
 ### The CLI reads it: `omni kb graph --product <key> <id>`
 
@@ -185,6 +202,12 @@ The existing `/knowledge` map (PRD 149) stays as it is.
 - **Only `own` knowledge is served** (decided here). A link whose knowledge is `imported` or `none`
   is listed with no graph; serving an imported copy is left for later.
 - **History kept: the last 20 commits per repository** (decided here, a constant to change).
+- **Agents read the graph through the MCP link too, and Never lines are product nodes** (the person,
+  reviewing the roadmap against concept #746's areas): the link PRD 855 built is the one read path
+  for an editor's agent, so the graph joins it as a tool answering the route's body; and the
+  product's Never lines, its law above every priority, sit beside its Legal entries.
+- **Personas are not nodes** (decided here): no knowledge entry names one, and `get_business`
+  already answers them.
 
 ## User stories
 
@@ -193,7 +216,8 @@ The existing `/knowledge` map (PRD 149) stays as it is.
 2. As a **developer**, I see that the front-end and the back-end both use the term "credit note", and
    find the two rules.
 3. As an **agent** in the front-end, I run `omni kb graph --product <key> L-INVOICING-1` and get the
-   back-end's rules that serve it, without a clone.
+   back-end's rules that serve it, without a clone; an agent in an editor gets the same through the
+   MCP link's `get_knowledge_graph`.
 4. As a **maintainer**, I read each repository's commit and push time, so I know how old the graph I
    read is.
 5. As a **member of another workspace**, I can read nothing of a product that is not mine.
@@ -201,7 +225,7 @@ The existing `/knowledge` map (PRD 149) stays as it is.
 ## Scope
 
 **In:** `omni kb graph push`; `omni kb graph --product <key>`; the client call; the push route and
-the read route; the migration, its row-level security and its check; the join; the product's
+the read route; the MCP tool `get_knowledge_graph`; Never lines as product nodes; the migration, its row-level security and its check; the join; the product's
 Knowledge tab; the `knowledge-graph.yml` workflow of this repository; the guide section.
 
 **Out:** the graph itself, its JSON shape and `omni kb graph` on a checkout (P5, #1797); writing or
@@ -216,9 +240,12 @@ workflow in other repositories; any edit of knowledge from the page.
 - **The routes**, as plain functions of a `Request` with a stubbed Supabase client, as
   `apps/galaxy/src/roadmap/api.test.ts` does: each refusal and its status, the 2 MiB cap, an unknown
   field, the `id` and `depth` rules.
+- **The MCP tool**, in `apps/galaxy/src/agent-connect/mcp/server.test.ts`: `get_knowledge_graph`
+  answers the read route's body for the same product, `id` and `depth`; a revoked token, an unknown
+  `id` and `depth: 4` each answer one line as a tool error.
 - **The join**, `joinProductGraph`, a pure unit test on small graphs: prefixed ids, a Legal edge
   resolved and one unresolved, a term shared by two repositories and one the Glossary no longer holds, an
-  imported link listed with no graph.
+  imported link listed with no graph, a live Never line as a `never` node and a removed one absent.
 - **The database**, `supabase/checks/knowledge_graphs.sql`, with realistic rows: a member pushes and
   reads, a stranger and a signed-out caller read nothing and cannot push, the 21st commit removes the
   oldest, a repeat of one commit replaces it.
@@ -229,7 +256,7 @@ workflow in other repositories; any edit of knowledge from the page.
 ## Risks
 
 - **What merging publishes:** a migration applied to production by the `supabase` workflow; two new
-  routes and a tab on the arcade's next deploy; a new `omni` subcommand in `kit/dist/omni.mjs`; a
+  routes, a new tool on every agent link and a tab on the arcade's next deploy; a new `omni` subcommand in `kit/dist/omni.mjs`; a
   workflow that pushes this repository's graph after each merge once `OMNI_TOKEN` is set.
 - **Rollback:** revert the pull request. The table is new and nothing else reads it; a follow-up
   migration drops it. Deleting `knowledge-graph.yml` stops the pushes.
@@ -246,7 +273,8 @@ workflow in other repositories; any edit of knowledge from the page.
 - **The locked laws.** `omni kb laws --paths` on the files this design adds or changes prints all 17
   locked laws, since none carries a `Governs:` line yet. Two bear on this design:
   - BR-PRODUCT-63: an agent link reading another workspace's repositories would let an agent read
-    another team's private work; the read route and the row-level security must hold it. Changing it
+    another team's private work; the read route, the MCP tool (whose token reads only its own
+    business's product) and the row-level security must hold it. Changing it
     needs @pierrederval to approve the pull request on GitHub.
   - BR-PRODUCT-94: the push and read routes write no answer and change no answer's state, so a
     terminal token still cannot mark an answer given. Changing it needs @pierrederval to approve the
@@ -285,3 +313,8 @@ workflow in other repositories; any edit of knowledge from the page.
     lets a person pick a node and see its neighbours, and offers no control that edits anything.
 14. In this repository, a merge to `main` with `OMNI_TOKEN` set pushes the graph of the merged
     commit; without the secret, the workflow does nothing and passes.
+15. Through the MCP link, `get_knowledge_graph {id: "L-INVOICING-1", depth: 2}` answers the same body
+    as `GET /api/products/<key>/knowledge/graph?id=L-INVOICING-1&depth=2` for the link's product; a
+    revoked link answers one line as a tool error.
+16. Each live Never line of the product is a `never` node (`never#<n>`, `origin: "product"`), found
+    by id; a removed one is not in the graph.

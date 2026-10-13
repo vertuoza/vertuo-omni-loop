@@ -111,6 +111,10 @@ L-INVOICING-1  legal  Invoice numbers follow each other with no gaps.
   down  serves  back-end/BR-INVOICE-12   rule  …
   down  serves  front-end/BR-INVOICE-3   rule  …
 product knowledge: server (omni-loop).</pre>
+<pre><span class="dim">MCP link (an editor's agent)</span>
+get_knowledge_graph {"id": "L-INVOICING-1", "depth": 1}
+<span class="okc">→</span> the same body as the route, for the link's product
+<span class="dim">today: get_business, get_claims, report_unknown only</span></pre>
 </div>
 </div>
 </section>
@@ -124,6 +128,7 @@ product knowledge: server (omni-loop).</pre>
 <tr><td>A rule's <code>Serves: L-INVOICING-9</code>, which the product does not hold</td><td>unnoticed</td><td>listed under <code>unresolved</code>, with repository and node</td></tr>
 <tr><td>back-end and front-end rules both use the Glossary term "credit note"</td><td>two unrelated nodes</td><td>one <code>term:credit note</code> node, a <code>uses-term</code> edge from each</td></tr>
 <tr><td>A term the Glossary no longer holds</td><td>unnoticed</td><td>listed under <code>unresolved</code></td></tr>
+<tr><td>The product's Never line <code>never#3</code></td><td>on the Business settings only</td><td>a <code>never</code> node beside the Legal entries, found by search</td></tr>
 <tr><td>A repository whose link says <code>imported</code> or <code>none</code></td><td>no graph</td><td>listed with <code>graph: "none"</code>, nothing served</td></tr>
 </tbody></table></div>
 </section>
@@ -136,6 +141,7 @@ product knowledge: server (omni-loop).</pre>
 <tr><td>Member of a workspace tracking the repository</td><td>stored (last 20 commits kept)</td><td>200</td></tr>
 <tr><td>Member of another workspace</td><td>403, nothing stored</td><td>404, as for an unknown key</td></tr>
 <tr><td>No valid token</td><td>401</td><td>401</td></tr>
+<tr><td>An agent's MCP link</td><td>cannot push</td><td>its own product only; a revoked link gets one line as a tool error</td></tr>
 <tr><td>Body over 2 MiB</td><td>413, naming the cap</td><td>n/a</td></tr>
 </tbody></table></div>
 </section>

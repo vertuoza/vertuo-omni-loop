@@ -23,7 +23,7 @@ source: https://claude.ai/code/artifact/67d99a28-a887-46ab-b481-c586c4eadc5b
 | Q1 | Who approves changing a business rule? | Keep the tiers PRD 1726 shipped: a rule through a high item any person answers, a locked law only through its CODEOWNER; no review-policy line per entry. | P1 | default |
 | Q2 | What does escalation cover, and where is the delegate kept? | Locked-law approvals and high items; a delegate next to each owner in laws.owners. | P2 | default |
 | Q3 | How long before an unanswered item escalates? | 2 working days, a setting of its own. | P2 | default |
-| Q4 | Where are Legal entries and the glossary kept? | Per product, on the product's Omni page, read by every repository of the product through the CLI. | P3 | default |
+| Q4 | Where are Legal entries and the glossary kept? | Per product, on the product's Omni page, read by every repository of the product through the CLI and by any agent through the MCP link. | P3 | default |
 | Q5 | Who edits a product's Legal and Glossary entries? | Named owners per product, each with a delegate; other members propose. | P3 | default |
 | Q6 | What does the knowledge check do when the Omni page cannot be reached? | Pass with a note, using the last copy read; never block on the network. | P3 | default |
 
