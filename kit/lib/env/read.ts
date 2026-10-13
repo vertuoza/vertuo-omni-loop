@@ -132,6 +132,28 @@ const SESSION = envGroup({
   },
 });
 
+/**
+ * The heartbeat any `omni` command sends (PRD 1831): `off` turns it off. `omni heartbeat` itself, which
+ * Claude Code's hook runs, does not read it.
+ */
+const HEARTBEAT = envGroup({
+  label: 'the heartbeat',
+  schema: z.object({ switch: z.enum(['on', 'off'], 'on or off') }),
+  variables: { switch: 'OMNI_HEARTBEAT' },
+});
+
+/** The test runner a command runs under: vitest sets `VITEST`, and no heartbeat leaves a test. */
+const TEST_RUNNER = envGroup({
+  label: 'the test runner',
+  schema: z.object({ vitest: z.string() }),
+  variables: { vitest: 'VITEST' },
+});
+
+/** Whether a command sends the heartbeat: unless `OMNI_HEARTBEAT` is `off`, or under vitest. */
+function heartbeatOf(group: z.output<typeof HEARTBEAT.schema> | null, runner: z.output<typeof TEST_RUNNER.schema> | null): boolean {
+  return group?.switch !== 'off' && runner === null;
+}
+
 /** The package manager that runs a script, which `pnpm check:changed` runs its steps with. */
 const PACKAGE_MANAGER = envGroup({
   label: 'the package manager',
@@ -143,17 +165,17 @@ const PACKAGE_MANAGER = envGroup({
  * The variables a person sets for the kit, the game and the scripts: the root README's list names
  * exactly these (`scripts/env-docs.test.ts`).
  */
-export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN, OMNI_SESSION]);
+export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT]);
 
 /** The game's own, a part of {@link VARIABLES}: `game/README.md`'s list names exactly these. */
 export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABASE]);
 
 /**
  * The variables the platform sets, read here but never set by a person, so no docs list names them:
- * Claude Code's session, the terminal, the GitHub Actions runner, the package manager and the session
- * a sign-in reads.
+ * Claude Code's session, the terminal, the GitHub Actions runner, the package manager, the session
+ * a sign-in reads and the test runner.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -192,6 +214,7 @@ export function readEnv(source: EnvSource) {
     packageManager: reader.group(PACKAGE_MANAGER),
     omniToken: reader.group(OMNI_TOKEN),
     session: sessionOf(reader.group(SESSION)),
+    heartbeat: heartbeatOf(reader.group(HEARTBEAT), reader.group(TEST_RUNNER)),
   };
   reader.done();
   return env;
@@ -211,6 +234,14 @@ export function omniTokenOf(source: EnvSource): string | null {
 /** The kit token this process was started with, or `null`: {@link omniTokenOf} the process's environment. */
 export function processOmniToken(): string | null {
   return omniTokenOf(processEnv());
+}
+
+/**
+ * Whether this process runs under vitest: the guard a default that starts a real process reads, so
+ * that a test handing a command its own environment never starts one.
+ */
+export function processUnderTest(): boolean {
+  return Boolean(processEnv().VITEST);
 }
 
 /** The kit's, the game's and the scripts' groups, as `readEnv` gives them. */

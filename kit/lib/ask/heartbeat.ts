@@ -11,6 +11,8 @@
 //   `.omni-loop/local/heartbeat/<Claude session id>.json` of the main checkout, so every worktree of
 //   one session shares it. It is claimed before the call goes out: a call inside the window does no
 //   network work at all.
+// - **The beat any command sends** (PRD 1831, `beatsAfter`, `startHeartbeat`): every `omni` command
+//   but the few that never do claims the same window and starts `omni heartbeat --claimed`, detached.
 //
 // Only the Claude session id, the repository's name, the work's kind and number (or the draft's id)
 // leave the machine, and the server stamps the time. No tool name, path, command or transcript text.
@@ -143,15 +145,24 @@ export function readWork({ cwd, config, claudeSessionId, exec = execFileSync }: 
 const windowFile = (root: string, claudeSessionId: string): string => join(root, LOCAL_DIR, WINDOWS_DIR, `${claudeSessionId}.json`);
 
 /**
+ * Whether the session may call now, read without claiming it: true when its last call is at least
+ * `HEARTBEAT_EVERY_MS` old or it has none; false otherwise, and for an id that cannot name a file.
+ * Writes nothing.
+ */
+export function windowDue(root: string, claudeSessionId: unknown, now: number): boolean {
+  if (!isSafeId(claudeSessionId)) return false;
+  const window = HeartbeatWindowSchema.safeParse(attempt((): unknown => JSON.parse(readFileSync(windowFile(root, claudeSessionId), 'utf8'))));
+  const last = window.success ? window.data.sentAt : null;
+  return last === null || !Number.isFinite(last) || now - last >= HEARTBEAT_EVERY_MS || now < last;
+}
+
+/**
  * Whether the session may call now: true, and `now` kept as its last call, when its last call is at
  * least `HEARTBEAT_EVERY_MS` old or it has none; false otherwise, and for an id that cannot name a file.
  */
 export function claimWindow(root: string, claudeSessionId: unknown, now: number): boolean {
-  if (!isSafeId(claudeSessionId)) return false;
+  if (!isSafeId(claudeSessionId) || !windowDue(root, claudeSessionId, now)) return false;
   const file = windowFile(root, claudeSessionId);
-  const window = HeartbeatWindowSchema.safeParse(attempt((): unknown => JSON.parse(readFileSync(file, 'utf8'))));
-  const last = window.success ? window.data.sentAt : null;
-  if (last !== null && Number.isFinite(last) && now - last < HEARTBEAT_EVERY_MS && now >= last) return false;
   const dir = join(root, LOCAL_DIR);
   mkdirSync(join(dir, WINDOWS_DIR), { recursive: true });
   if (!existsSync(join(dir, '.gitignore'))) writeFileSync(join(dir, '.gitignore'), '*\n');
@@ -162,4 +173,42 @@ export function claimWindow(root: string, claudeSessionId: unknown, now: number)
 /** Deletes the session's window, once it has ended. */
 export function forgetWindow(root: string, claudeSessionId: unknown): void {
   if (isSafeId(claudeSessionId)) rmSync(windowFile(root, claudeSessionId), { force: true });
+}
+
+// The heartbeat any `omni` command sends (PRD 1831): after a command whose session id resolves, the
+// entry claims the window and starts `omni heartbeat --claimed` as a detached child, which sends the
+// beat the window was claimed for. The command neither waits for it nor fails with it.
+
+/** The commands that never start the heartbeat, as the leading words of their arguments: the
+ * heartbeat itself, the ask hooks, the session's end (which sends its own) and the status line. */
+const SILENT_COMMANDS: readonly (readonly string[])[] = [['heartbeat'], ['ask', 'hook'], ['session', 'end'], ['statusline']];
+
+/** Whether `argv` (`[command, ...args]`) is a command after which the heartbeat is sent. */
+export function beatsAfter(argv: readonly string[]): boolean {
+  if (argv.length === 0) return false;
+  return !SILENT_COMMANDS.some((words) => words.every((word, index) => argv[index] === word));
+}
+
+/** The environment the child starts with. */
+type ChildEnv = Readonly<Record<string, string | undefined>>;
+
+/** What starts the child: `child_process.spawn`, or a test's fake. */
+export type HeartbeatSpawn = (
+  command: string,
+  args: readonly string[],
+  options: { cwd: string; detached: true; stdio: 'ignore'; windowsHide: true; env: ChildEnv },
+) => { on?: (event: 'error', listener: () => void) => unknown; unref?: () => void } | null | undefined;
+
+/**
+ * Starts `node <script> heartbeat --claimed` in `cwd`, detached, its output ignored, with `env`, and
+ * lets it go. Never waits, never throws: a child that fails to start is a beat the page misses.
+ */
+export function startHeartbeat({ spawn, script, cwd, env }: { spawn: HeartbeatSpawn; script: string; cwd: string; env: ChildEnv }): void {
+  try {
+    const child = spawn(process.execPath, [script, 'heartbeat', '--claimed'], { cwd, detached: true, stdio: 'ignore', windowsHide: true, env });
+    child?.on?.('error', () => {});
+    child?.unref?.();
+  } catch {
+    // Nothing started: the next command tries again.
+  }
 }
