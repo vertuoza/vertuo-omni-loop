@@ -61,7 +61,7 @@ function fixture() {
 type Call = { method: string; path: string; body: unknown };
 
 /** The fake Omni app: register answers `r1`, `next` hands each queued job once, then holds briefly. */
-function fakeApp({ jobs = [], cancel = false, unreachable = 0, status }: { jobs?: unknown[]; cancel?: boolean; unreachable?: number; status?: number } = {}) {
+function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = false }: { jobs?: unknown[]; cancel?: boolean; unreachable?: number; status?: number; ended?: boolean } = {}) {
   const calls: Call[] = [];
   const queue = [...jobs];
   let failures = unreachable;
@@ -76,7 +76,8 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status }: { jobs?
     if (status !== undefined) return reply(status, { error: 'no' });
     if (pathname === '/api/runners/register') return reply(200, { id: 'r1' });
     if (pathname === '/api/runners/next') return next();
-    return pathname.startsWith('/api/runners/jobs/') ? reply(200, cancel ? { cancel: true } : {}) : reply(404);
+    if (pathname.startsWith('/api/runners/jobs/')) return ended ? reply(409, { error: 'This job has ended.' }) : reply(200, cancel ? { cancel: true } : {});
+    return reply(404);
   };
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
     const { pathname } = new URL(url);
@@ -182,7 +183,7 @@ const ended = (app: ReturnType<typeof fakeApp>) => () => ['done', 'failed', 'can
 describe('omni runner', () => {
   it('registers, runs a claimed job in its worktree and tmux session, sends its log tail and its pull request, and keeps its branch', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 7, line: '/omni:yolo 1717', repo: 'acme/widgets', sent_by: 'ada' }] });
+    const app = fakeApp({ jobs: [{ id: 7, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
     const run = startRunner(f, app);
     await until(ended(app), 'the job to end');
     run.stop.abort();
@@ -200,9 +201,9 @@ describe('omni runner', () => {
     expect(readFileSync(log, 'utf8')).toContain('claude read: /omni:yolo 1717');
 
     const updates = app.updates();
-    expect(updates[0]).toEqual({ status: 'running', log_tail: '' });
-    expect(updates.at(-1)).toMatchObject({ status: 'done', exit_code: 0, pr_url: 'https://github.com/acme/widgets/pull/42' });
-    expect(updates.at(-1)?.log_tail).toContain('claude read: /omni:yolo 1717');
+    expect(updates[0]).toEqual({ status: 'running', logTail: '' });
+    expect(updates.at(-1)).toMatchObject({ status: 'done', exitCode: 0, prUrl: 'https://github.com/acme/widgets/pull/42' });
+    expect(updates.at(-1)?.logTail).toContain('claude read: /omni:yolo 1717');
     expect(existsSync(worktree)).toBe(false);
     expect(git(f.checkout, 'branch', '--list', 'agent/job-7').trim()).toBe('agent/job-7');
     expect(run.stdout.text()).toContain('runner box-1 registered · 1 slot · acme/widgets');
@@ -211,24 +212,24 @@ describe('omni runner', () => {
 
   it('sends the log tail every tick while the job runs', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 8, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sent_by: 'ada' }] });
+    const app = fakeApp({ jobs: [{ id: 8, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });
     const run = startRunner(f, app);
     await until(ended(app), 'the job to end');
     run.stop.abort();
     await run.done;
     const ticks = app.updates().filter((update) => update.status === 'running');
     expect(ticks.length).toBeGreaterThan(3);
-    expect(ticks.some((update) => String(update.log_tail).includes('claude read: /omni:yolo sleep-1'))).toBe(true);
+    expect(ticks.some((update) => String(update.logTail).includes('claude read: /omni:yolo sleep-1'))).toBe(true);
   });
 
   it('reports a run that fails with its exit code', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 9, line: '/omni:yolo fail', repo: 'acme/widgets', sent_by: null }] });
+    const app = fakeApp({ jobs: [{ id: 9, line: '/omni:yolo fail', repo: 'acme/widgets', sentBy: null }] });
     const run = startRunner(f, app);
     await until(ended(app), 'the job to end');
     run.stop.abort();
     await run.done;
-    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exit_code: 3 });
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exitCode: 3 });
     expect(run.terminal.sessions[0]?.env).not.toHaveProperty('OMNI_SENT_BY');
   });
 
@@ -236,9 +237,9 @@ describe('omni runner', () => {
     const f = fixture();
     const app = fakeApp({
       jobs: [
-        { id: 10, line: '/omni:brainstorm an idea', repo: 'acme/widgets', sent_by: 'ada' },
-        { id: 11, line: '/omni:yolo 1; rm -rf ~', repo: 'acme/widgets', sent_by: 'ada' },
-        { id: 12, line: '/omni:yolo 1', repo: 'acme/elsewhere', sent_by: 'ada' },
+        { id: 10, line: '/omni:brainstorm an idea', repo: 'acme/widgets', sentBy: 'ada' },
+        { id: 11, line: '/omni:yolo 1; rm -rf ~', repo: 'acme/widgets', sentBy: 'ada' },
+        { id: 12, line: '/omni:yolo 1', repo: 'acme/elsewhere', sentBy: 'ada' },
       ],
     });
     const run = startRunner(f, app);
@@ -255,7 +256,7 @@ describe('omni runner', () => {
 
   it('kills a job past --timeout and reports it failed, reason timeout', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 13, line: '/omni:yolo sleep-5', repo: 'acme/widgets', sent_by: 'ada' }] });
+    const app = fakeApp({ jobs: [{ id: 13, line: '/omni:yolo sleep-5', repo: 'acme/widgets', sentBy: 'ada' }] });
     const run = startRunner(f, app, { args: ['--timeout', '1s'] });
     await until(ended(app), 'the job to end');
     run.stop.abort();
@@ -266,7 +267,7 @@ describe('omni runner', () => {
 
   it('kills a job whose cancel waits and reports it cancelled', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 14, line: '/omni:yolo sleep-5', repo: 'acme/widgets', sent_by: 'ada' }], cancel: true });
+    const app = fakeApp({ jobs: [{ id: 14, line: '/omni:yolo sleep-5', repo: 'acme/widgets', sentBy: 'ada' }], cancel: true });
     const run = startRunner(f, app);
     await until(ended(app), 'the job to end');
     run.stop.abort();
@@ -274,6 +275,17 @@ describe('omni runner', () => {
     expect(app.updates().at(-1)).toMatchObject({ status: 'cancelled' });
     expect(run.terminal.stopped).toEqual(['job-14']);
     expect(existsSync(join(f.home, 'wt', 'widgets-job-14'))).toBe(false);
+  });
+
+  it('stops a job whose report the app answers 409, and keeps running', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 17, line: '/omni:yolo sleep-5', repo: 'acme/widgets', sentBy: 'ada' }], ended: true });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(run.terminal.stopped).toEqual(['job-17']);
+    expect(run.stdout.text()).not.toContain('refused (409)');
   });
 
   it('tries an unreachable app again after 5 s, doubling up to 60 s, while its jobs keep running', async () => {
@@ -294,7 +306,7 @@ describe('omni runner', () => {
 
   it('keeps a running job going while its next call cannot reach the app', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 15, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sent_by: 'ada' }] });
+    const app = fakeApp({ jobs: [{ id: 15, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });
     const flaky = { ...app, fetch: async (url: string, init: RequestInit) => {
       const { pathname } = new URL(url);
       if (pathname === '/api/runners/next' && app.calls.some((call) => call.path === '/api/runners/next')) {
@@ -349,7 +361,7 @@ describe('omni runner', () => {
 
   it('on Ctrl-C stops taking jobs and waits for the running ones', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 16, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sent_by: 'ada' }] });
+    const app = fakeApp({ jobs: [{ id: 16, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });
     const run = startRunner(f, app);
     await until(() => run.terminal.sessions.length === 1, 'the job to start');
     run.stop.abort();

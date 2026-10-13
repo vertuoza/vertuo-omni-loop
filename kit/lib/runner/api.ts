@@ -8,6 +8,8 @@
 //   tries again, and its running jobs keep going.
 // - `RunnerRefused`: the app refused the sign-in (`no sign-in (omni setup-token)`) or the call
 //   (`refused (<status>)`, a 404 once the routes are gone). The runner stops.
+// A job report the app answers 409 is not a refusal: the job ended meanwhile (cancelled, or failed as
+// `runner lost`), so the runner stops that job alone, as for a cancel.
 import { z } from 'zod';
 import { askClient } from '../ask/client.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
@@ -42,7 +44,7 @@ const JobSchema = z.object({
   id: z.union([z.string().min(1), z.number()]).transform(String),
   line: z.string(),
   repo: z.string(),
-  sent_by: z.string().nullish().transform((value) => value ?? null),
+  sentBy: z.string().nullish().transform((value) => value ?? null),
 });
 
 /** A job as the runner reads it: its id, its line, its repository (`owner/name`), and who sent it. */
@@ -54,14 +56,14 @@ const UpdatedSchema = z.object({ cancel: z.boolean().optional() }).loose();
 /** A job's status as the runner reports it. */
 export type JobUpdate = {
   status: 'running' | 'done' | 'failed' | 'cancelled';
-  log_tail?: string;
-  pr_url?: string | null;
-  exit_code?: number | null;
+  logTail?: string;
+  prUrl?: string | null;
+  exitCode?: number | null;
   reason?: string | null;
 };
 
 /** What the runner says about itself when it registers. */
-export type Registration = { name: string; slots: number; repos: string[]; version: string | null };
+export type Registration = { name: string; slots: number; repos: string[]; version: string };
 
 export type RunnerApi = {
   register(registration: Registration): Promise<{ id: string }>;
@@ -71,6 +73,14 @@ export type RunnerApi = {
 };
 
 const timedOut = (error: unknown): boolean => typeof error === 'object' && error !== null && 'name' in error && error.name === 'TimeoutError';
+
+/** `response` when it may be read: a refused sign-in, a 5xx and any other refusal but `allow` throw. */
+function checked(response: Response, what: string, allow: number | undefined): Response {
+  if (response.status === 401 || response.status === 403) throw new RunnerRefused(NO_SIGN_IN);
+  if (response.status >= 500) throw new RunnerUnreachable(`${what}: ${String(response.status)}`);
+  if (!response.ok && response.status !== allow) throw new RunnerRefused(`refused (${String(response.status)})`);
+  return response;
+}
 
 export function runnerApi({ askUrl, tokens, fetch }: { askUrl: string; tokens: TokenStore; fetch: Fetch }): RunnerApi {
   const root = askUrl.replace(/\/+$/, '');
@@ -105,16 +115,13 @@ export function runnerApi({ askUrl, tokens, fetch }: { askUrl: string; tokens: T
   }
 
   /** A 2xx response: a 401 renews the sign-in once and tries again. */
-  async function call(method: string, path: string, options: { body?: unknown; timeoutMs?: number; signal?: AbortSignal | undefined } = {}): Promise<Response> {
+  async function call(method: string, path: string, options: { body?: unknown; timeoutMs?: number; signal?: AbortSignal | undefined; allow?: number } = {}): Promise<Response> {
     const timeoutMs = options.timeoutMs ?? CALL_MS;
     const held = tokens.read(host)?.access_token;
     const token = held ? held : await renewed();
     let response = await send(method, path, token, { ...options, timeoutMs });
     if (response.status === 401) response = await send(method, path, await renewed(), { ...options, timeoutMs });
-    if (response.status === 401 || response.status === 403) throw new RunnerRefused(NO_SIGN_IN);
-    if (response.status >= 500) throw new RunnerUnreachable(`${method} ${path}: ${String(response.status)}`);
-    if (!response.ok) throw new RunnerRefused(`refused (${String(response.status)})`);
-    return response;
+    return checked(response, `${method} ${path}`, options.allow);
   }
 
   async function json(response: Response): Promise<unknown> {
@@ -139,7 +146,9 @@ export function runnerApi({ askUrl, tokens, fetch }: { askUrl: string; tokens: T
       return job.success ? job.data : null;
     },
     async update(job, update) {
-      const reply = UpdatedSchema.safeParse(await json(await call('POST', `/api/runners/jobs/${segment(job)}`, { body: update })));
+      const response = await call('POST', `/api/runners/jobs/${segment(job)}`, { body: update, allow: 409 });
+      if (response.status === 409) return { cancel: true };
+      const reply = UpdatedSchema.safeParse(await json(response));
       return { cancel: reply.success && reply.data.cancel === true };
     },
   };

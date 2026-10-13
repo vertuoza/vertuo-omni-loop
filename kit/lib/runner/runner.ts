@@ -126,7 +126,7 @@ async function register(loop: Loop): Promise<string | null> {
   const repos = [...loop.checkouts.keys()];
   while (!loop.halt.aborted) {
     try {
-      return (await loop.api.register({ name: loop.name, slots: loop.slots, repos, version: loop.version })).id;
+      return (await loop.api.register({ name: loop.name, slots: loop.slots, repos, version: loop.version ?? 'unknown' })).id;
     } catch (error) {
       if (error instanceof RunnerRefused) loop.refuse(error);
       else if (error instanceof RunnerUnreachable) delay = await backOff(loop, delay, error, loop.halt);
@@ -226,7 +226,7 @@ function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
   writeFileSync(place.line, `${job.line}\n`);
   writeFileSync(place.log, '');
   rmSync(place.exit, { force: true });
-  const sender: Record<string, string> = job.sent_by ? { OMNI_SENT_BY: job.sent_by, OMNI_RUNNER: loop.name } : {};
+  const sender: Record<string, string> = job.sentBy ? { OMNI_SENT_BY: job.sentBy, OMNI_RUNNER: loop.name } : {};
   try {
     loop.terminal.start({
       name: place.session,
@@ -244,26 +244,26 @@ function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
 function ended(log: string, exitText: string, repo: string): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
-  if (exitCode === 0) return { status: 'done', log_tail: logTail(log), pr_url: lastPullRequest(log, repo), exit_code: 0 };
-  return { status: 'failed', log_tail: logTail(log), exit_code: exitCode, reason: `exit code ${String(exitCode)}` };
+  if (exitCode === 0) return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, repo), exitCode: 0 };
+  return { status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
 }
 
 /** Stops the job's session and answers `update`. */
 function killed(loop: Loop, place: Place, update: JobUpdate): JobUpdate {
   loop.terminal.stop(place.session);
-  return { ...update, log_tail: logTail(readText(place.log)) };
+  return { ...update, logTail: logTail(readText(place.log)) };
 }
 
 /** Looks at the running job every tick, until it ends, is cancelled or runs past the timeout. */
 async function watch(loop: Loop, job: RunnerJob, place: Place): Promise<JobUpdate> {
   const started = loop.now();
-  if (await tick(loop, job.id, { status: 'running', log_tail: '' })) return killed(loop, place, { status: 'cancelled' });
+  if (await tick(loop, job.id, { status: 'running', logTail: '' })) return killed(loop, place, { status: 'cancelled' });
   for (;;) {
     await loop.sleep(loop.tickMs);
     const log = readText(place.log);
     if (existsSync(place.exit)) return ended(log, readText(place.exit), job.repo);
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
-    if (await tick(loop, job.id, { status: 'running', log_tail: logTail(log) })) return killed(loop, place, { status: 'cancelled' });
+    if (await tick(loop, job.id, { status: 'running', logTail: logTail(log) })) return killed(loop, place, { status: 'cancelled' });
   }
 }
 
@@ -282,7 +282,7 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<JobUpdate> {
 
 /** The line a job's end prints. */
 function endLine(job: RunnerJob, last: JobUpdate): string {
-  const detail = last.status === 'done' ? last.pr_url : last.reason;
+  const detail = last.status === 'done' ? last.prUrl : last.reason;
   return `job ${job.id} ${last.status}${detail ? ` · ${detail}` : ''}`;
 }
 
