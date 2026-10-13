@@ -6,17 +6,15 @@
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Texture } from './mode7';
 import { VOID } from './texture';
-import { legHeight, type Track } from './track';
+import { LEVEL, legHeight, type Track } from './track';
 
-type Ground = Pick<Track, 'waypoints' | 'relief'>;
+type Ground = Pick<Track, 'waypoints' | 'relief'> & Partial<Pick<Track, 'shortcuts'>>;
 
 /** Whether a circuit is flat: every height and bump 0. */
 const flat = ({ relief }: Ground): boolean => relief.heights.every((h) => h === 0) && relief.bumps.every((b) => b === 0);
 
-/** The ground's height at x, y: the leg of the racing line nearest to it, at the point of that leg it stands beside. */
-export function groundAt(track: Ground, x: number, y: number): number {
-  if (flat(track)) return 0;
-  const w = track.waypoints;
+/** The nearest leg of the racing line to x, y: its squared distance, its index, the way along it and its length. */
+function nearestLeg(w: Ground['waypoints'], x: number, y: number) {
   let best = Infinity, leg = 0, along = 0, length = 1;
   for (let i = 0; i < w.length; i++) {
     const a = at(w, i, 'a waypoint'), b = at(w, (i + 1) % w.length, 'the next waypoint');
@@ -26,7 +24,48 @@ export function groundAt(track: Ground, x: number, y: number): number {
     const far = ex * ex + ey * ey;
     if (far < best) { best = far; leg = i; along = d; length = len; }
   }
+  return { best, leg, along, length };
+}
+
+/** The height of the racing line alone (no shortcut) at x, y. */
+function lineGround(track: Ground, x: number, y: number): number {
+  const { leg, along, length } = nearestLeg(track.waypoints, x, y);
   return legHeight(track.relief, leg, along, length);
+}
+
+/** The ground at the two ends of each shortcut's leg, read once per circuit: where it leaves the racing line and where it rejoins it. */
+const ends = new WeakMap<object, readonly (readonly [number, number])[]>();
+function endsOf(track: Ground, shortcuts: NonNullable<Ground['shortcuts']>): readonly (readonly [number, number])[] {
+  const known = ends.get(shortcuts);
+  if (known) return known;
+  const made = shortcuts.map(({ from, to }): readonly [number, number] => [lineGround(track, from.x, from.y), lineGround(track, to.x, to.y)]);
+  ends.set(shortcuts, made);
+  return made;
+}
+
+/**
+ * The ground's height at x, y: the leg of the racing line nearest to it, at the point of that leg it stands beside
+ * (PRD 1775: or a shortcut's own leg, when that is strictly nearer). A shortcut's ground is level for `LEVEL` where it
+ * leaves the line, as the line is around a corner, then eases to the ground of the line where it rejoins it, so the
+ * line's own ground is the same with or without it.
+ */
+export function groundAt(track: Ground, x: number, y: number): number {
+  if (flat(track)) return 0;
+  const main = nearestLeg(track.waypoints, x, y);
+  const shortcuts = track.shortcuts ?? [];
+  let best = main.best, height = legHeight(track.relief, main.leg, main.along, main.length);
+  shortcuts.forEach((s, i) => {
+    const dx = s.to.x - s.from.x, dy = s.to.y - s.from.y, len = Math.hypot(dx, dy) || 1;
+    const d = Math.min(len, Math.max(0, ((x - s.from.x) * dx + (y - s.from.y) * dy) / len));
+    const ex = s.from.x + (dx / len) * d - x, ey = s.from.y + (dy / len) * d - y;
+    const far = ex * ex + ey * ey;
+    if (far >= best) return;
+    const [low, high] = endsOf(track, shortcuts)[i] ?? [0, 0];
+    const t = Math.min(1, Math.max(0, (d - LEVEL) / Math.max(1, len - LEVEL)));
+    best = far;
+    height = low + (high - low) * t * t * (3 - 2 * t);
+  });
+  return height;
 }
 
 /** How far ahead and behind a point the slope under it is measured, in world units. */
