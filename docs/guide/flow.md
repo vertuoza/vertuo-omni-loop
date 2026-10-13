@@ -346,6 +346,60 @@ The two keys of [Landings](/docs/landings) keep working, and read as flow:
 | `landings.alone: [<re>]` | one more area, checked after every named one, with those paths and `landing: alone` |
 | `pr.openWith: /create-pr` | the default area's `pr.open` `replace` hook, marked `alias: claude` (a Claude-only command); like the key, it opens feature, landing and standalone pull requests, never sub-PRs |
 
+## Contracts
+
+A plan commits a repository to a contract before a line of code exists: a GraphQL field, a REST
+route, a migration. A repository whose callers depend on that can ask every plan to say so, slice by
+slice, in its own config:
+
+```yaml file=.omni-loop/config.yml
+contracts:
+  declare: true
+  kinds: [api, event]   # optional; [api, db] when absent
+```
+
+Then `/omni:plan` gives the slice table a `contract` column, after `territory`, and writes in each
+slice's cell what it changes for the repository's callers: one or more of the repository's kinds,
+comma-separated (`api`, `api, event`), or `none` when it changes nothing for them. `none` is a
+decision, not a blank: a gate downstream (a check that holds a pull request for the API's owners,
+say) can tell it from an oversight. The column is read by name, so its place in the row is free.
+
+```markdown file=plan.md
+| id | slice | territory | contract | blocked by | wave |
+| --- | --- | --- | --- | --- | --- |
+| s1 | The order total is a field of the API | `src/graphql/` | api | — | 1 |
+| s2 | The order page shows the total | `src/pages/order/` | none | s1 | 2 |
+```
+
+The kinds are the repository's words, never the kit's: a back end names an API and a database, a
+worker its events, a library its exports. With no `kinds`, they are `api` (a GraphQL type, field or
+argument, or a REST route or payload) and `db` (a migration or a stored shape). Each is one lowercase
+word; `none` is never one of them, and the list is never empty and never names a word twice.
+
+`omni plan check` refuses, naming the slice, wherever the receiving repository asks:
+
+```text terminal
+s2: contract: declares nothing — api, event or none
+s3: contract: "graphql" is no kind of this repository — api, event or none
+```
+
+and, wherever the slice sits, asked or not:
+
+```text terminal
+s4: contract: "none" beside a kind — one or the other
+```
+
+A repository that asks nothing has no list to check words against: a slice there may carry the
+column, and only its form is checked. A green plan prints its declared contracts after the waves,
+`contracts: s1 api`, and `omni flow show` prints the ask on a line of its own, `contracts: declare
+api, event` or `contracts: none`. Nothing else in the loop acts on the declaration: it is there for
+the people reviewing the plan and for a gate a repository builds on it.
+
+| key | default | what it does |
+|---|---|---|
+| `contracts.declare` | `false` | `true` asks every slice landing in this repository to declare its contract |
+| `contracts.kinds` | `[api, db]` | the words a slice may declare here, besides `none` |
+
 ## Several repositories
 
 In a plan repository ([Several repositories](/docs/several-repositories)), each target's flow is
@@ -353,11 +407,11 @@ read where it is safe to read it:
 
 | when | the target's flow is read from |
 |---|---|
-| `/omni:mega-invade` | it copies the target's `flow`, `landings` and `pr` keys to `repos/<name>/flow/config.yml` in the knowledge folder, and each hook file at its own path under that `flow/` folder |
-| `/omni:mega-brainstorm`, `omni plan check` | that copy: each `repo: <name>` row is graded against that target's areas and rules; a target with no copy meets the kit's defaults |
+| `/omni:mega-invade` | for every target, `own` and `none` included, it copies the target's `flow`, `landings`, `pr` and `contracts` keys to `repos/<name>/flow/config.yml` in the knowledge folder, and each hook file at its own path under that `flow/` folder |
+| `/omni:mega-brainstorm`, `omni plan check` | that copy: each `repo: <name>` row is graded against that target's areas, rules and contracts; a target with no copy meets the kit's defaults and is asked no contract |
 | `omni flow show --repo <name>` | that copy |
 | `/omni:ultra-wave`, `/omni:do-work --target`, `pr.open`, `wave.merge` in a target | the target's own committed config, in its clone, never the copy |
-| `/omni:ultra-yolo`, at its start | `omni targets` reports a target whose flow moved since it was copied as stale, `flow moved since read at`, and the run raises it as a decision |
+| `/omni:ultra-yolo`, at its start | `omni targets` reports a target whose flow moved since it was copied as stale, `flow moved since read at`, or one that commits a flow with no copy, `flow not copied`, and the run raises it as a decision |
 
 A target's hook is followed only in that target's clone, never from the imported copy.
 
@@ -375,6 +429,8 @@ drops. It never applies a flow, and never writes a hook.
 | `flow.hooks` | none | the default area's hooks, by point |
 | `flow.areas.<name>` | none | an area: `paths`, `rules`, `hooks`, `knowledge`, `inherit` |
 | `flow.on` | refused | reserved for events, which a later PRD defines |
+| `contracts.declare` | `false` | every slice landing here declares its contract ([Contracts](#contracts)) |
+| `contracts.kinds` | `[api, db]` | the kinds a slice may declare here, besides `none` |
 | `limits.hookMaxBytes` | `20480` | the largest a hook file may be |
 
 [Next → Design craft (opt-in)](/docs/design)

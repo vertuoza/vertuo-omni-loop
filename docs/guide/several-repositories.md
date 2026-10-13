@@ -51,6 +51,16 @@ version, and whether it has a knowledge base of its own. Then it asks, in one li
   copy of that repository, never runs anything in it, and writes the draft in your plan repository.
   A target that has its own is read where it lives, never copied.
 
+One thing is copied for **every** target, `own` and `none` included: its **planning config**, the
+keys of its own `.omni-loop/config.yml` that shape a plan (`flow`, `landings.alone`, `pr.openWith`
+and `contracts`, [Repository flow](/docs/flow)), with the hook files its flow names, under
+`.omni-loop/knowledge/repos/<name>/flow/`. Nothing a person wrote is copied, only config. That copy
+is how `omni plan check` grades a slice landing in a target by the target's own rules: its flow
+areas, its paths that land alone, and whether it asks each slice to declare its contract
+([Contracts](/docs/flow#contracts)). So once the copy of an `own` target exists, its flow areas and
+its `landings.alone` reach the plan repository's `plan check` too, and a plan that breaks them goes
+red there.
+
 It writes only in your plan repository, never in a target. It ends with one docs-only pull request:
 the imported drafts, the `plan` section of `.omni-loop/config.yml` in a commit of its own, a table of
 where each target stands, and, for each gap, the step to take in that repository:
@@ -63,7 +73,9 @@ omni targets
 ```
 
 It prints one row per target: its role, where its knowledge lives, the loop's version, and its
-state: `ok`; `stale` when an imported draft was read before a change to a file it was drawn from;
+state: `ok`; `stale` when an imported draft was read before a change to a file it was drawn from,
+when a target's planning config moved since its copy (`flow moved since read at <commit>`), or when
+a target, `own` included, commits a planning config that has no copy yet (`flow not copied`);
 `drifted` when the config no longer says what the repository has; `unreachable` when GitHub will not
 show it to you. It reads and never changes anything. To refresh the stale drafts, type:
 
@@ -71,7 +83,8 @@ show it to you. It reads and never changes anything. To refresh the stale drafts
 /omni:mega-invade --sync
 ```
 
-It redraws only what changed, never rewrites what a person wrote, proposes to drop the draft of a
+It redraws only what changed, every stale planning config included, never rewrites what a person
+wrote, proposes to drop the draft of a
 target that now has its own knowledge base, and opens one pull request, or none when there is
 nothing to do.
 
