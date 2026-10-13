@@ -78,7 +78,7 @@ a setup script. Make one for the loop, or edit the one you use.
    open the cloud environment menu in the session's title bar: **New cloud environment** makes one,
    **Edit** changes the one selected.
 2. **Name** it, so you pick it again: `omni loop`, for example.
-3. **Network access:** a session must reach the Omni page. Allow the host of the repository's
+3. **Network access:** a session must reach the Omni page, so allow the host of the repository's
    `ask.url` (read it with `omni config ask.url`; for the Omni Loop's own repository it is
    `www.omni-loop.xyz`), and `openrouter.ai` too when you set `OPENROUTER_API_KEY` below:
    - **Limited**, with those hosts added under **Allowed domains**, and **Allow package managers**
@@ -89,7 +89,9 @@ a setup script. Make one for the loop, or edit the one you use.
    The default, **Trusted network access**, does not allow the Omni page: a session then stops on
    `OMNI_TOKEN: cannot reach <host>`.
 4. **Environment variables:** one line per variable, in `.env` format: `OMNI_TOKEN=omk_…`, with
-   the token you made in step 1. Add any optional variable the repository's README lists under
+   the token you made in step 1, and `OMNI_ASK=on`, so the agent's questions reach your ask page
+   with no `omni ask on` in the session's fresh clone. Both need the Omni page's host allowed in
+   step 3: without it, every question falls back to the agent's own chat. Add any optional variable the repository's README lists under
    its environment variables, such as `OPENROUTER_API_KEY`, when you want what it turns on in the
    cloud too. Nothing for GitHub: see [What needs no setting up](#what-needs-no-setting-up).
 5. **Setup script,** only for the Omni Loop's own repository: its `omni` runs the kit's source, which
@@ -135,6 +137,11 @@ Omni Loop's own repository, ask Claude to follow the skill file itself, which is
 ```text agent
 Follow kit/plugin/skills/brainstorm/SKILL.md for this idea: <your idea>
 ```
+
+**Another coding agent.** Codex on chatgpt.com, or any agent with no Claude hooks, runs the same
+session with plain commands: `omni session start` first, `omni ask question` for each question,
+`omni session end` last. The same `OMNI_TOKEN` and `OMNI_ASK=on` serve it: see
+[Any coding agent](/docs/any-agent).
 
 **What is slower in the cloud.** A cloud session reaches GitHub through Claude's GitHub connection,
 which allows GitHub's REST API but not its GraphQL API. The `omni` commands that list pull requests
