@@ -19,6 +19,7 @@ describe('readEnv', () => {
       omniToken: null,
       session: { remote: false, display: false },
       heartbeat: true,
+      ask: null,
     });
   });
 
@@ -112,6 +113,24 @@ describe('readEnv', () => {
       expect(VARIABLES).toContain('OMNI_HEARTBEAT');
       expect(PLATFORM_VARIABLES).toContain('VITEST');
       expect(VARIABLES).not.toContain('VITEST');
+    });
+  });
+
+  describe('OMNI_ASK, ask mode switched with no file (PRD 1831)', () => {
+    it('reads on and off, and an unset or empty one as none', () => {
+      expect(readEnv({}).ask).toBeNull();
+      expect(readEnv({ OMNI_ASK: '' }).ask).toBeNull();
+      expect(readEnv({ OMNI_ASK: 'on' }).ask).toBe('on');
+      expect(readEnv({ OMNI_ASK: 'off' }).ask).toBe('off');
+    });
+
+    it('stops on a value other than on or off, naming the variable', () => {
+      expect(() => readEnv({ OMNI_ASK: 'yes' })).toThrow(EnvError);
+      expect(() => readEnv({ OMNI_ASK: 'yes' })).toThrow(/OMNI_ASK/);
+    });
+
+    it('lists OMNI_ASK for a person to set', () => {
+      expect(VARIABLES).toContain('OMNI_ASK');
     });
   });
 

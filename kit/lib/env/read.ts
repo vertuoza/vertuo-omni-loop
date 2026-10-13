@@ -142,6 +142,19 @@ const HEARTBEAT = envGroup({
   variables: { switch: 'OMNI_HEARTBEAT' },
 });
 
+/**
+ * Ask mode switched with no file (PRD 1831): `on` turns it on in a checkout with no `ask.json` (a cloud
+ * session's fresh clone), `off` turns it off whatever the file says. Unset, the file decides.
+ */
+const ASK = envGroup({
+  label: 'ask mode',
+  schema: z.object({ switch: z.enum(['on', 'off'], 'on or off') }),
+  variables: { switch: 'OMNI_ASK' },
+});
+
+/** How `OMNI_ASK` switches ask mode: `on`, `off`, or `null` when it is unset and `ask.json` decides. */
+export type AskSwitch = 'on' | 'off' | null;
+
 /** The test runner a command runs under: vitest sets `VITEST`, and no heartbeat leaves a test. */
 const TEST_RUNNER = envGroup({
   label: 'the test runner',
@@ -165,7 +178,7 @@ const PACKAGE_MANAGER = envGroup({
  * The variables a person sets for the kit, the game and the scripts: the root README's list names
  * exactly these (`scripts/env-docs.test.ts`).
  */
-export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT]);
+export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 
 /** The game's own, a part of {@link VARIABLES}: `game/README.md`'s list names exactly these. */
 export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABASE]);
@@ -215,6 +228,7 @@ export function readEnv(source: EnvSource) {
     omniToken: reader.group(OMNI_TOKEN),
     session: sessionOf(reader.group(SESSION)),
     heartbeat: heartbeatOf(reader.group(HEARTBEAT), reader.group(TEST_RUNNER)),
+    ask: (reader.group(ASK)?.switch ?? null) satisfies AskSwitch,
   };
   reader.done();
   return env;
