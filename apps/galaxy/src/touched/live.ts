@@ -22,7 +22,7 @@ export function touchedDeps(): TouchedDeps {
     secret: serverEnv().stageEventSecret ?? undefined,
     workspacesOf: (repository) => workspacesOwning(db, repository),
     prdByTopic: (workspace, repository, topic) => stageStore(db).prdByTopic(workspace, repository, topic),
-    snapshotsOf: (workspace) => snapshotsOf(db, workspace),
+    snapshotsOf: (workspace, repository) => snapshotsOf(db, workspace, repository),
     snapshot: {
       store: snapshotStore(db),
       reader: dossierGithub() ?? NO_READER,

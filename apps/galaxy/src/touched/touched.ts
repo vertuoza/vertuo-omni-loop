@@ -37,8 +37,8 @@ export type TouchedDeps = {
   workspacesOf: (repository: string) => Promise<string[]>;
   /** The PRD a topic is in the workspace's repository (prd_topics); null when none. */
   prdByTopic: (workspace: string, repository: string, topic: string) => Promise<PrdNumber | null>;
-  /** The workspace's dossiers' snapshots. */
-  snapshotsOf: (workspace: string) => Promise<TouchedSnapshot[]>;
+  /** The snapshots of the workspace's dossiers in the repository (`owner/name`, in any case). */
+  snapshotsOf: (workspace: string, repository: string) => Promise<TouchedSnapshot[]>;
   /** The snapshot's own deps: its store, the reader, the clock, and what runs after the response. */
   snapshot: SnapshotDeps;
   log?: (line: string) => void;
@@ -104,8 +104,10 @@ async function resolve(touch: Touch, workspace: string, deps: TouchedDeps): Prom
   const byTopic = topic === null ? null : await deps.prdByTopic(workspace, touch.repository, topic);
   if (byTopic !== null) prds.add(byTopic);
 
+  // A touch that names no PRD, pull request or issue matches no snapshot: none is read.
+  if (prds.size === 0 && touch.pr === undefined && touch.issue === undefined) return [];
   const repository = touch.repository.toLowerCase();
-  return (await deps.snapshotsOf(workspace))
+  return (await deps.snapshotsOf(workspace, touch.repository))
     .filter(({ summary }) => summary.repo.toLowerCase() === repository)
     .filter(({ summary }) => prds.has(summary.prd)
       || (touch.pr !== undefined && pullsOf(summary).includes(touch.pr))

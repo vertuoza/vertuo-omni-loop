@@ -15,7 +15,7 @@ function recording(answer: { data: unknown; error: { message: string } | null })
     const call: unknown[] = [table];
     calls.push(call);
     const chain: Record<string, unknown> = {};
-    for (const name of ['select', 'eq']) chain[name] = (...args: unknown[]) => { call.push([name, ...args]); return chain; };
+    for (const name of ['select', 'eq', 'ilike']) chain[name] = (...args: unknown[]) => { call.push([name, ...args]); return chain; };
     chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(answer).then(resolve);
     return chain;
   };
@@ -23,21 +23,27 @@ function recording(answer: { data: unknown; error: { message: string } | null })
 }
 
 describe('snapshotsOf', () => {
-  it('reads the workspace\'s snapshots, each summary parsed', async () => {
+  it('reads the snapshots of the workspace\'s repository, each summary parsed', async () => {
     const { calls, db } = recording({ data: [{ dossier_id: 'd1', summary: SUMMARY }], error: null });
-    expect(await snapshotsOf(db, 'w1')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
-    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1']]]);
+    expect(await snapshotsOf(db, 'w1', 'acme/widgets')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
+    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['ilike', 'summary->>repo', 'acme/widgets']]]);
   });
 
   it('leaves out a row whose summary does not parse, and logs it, keeping the others', async () => {
     const log = vi.fn();
     const { db } = recording({ data: [{ dossier_id: 'd1', summary: { repo: 1 } }, { dossier_id: 'd2', summary: SUMMARY }], error: null });
-    expect(await snapshotsOf(db, 'w1', log)).toEqual([{ dossierId: 'd2', summary: SUMMARY }]);
+    expect(await snapshotsOf(db, 'w1', 'acme/widgets', log)).toEqual([{ dossierId: 'd2', summary: SUMMARY }]);
     expect(log).toHaveBeenCalledTimes(1);
   });
 
   it('throws Supabase\'s reason on a refusal', async () => {
     const { db } = recording({ data: null, error: { message: 'denied' } });
-    await expect(snapshotsOf(db, 'w1')).rejects.toThrow('denied');
+    await expect(snapshotsOf(db, 'w1', 'acme/widgets')).rejects.toThrow('denied');
+  });
+
+  it('reads only the snapshots of the touched repository, in any case, not the whole workspace (#1854)', async () => {
+    const { calls, db } = recording({ data: [{ dossier_id: 'd1', summary: SUMMARY }], error: null });
+    expect(await snapshotsOf(db, 'w1', 'Acme/Widgets_2%')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
+    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['ilike', 'summary->>repo', 'Acme/Widgets\\_2\\%']]]);
   });
 });
