@@ -236,3 +236,246 @@ One branch of one function: a different answer changes the row's words and the d
 ```
 
 <!-- /omni-outbox-settled: s4-01-chart-failed-read-menu-row -->
+
+<!-- omni-outbox-settled: s3-01-law-30-test-file-changes -->
+
+## s3-01-law-30-test-file-changes — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-13T11:55:43Z
+- Channel: feature pull request #1810
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1810#issuecomment-6144976542
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-30
+- Raised: 2026-10-13
+- Slice: s3
+- Wave: 2
+- Stays here: the answer approves where this PRD's tests sit in the law's proof file; the law itself and its check are unchanged, and it states nothing lasting about the product or the playbook
+
+### The answer, as it was given
+
+```text
+A. A. Keep the new checks beside the rule's check in the same file, the rule's check unchanged (as built)
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-law-30-test-file-changes
+prd: 1808
+slice: s3
+rank: high
+bears-on: BR-PRODUCT-30
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+The file that proves the arcade's rule about people it cannot place (they still read as crew, with the galaxy out of reach) had to change, because the game no longer reads every planet's dossier on load. Is it right that the dossier checks in that file were replaced, while the rule's own check stays as it was?
+
+## The decision, in plain words
+
+The rule's own check is untouched and still passes. The old checks that the first load reads every dossier were replaced by checks that it reads none and sends planets without their logs.
+
+## The intro, for fun
+
+The rule's proof lives in a busy house, and the dossier tenants just moved out.
+
+## The punchline, for fun
+
+The rule kept its room and its key; only the neighbours changed.
+
+## The options, in plain words
+
+A. A. Keep the new checks beside the rule's check in the same file, the rule's check unchanged (as built)
+B. B. Move the new first-load checks to a file of their own, so the rule's proof file only loses the old dossier checks
+
+## What I had to decide
+
+Whether the rule's proof file may change around the rule's own check, as built, or whether the new checks should live in a file of their own.
+Decided by: Jev (hardToRevert 0.56) · agent said true
+
+## What I did meanwhile
+
+The rule's check runs as before and passes. The file's dossier section now proves the first load reads no dossier, and every planet arrives with an empty log.
+
+## What it costs to change later
+
+Moving the new checks to a file of their own is a small test-only change: one new file, one section removed, no product change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Nothing says whether a rule's proof file may hold checks of other behaviour that change later; the testing form allows it as long as the rule's own checks stay.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-law-30-test-file-changes -->
+
+<!-- omni-outbox-settled: s3-02-law-92-test-file-loses-old-reads -->
+
+## s3-02-law-92-test-file-loses-old-reads — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-13T11:55:43Z
+- Channel: feature pull request #1810
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1810#issuecomment-6144976542
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-92
+- Raised: 2026-10-13
+- Slice: s3
+- Wave: 2
+- Stays here: the answer approves where this PRD's tests sit in the law's proof file; the law itself and its check are unchanged, and it states nothing lasting about the product or the playbook
+
+### The answer, as it was given
+
+```text
+A. A. Remove the old read's checks with the read, the rule's checks unchanged (as built)
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-law-92-test-file-loses-old-reads
+prd: 1808
+slice: s3
+rank: high
+bears-on: BR-PRODUCT-92
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+The file that proves the dashboard counts only PRDs and fixes also held the checks of the old read of every planet's dossier at once, which the game no longer uses. Is it right that those old checks left the file with the read they tested, while the dashboard rule's own checks stay as they were?
+
+## The decision, in plain words
+
+The old read of every planet's dossier is gone, and its checks with it. The dashboard rule's checks and the demo dossiers' checks in that file are unchanged and pass.
+
+## The intro, for fun
+
+Spring cleaning in the dossier drawer: one old tool out, the rule's tools untouched.
+
+## The punchline, for fun
+
+Nothing the dashboard counts on was thrown away.
+
+## The options, in plain words
+
+A. A. Remove the old read's checks with the read, the rule's checks unchanged (as built)
+B. B. Also add a check that the old read no longer exists
+
+## What I had to decide
+
+Whether removing the old read's checks from the rule's proof file is fine, as built, or whether that file should keep a check that the old read stays gone.
+Decided by: Jev (hardToRevert 0.48) · agent said true
+
+## What I did meanwhile
+
+The dashboard rule's checks run as before and pass; the game reads one planet's dossier at a time when it is opened, through the read the planet's page already proves.
+
+## What it costs to change later
+
+Adding a check back is a test-only change of a few lines; bringing the old read back would undo the faster first load.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan asks for the old read to be gone but does not say what its proof file keeps.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-law-92-test-file-loses-old-reads -->
+
+<!-- omni-outbox-settled: s4-02-law-48-test-file-gains-chart-checks -->
+
+## s4-02-law-48-test-file-gains-chart-checks — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-13T11:55:43Z
+- Channel: feature pull request #1810
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1810#issuecomment-6144976542
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-48
+- Raised: 2026-10-13
+- Slice: s4
+- Wave: 3
+- Stays here: the answer approves where this PRD's tests sit in the law's proof file; the law itself and its check are unchanged, and it states nothing lasting about the product or the playbook
+
+### The answer, as it was given
+
+```text
+A. A. Keep the two new checks beside the menu's other star chart checks, the rule's check unchanged (as built)
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-law-48-test-file-gains-chart-checks
+prd: 1808
+slice: s4
+rank: high
+bears-on: BR-PRODUCT-48
+raised: 2026-10-13
+wave: 3
+---
+
+## The question, in plain words
+
+The file that proves the menu's rule about a workspace with no fleets also holds the menu's star chart checks, and it gained two of them. Is it right to add them there, with the rule's own check left as it was?
+
+## The decision, in plain words
+
+The rule's own check is untouched and still passes. Two checks were added beside the other star chart checks: the row shows no tally until the chart has been read, and its door opens before the chart is read.
+
+## The intro, for fun
+
+The rule's proof shares a house with the star chart's checks, and two new ones just moved in.
+
+## The punchline, for fun
+
+The rule's room is as it was; the new neighbours only talk about the stars.
+
+## The options, in plain words
+
+A. A. Keep the two new checks beside the menu's other star chart checks, the rule's check unchanged (as built)
+B. B. Move the menu's star chart checks to a file of their own, so the rule's proof file holds only menu checks that never touch the chart
+
+## What I had to decide
+
+Whether new checks of the menu's star chart row may sit in the same file as the proof of the no-fleets rule, as built, or move to a file of their own.
+Decided by: Jev (hardToRevert 0.70) · agent said true
+
+## What I did meanwhile
+
+The rule's check runs as before and passes. The file's star chart section now also proves the row's empty tally before the chart is read and its open door.
+
+## What it costs to change later
+
+Moving the two checks to a file of their own is a small test-only change, with no product change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Nothing says whether a rule's proof file may gain checks of other behaviour; the testing form allows it as long as the rule's own checks stay.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-law-48-test-file-gains-chart-checks -->
