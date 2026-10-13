@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { GalaxyView, LogLine, Planet } from '@omni/galaxy';
 import type { PlanetDetails } from '../arcade-api/planet.contract';
-import { fetchPlanetDetails } from './planet-details.client';
+import { fetchPlanetDetails, type Fetch } from './planet-details.client';
 import { DETAILS_LOADING, fetchedDetails, overlayDetails, pageDetails, shownDetails, type DetailsRead } from './planet-details';
 import type { PlanetDossier } from './types';
 
@@ -154,7 +154,7 @@ describe('fetchPlanetDetails', () => {
   const answer = (status: number, body: unknown) => Promise.resolve(Response.json(body, { status }));
 
   it('asks the planet\'s route, its key one segment, and parses the answer', async () => {
-    const fetcher = vi.fn((_url: string, _init: RequestInit) => answer(200, DETAILS));
+    const fetcher = vi.fn<Fetch>(() => answer(200, DETAILS));
     expect(await fetchPlanetDetails('vertuoza/vertuo-omni-loop#12', fetcher)).toEqual(DETAILS);
     expect(fetcher.mock.calls[0]?.[0]).toBe('/api/arcade/planets/vertuoza%2Fvertuo-omni-loop%2312');
   });

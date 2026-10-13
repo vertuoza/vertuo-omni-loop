@@ -25,11 +25,11 @@ const UNREADABLE: DetailsRead = { status: 'unreadable' };
 /** Where the game's planet details come from: a store React reads. */
 export interface DetailsSource {
   /** The planet's details as they stand, or undefined before its first open. The same object while nothing changes. */
-  read(key: string): DetailsRead | undefined;
+  read: (key: string) => DetailsRead | undefined;
   /** The planet was opened: read it unless it is read or on its way. */
-  open(key: string): void;
+  open: (key: string) => void;
   /** Hears every change; returns the call that stops it. */
-  subscribe(listener: () => void): () => void;
+  subscribe: (listener: () => void) => () => void;
 }
 
 /** The details read from `/api/arcade/planets/<key>` through `load`, kept for the session. */
