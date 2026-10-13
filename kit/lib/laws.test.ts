@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
-import { invariantAdrs, lawsFor, lockedLaws } from './laws.ts';
+import { parseConfig } from './config.ts';
+import { invariantAdrs, invariantsFile, lawsFor, lockedLaws } from './laws.ts';
 
 const ADR = '.omni-loop/knowledge/adr';
 
@@ -11,6 +12,20 @@ describe('invariantAdrs', () => {
   });
   it('is empty when the heading is absent', () => {
     expect(invariantAdrs('# X\n', '## Invariants').size).toBe(0);
+  });
+});
+
+describe('invariantsFile', () => {
+  it('reads AGENTS.md then CLAUDE.md when the config names no context files (PRD 1739)', () => {
+    expect(parseConfig('kit: 1\n').paths.context).toEqual(['AGENTS.md', 'CLAUDE.md']);
+  });
+
+  it('names the first context file that exists and holds the heading, or null', () => {
+    const files = { 'AGENTS.md': '# A\n', 'CLAUDE.md': '#  x\n  ## Invariants  \n' };
+    const { root } = makeRepo({ files });
+    expect(invariantsFile(root, ['MISSING.md', 'AGENTS.md', 'CLAUDE.md'], '## Invariants')).toBe('CLAUDE.md');
+    expect(invariantsFile(root, ['AGENTS.md'], '## Invariants')).toBeNull();
+    expect(invariantsFile(root, [], '## Invariants')).toBeNull();
   });
 });
 
@@ -60,6 +75,46 @@ describe('lawsFor', () => {
     const laws = lawsFor(ctx);
     expect(laws.floorsHigh('ADR-0004')).toBe(true);
     expect(laws.floorsHigh('ADR-0005')).toBe(false);
+  });
+
+  it('source claudeMdInvariants: the heading in AGENTS.md alone is read (PRD 1739)', () => {
+    const { ctx } = makeRepo({
+      config: { laws: { source: 'claudeMdInvariants' } },
+      files: { 'AGENTS.md': '# Rules\n\n## Invariants\n\n- x (ADR-0004)\n', [`${ADR}/0004-a.md`]: '#' },
+    });
+    expect(lawsFor(ctx).floorsHigh('ADR-0004')).toBe(true);
+  });
+
+  it('source claudeMdInvariants: the first context file holding the heading is read, the rest are not (PRD 1739)', () => {
+    const files = {
+      'AGENTS.md': '## Invariants\n\n- x (ADR-0004)\n',
+      'CLAUDE.md': '## Invariants\n\n- y (ADR-0005)\n',
+      [`${ADR}/0004-a.md`]: '#',
+      [`${ADR}/0005-b.md`]: '#',
+    };
+    const agentsFirst = lawsFor(makeRepo({ config: { laws: { source: 'claudeMdInvariants' } }, files }).ctx);
+    expect([agentsFirst.floorsHigh('ADR-0004'), agentsFirst.floorsHigh('ADR-0005')]).toEqual([true, false]);
+    const claudeFirst = lawsFor(
+      makeRepo({ config: { laws: { source: 'claudeMdInvariants' }, paths: { context: ['CLAUDE.md', 'AGENTS.md'] } }, files }).ctx,
+    );
+    expect([claudeFirst.floorsHigh('ADR-0004'), claudeFirst.floorsHigh('ADR-0005')]).toEqual([false, true]);
+  });
+
+  it('source claudeMdInvariants: a context file without the heading is passed over for the next (PRD 1739)', () => {
+    const { ctx } = makeRepo({
+      config: { laws: { source: 'claudeMdInvariants' } },
+      files: { 'AGENTS.md': '# Rules\n\n- (ADR-0005)\n', 'CLAUDE.md': '## Invariants\n\n- x (ADR-0004)\n', [`${ADR}/0004-a.md`]: '#', [`${ADR}/0005-b.md`]: '#' },
+    });
+    const laws = lawsFor(ctx);
+    expect([laws.floorsHigh('ADR-0004'), laws.floorsHigh('ADR-0005')]).toEqual([true, false]);
+  });
+
+  it('source claudeMdInvariants: a paths.context that leaves CLAUDE.md out never reads it (PRD 1739)', () => {
+    const { ctx } = makeRepo({
+      config: { laws: { source: 'claudeMdInvariants' }, paths: { context: ['AGENTS.md'] } },
+      files: { 'CLAUDE.md': '## Invariants\n\n- x (ADR-0004)\n', [`${ADR}/0004-a.md`]: '#' },
+    });
+    expect(lawsFor(ctx).floorsHigh('ADR-0004')).toBe(false);
   });
 
   it('source knowledge: a resolved id floors high, an unknown one does not resolve', () => {

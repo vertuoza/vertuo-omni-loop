@@ -95,6 +95,14 @@ describe('FlowSchema', () => {
     expect(hookRefProblem('\\hook.md')).toMatch(/absolute/);
     expect(hookRefProblem('.claude')).toMatch(/\.claude/);
   });
+
+  it('steers a hook under .claude/ to .agents/hooks/, and takes one under .agents/ as a plain path', () => {
+    expect(hookRefProblem('.claude/hooks/x.md')).toBe(
+      '.claude/hooks/x.md sits under .claude/, which only Claude Code reads — move it to .agents/hooks/, or mark it { path: .claude/hooks/x.md, alias: claude }',
+    );
+    expect(hookRefProblem('.agents/hooks/x.md')).toBeNull();
+    expect(hookRefProblem({ path: '.claude/hooks/x.md', alias: 'claude' })).toBeNull();
+  });
 });
 
 describe('hookFileViolations', () => {

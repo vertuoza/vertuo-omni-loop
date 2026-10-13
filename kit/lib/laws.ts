@@ -1,6 +1,7 @@
 // What a repository treats as law. An outbox item bearing on a law is ranked high at least, and a
 // slice that would break one stops. Where laws come from is config (`laws.source`), because
-// repositories disagree: a knowledge folder, the ADRs CLAUDE.md lists as invariants, or nothing.
+// repositories disagree: a knowledge folder, the ADRs the context files list as invariants, or
+// nothing.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from './context.ts';
@@ -36,6 +37,19 @@ export function invariantAdrs(text: string, heading: string): Set<string> {
   return ids;
 }
 
+/**
+ * The first of the context files (`paths.context`, in order) that exists and holds the invariants
+ * heading on a line of its own, or `null` (PRD 1739). A file the list does not name is never read.
+ */
+export function invariantsFile(root: string, context: readonly string[], heading: string): string | null {
+  const wanted = heading.trim();
+  for (const name of context) {
+    const file = join(root, name);
+    if (existsSync(file) && readFileSync(file, 'utf8').split('\n').some((line) => line.trim() === wanted)) return name;
+  }
+  return null;
+}
+
 export function adrFiles(ctx: { root: string; layout: { adrDir: string } }, number: string): string[] {
   const dir = join(ctx.root, ctx.layout.adrDir);
   if (!existsSync(dir)) return [];
@@ -48,8 +62,8 @@ export function lawsFor(ctx: Context): Laws {
   let invariants: Set<string> | null = null;
   const invariantSet = (): Set<string> => {
     if (invariants === null) {
-      const file = join(ctx.root, 'CLAUDE.md');
-      invariants = existsSync(file) ? invariantAdrs(readFileSync(file, 'utf8'), claudeMdHeading) : new Set();
+      const name = invariantsFile(ctx.root, ctx.config.paths.context, claudeMdHeading);
+      invariants = name === null ? new Set() : invariantAdrs(readFileSync(join(ctx.root, name), 'utf8'), claudeMdHeading);
     }
     return invariants;
   };

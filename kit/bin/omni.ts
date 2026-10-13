@@ -2,9 +2,10 @@
 // omni — the kit's one entry point. Installed into a repository as .omni-loop/bin/omni.mjs (bundled),
 // called by the skills and by the outbox workflow. Exit 0 ok, 1 red, 2 usage or configuration.
 //
-// Before a command runs, the one PRD or fix it names is recorded for the Claude session it runs in
+// Before a command runs, the one PRD or fix it names is recorded for the session it runs in
 // (PRD 324's spec, "The record", widened by PRD 1208's), so that the status line and `omni now` can
-// show it on a branch that names none: when `CLAUDE_CODE_SESSION_ID` is set and safe,
+// show it on a branch that names none: when a session id is known and safe — `OMNI_SESSION_ID`, else
+// `CLAUDE_CODE_SESSION_ID`, else the id `omni dossier open` stored for the checkout (PRD 1739) —
 // `../lib/statusline/sessions.ts` writes its kind and number in the main checkout. `omni bug <n>`
 // and `omni dossier push <n> --kind bug` record bug `<n>`; `omni visual <n>` and
 // `omni dossier push <n> --kind visual` record visual fix `<n>`; every other command naming a PRD
@@ -16,6 +17,8 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../lib/config.ts';
 import { loadContext } from '../lib/context.ts';
+import { mainCheckout } from '../lib/dossier/local.ts';
+import { sessionIdOf } from '../lib/dossier/session.ts';
 import { processEnv, readEnv } from '../lib/env/read.ts';
 import type { IssueNumber, PrdNumber } from '../lib/ids.ts';
 import { propertyOf } from '../lib/narrow.ts';
@@ -167,11 +170,16 @@ export function prdNamedBy(argv: readonly string[]): PrdNumber | null {
   return numbers.size === 1 ? ([...numbers][0] ?? null) : null;
 }
 
-/** Records the PRD or fix `argv` names for the Claude session `env` names; never throws, never prints. */
+/**
+ * Records the PRD or fix `argv` names for the agent session `env` names, else for the id stored for
+ * the checkout (PRD 1739); never throws, never prints, writes no session id.
+ */
 function recordWork(argv: readonly string[], { cwd, vars, exec }: { cwd: string; vars: Vars; exec: Exec }): void {
   try {
     const work = workNamedBy(argv);
-    if (work !== null) recordSession({ cwd, exec, sessionId: vars.claudeSession?.id, kind: work.kind, number: work.number, now: Date.now() });
+    if (work === null) return;
+    const sessionId = vars.agentSession?.id ?? sessionIdOf(null, mainCheckout(cwd, exec));
+    recordSession({ cwd, exec, sessionId, kind: work.kind, number: work.number, now: Date.now() });
   } catch {
     // A record that cannot be written changes nothing: the command runs as it does without one.
   }

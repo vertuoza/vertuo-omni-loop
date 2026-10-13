@@ -599,7 +599,7 @@ function hookRefProblem(ref) {
   if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
   if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
   if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
-    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+    return `${path} sits under .claude/, which only Claude Code reads \u2014 move it to .agents/hooks/, or mark it { path: ${path}, alias: claude }`;
   }
   return null;
 }
@@ -821,7 +821,7 @@ var ConfigSchema = z7.object({
     adr: text2.default(".omni-loop/knowledge/adr"),
     playbook: text2.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z7.array(text2).default(["CLAUDE.md"])
+    context: z7.array(text2).default(["AGENTS.md", "CLAUDE.md"])
   }),
   labels: section({
     prd: labelName.default("omni:prd"),
@@ -893,6 +893,9 @@ var ConfigSchema = z7.object({
   }).prefault({}),
   laws: section({
     source: z7.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    // The heading under which the context files (`paths.context`, in order) list the ADRs that are
+    // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
+    // read (PRD 1739), so every config that sets them still reads.
     claudeMdHeading: text2.default("## Invariants"),
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
