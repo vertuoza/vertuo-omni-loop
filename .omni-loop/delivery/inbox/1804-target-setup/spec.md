@@ -45,6 +45,11 @@ a place to commit its install.
    - `/omni:ultra-wave`: the target's check after the wave's merges.
    - `/omni:ultra-yolo` step 4 item 2, and `/omni:ultra-yolo-fix` where it runs a target's preflight.
    - `/omni:mega-bug-fix`: before each preflight that proves red and green.
+   - `/omni:mega-pr-care`: before the preflight of its fix loop on a target PR.
+
+   `/omni:mega-drive`'s summary of the rule, `omni help`'s entries that state it
+   (`kit/lib/help/entries.ts`) and the guide's page on several repositories
+   (`docs/guide/several-repositories.md`) say the same.
 
    It is read exactly as the preflight is: from the target's `.omni-loop/config.yml` on its default
    branch, never from a slice branch and never from an imported copy's playbook.
@@ -87,9 +92,11 @@ In:
 - `commands.setup` in the config schema (`kit/lib/config.ts`) and its read through `omni config`.
 - Its detection in `kit/lib/init/detect.ts` and its line in the config `omni init` writes
   (`kit/lib/init/config-text.ts`, `InitCommands`).
+- Its question and flag in `omni init` (`kit/bin/commands/init.ts`).
 - The words of `/omni:do-work` (**Under `--target <name>`**), `/omni:ultra-wave`, `/omni:ultra-yolo`,
-  `/omni:ultra-yolo-fix` and `/omni:mega-bug-fix`, and the guards in `kit/test/plugin.test.ts` that
-  read them.
+  `/omni:ultra-yolo-fix`, `/omni:mega-bug-fix`, `/omni:mega-pr-care` and `/omni:mega-drive`, the
+  guards in `kit/test/plugin.test.ts` that read them, `omni help`'s entries and
+  `docs/guide/several-repositories.md`.
 - `kit/dist/` rebuilt once on the feature branch.
 
 Out:
@@ -131,8 +138,8 @@ Following `omni kb show testing`: vitest, no network, no GitHub.
   under `commands`; in one with no lockfile it writes `setup: null` (or no line).
 - `/omni:do-work`'s **Under `--target <name>`** says the target's committed setup runs, when it has
   one, in the slice's worktree before its committed preflight, read from the target's default branch.
-- `/omni:ultra-wave`, `/omni:ultra-yolo`, `/omni:ultra-yolo-fix` and `/omni:mega-bug-fix` say the
-  same wherever they run a target's preflight, and their guardrails still forbid any other command
+- `/omni:ultra-wave`, `/omni:ultra-yolo`, `/omni:ultra-yolo-fix`, `/omni:mega-bug-fix` and
+  `/omni:mega-pr-care` say the same wherever they run a target's preflight, and their guardrails still forbid any other command
   in a target.
 - Each of those skills says a red setup holds its slice or target as stuck, quoting the failing line,
   counting toward no attempt, and never edits the target to make it pass.
