@@ -81,7 +81,7 @@ describe('planetService.details', () => {
   it('fails, with what was thrown, when the workspace or the galaxy cannot be read', async () => {
     const boom = new Error('fake: ledger_events is out of reach');
     const key = galaxy().planet.key;
-    expect(await service({ galaxy: () => Promise.reject(boom) }).s.details(key)).toEqual({ ok: false, kind: 'database', error: expect.any(String), cause: boom });
+    expect(await service({ galaxy: () => Promise.reject(boom) }).s.details(key)).toEqual({ ok: false, kind: 'database', error: 'The planet could not be read. Try again.', cause: boom });
     expect(await service({ workspace: () => Promise.reject(boom) }).s.details(key)).toMatchObject({ ok: false, kind: 'database', cause: boom });
   });
 });

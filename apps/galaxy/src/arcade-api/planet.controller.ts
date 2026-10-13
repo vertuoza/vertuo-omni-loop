@@ -57,7 +57,7 @@ export function planetHandlers(deps: PlanetDeps) {
 const live = planetHandlers({
   async signedIn() {
     const seen = await viewer();
-    return seen.kind === 'signed-in' ? planetServiceOf(seen.db, seen.workspace) : null;
+    return seen.kind === 'signed-in' ? planetServiceOf(seen.db, () => seen.workspace()) : null;
   },
   failed: (error) => { log.error({ event: 'arcade-planet', outcome: 'failed', status: 500, error }); },
 });
