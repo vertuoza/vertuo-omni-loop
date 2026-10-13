@@ -2,7 +2,7 @@
 screen: prd-dossier
 status: draft
 mock: prd-dossier.html
-implements: ["apps/galaxy/app/prd/[id]/page.tsx", "apps/galaxy/app/prd/[id]/not-found.tsx", "apps/galaxy/app/prd/[id]/loading.tsx", "apps/galaxy/src/dossier/page/*.tsx", apps/galaxy/src/dossier/page/dossier.css, apps/galaxy/src/dossier/page/view.ts, apps/galaxy/src/dossier/page/stage.ts]
+implements: ["apps/galaxy/app/prd/[id]/page.tsx", "apps/galaxy/app/prd/[id]/not-found.tsx", "apps/galaxy/app/prd/[id]/loading.tsx", "apps/galaxy/src/dossier/page/*.tsx", apps/galaxy/src/dossier/page/dossier.css, apps/galaxy/src/dossier/page/view.ts, apps/galaxy/src/dossier/page/stage.ts, apps/galaxy/src/runners/page/SendToTerminal.tsx]
 reads: ["apps/galaxy/app/prd/[id]/", apps/galaxy/src/dossier/page/, apps/galaxy/app/prd/layout.tsx, apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/Bell.tsx, apps/galaxy/src/nav/bell.ts]
 routes: [/prd/<id>]
 supersedes: null
@@ -21,7 +21,10 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 ## Regions
 
 - **The head, one box in three rows** (`dossier/page/DossierPage.tsx`, `StageHeader.tsx`): the
-  title with its actions (the stage's one button, Copy link, Delete draft for a draft's opener); the
+  title with its actions (the stage's one button; beside a button that copies an `/omni:` line
+  a runner may run, Send to terminal, which opens a picker of the runners the viewer may send to and
+  says `Queued for <target>` once sent, shown only when the workspace has one; Copy link, Delete
+  draft for a draft's opener); the
   facts strip (Stage, Approval for a PRD born on the server, Repo or Repos, On GitHub with when
   GitHub was last read, Opened, with the opener's face); then the tabs. From 900 × 700 px the box
   is pinned while the page scrolls (`PinnedHead.tsx`).
@@ -51,7 +54,8 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 ## Words
 
 Tabs, in order: Questions, Before/after, Spec, Plan, User voice, Outbox, PR care, Proof, Pitch,
-Retro (`dossier/page/view.ts`). Actions: Copy link, Delete draft, Approve. Facts: Stage, Approval,
+Retro (`dossier/page/view.ts`). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
+each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval,
 Repo, Repos, On GitHub, Opened.
 
 ## Refusals
@@ -83,3 +87,4 @@ Repo, Repos, On GitHub, Opened.
 - apps/galaxy/src/dossier/page/view.ts@84c8451
 - apps/galaxy/src/page-width.test.ts@7302b0d
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
+- /omni:brainstorm, PRD 1830: .omni-loop/delivery/inbox/1830-runners/before-after.html (Send to terminal)

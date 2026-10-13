@@ -5,7 +5,7 @@ kind: shared
 mock: app-shell.html
 implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css]
 reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/(shell)/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
-routes: [/app, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
+routes: [/app, /app/runners, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
 supersedes: null
 ---
 
@@ -23,7 +23,7 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
 
 - **The sidebar** (`nav/Sidebar.tsx`, `nav/sidebar.ts`): the OMNI LOOP logo (the crest and the
   wordmark, `nav/BrandLogo.tsx`) linked to /app, « to fold it, the workspace's name; the
-  **Dashboard** group (Home, Fleet, Loop, Workspace, Engineering) and the **Work** group (Products,
+  **Dashboard** group (Home, Fleet, Loop, Runners, Workspace, Engineering) and the **Work** group (Products,
   Roadmaps, Ideas, Concepts, PRDs, Bug Fixes, Visual Updates, Questions, Knowledge), each entry with
   its 16 px sprite, the current one marked; Questions and PRDs carry a count badge; at the foot
   Settings, then Docs · Release notes (each opening a new tab), then `Omni Loop v<version>`.
@@ -46,7 +46,7 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
 
 ## Words
 
-OMNI LOOP · Dashboard · Home · Fleet · Loop · Workspace · Engineering · Work · Products · Roadmaps ·
+OMNI LOOP · Dashboard · Home · Fleet · Loop · Runners · Workspace · Engineering · Work · Products · Roadmaps ·
 Ideas · Concepts · PRDs · Bug Fixes · Visual Updates · Questions · Knowledge · Settings · Docs ·
 Release notes · Omni Loop v<version> · Collapse the menu · Expand the menu · Menu · Omni · Light ·
 Dark · Game mode · My profile · Sign out · Sign in with GitHub.
@@ -80,3 +80,4 @@ Dark · Game mode · My profile · Sign out · Sign in with GitHub.
 - apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
 - /omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html (the `/ask` pages it no longer frames)
+- /omni:brainstorm, PRD 1830: .omni-loop/delivery/inbox/1830-runners/before-after.html (the Runners entry)
