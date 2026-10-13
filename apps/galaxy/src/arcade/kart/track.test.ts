@@ -419,17 +419,31 @@ describe('COMET RING laid out (PRD 1829)', () => {
     expect(stands.filter(([x, y]) => x > 55 && y < 30)).toHaveLength(4);
   });
 
-  it('carries a walkway 2 tiles wide, from the middle of the curve of waypoint 6 west over the void', () => {
+  it('carries a walkway one tile wide, from the middle of the curve of waypoint 6 west over the void, about 1.8 tiles off the top straight\'s axis', () => {
     const walk = sure(track.centre.pieces.find((p) => p.surface === 'grating'), 'the walkway');
-    expect(walk.width).toBe(2);
+    expect(walk.width).toBe(1);
     expect(walk.from.y).toBeCloseTo(walk.to.y, 9);
     expect(walk.from.x).toBeGreaterThan(walk.to.x);
-    // Between the two curves it joins, over the void.
-    for (let k = 0; k <= 10; k++) {
-      const x = 28 + k;
-      expect(roadAt(track, x * TILE, walk.from.y * TILE), `x ${x.toFixed(1)}`).toBe(true);
-      expect(roadAt(track, x * TILE, (walk.from.y + 1.5) * TILE), `x ${x.toFixed(1)} beside it`).toBe(false);
+    const topAxis = sure(COMET_RING.waypoints[6], 'waypoint 6')[1] + 0.5;
+    expect(walk.from.y - topAxis).toBeGreaterThan(1.6);
+    expect(walk.from.y - topAxis).toBeLessThan(2.1);
+    // It opens from the arc, and no rail stands beside it.
+    expect(roadAt(track, (walk.from.x + 2) * TILE, walk.from.y * TILE)).toBe(true);
+    // Over the void between the two curves it joins, one tile wide, but the gap.
+    for (const x of [26.5, 27.5, 28.5, 34.5, 36]) {
+      expect(roadAt(track, x * TILE, walk.from.y * TILE), `x ${x}`).toBe(true);
+      expect(roadAt(track, x * TILE, (walk.from.y + 0.7) * TILE), `x ${x} beside it`).toBe(false);
+      expect(roadAt(track, x * TILE, (walk.from.y - 0.7) * TILE), `x ${x} beside it, north`).toBe(false);
     }
+  });
+
+  it('puts a ramp on the walkway, then a gap across its middle', () => {
+    expect(tiles('^').some(([x, y]) => x === 33 && y === 12)).toBe(true);
+    const walkY = sure(track.centre.pieces.find((p) => p.surface === 'grating'), 'the walkway').from.y * TILE;
+    expect(roadAt(track, 32.5 * TILE, walkY)).toBe(false);
+    expect(roadAt(track, 31 * TILE, walkY)).toBe(false);
+    expect(roadAt(track, 28.5 * TILE, walkY)).toBe(true);
+    expect(inGapAt(track.centre, 31, 12.5)).toBe(true);
   });
 
   it('roofs 13 tiles of the road from where the curve of waypoint 5 starts', () => {
@@ -506,6 +520,51 @@ describe('the jumps, flown over COMET RING (PRD 1775)', () => {
     expect(rowOf(boosted.y)).toBeGreaterThanOrEqual(31);
     expect(rowOf(boosted.y)).toBeLessThanOrEqual(36);
     expect(roadAt(track, boosted.x, boosted.y)).toBe(true);
+  });
+
+  const west = Math.PI;
+  const walkRamp = { x: 33 * TILE + 1, y: 12.5 * TILE };
+
+  it('clears the walkway\'s gap from the ramp at the top speed without a BOOST, and lands on the walkway', () => {
+    const top = fly(walkRamp, west, RULES.topSpeed);
+    expect(top.fell).toBe(false);
+    expect(roadAt(track, top.x, top.y)).toBe(true);
+    expect(top.x / TILE).toBeLessThan(29.65);
+  });
+
+  it('falls into the walkway\'s gap at 0.9 of the top speed', () => {
+    expect(fly(walkRamp, west, 0.9 * RULES.topSpeed).fell).toBe(true);
+    expect(fly(walkRamp, west, 0.8 * RULES.topSpeed).fell).toBe(true);
+  });
+
+  it('runs the walkway on its centre line at the top speed: it clears the gap and lands on it, and half a tile off it a kart tips over', () => {
+    const run = (share: number, dy = 0) => {
+      const hands = { left: false, right: false, accel: true, brake: false };
+      let kart: Kart = { x: 42 * TILE, y: 12.5 * TILE + dy, angle: west, speed: share * RULES.topSpeed, steer: 0 };
+      let fx = { ...NO_FX };
+      let flown = false;
+      for (let i = 0; i < 2400; i++) {
+        ({ kart, fx } = stepFx(track, kart, hands, 1 / 120, 1, fx));
+        flown ||= (kart.height ?? 0) > 0;
+        if (fx.fall > 0) return { fell: true, x: kart.x, y: kart.y };
+        if (flown && !airborne(kart) && kart.x < 29 * TILE) return { fell: false, x: kart.x, y: kart.y };
+      }
+      throw new Error('the kart neither fell nor landed');
+    };
+    const top = run(1);
+    expect(top.fell).toBe(false);
+    expect(roadAt(track, top.x, top.y)).toBe(true);
+    // Half a tile off the centre line, a wheel is over the void: it tips over.
+    expect(run(1, TILE / 2).fell).toBe(true);
+  });
+
+  it('brings a kart that fell from the walkway back on the racing line, in the U-loop', () => {
+    const back = comeBack(track, { laps: 0, passed: 7 }, { x: 31 * TILE, y: 12.5 * TILE, angle: west, speed: 0, steer: 0 }, NO_FX);
+    expect(roadAt(track, back.kart.x, back.kart.y)).toBe(true);
+    expect(back.kart.x / TILE).toBeGreaterThan(22);
+    expect(back.kart.x / TILE).toBeLessThan(42);
+    expect(back.kart.y / TILE).toBeGreaterThan(14);
+    expect(back.kart.y / TILE).toBeLessThan(28);
   });
 
   it('flies the bump jump over road all the way: no fall at any speed from 0.5 to 1.4 of the top speed', () => {
