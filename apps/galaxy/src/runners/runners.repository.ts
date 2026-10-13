@@ -68,7 +68,10 @@ async function parsed<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: str
 
 const MemberRow = z.object({ role: z.string() }).nullable();
 const PlayerRow = z.object({ team: z.string().nullable(), github_login: z.string().nullable() }).nullable();
-const Placement = z.array(z.object({ workspace_id: z.string().nullable(), refusal: z.string().nullable() }));
+const PlacementRow = z.object({ workspace_id: z.string().nullable(), refusal: z.string().nullable() });
+/** repo_workspace() has out parameters and no `setof`, so PostgREST answers its one row as an object;
+ * a list is read too, as loop.repository.ts reads it. */
+const Placement = z.union([PlacementRow, z.array(PlacementRow)]).transform((data) => (Array.isArray(data) ? data[0] : data));
 
 export function runnersRepository(db: RunnersDb) {
   return {
@@ -82,7 +85,7 @@ export function runnersRepository(db: RunnersDb) {
 
     /** The workspace a repository belongs to for the person (repo_workspace()), or the database's reason why none. */
     place: async (userId: string, repo: string): Promise<{ workspaceId: string | null; refusal: string | null }> => {
-      const [row] = await parsed(db.rpc('repo_workspace', { person: userId, repo }), Placement, 'repo_workspace()');
+      const row = await parsed(db.rpc('repo_workspace', { person: userId, repo }), Placement, 'repo_workspace()');
       return { workspaceId: row?.workspace_id ?? null, refusal: row?.refusal ?? null };
     },
 
