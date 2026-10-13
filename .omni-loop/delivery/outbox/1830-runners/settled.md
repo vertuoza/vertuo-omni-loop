@@ -547,3 +547,471 @@ A --url flag, or another check, is a few lines in kit/bin/commands/runner.ts and
 ```
 
 <!-- /omni-outbox-settled: s2-03-runner-start-checks -->
+
+<!-- omni-outbox-settled: s3-01-runners-page-defaults -->
+
+## s3-01-runners-page-defaults — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-runners-page-defaults
+prd: 1830
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+The Runners page design left two points open: which button stands out as the main one, and what a job that a machine has taken but not yet started is called.
+
+## The decision, in plain words
+
+Only the most recent Send again button stands out, and none does while nothing failed. A job a machine has taken but not started yet reads Starting.
+
+## The intro, for fun
+
+A control panel full of bright buttons looks like a fruit machine.
+
+## The punchline, for fun
+
+So only one button gets to glow, and the rest wear grey.
+
+## The options, in plain words
+
+A. A. The newest Send again is the one primary action, none while nothing failed; a claimed job reads Starting.
+B. B. No primary action on the page at all; a claimed job reads Queued.
+C. C. Every Send again is highlighted; a claimed job reads Running.
+
+## What I had to decide
+
+Keep one highlighted Send again (the newest failed or cancelled job) and the word Starting, or pick another main action and word.
+
+## What I did meanwhile
+
+apps/galaxy/src/runners/page/RunnersPage.tsx marks the first Send again in the list (the newest ended job that failed or was cancelled) as the page's one primary action; every other button is quiet. A claimed job's status reads Starting (apps/galaxy/src/runners/page/model.ts, statusWords).
+
+## What it costs to change later
+
+A line each in RunnersPage.tsx and model.ts, and their render tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The runners screen lists 'Is Send again the page's one primary action, or does the page have none while nothing failed?' as an open question; the mockup marks one Send again as primary.
+- (author) The screen's Words list no word for a claimed job; Starting is new.
+- (author) Whether a member sees jobs of fleets they are not in is decided by s1's board read, not by this page: the page shows every job the board returns.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-runners-page-defaults -->
+
+<!-- omni-outbox-settled: s3-02-runners-sprite -->
+
+## s3-02-runners-sprite — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-runners-sprite
+prd: 1830
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+The new Runners entry in the menu needs its own small picture, and drawing a new one belongs to the design package, which this slice may not change. Which picture should it show?
+
+## The decision, in plain words
+
+The Runners entry shows the game's existing item box picture, a box things come out of, until someone draws a picture of its own.
+
+## The intro, for fun
+
+Every room in the station has a little sign on its door.
+
+## The punchline, for fun
+
+The new room borrowed the prize box sign until the painter gets back.
+
+## The options, in plain words
+
+A. A. The existing item box sprite, as built.
+B. B. A new small menu picture drawn for Runners in the design package, in a later change.
+C. C. The Loop sprite again, since runners sit beside the loop.
+
+## What I had to decide
+
+Keep the item box picture for the Runners entry, or draw a new menu picture for it in the design package.
+
+## What I did meanwhile
+
+apps/galaxy/src/nav/sidebar.ts gives the runners entry the sprite 'item-box', an existing 16x16 sprite of @omni/design, as Products uses 'coin' and Ideas 'tile-block'. The sidebar tests name it.
+
+## What it costs to change later
+
+One constant in apps/galaxy/src/nav/sidebar.ts and its test, once a new sprite exists in packages/design/src/sprites.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says 'with its sprite' and names no picture; packages/design is outside s3's territory, so no new sprite could be drawn here.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-runners-sprite -->
+
+<!-- omni-outbox-settled: s3-03-switch-tests-outside-territory -->
+
+## s3-03-switch-tests-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-switch-tests-outside-territory
+prd: 1830
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+Two older checks that list every entry of the app's menu sat outside the part of the code this slice was given, and they failed once the Runners entry was added. Should this slice update them?
+
+## The decision, in plain words
+
+Both checks were updated to expect the new Runners entry after Loop, and nothing else in them changed.
+
+## The intro, for fun
+
+The new room got its door sign, and the fire map by the lift still showed the old floor plan.
+
+## The punchline, for fun
+
+We drew the new room on the map rather than take the room away.
+
+## The options, in plain words
+
+A. A. The two lists updated in this slice, as built.
+B. B. The two lists updated by the wave after merging, and this slice left red until then.
+
+## What I had to decide
+
+Accept the two one-line test updates outside the slice's area, or move them to another slice.
+
+## What I did meanwhile
+
+apps/galaxy/src/switch/headers.test.ts and apps/galaxy/src/switch/switch.test.ts each gain Runners (/app/runners) after Loop in the list of the sidebar's entries they expect; no other line changes.
+
+## What it costs to change later
+
+Nothing: two expected lists in tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names only the sidebar's own tests under s3's area; these two also list the menu's entries.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-switch-tests-outside-territory -->
+
+<!-- omni-outbox-settled: s4-01-picker-lists-runners-that-would-take-it -->
+
+## s4-01-picker-lists-runners-that-would-take-it — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-picker-lists-runners-that-would-take-it
+prd: 1830
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+The spec says the picker lists every target the person may send to, but some of those would never pick up the job: a machine that does not hold the project, or the shared choice when every machine belongs to a team. Should the picker still show them?
+
+## The decision, in plain words
+
+The picker lists only machines that hold the page's project, and offers the shared choice only when a machine without a team would take it, so a job sent from it is always one some machine can run.
+
+## The intro, for fun
+
+A taxi rank that lists every car in town, including the ones parked in another city.
+
+## The punchline, for fun
+
+We only list the cars that can actually reach you.
+
+## The options, in plain words
+
+A. List only targets that would claim the job, and hide the button when none is left.
+B. List every target the viewer may address, whether or not a runner would take it.
+C. List every target, with the ones no runner would take shown disabled and saying why.
+
+## What I had to decide
+
+Whether Send to terminal's picker lists only targets that would claim the job (a runner holding the page's repository; Any runner only with a runner of no fleet), or every target the viewer may address, as the spec's words read literally.
+
+## What I did meanwhile
+
+apps/galaxy/src/runners/send/targets.ts filters the board's runners to those holding the repository (case-insensitive) and the viewer may use, lists their fleets and the runners themselves, and adds Any runner only when one of them has no fleet; with no option left, the button is not drawn. Covered by targets.test.ts.
+
+## What it costs to change later
+
+One filter in one pure function and its tests; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists the picker's targets by who may send, and is silent on runners that do not hold the repository; the service's claim rule (a job is claimed only by a runner holding its repository, and Any only by a runner with no fleet) is what this follows.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-picker-lists-runners-that-would-take-it -->
+
+<!-- omni-outbox-settled: s4-02-view-job-link-anchor -->
+
+## s4-02-view-job-link-anchor — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-view-job-link-anchor
+prd: 1830
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+Once a job is sent, the button links to it on the Runners page, which another part of this work builds at the same time, and the spec does not say how that link points at one job. What should it point at?
+
+## The decision, in plain words
+
+The link opens the Runners page at the job's own spot on the page, named after the job, and the Runners page is asked to give each job row that name so the link lands on it.
+
+## The intro, for fun
+
+Two builders, one door, and nobody said which side the handle goes on.
+
+## The punchline, for fun
+
+We picked a side and left a note on the door.
+
+## The options, in plain words
+
+A. A spot on the Runners page named after the job, which the page gives each job's row.
+B. The Runners page with that job opened, its log showing.
+C. A page of its own for each job.
+
+## What I had to decide
+
+The shape of View job's link: /app/runners#job-<id> (an anchor the Runners page gives each job row), a query /app/runners?job=<id> that opens the job, or a page of its own per job.
+
+## What I did meanwhile
+
+jobHref() in apps/galaxy/src/runners/send/targets.ts answers /app/runners#job-<id>. Slice s3 (the Runners page, same wave) builds the rows; when merged, each job row needs id="job-<id>" for the link to land on it, otherwise the link opens the page at its top.
+
+## What it costs to change later
+
+One constant in one function, and an id on the Runners page's job rows; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether s3 gives each job row the anchor is not known from this slice; the wave's merge, or a follow-up line on the Runners page, settles it.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-view-job-link-anchor -->
+
+<!-- omni-outbox-settled: s4-03-fleet-named-by-key -->
+
+## s4-03-fleet-named-by-key — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-fleet-named-by-key
+prd: 1830
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 2
+---
+
+## The question, in plain words
+
+The picker names each fleet, and a fleet has both a short internal name and the label people see in the game. Which should the picker show?
+
+## The decision, in plain words
+
+The picker shows the fleet's internal name, the one the runners already carry, because reading the label would mean changing the shared runner code this part of the work does not own.
+
+## The intro, for fun
+
+A team's jersey says Cyan, but the roster calls them team three.
+
+## The punchline, for fun
+
+For now the picker reads the roster.
+
+## The options, in plain words
+
+A. Show the fleet's internal name.
+B. Show the fleet's label, the board read carrying it.
+
+## What I had to decide
+
+Whether the picker and Queued for <target> name a fleet by its key (public.teams.name, what runners.fleet holds) or by its label (public.teams.label, as the mockup's Cyan suggests).
+
+## What I did meanwhile
+
+targets.ts labels a fleet option with runner.fleet, the key. Showing the label needs the board read (runners.service.ts, runners.repository.ts, s1's files) to carry each fleet's label, outside this slice's territory.
+
+## What it costs to change later
+
+A label field on the board read and one line in targets.ts; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a workspace's fleet keys read well to people is not known: in the seeded workspaces they are short lower-case words.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-fleet-named-by-key -->
