@@ -18,12 +18,13 @@ the two say the same thing, that skill's words are the rule.
 `omni` below is `node .omni-loop/bin/omni.mjs`, always run in the plan repository. Never import the
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing. In a target, the same lines are printed from the plan repository.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing. In a target, the same
+lines are printed from the plan repository.
 
 **It asks nothing along the way,** as `/omni:yolo`: every decision a slice meets, in any
 repository, becomes an item in the plan repository's outbox; a person reads them all once, at the
@@ -73,7 +74,7 @@ acts.
    A PRD with no plan yet (its folder holds no `plan.md`, on the feature branch or, with none yet,
    on the default branch) has no `repos:` line either: it is not stopped here, but planned in step
    1, which runs this check again once the plan is written.
-3. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then
+3. The briefing (`node .omni-loop/bin/omni.mjs session start`), then
    `node .omni-loop/bin/omni.mjs kb status` once, as `/omni:yolo` step 0 runs them.
 
 ## From a product (`<key>-<n>`)
@@ -199,7 +200,7 @@ repository's PRD only), then the report per target. Its green **What is next?** 
    → PRD <key>-<n> is shipped once the last one merged.
 
 Merging them is yours. To keep every one green, conflict-free and its review comments handled,
-type /clear (or open a new terminal), then run:
+start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:mega-pr-care <key>-<n>
 ```
@@ -430,8 +431,8 @@ held or stuck with its reason.
    repository: review and merge each.
 
 Merging the target PRs, then #<plan PR>, is yours. Until then, to keep every one of them green,
-conflict-free and its review comments handled while you do other things, type /clear (or open a
-new terminal), then run:
+conflict-free and its review comments handled while you do other things, start a fresh session
+(in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:mega-pr-care <n>
 ```

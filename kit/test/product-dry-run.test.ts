@@ -78,7 +78,7 @@ describe('each skill names the product path (PRD 1548 s12)', () => {
   it('keeps every plan-repository path as it was', () => {
     expect(flat(section(read('ultra-yolo'), 'Step 0'))).toContain('not a plan repository: /omni:yolo <n> builds a PRD of this repository');
     expect(flat(section(read('ultra-wave'), 'Step 0'))).toContain('PRD <prd> is an ordinary PRD: /omni:wave <prd>');
-    expect(flat(read('mega-drive'))).toContain('not a plan repository: /loop /omni:drive [<n>…] [--roadmap <n>]');
+    expect(flat(read('mega-drive'))).toContain('not a plan repository: /omni:drive [<n>…] [--roadmap <n>] (in Claude: /loop /omni:drive)');
     expect(flat(read('mega-pr-care'))).toContain('not a plan repository: /omni:pr-care <n>');
   });
 

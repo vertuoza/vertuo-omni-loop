@@ -1,6 +1,6 @@
 ---
 name: wave
-description: Build ONE wave of a PRD in parallel — read the board, claim every takeable slice, dispatch one worktree subagent per slice following /omni:do-work --in-wave, then merge their sub-PRs into the feature branch one at a time, check the wave together, adopt its medium decisions and report. A PRD whose plan has fewer slices than wave.inlineBelow is built inline instead, one slice after the other and committed on the feature branch itself, with no claim and no sub-PR. Followed by /omni:yolo for each wave; a person may run it on a PRD. Never merges into the default branch. Triggers on "run the next wave", "build wave 3", "/omni:wave".
+description: Build ONE wave of a PRD in parallel — read the board, claim every takeable slice, start one agent per slice, each in its own worktree, following /omni:do-work --in-wave, then merge their sub-PRs into the feature branch one at a time, check the wave together, adopt its medium decisions and report. A PRD whose plan has fewer slices than wave.inlineBelow is built inline instead, one slice after the other and committed on the feature branch itself, with no claim and no sub-PR. Followed by /omni:yolo for each wave; a person may run it on a PRD. Never merges into the default branch. Triggers on "run the next wave", "build wave 3", "/omni:wave".
 ---
 
 <!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-parallel-wave/SKILL.md (and the board and wave-loop parts of vertuo-deliver) — changes in kit/porting/plugin--wave.md -->
@@ -10,14 +10,14 @@ description: Build ONE wave of a PRD in parallel — read the board, claim every
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
-Each slice is built by its own subagent in its own worktree and ends in its own sub-PR into the
+Each slice is built by its own agent in its own worktree and ends in its own sub-PR into the
 feature branch. You, the orchestrator, only ever hold each slice's short result; that is what keeps
 this conversation small. You merge; subagents never do.
 
@@ -45,7 +45,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`. The feature branch is `branches.feature` with `{topic}` filled by
 the PRD folder's topic (`node .omni-loop/bin/omni.mjs board <prd> --json` prints it as `prd.topic`).
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -151,7 +151,8 @@ Before the first slice, `git fetch <remote>` and keep `git rev-parse <remote>/<f
 Take `frontier.takeable` **one slice at a time**, in board order: slices share one branch, so they
 never run side by side. Each takes the next from the feature branch as the last one left it.
 
-1. **Dispatch** one subagent with `isolation: "worktree"`. Keep the prompt this small:
+1. **Dispatch** one agent, in its own worktree (in Claude: an Agent call with
+   `isolation: "worktree"`). Keep the prompt this small:
 
    > Build slice `<id>` of PRD <prd>, inline on feature branch `<feature branch>`: follow
    > `/omni:do-work --inline`. Do not spawn subagents. Return only do-work's result JSON: no diffs,
@@ -192,10 +193,11 @@ Claim mode leaves your checkout on the last slice branch it cut, and git refuses
 out in a second worktree. Once every claim is made, run `git switch --detach`, so each subagent's
 worktree can take its own slice branch.
 
-## 3. Dispatch, one subagent per slice, in a single message
+## 3. Dispatch, one agent per slice, all at once
 
-Launch every claimed slice concurrently (one message, several Agent calls), each with
-`isolation: "worktree"`. Keep the prompt this small:
+Start one agent per claimed slice, each in its own worktree, all at once (in Claude: one message
+with several Agent calls, each `isolation: "worktree"`, in the background). Keep the prompt this
+small:
 
 > Build slice `<id>` of PRD <prd>, on feature branch `<feature branch>`: follow `/omni:do-work
 > --in-wave`. Its slice branch is already claimed. Do not spawn subagents. Return only do-work's

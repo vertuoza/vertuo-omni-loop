@@ -22,12 +22,12 @@ makes one; **ship** (9); **hand off** (10).
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 ## Input
 
@@ -52,7 +52,7 @@ no screen library, step 4 marks no screen and runs no word pass, step 8 writes n
 **A change to a locked screen** does not apply, and the PR has no **Draft screen** section. Nothing
 else in this skill changes.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`.
 Its rules bind every step below. Then read `node .omni-loop/bin/omni.mjs kb show verification`: how
 this repository sees a change working, which step 7 follows. Each `omni kb show <form>` prints one
 form of the repository's playbook, section by section: a section the repository left blank prints
