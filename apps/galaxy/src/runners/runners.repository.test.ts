@@ -88,6 +88,11 @@ describe('the rows', () => {
     expect(await runnersRepository(db).place('u1', 'acme/app')).toEqual({ workspaceId: null, refusal: 'you are not a member of Acme, which owns acme/app' });
   });
 
+  it('place a repository from the one object PostgREST answers for repo_workspace()', async () => {
+    const { db } = fakeDb([{ data: { workspace_id: 'w1', refusal: null }, error: null }]);
+    expect(await runnersRepository(db).place('u1', 'acme/app')).toEqual({ workspaceId: 'w1', refusal: null });
+  });
+
   it('insert a runner and a job, and read the logins of those who have one', async () => {
     const runner = runnerRow({ id: SHARED, name: 'shared' });
     const job = jobRow();
