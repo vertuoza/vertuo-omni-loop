@@ -29,11 +29,12 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
   const client = {
     from(table: string) {
       const q = {
-        eqs: {} as Record<string, unknown>, nots: [] as [string, unknown][], orders: [] as { column: string; ascending: boolean }[],
+        eqs: {} as Record<string, unknown>, nots: [] as [string, unknown][], gtes: [] as [string, string][], orders: [] as { column: string; ascending: boolean }[],
         counting: false, most: null as number | null, window: null as [number, number] | null, columns: [] as string[],
         select(columns: string, options: { count?: string } = {}) { q.columns = columns.split(',').map((c) => c.trim()); q.counting = Boolean(options.count); return q; },
         eq(column: string, value: unknown) { q.eqs[column] = value; return q; },
         not(column: string, _op: 'is', value: unknown) { q.nots.push([column, value]); return q; },
+        gte(column: string, value: string) { q.gtes.push([column, value]); return q; },
         order(column: string, options: { ascending?: boolean } = {}) { q.orders.push({ column, ascending: options.ascending ?? true }); return q; },
         limit(n: number) { q.most = n; return q; },
         range(from: number, to: number) { q.window = [from, to]; return q; },
@@ -42,6 +43,7 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
           const all = (member ? tables[table] ?? [] : [])
             .filter((row) => Object.entries(q.eqs).every(([c, v]) => row[c] === v))
             .filter((row) => q.nots.every(([c, v]) => (row[c] ?? null) !== v))
+            .filter((row) => q.gtes.every(([c, v]) => String(row[c]) >= v))
             .sort((a, b) => {
               for (const { column, ascending } of q.orders) {
                 const x = String(a[column]), y = String(b[column]);
@@ -73,6 +75,9 @@ function memoryCache() {
   };
   return { cache, keys, store };
 }
+
+/** How many seasons the cache holds: one per fold. */
+const seasons = (store: Map<string, unknown>) => [...store.keys()].filter((k) => k.startsWith('["season",')).length;
 
 function world(ledger: Row[] = [event('planet:12:charted', '2026-09-20T10:00:00Z')]) {
   const tables = {
@@ -119,6 +124,20 @@ describe('the season cache', () => {
     expect(after.planets.map((p) => p.prd).sort()).toEqual([12, 13]);
   });
 
+  it('after a new event, reads only the events after the ledger it already read, not the whole ledger again (#1844)', async () => {
+    const day = (i: number) => `2026-09-${String(1 + Math.floor(i / 100)).padStart(2, '0')}T${String(Math.floor((i % 100) / 6)).padStart(2, '0')}:${String((i % 6) * 10).padStart(2, '0')}:00Z`;
+    const w = world(Array.from({ length: 2500 }, (_, i) => event(`planet:${String(i + 1)}:charted`, day(i), i + 1, { title: `Planet ${String(i + 1)}` })));
+    const deps = { cache: w.memory.cache, service: w.service.db };
+    await loadGalaxy(w.viewer.db, WS, NOW, deps);
+    const before = w.service.ledgerPages().length;
+    expect(before).toBe(3);
+    w.tables.ledger_events.push(event('planet:3000:charted', '2026-09-26T09:00:00Z', 3000, { title: 'Timings' }));
+    const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
+    expect(w.service.ledgerPages().length - before).toBe(1);
+    expect(after).toEqual(await loadGalaxy(w.viewer.db, WS, NOW, null));
+    expect(after.planets.some((p) => p.prd === 3000)).toBe(true);
+  });
+
   it('recomputes on an event added behind the newest one (the count changes)', async () => {
     const w = world();
     const deps = { cache: w.memory.cache, service: w.service.db };
@@ -129,12 +148,47 @@ describe('the season cache', () => {
     expect(after.planets.map((p) => p.prd).sort()).toEqual([12, 9].sort());
   });
 
+  it('reads the whole ledger again when an event was backfilled behind the read one as a new one came', async () => {
+    const w = world();
+    const deps = { cache: w.memory.cache, service: w.service.db };
+    await loadGalaxy(w.viewer.db, WS, NOW, deps);
+    w.tables.ledger_events.push(event('planet:9:charted', '2026-09-01T09:00:00Z', 9, { title: 'Backfilled' }));
+    w.tables.ledger_events.push(event('planet:13:charted', '2026-09-26T09:00:00Z', 13, { title: 'Timings' }));
+    const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
+    // One page past the tail, which misses the backfill, then the whole ledger.
+    expect(w.service.ledgerPages().map((c) => c.range)).toEqual([[0, 999], [0, 999], [0, 999]]);
+    expect(after).toEqual(await loadGalaxy(w.viewer.db, WS, NOW, null));
+    expect(after.planets.map((p) => p.prd).sort()).toEqual([12, 13, 9].sort());
+  });
+
+  it('reads the whole ledger again when an event came at the read tail\'s own instant', async () => {
+    const w = world();
+    const deps = { cache: w.memory.cache, service: w.service.db };
+    await loadGalaxy(w.viewer.db, WS, NOW, deps);
+    // Sorted by its id, it comes before the read tail: appended after it, the fold would see it out of order.
+    w.tables.ledger_events.push(event('planet:10:charted', '2026-09-20T10:00:00Z', 10, { title: 'Same instant' }));
+    w.tables.ledger_events.push(event('planet:13:charted', '2026-09-26T09:00:00Z', 13, { title: 'Timings' }));
+    const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
+    expect(w.service.ledgerPages()).toHaveLength(3);
+    expect(after).toEqual(await loadGalaxy(w.viewer.db, WS, NOW, null));
+  });
+
+  it('folds only up to the viewer\'s newest event when the service reads a newer ledger', async () => {
+    const w = world();
+    const ahead = fakeDb({ ...w.tables, ledger_events: [...w.tables.ledger_events, event('planet:13:charted', '2026-09-26T09:00:00Z', 13, { title: 'Timings' })] });
+    const view = await loadGalaxy(w.viewer.db, WS, NOW, { cache: w.memory.cache, service: ahead.db });
+    expect(view).toEqual(await loadGalaxy(w.viewer.db, WS, NOW, null));
+    expect(ahead.ledgerPages()).toHaveLength(1);
+  });
+
   it('recomputes on a new UTC day', async () => {
     const w = world();
     const deps = { cache: w.memory.cache, service: w.service.db };
     await loadGalaxy(w.viewer.db, WS, new Date('2026-09-26T23:59:00Z'), deps);
     await loadGalaxy(w.viewer.db, WS, new Date('2026-09-27T00:01:00Z'), deps);
-    expect(w.service.ledgerPages()).toHaveLength(2);
+    expect(seasons(w.memory.store)).toBe(2);
+    // The ledger did not change: the fold reads it from the cache (#1844).
+    expect(w.service.ledgerPages()).toHaveLength(1);
   });
 
   it('recomputes when a fleet or a sector changes, though the ledger did not', async () => {
@@ -143,7 +197,8 @@ describe('the season cache', () => {
     await loadGalaxy(w.viewer.db, WS, NOW, deps);
     item(w.tables.teams, 0).color = '#ff0000';
     const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
-    expect(w.service.ledgerPages()).toHaveLength(2);
+    expect(seasons(w.memory.store)).toBe(2);
+    expect(w.service.ledgerPages()).toHaveLength(1);
     expect(after.teams.find((t) => t.name === 'beaver')?.color).toBe('#ff0000');
   });
 
