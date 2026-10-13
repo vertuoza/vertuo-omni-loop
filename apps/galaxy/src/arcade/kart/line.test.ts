@@ -21,6 +21,7 @@ const square = (extra: Partial<LineSpec> = {}) =>
     ...extra,
   });
 const s = Math.SQRT1_2;
+const nth = <T>(xs: readonly T[], i: number): T => xs[i] as T;
 
 describe('the length of the line', () => {
   it('is 4(a - 2r) + 2 pi r for a square with round corners', () => {
@@ -135,17 +136,17 @@ describe('the racing line', () => {
     expect(samples.length).toBe(Math.floor(lengthOf(line) / 0.5) + 1);
     for (const p of samples) expect(locate(line, p.x, p.y).dist).toBeLessThan(1e-9);
     for (let i = 1; i < samples.length; i++) {
-      expect(Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y)).toBeLessThanOrEqual(0.5 + 1e-9);
+      expect(Math.hypot(nth(samples, i).x - nth(samples, i - 1).x, nth(samples, i).y - nth(samples, i - 1).y)).toBeLessThanOrEqual(0.5 + 1e-9);
     }
-    const first = samples[0];
-    const last = samples[samples.length - 1];
+    const first = nth(samples, 0);
+    const last = nth(samples, samples.length - 1);
     expect(Math.hypot(first.x - last.x, first.y - last.y)).toBeLessThanOrEqual(0.5 + 1e-9);
   });
 
   it('keeps the distance along on each sample, and the tangent', () => {
     const samples = racingLine(square());
-    expect(samples[3].along).toBeCloseTo(1.5, 9);
-    expect(samples[3].tx).toBeCloseTo(1, 9);
+    expect(nth(samples, 3).along).toBeCloseTo(1.5, 9);
+    expect(nth(samples, 3).tx).toBeCloseTo(1, 9);
   });
 });
 
@@ -153,7 +154,7 @@ describe('the gates', () => {
   it('stands at the middle of each arc, normal to the line, as wide as the road', () => {
     const gates = gatesOf(square());
     expect(gates).toHaveLength(4);
-    const g = gates[1]; // the corner at (a, 0): the first arc met when driving from along 0
+    const g = nth(gates, 1); // the corner at (a, 0): the first arc met when driving from along 0
     expect(g.index).toBe(1);
     expect(g.x).toBeCloseTo(a - r + r * s, 9);
     expect(g.y).toBeCloseTo(r - r * s, 9);

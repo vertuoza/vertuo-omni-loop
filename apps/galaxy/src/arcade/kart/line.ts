@@ -52,6 +52,9 @@ const SAMPLE_STEP = 0.5;
 
 const EPS = 1e-9;
 
+/** An element the caller knows is there (the indexes are always wrapped into range). */
+const nth = <T>(xs: readonly T[], i: number): T => xs[i] as T;
+
 /** Compiles the waypoints into straights and arcs; refuses a corner whose arc does not fit its legs. */
 export function buildLine(spec: LineSpec): Line {
   const pts = spec.points;
@@ -66,8 +69,8 @@ export function buildLine(spec: LineSpec): Line {
   };
   // For each corner: the length of its tangent (how far from the waypoint the arc starts and ends), and its turn.
   const corners = pts.map((p, i) => {
-    const before = unit(pts[(i + n - 1) % n], p);
-    const after = unit(p, pts[(i + 1) % n]);
+    const before = unit(nth(pts, (i + n - 1) % n), p);
+    const after = unit(p, nth(pts, (i + 1) % n));
     const cross = before.x * after.y - before.y * after.x;
     const dot = before.x * after.x + before.y * after.y;
     const turn = Math.atan2(cross, dot); // signed: positive turns towards increasing angles
@@ -75,8 +78,8 @@ export function buildLine(spec: LineSpec): Line {
     return { p, before, after, turn, tangent };
   });
   corners.forEach((c, i) => {
-    const leg = unit(c.p, pts[(i + 1) % n]).d;
-    if (c.tangent + corners[(i + 1) % n].tangent > leg + EPS) throw new Error(`the arcs of waypoints ${i} and ${(i + 1) % n} overlap on their leg`);
+    const leg = unit(c.p, nth(pts, (i + 1) % n)).d;
+    if (c.tangent + nth(corners, (i + 1) % n).tangent > leg + EPS) throw new Error(`the arcs of waypoints ${i} and ${(i + 1) % n} overlap on their leg`);
   });
 
   const segments: Segment[] = [];
@@ -84,8 +87,8 @@ export function buildLine(spec: LineSpec): Line {
   // The line starts where the arc of corner 0 ends.
   for (let k = 0; k < n; k++) {
     const i = (k + n) % n;
-    const c = corners[i];
-    const next = corners[(i + 1) % n];
+    const c = nth(corners, i);
+    const next = nth(corners, (i + 1) % n);
     const sx = c.p.x + c.after.x * c.tangent;
     const sy = c.p.y + c.after.y * c.tangent;
     const ex = next.p.x - next.before.x * next.tangent;
@@ -131,7 +134,7 @@ const sampleOf = (seg: Segment, local: number): Sample => {
 /** The point of the line at a distance along it (wrapping around the closed line) and its tangent. */
 export function pointAt(line: Line, along: number): Sample {
   const d = wrap(line, along);
-  let seg = line.segments[line.segments.length - 1];
+  let seg = nth(line.segments, line.segments.length - 1);
   for (const s of line.segments) {
     if (d < s.start + s.len) {
       seg = s;
