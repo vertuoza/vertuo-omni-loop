@@ -11,6 +11,7 @@ import { fakeStageStore } from '../store.fake';
 import { syncConfig, type RepoSnapshot } from './core';
 import { syncStages, type SnapshotSyncDeps, type SyncDeps, type SyncWorkspace } from './sync';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { createLogger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -36,6 +37,10 @@ function deps(more: Partial<SyncDeps> = {}, repos: Record<string, string[]> = { 
     'globex/core': snap('globex/core', { issues: [{ number: parsePrd(3), created_at: '2026-09-27T00:00:00Z' }] }),
   };
   const lines: string[] = [];
+  const runs: string[] = [];
+  let tick = 0;
+  // Each read of the run logger's clock is 125 ms after the last.
+  const runLog = createLogger({ sink: (line) => runs.push(line), clock: () => (tick += 125) });
   const d: SyncDeps = {
     secret: SECRET,
     workspaces: () => Promise.resolve([ACME, GLOBEX]),
@@ -48,9 +53,10 @@ function deps(more: Partial<SyncDeps> = {}, repos: Record<string, string[]> = { 
     store,
     now: () => NOW,
     log: (line) => lines.push(line),
+    runLog,
     ...more,
   };
-  return { d, store, snapshots, lines };
+  return { d, store, snapshots, lines, runs };
 }
 
 /** The route's answer, read through a schema: every key it sends is kept. */
@@ -206,6 +212,61 @@ describe('the stages sync route', () => {
     const res = await syncStages(post(`Bearer ${SECRET}`), d);
     expect(res.status).toBe(500);
     expect(store.writes).toEqual([]);
+  });
+});
+
+describe('the run line (PRD 1723, s7)', () => {
+  const RunLine = z.looseObject({ level: z.string(), event: z.string(), outcome: z.string() });
+  const linesOf = (runs: string[]) => runs.map((line) => RunLine.parse(JSON.parse(line)));
+
+  it('logs exactly one stages-sync line per run: ok, how long it took and how many repositories it read', async () => {
+    const { d, runs } = deps();
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect(linesOf(runs)).toEqual([{ level: 'info', event: 'stages-sync', outcome: 'ok', status: 200, ms: 125, repos: 3 }]);
+  });
+
+  it('counts only the repositories it read, not the ones it skipped', async () => {
+    const { d, snapshots, runs } = deps();
+    snapshots['acme/widgets'] = new Error('GitHub answered 502 to /pulls');
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(linesOf(runs)).toEqual([expect.objectContaining({ outcome: 'ok', repos: 2 })]);
+  });
+
+  it('logs one refused line on a wrong bearer, and still answers 401', async () => {
+    const { d, runs } = deps();
+    const res = await syncStages(post('Bearer nope'), d);
+    expect(res.status).toBe(401);
+    expect(linesOf(runs)).toEqual([{ level: 'warn', event: 'stages-sync', outcome: 'refused', status: 401, ms: 125 }]);
+  });
+
+  it('logs one failed line when the workspaces cannot be read, and still answers 500', async () => {
+    const { d, runs } = deps({ workspaces: () => Promise.reject(new Error('Supabase is down')) });
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(500);
+    expect(linesOf(runs)).toEqual([{ level: 'error', event: 'stages-sync', outcome: 'failed', status: 500, ms: 125 }]);
+  });
+
+  it('logs one failed line for a run that throws, and rethrows the same error', async () => {
+    const boom = new Error('the clock is gone');
+    const { d, runs } = deps({ now: () => { throw boom; } });
+    await expect(syncStages(post(`Bearer ${SECRET}`), d)).rejects.toBe(boom);
+    expect(linesOf(runs)).toEqual([{ level: 'error', event: 'stages-sync', outcome: 'failed', ms: 125, error: { name: 'Error', message: 'the clock is gone' } }]);
+  });
+
+  it('answers as it would when the run logger throws', async () => {
+    const throwing = () => { throw new Error('stdout is closed'); };
+    const { d } = deps({ runLog: { info: throwing, warn: throwing, error: throwing, timer: () => throwing } });
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect((await syncStages(post('Bearer nope'), d)).status).toBe(401);
+  });
+
+  it('keeps the per-repository sentences it already logs', async () => {
+    const { d, snapshots, lines, runs } = deps();
+    snapshots['acme/widgets'] = new Error('GitHub answered 502 to /pulls');
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines).toEqual(['stages sync: acme/widgets of acme is skipped — GitHub answered 502 to /pulls']);
+    expect(runs).toHaveLength(1);
   });
 });
 

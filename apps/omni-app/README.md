@@ -299,9 +299,10 @@ Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run
               steps "collect <ws>/<repo> <n>" at most 50 pull requests each: details, reviews, commits
 ```
 
-Vercel serves the two functions from `api/github.mjs` and `api/inngest.mjs`: committed bundles of
-`entries/github.ts` and `entries/inngest.ts` with the app's code, the kit and the workspace packages
-inside, npm packages left as imports. Vercel compiles a TypeScript function file by file and keeps
+Vercel serves the four functions from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`
+and `api/health.mjs` ([Health](#health-prd-1723)): committed bundles of their entries under
+`entries/` with the app's code, the kit and the workspace packages inside, npm packages left as
+imports. Vercel compiles a TypeScript function file by file and keeps
 every `import './x.ts'` as written, so a function served from TypeScript fails to start (#1084).
 After changing anything the app runs, rebuild them with `node apps/omni-app/build.ts`;
 `src/vercel-functions.test.ts` fails while they are stale.
@@ -336,6 +337,7 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.ts` |
 | `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.ts` |
 | `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.mjs` |
+| `health` — alive, its commit, and whether its environment parses | `src/health/`, served at `api/health.mjs` (bundled from `entries/health.ts`) |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The
 retro writes only its own `branches.retro` branches, their pull requests, its retro issues and one
@@ -344,6 +346,30 @@ comment on failure. Neither ever force-pushes, writes to the default branch or m
 
 Tests run from the repository root with `pnpm test`, against a stubbed GitHub. The retro's tests also
 replay PRD 50 as GitHub returned it (`test/fixtures/prd-50/`), offline.
+
+## Health (PRD 1723)
+
+`GET /api/health` says whether this deployment is alive, which commit it runs and whether its
+environment parses (`src/health/`). It is public: its body never holds a variable's value, an error's
+text or anything about a person, and it calls nothing outside (no GitHub, no Inngest, no OpenRouter).
+Every answer carries `Cache-Control: no-store`.
+
+| Situation | Status | Body |
+|---|---|---|
+| the environment parses (the same read `src/env.ts` makes when a function starts) | `200` | `{ "ok": true, "app": "omni-app", "commit": "<sha>", "checks": { "env": "ok" } }` |
+| it does not: a half-set group, a malformed value, or in production a missing required group | `503` | `{ "ok": false, "app": "omni-app", "commit": "<sha>", "checks": { "env": "failed" } }` |
+| a method other than `GET` | `405` | `Allow: GET` |
+
+`commit` is `VERCEL_GIT_COMMIT_SHA`, which Vercel sets on every deployment, and `null` when it is
+unset. Which variable failed is never in the body: the other functions' start fails naming it, in
+the function logs. Unlike them, `/api/health` reads the environment on each request, so a broken
+environment answers `503` rather than failing to start.
+
+The repository's hourly health check (`.github/workflows/health.yml`) probes it once the repository
+variable **`OMNI_APP_URL`** is set to this app's production host (`https://<production domain>`, no
+path): Settings › Secrets and variables › Actions › Variables. Unset, the check leaves the app alone.
+It holds no secret. Two failed probes 30 seconds apart open the issue `Health: omni-app is down`,
+which it comments on while the app stays down and closes once it answers again.
 
 ## Setup — human steps
 
@@ -409,6 +435,9 @@ None of these is taken by the code; a person does each once.
    > remedy is to remove the requirement in branch protection — never to fake a status. Inngest's run
    > history shows whether a run was attempted.
 5. **Labels.** Run `npx github:vertuoza/vertuo-omni-loop init` in the repository: it creates the missing `omni:*` labels.
+6. **The hourly health check.** In `vertuoza/vertuo-omni-loop`, set the repository variable
+   `OMNI_APP_URL` to this app's production host, so the health workflow probes its `/api/health`
+   ([Health](#health-prd-1723)).
 
 ### Making the app public — human steps (PRD 359)
 

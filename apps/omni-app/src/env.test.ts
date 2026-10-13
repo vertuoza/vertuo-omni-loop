@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GALAXY_URL, EnvError, readEnv } from './env.ts';
+import { DEFAULT_GALAXY_URL, EnvError, PLATFORM_VARIABLES, readCommit, readEnv } from './env.ts';
 
 const SECRET = 'sk-fake-secret-0123456789';
 const PEM = ['-----BEGIN', 'RSA', 'PRIVATE', 'KEY-----'].join(' ') + '\\nabc\\n-----END RSA PRIVATE KEY-----';
@@ -92,5 +92,18 @@ describe('readEnv — the GitHub App', () => {
 
   it('names the half of the GitHub App that is missing', () => {
     expect(thrown({ GITHUB_APP_ID: '1' }).message).toContain('GITHUB_APP_PRIVATE_KEY is not set while GITHUB_APP_ID is');
+  });
+});
+
+describe('readCommit — the deployment\'s commit (PRD 1723)', () => {
+  it('is VERCEL_GIT_COMMIT_SHA, a platform variable', () => {
+    expect(readCommit({ VERCEL_GIT_COMMIT_SHA: 'abc123' })).toBe('abc123');
+    expect(PLATFORM_VARIABLES).toEqual(['VERCEL_ENV', 'VERCEL_GIT_COMMIT_SHA']);
+  });
+
+  it('is null when unset or empty, whatever else is broken', () => {
+    expect(readCommit({})).toBeNull();
+    expect(readCommit({ VERCEL_GIT_COMMIT_SHA: '' })).toBeNull();
+    expect(readCommit({ VERCEL_ENV: 'production', SUPABASE_URL: 'not a url', VERCEL_GIT_COMMIT_SHA: 'abc123' })).toBe('abc123');
   });
 });

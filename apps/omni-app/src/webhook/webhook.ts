@@ -59,6 +59,7 @@ import {
 } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
 import { TOUCH_EVENTS, toTouches, type Touch } from '../stage-forward/touch.ts';
 
@@ -156,6 +157,7 @@ export async function receiveWebhook({
   sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
+  log = noteTo('webhook'),
 }: {
   body: string;
   headers: HeadersIn;
@@ -166,6 +168,8 @@ export async function receiveWebhook({
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
+  /** Says a forward that failed; a JSON note line at `warn` unless given (PRD 1723 s6). */
+  log?: (line: string) => void;
 }): Promise<WebhookResponse> {
   if (!secret) return reply(500, 'webhook secret is not configured');
 
@@ -185,14 +189,14 @@ export async function receiveWebhook({
     try {
       await forward(stageEvent);
     } catch (error) {
-      console.error(`stage event: could not forward — ${String(messageOf(error))}`);
+      log(`stage event: could not forward — ${String(messageOf(error))}`);
     }
   }
   await Promise.all(toTouches(event, payload).map(async (one) => {
     try {
       await touch(one);
     } catch (error) {
-      console.error(`touch: could not forward — ${String(messageOf(error))}`);
+      log(`touch: could not forward — ${String(messageOf(error))}`);
     }
   }));
 
