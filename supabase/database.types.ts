@@ -4023,6 +4023,7 @@ export type Database = {
           github_login: string
         }[]
       }
+      my_workspaces: { Args: never; Returns: string[] }
       outbox_item_adopt: {
         Args: {
           p_bears_on: string
