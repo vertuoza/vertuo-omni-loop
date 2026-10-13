@@ -487,7 +487,7 @@ Changing either is a one-line edit in the sync and its test; no stored data depe
 - Raised: 2026-10-12
 - Slice: s5
 - Wave: 1
-- Became: ADR-0102 (`.omni-loop/knowledge/adr/0102-observability-stays-on-vercel.md`, accepted as written)
+- Became: ADR-0102
 
 ### The answer, as it was given
 
