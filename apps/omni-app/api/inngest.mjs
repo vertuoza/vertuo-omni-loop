@@ -6389,6 +6389,22 @@ var RoundFileSchema = z22.object({
 var HeartbeatWindowSchema = z22.object({ sentAt: z22.number() });
 var TokensSchema = z22.looseObject({ access_token: text4 });
 var TokenReplySchema = z22.object({ access_token: text4, refresh_token: text4 });
+var QuestionOptionSchema = z22.strictObject({ label: text4, description: z22.string() });
+var QuestionSchema = z22.strictObject({
+  question: text4,
+  header: z22.string(),
+  options: z22.array(QuestionOptionSchema),
+  multiSelect: z22.boolean()
+});
+var QuestionContextSchema = z22.strictObject({
+  skill: z22.string().nullable().optional(),
+  model: z22.string().nullable().optional()
+});
+var QuestionFileSchema = z22.strictObject({
+  questions: z22.array(QuestionSchema).min(1),
+  lead: z22.string().optional(),
+  context: QuestionContextSchema.optional()
+});
 
 // kit/lib/ask/client.ts
 var AskCallError = class extends Error {
@@ -6567,14 +6583,24 @@ var SESSION = envGroup({
     waylandDisplay: "WAYLAND_DISPLAY"
   }
 });
+var HEARTBEAT = envGroup({
+  label: "the heartbeat",
+  schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
+  variables: { switch: "OMNI_HEARTBEAT" }
+});
+var TEST_RUNNER = envGroup({
+  label: "the test runner",
+  schema: z25.object({ vitest: z25.string() }),
+  variables: { vitest: "VITEST" }
+});
 var PACKAGE_MANAGER = envGroup({
   label: "the package manager",
   schema: z25.object({ execPath: z25.string() }),
   variables: { execPath: "npm_execpath" }
 });
-var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION]);
+var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync15, rmSync as rmSync5, writeFileSync as writeFileSync5 } from "node:fs";
