@@ -208,14 +208,26 @@ describe('the props (PRD 1427)', () => {
   });
   const withProp = (kind: (typeof PROP_KINDS)[number], x: number, y: number): TrackSource => ({ ...COMET_RING, props: [{ kind, x, y }] });
 
-  it('stand on COMET RING and pass every check: all five kinds, each on a void tile', () => {
+  it('stand on COMET RING and pass every check: the five original kinds, each on a void tile (the station\'s four are laid out by its circuit, PRD 1775 s8)', () => {
     expect(trackProblems(COMET_RING)).toEqual([]);
-    for (const kind of PROP_KINDS) expect(props.some((p) => p.kind === kind), kind).toBe(true);
+    for (const kind of PROP_KINDS.slice(0, 5)) expect(props.some((p) => p.kind === kind), kind).toBe(true);
     for (const { x, y } of props) expect(tileAt(rows, x, y)).toBe('~');
   });
 
   it('put pylons and beacons along the circuit\'s edge, and the rest deeper in', () => {
     for (const { kind, x, y } of props) expect(nearRoad(x, y), `${kind} at ${x},${y}`).toBe(kind === 'pylon' || kind === 'beacon');
+  });
+
+  it('accept the station\'s lamps, dishes, cranes and containers on void tiles and refuse them on the road, the walkway, the spur and the tunnel', () => {
+    const fixture = (kind: (typeof PROP_KINDS)[number], x: number, y: number): TrackSource => ({
+      rows: ['~~~~~~', '~#TTw~', '~~~~~~'], waypoints: [[1, 1], [4, 1]], props: [{ kind, x, y }],
+    });
+    for (const kind of ['lamp', 'dish', 'crane', 'container'] as const) {
+      expect(trackProblems(fixture(kind, 0, 0)).filter((p) => p.includes('stands')), kind).toEqual([]);
+      for (const [x, what] of [[1, 'road'], [2, 'roofed road'], [4, 'walkway']] as const) {
+        expect(trackProblems(fixture(kind, x, 1)), `${kind} on ${what}`).toContain(`row 1, col ${x}: a ${kind} stands on a ${what} tile, props stand on void tiles only`);
+      }
+    }
   });
 
   it('are refused on a road, kerb, line, box or start tile, naming the tile with its row and column', () => {

@@ -78,8 +78,8 @@ export function legHeight(relief: Relief, i: number, d: number, length: number):
   return from + (to - from) * t * t * (3 - 2 * t) + bump * hump * hump;
 }
 
-/** What stands off the road: pylons and beacons along the circuit's edge, the rest deeper in. */
-export const PROP_KINDS = ['pylon', 'beacon', 'asteroid', 'satellite', 'wreck'] as const;
+/** What stands off the road: pylons and beacons along the circuit's edge, the rest deeper in; the station's lamps, dishes, cranes and containers (PRD 1775) stand near the road and around the station. */
+export const PROP_KINDS = ['pylon', 'beacon', 'asteroid', 'satellite', 'wreck', 'lamp', 'dish', 'crane', 'container'] as const;
 export type PropKind = (typeof PROP_KINDS)[number];
 
 /** A prop as written: its kind and the tile it stands on. */
