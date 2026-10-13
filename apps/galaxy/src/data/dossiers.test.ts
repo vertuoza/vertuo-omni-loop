@@ -5,7 +5,7 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
-import { demoDossiers, planetDossier, readDossiers, workspaceDossiers } from './dossiers';
+import { demoDossiers, planetDossier, readDossiers, readPlanetDossier, workspaceDossiers } from './dossiers';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -179,6 +179,81 @@ describe('readDossiers', () => {
     const { fake, read } = world();
     fake.state.failOn = 'd-12';
     expect(await read()).toEqual({ 12: 'unreadable', 13: containing({ id: 'd-13' }) });
+  });
+});
+
+describe('readPlanetDossier', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  const DOSSIERS: FakeDossier[] = [
+    { row: listed('d-12', 12, { asked: 2, answered: 1 }), rounds: [ask(1, 'Which formats first?', 'CSV', '2026-09-21T10:00:00Z')] },
+    { row: listed('d-14-core', 14, { home_repo: 'vertuoza/vertuo-core' }), rounds: [] }, // PRD 14 of another repository
+    { row: listed('d-acme-12', 12, { workspace_id: ACME, home_repo: 'acme/acme-plan' }), rounds: [] },
+  ];
+
+  function world(person: FakeUser = PEOPLE.ada) {
+    const galaxy = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
+    const fake = withDossiers(galaxy, DOSSIERS);
+    const db = fake.client(person) as unknown as SupabaseClient<Database>;
+    return { galaxy, fake, read: (prd: number, workspace = VERTUOZA) => readPlanetDossier(db, workspace, parsePrd(prd)) };
+  }
+
+  it('reads the plan repository\'s PRD of the planet\'s number, as the DOSSIER tab shows it, with a link to its page', async () => {
+    const { read } = world();
+    expect(await read(12)).toEqual({
+      id: 'd-12', url: '/prd/d-12', asked: 2, answered: 1,
+      latest: { 'before-after': null, spec: null, plan: null },
+      last: [{ question: 'Which formats first?', answer: 'CSV', more: 0, at: '2026-09-21T10:00:00Z' }],
+    });
+  });
+
+  it('makes three database calls: the dossier with its workspace\'s plan repository, then dossier_list() and dossier_rounds() of that dossier alone', async () => {
+    const { galaxy, fake, read } = world();
+    await read(12);
+    expect(galaxy.calls).toEqual([]);
+    expect(fake.calls).toEqual([
+      { kind: 'from', table: 'dossiers', eq: { workspace_id: VERTUOZA, prd: 12 } },
+      { kind: 'rpc', fn: 'dossier_list', args: { p_dossier: 'd-12' } },
+      { kind: 'rpc', fn: 'dossier_rounds', args: { p_dossier: 'd-12' } },
+    ]);
+  });
+
+  it('gives none for a planet with no dossier, one of another repository, or a workspace with no plan repository', async () => {
+    expect(await world().read(13)).toBe('none');
+    const other = world();
+    expect(await other.read(14)).toBe('none');
+    expect(other.fake.calls.filter((c) => c.kind === 'rpc')).toEqual([]);
+    const unplanned = world();
+    present(unplanned.galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = null;
+    expect(await unplanned.read(12)).toBe('none');
+  });
+
+  it('matches the plan repository in lower case, as the dossier keeps it', async () => {
+    const { galaxy, read } = world();
+    present(galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = 'Vertuo-Omni-Plan';
+    expect(await read(12)).toMatchObject({ id: 'd-12' });
+  });
+
+  it('reads the workspace played only, and nothing of a workspace the person is not in', async () => {
+    expect(await world(PEOPLE.both).read(12, ACME)).toMatchObject({ id: 'd-acme-12' });
+    expect(await world(PEOPLE.ada).read(12, ACME)).toBe('none');
+  });
+
+  it('gives none when dossier_list() no longer lists it (deleted in between)', async () => {
+    const { fake, read } = world();
+    fake.state.gone.add('d-12');
+    expect(await read(12)).toBe('none');
+  });
+
+  it('is unreadable when the dossier or its rounds cannot be read, and says so in the log', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const a = world();
+    a.fake.state.failOn = 'dossiers';
+    expect(await a.read(12)).toBe('unreadable');
+    const b = world();
+    b.fake.state.failOn = 'dossier_rounds';
+    expect(await b.read(12)).toBe('unreadable');
+    expect(console.error).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -156,6 +156,38 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
   }
 }
 
+/** A dossiers row of one PRD number, with its workspace's plan repository embedded (one call, PRD 1808). */
+const PlanetDossierRow = z.object({
+  id: z.string(),
+  home_repo: z.string().nullable(),
+  workspace: z.object({ github_org: z.string().nullable(), plan_repo: z.string().nullable() }).nullable(),
+});
+
+/**
+ * One planet's dossier, as its DOSSIER tab shows it, for `GET /api/arcade/planets/<key>` (PRD 1808): the
+ * workspace's plan repository's dossier of PRD `prd`, or 'none' when it has none (or the workspace has no
+ * plan repository); 'unreadable' when it could not be read. At most three database calls, as the member:
+ * the dossiers of that number with the workspace's plan repository embedded, then dossier_list() and
+ * dossier_rounds() of the one dossier. Never throws.
+ */
+export async function readPlanetDossier(db: Db, workspace: string, prd: PrdNumber): Promise<PlanetDossierRead | 'none'> {
+  try {
+    const { data, error } = await db.from('dossiers').select('id, home_repo, workspace:workspaces(github_org, plan_repo)').eq('workspace_id', workspace).eq('prd', prd);
+    if (error) throw new Error(`Supabase: could not read the planet's dossier (${error.message})`);
+    const rows = orThrow(parseRows(PlanetDossierRow, data, 'data/dossiers: dossiers'));
+    const id = rows.find((row) => {
+      const org = row.workspace?.github_org;
+      const plan = row.workspace?.plan_repo;
+      return org && plan && row.home_repo === `${org}/${plan}`.toLowerCase();
+    })?.id;
+    if (id === undefined) return 'none';
+    return (await readOne(db, id)) ?? 'none';
+  } catch (err) {
+    console.error(err);
+    return 'unreadable';
+  }
+}
+
 /**
  * Every dossier of `workspace` the caller may read, newest activity first, as dossier_list(p_workspace)
  * lists them (supabase/migrations/20261012100000_dossier_list_workspace.sql): the database keeps the one
