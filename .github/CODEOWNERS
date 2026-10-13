@@ -5,4 +5,33 @@
 /.omni-loop/knowledge/product/principles.md @pierrederval
 /.omni-loop/knowledge/product/rules.md @pierrederval
 /.omni-loop/knowledge/product/invariants.md @pierrederval
+# law BR-PRODUCT-3: its test.
+/kit/test/plugin.test.ts @pierrederval
+# law BR-PRODUCT-6: its test.
+/apps/omni-app/src/outbox-check/outbox-check.test.ts @pierrederval
+# law BR-PRODUCT-12: its test.
+/apps/galaxy/src/ask/rounds-sql.test.ts @pierrederval
+# law BR-PRODUCT-28: its test.
+/apps/galaxy/src/data/link-github-sql.test.ts @pierrederval
+# law BR-PRODUCT-29: its test.
+/apps/galaxy/src/ask/workspace-gate-sql.test.ts @pierrederval
+# law BR-PRODUCT-39: its test.
+/apps/galaxy/src/ask/workspace-sql.test.ts @pierrederval
+# law BR-PRODUCT-59: its test.
+/apps/galaxy/src/jev/jev-key-sql.test.ts @pierrederval
+# law BR-PRODUCT-63: its test.
+/apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts @pierrederval
+# law BR-PRODUCT-64: its test.
+/apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts @pierrederval
+# law BR-PRODUCT-94: its test.
+/apps/galaxy/src/ask/api.test.ts @pierrederval
+# law N-PRODUCT-3: its test.
+/kit/bin/item.test.ts @pierrederval
+# law N-PRODUCT-7: its test.
+/kit/bin/ask-hook.test.ts @pierrederval
+# law N-PRODUCT-13: its test.
+/kit/lib/init/settings.test.ts @pierrederval
+/kit/bin/init.test.ts @pierrederval
+# law N-PRODUCT-14: its test.
+/kit/bin/law-demoted.test.ts @pierrederval
 # END omni kb owners

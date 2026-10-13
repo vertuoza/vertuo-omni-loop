@@ -1403,3 +1403,275 @@ Narrowing one later is editing one line of its entry.
 ```
 
 <!-- /omni-outbox-settled: s6-03-database-rules-govern-every-migration -->
+
+<!-- omni-outbox-settled: s1-04-rule-tests-extended-for-locks -->
+
+## s1-04-rule-tests-extended-for-locks — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-13T08:10:04Z
+- Channel: feature pull request #1732
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1732#issuecomment-6141216112
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-95
+- Raised: 2026-10-12
+- Slice: s1
+- Wave: 1
+- Stays here: accepts where two proof files grew new tests; nothing lasting about the product or how it is built.
+
+### The answer, as it was given
+
+```text
+A. A. Accept the extended tests as built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-04-rule-tests-extended-for-locks
+prd: 1726
+slice: s1
+rank: high
+bears-on: BR-PRODUCT-95
+raised: 2026-10-12
+wave: 1
+---
+
+## The question, in plain words
+
+Two test files that prove existing rules gained new tests for locked laws; do you accept the change to them?
+
+## The decision, in plain words
+
+Yes: every existing test in them still checks what it did, and one settings test now also expects the two new law settings with their defaults.
+
+## The intro, for fun
+
+Two test files grew a new chapter.
+
+## The punchline, for fun
+
+The old chapters were not rewritten, just given a sequel.
+
+## The options, in plain words
+
+A. A. Accept the extended tests as built.
+B. B. Move the new law tests to files of their own and leave both proofs untouched.
+
+## What I had to decide
+
+Whether the changes to the test files proving the signature-settings rule and the every-law-names-its-test rule are accepted.
+
+## What I did meanwhile
+
+The knowledge check's tests gained a section for locked laws, and the settings tests gained one for laws.max and laws.owners. One existing settings expectation now lists the two new defaults beside requireProof; nothing it checked before was dropped.
+
+## What it costs to change later
+
+Reverting is removing the new test sections and two keys from one expectation.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The same change also touches the test proving the signature-settings rule (BR-PRODUCT-23); this item covers both files.
+
+```
+
+<!-- /omni-outbox-settled: s1-04-rule-tests-extended-for-locks -->
+
+<!-- omni-outbox-settled: s5-04-plugin-tests-extended-for-locked-laws -->
+
+## s5-04-plugin-tests-extended-for-locked-laws — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-13T08:10:04Z
+- Channel: feature pull request #1732
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1732#issuecomment-6141216112
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-3
+- Raised: 2026-10-12
+- Slice: s5
+- Wave: 3
+- Stays here: accepts where the skills' proof file grew new tests; nothing lasting about the product or how it is built.
+
+### The answer, as it was given
+
+```text
+A. A. Accept the extended test file as built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-plugin-tests-extended-for-locked-laws
+prd: 1726
+slice: s5
+rank: high
+bears-on: BR-PRODUCT-3
+raised: 2026-10-12
+wave: 3
+---
+
+## The question, in plain words
+
+The test file that proves several rules about the skills gained new tests for locked laws; do you accept the change to it?
+
+## The decision, in plain words
+
+Yes: the new tests were added at the end, in a group of their own, and every test already there still checks exactly what it did.
+
+## The intro, for fun
+
+A test file that guards six rules got a new neighbour at the end of the street.
+
+## The punchline, for fun
+
+Nobody moved house; the old tests did not even notice.
+
+## The options, in plain words
+
+A. A. Accept the extended test file as built.
+B. B. Move the new tests to a file of their own and leave the rules' proof untouched.
+
+## What I had to decide
+
+Accept A, or choose B and the new tests move to a file of their own.
+Decided by: Jev (hardToRevert 0.72) · agent said true
+
+## What I did meanwhile
+
+The new group checks that each skill reads only the laws a change touches and writes about a law in one plain sentence.
+
+## What it costs to change later
+
+Moving the group to its own file later is a cut and paste, plus that file in the slice's territory.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan names this file as the slice's territory, so a separate file was not an option inside it (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-04-plugin-tests-extended-for-locked-laws -->
+
+<!-- omni-outbox-settled: s6-01-candidate-laws-to-lock -->
+
+## s6-01-candidate-laws-to-lock — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-13T08:10:04Z
+- Channel: feature pull request #1732
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1732#issuecomment-6141216112
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-4
+- Raised: 2026-10-13
+- Slice: s6
+- Wave: 4
+- Became: N-PRODUCT-3, N-PRODUCT-4, N-PRODUCT-7, N-PRODUCT-8, N-PRODUCT-13, N-PRODUCT-14, BR-PRODUCT-3, BR-PRODUCT-5, BR-PRODUCT-6, BR-PRODUCT-12, BR-PRODUCT-28, BR-PRODUCT-29, BR-PRODUCT-39, BR-PRODUCT-59, BR-PRODUCT-63, BR-PRODUCT-64, BR-PRODUCT-94
+
+### The answer, as it was given
+
+```text
+A. Lock all seventeen candidates as proposed.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-candidate-laws-to-lock
+prd: 1726
+slice: s6
+rank: high
+bears-on: N-PRODUCT-4
+raised: 2026-10-13
+wave: 4
+---
+
+## The question, in plain words
+
+Seventeen of the product's rules are proposed as laws, the few truths that hurt people most when broken. Which ones do you lock, so that only your approval can change them, and which do you strike?
+
+## The decision, in plain words
+
+Nothing is locked: every candidate is only proposed, with one plain sentence saying what breaks and who gets hurt. Three truths you may want as laws have no rule written yet, so they are listed as gaps rather than invented.
+
+## The intro, for fun
+
+Seventeen rules applied for a promotion to law.
+
+## The punchline, for fun
+
+Only one person sits on the hiring panel, and it is not the agent.
+
+## The options, in plain words
+
+A. Lock all seventeen candidates as proposed.
+B. Lock only the ones you name in your answer, and strike the rest, which stay rules.
+C. Lock none yet, and keep every entry a rule.
+
+## What I had to decide
+
+Lock or strike each candidate. Locking one means adding its lock line on the entry, a line for it in the thesis's laws section, and approving the feature pull request as code owner. Each candidate, with what breaks if it is broken:
+
+1. N-PRODUCT-4 — The outbox gate reads its rules from the base branch. If broken: a pull request could switch its own gate off, and every reviewer would trust a green check that means nothing.
+2. N-PRODUCT-7 — A hook that cannot run never blocks a person. If broken: a person is locked out of their own terminal by a tool meant to help them.
+3. N-PRODUCT-8 — The ask hooks call only the host the person configured. If broken: a person's questions and answers could be sent to a server they never chose.
+4. N-PRODUCT-14 — The terminal checks compare the knowledge with the base branch. If broken: a rule quietly loses its test, and the team only learns it when the server refuses the pull request.
+5. N-PRODUCT-3 — A raised question is graded by the gate's own check before it is written. If broken: a badly ranked question slips past, and the person who answers decides without the facts.
+6. N-PRODUCT-13 — The install writes nothing outside its own folder but two settings keys, and never changes a value someone else set. If broken: a person's own settings are overwritten without them knowing.
+7. BR-PRODUCT-3 — An agent never applies the override label to clear the gate. If broken: an agent waves its own work through, and no person answered the open questions.
+8. BR-PRODUCT-5 — A feature pull request stays a draft while any question is open. If broken: a person merges work whose open decisions nobody answered.
+9. BR-PRODUCT-6 — The live outbox check reads the pull request's changed files. If broken: a risky change nobody explained reaches the main branch, and the reviewer is never told.
+10. BR-PRODUCT-12 — An answer, once given, never changes. If broken: the terminal acted on words the person no longer stands behind, and nobody can tell what was decided.
+11. BR-PRODUCT-28 — Only a member of a workspace can link a GitHub account. If broken: a stranger ties themselves to a team and sees what the team sees.
+12. BR-PRODUCT-29 — Ask mode is open to workspace members only. If broken: a stranger reads a team's questions and answers.
+13. BR-PRODUCT-39 — A question that belongs to no workspace is kept and read by nobody. If broken: the question leaks to the wrong people, or its owner loses it.
+14. BR-PRODUCT-59 — Only the owner sees the stored AI key's last four characters. If broken: a member copies the workspace's paid key and runs up its bill.
+15. BR-PRODUCT-63 — An agent link reads only its own workspace's repositories. If broken: an agent reads another team's private work.
+16. BR-PRODUCT-64 — A link stops working when its maker leaves the workspace. If broken: someone who left the team still reads its work through an agent.
+17. BR-PRODUCT-94 — An answer marked as given on the page comes only from the page's own sign-in. If broken: an agent answers a question in a person's name.
+
+Gaps, with no rule to lock yet (write one, with its test, before it can be locked):
+
+- Only a person merges into the main branch. It is stated in the briefing and the principles, but no rule or invariant names a test for it.
+- The game's ledger never rewrites history. The briefing's open question names it; no entry exists.
+- No secret reaches the browser. The briefing's open question names the Supabase secret key; no entry exists.
+
+To strike a candidate, remove its Proposed law line; it stays a rule.
+
+Decided by: Jev (hardToRevert 0.50) · agent said true
+
+## What I did meanwhile
+
+Every rule and invariant now says which paths it governs. The seventeen candidates carry a Proposed law line. The thesis is drafted, says no law is locked yet, and lists what the product refuses. The settings name you as the one owner of laws, and the code owners file names you for the thesis and the three registers.
+
+## What it costs to change later
+
+Locking is adding one line per law and one line in the thesis; striking is removing one line. Nothing else changes either way.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's main candidates include only a person merges into main, the ledger never rewrites history, and no secret reaches the browser; none of the three has a rule or invariant here, so none is proposed, and each is listed as a gap above.
+- (author) Which candidates hurt most is a judgement from each rule's text and its test; no incident record or user report was read to rank them.
+- (author) This item also accounts for the change to the rule and invariant registers: each entry gained a Governs line, and seventeen a Proposed law line; no statement, id or Enforced by line changed.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-candidate-laws-to-lock -->

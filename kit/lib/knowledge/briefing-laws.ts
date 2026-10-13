@@ -1,9 +1,10 @@
-// The briefing's closing section (PRD 1726): the thesis's laws section, read live, or, when there is
-// no thesis or it has no laws section, one plain line per locked law read from the registers. Both
-// `omni kb show briefing` and the context measure (PRD 1679) print it, so what a session reads and
-// what is measured stay one.
+// The briefing's closing section (PRD 1726): which laws are locked, by id, and how to read the ones a
+// change touches. Only the ids go in the briefing, never each law's full sentence: every session reads
+// the briefing first and it is held to a ceiling (PRD 1679), so a law's words are disclosed by
+// `omni kb laws --paths` or `--slice`, for the laws a change touches. Both `omni kb show briefing`
+// and the context measure print it, so what a session reads and what is measured stay one.
 import type { Config } from '../types.ts';
-import { disclose, lawLine } from './disclose.ts';
+import { disclose } from './disclose.ts';
 import { readKnowledge, type KnowledgeCtx } from './registers.ts';
 import { readThesis, thesisPath } from './thesis.ts';
 
@@ -12,12 +13,15 @@ export type BriefingLaws = { source: string; lines: string[] };
 
 export function briefingLaws(ctx: KnowledgeCtx & { config: Pick<Config, 'laws'> }): BriefingLaws {
   const thesis = readThesis(ctx);
-  const file = thesisPath(ctx);
-  if (thesis?.lawsSection) {
-    return { source: file, lines: [`## The laws  [read live from ${file}]`, thesis.lawsSection] };
-  }
+  const source = thesis === null ? ctx.layout.knowledgeRoot : thesisPath(ctx);
   const { laws } = disclose(readKnowledge({ ctx }).entries, thesis, null);
-  const body = laws.length === 0 ? ['No law is locked yet.'] : laws.map((law) => lawLine(law, ctx.config.laws.owners));
-  const missing = thesis === null ? `no thesis at ${file}` : `no laws section in ${file}`;
-  return { source: ctx.layout.knowledgeRoot, lines: [`## The laws  [${missing}; read from the registers]`, ...body] };
+  if (laws.length === 0) return { source, lines: ['## The laws', 'No law is locked yet.'] };
+  const ids = laws.map(({ id }) => id).join(', ');
+  return {
+    source,
+    lines: [
+      `## The laws  [${laws.length} locked]`,
+      `Locked: ${ids}. Before you change a file, run \`omni kb laws --paths <file>…\` (or \`--slice <prd> <slice>\`) to read the laws it touches; only their owner can approve a change to one.`,
+    ],
+  };
 }
