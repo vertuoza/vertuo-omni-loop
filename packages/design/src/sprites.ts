@@ -785,6 +785,35 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.px(14, 1, f ? 'Y' : 'R', 0).rect(13, 2, 2, 1, 'A', 2);
     d.pxs([[12, 8], [15, 8]], f ? 'Y' : 'C', 0);
   } },
+  // OMNI KART's station props (PRD 1775, slice 3): a neon lamp pulses (lit, dim), a dish turns (left, right); a crane, a container and the convoys' ship stand still.
+  'prop-lamp': { w: 10, h: 26, draw(d, f) {
+    d.rect(4, 8, 2, 18, 'L', 1).rect(1, 24, 8, 2, 'A', 2);
+    d.rect(2, 1, 6, 7, f ? 'C' : 'A', f ? 0 : 2);
+    if (!f) d.rect(3, 2, 4, 2, 'C', 3);
+    else d.rect(4, 2, 2, 4, 'W', 0);
+  } },
+  'prop-dish': { w: 20, h: 20, draw(d, f) {
+    d.rect(9, 10, 2, 8, 'L', 1).rect(5, 17, 10, 3, 'A', 2);
+    if (f) d.poly([[9, 2], [18, 3], [16, 11], [9, 10]], 'L', 1);
+    else d.poly([[11, 2], [2, 3], [4, 11], [11, 10]], 'L', 1);
+    d.px(f ? 13 : 7, 6, 'Y', 0).px(f ? 12 : 8, 7, 'C', 0);
+  } },
+  'prop-crane': { w: 32, h: 40, draw(d) {
+    d.rect(4, 8, 4, 32, 'A', 1).rect(4, 8, 1, 32, 'L', 1).rect(1, 37, 10, 3, 'A', 2);
+    d.rect(2, 6, 28, 3, 'L', 1).rect(2, 6, 28, 1, 'L', 0);
+    d.rect(26, 9, 1, 14, 'A', 3).rect(23, 23, 7, 5, 'O', 1).rect(23, 23, 7, 1, 'Y', 0);
+    d.pxs([[5, 12], [5, 20], [5, 28]], 'C', 0).px(3, 3, 'R', 0).rect(3, 4, 2, 2, 'A', 2);
+  } },
+  'prop-container': { w: 24, h: 16, draw(d) {
+    d.rect(1, 2, 22, 13, 'R', 1).rect(1, 2, 22, 2, 'R', 0).rect(1, 13, 22, 2, 'R', 2);
+    for (let x = 4; x < 22; x += 4) d.rect(x, 4, 1, 9, 'R', 3);
+    d.rect(1, 0, 22, 2, 'A', 1).rect(1, 15, 22, 1, 'A', 3).pxs([[3, 6], [4, 6], [3, 7]], 'W', 0);
+  } },
+  // A convoy's ship in OMNI KART's sky (PRD 1775, slice 3): a small freighter, its engine lit.
+  'sky-convoy': { w: 14, h: 8, draw(d) {
+    d.poly([[1, 3], [10, 2], [13, 4], [10, 6], [1, 6]], 'L', 1);
+    d.rect(3, 1, 4, 2, 'A', 1).rect(0, 3, 2, 3, 'C', 0).px(9, 3, 'C', 0).px(10, 3, 'C', 0);
+  } },
   // The arch over the start line: a leg on each side, and the beam between, stretched across the road.
   'arch-leg': { w: 10, h: 48, draw(d) {
     d.rect(2, 4, 6, 44, 'A', 1).rect(2, 4, 2, 44, 'L', 1).rect(0, 44, 10, 4, 'A', 2);

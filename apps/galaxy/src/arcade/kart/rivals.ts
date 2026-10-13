@@ -3,11 +3,11 @@
 // along it. Pure and seeded, like race.ts, which plays all of it.
 import type { Tint } from '@omni/design';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { airborne, leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
 import type { KartLook } from './look';
 import { slopeAt } from './relief';
 import { RULES, type Difficulty } from './rules';
-import { LAPS, type Track } from './track';
+import { LAPS, TILE, tileAt, type Track } from './track';
 
 /** Who drives a rival's kart: its sprite and its tint, as `fleetSprite` gives them, and its fleet's colour, which the kart takes. */
 export interface Driver { sprite: string; tint: Tint | null; color: string | null; /** The kart's look (PRD 1762); none draws the fleet's colour and CLASSIC. */ look?: KartLook; /** Who it is, as the results table names it. */ name?: string }
@@ -89,9 +89,43 @@ export function advance(track: Track, pace: Pace, from: { x: number; y: number }
     if (before < 0 && after >= 0) return { laps: pace.laps + 1, passed: 0 };
     return pace;
   }
+  const skipped = crossedGate(track, pace.passed, from, to);
+  if (skipped) return { laps: pace.laps, passed: pace.passed + 2 };
   const w = at(track.waypoints, pace.passed, 'a waypoint');
   const passed = Math.hypot(to.x - w.x, to.y - w.y) < RULES.waypointReach || throughCorner(track, pace.passed, from, to);
   return passed ? { laps: pace.laps, passed: pace.passed + 1 } : pace;
+}
+
+/** Whether the step `from` -> `to` crosses the segment `a` -> `b`, and on which side it ends: 1 when it ends to the left of a -> b's direction of travel, -1 to the right, 0 when it does not cross. */
+function crossing(from: { x: number; y: number }, to: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const side = (p: { x: number; y: number }) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+  const s0 = side(from), s1 = side(to);
+  if (!(s0 < 0 && s1 >= 0) && !(s0 >= 0 && s1 < 0)) return 0;
+  const k = s0 / (s0 - s1), px = from.x + (to.x - from.x) * k, py = from.y + (to.y - from.y) * k;
+  const along = ((px - a.x) * (b.x - a.x) + (py - a.y) * (b.y - a.y)) / (Math.hypot(b.x - a.x, b.y - a.y) ** 2 || 1);
+  if (along < 0 || along > 1) return 0;
+  return s1 >= 0 ? 1 : -1;
+}
+
+/**
+ * Whether a kart moving `from` -> `to` crossed, forwards (the way its leg runs), the gate of a shortcut that skips the
+ * waypoint `next` and the one after it (PRD 1775): a gate credits its two waypoints only when the first of them is the
+ * next to pass.
+ */
+function crossedGate(track: Track, next: number, from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  return track.shortcuts.some((s) => {
+    if (s.skips !== next) return false;
+    const [a, b] = s.gate;
+    const side = crossing(from, to, a, b);
+    if (side === 0) return false;
+    const sign = (b.x - a.x) * (s.to.y - s.from.y) - (b.y - a.y) * (s.to.x - s.from.x); // which side of the gate the leg runs on
+    return side * sign > 0;
+  });
+}
+
+/** Whether a kart moving `from` -> `to` crossed any gate, either way: what a rival never does. */
+export function crossedAnyGate(track: Track, from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  return track.shortcuts.some((s) => crossing(from, to, s.gate[0], s.gate[1]) !== 0);
 }
 
 /**
@@ -137,12 +171,22 @@ export function aimOf(track: Track, r: Rival): number {
   return turn(Math.atan2(ty - r.kart.y, tx - r.kart.x) - r.kart.angle);
 }
 
-/** What a rival's hands do: steer at the point it aims at, and ease off in a sharp turn. A wheel over the void, now or `RULES.rivalLook` seconds ahead, steers it back from the edge with the gas off, and brakes it when it is faster than a corner allows. */
+/** Whether a ramp is under the kart or on its way in the next `ahead` units (PRD 1775): the gap beyond it is to be jumped, not steered away from. */
+function rampAhead(track: Track, k: { x: number; y: number; angle: number }, ahead: number): boolean {
+  for (let d = 0; d <= ahead + TILE / 2; d += TILE / 2) {
+    const tx = Math.floor((k.x + Math.cos(k.angle) * Math.min(d, ahead)) / TILE), ty = Math.floor((k.y + Math.sin(k.angle) * Math.min(d, ahead)) / TILE);
+    if (tileAt(track.map, tx, ty) === '^') return true;
+  }
+  return false;
+}
+
+/** What a rival's hands do: steer at the point it aims at, and ease off in a sharp turn. A wheel over the void, now or `RULES.rivalLook` seconds ahead, steers it back from the edge with the gas off (but for a crawl under `RULES.rivalCrawl`, so a stalled kart pulls clear), and brakes it when it is faster than a corner allows. */
 function rivalPad(track: Track, r: Rival): Pad {
   const { x, y, angle, speed } = r.kart;
   const ahead = RULES.rivalLook * Math.max(0, speed);
-  const lean = leanOf(track.map, r.kart) || leanOf(track.map, { x: x + Math.cos(angle) * ahead, y: y + Math.sin(angle) * ahead, angle });
-  if (lean !== 0) return { left: lean > 0, right: lean < 0, accel: false, brake: speed > RULES.rivalCorner };
+  const flying = airborne(r.kart); // in the air nothing is under the wheels to steer from
+  const lean = flying ? 0 : leanOf(track.map, r.kart) || (rampAhead(track, r.kart, ahead) ? 0 : leanOf(track.map, { x: x + Math.cos(angle) * ahead, y: y + Math.sin(angle) * ahead, angle }));
+  if (lean !== 0) return { left: lean > 0, right: lean < 0, accel: speed < RULES.rivalCrawl, brake: speed > RULES.rivalCorner };
   const diff = aimOf(track, r);
   const sharp = Math.abs(diff) > RULES.rivalSharp && r.kart.speed > RULES.rivalCorner;
   return { left: diff < -RULES.rivalAim, right: diff > RULES.rivalAim, accel: !sharp, brake: sharp && Math.abs(diff) > RULES.rivalSharp * 1.6 };
@@ -177,14 +221,14 @@ export function driveRival(track: Track, r: Rival, dt: number, playerProgress: n
   return { ...r, ...comeBack(track, pace, stepped.kart, stepped.fx), pace };
 }
 
-/** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap; a kart marked in `falling` touches none. */
+/** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap; a kart marked in `falling` touches none, and one in the air is touched only by another in the air. */
 export function pushApart(karts: readonly Kart[], falling: readonly boolean[] = []): Kart[] {
   const out = karts.map((k) => ({ ...k }));
   const reach = RULES.radius * 2;
   for (let i = 0; i < out.length; i++) {
     for (let j = i + 1; j < out.length; j++) {
-      if (falling[i] || falling[j]) continue; // a falling kart is out of the contacts
       const a = at(out, i, 'a kart'), b = at(out, j, 'a kart');
+      if (falling[i] || falling[j] || airborne(a) !== airborne(b)) continue; // a falling kart is out of the contacts, and a kart on the ground does not push one in the air
       const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.hypot(dx, dy);
       if (d >= reach) continue;

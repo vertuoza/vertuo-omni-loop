@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { tippedOver } from './kart';
+import { NO_FX, tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
+import { advance, crossedAnyGate, START_PACE } from './rivals';
+import { sure } from '../test/sure';
 import { RULES } from './rules';
 import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
@@ -116,6 +118,15 @@ describe('a step', () => {
     for (let i = 0; i < 400; i++) {
       r = step(r, new Set<Action>(['a', i % 90 < 45 ? 'left' : 'right']), i % 7 === 0 ? 1 : 0.05).race;
       expect(!tippedOver(track.map, r.player) || r.fx.fall > 0, `frame ${i}`).toBe(true);
+    }
+  });
+
+  it('never leaves a kart tipped over on its side for longer than the grace without falling', () => {
+    let r = racing();
+    for (let i = 0; i < 400; i++) {
+      r = step(r, new Set<Action>(['a', i % 90 < 45 ? 'left' : 'right']), i % 7 === 0 ? 1 : 0.05).race;
+      expect(r.fx.tip <= RULES.tipGrace + 1e-9 || r.fx.fall > 0, `frame ${i}`).toBe(true);
+      for (const x of r.rivals) expect((x.fx ?? NO_FX).tip <= RULES.tipGrace + 1e-9 || (x.fx ?? NO_FX).fall > 0).toBe(true);
     }
   });
 
@@ -524,6 +535,60 @@ describe('the rivals\' difficulty (PRD 1762)', () => {
   it('runs the rivals slower on EASY than on NORMAL, and slower on NORMAL than on HARD', () => {
     expect(mean('easy')).toBeGreaterThan(mean('normal'));
     expect(mean('normal')).toBeGreaterThan(mean('hard'));
+  });
+});
+
+describe('the shortcuts of COMET RING (PRD 1775)', () => {
+  it('never has a rival cross a gate, on seeds 1, 7 and 42: five rivals race three laps', () => {
+    for (const seed of [1, 7, 42]) {
+      let r = press(newRace({ seed }), 'start').race;
+      for (let t = 0; t < RULES.countdown + 0.05; t += 0.05) r = step(r, NONE, 0.05).race;
+      let crossed = 0, falls = 0;
+      for (let t = 0; t < 600 && r.rivals.some((x) => x.doneAt == null); t += 1 / 60) {
+        const before = r.rivals.map((x) => x.kart);
+        const s = step(r, NONE, 1 / 60);
+        r = s.race;
+        r.rivals.forEach((x, i) => { if (crossedAnyGate(track, before[i] ?? x.kart, x.kart)) crossed++; });
+        falls += s.events.filter((e) => e.kind === 'fell' && e.racer > 0).length;
+      }
+      expect(r.rivals.every((x) => x.doneAt != null), `seed ${seed}`).toBe(true);
+      expect({ crossed, falls }, `seed ${seed}`).toEqual({ crossed: 0, falls: 0 });
+    }
+  });
+
+  /** A lap driven in straight lines through the tiles `via` (centres), counted by the race's own rule: the pace at the end. */
+  const lap = (via: readonly (readonly [number, number])[]) => {
+    let pace = START_PACE;
+    let from = { x: track.line.x - track.forward[0] * 40, y: track.line.y - track.forward[1] * 40 };
+    for (const [tx, ty] of [...via, [32, 56] as const]) {
+      const to = { x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE };
+      const n = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 4);
+      for (let i = 1; i <= n; i++) {
+        const p = { x: from.x + ((to.x - from.x) * i) / n, y: from.y + ((to.y - from.y) * i) / n };
+        pace = advance(track, pace, i === 1 ? from : { x: from.x + ((to.x - from.x) * (i - 1)) / n, y: from.y + ((to.y - from.y) * (i - 1)) / n }, p);
+      }
+      from = to;
+    }
+    return pace;
+  };
+  const W = COMET_RING.waypoints;
+  const wp = (...is: number[]) => is.map((i) => sure(W[i], 'a waypoint'));
+  const rest = wp(9, 10, 11, 12, 13);
+
+  it('counts a lap driven on the main line', () => {
+    expect(lap([...wp(0, 1, 2, 3, 4, 5, 6, 7, 8), ...rest])).toEqual({ laps: 1, passed: 0 });
+  });
+
+  it('counts a lap through the hidden ramp: its gate credits the two waypoints it skips', () => {
+    expect(lap([...wp(0, 1), [54, 30], [54, 28], ...wp(4, 5, 6, 7, 8), ...rest])).toEqual({ laps: 1, passed: 0 });
+  });
+
+  it('counts a lap through the walkway: its gate credits the two waypoints it skips', () => {
+    expect(lap([...wp(0, 1, 2, 3, 4, 5, 6), [22, 8], ...wp(9, 10, 11, 12, 13)])).toEqual({ laps: 1, passed: 0 });
+  });
+
+  it('counts a lap through both', () => {
+    expect(lap([...wp(0, 1), [54, 30], [54, 28], ...wp(4, 5, 6), [22, 8], ...rest])).toEqual({ laps: 1, passed: 0 });
   });
 });
 

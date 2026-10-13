@@ -7,6 +7,9 @@
 //   #  road          ~  the void (PRD 1447: nothing under the road; a kart over it falls)
 //   r  kerb (road)   =  the start line (road)
 //   ?  an item box (road)   S  a starting place (road)
+//   +  a boost pad (road)   ^  a ramp (road)   T  roofed road (road, a roof over it)
+//   w  a walkway (road, over the void)
+// Stands (PRD 1775) and shortcuts are not in the map either: they are listed beside it.
 // Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a void tile.
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
@@ -19,6 +22,7 @@ export const PLACES = 6;
 
 const LEGEND = Object.freeze({
   '#': 'road', '~': 'void', r: 'kerb', '=': 'line', '?': 'box', S: 'start',
+  '+': 'boost pad', '^': 'ramp', T: 'roofed road', w: 'walkway',
 } as const);
 type TileChar = keyof typeof LEGEND;
 
@@ -32,6 +36,21 @@ export interface TrackSource {
   readonly props?: readonly Prop[];
   /** The road's ups and downs; flat when left out. */
   readonly relief?: Relief;
+  /** The stands that float over the void, as tile coordinates [x, y] (PRD 1775); none when left out. */
+  readonly stands?: readonly (readonly [number, number])[];
+  /** The shortcuts, each beside the racing line (PRD 1775); none when left out. */
+  readonly shortcuts?: readonly Shortcut[];
+}
+
+/**
+ * A shortcut as written (PRD 1775), in tile coordinates [x, y]: the leg it drives, from the corner it leaves to the
+ * point where it rejoins the racing line, its gate (a line across it, from one end to the other), and `skips`, the
+ * index of the first of the two consecutive waypoints it skips.
+ */
+export interface Shortcut {
+  readonly leg: readonly [readonly [number, number], readonly [number, number]];
+  readonly gate: readonly [readonly [number, number], readonly [number, number]];
+  readonly skips: number;
 }
 
 /**
@@ -59,8 +78,8 @@ export function legHeight(relief: Relief, i: number, d: number, length: number):
   return from + (to - from) * t * t * (3 - 2 * t) + bump * hump * hump;
 }
 
-/** What stands off the road: pylons and beacons along the circuit's edge, the rest deeper in. */
-export const PROP_KINDS = ['pylon', 'beacon', 'asteroid', 'satellite', 'wreck'] as const;
+/** What stands off the road: pylons and beacons along the circuit's edge, the rest deeper in; the station's lamps, dishes, cranes and containers (PRD 1775) stand near the road and around the station. */
+export const PROP_KINDS = ['pylon', 'beacon', 'asteroid', 'satellite', 'wreck', 'lamp', 'dish', 'crane', 'container'] as const;
 export type PropKind = (typeof PROP_KINDS)[number];
 
 /** A prop as written: its kind and the tile it stands on. */
@@ -75,43 +94,43 @@ const COMET_RING_ROWS = [
   '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
   '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
   '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-  '~~~~~~r#r#r#?#####r#r#r~~~~~~~~~~~r#r#r###############r#r#r~~~~~',
-  '~~~~~~######?##########~~~~~~~~~~~#########################~~~~~',
-  '~~~~~~r###############r~~~~~~~~~~~r#######################r~~~~~',
-  '~~~~~~######?##########~~~~~~~~~~~#########################~~~~~',
-  '~~~~~~r#####?#########r~~~~~~~~~~~r#######################r~~~~~',
+  '~~~~~~r#r#r#?#####r#r#r~~~~~~~~~~~r#r#r#TTTTTTTTTTTTT#r#r#r~~~~~',
+  '~~~~~~######?##########wwwwwwwwwww######TTTTTTTTTTTTT######~~~~~',
+  '~~~~~~r###############rwwwwwwwwwwwr#####TTTTTTTTTTTTT#####r~~~~~',
+  '~~~~~~######?##########~~~~~~~~~~~######TTTTTTTTTTTTT######~~~~~',
+  '~~~~~~r#####?#########r~~~~~~~~~~~r#####TTTTTTTTTTTTT#####r~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~??#??~~~~~',
   '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
   '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~??#??~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~r#######?###########r~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~??#??~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~#####~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~',
+  '~~~~~~#####~~~~~~~r#######?###########r~~~~~~~~~~~~~~~^^^^^~~~~~',
   '~~~~~~??#??~~~~~~~########?############~~~~~~~~~~~~~~~#####~~~~~',
   '~~~~~~#####~~~~~~~r###################r~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~########?############~~~~~~~~~~~~~~~??#??~~~~~',
+  '~~~~~~+++++~~~~~~~########?############~~~~~~~~~~~~~~~#####~~~~~',
   '~~~~~~#####~~~~~~~r#r#r###?#######r#r#r~~~~~~~~~~~~~~~#####~~~~~',
   '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~',
+  '~~~~~~^^^^^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+++++~~~~~',
   '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r#r#r#?#########r~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~######?##########~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r###############r~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~######?##########~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r#####?#####r#r#r~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r#r#r#?++#######r~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~######?++########~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r######++#######r~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~######?++########~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~r#####?++###r#r#r~~~~~',
   '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
   '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
   '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
   '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
   '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
-  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~',
-  '~~~~~~r######?##r#r#r~~~~~~~~~~~~~~~~~~~~~r######?##r#r#r~~~~~~~',
-  '~~~~~~#######?#######~~~~~~~~~~~~~~~~~~~~~#######?#######~~~~~~~',
-  '~~~~~~r#############r~~~~~~~~~~~~~~~~~~~~~r#############r~~~~~~~',
-  '~~~~~~#######?#######~~~~~~~~~~~~~~~~~~~~~#######?#######~~~~~~~',
-  '~~~~~~r#r#r##?######r~~~~~~~~~~~~~~~~~~~~~r#r#r##?######r~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~^^^^^~~~~~~~',
+  '~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~#####~~~~~~~',
+  '~~~~~~r####++?##r#r#r~~~~~~~~~~~~~~~~~~~~~r######?##r#r#r~~~~~~~',
+  '~~~~~~#####++?#######~~~~~~~~~~~~~~~~~~~~~#######?#######~~~~~~~',
+  '~~~~~~r####++#######r~~~~~~~~~~~~~~~~~~~~~r#############r~~~~~~~',
+  '~~~~~~#####++?#######~~~~~~~~~~~~~~~~~~~~~#######?#######~~~~~~~',
+  '~~~~~~r#r#r++?######r~~~~~~~~~~~~~~~~~~~~~r#r#r##?######r~~~~~~~',
   '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
   '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
   '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
@@ -123,11 +142,11 @@ const COMET_RING_ROWS = [
   '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
   '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
   '~~~~~~~~~~~~~~~~#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####~~~~~~~',
-  '~~~~~~~~~~~~~~~~r########S##S#=#########?###?###########r~~~~~~~',
-  '~~~~~~~~~~~~~~~~##############=#########?###?############~~~~~~~',
-  '~~~~~~~~~~~~~~~~r########S##S#=#########################r~~~~~~~',
-  '~~~~~~~~~~~~~~~~##############=#########?###?############~~~~~~~',
-  '~~~~~~~~~~~~~~~~r#r#r####S##S#=#########?###?#######r#r#r~~~~~~~',
+  '~~~~~~~~~~~~~~~~r####++##S##S#=#########?###?###########r~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####++#######=#########?###?############~~~~~~~',
+  '~~~~~~~~~~~~~~~~r####++##S##S#=#########################r~~~~~~~',
+  '~~~~~~~~~~~~~~~~#####++#######=#########?###?############~~~~~~~',
+  '~~~~~~~~~~~~~~~~r#r#r++##S##S#=#########?###?#######r#r#r~~~~~~~',
   '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
   '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
   '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
@@ -168,17 +187,39 @@ export const COMET_RING: TrackSource = {
     { kind: 'beacon', x: 13, y: 52 }, { kind: 'pylon', x: 59, y: 52 }, { kind: 'beacon', x: 13, y: 59 },
     { kind: 'pylon', x: 59, y: 59 }, { kind: 'beacon', x: 20, y: 61 }, { kind: 'pylon', x: 27, y: 61 },
     { kind: 'beacon', x: 34, y: 61 }, { kind: 'pylon', x: 41, y: 61 }, { kind: 'beacon', x: 48, y: 61 },
-    { kind: 'asteroid', x: 28, y: 1 }, { kind: 'satellite', x: 28, y: 11 }, { kind: 'wreck', x: 44, y: 16 },
+    { kind: 'asteroid', x: 28, y: 1 }, { kind: 'satellite', x: 28, y: 14 }, { kind: 'wreck', x: 44, y: 16 },
     { kind: 'asteroid', x: 16, y: 28 }, { kind: 'satellite', x: 26, y: 28 }, { kind: 'wreck', x: 36, y: 28 },
     { kind: 'asteroid', x: 62, y: 36 }, { kind: 'satellite', x: 31, y: 37 }, { kind: 'wreck', x: 26, y: 46 },
     { kind: 'asteroid', x: 36, y: 46 }, { kind: 'satellite', x: 62, y: 46 }, { kind: 'wreck', x: 1, y: 48 },
     { kind: 'asteroid', x: 46, y: 48 }, { kind: 'satellite', x: 10, y: 53 }, { kind: 'wreck', x: 62, y: 56 },
     { kind: 'asteroid', x: 1, y: 58 },
+    // The station (PRD 1775): neon lamps and dishes along the road's edge, cranes and containers around the tunnel and the docks. Every one is on a void tile.
+    { kind: 'lamp', x: 8, y: 5 }, { kind: 'lamp', x: 16, y: 5 }, { kind: 'lamp', x: 33, y: 5 }, { kind: 'lamp', x: 42, y: 12 },
+    { kind: 'lamp', x: 49, y: 12 }, { kind: 'lamp', x: 52, y: 4 }, { kind: 'lamp', x: 60, y: 8 }, { kind: 'lamp', x: 33, y: 16 },
+    { kind: 'lamp', x: 4, y: 26 }, { kind: 'lamp', x: 12, y: 26 }, { kind: 'lamp', x: 14, y: 46 }, { kind: 'lamp', x: 22, y: 48 },
+    { kind: 'dish', x: 26, y: 5 }, { kind: 'dish', x: 30, y: 12 }, { kind: 'dish', x: 47, y: 5 }, { kind: 'dish', x: 62, y: 13 },
+    { kind: 'dish', x: 3, y: 20 }, { kind: 'dish', x: 22, y: 30 }, { kind: 'dish', x: 15, y: 60 },
+    { kind: 'crane', x: 44, y: 4 }, { kind: 'crane', x: 51, y: 12 }, { kind: 'crane', x: 38, y: 5 }, { kind: 'crane', x: 24, y: 16 },
+    { kind: 'crane', x: 12, y: 14 }, { kind: 'crane', x: 14, y: 34 }, { kind: 'crane', x: 50, y: 47 },
+    { kind: 'container', x: 45, y: 12 }, { kind: 'container', x: 40, y: 5 }, { kind: 'container', x: 55, y: 5 },
+    { kind: 'container', x: 40, y: 12 }, { kind: 'container', x: 25, y: 50 }, { kind: 'container', x: 30, y: 48 }, { kind: 'container', x: 2, y: 44 },
+  ],
+  // Twelve stands over the void: four on each side of the start straight and four beside the gap jump.
+  stands: [
+    [24, 52], [32, 52], [40, 52], [46, 52], [24, 60], [31, 60], [38, 60], [45, 60],
+    [60, 14], [60, 21], [52, 14], [52, 23],
+  ],
+  // The shortcuts (PRD 1775), each leaving the main line where it turns and with its gate beside the racing line, after the hard part.
+  // The hidden ramp leaves the corner [54, 40] straight on north and rejoins the leg [44, 28] -> [56, 28] at [54, 28]; its gate runs across the road at row 30.
+  // The walkway leaves the corner [36, 8] straight on west to the corner [20, 8]; its gate runs across the corner's east edge at column 22.
+  shortcuts: [
+    { leg: [[54, 40], [54, 28]], gate: [[52, 30], [56, 30]], skips: 2 },
+    { leg: [[36, 8], [20, 8]], gate: [[22, 6], [22, 10]], skips: 7 },
   ],
 };
 
-/** A tile that is road under the wheels: the road, a kerb, the line, a box or a starting place. */
-export const isRoad = (c: string): boolean => c === '#' || c === 'r' || c === '=' || c === '?' || c === 'S';
+/** A tile that is road under the wheels: the road, a kerb, the line, a box, a starting place, a pad, a ramp, roofed road or a walkway. */
+export const isRoad = (c: string): boolean => isTileChar(c) && c !== '~';
 
 /** The tile at column x, row y; the void past the map's edge. */
 export function tileAt(rows: readonly string[], x: number, y: number): string {
@@ -237,13 +278,14 @@ function lineOf(src: TrackSource): StartLine | null {
  * character, rows of unequal length, a waypoint off the road, two consecutive waypoints (the last and
  * the first too) not joined by road, not exactly six starting places behind the line, a start line
  * that does not cross the road from wall to wall, an item box off the road, a prop off a void tile, a relief
- * with a height or a bump missing or not a number, or spanning more than `RELIEF_SPAN`.
+ * with a height or a bump missing or not a number, or spanning more than `RELIEF_SPAN`, a stand off a void tile, a
+ * shortcut skipping waypoints that do not exist, with a leg whose ends are off the road, or with a gate crossing no road.
  * Empty when it is drivable.
  */
 export function trackProblems(src: TrackSource = COMET_RING): string[] {
   const shape = shapeProblems(src.rows);
   if (shape.length) return shape;
-  return [...waypointProblems(src), ...placeProblems(src.rows), ...lineProblems(src), ...boxProblems(src.rows), ...propProblems(src), ...reliefProblems(src)];
+  return [...waypointProblems(src), ...placeProblems(src.rows), ...lineProblems(src), ...boxProblems(src.rows), ...propProblems(src), ...reliefProblems(src), ...standProblems(src), ...shortcutProblems(src)];
 }
 
 /** A relief with a height or a bump missing or one too many, a number that is not one, or a road spanning more than `RELIEF_SPAN`. */
@@ -274,6 +316,20 @@ function shapeProblems(rows: readonly string[]): string[] {
   return problems;
 }
 
+/** The first tile of a walk that is off the road, none for a gap (PRD 1775): a run of void tiles that a ramp leads into and road follows is flown over, not a break in the road. */
+function offRoad(rows: readonly string[], tiles: readonly [number, number][]): [number, number] | undefined {
+  const road = tiles.map(([x, y]) => isRoad(tileAt(rows, x, y)));
+  for (let i = 0; i < tiles.length; i++) {
+    if (road[i]) continue;
+    let end = i;
+    while (end < tiles.length && !road[end]) end++;
+    const [bx, by] = tiles[i - 1] ?? [-1, -1];
+    if (!(i > 0 && end < tiles.length && tileAt(rows, bx, by) === '^')) return tiles[i];
+    i = end;
+  }
+  return undefined;
+}
+
 /** A waypoint off the road, or two consecutive waypoints (the last and the first too) not joined by road. */
 function waypointProblems({ rows, waypoints }: TrackSource): string[] {
   const problems: string[] = [];
@@ -283,7 +339,7 @@ function waypointProblems({ rows, waypoints }: TrackSource): string[] {
   waypoints.forEach((a, i) => {
     const j = (i + 1) % waypoints.length;
     const b = at(waypoints, j, 'the next waypoint');
-    const off = walk(a, b).find(([x, y]) => !isRoad(tileAt(rows, x, y)));
+    const off = offRoad(rows, walk(a, b));
     if (off) problems.push(`${where(off[0], off[1])}: waypoints ${i} and ${j} are not joined by road`);
   });
   return problems;
@@ -361,6 +417,31 @@ function propProblems({ rows, props = [] }: TrackSource): string[] {
   });
 }
 
+/** A stand that is not on a void tile (or off the map). */
+function standProblems({ rows, stands = [] }: TrackSource): string[] {
+  return stands.flatMap(([x, y]) => {
+    const tile = rows[y]?.[x];
+    if (tile === '~') return [];
+    const what = tile === undefined ? 'off the map' : `on a ${isTileChar(tile) ? LEGEND[tile] : 'unknown'} tile`;
+    return [`${where(x, y)}: a stand floats ${what}, stands float over void tiles only`];
+  });
+}
+
+/** A shortcut skipping waypoints that do not exist, a leg whose ends are not on road, or a gate that crosses no road. */
+function shortcutProblems({ rows, waypoints, shortcuts = [] }: TrackSource): string[] {
+  return shortcuts.flatMap(({ leg, gate, skips }, i) => {
+    const problems: string[] = [];
+    if (!Number.isInteger(skips) || skips < 0 || skips + 1 >= waypoints.length) {
+      problems.push(`shortcut ${i} skips waypoints ${skips} and ${skips + 1}, the circuit has ${waypoints.length}`);
+    }
+    for (const [x, y] of leg) if (!isRoad(tileAt(rows, x, y))) problems.push(`${where(x, y)}: an end of shortcut ${i}'s leg is off the road`);
+    if (!walk(gate[0], gate[1]).some(([x, y]) => isRoad(tileAt(rows, x, y)))) {
+      problems.push(`${where(gate[0][0], gate[0][1])}: the gate of shortcut ${i} crosses no road`);
+    }
+    return problems;
+  });
+}
+
 /** A circuit ready to race on: its tiles, the racing line and the starting places, in game pixels. */
 export interface Track {
   readonly cols: number;
@@ -380,6 +461,10 @@ export interface Track {
   readonly boxes: readonly { x: number; y: number }[];
   /** The road's ups and downs: a flat road for a circuit with none. */
   readonly relief: Relief;
+  /** The stands, at their tile centres. */
+  readonly stands: readonly { x: number; y: number }[];
+  /** The shortcuts: the leg each drives, its gate (a line across it) and the index of the first of the two waypoints it skips; all at tile centres. */
+  readonly shortcuts: readonly { readonly from: { x: number; y: number }; readonly to: { x: number; y: number }; readonly gate: readonly [{ x: number; y: number }, { x: number; y: number }]; readonly skips: number }[];
   /** The props, at their tile centres. */
   readonly props: readonly { kind: PropKind; x: number; y: number }[];
   /** The arch over the start line: its legs' centres, one beyond each end of the line. */
@@ -459,5 +544,7 @@ export function parseTrack(src: TrackSource = COMET_RING): Track {
     relief: src.relief ?? { heights: src.waypoints.map(() => 0), bumps: src.waypoints.map(() => 0) },
     props: (src.props ?? []).map(({ kind, x, y }) => ({ kind, ...centre([x, y]) })),
     arch: [centre(legs[0]), centre(legs[1])],
+    stands: (src.stands ?? []).map(centre),
+    shortcuts: (src.shortcuts ?? []).map(({ leg, gate, skips }) => ({ from: centre(leg[0]), to: centre(leg[1]), gate: [centre(gate[0]), centre(gate[1])], skips })),
   };
 }

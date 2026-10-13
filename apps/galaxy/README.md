@@ -955,12 +955,36 @@ off, no row exists, and every player sees NO XP YET.
   still keeps a flat floor.
   **The four wheels** (PRD 1698): a kart stands on four wheels, 6 ahead of and behind its centre and 3
   to each side. A side with more wheels over the void than the other **leans** the kart towards it and
-  slides it towards the void at 16 a second; the player can steer back onto the road. Both wheels of
-  one side over the void **tip it over** into the fall and the way back above, and a centre 7 past the
-  edge still falls. A leaning kart is drawn rolled towards the void, a falling one rolls over as it
+  slides it towards the void at 8 a second; the player can steer back onto the road. Both wheels of
+  one side over the void for half a second in a row (`RULES.tipGrace`) **tip it over** into the fall and
+  the way back above, a wheel back on the road starting the count again, and a centre 7 past the
+  edge still falls at once. A leaning kart is drawn rolled towards the void, a falling one rolls over as it
   sinks, and it casts no shadow while it falls. A rival looks a quarter of a second ahead, steers back
   from a wheel over the void there, brakes when it is faster than a corner allows and turns in 64
   before the corner's waypoint, so it finishes three laps without falling (seeds 1, 7 and 42).
+  **The station** (PRD 1775): COMET RING is a space station now, all of it tiles of the same 64 × 64 map.
+  **Boost pads** (`+`) give the BOOST of the item, 1.4 times the top speed for 1.5 seconds, started again
+  on every pad, and keep the item in the kart's hand; there is one before each jump and one out of each of
+  the corners `[18, 56]`, `[44, 28]` and `[8, 40]`. **Jumps:** a kart that leaves a ramp (`^`) takes off with a
+  vertical speed of 0.9 of its speed, flies under a gravity of 400, steers at 0.3 of its turn rate, takes no
+  box or pad and cannot tip over, and lands by the ordinary rules; the camera and the sprite follow its
+  height, with a shadow on the ground, and MULTI carries the height. The **gap jump** on the long descent
+  `[56, 28]` to `[56, 8]` (a pad, a ramp on the hump's crest, 3 tiles of void) is cleared from the pad and
+  at top speed, and not under 80% of it; the **bump jump** on the west leg `[8, 8]` to `[8, 40]` is air time
+  over road. **Shortcuts**, hard to reach and never taken by rivals: the **hidden ramp** at the corner
+  `[54, 40]` runs straight on north over a spur to a ramp with no pad, 5 tiles of void, and lands on
+  `[44, 28]` to `[56, 28]`, which only the BOOST of an item clears; the **walkway** at the corner `[36, 8]`
+  (`w`, 2 tiles wide) runs straight on west over the void to `[20, 8]`. Each has a gate across it after its
+  hard part: a kart that crosses it forwards while the next waypoint it must pass is the first one the
+  shortcut skips is credited with both, and each shortcut is a leg of its own in the relief. **The tunnel**
+  (`T`, 13 tiles of roofed road on `[56, 8]` to `[36, 8]`) has a roof 44 over the road, a ceiling with strips of
+  light, walls with portholes and a lit portal at each end; what is behind a wall is not drawn, and the floor
+  still takes at most 600 samples a column inside it. **The decor:** twelve stands float over the void
+  (four on each side of the start straight and four beside the gap jump), each showing an active fleet's
+  ship; neon lamps, antenna dishes, docking cranes and cargo containers stand on the void near the road and
+  around the station; convoys, an asteroid belt and a big planet cross the sky; the minimap shows the walkway
+  and the spur as road and the tunnel in a lighter tint. A rival throws nothing from the air. **A softer
+  edge** (see the four wheels above) keeps a kart that clips the void for less than half a second on the road.
   **The minimap** (PRD 1698): in the top right corner under the item panel, over the sky, on both
   grids, 8 game pixels in from the right edge: one game pixel a tile, the road shaded by its height
   (the higher, the lighter), the start line light, over a dark cyan-framed panel. It shows a gold

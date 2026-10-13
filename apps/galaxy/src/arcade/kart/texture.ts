@@ -15,6 +15,9 @@ export const SURFACE = Object.freeze({
   road: '#6d7194', neonCyan: '#19e6ff', neonMagenta: '#ff2bd6',
   lineLight: '#f1f1f8', lineDark: '#14122e', chevron: '#ffe94d',
   deckTop: '#a3a8cf', deck: '#4b5080', deckDark: '#1a1b3b',
+  // PRD 1775: the pad's cyan and its chevrons, the ramp's stripes, the station's plating, the walkway's grating.
+  pad: '#0fb5d4', padChevron: '#e6fdff', rampYellow: '#ffd21f', rampBlack: '#0d0c1f',
+  plate: '#8089b0', plateSeam: '#3a4068', plateRivet: '#c9cfee', grating: '#12102a', gratingBar: '#33376a',
 });
 
 /** The void's pixel: see-through, so the floor has none there and the space behind it shows. */
@@ -48,12 +51,32 @@ const startAt = (px: number, py: number, grain: number, t: Tones): number => {
 };
 const roadAt = (grain: number, t: Tones): number => (grain < 0.08 ? t[2] : grain > 0.96 ? t[0] : t[1]);
 
-/** The void tiles joined to the map's border through void: the outside of the circuit. One byte per tile, 1 when outside. */
+/** How many void tiles lie from the ramp at tx, ty in the direction dx, dy before road follows them (at most 8), 0 when none or when no road follows. */
+function gapAhead(map: readonly string[], tx: number, ty: number, [dx, dy]: readonly [number, number]): number {
+  let n = 1;
+  while (n <= 8 && tileAt(map, tx + dx * n, ty + dy * n) === '~') n++;
+  return n > 1 && isRoad(tileAt(map, tx + dx * n, ty + dy * n)) ? n - 1 : 0;
+}
+
+/** The void tiles of the gaps (PRD 1775): a run of void that a ramp leads into and road follows. A kart flies over one, so it closes the circuit's inside as the road does. One byte per tile, 1 in a gap. */
+function gapsOf({ cols, rows, map }: FloorMap): Uint8Array {
+  const gap = new Uint8Array(cols * rows);
+  const ramps = map.flatMap((row, ty) => Array.from(row).flatMap((c, tx) => (c === '^' ? [[tx, ty] as const] : [])));
+  for (const [tx, ty] of ramps) {
+    for (const step of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (let k = 1; k <= gapAhead(map, tx, ty, step); k++) gap[(ty + step[1] * k) * cols + tx + step[0] * k] = 1;
+    }
+  }
+  return gap;
+}
+
+/** The void tiles joined to the map's border through void, a gap closing the way as the road does: the outside of the circuit. One byte per tile, 1 when outside. */
 function outsideVoid({ cols, rows, map }: FloorMap): Uint8Array {
   const out = new Uint8Array(cols * rows);
+  const gaps = gapsOf({ cols, rows, map });
   const todo: [number, number][] = [];
   const take = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= cols || y >= rows || out[y * cols + x] || tileAt(map, x, y) !== '~') return;
+    if (x < 0 || y < 0 || x >= cols || y >= rows || out[y * cols + x] || gaps[y * cols + x] || tileAt(map, x, y) !== '~') return;
     out[y * cols + x] = 1;
     todo.push([x, y]);
   };
@@ -71,41 +94,89 @@ function onEdge(map: readonly string[], tx: number, ty: number, px: number, py: 
     || (py < EDGE && isRoad(tileAt(map, tx, ty - 1))) || (py >= TILE - EDGE && isRoad(tileAt(map, tx, ty + 1)));
 }
 
-/** The way forward through a tile: the axis of the nearest leg of the racing line. 'x' runs east or west, 'y' north or south. */
-function travelAxis(waypoints: Track['waypoints'], tx: number, ty: number): 'x' | 'y' {
+/** The way forward through a tile: the unit step along the nearest leg of the racing line, in the direction of the race. */
+function travelStep(waypoints: Track['waypoints'], tx: number, ty: number): [number, number] {
   const cx = (tx + 0.5) * TILE, cy = (ty + 0.5) * TILE;
-  let axis: 'x' | 'y' = 'x', nearest = Infinity;
+  let step: [number, number] = [1, 0], nearest = Infinity;
   waypoints.forEach((a, i) => {
     const b = at(waypoints, (i + 1) % waypoints.length, 'the next waypoint');
     const dx = b.x - a.x, dy = b.y - a.y;
     const t = Math.max(0, Math.min(1, ((cx - a.x) * dx + (cy - a.y) * dy) / (dx * dx + dy * dy || 1)));
     const d = (a.x + t * dx - cx) ** 2 + (a.y + t * dy - cy) ** 2;
-    if (d < nearest) { nearest = d; axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y'; }
+    if (d < nearest) { nearest = d; step = Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]; }
   });
-  return axis;
+  return step;
 }
 
+/** The axis the way forward runs along: 'x' east or west, 'y' north or south. */
+const travelAxis = (waypoints: Track['waypoints'], tx: number, ty: number): 'x' | 'y' => (travelStep(waypoints, tx, ty)[0] === 0 ? 'y' : 'x');
+
 interface Where { tx: number; ty: number; px: number; py: number }
-interface Ctx { map: readonly string[]; ramps: Ramps; neon: number; seam: boolean }
+interface Ctx {
+  map: readonly string[]; ramps: Ramps; neon: number; seam: boolean;
+  /** The way of the race through the tile being painted. */
+  step: readonly [number, number];
+  /** Whether the tile is station plating: roofed road, or road within three tiles of it. */
+  plated: boolean;
+}
 
 const kerbAt = (px: number): number => pack((px >> 2) % 2 === 0 ? SURFACE.neonCyan : SURFACE.neonMagenta);
 const lineAt = (px: number, py: number): number => pack(((px >> 2) + (py >> 2)) % 2 === 0 ? SURFACE.lineLight : SURFACE.lineDark);
+
+/** A pad's pixel: cyan, with a chevron pointing the way of the race. */
+function padAt({ px, py }: Where, ctx: Ctx): number {
+  return pack(onChevron(px, py, ctx.step) ? SURFACE.padChevron : SURFACE.pad);
+}
+
+/** A ramp's pixel: yellow and black diagonal stripes. */
+function rampAt({ px, py }: Where): number {
+  return pack(((px + py) >> 2) % 2 === 0 ? SURFACE.rampYellow : SURFACE.rampBlack);
+}
+
+/** Station plating: metal panels 8 pixels square, seams between them, a rivet in each corner. */
+function plateAt({ px, py }: Where): number {
+  if (px % 8 === 0 || py % 8 === 0) return pack(SURFACE.plateSeam);
+  return pack((px % 8 === 1 || px % 8 === 7) && (py % 8 === 1 || py % 8 === 7) ? SURFACE.plateRivet : SURFACE.plate);
+}
+
+/** Whether a pixel of a walkway tile is on a side that meets the void, within the neon edge. */
+function onVoidEdge(map: readonly string[], { tx, ty, px, py }: Where): boolean {
+  const gone = (x: number, y: number) => tileAt(map, x, y) === '~';
+  return (px < EDGE && gone(tx - 1, ty)) || (px >= TILE - EDGE && gone(tx + 1, ty)) || (py < EDGE && gone(tx, ty - 1)) || (py >= TILE - EDGE && gone(tx, ty + 1));
+}
+
+/** A walkway's pixel: a dark grating, magenta where it meets the void. */
+function gratingAt(w: Where, ctx: Ctx): number {
+  if (onVoidEdge(ctx.map, w)) return pack(SURFACE.neonMagenta);
+  return pack((w.px % 4 === 0 || w.py % 4 === 0) ? SURFACE.gratingBar : SURFACE.grating);
+}
 
 /** A void tile's pixel: neon where a side meets the road, else nothing. */
 function edged({ tx, ty, px, py }: Where, ctx: Ctx): number {
   return onEdge(ctx.map, tx, ty, px, py) ? ctx.neon : VOID;
 }
 
+/** How each kind of tile with a look of its own paints a pixel; the road (`#` and `?`) is the rest. */
+const PAINTERS: Readonly<Record<string, (w: Where, grain: number, ctx: Ctx) => number>> = {
+  '~': (w, _g, ctx) => edged(w, ctx),
+  r: (w) => kerbAt(w.px),
+  '=': (w) => lineAt(w.px, w.py),
+  S: (w, g, ctx) => startAt(w.px, w.py, g, ctx.ramps.road),
+  '+': (w, _g, ctx) => padAt(w, ctx),
+  '^': rampAt,
+  w: (w, _g, ctx) => gratingAt(w, ctx),
+  T: plateAt,
+};
+
+/** A road pixel: plating near a tunnel, else the road's grain, darker on a seam. */
+function roadPixel(w: Where, grain: number, ctx: Ctx): number {
+  if (ctx.plated) return plateAt(w);
+  return ctx.seam ? ctx.ramps.road[3] : roadAt(grain, ctx.ramps.road);
+}
+
 /** The colour of the pixel at px, py inside the tile tx, ty of kind `c`, seeded by the tile's place so the grain is the same every time. */
 function paint(c: string, w: Where, grain: number, ctx: Ctx): number {
-  const { px, py } = w;
-  switch (c) {
-    case '~': return edged(w, ctx);
-    case 'r': return kerbAt(px);
-    case '=': return lineAt(px, py);
-    case 'S': return startAt(px, py, grain, ctx.ramps.road);
-    default: return ctx.seam ? ctx.ramps.road[3] : roadAt(grain, ctx.ramps.road); // '#' and '?': road
-  }
+  return (PAINTERS[c] ?? roadPixel)(w, grain, ctx);
 }
 
 /** A `#rrggbb` colour `t` of the way from `a` to `b`, packed, with the opacity `alpha` (0 to 1). */
@@ -176,6 +247,38 @@ function paintChevrons(track: Pick<Track, 'map' | 'waypoints'>, px: Uint32Array,
   }
 }
 
+/** How far from a roofed tile the road is still station plating, in tiles. */
+const PLATING = 3;
+
+/** Whether a roofed tile is within `PLATING` tiles of the tile tx, ty, in either direction. */
+function nearRoof(map: readonly string[], tx: number, ty: number): boolean {
+  for (let dy = -PLATING; dy <= PLATING; dy++) {
+    for (let dx = -PLATING; dx <= PLATING; dx++) if (tileAt(map, tx + dx, ty + dy) === 'T') return true;
+  }
+  return false;
+}
+
+/** The ramp tiles' road tiles two steps back: the two tiles before each ramp, along the race, that carry a yellow arrow. */
+function arrowTiles(track: Pick<Track, 'cols' | 'rows' | 'map' | 'waypoints'>): { tile: [number, number]; to: [number, number] }[] {
+  const out: { tile: [number, number]; to: [number, number] }[] = [];
+  for (let ty = 0; ty < track.rows; ty++) {
+    for (let tx = 0; tx < track.cols; tx++) {
+      if (tileAt(track.map, tx, ty) !== '^') continue;
+      const to = travelStep(track.waypoints, tx, ty);
+      for (const k of [1, 2]) {
+        const tile: [number, number] = [tx - to[0] * k, ty - to[1] * k];
+        if (tileAt(track.map, tile[0], tile[1]) === '#') out.push({ tile, to });
+      }
+    }
+  }
+  return out;
+}
+
+/** The yellow arrows on the two road tiles before each ramp, pointing the way of the race. */
+function paintArrows(track: Pick<Track, 'cols' | 'rows' | 'map' | 'waypoints'>, px: Uint32Array, w: number): void {
+  for (const { tile, to } of arrowTiles(track)) stamp(px, w, tile, to);
+}
+
 /** The axis whose tile coordinate carries a seam on this tile (every fourth tile along the way forward), or null for no seam. */
 function seamAxis(c: string, waypoints: Track['waypoints'], tx: number, ty: number): 'x' | 'y' | null {
   if (c !== '#' && c !== '?') return null;
@@ -188,6 +291,8 @@ function paintTile(px: Uint32Array, w: number, track: Pick<Track, 'map' | 'waypo
   const { tx, ty } = where;
   const c = tileAt(track.map, tx, ty);
   const seam = seamAxis(c, track.waypoints, tx, ty);
+  ctx.step = travelStep(track.waypoints, tx, ty);
+  ctx.plated = (c === '#' || c === '?') && nearRoof(track.map, tx, ty);
   for (let y = 0; y < TILE; y++) {
     for (let x = 0; x < TILE; x++) {
       ctx.seam = seam !== null && (seam === 'x' ? x : y) === 0;
@@ -206,9 +311,10 @@ export function paintTrack(track: Pick<Track, 'cols' | 'rows' | 'map' | 'waypoin
   for (let ty = 0; ty < track.rows; ty++) {
     for (let tx = 0; tx < track.cols; tx++) {
       const neon = pack(outside[ty * track.cols + tx] ? SURFACE.neonCyan : SURFACE.neonMagenta);
-      paintTile(px, w, track, { tx, ty }, { map: track.map, ramps, neon, seam: false }, rand);
+      paintTile(px, w, track, { tx, ty }, { map: track.map, ramps, neon, seam: false, step: [1, 0], plated: false }, rand);
     }
   }
   paintChevrons(track, px, w);
+  paintArrows(track, px, w);
   return { w, h, px };
 }

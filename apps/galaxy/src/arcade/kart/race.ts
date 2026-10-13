@@ -163,7 +163,7 @@ function newMultiRace(seed: number, track: Track, { me, order, laps = LAPS }: Fi
 export function hear(race: Race, id: string, s: StateMessage): Race {
   if (race.mode !== 'multi' || (race.phase !== 'countdown' && race.phase !== 'race' && race.phase !== 'finish')) return race;
   const at = race.phase === 'countdown' ? 0 : race.clock;
-  const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer };
+  const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer, ...(s.height ? { height: s.height } : {}) };
   const fx: Fx = { ...NO_FX, spin: s.spin, fall: s.fall };
   return { ...race, rivals: race.rivals.map((r) => (r.id === id ? { ...r, kart, fx, pace: { laps: s.laps, passed: s.passed }, heard: { kart, fx, at } } : r)) };
 }

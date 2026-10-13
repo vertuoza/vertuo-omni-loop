@@ -102,3 +102,47 @@ describe('the height under every pixel of the texture', () => {
     expect(heights[0]).toBe(0); // the map's corner is void
   });
 });
+
+describe('the ground of a shortcut (PRD 1775)', () => {
+  // A shortcut leaving the corner [54, 56] and rejoining the line at [54, 40], drawn on the fixture as a leg of its own.
+  const leg = { leg: [[54, 56], [54, 40]], gate: [[52, 48], [56, 48]], skips: 2 } as const;
+  const plain = hills;
+  const cut = parseTrack({ ...COMET_RING, shortcuts: [leg] });
+  const [sc] = cut.shortcuts;
+  const from = sc?.from ?? { x: 0, y: 0 }, to = sc?.to ?? { x: 0, y: 0 };
+  const length = Math.hypot(to.x - from.x, to.y - from.y);
+
+  it('eases from the ground where it leaves the line to the ground where it rejoins it', () => {
+    expect(groundAt(cut, from.x, from.y)).toBeCloseTo(groundAt(plain, from.x, from.y), 6);
+    expect(groundAt(cut, to.x, to.y)).toBeCloseTo(groundAt(plain, to.x, to.y), 6);
+  });
+
+  it('never moves more than 1 unit of ground in 1 unit of distance along it', () => {
+    const dir = { x: (to.x - from.x) / length, y: (to.y - from.y) / length };
+    let last = groundAt(cut, from.x, from.y);
+    for (let d = 1; d <= length; d++) {
+      const h = groundAt(cut, from.x + dir.x * d, from.y + dir.y * d);
+      expect(Math.abs(h - last), `at ${d}`).toBeLessThanOrEqual(1);
+      last = h;
+    }
+  });
+
+  it('stays between the two heights along its leg', () => {
+    const mid = { x: from.x + (to.x - from.x) / 2, y: from.y + (to.y - from.y) / 2 };
+    const lo = groundAt(cut, from.x, from.y), hi = groundAt(cut, to.x, to.y);
+    const h = groundAt(cut, mid.x, mid.y);
+    expect(h).toBeGreaterThanOrEqual(Math.min(lo, hi) - 1e-6);
+    expect(h).toBeLessThanOrEqual(Math.max(lo, hi) + 1e-6);
+  });
+
+  it('leaves the ground of every point of the racing line as it is without the shortcut', () => {
+    const w = COMET_RING.waypoints.map(([x, y]) => centre(x, y));
+    w.forEach((a, i) => {
+      const b = w[(i + 1) % w.length] ?? a;
+      for (let k = 0; k <= 16; k++) {
+        const x = a.x + ((b.x - a.x) * k) / 16, y = a.y + ((b.y - a.y) * k) / 16;
+        expect(groundAt(cut, x, y), `leg ${i} at ${k}`).toBeCloseTo(groundAt(plain, x, y), 6);
+      }
+    });
+  });
+});

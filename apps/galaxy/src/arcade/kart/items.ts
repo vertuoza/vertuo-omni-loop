@@ -2,7 +2,7 @@
 // the draw weighted by place, BOOST, BLOB and ORB, the spin-out, and the plain rules the rivals use
 // them by. Racers are indexed 0 (the player) then the rivals; `stepItems` plays one short step of the world.
 import type { KartItem as Item } from '../scenes/kart.ts';
-import type { Fx, Kart } from './kart';
+import { airborne, type Fx, type Kart } from './kart';
 import { RULES, type Difficulty } from './rules';
 import { draw } from './rivals';
 import { isRoad, TILE, tileAt, type Track } from './track';
@@ -87,7 +87,7 @@ function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
 /**
  * `dt` seconds of the items: boxes come back, a kart driving through a box that holds nothing takes the
  * item its place draws, the first kart over a BLOB spins out and the BLOB is gone, and ORBs fly, bouncing
- * off the road's edge, until one hits a kart (which spins out). `places[i]` is racer i's place, 1 to 6.
+ * off the road's edge, until one hits a kart (which spins out). A kart in the air takes no box and is hit by nothing: items pass under it. `places[i]` is racer i's place, 1 to 6.
  */
 export function stepItems(map: readonly string[], world: World, racers: readonly Racer[], places: readonly number[], dt: number): { world: World; racers: Racer[]; events: ItemEvent[] } {
   let rng = world.rng;
@@ -96,7 +96,7 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
   const boxes = world.boxes.map((b) => ({ ...b, back: Math.max(0, b.back - dt) }));
   for (const box of boxes) {
     if (box.back > 0) continue;
-    const i = out.findIndex((r) => !r.fx.item && r.fx.fall <= 0 && near(r.kart, box, RULES.boxReach));
+    const i = out.findIndex((r) => !r.fx.item && r.fx.fall <= 0 && !airborne(r.kart) && near(r.kart, box, RULES.boxReach));
     const taker = out[i];
     if (!taker) continue;
     const [roll, next] = draw(rng);
@@ -107,7 +107,7 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
   }
   let blobs = world.blobs;
   for (const blob of world.blobs) {
-    const i = out.findIndex((r) => r.fx.spin <= 0 && r.fx.fall <= 0 && near(r.kart, blob, RULES.blobReach));
+    const i = out.findIndex((r) => r.fx.spin <= 0 && r.fx.fall <= 0 && !airborne(r.kart) && near(r.kart, blob, RULES.blobReach));
     const hit = out[i];
     if (!hit) continue;
     events.push({ kind: 'hit', racer: i, item: 'blob', spun: true, ...idOf(blob) });
@@ -118,7 +118,7 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
   for (const orb of world.orbs) {
     const flown = flyOrb(map, orb, dt);
     if (!flown) continue;
-    const i = out.findIndex((r) => r.fx.fall <= 0 && near(r.kart, flown, RULES.orbReach));
+    const i = out.findIndex((r) => r.fx.fall <= 0 && !airborne(r.kart) && near(r.kart, flown, RULES.orbReach));
     const hit = out[i];
     if (hit) { events.push({ kind: 'hit', racer: i, item: 'orb', spun: hit.fx.spin <= 0, ...idOf(orb) }); out[i] = spun(hit); } // the orb is gone with the hit
     else orbs.push(flown);
@@ -129,7 +129,7 @@ export function stepItems(map: readonly string[], world: World, racers: readonly
 /** Whether rival `i` (which has held its item `held` seconds) uses what it holds now, by plain rules: BOOST on a straight, BLOB with a kart close behind, ORB with a kart ahead in range and in line. `straight`: it is facing where it goes. */
 export function wantsToUse(racers: readonly Racer[], i: number, straight: boolean, level: Difficulty = 'normal', held = Infinity): boolean {
   const me = racers[i];
-  if (!me?.fx.item || me.fx.spin > 0 || me.fx.fall > 0) return false;
+  if (!me?.fx.item || me.fx.spin > 0 || me.fx.fall > 0 || airborne(me.kart)) return false; // nothing is thrown from the air (PRD 1775): a BLOB would land on the ramp it left
   if (held < RULES.levels[level].hold) return false; // the level's patience: an item is held this long before it is used
   if (me.fx.item === 'boost') return straight;
   const [cos, sin] = [Math.cos(me.kart.angle), Math.sin(me.kart.angle)];
