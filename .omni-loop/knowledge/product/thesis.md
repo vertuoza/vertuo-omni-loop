@@ -40,6 +40,9 @@ BR-PRODUCT-59 — Only the owner can see the workspace's stored AI key. If broke
 BR-PRODUCT-63 — An agent link reads only repositories in its own workspace. If broken: an agent could read another team's private work.
 BR-PRODUCT-64 — An agent link stops working when its maker leaves the workspace. If broken: a person who left the team could still read its work through an agent.
 BR-PRODUCT-94 — A terminal token can never mark an answer as given on the page. If broken: an agent could answer a question in a person's name.
+N-PRODUCT-15 — Only a person merges into the main branch; the loop's agents never do. If broken: unreviewed work reaches every user, and nobody chose to ship it.
+N-PRODUCT-16 — The game's ledger is only ever added to, never rewritten. If broken: scores and history could change after the fact, and players could no longer trust what they earned.
+N-PRODUCT-17 — No secret is ever sent to the browser. If broken: anyone opening the arcade could read a key that controls the database or a paid service.
 
 ## What it refuses
 
