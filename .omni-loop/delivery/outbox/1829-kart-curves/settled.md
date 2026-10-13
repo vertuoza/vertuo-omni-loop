@@ -236,3 +236,159 @@ Moving any of them later is an edit of the circuit's table and its test numbers.
 ```
 
 <!-- /omni-outbox-settled: s3-02-curves-station-positions -->
+
+<!-- omni-outbox-settled: s4-01-tunnel-vault-depth -->
+
+## s4-01-tunnel-vault-depth — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-tunnel-vault-depth
+prd: 1829
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 3
+---
+
+## The question, in plain words
+
+How far should the tunnel's ceiling sink toward its walls, and how round should the curve of that sinking be?
+
+## The decision, in plain words
+
+The ceiling sinks 10 units from the centre of the road to the walls, which keeps it above the player's eye, along a gentle arc that meets the walls without a step.
+
+## The intro, for fun
+
+The tunnel got a roof with a bit of belly.
+
+## The punchline, for fun
+
+Ten units of sag, and nobody has to duck.
+
+## The options, in plain words
+
+A. A. 10 units of sag, a shallow circular arc (built)
+B. B. 6 units of sag: a flatter roof, a less visible vault
+C. C. 14 units of sag: a deeper vault, closer to the player's eye
+
+## What I had to decide
+
+Pick the sag in rules.ts (vault) once you have driven the tunnel; it is one number.
+
+## What I did meanwhile
+
+The vault is 10 units deep, and the arc is a shallow part of a circle so the walls can meet it.
+
+## What it costs to change later
+
+A different depth is a one-number change; a different arc is one constant in mode7.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec gives the vault's name but not its depth or the exact shape of its arc (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-tunnel-vault-depth -->
+
+<!-- omni-outbox-settled: s5-01-walkway-on-the-grid -->
+
+## s5-01-walkway-on-the-grid — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-13
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-walkway-on-the-grid
+prd: 1829
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-13
+wave: 3
+---
+
+## The question, in plain words
+
+A ramp only fits on a whole tile of road, and the walkway is now one tile wide. Should the walkway sit exactly on the tile grid, two tiles south of the top straight, instead of a little closer?
+
+## The decision, in plain words
+
+The walkway now lies on the middle of a tile row, two tiles south of the top straight's axis instead of a little under two, so its ramp is a whole tile of road. Its gap is calibrated so that full speed clears it and nine tenths of it does not.
+
+## The intro, for fun
+
+A one-tile walkway is a tightrope, and the ramp wants a whole tile of it.
+
+## The punchline, for fun
+
+So the rope moved a fifth of a tile to stand on the grid.
+
+## The options, in plain words
+
+A. A. Walkway on the grid, two tiles off the straight, ramp on a whole tile (built)
+B. B. Keep the closer position and let the ramp check accept a ramp only partly on road
+C. C. Keep the closer position with the ramp on the arc, before the walkway starts
+
+## What I had to decide
+
+The spec says about 1.8 tiles; the ramp check wants every corner of its tile on road, which a one-tile walkway only offers when it lies on the grid. 2.0 is the nearest such position. Changing it is one constant plus a re-measure of the gap.
+
+## What I did meanwhile
+
+The walkway sits 2.0 tiles off the top straight's axis, with its ramp at column 33 and a gap of 3.35 tiles.
+
+## What it costs to change later
+
+Moving it back to 1.8 means a ramp that is not a whole tile of road, so the ramp check would have to accept partial tiles.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Why 1.8 rather than 2.0 was written in the spec (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-walkway-on-the-grid -->
