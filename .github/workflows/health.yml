@@ -1,0 +1,37 @@
+# The hourly health check (PRD 1723): at minute 23 of every hour, and by hand, probes each app's
+# GET /api/health through scripts/health-check.ts. An app failing two probes 30 seconds apart gets one
+# open `Health: <app> is down` issue, commented on each later failing run and closed with a comment
+# once it answers again. The issue is the alert: a down app never turns this run red.
+# Off until the repository variable GALAXY_URL or OMNI_APP_URL is set; it probes each app whose
+# variable is set. It holds no secret: the run's own token writes the issues.
+name: health
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  probe:
+    if: vars.GALAXY_URL != '' || vars.OMNI_APP_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: health    # two checks never race on one issue
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Probe each app and keep its issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          GALAXY_URL: ${{ vars.GALAXY_URL }}
+          OMNI_APP_URL: ${{ vars.OMNI_APP_URL }}
+        run: |
+          args=(--repo "$REPO")
+          if [ -n "$GALAXY_URL" ]; then args+=(--app "galaxy=$GALAXY_URL"); fi
+          if [ -n "$OMNI_APP_URL" ]; then args+=(--app "omni-app=$OMNI_APP_URL"); fi
+          node scripts/health-check.ts "${args[@]}"

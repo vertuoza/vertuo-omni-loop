@@ -15,6 +15,7 @@ import { stagesReader, type StagesReader } from './github';
 import { syncSnapshotStore } from './snapshots';
 import type { ConceptSyncDeps, FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
 import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { log as runLog } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 
 // The stages sync's real deps (PRD 587, s2): the bearer secret (STAGES_SYNC_SECRET), the service role's
 // client (SUPABASE_SERVICE_ROLE_KEY) for the workspaces and the stage store, and GitHub as the Omni Loop
@@ -34,6 +35,7 @@ import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // concept read, and stored in fix_facts until their concept PR merges.
 // PRD 1299 (s6): each repository's PRDs born on the server are read with their first approval, as the
 // service role (./approvals.ts), so their inbox is dated at it.
+// PRD 1723 (s7): each run's one `stages-sync` line goes to stdout as JSON, through kit/lib/log.
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -140,5 +142,6 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     snapshots: snapshotDeps(),
     now: () => new Date().toISOString(),
     log: (line) => { console.error(line); },
+    runLog,
   };
 }

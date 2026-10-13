@@ -11,6 +11,7 @@
 import type { Inngest } from 'inngest';
 import type { SupabaseEnv } from '../env.ts';
 import type { OctokitFor } from '../octokit-for.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import { collectAll } from './collect.ts';
 import type { GraphqlOctokit } from './github.ts';
 import { type PrStatsStore, supabaseStore } from './supabase-store.ts';
@@ -19,7 +20,7 @@ export const PR_STATS_FUNCTION_ID = 'pr-stats';
 export const EVERY_15_MINUTES = '*/15 * * * *';
 
 /** The function, bound to its client, GitHub, the Supabase pair (`null`: off), the store, a log and a clock. */
-export function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore, log = console.log, clock = Date.now }: {
+export function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore, log = noteTo('pr-stats'), clock = Date.now }: {
   client: Inngest.Any;
   octokitFor: OctokitFor<GraphqlOctokit>;
   supabase: SupabaseEnv | null;

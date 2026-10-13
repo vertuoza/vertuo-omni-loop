@@ -23,6 +23,7 @@ import { productPrdOf } from '../approved-check/state.ts';
 import { OUTBOX_CHECK_EVENT, type CheckRequest } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import { SERVER_EVENT, ServerEventSchema } from './server-event.ts';
 import type { OpenPull, TargetsReader } from './targets.ts';
 
@@ -56,7 +57,7 @@ export function createServerEventRecheck({
   client,
   octokitFor,
   readTargets,
-  log = (line) => { console.error(line); },
+  log = noteTo('server-event-recheck'),
 }: {
   client: Inngest;
   octokitFor: OctokitFor<GitHubClient>;

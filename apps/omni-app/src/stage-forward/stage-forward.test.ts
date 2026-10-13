@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { readEnv } from '../env.ts';
+import { stdoutLines } from '../run-log/capture.ts';
 import { forwardStageEvent, signStageEvent, STAGE_SIGNATURE_HEADER, stageEventUrl, toStageEvent, type StageEvent } from './stage-forward.ts';
 
 const REPOSITORY: Record<string, unknown> = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' }, default_branch: 'main' };
@@ -173,6 +174,12 @@ describe('forwardStageEvent', () => {
     await forwardStageEvent(event, { url: 'u', secret: undefined, fetch, log });
     expect(fetch).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(expect.stringContaining('STAGE_EVENT_SECRET'));
+  });
+
+  it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {
+    const fetch = vi.fn();
+    const lines = await stdoutLines(() => forwardStageEvent(event, { url: 'u', secret: undefined, fetch }));
+    expect(lines).toEqual([{ level: 'warn', event: 'note', fn: 'stage-forward', message: expect.stringContaining('stage event: STAGE_EVENT_SECRET is not set') as unknown }]);
   });
 
   it('logs a refused or failed POST and never throws', async () => {

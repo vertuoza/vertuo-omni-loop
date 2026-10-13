@@ -47,6 +47,7 @@ import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { CreatedSchema } from '../outbox-check/github-schema.ts';
 import { MAX_SUMMARY } from '../publish/publish.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import { configAt, featurePullOf, openPullsOfPrd, prdFolderAt, type PullRef } from './github.ts';
 import type { RecordReader } from './record.ts';
 import { heldReading, readingAt, type AskJudge, type RepoSource } from './repo-reading.ts';
@@ -93,7 +94,7 @@ export function createApprovedCheck({
   galaxyUrl,
   ask = NO_JUDGE,
   now = () => new Date(),
-  log = (line) => { console.error(line); },
+  log = noteTo('approved-check'),
 }: {
   client: Inngest;
   octokitFor: OctokitFor<GitHubClient>;
@@ -145,7 +146,7 @@ export function createApprovedCheck({
 export function createApprovedRerun({
   client,
   octokitFor,
-  log = (line) => { console.error(line); },
+  log = noteTo('approved-rerun'),
 }: {
   client: Inngest;
   octokitFor: OctokitFor<GitHubClient>;
