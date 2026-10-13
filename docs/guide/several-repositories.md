@@ -196,7 +196,11 @@ with your PRD's number. It is `/omni:yolo` for several repositories:
 - it **relays every decision** the agents took in a target into the one outbox of the plan
   repository, where you answer them all in one place;
 - in a target it runs **nothing but that repository's own committed checks**, the ones its config
-  names;
+  names: its `setup` (as `pnpm install --frozen-lockfile`), when its team committed one, then its
+  `preflight`, both in the same fresh worktree. A target with no `setup` runs its preflight alone;
+  one with no preflight runs nothing, and its pull request's CI is the check. A setup that fails
+  holds that target as stuck, quoting its failing line: the agent never edits the target to make it
+  pass, since a broken install belongs to the target's team;
 - it marks each target pull request ready once its CI is green, and the **plan pull request ready
   last**, after all of them;
 - it tells you the **order to merge in**: each target's pull request first, in the order of their
