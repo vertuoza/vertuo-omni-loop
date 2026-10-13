@@ -44,4 +44,4 @@ LOADING… · DOSSIERS OUT OF REACH · NO DOSSIER YET. ONE OPENS WITH THE PRD'S 
 
 ## Source
 
-- /omni:brainstorm, PRD 1808: .omni-loop/delivery/inbox/1808-arcade-lazy-details/before-after.html
+- /omni:brainstorm, PRD 1808: .omni-loop/delivery/shipped/1808-arcade-lazy-details/before-after.html

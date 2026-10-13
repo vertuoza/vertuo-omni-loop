@@ -40,4 +40,4 @@ STAR CHART · LOADING… · THE STAR CHART IS OUT OF REACH · NO STAR CHART IN T
 
 ## Source
 
-- /omni:brainstorm, PRD 1808: .omni-loop/delivery/inbox/1808-arcade-lazy-details/before-after.html
+- /omni:brainstorm, PRD 1808: .omni-loop/delivery/shipped/1808-arcade-lazy-details/before-after.html
