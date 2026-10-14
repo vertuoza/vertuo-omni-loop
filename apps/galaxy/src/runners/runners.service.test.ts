@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { JobRow, RunnerRow } from './runners.repository';
+import type { JobLineRow, JobRow, RunnerRow } from './runners.repository';
 import { cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
-  CIA_BOX, EVE, fakeStore, jobRow, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
+  CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
 } from './fixtures/store.fake';
 
 // The runners' rules (PRD 1830 s1), on realistic rows in memory and a fixed clock: which jobs a runner
@@ -12,10 +12,12 @@ import {
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 /** The service on the fake store, with a clock that a held `next` moves forward as it sleeps. */
-function world({ jobs = [], runners = RUNNERS, start = T0, onSleep }: { jobs?: JobRow[]; runners?: RunnerRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void } = {}) {
+function world({ jobs = [], runners = RUNNERS, lines = [], start = T0, onSleep }: {
+  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
+} = {}) {
   let now = start;
   const slept: number[] = [];
-  const { store, state } = fakeStore({ jobs, runners, now: () => now });
+  const { store, state } = fakeStore({ jobs, runners, lines, now: () => now });
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -349,5 +351,132 @@ describe('the Runners page\'s read', () => {
   it('is refused to anyone outside the workspace', async () => {
     const w = world();
     expect(await w.service.board(EVE, RUNNERS[0]?.workspace_id ?? '')).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+});
+
+describe('a job\'s live lines (PRD 1904)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+  const texts = (from: number, count: number) => Array.from({ length: count }, (_, i) => `12:04:31 Bash: step ${String(from + i)}`);
+  const seqs = (rows: JobLineRow[], jobId: string) => rows.filter((row) => row.job_id === jobId).map((row) => row.seq).sort((a, b) => a - b);
+
+  it('are stored once each, when a report is sent twice', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    const report = { status: 'running', logTail: 'tail', from: 1, lines: texts(1, 3) } as const;
+    value(await w.service.update(OLGA, job.id, report));
+    value(await w.service.update(OLGA, job.id, report));
+    expect(w.state.lines.map((row) => [row.seq, row.text, row.workspace_id])).toEqual([
+      [1, '12:04:31 Bash: step 1', job.workspace_id], [2, '12:04:31 Bash: step 2', job.workspace_id], [3, '12:04:31 Bash: step 3', job.workspace_id],
+    ]);
+    expect(w.state.jobs[0]?.log_tail).toBe('tail');
+  });
+
+  it('are kept to the job\'s last 20,000', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 1, 19_999) });
+    value(await w.service.update(OLGA, job.id, { status: 'running', from: 20_000, lines: texts(20_000, 2) }));
+    const kept = seqs(w.state.lines, job.id);
+    expect(kept).toHaveLength(20_000);
+    expect([kept[0], kept.at(-1)]).toEqual([2, 20_001]);
+  });
+
+  it('leave another job\'s lines alone when trimmed', async () => {
+    const job = running();
+    const other = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const w = world({ jobs: [job, other], lines: [...lineRows(job, 1, 20_000), ...lineRows(other, 1, 3)] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', from: 20_001, lines: texts(20_001, 1) }));
+    expect(seqs(w.state.lines, other.id)).toEqual([1, 2, 3]);
+  });
+
+  it('are added by no report that carries only its log tail', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', logTail: 'an old runner' }));
+    expect(w.state.lines).toEqual([]);
+    expect(w.state.jobs[0]?.log_tail).toBe('an old runner');
+  });
+
+  it('are stored even on the report that ends the job', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, from: 1, lines: ['12:30:00 Done: ok · 12 turns · $1.20 · 30m'] }));
+    expect(seqs(w.state.lines, job.id)).toEqual([1]);
+  });
+
+  it('are refused, with the report, on a job that has ended', async () => {
+    const done = jobRow({ status: 'done', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
+    const w = world({ jobs: [done] });
+    expect(await w.service.update(OLGA, done.id, { status: 'done', from: 1, lines: ['late'] })).toMatchObject({ ok: false, kind: 'conflict' });
+    expect(w.state.lines).toEqual([]);
+  });
+
+  it('of ended jobs beyond the workspace\'s 50 most recent are deleted when a job ends', async () => {
+    const ended = Array.from({ length: 51 }, (_, i) => jobRow({
+      status: 'done', runner_id: CIA_BOX, claimed_at: T0.toISOString(), ended_at: at(-1000 + i).toISOString(),
+    }));
+    const elsewhere = jobRow({ workspace_id: '00000000-0000-4000-8000-000001830002', status: 'done', ended_at: at(-5000).toISOString() });
+    const job = running();
+    const w = world({ jobs: [...ended, elsewhere, job], lines: [...ended.flatMap((row) => lineRows(row, 1, 2)), ...lineRows(elsewhere, 1, 2), ...lineRows(job, 1, 2)] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0 }));
+    // The job that just ended is the newest; the two oldest of the 51 before it fall out of the 50.
+    const holding = new Set(w.state.lines.map((row) => row.job_id));
+    expect(holding.has(job.id)).toBe(true);
+    expect([ended[0]?.id, ended[1]?.id].map((id) => holding.has(id ?? ''))).toEqual([false, false]);
+    expect(ended.slice(2).every((row) => holding.has(row.id))).toBe(true);
+    expect(holding.has(elsewhere.id)).toBe(true);
+  });
+
+  it('of an ended job are kept while it is among the 50 most recent, and a running job keeps its own', async () => {
+    const done = jobRow({ status: 'done', runner_id: CIA_BOX, claimed_at: T0.toISOString(), ended_at: at(-10).toISOString() });
+    const job = running();
+    const still = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const w = world({ jobs: [done, job, still], lines: [...lineRows(done, 1, 2), ...lineRows(job, 1, 2), ...lineRows(still, 1, 2)] });
+    value(await w.service.update(OLGA, job.id, { status: 'failed', exitCode: 1 }));
+    expect(new Set(w.state.lines.map((row) => row.job_id))).toEqual(new Set([done.id, job.id, still.id]));
+  });
+
+  it('are applied for retention when a queued job is cancelled too', async () => {
+    const ended = Array.from({ length: 50 }, (_, i) => jobRow({ status: 'done', runner_id: CIA_BOX, claimed_at: T0.toISOString(), ended_at: at(-1000 + i).toISOString() }));
+    const queued = jobRow({ sent_by: MO });
+    const w = world({ jobs: [...ended, queued], lines: ended.flatMap((row) => lineRows(row, 1, 1)) });
+    value(await w.service.cancel(MO, queued.id));
+    expect(w.state.lines.some((row) => row.job_id === ended[0]?.id)).toBe(false);
+    expect(w.state.lines).toHaveLength(49);
+  });
+});
+
+describe('reading a job\'s live lines (PRD 1904)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), log_tail: 'tail' });
+
+  it('answers the lines after `after`, in order, with the first the job holds', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 3, 5).reverse() });
+    expect(value(await w.service.lines(PIA, job.id, 4))).toEqual({
+      status: 'running', lines: [{ seq: 5, text: 'line 5' }, { seq: 6, text: 'line 6' }, { seq: 7, text: 'line 7' }], more: false, first: 3, logTail: null,
+    });
+    expect(value(await w.service.lines(PIA, job.id, 7))).toMatchObject({ lines: [], more: false, first: 3 });
+  });
+
+  it('answers at most 5,000 lines, and more when more follow', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 1, 5_001) });
+    const page = value(await w.service.lines(MO, job.id, 0));
+    expect([page.lines.length, page.lines[0]?.seq, page.lines.at(-1)?.seq, page.more]).toEqual([5_000, 1, 5_000, true]);
+    expect(value(await w.service.lines(MO, job.id, 5_000))).toMatchObject({ lines: [{ seq: 5_001 }], more: false });
+  });
+
+  it('answers the log tail only when the job holds no line', async () => {
+    const job = running();
+    const empty = jobRow({ status: 'done', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
+    const w = world({ jobs: [job, empty] });
+    expect(value(await w.service.lines(MO, job.id, 0))).toEqual({ status: 'running', lines: [], more: false, first: null, logTail: 'tail' });
+    expect(value(await w.service.lines(MO, empty.id, 0))).toEqual({ status: 'done', lines: [], more: false, first: null, logTail: null });
+  });
+
+  it('is refused, as missing, outside the workspace and for an unknown job', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 1, 2) });
+    expect(await w.service.lines(EVE, job.id, 0)).toMatchObject({ ok: false, kind: 'missing', error: 'No such job.' });
+    expect(await w.service.lines(MO, '00000000-0000-4000-8000-000001830fff', 0)).toMatchObject({ ok: false, kind: 'missing' });
   });
 });
