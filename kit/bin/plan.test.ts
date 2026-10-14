@@ -515,6 +515,41 @@ describe('omni plan check — outside a plan repository (PRD 549)', () => {
   });
 });
 
+describe('omni plan check — the contract column (PRD 1870)', () => {
+  const ASKS = { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}contracts:\n  declare: true\n` };
+  const contractPlan = (rows: string[]) =>
+    ['# A plan', '', '| id | slice | territory | contract | blocked by | wave |', '| --- | --- | --- | --- | --- | --- |', ...rows, ''].join('\n');
+
+  it('prints, after the waves and the collision matrix, the slices that declare a kind with their kinds (acceptance 10)', async () => {
+    const plan = contractPlan([
+      '| s1 | Alpha | `shared/` | api, db | — | 1 |',
+      '| s2 | Beta | `b/` | none | s1 | 2 |',
+      '| s3 | Gamma | `shared/` | — | s1 | 2 |',
+      '| s4 | Delta | `d/` | API | — | 1 |',
+    ]);
+    const { code, out } = await check(CONFIG, plan);
+    expect(code).toBe(0);
+    const lines = out.split('\n');
+    const at = lines.indexOf('contracts: s1 api, db · s4 api');
+    expect(at).toBeGreaterThan(lines.findIndex((line) => line.includes('collision matrix')));
+    expect(at).toBeLessThan(lines.findIndex((line) => line.includes('all territories and blocks well-formed')));
+  });
+
+  it('prints no contracts line when no slice declares a kind', async () => {
+    const { code, out } = await check(ASKS, contractPlan(['| s1 | Alpha | `a/` | none | — | 1 |']));
+    expect(code).toBe(0);
+    expect(out).not.toMatch(/contracts:/);
+  });
+
+  it('exits 1 with the refusal of an undeclared slice in a repository that asks, after the contracts line (acceptance 10)', async () => {
+    const { code, out } = await check(ASKS, contractPlan(['| s1 | Alpha | `a/` | — | — | 1 |', '| s2 | Beta | `b/` | db | — | 1 |']));
+    expect(code).toBe(1);
+    expect(out).toMatch(/^contracts: s2 db$/m);
+    expect(out).toMatch(/^ {2}s1: contract: declares nothing — api, db or none$/m);
+    expect(out.indexOf('contracts: s2 db')).toBeLessThan(out.indexOf('violation(s)'));
+  });
+});
+
 describe('omni plan check — user-caused errors are one line, exit 2', () => {
   const oneLine = (s: Io) => {
     expect(s.err.join('')).toMatch(/^[^\n]+\n$/);

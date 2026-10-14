@@ -9,10 +9,13 @@
 //   with `--path` the path is the territory; with neither, the default area's hooks. Exit 1, each
 //   problem on a `not ok` line, when a hook file is not there or names another point: fail closed.
 // - `show --path <p>` prints the path's area with every rule and hook that applies there.
-// - `show` alone prints what this repository changes from the kit's defaults, area by area.
+// - `show` alone prints what this repository changes from the kit's defaults, area by area, after
+//   one `contracts:` line (PRD 1870): `contracts: declare <kinds>` when the repository asks its plans
+//   to declare the contract each slice changes, else `contracts: none`. With `--json`, an object:
+//   `{ differences, contracts: { declare, kinds } }`.
 // - `show --repo <target>`, in a plan repository, reads an imported target's copied flow instead
 //   (`kit/lib/plan-repo/copy-flow.ts`), its hook files from the copy: what that target's flow is at
-//   planning time. A target with no copied flow is a usage error. With `plan: { product }` (PRD 1548,
+//   planning time, its `contracts:` line the copy's (`contracts: none` for a copy without the key). A target with no copied flow is a usage error. With `plan: { product }` (PRD 1548,
 //   s10), a target's short name is looked up among the product's targets, read from the Omni page
 //   (`contextWithTargets`, `./board.ts`) only when `--repo` names one by its short name.
 // - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
@@ -25,6 +28,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
+import type { Config } from '../../lib/types.ts';
 import type { Context } from '../../lib/context.ts';
 import { FLOW_POINTS, flowPoint, type FlowPoint } from '../../lib/flow/points.ts';
 import { resolveFlow, type ResolvedFlow } from '../../lib/flow/resolve.ts';
@@ -119,10 +123,16 @@ function pathText(view: PathView): string {
   return lines.join('\n');
 }
 
-/** The differences as text: one block per area. */
-function differencesText(differences: AreaDifference[]): string {
-  if (differences.length === 0) return "flow — none: this repository runs the kit's defaults.";
-  const lines = ["flow — what this repository changes from the kit's defaults"];
+/** Whether a repository's plans declare the contract each slice changes, and in which words. */
+type Contracts = Config['contracts'];
+
+/** The ask as one line: `contracts: declare <kinds>`, or `contracts: none` when the plans declare nothing. */
+const contractsLine = ({ declare, kinds }: Contracts): string => (declare ? `contracts: declare ${kinds.join(', ')}` : 'contracts: none');
+
+/** The differences as text: the header, the `contracts:` line, then one block per area. */
+function differencesText(differences: AreaDifference[], contracts: Contracts): string {
+  if (differences.length === 0) return `flow — none: this repository runs the kit's defaults.\n${contractsLine(contracts)}`;
+  const lines = ["flow — what this repository changes from the kit's defaults", contractsLine(contracts)];
   for (const { area, paths, inherit, rules, hooks } of differences) {
     const where = paths.length === 0 ? 'every path no area claims' : paths.join(' ');
     lines.push('', `${area}  ${where}${inherit || area === 'default' ? '' : '  (inherit: false)'}`);
@@ -132,9 +142,12 @@ function differencesText(differences: AreaDifference[]): string {
   return lines.join('\n');
 }
 
+/** What `show` reads: the resolved flow, its hook files, and what its plans declare. */
+type Shown = { flow: ResolvedFlow; readHook: (path: string) => string | null; contracts: Contracts };
+
 /** The flow `show` reads, and where its hook files are: this repository's, or with `--repo` a target's copy. */
-function shownFlow(ctx: Context, repo: string | undefined): { flow: ReturnType<typeof resolveFlow>; readHook: (path: string) => string | null } {
-  if (repo === undefined) return { flow: resolveFlow(ctx.config), readHook: hookReader(ctx.root) };
+function shownFlow(ctx: Context, repo: string | undefined): Shown {
+  if (repo === undefined) return { flow: resolveFlow(ctx.config), readHook: hookReader(ctx.root), contracts: ctx.config.contracts };
   const slug = repoArg(ctx, repo, 'flow show');
   let copy;
   try {
@@ -145,7 +158,7 @@ function shownFlow(ctx: Context, repo: string | undefined): { flow: ReturnType<t
   if (copy === null) {
     throw usageError(`omni flow show: ${repo} has no copied flow at ${join(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)} — /omni:mega-invade copies an imported target's flow there.`);
   }
-  return { flow: resolveFlow(copy.config), readHook: copy.readHook };
+  return { flow: resolveFlow(copy.config), readHook: copy.readHook, contracts: copy.config.contracts };
 }
 
 type ShowFlags = Flags<'prd' | 'slice' | 'path' | 'repo', 'json'>;
@@ -162,7 +175,7 @@ function bySliceOf(flags: ShowFlags): boolean {
 }
 
 /** `show` with no point: the path's area with `--path`, otherwise what the flow changes from the defaults. */
-function showWhole(flow: ResolvedFlow, flags: ShowFlags, bySlice: boolean, print: Print): number {
+function showWhole({ flow, contracts }: Shown, flags: ShowFlags, bySlice: boolean, print: Print): number {
   if (bySlice) throw usageError('omni flow show: --prd and --slice name a point\'s slice — give the point.');
   if (flags.path !== undefined) {
     const view = showPath(flow, flags.path);
@@ -170,7 +183,7 @@ function showWhole(flow: ResolvedFlow, flags: ShowFlags, bySlice: boolean, print
     return 0;
   }
   const differences = flowDifferences(flow);
-  print(differences, differencesText(differences));
+  print({ differences, contracts }, differencesText(differences, contracts));
   return 0;
 }
 
@@ -187,7 +200,7 @@ function pointGround(ctx: Context, flags: ShowFlags, bySlice: boolean): { territ
 /** `show <point>`: its resolved hooks for the slice's territory, `--path`'s, or the default area's. */
 function showOnePoint(
   { ctx, stdout }: CommandIo,
-  shown: { flow: ResolvedFlow; readHook: (path: string) => string | null },
+  shown: Shown,
   name: string,
   { flags, bySlice, print }: { flags: ShowFlags; bySlice: boolean; print: Print },
 ): number {
@@ -207,7 +220,7 @@ function show(args: string[], io: CommandIo): number {
   const print: Print = (json, text) => {
     println(io.stdout, flags.json ? JSON.stringify(json, null, 2) : text);
   };
-  if (name === undefined) return showWhole(shown.flow, flags, bySlice, print);
+  if (name === undefined) return showWhole(shown, flags, bySlice, print);
   return showOnePoint(io, shown, name, { flags, bySlice, print });
 }
 
