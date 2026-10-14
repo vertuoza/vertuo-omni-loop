@@ -11,6 +11,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS } from '../config.ts';
+import { isOneOf } from '../narrow.ts';
 import { AGENTS_MANIFEST, AgentsError, readManifest } from '../agents/write.ts';
 import type { AgentCopyChange } from '../agents/write.ts';
 import type { Agent } from '../types.ts';
@@ -30,7 +31,6 @@ export const servesClaude = (agents: readonly Agent[]): boolean => agents.includ
 /** Whether `agents` lists an agent that reads the copies. */
 export const needsCopies = (agents: readonly Agent[]): boolean => agents.some((agent) => agent !== CLAUDE);
 
-const isAgent = (name: string): name is Agent => (AGENTS as readonly string[]).includes(name);
 
 /**
  * `names` as agents, in their order, or the one line that refuses them: an agent the kit does not
@@ -39,7 +39,7 @@ const isAgent = (name: string): name is Agent => (AGENTS as readonly string[]).i
 export function parseAgents(names: readonly string[]): { agents: Agent[] } | { error: string } {
   const agents: Agent[] = [];
   for (const name of names) {
-    if (!isAgent(name)) return { error: `${name} is no agent the kit installs for — one of ${AGENTS.join(', ')}` };
+    if (!isOneOf(AGENTS, name)) return { error: `${name} is no agent the kit installs for — one of ${AGENTS.join(', ')}` };
     if (agents.includes(name)) return { error: `${name} is named twice` };
     agents.push(name);
   }
