@@ -1,0 +1,20 @@
+{"type":"system","subtype":"init","cwd":"/home/runner/wt/widgets-job-7","session_id":"s","tools":["Bash","Edit"],"model":"claude-opus"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"thinking","thinking":"Let me look at the PRD first.","signature":"x"}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"text","text":"\n\nI will start with the plan.\nThen build."}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"pnpm test\necho done","description":"Run the tests"}}]},"session_id":"s"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"all green","is_error":false}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t2","name":"Edit","input":{"file_path":"/w/src/a.ts","old_string":"a","new_string":"b"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t3","name":"MultiEdit","input":{"file_path":"/w/src/b.ts","edits":[]}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t4","name":"Write","input":{"file_path":"/w/src/c.ts","content":"x"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t5","name":"NotebookEdit","input":{"notebook_path":"/w/n.ipynb","new_source":"x"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t6","name":"Read","input":{"file_path":"/w/README.md"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t7","name":"Grep","input":{"pattern":"stepLine","path":"/w"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t8","name":"Glob","input":{"pattern":"**/*.ts"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t9","name":"Task","input":{"description":"Explore the runner","prompt":"…","subagent_type":"Explore"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t10","name":"Agent","input":{"description":"Review the slice","prompt":"…"}}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"tool_use","id":"t11","name":"TodoWrite","input":{"todos":[]}}]},"session_id":"s"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"text","text":"Error: 3 tests failed\n  FAIL test 1\n  FAIL test 2\n  FAIL test 3\n  FAIL test 4\n  FAIL test 5\n  FAIL test 6\n  FAIL test 7\n  FAIL test 8\n  FAIL test 9\n  FAIL test 10\n  FAIL test 11\n  FAIL test 12\n  FAIL test 13\n  FAIL test 14\n  FAIL test 15\n  FAIL test 16\n  FAIL test 17\n  FAIL test 18\n  FAIL test 19\n  FAIL test 20\n  FAIL test 21\n  FAIL test 22\n  FAIL test 23\n  FAIL test 24\n  FAIL test 25\n  FAIL test 26\n  FAIL test 27\n  FAIL test 28\n  FAIL test 29\n  FAIL test 30"}],"is_error":true}]},"session_id":"s"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t12","content":"https://github.com/acme/widgets/pull/42\n","is_error":false}]},"session_id":"s"}
+{"type":"assistant","message":{"id":"msg","role":"assistant","content":[{"type":"text","text":"Opened https://github.com/acme/widgets/pull/42 for review."}]},"session_id":"s"}
+{"type":"rate_limit_event","info":{}}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":754000,"duration_api_ms":600000,"num_turns":12,"result":"Built the slice.\nOpened https://github.com/acme/widgets/pull/42","session_id":"s","total_cost_usd":1.234}
