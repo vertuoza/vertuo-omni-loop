@@ -773,3 +773,21 @@ Why: A failed read should not block the people who are asked, and the server's c
 Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s7-01-approvers-unread-shows-approve, PRD #1322
 Merged: @pierrederval, 2026-10-09, PR #1324
 Proposed: harvest 2026-10-09
+
+## P-PRODUCT-92
+
+A terminal token always acts in exactly one workspace, chosen the same predictable way every time.
+
+Why: A person in several workspaces must be able to tell where their terminal acts, so its work never lands in an unexpected workspace.
+Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-02-token-workspace, PRD #1628
+Merged: @pierrederval, 2026-10-12, PR #1629
+Proposed: harvest 2026-10-12
+
+## P-PRODUCT-93
+
+A person's terminal sign-in is seen only by them and by those who may revoke it, never by the wider crew.
+
+Why: Terminal tokens are personal credentials, unlike shared business links, so showing them to every member would expose access that is not theirs.
+Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-03-who-sees-tokens, PRD #1628
+Merged: @pierrederval, 2026-10-12, PR #1629
+Proposed: harvest 2026-10-12
