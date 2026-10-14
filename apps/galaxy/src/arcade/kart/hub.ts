@@ -40,11 +40,13 @@ function lineFor(players: readonly GridPlayer[], me: GridPlayer, racers: number)
 function gridView(state: KartGridView['state'], players: readonly GridPlayer[], me: GridPlayer, racers: number): KartGridView {
   if (state === 'out') return { state, rows: [], line: GRID_LINES.out };
   const everyone = players.some((p) => p.id === me.id) ? players : [...players, me];
-  const rows = rowsOf(everyone).map(({ player, seat }) => ({ id: player.id, name: player.name, hero: player.hero, fleet: player.fleet, best: player.best, ...(player.look ? { look: player.look } : {}), you: player.id === me.id, seat }));
+  // A player's best travels on their entry for the circuit they chose: on the grid's circuit (PRD 1923), a player on another has no time to show.
+  const track = gridTrackOf(everyone);
+  const rows = rowsOf(everyone).map(({ player, seat }) => ({ id: player.id, name: player.name, hero: player.hero, fleet: player.fleet, best: (player.track ?? DEFAULT_CIRCUIT.id) === track ? player.best : null, ...(player.look ? { look: player.look } : {}), you: player.id === me.id, seat }));
   const laps = gridLapsOf(everyone);
-  if (state === 'joining') return { state, rows, line: GRID_LINES.joining, laps };
-  if (state === 'reconnecting') return { state, rows, line: GRID_LINES.reconnecting, laps };
-  return { state, rows, line: lineFor(everyone, me, racers), laps };
+  if (state === 'joining') return { state, rows, line: GRID_LINES.joining, laps, track };
+  if (state === 'reconnecting') return { state, rows, line: GRID_LINES.reconnecting, laps, track };
+  return { state, rows, line: lineFor(everyone, me, racers), laps, track };
 }
 
 /** A race that starts: its id, its seed and the players in their starting order. */

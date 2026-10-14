@@ -26,6 +26,7 @@ import type { Driver, Rival } from './rivals';
 import { deckOf, paintTrack } from './texture';
 import { isSnow, lakeTiles, snowfall, snowProp, snowScenery, snowSky, woodArchLeg, type SnowKind } from './art.snow';
 import { parseTrack, roadAt, roofAt, tileAt, type PropKind, type Track } from './track';
+import { circuitOf } from './circuits';
 
 /** A buffer the floor is rendered into, how far each of its pixels is (Infinity where it shows no road), and the canvas it is drawn from. */
 interface Floor { image: ImageData; pixels: Uint32Array; depth: Float32Array; canvas: HTMLCanvasElement }
@@ -619,13 +620,15 @@ function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, part
 }
 
 /** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets); the circuit is COMET RING unless a test hands it another. */
-export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track; live?: LiveRace; /** A SINGLE race's laps and the rivals' difficulty (PRD 1762): the player's options. */ laps?: number; difficulty?: Difficulty; /** The player's kart's look (PRD 1762). */ look?: KartLook; /** Tests only: what the player holds from the start, so a test need not drive to a box. */ held?: Item }
+export interface KartOptions { seed: number; cast?: readonly Driver[]; /** The id of the circuit to race (PRD 1923): a live race races its start's; none, or one that names no circuit, races COMET RING. */ circuit?: string; track?: Track; live?: LiveRace; /** A SINGLE race's laps and the rivals' difficulty (PRD 1762): the player's options. */ laps?: number; difficulty?: Difficulty; /** The player's kart's look (PRD 1762). */ look?: KartLook; /** Tests only: what the player holds from the start, so a test need not drive to a box. */ held?: Item }
 
 /** A MULTI race (PRD 1572): the grid's session the race talks over, the start that began it and the player at this screen. */
 export interface LiveRace { session: Pick<GridSession, 'send' | 'listen'>; start: RaceStart; me: GridPlayer }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed, cast = [], track = parseTrack(), live, held, laps, difficulty, look }: KartOptions = { seed: 1359 }): KartGame {
+export function createKart({ seed, cast = [], circuit, track, live, held, laps, difficulty, look }: KartOptions = { seed: 1359 }): KartGame {
+  const raced = circuitOf(circuit ?? live?.start.track);
+  track ??= parseTrack(raced.source);
   const first = newRace({ seed, track, cast, ...(laps !== undefined ? { laps } : {}), ...(difficulty ? { difficulty } : {}), ...(look ? { look } : {}), ...(live ? { field: { me: live.me.id, order: live.start.order, laps: live.start.laps } } : {}) });
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
@@ -778,6 +781,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
     },
     cues() { const out = told; told = []; return out; },
     speed: () => Math.min(1, Math.max(0, race.player.speed / RULES.topSpeed)),
+    board: raced.board,
     hud: () => hudOf(race),
     draw(ctx, s) {
       const { texture, heights, range, deck, roofed } = groundOf();

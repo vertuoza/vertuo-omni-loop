@@ -10,7 +10,7 @@ import { HeroSprite, Sprite } from '../Sprite';
 import { driveLine, keyLabel } from '../keys';
 import { useScreen } from '../Screen';
 import type { KartOptions, OptionsView } from '../kart/options';
-import { choiceLine, GRID_JOINING_LINE, lapsOf, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, readyLine, SINGLE_LINE, type KartChoice, type KartGridRow, type KartGridView, type KartHud, type KartItem, type KartStatus, type KartStep } from './kart.ts';
+import { NO_CIRCUITS, trackOf, choiceLine, bestOn, circuitHint, circuitName, circuitOfCards, GRID_JOINING_LINE, lapsOf, LEFT_LINE, KEY_RESERVED, MENU_LINE, MULTI_CLOSED_LINE, MULTI_LINE, NOT_LOADED, OPTIONS_LINE, PAUSED_LINE, PRESS_A_KEY, raceTime, readyLine, SINGLE_LINE, type CircuitCard, type KartChoice, type KartCircuits, type KartGridRow, type KartGridView, type KartHud, type KartItem, type KartStatus, type KartStep } from './kart.ts';
 import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
@@ -41,17 +41,45 @@ function ItemFrame({ item, itemKey }: { item: KartItem | null; itemKey?: string 
 }
 
 /** The ready screen before the pick: the circuit, then SINGLE and MULTI with the cursor on one. */
-function ChoicePanel({ choice, multi, back, laps }: { choice: Extract<KartChoice, { step: 'choose' }>; multi: boolean; back: string; laps: number }) {
+function ChoicePanel({ choice, multi, back, laps, circuit }: { choice: Extract<KartChoice, { step: 'choose' }>; multi: boolean; back: string; laps: number; circuit: string }) {
   return (
     <div className="kt">
       <div className="j-panel kt-panel">
-        <p className="inv-title">{choiceLine(laps)}</p>
+        <p className="inv-title">{choiceLine(laps, circuit)}</p>
         <ul className="kt-choice">
           <li data-cursor={choice.cursor === 'single'}>{choice.cursor === 'single' ? '▶ ' : ''}{SINGLE_LINE}</li>
           <li data-cursor={choice.cursor === 'multi'} aria-disabled={!multi}>{choice.cursor === 'multi' ? '▶ ' : ''}{multi ? MULTI_LINE : MULTI_CLOSED_LINE}</li>
           <li data-cursor={choice.cursor === 'options'}>{choice.cursor === 'options' ? '▶ ' : ''}{OPTIONS_LINE}</li>
         </ul>
         <p className="hint"><Hint k="B">{back}</Hint></p>
+      </div>
+    </div>
+  );
+}
+
+/** A circuit's minimap, 72 px square (PRD 1923): its road by height, FROST EIGHT's lake in ice, over the ground it stands on. */
+function Minimap({ card }: { card: CircuitCard }) {
+  const side = Math.max(card.cols, card.rows);
+  return (
+    <svg className="kt-mini" viewBox={`0 0 ${side} ${side}`} width={72} height={72} shapeRendering="crispEdges" aria-hidden="true" data-circuit={card.id}>
+      <rect width={side} height={side} fill={card.ground} />
+      {card.runs.map((r) => <rect key={`${r.x}-${r.y}`} x={r.x} y={r.y} width={r.w} height={1} fill={r.colour} />)}
+    </svg>
+  );
+}
+
+/** The CIRCUIT step (PRD 1923): ◀ the circuit's name ▶, its minimap and the player's best on it, or NO TIME YET. */
+function CircuitPanel({ then, track, circuit: { cards, bests } }: { then: 'single' | 'grid'; track: string; circuit: KartCircuits }) {
+  const card = circuitOfCards(cards, track);
+  const best = bestOn(bests, card);
+  return (
+    <div className="kt">
+      <div className="j-panel kt-panel">
+        <p className="inv-title">CIRCUIT</p>
+        <p className="kt-circuit"><span className="j-key">◀</span>{circuitName(cards, card?.id ?? track)}<span className="j-key">▶</span></p>
+        {card && <Minimap card={card} />}
+        <p className="kt-best">{best === null ? 'NO TIME YET' : <><b>BEST</b> {raceTime(best)}</>}</p>
+        <p className="hint"><Hint k="◀ ▶">CHOOSE</Hint> · <Hint k="A">{circuitHint(then)}</Hint> · <Hint k="B">BACK</Hint></p>
       </div>
     </div>
   );
@@ -144,11 +172,12 @@ function kartArt(kartOf: ((row: KartGridRow) => KartArt | null) | undefined, row
 }
 
 /** The workspace's grid (PRD 1572): the players in their starting order, each with hero, name and best time, then the line that says what happens next. */
-function GridPanel({ view, kartOf }: { view: KartGridView; kartOf?: ((row: KartGridRow) => KartArt | null) | undefined }) {
+function GridPanel({ view, kartOf, cards }: { view: KartGridView; kartOf?: ((row: KartGridRow) => KartArt | null) | undefined; cards: readonly CircuitCard[] }) {
+  const named = view.track === undefined ? [] : [circuitName(cards, view.track)];
   return (
     <div className="kt">
       <div className="j-panel kt-panel kt-mid kt-grid">
-        <p className="inv-title">{view.laps === undefined ? 'GRID' : `GRID · ${view.laps} ${view.laps === 1 ? 'LAP' : 'LAPS'}`}</p>
+        <p className="inv-title">{['GRID', ...named, ...(view.laps === undefined ? [] : [`${view.laps} ${view.laps === 1 ? 'LAP' : 'LAPS'}`])].join(' · ')}</p>
         <ol className="kt-table kt-gridlist">
           {view.rows.map((r) => (
             <li key={r.id} className={r.you ? 'kt-you' : undefined} data-seat={r.seat}>
@@ -278,7 +307,12 @@ function RaceScreen({ hud, back, keys }: { hud: KartHud; back: string; keys?: Ka
   );
 }
 
-export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null, art, kartOf, podiumKart }: {
+/** The line over the screen until the game has loaded: none once it has. */
+const noticeOf = (status: KartStatus): string | null => (status === 'ready' ? null : status === 'failed' ? NOT_LOADED : 'LOADING…');
+
+export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM', choice = null, multi = false, lobby = null, options = null, art, kartOf, podiumKart, circuit = NO_CIRCUITS }: {
+  /** The circuits the CIRCUIT step shows (PRD 1923), and the player's best on each, in tenths, by circuit id. */
+  circuit?: KartCircuits;
   /** A podium step's kart in its look (PRD 1762). */
   podiumKart?: (step: KartStep) => KartArt | null;
   /** A grid row's kart in its look (PRD 1762), drawn beside the player. */
@@ -303,21 +337,25 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   back?: string;
 }) {
   // The grid needs nothing of the game: it shows while the game loads again behind it.
-  if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} kartOf={kartOf} />;
-  if (status !== 'ready') return <Notice line={status === 'failed' ? NOT_LOADED : 'LOADING…'} back={back} />;
+  if (choice?.step === 'grid') return <GridPanel view={lobby ?? { state: 'joining', rows: [], line: GRID_JOINING_LINE }} kartOf={kartOf} cards={circuit.cards} />;
+  const notice = noticeOf(status);
+  if (notice) return <Notice line={notice} back={back} />;
   if (hud?.results) return <FinishScreen hud={hud} results={hud.results} send={send} back={back} podiumKart={podiumKart} />;
   if (hud && hud.phase !== 'ready') return <RaceScreen hud={hud} back={back} keys={options?.keys} />;
-  return <ReadyScreen choice={choice} multi={multi} back={back} options={options} art={art} />;
+  return <ReadyScreen choice={choice} multi={multi} back={back} options={options} art={art} circuit={circuit} />;
 }
 
 /** The screens before the race: the OPTIONS panel, the choice between SINGLE, MULTI and OPTIONS, or the ready line. */
-function ReadyScreen({ choice, multi, back, options, art }: { choice: KartChoice | null; multi: boolean; back: string; options: KartOptions | null; art?: KartArt | null | undefined }) {
+function ReadyScreen({ choice, multi, back, options, art, circuit }: { choice: KartChoice | null; multi: boolean; back: string; options: KartOptions | null; art?: KartArt | null | undefined; circuit: KartCircuits }) {
+  const track = trackOf(options);
+  const name = circuitName(circuit.cards, track);
   if (choice?.step === 'options' && options) return <OptionsPanel view={choice.view} options={options} art={art} />;
-  if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} laps={lapsOf(options)} />;
+  if (choice?.step === 'circuit') return <CircuitPanel then={choice.then} track={track} circuit={circuit} />;
+  if (choice?.step === 'choose') return <ChoicePanel choice={choice} multi={multi} back={back} laps={lapsOf(options)} circuit={name} />;
   return (
     <div className="kt">
       <div className="j-panel kt-panel">
-        <p className="inv-title">{readyLine(lapsOf(options))}</p>
+        <p className="inv-title">{readyLine(lapsOf(options), name)}</p>
         <p className="hint"><Hint k="B">{back}</Hint></p>
       </div>
     </div>
