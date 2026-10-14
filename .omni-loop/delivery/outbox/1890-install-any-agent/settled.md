@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 1890
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s6-01-init-claude-only-line-left-out -->
+
+## s6-01-init-claude-only-line-left-out — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s6-01-init-claude-only-line-left-out
 prd: 1890
@@ -46,3 +76,7 @@ B is one line in the init's closing steps and its test: under an hour.
 (author) The PRD, the registers and the glossary do not settle this:
 
 - Whether the line belongs in every init or only when agents lists another agent than Claude (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-01-init-claude-only-line-left-out -->
