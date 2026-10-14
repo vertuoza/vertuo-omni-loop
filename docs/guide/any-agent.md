@@ -167,7 +167,7 @@ one. Saying nothing approves the plan's advice.
 The `tiers` key of `.omni-loop/config.yml` maps each tier to a model, and an effort if you want one,
 with a row per agent, so a Codex terminal and a Claude terminal each read their own:
 
-```yaml
+```yaml file=.omni-loop/config.yml
 agents: [claude, codex]
 tiers:
   claude:
