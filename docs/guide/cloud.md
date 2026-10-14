@@ -1,6 +1,6 @@
 ---
 title: Cloud sessions
-description: Run the loop from your coding agent's cloud session (in Claude Code: on the web or the app), step by step — one token, one cloud environment, then the loop as on your laptop.
+description: Run the loop from your coding agent's cloud session, such as Claude Code on the web or the app, step by step — one token, one cloud environment, then the loop as on your laptop.
 ---
 
 A Claude Code cloud session, on the web or in the app on your phone, starts in a fresh container
