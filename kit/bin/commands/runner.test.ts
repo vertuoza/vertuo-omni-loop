@@ -216,6 +216,17 @@ describe('omni runner', () => {
     expect(run.stdout.text()).toContain('job 7 done · https://github.com/acme/widgets/pull/42');
   });
 
+  it('starts every job session so that claude waits for its background agents to end (bug 1912)', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 12, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: null }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    // `claude -p` stops a wave's agents 10 minutes after its last turn unless this reads 0.
+    expect(run.terminal.sessions[0]?.env).toMatchObject({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' });
+  });
+
   it('sends the log tail every tick while the job runs', async () => {
     const f = fixture();
     const app = fakeApp({ jobs: [{ id: 8, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });
@@ -264,7 +275,7 @@ describe('omni runner', () => {
         await until(ended(app), 'the job to end');
         run.stop.abort();
         expect(await run.done).toBe(0);
-        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH']);
+        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']);
       });
     }
   });
