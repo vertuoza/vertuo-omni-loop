@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.401" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.404" };
   }
 });
 
@@ -30629,8 +30629,11 @@ function runsWithoutKit(argv) {
 function appliesUpdate(argv) {
   return argv[0] === "update" && argv.includes("--apply");
 }
+function runsTheRunner(argv) {
+  return argv[0] === "runner";
+}
 function launchDecision({ argv, self: self2, bin, hasConfig }) {
-  if (bin !== null && bin !== self2 && !appliesUpdate(argv)) return { kind: "handover", bin };
+  if (bin !== null && bin !== self2 && !appliesUpdate(argv) && !runsTheRunner(argv)) return { kind: "handover", bin };
   if (bin !== null || hasConfig || runsWithoutKit(argv)) return { kind: "self" };
   return { kind: "refuse", message: NO_KIT };
 }
@@ -56799,6 +56802,7 @@ async function watch2(loop2, job2, place) {
     await loop2.sleep(loop2.tickMs);
     const log = readText3(place.log);
     if (existsSync78(place.exit)) return ended(log, readText3(place.exit), job2.repo);
+    if (!loop2.terminal.alive(place.session)) return { status: "failed", logTail: logTail(log), reason: "the job stopped before it wrote its exit code" };
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, place, { status: "failed", reason: "timeout" });
     if (await tick2(loop2, job2.id, { status: "running", logTail: logTail(log) })) return killed(loop2, place, { status: "cancelled" });
   }
@@ -56895,6 +56899,13 @@ function tmuxTerminal(exec) {
       try {
         exec("tmux", ["kill-session", "-t", name3], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
       } catch {
+      }
+    },
+    alive(name3) {
+      try {
+        return exec("tmux", ["list-panes", "-t", name3, "-F", "#{pane_dead}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).split("\n").includes("0");
+      } catch {
+        return false;
       }
     }
   };

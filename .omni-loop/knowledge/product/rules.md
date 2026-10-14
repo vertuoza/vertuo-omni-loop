@@ -1237,3 +1237,39 @@ Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
 Proposed: harvest 2026-10-09
+
+## BR-PRODUCT-109
+
+When omni design touched cannot read the base branch it compares against, it answers ui: unknown, names the base it could not read, and exits 0. A wrong number of arguments still exits 2.
+
+Serves: P-PRODUCT-7
+Source: .omni-loop/delivery/shipped/1369-design-craft/outbox/settled.md, entry s2-01-unreadable-base-reads-unknown, PRD #1369
+Enforced by: kit/bin/design.test.ts, kit/lib/design/touched.test.ts, kit/lib/design/base.test.ts
+Stated: 2026-10-11
+Decided: nobody — adopted when raised (medium), 2026-10-10
+Merged: @pierrederval, 2026-10-11, PR #1371
+Proposed: harvest 2026-10-11
+
+## BR-PRODUCT-110
+
+A token made from the terminal acts in the workspace the sign-in names. When the sign-in names none, it belongs to the first workspace the person joined.
+
+Serves: P-PRODUCT-92
+Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-02-token-workspace, PRD #1628
+Enforced by: apps/galaxy/src/ask/kit-token.test.ts, supabase/checks/agent_tokens.sql
+Stated: 2026-10-12
+Decided: nobody — adopted when raised (medium), 2026-10-11
+Merged: @pierrederval, 2026-10-12, PR #1629
+Proposed: harvest 2026-10-12
+
+## BR-PRODUCT-111
+
+A terminal token is visible only to the member who made it and to the workspace's owners, who may revoke it; other members never see it. Two terminal tokens may share a name.
+
+Serves: P-PRODUCT-93
+Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-03-who-sees-tokens, PRD #1628
+Enforced by: supabase/checks/agent_tokens.sql, apps/galaxy/src/profile/terminal-tokens.service.test.ts
+Stated: 2026-10-12
+Decided: nobody — adopted when raised (medium), 2026-10-11
+Merged: @pierrederval, 2026-10-12, PR #1629
+Proposed: harvest 2026-10-12

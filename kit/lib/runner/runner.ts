@@ -262,6 +262,7 @@ async function watch(loop: Loop, job: RunnerJob, place: Place): Promise<JobUpdat
     await loop.sleep(loop.tickMs);
     const log = readText(place.log);
     if (existsSync(place.exit)) return ended(log, readText(place.exit), job.repo);
+    if (!loop.terminal.alive(place.session)) return { status: 'failed', logTail: logTail(log), reason: 'the job stopped before it wrote its exit code' };
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
     if (await tick(loop, job.id, { status: 'running', logTail: logTail(log) })) return killed(loop, place, { status: 'cancelled' });
   }

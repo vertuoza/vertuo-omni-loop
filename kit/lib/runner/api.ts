@@ -19,7 +19,7 @@ const NO_SIGN_IN = 'no sign-in (omni setup-token)';
 
 /** How long a call waits, `next` aside. */
 const CALL_MS = 10_000;
-/** How long a `next` waits: the app holds it up to 50 s. */
+/** How long a `next` waits: the app holds it up to 40 s. */
 const NEXT_MS = 65_000;
 
 export class RunnerUnreachable extends Error {

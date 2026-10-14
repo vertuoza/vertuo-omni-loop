@@ -2,7 +2,7 @@
 // terminal and the kit's `omni runner` share. Browser-safe: zod only.
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
-//   GET   /api/runners/next?runner=<id>    runner  held up to 50 s                          → RunnerJob | 204
+//   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
 //   POST  /api/runners/jobs/<id>           runner  {status, logTail?, prUrl?, exitCode?, reason?} → {cancel}
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
 //   POST  /api/runners/jobs/<id>/cancel    browser                                           → {job}
@@ -26,8 +26,9 @@ const MAX_LINE_ARGS = 200;
 /** How long a runner stays online after its last check-in. */
 export const LOST_AFTER_MS = 90_000;
 
-/** How long `next` holds before it answers 204. */
-export const NEXT_HOLD_MS = 50_000;
+/** How long `next` holds before it answers 204: well under the route's 60 s limit, with the database calls
+ * around each look, so the platform never cuts it off with a 504. */
+export const NEXT_HOLD_MS = 40_000;
 
 /** The log tail a job keeps: its last lines, and at most this many bytes of them. */
 export const LOG_TAIL_LINES = 200;
