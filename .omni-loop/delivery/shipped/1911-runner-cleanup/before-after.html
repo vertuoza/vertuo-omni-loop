@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1911 · runner cleanup · before/after</title>
+<style>
+  :root { --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #5a60c4; --ink: #f2f4ff; --muted: #8a90d6; --plasma: #ffd84a; --on-plasma: #07061c; --green: #4ee08a; --red: #ff6b86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ink); font: 16px/1.55 var(--body); }
+  .doc { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 20px; max-width: 80ch; }
+  .part { margin: 28px 0 10px; font: 700 13px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--plasma); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+  .tag { display: inline-block; margin: 0 0 8px; font: 700 12px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; }
+  .today { color: var(--muted); border: 1px solid var(--line); }
+  .after { color: var(--on-plasma); background: var(--plasma); }
+  pre { margin: 0; padding: 14px 16px; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; font: 13px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bad { color: var(--red); } .good { color: var(--green); } .dim { color: var(--muted); }
+  .cap { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="doc">
+<h1>omni runner cleans up after itself</h1>
+<p class="lead">PRD 1911. What a runner leaves on its server after its jobs, today and after.</p>
+
+<h2 class="part">Functional</h2>
+<div class="cols">
+  <div><span class="tag today">Today</span>
+<pre><span class="dim"># after one day on vertuo-agents</span>
+$ git branch --list "agent/*"
+<span class="bad">  agent/job-631c499f…
+  agent/job-7402e63d…
+  agent/job-c1c83187…   … 6 in all</span>
+$ git worktree list
+<span class="bad">  …/wt/…-job-d0fe60a3…/.claude/worktrees/pr-care-1737  prunable</span>
+$ ls ~/logs
+<span class="bad">  job-*.log  job-*.line  job-*.exit   kept forever</span></pre>
+    <p class="cap">A job ends: its worktree goes, its branch, records and logs stay. A worktree whose job died with the runner stays too.</p>
+  </div>
+  <div><span class="tag after">After</span>
+<pre><span class="dim"># a job ends</span>
+<span class="good">  agent/job-&lt;id&gt; deleted (never pushed) · worktree records pruned</span>
+
+<span class="dim"># at start, then every hour</span>
+<span class="good">swept: 3 worktrees, 6 branches, 12 log files · 412 MB freed</span>
+
+<span class="dim"># kept, always</span>
+  a pushed agent/job-* branch
+  everything of a running job
+  ~/logs/runner.log, anything else in ~/wt and ~/logs
+  job logs younger than --keep-logs (14 days)</pre>
+    <p class="cap">Only <code>~/wt/&lt;repo&gt;-job-&lt;id&gt;</code>, <code>~/logs/job-&lt;id&gt;.*</code> and local <code>agent/job-*</code> branches are ever removed.</p>
+  </div>
+</div>
+
+<h2 class="part">Pixel perfect</h2>
+<p>Pixel perfect: no screen changes</p>
+</div>
+</body>
+</html>

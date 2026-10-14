@@ -1,8 +1,11 @@
 // `omni runner`'s loop (PRD 1830, "omni runner"): register with the Omni app, keep one `next` open per
 // free slot, and run each job it hands over — in a worktree `~/wt/<repo>-job-<id>` on its own branch
 // `agent/job-<id>`, in a tmux session `job-<id>`, logged to `~/logs/job-<id>.log` — sending its log
-// tail every few seconds until it ends, is cancelled or runs past the timeout. Then the worktree goes
-// and the branch stays.
+// tail every few seconds until it ends, is cancelled or runs past the timeout. Then the worktree goes,
+// the branch too unless it was pushed, and `git worktree prune` runs in the checkout (PRD 1911).
+//
+// A sweep (`sweep.ts`) runs once the runner has registered, then every hour while it runs: it removes
+// the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds.
 //
 // Each report also carries the log's lines after the job's cursor (PRD 1904, "Only the new lines are
 // sent"): the cursor is the last line the app accepted, and moves only when it answers, so a report
@@ -20,6 +23,7 @@ import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { checkLine } from './line.ts';
 import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
+import { dropJobBranch, pruneWorktrees, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
 
 /** Where the runner prints: `process.stdout`, or a test's buffer. */
@@ -31,6 +35,10 @@ const TICK_MS = 5000;
 const BACKOFF = { firstMs: 5000, maxMs: 60_000 };
 /** How many times a job's last status is sent before the runner gives up on it. */
 const FINAL_TRIES = 8;
+/** How long the runner waits between two sweeps. */
+const SWEEP_MS = 60 * 60 * 1000;
+/** How many days a stopped job's logs are kept, unless `--keep-logs` says otherwise. */
+export const KEEP_LOGS_DAYS = 14;
 
 /** Waits `ms`, or less when `signal` aborts. */
 const sleepFor = (ms: number, signal?: AbortSignal): Promise<void> =>
@@ -68,6 +76,8 @@ export type RunnerOptions = {
   sleep?: ((ms: number, signal?: AbortSignal) => Promise<void>) | undefined;
   tickMs?: number | undefined;
   backoff?: { firstMs: number; maxMs: number } | undefined;
+  /** How many days a stopped job's logs are kept: `KEEP_LOGS_DAYS` unless given. */
+  keepLogsDays?: number | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -82,6 +92,8 @@ type Loop = RunnerOptions & {
   refuse(error: RunnerRefused): void;
   refused(): string | null;
   running: number;
+  /** The ids of the jobs a slot holds: the sweep leaves everything of theirs alone. */
+  jobs: Set<string>;
 };
 
 /** A job's live lines: its log, and how many of its lines the app has accepted. */
@@ -123,6 +135,7 @@ function loopOf(options: RunnerOptions): Loop {
     },
     refused: () => refused,
     running: 0,
+    jobs: new Set(),
   };
 }
 
@@ -252,13 +265,15 @@ function makeWorktree(loop: Loop, job: RunnerJob, place: Place): boolean {
   }
 }
 
-/** Removes the job's worktree; its branch stays. */
-function removeWorktree(loop: Loop, place: Place): void {
+/** Removes the job's worktree, the records left stale, then its branch unless it was pushed. */
+function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
   try {
     loop.exec('git', ['-C', place.checkout, 'worktree', 'remove', '--force', place.worktree], QUIET);
   } catch {
     rmSync(place.worktree, { recursive: true, force: true });
   }
+  pruneWorktrees(loop.exec, place.checkout);
+  dropJobBranch(loop.exec, place.checkout, `agent/job-${job.id}`);
 }
 
 /** `claude -p` stops the background agents a wave starts 10 minutes after its last turn, then exits 0;
@@ -323,7 +338,7 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
   } finally {
-    removeWorktree(loop, place);
+    cleanUp(loop, job, place);
   }
 }
 
@@ -359,14 +374,26 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     if (job === 'stop') return;
     if (job === null) continue;
     loop.running += 1;
+    loop.jobs.add(job.id);
     loop.print(`job ${job.id} claimed: ${job.line} (${job.repo})`);
     try {
       const { last, live } = await runJob(loop, job);
       await finish(loop, job.id, last, live);
       loop.print(endLine(job, last));
     } finally {
+      loop.jobs.delete(job.id);
       loop.running -= 1;
     }
+  }
+}
+
+/** Sweeps now, then every hour, until the runner stops or is refused. */
+async function sweeper(loop: Loop): Promise<void> {
+  const keepLogsDays = loop.keepLogsDays ?? KEEP_LOGS_DAYS;
+  while (!loop.halt.aborted) {
+    const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
+    if (line !== null) loop.print(line);
+    await loop.sleep(SWEEP_MS, loop.halt);
   }
 }
 
@@ -381,7 +408,7 @@ export async function runRunner(options: RunnerOptions): Promise<number> {
       if (loop.running > 0) loop.print(`stopping: waiting for ${String(loop.running)} running job${loop.running === 1 ? '' : 's'}`);
     };
     options.stop.addEventListener('abort', onStop, { once: true });
-    await Promise.all(Array.from({ length: loop.slots }, () => slot(loop, runner))).finally(() => {
+    await Promise.all([sweeper(loop), ...Array.from({ length: loop.slots }, () => slot(loop, runner))]).finally(() => {
       options.stop.removeEventListener('abort', onStop);
     });
   }
