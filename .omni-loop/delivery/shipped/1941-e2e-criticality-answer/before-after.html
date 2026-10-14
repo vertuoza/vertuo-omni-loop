@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1941 · before and after</title>
+<style>
+  :root { --bg:#fff; --fg:#1b1f24; --muted:#5b6570; --line:#d8dee4; --bad:#b42318; --good:#067647; --soft:#f6f8fa; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1116; --fg:#e6edf3; --muted:#9aa4af; --line:#2d333b; --bad:#f97066; --good:#47cd89; --soft:#161b22; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; padding:24px 16px 48px; }
+  main { max-width:1000px; margin:0 auto; }
+  h1 { font-size:1.4rem; margin:0 0 4px; }
+  h2 { font-size:1.1rem; margin:28px 0 8px; }
+  p.sub { color:var(--muted); margin:0 0 16px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:700px) { .cols { grid-template-columns:1fr; } }
+  .col { border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:var(--soft); }
+  .col h3 { margin:0 0 8px; font-size:.95rem; text-transform:uppercase; letter-spacing:.04em; }
+  .before h3 { color:var(--bad); } .after h3 { color:var(--good); }
+  ol { margin:0; padding-left:20px; } li { margin:6px 0; }
+  code { font:13px ui-monospace, monospace; background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .note { color:var(--muted); font-size:.9rem; margin-top:10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>An answer to the e2e criticality question sets the test's level</h1>
+  <p class="sub">PRD 1941 · follow-up to PRD 1737 · text of one skill and one guide page, no kit code</p>
+
+  <h2>Functional</h2>
+  <p>What a QA engineer lives through after <code>/omni:yolo</code> on a PRD with <code>e2e: validate</code>.</p>
+  <div class="cols">
+    <div class="col before">
+      <h3>Today</h3>
+      <ol>
+        <li>Write <code>e2e/critical-flows.md</code> by hand, before anything else.</li>
+        <li>The skill writes every test <code>standard</code> and records one medium item for the whole run.</li>
+        <li>The item is adopted: it shows only as a collapsed "adopted" question. It has no option B and names no file.</li>
+        <li>Answering it gives a rework with no ground. <code>/omni:yolo-fix</code> does not build it.</li>
+        <li>Edit <code>critical</code> and <code>flow-&lt;id&gt;</code> into each test file by hand.</li>
+      </ol>
+    </div>
+    <div class="col after">
+      <h3>After</h3>
+      <ol>
+        <li>No list yet: the skill drafts <code>critical-flows.md</code> in the e2e sub-PR. You review it there.</li>
+        <li>The skill writes every test <code>standard</code> and records one medium item per test that covers a listed flow. Others get none.</li>
+        <li>Each item offers A <code>standard</code> and B <code>critical</code> + <code>flow-&lt;id&gt;</code>, and names its test file. The sub-PR lists them with the reply to give.</li>
+        <li>Merge the e2e sub-PR, answer <code>&lt;number&gt;: B</code> on the feature PR, run <code>/omni:yolo-fix</code>.</li>
+        <li>The rework adds the tags to that one file. <code>omni e2e status</code> checks them.</li>
+      </ol>
+    </div>
+  </div>
+  <p class="note">The answer is read by the kit's existing path (replies, drifted entry, rework). Nothing in the kit changes: the item is written so that path can use it.</p>
+
+  <h2>Pixel perfect</h2>
+  <p>Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>
