@@ -85,7 +85,7 @@ then prints the token, its expiry and the line to paste it by, and keeps it nowh
 
 **Runners** (PRD 1830) run the `/omni:` lines people send from the Omni app with Send to terminal,
 on a machine set up for it, with no one at a terminal. Start one with
-`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]`:
+`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]`:
 
 - **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts
   it may work in right under `--repos` (each known by its `origin`, `owner/name`, and in the
@@ -100,7 +100,15 @@ on a machine set up for it, with no one at a terminal. Start one with
   `job-<id>` (attach to it over SSH to watch), logged to `~/logs/job-<id>.log`. The line goes to
   `claude --dangerously-skip-permissions -p` from a file, never through a shell. Every 5 seconds it
   sends the page the log's tail; at the end, done with the last pull request of the job's repository
-  the run printed, or failed with its exit code. The worktree goes, the branch stays.
+  the run printed, or failed with its exit code.
+- **What it cleans up** (PRD 1911): when a job ends, its worktree goes, its branch `agent/job-<id>`
+  too unless it was pushed (it has an upstream, or `origin` has a branch of that name), and
+  `git worktree prune` runs in its checkout. Once it starts, then every hour, it sweeps what jobs no
+  longer running left: their `~/wt/<repo>-job-<id>` folders, their unpushed `agent/job-*` branches,
+  and their `~/logs/job-<id>.*` files older than `--keep-logs` days (a whole number of 1 or more,
+  14 unless given), then prints one line, like
+  `swept: 3 worktrees, 6 branches, 12 log files · 412 MB freed`, or nothing when nothing went. It
+  never touches `~/logs/runner.log`, another folder or file, or another branch.
 - **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
   `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
   200 characters at most. The runner checks the line again before it runs it, whatever the page sent.
