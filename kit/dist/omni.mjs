@@ -631,8 +631,8 @@ var require_Node = __commonJS({
         };
         const res = toJS.toJS(this, "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count4, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count4);
+          for (const { count: count5, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count5);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
     };
@@ -741,13 +741,13 @@ var require_Alias = __commonJS({
         const anchor2 = anchors2 && source2 && anchors2.get(source2);
         return anchor2 ? anchor2.count * anchor2.aliasCount : 0;
       } else if (identity.isCollection(node3)) {
-        let count4 = 0;
+        let count5 = 0;
         for (const item2 of node3.items) {
           const c = getAliasCount(doc, item2, anchors2);
-          if (c > count4)
-            count4 = c;
+          if (c > count5)
+            count5 = c;
         }
-        return count4;
+        return count5;
       } else if (identity.isPair(node3)) {
         const kc = getAliasCount(doc, node3.key, anchors2);
         const vc = getAliasCount(doc, node3.value, anchors2);
@@ -3738,8 +3738,8 @@ var require_Document = __commonJS({
         };
         const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count4, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count4);
+          for (const { count: count5, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count5);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
       /**
@@ -3817,12 +3817,12 @@ var require_errors = __commonJS({
         lineStr = prev + lineStr;
       }
       if (/[^ ]/.test(lineStr)) {
-        let count4 = 1;
+        let count5 = 1;
         const end3 = error62.linePos[1];
         if (end3?.line === line && end3.col > col) {
-          count4 = Math.max(1, Math.min(end3.col - col, 80 - ci));
+          count5 = Math.max(1, Math.min(end3.col - col, 80 - ci));
         }
-        const pointer = " ".repeat(ci) + "^".repeat(count4);
+        const pointer = " ".repeat(ci) + "^".repeat(count5);
         error62.message += `:
 
 ${lineStr}
@@ -8696,14 +8696,14 @@ function codePointLength(str) {
   const units = str.length;
   if (!highSurrogate.test(str))
     return units;
-  let count4 = units;
+  let count5 = units;
   for (let i = 0; i < units - 1; i++) {
     if ((str.charCodeAt(i) & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
-      count4--;
+      count5--;
       i++;
     }
   }
-  return count4;
+  return count5;
 }
 function getLengthableOrigin(input2) {
   if (Array.isArray(input2))
@@ -13076,8 +13076,8 @@ function az_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/be.js
 init_define_OMNI_BUNDLE();
-function getBelarusianPlural(count4, one, few, many) {
-  const absCount = Math.abs(count4);
+function getBelarusianPlural(count5, one, few, many) {
+  const absCount = Math.abs(count5);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -15745,8 +15745,8 @@ function hu_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hy.js
 init_define_OMNI_BUNDLE();
-function getArmenianPlural(count4, one, many) {
-  return Math.abs(count4) === 1 ? one : many;
+function getArmenianPlural(count5, one, many) {
+  return Math.abs(count5) === 1 ? one : many;
 }
 function withDefiniteArticle(word) {
   if (!word)
@@ -18509,8 +18509,8 @@ function ro_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ru.js
 init_define_OMNI_BUNDLE();
-function getRussianPlural(count4, one, few, many) {
-  const absCount = Math.abs(count4);
+function getRussianPlural(count5, one, few, many) {
+  const absCount = Math.abs(count5);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -33404,10 +33404,10 @@ function formatOutboxPrComment({
   const facts = { numberById, roundMarkers, banter };
   const lines2 = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
-    const count4 = sorted.length;
+    const count5 = sorted.length;
     const example = exampleNumber(sorted, numberById);
     lines2.push(
-      `**${count4} question${count4 === 1 ? "" : "s"} need${count4 === 1 ? "s" : ""} your decision**`,
+      `**${count5} question${count5 === 1 ? "" : "s"} need${count5 === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
       "",
@@ -33535,8 +33535,8 @@ function countsByRank(items) {
 function slackEscape(text15) {
   return text15.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
-function plural2(count4, singular, pluralForm = `${singular}s`) {
-  return `${count4} ${count4 === 1 ? singular : pluralForm}`;
+function plural2(count5, singular, pluralForm = `${singular}s`) {
+  return `${count5} ${count5 === 1 ? singular : pluralForm}`;
 }
 var SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
 function slackOwner({
@@ -33569,7 +33569,7 @@ function slackLine({
   const name3 = cleanTitle ? `PRD #${prd2} \xB7 ${slackEscape(cleanTitle)}` : `PRD #${prd2}`;
   const who2 = ownerText(owner);
   const head = who2 ? `*${name3}* \u2014 owner ${who2}` : `*${name3}*`;
-  const waiting = Object.values(counts2).reduce((sum, count4) => sum + count4, 0);
+  const waiting = Object.values(counts2).reduce((sum, count5) => sum + count5, 0);
   const parts = [];
   if (waiting > 0) {
     parts.push(`${waiting} question${waiting === 1 ? " needs" : "s need"} a decision`);
@@ -34723,8 +34723,8 @@ function areasOf(lines2, scale) {
   faults.push(...idFaults(areas.map((area2) => area2.id)));
   const allowed = scale ? AREA_ROWS[scale] : void 0;
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {
-    const count4 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
-    faults.push(`Areas: ${count4}; a ${scale} concept has ${allowed.words}.`);
+    const count5 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
+    faults.push(`Areas: ${count5}; a ${scale} concept has ${allowed.words}.`);
   }
   return { areas, faults };
 }
@@ -34796,8 +34796,8 @@ function citationProblems(citations, field2) {
 }
 function lineProblems(text15, field2) {
   if (!isText2(text15)) return [`${field2} must be a sentence.`];
-  const count4 = countSentences2(text15);
-  return count4 > MAX_SENTENCES ? [`${field2} holds ${count4} sentences; two at most.`] : [];
+  const count5 = countSentences2(text15);
+  return count5 > MAX_SENTENCES ? [`${field2} holds ${count5} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
   const at2 = `personas[${i}]`;
@@ -37732,7 +37732,7 @@ var NO_COMMIT = /^[—–-]$/;
 function duplicateIds(slices) {
   const counts2 = /* @__PURE__ */ new Map();
   for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
-  return [...counts2.entries()].filter(([, count4]) => count4 > 1).map(([id]) => id);
+  return [...counts2.entries()].filter(([, count5]) => count5 > 1).map(([id]) => id);
 }
 function blockedByViolations(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
@@ -40616,9 +40616,9 @@ function headingAnchors(text15) {
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
     const base = (match[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
-    const count4 = seen.get(base) ?? 0;
-    seen.set(base, count4 + 1);
-    anchors.add(count4 === 0 ? base : `${base}-${count4}`);
+    const count5 = seen.get(base) ?? 0;
+    seen.set(base, count5 + 1);
+    anchors.add(count5 === 0 ? base : `${base}-${count5}`);
   }
   return anchors;
 }
@@ -41740,22 +41740,22 @@ function report3(stdout, title, violations, passLine) {
 }
 function checkInbox({ ctx, stdout }) {
   const violations = findInboxViolations({ ctx });
-  const count4 = ctx.layout.specFiles().length;
+  const count5 = ctx.layout.specFiles().length;
   return report3(
     stdout,
     "check inbox \u2014 an inbox file does not hold what it claims:",
     violations,
-    `check inbox \u2014 ${count4} inbox file(s), all well-formed.`
+    `check inbox \u2014 ${count5} inbox file(s), all well-formed.`
   );
 }
 function checkOutbox({ ctx, stdout }) {
   const violations = findOutboxViolations({ ctx });
-  const count4 = outboxItemFiles({ ctx }).length;
+  const count5 = outboxItemFiles({ ctx }).length;
   return report3(
     stdout,
     "check outbox \u2014 an outbox item does not hold what it claims:",
     violations,
-    `check outbox \u2014 ${count4} open item(s), all well-formed.`
+    `check outbox \u2014 ${count5} open item(s), all well-formed.`
   );
 }
 function checkKnowledge({ ctx, stdout, stderr }) {
@@ -41773,12 +41773,12 @@ function checkKnowledge({ ctx, stdout, stderr }) {
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge2 = readKnowledge({ ctx });
-  const count4 = (kind) => knowledge2.entries.filter((entry3) => entry3.kind === kind).length;
+  const count5 = (kind) => knowledge2.entries.filter((entry3) => entry3.kind === kind).length;
   return report3(
     stdout,
     title,
     violations,
-    `check knowledge \u2014 ${count4("principle")} principle(s), ${count4("rule")} rule(s), ${count4("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
+    `check knowledge \u2014 ${count5("principle")} principle(s), ${count5("rule")} rule(s), ${count5("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
@@ -41789,7 +41789,7 @@ function checkKb({ ctx, stdout, stderr, exec }) {
   const warnings = [...own2.warnings, ...copies.warnings];
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
   const { forms } = own2;
-  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count4]) => count4 > 0).map(([state, count4]) => `${count4} ${state}`);
+  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count5]) => count5 > 0).map(([state, count5]) => `${count5} ${state}`);
   const copied = copies.copies === 0 ? "" : `; ${copies.copies} imported ${copies.copies === 1 ? "copy" : "copies"} checked`;
   return report3(
     stdout,
@@ -42563,8 +42563,8 @@ function summarize2(items, { commits = null, app = false } = {}) {
     prdIssues,
     byTheApp: app ? byTheApp : null,
     commits: commits === null ? null : commits.length,
-    byRepo: tally(counted3, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count4]) => ({ repo, count: count4 })),
-    byMonth: tally(counted3, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count4]) => ({ month, count: count4 }))
+    byRepo: tally(counted3, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count5]) => ({ repo, count: count5 })),
+    byMonth: tally(counted3, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count5]) => ({ month, count: count5 }))
   };
 }
 
@@ -42737,7 +42737,7 @@ function cell(text15, width, gap = 1) {
 }
 var joined2 = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
 var shortName7 = (repo) => repo.slice(repo.indexOf("/") + 1);
-var counted = (count4, one, many) => `${count4} ${count4 === 1 ? one : many}`;
+var counted = (count5, one, many) => `${count5} ${count5 === 1 ? one : many}`;
 var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name: name3, scope, since, summary: summary2 }) {
   const { prs, prdIssues, byTheApp, commits, byRepo, byMonth } = summary2;
@@ -42755,8 +42755,8 @@ function creditsReport({ name: name3, scope, since, summary: summary2 }) {
   }
   if (commits !== null) lines2.push(`Co-authored commits on default branches: ${commits}`);
   lines2.push(
-    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count4 }) => `${shortName7(repo)} ${count4}`)),
-    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count4 }) => `${month} ${count4}`))
+    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count5 }) => `${shortName7(repo)} ${count5}`)),
+    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count5 }) => `${month} ${count5}`))
   );
   return lines2;
 }
@@ -43240,7 +43240,7 @@ function countWords(text15) {
 }
 var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
 var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
-var wordsOf = (count4) => `${count4} ${count4 === 1 ? "word" : "words"}`;
+var wordsOf = (count5) => `${count5} ${count5 === 1 ? "word" : "words"}`;
 var squash = (text15) => text15.replace(/\s+/g, " ").trim();
 function textOf3(node3, spaced) {
   if (node3.kind === "text") return node3.text;
@@ -49401,7 +49401,7 @@ function copyLines(targets2) {
   return [
     `Imported copies: ${targets2.length}`,
     ...targets2.map(({ repo, folder, forms, registers }) => {
-      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count4]) => count4 > 0).map(([state, count4]) => `${count4} ${state}`);
+      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count5]) => count5 > 0).map(([state, count5]) => `${count5} ${state}`);
       return `  ${repo.padEnd(width)}  ${[folder, ...states, `${registers.length} register folder(s)`].join(" \xB7 ")}`;
     })
   ];
@@ -51862,15 +51862,15 @@ function buildingAndOutboxOf(inbox, features) {
 function landingsOf(features) {
   const landed = features.filter((feature) => feature.landing !== void 0);
   if (landed.length === 0) return void 0;
-  const count4 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
+  const count5 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
   const statuses = [];
-  for (let landing = 1; landing <= count4; landing += 1) {
+  for (let landing = 1; landing <= count5; landing += 1) {
     const own2 = landed.find((feature) => feature.landing?.landing === landing);
     const later = landed.some((feature) => (feature.landing?.landing ?? 0) > landing);
     const before2 = statuses.at(-1);
     statuses.push({
       landing,
-      landings: count4,
+      landings: count5,
       name: own2?.landing?.name ?? `landing-${landing}`,
       state: landingState(own2, later),
       waitsFor: before2 !== void 0 && before2.state !== "merged" ? before2.landing : null
@@ -53655,11 +53655,11 @@ function planMoved({
 var SHOWN = 3;
 function detailOf(row) {
   if (row.state === "moved") {
-    const count4 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
+    const count5 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
     const owners2 = row.slices.map((id) => `${id}'s`).join(", ");
     const where = row.slices.length === 1 ? "territory" : "territories";
     const shown6 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
-    return `${count4} under ${owners2} ${where} (${shown6})`;
+    return `${count5} under ${owners2} ${where} (${shown6})`;
   }
   return row.detail ?? "";
 }
@@ -53674,8 +53674,8 @@ function movedTable(rows2) {
 
 // kit/bin/commands/plan.ts
 var USAGE26 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
-function counted2(count4, singular, pluralForm) {
-  return `${count4} ${count4 === 1 ? singular : pluralForm}`;
+function counted2(count5, singular, pluralForm) {
+  return `${count5} ${count5 === 1 ? singular : pluralForm}`;
 }
 function readPlanText(prd2, { ctx, verb: verb2 }) {
   const planPath = ctx.layout.planPath(prd2);
@@ -54193,7 +54193,7 @@ var WORD_LIMITS = Object.freeze({
   label: { max: 4, name: "a label" }
 });
 var countWords2 = (text15) => text15.trim().split(/\s+/).filter(Boolean).length;
-var plural4 = (count4, word) => `${count4} ${word}${count4 === 1 ? "" : "s"}`;
+var plural4 = (count5, word) => `${count5} ${word}${count5 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
@@ -54258,17 +54258,17 @@ function syncErrors({ meta: meta3, scenes }) {
 function sceneWarnings(scene2, index) {
   const words4 = wordsOf3(scene2, `scenes.${index}`);
   const warnings = words4.flatMap(overLimit);
-  const count4 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
-  if (count4 / READ_WORDS_PER_SECOND > scene2.duration) {
-    const needed = Math.ceil(count4 / READ_WORDS_PER_SECOND);
-    warnings.push({ path: `scenes.${index}`, message: `${plural4(count4, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
+  const count5 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
+  if (count5 / READ_WORDS_PER_SECOND > scene2.duration) {
+    const needed = Math.ceil(count5 / READ_WORDS_PER_SECOND);
+    warnings.push({ path: `scenes.${index}`, message: `${plural4(count5, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
   }
   return warnings;
 }
 function overLimit({ path, text: text15, limit }) {
-  const count4 = countWords2(text15);
+  const count5 = countWords2(text15);
   const { max, name: name3 } = WORD_LIMITS[limit];
-  return count4 > max ? [{ path, message: `${plural4(count4, "word")}; ${name3} holds at most ${max}` }] : [];
+  return count5 > max ? [{ path, message: `${plural4(count5, "word")}; ${name3} holds at most ${max}` }] : [];
 }
 var WORD_FIELDS = Object.freeze([
   ["eyebrow", "eyebrow"],
@@ -54652,7 +54652,7 @@ function repositoryChromium(cwd) {
     throw new Error("Playwright is needed to capture frames: install playwright in the repository");
   };
 }
-var share = (count4, page2, pages) => Array.from({ length: count4 }, (_, n) => n).filter((n) => n % pages === page2);
+var share = (count5, page2, pages) => Array.from({ length: count5 }, (_, n) => n).filter((n) => n % pages === page2);
 async function capture(page2, url2, frames, dir) {
   await page2.goto(url2);
   for (const n of frames) {
@@ -54663,16 +54663,16 @@ async function capture(page2, url2, frames, dir) {
 var playwrightCapture = Object.freeze({
   kind: "capture",
   id: "playwright",
-  frames: async ({ url: url2, count: count4, width, height, pages = PAGES }, { dir, cwd, launch }) => {
+  frames: async ({ url: url2, count: count5, width, height, pages = PAGES }, { dir, cwd, launch }) => {
     const browser = await (launch ?? repositoryChromium(cwd))();
     try {
-      const lanes = Math.max(1, Math.min(pages, count4));
+      const lanes = Math.max(1, Math.min(pages, count5));
       const opened = await Promise.all(Array.from({ length: lanes }, () => browser.newPage({ viewport: { width, height } })));
-      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count4, lane, lanes), dir)));
+      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count5, lane, lanes), dir)));
     } finally {
       await browser.close();
     }
-    return Array.from({ length: count4 }, (_, n) => join106(dir, frameFile(n)));
+    return Array.from({ length: count5 }, (_, n) => join106(dir, frameFile(n)));
   }
 });
 
@@ -55330,9 +55330,9 @@ function contactHtml(files) {
   const seek = `window.${PAGE_SEEK}=function(){return Promise.all(Array.from(document.images).map(function(i){return i.decode();}));};`;
   return `<!doctype html><html><head><meta charset="utf-8"><style>${style}</style></head><body>${tiles}${script(seek)}</body></html>`;
 }
-var contactSize = (count4) => ({
+var contactSize = (count5) => ({
   width: CONTACT.columns * CONTACT.width,
-  height: Math.max(1, Math.ceil(count4 / CONTACT.columns)) * CONTACT.height
+  height: Math.max(1, Math.ceil(count5 / CONTACT.columns)) * CONTACT.height
 });
 function runFile(dir, path) {
   const root = resolve6(dir);
@@ -56670,7 +56670,7 @@ function answerCommand(rest, io) {
 var STATE_WORDS = { ok: "ok", fixed: "fixed", ticked: "ticked", waits: "waits on you" };
 function countLine(results) {
   const counts2 = PREREQUISITE_STATES.map((state) => [state, results.filter((result2) => result2.state === state).length]);
-  return counts2.filter(([, count4]) => count4 > 0).map(([state, count4]) => `${count4} ${state === "waits" ? count4 === 1 ? "waits on you" : "wait on you" : state}`).join(" \xB7 ");
+  return counts2.filter(([, count5]) => count5 > 0).map(([state, count5]) => `${count5} ${state === "waits" ? count5 === 1 ? "waits on you" : "wait on you" : state}`).join(" \xB7 ");
 }
 function byCategory(results) {
   return PREREQUISITE_CATEGORIES.map((category) => ({ category, rows: results.filter((result2) => result2.prerequisite.category === category) })).filter(({ rows: rows2 }) => rows2.length > 0);
@@ -57147,13 +57147,13 @@ function linesAfter(log, cursor, { ended: ended2 }) {
 }
 function reportBatch(lines2) {
   let bytes = 2;
-  let count4 = 0;
+  let count5 = 0;
   for (const line of lines2.slice(0, REPORT_LINES)) {
-    bytes += Buffer.byteLength(JSON.stringify(line)) + (count4 > 0 ? 1 : 0);
+    bytes += Buffer.byteLength(JSON.stringify(line)) + (count5 > 0 ? 1 : 0);
     if (bytes > REPORT_BYTES) break;
-    count4 += 1;
+    count5 += 1;
   }
-  return lines2.slice(0, count4);
+  return lines2.slice(0, count5);
 }
 var escape4 = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function lastPullRequest(log, repo) {
@@ -57172,8 +57172,8 @@ function parseDuration(text15) {
 
 // kit/lib/runner/runner.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync81, mkdirSync as mkdirSync32, readFileSync as readFileSync93, rmSync as rmSync17, writeFileSync as writeFileSync46 } from "node:fs";
-import { join as join120 } from "node:path";
+import { existsSync as existsSync81, mkdirSync as mkdirSync32, readFileSync as readFileSync93, rmSync as rmSync18, writeFileSync as writeFileSync46 } from "node:fs";
+import { join as join121 } from "node:path";
 
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
@@ -57192,10 +57192,151 @@ function checkLine2(line) {
   return { ok: true, skill, args };
 }
 
+// kit/lib/runner/sweep.ts
+init_define_OMNI_BUNDLE();
+import { lstatSync, readdirSync as readdirSync36, rmSync as rmSync17 } from "node:fs";
+import { join as join120 } from "node:path";
+var DAY_MS2 = 24 * 60 * 60 * 1e3;
+var QUIET13 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var ID2 = "[A-Za-z0-9_-]+";
+var JOB_ID = new RegExp(`^${ID2}$`);
+var JOB_BRANCH = new RegExp(`^agent/job-(${ID2})$`);
+var JOB_LOG = new RegExp(`^job-(${ID2})\\.[A-Za-z0-9]+$`);
+function namesIn(dir) {
+  try {
+    return readdirSync36(dir);
+  } catch {
+    return [];
+  }
+}
+function sizeOf(path) {
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch {
+    return 0;
+  }
+  if (!stat.isDirectory()) return stat.size;
+  return namesIn(path).reduce((total, name3) => total + sizeOf(join120(path, name3)), stat.size);
+}
+function worktreeJob(name3, repoNames) {
+  for (const repo of repoNames) {
+    const prefix = `${repo}-job-`;
+    const job2 = name3.startsWith(prefix) ? name3.slice(prefix.length) : "";
+    if (JOB_ID.test(job2)) return job2;
+  }
+  return null;
+}
+function originBranches(exec, checkout) {
+  try {
+    const out = exec("git", ["-C", checkout, "ls-remote", "--heads", "origin"], QUIET13);
+    return new Set(out.split("\n").map((line) => /\trefs\/heads\/(.+)$/.exec(line)?.[1]).filter((name3) => name3 !== void 0));
+  } catch {
+    return null;
+  }
+}
+function hasUpstream(exec, checkout, branch) {
+  try {
+    return exec("git", ["-C", checkout, "for-each-ref", "--format=%(upstream)", `refs/heads/${branch}`], QUIET13).trim() !== "";
+  } catch {
+    return true;
+  }
+}
+function branchPushed(exec, checkout, branch) {
+  return hasUpstream(exec, checkout, branch) || (originBranches(exec, checkout)?.has(branch) ?? true);
+}
+function deleteBranch(exec, checkout, branch) {
+  try {
+    exec("git", ["-C", checkout, "branch", "-D", branch], QUIET13);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function pruneWorktrees(exec, checkout) {
+  try {
+    exec("git", ["-C", checkout, "worktree", "prune"], QUIET13);
+  } catch {
+  }
+}
+function dropJobBranch(exec, checkout, branch) {
+  return !branchPushed(exec, checkout, branch) && deleteBranch(exec, checkout, branch);
+}
+function sweepWorktrees({ home, checkouts, running }) {
+  const wt = join120(home, "wt");
+  const repoNames = [...checkouts.keys()].map((repo) => repo.split("/").at(-1) ?? repo);
+  let count5 = 0;
+  let bytes = 0;
+  for (const name3 of namesIn(wt)) {
+    const job2 = worktreeJob(name3, repoNames);
+    const path = join120(wt, name3);
+    if (job2 === null || running.has(job2) || !lstatSync(path).isDirectory()) continue;
+    const size = sizeOf(path);
+    rmSync17(path, { recursive: true, force: true });
+    count5 += 1;
+    bytes += size;
+  }
+  return { count: count5, bytes };
+}
+function sweepBranches({ exec, running }, checkout) {
+  let names;
+  try {
+    names = exec("git", ["-C", checkout, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads/agent/"], QUIET13).split("\n");
+  } catch {
+    return 0;
+  }
+  const candidates = names.map((line) => line.split("	")).filter(([name3 = "", upstream2 = ""]) => upstream2 === "" && !running.has(JOB_BRANCH.exec(name3)?.[1] ?? "")).map(([name3 = ""]) => name3).filter((name3) => JOB_BRANCH.test(name3));
+  if (candidates.length === 0) return 0;
+  const onOrigin = originBranches(exec, checkout);
+  if (onOrigin === null) return 0;
+  return candidates.filter((name3) => !onOrigin.has(name3) && deleteBranch(exec, checkout, name3)).length;
+}
+function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
+  const logs = join120(home, "logs");
+  let count5 = 0;
+  let bytes = 0;
+  for (const name3 of namesIn(logs)) {
+    const job2 = JOB_LOG.exec(name3)?.[1];
+    if (job2 === void 0 || running.has(job2)) continue;
+    const path = join120(logs, name3);
+    const stat = lstatSync(path);
+    if (!stat.isFile() || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS2) continue;
+    rmSync17(path, { force: true });
+    count5 += 1;
+    bytes += stat.size;
+  }
+  return { count: count5, bytes };
+}
+function sweep2(options) {
+  const worktrees = sweepWorktrees(options);
+  let branches = 0;
+  for (const checkout of options.checkouts.values()) {
+    pruneWorktrees(options.exec, checkout);
+    branches += sweepBranches(options, checkout);
+  }
+  const logs = sweepLogs(options);
+  return { worktrees: worktrees.count, branches, logs: logs.count, bytes: worktrees.bytes + logs.bytes };
+}
+var count4 = (n, one, many) => `${String(n)} ${n === 1 ? one : many}`;
+function sizeText(bytes) {
+  const kb3 = bytes / 1024;
+  if (kb3 < 1024) return `${String(Math.round(kb3))} KB`;
+  const mb = kb3 / 1024;
+  if (mb < 1024) return `${String(Math.round(mb))} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
+function sweptLine(swept) {
+  if (swept.worktrees + swept.branches + swept.logs === 0) return null;
+  const what = [count4(swept.worktrees, "worktree", "worktrees"), count4(swept.branches, "branch", "branches"), count4(swept.logs, "log file", "log files")];
+  return `swept: ${what.join(", ")} \xB7 ${sizeText(swept.bytes)} freed`;
+}
+
 // kit/lib/runner/runner.ts
 var TICK_MS = 5e3;
 var BACKOFF = { firstMs: 5e3, maxMs: 6e4 };
 var FINAL_TRIES = 8;
+var SWEEP_MS = 60 * 60 * 1e3;
+var KEEP_LOGS_DAYS = 14;
 var sleepFor = (ms, signal) => new Promise((resolve11) => {
   const done = () => {
     clearTimeout(timer);
@@ -57209,7 +57350,7 @@ var sleepFor = (ms, signal) => new Promise((resolve11) => {
 function withLines(update2, live, lines2) {
   return lines2.length === 0 ? update2 : { ...update2, from: live.cursor + 1, lines: [...lines2] };
 }
-var QUIET13 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var QUIET14 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var readText3 = (path) => {
   try {
     return readFileSync93(path, "utf8");
@@ -57234,7 +57375,8 @@ function loopOf(options) {
       refusal2.abort();
     },
     refused: () => refused2,
-    running: 0
+    running: 0,
+    jobs: /* @__PURE__ */ new Set()
   };
 }
 async function backOff(loop2, delay, error62, signal) {
@@ -57303,11 +57445,11 @@ async function finish(loop2, job2, update2, live) {
 }
 function defaultBranch(exec, checkout) {
   try {
-    return exec("git", ["-C", checkout, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], QUIET13).trim().replace(/^origin\//, "");
+    return exec("git", ["-C", checkout, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], QUIET14).trim().replace(/^origin\//, "");
   } catch {
   }
   try {
-    const out = exec("git", ["-C", checkout, "ls-remote", "--symref", "origin", "HEAD"], QUIET13);
+    const out = exec("git", ["-C", checkout, "ls-remote", "--symref", "origin", "HEAD"], QUIET14);
     return /^ref: refs\/heads\/(\S+)\s+HEAD/m.exec(out)?.[1] ?? "main";
   } catch {
     return "main";
@@ -57319,40 +57461,42 @@ function placeOf2(loop2, job2) {
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };
   const repoName = job2.repo.split("/").at(-1) ?? job2.repo;
-  const logs = join120(loop2.home, "logs");
+  const logs = join121(loop2.home, "logs");
   return {
     checkout,
-    worktree: join120(loop2.home, "wt", `${repoName}-job-${job2.id}`),
+    worktree: join121(loop2.home, "wt", `${repoName}-job-${job2.id}`),
     session: `job-${job2.id}`,
-    line: join120(logs, `job-${job2.id}.line`),
-    log: join120(logs, `job-${job2.id}.log`),
-    exit: join120(logs, `job-${job2.id}.exit`)
+    line: join121(logs, `job-${job2.id}.line`),
+    log: join121(logs, `job-${job2.id}.log`),
+    exit: join121(logs, `job-${job2.id}.exit`)
   };
 }
 function makeWorktree(loop2, job2, place) {
   try {
-    loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET13);
+    loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET14);
     const base = defaultBranch(loop2.exec, place.checkout);
-    mkdirSync32(join120(loop2.home, "wt"), { recursive: true });
-    loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET13);
+    mkdirSync32(join121(loop2.home, "wt"), { recursive: true });
+    loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET14);
     return true;
   } catch {
     return false;
   }
 }
-function removeWorktree(loop2, place) {
+function cleanUp(loop2, job2, place) {
   try {
-    loop2.exec("git", ["-C", place.checkout, "worktree", "remove", "--force", place.worktree], QUIET13);
+    loop2.exec("git", ["-C", place.checkout, "worktree", "remove", "--force", place.worktree], QUIET14);
   } catch {
-    rmSync17(place.worktree, { recursive: true, force: true });
+    rmSync18(place.worktree, { recursive: true, force: true });
   }
+  pruneWorktrees(loop2.exec, place.checkout);
+  dropJobBranch(loop2.exec, place.checkout, `agent/job-${job2.id}`);
 }
 function startSession(loop2, job2, place) {
-  mkdirSync32(join120(loop2.home, "logs"), { recursive: true });
+  mkdirSync32(join121(loop2.home, "logs"), { recursive: true });
   writeFileSync46(place.line, `${job2.line}
 `);
   writeFileSync46(place.log, "");
-  rmSync17(place.exit, { force: true });
+  rmSync18(place.exit, { force: true });
   const sender = job2.sentBy ? { OMNI_SENT_BY: job2.sentBy, OMNI_RUNNER: loop2.name } : {};
   try {
     loop2.terminal.start({
@@ -57397,7 +57541,7 @@ async function runJob(loop2, job2) {
     const live = { log: place.log, cursor: 0 };
     return { last: await watch2(loop2, job2, place, live), live };
   } finally {
-    removeWorktree(loop2, place);
+    cleanUp(loop2, job2, place);
   }
 }
 function endLine(job2, last) {
@@ -57427,14 +57571,24 @@ async function slot(loop2, runner2) {
     if (job2 === "stop") return;
     if (job2 === null) continue;
     loop2.running += 1;
+    loop2.jobs.add(job2.id);
     loop2.print(`job ${job2.id} claimed: ${job2.line} (${job2.repo})`);
     try {
       const { last, live } = await runJob(loop2, job2);
       await finish(loop2, job2.id, last, live);
       loop2.print(endLine(job2, last));
     } finally {
+      loop2.jobs.delete(job2.id);
       loop2.running -= 1;
     }
+  }
+}
+async function sweeper(loop2) {
+  const keepLogsDays = loop2.keepLogsDays ?? KEEP_LOGS_DAYS;
+  while (!loop2.halt.aborted) {
+    const line = sweptLine(sweep2({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running: loop2.jobs, keepLogsDays, now: loop2.now() }));
+    if (line !== null) loop2.print(line);
+    await loop2.sleep(SWEEP_MS, loop2.halt);
   }
 }
 async function runRunner(options) {
@@ -57447,7 +57601,7 @@ async function runRunner(options) {
       if (loop2.running > 0) loop2.print(`stopping: waiting for ${String(loop2.running)} running job${loop2.running === 1 ? "" : "s"}`);
     };
     options.stop.addEventListener("abort", onStop, { once: true });
-    await Promise.all(Array.from({ length: loop2.slots }, () => slot(loop2, runner2))).finally(() => {
+    await Promise.all([sweeper(loop2), ...Array.from({ length: loop2.slots }, () => slot(loop2, runner2))]).finally(() => {
       options.stop.removeEventListener("abort", onStop);
     });
   }
@@ -57508,7 +57662,7 @@ function missingTool(exec) {
 }
 
 // kit/bin/commands/runner.ts
-var USAGE32 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] | omni runner sender";
+var USAGE32 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] | omni runner sender";
 var DEFAULT_SLOTS = 4;
 var MAX_SLOTS = 8;
 var DEFAULT_TIMEOUT = "3h";
@@ -57542,8 +57696,11 @@ function interrupts() {
     }
   };
 }
+function keepLogsOf(value) {
+  return value === void 0 ? KEEP_LOGS_DAYS : positiveInt("runner", "--keep-logs", value);
+}
 function readFlags(args, cwd) {
-  const { positional, flags } = parseArgs("runner", args, { values: ["name", "repos", "slots", "timeout"] });
+  const { positional, flags } = parseArgs("runner", args, { values: ["name", "repos", "slots", "timeout", "keep-logs"] });
   const { name: name3, repos } = flags;
   if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE32);
   if (!NAME3.test(name3)) throw usageError("omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.");
@@ -57552,7 +57709,7 @@ function readFlags(args, cwd) {
   const timeout = flags.timeout ?? DEFAULT_TIMEOUT;
   const timeoutMs = parseDuration(timeout);
   if (timeoutMs === null) throw usageError(`omni runner: --timeout must read like 90s, 45m or 3h, got "${timeout}".`);
-  return { name: name3, slots, timeoutMs, repos: resolve10(cwd, repos) };
+  return { name: name3, slots, timeoutMs, repos: resolve10(cwd, repos), keepLogsDays: keepLogsOf(flags["keep-logs"]) };
 }
 function jobEnv({ env, vars }) {
   return {
@@ -57575,7 +57732,7 @@ function wiring(io) {
 }
 async function start2(args, io) {
   const { cwd, stdout, stderr, exec, script: script2 } = io;
-  const { name: name3, slots, timeoutMs, repos } = readFlags(args, cwd);
+  const { name: name3, slots, timeoutMs, repos, keepLogsDays } = readFlags(args, cwd);
   const checkouts = listCheckouts(repos, exec);
   const page2 = pageOrRefusal(cwd, repos, checkouts, exec);
   if ("refusal" in page2) {
@@ -57601,6 +57758,7 @@ async function start2(args, io) {
         println(stdout, line);
       },
       stop: stop.signal,
+      keepLogsDays,
       ...timing(io)
     });
   } finally {
@@ -57630,7 +57788,7 @@ var runner = {
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync94, writeFileSync as writeFileSync47 } from "node:fs";
-import { join as join121 } from "node:path";
+import { join as join122 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -57825,7 +57983,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync94(join121(ctx.root, path), "utf8");
+    return readFileSync94(join122(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -57902,7 +58060,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync47(join121(ctx.root, settledFile), closedText);
+  writeFileSync47(join122(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -58244,7 +58402,7 @@ var STAGE_WORDS = Object.freeze({
   retro: "retro"
 });
 var IDEA_COUNT = "on the app";
-var plural5 = (count4, word) => `${count4} ${word}${count4 === 1 ? "" : "s"}`;
+var plural5 = (count5, word) => `${count5} ${word}${count5 === 1 ? "" : "s"}`;
 function fetchedAgo(fetchedAt2, now2) {
   if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
   const age = Math.max(0, now2 - fetchedAt2);
@@ -58277,7 +58435,7 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   const top2 = `${LABEL3}${cells4}  ${delivered} of ${total} \xB7 ${percent}%`;
   if (inProgress.total === 0) return [top2, `${UNDER_BAR}nothing in progress`];
   const counted3 = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]];
-  const parts = counted3.filter(([count4]) => count4 > 0).map(([count4, where]) => `${count4} ${where}`);
+  const parts = counted3.filter(([count5]) => count5 > 0).map(([count5, where]) => `${count5} ${where}`);
   const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
   for (const part of parts.slice(1)) {
     const joined3 = `${under.at(-1)}, ${part}`;
@@ -58314,9 +58472,9 @@ function rows(entries4) {
   ]);
 }
 function landingLines(landings) {
-  return landings.map(({ landing, landings: count4, name: name3, state, waitsFor }) => {
+  return landings.map(({ landing, landings: count5, name: name3, state, waitsFor }) => {
     const waits2 = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
-    return cut5(`${UNDER_BAR}landing ${landing}/${count4} ${name3}: ${state}${waits2}`, WIDTH);
+    return cut5(`${UNDER_BAR}landing ${landing}/${count5} ${name3}: ${state}${waits2}`, WIDTH);
   });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
@@ -58523,8 +58681,8 @@ init_define_OMNI_BUNDLE();
 // kit/lib/product/checkout.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync95, writeFileSync as writeFileSync48 } from "node:fs";
-import { join as join122 } from "node:path";
-var PRODUCT_FILE = join122(LOCAL_DIR, "product.json");
+import { join as join123 } from "node:path";
+var PRODUCT_FILE = join123(LOCAL_DIR, "product.json");
 var isProductKey = (key2) => ProductPrdIdSchema.safeParse(`${key2}-1`).success;
 var RememberedSchema = external_exports.object({
   key: external_exports.string().refine(isProductKey),
@@ -58534,14 +58692,14 @@ function rememberProduct(root, key2, now2) {
   if (!isProductKey(key2)) throw new Error(`not a product key: ${key2} (lowercase kebab-case, as mobile)`);
   const remembered = { key: key2, usedAt: now2.toISOString() };
   ensureLocalDir(root);
-  writeFileSync48(join122(root, PRODUCT_FILE), `${JSON.stringify(remembered, null, 2)}
+  writeFileSync48(join123(root, PRODUCT_FILE), `${JSON.stringify(remembered, null, 2)}
 `);
   return remembered;
 }
 function rememberedProduct(root) {
   let value;
   try {
-    value = JSON.parse(readFileSync95(join122(root, PRODUCT_FILE), "utf8"));
+    value = JSON.parse(readFileSync95(join123(root, PRODUCT_FILE), "utf8"));
   } catch {
     return null;
   }
@@ -58771,9 +58929,9 @@ function fit2(line, width) {
   }
   return `${out}${open3 ? RESET : ""}${CUT}`;
 }
-function itemsPart(count4) {
-  if (count4 === null || count4 === void 0 || !(count4 > 0)) return null;
-  return `${count4} open item${count4 === 1 ? "" : "s"}`;
+function itemsPart(count5) {
+  if (count5 === null || count5 === void 0 || !(count5 > 0)) return null;
+  return `${count5} open item${count5 === 1 ? "" : "s"}`;
 }
 function wavePart(slices) {
   if (!isList(slices) || slices.length === 0) return null;
@@ -59017,17 +59175,17 @@ var statusline = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync82, mkdtempSync as mkdtempSync5, readFileSync as readFileSync96, rmSync as rmSync18 } from "node:fs";
+import { existsSync as existsSync82, mkdtempSync as mkdtempSync5, readFileSync as readFileSync96, rmSync as rmSync19 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
-import { join as join123 } from "node:path";
+import { join as join124 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
-var QUIET14 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
+var QUIET15 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
 function updatePlugin({ version: version3 = null, exec, println: println2 }) {
   try {
-    exec("claude", ["plugin", "marketplace", "update", MARKETPLACE], QUIET14);
-    exec("claude", ["plugin", "update", `${PLUGIN}@${MARKETPLACE}`], QUIET14);
+    exec("claude", ["plugin", "marketplace", "update", MARKETPLACE], QUIET15);
+    exec("claude", ["plugin", "update", `${PLUGIN}@${MARKETPLACE}`], QUIET15);
   } catch {
     println2("  plugin   not updated from here; in Claude Code, type:");
     println2(`     /plugin marketplace update ${MARKETPLACE}`);
@@ -59041,7 +59199,7 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 // kit/bin/commands/update.ts
 var USAGE41 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync5(join123(tmpdir5(), "omni-update-"));
+  const dir = mkdtempSync5(join124(tmpdir5(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -59053,7 +59211,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
-    rmSync18(dir, { recursive: true, force: true });
+    rmSync19(dir, { recursive: true, force: true });
   }
 }
 function rootOf(cwd, exec) {
@@ -59064,7 +59222,7 @@ function rootOf(cwd, exec) {
   }
 }
 function claudeListed(root) {
-  const file2 = root ? join123(root, CONFIG_FILE) : null;
+  const file2 = root ? join124(root, CONFIG_FILE) : null;
   if (!file2 || !existsSync82(file2)) return true;
   try {
     return parseConfig(readFileSync96(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
