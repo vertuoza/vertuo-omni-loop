@@ -42,7 +42,7 @@ export function ConceptList({ cards }: { cards: readonly ConceptCard[] }) {
         <section className="ask-card">
           <h2>No concept yet</h2>
           <p className="ask-muted">
-            A concept shows here once /omni:think-big records it. Start one in Claude Code: <code>{THINK_BIG}</code>
+            A concept shows here once /omni:think-big records it. Start one in your coding agent: <code>{THINK_BIG}</code>
           </p>
         </section>
       ) : (
