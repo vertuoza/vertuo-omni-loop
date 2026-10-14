@@ -3,7 +3,9 @@ import { kartAt, leanOf, NO_FX, type Fx, type Kart } from './kart';
 import { hudOf, newRace, placeOf, press, step, type Race } from './race';
 import { advance, aimOf, crossedAnyGate, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, rubber, START_PACE, type Driver, type Rival } from './rivals';
 import { RULES } from './rules';
-import { COMET_RING, LAPS, cornersOf, groundOf, locatePx, parseTrack, pointAtPx, roadAt, TILE } from './track';
+import { crossings } from './line';
+import { carryAlong, COMET_RING, crosses, LAPS, cornersOf, groundOf, locatePx, parseTrack, pointAtPx, roadAt, TILE } from './track';
+import { EIGHT, withFloor } from './track.fake';
 
 /** The longest a rival's three laps are given in these tests, in seconds. */
 const LIMIT_SECONDS = 150;
@@ -618,5 +620,98 @@ describe('a kart in the air (PRD 1775)', () => {
   it('is pushed by another kart in the air', () => {
     const [a, b] = pushApart([{ ...kartAt(100, 100, 0), height: 5 }, { ...kartAt(104, 100, 0), height: 5 }]);
     expect((b?.x ?? 0) - (a?.x ?? 0)).toBeGreaterThan(4);
+  });
+});
+
+// The branch at a crossing (PRD 1923, slice 1): a figure eight, its two diagonals crossing at the middle of the map.
+describe('on a line that crosses itself', () => {
+  const eight = parseTrack(EIGHT);
+  const crossing = nth(crossings(eight.centre), 0);
+  const startOf = (leg: number) => (eight.centre.segments.find((s) => s.kind === 'straight' && s.leg === leg)?.start ?? NaN) * TILE;
+  // The two branches: the distance along the line, in pixels, at which each passes the crossing, and the pace of a kart on it (the gates it has passed).
+  const branches = [
+    { name: 'the first diagonal', at: startOf(crossing.a.leg) + crossing.a.at * TILE, passed: 2 },
+    { name: 'the second diagonal', at: startOf(crossing.b.leg) + crossing.b.at * TILE, passed: 6 },
+  ] as const;
+  /** A kart on the line `along` pixels in, carrying the distance along it it had a step before when `hint` says so. */
+  const onLine = (along: number, before?: Kart): Kart => {
+    const p = pointAtPx(eight, along);
+    const kart = kartAt(p.x, p.y, Math.atan2(p.ty, p.tx));
+    return carryAlong(eight, before ?? { along }, kart);
+  };
+
+  it('is told apart from a line that does not cross itself', () => {
+    expect(crosses(eight)).toBe(true);
+    expect(crosses(track)).toBe(false);
+    expect(carryAlong(track, {}, kartAt(10, 10, 0)).along).toBeUndefined();
+  });
+
+  it.each(branches)('gives a kart on $name a progress that never goes back while it crosses', ({ at, passed }) => {
+    const pace = { laps: 0, passed };
+    let before: Kart | undefined;
+    let last = -Infinity;
+    for (let d = at - 8 * TILE; d <= at + 8 * TILE; d += TILE / 8) {
+      const kart = onLine(d, before);
+      const progress = progressOf(eight, pace, kart);
+      expect(progress).toBeGreaterThanOrEqual(last);
+      const laps = (progress - (d - eight.startAlong)) / eight.length;
+      expect(laps).toBeCloseTo(Math.round(laps), 6);
+      last = progress;
+      before = kart;
+    }
+  });
+
+  it('would put the kart of the second diagonal on the first one at the crossing with nothing carried: that is what the branch is for', () => {
+    const second = branches[1];
+    const bare = kartAt(pointAtPx(eight, second.at).x, pointAtPx(eight, second.at).y, 0);
+    expect(Math.abs(progressOf(eight, { laps: 0, passed: second.passed }, bare) - (second.at - eight.startAlong))).toBeGreaterThan(5 * TILE);
+  });
+
+  it.each(branches)('has a rival on $name aim down its own branch, not the other', ({ at }) => {
+    const rival: Rival = { ...nth(newRace({ seed: 7, track: eight, cast }).rivals, 0), kart: { ...onLine(at), speed: 60 }, offset: 0 };
+    expect(Math.abs(aimOf(eight, rival))).toBeLessThan(0.05);
+  });
+
+  it.each(branches)('brings a kart that fell on $name back on it, facing the way it runs there', ({ at, passed }) => {
+    const fell = onLine(at);
+    const back = comeBack(eight, { laps: 0, passed }, fell, NO_FX).kart;
+    const there = pointAtPx(eight, at);
+    expect(Math.abs(Math.atan2(Math.sin(back.angle - Math.atan2(there.ty, there.tx)), Math.cos(back.angle - Math.atan2(there.ty, there.tx))))).toBeLessThan(0.1);
+    expect(Math.abs((back.along ?? NaN) - at)).toBeLessThan(2 * TILE);
+  });
+
+  it('counts a lap once each time the line is crossed, the crossing of the two branches twice a lap included', () => {
+    const lap = eight.length;
+    let pace = START_PACE;
+    let before: Kart | undefined;
+    const laps: number[] = [];
+    for (let d = eight.startAlong - 3 * TILE; d <= eight.startAlong + 2.5 * lap; d += TILE / 4) {
+      const kart = onLine(d, before);
+      pace = advance(eight, pace, before ?? kart, kart);
+      laps.push(pace.laps);
+      before = kart;
+    }
+    expect(laps.every((n, i) => n === (laps[i - 1] ?? n) || n === (laps[i - 1] ?? 0) + 1)).toBe(true);
+    expect(pace.laps).toBe(2);
+  });
+});
+
+// The surfaces (PRD 1923, slice 3): the rivals drive the same model, so they slide on ice.
+describe('on ice and powder', () => {
+  const frozen = withFloor(parseTrack(EIGHT));
+
+  it('slides a rival on the lake: its direction of travel is carried there, and is its nose elsewhere', () => {
+    let r: Race = play(press(newRace({ seed: 7, track: frozen }), 'start').race, NONE, RULES.countdown + 0.05);
+    let slid = false, offLake = true;
+    for (let t = 0; t < 60; t += 0.05) {
+      r = step(r, NONE, 0.05).race;
+      for (const rival of r.rivals) {
+        const far = Math.hypot(rival.kart.x - 36 * TILE, rival.kart.y - 36 * TILE);
+        if (rival.kart.travel !== undefined) slid = true;
+        if (far > 7 * TILE && rival.kart.travel !== undefined) offLake = false;
+      }
+    }
+    expect(slid).toBe(true);
+    expect(offLake).toBe(true);
   });
 });

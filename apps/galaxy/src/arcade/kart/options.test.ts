@@ -9,7 +9,7 @@ describe('the defaults', () => {
   it('are ▲ ▼ ◀ ▶ and SPACE, 3 laps, NORMAL and the FLEET CLASSIC look', () => {
     expect(defaultOptions()).toEqual({
       keys: { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: ' ' },
-      laps: 3, difficulty: 'normal', look: { color: 'FLEET', design: 'CLASSIC' },
+      laps: 3, difficulty: 'normal', look: { color: 'FLEET', design: 'CLASSIC' }, track: 'comet-ring',
     });
   });
 });
@@ -25,7 +25,7 @@ describe('reading the store back', () => {
   });
 
   it('keeps what was saved', () => {
-    const o: KartOptions = { keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' }, laps: 7, difficulty: 'hard', look: { color: 'PINK', design: 'RACER' } };
+    const o: KartOptions = { keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' }, laps: 7, difficulty: 'hard', look: { color: 'PINK', design: 'RACER' }, track: 'comet-ring' };
     let kept = '';
     saveOptions(o, () => ({ getItem: () => kept, setItem: (k, v) => { expect(k).toBe(OPTIONS_KEY); kept = v; } }));
     expect(loadOptions(() => store(kept))).toEqual(o);
@@ -196,5 +196,18 @@ describe('the KART panel (PRD 1762)', () => {
     const changed = run('down', 'a', 'right', 'b').options;
     expect(changed.look.color).toBe('RED');
     expect(optionsPress({ screen: 'menu', cursor: 'defaults' }, changed, 'a').options).toEqual(defaultOptions());
+  });
+});
+
+describe('the circuit kept (PRD 1923)', () => {
+  it('is read back from the store', () => {
+    expect(parseOptions(JSON.stringify({ track: 'comet-ring' })).track).toBe('comet-ring');
+  });
+
+  it('reads as COMET RING when the store has none, or one naming no circuit', () => {
+    expect(parseOptions(JSON.stringify({ laps: 5 })).track).toBe('comet-ring');
+    expect(parseOptions(JSON.stringify({ track: 'moon-base' })).track).toBe('comet-ring');
+    expect(parseOptions(JSON.stringify({ track: 7 })).track).toBe('comet-ring');
+    expect(parseOptions(JSON.stringify({ track: 'moon-base', laps: 5 }))).toEqual({ ...defaultOptions(), laps: 5 });
   });
 });

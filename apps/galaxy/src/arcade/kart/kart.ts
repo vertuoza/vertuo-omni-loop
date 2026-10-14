@@ -4,7 +4,7 @@
 import type { Action } from '../keys';
 import type { KartItem as Item } from '../scenes/kart.ts';
 import { RULES } from './rules';
-import { roadAt, TILE, tileAt, type Ground } from './track';
+import { pastTreeLine, surfaceAt, TILE, tileAt, type Ground, type Surface } from './track';
 
 /** A kart: where it stands, the way it faces (radians from east, y down) and its speed along that way (negative: reversing). */
 export interface Kart {
@@ -17,6 +17,10 @@ export interface Kart {
   /** Its height over the ground (PRD 1775) and its vertical speed: absent on the road. A kart is in the air while either is above 0. */
   readonly height?: number;
   readonly lift?: number;
+  /** The distance along the centre line it had a step before, in game pixels (PRD 1923): carried only on a circuit whose line crosses itself, so that a kart stays on its branch of the crossing. */
+  readonly along?: number;
+  /** The direction it travels in, radians as `angle` (PRD 1923): carried only while it slides on ice; absent, it travels the way it faces. */
+  readonly travel?: number;
 }
 
 /** Whether a kart is in the air: it takes no box, no pad and no push, and cannot tip over. */
@@ -55,19 +59,40 @@ function speedAfter(speed: number, pad: Pad, top: number, dt: number): number {
 /** What a slope does to the top speed: less uphill, more downhill, never under 0.67 nor over 1.33 of the flat one. */
 const climbOf = (slope: number): number => Math.min(1.33, Math.max(0.67, 1 - RULES.climb * slope));
 
-/** One short step of the kart's motion: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `slope` is how much the ground rises a unit ahead of it. */
-function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean, slope = 0): Kart {
-  const top = (boost ? RULES.topSpeed * RULES.boostFactor * pace : RULES.topSpeed * pace) * climbOf(slope);
+/** `a` as an angle in (-PI, PI]. */
+const wrap = (a: number): number => a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
+
+/** The direction of travel after `dt` seconds on `surface` (PRD 1923): the heading, except on ice, where it turns towards the heading at `RULES.iceGrip` and never lags it by more than `RULES.iceSlip`. Absent when it is the heading. */
+function travelAfter(k: Kart, angle: number, surface: Surface, dt: number): number | undefined {
+  if (surface !== 'ice') return undefined;
+  const was = k.travel ?? k.angle;
+  const gap = wrap(angle - wrap(was)), turn = Math.max(-RULES.iceGrip * dt, Math.min(RULES.iceGrip * dt, gap));
+  const left = Math.max(-RULES.iceSlip, Math.min(RULES.iceSlip, gap - turn));
+  return angle - left;
+}
+
+/** The top speed's share a surface leaves (PRD 1923): powder caps it. */
+const gripOf = (surface: Surface): number => (surface === 'powder' ? RULES.powder : 1);
+
+/** One short step of the kart's motion: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move, over `map`'s surface under it (road when none): powder caps the top speed, ice lets the path lag the nose, and the tree line stops it. `slope` is how much the ground rises a unit ahead of it. */
+function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean, slope = 0, map?: Ground): Kart {
+  const surface = map ? surfaceAt(map, k.x, k.y) : 'road';
+  const top = (boost ? RULES.topSpeed * RULES.boostFactor * pace : RULES.topSpeed * pace) * climbOf(slope) * gripOf(surface);
   const speed = speedAfter(k.speed, boost ? { ...pad, accel: true, brake: false } : pad, top, dt);
   const dir = dirOf(pad);
   const angle = k.angle + dir * Math.sign(speed) * turnRate(speed) * dt;
-  const x = k.x + Math.cos(angle) * speed * dt, y = k.y + Math.sin(angle) * speed * dt;
-  return { x, y, angle, speed, steer: dir };
+  const travel = travelAfter(k, angle, surface, dt);
+  const way = travel ?? angle;
+  const x = k.x + Math.cos(way) * speed * dt, y = k.y + Math.sin(way) * speed * dt;
+  const slide = travel === undefined ? {} : { travel };
+  // The tree line: a step that would cross it stays where it was, at rest, as at a wall.
+  const walled = map !== undefined && pastTreeLine(map, x, y) && !pastTreeLine(map, k.x, k.y);
+  return walled ? { x: k.x, y: k.y, angle, speed: 0, steer: dir, ...slide } : { x, y, angle, speed, steer: dir, ...slide };
 }
 
-/** One short step of a kart: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `pace` scales its top speed (a rival's skill), `slope` the ground's rise a unit ahead. */
-export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false, slope = 0): Kart {
-  return moveKart(k, pad, dt, pace, boost, slope);
+/** One short step of a kart: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `pace` scales its top speed (a rival's skill), `slope` the ground's rise a unit ahead, `map` the surface it drives on (road everywhere when left out). */
+export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false, slope = 0, map?: Ground): Kart {
+  return moveKart(k, pad, dt, pace, boost, slope, map);
 }
 
 /** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left, the seconds of falling left (PRD 1447) and the seconds it still blinks after the way back. */
@@ -78,16 +103,19 @@ export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0,
 
 const HANDS_OFF: Pad = { left: false, right: false, accel: false, brake: false };
 
+/** Whether the pixel at `x`, `y` holds a kart up (PRD 1923): anything but the void, so ice and powder never tip it over. */
+const solid = (map: Ground, x: number, y: number): boolean => surfaceAt(map, x, y) !== 'void';
+
 /**
  * Whether a kart has tipped over the edge: no road pixel but only void within `RULES.overhang` of its centre. Its centre may go
  * over the void, and most of its body with it, without falling while any of it is still over the road.
  */
 export function tippedOver(map: Ground, k: { x: number; y: number }): boolean {
   const reach = RULES.overhang;
-  if (roadAt(map, k.x, k.y)) return false;
+  if (solid(map, k.x, k.y)) return false;
   for (let py = Math.floor(k.y - reach); py <= Math.floor(k.y + reach); py++) {
     for (let px = Math.floor(k.x - reach); px <= Math.floor(k.x + reach); px++) {
-      if (!roadAt(map, px, py)) continue;
+      if (!solid(map, px, py)) continue;
       const dx = k.x - Math.max(px, Math.min(k.x, px + 1));
       const dy = k.y - Math.max(py, Math.min(k.y, py + 1));
       if (dx * dx + dy * dy < reach * reach) return false;
@@ -104,7 +132,7 @@ export function wheelsOver(map: Ground, k: { x: number; y: number; angle: number
     for (const side of [-1, 1] as const) {
       // Its right is a quarter turn clockwise from the way it faces, y down.
       const x = k.x + cos * along - sin * side * RULES.wheelAcross, y = k.y + sin * along + cos * side * RULES.wheelAcross;
-      if (roadAt(map, x, y)) continue;
+      if (solid(map, x, y)) continue;
       if (side < 0) left++; else right++;
     }
   }
@@ -159,7 +187,7 @@ export function stepFx(map: Ground, k: Kart, pad: Pad, dt: number, pace: number,
   }
   const spinning = fx.spin > 0;
   if (airborne(k)) return fly(map, k, spinning ? HANDS_OFF : pad, dt, fx, spinning);
-  const moved = pulledOver(map, moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0, slope), dt);
+  const moved = pulledOver(map, moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0, slope, map), dt);
   const kart = spinning ? { ...moved, angle: moved.angle + RULES.spinRate * dt, steer: 0 as const } : moved;
   const onPad = tileAt(map.map, Math.floor(kart.x / TILE), Math.floor(kart.y / TILE)) === '+';
   const ran: Fx = { ...fx, boost: onPad ? RULES.boostTime : Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };

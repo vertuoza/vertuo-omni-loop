@@ -130,7 +130,7 @@ HOME.
 | Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
-| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the race time sent at the finish (the lowest is kept) |
+| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING or FROST EIGHT (picked at the CIRCUIT step) against five rivals, item boxes (BOOST, BLOB, ORB), the race time sent at the finish to the circuit's board (the lowest is kept) |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -316,7 +316,7 @@ the database's policies decide what they see:
   (`src/data/players.ts`).
 - **With GitHub linked**, it also reads their `player_xp` row in that workspace, by lower-cased
   login (`src/data/xp.ts`), and each game's crew table from `arcade_scores`: its top five with the
-  players' names and heroes, and their own best (`src/data/scores.ts`), sorted in the game's direction: highest first for a score, fastest first for OMNI KART's time (PRD 1440). Each is read on its own,
+  players' names and heroes, and their own best (`src/data/scores.ts`), sorted in the game's direction: highest first for a score, fastest first for OMNI KART's time (PRD 1440); OMNI KART has two boards, `kart` (COMET RING) and `kart-frost-eight` (FROST EIGHT), read together (PRD 1923). Each is read on its own,
   after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
   no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
 - **The planets' dossiers and logs**, read when a planet is opened, never on the page's load (PRD
@@ -883,7 +883,7 @@ off, no row exists, and every player sees NO XP YET.
   or WORLD CLEAR the score is sent once under `platformer`, with the same SAVING SCORE…, NEW BEST,
   YOUR BEST n or SCORE NOT SAVED (A retries once) as Invaders.
 - **`kart`**, OMNI KART (PRD 1359), opened at LV 3 (`xp.unlocks.kart` in the rulebook): an original
-  Mode 7 kart race, three laps of one circuit, COMET RING, against five rivals. Its code is
+  Mode 7 kart race, three laps of one circuit, COMET RING or FROST EIGHT (PRD 1923), against five rivals. Its code is
   `src/arcade/kart/`, imported only when the cabinet opens (a failed import says
   `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder imports it at run time. The floor is
   the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected column by
@@ -904,9 +904,9 @@ off, no row exists, and every player sees NO XP YET.
   A spin-out lasts 1 second at 30% of the speed with no input, and never stops the race. The rivals
   use theirs by rule: a BOOST at once on a straight, a BLOB with a kart close behind, an ORB with a
   kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the player's
-  race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under `kart`: the
-  kart keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
-  or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
+  race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under the circuit's board (`kart` for COMET RING, `kart-frost-eight` for FROST EIGHT): each
+  board keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
+  or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first, for each circuit in turn (see **The circuits** below). What it sounds like is in the sound section above.
   **The options** (PRD 1762): OPTIONS on the ready screen holds KEYS (the five actions of a keyboard: GAS, BRAKE, LEFT, RIGHT, ITEM),
   KART (eight colours and three designs, CLASSIC, ROCKET and RACER, drawn on the track, the minimap and the podium), LAPS (3, 5 or 7),
   DIFFICULTY (EASY, NORMAL or HARD, the rivals' pace and how long they hold an item) and DEFAULTS. They are kept in this browser only,
@@ -931,7 +931,7 @@ off, no row exists, and every player sees NO XP YET.
   it, under the horizon as above it, its stars, nebulae and planets with the galaxy's glow along the
   horizon. A neon edge sits on the void's side of the road's edge, round on a curve (cyan outside the circuit, magenta
   inside); past the map's edge is void too. The kerbs alternate the two neons along the curves, the road has panel seams and three chevrons before
-  each corner. Nothing off the road slows or bounces a kart: **the fall** is the only cost. A kart
+  each corner. On COMET RING nothing off the road slows or bounces a kart: **the fall** is the only cost (FROST EIGHT has no void: its powder slows a kart and it never falls, see **FROST EIGHT** below). A kart
   falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width, against the round edge of an arc as against a straight one;
   it may hang over until then), and for 1 second takes no input, stays where it went over,
   shrinks as it sinks and keeps its item, and a BOOST or a spin-out ends. **The way back:** it
@@ -1012,6 +1012,56 @@ off, no row exists, and every player sees NO XP YET.
   pixel for each box there to take, a dot of its own colour for each rival on the road (none while one
   falls), every other player in MULTI, and the player as a bigger yellow dot with a tick the way it
   faces, drawn last; it blinks while the player falls, and stays lit with reduced motion.
+  **The circuits** (PRD 1923): OMNI KART has a register of circuits, in driving-menu order, COMET RING then
+  FROST EIGHT, each with its name, its text map and centre line, its scenery and its board; the paragraphs
+  above describe COMET RING, whose line, road, scenery and times are unchanged. `createKart`, `newRace` and
+  `newMultiRace` race the circuit they are given, COMET RING when given none. **The CIRCUIT step** comes after
+  SINGLE and after MULTI: ◀ ▶ moves between COMET RING and FROST EIGHT, each shown with its name, its 72 px
+  minimap and the player's best time on it (`NO TIME YET` when there is none); A races it (SINGLE) or goes to
+  the grid (MULTI), B goes back; the hint reads `◀ ▶ CHOOSE · A RACE · B BACK` (`A GRID` after MULTI). The
+  choice is kept as `track` under `omni-loop:kart-options`, the step opens on it, and a store with no `track`,
+  or one naming no circuit, reads as COMET RING; the ready screen's title and ready line name it
+  (`FROST EIGHT · 3 LAPS`). In MULTI each player's Presence entry carries their `track`, the grid races the
+  circuit of its first arrival, as it does their laps, and shows its name; `start` carries an optional `track`,
+  a start with none races COMET RING and one naming no circuit is ignored like any message the client cannot
+  read; the channel `kart:<workspace id>` is unchanged, and each player's best on the grid is their time on its
+  circuit. **The two boards:** `kart` holds COMET RING's times, every one it held before, and
+  `kart-frost-eight` holds FROST EIGHT's; one migration replaces `submit_score` so that `kart-frost-eight` is
+  accepted from a player with `kart` unlocked and keeps the lowest time, deleting and rewriting no row.
+  **The cabinet's turns:** OMNI KART's lit cabinet shows its circuits in turn, five seconds each, by a cut and
+  never a slide: the circuit's still, then `CREW TOP 5` with the circuit's name (`COMET RING` or
+  `FROST EIGHT`) at its right on the same line, over that board's five best times, the player's own line
+  highlighted; each turn has its own `NO SCORES YET` or `SCORES OUT OF REACH`.
+  **FROST EIGHT:** a figure eight on a snowy mountain, on 72 × 72 tiles with a road 5 tiles wide, the top
+  loop driven clockwise and the bottom loop anticlockwise; its 8 waypoints and radii, in tiles, are `[56, 64]` 5,
+  `[56, 48]` 4, `[16, 24]` 4, `[16, 8]` 5, `[56, 8]` 5, `[56, 24]` 4, `[16, 48]` 4 and `[16, 64]` 5, the start
+  line across the bottom straight at `x = 32` heading east. **The crossing** is a level one, not a bridge: the two
+  diagonals cross at about 62° on a frozen lake, a disc of ice 12 tiles across centred on `[36, 36]`, level at the
+  ground's base height; the top loop climbs to a pass on the top straight and comes down to the lake, and the
+  bottom loop stays nearly flat. A row of item boxes lies on the top straight and one on the start straight past the
+  line, and a boost pad on the right side of each loop; there is no ramp, gap, tunnel or shortcut. The road's
+  edge is a snow bank with red and white kerbs round the curves, the sky a pale blue fading to white over snowy
+  peaks with a low sun and falling flakes (still under reduced motion), and pines, chalets, ski-lift pylons,
+  snowmen, signs, stands beside the start straight and a wooden start arch stand on the powder; the minimap is
+  COMET RING's, with the lake in light blue; the songs are the same. **The branch at the crossing:** `locate(line, x, y, hint?)`
+  takes the distance along the line the kart had a step before and answers the nearest point among the
+  stretches within 6 tiles of it, either way along the line, so a kart on one branch of the X stays on it;
+  without a hint it answers over every segment, as it did, and every kart (the player's, the rivals', a MULTI
+  opponent's) carries that distance through its progress, the places, the waypoints passed, a rival's aim and
+  the way back. `trackProblems` refuses a line that crosses itself on ground that is not level, with a gate or the
+  start line within 8 tiles of the crossing, or at less than 60°. **The surfaces:** beside `roadAt`, `parseTrack`
+  bakes the surface at a pixel, `road`, `ice`, `powder` or `void`: COMET RING has `road` and `void` only; FROST EIGHT
+  has no void, its lake is `ice` whether road or not, the rest of the road is `road` and every other point is
+  `powder`. **Powder** caps the top speed at `RULES.powder` (0.55) times it, the way a slope scales it, and a kart on it
+  never tips over or falls (the tip-over, the wheels over the edge and the pull towards it read `void`, never "not
+  road"). **The tree line:** one tile inside the map's edge a kart stops, as at a wall. **Ice and the slide:** the kart
+  has a direction of travel beside its heading, which turns towards the heading by at most the surface's grip times the
+  step; on `road` and `powder` the grip has no limit, so the direction of travel is the heading and the kart drives as
+  before, while on `ice` the grip is `RULES.iceGrip` (1.2 radians a second) and the top speed is kept, so a kart that
+  steers on the lake turns its nose before its path and comes out of the X off its line, the gap between heading and
+  travel never passing `RULES.iceSlip` (0.6 radians); leaving the ice, travel is the heading again. The rivals drive the
+  same model, slide too and finish their three laps (seeds 1, 7 and 42, at every level), and karts that meet at the X
+  push each other apart as anywhere else.
   **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
   `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
   reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase

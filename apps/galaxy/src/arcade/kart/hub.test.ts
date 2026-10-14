@@ -205,3 +205,27 @@ describe('the grid\'s looks and laps (PRD 1762)', () => {
     expect(got).toEqual([3]);
   });
 });
+
+describe('the grid\'s circuit (PRD 1923)', () => {
+  const on = (id: string, arrival: number, track?: string): GridPlayer => ({ ...who(id, arrival), ...(track !== undefined ? { track } : {}) });
+
+  it('sends the first arrival\'s circuit on the start,', () => {
+    const r = room();
+    r.join(on('a', 1, 'comet-ring'));
+    r.join(on('b', 2));
+    expect(r.sessions.get('a')?.start()?.track).toBe('comet-ring');
+  });
+
+  it('races COMET RING from an entry without a track, and from a start without one', () => {
+    const hub = createHub();
+    const got: string[] = [];
+    const me = on('b', 2);
+    openGrid(hub.link('b'), me, () => undefined, (s) => { got.push(s.track); });
+    const sender = hub.link('a');
+    sender.join({}, { presence: () => undefined, message: () => undefined, status: () => undefined });
+    sender.send({ kind: 'start', race: 'r', seed: 1, order: [presenceOf(on('a', 1)), presenceOf(me)] });
+    sender.send({ kind: 'start', race: 'r2', seed: 1, order: [presenceOf(on('a', 1)), presenceOf(me)], track: 'comet-ring' });
+    sender.send({ kind: 'start', race: 'r3', seed: 1, order: [presenceOf(on('a', 1)), presenceOf(me)], track: 'moon-base' });
+    expect(got).toEqual(['comet-ring', 'comet-ring']);
+  });
+});

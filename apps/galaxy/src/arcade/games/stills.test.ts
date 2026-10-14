@@ -14,7 +14,8 @@ import { ARCH_WORLD, BOX_WORLD, DRIVER_ROWS, DRIVER_W, HAZE, KART_W, KART_WORLD,
 import { chaseCamera, project, renderFloor, viewOf, type Projected, type View } from '../kart/mode7';
 import { newRace } from '../kart/race';
 import { BEYOND, paintTrack } from '../kart/texture';
-import { parseTrack } from '../kart/track';
+import { SNOW, snowfall, snowProp, snowScenery, snowSky, woodArchLeg } from '../kart/art.snow';
+import { FROST_EIGHT, parseTrack, TILE as KART_TILE } from '../kart/track';
 import { enemyTint, SKY, tileFrame } from '../platformer/art';
 import { STAGES } from '../platformer/stages';
 import { LETTERS, letterWidth, stillPixels, type Still, type Stills } from './still';
@@ -204,6 +205,79 @@ function race({ w, h }: { w: number; h: number }): Canvas {
   return c;
 }
 
+// ── OMNI KART's second circuit: FROST EIGHT, on the straight just before its start line ───
+
+/** FROST EIGHT's start straight (the leg from waypoint 7 to waypoint 0), how far along it the player stands, and the pack ahead (along it, and to its side), in pixels. */
+const FROST_LEG = 7;
+const FROST_ME_AT = 16 * KART_TILE - 150;
+const FROST_PACK: readonly (readonly [number, number])[] = [[FROST_ME_AT + 60, -9], [FROST_ME_AT + 90, 8], [FROST_ME_AT + 130, -4], [FROST_ME_AT + 175, 6]];
+
+/** A 2D context that paints a still's canvas, for the fills and discs FROST EIGHT's sky, scenery and arch are drawn with. */
+function pen(c: Canvas): CanvasRenderingContext2D {
+  const round = { x: 0, y: 0, r: 0 };
+  const p = {
+    fillStyle: '' as string,
+    globalAlpha: 1,
+    fillRect(x: number, y: number, w: number, h: number) { fill(c, x, y, w, h, p.fillStyle, { alpha: p.globalAlpha }); },
+    beginPath() { /* one disc at a time */ },
+    arc(x: number, y: number, r: number) { round.x = x; round.y = y; round.r = r; },
+    fill() { disc(c, round.x, round.y, round.r, p.fillStyle, p.globalAlpha); },
+  };
+  return p as unknown as CanvasRenderingContext2D;
+}
+
+function frostRace({ w, h }: { w: number; h: number }): Canvas {
+  const frost = parseTrack(FROST_EIGHT);
+  const a = at(frost.waypoints, FROST_LEG, 'a waypoint'), b = at(frost.waypoints, (FROST_LEG + 1) % frost.waypoints.length, 'a waypoint');
+  const len = Math.hypot(b.x - a.x, b.y - a.y), fx = (b.x - a.x) / len, fy = (b.y - a.y) / len;
+  const along = (d: number, side: number) => ({ x: a.x + fx * d - fy * side, y: a.y + fy * d + fx * side });
+  const me = along(FROST_ME_AT, 0);
+  const v: View = viewOf({ w, h }, chaseCamera({ x: me.x, y: me.y, angle: Math.atan2(fy, fx) }));
+  const c = blank(w, h, SNOW.ground);
+  const ctx = pen(c);
+  snowSky(ctx, v, 0, SEED);
+
+  // The floor, by the race's own Mode 7: powder, ice, asphalt and kerbs.
+  const floor = new Uint32Array(w * h);
+  renderFloor(v, paintTrack(frost), floor, BEYOND);
+  for (let y = Math.floor(v.horizon) + 1; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = sure(floor[y * w + x], 'a floor pixel');
+      if (p >>> 24) c.px[y * w + x] = hexOf([p & 0xff, (p >> 8) & 0xff, (p >> 16) & 0xff]);
+    }
+  }
+
+  // What stands on the floor, the farthest first.
+  const things: { z: number; draw: () => void }[] = [];
+  const stand = (x: number, y: number, draw: (on: Projected) => void) => {
+    const on = project(v, x, y);
+    if (on) things.push({ z: on.z, draw: () => { draw(on); } });
+  };
+  for (const box of frost.boxes) {
+    stand(box.x, box.y, (on) => {
+      const art = kartArt('item-box'), scale = (BOX_WORLD * on.scale) / art.w;
+      if (art.w * scale >= 2) blit(c, art, on.sx - (art.w * scale) / 2, on.sy - art.h * scale - art.h * scale * 0.1, scale);
+    });
+  }
+  for (const prop of snowScenery(frost).props) stand(prop.x, prop.y, (on) => { snowProp(ctx, on, prop.kind); });
+  frost.arch.forEach((leg, i) => { stand(leg.x, leg.y, (on) => { woodArchLeg(ctx, v, frost, i === 0 ? 0 : 1, on); }); });
+  newRace({ seed: SEED, track: frost }).rivals.slice(0, FROST_PACK.length).forEach((rival, i) => {
+    const [d, side] = at(FROST_PACK, i, 'a place in the pack');
+    const p = along(d, side);
+    stand(p.x, p.y, (on) => {
+      const scale = (KART_WORLD * on.scale) / KART_W;
+      if (scale < 0.15) return;
+      const x = on.sx - (KART_W * scale) / 2, y = on.sy - 18 * scale, half = scale / 2;
+      shadow(c, on.sx, on.sy - 2 * scale, KART_W * scale * 1.05);
+      blit(c, kartArt(rival.driver.sprite, { tint: rival.driver.tint }), Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), half, { rows: DRIVER_ROWS });
+      blit(c, kartArt('kart', { tint: fleetSprite(null, rival.driver.color).tint }), Math.round(x), Math.round(y), scale);
+    });
+  });
+  for (const t of things.sort((p, q) => q.z - p.z)) t.draw();
+  snowfall(ctx, { t: 0, reduced: true }, v, SEED);
+  return c;
+}
+
 // ── Super Omni World: a slice of stage 1-1, its ground on the screen's bottom edge ─
 
 /** The tile's side in the slice, in grid pixels (half the game's), and the stage's first column in it. */
@@ -268,8 +342,8 @@ function duet({ w, h }: { w: number; h: number }): Canvas {
 
 // ── The stills as stills.ts keeps them ────────────────────────────────────────
 
-/** Each game's still, by its id: the games whose screen is not the Invaders formation. */
-const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, platformer: stage, duet };
+/** Each still, by its game's id, or by its board's when a game has a still for each of its circuits (OMNI KART's FROST EIGHT, PRD 1923): the games whose screen is not the Invaders formation. */
+const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, 'kart-frost-eight': frostRace, platformer: stage, duet };
 
 function encode(c: Canvas): Still {
   const palette = [...new Set(c.px)];
@@ -311,9 +385,9 @@ function sourceOf(list: readonly (readonly [string, Stills])[]): string {
     '// changes, `npx vitest run apps/galaxy/src/arcade/games/stills.test.ts -u` draws them again.',
     'import type { Stills } from \'./still\';',
     '',
-    '/** Each game\'s still on its lit cabinet\'s screen, by the game\'s id; a game with none shows the Invaders formation. */',
+    '/** Each still on its lit cabinet\'s screen, by the game\'s id (OMNI KART\'s second circuit by its board\'s); a game with none shows the Invaders formation. */',
     'export const STILLS: Readonly<Record<string, Stills>> = {',
-    ...list.flatMap(([id, s]) => [`  ${id}: {`, ...still('wide', s.wide), ...still('tall', s.tall), '  },']),
+    ...list.flatMap(([id, s]) => [`  ${/^[a-z]+$/.test(id) ? id : q(id)}: {`, ...still('wide', s.wide), ...still('tall', s.tall), '  },']),
     '};',
     '',
   ].join('\n');

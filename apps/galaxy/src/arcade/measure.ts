@@ -1,7 +1,7 @@
 // How a game's best is compared and written (PRD 1440): `points`, the highest wins, shown in digits
 // grouped by three (`9 210`); `time`, the lowest wins, shown as the race clock (`1:42.3`). Pure: every
 // shared reader of a score goes through here, so none writes the direction itself.
-import { GAMES, type Measure } from './games/index.ts';
+import { BOARDS, type Measure } from './games/index.ts';
 import { raceTime } from './scenes/kart.ts';
 
 /** Whether `a` beats `b` in this measure; equal values beat nothing. */
@@ -19,5 +19,5 @@ export function textOf(measure: Measure, best: number): string {
   return String(Math.max(0, Math.floor(best))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
-/** A game's measure from its id: `points` for an id the registry does not hold. */
-export const measureOf = (id: string): Measure => GAMES.find((g) => g.id === id)?.measure ?? 'points';
+/** A board's measure from its id (a game's id, or one of its boards): `points` for an id the registry does not hold. */
+export const measureOf = (id: string): Measure => BOARDS.find((b) => b.id === id)?.game.measure ?? 'points';

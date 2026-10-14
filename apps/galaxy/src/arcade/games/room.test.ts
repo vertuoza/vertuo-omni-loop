@@ -10,7 +10,7 @@ const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['inva
 describe('the registry', () => {
   it('lists Entropy Invaders, Super Omni World, OMNI KART then OMNI DUET, each keyed as the rulebook unlocks it', () => {
     expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET']]);
-    expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time' });
+    expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time', boards: [{ id: 'kart', title: 'COMET RING' }, { id: 'kart-frost-eight', title: 'FROST EIGHT' }] });
     expect(GAMES[3]).toEqual({ id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' });
     expect(XP_RULES.unlocks).toEqual({ invaders: 1, platformer: 2, kart: 3, duet: 4 });
     expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time'], ['duet', 'points']]);

@@ -18,7 +18,7 @@ import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES, type Difficulty } from './rules';
 import { advance, aimOf, approachesRamp, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
-import { LAPS, parseTrack, PLACES, type Track } from './track';
+import { carryAlong, LAPS, parseTrack, PLACES, type Track } from './track';
 
 /** Frames add up to a countdown's end only to within what a float keeps. */
 const EPSILON = 1e-9;
@@ -163,9 +163,13 @@ function newMultiRace(seed: number, track: Track, { me, order, laps = LAPS }: Fi
 export function hear(race: Race, id: string, s: StateMessage): Race {
   if (race.mode !== 'multi' || (race.phase !== 'countdown' && race.phase !== 'race' && race.phase !== 'finish')) return race;
   const at = race.phase === 'countdown' ? 0 : race.clock;
-  const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer, ...(s.height ? { height: s.height } : {}) };
+  const heard: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer, ...(s.height ? { height: s.height } : {}) };
   const fx: Fx = { ...NO_FX, spin: s.spin, fall: s.fall };
-  return { ...race, rivals: race.rivals.map((r) => (r.id === id ? { ...r, kart, fx, pace: { laps: s.laps, passed: s.passed }, heard: { kart, fx, at } } : r)) };
+  return { ...race, rivals: race.rivals.map((r) => {
+    if (r.id !== id) return r;
+    const kart = carryAlong(race.track, r.kart, heard);
+    return { ...r, kart, fx, pace: { laps: s.laps, passed: s.passed }, heard: { kart, fx, at } };
+  }) };
 }
 
 /** The BLOB or ORB `id` on the circuit, if it is there. */
@@ -220,12 +224,12 @@ export function away(race: Race): Race {
 }
 
 /** Every remote kart read from its last state, carried forward `RULES.carry` seconds at most (and its spin-out and fall run down meanwhile), at race clock `clock`. */
-function carryRemotes(rivals: readonly Rival[], clock: number): Rival[] {
+function carryRemotes(track: Track, rivals: readonly Rival[], clock: number): Rival[] {
   return rivals.map((r) => {
     if (!r.heard) return r;
     const age = Math.max(0, clock - r.heard.at);
     const { fx } = r.heard;
-    return { ...r, kart: carried(r.heard.kart, age), fx: { ...fx, spin: Math.max(0, fx.spin - age), fall: Math.max(0, fx.fall - age) } };
+    return { ...r, kart: carryAlong(track, r.kart, carried(r.heard.kart, age)), fx: { ...fx, spin: Math.max(0, fx.spin - age), fall: Math.max(0, fx.fall - age) } };
   });
 }
 
@@ -235,9 +239,10 @@ const STRAIGHT = 0.1;
 /** A kart's own short step: it drives with the pad, its pace follows, and a fall that ends brings it back on the line (the jump is never passed to `advance()`). */
 function roll(track: Track, own: { player: Kart; fx: Fx; pace: Pace }, pad: Pad, dt: number): { player: Kart; fx: Fx; pace: Pace } {
   const moved = stepFx(track, own.player, pad, dt, 1, own.fx, slopeAt(track, own.player.x, own.player.y, own.player.angle));
-  const pace = advance(track, own.pace, own.player, moved.kart);
-  if (!moved.landed) return { player: moved.kart, fx: moved.fx, pace };
-  const back = comeBack(track, pace, moved.kart, moved.fx);
+  const kart = carryAlong(track, own.player, moved.kart);
+  const pace = advance(track, own.pace, own.player, kart);
+  if (!moved.landed) return { player: kart, fx: moved.fx, pace };
+  const back = comeBack(track, pace, kart, moved.fx);
   return { player: back.kart, fx: back.fx, pace };
 }
 
@@ -254,8 +259,10 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     const ahead = progressOf(track, pace, player);
     rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead, race.difficulty));
     const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
-    if (p) player = p;
-    rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart } : r; });
+    // A push that carries a kart over a gate or the start line counts as the step it is: on FROST EIGHT, where the six karts cross the lake and the line close together, a lap
+    // pushed over the line by a hair was never counted, and the kart's progress fell back by a whole lap.
+    if (p) { pace = advance(track, pace, player, p); player = p; }
+    rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart, pace: advance(track, r.pace, r.kart, kart) } : r; });
     // A kart pushed over the edge by another falls too.
     const dropped = fallIfOver(track, player, fx);
     player = dropped.kart;
@@ -296,7 +303,7 @@ function driveMulti(race: Race, held: ReadonlySet<Action>, dt: number, clock: nu
   const { track } = race;
   const pad = padOf(race.menu ? NONE : held);
   const steps = Math.max(1, Math.ceil(dt / RULES.subStep));
-  const rivals = carryRemotes(race.rivals, clock);
+  const rivals = carryRemotes(track, race.rivals, clock);
   let { player, fx, items, pace } = race;
   const events: RaceEvent[] = [];
   for (let i = 0; i < steps; i++) {

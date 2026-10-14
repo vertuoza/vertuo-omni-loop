@@ -475,3 +475,68 @@ describe('the round edge of an arc (PRD 1829)', () => {
     expect(wheelsOver(ring, beyond(0))).toEqual({ left: 0, right: 0 });
   });
 });
+
+// The surfaces (PRD 1923, slice 3): powder, ice and the tree line, on small maps with a floor (`i` ice, `p` powder, `#` road).
+describe('the surfaces', () => {
+  const field = (c: string, cols = 60, rows = 60) => groundOf(Array.from({ length: rows }, () => c.repeat(cols)));
+  const powder = field('p'), ice = field('i');
+  const gap = (k: Kart) => Math.abs(Math.atan2(Math.sin(k.angle - (k.travel ?? k.angle)), Math.cos(k.angle - (k.travel ?? k.angle))));
+  const GAS = pad({ accel: true });
+  const at = (x: number, y: number, angle = 0, speed = 0): Kart => ({ ...kartAt(x, y, angle), speed });
+
+  it('caps the speed on powder at 0.55 of the top speed, and never tips the kart over', () => {
+    const { kart, fx } = run(powder, at(3 * TILE, 30 * TILE), NO_FX, 6, GAS);
+    expect(kart.speed).toBeCloseTo(RULES.topSpeed * RULES.powder, 3);
+    expect(fx.fall).toBe(0);
+    expect(tippedOver(powder, kart)).toBe(false);
+    expect(tipsOver(powder, kart)).toBe(false);
+  });
+
+  it('tips over on the void, never on ice or powder', () => {
+    const edge = groundOf(['~~~~~~~~~~', 'pppp~~~~~~', 'iiii~~~~~~']);
+    expect(tippedOver(edge, { x: 8 * TILE, y: 1.5 * TILE })).toBe(true);
+    expect(tippedOver(edge, { x: 2 * TILE, y: 1.5 * TILE })).toBe(false);
+    expect(tippedOver(edge, { x: 2 * TILE, y: 2.5 * TILE })).toBe(false);
+  });
+
+  it('keeps the top speed on ice, and lets the path lag the nose while steering, by 0.6 radians at most', () => {
+    let k = at(30 * TILE, 30 * TILE, 0, 60);
+    const gaps: number[] = [];
+    for (let t = 0; t < 1.5; t += RULES.subStep) {
+      k = driveKart(k, pad({ accel: true, right: true }), RULES.subStep, 1, false, 0, ice);
+      gaps.push(gap(k));
+    }
+    expect(gaps[40]).toBeGreaterThan(gaps[10] ?? 0);
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(RULES.iceSlip + 1e-9);
+    expect(Math.max(...gaps)).toBeGreaterThan(RULES.iceSlip - 0.01);
+    expect(driveKart(at(30 * TILE, 30 * TILE, 0, RULES.topSpeed), GAS, 0.1, 1, false, 0, ice).speed).toBe(RULES.topSpeed);
+  });
+
+  it('closes the gap at 1.2 radians a second once the wheel is straight', () => {
+    let k = at(30 * TILE, 30 * TILE, 0, 60);
+    for (let t = 0; t < 1.5; t += RULES.subStep) k = driveKart(k, pad({ accel: true, right: true }), RULES.subStep, 1, false, 0, ice);
+    const before = gap(k);
+    for (let t = 0; t < 0.1 - 1e-9; t += RULES.subStep) k = driveKart(k, GAS, RULES.subStep, 1, false, 0, ice);
+    expect(before - gap(k)).toBeCloseTo(RULES.iceGrip * 0.1, 3);
+  });
+
+  it('travels the way it faces on road, and again once it leaves the ice', () => {
+    const mixed = groundOf(Array.from({ length: 40 }, () => 'i'.repeat(20) + '#'.repeat(40)));
+    let k = at(18 * TILE, 20 * TILE, 0, 60);
+    for (let t = 0; t < 0.3; t += RULES.subStep) k = driveKart(k, pad({ accel: true, right: true }), RULES.subStep, 1, false, 0, mixed);
+    expect(k.travel).toBeDefined();
+    for (let t = 0; t < 1; t += RULES.subStep) {
+      k = driveKart(k, GAS, RULES.subStep, 1, false, 0, mixed);
+      if (k.x > 21 * TILE) break;
+    }
+    expect(k.travel).toBeUndefined();
+  });
+
+  it('stops a kart at the tree line, one tile inside the edge', () => {
+    const { kart, fx } = run(powder, at(50 * TILE, 30 * TILE), NO_FX, 6, GAS);
+    expect(kart.speed).toBe(0);
+    expect(kart.x).toBeLessThan(powder.size.w - TILE);
+    expect(kart.x).toBeGreaterThan(powder.size.w - TILE - 4);
+    expect(fx.fall).toBe(0);
+  });
+});

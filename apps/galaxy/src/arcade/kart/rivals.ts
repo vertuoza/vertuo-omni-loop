@@ -7,7 +7,7 @@ import { airborne, leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from '.
 import type { KartLook } from './look';
 import { slopeAt } from './relief';
 import { RULES, type Difficulty } from './rules';
-import { LAPS, locatePx, pointAtPx, roadAt, TILE, tileAt, type Track } from './track';
+import { carryAlong, LAPS, locatePx, pointAtPx, roadAt, TILE, tileAt, type Track } from './track';
 
 /** Who drives a rival's kart: its sprite and its tint, as `fleetSprite` gives them, and its fleet's colour, which the kart takes. */
 export interface Driver { sprite: string; tint: Tint | null; color: string | null; /** The kart's look (PRD 1762); none draws the fleet's colour and CLASSIC. */ look?: KartLook; /** Who it is, as the results table names it. */ name?: string }
@@ -57,15 +57,15 @@ function gatesOfLap(track: Track): readonly number[] {
 const mod = (a: number, n: number): number => ((a % n) + n) % n;
 
 /** How far along the lap a kart is, in game pixels from the start line, read from the nearest point of the centre line: the one of the two laps nearest to where the next gate stands (so the grid, behind the line, starts below zero). */
-function relOf(track: Track, pace: Pace, kart: { x: number; y: number }): number {
-  const rel = mod(locatePx(track, kart.x, kart.y).along - track.startAlong, track.length);
+function relOf(track: Track, pace: Pace, kart: { x: number; y: number; along?: number }): number {
+  const rel = mod(locatePx(track, kart.x, kart.y, kart.along).along - track.startAlong, track.length);
   const gates = gatesOfLap(track);
   const next = pace.passed >= gates.length ? track.length : (gates[pace.passed] ?? 0);
   return Math.abs(rel - track.length - next) < Math.abs(rel - next) ? rel - track.length : rel;
 }
 
 /** Progress along the racing line in game pixels: whole laps, then the way along the centre line from the start line. Places follow it. */
-export function progressOf(track: Track, pace: Pace, kart: { x: number; y: number }): number {
+export function progressOf(track: Track, pace: Pace, kart: { x: number; y: number; along?: number }): number {
   return pace.laps * track.length + relOf(track, pace, kart);
 }
 
@@ -133,7 +133,7 @@ const turn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** How far a rival's kart must turn to face the point it aims at: a point of the centre line `RULES.rivalAhead` seconds of its speed ahead of the kart (at least `RULES.rivalAheadMin`), off the line by its offset (radians, positive to the right). The racing line follows the arcs, so a rival aims along them. */
 export function aimOf(track: Track, r: Rival): number {
-  const here = locatePx(track, r.kart.x, r.kart.y);
+  const here = locatePx(track, r.kart.x, r.kart.y, r.kart.along);
   const ahead = Math.max(RULES.rivalAheadMin, RULES.rivalAhead * Math.max(0, r.kart.speed));
   const w = pointAtPx(track, here.along + ahead);
   const tx = w.x - w.ty * r.offset, ty = w.y + w.tx * r.offset;
@@ -158,7 +158,7 @@ function curveSpeed(radius: number): number {
 
 /** The speed a rival may carry now: that of the tightest arc it is in or `RULES.rivalHorizon` ahead of it (the distance, and seconds of its speed), its offset off the line taking from the radius on the inside. */
 function speedCap(track: Track, r: Rival): number {
-  const along = locatePx(track, r.kart.x, r.kart.y).along;
+  const along = locatePx(track, r.kart.x, r.kart.y, r.kart.along).along;
   const reach = RULES.rivalHorizon + RULES.rivalHorizonTime * Math.max(0, r.kart.speed);
   let cap = Infinity;
   for (const arc of arcsOf(track)) {
@@ -218,7 +218,7 @@ export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: 
   const along = roadAlong(nearest) ? nearest : toRoad(Math.max(lo, toRoad(nearest) - RULES.runUp));
   const p = spot(along);
   return {
-    kart: { x: p.x, y: p.y, angle: Math.atan2(p.ty, p.tx), speed: 0, steer: 0 },
+    kart: carryAlong(track, { along: p.along }, { x: p.x, y: p.y, angle: Math.atan2(p.ty, p.tx), speed: 0, steer: 0 }),
     fx: { ...fx, fall: 0, blink: RULES.blinkTime },
   };
 }
@@ -228,8 +228,9 @@ export function driveRival(track: Track, r: Rival, dt: number, playerProgress: n
   const band = rubber(progressOf(track, r.pace, r.kart), playerProgress, level);
   const stepped = stepFx(track, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX, slopeAt(track, r.kart.x, r.kart.y, r.kart.angle));
   const pace = advance(track, r.pace, r.kart, stepped.kart);
-  if (!stepped.landed) return { ...r, kart: stepped.kart, fx: stepped.fx, pace };
-  return { ...r, ...comeBack(track, pace, stepped.kart, stepped.fx), pace };
+  const kart = carryAlong(track, r.kart, stepped.kart);
+  if (!stepped.landed) return { ...r, kart, fx: stepped.fx, pace };
+  return { ...r, ...comeBack(track, pace, kart, stepped.fx), pace };
 }
 
 /** Two karts that touch are pushed apart, as two circles, each by half of how deep they overlap; a kart marked in `falling` touches none, and one in the air is touched only by another in the air. */

@@ -10,7 +10,7 @@
 // Stands (PRD 1775) and shortcuts are not in the map either: they are listed beside it.
 // Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a tile of void.
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { buildLine, gatesOf, inGapAt, isRoad as onTheRoad, locate, pointAt, roadInSpan, type Gate, type Line, type Located, type Piece, type Sample, type Span } from './line';
+import { buildLine, crossings, gatesOf, inGapAt, isRoad as onTheRoad, locate, pointAt, roadInSpan, type Gate, type Line, type Located, type Piece, type Sample, type Span } from './line';
 
 /** A tile's side in game pixels: the circuit's texture is one tile = 16×16 pixels. */
 export const TILE = 16;
@@ -62,6 +62,11 @@ export interface TrackSource {
   readonly stands?: readonly (readonly [number, number])[];
   /** The shortcuts, each beside the racing line (PRD 1775); none when left out. */
   readonly shortcuts?: readonly Shortcut[];
+  /**
+   * A frozen lake (PRD 1923): the tile coordinates [x, y] of its middle and its radius in tiles. A circuit that has one has a floor: `ice` inside the lake,
+   * `road` on the rest of the road, `powder` everywhere else, and no void; and a tree line at the map's edge.
+   */
+  readonly lake?: { readonly at: readonly [number, number]; readonly radius: number };
 }
 
 /**
@@ -262,6 +267,39 @@ export const COMET_RING: TrackSource = {
   ],
 };
 
+/** The rows of a 72×72 circuit: all ground, with the features at [character, x, y]. */
+function featureRows(features: readonly (readonly [string, number, number])[]): string[] {
+  const grid = Array.from({ length: 72 }, () => Array.from({ length: 72 }, () => '.'));
+  for (const [c, x, y] of features) { const row = grid[y]; if (row) row[x] = c; }
+  return grid.map((r) => r.join(''));
+}
+
+/** Tiles `c` at every [x, y] of the columns by the rows. */
+const block = (c: string, xs: readonly number[], ys: readonly number[]): (readonly [string, number, number])[] => ys.flatMap((y) => xs.map((x) => [c, x, y] as const));
+
+/**
+ * FROST EIGHT, OMNI KART's second circuit (PRD 1923): a figure eight standing up on 72×72 tiles, the road 5 tiles wide. The top loop is driven clockwise and
+ * the bottom one anticlockwise, and the two diagonals cross at about 62° on a frozen lake 12 tiles across at the middle of the map. The ground is level
+ * over the lake: both diagonals start and end at the base height, so both branches stand at one height there; the top loop climbs to a pass on the top
+ * straight and comes down to the lake. There is no void: the lake is ice, the road is road, the rest is powder, and the tree line stops a kart at the edge.
+ * The start line crosses the start straight at x = 32 with six places behind it; item boxes stand on the top straight and past the line, a pad on the right of each loop.
+ */
+export const FROST_EIGHT: TrackSource = {
+  rows: featureRows([
+    ...block('=', [32], [62, 63, 64, 65, 66]),
+    ...block('S', [30, 28, 26], [63, 65]),
+    ...block('?', [30, 34], [6, 8, 10]), ...block('?', [42, 46], [62, 64, 66]),
+    ...block('+', [56, 57], [15, 16, 17]), ...block('+', [56, 57], [54, 55, 56]),
+  ]),
+  // [x, y, radius]: the 8 corners in driving order.
+  waypoints: [[56, 64, 5], [56, 48, 4], [16, 24, 4], [16, 8, 5], [56, 8, 5], [56, 24, 4], [16, 48, 4], [16, 64, 5]],
+  width: 5,
+  // The lake: a disc of ice 12 tiles across on the crossing.
+  lake: { at: [36, 36], radius: 6 },
+  // The relief: the diagonals stand at the base height at both ends, with no hump, so both are level over the lake; the top loop climbs to a pass on the top straight.
+  relief: { heights: [0, 0, 0, 14, 14, 0, 0, 0], bumps: [0, 0, 0, 6, 0, 0, 0, 0] },
+};
+
 /** A tile that is road under the wheels of a hand-written map of tiles: the road, a kerb, the line, a box, a starting place, a pad, a ramp, roofed road or a walkway. */
 const isRoadChar = (c: string): boolean => c.length === 1 && FIXTURE_ROAD.includes(c);
 
@@ -283,11 +321,20 @@ export interface Ground {
   readonly roof: Uint8Array;
   /** 1 where the pixel is void inside a gap (a kart flies over it, so it closes the circuit's inside as the road does), laid out as `road`; none for a hand-written map. */
   readonly gap?: Uint8Array;
+  /** The surface at each pixel (PRD 1923), laid out as `road`: `FLOOR` codes; none on a circuit with road and void only (COMET RING), where it is read from `road`. A circuit that has it has no void and a tree line. */
+  readonly floor?: Uint8Array;
 }
 
+/** What a kart drives on (PRD 1923): road, ice, powder or void. */
+export type Surface = 'road' | 'ice' | 'powder' | 'void';
+
+/** The codes of `Ground.floor`. */
+export const FLOOR: Readonly<Record<Surface, number>> = { void: 0, road: 1, ice: 2, powder: 3 };
+const SURFACE_OF: readonly Surface[] = ['void', 'road', 'ice', 'powder'];
+
 /** Marks the pixels of the tile at column `tx`, row `ty` in `mask`, a map `w` pixels wide. */
-function paintTile(mask: Uint8Array, w: number, tx: number, ty: number): void {
-  for (let y = ty * TILE; y < (ty + 1) * TILE; y++) mask.fill(1, y * w + tx * TILE, y * w + (tx + 1) * TILE);
+function paintTile(mask: Uint8Array, w: number, tx: number, ty: number, value = 1): void {
+  for (let y = ty * TILE; y < (ty + 1) * TILE; y++) mask.fill(value, y * w + tx * TILE, y * w + (tx + 1) * TILE);
 }
 
 /** The ground of a hand-written map of tiles (a fixture): its road and its roof, read from the tiles at every pixel. */
@@ -301,7 +348,17 @@ export function groundOf(rows: readonly string[]): Ground {
       if (c === 'T') paintTile(roof, w, tx, ty);
     });
   });
-  return { map: rows, size: { w, h }, road, roof };
+  const surfaced = rows.some((row) => /[ip]/.test(row));
+  if (!surfaced) return { map: rows, size: { w, h }, road, roof };
+  // `i` is ice and `p` powder: a fixture that has either has a floor (and no void off the road but `~`), and a tree line.
+  const floor = new Uint8Array(w * h);
+  rows.forEach((row, ty) => {
+    Array.from(row).forEach((c, tx) => {
+      const code = c === 'i' ? FLOOR.ice : c === 'p' ? FLOOR.powder : isRoadChar(c) ? FLOOR.road : FLOOR.void;
+      if (code !== FLOOR.void) paintTile(floor, w, tx, ty, code);
+    });
+  });
+  return { map: rows, size: { w, h }, road, roof, floor };
 }
 
 const pixelIn = (g: Pick<Ground, 'size'>, x: number, y: number): number => {
@@ -315,6 +372,19 @@ export function roadAt(g: Pick<Ground, 'size' | 'road'>, x: number, y: number): 
   return i >= 0 && g.road[i] === 1;
 }
 
+/** The surface at the pixel at `x`, `y` (PRD 1923): `road` where `roadAt` is true and `void` elsewhere on a circuit without a `floor`; the void past the map's edge. */
+export function surfaceAt(g: Pick<Ground, 'size' | 'road' | 'floor'>, x: number, y: number): Surface {
+  const i = pixelIn(g, x, y);
+  if (i < 0) return 'void';
+  if (g.floor) return SURFACE_OF[g.floor[i] ?? 0] ?? 'void';
+  return g.road[i] === 1 ? 'road' : 'void';
+}
+
+/** Whether the pixel at `x`, `y` is past the tree line (PRD 1923): on a circuit with a `floor`, within a tile of the map's edge or off it. A kart stops there, as at a wall. */
+export function pastTreeLine(g: Pick<Ground, 'size' | 'floor'>, x: number, y: number): boolean {
+  return g.floor !== undefined && (x < TILE || y < TILE || x >= g.size.w - TILE || y >= g.size.h - TILE);
+}
+
 /** Whether the pixel at `x`, `y` is roofed road. */
 export function roofAt(g: Pick<Ground, 'size' | 'roof'>, x: number, y: number): boolean {
   const i = pixelIn(g, x, y);
@@ -322,7 +392,7 @@ export function roofAt(g: Pick<Ground, 'size' | 'roof'>, x: number, y: number): 
 }
 
 /** The centre line of a circuit as written, and what is baked from it. */
-interface Baked { readonly line: Line; readonly span: Span | null; readonly road: Uint8Array; readonly roof: Uint8Array; readonly gap: Uint8Array }
+interface Baked { readonly line: Line; readonly span: Span | null; readonly road: Uint8Array; readonly roof: Uint8Array; readonly gap: Uint8Array; readonly floor?: Uint8Array }
 
 const baked = new WeakMap<object, { src: TrackSource; made: Baked }[]>();
 
@@ -377,13 +447,27 @@ function bake(line: Line, span: Span | null, cols: number, rows: number): Pick<B
   return { road, roof, gap };
 }
 
+/** The floor of a circuit with a lake (PRD 1923): ice inside the lake, road where the road is, powder everywhere else. */
+function floorOf(road: Uint8Array, w: number, lake: NonNullable<TrackSource['lake']>): Uint8Array {
+  const floor = new Uint8Array(road.length);
+  const reach = lake.radius * TILE;
+  const cx = (lake.at[0] + 0.5) * TILE, cy = (lake.at[1] + 0.5) * TILE;
+  for (let i = 0; i < floor.length; i++) {
+    const x = (i % w) + 0.5, y = Math.floor(i / w) + 0.5;
+    floor[i] = Math.hypot(x - cx, y - cy) < reach ? FLOOR.ice : road[i] === 1 ? FLOOR.road : FLOOR.powder;
+  }
+  return floor;
+}
+
 /** The centre line and the baked ground of `src`, made once for the same waypoints, width, gaps, pieces, span and size. */
 function bakedOf(src: TrackSource): Baked {
-  const known = baked.get(src.waypoints)?.find((k) => k.src.width === src.width && k.src.gaps === src.gaps && k.src.pieces === src.pieces && k.src.span === src.span
+  const known = baked.get(src.waypoints)?.find((k) => k.src.width === src.width && k.src.gaps === src.gaps && k.src.pieces === src.pieces && k.src.span === src.span && k.src.lake === src.lake
     && k.src.rows.length === src.rows.length && k.src.rows[0]?.length === src.rows[0]?.length);
   if (known) return known.made;
   const { line, span } = centreOf(src);
-  const made: Baked = { line, span, ...bake(line, span, src.rows[0]?.length ?? 0, src.rows.length) };
+  const cols = src.rows[0]?.length ?? 0;
+  const ground = bake(line, span, cols, src.rows.length);
+  const made: Baked = { line, span, ...ground, ...(src.lake ? { floor: floorOf(ground.road, cols * TILE, src.lake) } : {}) };
   baked.set(src.waypoints, [...(baked.get(src.waypoints) ?? []), { src, made }]);
   return made;
 }
@@ -391,7 +475,7 @@ function bakedOf(src: TrackSource): Baked {
 /** The ground of a circuit as written. */
 const groundFor = (src: TrackSource, b: Baked): Ground => {
   const cols = src.rows[0]?.length ?? 0;
-  return { map: src.rows, size: { w: cols * TILE, h: src.rows.length * TILE }, road: b.road, roof: b.roof, gap: b.gap };
+  return { map: src.rows, size: { w: cols * TILE, h: src.rows.length * TILE }, road: b.road, roof: b.roof, gap: b.gap, ...(b.floor ? { floor: b.floor } : {}) };
 };
 
 const where = (x: number, y: number) => `row ${y}, col ${x}`;
@@ -449,8 +533,46 @@ export function trackProblems(src: TrackSource = COMET_RING): string[] {
   const g = groundFor(src, b);
   return [
     ...placeProblems(src.rows, g), ...lineProblems(src, g), ...featureProblems(src.rows, g), ...propProblems(src, g), ...reliefProblems(src, b.line),
-    ...standProblems(src, g), ...shortcutProblems(src, g),
+    ...standProblems(src, g), ...shortcutProblems(src, g), ...crossingProblems(src, b.line),
   ];
+}
+
+/** How far from the crossing, in tiles, the ground must be level: the half of the 12 tiles of the lake a line crosses on (PRD 1923). */
+const LAKE_RADIUS = 6;
+/** How near the crossing, in tiles, no gate and no start line may stand. */
+const CROSSING_CLEAR = 8;
+/** The least angle, in degrees, a line may cross itself at. */
+const CROSSING_ANGLE = 60;
+
+/** The distance from a point to a segment. */
+function nearSegment(x: number, y: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax, dy = by - ay;
+  const k = Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(x - (ax + dx * k), y - (ay + dy * k));
+}
+
+/** On a line that crosses itself (PRD 1923): ground that is not level within the lake, a gate or a start line within `CROSSING_CLEAR` tiles of the crossing, or a crossing under `CROSSING_ANGLE` degrees. A line that does not cross itself has none. */
+function crossingProblems(src: TrackSource, line: Line): string[] {
+  return crossings(line).flatMap((c) => {
+    const spot = `crossing at row ${Math.floor(c.y)}, col ${Math.floor(c.x)}`;
+    const problems: string[] = [];
+    if (c.angle < CROSSING_ANGLE) problems.push(`${spot}: the two branches cross at ${Math.round(c.angle)} degrees, at least ${CROSSING_ANGLE} are needed`);
+    if (src.relief) {
+      const relief = src.relief;
+      const height = (leg: number, len: number, d: number) => legHeight(relief, leg, d * TILE, len * TILE);
+      const lens = new Map(line.segments.flatMap((s) => (s.kind === 'straight' ? [[s.leg, s.len] as const] : [])));
+      const heights = [c.a, c.b].flatMap((b) => {
+        const len = lens.get(b.leg) ?? 0;
+        return Array.from({ length: 13 }, (_, k) => height(b.leg, len, Math.min(len, Math.max(0, b.at + ((k - 6) / 6) * LAKE_RADIUS))));
+      });
+      if (Math.max(...heights) - Math.min(...heights) > 0.05) problems.push(`${spot}: the ground is not level within ${LAKE_RADIUS} tiles of it, both branches must stand at one height`);
+    }
+    const gate = gatesOf(line).find((gt) => nearSegment(c.x, c.y, gt.ax, gt.ay, gt.bx, gt.by) < CROSSING_CLEAR);
+    if (gate) problems.push(`${spot}: the gate of waypoint ${gate.index} is within ${CROSSING_CLEAR} tiles of it`);
+    const start = tilesOf(src.rows, '=').find(([x, y]) => Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) < CROSSING_CLEAR);
+    if (start) problems.push(`${spot}: the start line is within ${CROSSING_CLEAR} tiles of it`);
+    return problems;
+  });
 }
 
 /** A relief with a height or a bump missing or one too many, a number that is not one, or a road spanning more than `RELIEF_SPAN`. */
@@ -621,10 +743,31 @@ function lineCentre(tiles: readonly (readonly [number, number])[], forward: read
   return { x, y, at: x * forward[0] + y * forward[1] };
 }
 
-/** Where a point of the circuit, in game pixels, sits against the centre line, in game pixels as well (`along` and `across` included). */
-export function locatePx(track: Pick<Track, 'centre'>, x: number, y: number): Located {
-  const l = locate(track.centre, x / TILE, y / TILE);
+/** Where a point of the circuit, in game pixels, sits against the centre line, in game pixels as well (`along` and `across` included). With a `hint`, the distance along it a step before (game pixels), the branch the point is on stays its branch (PRD 1923). */
+export function locatePx(track: Pick<Track, 'centre'>, x: number, y: number, hint?: number): Located {
+  const l = locate(track.centre, x / TILE, y / TILE, hint === undefined ? undefined : hint / TILE);
   return { along: l.along * TILE, across: l.across * TILE, dist: l.dist * TILE, x: l.x * TILE, y: l.y * TILE, tx: l.tx, ty: l.ty };
+}
+
+const crossed = new WeakMap<object, boolean>();
+
+/** Whether the centre line crosses itself: only then does a kart carry the distance along the line it had a step before. */
+export function crosses(track: Pick<Track, 'centre'>): boolean {
+  const known = crossed.get(track.centre);
+  if (known !== undefined) return known;
+  const made = crossings(track.centre).length > 0;
+  crossed.set(track.centre, made);
+  return made;
+}
+
+/**
+ * The kart `after` a step carries its distance along the line (PRD 1923): where it stands, read with the one `before` carried as its hint. On a circuit
+ * whose line does not cross itself nothing is carried and `after` is returned as it is, so such a circuit answers exactly as it did.
+ */
+export function carryAlong<K extends { x: number; y: number; along?: number }>(track: Pick<Track, 'centre'>, before: { along?: number }, after: K): K {
+  if (!crosses(track)) return after;
+  const along = locatePx(track, after.x, after.y, before.along).along;
+  return after.along === along ? after : { ...after, along };
 }
 
 /** The point of the centre line at a distance along it, in game pixels (it wraps around the closed line), with its tangent. */
