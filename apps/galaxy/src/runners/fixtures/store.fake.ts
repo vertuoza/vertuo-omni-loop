@@ -1,9 +1,11 @@
-import type { JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, RunnerRow, RunnersRepository } from '../runners.repository';
+import type { JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, RunnerRow, RunnersRepository } from '../runners.repository';
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
 // rows the two tables hold, the claim's rules as runner_claim() applies them, and runners_mark_lost(),
 // as supabase/migrations/20261207100000_runners.sql writes them and supabase/checks/runners.sql proves
-// them. A realistic workspace: Olga owns it and plays in the fleet cia, Mo plays in cia, Pia in pirates,
+// them; and a job's live lines (PRD 1904), appended once each, trimmed and kept for the listed jobs as
+// supabase/migrations/20261208090000_runner_job_lines.sql and runner_job_lines_retain() keep them. A
+// realistic workspace: Olga owns it and plays in the fleet cia, Mo plays in cia, Pia in pirates,
 // Sam in no fleet; Eve belongs to another workspace.
 
 export const WORKSPACE = '00000000-0000-4000-8000-000001830001';
@@ -62,10 +64,17 @@ export function jobRow(more: Partial<JobRow> = {}): JobRow {
   };
 }
 
+/** `count` live lines of the job, numbered from `from`, each reading `line <seq>`. */
+export function lineRows(job: Pick<JobRow, 'id' | 'workspace_id'>, from: number, count: number): JobLineRow[] {
+  return Array.from({ length: count }, (_, i) => ({ job_id: job.id, workspace_id: job.workspace_id, seq: from + i, text: `line ${String(from + i)}` }));
+}
+
+const ENDED_STATUSES: readonly JobRowStatus[] = ['done', 'failed', 'cancelled'];
+
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [], now = () => T0 }: { runners?: RunnerRow[]; jobs?: JobRow[]; now?: () => Date } = {}) {
+export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], now = () => T0 }: { runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; now?: () => Date } = {}) {
   const calls: string[] = [];
-  const state = { runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), calls };
+  const state = { runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), lines: lines.map((row) => ({ ...row })), calls };
   const stamp = () => now().toISOString();
   // As runner_claim() reads them: a queued job of its workspace, for a repository it holds…
   const takeable = (runner: RunnerRow, job: JobRow) =>
@@ -143,6 +152,33 @@ export function fakeStore({ runners = RUNNERS, jobs = [], now = () => T0 }: { ru
       Object.assign(row, patch);
       return Promise.resolve({ ...row });
     },
+    appendLines: (rows) => {
+      // As `insert … on conflict (job_id, seq) do nothing`: a line already held stays as it is.
+      const held = new Set(state.lines.map((row) => `${row.job_id} ${String(row.seq)}`));
+      for (const row of rows) if (!held.has(`${row.job_id} ${String(row.seq)}`)) state.lines.push({ ...row });
+      return Promise.resolve();
+    },
+    trimLines: (jobId, upTo) => {
+      state.lines = state.lines.filter((row) => row.job_id !== jobId || row.seq > upTo);
+      return Promise.resolve();
+    },
+    retainLines: (workspaceId, keep) => {
+      // As runner_job_lines_retain(): the workspace's ended jobs, newest first, beyond the first `keep`.
+      const gone = new Set(state.jobs
+        .filter((j) => j.workspace_id === workspaceId && ENDED_STATUSES.includes(j.status))
+        .sort((a, b) => (b.ended_at ?? '').localeCompare(a.ended_at ?? '') || b.id.localeCompare(a.id))
+        .slice(keep)
+        .map((j) => j.id));
+      const before = state.lines.length;
+      state.lines = state.lines.filter((row) => !gone.has(row.job_id));
+      return Promise.resolve(before - state.lines.length);
+    },
+    lines: (jobId, after, limit) => Promise.resolve(state.lines
+      .filter((row) => row.job_id === jobId && row.seq > after)
+      .sort((a, b) => a.seq - b.seq)
+      .slice(0, limit)
+      .map((row) => ({ seq: row.seq, text: row.text }))),
+    firstLine: (jobId) => Promise.resolve(state.lines.filter((row) => row.job_id === jobId).reduce<number | null>((first, row) => (first === null || row.seq < first ? row.seq : first), null)),
     activeJobs: (workspaceId) => Promise.resolve(state.jobs.filter((j) => j.workspace_id === workspaceId && ['queued', 'claimed', 'running'].includes(j.status))),
     endedJobs: (workspaceId, limit) => Promise.resolve(state.jobs
       .filter((j) => j.workspace_id === workspaceId && j.ended_at !== null)
