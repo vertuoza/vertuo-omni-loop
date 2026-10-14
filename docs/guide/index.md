@@ -4,14 +4,14 @@ description: What Omni Loop gives you, and what you need before you begin.
 ---
 
 Omni Loop turns a product idea into shipped software on your own repository. You describe the idea
-to Claude Code; it writes a PRD, plans it in thin slices, builds every slice, and opens pull
+to your coding agent; it writes a PRD, plans it in thin slices, builds every slice, and opens pull
 requests you review and merge. Nothing reaches your default branch unless a person merges it.
 
 ## Start with Install
 
 Everyone starts with [Install](/docs/install): four steps, once per laptop. You install `omni`
-globally, load the skills in Claude Code, sign in to the Omni page, and set up Claude's questions to
-come to you there. Then, one of two ways:
+globally, load the skills in your coding agent (in Claude Code: the `omni` plugin), sign in to the
+Omni page, and set up your agent's questions to come to you there. Then, one of two ways:
 
 - **Your team already runs the loop.** Someone installed the Omni Loop GitHub App on your GitHub
   organization, and the repository you will work in has a `.omni-loop/` folder. There is nothing to
@@ -31,8 +31,8 @@ repository: a [product PRD](/docs/products#a-product-prd).
 
 ## What you will have at the end
 
-- **A laptop ready for the loop.** The `omni` command, the loop's skills in your Claude Code, your
-  sign-in to the Omni page, and Claude's questions coming to you there.
+- **A laptop ready for the loop.** The `omni` command, the loop's skills in your coding agent, your
+  sign-in to the Omni page, and your agent's questions coming to you there.
 - **A repository run by the loop.** The Omni Loop kit is installed in it (a `.omni-loop/` folder),
   and the loop has read your repository and written down what it learned. When you join a team,
   this is done already.
@@ -50,10 +50,11 @@ version or a sign-in.
 | **Node 22 or later** ([install](https://nodejs.org/en/download)) | runs the `omni` command; npm, which comes with it, installs it | `node --version` prints `v22` or higher |
 | **git** ([install](https://git-scm.com/downloads)) | the loop works on branches of your repository | `git --version` |
 | **gh, the GitHub CLI, signed in** ([install](https://cli.github.com)) | the loop opens pull requests and creates labels with it | `gh auth status` says `Logged in to github.com` |
-| **Claude Code, signed in** ([install](https://docs.anthropic.com/en/docs/claude-code/setup)) | every step of the loop is a command you type in it, such as `/omni:brainstorm` | `claude --version` |
+| **A coding agent, signed in**, such as Claude Code ([install](https://docs.anthropic.com/en/docs/claude-code/setup)), Codex, Cursor or Gemini CLI ([Any coding agent](/docs/any-agent)) | every step of the loop is a command you type in it, such as `/omni:brainstorm`, in your agent's form | in Claude Code: `claude --version` |
 
 Sign gh in with the GitHub account that administers your repository, and answer yes when it offers
-to authenticate Git with it. Run `claude` once and sign in when it asks.
+to authenticate Git with it. Run your agent once and sign in when it asks (in Claude Code:
+`claude`).
 
 Joining a team, you also need a GitHub account that is a member of your organization and can push
 to the repository: that is all. Setting the loop up on a repository, you also need:
@@ -70,8 +71,8 @@ to the repository: that is all. Setting the loop up on a repository, you also ne
 
 1. **Getting started**: this page.
 2. **Install**: four steps on your laptop, for everyone: `omni` installed globally, the skills in
-   Claude Code, your sign-in, and Claude's questions on the Omni page. Then, once per repository,
-   setting the loop up on it.
+   your coding agent, your sign-in, and your agent's questions on the Omni page. Then, once per
+   repository, setting the loop up on it.
 3. **Join a team**: the loop already runs in your organization; your way around it.
 4. **Invade**: letting the loop read your repository and write down what it learned.
 5. **How the loop works**: its stages, its pull requests and its skills, in three drawings, and
