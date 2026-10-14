@@ -83,7 +83,7 @@ export interface TerminalViewProps {
 }
 
 /** The header: the job, its status with a live dot while it runs, Reconnecting… after a failed read, close. */
-function Head({ title, status, failed, onClose }: { title: string; status: Job['status'] | null; failed: boolean; onClose?: () => void }) {
+function Head({ title, status, failed, onClose }: { title: string; status: Job['status'] | null; failed: boolean; onClose?: (() => void) | undefined }) {
   return (
     <header className="terminal-head">
       {status !== null && isLive(status) ? <i className="terminal-live" aria-label="Live" /> : null}
