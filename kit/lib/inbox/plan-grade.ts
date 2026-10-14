@@ -31,8 +31,10 @@
 // across slices (`wave: first`, `blocks: all`, `landing: alone`) reads the slices of one repository.
 //
 // Last, each slice's `contract` cell (PRD 1870): wherever it sits, `none` beside a kind is refused.
-// Outside a plan repository, when the config's `contracts.declare` is on, a slice that declares
-// nothing is refused, and so is a word outside the config's `contracts.kinds`.
+// The repository that receives the slice asks for the rest: outside a plan repository, the config's
+// own `contracts`; in one, each target's copied `contracts` (`targets`), never the plan repository's.
+// Where it asks (`declare` on), a slice that declares nothing is refused, and so is a word outside its
+// `kinds`. A target whose copy asks nothing, or that has no readable copy, is checked for form alone.
 import { planRuleViolations } from '../flow/plan-rules.ts';
 import { resolveFlow } from '../flow/resolve.ts';
 import { NO_FLOW } from '../plan-repo/copy-flow.ts';
@@ -320,6 +322,19 @@ function targetReachViolations(slices: readonly Slice[], targets: readonly Targe
 }
 
 /**
+ * The `contracts` of the repository that receives `slice` when it asks for the declaration, `null`
+ * when it asks nothing (see the module note).
+ */
+function contractAsk(
+  slice: Slice,
+  { config, multi, targets }: { config: GradeConfig; multi: boolean; targets: ReadonlyMap<string, TargetFlow> },
+): { kinds: readonly string[] } | null {
+  if (config.plan === undefined) return config.contracts.declare ? config.contracts : null;
+  const found = multi && slice.repo !== null ? targets.get(slice.repo) : undefined;
+  return found?.ok === true && found.config.contracts.declare ? found.config.contracts : null;
+}
+
+/**
  * What a slice's `contract` cell gets wrong (PRD 1870), each line naming the slice, then its field.
  * `asks` is the receiving repository's `contracts` when it asks for the declaration, `null` when it
  * asks nothing: then the cell is checked for its form alone, `none` beside a kind.
@@ -400,7 +415,7 @@ export function gradePlan(
     ...landingViolations(slices, landingRows),
     ...(multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config))),
     ...blockedByViolations(slices),
-    ...slices.flatMap((slice) => contractViolations(slice, planSection === null && config.contracts.declare ? config.contracts : null)),
+    ...slices.flatMap((slice) => contractViolations(slice, contractAsk(slice, { config, multi, targets }))),
     ...collisions.map(
       (collision) =>
         `${collision.left} and ${collision.right} share ${collision.shared.join(', ')} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ''} — two slices in one wave may never share territory.`,
