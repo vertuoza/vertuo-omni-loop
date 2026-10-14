@@ -303,6 +303,11 @@ jobs:
         # a runner silent past the cutoff leaves its jobs failed, runner lost. Two runners claiming one job
         # at once, in two sessions through dblink: exactly one takes it (PRD 1830).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runners.sql
+      - name: A runner job's live lines
+        # Members read their workspace's lines, nobody else does, only the service role writes; a line
+        # sent twice is stored once, retention keeps the listed jobs' lines, a deleted job takes its
+        # lines with it (PRD 1904).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_lines.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
