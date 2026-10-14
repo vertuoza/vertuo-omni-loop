@@ -21,4 +21,4 @@ The reproduction is the guard: it fails whenever a job session starts without `C
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (ba1c9010): nothing to mutate
