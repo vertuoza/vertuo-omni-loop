@@ -1,0 +1,1075 @@
+{
+  "prd": 1322,
+  "runs": [
+    {
+      "run": "merge",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 1322,
+        "title": "The approval handshake",
+        "topic": "approval-handshake",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/1322-approval-handshake"
+      },
+      "featurePr": {
+        "number": 1324,
+        "title": "feat(approval): The approval handshake",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1324",
+        "openedAt": "2026-10-09T09:56:33Z",
+        "mergedAt": "2026-10-09T13:15:23Z",
+        "mergeSha": "a6cf334a3d57549d83269c457d84919540dd1a63"
+      },
+      "kinds": {
+        "churn": {
+          "added": 8470,
+          "churn": 119,
+          "commits": 34,
+          "files": [
+            {
+              "added": 40,
+              "churn": 40,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": "apps/galaxy/public/sw.js",
+              "percent": null
+            },
+            {
+              "added": 262,
+              "churn": 15,
+              "commits": 3,
+              "finalAdded": 247,
+              "path": "apps/galaxy/src/approvals/approvals.controller.test.ts",
+              "percent": 6
+            },
+            {
+              "added": 123,
+              "churn": 14,
+              "commits": 2,
+              "finalAdded": 109,
+              "path": "kit/lib/now/wait.test.ts",
+              "percent": 13
+            },
+            {
+              "added": 110,
+              "churn": 12,
+              "commits": 2,
+              "finalAdded": 98,
+              "path": "apps/galaxy/src/push/sw.test.ts",
+              "percent": 12
+            },
+            {
+              "added": 135,
+              "churn": 9,
+              "commits": 2,
+              "finalAdded": 126,
+              "path": "apps/galaxy/src/push/client.ts",
+              "percent": 7
+            },
+            {
+              "added": 105,
+              "churn": 5,
+              "commits": 2,
+              "finalAdded": 100,
+              "path": "apps/galaxy/src/approvals/approvals.controller.ts",
+              "percent": 5
+            },
+            {
+              "added": 222,
+              "churn": 5,
+              "commits": 3,
+              "finalAdded": 217,
+              "path": "apps/galaxy/src/approvals/approvals.repository.ts",
+              "percent": 2
+            },
+            {
+              "added": 85,
+              "churn": 4,
+              "commits": 2,
+              "finalAdded": 81,
+              "path": "apps/galaxy/src/approvals/approvals.repository.test.ts",
+              "percent": 5
+            },
+            {
+              "added": 139,
+              "churn": 4,
+              "commits": 2,
+              "finalAdded": 135,
+              "path": "apps/galaxy/src/approvals/approvals.service.ts",
+              "percent": 3
+            },
+            {
+              "added": 45,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 42,
+              "path": "kit/plugin-hud/hooks/band.ts",
+              "percent": 7
+            },
+            {
+              "added": 64,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 62,
+              "path": "kit/lib/now/wait.ts",
+              "percent": 3
+            },
+            {
+              "added": 240,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 238,
+              "path": "supabase/checks/approval_requests.sql",
+              "percent": 1
+            },
+            {
+              "added": 57,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 56,
+              "path": "apps/galaxy/src/push/browser.fake.ts",
+              "percent": 2
+            },
+            {
+              "added": 23,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 22,
+              "path": "kit/lib/now/now.test.ts",
+              "percent": 5
+            },
+            {
+              "added": 19,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 18,
+              "path": "kit/lib/now/now.ts",
+              "percent": 6
+            },
+            {
+              "added": 6,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 5,
+              "path": "kit/plugin-hud/types/index.d.ts",
+              "percent": 20
+            }
+          ],
+          "finalAdded": 8393,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/1322-approval-handshake/accounts/s5.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s1-01-push-and-email-packages-wait-for-their-sender.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s1-02-alert-settings-listed-in-the-galaxy-readme.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s2-01-bell-and-check-outside-the-plan-ground.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s2-02-what-the-phone-alert-and-email-say.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s2-03-who-the-author-is-and-when-a-request-stops-waiting.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s3-01-what-the-stream-replays-and-its-event-ids.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s3-02-stream-reads-outside-its-own-files-and-names-people-by-player.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s4-01-approval-stream-contract.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s4-02-waiting-file.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s5-01-which-wait-the-band-shows.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s6-01-one-void-per-changed-file-one-alert-per-push.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s6-02-approval-route-carries-voids.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s7-01-approvers-unread-shows-approve.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s8-01-docs-guard-knows-wait.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s9-01-push-payload-shape.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s9-02-phone-alerts-off-is-per-person.md",
+              ".omni-loop/delivery/outbox/1322-approval-handshake/s9-03-service-worker-address.md"
+            ],
+            "generated": [],
+            "lockfile": [
+              "pnpm-lock.yaml"
+            ]
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 9,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 7,
+              "redCommits": [
+                "04fc02a",
+                "099be50",
+                "4594c30",
+                "709851b",
+                "4eede98",
+                "af43bbf",
+                "fa2490b"
+              ],
+              "redSlices": [
+                "s2",
+                "s3",
+                "s7"
+              ],
+              "redThenGreen": [],
+              "runs": 15
+            }
+          ],
+          "redRuns": [
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "04fc02a",
+              "counts": null,
+              "excerpt": "Applying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5584) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 679ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5598) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 182, added 173\nProgress: resolved 831, reused 0, downloaded 459, added 452\nProgress: resolved 831, reused 0, downloaded 568, added 562\nProgress: resolved 831, reused 0, downloaded 711, added 706\nProgress: resolved 831, reused 0, downloaded 830, added 830\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 6.9s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/585e42e5-8270-4629-8979-064d520983ed' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 113789690796,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37921328591/job/113789690796"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "099be50",
+              "counts": null,
+              "excerpt": "Applying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5525) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 658ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5560) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 171, added 158\nProgress: resolved 831, reused 0, downloaded 385, added 380\nProgress: resolved 831, reused 0, downloaded 573, added 562\nProgress: resolved 831, reused 0, downloaded 668, added 668\nProgress: resolved 831, reused 0, downloaded 749, added 740\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 7.1s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/af0035b0-03fa-420a-a24e-5acc4fe64fa9' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 113792170926,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37922085961/job/113792170926"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "4594c30",
+              "counts": null,
+              "excerpt": "Applying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5560) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 765ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5574) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 182, added 180\nProgress: resolved 831, reused 0, downloaded 381, added 376\nProgress: resolved 831, reused 0, downloaded 590, added 583\nProgress: resolved 831, reused 0, downloaded 622, added 608\nProgress: resolved 831, reused 0, downloaded 775, added 775\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 7.2s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/fdf0f2cf-4cd8-40de-b930-d62541ff5724' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 113796304705,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37923339591/job/113796304705"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "709851b",
+              "counts": null,
+              "excerpt": "Applying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5951) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 808ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5965) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 156, added 144\nProgress: resolved 831, reused 0, downloaded 319, added 312\nProgress: resolved 831, reused 0, downloaded 530, added 520\nProgress: resolved 831, reused 0, downloaded 569, added 561\nProgress: resolved 831, reused 0, downloaded 642, added 633\nProgress: resolved 831, reused 0, downloaded 792, added 780\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 8.2s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/b710b68d-39a9-44d2-99d2-b1c85e9e81be' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 113798926334,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37924142973/job/113798926334"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "4eede98",
+              "counts": null,
+              "excerpt": "Applying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\n\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5773) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 837ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5808) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 124, added 116\nProgress: resolved 831, reused 0, downloaded 269, added 265\nProgress: resolved 831, reused 0, downloaded 519, added 505\nProgress: resolved 831, reused 0, downloaded 570, added 561\nProgress: resolved 831, reused 0, downloaded 611, added 603\nProgress: resolved 831, reused 0, downloaded 761, added 753\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 8.2s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/7b92e4ac-2f0f-48a2-8ed2-63f3b7231e00' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 113806932249,
+              "log": "read",
+              "reporter": null,
+              "slice": "s3",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37926603593/job/113806932249"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "af43bbf",
+              "counts": null,
+              "excerpt": "Applying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5819) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 829ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5833) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 152, added 141\nProgress: resolved 831, reused 0, downloaded 316, added 307\nProgress: resolved 831, reused 0, downloaded 524, added 514\nProgress: resolved 831, reused 0, downloaded 568, added 557\nProgress: resolved 831, reused 0, downloaded 629, added 619\nProgress: resolved 831, reused 0, downloaded 758, added 746\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 8.4s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/457d3caf-79d4-413a-8866-657f12a3d79f' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 113812999065,
+              "log": "read",
+              "reporter": null,
+              "slice": "s7",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37928456876/job/113812999065"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "fa2490b",
+              "counts": null,
+              "excerpt": "Applying migration 20261005090000_outbox_sends.sql...\nApplying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5704) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 666ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5720) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 193, added 185\nProgress: resolved 831, reused 0, downloaded 533, added 530\nProgress: resolved 831, reused 0, downloaded 611, added 601\nProgress: resolved 831, reused 0, downloaded 768, added 759\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 5.8s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/5d2346a0-74a1-4b95-871d-374f062bdd7e' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 113812897752,
+              "log": "read",
+              "reporter": null,
+              "slice": "s3",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37928426157/job/113812897752"
+            }
+          ],
+          "slices": [
+            "s1",
+            "s4",
+            "s9",
+            "s2",
+            "s5",
+            "s8",
+            "s3",
+            "s6",
+            "s7"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 1,
+            "commits": 15,
+            "red": 7,
+            "runs": 15,
+            "slices": 7
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 17,
+            "agreed": 0,
+            "byRank": {
+              "medium": 17
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md",
+            "raised": 17,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1325
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1326
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1328
+                ],
+                "slice": "s9",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1329
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1330
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1331
+                ],
+                "slice": "s8",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1336
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1337
+                ],
+                "slice": "s6",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1338
+                ],
+                "slice": "s7",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 10,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 1324,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1324"
+              },
+              {
+                "pr": 1325,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1325"
+              },
+              {
+                "pr": 1326,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1326"
+              },
+              {
+                "pr": 1328,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s9",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1328"
+              },
+              {
+                "pr": 1329,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1329"
+              },
+              {
+                "pr": 1330,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1330"
+              },
+              {
+                "pr": 1331,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s8",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1331"
+              },
+              {
+                "pr": 1336,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1336"
+              },
+              {
+                "pr": 1337,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s6",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1337"
+              },
+              {
+                "pr": 1338,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s7",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1338"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 13,
+              "graded": 9,
+              "shared": 4,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "apps/galaxy/README.md"
+                ],
+                "files": 25,
+                "pr": 1325,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1325"
+              },
+              {
+                "breaches": [],
+                "files": 11,
+                "pr": 1326,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1326"
+              },
+              {
+                "breaches": [],
+                "files": 29,
+                "pr": 1328,
+                "shared": [],
+                "slice": "s9",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1328"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/app/api/waiting/approvals/route.ts",
+                  "apps/galaxy/package.json",
+                  "apps/galaxy/src/nav/Bell.render.test.ts",
+                  "apps/galaxy/src/nav/Bell.tsx",
+                  "apps/galaxy/src/nav/bell.test.ts",
+                  "apps/galaxy/src/nav/bell.ts",
+                  "apps/galaxy/src/nav/sidebar.test.ts",
+                  "pnpm-lock.yaml"
+                ],
+                "files": 34,
+                "pr": 1329,
+                "shared": [
+                  ".github/workflows/supabase.yml",
+                  "supabase/checks/approval_requests.sql"
+                ],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1329"
+              },
+              {
+                "breaches": [],
+                "files": 11,
+                "pr": 1330,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1330"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/docs/guide.test.ts",
+                  "apps/galaxy/src/docs/guide.ts"
+                ],
+                "files": 10,
+                "pr": 1331,
+                "shared": [],
+                "slice": "s8",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1331"
+              },
+              {
+                "breaches": [],
+                "files": 10,
+                "pr": 1336,
+                "shared": [
+                  "apps/galaxy/src/approvals/approvals.controller.ts",
+                  "apps/galaxy/src/approvals/approvals.repository.ts"
+                ],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1336"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/approval/approval-api.test.ts",
+                  "apps/galaxy/src/approval/approval-api.ts"
+                ],
+                "files": 18,
+                "pr": 1337,
+                "shared": [],
+                "slice": "s6",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1337"
+              },
+              {
+                "breaches": [],
+                "files": 10,
+                "pr": 1338,
+                "shared": [],
+                "slice": "s7",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1338"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "supabase/database.types.ts",
+              "supabase/checks/",
+              ".github/workflows/supabase.yml",
+              "apps/galaxy/src/approvals/"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-10-09T13:15:23Z",
+            "minutes": 199,
+            "number": 1324,
+            "openedAt": "2026-10-09T09:56:33Z",
+            "readyAt": "2026-10-09T12:53:50Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1324"
+          },
+          "medianMinutes": 44,
+          "sliceCount": 9,
+          "slices": [
+            {
+              "closedAt": "2026-10-09T10:35:13Z",
+              "mergedAt": "2026-10-09T10:35:13Z",
+              "mergedWave": 1,
+              "minutes": 32,
+              "openedAt": "2026-10-09T10:03:00Z",
+              "plannedWave": 1,
+              "pr": 1325,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1325"
+            },
+            {
+              "closedAt": "2026-10-09T10:35:28Z",
+              "mergedAt": "2026-10-09T10:35:28Z",
+              "mergedWave": 1,
+              "minutes": 32,
+              "openedAt": "2026-10-09T10:03:08Z",
+              "plannedWave": 1,
+              "pr": 1326,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1326"
+            },
+            {
+              "closedAt": "2026-10-09T11:31:24Z",
+              "mergedAt": "2026-10-09T11:31:24Z",
+              "mergedWave": 2,
+              "minutes": 50,
+              "openedAt": "2026-10-09T10:41:14Z",
+              "plannedWave": 2,
+              "pr": 1328,
+              "slice": "s9",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1328"
+            },
+            {
+              "closedAt": "2026-10-09T11:31:37Z",
+              "mergedAt": "2026-10-09T11:31:37Z",
+              "mergedWave": 2,
+              "minutes": 50,
+              "openedAt": "2026-10-09T10:41:22Z",
+              "plannedWave": 2,
+              "pr": 1329,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1329"
+            },
+            {
+              "closedAt": "2026-10-09T11:31:54Z",
+              "mergedAt": "2026-10-09T11:31:54Z",
+              "mergedWave": 2,
+              "minutes": 50,
+              "openedAt": "2026-10-09T10:41:31Z",
+              "plannedWave": 2,
+              "pr": 1330,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1330"
+            },
+            {
+              "closedAt": "2026-10-09T11:32:07Z",
+              "mergedAt": "2026-10-09T11:32:07Z",
+              "mergedWave": 2,
+              "minutes": 50,
+              "openedAt": "2026-10-09T10:41:39Z",
+              "plannedWave": 2,
+              "pr": 1331,
+              "slice": "s8",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1331"
+            },
+            {
+              "closedAt": "2026-10-09T12:26:33Z",
+              "mergedAt": "2026-10-09T12:26:33Z",
+              "mergedWave": 3,
+              "minutes": 44,
+              "openedAt": "2026-10-09T11:42:50Z",
+              "plannedWave": 3,
+              "pr": 1336,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1336"
+            },
+            {
+              "closedAt": "2026-10-09T12:26:52Z",
+              "mergedAt": "2026-10-09T12:26:52Z",
+              "mergedWave": 3,
+              "minutes": 44,
+              "openedAt": "2026-10-09T11:43:00Z",
+              "plannedWave": 3,
+              "pr": 1337,
+              "slice": "s6",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1337"
+            },
+            {
+              "closedAt": "2026-10-09T12:27:10Z",
+              "mergedAt": "2026-10-09T12:27:10Z",
+              "mergedWave": 3,
+              "minutes": 44,
+              "openedAt": "2026-10-09T11:43:09Z",
+              "plannedWave": 3,
+              "pr": 1338,
+              "slice": "s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1338"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 3,
+            "planned": 3
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "repeated-red:check",
+          "kind": "repeated-red",
+          "title": "Check check was red again and again",
+          "happened": "The check `check` was red on 7 commits in 3 slices (s2, s3, s7): 7 of its 15 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.",
+          "evidence": [
+            {
+              "label": "check on 04fc02a in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37921328591/job/113789690796",
+              "excerpt": "Applying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5584) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 679ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5598) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 182, added 173\nProgress: resolved 831, reused 0, downloaded 459, added 452\nProgress: resolved 831, reused 0, downloaded 568, added 562\nProgress: resolved 831, reused 0, downloaded 711, added 706\nProgress: resolved 831, reused 0, downloaded 830, added 830\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 6.9s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/585e42e5-8270-4629-8979-064d520983ed' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on 099be50 in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37922085961/job/113792170926",
+              "excerpt": "Applying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5525) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 658ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5560) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 171, added 158\nProgress: resolved 831, reused 0, downloaded 385, added 380\nProgress: resolved 831, reused 0, downloaded 573, added 562\nProgress: resolved 831, reused 0, downloaded 668, added 668\nProgress: resolved 831, reused 0, downloaded 749, added 740\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 7.1s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/af0035b0-03fa-420a-a24e-5acc4fe64fa9' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on 4594c30 in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37923339591/job/113796304705",
+              "excerpt": "Applying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5560) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 765ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5574) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 182, added 180\nProgress: resolved 831, reused 0, downloaded 381, added 376\nProgress: resolved 831, reused 0, downloaded 590, added 583\nProgress: resolved 831, reused 0, downloaded 622, added 608\nProgress: resolved 831, reused 0, downloaded 775, added 775\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 7.2s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/fdf0f2cf-4cd8-40de-b930-d62541ff5724' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on 709851b in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37924142973/job/113798926334",
+              "excerpt": "Applying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5951) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 808ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5965) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 156, added 144\nProgress: resolved 831, reused 0, downloaded 319, added 312\nProgress: resolved 831, reused 0, downloaded 530, added 520\nProgress: resolved 831, reused 0, downloaded 569, added 561\nProgress: resolved 831, reused 0, downloaded 642, added 633\nProgress: resolved 831, reused 0, downloaded 792, added 780\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 8.2s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/b710b68d-39a9-44d2-99d2-b1c85e9e81be' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on 4eede98 in s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37926603593/job/113806932249",
+              "excerpt": "Applying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\n\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5773) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 837ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5808) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 124, added 116\nProgress: resolved 831, reused 0, downloaded 269, added 265\nProgress: resolved 831, reused 0, downloaded 519, added 505\nProgress: resolved 831, reused 0, downloaded 570, added 561\nProgress: resolved 831, reused 0, downloaded 611, added 603\nProgress: resolved 831, reused 0, downloaded 761, added 753\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 8.2s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/7b92e4ac-2f0f-48a2-8ed2-63f3b7231e00' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on af43bbf in s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37928456876/job/113812999065",
+              "excerpt": "Applying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5819) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 829ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5833) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 152, added 141\nProgress: resolved 831, reused 0, downloaded 316, added 307\nProgress: resolved 831, reused 0, downloaded 524, added 514\nProgress: resolved 831, reused 0, downloaded 568, added 557\nProgress: resolved 831, reused 0, downloaded 629, added 619\nProgress: resolved 831, reused 0, downloaded 758, added 746\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 8.4s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/457d3caf-79d4-413a-8866-657f12a3d79f' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on fa2490b in s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37928426157/job/113812897752",
+              "excerpt": "Applying migration 20261005090000_outbox_sends.sql...\nApplying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH │\n│ Secret      │ sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.120.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  version: 9\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5704) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +1\n+\nProgress: resolved 1, reused 0, downloaded 1, added 1, done\n\ndependencies:\n+ pnpm 9.15.9 (12.10.1 is available)\n\nDone in 666ms\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5720) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v3\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +831\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 831, reused 0, downloaded 193, added 185\nProgress: resolved 831, reused 0, downloaded 533, added 530\nProgress: resolved 831, reused 0, downloaded 611, added 601\nProgress: resolved 831, reused 0, downloaded 768, added 759\nProgress: resolved 831, reused 0, downloaded 831, added 831, done\n.../node_modules/protobufjs postinstall$ node scripts/postinstall\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../node_modules/protobufjs postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ @playwright/test 1.56.1\n+ @stryker-mutator/core 10.0.0\n+ @stryker-mutator/typescript-checker 10.0.0\n+ @stryker-mutator/vitest-runner 10.0.0\n+ @types/node 22.20.4\n+ @types/react 19.3.0\n+ @types/react-dom 19.3.0\n+ @typescript/native-preview 7.0.0-dev.20260707.2\n+ esbuild 0.28.2\n+ eslint 9.39.5\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.30.0\n+ react 19.3.0\n+ react-dom 19.3.0\n+ typescript 5.9.3\n+ typescript-eslint 8.71.0\n+ vite 8.3.1\n+ vitest 4.1.11\n+ yaml 2.9.1\n+ zod 4.6.5\n\nDone in 5.8s using pnpm v9.15.9\n##[group]Run node scripts/supabase-types.ts --check\nnode scripts/supabase-types.ts --check\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n/home/runner/work/vertuo-omni-loop/vertuo-omni-loop/supabase/database.types.ts has drifted from the migrations, line 2978: the committed file has \"      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }\", the migrations generate \"      approval_request: {\".\nRun node scripts/supabase-types.ts against a fresh `supabase db start` and commit the result.\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/5d2346a0-74a1-4b95-871d-374f062bdd7e' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            }
+          ],
+          "source": "ci",
+          "ref": "F1"
+        },
+        {
+          "id": "territory:s1",
+          "kind": "territory",
+          "title": "Slice s1 changed files outside its territory",
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/README.md`.",
+          "evidence": [
+            {
+              "label": "#1325",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1325/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F2"
+        },
+        {
+          "id": "territory:s2",
+          "kind": "territory",
+          "title": "Slice s2 changed files outside its territory",
+          "happened": "Slice s2 changed 8 paths outside its territory and off the plan’s shared ground: `apps/galaxy/app/api/waiting/approvals/route.ts`, `apps/galaxy/package.json`, `apps/galaxy/src/nav/Bell.render.test.ts`, `apps/galaxy/src/nav/Bell.tsx`, `apps/galaxy/src/nav/bell.test.ts`, `apps/galaxy/src/nav/bell.ts`, `apps/galaxy/src/nav/sidebar.test.ts`, `pnpm-lock.yaml`.",
+          "evidence": [
+            {
+              "label": "#1329",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1329/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F3"
+        },
+        {
+          "id": "territory:s8",
+          "kind": "territory",
+          "title": "Slice s8 changed files outside its territory",
+          "happened": "Slice s8 changed 2 paths outside its territory and off the plan’s shared ground: `apps/galaxy/src/docs/guide.test.ts`, `apps/galaxy/src/docs/guide.ts`.",
+          "evidence": [
+            {
+              "label": "#1331",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1331/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F4"
+        },
+        {
+          "id": "territory:s6",
+          "kind": "territory",
+          "title": "Slice s6 changed files outside its territory",
+          "happened": "Slice s6 changed 2 paths outside its territory and off the plan’s shared ground: `apps/galaxy/src/approval/approval-api.test.ts`, `apps/galaxy/src/approval/approval-api.ts`.",
+          "evidence": [
+            {
+              "label": "#1337",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1337/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F5"
+        },
+        {
+          "id": "churn:apps/galaxy/public/sw.js",
+          "kind": "churn",
+          "title": "Much of `apps/galaxy/public/sw.js` was written, then rewritten",
+          "happened": "`apps/galaxy/public/sw.js` had 40 lines added across 2 commits, none of them in the final diff: 40 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "a55d3d8 (s9)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a55d3d8e7922581f25e77b174b2f74cd9d67bf6a"
+            },
+            {
+              "label": "1cb8bfe (s9)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/1cb8bfeff5583859195568705773249cd92fd262"
+            }
+          ],
+          "source": "churn",
+          "ref": "F6"
+        }
+      ],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": [
+          {
+            "field": "findings.churn:apps/galaxy/public/sw.js.whyItMatters",
+            "reason": "it holds a word the rules refuse"
+          },
+          {
+            "field": "findings.territory:s1.title",
+            "reason": "it holds a digit"
+          },
+          {
+            "field": "findings.territory:s2.title",
+            "reason": "it holds a digit"
+          },
+          {
+            "field": "findings.territory:s6.title",
+            "reason": "it holds a digit"
+          },
+          {
+            "field": "findings.territory:s8.title",
+            "reason": "it holds a digit"
+          }
+        ]
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "The repeated types-drift failure gives a new delivery lesson, regenerating committed database types with each migration change, which no existing knowledge line or earlier lesson states."
+      },
+      "lessons": [
+        {
+          "text": "A slice that adds or changes a database function or migration regenerates the committed types file against a fresh local database and commits it in the same change, so the drift check does not stay red across later slices.",
+          "findings": [
+            "repeated-red:check"
+          ]
+        }
+      ],
+      "issues": {
+        "repeated-red:check": {
+          "number": 1349,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/1349",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
