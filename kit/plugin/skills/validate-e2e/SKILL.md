@@ -162,11 +162,21 @@ failure breaks that flow. A test with no `critical` tag is `standard`.
   (id, name, what its failure costs) in the sub-PR, and a person confirms it there. Never write it
   silently, and never edit an existing entry.
 - **Under `/omni:yolo`** (it follows this skill, so nothing can be asked on the way) write
-  `standard`, ask nothing, add no `critical` tag, and record one medium outbox item per run with
-  `omni item new` (`--slice e2e`, as step 8): the question (which flow does each test cover, and
-  does its failure break it), the tests written and the recommended answer. A person promotes a
-  test by answering it. The medium default, `standard`, is adopted, so the gate does not turn red
-  on it.
+  `standard`, ask nothing and add no `critical` tag. Then:
+  1. **Draft the first list.** When `<e2e.dir>/critical-flows.md` is absent or holds no flow, draft
+     it in the same sub-PR as the tests: one `## <id>: <name>` entry per business flow the tests
+     cover, with the lines under it saying what its failure costs, in the format PRD #1737 parses.
+     The person reads it in the sub-PR, and merging it is the review. Never edit an existing entry.
+  2. **One item per candidate test.** For each test that plausibly covers a flow of the list,
+     record one medium outbox item with `omni item new` (`--slice e2e`, as step 8). A test that
+     covers no flow gets no item and stays `standard`. Its options are A, `standard` as written,
+     and B, `critical` with the tag `flow-<id>` of the proposed flow. Its "What it costs to change
+     later" names the test file in backticks, and no other path, so a rework's ground is exactly
+     that file. It asks which flow the test covers and whether its failure breaks it, and gives
+     the recommended answer. The item stays medium: never declare it hard to revert.
+  3. **Refresh the outbox comment** once the items exist, so their numbers exist when the person
+     reads the sub-PR (step 9 lists them).
+  A person promotes a test by answering `<number>: B`, after the sub-PR is merged.
 - Which CI job runs which level is PRD #1277's work. This skill only writes the level.
 
 ## 6. A first run that records, last
@@ -224,6 +234,9 @@ footer line:
 | <criterion text> | <test file and name> | ✗ <first line of the error> |
 | <criterion text> | — | not filmable: <why> |
 ```
+
+Under `/omni:yolo`, the body then lists each candidate test of step 5b, its proposed flow and the
+reply to give (`<number>: B`), the number being the one the outbox comment gives its item.
 
 Each verdict is ✓, ✗ or "not filmable". It changes no state, label or check of the feature PR.
 Print the sub-PR's link and the ✓/✗/not filmable counts.

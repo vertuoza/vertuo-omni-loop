@@ -2163,6 +2163,22 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     expect(text.indexOf('## 5b.')).toBeLessThan(text.indexOf('## 6.'));
   });
 
+  it('under yolo drafts the list, records one answerable item per candidate test and lists them in the sub-PR (PRD 1941)', () => {
+    const step = skillSection(read(), '5b.').replace(/\s+/g, ' ');
+    for (const phrase of [
+      'absent or holds no flow', 'draft it in the same sub-PR', 'in the format PRD #1737 parses', 'Never edit an existing entry',
+      'one medium outbox item with `omni item new`', 'covers no flow gets no item', 'A, `standard` as written', 'B, `critical` with the tag `flow-<id>`',
+      'names the test file in backticks, and no other path', 'Refresh the outbox comment', '`<number>: B`',
+    ]) expect(step, phrase).toContain(phrase);
+    const pr = skillSection(read(), '9.').replace(/\s+/g, ' ');
+    for (const phrase of ['lists each candidate test', 'its proposed flow', 'the reply to give (`<number>: B`)']) expect(pr, phrase).toContain(phrase);
+  });
+
+  it('the guide says the e2e sub-PR is merged before the answer is given, and why (PRD 1941)', () => {
+    const guide = readFileSync(join(repoRoot, 'docs', 'guide', 'validate-e2e.md'), 'utf8').replace(/\s+/g, ' ');
+    for (const phrase of ['Merge the e2e sub-PR before you give the answer', 'branches from the feature branch', '`<number>: B`']) expect(guide, phrase).toContain(phrase);
+  });
+
   it('the guide describes the list, the two tags, the two levels and that PRD 1277 runs them (PRD 1737)', () => {
     const guide = readFileSync(join(repoRoot, 'docs', 'guide', 'validate-e2e.md'), 'utf8').replace(/\s+/g, ' ');
     for (const phrase of ['critical-flows.md', '`flow-<id>`', '`critical`', '`standard`', 'PRD #1277']) expect(guide, phrase).toContain(phrase);
