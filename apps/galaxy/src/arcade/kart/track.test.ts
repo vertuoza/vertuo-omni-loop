@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 import { airborne, NO_FX, stepFx, type Kart } from './kart';
-import { buildLine, inGapAt, pointAt } from './line';
+import { buildLine, crossings, inGapAt, pointAt } from './line';
+import { groundAt } from './relief';
 import { comeBack } from './rivals';
 import { EIGHT, eightWith, withFloor } from './track.fake';
 import { RULES } from './rules';
-import { COMET_RING, PROP_KINDS, pastTreeLine, surfaceAt, cornersOf, LAPS, legHeight, LEVEL, locatePx, parseTrack, pointAtPx, RELIEF_SPAN, roadAt, roofAt, TILE, trackProblems, type TrackSource } from './track';
+import { COMET_RING, FROST_EIGHT, PROP_KINDS, pastTreeLine, surfaceAt, cornersOf, LAPS, legHeight, LEVEL, locatePx, parseTrack, pointAtPx, RELIEF_SPAN, roadAt, roofAt, TILE, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, change: Partial<TrackSource> = {}): TrackSource {
@@ -630,5 +631,60 @@ describe('the surface at a pixel', () => {
     expect(pastTreeLine(eight, TILE + 1, TILE + 1)).toBe(false);
     expect(pastTreeLine(eight, eight.size.w - 1, 300)).toBe(true);
     expect(pastTreeLine(parseTrack(), 5, 5)).toBe(false);
+  });
+});
+
+// FROST EIGHT (PRD 1923, slice 5).
+describe('FROST EIGHT', () => {
+  const frost = parseTrack(FROST_EIGHT);
+  const crossing = { x: 36.5 * TILE, y: 36.5 * TILE };
+
+  it('is drivable, and its 8 waypoints and radii are those of the spec', () => {
+    expect(trackProblems(FROST_EIGHT)).toEqual([]);
+    expect(FROST_EIGHT.waypoints).toEqual([[56, 64, 5], [56, 48, 4], [16, 24, 4], [16, 8, 5], [56, 8, 5], [56, 24, 4], [16, 48, 4], [16, 64, 5]]);
+    expect(FROST_EIGHT.width).toBe(5);
+    expect([frost.size.w, frost.size.h]).toEqual([72 * TILE, 72 * TILE]);
+  });
+
+  it('starts at x = 32 heading east, with six places behind the line', () => {
+    expect(frost.heading).toBe(0);
+    expect(frost.line.x).toBe(32.5 * TILE);
+    expect(frost.places).toHaveLength(6);
+    expect(frost.places.every((p) => p.x < frost.line.x)).toBe(true);
+  });
+
+  it('crosses itself at 60 degrees or more, on a lake 12 tiles across, the ground level over it', () => {
+    const [c] = crossings(frost.centre);
+    expect(crossings(frost.centre)).toHaveLength(1);
+    expect(c?.angle).toBeGreaterThanOrEqual(60);
+    expect(c?.angle).toBeLessThan(64);
+    expect(Math.hypot((c?.x ?? 0) * TILE - crossing.x, (c?.y ?? 0) * TILE - crossing.y)).toBeLessThan(TILE);
+    expect(FROST_EIGHT.lake).toEqual({ at: [36, 36], radius: 6 });
+    const heights = [-6, -3, 0, 3, 6].map((d) => groundAt(frost, crossing.x + d * TILE * 0.857, crossing.y + d * TILE * 0.514));
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.05);
+  });
+
+  it('is ice across the lake, road on the rest of the road, powder everywhere else, and never void', () => {
+    let ice = 0, road = 0, powder = 0;
+    for (let y = 0; y < frost.size.h; y++) {
+      for (let x = 0; x < frost.size.w; x++) {
+        const s = surfaceAt(frost, x, y);
+        const lake = Math.hypot(x + 0.5 - 36.5 * TILE, y + 0.5 - 36.5 * TILE) < 6 * TILE;
+        expect(s, `${x}, ${y}`).toBe(lake ? 'ice' : roadAt(frost, x, y) ? 'road' : 'powder');
+        if (s === 'ice') ice++; else if (s === 'road') road++; else powder++;
+      }
+    }
+    expect(ice).toBeGreaterThan(0);
+    expect(road).toBeGreaterThan(0);
+    expect(powder).toBeGreaterThan(0);
+    expect(surfaceAt(frost, 36.5 * TILE, 36.5 * TILE)).toBe('ice');
+    expect(pastTreeLine(frost, 3, 300)).toBe(true);
+  });
+
+  it('has boxes and boost pads on the road, and a pass on the top straight', () => {
+    expect(frost.boxes.length).toBeGreaterThan(0);
+    expect(frost.boxes.every((b) => roadAt(frost, b.x, b.y))).toBe(true);
+    expect(frost.relief.heights[3]).toBeGreaterThan(frost.relief.heights[0] ?? 0);
+    expect(FROST_EIGHT.props).toBeUndefined();
   });
 });

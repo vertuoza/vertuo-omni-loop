@@ -62,6 +62,11 @@ export interface TrackSource {
   readonly stands?: readonly (readonly [number, number])[];
   /** The shortcuts, each beside the racing line (PRD 1775); none when left out. */
   readonly shortcuts?: readonly Shortcut[];
+  /**
+   * A frozen lake (PRD 1923): the tile coordinates [x, y] of its middle and its radius in tiles. A circuit that has one has a floor: `ice` inside the lake,
+   * `road` on the rest of the road, `powder` everywhere else, and no void; and a tree line at the map's edge.
+   */
+  readonly lake?: { readonly at: readonly [number, number]; readonly radius: number };
 }
 
 /**
@@ -262,6 +267,39 @@ export const COMET_RING: TrackSource = {
   ],
 };
 
+/** The rows of a 72×72 circuit: all ground, with the features at [character, x, y]. */
+function featureRows(features: readonly (readonly [string, number, number])[]): string[] {
+  const grid = Array.from({ length: 72 }, () => Array.from({ length: 72 }, () => '.'));
+  for (const [c, x, y] of features) { const row = grid[y]; if (row) row[x] = c; }
+  return grid.map((r) => r.join(''));
+}
+
+/** Tiles `c` at every [x, y] of the columns by the rows. */
+const block = (c: string, xs: readonly number[], ys: readonly number[]): (readonly [string, number, number])[] => ys.flatMap((y) => xs.map((x) => [c, x, y] as const));
+
+/**
+ * FROST EIGHT, OMNI KART's second circuit (PRD 1923): a figure eight standing up on 72×72 tiles, the road 5 tiles wide. The top loop is driven clockwise and
+ * the bottom one anticlockwise, and the two diagonals cross at about 62° on a frozen lake 12 tiles across at the middle of the map. The ground is level
+ * over the lake: both diagonals start and end at the base height, so both branches stand at one height there; the top loop climbs to a pass on the top
+ * straight and comes down to the lake. There is no void: the lake is ice, the road is road, the rest is powder, and the tree line stops a kart at the edge.
+ * The start line crosses the start straight at x = 32 with six places behind it; item boxes stand on the top straight and past the line, a pad on the right of each loop.
+ */
+export const FROST_EIGHT: TrackSource = {
+  rows: featureRows([
+    ...block('=', [32], [62, 63, 64, 65, 66]),
+    ...block('S', [30, 28, 26], [63, 65]),
+    ...block('?', [30, 34], [6, 8, 10]), ...block('?', [42, 46], [62, 64, 66]),
+    ...block('+', [56, 57], [15, 16, 17]), ...block('+', [56, 57], [54, 55, 56]),
+  ]),
+  // [x, y, radius]: the 8 corners in driving order.
+  waypoints: [[56, 64, 5], [56, 48, 4], [16, 24, 4], [16, 8, 5], [56, 8, 5], [56, 24, 4], [16, 48, 4], [16, 64, 5]],
+  width: 5,
+  // The lake: a disc of ice 12 tiles across on the crossing.
+  lake: { at: [36, 36], radius: 6 },
+  // The relief: the diagonals stand at the base height at both ends, with no hump, so both are level over the lake; the top loop climbs to a pass on the top straight.
+  relief: { heights: [0, 0, 0, 14, 14, 0, 0, 0], bumps: [0, 0, 0, 6, 0, 0, 0, 0] },
+};
+
 /** A tile that is road under the wheels of a hand-written map of tiles: the road, a kerb, the line, a box, a starting place, a pad, a ramp, roofed road or a walkway. */
 const isRoadChar = (c: string): boolean => c.length === 1 && FIXTURE_ROAD.includes(c);
 
@@ -354,7 +392,7 @@ export function roofAt(g: Pick<Ground, 'size' | 'roof'>, x: number, y: number): 
 }
 
 /** The centre line of a circuit as written, and what is baked from it. */
-interface Baked { readonly line: Line; readonly span: Span | null; readonly road: Uint8Array; readonly roof: Uint8Array; readonly gap: Uint8Array }
+interface Baked { readonly line: Line; readonly span: Span | null; readonly road: Uint8Array; readonly roof: Uint8Array; readonly gap: Uint8Array; readonly floor?: Uint8Array }
 
 const baked = new WeakMap<object, { src: TrackSource; made: Baked }[]>();
 
@@ -409,13 +447,27 @@ function bake(line: Line, span: Span | null, cols: number, rows: number): Pick<B
   return { road, roof, gap };
 }
 
+/** The floor of a circuit with a lake (PRD 1923): ice inside the lake, road where the road is, powder everywhere else. */
+function floorOf(road: Uint8Array, w: number, lake: NonNullable<TrackSource['lake']>): Uint8Array {
+  const floor = new Uint8Array(road.length);
+  const reach = lake.radius * TILE;
+  const cx = (lake.at[0] + 0.5) * TILE, cy = (lake.at[1] + 0.5) * TILE;
+  for (let i = 0; i < floor.length; i++) {
+    const x = (i % w) + 0.5, y = Math.floor(i / w) + 0.5;
+    floor[i] = Math.hypot(x - cx, y - cy) < reach ? FLOOR.ice : road[i] === 1 ? FLOOR.road : FLOOR.powder;
+  }
+  return floor;
+}
+
 /** The centre line and the baked ground of `src`, made once for the same waypoints, width, gaps, pieces, span and size. */
 function bakedOf(src: TrackSource): Baked {
-  const known = baked.get(src.waypoints)?.find((k) => k.src.width === src.width && k.src.gaps === src.gaps && k.src.pieces === src.pieces && k.src.span === src.span
+  const known = baked.get(src.waypoints)?.find((k) => k.src.width === src.width && k.src.gaps === src.gaps && k.src.pieces === src.pieces && k.src.span === src.span && k.src.lake === src.lake
     && k.src.rows.length === src.rows.length && k.src.rows[0]?.length === src.rows[0]?.length);
   if (known) return known.made;
   const { line, span } = centreOf(src);
-  const made: Baked = { line, span, ...bake(line, span, src.rows[0]?.length ?? 0, src.rows.length) };
+  const cols = src.rows[0]?.length ?? 0;
+  const ground = bake(line, span, cols, src.rows.length);
+  const made: Baked = { line, span, ...ground, ...(src.lake ? { floor: floorOf(ground.road, cols * TILE, src.lake) } : {}) };
   baked.set(src.waypoints, [...(baked.get(src.waypoints) ?? []), { src, made }]);
   return made;
 }
@@ -423,7 +475,7 @@ function bakedOf(src: TrackSource): Baked {
 /** The ground of a circuit as written. */
 const groundFor = (src: TrackSource, b: Baked): Ground => {
   const cols = src.rows[0]?.length ?? 0;
-  return { map: src.rows, size: { w: cols * TILE, h: src.rows.length * TILE }, road: b.road, roof: b.roof, gap: b.gap };
+  return { map: src.rows, size: { w: cols * TILE, h: src.rows.length * TILE }, road: b.road, roof: b.roof, gap: b.gap, ...(b.floor ? { floor: b.floor } : {}) };
 };
 
 const where = (x: number, y: number) => `row ${y}, col ${x}`;

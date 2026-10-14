@@ -259,8 +259,10 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     const ahead = progressOf(track, pace, player);
     rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead, race.difficulty));
     const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
-    if (p) player = p;
-    rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart } : r; });
+    // A push that carries a kart over a gate or the start line counts as the step it is: on FROST EIGHT, where the six karts cross the lake and the line close together, a lap
+    // pushed over the line by a hair was never counted, and the kart's progress fell back by a whole lap.
+    if (p) { pace = advance(track, pace, player, p); player = p; }
+    rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart, pace: advance(track, r.pace, r.kart, kart) } : r; });
     // A kart pushed over the edge by another falls too.
     const dropped = fallIfOver(track, player, fx);
     player = dropped.kart;
