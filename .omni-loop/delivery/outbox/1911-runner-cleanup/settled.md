@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 1911
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-help-keep-logs -->
+
+## s1-01-help-keep-logs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-help-keep-logs
 prd: 1911
@@ -47,3 +77,7 @@ One line of help text and its detail sentence, in a file outside this slice's te
 (author) The PRD, the registers and the glossary do not settle this:
 
 - The spec names the kit guide's runner section and not the built-in help, so whether the help counts as part of the README lines was not settled (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-01-help-keep-logs -->
