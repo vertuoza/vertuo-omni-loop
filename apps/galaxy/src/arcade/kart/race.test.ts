@@ -3,7 +3,7 @@ import type { Action } from '../keys';
 import { NO_FX, tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { advance, crossedAnyGate, progressOf, START_PACE } from './rivals';
-import { EIGHT } from './track.fake';
+import { EIGHT, withFloor } from './track.fake';
 import { sure } from '../test/sure';
 import { RULES } from './rules';
 import { COMET_RING, LAPS, parseTrack, roadAt, TILE, tileAt } from './track';
@@ -752,5 +752,18 @@ describe('a race on a line that crosses itself', () => {
     }
     expect(seen.every((s) => s.laps >= 1)).toBe(true);
     expect(seen.some((s) => s.crossed > 0)).toBe(true);
+  });
+});
+
+// The surfaces (PRD 1923, slice 3): a race on a figure eight with a frozen lake, powder around the road and a tree line.
+describe('a race with ice and powder', () => {
+  const frozen = withFloor(parseTrack(EIGHT));
+
+  it.each([1, 7, 42])('lets the five rivals finish three laps on seed %i, at every level', (seed) => {
+    for (const difficulty of ['easy', 'normal', 'hard'] as const) {
+      let r = started(newRace({ seed, track: frozen, difficulty }));
+      for (let t = 0; t < 400 && !r.rivals.every((x) => x.pace.laps >= LAPS); t += 0.05) r = step(r, NONE, 0.05).race;
+      expect(r.rivals.every((x) => x.pace.laps >= LAPS), difficulty).toBe(true);
+    }
   });
 });

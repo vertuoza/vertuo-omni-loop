@@ -3,9 +3,9 @@ import { sure } from '../test/sure';
 import { airborne, NO_FX, stepFx, type Kart } from './kart';
 import { buildLine, inGapAt, pointAt } from './line';
 import { comeBack } from './rivals';
-import { EIGHT, eightWith } from './track.fake';
+import { EIGHT, eightWith, withFloor } from './track.fake';
 import { RULES } from './rules';
-import { COMET_RING, PROP_KINDS, cornersOf, LAPS, legHeight, LEVEL, locatePx, parseTrack, pointAtPx, RELIEF_SPAN, roadAt, roofAt, TILE, trackProblems, type TrackSource } from './track';
+import { COMET_RING, PROP_KINDS, pastTreeLine, surfaceAt, cornersOf, LAPS, legHeight, LEVEL, locatePx, parseTrack, pointAtPx, RELIEF_SPAN, roadAt, roofAt, TILE, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, change: Partial<TrackSource> = {}): TrackSource {
@@ -607,5 +607,28 @@ describe('a line that crosses itself (PRD 1923)', () => {
 
   it('is never refused on COMET RING, whose line does not cross itself', () => {
     expect(trackProblems(COMET_RING)).toEqual([]);
+  });
+});
+
+// The surface at a pixel (PRD 1923, slice 3).
+describe('the surface at a pixel', () => {
+  it('is road wherever roadAt is true and void elsewhere on COMET RING', () => {
+    const track = parseTrack();
+    for (let y = 0; y < track.size.h; y += 5) {
+      for (let x = 0; x < track.size.w; x += 5) expect(surfaceAt(track, x, y)).toBe(roadAt(track, x, y) ? 'road' : 'void');
+    }
+    expect(track.floor).toBeUndefined();
+    expect(surfaceAt(track, -1, -1)).toBe('void');
+  });
+
+  it('reads ice, road and powder from a floor, and has a tree line one tile inside the edge only with one', () => {
+    const eight = withFloor(parseTrack(EIGHT));
+    expect(surfaceAt(eight, 36 * TILE, 36 * TILE)).toBe('ice');
+    expect(surfaceAt(eight, 2 * TILE, 2 * TILE)).toBe('powder');
+    expect(surfaceAt(eight, 56 * TILE, 56 * TILE)).toBe('road');
+    expect(pastTreeLine(eight, 5, 300)).toBe(true);
+    expect(pastTreeLine(eight, TILE + 1, TILE + 1)).toBe(false);
+    expect(pastTreeLine(eight, eight.size.w - 1, 300)).toBe(true);
+    expect(pastTreeLine(parseTrack(), 5, 5)).toBe(false);
   });
 });

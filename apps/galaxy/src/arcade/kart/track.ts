@@ -283,11 +283,20 @@ export interface Ground {
   readonly roof: Uint8Array;
   /** 1 where the pixel is void inside a gap (a kart flies over it, so it closes the circuit's inside as the road does), laid out as `road`; none for a hand-written map. */
   readonly gap?: Uint8Array;
+  /** The surface at each pixel (PRD 1923), laid out as `road`: `FLOOR` codes; none on a circuit with road and void only (COMET RING), where it is read from `road`. A circuit that has it has no void and a tree line. */
+  readonly floor?: Uint8Array;
 }
 
+/** What a kart drives on (PRD 1923): road, ice, powder or void. */
+export type Surface = 'road' | 'ice' | 'powder' | 'void';
+
+/** The codes of `Ground.floor`. */
+export const FLOOR: Readonly<Record<Surface, number>> = { void: 0, road: 1, ice: 2, powder: 3 };
+const SURFACE_OF: readonly Surface[] = ['void', 'road', 'ice', 'powder'];
+
 /** Marks the pixels of the tile at column `tx`, row `ty` in `mask`, a map `w` pixels wide. */
-function paintTile(mask: Uint8Array, w: number, tx: number, ty: number): void {
-  for (let y = ty * TILE; y < (ty + 1) * TILE; y++) mask.fill(1, y * w + tx * TILE, y * w + (tx + 1) * TILE);
+function paintTile(mask: Uint8Array, w: number, tx: number, ty: number, value = 1): void {
+  for (let y = ty * TILE; y < (ty + 1) * TILE; y++) mask.fill(value, y * w + tx * TILE, y * w + (tx + 1) * TILE);
 }
 
 /** The ground of a hand-written map of tiles (a fixture): its road and its roof, read from the tiles at every pixel. */
@@ -301,7 +310,17 @@ export function groundOf(rows: readonly string[]): Ground {
       if (c === 'T') paintTile(roof, w, tx, ty);
     });
   });
-  return { map: rows, size: { w, h }, road, roof };
+  const surfaced = rows.some((row) => /[ip]/.test(row));
+  if (!surfaced) return { map: rows, size: { w, h }, road, roof };
+  // `i` is ice and `p` powder: a fixture that has either has a floor (and no void off the road but `~`), and a tree line.
+  const floor = new Uint8Array(w * h);
+  rows.forEach((row, ty) => {
+    Array.from(row).forEach((c, tx) => {
+      const code = c === 'i' ? FLOOR.ice : c === 'p' ? FLOOR.powder : isRoadChar(c) ? FLOOR.road : FLOOR.void;
+      if (code !== FLOOR.void) paintTile(floor, w, tx, ty, code);
+    });
+  });
+  return { map: rows, size: { w, h }, road, roof, floor };
 }
 
 const pixelIn = (g: Pick<Ground, 'size'>, x: number, y: number): number => {
@@ -313,6 +332,19 @@ const pixelIn = (g: Pick<Ground, 'size'>, x: number, y: number): number => {
 export function roadAt(g: Pick<Ground, 'size' | 'road'>, x: number, y: number): boolean {
   const i = pixelIn(g, x, y);
   return i >= 0 && g.road[i] === 1;
+}
+
+/** The surface at the pixel at `x`, `y` (PRD 1923): `road` where `roadAt` is true and `void` elsewhere on a circuit without a `floor`; the void past the map's edge. */
+export function surfaceAt(g: Pick<Ground, 'size' | 'road' | 'floor'>, x: number, y: number): Surface {
+  const i = pixelIn(g, x, y);
+  if (i < 0) return 'void';
+  if (g.floor) return SURFACE_OF[g.floor[i] ?? 0] ?? 'void';
+  return g.road[i] === 1 ? 'road' : 'void';
+}
+
+/** Whether the pixel at `x`, `y` is past the tree line (PRD 1923): on a circuit with a `floor`, within a tile of the map's edge or off it. A kart stops there, as at a wall. */
+export function pastTreeLine(g: Pick<Ground, 'size' | 'floor'>, x: number, y: number): boolean {
+  return g.floor !== undefined && (x < TILE || y < TILE || x >= g.size.w - TILE || y >= g.size.h - TILE);
 }
 
 /** Whether the pixel at `x`, `y` is roofed road. */
