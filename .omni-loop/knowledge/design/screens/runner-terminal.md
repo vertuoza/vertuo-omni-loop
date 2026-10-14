@@ -56,4 +56,4 @@ Earlier lines were dropped. · Reconnecting…
 
 ## Source
 
-/omni:brainstorm, PRD 1904: .omni-loop/delivery/inbox/1904-runner-live-logs/before-after.html
+/omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
