@@ -49,6 +49,8 @@
 .cab-runner { position: absolute; left: 28px; bottom: 16px; line-height: 0; }
 .cab-scores { display: grid; gap: 8px; margin: 6px 8px 0; font-size: 7px; text-align: left; }
 .cab-scores b { font-weight: 400; color: var(--cyan); }
+.cab-head { display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; }
+.cab-head i { font-style: normal; color: var(--white); }
 .cab-none { font-family: var(--txt); font-size: 15px; color: var(--dim); }
 .cab-none.cab-unreadable { color: #ff8fa3; }
 /* The crew's top five: rank and name, and the score flush right; the player's own line in yellow. */
