@@ -3,9 +3,12 @@ packages:
   - '.'
   - 'apps/*'
   - 'packages/*'
+  - 'e2e'
 # pnpm settings live here since pnpm 10, which no longer reads the `pnpm` field of package.json.
 allowBuilds:
   esbuild: true
   protobufjs: true
 ignoredOptionalDependencies:
   - fallow-type-aware
+minimumReleaseAgeExclude:
+  - e2e@0.21.0
