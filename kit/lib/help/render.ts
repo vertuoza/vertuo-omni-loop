@@ -1,13 +1,20 @@
 // `omni help` as text (PRD 315): the overview of the loop and every command, and one entry. Pure:
 // it reads the help table and the config it is given, fills the repository's words in, and lays the
-// lines out. Plain text, no colour, no line wider than 80 columns.
+// lines out. Plain text, no colour, no line wider than 80 columns. A skill shows in the form of each
+// agent the config lists (PRD 1890).
+import { AGENTS } from '../config.ts';
+import type { Agent } from '../types.ts';
 import { ENTRIES, PRINCIPLES, STAGES } from './entries.ts';
 import type { HelpEntry } from './entries.ts';
 
-/** The config keys the help fills in: the delivery folder, the remote and the default branch. */
+/**
+ * The config keys the help fills in: the delivery folder, the remote and the default branch, and the
+ * agents whose forms it shows (Claude's alone when there is no `agents`).
+ */
 export type HelpConfig = {
   readonly paths: { readonly delivery: string };
   readonly repo: { readonly remote: string; readonly defaultBranch: string };
+  readonly agents?: readonly Agent[];
 };
 
 /** What `fillerFor` returns: `text` with the repository's words put in their braces. */
@@ -23,6 +30,39 @@ const STAGE_COLUMN = 10; // the loop's name column: its widest, building, and tw
 const WHO_RUNS = Object.freeze({ you: 'for you', skills: 'run by the skills' });
 const HELP_CLOSING = 'omni help <command> tells more about any of them.';
 const DOCS_LABEL_COLUMN = 9; // `When` and `Example`, then their text (PRD 580)
+
+/**
+ * How each agent runs a skill (PRD 1890): Claude through its plugin, the others through the
+ * `.agents/skills/omni-<name>/` copies; Gemini CLI activates a skill by its description, so it is
+ * asked for one. A change of an agent's convention is an edit of this table.
+ */
+const AGENT_FORMS: Readonly<Record<Agent, (name: string, args: string) => string>> = Object.freeze({
+  claude: (name, args) => `/omni:${name}${args && ` ${args}`}`,
+  codex: (name, args) => `$omni-${name}${args && ` ${args}`}`,
+  cursor: (name, args) => `/omni-${name}${args && ` ${args}`}`,
+  gemini: (name, args) => `ask for omni-${name}${args && `, ${args}`}`,
+});
+/** Claude loops a skill run under `/loop`; another agent runs one tick of it, then again. */
+const LOOP = '/loop ';
+const TICK_LINE = 'run it again after the wait it names';
+const SKILL_FORM = /^(\/loop )?\/omni:([\w-]+)(?: (.*))?$/;
+
+/** The agents the config lists, in the kit's order, so Claude's form comes first. */
+const agentsOf = (config: HelpConfig): Agent[] => AGENTS.filter((agent) => (config.agents ?? ['claude']).includes(agent));
+
+/** A skill's Claude form (`/omni:yolo <n>`, `/loop /omni:drive`) in each agent's, once each. */
+function agentForms(claudeForm: string, agents: readonly Agent[]): string[] {
+  const match = SKILL_FORM.exec(claudeForm);
+  if (!match) return [claudeForm];
+  const [, loop = '', name = '', args = ''] = match;
+  return [...new Set(agents.map((agent) => `${agent === 'claude' ? loop : ''}${AGENT_FORMS[agent](name, args)}`))];
+}
+
+/** Whether a skill runs under `/loop` in Claude: one of its usages says so. */
+const looped = (entry: HelpEntry): boolean => entry.usage.some((usage) => usage.startsWith(LOOP));
+
+/** Whether a listed agent runs the skill a tick at a time: it loops in Claude, and an agent but Claude is listed. */
+const ticks = (entry: HelpEntry, agents: readonly Agent[]): boolean => looped(entry) && agents.some((agent) => agent !== 'claude');
 
 /** The repository's words the help table leaves in braces. */
 function repositoryWords(config: HelpConfig): Record<string, string> {
@@ -58,6 +98,29 @@ function wrapWords(text: string, { width = HELP_WIDTH, indent = '' }: { width?: 
 
 const overviewRow = (label: string, text: string): string => `${HELP_INDENT}${label.padEnd(Math.max(LABEL_COLUMN, label.length + 2))}${text}`;
 
+/**
+ * A skill's rows under Run these: one per listed agent's form, its summary beside the first, and,
+ * for a skill another agent runs a tick at a time, the line to run it again beside its first tick.
+ * A row with no text ends at its label; a label too wide for its text goes on a line of its own.
+ */
+function skillRows(entry: HelpEntry, agents: readonly Agent[], fill: Fill): string[] {
+  const claudeLabel = `${looped(entry) ? LOOP : ''}${fill(entry.label ?? '')}`;
+  const rows: [string, string][] = agentForms(claudeLabel, agents).map((label, index) => [label, index ? '' : fill(entry.summary)]);
+  if (ticks(entry, agents)) {
+    const tick = rows.findIndex(([label]) => !label.startsWith(LOOP));
+    const free = rows.findIndex(([, text], index) => index >= tick && !text);
+    if (free < 0) rows.splice(tick + 1, 0, ['', TICK_LINE]);
+    else rows[free] = [rows[free]?.[0] ?? '', TICK_LINE];
+  }
+  return rows.flatMap(([label, text]) => {
+    if (!text) return [`${HELP_INDENT}${label}`];
+    if (label.length + 2 > LABEL_COLUMN && HELP_INDENT.length + label.length + 2 + text.length > HELP_WIDTH + 2) {
+      return [`${HELP_INDENT}${label}`, overviewRow('', text)];
+    }
+    return [overviewRow(label, text)];
+  });
+}
+
 /** The one screen `omni help` prints: the loop, its principles, then every command by who runs it. */
 export function renderOverview(config: HelpConfig, { entries = ENTRIES }: { entries?: readonly HelpEntry[] } = {}): string {
   const fill = fillerFor(repositoryWords(config));
@@ -76,11 +139,10 @@ export function renderOverview(config: HelpConfig, { entries = ENTRIES }: { entr
   }
   lines.push('', ...wrapWords(PRINCIPLES.map(fill).join(' '), { indent: HELP_INDENT }), '');
 
-  lines.push('IN CLAUDE (type these)');
+  lines.push('Run these');
   // A skill for you always has its label: the help table's own test refuses one without.
-  for (const entry of entries.filter((e) => e.kind === 'skill' && e.who === 'you')) {
-    lines.push(overviewRow(fill(entry.label ?? ''), fill(entry.summary)));
-  }
+  const agents = agentsOf(config);
+  for (const entry of entries.filter((e) => e.kind === 'skill' && e.who === 'you')) lines.push(...skillRows(entry, agents, fill));
 
   lines.push('', 'IN THE TERMINAL');
   const yours = entries.filter((e) => e.kind === 'command' && e.who === 'you');
@@ -121,9 +183,17 @@ function docsLines(entry: HelpEntry, fill: Fill): string[] {
   ];
 }
 
+/** An entry's usage: a command's as written; a skill's in each listed agent's form, with its tick line. */
+function usageLines(entry: HelpEntry, agents: readonly Agent[], fill: Fill): string[] {
+  const usage = entry.usage.map(fill);
+  if (entry.kind !== 'skill') return usage;
+  const forms = [...new Set(agents.flatMap((agent) => usage.flatMap((line) => agentForms(line, [agent]))))];
+  return ticks(entry, agents) ? [...forms, `Outside Claude, each runs one tick: ${TICK_LINE}.`] : forms;
+}
+
 /** One entry: its usage with who runs it, then its sentences, then a skill's When and Example. */
-function entryLines(entry: HelpEntry, fill: Fill): string[] {
-  const [first = '', ...more] = entry.usage.map(fill);
+function entryLines(entry: HelpEntry, agents: readonly Agent[], fill: Fill): string[] {
+  const [first = '', ...more] = usageLines(entry, agents, fill);
   const who = WHO_RUNS[entry.who];
   const head = first.length + 2 + who.length <= HELP_WIDTH
     ? [`${first.padEnd(HELP_WIDTH - who.length)}${who}`, ...more]
@@ -134,15 +204,17 @@ function entryLines(entry: HelpEntry, fill: Fill): string[] {
 
 /**
  * What `omni help <name>` prints: a command (`board`) or a skill (`yolo`) by its name, the command's
- * entry first when the name is both; a slash command (`/omni:yolo`) is the skill's alone. `null` for
+ * entry first when the name is both; a slash command (`/omni:yolo`), or another agent's form of one
+ * (`$omni-yolo`, `/omni-yolo`), is the skill's alone. `null` for
  * a name the table does not know.
  */
 export function renderEntry(name: string, config: HelpConfig, { entries = ENTRIES }: { entries?: readonly HelpEntry[] } = {}): string | null {
-  const slash = /^\/omni:(.+)$/.exec(name);
+  const slash = /^(?:\/omni:|\/omni-|\$omni-)(.+)$/.exec(name);
   const found = slash
     ? entries.filter((e) => e.kind === 'skill' && e.name === slash[1])
     : ['command', 'skill'].flatMap((kind) => entries.filter((e) => e.kind === kind && e.name === name));
   if (found.length === 0) return null;
   const fill = fillerFor(repositoryWords(config));
-  return found.map((entry) => entryLines(entry, fill).join('\n')).join('\n\n');
+  const agents = agentsOf(config);
+  return found.map((entry) => entryLines(entry, agents, fill).join('\n')).join('\n\n');
 }

@@ -158,6 +158,24 @@ the command that runs the tests, the preflight a slice must pass before its pull
 and the full preflight run before a feature is ready. Type each one (`npm test`, `pnpm test`,
 `make test`…), or press Enter to leave one empty and fill it in later in `.omni-loop/config.yml`.
 
+Then it asks which coding agents your team uses: any of `claude`, `codex`, `cursor` and `gemini`,
+separated by commas. Press Enter for Claude Code alone. To answer without being asked, name each one
+with `--agent`:
+
+```bash terminal
+omni init --agent claude --agent codex
+```
+
+Your answer is the `agents` key of `.omni-loop/config.yml`, `[claude]` by default. For every agent
+but Claude, init writes the skills into the repository, one folder per skill under
+`.agents/skills/omni-<name>/`, which Codex, Cursor and Gemini CLI all read, and lists them in
+`.omni-loop/agents.json`. Each person types a skill in their own agent's form: `/omni:yolo 7` in
+Claude Code, `$omni-yolo 7` in Codex, `/omni-yolo 7` in Cursor, and in Gemini CLI, ask for
+`omni-yolo`. `omni help` shows each form for the agents the key lists. The status line and the HUD
+are Claude Code's alone. To add an agent later, edit the key, then run `omni update`: it writes the
+copies, keeps them at the kit's version, and removes them once the key lists Claude alone. Never
+edit a copy by hand: `omni check agents` turns red, and the next update writes it back.
+
 Then it does the rest, one line per step:
 
 - **The install branch.** It switches to a new branch, `chore/install-omni-loop`.
@@ -165,7 +183,10 @@ Then it does the rest, one line per step:
   settings for this repository, already pointed at the Omni page; `bin/omni.mjs`, the `omni`
   command itself; and the blank knowledge forms under `knowledge/`, which [Invade](/docs/invade)
   fills. It also adds the loop's status line to `.claude/settings.json`, and creates the loop's
-  labels on GitHub (`omni:prd`, `omni:feature`, `omni:sub` and the others).
+  labels on GitHub (`omni:prd`, `omni:feature`, `omni:sub` and the others). For the agents but
+  Claude, it writes the skills' copies under `.agents/skills/` and their list,
+  `.omni-loop/agents.json`; when `agents` does not list Claude, it writes no status line and
+  installs no plugin.
 - **The install pull request.** It commits only the files it wrote, pushes the branch, opens the
   pull request and prints its link.
 - **On this computer.** The plugin of step 2 says "already". When this laptop has not signed in yet,
