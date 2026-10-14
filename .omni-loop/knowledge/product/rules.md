@@ -1237,3 +1237,15 @@ Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
 Proposed: harvest 2026-10-09
+
+## BR-PRODUCT-109
+
+When omni design touched cannot read the base branch it compares against, it answers ui: unknown, names the base it could not read, and exits 0. A wrong number of arguments still exits 2.
+
+Serves: P-PRODUCT-7
+Source: .omni-loop/delivery/shipped/1369-design-craft/outbox/settled.md, entry s2-01-unreadable-base-reads-unknown, PRD #1369
+Enforced by: kit/bin/design.test.ts, kit/lib/design/touched.test.ts, kit/lib/design/base.test.ts
+Stated: 2026-10-11
+Decided: nobody — adopted when raised (medium), 2026-10-10
+Merged: @pierrederval, 2026-10-11, PR #1371
+Proposed: harvest 2026-10-11
