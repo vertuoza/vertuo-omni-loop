@@ -158,3 +158,235 @@ None: a test fixture, shipped in no build.
 ```
 
 <!-- /omni-outbox-settled: s2-02-fake-store-outside-territory -->
+
+<!-- omni-outbox-settled: s3-01-long-lines-cut-on-the-runner -->
+
+## s3-01-long-lines-cut-on-the-runner — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-long-lines-cut-on-the-runner
+prd: 1904
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-14
+wave: 2
+---
+
+## The question, in plain words
+
+A job's log can hold a line longer than the app stores, such as raw install output. The spec says the app refuses such lines but not what the runner does with them, and a refused report would stop the runner.
+
+## The decision, in plain words
+
+The runner cuts any line longer than the app stores to that length before it sends it, so a report is never refused for a long line. The full line stays in the log on the machine.
+
+## The intro, for fun
+
+Some log lines arrive wearing a very long scarf.
+
+## The punchline, for fun
+
+We trim the scarf at the door; the rest stays in the closet.
+
+## The options, in plain words
+
+A. A. The runner cuts a line too long for the app to the app's length before sending it (as built).
+B. B. The app accepts any line and cuts it itself, so an older runner never trips on a long line.
+
+## What I had to decide
+
+Whether a line too long for the app is cut by the runner (as built), or the app should accept and cut it itself.
+
+## What I did meanwhile
+
+Long lines show cut in the Terminal panel; the whole line is still in the job's log file on the runner.
+
+## What it costs to change later
+
+One constant on the runner: changing the length or moving the cut to the app is a small change, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The cut keeps the first 600 characters; whether a marker should show the line was cut was not decided (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-long-lines-cut-on-the-runner -->
+
+<!-- omni-outbox-settled: s4-01-unlisted-job-link-reads-nothing -->
+
+## s4-01-unlisted-job-link-reads-nothing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-unlisted-job-link-reads-nothing
+prd: 1904
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-14
+wave: 2
+---
+
+## The question, in plain words
+
+When someone opens a shared Terminal link for a job the Runners page no longer lists, the spec does not say whether the panel should still try to read that job's log.
+
+## The decision, in plain words
+
+The panel opens and says the job's log was cleared, without asking the server for any line, since a job that left the page keeps no lines.
+
+## The intro, for fun
+
+An old link to a job that has since left the building.
+
+## The punchline, for fun
+
+The panel waves politely at the empty room and says so.
+
+## The options, in plain words
+
+A. A. Say the log was cleared and read nothing (as built).
+B. B. Read the server anyway, and say cleared only when it answers no line.
+C. C. Not open the panel at all, and drop the parameter from the address.
+
+## What I had to decide
+
+Keep A, or choose B to read the server anyway and show whatever it answers.
+
+## What I did meanwhile
+
+A link to a job no longer listed opens the panel with the cleared line and no reads.
+
+## What it costs to change later
+
+One condition in the panel; changing it is a one-line edit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None: the spec says an unlisted job holds no lines, and the screen says Cleared when the job is no longer listed.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-unlisted-job-link-reads-nothing -->
+
+<!-- omni-outbox-settled: s4-02-terminal-replaces-history-entry -->
+
+## s4-02-terminal-replaces-history-entry — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-terminal-replaces-history-entry
+prd: 1904
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-14
+wave: 2
+---
+
+## The question, in plain words
+
+Opening and closing the Terminal panel changes the page's address, and the spec does not say whether the browser's Back button should close the panel.
+
+## The decision, in plain words
+
+Opening or closing the panel rewrites the current address in place, so Back leaves the Runners page as before and never just closes the panel.
+
+## The intro, for fun
+
+Every panel opened could have left a breadcrumb in the browser's history.
+
+## The punchline, for fun
+
+No breadcrumbs: Back still means back.
+
+## The options, in plain words
+
+A. A. Rewrite the address in place; Back leaves the page (as built).
+B. B. Add a history entry per opening, so Back closes the panel first.
+
+## What I had to decide
+
+Keep A, or choose B so that Back closes an open panel.
+
+## What I did meanwhile
+
+Back leaves the page; Escape or the close button closes the panel.
+
+## What it costs to change later
+
+One call in the panel; switching is a one-word edit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None: the spec only says opening sets the parameter and closing removes it.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-terminal-replaces-history-entry -->
