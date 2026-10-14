@@ -195,6 +195,20 @@ describe('buildSnapshot', () => {
     expect(seen.find((c) => c.includes('--base feat/generic-import'))).toMatch(/--json \S*\bstate\b/);
   });
 
+  // #1948: a PRD in landings (docs/guide/landings.md) has one omni:feature PR per landing, each saying
+  // `Closes #<n>`; every landing's sub-PRs secure their zones, not only the first landing's.
+  it('secures each slice from the sub-PR into its own landing\'s feature branch (#1948)', async () => {
+    const expand = { ...FP, number: 500, headRefName: 'feat/generic-import-1of2-expand' };
+    const code = { ...FP, number: 510, headRefName: 'feat/generic-import-2of2-code' };
+    const s2 = { ...SUB_501, number: 511, title: 'feat: b', headRefName: 'feat/generic-import--s2', author: { login: 'pm' } };
+    const p = nth((await snap([
+      [`pr list -R ${R} --search`, [code, expand]],
+      [`pr list -R ${R} --base feat/generic-import-1of2-expand`, [SUB_501]],
+      [`pr list -R ${R} --base feat/generic-import-2of2-code`, [s2]],
+    ])).planets, 0, 'the planet');
+    expect(p.zones.map((z) => [z.id, z.pr?.number ?? null, z.pr?.author ?? null])).toEqual([['s1', 501, 'alice'], ['s2', 511, 'pm']]);
+  });
+
   describe('timestamps (F4)', () => {
     it('toIso normalises, and reads empty, "null" and garbage as missing', () => {
       expect(toIso('2026-09-22')).toBe('2026-09-22T00:00:00Z');
@@ -553,6 +567,20 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
     expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')).toMatchObject({ id: `planet:${PLAN_REPO}#88:terraformed`, at: '2026-09-29T15:00:00Z' });
     // Each author: 10 for the zone and the 50 expedition bonus at the last region's merge.
     expect(score(events, { season: '2026-09', now }).individuals).toEqual({ alice: 60, bob: 60 });
+  });
+
+  it('secures a target\'s slice from the sub-PR into its second landing\'s feature branch, paying its author (#1948)', async () => {
+    const exec = fakeExec([
+      [`pr list -R ${PHP} --search "Part of" in:body --base main`, [feature(40, { headRefName: 'feat/points-1of2-expand' }), feature(42, { headRefName: 'feat/points-2of2-code' })]],
+      [`pr list -R ${PHP} --base feat/points-1of2-expand`, []],
+      [`pr list -R ${PHP} --base feat/points-2of2-code`, [sub(43, 's1', 'bob', '2026-09-29T11:00:00Z')]],
+    ]);
+    const rest = world(); // every other read as in the world above
+    const s = await buildSnapshot({ config: cfg, exec: (args) => exec(args).catch(() => rest(args)), now });
+    const p = nth(s.planets, 0, 'the planet');
+    expect(p.regions.map((r) => [r.repo, r.featurePr?.number])).toEqual([[PLAN_REPO, 89], [APPS, 284], [PHP, 40]]);
+    expect(p.zones.map((z) => [z.id, z.repo, z.pr?.number, z.pr?.author])).toEqual([['s2', APPS, 285, 'alice'], ['s1', PHP, 43, 'bob']]);
+    expect(projectEvents(s, { config: cfg, now }).filter((e) => e.type === 'ZONE_SECURED').map((e) => e.contributor)).toEqual(['bob', 'alice']);
   });
 
   it('terraforms only when every region\'s feature PR has merged', async () => {

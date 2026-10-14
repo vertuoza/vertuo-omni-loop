@@ -107,7 +107,7 @@ type SubRow = z.infer<typeof SubRowSchema> & { createdAt: string; mergedAt: stri
 type IssueRow = z.infer<typeof IssueRows>[number];
 type Folder = { stage: string; name: string; dir: string };
 type Repository = { defaultBranch: string; delivery: string; folders: Map<PrdNumber, Folder> };
-type Part = { slug: string; fp: PrRow };
+type Part = { slug: string; fp: PrRow; bases: string[] }; // bases: the head refs of every landing's feature PR (#1948)
 type RegionsOf = (home: string, prd: PrdNumber) => Promise<Part[]>;
 type SpecOf = (prd: PrdNumber) => Promise<{ blockedBy: PrdNumber[] }>;
 
@@ -215,8 +215,8 @@ const firstLine = (err: unknown): string => (err instanceof Error ? err.message 
 // whose body starts `Part of <owner>/<home>#<n>`. Each is one more region of that PRD. A repository is
 // read once, and only when a planet asks (a workspace with no PRD reads nothing more); one that cannot
 // be read has none. A `Part of` naming a home that is not tracked is never asked for: it is ignored.
-// Returns `(home, prd) → [{ slug, fp }]`: every other tracked repository's feature PR for that PRD,
-// the `omni:feature` one first, else the lowest number.
+// Returns `(home, prd) → [{ slug, fp, bases }]`: every other tracked repository's feature PR for that
+// PRD, the `omni:feature` one first, else the lowest number, and the branches of all its landings.
 const PART_OF = /^\s*Part of ([\w.-]+\/[\w.-]+)#(\d+)(?!\d)/i;
 function partOfRegions(exec: Exec, tracked: readonly string[]): RegionsOf {
   const indexes = new Map<string, Promise<Map<string, PrRow[]>>>(); // slug → Promise<Map<'<home>#<n>', pr[]>>
@@ -243,17 +243,20 @@ function partOfRegions(exec: Exec, tracked: readonly string[]): RegionsOf {
   return async (home, prd) => {
     const regions: Part[] = [];
     for (const slug of tracked.filter((t) => t !== home)) {
-      const fp = pickFeaturePr((await indexOf(slug)).get(`${home.toLowerCase()}#${prd}`) ?? []);
-      if (fp) regions.push({ slug, fp });
+      const fps = featurePrs((await indexOf(slug)).get(`${home.toLowerCase()}#${prd}`) ?? []);
+      const fp = fps[0];
+      if (fp) regions.push({ slug, fp, bases: fps.map((f) => f.headRefName) });
     }
     return regions;
   };
 }
 
-// Among a PRD's feature PR candidates, the `omni:feature` one first, else the lowest number.
-function pickFeaturePr(prs: PrRow[]): PrRow | undefined {
+// A PRD's feature PRs among its candidates: the `omni:feature` ones when any, else all, lowest number
+// first. The first is the region's feature PR; a PRD in landings (docs/guide/landings.md) has one per
+// landing, and each landing's sub-PRs go into its own branch (#1948).
+function featurePrs(prs: PrRow[]): PrRow[] {
   const labelled = prs.filter((pr) => (pr.labels ?? []).some((l) => l.name === 'omni:feature'));
-  return (labelled.length ? labelled : prs).sort((a, b) => a.number - b.number)[0];
+  return (labelled.length ? labelled : prs).sort((a, b) => a.number - b.number);
 }
 
 // One tracked repository's default branch, delivery folder and PRD folders on its default branch, all
@@ -286,17 +289,20 @@ async function readPlanet(
   const surveyedAt = firstIso(await soft(exec(['api', `repos/${home}/commits?path=${folder.dir}/spec.md&per_page=100`, '--jq', '.[-1].commit.committer.date']))) ?? createdAt;
   planet.regions.push({ repo: home, blockedBy: (await specOf(prd)).blockedBy, surveyedAt, featurePr: null });
 
-  const fp = await homeFeaturePr(exec, { home, repo, prd });
+  const fps = await homeFeaturePrs(exec, { home, repo, prd });
+  const fp = fps[0];
   // Multi-repository (PRD 728): each `Part of <home>#<n>` feature PR in another tracked repository is
   // one more region, surveyed when that PR opened. The PRD's blockers stay on its home region.
   const parts = await regionsOf(home, prd);
   const features = new Map<string, PrRow>(fp ? [[home, fp]] : []); // region → its feature PR
-  for (const { slug, fp: part } of parts) {
+  const bases = new Map<string, string[]>(fp ? [[home, fps.map((f) => f.headRefName)]] : []); // region → its landings' branches
+  for (const { slug, fp: part, bases: partBases } of parts) {
     features.set(slug, part);
+    bases.set(slug, partBases);
     planet.regions.push({ repo: slug, blockedBy: [], surveyedAt: toIso(part.createdAt), featurePr: null });
   }
   // The regions the plan gives slices (F3).
-  const planned = features.size ? await readWork(exec, { planet, home, repo, folder, tracked, fp, parts, features }) : new Set<string>();
+  const planned = features.size ? await readWork(exec, { planet, home, repo, folder, tracked, fp, parts, features, bases }) : new Set<string>();
   if (fp) planet.bugs.push(...await readBugs(exec, home, prd));
   planet.featurePr = aggregateFeaturePr(planet.regions, planned);
   return planet;
@@ -313,19 +319,19 @@ function chartPlanet(home: string, issue: IssueRow, teams: Record<string, string
   };
 }
 
-// The home's feature PR: a PR into its default branch whose body says `Closes #<n>`.
-async function homeFeaturePr(exec: Exec, { home, repo, prd }: { home: string; repo: Repository; prd: PrdNumber }): Promise<PrRow | undefined> {
+// The home's feature PRs: the PRs into its default branch whose body says `Closes #<n>`.
+async function homeFeaturePrs(exec: Exec, { home, repo, prd }: { home: string; repo: Repository; prd: PrdNumber }): Promise<PrRow[]> {
   const closes = new RegExp(`\\bCloses #${prd}(?!\\d)`, 'i');
   const prs = PrRows.parse(json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', FEATURE_FIELDS])))
     .filter((pr) => toIso(pr.createdAt) && closes.test(pr.body ?? '')); // F4: no creation time, no feature PR
-  return pickFeaturePr(prs);
+  return featurePrs(prs);
 }
 
 // A planet with a feature PR in some region: each region's feature PR, its zones and its outbox.
 // Returns the regions the plan gives slices.
 async function readWork(
   exec: Exec,
-  { planet, home, repo, folder, tracked, fp, parts, features }: { planet: SnapshotPlanet; home: string; repo: Repository; folder: Folder; tracked: readonly string[]; fp: PrRow | undefined; parts: Part[]; features: Map<string, PrRow> },
+  { planet, home, repo, folder, tracked, fp, parts, features, bases }: { planet: SnapshotPlanet; home: string; repo: Repository; folder: Folder; tracked: readonly string[]; fp: PrRow | undefined; parts: Part[]; features: Map<string, PrRow>; bases: Map<string, string[]> },
 ): Promise<Set<string>> {
   for (const r of planet.regions) {
     const feature = features.get(r.repo);
@@ -340,7 +346,7 @@ async function readWork(
   const subs: SubRow[] = [];
   for (const [slug, own] of bySlug) {
     if (own.length) planned.add(slug);
-    subs.push(...await readZones(exec, { planet, slug, fp: features.get(slug) ?? null, slices: own }));
+    subs.push(...await readZones(exec, { planet, slug, bases: bases.get(slug) ?? [], slices: own }));
   }
   await readOutbox(exec, { planet, home, repo, folder, ref, subs });
   return planned;
@@ -421,14 +427,16 @@ async function readPlan(exec: Exec, { home, repo, folder, ref }: { home: string;
   return '';
 }
 
-// One region's zones: its slices, each matched to a sub-PR (`omni:sub`, into the region's feature
-// branch) by the head ref's `--<slice>` suffix. A region with no feature PR yet has sealed zones only.
-// Returns the region's sub-PRs.
-async function readZones(exec: Exec, { planet, slug, fp, slices }: { planet: SnapshotPlanet; slug: string; fp: PrRow | null; slices: PlanSlice[] }): Promise<SubRow[]> {
+// One region's zones: its slices, each matched to a sub-PR (`omni:sub`, into one of the region's
+// feature branches, one per landing) by the head ref's `--<slice>` suffix. A region with no feature PR
+// yet has sealed zones only. Returns the region's sub-PRs.
+async function readZones(exec: Exec, { planet, slug, bases, slices }: { planet: SnapshotPlanet; slug: string; bases: string[]; slices: PlanSlice[] }): Promise<SubRow[]> {
   if (!slices.length) return [];
   // --json includes `body` (beyond the reads list's bare field set) because the revert rule
   // below — "a sub-PR titled Revert whose body names #<n>" — cannot be read without it.
-  const subs: SubRow[] = !fp ? [] : SubRows.parse(json(await exec(['pr', 'list', '-R', slug, '--base', fp.headRefName, '--state', 'all', '--label', 'omni:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state'])))
+  const listed: z.infer<typeof SubRows> = [];
+  for (const base of bases) listed.push(...SubRows.parse(json(await exec(['pr', 'list', '-R', slug, '--base', base, '--state', 'all', '--label', 'omni:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']))));
+  const subs: SubRow[] = listed
     .map((x) => ({ ...x, createdAt: toIso(x.createdAt), mergedAt: toIso(x.mergedAt) }))
     .filter((x): x is SubRow => Boolean(x.createdAt)); // F4: a sub-PR without a creation time is unreadable, not a claim
   const reverts = new Map(subs.flatMap((s) => {
