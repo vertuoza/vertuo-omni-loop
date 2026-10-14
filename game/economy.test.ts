@@ -226,6 +226,20 @@ describe('score', () => {
     });
   });
 
+  it('counts one person once, whatever case their login is spelt in', () => {
+    // The ledger keeps a sub-PR author as GitHub spells it and a merger in lower case (BR-PRODUCT-79).
+    const s = score([
+      charted,
+      E('zone:r:2332:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'AuBrille', team: 'beaver' }),
+      E('w1:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', { data: { kind: 'transmission', rank: 'medium' } }),
+      E('w1:closed', '2026-09-21T11:00:00Z', 'WOUND_CLOSED', { contributor: 'aubrille', team: 'beaver', data: { kind: 'transmission', rank: 'medium', verdict: 'agreed' } }),
+      E('planet:2332:terraformed', '2026-09-22T12:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 1 } }),
+      E('merge:r#500:2332:merged', '2026-09-22T12:00:00Z', 'FEATURE_MERGED', { contributor: 'aubrille', team: 'beaver' }),
+    ], { season: '2026-09', now: NOW });
+    // zone 10 + wound 5 + expedition 50 + merge 30; no closer bonus, the closer is the crew
+    expect(s.individuals).toEqual({ aubrille: 95 });
+  });
+
   it('ignores credits outside the season month', () => {
     const s = score([
       charted,
