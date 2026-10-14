@@ -183,6 +183,27 @@ describe('snapshot — only the listed paths', () => {
   });
 });
 
+describe('snapshot — listed, not fetched (issue 1968)', () => {
+  const ownOnly = (path: string) => !path.startsWith('.omni-loop/delivery/outbox/');
+
+  it('writes a file fetchIf refuses empty, under its own name, and never requests its blob', async () => {
+    const { octokit, requests } = stubRepo(FILES);
+    const folder = await snapshot(octokit, { ...REPO, ref: 'abc123', paths: ['.omni-loop/delivery'], dest: dest(), fetchIf: ownOnly });
+    expect(readFileSync(join(folder, '.omni-loop/delivery/inbox/0042-widget/spec.md'), 'utf8')).toBe('# spec\n');
+    expect(readFileSync(join(folder, '.omni-loop/delivery/outbox/0042-widget/s1-01-colour.md'), 'utf8')).toBe('');
+    expect(requests.filter((r) => r.route.endsWith('/git/blobs/{file_sha}'))).toHaveLength(1);
+  });
+
+  it('counts only the files it fetches against the bound', async () => {
+    const many: Record<string, string> = { '.omni-loop/delivery/inbox/0042-widget/spec.md': '# spec\n' };
+    for (let i = 0; i <= MAX_FILES; i += 1) many[`.omni-loop/delivery/outbox/f${i}.md`] = 'x';
+    const { octokit, requests } = stubRepo(many);
+    const folder = await snapshot(octokit, { ...REPO, ref: 'abc123', paths: ['.omni-loop/delivery'], dest: dest(), fetchIf: ownOnly });
+    expect(existsSync(join(folder, `.omni-loop/delivery/outbox/f${MAX_FILES}.md`))).toBe(true);
+    expect(requests.filter((r) => r.route.endsWith('/git/blobs/{file_sha}'))).toHaveLength(1);
+  });
+});
+
 describe('snapshot — the bound', () => {
   it(`fails naming the file bound past ${MAX_FILES} files, before fetching any blob`, async () => {
     const many: Record<string, string> = {};

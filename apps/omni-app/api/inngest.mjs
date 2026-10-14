@@ -5889,7 +5889,14 @@ var SnapshotBoundError = class extends Error {
     this.name = "SnapshotBoundError";
   }
 };
-async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
+async function snapshot(octokit, {
+  owner,
+  repo,
+  ref,
+  paths,
+  dest,
+  fetchIf = () => true
+}) {
   const segmentsOf = paths.map(repositoryPath);
   const trees = /* @__PURE__ */ new Map();
   const tree = async (treeSha, recursive = false) => {
@@ -5909,7 +5916,8 @@ async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
   for (const segments of segmentsOf) {
     for (const file of await filesUnder(tree, ref, segments)) files.set(file.path, file);
   }
-  const list2 = [...files.values()];
+  const listed = [...files.values()];
+  const list2 = listed.filter((file) => fetchIf(file.path));
   if (list2.length > MAX_FILES) {
     throw new SnapshotBoundError(
       `The snapshot holds ${list2.length.toLocaleString("en-US")} files, over the bound of ${MAX_FILES.toLocaleString("en-US")} files.`
@@ -5922,6 +5930,12 @@ async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
     );
   }
   const folder = dest ?? mkdtempSync(join16(tmpdir(), "omni-snapshot-"));
+  for (const file of listed) {
+    if (fetchIf(file.path)) continue;
+    const target2 = join16(folder, ...repositoryPath(file.path));
+    mkdirSync2(dirname4(target2), { recursive: true });
+    writeFileSync3(target2, "");
+  }
   const queue = [...list2];
   const fetchNext = async () => {
     for (let file = queue.shift(); file; file = queue.shift()) {
@@ -6967,6 +6981,28 @@ import { tmpdir as tmpdir6 } from "node:os";
 import { join as join27 } from "node:path";
 import { NonRetriableError, RetryAfterError as RetryAfterError2 } from "inngest";
 
+// apps/omni-app/src/outbox-check/delivery-scope.ts
+function deliveryFetched(config, pr) {
+  const kind = pullKind(pr, config);
+  if ("skip" in kind || kind.kind !== "feature" && kind.kind !== "fix") return () => true;
+  const own = kind.kind === "feature" ? featureFolder(kind.topic) : fixFolder(kind.topic);
+  const delivery2 = `${config.paths.delivery.replace(/\/+$/, "")}/`;
+  return (path) => {
+    if (!path.startsWith(delivery2)) return true;
+    const [, folder, ...rest] = path.slice(delivery2.length).split("/");
+    return folder === void 0 || rest.length === 0 || own(folder);
+  };
+}
+function featureFolder(topic) {
+  return (folder) => parseFolderName(folder)?.topic === topic;
+}
+function fixFolder(topic) {
+  const digits = /^(\d+)-/.exec(topic)?.[1];
+  if (digits === void 0 || Number(digits) === 0) return () => false;
+  const prefix = issuePrefix(parsePrd(digits));
+  return (folder) => folder.startsWith(prefix);
+}
+
 // apps/omni-app/src/outbox-check/law-locked.ts
 import { existsSync as existsSync20, readFileSync as readFileSync17 } from "node:fs";
 import { join as join26 } from "node:path";
@@ -7236,7 +7272,8 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
     if (config) {
       const knowledge = config.laws.source === "knowledge" ? [config.paths.knowledge] : [];
       if (knowledge.length > 0) await snapshot(octokit, { owner, repo, ref: pr.baseSha, paths: knowledge, dest: base });
-      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery, ...knowledge], dest: head });
+      const fetchIf = deliveryFetched(config, pr);
+      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery, ...knowledge], dest: head, fetchIf });
       comments = await listComments(octokit, { owner, repo, prNumber });
       changes = await changedFiles(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     }
