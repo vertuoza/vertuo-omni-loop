@@ -37421,7 +37421,11 @@ import { existsSync as existsSync27, readFileSync as readFileSync30, statSync as
 import { join as join37 } from "node:path";
 var COPY_FLOW_DIR = "flow";
 var COPY_FLOW_FILE = "config.yml";
-var NO_FLOW = Object.freeze({ landings: { alone: [] }, pr: { openWith: null } });
+var NO_FLOW = Object.freeze({
+  landings: { alone: [] },
+  pr: { openWith: null },
+  contracts: { declare: false, kinds: [...DEFAULT_CONTRACT_KINDS] }
+});
 var isRecord3 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 function parseFlowConfig(source2, file2) {
   let raw;
@@ -37435,11 +37439,12 @@ function parseFlowConfig(source2, file2) {
   if (all.flow !== void 0) picked.flow = all.flow;
   if (all.landings !== void 0) picked.landings = all.landings;
   if (isRecord3(all.pr) && all.pr.openWith !== void 0) picked.pr = { openWith: all.pr.openWith };
-  const { flow: flow2, landings, pr } = parseConfig((0, import_yaml4.stringify)(picked), file2);
-  return flow2 === void 0 ? { landings, pr } : { flow: flow2, landings, pr };
+  if (all.contracts !== void 0) picked.contracts = all.contracts;
+  const { flow: flow2, landings, pr, contracts } = parseConfig((0, import_yaml4.stringify)(picked), file2);
+  return flow2 === void 0 ? { landings, pr, contracts } : { flow: flow2, landings, pr, contracts };
 }
 function hasFlow(config3) {
-  return config3.flow !== void 0 || config3.landings.alone.length > 0 || config3.pr.openWith !== null;
+  return config3.flow !== void 0 || config3.landings.alone.length > 0 || config3.pr.openWith !== null || config3.contracts.declare;
 }
 function flowKey(config3) {
   const sorted = (value) => {
@@ -37447,7 +37452,8 @@ function flowKey(config3) {
     if (!isRecord3(value)) return value;
     return Object.fromEntries(Object.keys(value).sort().filter((key2) => value[key2] !== void 0).map((key2) => [key2, sorted(value[key2])]));
   };
-  return JSON.stringify(sorted({ flow: config3.flow ?? null, landings: config3.landings, pr: config3.pr }));
+  const contracts = config3.contracts.declare ? config3.contracts : NO_FLOW.contracts;
+  return JSON.stringify(sorted({ flow: config3.flow ?? null, landings: config3.landings, pr: config3.pr, contracts }));
 }
 function hookPaths(config3) {
   const { defaultArea, areas } = resolveFlow(config3);
@@ -37476,8 +37482,7 @@ function readCopyFlow(repo, { root, config: config3 }) {
 var shortName = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetFlows({ root, config: config3 }) {
   const flows = /* @__PURE__ */ new Map();
-  for (const { repo, knowledge: knowledge2 } of config3.plan?.targets ?? []) {
-    if (knowledge2 !== "imported") continue;
+  for (const { repo } of config3.plan?.targets ?? []) {
     try {
       const copy = readCopyFlow(repo, { root, config: config3 });
       if (copy) flows.set(shortName(repo), { ok: true, config: copy.config });
@@ -37654,6 +37659,11 @@ function targetReachViolations(slices, targets2) {
   }
   return violations;
 }
+function contractAsk(slice, { config: config3, multi, targets: targets2 }) {
+  if (config3.plan === void 0) return config3.contracts.declare ? config3.contracts : null;
+  const found2 = multi && slice.repo !== null ? targets2.get(slice.repo) : void 0;
+  return found2?.ok === true && found2.config.contracts.declare ? found2.config.contracts : null;
+}
 function contractViolations(slice, asks) {
   const { contract } = slice;
   const words4 = contract === null || contract === "none" ? [] : contract.kinds;
@@ -37709,7 +37719,7 @@ function gradePlan(markdown, { config: config3, targets: targets2 = /* @__PURE__
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config: config3, targets: targets2 }) : planRuleViolations(slices, resolveFlow(config3)),
     ...blockedByViolations(slices),
-    ...slices.flatMap((slice) => contractViolations(slice, planSection2 === null && config3.contracts.declare ? config3.contracts : null)),
+    ...slices.flatMap((slice) => contractViolations(slice, contractAsk(slice, { config: config3, multi, targets: targets2 }))),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )

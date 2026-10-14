@@ -9394,7 +9394,11 @@ import { join as join44 } from "node:path";
 import { parse as parse3, stringify } from "yaml";
 var COPY_FLOW_DIR = "flow";
 var COPY_FLOW_FILE = "config.yml";
-var NO_FLOW = Object.freeze({ landings: { alone: [] }, pr: { openWith: null } });
+var NO_FLOW = Object.freeze({
+  landings: { alone: [] },
+  pr: { openWith: null },
+  contracts: { declare: false, kinds: [...DEFAULT_CONTRACT_KINDS] }
+});
 var isRecord3 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 function parseFlowConfig(source, file) {
   let raw;
@@ -9408,8 +9412,9 @@ function parseFlowConfig(source, file) {
   if (all.flow !== void 0) picked.flow = all.flow;
   if (all.landings !== void 0) picked.landings = all.landings;
   if (isRecord3(all.pr) && all.pr.openWith !== void 0) picked.pr = { openWith: all.pr.openWith };
-  const { flow, landings, pr } = parseConfig(stringify(picked), file);
-  return flow === void 0 ? { landings, pr } : { flow, landings, pr };
+  if (all.contracts !== void 0) picked.contracts = all.contracts;
+  const { flow, landings, pr, contracts } = parseConfig(stringify(picked), file);
+  return flow === void 0 ? { landings, pr, contracts } : { flow, landings, pr, contracts };
 }
 function copyFolder(repo, { ctx }) {
   return join44(ctx.config.paths.knowledge, "repos", at(repo.split("/"), 1, `the name of ${repo}`));
@@ -9431,8 +9436,7 @@ function readCopyFlow(repo, { root, config }) {
 var shortName2 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetFlows({ root, config }) {
   const flows = /* @__PURE__ */ new Map();
-  for (const { repo, knowledge } of config.plan?.targets ?? []) {
-    if (knowledge !== "imported") continue;
+  for (const { repo } of config.plan?.targets ?? []) {
     try {
       const copy = readCopyFlow(repo, { root, config });
       if (copy) flows.set(shortName2(repo), { ok: true, config: copy.config });
@@ -9796,6 +9800,11 @@ function targetReachViolations(slices, targets) {
   }
   return violations;
 }
+function contractAsk(slice, { config, multi, targets }) {
+  if (config.plan === void 0) return config.contracts.declare ? config.contracts : null;
+  const found = multi && slice.repo !== null ? targets.get(slice.repo) : void 0;
+  return found?.ok === true && found.config.contracts.declare ? found.config.contracts : null;
+}
 function contractViolations(slice, asks) {
   const { contract } = slice;
   const words = contract === null || contract === "none" ? [] : contract.kinds;
@@ -9851,7 +9860,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
-    ...slices.flatMap((slice) => contractViolations(slice, planSection2 === null && config.contracts.declare ? config.contracts : null)),
+    ...slices.flatMap((slice) => contractViolations(slice, contractAsk(slice, { config, multi, targets }))),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf2.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
