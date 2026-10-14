@@ -715,6 +715,12 @@ var generatedEntry = z7.object({
   from: z7.array(text2).min(1, "at least one source prefix"),
   build: z7.string().trim().min(1)
 }).strict();
+var AGENTS = Object.freeze(["claude", "codex", "cursor", "gemini"]);
+var agentList = z7.array(z7.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for \u2014 one of ${AGENTS.join(", ")}` })).min(1, "at least one agent").superRefine((agents, issues) => {
+  agents.forEach((agent, index) => {
+    if (agents.indexOf(agent) !== index) issues.addIssue({ code: "custom", path: [index], message: `${agent} is listed twice` });
+  });
+}).default(["claude"]);
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z7.object({
   kit: z7.literal(CONFIG_VERSION),
@@ -747,6 +753,9 @@ var ConfigSchema = z7.object({
     law: branchTemplate.default("test/law-{id}")
   }),
   worktrees: text2.default(".claude/worktrees"),
+  // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
+  // without the key installs for Claude Code alone, as before.
+  agents: agentList,
   paths: section({
     delivery: text2.default(".omni-loop/delivery"),
     knowledge: text2.default(".omni-loop/knowledge"),
