@@ -525,3 +525,50 @@ describe('tier: a slice may carry the model tier its plan advises (PRD 1934)', (
     expect(unknownTiers('# Plan\n\nNo table here.\n')).toEqual([]);
   });
 });
+
+/** A plan whose slice table carries a `contract` column, between `territory` and `blocked by`. */
+const CONTRACT_PLAN = `# Plan: with contracts
+
+| id | slice | territory | contract | blocked by | wave |
+| --- | --- | --- | --- | --- | --- |
+| s1 | one | \`a/\` | api | — | 1 |
+| s2 | two | \`b/\` | API , db | — | 1 |
+| s3 | three | \`c/\` | event | — | 1 |
+| s4 | four | \`d/\` | none | — | 1 |
+| s5 | five | \`e/\` | none, db | — | 1 |
+| s6 | six | \`f/\` | — | — | 1 |
+| s7 | seven | \`g/\` |  | — | 1 |
+| s8 | eight | \`h/\` | \`NONE\` | — | 1 |
+| s9 | nine | \`i/\` | \`db\`, | — | 1 |
+| s10 | ten | \`j/\` | , | — | 1 |
+| s11 | eleven | \`k/\` | none, none | — | 1 |
+`;
+
+describe('contracts: a slice declares what it changes for its callers (PRD 1870)', () => {
+  it('reads each contract cell: its words lowercased in order, a lone none, and nothing as null', () => {
+    expect(parsePlanSlices(CONTRACT_PLAN).map((slice) => slice.contract)).toEqual([
+      { kinds: ['api'] },
+      { kinds: ['api', 'db'] },
+      { kinds: ['event'] },
+      'none',
+      { kinds: ['none', 'db'] },
+      null,
+      null,
+      'none',
+      { kinds: ['db'] },
+      null,
+      { kinds: ['none', 'none'] },
+    ]);
+  });
+
+  it('reads null on every slice of a table without a contract column', () => {
+    expect(parsePlanSlices(PLAN).map((slice) => slice.contract)).toEqual([null, null, null]);
+  });
+
+  it('finds the contract column by name, wherever it sits among the slice table\'s names', () => {
+    const second = '| id | contract | slice | territory | wave |\n| --- | --- | --- | --- | --- |\n| s1 | db | one | `a/` | 1 |\n';
+    const last = '| id | slice | territory | wave | Contract |\n| --- | --- | --- | --- | --- |\n| s1 | one | `a/` | 1 | none |\n';
+    expect(parsePlanSlices(second)[0]?.contract).toEqual({ kinds: ['db'] });
+    expect(parsePlanSlices(last)[0]?.contract).toBe('none');
+  });
+});

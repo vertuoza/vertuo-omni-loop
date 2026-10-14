@@ -551,6 +551,14 @@ describe('the e2e entry', () => {
   });
 });
 
+describe('the e2e status help (PRD 1737)', () => {
+  it('says status adds level and flow and refuses a critical test with no known flow', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
+    const detail = entry && 'detail' in entry ? entry.detail : '';
+    for (const word of ['level', 'flow', 'critical', 'critical-flows.md']) expect(detail).toContain(word);
+  });
+});
+
 describe('the e2e field', () => {
   const detail = (kind: string, name: string) => {
     const entry = ENTRIES.find((e) => e.kind === kind && e.name === name);

@@ -39,7 +39,7 @@ import { KartOverlay } from './scenes/kart.tsx';
 import { DuetLayer } from './scenes/duet.tsx';
 import { duetDrawOf, useDuet } from './scenes/duet.live';
 import { duetRetry, type ArcadeDuet } from './scenes/duet.ts';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud, type KartStep } from './scenes/kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, circuitPress, FIRST_CHOICE, trackOf, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud, type KartStep } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -99,6 +99,18 @@ const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', '
 const FINAL_LAP_JINGLE_MS = 800;
 
 /** The loaded game OMNI KART draws with, while its scene shows. */
+/** The board a time goes to (PRD 1923): the one of the circuit the loaded game races, COMET RING's before there is one. */
+const kartBoardOf = (kart: ArcadeKart | null): string => kart?.game?.board ?? KART;
+
+/** The player's best on each circuit, in tenths, by circuit id: from the board each circuit's times go to. */
+function kartBests(kart: ArcadeKart, scores: Record<string, ScoresRead>): Record<string, number | null> {
+  return Object.fromEntries(kart.circuits.map((c) => {
+    const board = scores[c.board];
+    const mine = board && board !== 'unreadable' ? board.mine : null;
+    return [c.id, mine !== null && Number.isInteger(mine) && mine > 0 ? mine : null] as const;
+  }));
+}
+
 const kartDrawOf = (scene: SceneName, kart: ArcadeKart | null): KartGame | null => (scene === 'kart' ? kart?.game ?? null : null);
 
 /** The race's cues since the last call, played: each through `soundOf` and `sfx`, which the mute (M) silences. */
@@ -370,7 +382,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // The options module, once imported: the panel's moves, the keys' lookup and the store.
   const optionsApi = useRef<typeof import('./kart/options') | null>(null);
   // The laps and difficulty the loaded game was made with: a SINGLE pick after OPTIONS changed them makes the game again.
-  const kartRules = useRef<{ laps: number; difficulty: string; look: string } | null>(null);
+  const kartRules = useRef<{ laps: number; difficulty: string; look: string; track: string } | null>(null);
+  // The game's code, once imported: the CIRCUIT step makes the game again for each circuit it moves to.
+  const kartMod = useRef<typeof import('./kart/index') | null>(null);
   const kartTry = kart?.status === 'loading' ? kart.retry : -1;
   useEffect(() => {
     if (kartTry < 0) return undefined;
@@ -378,12 +392,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // The options are read in the browser with the game: dynamic, as the game is (guard.test.ts).
     // The options come first: a SINGLE race is made with the player's laps and difficulty (PRD 1762).
     void import('./kart/options').then((api) => { optionsApi.current = api; return kartRef.current?.options ?? api.loadOptions(); }).catch((err: unknown) => { console.error(err); return null; }).then(async (options) => {
-      kartRules.current = options && { laps: options.laps, difficulty: options.difficulty, look: lookKey(options.look) };
-      const game = await loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null), options);
-      return [game, options] as const;
-    }).then(([game, options]) => {
+      kartRules.current = options && { laps: options.laps, difficulty: options.difficulty, look: lookKey(options.look), track: options.track };
+      const game = await loadKart(() => import('./kart/index').then((mod) => { kartMod.current = mod; return mod; }), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null), options);
+      // The circuits the CIRCUIT step shows, from the game's own folder; none if they cannot be read.
+      const circuits = await import('./kart/art.circuit').then((m) => m.circuitCards()).catch((err: unknown) => { console.error(err); return []; });
+      return [game, options, circuits] as const;
+    }).then(([game, options, circuits]) => {
       if (gone) return;
-      setKart((k) => loadedInto(k, game, options));
+      setKart((k) => loadedInto(k, game, options, circuits));
     });
     return () => { gone = true; };
   }, [kartTry]);
@@ -408,14 +424,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const out = () => { setKart((k) => (k && k.choice.step === 'grid' ? { ...k, lobby: { state: 'out', rows: [], line: GRID_OUT_LINE } } : k)); };
     // Nobody to say who they are, or no link: the grid is out of reach, as a refused channel is.
     if (!m || !link) { out(); return; }
-    const board = scoresRef.current[KART];
+    const kept = kartRef.current;
+    const board = scoresRef.current[kept?.circuits.find((c) => c.id === kept.options?.track)?.board ?? KART];
     const mine = board && board !== 'unreadable' ? board.mine : null;
     const best = mine !== null && Number.isInteger(mine) && mine > 0 ? mine : null;
     import('./kart/index').then(({ openGrid }) => {
       if (turn !== lobbyTurn.current) { link.leave(); return; }
       // The player's look and laps travel on their entry (PRD 1762): the grid reads the first arrival's laps and shows each kart.
       const chosen = kartRef.current?.options ?? null;
-      const who = { id: m.id, name: m.display_name, hero: m.hero, fleet: m.team, best, arrival: Date.now(), ...(chosen ? { look: chosen.look, laps: chosen.laps } : {}) };
+      const who = { id: m.id, name: m.display_name, hero: m.hero, fleet: m.team, best, arrival: Date.now(), ...(chosen ? { look: chosen.look, laps: chosen.laps, track: chosen.track } : {}) };
       whoRef.current = who;
       lobbyRef.current = openGrid(link, who, (lobby) => { setKart((k) => (k && k.choice.step === 'grid' ? { ...k, lobby } : k)); }, (start) => { startRef.current(start); });
     }).catch((err: unknown) => {
@@ -515,7 +532,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     held.clear();
     runRef.current += 1;
     showSend(null);
-    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null, choice: FIRST_CHOICE, options: null, multi: !!account.kartGrid?.(), lobby: null });
+    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null, choice: FIRST_CHOICE, options: null, circuits: [], multi: !!account.kartGrid?.(), lobby: null });
     go({ scene: 'kart' }, 'start');
   }, [go, held, showSend, account]);
 
@@ -970,7 +987,29 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (!k) { if (action === 'b') go({ scene: 'games' }, 'back'); return; }
         // At the finish, A retries a score that was not saved, once; otherwise A races again and B goes back.
         const s = sendRef.current;
-        if (k.hud?.phase === 'finish' && s && overPress(s, action) === 'retry' && s.state === 'failed') { sendScore(KART, s.score, s.tries + 1); return; }
+        if (k.hud?.phase === 'finish' && s && overPress(s, action) === 'retry' && s.state === 'failed') { sendScore(kartBoardOf(k), s.score, s.tries + 1); return; }
+        if (k.status === 'ready' && k.game && k.choice.step === 'circuit') {
+          // The CIRCUIT step (PRD 1923): ◀ ▶ move between the circuits, kept at once; the game is made again on the one shown. A takes it, B goes back.
+          const options = k.options;
+          const done = circuitPress(k.choice, action, trackOf(options), k.circuits.map((c) => c.id));
+          if (options && done.track !== options.track) {
+            const next = { ...options, track: done.track };
+            optionsApi.current?.saveOptions(next);
+            if (kartRules.current) kartRules.current = { ...kartRules.current, track: done.track };
+            setKart({ ...k, options: next });
+            void loadKart(() => Promise.resolve(kartMod.current ?? import('./kart/index')), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null), next).then((game) => {
+              if (game) setKart((cur) => (cur && cur.options?.track === next.track && cur.choice.step === 'circuit' ? { ...cur, game, hud: game.hud() } : cur));
+            });
+            return;
+          }
+          if (done.choice.step === 'grid') { setKart({ ...k, choice: done.choice, lobby: null }); openLobby(); return; }
+          if (done.choice.step === 'single' && options && kartRules.current && (kartRules.current.laps !== options.laps || kartRules.current.difficulty !== options.difficulty || kartRules.current.look !== lookKey(options.look))) {
+            setKart({ ...k, choice: done.choice, status: 'loading', retry: k.retry + 1, game: null, hud: null });
+            return;
+          }
+          if (done.choice !== k.choice) setKart({ ...k, choice: done.choice });
+          return;
+        }
         if (k.choice.step === 'grid') {
           // The grid (PRD 1572): B back to the choice, A once more after the grid was out of reach.
           const pressed = gridPress(k.lobby, action);
@@ -995,11 +1034,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (k.status === 'ready' && k.game && k.choice.step === 'choose' && k.hud?.phase === 'ready') {
           // The choice before the race (PRD 1572): ▲ ▼ and A or START are its own; nothing reaches the race until SINGLE is picked.
           const next = choicePress(k.choice, action, k.multi);
-          if (next.step === 'grid') { setKart({ ...k, choice: next, lobby: null }); openLobby(); return; }
-          if (next.step === 'single' && k.options && kartRules.current && (kartRules.current.laps !== k.options.laps || kartRules.current.difficulty !== k.options.difficulty || kartRules.current.look !== lookKey(k.options.look))) {
-            setKart({ ...k, choice: next, status: 'loading', retry: k.retry + 1, game: null, hud: null });
-            return;
-          }
           if (next !== k.choice) setKart({ ...k, choice: next });
           return;
         }
@@ -1152,7 +1186,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         showHud(game);
         if (game.over && !sendRef.current) sendScoreRef.current(INVADERS, game.score); // once a game: sendRef is set at once
       }
-      stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud, (score) => { held.clear(); sendScoreRef.current(KART, score); });
+      stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud, (score) => { held.clear(); sendScoreRef.current(kartBoardOf(kartRef.current), score); });
       stepDuet(u.scene, held.buttons(), dt);
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
@@ -1279,7 +1313,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         </>
       ) : null;
       case 'duet': return <DuetLayer duet={duet} send={send} />;
-      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} podiumKart={podiumKart} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} podiumKart={podiumKart} circuit={{ cards: kart.circuits, bests: kartBests(kart, scores) }} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={details.dossier} log={details.log} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

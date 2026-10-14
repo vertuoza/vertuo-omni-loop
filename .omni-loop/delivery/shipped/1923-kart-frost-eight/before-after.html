@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FROST EIGHT</title>
+<style>
+/* Layout: today beside after, one row per change, stacking at phone width. Two parts: Functional (the engine, the data, the exchange) and Pixel perfect (the marked screens). Omni app look outside; inside, the arcade's own colours (packages/design/tokens.css) and FROST EIGHT's snow, the same in both themes. Top views are to scale: 4 px a tile on 72×72 tiles. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ /* the arcade (packages/design/tokens.css), the same in both themes */
+ --void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--navy-dark:#1a2170;--white:#f2f4ff;--yellow:#ffd84a;--red:#ff3b5c;--cyan:#6ff0ff;--dim:#8a90d6;
+ --font-pixel:"Press Start 2P","Courier New",monospace;--txt:"Jersey 10","Courier New",monospace;
+ /* COMET RING (kart/texture.ts) */
+ --road:#6d7194;--neonCyan:#19e6ff;--neonMagenta:#ff2bd6;
+ /* FROST EIGHT's scenery, new with this PRD */
+ --sky1:#6fa8dc;--sky2:#94c1e8;--sky3:#c4def3;--sky4:#e9f4fc;--peak:#8ea6c4;--peakSnow:#ffffff;
+ --powder:#eef4fa;--powderShade:#d3e0ee;--ice:#a6dcf2;--iceLine:#7fc3e2;--asphalt:#7c8197;--asphaltFar:#6a6f86;
+ --kerb:#e5384f;--bank:#ffffff;--pine:#2e6a4e;--pineDark:#1d4936;--wood:#8a5a3c;--sun:#fff1bf;--boost:#ffd84a;--box:#a45cff;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1320px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 30px/1.1 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance;border-top:2px solid var(--ink);padding-top:14px}
+h3{font:400 21px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:72ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side p{margin:0;color:var(--muted);font-size:14px}
+ul{margin:0;padding-left:20px;display:grid;gap:6px}
+li{color:var(--muted);font-size:14px}
+li b{color:var(--ink);font-weight:600}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+pre{margin:0;font:13px/1.5 var(--mono);background:var(--plasmaSoft);padding:10px 12px;border-radius:6px;overflow-x:auto;color:var(--ink)}
+.map{border-radius:8px;overflow:hidden;line-height:0;max-width:432px}
+.map svg,.fig svg{width:100%;height:auto;display:block}
+.fig{max-width:460px}
+.cap{font:12px/1.4 var(--mono);color:var(--muted);margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font:12px/1.3 var(--mono);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.chip{width:12px;height:12px;border-radius:2px;display:inline-block;border:1px solid var(--lineStrong)}
+.svgt{font:600 10px var(--mono);letter-spacing:.04em}
+.screens{font:600 13px/1.4 var(--mono);color:var(--ink);margin:0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
+th{font:600 11px/1.2 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td{color:var(--muted)}
+td b{color:var(--ink)}
+.tablebox{overflow-x:auto}
+
+/* The arcade's wide grid, 640×360, drawn at 1× (whole-number scales only); scrolls inside its box when narrower. */
+.stage{overflow-x:auto;border-radius:8px}
+.screen{position:relative;width:640px;height:360px;overflow:hidden;background:var(--void);color:var(--white);font-family:var(--font-pixel)}
+.screen > svg.view{position:absolute;inset:0;width:640px;height:360px;display:block}
+/* scenes/common.css and scenes/kart.css, as written */
+.j-panel{position:absolute;display:grid;gap:8px;padding:14px 16px;font-size:9px;line-height:1.6;background:rgba(14,13,51,.94);border:2px solid var(--white);box-shadow:0 0 0 2px #0b0a26,inset 0 0 0 2px var(--navy)}
+.j-panel p{margin:0}
+.kt-panel{left:50%;bottom:14%;transform:translateX(-50%);gap:6px;justify-items:center;text-align:center;white-space:nowrap;line-height:1.2}
+.inv-title{font-size:14px;color:var(--yellow);letter-spacing:1px;text-shadow:2px 2px 0 var(--red),4px 4px 0 #0b0a26}
+.kt-choice{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:8px;letter-spacing:1px;color:var(--white)}
+.kt-choice li{color:var(--white);font-size:8px}
+.kt-choice li[data-cursor="true"]{color:var(--yellow)}
+.hint{font-size:8px;color:var(--dim);letter-spacing:1px}
+.j-key{color:var(--yellow)}
+/* the CIRCUIT step, new */
+.kt-circuit{font-size:8px;letter-spacing:1px;color:var(--white)}
+.kt-circuit .j-key{padding:0 6px}
+.kt-mini{display:block;width:72px;height:72px;image-rendering:pixelated;border:2px solid #2a2766}
+.kt-best{font-size:8px;letter-spacing:1px;color:var(--white)}
+.kt-best b{font-weight:400;color:var(--cyan)}
+
+/* The cabinet (scenes/games.css, as written), drawn at 2× */
+.cabs{display:flex;flex-wrap:wrap;gap:20px}
+.cabbox{display:grid;gap:8px;justify-items:start}
+.cabscale{width:360px;height:464px;overflow:hidden}
+.cabinet{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:180px;height:232px;padding:4px;transform:scale(2);transform-origin:0 0;
+ font:inherit;font-family:var(--font-pixel);color:var(--white);text-align:center;background:#14123a;border:2px solid var(--yellow)}
+.marquee{display:grid;place-items:center;height:36px;padding:0 20px;font-size:8px;line-height:14px;color:var(--yellow);letter-spacing:1px;background:#1f1758;border:2px solid var(--navy)}
+.cab-screen{position:relative;height:66px;margin:0 4px;background:var(--void);border:2px solid #2a2766;overflow:hidden}
+.cab-screen svg{display:block;width:100%;height:100%}
+.cab-scores{display:grid;gap:8px;margin:6px 8px 0;font-size:7px;text-align:left}
+.cab-scores b{font-weight:400;color:var(--cyan)}
+.cab-top{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.cab-top li{display:flex;justify-content:space-between;gap:6px;line-height:1;color:var(--white);white-space:nowrap;font-size:7px}
+.cab-top li.mine{color:var(--yellow)}
+.cab-play{align-self:center;margin:auto 0 6px;padding:5px 12px 4px;font-size:7px;color:#fff;background:var(--red)}
+/* the heading's line, new: CREW TOP 5 at its left, the circuit at its right */
+.cab-head{display:flex;justify-content:space-between;gap:6px;white-space:nowrap}
+.cab-head i{font-style:normal;color:var(--white)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="tag">PRD 1923 · OMNI KART · FROST EIGHT</div>
+  <h1>A second circuit: a figure eight in the snow that crosses on a frozen lake</h1>
+  <p class="lead">Each row shows OMNI KART today, with COMET RING as its only circuit, beside OMNI KART after this PRD. COMET RING drives as it does, and its times start over. The new parts are FROST EIGHT, a CIRCUIT step to pick it, its own crew times, and a cabinet that shows both boards in turn.</p>
+</header>
+
+<h2>Functional</h2>
+
+<section class="row">
+  <h3>The circuits from above</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · one circuit</div>
+      <div class="map"><svg viewBox="0 0 288 288" role="img" aria-label="COMET RING from above: a closed loop of 14 rounded corners over the void">
+        <rect width="288" height="288" fill="#0b0a2e"/>
+        <g fill="#dfe3ff"><rect x="20" y="16" width="2" height="2"/><rect x="120" y="70" width="2" height="2"/><rect x="270" y="150" width="2" height="2"/><rect x="200" y="270" width="2" height="2"/><rect x="60" y="230" width="2" height="2"/><rect x="140" y="160" width="2" height="2"/></g>
+        <path d="M216 248 A32 32 0 0 0 248 216 L248 196 A12 12 0 0 0 236 184 L208 184 A12 12 0 0 1 196 172 L196 148 A12 12 0 0 1 208 136 L244 136 A12 12 0 0 0 256 124 L256 60 A20 20 0 0 0 236 40 L188 40 A24 24 0 0 0 164 64 L164 88 A16 16 0 0 1 148 104 L108 104 A16 16 0 0 1 92 88 L92 56 A16 16 0 0 0 76 40 L56 40 A24 24 0 0 0 32 64 L32 168 A16 16 0 0 0 48 184 L72 184 A12 12 0 0 1 84 196 L84 236 A12 12 0 0 0 96 248 Z" fill="none" stroke="var(--neonCyan)" stroke-width="22" stroke-linejoin="round"/>
+        <path d="M216 248 A32 32 0 0 0 248 216 L248 196 A12 12 0 0 0 236 184 L208 184 A12 12 0 0 1 196 172 L196 148 A12 12 0 0 1 208 136 L244 136 A12 12 0 0 0 256 124 L256 60 A20 20 0 0 0 236 40 L188 40 A24 24 0 0 0 164 64 L164 88 A16 16 0 0 1 148 104 L108 104 A16 16 0 0 1 92 88 L92 56 A16 16 0 0 0 76 40 L56 40 A24 24 0 0 0 32 64 L32 168 A16 16 0 0 0 48 184 L72 184 A12 12 0 0 1 84 196 L84 236 A12 12 0 0 0 96 248 Z" fill="none" stroke="var(--road)" stroke-width="20" stroke-linejoin="round"/>
+      </svg></div>
+      <p class="cap">COMET RING's centre line, its 14 waypoints and radii (kart/track.ts); the shortcuts' pieces and the tunnel are left out of this view.</p>
+      <ul>
+        <li>The <b>only circuit</b>: <code>createKart</code>, <code>newRace</code> and <code>newMultiRace</code> race it by default, and nothing names another.</li>
+        <li>Off the road is the <b>void</b>: a kart that leaves the road tips over and falls.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · two circuits, COMET RING unchanged</div>
+      <div class="map"><svg viewBox="0 0 288 288" role="img" aria-label="FROST EIGHT from above: a figure eight on powder snow, its two diagonals crossing on a frozen lake in the middle">
+        <defs><clipPath id="lake"><circle cx="144" cy="144" r="24"/></clipPath></defs>
+        <rect width="288" height="288" fill="var(--powder)"/>
+        <rect x="2" y="2" width="284" height="284" fill="none" stroke="var(--pine)" stroke-width="4" stroke-dasharray="5 3"/>
+        <g fill="var(--pine)"><path d="M120 60 l6 -12 l6 12z"/><path d="M150 66 l6 -12 l6 12z"/><path d="M176 58 l6 -12 l6 12z"/><path d="M110 226 l6 -12 l6 12z"/><path d="M168 230 l6 -12 l6 12z"/><path d="M244 150 l6 -12 l6 12z"/><path d="M28 150 l6 -12 l6 12z"/><path d="M250 20 l6 -12 l6 12z"/></g>
+        <g fill="var(--wood)"><rect x="132" y="210" width="14" height="10"/><rect x="250" y="92" width="14" height="10"/></g>
+        <g fill="var(--peakSnow)"><rect x="132" y="207" width="14" height="4"/><rect x="250" y="89" width="14" height="4"/></g>
+        <path d="M204 256 A20 20 0 0 0 224 236 L224 201.1 A16 16 0 0 0 216.2 187.3 L71.8 100.7 A16 16 0 0 1 64 86.9 L64 52 A20 20 0 0 1 84 32 L204 32 A20 20 0 0 1 224 52 L224 86.9 A16 16 0 0 1 216.2 100.7 L71.8 187.3 A16 16 0 0 0 64 201.1 L64 236 A20 20 0 0 0 84 256 Z" fill="none" stroke="var(--bank)" stroke-width="24" stroke-linejoin="round"/>
+        <path d="M204 256 A20 20 0 0 0 224 236 L224 201.1 A16 16 0 0 0 216.2 187.3 L71.8 100.7 A16 16 0 0 1 64 86.9 L64 52 A20 20 0 0 1 84 32 L204 32 A20 20 0 0 1 224 52 L224 86.9 A16 16 0 0 1 216.2 100.7 L71.8 187.3 A16 16 0 0 0 64 201.1 L64 236 A20 20 0 0 0 84 256 Z" fill="none" stroke="var(--asphalt)" stroke-width="20" stroke-linejoin="round"/>
+        <circle cx="144" cy="144" r="24" fill="var(--ice)"/>
+        <g clip-path="url(#lake)"><path d="M216.2 187.3 L71.8 100.7 M216.2 100.7 L71.8 187.3" stroke="var(--iceLine)" stroke-width="20" opacity=".55"/></g>
+        <rect x="126" y="246" width="4" height="20" fill="#ffffff"/><g fill="#14152b"><rect x="126" y="246" width="2" height="4"/><rect x="128" y="250" width="2" height="4"/><rect x="126" y="254" width="2" height="4"/><rect x="128" y="258" width="2" height="4"/><rect x="126" y="262" width="2" height="4"/></g>
+        <g fill="var(--boost)"><rect x="220" y="60" width="8" height="8"/><rect x="220" y="216" width="8" height="8"/></g>
+        <g fill="var(--box)"><rect x="134" y="28" width="6" height="6"/><rect x="144" y="28" width="6" height="6"/><rect x="154" y="28" width="6" height="6"/><rect x="178" y="248" width="6" height="6"/><rect x="178" y="258" width="6" height="6"/></g>
+        <g fill="var(--wood)"><rect x="108" y="272" width="40" height="6"/></g>
+        <g class="svgt" fill="#14152b"><text x="236" y="276">1</text><text x="236" y="190">2</text><text x="44" y="102">3</text><text x="44" y="24">4</text><text x="236" y="24">5</text><text x="236" y="102">6</text><text x="44" y="190">7</text><text x="44" y="276">8</text></g>
+      </svg></div>
+      <div class="legend">
+        <span><i class="chip" style="background:var(--asphalt)"></i>road</span>
+        <span><i class="chip" style="background:var(--ice)"></i>the frozen lake, 12 tiles</span>
+        <span><i class="chip" style="background:var(--powder)"></i>powder</span>
+        <span><i class="chip" style="background:var(--pine)"></i>the tree line</span>
+        <span><i class="chip" style="background:var(--boost)"></i>boost pad</span>
+        <span><i class="chip" style="background:var(--box)"></i>item boxes</span>
+        <span><i class="chip" style="background:var(--wood)"></i>stands, chalets</span>
+      </div>
+      <p class="cap">FROST EIGHT's centre line to scale, the waypoints numbered in driving order. Start line at x = 32, heading east. The diagonals cross at about 62°.</p>
+      <ul>
+        <li>A <b>register of circuits</b>: COMET RING, then FROST EIGHT, each with its source, its scenery and its board.</li>
+        <li>No void on FROST EIGHT: the lake is <b>ice</b>, the rest of the road is <b>road</b>, and everywhere else is <b>powder</b>.</li>
+        <li>The top loop climbs to a pass. The lake is level, at the ground's base height.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The crossing: which branch is the kart on?</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · the nearest point over the whole line</div>
+      <div class="fig"><svg viewBox="0 0 300 190" role="img" aria-label="Two roads crossing; at the crossing the nearest point of the line could be on either road">
+        <rect width="300" height="190" fill="var(--powder)"/>
+        <path d="M40 29 L260 161 M40 161 L260 29" stroke="var(--asphalt)" stroke-width="22"/>
+        <path d="M40 29 L260 161 M40 161 L260 29" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6 6"/>
+        <rect x="143" y="89" width="14" height="12" fill="#ff9b30" transform="rotate(31 150 95)"/>
+        <circle cx="150" cy="95" r="22" fill="none" stroke="#e5384f" stroke-width="2" stroke-dasharray="4 3"/>
+        <text class="svgt" x="176" y="99" fill="#a01d33">A or B?</text>
+        <text class="svgt" x="20" y="22" fill="#14152b">branch A</text>
+        <text class="svgt" x="20" y="182" fill="#14152b">branch B</text>
+      </svg></div>
+      <ul>
+        <li><code>locate</code> answers the nearest point over every segment. At the X both branches are as near.</li>
+        <li>The progress, the places, a rival's aim and the way back could <b>jump branch</b>.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · the branch the kart came from</div>
+      <div class="fig"><svg viewBox="0 0 300 190" role="img" aria-label="The same crossing; only the stretch of branch A within 6 tiles of where the kart was is searched">
+        <rect width="300" height="190" fill="var(--powder)"/>
+        <path d="M40 29 L260 161 M40 161 L260 29" stroke="var(--asphalt)" stroke-width="22"/>
+        <path d="M68 46 L232 144" stroke="var(--plasma)" stroke-width="6" stroke-linecap="round"/>
+        <rect x="143" y="89" width="14" height="12" fill="#ff9b30" transform="rotate(31 150 95)"/>
+        <circle cx="150" cy="95" r="4" fill="var(--plasma)"/>
+        <text class="svgt" x="178" y="122" fill="#14152b">± 6 tiles along A</text>
+        <text class="svgt" x="20" y="22" fill="#14152b">branch A</text>
+        <text class="svgt" x="20" y="182" fill="#14152b">branch B</text>
+      </svg></div>
+      <ul>
+        <li><code>locate(line, x, y, hint)</code> looks only within <b>6 tiles</b> of the kart's distance along the line a step before, either way.</li>
+        <li>Without a hint it answers what it answers today. The road, the relief and the ice need no branch, because the X is level and all ice.</li>
+        <li><code>trackProblems</code> refuses three things: a crossing that is not level, a gate or start line within 8 tiles of it, and an angle under 60°.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>Off the road, and on the ice</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · the void</div>
+      <div class="tablebox"><table>
+        <tr><th>Where</th><th>What a kart does</th></tr>
+        <tr><td><b>road</b></td><td>top speed 110 × pace × boost × slope; its path follows its nose</td></tr>
+        <tr><td><b>void</b></td><td>with two wheels over for 0.5 s it tips over, falls, and comes back on the road</td></tr>
+      </table></div>
+      <p>Nothing off the road slows a kart (apps/galaxy/README.md). The kart has no sideways motion, so it cannot slide.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · four surfaces</div>
+      <div class="tablebox"><table>
+        <tr><th>Surface</th><th>What a kart does</th></tr>
+        <tr><td><b>road</b></td><td>as today: its direction of travel <b>is</b> its heading</td></tr>
+        <tr><td><b>powder</b></td><td>top speed capped at <b>0.55 ×</b>; never tips over, never falls</td></tr>
+        <tr><td><b>ice</b></td><td>top speed kept; travel turns towards the heading at <b>1.2 rad/s</b>, at most <b>0.6 rad</b> behind</td></tr>
+        <tr><td><b>void</b></td><td>as today, COMET RING only</td></tr>
+        <tr><td><b>tree line</b></td><td>one tile inside FROST EIGHT's edge: the kart stops, as at a wall</td></tr>
+      </table></div>
+      <div class="fig"><svg viewBox="0 0 300 150" role="img" aria-label="On the ice the kart's nose turns first and its path follows behind, up to 0.6 radians">
+        <defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="context-stroke"/></marker></defs>
+        <rect width="300" height="150" fill="var(--ice)"/>
+        <path d="M150 130 L150 40" stroke="#0e3a57" stroke-width="2.5" marker-end="url(#ah)"/>
+        <path d="M150 130 L101 54" stroke="var(--plasma)" stroke-width="2.5" marker-end="url(#ah)"/>
+        <path d="M150 80 A50 50 0 0 0 123 88" fill="none" stroke="#0e3a57" stroke-width="1.5"/>
+        <rect x="143" y="122" width="14" height="16" fill="#ff9b30" transform="rotate(-33 150 130)"/>
+        <text class="svgt" x="156" y="46" fill="#0e3a57">travel</text>
+        <text class="svgt" x="48" y="50" fill="#14152b">heading</text>
+        <text class="svgt" x="160" y="90" fill="#0e3a57">≤ 0.6 rad</text>
+      </svg></div>
+      <p>The rivals drive the same model. Karts that meet at the X push each other apart, as anywhere else (<code>pushApart</code>).</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The times and MULTI's start</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · one board, one circuit</div>
+      <pre>submit_score(workspace, 'kart', 1023)
+  -- accepted when 'kart' is unlocked
+  -- lowest_wins = ['kart']: keeps least(stored, sent)</pre>
+      <pre>{ kind: 'start', race, seed, laps, order }</pre>
+      <ul>
+        <li>One board, <code>kart</code>, read by <code>readScores</code> and shown on the cabinet.</li>
+        <li>The grid races the laps of its first arrival, on COMET RING.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · a board per circuit, the circuit in the start</div>
+      <pre>submit_score(workspace, 'kart-frost-eight', 984)
+  -- accepted when 'kart' is unlocked
+  -- lowest_wins = ['kart', 'kart-frost-eight']
+  -- no row deleted or rewritten; 'kart' keeps every time</pre>
+      <pre>{ kind: 'start', race, seed, laps, order, track: 'frost-eight' }
+// no track: COMET RING · a track naming no circuit: ignored</pre>
+      <ul>
+        <li><code>readScores</code> reads <code>kart</code> and <code>kart-frost-eight</code>. A finished race sends its time to its circuit's board.</li>
+        <li>Each Presence entry carries the player's <code>track</code>. The grid races its first arrival's circuit and laps, and shows the circuit's name.</li>
+        <li>The grid's channel <code>kart:&lt;workspace&gt;</code> is unchanged.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<h2>Pixel perfect</h2>
+<p class="screens">screens: kart-circuit · game-room</p>
+
+<section class="row">
+  <h3>The ready screen, then the CIRCUIT step</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · the ready screen, the circuit fixed</div>
+      <div class="stage"><div class="screen" data-screen="kart-ready">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="150" fill="#0b0a2e"/>
+          <rect y="110" width="640" height="40" fill="#1d1650"/>
+          <g fill="#dfe3ff"><rect x="40" y="30" width="2" height="2"/><rect x="130" y="80" width="2" height="2"/><rect x="250" y="20" width="2" height="2"/><rect x="420" y="60" width="2" height="2"/><rect x="560" y="26" width="2" height="2"/><rect x="600" y="96" width="2" height="2"/></g>
+          <circle cx="520" cy="80" r="26" fill="#3d56c9"/><circle cx="96" cy="58" r="10" fill="#b58a3c"/>
+          <rect y="150" width="640" height="210" fill="#07061c"/>
+          <polygon points="296,150 344,150 600,360 40,360" fill="var(--road)"/>
+          <polygon points="296,150 300,150 52,360 40,360" fill="var(--neonMagenta)"/>
+          <polygon points="340,150 344,150 600,360 588,360" fill="var(--neonCyan)"/>
+          <rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/>
+        </svg>
+        <div class="j-panel kt-panel">
+          <p class="inv-title">COMET RING · 3 LAPS</p>
+          <ul class="kt-choice">
+            <li data-cursor="true" data-primary>▶ SINGLE</li>
+            <li data-cursor="false">MULTI</li>
+            <li data-cursor="false">OPTIONS</li>
+          </ul>
+          <p class="hint"><span class="j-key">B</span> GAME ROOM</p>
+        </div>
+      </div></div>
+      <p class="cap">scenes/kart.tsx's ChoicePanel, from the source. The title is <code>choiceLine(laps)</code>, always COMET RING. A on SINGLE starts the countdown.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · SINGLE, then CIRCUIT</div>
+      <div class="stage"><div class="screen" data-screen="kart-circuit">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+          <circle cx="470" cy="104" r="16" fill="var(--sun)"/>
+          <polygon points="0,150 60,96 110,128 180,70 250,120 300,92 360,132 430,78 500,124 560,90 640,140 640,150" fill="var(--peak)"/>
+          <polygon points="60,96 74,108 46,108" fill="var(--peakSnow)"/><polygon points="180,70 198,86 162,86" fill="var(--peakSnow)"/><polygon points="430,78 448,94 412,94" fill="var(--peakSnow)"/><polygon points="560,90 574,102 546,102" fill="var(--peakSnow)"/>
+          <rect y="150" width="640" height="210" fill="var(--powder)"/>
+          <rect y="150" width="640" height="10" fill="var(--powderShade)"/>
+          <g fill="var(--pine)"><path d="M60 150 l8 -18 l8 18z"/><path d="M92 152 l6 -14 l6 14z"/><path d="M540 150 l8 -18 l8 18z"/><path d="M580 152 l6 -14 l6 14z"/><path d="M20 176 l12 -28 l12 28z"/><path d="M600 178 l12 -28 l12 28z"/></g>
+          <polygon points="290,150 350,150 620,360 20,360" fill="var(--bank)"/>
+          <polygon points="296,150 344,150 600,360 40,360" fill="var(--asphalt)"/>
+          <polygon points="296,150 300,150 52,360 40,360" fill="var(--kerb)"/>
+          <polygon points="340,150 344,150 600,360 588,360" fill="var(--kerb)"/>
+          <g fill="var(--wood)"><rect x="236" y="150" width="8" height="40"/><rect x="396" y="150" width="8" height="40"/><rect x="236" y="150" width="168" height="10"/></g>
+          <rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/>
+        </svg>
+        <div class="j-panel kt-panel">
+          <p class="inv-title">CIRCUIT</p>
+          <p class="kt-circuit"><span class="j-key">◀</span>FROST EIGHT<span class="j-key">▶</span></p>
+          <svg class="kt-mini" viewBox="0 0 72 72" aria-hidden="true">
+            <rect width="72" height="72" fill="var(--powder)"/>
+            <path d="M51 64 A5 5 0 0 0 56 59 L56 50.3 A4 4 0 0 0 54.1 46.8 L17.9 25.2 A4 4 0 0 1 16 21.7 L16 13 A5 5 0 0 1 21 8 L51 8 A5 5 0 0 1 56 13 L56 21.7 A4 4 0 0 1 54.1 25.2 L17.9 46.8 A4 4 0 0 0 16 50.3 L16 59 A5 5 0 0 0 21 64 Z" fill="none" stroke="var(--asphalt)" stroke-width="5" stroke-linejoin="round"/>
+            <circle cx="36" cy="36" r="6" fill="var(--ice)"/>
+            <rect x="31.5" y="61.5" width="1" height="5" fill="#ffffff"/>
+          </svg>
+          <p class="kt-best"><b>BEST</b> 1:38.4</p>
+          <p class="hint"><span class="j-key">◀ ▶</span> CHOOSE <span data-primary><span class="j-key">A</span> RACE</span> <span class="j-key">B</span> BACK</p>
+        </div>
+      </div></div>
+      <p class="cap">New: after SINGLE (and after MULTI, where A reads GRID), ◀ ▶ moves between COMET RING and FROST EIGHT. Each shows its minimap, from <code>roadAt</code>, and the player's best, or NO TIME YET. The step opens on the circuit kept in <code>omni-loop:kart-options</code>. Behind the panel is the chosen circuit's start. The ready screen keeps its three lines, and its title names the circuit kept: FROST EIGHT · 3 LAPS. Not drawn: the tall grid (320×288).</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The OMNI KART cabinet: both boards, in turn</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · one board</div>
+      <div class="cabs">
+        <div class="cabbox"><div class="cabscale"><div class="cabinet" data-screen="game-room">
+          <span class="marquee">OMNI KART</span>
+          <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
+            <rect width="84" height="30" fill="#0e0d33"/><g fill="#dfe3ff"><rect x="8" y="4" width="1" height="1"/><rect x="70" y="6" width="1" height="1"/><rect x="40" y="3" width="1" height="1"/></g><circle cx="68" cy="9" r="4" fill="#3d56c9"/>
+            <polygon points="36,12 48,12 80,30 4,30" fill="#5b5f80"/><polygon points="36,12 37,12 6,30 4,30" fill="#ff2bd6"/><polygon points="47,12 48,12 80,30 78,30" fill="#19e6ff"/><rect x="38" y="22" width="8" height="5" fill="#ff9b30"/></svg></span>
+          <span class="cab-scores"><b>CREW TOP 5</b>
+            <ol class="cab-top"><li><span>1 KAI</span><span>1:12.2</span></li><li class="mine"><span>2 INKY</span><span>1:15.9</span></li><li><span>3 PAUL</span><span>1:22.1</span></li><li><span>4 MIA</span><span>1:22.7</span></li><li><span>5 NOOR</span><span>1:27.2</span></li></ol>
+          </span>
+          <span class="cab-play" data-primary>A · PLAY</span>
+        </div></div></div>
+      </div>
+      <p class="cap">scenes/games.tsx's lit cabinet: COMET RING's still and the one <code>kart</code> board. The names are examples.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · five seconds each, a cut between them</div>
+      <div class="cabs">
+        <div class="cabbox"><div class="cabscale"><div class="cabinet" data-screen="game-room">
+          <span class="marquee">OMNI KART</span>
+          <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
+            <rect width="84" height="30" fill="#0e0d33"/><g fill="#dfe3ff"><rect x="8" y="4" width="1" height="1"/><rect x="70" y="6" width="1" height="1"/><rect x="40" y="3" width="1" height="1"/></g><circle cx="68" cy="9" r="4" fill="#3d56c9"/>
+            <polygon points="36,12 48,12 80,30 4,30" fill="#5b5f80"/><polygon points="36,12 37,12 6,30 4,30" fill="#ff2bd6"/><polygon points="47,12 48,12 80,30 78,30" fill="#19e6ff"/><rect x="38" y="22" width="8" height="5" fill="#ff9b30"/></svg></span>
+          <span class="cab-scores"><span class="cab-head"><b>CREW TOP 5</b><i>COMET RING</i></span>
+            <ol class="cab-top"><li><span>1 KAI</span><span>1:12.2</span></li><li class="mine"><span>2 INKY</span><span>1:15.9</span></li><li><span>3 PAUL</span><span>1:22.1</span></li><li><span>4 MIA</span><span>1:22.7</span></li><li><span>5 NOOR</span><span>1:27.2</span></li></ol>
+          </span>
+          <span class="cab-play" data-primary>A · PLAY</span>
+        </div></div><p class="cap">turn 1 · COMET RING</p></div>
+        <div class="cabbox"><div class="cabscale"><div class="cabinet" data-screen="game-room">
+          <span class="marquee">OMNI KART</span>
+          <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
+            <rect width="84" height="4" fill="#6fa8dc"/><rect y="4" width="84" height="4" fill="#94c1e8"/><rect y="8" width="84" height="4" fill="#c4def3"/>
+            <polygon points="0,12 10,6 18,10 30,4 42,10 52,6 64,11 74,5 84,10 84,12" fill="#8ea6c4"/><polygon points="30,4 33,7 27,7" fill="#ffffff"/><polygon points="74,5 77,8 71,8" fill="#ffffff"/>
+            <rect y="12" width="84" height="18" fill="#eef4fa"/>
+            <polygon points="35,12 49,12 82,30 2,30" fill="#ffffff"/><polygon points="36,12 48,12 80,30 4,30" fill="#7c8197"/><polygon points="36,12 37,12 6,30 4,30" fill="#e5384f"/><polygon points="47,12 48,12 80,30 78,30" fill="#e5384f"/>
+            <g fill="#2e6a4e"><polygon points="8,12 10,8 12,12"/><polygon points="72,12 74,8 76,12"/><polygon points="2,18 5,12 8,18"/></g><rect x="38" y="22" width="8" height="5" fill="#ff9b30"/></svg></span>
+          <span class="cab-scores"><span class="cab-head"><b>CREW TOP 5</b><i>FROST EIGHT</i></span>
+            <ol class="cab-top"><li class="mine"><span>1 INKY</span><span>1:38.4</span></li><li><span>2 KAI</span><span>1:41.0</span></li></ol>
+          </span>
+          <span class="cab-play" data-primary>A · PLAY</span>
+        </div></div><p class="cap">turn 2 · FROST EIGHT</p></div>
+      </div>
+      <p class="cap">The still and the board turn together: COMET RING's still is unchanged, and FROST EIGHT's still is its start. The circuit's name sits at the right of <code>CREW TOP 5</code>. Together they take 153 px at 7 px a character, inside the cabinet's 160 px of text. A board with no time shows NO SCORES YET on its turn, and an unreadable one SCORES OUT OF REACH. A · PLAY opens the ready screen, whatever the turn.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>What stays</h3>
+  <ul>
+    <li>COMET RING: its line, road, scenery and still. Every test of today passes unchanged. Its times on <code>kart</code> start over, emptied by a second migration in every workspace.</li>
+    <li>The five rivals and their levels, the items, the laps and difficulty options, the controls and the songs.</li>
+    <li>OMNI KART's unlock at LV 3, which now opens both circuits, and every other game and cabinet.</li>
+  </ul>
+</section>
+
+</div>
+</body>
+</html>

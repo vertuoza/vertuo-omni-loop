@@ -9,7 +9,7 @@ import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { rampFrom, rng } from '@omni/design';
 import type { Deck, Texture } from './mode7';
 import { inSpan, locate, pieceAt, segmentAt } from './line';
-import { cornersOf, pointAtPx, TILE, type Corner, type Track } from './track';
+import { cornersOf, FLOOR, pointAtPx, TILE, type Corner, type Track } from './track';
 
 /** The colours the circuit is painted from: the road is the middle of a four-tone ramp. The floor's own, none equal to a theme token (ADR-0046). */
 export const SURFACE = Object.freeze({
@@ -19,6 +19,14 @@ export const SURFACE = Object.freeze({
   // PRD 1775: the pad's cyan and its chevrons, the ramp's stripes, the station's plating, the walkway's grating.
   pad: '#0fb5d4', padChevron: '#e6fdff', rampYellow: '#ffd21f', rampBlack: '#0d0c1f',
   plate: '#8089b0', plateSeam: '#3a4068', plateRivet: '#c9cfee', grating: '#12102a', gratingBar: '#33376a',
+});
+
+/** FROST EIGHT's colours (PRD 1923): powder, ice, asphalt, snow banks and red-and-white kerbs. The floor's own, none equal to a theme token (ADR-0046). */
+export const FROST_SURFACE = Object.freeze({
+  powder: '#e6eef6', powderShade: '#c9d9e8', powderLight: '#fbfdff',
+  bank: '#ffffff', bankShade: '#b7cade',
+  ice: '#8ecfe9', iceDeep: '#5aaed3', iceCrack: '#dcf4fc',
+  asphalt: '#575b69', kerbRed: '#d6302f', kerbWhite: '#f8f8f8',
 });
 
 /** The void's pixel: see-through, so the floor has none there and the space behind it shows. */
@@ -88,7 +96,10 @@ interface Ctx {
   step: readonly [number, number];
 }
 
-const kerbAt = (along: number): number => pack((Math.floor(along / 4) % 2 + 2) % 2 === 0 ? SURFACE.neonCyan : SURFACE.neonMagenta);
+const kerbAt = (along: number, frost = false): number => {
+  const even = (Math.floor(along / 4) % 2 + 2) % 2 === 0;
+  return pack(frost ? (even ? FROST_SURFACE.kerbRed : FROST_SURFACE.kerbWhite) : even ? SURFACE.neonCyan : SURFACE.neonMagenta);
+};
 const lineAt = (px: number, py: number): number => pack(((px >> 2) + (py >> 2)) % 2 === 0 ? SURFACE.lineLight : SURFACE.lineDark);
 
 /** A pad's pixel: cyan, with a chevron pointing the way of the race. */
@@ -223,7 +234,7 @@ const painted = new WeakMap<Uint8Array, Texture>();
 const mod = (a: number, n: number): number => ((a % n) + n) % n;
 
 /** What one pass over the pixels reads: the circuit, its road's tones, and the way of the race through the tile being painted. */
-interface Paint { track: Track; ramps: Ramps; ctx: Ctx; plate: (along: number) => boolean }
+interface Paint { track: Track; ramps: Ramps; ctx: Ctx; plate: (along: number) => boolean; frost: boolean }
 
 /** A road pixel of a piece alone (further from the centre line than half its width): a walkway's grating, magenta where it meets the void; the spur is road like the rest. */
 function pieceRoadAt(p: Paint, x: number, y: number, where: Where, grain: number): number {
@@ -237,7 +248,7 @@ function pieceRoadAt(p: Paint, x: number, y: number, where: Where, grain: number
 function lineRoadAt(p: Paint, at: ReturnType<typeof locate>, where: Where, grain: number): number {
   const { track, ramps } = p;
   const alongPx = at.along * TILE;
-  if (segmentAt(track.centre, at.along).kind === 'arc' && at.dist > track.centre.width / 2 - 0.5) return kerbAt(alongPx);
+  if (segmentAt(track.centre, at.along).kind === 'arc' && at.dist > track.centre.width / 2 - 0.5) return kerbAt(alongPx, p.frost);
   if (p.plate(at.along)) return plateAt(where);
   return mod(alongPx, 4 * TILE) < 1 ? ramps.road[3] : grainAt(grain, ramps.road);
 }
@@ -258,6 +269,39 @@ function roadPixelAt(p: Paint, x: number, y: number, grain: number): number {
   return at.dist > track.centre.width / 2 ? pieceRoadAt(p, x, y, where, grain) : lineRoadAt(p, at, where, grain);
 }
 
+/** Whether a pixel within `reach` of x, y along an axis or a diagonal is road. */
+function roadWithin({ size, road }: Pick<Track, 'size' | 'road'>, x: number, y: number, reach: number): boolean {
+  const d = Math.max(1, Math.round(reach * 0.7));
+  return ([[reach, 0], [-reach, 0], [0, reach], [0, -reach], [d, d], [-d, d], [d, -d], [-d, -d]] as const).some(([dx, dy]) => {
+    const px = x + dx, py = y + dy;
+    return px >= 0 && py >= 0 && px < size.w && py < size.h && road[py * size.w + px] === 1;
+  });
+}
+
+/** An ice pixel: the lake's blue, a few deeper flecks and thin pale cracks. */
+function iceAt(x: number, y: number, grain: number): number {
+  if ((x * 3 + y * 5) % 67 === 0 || (x * 5 - y * 2 + 4000) % 53 === 0) return pack(FROST_SURFACE.iceCrack);
+  return pack(grain < 0.07 ? FROST_SURFACE.iceDeep : FROST_SURFACE.ice);
+}
+
+/** A powder pixel: the snow bank against the road's edge, white and then shaded one step further out, else powder with its grain. */
+function powderAt(track: Track, x: number, y: number, grain: number): number {
+  if (roadWithin(track, x, y, 1)) return pack(FROST_SURFACE.bank);
+  if (roadWithin(track, x, y, 3)) return pack(FROST_SURFACE.bankShade);
+  return pack(grain < 0.08 ? FROST_SURFACE.powderShade : grain > 0.95 ? FROST_SURFACE.powderLight : FROST_SURFACE.powder);
+}
+
+/** The pixel x, y of the circuit: by its floor on a circuit that has one (ice, road, powder), else the road, the neon edge of the road on the void, or the void. */
+function pixelAt(p: Paint, outside: Uint8Array, x: number, y: number, grain: number): number {
+  const { track } = p, i = y * track.size.w + x;
+  if (track.floor) {
+    const code = track.floor[i];
+    return code === FLOOR.ice ? iceAt(x, y, grain) : code === FLOOR.road ? roadPixelAt(p, x, y, grain) : powderAt(track, x, y, grain);
+  }
+  if (track.road[i] === 1) return roadPixelAt(p, x, y, grain);
+  return edgeHas(track, x, y, true) ? pack(outside[i] === 1 ? SURFACE.neonCyan : SURFACE.neonMagenta) : VOID;
+}
+
 /** The circuit painted: `cols × 16` by `rows × 16` pixels, every pixel read from the centre line and the features' tiles. */
 export function paintTrack(track: Track): Texture {
   const known = painted.get(track.road);
@@ -266,18 +310,16 @@ export function paintTrack(track: Track): Texture {
   const px = new Uint32Array(w * h);
   const { span } = track;
   const p: Paint = {
-    track, ramps: { road: tones(SURFACE.road) }, ctx: { ramps: { road: tones(SURFACE.road) }, step: [1, 0] },
+    track, ramps: { road: tones(track.floor ? FROST_SURFACE.asphalt : SURFACE.road) }, ctx: { ramps: { road: tones(SURFACE.road) }, step: [1, 0] }, frost: track.floor !== undefined,
     plate: (along) => span !== null && inSpan(track.centre, { start: span.start - PLATING, length: span.length + 2 * PLATING }, along),
   };
-  const outside = outsideVoid(track);
+  const outside = track.floor ? new Uint8Array(0) : outsideVoid(track);
   const rand = rng(1359);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
       const grain = rand();
-      if (track.road[i] === 1) px[i] = roadPixelAt(p, x, y, grain);
-      else if (edgeHas(track, x, y, true)) px[i] = pack(outside[i] === 1 ? SURFACE.neonCyan : SURFACE.neonMagenta);
-      else px[i] = VOID;
+      px[i] = pixelAt(p, outside, x, y, grain);
     }
   }
   paintChevrons(track, px);

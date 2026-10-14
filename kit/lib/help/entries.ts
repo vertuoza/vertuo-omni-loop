@@ -1079,7 +1079,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
       'with whether a recording of it exists in .e2e/cache (recording) and whether one is expected ' +
       '(expected: false when the file holds no agent. call, since only an agent step records), and ' +
-      'exits 1 when a test that expects a recording has none; a test with no agent step passes. A recording ' +
+      'exits 1 when a test that expects a recording has none; a test with no agent step passes. Each test ' +
+      'also carries level and flow: level is critical when the file carries the tag critical, else ' +
+      'standard, and flow is the id of its flow-<id> tag, or null. A critical test with no flow-<id> ' +
+      'tag, or whose flow is not in e2e.dir/critical-flows.md, exits 1 naming the test and the flow; a ' +
+      'list that does not parse exits 1 naming the file and the flow. A recording ' +
       'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
       'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
       'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +

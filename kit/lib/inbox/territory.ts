@@ -157,6 +157,10 @@ function bodyRows(lines: readonly string[], headerIndex: number): string[][] {
  *
  * `blockedBy` reads `[]` for a plan with no `blocked by` column at all — a plan predating that
  * column declares no blocks, rather than throwing the way a missing `territory` column does.
+ *
+ * `contract` (PRD 1870) is read from a `contract` column found by name, wherever it sits, and reads
+ * `null` on every slice of a plan without one. The parser checks no vocabulary: the plan check
+ * (`gradePlan`) grades the words against the receiving repository's `contracts.kinds`.
  */
 export function parsePlanSlices(markdown: string): Slice[] {
   const { column, rows } = sliceTable(markdown);
@@ -172,6 +176,7 @@ export function parsePlanSlices(markdown: string): Slice[] {
       blockedBy: column('blocked by') === -1 ? [] : blockedByCell(row[column('blocked by')]),
       wave: column('wave') === -1 ? null : Number(row[column('wave')]),
       landing: column('landing') === -1 ? 1 : landingCell(row[column('landing')]),
+      contract: column('contract') === -1 ? null : contractCell(row[column('contract')]),
       tier: column('tier') === -1 ? null : tierCell(row[column('tier')]),
     });
   }
@@ -258,6 +263,22 @@ export function unknownTiers(markdown: string): { slice: WorkSliceId; value: str
 function landingCell(cell: string | undefined): number {
   const text = plainCell(cell);
   return NOTHING.test(text) ? 1 : Number(text);
+}
+
+/**
+ * A `contract` cell (PRD 1870): its comma-separated words, trimmed and lowercased, in order; `'none'`
+ * for a lone `none`; `null` for an empty cell or an em dash. It checks no word: the plan check grades
+ * them against the receiving repository's `contracts.kinds`, and refuses `none` beside a kind.
+ */
+function contractCell(cell: string | undefined): Slice['contract'] {
+  const text = plainCell(cell);
+  if (NOTHING.test(text)) return null;
+  const kinds = text
+    .split(',')
+    .map((word) => word.trim().toLowerCase())
+    .filter(Boolean);
+  if (kinds.length === 0) return null;
+  return kinds.length === 1 && kinds[0] === 'none' ? 'none' : { kinds };
 }
 
 /** A cell's text with its backticks stripped: `''` for an empty cell, never `null`. */

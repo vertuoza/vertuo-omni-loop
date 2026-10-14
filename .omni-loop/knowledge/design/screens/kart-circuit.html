@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kart circuit mockup</title>
+<style>
+  /* Tokens copied from packages/design/tokens.css; FROST EIGHT's scenery colours from PRD 1923's before/after page. */
+  :root {
+    --void: #07061c; --deep: #0e0d33; --navy: #2f3fc4; --navy-dark: #1a2170; --white: #f2f4ff;
+    --plasma: #a45cff; --yellow: #ffd84a; --red: #ff3b5c; --cyan: #6ff0ff; --dim: #8a90d6;
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+    --txt: "Jersey 10", "Courier New", monospace;
+    --sky1: #6fa8dc; --sky2: #94c1e8; --sky3: #c4def3; --sky4: #e9f4fc; --peak: #8ea6c4; --peakSnow: #ffffff;
+    --powder: #eef4fa; --powderShade: #d3e0ee; --ice: #a6dcf2; --asphalt: #7c8197;
+    --kerb: #e5384f; --bank: #ffffff; --pine: #2e6a4e; --wood: #8a5a3c; --sun: #fff1bf;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: var(--white); font-family: var(--font-pixel); }
+  .mock-note { max-width: 1280px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--dim); }
+  .mock-note b { color: var(--white); }
+
+  /* The wide grid, 640×360, drawn at 2× (whole-number scales only). */
+  .stage { width: 1280px; max-width: 100%; margin: 0 auto; overflow-x: auto; }
+  .screen { position: relative; width: 640px; height: 360px; transform: scale(2); transform-origin: 0 0; margin-bottom: 360px; background: var(--void); overflow: hidden; }
+  .screen > svg { position: absolute; inset: 0; width: 640px; height: 360px; display: block; }
+
+  /* scenes/common.css and scenes/kart.css, as written. */
+  .j-panel { position: absolute; display: grid; gap: 8px; padding: 14px 16px; font-size: 9px; line-height: 1.6;
+    background: rgba(14, 13, 51, .94); border: 2px solid var(--white); box-shadow: 0 0 0 2px #0b0a26, inset 0 0 0 2px var(--navy); }
+  .j-panel p { margin: 0; }
+  .kt-panel { left: 50%; bottom: 14%; transform: translateX(-50%); gap: 6px; justify-items: center; text-align: center; white-space: nowrap; line-height: 1.2; }
+  .inv-title { font-size: 14px; color: var(--yellow); letter-spacing: 1px; text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26; }
+  .hint { font-size: 8px; color: var(--dim); letter-spacing: 1px; }
+  .j-key { color: var(--yellow); }
+
+  /* The CIRCUIT step, new with PRD 1923. */
+  .kt-circuit { font-size: 8px; letter-spacing: 1px; color: var(--white); }
+  .kt-circuit .j-key { padding: 0 6px; }
+  .kt-mini { display: block; width: 72px; height: 72px; border: 2px solid #2a2766; }
+  .kt-best { font-size: 8px; letter-spacing: 1px; color: var(--white); }
+  .kt-best b { font-weight: 400; color: var(--cyan); }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>OMNI KART's CIRCUIT step, on the wide grid, after SINGLE, with FROST EIGHT shown.</b> Drawn from PRD 1923's approved design, not from a screenshot: the step is not built yet. The best time is an example; behind the panel stands FROST EIGHT's start.</p>
+
+<div class="stage">
+  <div class="screen" data-screen="kart-circuit">
+    <svg viewBox="0 0 640 360" aria-hidden="true">
+      <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+      <circle cx="470" cy="104" r="16" fill="var(--sun)"/>
+      <polygon points="0,150 60,96 110,128 180,70 250,120 300,92 360,132 430,78 500,124 560,90 640,140 640,150" fill="var(--peak)"/>
+      <polygon points="60,96 74,108 46,108" fill="var(--peakSnow)"/><polygon points="180,70 198,86 162,86" fill="var(--peakSnow)"/><polygon points="430,78 448,94 412,94" fill="var(--peakSnow)"/><polygon points="560,90 574,102 546,102" fill="var(--peakSnow)"/>
+      <rect y="150" width="640" height="210" fill="var(--powder)"/>
+      <rect y="150" width="640" height="10" fill="var(--powderShade)"/>
+      <g fill="var(--pine)"><path d="M60 150 l8 -18 l8 18z"/><path d="M92 152 l6 -14 l6 14z"/><path d="M540 150 l8 -18 l8 18z"/><path d="M580 152 l6 -14 l6 14z"/><path d="M20 176 l12 -28 l12 28z"/><path d="M600 178 l12 -28 l12 28z"/></g>
+      <polygon points="290,150 350,150 620,360 20,360" fill="var(--bank)"/>
+      <polygon points="296,150 344,150 600,360 40,360" fill="var(--asphalt)"/>
+      <polygon points="296,150 300,150 52,360 40,360" fill="var(--kerb)"/>
+      <polygon points="340,150 344,150 600,360 588,360" fill="var(--kerb)"/>
+      <g fill="var(--wood)"><rect x="236" y="150" width="8" height="40"/><rect x="396" y="150" width="8" height="40"/><rect x="236" y="150" width="168" height="10"/></g>
+      <rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/>
+    </svg>
+    <div class="j-panel kt-panel">
+      <p class="inv-title">CIRCUIT</p>
+      <p class="kt-circuit"><span class="j-key">◀</span>FROST EIGHT<span class="j-key">▶</span></p>
+      <svg class="kt-mini" viewBox="0 0 72 72" aria-hidden="true">
+        <rect width="72" height="72" fill="var(--powder)"/>
+        <path d="M51 64 A5 5 0 0 0 56 59 L56 50.3 A4 4 0 0 0 54.1 46.8 L17.9 25.2 A4 4 0 0 1 16 21.7 L16 13 A5 5 0 0 1 21 8 L51 8 A5 5 0 0 1 56 13 L56 21.7 A4 4 0 0 1 54.1 25.2 L17.9 46.8 A4 4 0 0 0 16 50.3 L16 59 A5 5 0 0 0 21 64 Z" fill="none" stroke="var(--asphalt)" stroke-width="5" stroke-linejoin="round"/>
+        <circle cx="36" cy="36" r="6" fill="var(--ice)"/>
+        <rect x="31.5" y="61.5" width="1" height="5" fill="#ffffff"/>
+      </svg>
+      <p class="kt-best"><b>BEST</b> 1:38.4</p>
+      <p class="hint"><span class="j-key">◀ ▶</span> CHOOSE <span data-primary><span class="j-key">A</span> RACE</span> <span class="j-key">B</span> BACK</p>
+    </div>
+  </div>
+</div>
+
+<p class="mock-note">Not drawn: the step after MULTI (A reads GRID), COMET RING shown (its minimap from its own road, over its start in space), NO TIME YET, and the tall grid (320×288). The primary mark sits on A RACE.</p>
+</body>
+</html>

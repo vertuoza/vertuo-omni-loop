@@ -151,6 +151,31 @@ test account** the runs use, and keeps its credentials out of the code (in the e
 `credentials` read). The sub-PR states which QA flow and which account the run used, the account **by
 label**, never the secret. The first real run is done by QA in the plan repository.
 
+## Critical flows and the two levels
+
+Each product keeps a list of its critical flows in `<e2e.dir>/critical-flows.md`: one entry per
+flow whose failure costs the business (signing in, invoicing, the main entry screen), with an id, a
+name and what its failure costs. The list is reviewed in a pull request by QA or the product owner;
+the loop never edits an existing entry on its own.
+
+A test's level is decided by the flow it covers, and declared as tags on the test file:
+
+- `flow-<id>` when the test covers a flow of the list;
+- `critical` when its failure breaks that flow.
+
+A test with no `critical` tag is `standard`. There are two levels: `critical` tests are meant to run
+after each deploy on QA and block it; `standard` tests are meant to run at night and never block.
+The CI jobs that run each level are PRD #1277's work, which reads the level this guide defines.
+
+Run by hand, `/omni:validate-e2e` asks, for each new test, which flow of the list it covers (or
+none) and whether its failure breaks that flow. A flow and a breaking failure write `flow-<id>` and
+`critical`; no flow writes `standard`. A flow the list does not hold is proposed as a new entry in
+the sub-PR, and a person confirms it there; it is never written silently.
+
+Under `/omni:yolo` nothing is asked on the way: the tests are written `standard`, and one medium
+outbox item carries the question with its recommended answer. A person promotes a test by answering
+it. The default is adopted, so the gate does not turn red on it.
+
 ## Run it
 
 In your agent's form ([Any coding agent](/docs/any-agent#set-up-your-agent)):

@@ -660,6 +660,12 @@ var proofUrl = z7.string().refine((value) => {
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
+var contractKind = z7.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
+var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+  const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
+  if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
   repo: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -878,6 +884,14 @@ var ConfigSchema = z7.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: z7.array(regexSource).default([]) }),
+  // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
+  // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
+  // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
+  // it names none; `omni plan check` refuses a word outside them.
+  contracts: section({
+    declare: z7.boolean().default(false),
+    kinds: contractKinds.default(() => [...DEFAULT_CONTRACT_KINDS])
+  }),
   notify: section({
     slack: z7.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { makeRepo } from '../test/fixture.ts';
-import { CONFIG_FILE, ConfigError, MIGRATIONS, dossierSwitch, loadConfig, migrateConfig, parseConfig } from './config.ts';
+import { CONFIG_FILE, ConfigError, DEFAULT_CONTRACT_KINDS, MIGRATIONS, dossierSwitch, loadConfig, migrateConfig, parseConfig } from './config.ts';
 import { messageOf } from './narrow.ts';
 import { assertDefined } from '../test/assert.ts';
 
@@ -302,6 +302,41 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nlandings:\n  after: []\n')).toThrow(/landings/);
   });
 
+  it('reads contracts as not asked, with the default kinds api and db, when the file has no contracts key (PRD 1870)', () => {
+    expect(parseConfig('kit: 1\n').contracts).toEqual({ declare: false, kinds: ['api', 'db'] });
+    expect(DEFAULT_CONTRACT_KINDS).toEqual(['api', 'db']);
+  });
+
+  it('reads contracts.declare and the repository\'s own kinds when the file says so (PRD 1870)', () => {
+    expect(parseConfig('kit: 1\ncontracts:\n  declare: true\n').contracts).toEqual({ declare: true, kinds: ['api', 'db'] });
+    expect(parseConfig('kit: 1\ncontracts:\n  declare: true\n  kinds: [api, event]\n').contracts).toEqual({ declare: true, kinds: ['api', 'event'] });
+    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [schema, rest, db]\n').contracts).toEqual({ declare: false, kinds: ['schema', 'rest', 'db'] });
+    expect(parseConfig('kit: 1\ncontracts: {}\n').contracts).toEqual({ declare: false, kinds: ['api', 'db'] });
+  });
+
+  it.each([
+    ['a declare given as a word', 'contracts:\n  declare: yes\n', /c\.yml.*contracts\.declare/],
+    ['a declare given as text', "contracts:\n  declare: 'true'\n", /c\.yml.*contracts\.declare/],
+    ['an empty kinds', 'contracts:\n  kinds: []\n', /c\.yml.*contracts\.kinds/],
+    ['a kind listed twice', 'contracts:\n  kinds: [api, api]\n', /c\.yml.*contracts\.kinds/],
+    ['none among the kinds', 'contracts:\n  kinds: [none]\n', /c\.yml.*contracts\.kinds\.0/],
+    ['none beside a kind', 'contracts:\n  kinds: [api, none]\n', /c\.yml.*contracts\.kinds\.1/],
+    ['a kind that is no text', 'contracts:\n  kinds: [3]\n', /c\.yml.*contracts\.kinds\.0/],
+    ['a kind in capitals', 'contracts:\n  kinds: [API]\n', /c\.yml.*contracts\.kinds\.0/],
+    ['a kind of two words', "contracts:\n  kinds: ['rest api']\n", /c\.yml.*contracts\.kinds\.0/],
+    ['an empty kind', "contracts:\n  kinds: ['']\n", /c\.yml.*contracts\.kinds\.0/],
+    ['kinds given as one text', 'contracts:\n  kinds: api\n', /c\.yml.*contracts\.kinds/],
+    ['a key contracts does not know', 'contracts:\n  declares: true\n', /c\.yml.*contracts.*declares/],
+    ['contracts given as a word', 'contracts: yes\n', /c\.yml.*contracts/],
+  ])('refuses %s, naming the key (PRD 1870)', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+
+  it('refuses a duplicate kind with a message that says it is listed twice (PRD 1870)', () => {
+    expect(() => parseConfig('kit: 1\ncontracts:\n  kinds: [api, db, api]\n', 'c.yml')).toThrow(/contracts\.kinds: .*"api".*twice/);
+    expect(() => parseConfig('kit: 1\ncontracts:\n  kinds: [none]\n', 'c.yml')).toThrow(/contracts\.kinds\.0: .*none/);
+  });
+
   it('refuses a risk pattern that is not a regular expression', () => {
     expect(() => parseConfig("kit: 1\nrisk:\n  storedShape: ['(']\n")).toThrow(/risk\.storedShape\.0/);
   });
@@ -588,7 +623,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
     ]);
   });
 

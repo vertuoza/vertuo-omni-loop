@@ -20,6 +20,7 @@ import { setFleets } from '../arcade/fleets';
 import { WIDE } from '../arcade/grid';
 import { isPlayer } from '../arcade/onboarding';
 import { ScreenContext } from '../arcade/Screen';
+import type { ScoresRead } from '../arcade/types';
 import { GamesOverlay } from '../arcade/scenes/games.tsx';
 import type { DossierListRow } from '../dossier/store';
 import { afterReturn, afterStart } from '../arcade/onboarding';
@@ -257,6 +258,7 @@ describe('the crew\'s high scores', () => {
       },
       platformer: { top: [], mine: null },
       kart: { top: [], mine: null },
+      'kart-frost-eight': { top: [], mine: null },
       duet: { top: [], mine: null },
     });
     expect((await page(PEOPLE.both)).data.scores?.invaders).toEqual({ top: [containing({ name: 'WILE', best: 9210 })], mine: null });
@@ -273,7 +275,7 @@ describe('the crew\'s high scores', () => {
   it('says the scores are out of reach when only they cannot be read, and keeps the galaxy and the XP', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
-    expect(data.scores).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable', duet: 'unreadable' });
+    expect(data.scores).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable', 'kart-frost-eight': 'unreadable', duet: 'unreadable' });
     expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
     expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
     expect(data.problem).toBeUndefined();
@@ -411,6 +413,28 @@ describe('the high scores, read on their own', () => {
     expect(text).toContain('A · PLAY');
     expect(text.some((t) => /\bLV 3\b/.test(t))).toBe(true);
     expect(text).toContain('180 / 300 XP');
+  });
+
+  it('law BR-PRODUCT-36: reads both of OMNI KART\'s boards for the cabinet\'s turns, each turn showing its own board\'s state (PRD 1923)', async () => {
+    const lit = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders', 'platformer', 'kart'] });
+    const turns = (scores: Record<string, ScoresRead | undefined>) => [0, 1, 2].map((turn) => {
+      const overlay = createElement(GamesOverlay, { xp: lit, me: null, index: 2, scores, turn, onPick: () => {} });
+      const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, overlay));
+      return html.split('<button').find((c) => c.includes('>OMNI KART<')) ?? '';
+    });
+    const { data } = await page(PEOPLE.ada);
+    const [comet, frost, again] = turns(data.scores ?? {});
+    expect(comet).toContain('COMET RING');
+    expect(comet).not.toContain('FROST EIGHT');
+    expect(comet).toContain('NO SCORES YET');
+    expect(frost).toContain('FROST EIGHT');
+    expect(frost).not.toContain('COMET RING');
+    expect(frost).toContain('NO SCORES YET');
+    expect(again).toContain('COMET RING');
+
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failed = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
+    for (const cab of turns(failed.data.scores ?? {})) expect(cab).toContain('SCORES OUT OF REACH');
   });
 
   it('law BR-PRODUCT-36: the demo\'s table holds only the guest\'s own best', async () => {

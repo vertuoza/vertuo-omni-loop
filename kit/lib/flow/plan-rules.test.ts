@@ -39,6 +39,7 @@ const slices = (rows: Row[]): Slice[] =>
     wave,
     landing,
     tier: null,
+    contract: null,
   }));
 
 describe('planRuleViolations — no flow', () => {

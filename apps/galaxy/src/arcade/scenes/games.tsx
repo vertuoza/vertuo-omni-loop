@@ -3,7 +3,7 @@
 // have none), and a cabinet per game, laid out for the grid the screen is drawn on: a window of
 // three cabinets side by side on the wide grid, following the cursor (games/room.ts, roomWindow),
 // one a page on the tall one (games.css).
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WoundKind } from '@omni/galaxy';
 import { heroPose, woundTint } from '@omni/design';
@@ -17,7 +17,7 @@ import { stillPixels, type Still } from '../games/still';
 import { STILLS } from '../games/stills';
 import { badgeOf } from './menu.tsx';
 import { textOf } from '../measure';
-import type { Measure } from '../games/index';
+import type { Game, Measure } from '../games/index';
 import './common.css';
 import './games.css';
 import { cssVars } from '../css-vars';
@@ -36,6 +36,22 @@ function XpHeader({ xp }: { xp: XpStatus }) {
       <span className="xp-next">{xp.next === null ? 'MAX LEVEL' : `${xp.next - xp.xp} XP to LV ${xp.level + 1}`}</span>
     </div>
   );
+}
+
+/** How long each of a game's circuits holds its cabinet's screen and its board before the cut to the next (PRD 1923). */
+export const TURN_MS = 5000;
+
+/** The boards a game's cabinet shows in turn: the ones it names (OMNI KART's two circuits), else its own, which never turns. */
+const boardsOf = (game: Game): readonly { id: string; title: string | null }[] => game.boards ?? [{ id: game.id, title: null }];
+
+/** The turn counted so far: one more every TURN_MS, a cut each time and never a slide. */
+function useTurn(): number {
+  const [turn, setTurn] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => { setTurn((t) => t + 1); }, TURN_MS);
+    return () => { clearInterval(id); };
+  }, []);
+  return turn;
 }
 
 // The Invaders' attract on its cabinet's screen: three rows of Entropy over the player's hero.
@@ -71,9 +87,9 @@ function PlayerIn({ game, me }: { game: string; me: Player }) {
 }
 
 /** A lit cabinet's screen: its own game, the player in it; the Invaders formation for a game with no still. */
-function CabScreen({ game, me }: { game: string; me: Player | null }) {
+function CabScreen({ game, board, me }: { game: string; board: string; me: Player | null }) {
   const { grid } = useScreen();
-  const still = STILLS[game]?.[grid.name];
+  const still = (STILLS[board] ?? STILLS[game])?.[grid.name];
   if (!still) {
     return (
       <span className="cab-screen" aria-hidden="true">
@@ -107,8 +123,8 @@ function TopFive({ board, me, measure }: { board: ScoresRead | undefined; me: Pl
   );
 }
 
-function CabinetView({ cabinet, me, board, active, onPick }: {
-  cabinet: Cabinet; me: Player | null; board: ScoresRead | undefined; active: boolean; onPick: () => void;
+function CabinetView({ cabinet, me, scores, turn, active, onPick }: {
+  cabinet: Cabinet; me: Player | null; scores: Record<string, ScoresRead | undefined>; turn: number; active: boolean; onPick: () => void;
 }) {
   const cls = `cabinet${active ? ' active' : ''}`;
   if (cabinet.kind === 'soon') {
@@ -131,30 +147,38 @@ function CabinetView({ cabinet, me, board, active, onPick }: {
       </button>
     );
   }
+  // A game with circuits shows one at a time: its still, then its board, with its name at the heading's right.
+  const boards = boardsOf(game);
+  const shown = defined(boards[turn % boards.length], 'the board in turn');
   return (
     <button type="button" className={`${cls} lit`} onClick={onPick}>
       <span className="marquee">{game.title}</span>
-      <CabScreen game={game.id} me={me} />
+      <CabScreen game={game.id} board={shown.id} me={me} />
       <span className="cab-scores">
-        <b>CREW TOP 5</b>
-        <TopFive board={board} me={me} measure={game.measure} />
+        {shown.title === null
+          ? <b>CREW TOP 5</b>
+          : <span className="cab-head"><b>CREW TOP 5</b><i>{shown.title}</i></span>}
+        <TopFive board={scores[shown.id]} me={me} measure={game.measure} />
       </span>
       <span className="cab-play">A · PLAY</span>
     </button>
   );
 }
 
-export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
+export function GamesOverlay({ xp, me, index, scores = {}, turn, onPick }: {
   xp: XpStatus;
   me: Player | null;
   /** The cabinet under the cursor on the wide grid, and the page shown on the tall one. */
   index: number;
   /** Each game's crew table, by the game's id; a game with none shows NO SCORES YET. */
   scores?: Record<string, ScoresRead | undefined>;
+  /** The turn the cabinets of games with circuits show, from 0; omitted, the room counts its own, one more every TURN_MS. */
+  turn?: number;
   /** A tap on a cabinet: the one under the cursor plays, another comes under it. */
   onPick: (i: number) => void;
 }) {
   const { grid } = useScreen();
+  const clock = useTurn();
   const room = cabinets(xp);
   const at = Math.max(0, Math.min(index, room.length - 1));
   const tall = grid.name === 'tall';
@@ -171,7 +195,7 @@ export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
       <div className="cabinets">
         {shown.map((i) => {
           const c = defined(room[i], 'a cabinet shown');
-          return <CabinetView key={i} cabinet={c} me={me} board={c.kind === 'game' ? scores[c.game.id] : undefined} active={i === at} onPick={() => { onPick(i); }} />;
+          return <CabinetView key={i} cabinet={c} me={me} scores={scores} turn={turn ?? clock} active={i === at} onPick={() => { onPick(i); }} />;
         })}
       </div>
       <p className="hint games-foot">

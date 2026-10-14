@@ -58,6 +58,12 @@ export type Slice = {
   /** The tier its `tier` cell advises; `null` for a blank, an em dash, a cell naming no tier (which
    * the plan check refuses) or a plan with no `tier` column. */
   tier: Tier | null;
+  /** What the slice changes for its repository's callers, from the plan's `contract` column (PRD
+   * 1870): `{ kinds }` for a cell of words (`api, db`), lowercased, in the cell's order; `'none'` for
+   * a lone `none`, a slice that changes nothing for them; `null` for an empty cell, an em dash, or a
+   * plan with no such column. The words are the receiving repository's (its `contracts.kinds`), not
+   * the kit's: `none` beside a word is kept among them, for the plan check to refuse. */
+  contract: { kinds: string[] } | 'none' | null;
 };
 
 export type SpecSource = (typeof SPEC_VALUES)[number];

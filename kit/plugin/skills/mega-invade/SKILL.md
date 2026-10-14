@@ -24,8 +24,8 @@ This skill writes that section, imports the copies a person asks for, and ends a
 docs-only pull request a person reads and merges. `node .omni-loop/bin/omni.mjs targets` then
 reports every target, and `/omni:mega-invade --sync` keeps the copies current.
 
-In order: step 0; **survey** (1); show **one map** and wait for the answer (2); **import** (3);
-**config** (4); **one pull request** (5). `--sync` runs the same steps on less (see **--sync**).
+In order: step 0; **survey** (1); show **one map** and wait for the answer (2); **import**, and
+every target's planning config (3); **config** (4); **one pull request** (5). `--sync` runs the same steps on less (see **--sync**).
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
@@ -55,7 +55,7 @@ this repository at all: its registers never read `repos/`.
 | input | notes |
 |---|---|
 | none | survey every candidate, ask once, import what the person answers "import", write the plan section: the first run, or a run after the guide or the targets changed |
-| `--sync` | touch only `imported` targets: redraw what changed in each stale copy, propose `own` for each one that now has its own knowledge base, and show new candidates of the guide (see **--sync**) |
+| `--sync` | redraw what changed in each stale imported copy, redraw every target's stale planning config, `own` and `none` included, propose `own` for each imported target that now has its own knowledge base, and show new candidates of the guide (see **--sync**) |
 
 ## Step 0: installed, on its branch
 
@@ -160,18 +160,33 @@ For each target answered **import**, one at a time:
      carries no `verified:`.
    - A pointer (`points-to`, `See:`) names a path of the copy itself, never a target path: a page
      that answers a form in the target is summarised with its path under `evidence:` instead.
-   - **The flow,** only when the target's `.omni-loop/config.yml` has a `flow` key, a non-empty
-     `landings.alone` or a `pr.openWith`: `flow/config.yml` holds those keys, copied as the target
-     commits them and nothing else, and every hook file that flow names is copied byte for byte at
-     its own repository path under `flow/` (the target's `.omni-loop/flow/kernel/tests.md` is
-     `flow/.omni-loop/flow/kernel/tests.md`). A `pr.openWith` naming a skill copies no file. Then
-     `node .omni-loop/bin/omni.mjs flow show --repo <name>` must print the target's areas: a refusal
-     names the key to fix in the copy, never in the target. The copy is read for planning only:
-     its hooks are never followed from here.
+   - **The flow,** written from this clone as **Every target's planning config** says, below.
 4. **Delete the clone** once its copy is written.
 
 Commit each copy as its own commit, so a person can drop one alone:
 `docs(knowledge): import <name>'s knowledge base, read at <first 7 of readAt>`.
+
+**Every target's planning config.** For **every** target, whatever its `knowledge` answer (`own`,
+`imported` or `none`), the plan repository keeps a copy of the config that shapes its plans, so
+`omni plan check` grades a slice landing there by the target's own rules. Only when the target's
+`.omni-loop/config.yml` has a `flow` key, a non-empty `landings.alone`, a `pr.openWith` or
+`contracts.declare: true`:
+
+- **Read it** from the import's clone, or, for an `own` or `none` target, from a shallow read-only
+  clone made as in item 1 above and deleted once the copy is written. Nothing runs in it.
+- **Write `<paths.knowledge>/repos/<name>/flow/`, and nothing else** for an `own` or `none` target:
+  its knowledge base is still never copied. `flow/config.yml` holds those keys, copied as the
+  target commits them and nothing else (`contracts` whole, its `kinds` included), and every hook
+  file that flow names is copied byte for byte at its own repository path under `flow/` (the
+  target's `.omni-loop/flow/kernel/tests.md` is `flow/.omni-loop/flow/kernel/tests.md`). A
+  `pr.openWith` naming a skill copies no file.
+- **Check it:** `node .omni-loop/bin/omni.mjs flow show --repo <name>` must print the target's areas
+  and its `contracts:` line: a refusal names the key to fix in the copy, never in the target. The
+  copy is read for planning only: its hooks are never followed from here.
+- **Commit it.** For an imported target it goes in the import's commit; for any other, its own
+  commit: `docs(knowledge): copy <name>'s planning config, read at <first 7 of its head>`.
+
+A target whose config has none of those keys gets no `flow/` folder.
 
 ## 4. Config: the plan section, its own commit
 
@@ -239,8 +254,9 @@ Then run `node .omni-loop/bin/omni.mjs targets`, and keep its table for the pull
 
 ## --sync
 
-`/omni:mega-invade --sync` keeps the imported copies current. It touches only `imported` targets,
-never an `own` one, and never a `none` one's knowledge.
+`/omni:mega-invade --sync` keeps the copies current. It touches the knowledge of `imported` targets
+only, never an `own` one's and never a `none` one's; the planning config of every target, `own` and
+`none` included.
 
 - **Read the state:** `node .omni-loop/bin/omni.mjs targets --json`. Step 0 runs as above; a
   repository without a `plan` section has nothing to sync: say so, and run without `--sync`.
@@ -249,10 +265,13 @@ never an `own` one, and never a `none` one's knowledge.
   whose `evidence:` names one of them, and the register entries whose `Source:` or `Enforced by:`
   names one, are redrawn, by `/omni:invade --refresh`'s rules. **A section or an entry a person wrote
   or confirmed is never rewritten** (`by: human`, or an entry without its `Proposed:` line): a
-  conflict with it becomes a `TODO(human)` beside it. A target whose `detail` starts with
-  `flow moved since read at` gets its `flow/` folder redrawn whole from the clone, as step 3 writes
-  it (removed when the target no longer has a flow). `readAt` moves to the clone's head, in the
+  conflict with it becomes a `TODO(human)` beside it. `readAt` moves to the clone's head, in the
   config commit. Commit each copy as `docs(knowledge): sync <name>'s knowledge base, read at <first 7>`.
+- **Each target whose `detail` starts with `flow moved since read at` or `flow not copied`,**
+  whatever its `knowledge`: its `flow/` folder is redrawn whole from a fresh shallow clone, as step
+  3's **Every target's planning config** writes it (removed when the target no longer commits any
+  of those keys). For an imported target it goes in that target's sync commit; for any other, its
+  own: `docs(knowledge): sync <name>'s planning config, read at <first 7 of its head>`.
 - **Each `drifted` imported target that now has its own loop and a filled form:** propose switching
   it to `own` and deleting its copy, in their own commit
   (`docs(knowledge): <name> has its own knowledge base — drop its copy`).
@@ -273,7 +292,8 @@ every check that ran or did not.
   never a `CLAUDE.md`, a README, a workflow or source code.
 - Nothing runs in a clone; every clone lives in the scratch folder and is deleted.
 - Asks once, at the map; writes nothing before the answer.
-- A target with the loop and a filled form is `own`: never copied, never synced.
+- A target with the loop and a filled form is `own`: its knowledge is never copied, never synced;
+  only its planning config is, under `repos/<name>/flow/`.
 - Only a target answered "import" gets a copy, and every copy carries its `readAt`.
 - Never rewrites a section or an entry a person wrote or confirmed.
 - `omni targets` reports; only this skill refreshes a copy, and only in a pull request a person

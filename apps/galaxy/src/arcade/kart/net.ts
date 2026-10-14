@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { StoredHero } from '../../data/players';
 import { RULES } from './rules';
 import { readLook, type KartLook } from './look';
+import { isCircuitId } from './circuits';
 
 /**
  * A player on the grid, as they say it themselves: their id, name, hero, fleet and best time at OMNI
@@ -24,6 +25,8 @@ const Entry = z.object({
   look: z.object({ color: z.string().max(32), design: z.string().max(32) }).transform((l): KartLook => readLook(l)).optional().catch(undefined),
   /** The laps the player chose (PRD 1762); an entry without them, or with a count that is not one, counts as a tab without `laps`. */
   laps: z.number().int().min(1).max(MAX_LAPS).optional().catch(undefined),
+  /** The circuit the player chose (PRD 1923); an entry without one, or naming no circuit, counts as a tab without `track`. */
+  track: z.string().refine(isCircuitId).optional().catch(undefined),
 });
 export type GridPlayer = z.infer<typeof Entry>;
 
@@ -31,6 +34,7 @@ export type GridPlayer = z.infer<typeof Entry>;
 export const presenceOf = (player: GridPlayer): Record<string, unknown> => ({
   id: player.id, name: player.name, hero: player.hero, fleet: player.fleet, best: player.best, arrival: player.arrival,
   ...(player.look ? { look: player.look } : {}), ...(player.laps !== undefined ? { laps: player.laps } : {}),
+  ...(player.track !== undefined ? { track: player.track } : {}),
 });
 
 /** A Presence entry read back: the player it says, or null when a field is missing or wrong. */
@@ -63,6 +67,8 @@ const Start = z.object({
   seed: z.number().int().nonnegative(),
   /** How many laps every player races (PRD 1762); a start without it races 3. */
   laps: z.number().int().min(1).max(MAX_LAPS).optional(),
+  /** The circuit every player races (PRD 1923); a start without it races COMET RING, and one naming no circuit does not read. */
+  track: z.string().refine(isCircuitId).optional(),
   order: z.array(Entry).min(2).max(RULES.places),
 });
 

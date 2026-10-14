@@ -3,7 +3,8 @@
 // the waves and the collision matrix, then every violation; exits 1 on any. In a plan repository
 // (PRD 549) it prints the waves and the collision matrix per repository. A plan of more than one
 // landing gets one line per landing, its name, its waves and its slices; a plan of one prints as it
-// always did.
+// always did. After the collision matrix, one line names every slice that declares a contract kind,
+// with its kinds (PRD 1870): `contracts: s1 api, db · s4 api`, nothing when none does.
 //
 // `omni plan moved <prd> [--json]` (PRD 563) reads, for each target row of a plan repository's
 // `## Repositories`, what changed on the target's default branch since `read at` under the
@@ -162,6 +163,14 @@ function printMatrices(stdout: Out, { matrices }: Checked): void {
   }
 }
 
+/** The slices that declare a contract kind, with their kinds, in one line; nothing when none does. */
+function printContracts(stdout: Out, { slices }: Checked): void {
+  const declared = slices.flatMap(({ id, contract }) =>
+    contract !== null && contract !== 'none' ? [`${id} ${contract.kinds.join(', ')}`] : [],
+  );
+  if (declared.length > 0) println(stdout, `contracts: ${declared.join(' · ')}`);
+}
+
 /** `omni plan check <prd>`: the plan's shape, then its violations (exit 1) or its pass line. */
 function checkCommand(rest: string[], { ctx, stdout }: Pick<CommandIo, 'ctx' | 'stdout'>): number {
   const { positional } = parseArgs('plan check', rest);
@@ -178,6 +187,7 @@ function checkCommand(rest: string[], { ctx, stdout }: Pick<CommandIo, 'ctx' | '
   printLandings(stdout, checked);
   printRepositories(stdout, checked);
   printMatrices(stdout, checked);
+  printContracts(stdout, checked);
 
   if (violations.length > 0) {
     println(stdout, formatFailure(`omni plan check — PRD ${prd}: violation(s):`, violations));
