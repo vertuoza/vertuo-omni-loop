@@ -44443,9 +44443,11 @@ function pathText(view) {
   lines2.push(...hooks.length > 0 ? hooks.map((hook) => `hook     ${hook}`) : ["hooks    none"]);
   return lines2.join("\n");
 }
-function differencesText(differences) {
-  if (differences.length === 0) return "flow \u2014 none: this repository runs the kit's defaults.";
-  const lines2 = ["flow \u2014 what this repository changes from the kit's defaults"];
+var contractsLine = ({ declare, kinds }) => declare ? `contracts: declare ${kinds.join(", ")}` : "contracts: none";
+function differencesText(differences, contracts) {
+  if (differences.length === 0) return `flow \u2014 none: this repository runs the kit's defaults.
+${contractsLine(contracts)}`;
+  const lines2 = ["flow \u2014 what this repository changes from the kit's defaults", contractsLine(contracts)];
   for (const { area: area2, paths, inherit, rules, hooks } of differences) {
     const where = paths.length === 0 ? "every path no area claims" : paths.join(" ");
     lines2.push("", `${area2}  ${where}${inherit || area2 === "default" ? "" : "  (inherit: false)"}`);
@@ -44455,7 +44457,7 @@ function differencesText(differences) {
   return lines2.join("\n");
 }
 function shownFlow(ctx, repo) {
-  if (repo === void 0) return { flow: resolveFlow(ctx.config), readHook: hookReader(ctx.root) };
+  if (repo === void 0) return { flow: resolveFlow(ctx.config), readHook: hookReader(ctx.root), contracts: ctx.config.contracts };
   const slug = repoArg(ctx, repo, "flow show");
   let copy;
   try {
@@ -44466,7 +44468,7 @@ function shownFlow(ctx, repo) {
   if (copy === null) {
     throw usageError(`omni flow show: ${repo} has no copied flow at ${join68(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)} \u2014 /omni:mega-invade copies an imported target's flow there.`);
   }
-  return { flow: resolveFlow(copy.config), readHook: copy.readHook };
+  return { flow: resolveFlow(copy.config), readHook: copy.readHook, contracts: copy.config.contracts };
 }
 function bySliceOf(flags) {
   const bySlice = flags.prd !== void 0 || flags.slice !== void 0;
@@ -44474,7 +44476,7 @@ function bySliceOf(flags) {
   if (bySlice && flags.path !== void 0) throw usageError("omni flow show: either --prd and --slice, or --path, not both.");
   return bySlice;
 }
-function showWhole(flow2, flags, bySlice, print2) {
+function showWhole({ flow: flow2, contracts }, flags, bySlice, print2) {
   if (bySlice) throw usageError("omni flow show: --prd and --slice name a point's slice \u2014 give the point.");
   if (flags.path !== void 0) {
     const view = showPath(flow2, flags.path);
@@ -44482,7 +44484,7 @@ function showWhole(flow2, flags, bySlice, print2) {
     return 0;
   }
   const differences = flowDifferences(flow2);
-  print2(differences, differencesText(differences));
+  print2({ differences, contracts }, differencesText(differences, contracts));
   return 0;
 }
 function pointGround(ctx, flags, bySlice) {
@@ -44509,7 +44511,7 @@ function show2(args, io) {
   const print2 = (json3, text14) => {
     println(io.stdout, flags.json ? JSON.stringify(json3, null, 2) : text14);
   };
-  if (name3 === void 0) return showWhole(shown6.flow, flags, bySlice, print2);
+  if (name3 === void 0) return showWhole(shown6, flags, bySlice, print2);
   return showOnePoint(io, shown6, name3, { flags, bySlice, print: print2 });
 }
 function verdict(args, { ctx, stdout }) {
@@ -53113,8 +53115,9 @@ function hooksMoved(gh, repo, branch, target3, copy) {
   const one = changed.length === 1;
   return `${one ? "hook" : "hooks"} ${changed.join(", ")} ${one ? "differs" : "differ"} from the copy`;
 }
+var readWhere = (readAt) => readAt === null ? "its copy" : readAt.slice(0, 7);
 function flowMoved(gh, { repo, readAt }, branch, config3, copy) {
-  const moved2 = (why3) => `flow moved since read at ${readAt.slice(0, 7)}: ${why3}`;
+  const moved2 = (why3) => `flow moved since read at ${readWhere(readAt)}: ${why3}`;
   if (copy !== null && "error" in copy) return moved2(`the copy's flow cannot be read \u2014 ${copy.error}`);
   const target3 = targetFlow(repo, config3);
   if ("error" in target3) return moved2(`the target's flow cannot be read \u2014 ${target3.error}`);
@@ -53139,11 +53142,20 @@ function importedStale(gh, target3, { branch, config: config3, evidence, copyFlo
   );
   return stale2.length > 0 ? stale2.join("; ") : null;
 }
+function otherStale(gh, { repo }, { branch, config: config3, copyFlow }) {
+  if (copyFlow === void 0) return null;
+  if (copyFlow === null && commitsFlow(repo, config3)) return "flow not copied: the target commits a planning config the plan repository holds no copy of";
+  return flowMoved(gh, { repo, readAt: null }, branch, config3, copyFlow);
+}
+function commitsFlow(repo, config3) {
+  const target3 = targetFlow(repo, config3);
+  return !("error" in target3) && hasFlow(target3);
+}
 function judged2(gh, target3, facts, read2) {
   const { knowledge: knowledge2 } = target3;
-  if (knowledge2 === "own") return ownJudged(facts);
-  if (facts.installed && facts.filled) return ["drifted", `the config says ${knowledge2}, but it has the loop and a filled form`];
-  const stale2 = knowledge2 === "imported" ? importedStale(gh, target3, read2) : null;
+  const drifted = knowledge2 === "own" ? ownJudged(facts) : facts.installed && facts.filled ? ["drifted", `the config says ${knowledge2}, but it has the loop and a filled form`] : ["ok", null];
+  if (drifted[0] !== "ok") return drifted;
+  const stale2 = knowledge2 === "imported" ? importedStale(gh, target3, read2) : otherStale(gh, target3, read2);
   return stale2 === null ? ["ok", null] : ["stale", stale2];
 }
 function readTarget2(target3, {
@@ -53185,9 +53197,7 @@ function copyFlowOf(repo, ctx) {
   }
 }
 function readTargets(targets2, { ctx, exec = execFileSync14, env }) {
-  return targets2.map(
-    (target3) => target3.knowledge === "imported" ? readTarget2(target3, { exec, env, evidence: copyEvidence(target3.repo, { ctx }), copyFlow: copyFlowOf(target3.repo, ctx) }) : readTarget2(target3, { exec, env })
-  );
+  return targets2.map((target3) => readTarget2(target3, { exec, env, evidence: copyEvidence(target3.repo, { ctx }), copyFlow: copyFlowOf(target3.repo, ctx) }));
 }
 var COLUMNS = ["repo", "role", "knowledge", "loop", "state"];
 function targetsTable(rows2) {
