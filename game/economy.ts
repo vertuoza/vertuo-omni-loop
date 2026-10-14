@@ -1,7 +1,7 @@
 // Ledger events + rulebook + calendar + season → credits and rankings (spec §6). Pure.
 import { RULEBOOK } from './rulebook.ts';
 import { isWorkingTime, tranchesBetween } from './calendar.ts';
-import { NO_PLANET, planetKeyOf, textOf, type GameEvent } from './events.ts';
+import { NO_PLANET, oneSpelling, planetKeyOf, textOf, type GameEvent } from './events.ts';
 import type { Credit, PlanetSeason, Season } from './types.ts';
 
 // A rulebook table's number for a key read off an event's data, or undefined.
@@ -25,7 +25,7 @@ function seasonBounds(season: string): { start: Date; end: Date } {
 export function score(events: readonly GameEvent[], { season, now }: { season: string; now: Date }): Season {
   const { start, end } = seasonBounds(season);
   const inSeason = (at: string): boolean => at.slice(0, 7) === season;
-  const sorted = [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+  const sorted = events.map(oneSpelling).sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   // A planet is keyed by `<home>#<n>` (PRD 728): two repositories' PRD 88 never share an owner, a
   // crew, a terraform or a clawback. Each credit keeps the PRD's number, its home and that key.
   const ownerOf = new Map<string, string | null>();

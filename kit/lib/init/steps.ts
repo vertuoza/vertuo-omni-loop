@@ -11,6 +11,7 @@
 // an invaded one is pointed at `omni update` and `/omni:invade --refresh` instead of the forms.
 import { dirname } from 'node:path';
 import { at } from '../narrow.ts';
+import { COPIES_GLOB } from './agents.ts';
 import type { InstallPr } from './install-pr.ts';
 import type { Invasion } from './installed.ts';
 import type { LabelsResult } from './labels.ts';
@@ -65,6 +66,24 @@ function byHand(steps: readonly [string, ...string[]][]): string[] {
   return lines;
 }
 
+/**
+ * The lines of what init wrote for the agents (PRD 1890): the copies' line, then the status line's
+ * and the band's. No Claude in `agents`: init left `.claude/settings.json` alone, and says nothing of it.
+ */
+function agentLines({ settings, hud, copies }: {
+  settings: { path: string; outcome: StatusLineOutcome } | null;
+  hud: { path: string; outcome: HudOutcome } | null;
+  copies: string | null;
+}): string[] {
+  const lines = copies ? [copies] : [];
+  if (!settings || !hud) return lines;
+  const hudLine = HUD_LINE[hud.outcome](hud.path);
+  return [...lines, STATUS_LINE[settings.outcome](settings.path), ...(hudLine ? [hudLine] : [])];
+}
+
+/** The folders removing the loop deletes: its own, and the copies' when the install owns any (PRD 1890). */
+const loopFolders = (dir: string, copies: boolean): string => (copies ? `${dir}/, ${COPIES_GLOB}/` : `${dir}/`);
+
 /** The first line of a repository already installed on `defaultBranch`: nothing is written or opened. */
 export const installedHeadline = (defaultBranch: string): string => `Already installed on ${defaultBranch} — no install pull request.`;
 
@@ -98,14 +117,17 @@ export function installedSteps({ forms, invaded = null, configPath }: {
  * front door, and each file of it this run wrote — a form is never overwritten, so one already there
  * is not listed — `outside` when the front door lies outside init's folder, and so nothing was
  * written there; `settings` the settings file the status line goes in, and what this run did with
- * it (see settings.ts); `hud` what it did with the band's line in the same file.
+ * it (see settings.ts), `null` when `agents` lists no Claude and it was left alone; `hud` what it did
+ * with the band's line in the same file, `null` likewise; `copies` the line of the skills written
+ * for the other agents (agents.ts), when there is one.
  */
-export function setupLines({ slug, files, forms, settings, hud, labels }: {
+export function setupLines({ slug, files, forms, settings, hud, copies = null, labels }: {
   slug: string | null;
   files: { path: string; wrote: boolean }[];
   forms: { dir: string; wrote: string[]; outside: boolean };
-  settings: { path: string; outcome: StatusLineOutcome };
-  hud: { path: string; outcome: HudOutcome };
+  settings: { path: string; outcome: StatusLineOutcome } | null;
+  hud: { path: string; outcome: HudOutcome } | null;
+  copies?: string | null;
   labels: LabelsResult;
 }): string[] {
   const dir = dirname(at(files, 0, 'the first file init wrote').path); // init passes its files, never none
@@ -116,9 +138,7 @@ export function setupLines({ slug, files, forms, settings, hud, labels }: {
   }
   for (const path of forms.wrote) lines.push(`  wrote   ${path}`);
   if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ — see step ${formsStep(labels)} below`);
-  lines.push(STATUS_LINE[settings.outcome](settings.path));
-  const hudLine = HUD_LINE[hud.outcome](hud.path);
-  if (hudLine) lines.push(hudLine);
+  lines.push(...agentLines({ settings, hud, copies }));
   const done = [];
   if (labels.created.length) done.push(`created ${labels.created.join(', ')}`);
   if (labels.present.length) {
@@ -146,11 +166,12 @@ export function computerLines(plugin: StepLines, signin: StepLines): string[] {
  * to update the loop and how to remove it. `defaultBranch` is the branch the config names (the
  * schema default when unknown); `configPath` the config file, whose folder is the loop's;
  * `outboxCheck` the check the omni-loop App posts (`ci.outboxContext`); `pr` the install pull
- * request, when init found or opened it; `forms` the forms' front door; `unfilled` each
+ * request, when init found or opened it; `forms` the forms' front door; `copies` whether the install
+ * owns `.agents/skills/omni-*` copies (PRD 1890), which removing the loop deletes too; `unfilled` each
  * `commands.*` left null, with its flag; `notices` an older loop's workflows found in the
  * repository, and a formatter that would check the bin.
  */
-export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms, settings, labels, unfilled, notices = {} }: {
+export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms, settings, copies = false, labels, unfilled, notices = {} }: {
   slug: string | null;
   defaultBranch: string;
   configPath: string;
@@ -158,6 +179,7 @@ export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr,
   pr: Pick<InstallPr, 'url' | 'number'> | null;
   forms: { dir: string };
   settings: { path: string; outcome: string };
+  copies?: boolean;
   labels: Pick<LabelsResult, 'byHand'>;
   unfilled: { key: string; flag: string }[];
   notices?: { legacyWorkflows?: string[]; formatter?: FormatterNotice | null };
@@ -223,17 +245,18 @@ export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr,
   );
   // The status line and its removal are named only while the kit's own line is in place: someone
   // else's, or a file init could not read, is none of the loop's to switch on or to delete.
+  const folders = loopFolders(dir, copies);
   if (KIT_LINE_IN_PLACE.has(settings.outcome)) {
     lines.push(
       '',
       'The status line is on for everyone who opens Claude Code in this repository. A person who wants',
       `their own sets ${STATUS_LINE_KEY} in ${PERSONAL_SETTINGS_FILE}, which Claude Code reads first.`,
       '',
-      `To remove the loop: delete ${dir}/ and the ${STATUS_LINE_KEY} key of ${settings.path}, and commit.`,
+      `To remove the loop: delete ${folders} and the ${STATUS_LINE_KEY} key of ${settings.path}, and commit.`,
       'The labels and the App installation stay.',
     );
   } else {
-    lines.push('', `To remove the loop: delete ${dir}/ and commit. The labels and the App installation stay.`);
+    lines.push('', `To remove the loop: delete ${folders} and commit. The labels and the App installation stay.`);
   }
   return lines;
 }

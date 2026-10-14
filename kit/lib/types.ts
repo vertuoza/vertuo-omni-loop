@@ -9,6 +9,9 @@ import type { E2E_VALUES, OutboxItemFrontMatterSchema, PROOF_VALUES, RANK_VALUES
 /** `.omni-loop/config.yml`, parsed: every key present, defaults filled in. */
 export type Config = z.infer<typeof ConfigSchema>;
 
+/** A coding agent the kit installs its skills for (`agents` in the config, PRD 1890). */
+export type Agent = Config['agents'][number];
+
 /** The loop's seven stages, in the order a PRD goes through them (`STAGE_WORDS`). */
 export type Stage = 'idea' | 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
 

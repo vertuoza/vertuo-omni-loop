@@ -90,7 +90,9 @@ on a machine set up for it, with no one at a terminal. Start one with
 - **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts
   it may work in right under `--repos` (each known by its `origin`, `owner/name`, and in the
   workspace), Claude Code installed and signed in, and tmux. It refuses to start, in one line, when
-  `claude` is missing or signed out. It opens no port: it asks the Omni page for work.
+  `claude` is missing or signed out. It opens no port: it asks the Omni page for work. On a headless
+  server signed in with `claude setup-token`, export the token it prints as `CLAUDE_CODE_OAUTH_TOKEN`
+  before `omni runner`, and every job gets it (PRD 1894); unset, jobs use Claude's stored sign-in.
 - **What it does:** it registers under `--name` and shows on the page's Runners page, online, busy or
   offline; a workspace owner gives it to a fleet there. It runs at most `--slots` jobs at once (8 at
   most). Each job runs in a worktree `~/wt/<repo>-job-<id>` on branch `agent/job-<id>` from the

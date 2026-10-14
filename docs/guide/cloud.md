@@ -1,6 +1,6 @@
 ---
 title: Cloud sessions
-description: Run the loop from Claude Code on the web or the app, step by step — one token, one cloud environment, then the loop as on your laptop.
+description: Run the loop from your coding agent's cloud session, such as Claude Code on the web or the app, step by step — one token, one cloud environment, then the loop as on your laptop.
 ---
 
 A Claude Code cloud session, on the web or in the app on your phone, starts in a fresh container
@@ -106,13 +106,13 @@ keeps what it started with: start a new one.
 
 ## 3. Check it
 
-Start a session on the repository, and ask Claude to run:
+Start a session on the repository, and ask the agent to run:
 
 ```text agent
 omni whoami
 ```
 
-A cloud session has no `omni` installed globally: Claude runs the repository's own copy,
+A cloud session has no `omni` installed globally: the agent runs the repository's own copy,
 `node .omni-loop/bin/omni.mjs whoami`, which is the same command. It prints your login and the last
 four characters of the token:
 
@@ -127,12 +127,14 @@ status line shows `token ··<last four>` where your laptop shows your sign-in, 
 ## 4. Run the loop from the session
 
 Start a session on the repository in that environment, and work as on your laptop: type the loop's
-commands, such as `/omni:status`, `/omni:brainstorm '<your idea>'` or `/omni:yolo <n>`, and answer
-Claude's questions there. Ask mode, PRD pages and approvals go through the token.
+commands, in your agent's form ([Any coding agent](/docs/any-agent#set-up-your-agent)), such as
+`/omni:status`, `/omni:brainstorm '<your idea>'` or `/omni:yolo <n>`, and answer the agent's
+questions there. Ask mode, PRD pages and approvals go through the token.
 
 **When a `/omni:` command is not found.** A cloud session may start without the `omni` plugin's
-commands: Claude then says no command has that name. The skills are still there to follow. In the
-Omni Loop's own repository, ask Claude to follow the skill file itself, which is the same skill:
+commands: Claude Code then says no command has that name. The skills are still there to follow. In
+the Omni Loop's own repository, ask the agent to follow the skill file itself, which is the same
+skill:
 
 ```text agent
 Follow kit/plugin/skills/brainstorm/SKILL.md for this idea: <your idea>
@@ -143,13 +145,18 @@ session with plain commands: `omni session start` first, `omni ask question` for
 `omni session end` last. The same `OMNI_TOKEN` and `OMNI_ASK=on` serve it: see
 [Any coding agent](/docs/any-agent).
 
+**Codex or Cursor on the web.** A cloud session of Codex or Cursor reads the skills from the copies
+committed under `.agents/skills/omni-*`, not from a plugin. Those copies exist only once the
+pull request that installs or updates the kit, with that agent listed under `agents`, is merged:
+merge it first ([Any coding agent › Set up your agent](/docs/any-agent#set-up-your-agent)).
+
 **What is slower in the cloud.** A cloud session reaches GitHub through Claude's GitHub connection,
 which allows GitHub's REST API but not its GraphQL API. The `omni` commands that list pull requests
 through `gh pr` stop on `HTTP 403: GitHub GraphQL is not available`: `omni board`, and the merge
-gate `/omni:wave` asks (`omni flow check merge`). `/omni:yolo` still builds a PRD there: Claude reads
-the waves from the plan, opens and merges each sub-PR through the GitHub connection, and checks by
-hand what the board and the gate check (the base, the slice's ground, its checks). Say so when you
-start, so Claude does not stop on the first 403.
+gate `/omni:wave` asks (`omni flow check merge`). `/omni:yolo` still builds a PRD there: the agent
+reads the waves from the plan, opens and merges each sub-PR through the GitHub connection, and
+checks by hand what the board and the gate check (the base, the slice's ground, its checks). Say so
+when you start, so the agent does not stop on the first 403.
 
 ## What needs no setting up
 
@@ -173,7 +180,7 @@ Each failure stops the command with one line, naming the variable and never its 
 | `environment: OMNI_TOKEN is not valid: it is not a kit token: make one with omni setup-token` | the value is not a token: cut short, a space too many, or something else pasted | paste the whole `omk_…` line again |
 | `OMNI_TOKEN is set in this environment: revoke it on your profile page` | `omni signout` ran under a token, and deleted nothing | revoke the token under **Terminal tokens** to stop it |
 | `Cannot find package 'yaml'` | the session started without the repository's dependencies (Omni Loop's own repository) | add `pnpm install --frozen-lockfile` as the environment's setup script (step 2), then start a new session |
-| `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` | an `omni` command listed pull requests through `gh pr`, which a cloud session cannot | nothing to fix in your settings: Claude carries on through the GitHub connection (step 4) |
+| `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` | an `omni` command listed pull requests through `gh pr`, which a cloud session cannot | nothing to fix in your settings: the agent carries on through the GitHub connection (step 4) |
 
 Other troubles with the sign-in are in [When something goes wrong](/docs/troubleshooting).
 

@@ -6,13 +6,14 @@ description: Omni Loop already runs in your GitHub organization. Nothing to set 
 Your team already runs Omni Loop: someone installed the Omni Loop GitHub App on your GitHub
 organization, and the repositories you will work in already hold the kit. Almost everything is done.
 What is left is your laptop, the four steps of [Install](/docs/install): `omni` installed globally,
-the skills in Claude Code, your sign-in, and Claude's questions on the Omni page. Do them first, in
-a clone of your team's repository; this page then shows you around.
+the skills in your coding agent, your sign-in, and your agent's questions on the Omni page. Do them
+first, in a clone of your team's repository; this page then shows you around.
 
 Setting the loop up on a repository yourself? After the four steps, go to
 [Invade](/docs/invade) instead.
 
-Working from Claude Code on the web or the app too? A cloud session has no browser to sign in with:
+Working from a cloud session too (in Claude Code: on the web or the app)? A cloud session has no
+browser to sign in with:
 [Cloud sessions](/docs/cloud) signs it in as you with one token, made once.
 
 ## Is this page for you?
@@ -37,7 +38,7 @@ everyone. What is left happens once per laptop, and it is yours: the four steps 
 |---|---|---|
 | **GitHub** | the Omni App on the organization; the loop's labels and its `outbox` check on each repository | nothing |
 | **The repository** | the kit in `.omni-loop/`, merged; the knowledge base `/omni:invade` wrote; the status line | a clone, up to date, and ask mode on in it |
-| **Your laptop** | nothing: nothing is shared between laptops | the four tools, `omni`, the `omni` plugin's skills in Claude Code, your sign-in |
+| **Your laptop** | nothing: nothing is shared between laptops | the four tools, `omni`, the skills in your coding agent (in Claude Code: the `omni` plugin), your sign-in |
 | **The Omni page** | your organization's workspace, whose members are the organization's members | your sign-in, and a fleet if you play |
 
 So three things are never yours to run here: **`omni init`**, **installing the GitHub App**, and
@@ -51,7 +52,8 @@ team that works on the repository.
 
 ## 1. See where your team is
 
-In Claude Code, at the root of the repository:
+In your coding agent, at the root of the repository (another agent than Claude Code types the skill
+in its own form: [Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
 /omni:status
@@ -61,9 +63,10 @@ On a repository your team has been running, it is not empty: how many PRDs have 
 wait in the inbox, are being built or wait for review, and a bar of delivered against in progress.
 The PRDs listed as yours are the ones written with your git email (`git config user.email`): none yet.
 
-Look at the bottom of Claude Code, too: two lines, the **status line**. The first shows the model,
+In Claude Code, look at the bottom, too: two lines, the **status line**. The first shows the model,
 how full the session is and your usage; the second, once a session works on a PRD, that PRD and its
-stage. The repository switches it on for everyone who opens Claude Code in it.
+stage. The repository switches it on for everyone who opens Claude Code in it; other agents show no
+status line.
 
 ## 2. Join a fleet, if you play
 

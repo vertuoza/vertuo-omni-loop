@@ -1,24 +1,24 @@
 ---
 title: Install
-description: Four steps, once per laptop — omni installed globally, the skills in Claude Code, your sign-in, and Claude's questions on the Omni page.
+description: Four steps, once per laptop — omni installed globally, the skills in your coding agent, your sign-in, and your agent's questions on the Omni page.
 ---
 
 Four steps, once per laptop, the same for everyone. When they are done:
 
 1. **`omni` is installed globally**: the loop's command, in every terminal.
-2. **The skills are loaded in Claude Code**: every `/omni:` command, such as `/omni:brainstorm`.
+2. **The skills are loaded in your coding agent**: every `/omni:` command, such as `/omni:brainstorm`.
 3. **You are signed in** to the Omni page, the web app beside the loop.
-4. **Claude's questions come to you on the Omni page**, where you read and answer them.
+4. **Your agent's questions come to you on the Omni page**, where you read and answer them.
 
 Do them in order: each one needs the one before. They need the four tools listed under
-[What you need first](/docs#what-you-need-first): Node, git, gh signed in, and Claude Code signed
-in.
+[What you need first](/docs#what-you-need-first): Node, git, gh signed in, and your coding agent
+signed in.
 
 Each code block on these pages says where it goes, at its top right: **TERMINAL** is a terminal on
-your laptop, **CODING AGENT** is Claude Code's prompt, **FILE** names the file the lines go in, and
-**GITHUB COMMENT** is a reply on a pull request. A terminal command that also shows CODING AGENT
-runs from Claude Code too: type it there with `!` before it (`!git pull`), and Claude Code runs it
-and shows what it prints.
+your laptop, **CODING AGENT** is your coding agent's prompt, **FILE** names the file the lines go
+in, and **GITHUB COMMENT** is a reply on a pull request. A terminal command that also shows CODING
+AGENT runs from your coding agent too (in Claude Code: type it with `!` before it, `!git pull`, and
+it runs it and shows what it prints).
 
 ## 1. Install omni globally
 
@@ -42,11 +42,13 @@ run the same npm line again.
 When npm says `EACCES`, or the check says `command not found: omni`, see
 [When something goes wrong](/docs/troubleshooting).
 
-## 2. Load the skills in Claude Code
+## 2. Load the skills in your coding agent
 
-Every step of the loop is a skill you type in Claude Code, such as `/omni:brainstorm`. The skills
-come in the `omni` plugin, which is installed on your laptop, not in a repository. Two lines, in any
-folder:
+Every step of the loop is a skill you type in your coding agent, such as `/omni:brainstorm`. Codex,
+Cursor and Gemini CLI read the skills from copies the repository commits, and type them in their
+own form: skip to step 3, and see [Any coding agent](/docs/any-agent#set-up-your-agent). In Claude
+Code, the skills come in the `omni` plugin, which is installed on your laptop, not in a repository.
+Two lines, in any folder:
 
 ```bash terminal
 claude plugin marketplace add vertuoza/vertuo-omni-loop
@@ -72,9 +74,9 @@ It lists `omni@omni-loop`. A Claude Code already open loads the skills once you 
 
 ## 3. Sign in
 
-The Omni page keeps each PRD's dossier, the questions Claude asks you, and your team's knowledge.
-You sign in to it once per laptop, from the root of a repository that runs the loop: one with a
-`.omni-loop/` folder, whose settings name the page.
+The Omni page keeps each PRD's dossier, the questions your agent asks you, and your team's
+knowledge. You sign in to it once per laptop, from the root of a repository that runs the loop: one
+with a `.omni-loop/` folder, whose settings name the page.
 
 - **Your team runs the loop already.** Clone its repository, or bring your clone up to date on its
   default branch (`git switch main`, then `git pull`).
@@ -101,33 +103,34 @@ It opens your browser: sign in with your GitHub account. The terminal then print
 `signed in as <your login>`, followed by the repository and the workspace it goes to. The sign-in is
 kept on this laptop, so every repository you run the loop in shares it.
 
-Working from Claude Code on the web or the app, where no browser opens? A cloud session signs in
-with a token instead: [Cloud sessions](/docs/cloud) shows how to make one and where it goes.
+Working from a cloud session (in Claude Code: on the web or the app), where no browser opens? A
+cloud session signs in with a token instead: [Cloud sessions](/docs/cloud) shows how to make one and
+where it goes.
 
 When it ends on `you are not a member of <workspace>` or `no workspace owns <owner/repo> yet`, see
 [When something goes wrong](/docs/troubleshooting). When it says `no Omni Loop kit here`, you are
 not at the root of a repository that has the kit.
 
-## 4. Set up Claude's questions
+## 4. Set up your agent's questions
 
-While the loop works, Claude asks you questions: which design to keep, which option to take. Ask
-mode sends them to the Omni page instead of the terminal: you read each one in full there, answer
-it from any device, share it with a teammate, and find every one again later. Start Claude Code at
-the root of the repository (`claude`), and type:
+While the loop works, your coding agent asks you questions: which design to keep, which option to
+take. Ask mode sends them to the Omni page instead of the terminal: you read each one in full there,
+answer it from any device, share it with a teammate, and find every one again later. Start your
+coding agent at the root of the repository (in Claude Code: `claude`), and type:
 
 ```text agent
 /omni:ask on
 ```
 
-It prints the link of your questions page: open it, and keep it open while you work. The status
-line at the bottom of Claude Code now shows `ask on`. Every Claude Code open in this clone sends its
+It prints the link of your questions page: open it, and keep it open while you work. In Claude Code,
+the status line at the bottom now shows `ask on`. Every coding agent open in this clone sends its
 questions there, each in a tab of its own; whenever the page cannot answer, the question shows in
 the terminal as it always did. Ask mode is set per clone: type `/omni:ask on` once in each clone you
 work in. `/omni:ask off` turns it off.
 
 ## You are set up
 
-Check all four in Claude Code, at the root of the repository:
+Check all four in your coding agent, at the root of the repository:
 
 ```text agent
 /omni:help
@@ -135,6 +138,8 @@ Check all four in Claude Code, at the root of the repository:
 
 It prints the loop on one screen: its six stages, from an idea to a retro, and every command. If
 Claude Code does not know `/omni:help`, step 2 has not run, or Claude Code has not reloaded since.
+Another agent that does not know it has no copies yet: the repository's install pull request
+listing it is not merged.
 
 - **Your team runs the loop already:** [Join a team](/docs/join) shows you around it.
 - **You have just set the loop up on your repository:** [Invade](/docs/invade) lets it read your
@@ -158,6 +163,24 @@ the command that runs the tests, the preflight a slice must pass before its pull
 and the full preflight run before a feature is ready. Type each one (`npm test`, `pnpm test`,
 `make test`…), or press Enter to leave one empty and fill it in later in `.omni-loop/config.yml`.
 
+Then it asks which coding agents your team uses: any of `claude`, `codex`, `cursor` and `gemini`,
+separated by commas. Press Enter for Claude Code alone. To answer without being asked, name each one
+with `--agent`:
+
+```bash terminal
+omni init --agent claude --agent codex
+```
+
+Your answer is the `agents` key of `.omni-loop/config.yml`, `[claude]` by default. For every agent
+but Claude, init writes the skills into the repository, one folder per skill under
+`.agents/skills/omni-<name>/`, which Codex, Cursor and Gemini CLI all read, and lists them in
+`.omni-loop/agents.json`. Each person types a skill in their own agent's form: `/omni:yolo 7` in
+Claude Code, `$omni-yolo 7` in Codex, `/omni-yolo 7` in Cursor, and in Gemini CLI, ask for
+`omni-yolo`. `omni help` shows each form for the agents the key lists. The status line and the HUD
+are Claude Code's alone. To add an agent later, edit the key, then run `omni update`: it writes the
+copies, keeps them at the kit's version, and removes them once the key lists Claude alone. Never
+edit a copy by hand: `omni check agents` turns red, and the next update writes it back.
+
 Then it does the rest, one line per step:
 
 - **The install branch.** It switches to a new branch, `chore/install-omni-loop`.
@@ -165,7 +188,10 @@ Then it does the rest, one line per step:
   settings for this repository, already pointed at the Omni page; `bin/omni.mjs`, the `omni`
   command itself; and the blank knowledge forms under `knowledge/`, which [Invade](/docs/invade)
   fills. It also adds the loop's status line to `.claude/settings.json`, and creates the loop's
-  labels on GitHub (`omni:prd`, `omni:feature`, `omni:sub` and the others).
+  labels on GitHub (`omni:prd`, `omni:feature`, `omni:sub` and the others). For the agents but
+  Claude, it writes the skills' copies under `.agents/skills/` and their list,
+  `.omni-loop/agents.json`; when `agents` does not list Claude, it writes no status line and
+  installs no plugin.
 - **The install pull request.** It commits only the files it wrote, pushes the branch, opens the
   pull request and prints its link.
 - **On this computer.** The plugin of step 2 says "already". When this laptop has not signed in yet,

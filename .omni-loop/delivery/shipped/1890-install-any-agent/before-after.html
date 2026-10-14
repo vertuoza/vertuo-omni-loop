@@ -1,0 +1,129 @@
+<title>Install any agent before and after</title>
+<style>
+/* Layout: one column; each change sets today beside after in two panes that stack on a phone.
+   Single dark look, on purpose: the Omni Loop's own tokens (packages/design/tokens.css). */
+:root {
+  --bg: #07061c;        /* void */
+  --pane: #0e0d33;      /* deep */
+  --fg: #f2f4ff;        /* white */
+  --muted: #8a90d6;     /* dim */
+  --line: #2a2766;
+  --accent: #a45cff;    /* plasma */
+  --good: #4ee08a;      /* green */
+  --bad: #ff3b5c;       /* red */
+  --code: #6ff0ff;      /* cyan */
+  --display: "Press Start 2P", ui-monospace, monospace;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 32px; }
+h1 { font: 18px/1.5 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 13px/1.5 var(--display); margin: 0; color: var(--accent); letter-spacing: .04em; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; color: var(--muted); }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pane { background: var(--pane); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pane.today { border-top: 3px solid var(--bad); }
+.pane.after { border-top: 3px solid var(--good); }
+pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--code); overflow-x: auto; white-space: pre; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: .92em; color: var(--code); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.no { color: var(--bad); } .yes { color: var(--good); }
+.note { color: var(--muted); font-size: 13.5px; }
+.flow { display: grid; gap: 8px; }
+.step { border-left: 2px solid var(--line); padding-left: 10px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Press+Start+2P&display=swap">
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Install for any coding agent</h1>
+    <p class="lede">PRD #1890 · Architectural · PRD 3 of the agent-agnostic series, after #1831 and #1858. A repository lists its agents; the install writes every omni skill where Codex, Cursor and Gemini CLI read them, keeps them in sync, and help shows each agent's form. Claude keeps its plugin.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+
+    <h3>1 · omni init</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>$ omni init
+  .omni-loop/config.yml
+  .omni-loop/bin/omni.mjs
+  .claude/settings.json   # statusLine, HUD
+  claude plugin install omni@omni-loop</pre>
+        <ul><li class="no">a teammate on Codex, Cursor or Gemini CLI gets no skill</li></ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>$ omni init --agent codex --agent claude
+  .omni-loop/config.yml   # agents: [codex, claude]
+  .omni-loop/bin/omni.mjs # skills embedded
+  .omni-loop/agents.json  # what the install owns
+  .agents/skills/omni-yolo/SKILL.md
+  .agents/skills/omni-brainstorm/SKILL.md
+  … 33 skills
+  .claude/settings.json   # only because claude is listed
+  claude plugin install omni@omni-loop</pre>
+      </div>
+    </div>
+
+    <h3>2 · Where each agent finds the skills, and how a person runs one</h3>
+    <div class="tbl"><table>
+      <tr><th>agent</th><th>reads</th><th>runs yolo as</th></tr>
+      <tr><td>Claude Code</td><td>the omni plugin (unchanged)</td><td><code>/omni:yolo 1890</code></td></tr>
+      <tr><td>Codex</td><td><code>.agents/skills/</code></td><td><code>$omni-yolo 1890</code></td></tr>
+      <tr><td>Cursor</td><td><code>.agents/skills/</code></td><td><code>/omni-yolo 1890</code></td></tr>
+      <tr><td>Gemini CLI</td><td><code>.agents/skills/</code></td><td>ask for omni-yolo, 1890</td></tr>
+    </table></div>
+
+    <h3>3 · omni update and the review</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+        <ul><li>refreshes the bin and the forms in <code>.omni-loop/</code></li><li>runs <code>claude plugin update</code></li></ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>## Skills for other agents
+- omni-yolo: 3 lines changed
+- omni-think-big: new
+These copies are generated from the kit;
+read the kit's release notes, not the copies.</pre>
+        <p class="note"><code>omni check agents</code> turns red on a hand-edited or missing copy: run <code>omni update</code>.</p>
+      </div>
+    </div>
+
+    <h3>4 · The law N-PRODUCT-13</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+        <p>omni init writes no file outside <code>.omni-loop/</code> except two keys of <code>.claude/settings.json</code>…</p>
+      </div>
+      <div class="pane after">
+        <h3>After (approved by its owner)</h3>
+        <p>omni init and omni update write no file outside <code>.omni-loop/</code> except two keys of <code>.claude/settings.json</code> and the <code>.agents/skills/omni-*</code> folders the manifest says they own; they never change a value or a file someone else set.</p>
+      </div>
+    </div>
+
+    <h3>5 · What stays the same</h3>
+    <ul>
+      <li>a repository whose <code>agents</code> is <code>[claude]</code>, the default: nothing new is written</li>
+      <li>the status line and the HUD: Claude Code's alone, and help says so</li>
+      <li>any skill of the repository's own in <code>.agents/skills/</code>: never touched</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</div>

@@ -155,7 +155,8 @@ It prints one line per repository: `is phase0: server`, or
 
 ### Brainstorm it
 
-In a checkout of one of the product's repositories, type:
+In a checkout of one of the product's repositories, type (in your agent's form:
+[Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
 /omni:mega-brainstorm --product mobile
