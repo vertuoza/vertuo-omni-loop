@@ -30,7 +30,7 @@ describe('omni e2e status', () => {
   it('prints the tagged tests with their recordings and exits 0 when all have one', async () => {
     const { code, out } = await run(['status', '7'], ON, { ...TEST, 'e2e/.e2e/cache/a.json': trace('rank.spec.ts') });
     expect(JSON.parse(out)).toEqual({
-      prd: 7, dir: 'e2e', tests: [{ id: 'rank.spec.ts', file: 'e2e/rank.spec.ts', recording: true, expected: true, recordings: ['e2e/.e2e/cache/a.json'] }],
+      prd: 7, dir: 'e2e', tests: [{ id: 'rank.spec.ts', file: 'e2e/rank.spec.ts', recording: true, expected: true, recordings: ['e2e/.e2e/cache/a.json'], level: 'standard', flow: null }],
     });
     expect(code).toBe(0);
   });
@@ -68,6 +68,45 @@ describe('omni e2e status', () => {
   it('is a usage error without a PRD or with an unknown subcommand', async () => {
     expect((await run(['status'], ON)).code).toBe(2);
     expect((await run(['heal'], ON)).code).toBe(2);
+  });
+});
+
+describe('omni e2e status, levels and flows (PRD 1737)', () => {
+  const FLOWS = '## signin: Signing in\nNo one can work.\n\n## invoicing: Invoicing\nNo revenue.\n';
+  const rec = { 'e2e/.e2e/cache/a.json': trace('rank.spec.ts') };
+  const test = (tags: string) => ({ 'e2e/rank.spec.ts': `test('rank', { tag: [${tags}] }, async () => { await agent.act('click Rank') })` });
+
+  it('prints level and flow, a file without critical being standard', async () => {
+    const { code, out } = await run(['status', '7'], ON, { ...test("'prd-7', 'flow-signin', 'critical'"), ...rec, 'e2e/critical-flows.md': FLOWS });
+    expect(JSON.parse(out)).toMatchObject({ tests: [{ level: 'critical', flow: 'signin' }] });
+    expect(code).toBe(0);
+    const standard = await run(['status', '7'], ON, { ...test("'prd-7', 'flow-signin'"), ...rec, 'e2e/critical-flows.md': FLOWS });
+    expect(JSON.parse(standard.out)).toMatchObject({ tests: [{ level: 'standard', flow: 'signin' }] });
+    expect(standard.code).toBe(0);
+  });
+
+  it('exits 1 naming the test and the flow when a critical test covers a flow not in the list', async () => {
+    const { code, err } = await run(['status', '7'], ON, { ...test("'prd-7', 'flow-search', 'critical'"), ...rec, 'e2e/critical-flows.md': FLOWS });
+    expect(code).toBe(1);
+    expect(err).toContain('e2e/rank.spec.ts');
+    expect(err).toContain('search');
+  });
+
+  it('exits 1 for a critical test with no flow tag, with or without a list', async () => {
+    for (const files of [{ 'e2e/critical-flows.md': FLOWS }, {}]) {
+      const { code, err } = await run(['status', '7'], ON, { ...test("'prd-7', 'critical'"), ...rec, ...files });
+      expect(code).toBe(1);
+      expect(err).toContain('e2e/rank.spec.ts');
+      expect(err).toContain('flow');
+    }
+  });
+
+  it('exits 1 with the parser refusal when the list does not parse', async () => {
+    const { code, out, err } = await run(['status', '7'], ON, { ...test("'prd-7'"), ...rec, 'e2e/critical-flows.md': '## signin: A\n## signin: B\n' });
+    expect(code).toBe(1);
+    expect(out).toBe('');
+    expect(err).toContain('e2e/critical-flows.md');
+    expect(err).toContain('"signin" is used twice');
   });
 });
 
