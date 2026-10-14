@@ -186,7 +186,7 @@ describe('readEnv', () => {
   });
 
   describe('CLAUDE_CODE_OAUTH_TOKEN, the Claude token omni runner hands its jobs (PRD 1894)', () => {
-    const CLAUDE_TOKEN = 'sk-ant-oat01-fake-0123456789';
+    const CLAUDE_TOKEN = 'fake-claude-oauth-token-0123456789';
 
     it('reads the token when it is set, and none when it is unset or blank', () => {
       expect(readEnv({ CLAUDE_CODE_OAUTH_TOKEN: CLAUDE_TOKEN }).claudeToken).toBe(CLAUDE_TOKEN);

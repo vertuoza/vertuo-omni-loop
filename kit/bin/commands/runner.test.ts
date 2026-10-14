@@ -240,7 +240,7 @@ describe('omni runner', () => {
   });
 
   describe('the Claude token (PRD 1894)', () => {
-    const CLAUDE_TOKEN = 'sk-ant-oat01-fake-runner-0123456789';
+    const CLAUDE_TOKEN = 'fake-claude-oauth-token-runner-0123456789';
 
     it("hands CLAUDE_CODE_OAUTH_TOKEN to each job's session when the runner has it, and never prints it", async () => {
       const f = fixture();
