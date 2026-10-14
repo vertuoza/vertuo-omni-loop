@@ -7,6 +7,8 @@ import {
   canCancel, canSendAgain, fleetCell, prWords, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Fleet, type RunnersPageView,
 } from './model';
+import { runnerJob, terminalOf } from './terminal-model';
+import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
 import '../../dashboard/board/board.css';
 import './runners.css';
 
@@ -14,11 +16,13 @@ import './runners.css';
 // closed, signed out and in no workspace through the shared gate; a read that failed; then the
 // workspace's runners and jobs, as the `runners` screen draws them. A runner shows its state, its fleet
 // (a picker for a workspace owner, text for everyone else), slots used out of slots, its repositories
-// and its kit version. The jobs come queued and running first, then the last 50 that ended; opening one
-// shows its log tail, a done one links its pull request, Cancel shows on a queued or running job and
-// Send again on a failed or cancelled one, the first of them the page's one primary action. With no
-// runner, the page says how to start one. The controls and the 5 s refresh run in the browser
-// (./actions.tsx); the rest is drawn on the server, so a refresh draws it again with the new rows.
+// and its kit version. The jobs come queued and running first, then the last 50 that ended; a done one
+// links its pull request, Cancel shows on a queued or running job and Send again on a failed or
+// cancelled one, the first of them the page's one primary action. Each job and each runner has a
+// Terminal button opening the job's live log over the page (PRD 1904 s4, ./Terminal.tsx; a runner's
+// opens its running job, else its last). With no runner, the page says how to start one. The controls,
+// the panel and the 5 s refresh run in the browser (./actions.tsx, ./Terminal.tsx); the rest is drawn on
+// the server, so a refresh draws it again with the new rows, the open panel kept.
 
 type Supabase = { url: string; key: string };
 
@@ -26,6 +30,8 @@ export interface RunnersPageProps {
   view: RunnersPageView;
   supabase: Supabase | null;
   signinError: string | null;
+  /** The job whose Terminal panel the URL opens (`?terminal=<job id>`), if any. */
+  terminal?: string | null;
 }
 
 function Closed() {
@@ -48,6 +54,7 @@ function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Boar
       <span data-content>{runner.used} of {runner.slots}</span>
       <span className="runners-repos" data-content title={runner.repos.join(', ')}>{runner.repos.map(repoName).join(' · ')}</span>
       <span className="runners-muted" data-content>{runner.version}</span>
+      <TerminalButton job={runnerJob(runner, board.jobs)?.id ?? null} />
     </div>
   );
 }
@@ -56,24 +63,19 @@ function Action({ job, primary }: { job: Job; primary: boolean }) {
   if (canCancel(job)) return <CancelButton job={job.id} />;
   if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
   if (job.status === 'done' && job.prUrl) return <a href={job.prUrl}>{prWords(job.prUrl)}</a>;
-  return <span />;
+  return null;
 }
 
 function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean }) {
   return (
-    <details className="runners-job" id={`job-${job.id}`}>
-      <summary className="runners-row">
-        <code data-content>{job.line}</code>
-        <span className="runners-muted" data-content title={job.repo}>{repoName(job.repo)}</span>
-        <span data-content>{senderWords(job)}</span>
-        <span data-content>{whereWords(job, board.runners, fleets)}</span>
-        <span className={`runners-status is-${statusTone(job.status)}`}>{statusWords(job, now)}</span>
-        <Action job={job} primary={primary} />
-      </summary>
-      {job.logTail === ''
-        ? <p className="runners-log runners-muted">No log yet.</p>
-        : <pre className="runners-log" data-content>{job.logTail}</pre>}
-    </details>
+    <div className="runners-row runners-job" id={`job-${job.id}`}>
+      <code data-content>{job.line}</code>
+      <span className="runners-muted" data-content title={job.repo}>{repoName(job.repo)}</span>
+      <span data-content>{senderWords(job)}</span>
+      <span data-content>{whereWords(job, board.runners, fleets)}</span>
+      <span className={`runners-status is-${statusTone(job.status)}`}>{statusWords(job, now)}</span>
+      <span className="runners-actions"><Action job={job} primary={primary} /><TerminalButton job={job.id} /></span>
+    </div>
   );
 }
 
@@ -107,7 +109,7 @@ function Board({ board, fleets, now }: { board: Board; fleets: readonly Fleet[];
           <section className="runners-section">
             <h2>Runners</h2>
             <div className="runners-table runners-runners">
-              <div className="runners-row runners-head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span></div>
+              <div className="runners-row runners-head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span><span /></div>
               {board.runners.map((runner) => <RunnerRow key={runner.id} runner={runner} board={board} fleets={fleets} now={now} />)}
             </div>
           </section>
@@ -122,12 +124,18 @@ function Board({ board, fleets, now }: { board: Board; fleets: readonly Fleet[];
   );
 }
 
-export function RunnersPage({ view, supabase, signinError }: RunnersPageProps) {
+export function RunnersPage({ view, supabase, signinError, terminal = null }: RunnersPageProps) {
   if (view.kind === 'closed' || view.kind === 'sign-in' || view.kind === 'no-workspace') {
     return <MemberGate kind={view.kind} closed={<Closed />} board="The Runners page" supabase={supabase} signinError={signinError} />;
   }
   if (view.kind === 'unreadable') {
     return <Notice title="Runners"><p className="ask-muted">The runners could not be read. Try again in a moment.</p></Notice>;
   }
-  return <Board board={view.board} fleets={view.fleets} now={new Date(view.now)} />;
+  const runnerName = (id: string | null) => view.board.runners.find((runner) => runner.id === id)?.name ?? null;
+  const jobs: TerminalJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo, runner: runnerName(job.runner), status: job.status }));
+  return (
+    <TerminalProvider initial={terminalOf(terminal)} jobs={jobs}>
+      <Board board={view.board} fleets={view.fleets} now={new Date(view.now)} />
+    </TerminalProvider>
+  );
 }
