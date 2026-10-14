@@ -83,6 +83,36 @@ signs in; nothing is pasted back. `--device` and `--loopback` force one flow or 
 without the device sign-in says so and the browser on this machine takes over. `omni setup-token`
 then prints the token, its expiry and the line to paste it by, and keeps it nowhere.
 
+**Runners** (PRD 1830) run the `/omni:` lines people send from the Omni app with Send to terminal,
+on a machine set up for it, with no one at a terminal. Start one with
+`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]`:
+
+- **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts
+  it may work in right under `--repos` (each known by its `origin`, `owner/name`, and in the
+  workspace), Claude Code installed and signed in, and tmux. It refuses to start, in one line, when
+  `claude` is missing or signed out. It opens no port: it asks the Omni page for work. On a headless
+  server signed in with `claude setup-token`, export the token it prints as `CLAUDE_CODE_OAUTH_TOKEN`
+  before `omni runner`, and every job gets it (PRD 1894); unset, jobs use Claude's stored sign-in.
+- **What it does:** it registers under `--name` and shows on the page's Runners page, online, busy or
+  offline; a workspace owner gives it to a fleet there. It runs at most `--slots` jobs at once (8 at
+  most). Each job runs in a worktree `~/wt/<repo>-job-<id>` on branch `agent/job-<id>` from the
+  default branch, after `pnpm install --frozen-lockfile` when there is a lockfile, in the tmux session
+  `job-<id>` (attach to it over SSH to watch), logged to `~/logs/job-<id>.log`. The line goes to
+  `claude --dangerously-skip-permissions -p` from a file, never through a shell. Every 5 seconds it
+  sends the page the log's tail; at the end, done with the last pull request of the job's repository
+  the run printed, or failed with its exit code. The worktree goes, the branch stays.
+- **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
+  `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
+  200 characters at most. The runner checks the line again before it runs it, whatever the page sent.
+- **Who sent it:** a job runs under the runner owner's GitHub and Claude accounts, with
+  `OMNI_SENT_BY` and `OMNI_RUNNER` set, and `/omni:pr` writes
+  `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens.
+- **When things go wrong:** the page unreachable, it tries again after 5 s, doubling up to 60 s, and
+  its jobs keep running; a refused sign-in stops it with `no sign-in (omni setup-token)`; a job past
+  `--timeout` is stopped and marked failed, reason `timeout`; a cancel from the page stops the job
+  within a few seconds. Ctrl-C stops taking jobs and waits for the running ones. A job is never run
+  again by itself: Send again on the Runners page does.
+
 **The status line** shows two lines at the bottom of every Claude Code session opened in the
 repository or one of its worktrees: the model, how full the context window is (a bar of 10 cells,
 green under 50 %, yellow from 50, red from 80), the 5-hour usage and when it resets, and `ask on`
@@ -170,6 +200,18 @@ validated like `risk.storedShape`): a slice whose territory touches a path one p
 touch nothing else, and a landing holding such a slice holds only such slices. The back-end, for
 instance, lists its migrations directories there (`^kernel-migrations/database/migrations/` and
 `/db/migrations/`), so a migration always travels in a landing of its own.
+
+**Inline waves** (issue 1722) build a small plan with no sub-PR per slice. `wave: { inlineBelow: <n> }`
+in the config (`0` by default, which changes nothing) makes `/omni:wave` build a PRD whose plan has
+fewer than `n` slices (the current landing's, for a PRD of several landings) on its feature branch
+itself: one slice after the other, each by `/omni:do-work --inline`, with no claim, no slice branch
+and no sub-PR. A built slice's last commit carries the trailer line `Omni-Slice: <id>`; `omni board`
+reads a slice with no pull request and such a commit on `<remote>/<feature branch>` as `merged`
+(`inlineSlicesIn`, `boardFor`'s `inlineDone`) and prints `inline` in its `--json` (`inlineWave`):
+`true` only when `wave.inlineBelow` is set, the plan is small enough, no slice lands in another
+repository, and no slice has a pull request, so a PRD that began with sub-PRs finishes with them.
+The git read runs only when `wave.inlineBelow` is above `0`, in `omni board`, `omni next` and the
+status line's board refresh.
 
 **Opening pull requests through the repository's skill.** `pr: { openWith: <skill> }` in the
 config (`null` by default, which keeps the kit's `gh pr create`) names a slash skill of the

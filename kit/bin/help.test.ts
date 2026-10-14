@@ -22,13 +22,32 @@ async function run(argv: readonly string[], cwd: string) {
 const widest = (text: string) => Math.max(...text.split('\n').map((line: string) => Array.from(line).length));
 
 describe('omni help', () => {
+  it("shows each agent the config lists its own form of a skill under Run these, Claude's alone by default (PRD 1890)", async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const alone = (await run(['help'], root)).out;
+    expect(alone).toContain('\n  /omni:yolo <n>  ');
+    expect(alone).not.toMatch(/\$omni-yolo|\/omni-yolo|ask for omni-yolo/);
+    const all = makeRepo({ git: true, files: { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}agents: [claude, codex, cursor, gemini]\n` } });
+    const { code, out, err } = await run(['help'], all.root);
+    expect(code).toBe(0);
+    expect(err).toBe('');
+    for (const form of ['/omni:yolo <n>', '$omni-yolo <n>', '/omni-yolo <n>', 'ask for omni-yolo, <n>', '/loop /omni:drive [<n>…]', '$omni-drive [<n>…]']) {
+      expect(out, form).toContain(`\n  ${form}`);
+    }
+    expect(out).toContain('run it again after the wait it names');
+    const drive = await run(['help', '$omni-drive'], all.root);
+    expect(drive.code).toBe(0);
+    expect(drive.out).toMatch(/^\/loop \/omni:drive \[<n>…\] +for you\n/);
+    expect(drive.out).toContain('\n$omni-drive [<n>…]\n');
+  });
+
   it('prints the loop, its principles, Claude, the terminal and what the skills run, in order, and exits 0', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out, err } = await run(['help'], root);
     expect(code).toBe(0);
     expect(err).toBe('');
     const marks = ['THE LOOP', '  idea ', '  PRD ', '  inbox ', '  outbox ', '  shipped ', '  retro ', 'The folder is the status.',
-      'IN CLAUDE', 'IN THE TERMINAL', 'Run by the skills:', 'omni help <command> tells more about any of them.\n'];
+      'Run these', 'IN THE TERMINAL', 'Run by the skills:', 'omni help <command> tells more about any of them.\n'];
     const at = marks.map((mark) => out.indexOf(mark));
     expect(at.every((index) => index >= 0), marks.filter((_, i) => (at[i] ?? -1) < 0).join(' | ')).toBe(true);
     expect(at).toEqual([...at].sort((a, b) => a - b));
@@ -132,6 +151,15 @@ describe('omni help', () => {
     expect(care.out).toMatch(/^\/omni:mega-pr-care <n> \[--once\] +for you\n/);
   });
 
+  it('names the committed setup, run before the preflight, for every skill that runs one in a target (PRD 1804)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    for (const name of ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'mega-bug-fix', 'mega-pr-care']) {
+      const { code, out } = await run(['help', name], root);
+      expect(code, name).toBe(0);
+      expect(out.replace(/\s+/g, ' '), name).toContain('committed setup, then its own committed preflight');
+    }
+  });
+
   it('prints /omni:roadmap after omni roadmap, and /omni:mega-roadmap, each with its drive line (PRD 1162)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const both = await run(['help', 'roadmap'], root);
@@ -204,6 +232,30 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out).toMatch(/^omni generated <range> \[--json\] +run by the skills\n/);
     expect(out).toMatch(/stale/);
     expect(out).toMatch(/no generated\s+files/);
+  });
+
+  it('lists budget among the commands the skills run, and describes both its verbs (PRD 1679)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const overview = await run(['help'], root);
+    expect(overview.out.slice(overview.out.indexOf('Run by the skills:'))).toMatch(/\bbudget\b/);
+    const { code, out } = await run(['help', 'budget'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni budget measure context \[--json\] +run by the skills\nomni budget set context\n/);
+    const words = out.replace(/\s+/g, ' ');
+    for (const phrase of [/measure prints one size per target/, /pointers expanded/, /session/, /set writes a first ceiling/, /next KiB/, /never raises a ceiling/]) {
+      expect(words, String(phrase)).toMatch(phrase);
+    }
+  });
+
+  it('names context among the guards of omni check, and when all runs it (PRD 1679)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'check'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni check \[config\|inbox\|outbox\|knowledge\|kb\|releases\|design\| +for you\n +coverage\|context\|all\]/);
+    const words = out.replace(/\s+/g, ' ');
+    for (const phrase of [/context \(what every agent session reads/, /over budget/, /no person's yes/, /neutral, exit 0/, /runs context only while budgets\.context\.enabled is true/]) {
+      expect(words, String(phrase)).toMatch(phrase);
+    }
   });
 
   it('lists roadmap among the commands the skills run, and explains its check (PRD 1162)', async () => {

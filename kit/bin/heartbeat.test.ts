@@ -150,4 +150,79 @@ describe('omni heartbeat', () => {
     expect(await main(['heartbeat', 'extra', '--what'], { cwd: bare.root, ...s, stdin: '' })).toBe(0);
     expect(s.out.join('') + s.err.join('')).toBe('');
   });
+
+  it('with empty stdin, sends under OMNI_SESSION_ID, else CLAUDE_CODE_SESSION_ID, else the stored id (PRD 1831)', async () => {
+    const { root, tokens, write } = await signedIn();
+    const byHand = async (env: Record<string, string>, now: number) => {
+      const s = io();
+      expect(await main(['heartbeat'], { cwd: root, ...s, stdin: '', env, tokens, now: () => now })).toBe(0);
+    };
+    await byHand({ OMNI_SESSION_ID: 'agent-a', CLAUDE_CODE_SESSION_ID: 'claude-z' }, 1_000_000);
+    await byHand({ CLAUDE_CODE_SESSION_ID: 'claude-z' }, 1_000_000);
+    write('.omni-loop/local/session.json', `${JSON.stringify({ id: 'stored-1' })}\n`);
+    await byHand({}, 1_000_000);
+    await byHand({}, 1_000_001);
+    expect(heartbeatCalls().map((call) => dig(call.body, 'claudeSessionId'))).toEqual(['agent-a', 'claude-z', 'stored-1']);
+  });
+
+  it('with --claimed, sends inside the window its starter claimed, and claims nothing (PRD 1831)', async () => {
+    const { root, tokens } = await signedIn();
+    await beat(root, { tokens });
+    expect(await beat(root, { tokens, args: ['--claimed'], now: () => 1_000_001 })).toEqual({ code: 0, out: '', err: '' });
+    expect(heartbeatCalls()).toHaveLength(2);
+  });
+});
+
+describe('the heartbeat any omni command sends (PRD 1831)', () => {
+  type Spawned = { args: readonly string[]; options: unknown };
+
+  async function run(argv: string[], { root, tokens, env, now = 1_000_000, spawned }: { root: string; tokens: ReturnType<typeof memoryTokens>; env: Record<string, string>; now?: number; spawned: Spawned[] }) {
+    const s = io();
+    const spawn = (_command: string, args: readonly string[], options: unknown) => {
+      spawned.push({ args, options });
+      return { unref: () => undefined };
+    };
+    const code = await main(argv, { cwd: root, ...s, env, stdin: '', heartbeat: { spawn, now: () => now, tokens } });
+    return { code, out: s.out.join(''), err: s.err.join('') };
+  }
+
+  it('starts one detached child for two commands within a minute, a second after it, and changes no output', async () => {
+    const { root, tokens } = await signedIn();
+    const spawned: Spawned[] = [];
+    const env = { OMNI_SESSION_ID: 'agent-a' };
+    const first = await run(['help'], { root, tokens, env, spawned });
+    const second = await run(['help'], { root, tokens, env, now: 1_030_000, spawned });
+    expect(spawned).toHaveLength(1);
+    expect(spawned[0]?.args.slice(1)).toEqual(['heartbeat', '--claimed']);
+    expect(spawned[0]?.options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore', env });
+    const quiet = await run(['help'], { root, tokens, env: { ...env, OMNI_HEARTBEAT: 'off' }, spawned });
+    expect(first).toEqual(quiet);
+    expect(second).toEqual(quiet);
+    await run(['help'], { root, tokens, env, now: 1_000_000 + HEARTBEAT_EVERY_MS, spawned });
+    expect(spawned).toHaveLength(2);
+    expect(server.calls).toEqual([]);
+  });
+
+  it('starts none when off, under vitest, with no session id, signed out, or after heartbeat, ask hook, session end and statusline', async () => {
+    const { root, tokens } = await signedIn();
+    const spawned: Spawned[] = [];
+    const env = { OMNI_SESSION_ID: 'agent-a' };
+    await run(['help'], { root, tokens, env: { ...env, OMNI_HEARTBEAT: 'off' }, spawned });
+    await run(['help'], { root, tokens, env: { ...env, VITEST: 'true' }, spawned });
+    await run(['help'], { root, tokens, env: {}, spawned });
+    await run(['help'], { root, tokens: memoryTokens({}), env, spawned });
+    for (const argv of [['heartbeat'], ['ask', 'hook', 'post'], ['session', 'end'], ['statusline']]) {
+      await run(argv, { root, tokens, env, spawned });
+    }
+    expect(spawned).toEqual([]);
+  });
+
+  it('starts none with dossiers off or outside a repository, and the command still exits as it does', async () => {
+    const off = await signedIn({}, { dossier: false });
+    const spawned: Spawned[] = [];
+    expect((await run(['help'], { root: off.root, tokens: off.tokens, env: { OMNI_SESSION_ID: 'agent-a' }, spawned })).code).toBe(0);
+    const bare = makeRepo({ git: true });
+    expect((await run(['help'], { root: bare.root, tokens: off.tokens, env: { OMNI_SESSION_ID: 'agent-a' }, spawned })).code).toBe(0);
+    expect(spawned).toEqual([]);
+  });
 });

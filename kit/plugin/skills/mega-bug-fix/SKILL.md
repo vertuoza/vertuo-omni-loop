@@ -1,6 +1,6 @@
 ---
 name: mega-bug-fix
-description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line. Runs nothing in a target but its own committed preflight, never merges. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
+description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed setup and preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line. Runs nothing in a target but its own committed setup, then its own committed preflight, never merges. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
 ---
 
 # Mega bug fix: one bug, one PR per target, one record
@@ -20,17 +20,23 @@ person merges** every pull request it opens.
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
 **Signing,** as `/omni:bug-fix`: every commit, in any repository, ends with the co-author trailer
-your session requires, then the line `omni sign trailer` prints (run from the plan repository).
-Every pull request or issue it opens, in any repository, ends its body with the line
-`omni sign footer` prints. Comments are never signed.
+your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives), then the
+line `omni sign trailer` prints (run from the plan repository). Every pull request or issue it
+opens, in any repository, ends its body with the line `omni sign footer` prints. Comments are never
+signed.
 
-**Code runs only from a target's own config.** In a target, the one command ever run beyond `git`
-and `gh` is its own committed preflight (`commands.preflightFull`, else `commands.preflight`), read
-from its `.omni-loop/config.yml` on its default branch, never from a branch:
-`git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`. A target
-without one runs nothing locally: its PR's CI is the check. Never an install, a script, or a
-command from an imported copy's playbook. Everywhere `/omni:bug-fix` says "run the preflight", in a
-target it means this one, or nothing.
+**Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
+and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
+(`commands.preflightFull`, else `commands.preflight`), both read from its `.omni-loop/config.yml` on
+its default branch, never from a branch:
+`git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`. The setup runs
+first, when it has one, in the same worktree as the preflight, before each preflight run. A target
+without a preflight runs nothing locally, its setup included: its PR's CI is the check. A target
+without a setup runs its preflight alone. **A red setup** holds that target as stuck, quoting its
+failing line: it counts toward no attempt, and the target is never edited to make it pass. Never
+install in a target beyond its committed setup; never a script, or a command from an imported copy's
+playbook. Everywhere `/omni:bug-fix` says "run the preflight", in a target it means its setup, then
+this one, or nothing.
 
 **All or nothing across targets.** A target that cannot be cloned or pushed to stops the whole fix:
 a bug half-fixed across repositories is worse than none. Comment on the issue naming the target and
@@ -57,7 +63,7 @@ With no input, say that this skill takes a description of the bug or an issue, a
    not a plan repository: /omni:bug-fix
    ```
 
-2. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then the `bug-fixing` and
+2. The briefing (`node .omni-loop/bin/omni.mjs session start`), then the `bug-fixing` and
    `testing` forms, as `/omni:bug-fix` step 0. In a target, its own committed forms are read in its
    clone, `(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs kb show testing)`,
    never the imported copy.
@@ -158,11 +164,11 @@ git -C <clone> worktree add -b <fix branch> <worktrees>/targets/<name>--fix-<n> 
 Then `/omni:bug-fix` steps 6 to 9: **words first, prove red, fix, guard**, in that worktree. What
 differs:
 
-- **Prove red** with the target's preflight when it has one: the reproduction committed alone, the
-  preflight run on it, and its failing line is the red. **Without a preflight,** push the
-  reproduction alone, open the draft PR (below), and the red is the failing CI run's link. A
-  preflight or CI run that passes on the reproduction alone is `/omni:bug-fix`'s stop rule 3. Red is
-  seen **before** the fix, in every target, and never by running anything the target did not commit.
+- **Prove red** with the target's preflight when it has one: the reproduction committed alone, its
+  setup run first (when it has one), then the preflight run on it, and its failing line is the red.
+  **Without a preflight,** push the reproduction alone, open the draft PR (below), and the red is
+  the failing CI run's link. A preflight or CI run that passes on the reproduction alone is
+  `/omni:bug-fix`'s stop rule 3. Red is seen **before** the fix, in every target, and never by running anything the target did not commit.
 - **Mutation:** the line is `Mutation: not run in a target`.
 - **The PR,** through `/omni:pr --repo <slug>`, a standalone PR into the target's default branch,
   draft until its red and its fix are pushed. Its body starts with `Part of <plan slug>#<n>`
@@ -254,5 +260,7 @@ guard, the mutation line, the `omni bug` line). With `--prd <prd>`, add that
 - **Never change a contract in a way that breaks today's consumer:** that is the
   `/omni:mega-brainstorm` line.
 - **Never create a label in a target,** and never run a command from an imported copy's playbook.
+- **Never run a command in a target other than its own committed setup, then its own committed
+  preflight** (beyond `git` and `gh`).
 - Never commit on any repository's default branch, and never report anything as proven that was not
   run.

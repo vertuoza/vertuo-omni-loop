@@ -1,0 +1,152 @@
+<title>Agent-agnostic basics before and after</title>
+<style>
+/* Layout: one column; each change sets today beside after in two panes that stack on a phone.
+   Single dark look, on purpose: the Omni Loop's own tokens (packages/design/tokens.css). */
+:root {
+  --bg: #07061c;        /* void */
+  --pane: #0e0d33;      /* deep */
+  --fg: #f2f4ff;        /* white */
+  --muted: #8a90d6;     /* dim */
+  --line: #2a2766;
+  --accent: #a45cff;    /* plasma */
+  --good: #4ee08a;      /* green */
+  --bad: #ff3b5c;       /* red */
+  --code: #6ff0ff;      /* cyan */
+  --display: "Press Start 2P", ui-monospace, monospace;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 32px; }
+h1 { font: 18px/1.5 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 13px/1.5 var(--display); margin: 0; color: var(--accent); letter-spacing: .04em; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; color: var(--muted); }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pane { background: var(--pane); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pane.today { border-top: 3px solid var(--bad); }
+.pane.after { border-top: 3px solid var(--good); }
+pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--code); overflow-x: auto; white-space: pre; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: .92em; color: var(--code); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.no { color: var(--bad); } .yes { color: var(--good); }
+.note { color: var(--muted); font-size: 13.5px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Press+Start+2P&display=swap">
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Agent-agnostic basics</h1>
+    <p class="lede">PRD #1739 · Bounded. Three CLI defaults stop assuming Claude Code: the context files, the session id and where a flow hook belongs. Nothing changes for a Claude Code session.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+
+    <h3>1 · Which file holds the agent instructions</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>paths.context:  [CLAUDE.md]          # default
+laws (claudeMdInvariants):
+  reads CLAUDE.md                    # hardcoded</pre>
+        <ul>
+          <li>A repository with only <code>AGENTS.md</code> (Codex, Cursor, Copilot, Gemini CLI): <span class="no">no context file is read</span>, and <code>omni init</code> never finds its invariants.</li>
+        </ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>paths.context:  [AGENTS.md, CLAUDE.md]   # default
+laws (claudeMdInvariants):
+  first file of paths.context
+  that holds "## Invariants"</pre>
+        <ul>
+          <li><span class="yes"><code>AGENTS.md</code> is read first</span>, <code>CLAUDE.md</code> still read when present.</li>
+          <li>Config keys keep their names: a config that sets them reads as before.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>2 · The session id a dossier is tagged with</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>$ codex
+› /omni:brainstorm …
+$ omni dossier open 'An idea'
+  CLAUDE_CODE_SESSION_ID → unset
+  POST /api/dossiers {title, repo}   # no session</pre>
+        <ul>
+          <li>Under any agent but Claude Code, <span class="no">the draft is linked to no session</span>.</li>
+        </ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>$ omni dossier open 'An idea'
+  1 OMNI_SESSION_ID          → unset
+  2 CLAUDE_CODE_SESSION_ID   → unset
+  3 .omni-loop/local/session.json → none
+  → generate 6f1c…, store it
+  POST /api/dossiers {title, repo, claudeSessionId: "6f1c…"}
+
+$ omni dossier push 1739      # from a worktree
+  3 .omni-loop/local/session.json → 6f1c…   # same id</pre>
+        <ul>
+          <li><span class="yes">Linked with nothing to type.</span> A team can still set <code>OMNI_SESSION_ID</code> in a wrapper.</li>
+          <li>Claude Code: its variable wins at step 2, as today.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>3 · Where a flow hook belongs</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>$ omni check config
+  flow.areas.kernel.hooks.do-work.test:
+  .claude/hooks/tests.md sits under .claude/ —
+  mark it { path: .claude/hooks/tests.md, alias: claude },
+  or move it out of .claude/</pre>
+        <ul>
+          <li>Says what is wrong, <span class="no">names no place to move it to</span>.</li>
+        </ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>$ omni check config
+  flow.areas.kernel.hooks.do-work.test:
+  .claude/hooks/tests.md sits under .claude/, which only
+  Claude Code reads — move it to .agents/hooks/, or mark it
+  { path: .claude/hooks/tests.md, alias: claude }</pre>
+        <ul>
+          <li><span class="yes">Points to <code>.agents/hooks/</code></span>, the folder agents share. A hook there is a plain path.</li>
+          <li><code>alias: claude</code> stays for what only Claude Code reads (<code>pr.openWith: /create-pr</code>).</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>What stays the same</h3>
+    <div class="tbl">
+      <table>
+        <tr><th>Left for the follow-up PRD</th><th>Why</th></tr>
+        <tr><td>Install and update through <code>claude plugin</code></td><td>Needs a runtime adapter per agent</td></tr>
+        <tr><td>The plugin's <code>hooks.json</code> (ask mode, heartbeat, constituents)</td><td>Claude hook events; other agents need a CLI path</td></tr>
+        <tr><td>Skill tool names: <code>AskUserQuestion</code>, worktree agents, <code>/loop</code></td><td>Neutral wording per runtime</td></tr>
+        <tr><td>Skills under <code>.agents/skills/</code></td><td>Part of install</td></tr>
+        <tr><td>The <code>worktrees</code> default, the API's <code>claudeSessionId</code> field</td><td>Migration and contract changes</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</div>

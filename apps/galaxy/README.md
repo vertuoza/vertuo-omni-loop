@@ -319,13 +319,16 @@ the database's policies decide what they see:
   players' names and heroes, and their own best (`src/data/scores.ts`), sorted in the game's direction: highest first for a score, fastest first for OMNI KART's time (PRD 1440). Each is read on its own,
   after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
   no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
-- **The planets' dossiers**, for every member, visitor or player (`src/data/dossiers.ts`): the
-  workspace's plan repository from `workspaces`, the ids of its PRDs' dossiers from `dossiers`, then,
-  for each planet that has one, `dossier_list(p_dossier)` (its latest version of each kind, its
-  question counts) and `dossier_rounds(p_dossier)` (its last three answered rounds), one dossier at a
-  time, never the whole list. Read on its own after the galaxy, like XP: when it fails, the galaxy
-  stays and the DOSSIER tab says DOSSIERS OUT OF REACH; one planet's dossier out of reach leaves the
-  others shown.
+- **The planets' dossiers and logs**, read when a planet is opened, never on the page's load (PRD
+  1808): `GET /api/arcade/planets/<key>` (`src/arcade-api/planet.controller.ts`) answers one planet's
+  dossier (`dossier_list(p_dossier)` and `dossier_rounds(p_dossier)`, through `src/data/dossiers.ts`)
+  and the last eight lines of its log, from the cached season. The arcade keeps each answer for the
+  session (`src/arcade/planet-details.ts`); the planet's DOSSIER and LOG tabs say LOADING… until it
+  arrives, and DOSSIERS OUT OF REACH or LOG OUT OF REACH when it cannot be read, the next open asking
+  again. `/play` sends every planet with an empty log.
+- **The star chart**, read when it is opened (PRD 1808): `GET /api/arcade/chart`
+  (`src/arcade-api/chart.controller.ts`) answers the crew the knowledge graph, kept for the session
+  (`src/arcade/chart-source.ts`); the menu's STAR CHART row shows its tally once it has been read.
 - **Crew means "has a workspace"**, never an email domain. Joining happens at sign-in, where
   GitHub's token is at hand ([Sign-in and sign-up](#sign-in-and-sign-up)); a signed-in person who
   belongs to none gets the "wrong cartridge" screen, pointing at `/signup`, and reads nothing.
@@ -883,15 +886,15 @@ off, no row exists, and every player sees NO XP YET.
   Mode 7 kart race, three laps of one circuit, COMET RING, against five rivals. Its code is
   `src/arcade/kart/`, imported only when the cabinet opens (a failed import says
   `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder imports it at run time. The floor is
-  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected line by
-  line (`mode7.ts`); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
+  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected column by
+  column with its relief (`mode7.ts`, see **The relief** below); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
   farthest to the nearest. The player drives their own hero in a kart tinted with the hero's suit
   (◀ ▶ steer, A accelerates, ▼ brakes and reverses, START pauses); the rivals are the workspace's
   other fleets, each driven by its mascot, who follow the racing line at 92% to 100% of the player's
   pace under a light rubber band (`rivals.ts`). A lap counts when the line is crossed forwards after
   every waypoint, in order; the HUD shows the place (1ST to 6TH), `LAP n/3`, the race time and the item
   held, and `FINAL LAP` on the third lap. The race is a seeded, pure phase machine (`race.ts`).
-  **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
+  **Items** (`items.ts`): ten lines of four boxes across the road, one on every straight (40 in all), give one item to a kart holding
   none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
   leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
   **BOOST** is 1.5 seconds at 1.4 times the top speed. **BLOB** is an Entropy blob
@@ -904,26 +907,111 @@ off, no row exists, and every player sees NO XP YET.
   race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under `kart`: the
   kart keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
   or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
-  **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
-  in space, all in code, no image file. **The void** (PRD 1447): everything off the road is the void,
-  written `~` in the map: the floor has nothing there, and the space the circuit floats in shows all round
+  **The options** (PRD 1762): OPTIONS on the ready screen holds KEYS (the five actions of a keyboard: GAS, BRAKE, LEFT, RIGHT, ITEM),
+  KART (eight colours and three designs, CLASSIC, ROCKET and RACER, drawn on the track, the minimap and the podium), LAPS (3, 5 or 7),
+  DIFFICULTY (EASY, NORMAL or HARD, the rivals' pace and how long they hold an item) and DEFAULTS. They are kept in this browser only,
+  under `omni-loop:kart-options` (`kart/options.ts`), never sent anywhere; a MULTI grid takes the first arrival's laps and each player's
+  look. **The three-lap time** (3-LAP TIME on the results): whatever the laps, the time sent to the board is the clock at the third
+  crossing, so a 5 or 7-lap race ranks with the 3-lap ones. **The podium** (`kart/podium.ts`, pure): crossing the line at the end of
+  the last lap shows PODIUM before RESULTS: the first three on their steps (second, first, third) with each driver's kart in its look,
+  under confetti that stands still under reduced motion, and `YOU 5TH` under them when the player is off it. In MULTI a step shows `…`
+  until its driver crosses, and a player who is OUT never stands on one. A shows RESULTS; the time was already sent at the finish, and
+  a race left before the line has no podium.
+  **The space circuit** (PRD 1427): COMET RING is drawn as a circuit
+  in space, all in code, no image file. **The centre line** (PRD 1829): its road is drawn from a centre line, the 14 waypoints in driving
+  order, each corner a circular arc of its own radius, the road 5 tiles wide; every point within half the width of the line is road, except
+  a gap declared on it, and the shortcuts are pieces of their own with their own width and gaps. The map is 72 × 72 tiles and its rows keep
+  the features only (`+` pads, `^` ramps, `?` boxes, `S` places, `=` the start line) on a background of `.`; the road, the kerbs, the roof
+  and the walkway come from the line, baked once into `roadAt(track, x, y)`, the one question the kart, the rivals, the texture, the minimap,
+  the stands and the props ask of the void. Its waypoints and radii, in tiles: `[62, 62]` 8, `[62, 46]` 3, `[49, 46]` 3, `[49, 34]` 3,
+  `[64, 34]` 3, `[64, 10]` 5, `[41, 10]` 6, `[41, 26]` 4, `[23, 26]` 4, `[23, 10]` 4, `[8, 10]` 6, `[8, 46]` 4, `[21, 46]` 3, `[21, 62]` 3.
+  A curve of 5 or more is taken flat out (the top speed turns on a circle of about 4.4 tiles); a hairpin of 3 asks to lift, to about 0.78 of
+  the top speed, and a curve of 4 to about 0.85. The lap is about 249 tiles. **The void** (PRD 1447): everything off the road is the void,
+  where `roadAt` says no: the floor has nothing there, and the space the circuit floats in shows all round
   it, under the horizon as above it, its stars, nebulae and planets with the galaxy's glow along the
-  horizon. A neon edge sits on the void's side of the road's edge (cyan outside the circuit, magenta
-  inside); the map holds road and void only, and past its edge is void too. The kerbs alternate the two neons, the road has panel seams and three chevrons before
+  horizon. A neon edge sits on the void's side of the road's edge, round on a curve (cyan outside the circuit, magenta
+  inside); past the map's edge is void too. The kerbs alternate the two neons along the curves, the road has panel seams and three chevrons before
   each corner. Nothing off the road slows or bounces a kart: **the fall** is the only cost. A kart
-  falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width;
+  falls once all of it has tipped over the edge (its centre 7 px from any road, half its drawn width, against the round edge of an arc as against a straight one;
   it may hang over until then), and for 1 second takes no input, stays where it went over,
   shrinks as it sinks and keeps its item, and a BOOST or a spin-out ends. **The way back:** it
-  returns at rest on the racing line, at the point nearest where it fell on the segment it was on
-  (never past the next waypoint, never across the start line), facing the race, and blinks for half
+  returns at rest on the racing line, at the point of the racing line nearest where it fell, between the last waypoint it passed and the next
+  (never across the start line), and behind the gap by the run-up where that point is over a gap, facing the race, and blinks for half
   a second while it drives; its laps and waypoints are kept, the race clock never stops, and rivals
   fall and return by the same rule. The player's fall plays the `fall` sound; a rival's is silent.
   Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
   line. The sky has two planets, a distant station and comets. The camera sits so the player's kart is
   drawn where it stands. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
-  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
-  that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
+  (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes,
+  20 wide, that turn and bob over a pool of their light on the road, which pulses with them. With
+  reduced motion on, the sky, comets, satellites, boxes, their pools and beacons stand
   still and no particle is drawn; the shadows stay.
+  **The relief** (PRD 1698): COMET RING rises and falls along its racing line. Its relief is one block
+  beside the map: a `heights` list (one per waypoint) and a `bumps` list (one per leg, positive a hump,
+  negative a dip). Each leg eases from one height to the next with its bump in the middle, and is level
+  for 2.5 tiles at both ends, and the road is level over the whole of each arc, so a curve never twists and two legs meet at the same
+  height; the ground anywhere is that of the nearest point of the centre line (`relief.ts`, pure), and a circuit with no relief is flat.
+  The relief spans 26 world units at most, under the camera's eye (28), and the circuit's checks refuse
+  a relief that spans more or has a height or a bump missing or not a number, as they refuse a broken
+  map. The camera's eye stands 28 over the ground under the player's kart, so a crest hides the road
+  behind it and a descent shows the circuit below; a kart, box, prop, BLOB or ORB behind a crest is
+  hidden where the road in front covers it (the start arch stays on top). **Slopes** change the top
+  speed along the kart's heading: uphill it falls by 1.2 times the slope, downhill it rises by as much,
+  never under 0.67 nor over 1.33 of the flat one, for the player and the rivals. **The deck:** where the
+  road meets the void and the void is nearer the camera, the road's edge shows its side, 12 deep (a
+  light lip, metal that darkens down the side, every other panel a shade darker, a magenta neon line at
+  its foot), then a magenta glow fading into the void over 18 world units. The floor's cost is bounded:
+  each column samples outwards from the camera and never takes more than 600 samples, the renderer
+  reports its count, and a test holds it at every waypoint on the wide and the tall grid. The cabinet's
+  still keeps a flat floor.
+  **The four wheels** (PRD 1698): a kart stands on four wheels, 6 ahead of and behind its centre and 3
+  to each side. A side with more wheels over the void than the other **leans** the kart towards it and
+  slides it towards the void at 8 a second; the player can steer back onto the road. Both wheels of
+  one side over the void for half a second in a row (`RULES.tipGrace`) **tip it over** into the fall and
+  the way back above, a wheel back on the road starting the count again, and a centre 7 past the
+  edge still falls at once. A leaning kart is drawn rolled towards the void, a falling one rolls over as it
+  sinks, and it casts no shadow while it falls. A rival looks a quarter of a second ahead, steers back
+  from a wheel over the void there, aims at a point of the racing line ahead of it, along the arcs, and brakes for the tightest arc it is in or about to enter when it is faster than that arc allows, so it finishes three laps without falling (seeds 1, 7 and 42).
+  **The station** (PRD 1775): COMET RING is a space station now, all on the same 72 × 72 map.
+  **Boost pads** (`+`) give the BOOST of the item, 1.4 times the top speed for 1.5 seconds, started again
+  on every pad, and keep the item in the kart's hand; there is one before each jump and one out of each of
+  the corners `[49, 34]`, `[8, 46]` and `[21, 62]`. **Jumps:** a kart that leaves a ramp (`^`) takes off with a
+  vertical speed of 0.9 of its speed, flies under a gravity of 400, steers at 0.3 of its turn rate, takes no
+  box or pad and cannot tip over, and lands by the ordinary rules; the camera and the sprite follow its
+  height, with a shadow on the ground, and MULTI carries the height. The **gap jump** on the long descent
+  `[64, 34]` to `[64, 10]` (a pad, a ramp on the hump's crest, 3 tiles of void) is cleared from the pad and
+  at top speed, and not under 80% of it; the **bump jump** on the west leg `[8, 10]` to `[8, 46]` is air time
+  over road. **Shortcuts**, hard to reach and never taken by rivals: the **hidden ramp** at the corner
+  `[62, 46]` runs straight on north over a spur, 5 tiles wide, to a ramp with no pad, 5 tiles of void, and lands on
+  `[49, 34]` to `[64, 34]`, which only the BOOST of an item clears. **The walkway** (PRD 1829) is one tile wide
+  and leaves the middle of the curve of waypoint 6 `[41, 10]`, over the void, about 1.8 tiles south of the top
+  straight's axis, so it cannot be lined up on the straight and is taken out of the curve with a flick of the
+  wheel; no straight and no rail lead to it, it opens from the arc's outer edge. It heads west to the corner of
+  waypoint 9 `[23, 10]` with a ramp, then a gap in its middle: a kart at the top speed, without a BOOST, on its
+  line clears the gap and lands on it; at 0.9 of the top speed it falls in, and half a tile off its line it tips over.
+  A kart that falls comes back on the racing line, in the U-loop, so a missed walkway costs the U-loop and a fall.
+  Each shortcut has a gate across it after its hard part: a kart that crosses it forwards while the next
+  waypoint it must pass is the first one the shortcut skips (the walkway skips waypoints 7 and 8) is credited with
+  both, and each shortcut is a leg of its own in the relief. **The tunnel** is a span of the centre line: it
+  starts where the curve of waypoint 5 `[64, 10]` starts, right after the gap jump's landing, and runs 13 tiles
+  along the line, the quarter circle of the curve then about 5 tiles of the straight west, so its exit is hidden
+  until a kart is in the bend. Its walls stand on the road's two edges and follow the curve; its ceiling is 44
+  over the centre line and falls along an arc to `RULES.vault` (10) lower where it meets the walls, with panels
+  and strips of light that follow the vault, and a lit portal across the road, square to the line, at each end;
+  what is behind a wall is not drawn, and the floor still takes at most 600 samples a column inside it, in the
+  curve and on the straight. **The decor:** twelve stands float over the void
+  (four on each side of the start straight and four beside the gap jump), each showing an active fleet's
+  ship; neon lamps, antenna dishes, docking cranes and cargo containers stand on the void near the road and
+  around the station; convoys, an asteroid belt and a big planet cross the sky; the minimap shows the walkway
+  and the spur as road and the tunnel in a lighter tint. A rival throws nothing from the air. **A softer
+  edge** (see the four wheels above) keeps a kart that clips the void for less than half a second on the road.
+  **The best times** set on the earlier circuit are kept, no row deleted; the lap is about 5 % longer than it was.
+  **The minimap** (PRD 1698): in the top right corner under the item panel, over the sky, on both
+  grids, 8 game pixels in from the right edge: one game pixel a tile, the road shaded by its height
+  (the higher, the lighter), the start line light, over a dark cyan-framed panel. It shows a gold
+  pixel for each box there to take, a dot of its own colour for each rival on the road (none while one
+  falls), every other player in MULTI, and the player as a bigger yellow dot with a tick the way it
+  faces, drawn last; it blinks while the player falls, and stays lit with reduced motion.
   **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
   `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
   reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase
@@ -1547,6 +1635,7 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each
      token's stored sign-in; without it no token is made or traded
    - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
+   - the deployed commit: `VERCEL_GIT_COMMIT_SHA`, set by Vercel (PRD 1723)
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
@@ -1629,6 +1718,8 @@ To see the effect: Vercel › Usage › Build CPU Minutes, per day, against the 
 - `/releases` keeps serving its last good render while the project is paused or out of reach, and
   the releases workflow fails loudly in Actions until it wakes. `public.releases` rebuilds from
   `main`'s history: empty it and run the sync.
+- **`GET /api/health`** (PRD 1723): `200` or `503` with the env and Supabase checks and the live
+  commit; [the observability guide](../../docs/guide/observability.md) says the rest.
 
 ## Share it without a server
 

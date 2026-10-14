@@ -38,8 +38,9 @@ form wins.
 - **pnpm 12**, pinned by `packageManager` in `package.json`. Any pnpm 10 or later on the PATH hands
   off to the pinned version by itself; pnpm 9 and older refuse the lockfile ("expected a single
   document in the stream"). Settings live in `pnpm-workspace.yaml`, not in `package.json`.
-- Install once, from the root: `pnpm install --frozen-lockfile` (the whole workspace). A dependency
-  whose install script must run is listed under `allowBuilds` in `pnpm-workspace.yaml`.
+- Install once, from the root: `pnpm install --frozen-lockfile`. It also turns on the git hooks
+  (`.githooks/`: pre-commit, pre-push). A dependency whose install script must run is listed under
+  `allowBuilds` in `pnpm-workspace.yaml`.
 - `apps/galaxy/.env.local` (copied from `apps/galaxy/.env.example`) is only for the game's scripts
   and the arcade. The tests never need it and never call GitHub.
 
@@ -74,17 +75,17 @@ ready PR into `main`, run the full `pnpm test` and the full `pnpm lint` (verific
 
 ## Never
 
-- Never merge into `main`. A person does.
-- Never make a `chore(release): v0.0.N` commit by hand; the `release` workflow makes it.
-- Never decide what the spec does not settle without reading the knowledge it touches; take the
-  most reversible option and record it as an outbox item.
-- Never lower a coverage floor or add a suppression to turn a check green.
-- Never mark a PR ready whose new migration is dated at or before the newest on `main`.
-- Never reformat files you did not change.
-- Never leave a red check on your PR: it is yours to fix (comment after 3 attempts).
-- Never leave a PR you own without `omni:in-progress` and a current status comment.
+The briefing has the full text of each.
 
-The briefing has the full text.
+- Merge into `main` (a person does), or make a `chore(release): v0.0.N` commit by hand.
+- Decide what the spec leaves open without reading the knowledge it touches; take the most
+  reversible option and record it as an outbox item.
+- Lower a coverage floor or add a suppression to turn a check green.
+- Mark a PR ready whose new migration is dated at or before the newest on `main`.
+- Reformat files you did not change.
+- Leave a red check on your PR: it is yours to fix (comment after 3 attempts).
+- Leave a PR you own without `omni:in-progress` and a current status comment.
+- Bypass push protection: rotate a real secret, build a fixture's at runtime.
 
 ## The loop
 

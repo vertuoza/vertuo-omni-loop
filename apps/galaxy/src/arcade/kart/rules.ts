@@ -1,6 +1,9 @@
 // OMNI KART's numbers (PRD 1359): one constants block, chosen by eye, so a follow-up tunes the feel
 // without touching the engine. World units are the circuit's texture pixels (a tile is 16), times in
 // seconds, speeds in units a second, angles in radians.
+/** How hard the rivals drive (PRD 1762). */
+export type Difficulty = 'easy' | 'normal' | 'hard';
+
 export const RULES = Object.freeze({
   /** A kart's body, as a circle: what karts are pushed apart by and what items reach. */
   radius: 5,
@@ -14,6 +17,8 @@ export const RULES = Object.freeze({
   reverseAccel: 50,
   /** A kart faster than the top speed it is at (once a BOOST is over) slows to it at this rate. */
   overspeedDrag: 220,
+  /** The slope on the top speed (PRD 1698): the share of it a unit of slope takes off uphill and adds downhill, within a third either way (kart.ts). */
+  climb: 1.2,
   /** The turn rate at best grip, the speed it is reached at, and the part of it that is left at the top speed. */
   steer: 2.6,
   gripSpeed: 25,
@@ -22,15 +27,29 @@ export const RULES = Object.freeze({
   maxDt: 0.05,
   subStep: 1 / 120,
   /** The countdown before the race, and how long GO shows once it has begun. */
-  /** The rivals: the slowest top speed (a share of the player's), how far off the line they drive, how close a waypoint counts as passed, the angle a turn is steered from, and when a turn is sharp. */
+  /** The rivals: the slowest top speed (a share of the player's), how far off the line they drive, how far past the road a waypoint's gate counts as passed, and the angle a turn is steered from. */
   skillMin: 0.92,
   lineOffset: 14,
-  waypointReach: 40,
-  /** How far from a waypoint crossing its corner's diagonal passes it too: out over the void on the inside, so a corner cut on the inside still counts. */
-  cornerGate: 104,
+  /** How far past the road's width a waypoint's gate still counts (PRD 1829): out over the void on the inside of a bend, so a corner cut on the inside still counts. */
+  gateSlack: 48,
   rivalAim: 0.04,
-  rivalSharp: 0.7,
+  /** A rival with a wheel over the void keeps the gas on below this speed, so one that has stalled on the edge can still steer clear (PRD 1775). */
+  rivalCrawl: 12,
   rivalCorner: 60,
+  /** How far ahead a rival looks for the edge, in seconds of its speed (PRD 1698): a wheel over the void there, or under it, steers it back. */
+  rivalLook: 0.25,
+  /** Where a rival aims on the centre line (PRD 1829): seconds of its speed ahead of it, at least this many pixels. */
+  rivalAhead: 0.3,
+  rivalAheadMin: 20,
+  /** How much of a turn's radius a rival keeps in hand when it picks its speed for it, how far (pixels, and seconds of its speed) it looks ahead for a turn, and the share of that speed over which it brakes rather than lifts. */
+  rivalCurve: 0.9,
+  rivalHorizon: 40,
+  rivalHorizonTime: 0.3,
+  rivalBrake: 1.1,
+  /** How far before a ramp (game pixels) no rival throws a BLOB or an ORB, at or at a kart on the way to it: a spin there is a fall into the gap beyond. */
+  rampCalm: 160,
+  /** How far past a gate's line (game pixels) a kart still counts as through it, when it was pushed over the line between two steps. */
+  gateSlab: 8,
   /** The rubber band: the most a rival's pace moves, and the gap in game pixels at which it moves that much. */
   rubber: 0.05,
   rubberRange: 400,
@@ -51,8 +70,20 @@ export const RULES = Object.freeze({
   /** The fall into the void (PRD 1447): how long a kart falls, and how long it blinks once it is back on the road. */
   fallTime: 1,
   blinkTime: 0.5,
+  /** How far behind a gap across the racing line a kart that fell into it comes back (bug 1820): 6.5 tiles, so that from rest it reaches the gap fast enough to clear it, on COMET RING from the run-up pad. */
+  runUp: 104,
   /** How far from the road a kart's centre goes before it falls: half its width as drawn (art.ts `KART_WORLD`), so it falls once all of it has tipped over the edge. */
   overhang: 7,
+  /** A kart's four wheels (PRD 1698): how far ahead and behind its centre they stand and how far to each side, and how fast a wheel over the void draws the kart towards the edge. */
+  wheelAlong: 6,
+  wheelAcross: 3,
+  tipPull: 8,
+  /** How long both wheels of one side stay over the void, in a row, before the kart tips over (PRD 1775). */
+  tipGrace: 0.5,
+  /** The jump (PRD 1775): the vertical speed a kart leaves a ramp with (a share of its speed), gravity in units a second squared, and the share of its turn rate a kart in the air keeps. */
+  launch: 0.9,
+  gravity: 400,
+  airSteer: 0.3,
   spinSpeed: 0.3,
   spinRate: Math.PI * 2,
   /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */
@@ -60,6 +91,14 @@ export const RULES = Object.freeze({
   blobLateral: 12,
   orbRange: 130,
   orbLine: 0.18,
+  /** The rivals' difficulty (PRD 1762): per level, the range of a rival's own pace (a share of the player's top speed, never above 1), how far off the line it drives, the rubber band, and how long a rival holds an item before it uses it (seconds). NORMAL is the numbers above, unchanged. */
+  levels: {
+    easy: { skillMin: 0.8, skillMax: 0.88, lineOffset: 14, rubber: 0.1, hold: 2.5 },
+    normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0 },
+    hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0 },
+  },
+  /** The tunnel's vault (PRD 1829): how far the ceiling falls from its height over the centre line (mode7.ts `ROOF`) to where it meets the walls; the eye stands 28 up, so the ceiling stays above it. */
+  vault: 10,
   /** How long FINAL LAP shows once the third lap starts. */
   finalBanner: 2.5,
   countdown: 3,

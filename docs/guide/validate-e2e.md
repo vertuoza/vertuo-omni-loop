@@ -178,6 +178,8 @@ it. The default is adopted, so the gate does not turn red on it.
 
 ## Run it
 
+In your agent's form ([Any coding agent](/docs/any-agent#set-up-your-agent)):
+
 ```text agent
 /omni:validate-e2e 1233
 ```

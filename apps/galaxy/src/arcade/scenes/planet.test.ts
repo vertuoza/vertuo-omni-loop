@@ -12,7 +12,7 @@ import { DEFAULT_THEME } from '../theme';
 import type { DossiersRead, FleetRow, PlanetDossier } from '../types';
 import { TALL, WIDE, type FrameState, type Grid } from './common.ts';
 import { drawPlanetScene, planetStage, TALL_BAND, TALL_SCENES } from './planet.ts';
-import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, statusRows, type DossierShown } from './planet.tsx';
+import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, startLink, statusRows, type DossierShown, type LogShown } from './planet.tsx';
 import { twinEvents, twinGalaxy } from '../test/twins.fake';
 import { sure } from '../test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
@@ -184,7 +184,7 @@ const DOSSIER: PlanetDossier = {
 describe('the planet\'s tabs', () => {
   const p = sure(view.planets.find((x) => x.state === 'distress'), 'view.planets.find((x) => x.state === "distress")');
   const tabs = (grid: Grid) => {
-    const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: 0, onTab: () => {}, dossier: 'none' }), grid);
+    const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: 0, onTab: () => {}, dossier: 'none', log: p.log }), grid);
     return [...html.matchAll(/role="tab"[^>]*>([^<]+)</g)].map((m) => sure(m[1], 'm[1]').replace(/ \d+$/, ''));
   };
 
@@ -200,7 +200,7 @@ describe('the DOSSIER tab', () => {
   beforeAll(() => { setFleets(fleets); });
   const p = sure(view.planets.find((x) => x.state === 'distress'), 'view.planets.find((x) => x.state === "distress")');
   const shown = (dossier: DossierShown, grid: Grid, tab = DOSSIER_TAB, form: 'full' | 'handheld' = 'full') =>
-    textOf(createElement(PlanetOverlay, { view, planet: p, tab, onTab: () => {}, dossier }), grid, form);
+    textOf(createElement(PlanetOverlay, { view, planet: p, tab, onTab: () => {}, dossier, log: p.log }), grid, form);
   const body = (text: string[]) => text.slice(text.indexOf('DOSSIER') + 1, text.lastIndexOf('◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP'));
 
   it('shows each artifact\'s latest version and date, and says so for one with none yet', () => {
@@ -224,7 +224,7 @@ describe('the DOSSIER tab', () => {
   });
 
   it('keeps each answered question to one line: the question and its answer cut, never wrapped', () => {
-    const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: DOSSIER_TAB, onTab: () => {}, dossier: DOSSIER }), WIDE);
+    const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: DOSSIER_TAB, onTab: () => {}, dossier: DOSSIER, log: p.log }), WIDE);
     expect(html.match(/<li class="dossier-answer"/g)).toHaveLength(3);
   });
 
@@ -235,7 +235,7 @@ describe('the DOSSIER tab', () => {
   it('offers [START] OPEN, a key and a tap, when the dossier has a page to open', () => {
     const text = body(shown(DOSSIER, WIDE));
     expect(text.slice(-2)).toEqual(['START', 'OPEN']);
-    const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: DOSSIER_TAB, onTab: () => {}, dossier: DOSSIER }), WIDE);
+    const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: DOSSIER_TAB, onTab: () => {}, dossier: DOSSIER, log: p.log }), WIDE);
     expect(html).toMatch(/<button type="button" class="j-hit"><span class="j-key"[^>]*>START<\/span>OPEN<\/button>/);
     // On the Game Boy the pad's START reads START too.
     expect(body(shown(DOSSIER, TALL, DOSSIER_TAB, 'handheld')).slice(-2)).toEqual(['START', 'OPEN']);
@@ -262,6 +262,57 @@ describe('the DOSSIER tab', () => {
     for (const d of [DOSSIER, { ...DOSSIER, url: null }, { ...DOSSIER, last: [] }, 'none', 'unreadable'] as DossierShown[]) {
       expect(shown(d, TALL)).toEqual(shown(d, WIDE));
     }
+  });
+});
+
+// ── The planet's details, read when it opens (PRD 1808) ─────────────────────────
+
+describe('the planet\'s details on their way', () => {
+  beforeAll(() => { setFleets(fleets); });
+  const p = sure(view.planets.find((x) => x.log.length > 0), 'a planet with a log');
+  const LOG = 3;
+  const shown = (dossier: DossierShown | 'loading', log: LogShown, tab: number, grid: Grid = WIDE) =>
+    textOf(createElement(PlanetOverlay, { view, planet: p, tab, onTab: () => {}, dossier, log }), grid);
+  const body = (text: string[], tab: string) => text.slice(text.indexOf(tab) + 1, text.lastIndexOf('◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP'));
+
+  it('opens at once: the status, zones and Entropy tabs show what the map knows, whatever the details', () => {
+    for (const tab of [0, 1, 2]) {
+      for (const grid of [WIDE, TALL]) expect(shown('loading', 'loading', tab, grid), `tab ${String(tab)}`).toEqual(shown(DOSSIER, p.log, tab, grid));
+    }
+  });
+
+  it('shows LOADING… on the DOSSIER and LOG tabs until the details arrive', () => {
+    expect(body(shown('loading', 'loading', DOSSIER_TAB), 'DOSSIER')).toEqual(['LOADING…']);
+    expect(body(shown('loading', 'loading', LOG), 'DOSSIER')).toEqual(['LOADING…']);
+  });
+
+  it('shows the log once it arrived: its last 8 lines, each with its date', () => {
+    const lines = body(shown(DOSSIER, p.log, LOG), 'DOSSIER');
+    expect(lines.length).toBe(Math.min(8, p.log.length) * 2);
+    expect(lines[1]).toBe(p.log[0]?.text);
+  });
+
+  it('says LOG OUT OF REACH and DOSSIERS OUT OF REACH when the details could not be read', () => {
+    expect(body(shown('unreadable', 'unreadable', LOG), 'DOSSIER')).toEqual(['LOG OUT OF REACH']);
+    expect(body(shown('unreadable', 'unreadable', DOSSIER_TAB), 'DOSSIER')).toEqual(['DOSSIERS OUT OF REACH']);
+  });
+
+  it('shows the same rows on the tall grid as on the wide one, loading or out of reach', () => {
+    for (const tab of [LOG, DOSSIER_TAB]) {
+      expect(shown('loading', 'loading', tab, TALL)).toEqual(shown('loading', 'loading', tab, WIDE));
+      expect(shown('unreadable', 'unreadable', tab, TALL)).toEqual(shown('unreadable', 'unreadable', tab, WIDE));
+    }
+  });
+});
+
+describe('startLink', () => {
+  it('opens the dossier\'s page only once the dossier has arrived, on the DOSSIER tab', () => {
+    expect(startLink('loading', DOSSIER_TAB)).toBeNull();
+    expect(startLink(DOSSIER, DOSSIER_TAB)).toBe('/prd/d-2410');
+    expect(startLink(DOSSIER, 3)).toBeNull();
+    expect(startLink('none', DOSSIER_TAB)).toBeNull();
+    expect(startLink('unreadable', DOSSIER_TAB)).toBeNull();
+    expect(startLink({ ...DOSSIER, url: null }, DOSSIER_TAB)).toBeNull();
   });
 });
 

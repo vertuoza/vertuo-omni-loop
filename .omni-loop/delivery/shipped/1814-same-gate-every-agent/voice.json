@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-13",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A commit gate under a second and a push gate around ten seconds is something I will keep on; a red quick check on my draft beats finding out when I mark it ready.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Hooks that block me are only worth it if they never cost minutes and say exactly what to fix; failing closed on a broken install worries me.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Every agent graded the same way, drafts included, is the point I can defend to anyone comparing setups.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Right direction, but a push hook that can run the whole suite will train people to skip it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I mostly read the PRs; a quick check on every sub-PR means the wave's merges stop being on trust.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "If the push hook ever costs minutes, my engineers will learn --no-verify and the gate protects nothing. Keep it to seconds.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ~ · persona:Lead Engineer ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-13",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The spec keeps the commit hook at the fallow audit alone and audits the worktree I commit in, which fixes the old main-checkout surprise.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Fail-closed is spelled out with the one line it prints and the --no-verify hatch; I can live with that if the line really names the fix.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Nine observable criteria, and the forms stop claiming a hook that does not exist.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Tests moved to quick and the push hook stays at typecheck and lint: my objection is answered in D2.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "quick on sub-PRs and drafts, phase-0 left to the App's check: clear about what gets graded where.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-13",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The commit hook ran in under two seconds on this branch's own commits, and it audits the worktree I am in.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The push hook measured 5 to 13 seconds here and names the missing tool when it refuses; that is a gate I will not skip.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Drafts and sub-PRs get a check, and the forms now say only what is true.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Tests stayed out of the push hook as I asked, and quick ran green on its own sub-PR in about a minute.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every slice of this PRD went through the new hooks before it merged: the wave stopped being on trust.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ✓"
+    }
+  ]
+}

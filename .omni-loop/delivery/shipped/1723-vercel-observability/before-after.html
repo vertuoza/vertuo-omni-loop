@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Observability on Vercel</title>
+<style>
+/* Layout: today beside after, one row per change; stacks at phone width. The Omni app's look, in both themes. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --ok:#0f7a4a;--bad:#b3261e;--code:#f0eefb;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --ok:#4fd08f;--bad:#ff8a80;--code:#0b0a2e;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --ok:#4fd08f;--bad:#ff8a80;--code:#0b0a2e;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 26px/1.2 var(--display);letter-spacing:.03em;margin:0}
+h3{font:400 20px/1.2 var(--display);letter-spacing:.03em;margin:0}
+.lead{color:var(--muted);max-width:70ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side p{margin:0}
+pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:12.5px/1.5 var(--mono);overflow-x:auto;white-space:pre}
+.ok{color:var(--ok);font-weight:700}.bad{color:var(--bad);font-weight:700}
+ul{margin:0;padding-left:20px}
+.flow{width:100%;height:auto;display:block}
+.flow text{font:12px var(--body);fill:var(--ink)}
+.flow .box{fill:var(--surface);stroke:var(--lineStrong)}
+.flow .hot{fill:var(--plasmaSoft);stroke:var(--plasma)}
+.flow .arrow{stroke:var(--lineStrong);fill:none;stroke-width:1.5;marker-end:url(#a)}
+.note{border-left:3px solid var(--plasma);padding:8px 12px;background:var(--plasmaSoft);border-radius:0 8px 8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <span class="tag">PRD 1723 · before / after</span>
+ <h1>Observability on Vercel at near-zero cost</h1>
+ <p class="lead">The arcade (<code>apps/galaxy</code>) and the GitHub App (<code>apps/omni-app</code>) tell someone when they break, and why, using Vercel's own tools, one shared JSON logger, a health endpoint per app and an hourly GitHub Actions check. No new vendor.</p>
+</header>
+
+<section class="row">
+ <h2>Functional</h2>
+
+ <h3>1 · A log line</h3>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+   <p>Free-text strings, only when something goes wrong. No duration, nothing to filter on.</p>
+<pre>outbox check of acme/widgets for 42 is held: the GitHub budget is spent</pre>
+  </div>
+  <div class="side after"><span class="tag">After</span>
+   <p>One JSON line per webhook, Inngest run and cron run, written through <code>kit/lib/log</code>. Only allow-listed fields; credentials masked; no stack.</p>
+<pre>{"level":"info","event":"inngest","fn":"outbox-check",
+ "outcome":"failed","ms":1840,"repo":"acme/widgets","prd":42,
+ "runId":"01J…","error":{"name":"HttpError",
+ "message":"401 for https://api.github.com/…?token=***"}}</pre>
+  </div>
+ </div>
+
+ <h3>2 · When a route starts failing</h3>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+   <p>Nothing fires. Someone notices the board is stale. Runtime logs may already be gone after a day.</p>
+  </div>
+  <div class="side after"><span class="tag">After</span>
+   <p>Vercel's <strong>error anomaly</strong> alert emails the team when a route's 5xx count over five minutes spikes. Observability Plus stays on behind a spend limit and keeps 30 days of searchable logs.</p>
+  </div>
+ </div>
+
+ <h3>3 · <code>GET /api/health</code></h3>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+<pre>GET https://…/api/health
+<span class="bad">404 Not Found</span></pre>
+  </div>
+  <div class="side after"><span class="tag">After</span>
+<pre>GET https://…/api/health
+<span class="ok">200</span>  Cache-Control: no-store
+{"ok":true,"app":"galaxy","commit":"e64412c…",
+ "checks":{"env":"ok","supabase":"ok"}}
+
+<span class="bad">503</span>  when a check fails
+{"ok":false,"app":"galaxy","commit":"e64412c…",
+ "checks":{"env":"ok","supabase":"failed"}}</pre>
+   <p>Never a value, an error's text or a person. Never calls GitHub, Inngest or OpenRouter.</p>
+  </div>
+ </div>
+
+ <h3>4 · When an app is down</h3>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+   <p>No check. A dead deployment looks the same as a quiet one.</p>
+  </div>
+  <div class="side after"><span class="tag">After</span>
+   <svg class="flow" viewBox="0 0 520 200" role="img" aria-label="The hourly health check: probe twice, open or comment on an issue when down, close it when back">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <rect class="box" x="6" y="76" width="118" height="48" rx="8"/><text x="65" y="97" text-anchor="middle">health.yml</text><text x="65" y="113" text-anchor="middle">:23 every hour</text>
+    <rect class="box" x="164" y="76" width="130" height="48" rx="8"/><text x="229" y="97" text-anchor="middle">2 probes, 30 s apart</text><text x="229" y="113" text-anchor="middle">10 s limit each</text>
+    <rect class="hot" x="336" y="10" width="178" height="52" rx="8"/><text x="425" y="31" text-anchor="middle">down → open issue</text><text x="425" y="48" text-anchor="middle">"Health: galaxy is down"</text>
+    <rect class="box" x="336" y="74" width="178" height="52" rx="8"/><text x="425" y="95" text-anchor="middle">still down → comment</text><text x="425" y="112" text-anchor="middle">once per run</text>
+    <rect class="box" x="336" y="138" width="178" height="52" rx="8"/><text x="425" y="159" text-anchor="middle">back up → comment</text><text x="425" y="176" text-anchor="middle">and close the issue</text>
+    <path class="arrow" d="M124 100H160" style="color:var(--lineStrong)"/>
+    <path class="arrow" d="M294 92L332 40" style="color:var(--lineStrong)"/>
+    <path class="arrow" d="M294 100H332" style="color:var(--lineStrong)"/>
+    <path class="arrow" d="M294 108L332 160" style="color:var(--lineStrong)"/>
+   </svg>
+   <p>Found by its exact title, no label. The run exits 0: the issue is the alert.</p>
+  </div>
+ </div>
+
+ <h3>5 · What it costs</h3>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+   <ul><li>Vercel Pro, already paid.</li><li>Whether Observability Plus is on, and its cost, written nowhere.</li></ul>
+  </div>
+  <div class="side after"><span class="tag">After</span>
+   <ul><li>Vercel Pro, already paid.</li><li>Observability Plus: $1.20 per million events, behind a spend limit; the real cost read on the Usage tab a month after shipping and written in <code>docs/guide/observability.md</code>.</li><li>GitHub Actions: about 720 minutes a month for the hourly check.</li><li>No Sentry, no Log Drains, no new vendor (ADR-0102).</li></ul>
+  </div>
+ </div>
+
+ <div class="note">What stays the same: galaxy's pages and route handlers keep their <code>console.error</code> strings; every request, Inngest retry and <code>onFailure</code> behaves exactly as today; nothing in the database changes. New server code logs through <code>kit/lib/log</code> (conventions form).</div>
+</section>
+
+<section class="row">
+ <h2>Pixel perfect</h2>
+ <p>Pixel perfect: no screen changes</p>
+</section>
+</div>
+</body>
+</html>

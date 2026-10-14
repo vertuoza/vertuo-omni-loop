@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertDefined } from '../test/assert.ts';
+import { kitSkills } from '../lib/agents/skills.ts';
 import { formText, makeRepo } from '../test/fixture.ts';
 import { parseConfig } from '../lib/config.ts';
 import { credentials } from '../lib/ask/credentials.ts';
@@ -223,6 +224,8 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     expect(config.commands.test).toBe('pnpm test');
     expect(config.commands.preflight).toBe('pnpm run quality:preflight');
     expect(config.commands.preflightFull).toBe('pnpm run quality:preflight');
+    expect(config.commands.setup).toBe('pnpm install --frozen-lockfile');
+    expect(read('.omni-loop/config.yml')).toMatch(/^commands:\n {2}setup: pnpm install --frozen-lockfile\n/m);
     expect(config.repo.slug).toBe('acme/widgets');
     expect(config.repo.defaultBranch).toBe('trunk');
     expect(config.laws.source).toBe('none');
@@ -339,31 +342,59 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const { code } = await init(root, [], { options: { ask: () => { asked += 1; return 'x'; } } });
     expect(code).toBe(0);
     expect(asked).toBe(0);
-    expect(readConfig(read).commands).toMatchObject({ test: null, preflight: null, preflightFull: null });
+    expect(readConfig(read).commands).toMatchObject({ setup: null, test: null, preflight: null, preflightFull: null });
+    expect(read('.omni-loop/config.yml')).toMatch(/^commands:\n {2}setup: null\n/m);
   });
 
   it('on a terminal it asks once per unknown command, and an empty answer means none', async () => {
     const { root, read } = makeRepo({ git: true });
     const questions: unknown[] = [];
-    const answers = ['make check', '', 'make all'];
+    const answers = ['', 'make check', '', 'make all'];
     const s = io();
     const tty = { isTTY: true, write: s.stdout.write };
     // A home of its own and a sign-in that does not happen: on a terminal, init would otherwise run the
     // real sign-in flow and wait on the browser whenever this computer is not signed in.
-    const code = await main(['init'], {
+    // --agent answers the agents' question (PRD 1890): only the commands are asked here.
+    const code = await main(['init', '--agent', 'claude'], {
       cwd: root, stdout: tty, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
       home: freshHome(), signIn: () => Promise.resolve(1),
       ask: (question: string) => { questions.push(question); return answers.shift(); },
     });
     expect(code).toBe(0);
-    expect(questions).toHaveLength(3);
-    expect(readConfig(read).commands).toMatchObject({ test: 'make check', preflight: null, preflightFull: 'make all' });
+    expect(questions).toHaveLength(4);
+    expect(questions[0]).toMatch(/^commands\.setup: .*\(empty for none\): $/);
+    expect(readConfig(read).commands).toMatchObject({ setup: null, test: 'make check', preflight: null, preflightFull: 'make all' });
+  });
+
+  it('on a terminal it asks for the setup when no lockfile proposes one, and never when one does (PRD 1804)', async () => {
+    const run = async (files: Record<string, string>, answer: string) => {
+      const { root, read } = makeRepo({ git: true, files: { Makefile: fixture('make/Makefile'), ...files } });
+      const questions: string[] = [];
+      const s = io();
+      await main(['init', '--agent', 'claude'], {
+        cwd: root, stdout: { isTTY: true, write: s.stdout.write }, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
+        home: freshHome(), signIn: () => Promise.resolve(1),
+        ask: (question: string) => { questions.push(question); return answer; },
+      });
+      return { questions, setup: readConfig(read).commands.setup };
+    };
+    expect(await run({}, 'make deps')).toEqual({ questions: [expect.stringMatching(/^commands\.setup: /)], setup: 'make deps' });
+    expect(await run({ 'composer.lock': '' }, 'never asked')).toEqual({ questions: [], setup: 'composer install' });
   });
 
   it('--test, --preflight and --preflight-full override detection (AC 3)', async () => {
     const { root, read } = makeRepo({ git: true, files: { 'package.json': fixture('pnpm/package.json'), 'pnpm-lock.yaml': '' } });
     await init(root, ['--test', 'vendor/bin/phpunit', '--preflight', 'make ci', '--preflight-full', 'make ci-full']);
     expect(readConfig(read).commands).toMatchObject({ test: 'vendor/bin/phpunit', preflight: 'make ci', preflightFull: 'make ci-full' });
+  });
+
+  it('--setup overrides the setup the lockfile proposes, and fills it when none does (PRD 1804)', async () => {
+    const locked = makeRepo({ git: true, files: { 'package.json': fixture('pnpm/package.json'), 'pnpm-lock.yaml': '' } });
+    await init(locked.root, ['--setup', 'pnpm install']);
+    expect(readConfig(locked.read).commands.setup).toBe('pnpm install');
+    const bare = makeRepo({ git: true });
+    await init(bare.root, ['--setup', 'make deps']);
+    expect(readConfig(bare.read).commands.setup).toBe('make deps');
   });
 
   it('laws.source is knowledge with a register entry, claudeMdInvariants with the CLAUDE.md heading', async () => {
@@ -610,6 +641,126 @@ describe('omni init — footprint (AC 7)', () => {
     const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
     const paths = status.split('\n').filter(Boolean).map((line) => line.slice(3));
     expect(paths.sort()).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', ...FORM_FILES, SETTINGS].sort());
+  });
+});
+
+/** Every skill folder of the kit, as the copies name them: `.agents/skills/omni-<name>`. */
+const COPY_FOLDERS = [...new Set(Object.keys(kitSkills()).map((path) => `.agents/skills/omni-${path.split('/')[0] ?? ''}`))].sort();
+/** Every file the copies hold, from the repository root. */
+const COPY_FILES = Object.keys(kitSkills()).map((path) => `.agents/skills/omni-${path}`).sort();
+const MANIFEST = '.omni-loop/agents.json';
+
+describe('omni init — the agents it installs for (PRD 1890, N-PRODUCT-13)', () => {
+  it('--agent codex --agent claude: the key, the copies, the manifest and both settings keys, committed and nothing else', async () => {
+    const { root, read } = makeRepo({ git: true, files: { 'package.json': fixture('pnpm/package.json'), 'pnpm-lock.yaml': '' } });
+    const fake = fakeExec();
+    const { code, out } = await init(root, ['--agent', 'codex', '--agent', 'claude'], { fake });
+    expect(code).toBe(0);
+    expect(readConfig(read).agents).toEqual(['codex', 'claude']);
+    expect(read('.omni-loop/config.yml')).toMatch(/^agents:\n {2}- codex\n {2}- claude\n/m);
+    expect(gitStatus(root)).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', MANIFEST, ...FORM_FILES, SETTINGS, ...COPY_FILES].sort());
+    expect(JSON.parse(read(SETTINGS))).toHaveProperty('statusLine');
+    expect(JSON.parse(read(SETTINGS))).toHaveProperty('enabledPlugins');
+    expect(Object.keys((JSON.parse(read(MANIFEST)) as { folders: object }).folders)).toEqual(COPY_FOLDERS);
+    const added = fake.install.find((step) => step.cmd === 'git add');
+    expect(added?.args.slice(2)).toEqual(['.omni-loop', SETTINGS, ...COPY_FOLDERS]);
+    expect(out).toContain(`  wrote   .agents/skills/omni-*  (${String(COPY_FOLDERS.length)} skills for codex, listed in ${MANIFEST})`);
+    expect(fake.plugin).toContain('claude plugin install omni@omni-loop');
+    expect(out).toContain('To remove the loop: delete .omni-loop/, .agents/skills/omni-*/ and the statusLine key');
+  });
+
+  it('each copy is named after its folder, carries the generated line and the kit body', async () => {
+    const { root, read } = makeRepo({ git: true });
+    await init(root, ['--agent', 'codex']);
+    const copy = read('.agents/skills/omni-do-work/SKILL.md');
+    expect(copy).toMatch(/^name: omni-do-work$/m);
+    expect(copy).toContain('<!-- generated by omni ');
+    const kit = kitSkills()['do-work/SKILL.md'];
+    assertDefined(kit, 'the kit skill');
+    expect(copy.endsWith(kit.slice(kit.indexOf('\n---\n') + 5))).toBe(true);
+  });
+
+  it('[claude] alone, the default: no .agents/ path and no manifest, as before', async () => {
+    const { root } = makeRepo({ git: true });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(existsSync(join(root, '.agents'))).toBe(false);
+    expect(existsSync(join(root, MANIFEST))).toBe(false);
+    expect(out).not.toContain('.agents/');
+  });
+
+  it('[cursor, gemini]: no .claude/settings.json, no plugin installed, the copies committed', async () => {
+    const { root, read } = makeRepo({ git: true });
+    const fake = fakeExec();
+    const { code, out } = await init(root, ['--agent', 'cursor', '--agent', 'gemini'], { fake });
+    expect(code).toBe(0);
+    expect(readConfig(read).agents).toEqual(['cursor', 'gemini']);
+    expect(existsSync(join(root, '.claude'))).toBe(false);
+    expect(fake.plugin).toEqual([]);
+    expect(computerBlock(out)[0]).toBe('  plugin  not installed: agents does not list claude');
+    expect(out).not.toContain(SETTINGS);
+    expect(gitStatus(root)).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', MANIFEST, ...FORM_FILES, ...COPY_FILES].sort());
+    expect(fake.install.find((step) => step.cmd === 'git add')?.args.slice(2)).toEqual(['.omni-loop', ...COPY_FOLDERS]);
+    expect(out).toContain('To remove the loop: delete .omni-loop/, .agents/skills/omni-*/ and commit.');
+  });
+
+  it('a repository skill in .agents/skills/ stays byte-identical', async () => {
+    const own = { '.agents/skills/my-skill/SKILL.md': '---\nname: my-skill\n---\nmine\n', '.agents/README.md': 'ours\n' };
+    const { root, read } = makeRepo({ git: true, files: own });
+    expect((await init(root, ['--agent', 'codex'])).code).toBe(0);
+    for (const [path, text] of Object.entries(own)) expect(read(path)).toBe(text);
+  });
+
+  it('an omni-* folder the manifest does not own stops init with one line naming it, nothing written', async () => {
+    const { root } = makeRepo({ git: true, files: { '.agents/skills/omni-x/SKILL.md': 'theirs\n' } });
+    const before = snapshot(root);
+    const fake = fakeExec();
+    const { code, err } = await init(root, ['--agent', 'codex'], { fake });
+    expect(code).toBe(2);
+    expect(err.trim().split('\n')).toHaveLength(1);
+    expect(err).toContain('.agents/skills/omni-x');
+    expect(snapshot(root)).toEqual(before);
+    expect(fake.install).toEqual([]);
+  });
+
+  it('an agent the kit does not know, or one named twice, exits 2 with nothing written', async () => {
+    for (const argv of [['--agent', 'copilot'], ['--agent', 'codex', '--agent', 'codex'], ['--agent']]) {
+      const { root } = makeRepo({ git: true });
+      const { code, err } = await init(root, argv);
+      expect(code).toBe(2);
+      expect(err).toMatch(/^omni init: /);
+      expect(existsSync(join(root, '.omni-loop'))).toBe(false);
+    }
+    const { root } = makeRepo({ git: true });
+    expect((await init(root, ['--agent', 'copilot'])).err).toContain('copilot');
+  });
+
+  it('on a terminal without --agent it asks which agents first, Claude ticked: an empty answer is claude', async () => {
+    const run = async (answer: string) => {
+      const { root, read } = makeRepo({ git: true, files: { Makefile: fixture('make/Makefile'), 'composer.lock': '' } });
+      const questions: string[] = [];
+      const s = io();
+      await main(['init'], {
+        cwd: root, stdout: { isTTY: true, write: s.stdout.write }, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
+        home: freshHome(), signIn: () => Promise.resolve(1),
+        ask: (question: string) => { questions.push(question); return question.startsWith('agents:') ? answer : ''; },
+      });
+      return { first: questions[0], agents: readConfig(read).agents, copies: existsSync(join(root, '.agents')) };
+    };
+    const empty = await run('');
+    expect(empty.first).toMatch(/^agents: .*claude, codex, cursor, gemini.*\(empty for claude\): $/);
+    expect(empty).toMatchObject({ agents: ['claude'], copies: false });
+    expect(await run('Codex, claude')).toMatchObject({ agents: ['codex', 'claude'], copies: true });
+  });
+
+  it('never asks with --agent, and a kept config keeps its own agents', async () => {
+    const { root, read } = makeRepo({ git: true });
+    await init(root, ['--agent', 'gemini']);
+    expect(readConfig(read).agents).toEqual(['gemini']);
+    const again = await init(root, ['--agent', 'claude']);
+    expect(again.code).toBe(0);
+    expect(readConfig(read).agents).toEqual(['gemini']);
+    expect(existsSync(join(root, '.claude'))).toBe(false);
   });
 });
 

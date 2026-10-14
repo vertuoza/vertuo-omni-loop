@@ -10,10 +10,11 @@ evidence:
   - apps/omni-app/README.md@88dfe14
   - .github/workflows/checks.yml@2ee982c
   - scripts/settle-head.sh@e3cce31
-  - .claude/hooks/fallow-gate.sh@2ae0b9b
   - package.json@f886c74
   - apps/galaxy/package.json@7ae2649
   - scripts/lint-repository.ts@b154f4c
+  - .github/workflows/quick.yml@2fe8e9e
+  - scripts/check-changed-hooks.ts@c844953
 terraformed: 2026-09-25
 ---
 
@@ -33,22 +34,24 @@ Use this page when a check on your pull request is red.
 | `checks` › `lint shard 1/2`, `2/2` | after `settle` answered `stale=false`, side by side, `fail-fast: false` | `pnpm install --frozen-lockfile`, then `pnpm lint --shard <i>/2`: typescript-eslint over every second tracked TypeScript file, from the i-th (`scripts/lint-repository.ts`), failing on any finding. 10-minute timeout |
 | `checks` › `lint` | after every lint shard, even a failed one, unless `settle` went stale | gathers the shards into the one `lint` check, as `test` does. 2-minute timeout |
 | `checks` › `fallow` | after `settle` answered `stale=false`, side by side with the others | `pnpm install --frozen-lockfile`, then `pnpm fallow:audit` measured from the pull request's base: red only on a dead-code, duplication or complexity finding the pull request adds beyond the baselines in `fallow/` (`fallow/README.md` says when they are regenerated). 10-minute timeout |
+| `quick` › `settle`, `quick` | a draft, or a pull request whose base is not `main` (a sub-pull request), never a `docs/phase-0-` head (`.github/workflows/quick.yml`) | the same `settle` gate, then `pnpm install --frozen-lockfile` and `pnpm check:changed --base origin/<base>`: typecheck, lint of the changed files, related tests, fallow. Group `quick-<head branch>`. 20-minute timeout |
 | `outbox` | every pull request, posted by the omni-loop GitHub App, not by a workflow (ADR-0001) | `skipped` on a sub-pull request and on any pull request that is not a PRD's feature pull request; red on a feature pull request while an outbox item is open, drift is unreworked or a risky change is unaccounted |
 
-A draft runs no CI, and neither does a sub-pull request into a feature branch: its base is not
-`main`. A ready pull request into `main` runs `checks`: marking a draft ready is what grades it,
-then every push after, and a newer push cancels an older run still waiting in `settle`
+A draft, and a sub-pull request into a feature branch, get `quick` on every push: only what
+changed, so the full `pnpm test` and `pnpm lint` still come before ready. A ready pull request into
+`main` runs `checks` (its `quick` skips): marking a draft ready is what grades it, then every push
+after, and a newer push cancels an older run still waiting in `settle`
 (concurrency group `checks-<head branch>-ready`; a draft's run, which runs nothing, has its own
 `checks-<head branch>-draft`, so a push straight before `gh pr ready` never cancels the ready run,
 issue 1167). A pull request that changes only `**/*.md` or
-`docs/**` (a phase-0, a retro) runs no `checks`. No other workflow job runs on a pull request: the
+`docs/**` (a phase-0, a retro) runs no `checks` and no `quick`. No other workflow job runs on a pull request: the
 `supabase` workflow's `deploy` job, `release` and `releases` run on a push to `main`, and the
 `game` workflow on a schedule or by hand.
 
-Before any of this, every Claude session here runs the same Fallow audit on `git commit` and
-`git push` (`.claude/hooks/fallow-gate.sh`, from `.claude/settings.json`): a `fail` verdict blocks
-the command with the findings. So a red `checks` › `fallow` usually means a commit made outside
-Claude, or a hook that could not run (it says why on one stderr line and lets the command through).
+Before any of this, the git hooks `pnpm install` turns on (`.githooks/`) run for every agent and
+person: pre-commit the fallow audit of the work tree, pre-push the typecheck and lint of what
+changed. They fail closed, so a red `checks` › `fallow` usually means a commit made with
+`--no-verify`, which the pull request must explain.
 
 ## What gates a merge
 <!-- slot: gating · required -->
@@ -75,3 +78,24 @@ Claude, or a hook that could not run (it says why on one stderr line and lets th
 
 ## When to re-run
 <!-- slot: rerun · optional -->
+
+## Budgets
+<!-- slot: budgets · optional -->
+What every agent session reads here has a ceiling in bytes (PRD 1679): the briefing, each playbook
+form as `omni kb show` prints it, pointers expanded, each `paths.context` file, and `session`, their
+sum. The ceilings live in `.omni-loop/budgets/context.json`, versioned and reviewed like
+`mutation/floor.json`.
+
+- `omni check context` measures them against the base, inside `omni check all`; the omni-loop
+  GitHub App posts the same verdict as the `omni / budgets` check run on every pull request.
+- Red *over budget*: trim the target back under its ceiling without losing a rule; move detail into
+  a linked file. Red *needs a person's yes*: a raised ceiling waits for the high outbox item that
+  names it, until a person answers. Only a PRD's pull request can raise one; any other trims, or
+  makes the change through a PRD or `/omni:bug-fix`. Neutral: a target could not be measured; the
+  check says why and blocks nothing.
+- `omni budget measure context` prints today's sizes; `omni budget set context` writes a first
+  ceiling for a new target, rounded up to the next KiB, and never raises one.
+- `form:releasing` entered at its expanded size (about 145 KB): its pointer
+  `[→ apps/galaxy/README.md#deploy-to-production]` printed the rest of the galaxy README. Bug 1778
+  made a section pointer print only its section, and lowered the ceiling to about 19 KB in the same
+  pull request: a lowered ceiling is always green.

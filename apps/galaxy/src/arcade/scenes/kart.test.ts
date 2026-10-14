@@ -9,9 +9,10 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { BACK_TO_CHOICE, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
-import { KartOverlay } from './kart.tsx';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
+import { KartOverlay, type KartArt } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
+import { defaultOptions, optionsKey, optionsPress, type OptionsView } from '../kart/options';
 import { sending, type ScoreSend } from './invaders-score';
 
 // OMNI KART's text layer and scene (PRD 1359, slice 1): the loading and failure lines, the ready
@@ -40,6 +41,15 @@ describe('the kart text layer', () => {
     expect(READY_LINE).toContain(`${LAPS} LAPS`);
     expect(text('ready')).toBe('COMET RING · 3 LAPS · PRESS START B GAME ROOM');
     expect(text('ready', TALL, 'handheld')).toBe('COMET RING · 3 LAPS · PRESS START B GAME ROOM');
+  });
+
+  it('names the player\'s laps on the ready screen and before the choice', () => {
+    expect(readyLine(5)).toBe('COMET RING · 5 LAPS · PRESS START');
+    const five = { ...defaultOptions(), laps: 5 as const };
+    const render = (choice: KartChoice | null) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', choice, options: five })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    expect(render({ step: 'single' })).toBe('COMET RING · 5 LAPS · PRESS START B GAME ROOM');
+    expect(render(FIRST_CHOICE)).toContain('COMET RING · 5 LAPS ▶ SINGLE');
   });
 
   it('shows LOADING… and only the way back while the game\'s code is on its way', () => {
@@ -123,6 +133,18 @@ describe('loadKart', () => {
     const createKart = vi.fn(() => stubGame());
     await loadKart(() => Promise.resolve({ createKart }), 42);
     expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [] });
+  });
+
+  it('hands the game the laps and difficulty of the options', async () => {
+    const createKart = vi.fn(() => stubGame());
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' } });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' } });
+  });
+
+  it('hands the game the look of the options', async () => {
+    const createKart = vi.fn(() => stubGame());
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' } });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' } });
   });
 
   it('answers null and logs the error with console.error when the import fails', async () => {
@@ -248,7 +270,7 @@ describe('the cast of the race', () => {
 
 describe('the results and the score (slice 4)', () => {
   const rows = ['YOU', 'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO'].map((name, i) => ({ place: i + 1, name, tenths: i < 3 ? 1000 + i * 25 : null, you: i === 0 }));
-  const results = (): KartHud => ({ phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1000 } });
+  const results = (): KartHud => ({ phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1000, threeLap: 1000 } });
   const sendOf = (s: ScoreSend | null) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: results(), send: s })))
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -256,14 +278,19 @@ describe('the results and the score (slice 4)', () => {
     const t = text('ready', WIDE, 'full', results());
     expect(t).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:42.5 3RD BRAVO 1:45.0 4TH CHARLIE -- 5TH DELTA -- 6TH ECHO --');
     expect(text('ready', TALL, 'handheld', results())).toContain('6TH ECHO --');
-    expect(t).toContain('TIME 1:40.0');
+    expect(t).toContain('3-LAP TIME 1:40.0');
+  });
+
+  it('says the time sent is the three-lap one when the race was longer', () => {
+    const long: KartHud = { phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1700, threeLap: 1000 } };
+    expect(text('ready', WIDE, 'full', long)).toContain('3-LAP TIME 1:40.0');
   });
 
   it('fills a MULTI table in live: the time of whoever finished, a dash for whoever races, OUT for whoever left', () => {
     const live = (): KartHud => ({ phase: 'finish', beat: null, results: { rows: [
       { place: 1, name: 'YOU', tenths: 1000, you: true }, { place: 2, name: 'ALPHA', tenths: 1042, you: false },
       { place: 3, name: 'BRAVO', tenths: null, you: false }, { place: 4, name: 'CHARLIE', tenths: null, you: false, out: true },
-    ], place: 1, tenths: 1000, live: true } });
+    ], place: 1, tenths: 1000, threeLap: 1000, live: true } });
     expect(text('ready', WIDE, 'full', live())).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:44.2 3RD BRAVO — -- CHARLIE OUT');
     expect(sameKartHud(live(), live())).toBe(true);
     const first = live();
@@ -364,12 +391,12 @@ describe('the choice on the ready screen (PRD 1572)', () => {
     renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice, multi })))
       .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-  it('shows the circuit, then SINGLE and MULTI, the cursor on SINGLE', () => {
-    expect(choose(FIRST_CHOICE, true)).toBe('COMET RING · 3 LAPS ▶ SINGLE MULTI B GAME ROOM');
+  it('shows the circuit, then SINGLE, MULTI and OPTIONS, the cursor on SINGLE', () => {
+    expect(choose(FIRST_CHOICE, true)).toBe('COMET RING · 3 LAPS ▶ SINGLE MULTI OPTIONS B GAME ROOM');
   });
   it('reads MULTI · SIGN IN TO RACE without a link, and the cursor skips it', () => {
     expect(choose(FIRST_CHOICE, false)).toContain(MULTI_CLOSED_LINE);
-    expect(choicePress(FIRST_CHOICE, 'down', false)).toBe(FIRST_CHOICE);
+    expect(choicePress(FIRST_CHOICE, 'down', false)).toEqual(BACK_TO_OPTIONS);
   });
   it('moves with up and down, and picks SINGLE with A or START', () => {
     const multi = choicePress(FIRST_CHOICE, 'down', true);
@@ -377,6 +404,17 @@ describe('the choice on the ready screen (PRD 1572)', () => {
     expect(choicePress(multi, 'up', true)).toEqual(FIRST_CHOICE);
     expect(choicePress(FIRST_CHOICE, 'a', true)).toEqual({ step: 'single' });
     expect(choicePress(FIRST_CHOICE, 'start', true)).toEqual({ step: 'single' });
+  });
+  it('moves the cursor over the three lines and stops at the ends', () => {
+    const multi: KartChoice = { step: 'choose', cursor: 'multi' };
+    expect(choicePress(multi, 'down', true)).toEqual(BACK_TO_OPTIONS);
+    expect(choicePress(BACK_TO_OPTIONS, 'down', true)).toBe(BACK_TO_OPTIONS);
+    expect(choicePress(BACK_TO_OPTIONS, 'up', true)).toEqual(multi);
+    expect(choicePress(FIRST_CHOICE, 'up', true)).toBe(FIRST_CHOICE);
+  });
+  it('opens the OPTIONS panel on A or START at OPTIONS', () => {
+    expect(choicePress(BACK_TO_OPTIONS, 'a', true)).toEqual(OPTIONS_OPEN);
+    expect(choicePress(BACK_TO_OPTIONS, 'start', false)).toEqual(OPTIONS_OPEN);
   });
   it('picking SINGLE shows today\'s ready line', () => {
     expect(choose({ step: 'single' }, true)).toContain(READY_LINE);
@@ -403,6 +441,13 @@ describe('the grid (PRD 1572)', () => {
   it("lists each player's name and best time or NO TIME, in the order it is given, with the line under them", () => {
     const view: KartGridView = { state: 'joined', rows: [row('a', 'Ada', 653), row('b', 'Bo', null, true)], line: 'WAITING FOR ADA' };
     expect(grid(view)).toBe('GRID Ada 1:05.3 Bo NO TIME WAITING FOR ADA B BACK');
+  });
+
+  it("titles the grid with the laps it will run, and draws each kart in its look (PRD 1762)", () => {
+    const view: KartGridView = { state: 'joined', rows: [row('a', 'Ada', 653)], line: 'WAITING FOR RACERS', laps: 5 };
+    expect(grid(view)).toContain('GRID · 5 LAPS');
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'grid' }, multi: true, lobby: view, kartOf: () => ({ sprite: () => 'kart-rocket', tint: {} }) })));
+    expect(html).toContain('ADA&#x27;S KART');
   });
 
   it('says each line of the grid as it is given', () => {
@@ -476,5 +521,95 @@ describe('the live race on the text layer (PRD 1572, slice 4)', () => {
     const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'loading', hud: null, choice: { step: 'grid' }, multi: true })));
     expect(html).toContain('JOINING THE GRID…');
     expect(html).not.toContain('LOADING…');
+  });
+});
+
+describe('the OPTIONS panel (PRD 1762)', () => {
+  const panel = (view: OptionsView, options = defaultOptions(), form: 'full' | 'handheld' = 'full') =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'options', view }, multi: true, options })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('lists KEYS ›, KART ›, LAPS, DIFFICULTY and DEFAULTS, with the cursor on KEYS and B to go back', () => {
+    expect(panel(OPTIONS_OPEN.step === 'options' ? OPTIONS_OPEN.view : { screen: 'menu', cursor: 'keys' })).toBe('OPTIONS ▶ KEYS › KART › LAPS ◀ 3 ▶ DIFFICULTY ◀ NORMAL ▶ DEFAULTS B BACK');
+  });
+
+  it('shows what changed: LAPS 5, DIFFICULTY HARD', () => {
+    const view: OptionsView = { screen: 'menu', cursor: 'laps' };
+    const options = { ...defaultOptions(), laps: 5 as const, difficulty: 'hard' as const };
+    expect(panel(view, options)).toContain('▶ LAPS ◀ 5 ▶ DIFFICULTY ◀ HARD ▶');
+  });
+
+  it('moves, changes a value and puts DEFAULTS back, from the ready screen\'s press to the panel\'s', () => {
+    let view: OptionsView = { screen: 'menu', cursor: 'keys' };
+    let options = defaultOptions();
+    for (const a of ['down', 'down', 'right', 'down', 'right', 'right'] as const) ({ view, options } = optionsPress(view, options, a));
+    expect(options).toMatchObject({ laps: 5, difficulty: 'easy' });
+    for (const a of ['down', 'a'] as const) ({ view, options } = optionsPress(view, options, a));
+    expect(options).toEqual(defaultOptions());
+  });
+
+  it('lists the five actions with their keys, and says PRESS A KEY while it waits', () => {
+    const keys: OptionsView = { screen: 'keys', cursor: 'gas', capture: false, refused: false };
+    expect(panel(keys)).toBe('KEYS ▶ GAS ▲ BRAKE ▼ LEFT ◀ RIGHT ▶ ITEM SPACE A CHANGE B BACK');
+    expect(panel({ ...keys, capture: true })).toContain(`▶ GAS ${PRESS_A_KEY} BRAKE ▼`);
+  });
+
+  it('says KEY USED BY THE ARCADE after a reserved key, and keeps waiting', () => {
+    const waiting: OptionsView = { screen: 'keys', cursor: 'gas', capture: true, refused: false };
+    const { view } = optionsKey(waiting, defaultOptions(), 'Tab');
+    expect(panel(view)).toContain(KEY_RESERVED);
+    expect(KEY_RESERVED).toBe('KEY USED BY THE ARCADE');
+  });
+
+  it('shows a key the player bound', () => {
+    const { options } = optionsKey({ screen: 'keys', cursor: 'gas', capture: true, refused: false }, defaultOptions(), 'w');
+    expect(panel({ screen: 'keys', cursor: 'gas', capture: false, refused: false }, options)).toContain('GAS W');
+  });
+
+  it('goes back from the panel to the ready screen, the cursor on OPTIONS', () => {
+    expect(optionsPress({ screen: 'menu', cursor: 'keys' }, defaultOptions(), 'b').leave).toBe(true);
+    expect(BACK_TO_OPTIONS).toEqual({ step: 'choose', cursor: 'options' });
+  });
+});
+
+describe('the race names the player\'s keys (PRD 1762)', () => {
+  const race = (hud: KartHud, options = defaultOptions(), form: 'full' | 'handheld' = 'full') =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud, options })))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  it('shows the keys on the countdown, default and own', () => {
+    expect(race({ phase: 'countdown', beat: '3' })).toContain('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM');
+    const own = { ...defaultOptions(), keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' } };
+    expect(race({ phase: 'countdown', beat: '3' }, own)).toContain('W GAS A D STEER S BRAKE E ITEM');
+  });
+
+  it('shows no keys line on the Game Boy, whose pad keeps A and B, nor once the race is on', () => {
+    expect(race({ phase: 'countdown', beat: '3' }, defaultOptions(), 'handheld')).not.toContain('GAS');
+    expect(race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 0, final: false, item: null } })).not.toContain('STEER');
+  });
+
+  it('names the ITEM key on the item panel, empty or holding one', () => {
+    const run = (item: KartItem | null) => race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item } });
+    expect(run(null)).toContain('SPACE');
+    expect(run('boost')).toContain('SPACE ITEM BOOST');
+    const own = { ...defaultOptions(), keys: { ...defaultOptions().keys, item: 'e' } };
+    expect(race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item: 'orb' } }, own)).toContain('E ITEM ORB');
+  });
+});
+
+describe('the KART panel (PRD 1762)', () => {
+  const panel = (view: OptionsView, options = defaultOptions(), art: KartArt | null = null) =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'options', view }, multi: true, options, art })));
+  const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const art: KartArt = { sprite: (v) => (v === 'kart' ? 'kart-rocket' : `kart-rocket${v.slice(4)}`), tint: {} };
+
+  it('lists COLOR, DESIGN and DEFAULTS with the look chosen', () => {
+    const options = { ...defaultOptions(), look: { color: 'PINK', design: 'RACER' } };
+    expect(text(panel({ screen: 'kart', cursor: 'color' }, options))).toBe('KART ▶ COLOR ◀ PINK ▶ DESIGN ◀ RACER ▶ DEFAULTS B BACK');
+  });
+
+  it('shows the kart in its look, a canvas that stays when motion is reduced', () => {
+    expect(panel({ screen: 'kart', cursor: 'color' }, defaultOptions(), art)).toContain('aria-label="YOUR KART"');
+    expect(panel({ screen: 'kart', cursor: 'color' })).not.toContain('YOUR KART');
   });
 });

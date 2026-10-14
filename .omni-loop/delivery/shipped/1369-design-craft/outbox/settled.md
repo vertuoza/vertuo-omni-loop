@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-10
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-109
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant: switching to an error is a one-line change in kit/bin/commands/desig
 - Raised: 2026-10-10
 - Slice: s2
 - Wave: 2
+- Became: ADR-0106
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ A constant: a wider syntax is an added branch in kit/lib/design/glob.ts; no stor
 - Raised: 2026-10-10
 - Slice: s3
 - Wave: 3
+- Became: ADR-0107
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ Adding the copy later is one file in the skill folder and one test line; nothing
 - Raised: 2026-10-10
 - Slice: s4
 - Wave: 4
+- Became: ADR-0108
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ A constant in the skill's wording: committing them later is one sentence and a f
 - Raised: 2026-10-10
 - Slice: s4
 - Wave: 4
+- Became: ADR-0109
 
 ### The answer, as it was given
 
@@ -408,6 +413,7 @@ One sentence of the do-work skill; turning it on later reads the target's commit
 - Raised: 2026-10-10
 - Slice: s5
 - Wave: 5
+- Became: ADR-0110
 
 ### The answer, as it was given
 
@@ -486,6 +492,7 @@ A one-line change in the setup skill's config table; no stored data moves.
 - Raised: 2026-10-10
 - Slice: s6
 - Wave: 6
+- Stays here: A one-off territory choice for this slice that is cheap to undo; it states no lasting product guarantee or build decision worth keeping.
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ Undoing it is moving one line in the menu file and two lines in each test.
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off choice of test file placement; the behaviour is unchanged and the lasting guarantee is already N-PRODUCT-13.
 
 ### The answer, as it was given
 
@@ -644,6 +652,7 @@ A constant: move the added lines to a test file of their own, which no law names
 - Raised: 2026-10-11
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off choice of which test file holds this PRD's lines; nothing lasting to record, and the form count itself is a passing fact, not a guarantee.
 
 ### The answer, as it was given
 
@@ -723,6 +732,7 @@ A constant: move the added lines to a test file of their own, which no law names
 - Raised: 2026-10-11
 - Slice: s3
 - Wave: 1
+- Stays here: A one-off choice of which test file to extend; nothing lasting about the product's behaviour, and BR-PRODUCT-89 itself is untouched.
 
 ### The answer, as it was given
 

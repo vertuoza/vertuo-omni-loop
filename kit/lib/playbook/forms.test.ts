@@ -48,12 +48,12 @@ describe('FORMS — the spec’s forms table, the contract with the templates an
       FORMS.map((form) => [form.id, form.slots.map((slot) => (slot.required ? `*${slot.id}` : slot.id)).join(' ')]),
     );
     expect(table).toEqual({
-      briefing: '*never hooks links next',
+      briefing: '*never hooks links agents next',
       setup: '*prerequisites *install run env',
       architecture: '*layout *boundaries patterns',
       testing: '*commands *layout levels *never data',
       verification: '*preflight before-push checks',
-      ci: '*workflows *gating known-reds rerun',
+      ci: '*workflows *gating known-reds rerun budgets',
       'pull-requests': '*body title labels reviewers',
       decisions: '*where *format numbering',
       'definition-of-done': '*done docs commits',

@@ -1,6 +1,6 @@
 ---
 name: help
-description: Explains the Omni Loop and every one of its commands — the loop's six stages from idea to retro, its principles, the slash commands a person types in Claude, the commands a person types in the terminal and the ones only the skills run — or, given one name, that command or skill alone, with its usage, who runs it and what it does. Runs omni help, passing the name the person gave, and prints its output as is. Triggers on "what is the Omni Loop", "how does the loop work", "which commands are there", "what does /omni:yolo do", "explain omni board", "omni help", "/omni:help", "/omni:help yolo".
+description: Explains the Omni Loop and every one of its commands — the loop's six stages from idea to retro, its principles, the skills a person runs, the commands a person types in the terminal and the ones only the skills run — or, given one name, that command or skill alone, with its usage, who runs it and what it does. Runs omni help, passing the name the person gave, and prints its output as is. Triggers on "what is the Omni Loop", "how does the loop work", "which commands are there", "what does /omni:yolo do", "explain omni board", "omni help", "/omni:help", "/omni:help yolo".
 ---
 
 # Help: the loop and every command

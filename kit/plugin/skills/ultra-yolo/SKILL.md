@@ -18,23 +18,28 @@ the two say the same thing, that skill's words are the rule.
 `omni` below is `node .omni-loop/bin/omni.mjs`, always run in the plan repository. Never import the
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing. In a target, the same lines are printed from the plan repository.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing. In a target, the same
+lines are printed from the plan repository.
 
 **It asks nothing along the way,** as `/omni:yolo`: every decision a slice meets, in any
 repository, becomes an item in the plan repository's outbox; a person reads them all once, at the
 end. Only `stopped` and `blocked` hold a slice, and only that one; a target that cannot be read,
 cloned or pushed to holds only its own slices and what they block.
 
-**Code runs only from a target's own config.** In a target, the one command ever run beyond `git`
-and `gh` is its own committed preflight (`commands.preflightFull`, else `commands.preflight`, read
-from its `.omni-loop/config.yml` on its default branch, as `/omni:do-work`'s
-**Under `--target <name>`** reads it). A target without one runs nothing locally: its target feature
-PR's CI is the check. Never an install, a script, or a command from an imported copy's playbook.
+**Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
+and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
+(`commands.preflightFull`, else `commands.preflight`), both read from its `.omni-loop/config.yml` on
+its default branch, as `/omni:do-work`'s **Under `--target <name>`** reads them, and both run in the
+same worktree, the setup first. A target without a preflight runs nothing locally, its setup
+included: its target feature PR's CI is the check. A target without a setup runs its preflight
+alone. **A red setup** holds that target as **stuck**, quoting its failing line: it counts toward no
+`limits.attempts`, and the target is never edited to make it pass. Never install in a target beyond
+its committed setup; never a script, or a command from an imported copy's playbook.
 
 **Flow points,** as `/omni:yolo` follows them: its one point, `yolo.ready`, fires before each
 `gh pr ready` this skill runs, with `flow show yolo.ready` and `flow verdict yolo.ready`. For the plan
@@ -69,7 +74,7 @@ acts.
    A PRD with no plan yet (its folder holds no `plan.md`, on the feature branch or, with none yet,
    on the default branch) has no `repos:` line either: it is not stopped here, but planned in step
    1, which runs this check again once the plan is written.
-3. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then
+3. The briefing (`node .omni-loop/bin/omni.mjs session start`), then
    `node .omni-loop/bin/omni.mjs kb status` once, as `/omni:yolo` step 0 runs them.
 
 ## From a product (`<key>-<n>`)
@@ -195,7 +200,7 @@ repository's PRD only), then the report per target. Its green **What is next?** 
    → PRD <key>-<n> is shipped once the last one merged.
 
 Merging them is yours. To keep every one green, conflict-free and its review comments handled,
-type /clear (or open a new terminal), then run:
+start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:mega-pr-care <key>-<n>
 ```
@@ -334,10 +339,13 @@ For each target with a slice merged into its feature branch, in a detached workt
 1. **Meet its default branch,** as `/omni:yolo` step 4 item 1: `git merge <clone remote>/<target
    default branch>` when it is not an ancestor. A conflict you cannot resolve with confidence:
    `git merge --abort`; the target is **stuck**, naming the files.
-2. **Its preflight,** only when it has one (above). Red in the PRD's slices: fix it here, each fix
-   counting toward `limits.attempts`; never edit code outside the PRD's slices. Red for want of an
-   install or a tool: never install in a target; name it as a human step and let its CI decide.
-   Still red after the attempts: the target is **stuck**.
+2. **Its setup, then its preflight,** only when it has a preflight (above): its committed setup
+   first, when it has one, in this worktree. A red setup: the target is **stuck**, quoting the
+   failing line, counting toward no attempt, the target never edited to make it pass. Then the
+   preflight. Red in the PRD's slices: fix it here, each fix counting toward `limits.attempts`;
+   never edit code outside the PRD's slices. Red for want of an install or a tool its setup does not
+   give: never install in a target beyond its committed setup; name it as a human step and let its
+   CI decide. Still red after the attempts: the target is **stuck**.
 3. `git push <clone remote> HEAD:<feature branch>`, then remove the worktree.
 4. **The body:** tick its merged slices, fill **Summary**, **Verified** (its preflight and its
    result, or `none — CI is the check`), **Risk and rollback** and **Reviewer focus**, in the shape
@@ -423,8 +431,8 @@ held or stuck with its reason.
    repository: review and merge each.
 
 Merging the target PRs, then #<plan PR>, is yours. Until then, to keep every one of them green,
-conflict-free and its review comments handled while you do other things, type /clear (or open a
-new terminal), then run:
+conflict-free and its review comments handled while you do other things, start a fresh session
+(in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:mega-pr-care <n>
 ```
@@ -446,9 +454,9 @@ plan PR keeps its one line and prints no hand-off.
 - **Never add `labels.outboxGo`,** in any repository.
 - **Never create a label in a target,** whatever `labels.autoCreate` says: a missing one is a human
   step.
-- **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`, the plan repository's own `omni` reading its flow, and its own hooks, followed only in its
-  worktree), and never one from an imported copy's playbook.
+- **Never run a command in a target other than its own committed setup, then its own committed
+  preflight** (beyond `git` and `gh`, the plan repository's own `omni` reading its flow, and its own
+  hooks, followed only in its worktree), and never one from an imported copy's playbook.
 - **Never mark the plan PR ready** while the gate is red, before `omni ship` is committed and pushed,
   or before every target PR is ready with green CI.
 - **Never ask along the way.** One outbox, in the plan repository; the one question is step 5's last

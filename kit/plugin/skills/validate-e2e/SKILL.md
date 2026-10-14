@@ -12,10 +12,11 @@ A person runs it on PRD n once its feature PR is ready. It is never run by defau
 model session and a few minutes. It never edits the code under test, never reads the code's diff, and
 never merges.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line. The sub-PR's body ends with the
-line `omni sign footer` prints, as a paragraph of its own just above your session's own attribution
-lines. Comments are never signed. A command that prints nothing means signing is off: add nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line. The sub-PR's body ends with the line `omni sign footer` prints,
+as a paragraph of its own just above your session's own attribution lines. Comments are never
+signed. A command that prints nothing means signing is off: add nothing.
 
 ## Input
 

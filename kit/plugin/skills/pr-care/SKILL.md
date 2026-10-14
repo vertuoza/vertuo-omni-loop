@@ -15,10 +15,11 @@ a terminal and leaves it running: it watches on this machine, needs no new secre
 stops when the terminal does, which the PRD page's watcher line makes visible.
 
 **Signing.** Every commit this skill makes (a resolved conflict, a CI fix, a review fix) ends with
-the co-author trailer your session requires, then the line `omni sign trailer` prints as the
-message's last line, with no blank line between them. It opens no pull request or issue, and a body
-it never rewrites; comments and review replies are never signed. A command that prints nothing means
-signing is off here: add nothing.
+the co-author trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its
+session gives), then the line `omni sign trailer` prints as the message's last line, with no blank
+line between them. It opens no pull request or issue, and a body it never rewrites; comments and
+review replies are never signed. A command that prints nothing means signing is off here: add
+nothing.
 
 ## Input
 
@@ -42,7 +43,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 later steps read `repo.*`, `branches.feature`, `worktrees`, `commands.*`, `labels.*`,
 `limits.attempts` and `markers.prefix` from it.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`.
 Its rules bind every step below. Then read the rubric every review thread is judged against:
 `node .omni-loop/bin/omni.mjs kb show review`, the `fix`, `push-back` and `ask` sections, the
 repository's own lines or the kit default. Read it again at the start of every round, so a line a
@@ -132,6 +133,31 @@ The actions, in the order the decision always gives them:
 
 Running CI (`checks.state` `running`) lists no CI action: the round handles the rest and the next
 round reads it again.
+
+### A red `omni / budgets`
+
+The `omni / budgets` check (PRD 1679) is red when something every agent session reads grew past
+its ceiling, or when a ceiling went up with no person's yes. It is a red check like any other:
+`fix-ci` takes it, attempts and **Stuck** path included. Read what it says, and run
+`node .omni-loop/bin/omni.mjs check context --base <remote>/<pr.base> --prd <n>` in the worktree:
+it prints the same verdict, target by target. Then, for each red target:
+
+1. **Trim first.** Shorten the files behind it (the check names them, and the commits that grew
+   them) back under the ceiling without losing a rule: move detail into a linked file that is not
+   measured, cut what is said twice. Run the preflight and the check again, commit, push.
+2. **Only when it cannot be trimmed without dropping a rule,** raise its ceiling in the ceilings
+   file `budgets.context.file` names, to the measured size rounded up to the next KiB, and file a
+   high outbox item of PRD n that says why the room is needed: `omni item new` as `/omni:do-work`
+   step 3 writes one, with `hardToRevert: true` by rule (no Jev step: the item is high whatever
+   anyone says), and its `decide` carrying the exact line ``Budget raise: `<target>` to <bytes> bytes``
+   (the target as the check names it, the new ceiling in bytes), which the check matches. Commit the
+   ceiling and the item together, and push. The check stays red until a person answers the item;
+   their answer turns it green with no new push. A raise waiting for a person is the gate doing its
+   job, not an attempt: say so in the status comment.
+3. A ceiling already raised with its item filed and red only for the person's yes: nothing to do.
+
+Never force the check green another way: never lower what is measured by moving a rule out of
+reach of the agents that need it, never raise a ceiling without the item, never answer the item.
 
 ### The landing chain
 
@@ -236,8 +262,8 @@ Under `--once`, there is no next round here: the round is done, so return (the c
 again). Without it:
 
 A round runs when a CI run on the feature PR finishes, and otherwise every 5 minutes. A foreground
-command is killed after at most 10 minutes, so wait in the background, with Bash
-`run_in_background: true` and a `timeout` of 300000 ms, and run the next round when it wakes you:
+command is killed after at most 10 minutes, so run the wait in the background and run the next
+round when it ends (in Claude: Bash with `run_in_background: true` and a `timeout` of 300000 ms):
 
 ```bash
 gh pr checks <pr.number> --watch --interval 30   # while checks run: wakes when the run finishes
@@ -266,3 +292,5 @@ thread ended as: `#<pr.number>: merged. 4 fixed, 2 pushed back, 1 asked.`
 - **Never resolve a thread without a reply** that says why, and never resolve an asked one.
 - **Never argue twice:** a person's word after a care reply sends the thread to the PM.
 - **Never push a fix whose preflight is red,** and never lower a check to turn it green.
+- **Never force `omni / budgets` green:** trim first; a raise always carries its high item, which
+  only a person answers.

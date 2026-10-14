@@ -4,7 +4,7 @@ import { cssVars } from './css-vars';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/design';
 import {
-  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
+  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type FrameState, type SceneName,
 } from './scenes';
 import { useForm, type Form } from './form';
 import { useFullscreen } from './fullscreen';
@@ -27,7 +27,9 @@ import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './scenes/menu.tsx';
 import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
-import { dossierLink, dossierOf, PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
+import { PLANET_TABS, PlanetOverlay, startLink } from './scenes/planet.tsx';
+import { useOpenPlanetDetails } from './planet-details';
+import { useChart, type ArcadeChart } from './chart-source';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
@@ -37,7 +39,7 @@ import { KartOverlay } from './scenes/kart.tsx';
 import { DuetLayer } from './scenes/duet.tsx';
 import { duetDrawOf, useDuet } from './scenes/duet.live';
 import { duetRetry, type ArcadeDuet } from './scenes/duet.ts';
-import { BACK_TO_CHOICE, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartHud } from './scenes/kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, FIRST_CHOICE, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud, type KartStep } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -48,7 +50,7 @@ import {
 } from './games/invaders';
 import { measureOf } from './measure';
 import { hiOf, overPress, sending, submitSend, withBest, type ScoreSend } from './scenes/invaders-score';
-import { setFleets } from './fleets';
+import { heroOf, setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
 import { stripesOf, themeVars } from './theme';
 import { Stripes } from './Sprite';
@@ -85,6 +87,12 @@ const KART = GAMES.find((g) => g.scene === 'kart')?.id ?? 'kart';
 // OMNI DUET's key in the registry: its scores are sent under it (PRD 1633).
 const DUET = GAMES.find((g) => g.scene === 'duet')?.id ?? 'duet';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
+/** Keys that are not an answer for KEYS: a modifier on its own. */
+/** A look as one word, to tell whether the race on the screen was made with the one the options hold now (PRD 1762). */
+const lookKey = (look: { color: string; design: string }): string => `${look.color}/${look.design}`;
+
+const NOT_A_KEY: ReadonlySet<string> = new Set(['Control', 'Alt', 'AltGraph', 'Meta', 'Dead', 'Unidentified', 'CapsLock']);
+
 const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart', 'duet']);
 
 // How long the FINAL LAP jingle rings before the faster tune starts.
@@ -212,8 +220,12 @@ export interface ArcadeProps {
   problem?: string | null;
   /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words, its theme colours the arcade. The house brand when none is given. */
   brand?: Brand;
-  /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
-  knowledge?: ChartSource | undefined;
+  /**
+   * The star chart's knowledge: the demo's in the page, `'fetch'` for the crew's, read from
+   * /api/arcade/chart when the chart opens (PRD 1808); `'none'` in a build without it, nothing past the
+   * crew's gate (see ChartSource, src/arcade/chart-source.ts).
+   */
+  knowledge?: ArcadeChart | undefined;
   /**
    * The player's XP: their player_xp row, null when they have none, 'unreadable' when it could not be
    * read (the default: a page that says nothing of XP shows no level, and never guesses one).
@@ -225,9 +237,11 @@ export interface ArcadeProps {
    */
   scores?: Record<string, ScoresRead>;
   /**
-   * The planets' dossiers, by planet key or PRD number (PRD 216, PRD 728): the planet's DOSSIER tab shows its own, NO DOSSIER
-   * YET without one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open
-   * carries its link, and START opens it from the tab; the single-file artifact's carry none.
+   * The planets' dossiers, by planet key or PRD number (PRD 216, PRD 728), in a page with no database
+   * (the demo, the single-file artifact): the planet's DOSSIER tab shows its own, NO DOSSIER YET without
+   * one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open carries its
+   * link, and START opens it from the tab; the single-file artifact's carry none. A Supabase account's
+   * page carries none: the game reads a planet's dossier and log when it is opened (PRD 1808).
    */
   dossiers?: DossiersRead;
   /**
@@ -261,9 +275,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   formRef.current = form;
   const mapGrid = gridFor(form, 'map');
   const layout = useMemo(() => (view ? layoutMap(view, mapGrid) : []), [view, mapGrid]);
-  const graph = knowledge && knowledge !== 'none' ? knowledge : null;
   const chartGrid = gridFor(form, 'chart'), systemGrid = gridFor(form, 'system');
-  const chart = useMemo(() => (graph ? layoutChart(graph, chartGrid) : { suns: [], lanes: [] }), [graph, chartGrid]);
   const start = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
   const now = () => (performance.now() - start.current) / 1000;
   const firstPlanet = view ? Math.max(0, view.planets.findIndex((p) => p.state === 'distress')) : 0;
@@ -280,12 +292,18 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }));
   const [muted, setMuted] = useState(false);
   const [gamesSeen, setGamesSeen] = useState(true); // read from this device on the first render
+  // The star chart (PRD 1808): the crew's is read when the chart opens, kept for the session.
+  const charted = useChart(knowledge, ui.scene);
+  const graph = charted.graph;
+  const chart = useMemo(() => (graph ? layoutChart(graph, chartGrid) : { suns: [], lanes: [] }), [graph, chartGrid]);
   const system = useMemo(() => {
     const sun = chart.suns[ui.sun];
     return graph && sun ? layoutSystem(graph, sun.name, systemGrid) : null;
   }, [graph, chart, ui.sun, systemGrid]);
   const uiRef = useRef(ui);
   uiRef.current = ui;
+  // The open planet's dossier and log (PRD 1808): read when the planet is opened, kept for the session.
+  const details = useOpenPlanetDetails(view, dossiers, ui, account.kind);
   const meRef = useRef(me);
   meRef.current = me;
   const sessionRef = useRef(session);
@@ -349,13 +367,23 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   kartRef.current = kart;
   const activeRef = useRef(active);
   activeRef.current = active;
+  // The options module, once imported: the panel's moves, the keys' lookup and the store.
+  const optionsApi = useRef<typeof import('./kart/options') | null>(null);
+  // The laps and difficulty the loaded game was made with: a SINGLE pick after OPTIONS changed them makes the game again.
+  const kartRules = useRef<{ laps: number; difficulty: string; look: string } | null>(null);
   const kartTry = kart?.status === 'loading' ? kart.retry : -1;
   useEffect(() => {
     if (kartTry < 0) return undefined;
     let gone = false;
-    void loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null)).then((game) => {
+    // The options are read in the browser with the game: dynamic, as the game is (guard.test.ts).
+    // The options come first: a SINGLE race is made with the player's laps and difficulty (PRD 1762).
+    void import('./kart/options').then((api) => { optionsApi.current = api; return kartRef.current?.options ?? api.loadOptions(); }).catch((err: unknown) => { console.error(err); return null; }).then(async (options) => {
+      kartRules.current = options && { laps: options.laps, difficulty: options.difficulty, look: lookKey(options.look) };
+      const game = await loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(activeRef.current, meRef.current?.team ?? null), options);
+      return [game, options] as const;
+    }).then(([game, options]) => {
       if (gone) return;
-      setKart((k) => loadedInto(k, game));
+      setKart((k) => loadedInto(k, game, options));
     });
     return () => { gone = true; };
   }, [kartTry]);
@@ -385,7 +413,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const best = mine !== null && Number.isInteger(mine) && mine > 0 ? mine : null;
     import('./kart/index').then(({ openGrid }) => {
       if (turn !== lobbyTurn.current) { link.leave(); return; }
-      const who = { id: m.id, name: m.display_name, hero: m.hero, fleet: m.team, best, arrival: Date.now() };
+      // The player's look and laps travel on their entry (PRD 1762): the grid reads the first arrival's laps and shows each kart.
+      const chosen = kartRef.current?.options ?? null;
+      const who = { id: m.id, name: m.display_name, hero: m.hero, fleet: m.team, best, arrival: Date.now(), ...(chosen ? { look: chosen.look, laps: chosen.laps } : {}) };
       whoRef.current = who;
       lobbyRef.current = openGrid(link, who, (lobby) => { setKart((k) => (k && k.choice.step === 'grid' ? { ...k, lobby } : k)); }, (start) => { startRef.current(start); });
     }).catch((err: unknown) => {
@@ -485,7 +515,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     held.clear();
     runRef.current += 1;
     showSend(null);
-    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null, choice: FIRST_CHOICE, multi: !!account.kartGrid?.(), lobby: null });
+    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null, choice: FIRST_CHOICE, options: null, multi: !!account.kartGrid?.(), lobby: null });
     go({ scene: 'kart' }, 'start');
   }, [go, held, showSend, account]);
 
@@ -708,7 +738,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const items = menuFor(meRef.current, sessionRef.current, active, !gamesSeen, Boolean(app));
     const item = items[i];
     if (!item) return;
-    const door = doorOf(item, { view, chart: knowledge, problem });
+    const door = doorOf(item, { view, chart: charted.menu, problem });
     if (door) {
       if ('scene' in door) go({ scene: door.scene, menu: i, card: false }, 'select');
       else go({ menu: i, toast: door.refused }, 'buzz');
@@ -719,7 +749,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (item.id === 'play') { open(afterGate(meRef.current, fleets), { flow: 'onboard', menu: i }, 'select'); return; }
     if (item.id === 'app') { askLeave({ menu: i }); return; }
     if (item.id === 'signout') { signOut(); return; }
-  }, [view, fleets, active, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
+  }, [view, fleets, active, charted.menu, go, open, signOut, problem, gamesSeen, app, askLeave]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
@@ -858,8 +888,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'down') { go({ sel: (u.sel + 1) % planets }, 'move'); return; }
         if (action === 'start') {
           // On the DOSSIER tab, START opens the PRD's page to share; elsewhere it goes back to the map.
-          const on = view?.planets[u.sel];
-          const url = on ? dossierLink(dossiers, on, u.tab, view.planets) : null;
+          // Only once the dossier has arrived (PRD 1808): while it is on its way, START goes back to the map.
+          const url = startLink(details.dossier, u.tab);
           if (url) { sfx('select'); openPage(url); return; }
         }
         go({ scene: 'map' }, 'back'); return; // B, or START with no page to open
@@ -949,6 +979,16 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           else if (pressed === 'start') { const start = lobbyRef.current?.start(); if (start) beginRace(start); }
           return;
         }
+        if (k.choice.step === 'options') {
+          // The OPTIONS panel (PRD 1762): its own moves; every change is kept at once. B on its lines goes back to the ready screen.
+          const api = optionsApi.current;
+          if (!api || !k.options) { setKart({ ...k, choice: BACK_TO_OPTIONS }); return; }
+          const done = api.optionsPress(k.choice.view, k.options, action);
+          if (done.leave) { setKart({ ...k, choice: BACK_TO_OPTIONS }); return; }
+          if (done.options !== k.options) api.saveOptions(done.options);
+          setKart({ ...k, choice: { step: 'options', view: done.view }, options: done.options });
+          return;
+        }
         const press = kartPress(k.status, action, k.hud?.phase);
         if (press === 'back') { setKart(null); go({ scene: 'games' }, 'back'); return; }
         if (press === 'retry') { setKart({ ...k, status: 'loading', retry: k.retry + 1 }); return; }
@@ -956,6 +996,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           // The choice before the race (PRD 1572): ▲ ▼ and A or START are its own; nothing reaches the race until SINGLE is picked.
           const next = choicePress(k.choice, action, k.multi);
           if (next.step === 'grid') { setKart({ ...k, choice: next, lobby: null }); openLobby(); return; }
+          if (next.step === 'single' && k.options && kartRules.current && (kartRules.current.laps !== k.options.laps || kartRules.current.difficulty !== k.options.difficulty || kartRules.current.look !== lookKey(k.options.look))) {
+            setKart({ ...k, choice: next, status: 'loading', retry: k.retry + 1, game: null, hud: null });
+            return;
+          }
           if (next !== k.choice) setKart({ ...k, choice: next });
           return;
         }
@@ -993,7 +1037,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, details.dossier, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -1004,6 +1048,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const modified = e.metaKey || e.ctrlKey || e.altKey;
+      // OMNI KART's KEYS (PRD 1762) waits for a key: the next one pressed is the answer, even one the arcade reads (F, M, ESC).
+      const waiting = uiRef.current.scene === 'kart' ? kartRef.current : null;
+      const api = optionsApi.current;
+      if (api && waiting?.options && waiting.choice.step === 'options' && api.capturing(waiting.choice.view) && !modified && !NOT_A_KEY.has(e.key)) {
+        e.preventDefault();
+        if (e.repeat) return;
+        const done = api.optionsKey(waiting.choice.view, waiting.options, e.key);
+        if (done.options !== waiting.options) api.saveOptions(done.options);
+        setKart({ ...waiting, choice: { step: 'options', view: done.view }, options: done.options });
+        return;
+      }
       if (fullscreen({ kind: 'key', key: e.key, scene: uiRef.current.scene, modified, repeat: e.repeat })) { e.preventDefault(); return; }
       if (modified) return;
       // Let Space and Enter activate a focused button natively; the button calls `act` itself.
@@ -1027,10 +1082,27 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         return;
       }
       if (e.key === 'm' || e.key === 'M') { toggleSound(); return; }
+      // OMNI KART (PRD 1762): in the countdown and the race the player's keys drive and fire the item, and the arcade's
+      // letters and arrows do not; ENTER and TAB keep the pause and the menu. On every other screen the arcade's keys hold.
+      const kr = uiRef.current.scene === 'kart' ? kartRef.current : null;
+      const own = api && kr?.game && kr.options ? kr.options.keys : null;
+      if (api && own && kr) {
+        const phase = kr.hud?.phase;
+        if (phase === 'countdown' || (phase === 'race' && !kr.hud?.menu)) {
+          const drive = api.driveOf(own, e.key);
+          if (drive) {
+            e.preventDefault();
+            if (drive !== 'item') held.keyDown(e.key, api.HELD_AS[drive]);
+            else if (!e.repeat) act('b');
+            return;
+          }
+          if (e.key !== 'Enter' && e.key !== 'Tab' && e.key !== 'Shift') return;
+        }
+      }
       const action = keyAction(e.key);
       if (!action) return;
       e.preventDefault();
-      held.keyDown(e.key);
+      if (!own) held.keyDown(e.key); // a kart screen outside the race reads presses only: a key held into the next screen does nothing
       if (e.repeat && (action === 'a' || action === 'b' || action === 'start')) return;
       if (e.repeat && HELD_SCENES.has(uiRef.current.scene)) return; // a game reads a held key as held, never as repeats
       act(action);
@@ -1057,8 +1129,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const grid = sceneGrid(ui.scene, form, hud, pf, kart, duet);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
-  const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
-  frameRef.current = { view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system };
+  const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge: charted.source, chart, system });
+  frameRef.current = { view, layout, active, me, grid, page, mark, logo, theme, knowledge: charted.source, chart, system };
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
@@ -1080,7 +1152,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         showHud(game);
         if (game.over && !sendRef.current) sendScoreRef.current(INVADERS, game.score); // once a game: sendRef is set at once
       }
-      stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud, (score) => { sendScoreRef.current(KART, score); });
+      stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud, (score) => { held.clear(); sendScoreRef.current(KART, score); });
       stepDuet(u.scene, held.buttons(), dt);
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
@@ -1153,6 +1225,31 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const who = session
     ? `${account.kind === 'demo' ? 'DEMO · ' : ''}P1 ${displayName}`
     : account.kind === 'demo' ? 'DEMO GALAXY' : account.kind === 'closed' ? 'SIGN-IN NOT OPEN YET' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
+  // The KART panel draws the player's kart in the look the options hold: through the options module, loaded with the game (guard.test.ts).
+  const kartArt = (() => {
+    const api = optionsApi.current;
+    if (!api || !kart?.options || kart.choice.step !== 'options' || kart.choice.view.screen !== 'kart') return null;
+    const look = kart.options.look;
+    return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, heroOf(me?.hero ?? ui.hero, me?.team ?? null).tint) };
+  })();
+
+  // A grid row's kart in its look, through the options module (guard.test.ts): a row with no look is today's kart.
+  const gridKart = (row: KartGridRow) => {
+    const api = optionsApi.current;
+    if (!api) return null;
+    const look = row.look ?? { color: 'FLEET', design: 'CLASSIC' };
+    return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, heroOf(row.hero, row.fleet).tint) };
+  };
+
+  // A podium step's kart in its look (PRD 1762): the player's own look and fleet, or the driver's tint and look; through the options module.
+  const podiumKart = (step: KartStep) => {
+    const api = optionsApi.current;
+    if (!api) return null;
+    const look = step.look ?? kart?.options?.look ?? { color: 'FLEET', design: 'CLASSIC' };
+    const own = heroOf(me?.hero ?? ui.hero, me?.team ?? null).tint;
+    return { sprite: (v: 'kart' | 'kart-left' | 'kart-right') => api.kartSprite(look, v), tint: api.kartTint(look, step.you ? own : step.tint ?? own) };
+  };
+
   const overlay = (() => {
     switch (ui.scene) {
       case 'boot': return <BootOverlay brand={brand} />;
@@ -1170,7 +1267,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'hero': return <BuilderOverlay hero={ui.hero} row={ui.heroRow} team={me?.team ?? null} name={displayName} error={ui.error} onRow={(i) => { if (i === ui.heroRow) act('a'); else go({ heroRow: i }, 'move'); }} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
-      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;
+      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={charted.menu} xp={xpNow} />;
       case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} scores={scores} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
       case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
@@ -1182,16 +1279,16 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         </>
       ) : null;
       case 'duet': return <DuetLayer duet={duet} send={send} />;
-      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} podiumKart={podiumKart} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
-      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
+      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={details.dossier} log={details.log} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
-      case 'chart': return <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+      case 'chart': return <ChartOverlay source={charted.shown} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
       case 'system': return graph && system
         ? <SystemOverlay graph={graph} layout={system} world={ui.world} card={ui.card} cardPage={ui.cardPage} onRead={() => { act('a'); }} onPage={(cardPage) => { go({ cardPage }, 'tab'); }} />
-        : <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+        : <ChartOverlay source={charted.shown} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
       case 'away': return undefined;
     }
   })();

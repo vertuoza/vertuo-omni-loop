@@ -42,6 +42,7 @@ import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate
 import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { DEFAULT_CHECK_NAME, publish, startCheck } from '../publish/publish.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
 import {
   changedFiles,
@@ -60,6 +61,7 @@ import {
   type GitHubClient,
 } from './github.ts';
 import { messageField } from './github-schema.ts';
+import { lawGateAt, withLawGate } from './law-locked.ts';
 import { productOutboxVerdict, type OutboxReading, type ProductOutboxReader } from './product-outbox.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
 
@@ -91,7 +93,7 @@ export function createOutboxCheck({
   readProductOutbox = null,
   galaxyUrl = '',
   now = () => new Date(),
-  log = (line) => { console.error(line); },
+  log = noteTo('outbox-check'),
 }: {
   client: Inngest;
   octokitFor: OctokitFor<GitHubClient>;
@@ -247,13 +249,16 @@ async function evaluateAt(
       changes = await changedFiles(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     }
 
-    return evaluate({
+    const verdict = evaluate({
       base,
       head,
       pr: { baseRef: pr.baseRef, headRef: pr.headRef, headSha, labels: pr.labels },
       changes,
       comments,
     });
+    // A change to a locked law (PRD 1726) is cleared by its CODEOWNERS' review alone, whatever `evaluate` said.
+    if (!config || changes === null || verdict.conclusion === 'skipped') return verdict;
+    return withLawGate(verdict, await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes }));
   } finally {
     rmSync(base, { recursive: true, force: true });
     rmSync(head, { recursive: true, force: true });

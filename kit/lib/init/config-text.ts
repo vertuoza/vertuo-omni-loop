@@ -1,5 +1,5 @@
 // The `.omni-loop/config.yml` that `omni init` writes: minimal and commented. Only `kit`, `repo`,
-// `labels.autoCreate`, `commands`, `laws`, `ask`, `dossier`, `answers` and `signature` are written; every other
+// `agents` (when given, PRD 1890), `labels.autoCreate`, `commands`, `laws`, `ask`, `dossier`, `answers` and `signature` are written; every other
 // key keeps its schema default. `signature` is written with its default values, so who signs the
 // loop's work is visible and editable in the repository rather than hidden in the kit. `ask.url` is
 // written as the Omni Loop home page (`signature.home`'s default, ADR-0047) and `dossier.enabled` as
@@ -7,11 +7,11 @@
 // written before reads as it did. `answers.enabled` is written as true, its schema default (PRD 251).
 // The text is returned only once the kit's own parser accepts it.
 import { stringify } from 'yaml';
-import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.ts';
-import type { Config } from '../types.ts';
+import { AGENTS, CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.ts';
+import type { Agent, Config } from '../types.ts';
 
 /** The commands `omni init` writes, each `null` when not known yet. */
-export type InitCommands = { test: string | null; preflight: string | null; preflightFull: string | null };
+export type InitCommands = { setup: string | null; test: string | null; preflight: string | null; preflightFull: string | null };
 
 /** What `renderConfig` fills in: everything else keeps its schema default. */
 export type ConfigValues = {
@@ -19,12 +19,14 @@ export type ConfigValues = {
   defaultBranch: string | null;
   commands: InitCommands;
   lawsSource: Config['laws']['source'];
+  /** The agents the repository uses (PRD 1890): written when given; left out, the key keeps its default. */
+  agents?: readonly Agent[];
 };
 
 const section = (key: string, value: unknown): string => stringify({ [key]: value }).trimEnd();
 
 /** The file's text, and the config it parses to. */
-export function renderConfig({ slug, defaultBranch, commands, lawsSource }: ConfigValues): { text: string; config: Config } {
+export function renderConfig({ slug, defaultBranch, commands, lawsSource, agents }: ConfigValues): { text: string; config: Config } {
   const repo: { slug: string | null; defaultBranch?: string } = { slug };
   if (defaultBranch) repo.defaultBranch = defaultBranch;
   // The schema's default signature, never null: only a config that writes `signature: null` has none.
@@ -36,13 +38,18 @@ export function renderConfig({ slug, defaultBranch, commands, lawsSource }: Conf
     '# The repository the loop opens pull requests on.',
     section('repo', repo),
     '',
+    ...(agents === undefined
+      ? []
+      : [`# The coding agents the skills are installed for: any of ${AGENTS.join(', ')}.`,section('agents', [...agents]), '']),
     '# Whether a skill may create a missing loop label while it runs (omni init creates them regardless).',
     section('labels', { autoCreate: false }),
     '',
-    '# What the loop runs. null: not known yet; fill it in before the loop needs it.',
-    section('commands', { test: commands.test, preflight: commands.preflight, preflightFull: commands.preflightFull }),
+    '# What the loop runs. null: not known yet; fill it in before the loop needs it. setup prepares a',
+    '# fresh checkout for the preflight, proposed from the lockfile; null: none needed.',
+    section('commands', { setup: commands.setup, test: commands.test, preflight: commands.preflight, preflightFull: commands.preflightFull }),
     '',
-    '# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants or none.',
+    '# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants (the ADRs',
+    '# the context files list under the invariants heading) or none.',
     section('laws', { source: lawsSource }),
     '',
     "# The Omni page ask mode's questions and the dossiers go to. null: ask mode and dossiers off.",

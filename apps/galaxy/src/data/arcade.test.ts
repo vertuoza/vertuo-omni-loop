@@ -91,13 +91,10 @@ describe('a member', () => {
   });
 
   it('filters every read of the game by that workspace', async () => {
-    const { reads, world } = await page(PEOPLE.ada);
+    const { reads } = await page(PEOPLE.ada);
     const game = reads.filter((c) => c.table !== 'workspace_members' && c.table !== 'workspaces');
     expect(new Set(game.map((c) => c.table))).toEqual(new Set(['ledger_events', 'sectors', 'teams', 'players', 'player_xp', 'arcade_scores']));
     for (const call of game) expect(call.eq, call.table).toMatchObject({ workspace_id: VERTUOZA });
-    // The planets' dossiers: the workspace's plan repository, then its dossiers there.
-    expect(reads.filter((c) => c.table === 'workspaces').map((c) => c.eq)).toEqual([{ id: VERTUOZA }]);
-    for (const call of world.dossiers.calls.filter((c) => c.kind === 'from')) expect(call.eq).toMatchObject({ workspace_id: VERTUOZA });
   });
 
   it('is not joined again: a member triggers no call at all', async () => {
@@ -283,51 +280,26 @@ describe('the crew\'s high scores', () => {
   });
 });
 
-describe('the planets\' dossiers', () => {
-  it('reads each planet\'s dossier in the workspace played: its plan repository\'s PRD of the planet\'s number', async () => {
-    const { data } = await page(PEOPLE.ada);
-    expect(data.dossiers).toEqual({
-      12: {
-        id: 'd-vz-12', url: '/prd/d-vz-12', asked: 1, answered: 1,
-        latest: { 'before-after': null, spec: { version: 2, at: '2026-09-24T08:00:00Z' }, plan: null },
-        last: [{ question: 'Who owns a workspace?', answer: 'Its first member', more: 0, at: '2026-09-20T09:06:00Z' }],
-      },
-    });
-    expect((await page(PEOPLE.both)).data.dossiers).toEqual({ 12: containing({ id: 'd-acme-12' }) });
-  });
-
-  it('reads them for a visitor without GitHub linked too: a visitor may look at every planet', async () => {
-    const { data } = await page(PEOPLE.una, (world) => {
-      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.una.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' });
-    });
-    expect(data.dossiers).toEqual({ 12: containing({ id: 'd-vz-12' }) });
-  });
-
-  it('gives a planet with no dossier none', async () => {
-    const { data } = await page(PEOPLE.ada, (world) => { world.dossiers.state.gone.add('d-vz-12'); });
-    expect(data.dossiers).toEqual({});
-  });
-
-  it('says the dossiers are out of reach when only they cannot be read, and keeps the galaxy, the XP and the scores', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { data } = await page(PEOPLE.ada, (world) => { world.dossiers.state.failOn = 'dossiers'; });
-    expect(data.dossiers).toBe('unreadable');
-    expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
-    expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
-    expect(data.scores?.invaders).not.toBe('unreadable');
-    expect(data.problem).toBeUndefined();
-  });
-
-  it('reads none signed out, for an outsider, or with the galaxy out of reach', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    for (const person of [null, PEOPLE.eve]) {
+describe('what the first load leaves to the planet\'s overlay (PRD 1808)', () => {
+  it('reads no dossier: no dossier_list() or dossier_rounds() call, and nothing of the dossiers table', async () => {
+    for (const person of [PEOPLE.ada, PEOPLE.both, PEOPLE.wile]) {
       const { data, world } = await page(person);
-      expect(data.dossiers).toBeUndefined();
-      expect(world.dossiers.calls).toEqual([]);
+      expect(data.view?.planets.length, person.email).toBeGreaterThan(0);
+      expect(world.dossiers.calls, person.email).toEqual([]);
+      expect(data, person.email).not.toHaveProperty('dossiers');
     }
-    const { data, world } = await page(PEOPLE.ada, (w) => { w.state.failOn = 'ledger_events'; });
-    expect(data.dossiers).toBeUndefined();
-    expect(world.dossiers.calls).toEqual([]);
+  });
+
+  it('sends every planet with an empty log: the overlay reads its last lines when it opens', async () => {
+    const { data } = await page(PEOPLE.ada);
+    expect(data.view?.planets.length).toBeGreaterThan(0);
+    for (const planet of data.view?.planets ?? []) expect(planet.log, planet.key).toEqual([]);
+  });
+
+  it('keeps the rest of each planet as the galaxy built it', async () => {
+    const { data } = await page(PEOPLE.ada);
+    expect(data.view?.planets.map((p) => [p.prd, p.title, p.key])).toEqual([[12, 'Workspaces', expect.any(String)]]);
+    expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
   });
 });
 

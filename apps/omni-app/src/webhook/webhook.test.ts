@@ -2,7 +2,7 @@ import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
+import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, BUDGETS_CHECK_EVENT, BUDGETS_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
   APPROVED_LABEL_ACTIONS,
@@ -197,6 +197,13 @@ describe('webhook — the event and action filter', () => {
     expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: APPROVED_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
   });
 
+  it('turns a re-run of a budgets check run into the budgets check event only (PRD 1679)', async () => {
+    const payload = rerequestedPayload(RERUN_PULLS, { name: 'omni / budgets', external_id: BUDGETS_EXTERNAL_ID });
+    const { send } = await deliver({ event: 'check_run', payload });
+    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
+    expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: BUDGETS_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
+  });
+
   it('keeps a re-run of any other check run the outbox check event, whatever its name', () => {
     const payload = rerequestedPayload(RERUN_PULLS, { name: 'inbox', external_id: 'someone-else' });
     expect(toCheckRequests('check_run', payload).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
@@ -268,6 +275,30 @@ describe('toCheckRequests', () => {
 
   it('never turns a closed pull request into the outbox check, merged or not', () => {
     expect(toCheckRequests('pull_request', mergedPayload())).toEqual([]);
+  });
+
+  it('turns a review submitted or dismissed into the outbox check of its pull request (PRD 1726); no other review action', () => {
+    expect(CHECK_ACTIONS.pull_request_review).toEqual(['submitted', 'dismissed']);
+    for (const action of ['submitted', 'dismissed']) {
+      expect(toCheckRequests('pull_request_review', pullRequestPayload(action, { review: { state: 'approved' } }))).toEqual([
+        {
+          name: OUTBOX_CHECK_EVENT,
+          data: {
+            installationId: 4242,
+            owner: 'vertuoza',
+            repo: 'vertuo-omni-loop',
+            repository: 'vertuoza/vertuo-omni-loop',
+            prNumber: parsePr(28),
+            headSha: 'abc123',
+            trigger: `pull_request_review.${action}`,
+          },
+        },
+      ]);
+    }
+    expect(toCheckRequests('pull_request_review', pullRequestPayload('edited'))).toEqual([]);
+    const subPr = { number: 28, head: { sha: 'abc123', ref: 'feat/x--s1' }, base: { ref: 'feat/x' } };
+    expect(toCheckRequests('pull_request_review', pullRequestPayload('submitted', { pull_request: subPr }))).toEqual([]);
+    expect(HANDLED.pull_request_review).toEqual(['submitted', 'dismissed']);
   });
 
   it('reads the pull request number as one (PRD 1049): a delivery naming no pull request number becomes nothing', () => {
@@ -470,11 +501,17 @@ describe('webhook — touches (PRD 902, s3)', () => {
     const issue = { action: 'opened', installation: INSTALLATION, repository: REPOSITORY, issue: { number: 902 } };
     expect((await deliver('issues', issue, refused, sign('x'))).status).toBe(401);
     expect(refused).not.toHaveBeenCalled();
-    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
     const failing = vi.fn<(touch: Touch) => Promise<unknown>>(() => Promise.reject(new Error('galaxy down')));
-    expect((await deliver('issues', issue, failing)).status).toBe(200);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('galaxy down'));
-    log.mockRestore();
+    try {
+      expect((await deliver('issues', issue, failing)).status).toBe(200);
+      // Said as a JSON note line at warn, today's sentence as its message (PRD 1723 s6).
+      expect(write.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toEqual([
+        { level: 'warn', event: 'note', fn: 'webhook', message: 'touch: could not forward — galaxy down' },
+      ]);
+    } finally {
+      write.mockRestore();
+    }
   });
 });
 

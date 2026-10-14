@@ -24,6 +24,7 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
+import { noteTo } from '../run-log/run-log.ts';
 
 /** The header galaxy reads the signature from: `sha256=<hex>`. */
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
@@ -168,7 +169,7 @@ export function forwardStageEvent(stageEvent: StageEvent, post: SignedPost): Pro
  */
 export async function postSigned(
   payload: unknown,
-  { url, secret, fetch: post = fetch, log = console.error }: SignedPost,
+  { url, secret, fetch: post = fetch, log = noteTo('stage-forward') }: SignedPost,
   { name, what }: { name: string; what: string },
 ): Promise<void> {
   if (!secret) {

@@ -40,7 +40,7 @@ it. A survivor in the code you wrote is a test to add or tighten. It never runs 
 preflight or pull request CI.
 
 ## Where tests live
-<!-- slot: layout · required · by: terraform -->
+<!-- slot: layout · required · by: human -->
 Beside the code they test, as `*.test.mjs`, or `*.test.ts` under `apps/*/src/`, in the folders
 `vitest.config.ts` includes: `game/`, `kit/`, `packages/`, `apps/omni-app/` and `apps/*/src/`.
 A test outside them never runs.
@@ -50,6 +50,8 @@ A test outside them never runs.
 - A parser or a pure module: `kit/lib/playbook/forms.test.ts`.
 - The GitHub App end to end, against a stubbed GitHub: `apps/omni-app/src/outbox-check/end-to-end.test.ts`,
   with its fixture repositories under `apps/omni-app/test/fixtures/`.
+- A file that proves a law may gain tests of other behaviour beside the proof, as long as the
+  law's own checks stay as they are (PRD 1739, s2-01).
 
 ## Choosing the level
 <!-- slot: levels · optional -->
@@ -64,4 +66,6 @@ A test outside them never runs.
 
 ## Test data
 <!-- slot: data · optional -->
-TODO(human): the kit's fixture repositories default to the slug `acme/widgets` (kit/test/fixture.ts), and the app's are folders named by situation (`base-active`, `head-drift`). Is there a naming rule for a new fixture repository?
+A kit fixture repository takes an `acme/<name>` slug (`acme/widgets` by default, `kit/test/fixture.ts`);
+an app fixture is a kebab-case folder named after the situation it sets up (`base-active`,
+`head-drift`).

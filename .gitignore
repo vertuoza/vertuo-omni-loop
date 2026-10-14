@@ -6,3 +6,13 @@ supabase/.branches/
 # Mutation testing (PRD 1072): Stryker's reports and its sandboxes.
 /reports/
 /.stryker-tmp/
+
+# pnpm is the one package manager (packageManager in package.json): another tool's lockfile is
+# a stray install, never a change to commit.
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb
+
+# Claude Code's agent worktrees.
+/.claude/worktrees/

@@ -51,7 +51,7 @@ function table(ids: readonly string[], bests: Readonly<Record<string, number>> =
       hub.advance(50);
     }
   };
-  return { hub, sessions, games, entered, go, game, play, people, holding };
+  return { hub, sessions, games, entered, go, game, play, people, holding, enter };
 }
 
 const live: ReturnType<typeof table>[] = [];
@@ -214,7 +214,7 @@ describe('the race over the link', () => {
     t.play(RULES.countdown + 0.5);
     const g = t.game('p0');
     const scores: (number | null)[] = [];
-    for (let i = 0; i < 4000 && g.hud().phase !== 'finish'; i += 1) scores.push(g.step(new Set<Action>(['a']), 0.05));
+    for (let i = 0; i < 12000 && g.hud().phase !== 'finish'; i += 1) scores.push(g.step(new Set<Action>(['a']), 0.05));
     expect(g.hud().phase).toBe('finish');
     const sent = scores.filter((s) => s !== null);
     expect(sent).toHaveLength(1);
@@ -333,5 +333,27 @@ describe('items between players (slice 6)', () => {
     t.game('a').press('b');
     t.play(0.5);
     expect(bodies.some((b) => { const k = readMessage(b)?.kind; return k === 'item' || k === 'hit'; })).toBe(false);
+  });
+});
+
+describe('looks and laps over the hub (PRD 1762)', () => {
+  it('runs the first arrival\'s 5 laps for a grid of two new tabs, and draws a remote kart with its look', () => {
+    const t = setup(['p0', 'p1']);
+    t.people.set('p0', { ...who('p0', 1), laps: 5, look: { color: 'RED', design: 'ROCKET' } });
+    t.people.set('p1', { ...who('p1', 2), laps: 7, look: { color: 'PINK', design: 'RACER' } });
+    for (const id of ['p0', 'p1']) { t.sessions.get(id)?.leave(); t.sessions.set(id, openGrid(t.hub.link(id), sure(t.people.get(id), id), () => undefined, (start) => { t.enter(id, start); })); }
+    const start = sure(t.go(), 'a start');
+    expect(start.laps).toBe(5);
+    expect(t.game('p1').hud()).toEqual({ phase: 'countdown', beat: '3' });
+    expect(t.entered.get('p1')?.laps).toBe(5);
+    expect(start.order.find((p) => p.id === 'p0')?.look).toEqual({ color: 'RED', design: 'ROCKET' });
+  });
+
+  it('runs 3 laps for a grid with one old entry', () => {
+    const t = setup(['p0', 'p1']);
+    t.people.set('p0', { ...who('p0', 1), laps: 5 });
+    t.sessions.get('p0')?.leave();
+    t.sessions.set('p0', openGrid(t.hub.link('p0'), sure(t.people.get('p0'), 'p0'), () => undefined, (start) => { t.enter('p0', start); }));
+    expect(sure(t.go(), 'a start').laps).toBe(3);
   });
 });

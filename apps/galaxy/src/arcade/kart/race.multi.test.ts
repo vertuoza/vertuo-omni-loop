@@ -3,7 +3,7 @@ import type { Action } from '../keys';
 import type { GridPlayer, ItemMessage, StateMessage } from './net';
 import { away, dropOut, finishOf, hear, hudOf, lift, newRace, plant, pause, press, step, type Race } from './race';
 import { RULES } from './rules';
-import { parseTrack } from './track';
+import { parseTrack, TILE } from './track';
 
 // A MULTI race, played by the pure engine (PRD 1572, slice 4): the players on the first places in the
 // starting order, no CPU kart, remote karts read from their states and never driven, only the player's
@@ -327,11 +327,40 @@ describe('items between players (PRD 1572, slice 6)', () => {
   });
 
   it('flies a remote ORB along its way, and ends it with its life', () => {
-    let r = plant(racing(), 'b', sent({ item: 'orb', x: 100, y: 100, angle: 0 }));
+    let r = plant(racing(), 'b', sent({ item: 'orb', x: 40 * TILE, y: 62.5 * TILE, angle: 0 }));
     const x0 = r.items.orbs[0]?.x ?? 0;
     r = play(r, NONE, 0.2);
     expect(r.items.orbs[0]?.x).toBeGreaterThan(x0);
     r = play(r, NONE, RULES.orbLife);
     expect(r.items.orbs).toEqual([]);
+  });
+});
+
+describe('a MULTI race with looks and laps (PRD 1762)', () => {
+  const look = { color: 'RED', design: 'ROCKET' };
+  const dressed = (laps?: number) => newRace({ seed: 5, track, field: { me: 'a', order: [{ ...who('a'), look }, { ...who('b'), look: { color: 'PINK', design: 'RACER' } }, who('c')], ...(laps !== undefined ? { laps } : {}) } });
+
+  it('races 3 laps when the field says none, and the field\'s laps otherwise', () => {
+    expect(dressed().laps).toBe(3);
+    expect(dressed(5).laps).toBe(5);
+    expect(dressed(7).laps).toBe(7);
+  });
+
+  it('draws a remote kart with its look, and one with none as today', () => {
+    const race = dressed();
+    expect(rival(race, 'b').driver.look).toEqual({ color: 'PINK', design: 'RACER' });
+    expect(rival(race, 'c').driver.look).toBeUndefined();
+  });
+
+  it('gives the player\'s own kart the look its entry carries', () => {
+    expect(dressed().look).toEqual(look);
+    expect(multi().look).toBeUndefined();
+  });
+
+  it('puts the whole race\'s time on the results and the three-lap time apart, in a race of 5 laps', () => {
+    let r = press(dressed(5), 'start').race;
+    for (let i = 0; i < 12000 && r.phase !== 'finish'; i += 1) r = ['b', 'c'].reduce((x, id) => hear(x, id, state()), step(r, GAS, 0.05).race);
+    expect(r.phase).toBe('finish');
+    expect(r.finish?.threeLap).toBeLessThan(r.finish?.tenths ?? 0);
   });
 });

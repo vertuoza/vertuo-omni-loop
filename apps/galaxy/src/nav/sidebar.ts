@@ -1,6 +1,7 @@
 // The app's sidebar (PRD 438): where a person can go from any app page (/app, /prd, /ask,
 // /knowledge). Since PRD 733 it has two groups, then the foot: Dashboard (the boards: Home, your
-// fleet's, since PRD 1139 the workspace's loops beside it, at /app/loop, the workspace's, and since PRD 612
+// fleet's, since PRD 1139 the workspace's loops beside it, at /app/loop, since PRD 1830 its runners after them, at
+// /app/runners, the workspace's, and since PRD 612
 // Engineering's, at /app/engineering), Work (the workspace's
 // work: since PRD 1364 Products first, the workspace's products, at /app/products, then since PRD 1162 Roadmaps, the milestones its PRDs deliver, since PRD 1246 Ideas, the workspace's
 // ideas board (its public page, /ideas/<owner>/<repo>, read from the viewer; Settings › Repositories while
@@ -19,7 +20,7 @@ import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -63,6 +64,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
       { id: 'home', label: 'Home', path: '/app', sprite: 'menu-home' },
       { id: 'fleet', label: 'Fleet', path: '/app/fleet', sprite: 'menu-fleet' },
       { id: 'loop', label: 'Loop', path: '/app/loop', sprite: 'menu-loop' },
+      { id: 'runners', label: 'Runners', path: '/app/runners', sprite: 'item-box' },
       { id: 'workspace', label: 'Workspace', path: '/app/workspace', sprite: 'menu-workspace' },
       { id: 'engineering', label: 'Engineering', path: '/app/engineering', sprite: 'menu-engineering' },
     ],

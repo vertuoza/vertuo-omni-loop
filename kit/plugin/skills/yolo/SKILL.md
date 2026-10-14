@@ -10,12 +10,12 @@ description: Build a whole PRD with nothing asked along the way — plan it if n
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **It asks nothing along the way.** Every decision a slice meets becomes an outbox item
 (`/omni:do-work` records it and carries on); a person reads them all once, at the end: on the
@@ -45,7 +45,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`, and `<feature branch>` is `branches.feature` with `{topic}`
 filled by the PRD folder's topic (the folder `omni prd` names is `<n>-<topic>`).
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -78,6 +78,9 @@ this section does not apply.
    before it is still open, bring that landing's finished work in: in a detached worktree of this
    landing's branch, `git merge <remote>/<previous landing branch>`, push it to this landing's
    branch, and remove the worktree. A conflict there takes the **Stuck** path of step 4, item 1.
+   When this landing's base is the default branch (landing 1, or a landing whose previous PR has
+   merged), **meet the default branch** (step 1) instead, on this landing's branch: the board's
+   `base` names it.
 2. **Finish it** (step 4) on its branch. Item 1 meets **its base**, not always the default branch:
    landing n-1's branch while that landing's PR is open, the default branch once it is merged
    (`gh pr view <previous PR> --json state --jq .state` prints `MERGED`).
@@ -118,6 +121,8 @@ and the merge it waits for, and "the feature PR" there is the last landing's.
    tracked changes (`git status --porcelain --untracked-files=no` prints nothing). Otherwise stop in
    one line naming it; never stash, clean or reset. **Do this again before every board read**: each
    wave moves the feature branch. The run leaves the checkout detached; say so in the report.
+   Before the first read, **meet the default branch** (below), then switch again: the plan may have
+   been cut while the phase-0 PR was still open, and what that PR merged is the approved version.
 3. `node .omni-loop/bin/omni.mjs prd <n>`. A `repos:` line stops the run (Step 0, **A PRD that
    spans repositories**). It must be in state `inbox`. `shipped`, with the feature
    PR still a draft, means a previous run shipped and stopped before ready: go to step 5, green path,
@@ -180,6 +185,40 @@ outside its PRD. A PR whose base is `repo.defaultBranch` skips it: every step ru
    note is the diff against it, and step 5 never marks the feature PR ready while the base PR is
    open, or when no PR heads the base (a branch no PR brings to the default branch).
 
+### Meet the default branch
+
+A feature branch cut while its phase-0 PR was still open does not carry what that PR merged: the
+spec and the plan as reviewed. Built on as it is, its slices follow the version before review, and
+the feature PR conflicts on the PRD's folder as soon as phase-0 merges. So the default branch is
+brought in **before the plan and the board are read, and before any wave**, for a feature PR whose
+base is `repo.defaultBranch` (a stacked one meets its base at step 4, as **A stacked feature PR**
+says) and, in a PRD of several landings, for each landing whose base is `repo.defaultBranch`
+(landing 1, or a later landing whose PR was retargeted there once the one before it merged).
+`omni board <prd> --json` says when it is needed: its `base` names the branch it checked (the
+feature branch, or the current landing's), `onto` (`<remote>/<repo.defaultBranch>`) and `behind`;
+`base` is `null` while the current landing is stacked on the one before it.
+
+1. `git fetch <remote>`, then
+   `git merge-base --is-ancestor <remote>/<repo.defaultBranch> <remote>/<feature branch>`. Exit 0
+   (the board's `behind: false`): nothing to do. A branch not yet on the remote: nothing to do.
+2. Otherwise, in a detached worktree: `git worktree add --detach <path> <remote>/<feature branch>`
+   (`<path>` under `worktrees`), then `git merge --no-ff --no-commit <remote>/<repo.defaultBranch>`.
+3. **A conflict in the PRD's folder** (the folder `omni prd <n>` names): take the default branch's
+   side, `git checkout --theirs -- <path>`, then `git add -- <path>`, for each conflicting path
+   there. The merged phase-0 is the approved spec, plan and before/after; the feature branch's copy
+   is the one from before review. A conflict on a path under a generated entry's `path`
+   (`node .omni-loop/bin/omni.mjs config generated`): take either side the same way, since step 4
+   rebuilds it. **Any other conflict:** `git merge --abort`, remove the worktree, and take
+   `/omni:pr`'s **Stuck** path for the feature PR, naming the conflicting files as what a person
+   should look at; post the outbox (the `omni comment` line step 5 opens with) and go to step 7.
+4. Commit the merge as `chore(merge): <repo.defaultBranch> into <feature branch>`, with your
+   session's co-author trailer, then the `omni sign trailer` line, and
+   `git push <remote> HEAD:<feature branch>`. Remove the worktree, then refresh the checkout
+   (items 1–2).
+5. When the merge changed the PRD's `plan.md`, the plan read from here on is the reviewed one: the
+   board is rebuilt from it. A slice already merged before the merge is not rebuilt here; the
+   report names it, as built against the plan before review, for a person to look at.
+
 ## 2. Pick up the feature PR
 
 Add `labels.inProgress` to it (subject to `/omni:pr`'s **Labels**), and rewrite its status comment
@@ -194,7 +233,9 @@ node .omni-loop/bin/omni.mjs board <prd> --json
 While the board shows something that can move — `frontier.takeable` is not empty, or a slice is
 **awaiting merge** as `/omni:wave` defines it (an `in-flight`, non-draft sub-PR without
 `labels.inProgress`) — follow `/omni:wave <prd>` for one wave, keep its report, refresh your
-checkout (step 1, items 1–2) and read the board again.
+checkout (step 1, items 1–2) and read the board again. Before each wave, when the board's
+`base.behind` is `true`, **meet the default branch** (step 1) first and read the board again: a
+phase-0 or another PR merged into the default branch since the last wave.
 
 Stop the loop on the first of:
 
@@ -373,9 +414,9 @@ to answer on the pull request, as it always has.
 By now the outbox comment, the draft feature PR and its final status comment are written, so
 nothing is lost if the person walks away. Count the open `human-action` and `high` items
 (`node .omni-loop/bin/omni.mjs status <prd>` lists them); mediums are never asked here: they are
-already adopted, and whoever objects does so on the Omni page or on the pull request. Then ask
-**one opening question** through `AskUserQuestion`: "<k> questions keep the outbox red." with three
-choices:
+already adopted, and whoever objects does so on the Omni page or on the pull request. Then ask the
+person **one opening question** (in Claude: `AskUserQuestion`), as the briefing's **Any agent**
+says: "<k> questions keep the outbox red." with three choices:
 
 | choice | then |
 |---|---|
@@ -390,13 +431,14 @@ With ask mode on, this question and the ones below go to the ask page like any o
 1. `node .omni-loop/bin/omni.mjs answers ask <prd> --pr <feature PR> --json`. Exit 1 says in one
    line that nothing is open to ask or the switch is off: print it and carry on. Exit 2: step 7,
    naming it.
-2. For each of its `batches`, one `AskUserQuestion` call holding the batch's questions in the order
-   given: each question's `header`, its `text` (with its `steps`, for a human action) as the
-   question, and its `options` as the choices, label and text. Keep one pick per question,
-   `{ "number": <its number>, "pick": <the chosen option's pick> }`. `Other` is the person's own
-   words: words that start with an option's letter, or with `not done`, are that pick with the rest
-   as its `reason`; any other words are `{ "number": <n>, "pick": "prose", "text": <the words> }`.
-   `Not done` needs a reason: when it came without one, ask for it once more.
+2. For each of its `batches`, one round of questions to the person (in Claude: one `AskUserQuestion`
+   call) holding the batch's questions in the order given: each question's `header`, its `text`
+   (with its `steps`, for a human action) as the question, and its `options` as the choices, label
+   and text. Keep one pick per question, `{ "number": <its number>, "pick": <the chosen option's
+   pick> }`. `Other` is the person's own words: words that start with an option's letter, or with
+   `not done`, are that pick with the rest as its `reason`; any other words are `{ "number": <n>,
+   "pick": "prose", "text": <the words> }`. `Not done` needs a reason: when it came without one, ask
+   for it once more.
 3. Write the picks as one JSON array to a scratch file (never in the repository), then:
 
    ```bash
@@ -521,7 +563,8 @@ ending's last line.
    and a knowledge PR (the decisions, written back): review and merge each.
 
 Merging #<feature PR> is yours. Until then, to keep it green, conflict-free and its review
-comments handled while you do other things, type /clear (or open a new terminal), then run:
+comments handled while you do other things, start a fresh session (in Claude: `/clear`), or open a
+new terminal, then run:
 
 /omni:pr-care <n>
 ```
@@ -537,7 +580,8 @@ names the red check instead: `(its CI is red: <check>; it must be green before y
 1. Read the questions: https://github.com/<owner>/<repo>/pull/<feature PR>#issuecomment-<id>
 2. Answer each one in a comment on that PR, as the questions explain: `2: A`,
    `2: B because …`, or `go with recommendation` for all of them. Nothing changes until step 3.
-3. Once you've answered, type /clear (or open a new terminal), then run:
+3. Once you've answered, start a fresh session (in Claude: `/clear`), or open a new terminal, then
+   run:
 
 /omni:yolo-fix <n>
 ```
@@ -553,7 +597,7 @@ that stayed red.
 
 1. See what holds it: https://github.com/<owner>/<repo>/pull/<the PR that holds it>
 2. <the one thing a person must do: the human steps of the final status comment>
-3. Once that's done, type /clear (or open a new terminal), then run:
+3. Once that's done, start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:yolo <n>
 ```
@@ -579,6 +623,8 @@ keeps its one line: nothing was built, so there is nothing to hand off.
 - **Never add `labels.outboxGo`.** It is a person's override, not this skill's way out.
 - **Never mark the feature PR ready while the gate is red**, and never before `omni ship` is
   committed and pushed.
+- **Never run a wave on a feature branch behind the default branch** (the board's `base.behind`
+  `true`): meet it first (step 1).
 - **Never mark a stacked feature PR ready while the PR of its base is open**, and never meet a base
   that was rewritten: stop with the line that names it.
 - One PRD per run, no issues filed; slices live in the plan.

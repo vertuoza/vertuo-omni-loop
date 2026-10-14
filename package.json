@@ -1,6 +1,6 @@
 {
   "name": "vertuo-omni-plan",
-  "version": "0.0.365",
+  "version": "0.0.408",
   "private": true,
   "type": "module",
   "bin": {
@@ -19,6 +19,7 @@
     "lint": "pnpm --filter @omni/galaxy-app exec fumadocs-mdx && node --max-old-space-size=8192 scripts/lint.ts",
     "fallow:audit": "fallow audit",
     "check:changed": "node scripts/check-changed.ts",
+    "prepare": "node scripts/install-hooks.ts",
     "mutation": "stryker run stryker.config.ts",
     "mutation:changed": "node scripts/mutation-changed.ts",
     "mutation:score": "node scripts/mutation-score.ts",

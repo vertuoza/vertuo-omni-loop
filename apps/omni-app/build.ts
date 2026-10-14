@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** The functions Vercel serves, each from `entries/<name>.ts`. */
-export const FUNCTIONS = ['github', 'inngest', 'server-event'] as const;
+export const FUNCTIONS = ['github', 'inngest', 'server-event', 'health'] as const;
 
 /** A workspace package, whose TypeScript the bundle carries. */
 const WORKSPACE = /^(?:vertuo-omni-plan|@omni\/[^/]+)(?:\/|$)/;

@@ -8,7 +8,7 @@ import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { crewLook, fleet, WOUND_LOOK } from '../fleets';
 import type { Player } from '../types';
-import type { ChartSource } from './chart-layout.ts';
+import type { MenuChart } from './chart-layout.ts';
 import { chartRefusal, chartTally } from './chart.tsx';
 import type { SceneName } from './common.ts';
 import { BRIEFING_PAGES, type BriefingPage } from './menu.ts';
@@ -70,9 +70,10 @@ export function menuItems({ joined, signedIn, newGames = false, app = false, sol
 
 /**
  * Where a menu item's scene opens, or why it does not: the galaxy's screens need the galaxy, and the
- * star chart needs the knowledge (out of reach past the crew's gate, or absent from the build).
+ * star chart needs the knowledge (out of reach past the crew's gate, or absent from the build). The
+ * crew's chart, not yet read in this session, opens on the chart, which reads it (PRD 1808).
  */
-export function doorOf(item: MenuItem, at: { view: GalaxyView | null; chart: ChartSource; problem: string | null }): { scene: SceneName } | { refused: string } | null {
+export function doorOf(item: MenuItem, at: { view: GalaxyView | null; chart: MenuChart; problem: string | null }): { scene: SceneName } | { refused: string } | null {
   if (!item.scene) return null;
   if (item.id === 'chart') return at.chart && at.chart !== 'none' ? { scene: item.scene } : { refused: chartRefusal(at.chart) };
   return at.view ? { scene: item.scene } : { refused: at.problem ?? 'SIGN IN TO SEE THE GALAXY' };
@@ -88,13 +89,15 @@ export function badgeOf(me: Player, xp: XpStatus): string {
 const UNKNOWN_XP: XpStatus = { kind: 'unreadable' };
 
 export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp = UNKNOWN_XP }: {
-  view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void; chart?: ChartSource;
+  view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void;
+  /** The star chart as the menu knows it: 'unread' (the crew's, not read yet in this session) shows no tally (PRD 1808). */
+  chart?: MenuChart;
   /** The player's XP, for GAMES's hint and the level on their badge. */
   xp?: XpStatus | undefined;
 }) {
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
-    chart: chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
+    chart: chart === 'unread' ? '' : chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
     fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(defined(view.teams[0], 'the lead fleet').name).label} lead` : 'No fleets yet',
     heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
     games: gamesHint(xp),

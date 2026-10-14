@@ -23,11 +23,14 @@ export { EnvError, requireGroup, type EnvSource } from 'vertuo-omni-plan/kit/lib
 /** Galaxy's host when `GALAXY_URL` names none. */
 export const DEFAULT_GALAXY_URL = 'https://www.omni-loop.xyz';
 
-/** Which Vercel environment this deployment is: `production`, `preview` or `development`. */
+/**
+ * What Vercel says of this deployment: which environment it is (`production`, `preview` or
+ * `development`) and the commit it was built from, which `/api/health` shows (PRD 1723).
+ */
 const VERCEL = envGroup({
   label: 'the Vercel environment',
-  schema: z.object({ name: z.string().optional() }),
-  variables: { name: 'VERCEL_ENV' },
+  schema: z.object({ name: z.string().optional(), commit: z.string().optional() }),
+  variables: { name: 'VERCEL_ENV', commit: 'VERCEL_GIT_COMMIT_SHA' },
 });
 
 /** A group of one shared secret, read from `variable`. */
@@ -101,6 +104,14 @@ export function readEnv(source: EnvSource) {
   };
   reader.done();
   return env;
+}
+
+/**
+ * The commit this deployment was built from (`VERCEL_GIT_COMMIT_SHA`), or `null` when Vercel set none.
+ * Read alone, so `/api/health` can name it even when the rest of the environment does not parse.
+ */
+export function readCommit(source: EnvSource): string | null {
+  return envReader(source).group(VERCEL)?.commit ?? null;
 }
 
 /** The GitHub App's groups, as `readEnv` gives them. */

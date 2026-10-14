@@ -6,6 +6,9 @@ Omni Loop turns product plans into delivered software across Vertuoza's engineer
 A PM writes a PRD. The PRD becomes a plan of waves and slices, and coding agents deliver it. Anyone with a
 coding-agent slot can lend it to a PRD they do not own.
 
+The loop works with Claude Code, Codex, Cursor, Gemini CLI and any coding agent that reads
+`AGENTS.md`: see [Any coding agent](docs/guide/any-agent.md).
+
 On top of that delivery sits a game. Each PRD is a **planet** the organisation terraforms together.
 Unanswered questions, stuck slices and shipped bugs are **Entropy**, and they cost the owning team
 points until someone closes them. The game only reads the delivery layer and can be removed
@@ -63,8 +66,18 @@ the command with one line naming the variables, never a value (ADR-0057). Every 
 - `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY`: the game's
   database, for the `game:*` commands, `personas-import` and `schemas:verify --production`.
 - `OMNI_TOKEN`: a kit token (`omk_…`, made by `omni setup-token`) that signs every `omni` command in
-  to the Omni page where no browser can, a Claude Code cloud session; set, it wins over the sign-in
+  to the Omni page where no browser can, such as a cloud session; set, it wins over the sign-in
   `omni signin` keeps, and `omni whoami` prints `(OMNI_TOKEN ··<last four>)`.
+- `OMNI_SESSION_ID`: the session id every `omni` command records its work under and
+  `omni dossier open` tags a draft with, under any coding agent; set, it wins over the session id
+  Claude Code sets. Unset under an agent that gives none, `omni dossier open` generates one
+  and keeps it for the checkout in `.omni-loop/local/session.json`.
+- `OMNI_HEARTBEAT`: `off` stops the heartbeat every `omni` command run in a session sends the Omni
+  page, at most once a minute and in the background; `on`, or unset, keeps it. Claude Code's own
+  hook still runs `omni heartbeat` after each tool call.
+- `OMNI_ASK`: `on` turns ask mode on with no `omni ask on`, as a cloud session's fresh clone needs, so
+  `omni ask question` asks the person on the Omni page; `off` turns it off whatever `omni ask on`
+  wrote; unset, `omni ask on` and `omni ask off` decide.
 <!-- /omni:env-variables -->
 
 The app and the arcade each list their own: [`apps/omni-app/README.md`](apps/omni-app/README.md),

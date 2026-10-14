@@ -66,3 +66,10 @@ export function planetKeyOf(event: { home?: string | null | undefined; planet: n
 function keyOf(home: string | null | undefined, planet: number): string {
   return home ? `${home}#${planet}` : String(planet);
 }
+
+// An event whose contributor is one person whatever the case of their login. The ledger keeps a
+// sub-PR author as GitHub spells it and a merger in lower case (BR-PRODUCT-79): whoever counts or
+// groups people reads the events through this, so `AuBrille` and `aubrille` are one hero.
+export function oneSpelling<E extends { contributor?: string | undefined }>(event: E): E {
+  return event.contributor ? { ...event, contributor: event.contributor.toLowerCase() } : event;
+}

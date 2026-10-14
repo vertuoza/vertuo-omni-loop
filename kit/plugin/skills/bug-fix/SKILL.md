@@ -20,18 +20,18 @@ check the **boundary** (4, and at every step after); cut the **branch** (5); **w
 **prove red** (7); **fix** (8); **guard** (9); **mutation** (10); **record** (11), with **a change to
 a law** when the range makes one; **ship** (12);
 **hand off** (13). Announce each step in one line as you start it. Every step leaves something on
-disk or on GitHub, so a `/clear` or a crash loses nothing. **Nothing is reported as proven that was
-not run.**
+disk or on GitHub, so a fresh session (in Claude: `/clear`) or a crash loses nothing. **Nothing is
+reported as proven that was not run.**
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 ## Input
 
@@ -55,7 +55,7 @@ Omni Loop kit is not installed in this repository. Keep the JSON; later steps re
 `risk.sharedContract`, `acceptance.*`, `commands.preflight`, `commands.mutation` and
 `limits.attempts` from it. `<remote>` below is `repo.remote`.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`.
 Its rules bind every step below. Then read `node .omni-loop/bin/omni.mjs kb show bug-fixing` (the
 risk levels, the regression evidence and the guard question steps 3 and 9 use) and
 `node .omni-loop/bin/omni.mjs kb show testing` (the level a reproduction is written at, step 7).
@@ -223,6 +223,12 @@ Run it **before any fix**:
 
 ## 8. Fix
 
+Before changing a line, when `laws.source` is `knowledge`, read the knowledge the fix touches, never
+the whole folder: run `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on the files the fix
+will change. It prints every locked law, one plain line each with who must approve a change to it,
+then the rules whose `Governs:` line matches those files: the fix keeps each of them true. A fix
+that would change a locked law follows **A change to a law**, and its PR waits for that person.
+
 Test-first, the smallest change that turns the reproduction green, in the repository's own patterns
 (`node .omni-loop/bin/omni.mjs kb show conventions`). Where the cause is unit-testable, write the
 failing unit test first, watch it fail, then make it pass. **Never edit the reproduction to make it
@@ -279,17 +285,24 @@ future Bugs view reads:
 
 ## A change to a law
 
-Only when `laws.source` is `knowledge`; otherwise skip this section. A law is a rule or an invariant
-of the knowledge base, and its proof is the test its `Enforced by:` line names. A fix may change a
-law only with a person's answer. Step 12's `node .omni-loop/bin/omni.mjs bug <n>` names each
-change to a law the range makes, one `not ok` line each, by its rule:
+Only when `laws.source` is `knowledge`; otherwise skip this section. A law is a locked rule or
+invariant of the knowledge base: one a CODEOWNER locked with a `Locked:` line. Every rule and
+invariant, locked or not, is proven by the test its `Enforced by:` line names, and a fix may change
+one only with a person's answer. Step 12's `node .omni-loop/bin/omni.mjs bug <n>` names each
+change to a rule or a law the range makes, one `not ok` line each, by its rule:
 
 | rule | the range |
 |---|---|
-| `law-proof` | changes a file a law's `Enforced by:` names |
-| `law-text` | rewords, adds or removes a law in a register |
+| `law-proof` | changes a file a rule's or a law's `Enforced by:` names |
+| `law-text` | rewords, adds or removes a rule or a law in a register |
 | `test-removed` | deletes a test, a law's among them |
-| `law-demoted` | turns a law's `Enforced by:` path back to `pending` or `unenforced`, or removes the law |
+| `law-demoted` | turns an `Enforced by:` path back to `pending` or `unenforced`, or removes the entry |
+
+**A locked law asks more.** Changing one (its text, its `Locked:` line, or the test that proves it)
+also keeps the pull request's outbox check red under `law-locked`, until a CODEOWNER of the law's
+files approves the pull request on GitHub. No item, label or trailer clears it. Say so in the PR's
+body in one plain sentence (what breaks, and who gets hurt), and name the person
+`omni kb laws --paths` printed for that law.
 
 Each line reads `- <path> (<rule>): a change to a law needs an item ranked high in
 <folder>/outbox/ and an account naming it in <folder>/outbox/accounts/.`

@@ -10,11 +10,14 @@ import { fleetSprite, MASCOTS } from '@omni/design';
 import { crewLook, heroOf } from '../fleets';
 import type { Action } from '../keys';
 import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
+import { podiumOf } from './podium';
 import { carried, type GridPlayer, type ItemMessage, type StateMessage } from './net';
+import type { KartLook } from './look';
 import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
-import { RULES } from './rules';
-import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
+import { RULES, type Difficulty } from './rules';
+import { advance, aimOf, approachesRamp, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
 import { LAPS, parseTrack, PLACES, type Track } from './track';
 
 /** Frames add up to a countdown's end only to within what a float keeps. */
@@ -48,6 +51,14 @@ export interface Race {
   /** The player's laps and waypoints, and the rivals on the grid: the five CPU karts, or in a MULTI race the other players, who are never driven here. */
   readonly pace: Pace;
   readonly rivals: readonly Rival[];
+  /** How hard the rivals drive (PRD 1762); `normal` in MULTI, which has none to drive. */
+  readonly difficulty: Difficulty;
+  /** How many laps the race runs (PRD 1762): 3, 5 or 7; always 3 in MULTI until the grid carries it. */
+  readonly laps: number;
+  /** The player's kart's colour and design (PRD 1762); none draws the fleet's colour and CLASSIC. */
+  readonly look?: KartLook;
+  /** The race clock at which the player crossed the line for the third time: the time the board gets; null before. */
+  readonly threeAt: number | null;
   /** The race clock at which the player's last lap began: FINAL LAP shows from there; null before it. */
   readonly finalAt: number | null;
   /** MULTI: whether the race's menu is open over the race (the race goes on), and the players gone OUT or left, by id. */
@@ -63,6 +74,10 @@ export interface Race {
   readonly names: Readonly<Record<string, string>>;
   /** The results, once the player crossed the line at the end of the last lap; null before. */
   readonly finish: KartResults | null;
+  /** The podium shows before the results (PRD 1762): set at the finish, cleared by A. */
+  readonly podium?: boolean;
+  /** MULTI: every other player's driver by id, kept after they cross the line, to draw them on the podium. */
+  readonly drivers?: Readonly<Record<string, Driver>>;
 }
 
 /**
@@ -97,28 +112,28 @@ function fillers(used: readonly Driver[], count: number): Driver[] {
  * others, all facing the way the line runs; nothing moves until START. Fewer than five rivals in the
  * cast: the next mascots fill the places.
  */
-export function newRace({ seed, track = parseTrack(), cast = [], field }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field }): Race {
-  if (field) return newMultiRace(seed, track, field);
+export function newRace({ seed, track = parseTrack(), cast = [], field, difficulty = 'normal', laps = LAPS, look }: { seed: number; track?: Track; cast?: readonly Driver[]; field?: Field; difficulty?: Difficulty; laps?: number; look?: KartLook }): Race {
+  if (field) return newMultiRace(seed, track, field, look);
   const start = track.places[track.places.length - 1];
   if (!start) throw new Error('a circuit with no starting place');
   const drivers = [...cast.slice(0, PLACES - 1)];
   drivers.push(...fillers(drivers, PLACES - 1 - drivers.length));
-  const traits = rivalTraits(seed, drivers.length);
+  const traits = rivalTraits(seed, drivers.length, difficulty);
   const rivals = drivers.map((driver, i): Rival => {
     const place = track.places[i] ?? start;
     const trait = traits[i] ?? { skill: 1, offset: 0 };
     return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
+  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty, laps, ...(look ? { look } : {}), threeAt: null, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
 }
 
 /** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
-export interface Field { me: string; order: readonly GridPlayer[] }
+export interface Field { me: string; order: readonly GridPlayer[]; /** How many laps the grid runs (PRD 1762); 3 when not given. */ laps?: number }
 
 /** A player of the grid as a driver: their hero in the seat, their fleet's colour on the kart, their name on the results. */
 function driverOf(p: GridPlayer): Driver {
   const look = heroOf(p.hero, p.fleet);
-  return { sprite: look.sprite, tint: look.tint, color: crewLook(p.fleet).color, name: p.name.toUpperCase() };
+  return { sprite: look.sprite, tint: look.tint, color: crewLook(p.fleet).color, ...(p.look ? { look: p.look } : {}), name: p.name.toUpperCase() };
 }
 
 /**
@@ -126,7 +141,7 @@ function driverOf(p: GridPlayer): Driver {
  * their starting order, pole first, facing the way the line runs. No CPU kart. Each other player is a
  * rival that is never driven here: its kart is read from the last state heard from it.
  */
-function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
+function newMultiRace(seed: number, track: Track, { me, order, laps = LAPS }: Field, given?: KartLook): Race {
   const index = order.findIndex((p) => p.id === me);
   const place = (i: number) => {
     const p = track.places[i];
@@ -140,14 +155,15 @@ function newMultiRace(seed: number, track: Track, { me, order }: Field): Race {
     return [{ id: p.id, slot: i, driver: driverOf(p), kart, pace: START_PACE, fx: NO_FX, skill: 1, offset: 0, heard: { kart, fx: NO_FX, at: 0 } }];
   });
   const mine = place(index);
-  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, menu: false, slot: index, gone: [], self: me, thrown: 0, finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), finish: null };
+  const look = order[index]?.look ?? given;
+  return { seed, mode: 'multi', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(mine.x, mine.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty: 'normal', laps, ...(look ? { look } : {}), threeAt: null, finalAt: null, menu: false, slot: index, gone: [], self: me, thrown: 0, finished: {}, names: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p).name ?? p.id])), drivers: Object.fromEntries(order.filter((p) => p.id !== me).map((p) => [p.id, driverOf(p)])), finish: null };
 }
 
 /** A state heard from player `id`: their kart, laps and spin-out or fall stand as they say, at the race clock it came at (before GO, at 0). Not a MULTI race on its way, a player not in it, or a player gone: nothing changes. */
 export function hear(race: Race, id: string, s: StateMessage): Race {
   if (race.mode !== 'multi' || (race.phase !== 'countdown' && race.phase !== 'race' && race.phase !== 'finish')) return race;
   const at = race.phase === 'countdown' ? 0 : race.clock;
-  const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer };
+  const kart: Kart = { x: s.x, y: s.y, angle: s.angle, speed: s.speed, steer: s.steer, ...(s.height ? { height: s.height } : {}) };
   const fx: Fx = { ...NO_FX, spin: s.spin, fall: s.fall };
   return { ...race, rivals: race.rivals.map((r) => (r.id === id ? { ...r, kart, fx, pace: { laps: s.laps, passed: s.passed }, heard: { kart, fx, at } } : r)) };
 }
@@ -218,7 +234,7 @@ const STRAIGHT = 0.1;
 
 /** A kart's own short step: it drives with the pad, its pace follows, and a fall that ends brings it back on the line (the jump is never passed to `advance()`). */
 function roll(track: Track, own: { player: Kart; fx: Fx; pace: Pace }, pad: Pad, dt: number): { player: Kart; fx: Fx; pace: Pace } {
-  const moved = stepFx(track.map, own.player, pad, dt, 1, own.fx);
+  const moved = stepFx(track, own.player, pad, dt, 1, own.fx, slopeAt(track, own.player.x, own.player.y, own.player.angle));
   const pace = advance(track, own.pace, own.player, moved.kart);
   if (!moved.landed) return { player: moved.kart, fx: moved.fx, pace };
   const back = comeBack(track, pace, moved.kart, moved.fx);
@@ -236,20 +252,21 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     const falling = [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)];
     ({ player, fx, pace } = roll(track, { player, fx, pace }, pad, dt / steps));
     const ahead = progressOf(track, pace, player);
-    rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead));
+    rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead, race.difficulty));
     const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
     if (p) player = p;
     rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart } : r; });
     // A kart pushed over the edge by another falls too.
-    const dropped = fallIfOver(track.map, player, fx);
+    const dropped = fallIfOver(track, player, fx);
     player = dropped.kart;
     fx = dropped.fx;
-    rivals = rivals.map((r) => { const d = fallIfOver(track.map, r.kart, r.fx ?? NO_FX); return d.kart === r.kart && d.fx === (r.fx ?? NO_FX) ? r : { ...r, kart: d.kart, fx: d.fx }; });
+    rivals = rivals.map((r) => { const d = fallIfOver(track, r.kart, r.fx ?? NO_FX); return d.kart === r.kart && d.fx === (r.fx ?? NO_FX) ? r : { ...r, kart: d.kart, fx: d.fx }; });
     // The items: the rivals use what they hold by their rules, then the boxes, BLOBs and ORBs act.
     let racers = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
     rivals.forEach((r, j) => {
       const holder = racers[j + 1];
-      if (!holder || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0)) return;
+      const calm = holder?.fx.item !== 'boost' && racers.some((x) => approachesRamp(track, x.kart));
+      if (!holder || calm || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0, race.difficulty, r.held ?? 0)) return;
       const used = spendItem(items, holder);
       if (holder.fx.item) events.push({ kind: 'item', racer: j + 1, item: holder.fx.item });
       items = used.world;
@@ -258,12 +275,12 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     const paces = [pace, ...rivals.map((r) => r.pace)];
     const progress = racers.map((r, k) => progressOf(track, paces[k] ?? pace, r.kart));
     const places = progress.map((mine) => 1 + progress.filter((o) => o > mine).length);
-    const acted = stepItems(track.map, items, racers, places, dt / steps);
+    const acted = stepItems(track, items, racers, places, dt / steps);
     items = acted.world;
     events.push(...acted.events);
     const [mine, ...theirs] = acted.racers;
     if (mine) { player = mine.kart; fx = mine.fx; }
-    rivals = rivals.map((r, j) => { const x = theirs[j]; return x ? { ...r, kart: x.kart, fx: x.fx } : r; });
+    rivals = rivals.map((r, j) => { const x = theirs[j]; return x ? { ...r, kart: x.kart, fx: x.fx, held: x.fx.item ? (r.held ?? 0) + dt / steps : 0 } : r; });
     [fx, ...rivals.map((r) => r.fx ?? NO_FX)].forEach((f, k) => { if (f.fall > 0 && !falling[k]) events.push({ kind: 'fell', racer: k }); });
   }
   return { player, fx, items, pace, rivals, events };
@@ -287,13 +304,13 @@ function driveMulti(race: Race, held: ReadonlySet<Action>, dt: number, clock: nu
     ({ player, fx, pace } = roll(track, { player, fx, pace }, pad, dt / steps));
     const [pushed] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
     if (pushed) player = { ...pushed, x: player.x + (pushed.x - player.x) * 2, y: player.y + (pushed.y - player.y) * 2 };
-    const dropped = fallIfOver(track.map, player, fx);
+    const dropped = fallIfOver(track, player, fx);
     player = dropped.kart;
     fx = dropped.fx;
     // Only the player's own kart takes a box; the item it draws is by its place among the players.
     const mine = progressOf(track, pace, player);
     const place = 1 + rivals.filter((r) => progressOf(track, r.pace, r.kart) > mine).length;
-    const acted = stepItems(track.map, items, [{ kart: player, fx }], [place], dt / steps);
+    const acted = stepItems(track, items, [{ kart: player, fx }], [place], dt / steps);
     items = acted.world;
     events.push(...acted.events);
     const [self] = acted.racers;
@@ -306,7 +323,7 @@ function driveMulti(race: Race, held: ReadonlySet<Action>, dt: number, clock: nu
 /** The rivals after a step at race clock `clock`: a MULTI player nothing has come from for `RULES.outAfter` seconds is OUT (their kart is gone), and a rival that crossed the line is marked with its time. */
 function settle(race: Race, rivals: readonly Rival[], clock: number): { rivals: Rival[]; gone: string[] } {
   const silent = rivals.filter((r) => r.id !== undefined && clock - (r.heard?.at ?? 0) > RULES.outAfter);
-  const kept = rivals.filter((r) => !silent.includes(r)).map((r) => (r.pace.laps >= LAPS && r.doneAt == null ? { ...r, doneAt: clock } : r));
+  const kept = rivals.filter((r) => !silent.includes(r)).map((r) => (r.pace.laps >= race.laps && r.doneAt == null ? { ...r, doneAt: clock } : r));
   return { rivals: kept, gone: [...race.gone, ...silent.flatMap((r) => (r.id === undefined ? [] : [r.id]))] };
 }
 
@@ -328,15 +345,21 @@ const tenthsOf = (seconds: number) => Math.floor(seconds * 10 + EPSILON);
  * rivals that already crossed first, by their time, then the ones still racing by how far along the
  * circuit they are, with no time. The player stands behind a rival that crossed at the same instant.
  */
+/** A driver's tint and kart look for the podium: a rival's own, the player's look for the player. */
+function artOf(driver: Driver | undefined, look: KartLook | undefined): Pick<KartRow, 'tint' | 'look'> {
+  const own = driver?.look ?? look;
+  return { ...(driver ? { tint: driver.tint } : {}), ...(own ? { look: own } : {}) };
+}
+
 function resultsOf(race: Race, clock: number): KartResults {
   const { track } = race;
-  type Entry = { name: string; you: boolean; at: number | null; progress: number };
-  const entries: Entry[] = race.rivals.map((r, i) => ({ name: r.driver.name ?? `RIVAL ${i + 1}`, you: false, at: r.doneAt ?? null, progress: progressOf(track, r.pace, r.kart) }));
+  type Entry = { name: string; you: boolean; at: number | null; progress: number; driver?: Driver };
+  const entries: Entry[] = race.rivals.map((r, i) => ({ name: r.driver.name ?? `RIVAL ${i + 1}`, you: false, at: r.doneAt ?? null, progress: progressOf(track, r.pace, r.kart), driver: r.driver }));
   entries.push({ name: 'YOU', you: true, at: clock, progress: progressOf(track, race.pace, race.player) });
   entries.sort((a, b) => (a.at !== null && b.at !== null ? a.at - b.at || Number(a.you) - Number(b.you) : a.at !== null ? -1 : b.at !== null ? 1 : b.progress - a.progress));
-  const rows: KartRow[] = entries.map((e, i) => ({ place: i + 1, name: e.name, tenths: e.at === null ? null : tenthsOf(e.at), you: e.you }));
+  const rows: KartRow[] = entries.map((e, i) => ({ place: i + 1, name: e.name, tenths: e.at === null ? null : tenthsOf(e.at), you: e.you, ...artOf(e.driver, e.you ? race.look : undefined) }));
   const place = rows.findIndex((r) => r.you) + 1;
-  return { rows, place, tenths: tenthsOf(clock) };
+  return { rows, place, tenths: tenthsOf(clock), threeLap: tenthsOf(race.threeAt ?? clock) };
 }
 
 /**
@@ -347,29 +370,36 @@ function resultsOf(race: Race, clock: number): KartResults {
 function multiResults(race: Race, mine: number): KartResults {
   const { track } = race;
   const crossed = [
-    { name: 'YOU', you: true, tenths: mine },
-    ...Object.entries(race.finished).map(([id, tenths]) => ({ name: race.names[id] ?? id, you: false, tenths })),
+    { name: 'YOU', you: true, tenths: mine, ...artOf(undefined, race.look) },
+    ...Object.entries(race.finished).map(([id, tenths]) => ({ name: race.names[id] ?? id, you: false, tenths, ...artOf(race.drivers?.[id], undefined) })),
   ].sort((a, b) => a.tenths - b.tenths || Number(a.you) - Number(b.you) || a.name.localeCompare(b.name));
   const racing = [...race.rivals].sort((a, b) => progressOf(track, b.pace, b.kart) - progressOf(track, a.pace, a.kart));
   const out = race.gone.filter((id) => !(id in race.finished));
   const rows: KartRow[] = [
-    ...crossed.map((e) => ({ name: e.name, tenths: e.tenths, you: e.you })),
-    ...racing.map((r) => ({ name: r.driver.name ?? 'RACER', tenths: null, you: false })),
+    ...crossed,
+    ...racing.map((r) => ({ name: r.driver.name ?? 'RACER', tenths: null, you: false, ...artOf(r.driver, undefined) })),
     ...out.map((id) => ({ name: race.names[id] ?? id, tenths: null, you: false, out: true })),
   ].map((r, i) => ({ place: i + 1, ...r }));
-  return { rows, place: rows.findIndex((r) => r.you) + 1, tenths: mine, live: true };
+  return { rows, place: rows.findIndex((r) => r.you) + 1, tenths: mine, threeLap: race.threeAt === null ? mine : tenthsOf(race.threeAt), live: true };
 }
+
+/** The clocks the laps mark: the player's third crossing (the time the board gets) and the start of the last lap (FINAL LAP), each kept once. */
+const marksOf = (race: Race, laps: number, clock: number): Pick<Race, 'threeAt' | 'finalAt'> => ({
+  threeAt: race.threeAt ?? (laps >= LAPS ? clock : null),
+  finalAt: race.finalAt ?? (laps >= race.laps - 1 ? clock : null),
+});
 
 /** `t` seconds of the race itself: the karts move, the laps count, FINAL LAP shows, and the line at the end of the last lap makes the results. */
 function stepRace(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
   const clock = race.clock + t;
   const { events, ...moved } = race.mode === 'multi' ? driveMulti(race, held, t, clock) : drive(race, held, t);
   const { rivals, gone } = settle(race, moved.rivals, clock);
-  const next: Race = { ...race, ...moved, rivals, gone, clock, finalAt: race.finalAt ?? (moved.pace.laps >= LAPS - 1 ? clock : null) };
-  if (race.finalAt === null && next.finalAt !== null && moved.pace.laps < LAPS) events.push({ kind: 'finalLap' });
-  if (moved.pace.laps < LAPS) return { race: next, events };
+  const next: Race = { ...race, ...moved, rivals, gone, clock, ...marksOf(race, moved.pace.laps, clock) };
+  if (race.finalAt === null && next.finalAt !== null && moved.pace.laps < race.laps) events.push({ kind: 'finalLap' });
+  if (moved.pace.laps < race.laps) return { race: next, events };
   const finish = race.mode === 'multi' ? multiResults(next, tenthsOf(clock)) : resultsOf(next, clock);
-  return { race: { ...next, phase: 'finish', finish }, events: [...events, { kind: 'finish', tenths: finish.tenths }] };
+  // The time sent is the clock at the third crossing: in a 3-lap race, the race time.
+  return { race: { ...next, phase: 'finish', finish, podium: true }, events: [...events, { kind: 'finish', tenths: finish.threeLap }] };
 }
 
 /** Plays `dt` seconds (no more than `RULES.maxDt` of them) with the buttons held. Before GO, and paused, nothing moves. */
@@ -438,6 +468,8 @@ export function press(race: Race, action: Action): Stepped {
   if (action === 'select' && race.phase === 'paused') return { race, events: [{ kind: 'quit' }] };
   // MULTI: LEAVE RACE (TAB) on the menu leaves the race for the grid.
   if (action === 'select' && race.mode === 'multi' && race.phase === 'race' && race.menu) return { race: { ...race, phase: 'left', menu: false }, events: [{ kind: 'leave' }] };
+  // The podium (PRD 1762): A moves on to the results; A there races again.
+  if (action === 'a' && race.phase === 'finish' && race.podium) { return { race: { ...race, podium: false }, events: [] }; }
   if (action === 'a' && (race.phase === 'finish' || race.phase === 'left')) return { race, events: [{ kind: 'again' }] };
   return { race, events: [] };
 }
@@ -452,13 +484,16 @@ export function pause(race: Race): Race {
 /** What the text layer shows of the race: its phase, and the countdown's number or the GO that follows it. */
 export function hudOf(race: Race): KartHud {
   const { phase } = race;
-  if (race.phase === 'finish' && race.finish) return { phase, beat: null, results: race.mode === 'multi' ? multiResults(race, race.finish.tenths) : race.finish };
+  if (race.phase === 'finish' && race.finish) {
+    const results = race.mode === 'multi' ? multiResults(race, race.finish.tenths) : race.finish;
+    return { phase, beat: null, results, ...(race.podium ? { podium: podiumOf(results) } : {}) };
+  }
   if (race.phase === 'left') return { phase, beat: null };
   if (race.phase === 'countdown') return { phase, beat: BEATS[Math.min(BEATS.length - 1, Math.floor(race.clock))] ?? '1' };
   const beat = race.phase === 'race' && race.clock < RULES.goBanner ? 'GO' : null;
   if (race.phase !== 'race' && race.phase !== 'paused') return { phase, beat };
   const final = race.finalAt !== null && race.clock - race.finalAt < RULES.finalBanner;
-  return { phase, beat, ...(race.mode === 'multi' ? { menu: race.menu } : {}), run: { place: placeOf(race), lap: lapOf(race.pace), laps: LAPS, tenths: Math.floor(race.clock * 10 + EPSILON), final, item: race.fx.item } };
+  return { phase, beat, ...(race.mode === 'multi' ? { menu: race.menu } : {}), run: { place: placeOf(race), lap: lapOf(race.pace, race.laps), laps: race.laps, tenths: Math.floor(race.clock * 10 + EPSILON), final, item: race.fx.item } };
 }
 
 /** One kind of race event, as the cues the arcade hears; `tiles` is how far the racer it names stands from the player. */

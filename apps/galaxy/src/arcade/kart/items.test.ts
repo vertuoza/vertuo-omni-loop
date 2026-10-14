@@ -4,7 +4,7 @@ import { itemFor, newWorld, stepItems as step, spendItem, wantsToUse, weights, t
 import { kartAt, NO_FX, stepFx, type Fx } from './kart';
 import { hudOf, newRace, press, step as stepRace, type Race } from './race';
 import { RULES } from './rules';
-import { parseTrack } from './track';
+import { groundOf, parseTrack } from './track';
 
 // The items (PRD 1359, slice 5): the boxes, the draw, BOOST, BLOB, ORB, the spin-out and the rivals' rules.
 
@@ -19,32 +19,32 @@ const onBox = (fx: Partial<Fx> = {}): Racer => racer(box.x, box.y, fx);
 const world = () => newWorld(track, 5);
 
 describe('the item boxes', () => {
-  it('stand as two rows of four, all present at the start', () => {
-    expect(world().boxes).toHaveLength(8);
+  it('stand as ten lines of four, all present at the start', () => {
+    expect(world().boxes).toHaveLength(40);
     expect(world().boxes.every((b) => b.back === 0)).toBe(true);
   });
 
   it('give one item to a kart holding none, then disappear for 3 seconds and come back', () => {
-    const a = step(track.map, world(), [onBox()], [3], 0.01);
+    const a = step(track, world(), [onBox()], [3], 0.01);
     expect(a.racers[0]?.fx.item).not.toBeNull();
     const taken = a.world.boxes.filter((b) => b.back > 0);
     expect(taken).toHaveLength(1);
     expect(taken[0]?.back).toBe(RULES.boxBack);
-    const b = step(track.map, a.world, [onBox()], [3], 0.01);
+    const b = step(track, a.world, [onBox()], [3], 0.01);
     expect(b.racers[0]?.fx.item).toBeNull();
-    const back = step(track.map, a.world, [], [], RULES.boxBack);
+    const back = step(track, a.world, [], [], RULES.boxBack);
     expect(back.world.boxes.every((x) => x.back === 0)).toBe(true);
-    expect(step(track.map, back.world, [onBox()], [3], 0.01).racers[0]?.fx.item).not.toBeNull();
+    expect(step(track, back.world, [onBox()], [3], 0.01).racers[0]?.fx.item).not.toBeNull();
   });
 
   it('give nothing to a kart that already holds an item, and the box stays', () => {
-    const a = step(track.map, world(), [onBox({ item: 'orb' })], [3], 0.01);
+    const a = step(track, world(), [onBox({ item: 'orb' })], [3], 0.01);
     expect(a.racers[0]?.fx.item).toBe('orb');
     expect(a.world.boxes.every((b) => b.back === 0)).toBe(true);
   });
 
   it('give nothing to a kart that is away from them', () => {
-    expect(step(track.map, world(), [racer()], [3], 0.01).racers[0]?.fx.item).toBeNull();
+    expect(step(track, world(), [racer()], [3], 0.01).racers[0]?.fx.item).toBeNull();
   });
 });
 
@@ -53,7 +53,7 @@ describe('the draw', () => {
     const draws = (seed: number) => {
       let w = newWorld(track, seed);
       const got: (Item | null)[] = [];
-      for (const b of track.boxes) { const r = step(track.map, w, [racer(b.x, b.y)], [3], 0.01); w = r.world; got.push(r.racers[0]?.fx.item ?? null); }
+      for (const b of track.boxes) { const r = step(track, w, [racer(b.x, b.y)], [3], 0.01); w = r.world; got.push(r.racers[0]?.fx.item ?? null); }
       return got;
     };
     expect(draws(11)).toEqual(draws(11));
@@ -77,7 +77,7 @@ describe('BOOST', () => {
     expect(used.fx).toMatchObject({ item: null, boost: RULES.boostTime });
     let k: Racer = { kart: { ...used.kart, speed: RULES.topSpeed }, fx: used.fx };
     for (let t = 0; t < RULES.boostTime - 1e-9; t += 1 / 60) {
-      const s = stepFx(track.map, k.kart, HANDS, 1 / 60, 1, k.fx);
+      const s = stepFx(track, k.kart, HANDS, 1 / 60, 1, k.fx);
       k = { kart: { ...s.kart, x: line.x, y: line.y }, fx: s.fx };
     }
     expect(k.kart.speed).toBeCloseTo(RULES.topSpeed * RULES.boostFactor, 0);
@@ -89,7 +89,7 @@ describe('BOOST', () => {
     const run = (fx: Fx) => {
       let k: Racer = { kart: { ...kartAt(32, 32, 0), speed: RULES.topSpeed }, fx };
       for (let i = 0; i < 90; i++) {
-        const s = stepFx(open, k.kart, { ...HANDS, accel: true }, 0.01, 1, k.fx);
+        const s = stepFx(groundOf(open), k.kart, { ...HANDS, accel: true }, 0.01, 1, k.fx);
         k = { kart: { ...s.kart, x: 32, y: 32 }, fx: s.fx };
       }
       return k.kart.speed;
@@ -108,7 +108,7 @@ describe('BLOB', () => {
     expect(Math.hypot(blob.x - line.x, blob.y - line.y)).toBeCloseTo(RULES.blobBehind, 5);
     expect((blob.x - line.x) * Math.cos(heading) + (blob.y - line.y) * Math.sin(heading)).toBeLessThan(0);
     const over: Racer = { kart: { ...kartAt(blob.x, blob.y, heading), speed: 100 }, fx: NO_FX };
-    const after = step(track.map, dropped.world, [dropped.racer, over], [1, 2], 0.01);
+    const after = step(track, dropped.world, [dropped.racer, over], [1, 2], 0.01);
     expect(after.racers[1]?.fx.spin).toBe(RULES.spinTime);
     expect(after.racers[1]?.kart.speed).toBeCloseTo(100 * RULES.spinSpeed, 5);
     expect(after.racers[0]?.fx.spin).toBe(0);
@@ -117,7 +117,7 @@ describe('BLOB', () => {
 
   it('lets only the first kart over it spin out when two are on it', () => {
     const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y }] };
-    const after = step(track.map, w, [racer(), racer()], [1, 2], 0.01);
+    const after = step(track, w, [racer(), racer()], [1, 2], 0.01);
     expect(after.racers.map((r) => r.fx.spin > 0)).toEqual([true, false]);
   });
 
@@ -140,7 +140,7 @@ describe('ORB', () => {
     expect(orb).toBeDefined();
     if (!orb) return;
     expect(Math.hypot(orb.x - line.x, orb.y - line.y)).toBeCloseTo(RULES.orbAhead, 5);
-    const flown = step(track.map, thrown.world, [], [], 0.05).world.orbs[0];
+    const flown = step(track, thrown.world, [], [], 0.05).world.orbs[0];
     expect(flown && Math.hypot(flown.x - orb.x, flown.y - orb.y)).toBeCloseTo(RULES.topSpeed * RULES.orbSpeed * 0.05, 5);
     expect(flown?.angle).toBeCloseTo(heading, 5);
   });
@@ -150,7 +150,7 @@ describe('ORB', () => {
     const seen = new Set<number>();
     let steps = 0;
     while (w.orbs.length && steps++ < 5000) {
-      w = step(track.map, w, [], [], 1 / 120).world;
+      w = step(track, w, [], [], 1 / 120).world;
       for (const o of w.orbs) seen.add(o.bounces);
     }
     expect(w.orbs).toHaveLength(0);
@@ -160,14 +160,14 @@ describe('ORB', () => {
 
   it('is gone after 4 seconds', () => {
     const w: World = { ...empty(world()), orbs: [{ x: line.x, y: line.y, angle: heading, bounces: 0, age: RULES.orbLife - 0.01 }] };
-    expect(step(track.map, w, [], [], 0.005).world.orbs).toHaveLength(1);
-    expect(step(track.map, w, [], [], 0.02).world.orbs).toHaveLength(0);
+    expect(step(track, w, [], [], 0.005).world.orbs).toHaveLength(1);
+    expect(step(track, w, [], [], 0.02).world.orbs).toHaveLength(0);
   });
 
   it('spins out the kart it hits, and is gone', () => {
     let r = racer(line.x + Math.cos(heading) * 30, line.y + Math.sin(heading) * 30);
     let w = spendItem(empty(world()), racer(line.x, line.y, { item: 'orb' })).world;
-    for (let i = 0; i < 60 && w.orbs.length; i++) { const s = step(track.map, w, [r], [2], 1 / 120); w = s.world; r = s.racers[0] ?? r; }
+    for (let i = 0; i < 60 && w.orbs.length; i++) { const s = step(track, w, [r], [2], 1 / 120); w = s.world; r = s.racers[0] ?? r; }
     expect(r.fx.spin).toBeGreaterThan(0);
     expect(w.orbs).toHaveLength(0);
   });
@@ -176,26 +176,26 @@ describe('ORB', () => {
 describe('the spin-out', () => {
   it('lasts a second at 30% of the speed, takes no input, turns the kart on itself, and never stops the race', () => {
     const fast: Racer = { kart: { ...kartAt(line.x, line.y, heading), speed: 100 }, fx: NO_FX };
-    const hit = step(track.map, { ...empty(world()), blobs: [{ x: line.x, y: line.y }] }, [fast], [1], 0.01).racers[0];
+    const hit = step(track, { ...empty(world()), blobs: [{ x: line.x, y: line.y }] }, [fast], [1], 0.01).racers[0];
     expect(hit?.kart.speed).toBeCloseTo(30, 5);
     let k = hit ?? fast;
     let turned = 0;
     for (let t = 0; t < RULES.spinTime - 1e-9; t += 0.01) {
-      const s = stepFx(track.map, k.kart, { left: false, right: true, accel: true, brake: false }, 0.01, 1, k.fx);
+      const s = stepFx(track, k.kart, { left: false, right: true, accel: true, brake: false }, 0.01, 1, k.fx);
       turned += s.kart.angle - k.kart.angle;
       expect(s.kart.speed).toBeLessThanOrEqual(k.kart.speed + 1e-9);
       k = { kart: { ...s.kart, x: line.x, y: line.y }, fx: s.fx };
     }
     expect(k.fx.spin).toBeLessThan(0.02);
     expect(turned).toBeGreaterThan(Math.PI);
-    const s = stepFx(track.map, { ...k.kart, speed: 50 }, { ...HANDS, right: true }, 0.01, 1, { ...k.fx, spin: 0 });
+    const s = stepFx(track, { ...k.kart, speed: 50 }, { ...HANDS, right: true }, 0.01, 1, { ...k.fx, spin: 0 });
     expect(s.kart.steer).toBe(1);
   });
 
   it('cannot use an item, and a kart already spinning is not hit again', () => {
     const spinning = racer(line.x, line.y, { item: 'boost', spin: 0.5 });
     expect(spendItem(world(), spinning).racer).toBe(spinning);
-    const again = step(track.map, { ...empty(world()), blobs: [{ x: line.x, y: line.y }] }, [spinning], [1], 0.01).racers[0];
+    const again = step(track, { ...empty(world()), blobs: [{ x: line.x, y: line.y }] }, [spinning], [1], 0.01).racers[0];
     expect(again?.fx.spin).toBe(0.5);
   });
 });
@@ -210,6 +210,13 @@ describe('the rivals\' rules', () => {
     const me = racer(line.x, line.y, { item: 'boost' });
     expect(wantsToUse([me], 0, true)).toBe(true);
     expect(wantsToUse([me], 0, false)).toBe(false);
+  });
+
+  it('uses nothing in the air (PRD 1775): a BLOB thrown from a flight would land on the ramp it left', () => {
+    const flying = (item: Item): Racer => { const r = at(0, 0, { item }); return { ...r, kart: { ...r.kart, height: 4, lift: 10 } }; };
+    expect(wantsToUse([flying('boost')], 0, true)).toBe(false);
+    expect(wantsToUse([flying('blob'), at(25)], 0, true)).toBe(false);
+    expect(wantsToUse([flying('orb'), at(-25)], 0, true)).toBe(false);
   });
 
   it('uses a BLOB when a kart is close behind, not when it is ahead or far', () => {
@@ -290,20 +297,20 @@ describe('in the race', () => {
 
 describe('what the items report (PRD 1427)', () => {
   it('names the racer that took a box, once', () => {
-    const a = step(track.map, world(), [racer(), onBox()], [2, 3], 0.01);
+    const a = step(track, world(), [racer(), onBox()], [2, 3], 0.01);
     expect(a.events).toEqual([{ kind: 'box', racer: 1 }]);
-    expect(step(track.map, a.world, [racer(), a.racers[1] ?? racer()], [2, 3], 0.01).events).toEqual([]);
+    expect(step(track, a.world, [racer(), a.racers[1] ?? racer()], [2, 3], 0.01).events).toEqual([]);
   });
 
   it('names the racer a BLOB hit, and that it spun out', () => {
     const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y }] };
-    expect(step(track.map, w, [racer(0, 0), racer()], [1, 2], 0.01).events).toEqual([{ kind: 'hit', racer: 1, item: 'blob', spun: true }]);
+    expect(step(track, w, [racer(0, 0), racer()], [1, 2], 0.01).events).toEqual([{ kind: 'hit', racer: 1, item: 'blob', spun: true }]);
   });
 
   it('names the racer an ORB hit, and says so when it was already spinning', () => {
     const at = (fx: Partial<Fx>) => {
       const w: World = { ...empty(world()), orbs: [{ x: line.x - 1, y: line.y, angle: heading, bounces: 0, age: 0 }] };
-      return step(track.map, w, [racer(line.x + 2, line.y, fx)], [1], 0.001).events;
+      return step(track, w, [racer(line.x + 2, line.y, fx)], [1], 0.001).events;
     };
     expect(at({})).toEqual([{ kind: 'hit', racer: 0, item: 'orb', spun: true }]);
     expect(at({ spin: 0.5 })).toEqual([{ kind: 'hit', racer: 0, item: 'orb', spun: false }]);
@@ -313,14 +320,45 @@ describe('what the items report (PRD 1427)', () => {
 describe('items with an id (PRD 1572, slice 6)', () => {
   it('a BLOB that hits names the id it was sent with, and an ORB too', () => {
     const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y, id: 'b:1' }], orbs: [{ x: line.x + 400, y: line.y, angle: heading, bounces: 0, age: 0, id: 'b:2' }] };
-    const near = step(track.map, w, [racer()], [1], 0.01);
+    const near = step(track, w, [racer()], [1], 0.01);
     expect(near.events).toContainEqual({ kind: 'hit', racer: 0, item: 'blob', spun: true, id: 'b:1' });
     const w2: World = { ...empty(world()), orbs: [{ x: line.x - 2, y: line.y, angle: heading, bounces: 0, age: 0, id: 'b:2' }] };
-    expect(step(track.map, w2, [racer()], [1], 0.02).events).toContainEqual({ kind: 'hit', racer: 0, item: 'orb', spun: true, id: 'b:2' });
+    expect(step(track, w2, [racer()], [1], 0.02).events).toContainEqual({ kind: 'hit', racer: 0, item: 'orb', spun: true, id: 'b:2' });
   });
 
   it('an ORB in flight keeps its id', () => {
     const w: World = { ...empty(world()), orbs: [{ x: line.x - 80, y: line.y, angle: heading, bounces: 0, age: 0, id: 'b:2' }] };
-    expect(step(track.map, w, [racer(line.x, line.y - 400)], [1], 0.05).world.orbs[0]?.id).toBe('b:2');
+    expect(step(track, w, [racer(line.x, line.y - 400)], [1], 0.05).world.orbs[0]?.id).toBe('b:2');
+  });
+});
+
+describe('how long a rival holds an item, by level (PRD 1762)', () => {
+  const me = racer(line.x, line.y, { item: 'boost' });
+  it('uses a BOOST at once on NORMAL and HARD, and only after the hold on EASY', () => {
+    for (const level of ['normal', 'hard'] as const) expect(wantsToUse([me], 0, true, level, 0)).toBe(true);
+    expect(wantsToUse([me], 0, true, 'easy', 0)).toBe(false);
+    expect(wantsToUse([me], 0, true, 'easy', RULES.levels.easy.hold - 0.1)).toBe(false);
+    expect(wantsToUse([me], 0, true, 'easy', RULES.levels.easy.hold)).toBe(true);
+  });
+
+  it('holds an EASY rival\'s item longer than a HARD one\'s', () => {
+    expect(RULES.levels.easy.hold).toBeGreaterThan(RULES.levels.hard.hold);
+  });
+});
+
+describe('a kart in the air (PRD 1775)', () => {
+  const aloft = (r: Racer): Racer => ({ ...r, kart: { ...r.kart, height: 6, lift: 20 } });
+
+  it('takes no box', () => {
+    const { racers } = step(track, world(), [aloft(onBox())], [1], 0.01);
+    expect(racers[0]?.fx.item).toBeNull();
+  });
+
+  it('passes over a BLOB and under an ORB without being hit', () => {
+    const w: World = { ...empty(world()), blobs: [{ x: line.x, y: line.y }], orbs: [{ x: line.x, y: line.y, angle: heading, bounces: 0, age: 0 }] };
+    const r = step(track, w, [aloft(racer())], [1], 0.01);
+    expect(r.racers[0]?.fx.spin).toBe(0);
+    expect(r.world.blobs).toHaveLength(1);
+    expect(r.events.filter((e) => e.kind === 'hit')).toHaveLength(0);
   });
 });

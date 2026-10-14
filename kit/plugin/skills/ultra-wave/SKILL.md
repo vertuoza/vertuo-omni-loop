@@ -1,12 +1,12 @@
 ---
 name: ultra-wave
-description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch), dispatch one worktree subagent per slice following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. With a product PRD's id (<key>-<n>) it reads the approval first and claims nothing while it is drifted or the server is held, takes the plan through omni dossier get and relays every item to the PRD's outbox on the server, with no plan PR. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
+description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch), start one agent per slice, each in its own worktree, following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. With a product PRD's id (<key>-<n>) it reads the approval first and claims nothing while it is drifted or the server is held, takes the plan through omni dossier get and relays every item to the PRD's outbox on the server, with no plan PR. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
 ---
 
 # Ultra-wave: one wave, across repositories
 
 One wave of a PRD whose plan names a repository for every slice (see `/omni:ultra-yolo`). Each
-slice is built in its own target, by its own subagent, and ends in its own sub-PR into that
+slice is built in its own target, by its own agent, and ends in its own sub-PR into that
 target's feature branch; its decisions come home to the plan repository's outbox.
 
 It follows `/omni:wave` **step for step**, and never copies it: each step below either says "as
@@ -16,15 +16,19 @@ the two say the same thing, that skill's words are the rule.
 `omni` below is `node .omni-loop/bin/omni.mjs`, always run in the plan repository. Never import the
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Code runs only from a target's own config,** as `/omni:ultra-yolo` says: in a target, beyond `git`
-and `gh`, only its own committed preflight ever runs, and a target without one runs nothing.
+and `gh`, only its own committed setup, then its own committed preflight ever run, in the same
+worktree, the setup first. A target without a preflight runs nothing, its setup included; one without
+a setup runs its preflight alone. A red setup holds that slice, or that target's check, as stuck,
+quoting its failing line: it counts toward no `limits.attempts`, and the target is never edited to
+make it pass.
 
 **A target's flow** is its own committed one, read in its clone, never the plan repository's and
 never the imported copy (that copy is for planning only). Run the plan repository's `omni` with the
@@ -142,7 +146,7 @@ the `claimed` status comment there); `claimed-stale` is taken over with `--repo 
 `gh` call. Once every claim is made, run `git -C <clone> switch --detach` in each clone, and
 `git switch --detach` in the plan repository.
 
-## 3. Dispatch, one subagent per slice, in a single message
+## 3. Dispatch, one agent per slice, all at once
 
 As `/omni:wave` step 3, with this prompt for a target's slice:
 
@@ -162,7 +166,7 @@ As `/omni:wave` step 4, with `--repo <slug>` on every `gh` call and git in the t
 2. **Territory.** `gh pr diff <n> --repo <slug> --name-only`, against the row's `territory`: paths
    in the target. A breach is reported and never fatal, as there.
 3. **Mergeable.** A conflict is resolved in a detached worktree of the clone, as there; the
-   preflight it runs is the target's own, or none.
+   preflight it runs is the target's own, after its own setup, or none.
 4. **Ready** through `/omni:pr --repo <slug>`'s sub-PR lifecycle; that skill owns `gh pr ready`.
 5. **Merge, through the gate,** as `/omni:wave` step 4 item 6, with the target's rules. In the
    target's clone (**A target's flow**):
@@ -209,9 +213,12 @@ merged relays nothing; its `<out>` stays, named in the report.
    `node .omni-loop/bin/omni.mjs check all`, as there. Push `HEAD:<feature branch>` and remove the
    worktree.
 3. **Each touched target,** in a detached worktree of its clone at its feature branch: its own
-   preflight, when it has one. Red: fix it there, inside the PRD's slices only, each fix counting
-   toward `limits.attempts`, and push to the target's feature branch. Still red: the wave is stuck,
-   naming the target and the step. No preflight: nothing runs; say `none — CI is the check`.
+   setup, when it has one, then its own preflight, when it has one. A red setup: the wave is stuck,
+   naming the target and quoting the failing line, counting toward no attempt, the target never
+   edited to make it pass. A red preflight: fix it there, inside the PRD's slices only, each fix
+   counting toward `limits.attempts`, and push to the target's feature branch. Still red: the wave
+   is stuck, naming the target and the step. No preflight: nothing runs, its setup included; say
+   `none — CI is the check`.
 4. **Both feature PRs.** Tick each merged slice in its target PR's **Slices** checklist
    (`#<sub-PR> <title>`, `gh pr edit <n> --repo <slug> --body-file <file>`), and in the plan PR's
    (`<slug>#<sub-PR> <title>`), each body keeping its `omni sign footer` line. Rewrite the plan PR's
@@ -233,9 +240,9 @@ with its reason. This is what `/omni:ultra-yolo` reads.
   PR. Check the base before every merge.
 - **Never add `labels.outboxGo`,** and **never create a label in a target**: a missing one is a human
   step.
-- **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`, the plan repository's own `omni` reading its flow, and its own hooks, followed only in its
-  worktree).
+- **Never run a command in a target other than its own committed setup, then its own committed
+  preflight** (beyond `git` and `gh`, the plan repository's own `omni` reading its flow, and its own
+  hooks, followed only in its worktree).
 - Merge only with the command `omni flow check merge` prints, after its `ok`: never a merge command
   written by hand.
 - Every item ends up in the plan repository's outbox; a refused one is named, never dropped.

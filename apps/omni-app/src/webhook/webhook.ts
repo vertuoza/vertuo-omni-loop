@@ -10,8 +10,9 @@
 // The inbox check (PRD 675) listens to that same outbox check event, so every handled pull request
 // action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
 // the inbox check event alone, a re-run of an approved check run (PRD 1548) the approved check event
-// alone; a re-run of any other check run stays the outbox check event. The approved check listens to
-// the outbox check event too, so every handled pull request action re-evaluates it as well.
+// alone, a re-run of an `omni / budgets` check run (PRD 1679) the budgets check event alone; a re-run of
+// any other check run stays the outbox check event. The approved check and the budgets check listen to
+// the outbox check event too, so every handled pull request action re-evaluates them as well.
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
 // run, becomes one canon action event alone, carrying the button and the facts the check run's summary
@@ -42,6 +43,8 @@ import {
   APPROVED_CHECK_EVENT,
   APPROVED_EXTERNAL_ID,
   APPROVED_LABEL_EVENT,
+  BUDGETS_CHECK_EVENT,
+  BUDGETS_EXTERNAL_ID,
   HARVEST_EVENT,
   INBOX_CHECK_EVENT,
   INBOX_EXTERNAL_ID,
@@ -56,6 +59,7 @@ import {
 } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
 import { TOUCH_EVENTS, toTouches, type Touch } from '../stage-forward/touch.ts';
 
@@ -64,10 +68,13 @@ type ActionTable = Readonly<Record<string, readonly string[]>>;
 
 /**
  * The events and actions the app re-evaluates the outbox check on. `check_run.rerequested` is
- * GitHub's **Re-run** button; GitHub delivers it only to the app that created the check run.
+ * GitHub's **Re-run** button; GitHub delivers it only to the app that created the check run. A
+ * review submitted or dismissed (PRD 1726) re-runs it too: a CODEOWNER's approval is what clears a
+ * change to a locked law, without a new push.
  */
 export const CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited']),
+  pull_request_review: Object.freeze(['submitted', 'dismissed']),
   check_run: Object.freeze(['rerequested']),
 });
 
@@ -93,6 +100,7 @@ const APPROVED_LABEL = parseConfig('kit: 1').labels.approved;
 /** Every event and action the app acts on. `app.yml` subscribes to exactly these events (its test says so). */
 export const HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
+  pull_request_review: CHECK_ACTIONS.pull_request_review,
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run]),
 });
 
@@ -149,6 +157,7 @@ export async function receiveWebhook({
   sendApproved = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
+  log = noteTo('webhook'),
 }: {
   body: string;
   headers: HeadersIn;
@@ -159,6 +168,8 @@ export async function receiveWebhook({
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
+  /** Says a forward that failed; a JSON note line at `warn` unless given (PRD 1723 s6). */
+  log?: (line: string) => void;
 }): Promise<WebhookResponse> {
   if (!secret) return reply(500, 'webhook secret is not configured');
 
@@ -178,14 +189,14 @@ export async function receiveWebhook({
     try {
       await forward(stageEvent);
     } catch (error) {
-      console.error(`stage event: could not forward — ${String(messageOf(error))}`);
+      log(`stage event: could not forward — ${String(messageOf(error))}`);
     }
   }
   await Promise.all(toTouches(event, payload).map(async (one) => {
     try {
       await touch(one);
     } catch (error) {
-      console.error(`touch: could not forward — ${String(messageOf(error))}`);
+      log(`touch: could not forward — ${String(messageOf(error))}`);
     }
   }));
 
@@ -234,7 +245,7 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
   const trigger = `${event}.${String(payload.action)}`;
   const name = event === 'check_run' ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
   const pulls =
-    event === 'pull_request'
+    event !== 'check_run'
       ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }]
       : (payload.check_run?.pull_requests ?? []).map((pull) => ({
           number: pull.number,
@@ -254,6 +265,7 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
 function rerunEventOf(externalId: string | null | undefined): string {
   if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
   if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
+  if (externalId === BUDGETS_EXTERNAL_ID) return BUDGETS_CHECK_EVENT;
   return OUTBOX_CHECK_EVENT;
 }
 

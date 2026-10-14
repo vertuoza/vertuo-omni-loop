@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>COMET RING station run</title>
+<style>
+/* Layout: today beside after, one row per change to the race; stacks at phone width. Omni app look outside, arcade screens inside (their colours are the game's own, in both themes). */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ /* the arcade screen and COMET RING's own colours (kart/texture.ts), the same in both themes */
+ --scr:#0b0a2e;--scrSky:#1d1650;--scrInk:#f1f1f8;--scrDim:#8f8cc4;--star:#dfe3ff;
+ --road:#6d7194;--roadFar:#5d6185;--cyan:#19e6ff;--magenta:#ff2bd6;--chevron:#ffe94d;
+ --plate:#9aa0c6;--plateSeam:#6f7499;--wall:#3a3f66;--wallDark:#262a4a;--ceiling:#2b2f52;--strip:#bff6ff;
+ --grate:#33365a;--black:#14152b;--danger:#ff5a5f;
+ --f1:#ff2bd6;--f2:#19e6ff;--f3:#ffd23f;--f4:#7cff6b;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side p{margin:0;color:var(--muted);font-size:14px}
+ul{margin:0;padding-left:20px;display:grid;gap:6px}
+li{color:var(--muted);font-size:14px}
+li b{color:var(--ink);font-weight:600}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+.screen{background:var(--scr);border-radius:8px;overflow:hidden;line-height:0}
+.screen svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font:12px/1.3 var(--mono);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.chip{width:12px;height:12px;border-radius:2px;display:inline-block;border:1px solid var(--lineStrong)}
+.svgtext{font:600 10px var(--mono);letter-spacing:.04em}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
+th{font:600 11px/1.2 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td{color:var(--muted)}
+td b{color:var(--ink)}
+.tablebox{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="tag">PRD 1775 · OMNI KART · COMET RING</div>
+  <h1>A station to drive through, jumps, pads, shortcuts, and a fairer edge</h1>
+  <p class="lead">Every row shows COMET RING today beside COMET RING after this PRD. The race, the rivals, the boxes, the relief and the best times stay; what changes is how the lap rides and what stands around it.</p>
+</header>
+
+<!-- 1. The edge -->
+<section class="row">
+  <h2>The edge</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today</div>
+      <div class="screen">
+        <svg viewBox="0 0 320 170" role="img" aria-label="A kart with both right wheels over the void falls at once">
+          <rect width="320" height="170" fill="var(--scr)"/>
+          <rect width="170" height="170" fill="var(--road)"/>
+          <rect x="166" width="4" height="170" fill="var(--cyan)"/>
+          <g fill="var(--star)"><circle cx="210" cy="20" r="1"/><circle cx="260" cy="60" r="1.2"/><circle cx="300" cy="120" r="1"/><circle cx="230" cy="150" r="1"/><circle cx="285" cy="30" r="0.8"/></g>
+          <g transform="translate(160 85) rotate(-14)">
+            <rect x="-14" y="-24" width="28" height="48" rx="5" fill="var(--magenta)"/>
+            <rect x="-20" y="-20" width="7" height="12" fill="var(--black)"/><rect x="13" y="-20" width="7" height="12" fill="var(--black)" stroke="var(--danger)" stroke-width="2"/>
+            <rect x="-20" y="8" width="7" height="12" fill="var(--black)"/><rect x="13" y="8" width="7" height="12" fill="var(--black)" stroke="var(--danger)" stroke-width="2"/>
+          </g>
+          <text x="196" y="96" class="svgtext" fill="var(--danger)">FALLS NOW</text>
+          <text x="12" y="20" class="svgtext" fill="var(--scrInk)">ROAD</text><text x="270" y="160" class="svgtext" fill="var(--scrDim)">VOID</text>
+        </svg>
+      </div>
+      <ul>
+        <li><b>Both wheels of one side over the void tip the kart at once</b>, when its centre is only 3 units past the edge (the kart is 14 wide).</li>
+        <li>A wheel over the void draws the kart towards the edge at <b>16</b> units a second.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After</div>
+      <div class="screen">
+        <svg viewBox="0 0 320 170" role="img" aria-label="Half a second of grace before the kart tips over">
+          <rect width="320" height="170" fill="var(--scr)"/>
+          <rect width="170" height="170" fill="var(--road)"/>
+          <rect x="166" width="4" height="170" fill="var(--cyan)"/>
+          <g fill="var(--star)"><circle cx="210" cy="20" r="1"/><circle cx="260" cy="60" r="1.2"/><circle cx="300" cy="120" r="1"/><circle cx="230" cy="150" r="1"/><circle cx="285" cy="30" r="0.8"/></g>
+          <g transform="translate(160 70) rotate(-14)">
+            <rect x="-14" y="-24" width="28" height="48" rx="5" fill="var(--magenta)"/>
+            <rect x="-20" y="-20" width="7" height="12" fill="var(--black)"/><rect x="13" y="-20" width="7" height="12" fill="var(--black)" stroke="var(--chevron)" stroke-width="2"/>
+            <rect x="-20" y="8" width="7" height="12" fill="var(--black)"/><rect x="13" y="8" width="7" height="12" fill="var(--black)" stroke="var(--chevron)" stroke-width="2"/>
+          </g>
+          <path d="M150 52 q-30 -20 -40 -40" fill="none" stroke="var(--chevron)" stroke-width="2" stroke-dasharray="4 3"/>
+          <text x="20" y="20" class="svgtext" fill="var(--chevron)">STEER BACK: SAVED</text>
+          <rect x="20" y="132" width="280" height="10" rx="5" fill="var(--wallDark)"/>
+          <rect x="20" y="132" width="170" height="10" rx="5" fill="var(--chevron)"/>
+          <text x="20" y="158" class="svgtext" fill="var(--scrDim)">0 s</text><text x="272" y="158" class="svgtext" fill="var(--scrInk)">0.5 s</text>
+          <text x="196" y="124" class="svgtext" fill="var(--scrInk)">THEN IT FALLS</text>
+        </svg>
+      </div>
+      <ul>
+        <li>Both wheels of one side out start a count: the kart falls only after <b>0.5 s</b> in a row; one wheel back on the road resets it.</li>
+        <li>While it counts, the kart leans fully and rocks (no rocking with reduced motion).</li>
+        <li>The pull drops to <b>8</b> units a second. A centre 7 units past the edge still falls at once.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 2. The circuit -->
+<section class="row">
+  <h2>The circuit: pads, jumps, shortcuts, a tunnel</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today</div>
+      <div class="screen">
+        <svg viewBox="0 0 272 272" role="img" aria-label="COMET RING today: one way around">
+          <rect width="272" height="272" fill="var(--scr)"/>
+          <polyline points="224,232 224,168 184,168 184,120 232,120 232,40 152,40 152,88 88,88 88,40 40,40 40,168 80,168 80,232 224,232" fill="none" stroke="var(--cyan)" stroke-width="22" stroke-linejoin="miter"/>
+          <polyline points="224,232 224,168 184,168 184,120 232,120 232,40 152,40 152,88 88,88 88,40 40,40 40,168 80,168 80,232 224,232" fill="none" stroke="var(--road)" stroke-width="18" stroke-linejoin="miter"/>
+          <rect x="150" y="222" width="4" height="20" fill="var(--scrInk)"/>
+          <text x="128" y="262" class="svgtext" fill="var(--scrDim)">START</text>
+        </svg>
+      </div>
+      <ul>
+        <li>One way around, on the ground all the way.</li>
+        <li>The BOOST only comes from an item box.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After</div>
+      <div class="screen">
+        <svg viewBox="0 0 272 272" role="img" aria-label="COMET RING after: pads, two jumps, two shortcuts, a tunnel and stands">
+          <defs>
+            <pattern id="stripes" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--chevron)"/><rect width="3" height="6" fill="var(--black)"/></pattern>
+          </defs>
+          <rect width="272" height="272" fill="var(--scr)"/>
+          <!-- the walkway and the spur, under the main road -->
+          <line x1="152" y1="40" x2="88" y2="40" stroke="var(--magenta)" stroke-width="10"/>
+          <line x1="152" y1="40" x2="88" y2="40" stroke="var(--grate)" stroke-width="7"/>
+          <line x1="224" y1="170" x2="224" y2="150" stroke="var(--cyan)" stroke-width="14"/>
+          <line x1="224" y1="170" x2="224" y2="150" stroke="var(--road)" stroke-width="11"/>
+          <polyline points="224,232 224,168 184,168 184,120 232,120 232,40 152,40 152,88 88,88 88,40 40,40 40,168 80,168 80,232 224,232" fill="none" stroke="var(--cyan)" stroke-width="22" stroke-linejoin="miter"/>
+          <polyline points="224,232 224,168 184,168 184,120 232,120 232,40 152,40 152,88 88,88 88,40 40,40 40,168 80,168 80,232 224,232" fill="none" stroke="var(--road)" stroke-width="18" stroke-linejoin="miter"/>
+          <!-- the tunnel -->
+          <rect x="172" y="29" width="48" height="22" fill="var(--plate)" stroke="var(--strip)" stroke-width="1.5"/>
+          <g fill="var(--wallDark)"><circle cx="180" cy="32" r="1.5"/><circle cx="190" cy="32" r="1.5"/><circle cx="200" cy="32" r="1.5"/><circle cx="210" cy="32" r="1.5"/><circle cx="180" cy="48" r="1.5"/><circle cx="190" cy="48" r="1.5"/><circle cx="200" cy="48" r="1.5"/><circle cx="210" cy="48" r="1.5"/></g>
+          <!-- the gap jump: pad, ramp, gap -->
+          <rect x="222" y="92" width="20" height="8" fill="var(--cyan)"/>
+          <rect x="222" y="80" width="20" height="6" fill="url(#stripes)"/>
+          <rect x="219" y="66" width="26" height="14" fill="var(--scr)"/>
+          <!-- the bump jump -->
+          <rect x="30" y="86" width="20" height="8" fill="var(--cyan)"/>
+          <rect x="30" y="100" width="20" height="6" fill="url(#stripes)"/>
+          <!-- the hidden ramp -->
+          <rect x="218" y="150" width="12" height="6" fill="url(#stripes)"/>
+          <line x1="224" y1="148" x2="224" y2="128" stroke="var(--chevron)" stroke-width="1.5" stroke-dasharray="3 2"/>
+          <path d="M220 131 l4 -5 l4 5" fill="none" stroke="var(--chevron)" stroke-width="1.5"/>
+          <!-- pads out of the corners -->
+          <rect x="94" y="222" width="7" height="20" fill="var(--cyan)"/>
+          <rect x="194" y="110" width="7" height="20" fill="var(--cyan)"/>
+          <rect x="52" y="158" width="7" height="20" fill="var(--cyan)"/>
+          <!-- shortcut gates -->
+          <line x1="112" y1="33" x2="112" y2="47" stroke="var(--scrInk)" stroke-width="1.5" stroke-dasharray="2 2"/>
+          <line x1="214" y1="124" x2="234" y2="124" stroke="var(--scrInk)" stroke-width="1.5" stroke-dasharray="2 2"/>
+          <!-- stands -->
+          <g>
+            <path d="M112 212 l6 -4 l6 4 z" fill="var(--f1)"/><path d="M136 212 l6 -4 l6 4 z" fill="var(--f2)"/><path d="M160 212 l6 -4 l6 4 z" fill="var(--f3)"/><path d="M184 212 l6 -4 l6 4 z" fill="var(--f4)"/>
+            <path d="M112 250 l6 4 l6 -4 z" fill="var(--f2)"/><path d="M136 250 l6 4 l6 -4 z" fill="var(--f3)"/><path d="M160 250 l6 4 l6 -4 z" fill="var(--f4)"/><path d="M184 250 l6 4 l6 -4 z" fill="var(--f1)"/>
+            <path d="M252 60 l-4 6 l4 6 z" fill="var(--f1)"/><path d="M252 74 l-4 6 l4 6 z" fill="var(--f2)"/><path d="M252 88 l-4 6 l4 6 z" fill="var(--f3)"/><path d="M252 102 l-4 6 l4 6 z" fill="var(--f4)"/>
+          </g>
+          <rect x="150" y="222" width="4" height="20" fill="var(--scrInk)"/>
+          <text x="166" y="22" class="svgtext" fill="var(--strip)">TUNNEL</text>
+          <text x="92" y="22" class="svgtext" fill="var(--magenta)">WALKWAY</text>
+          <text x="236" y="146" class="svgtext" fill="var(--chevron)">HIDDEN</text>
+          <text x="236" y="156" class="svgtext" fill="var(--chevron)">RAMP</text>
+          <text x="8" y="122" class="svgtext" fill="var(--scrInk)">BUMP</text>
+          <text x="196" y="62" class="svgtext" fill="var(--scrInk)">GAP</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="chip" style="background:var(--cyan)"></i>boost pad</span>
+        <span><i class="chip" style="background:var(--chevron)"></i>ramp</span>
+        <span><i class="chip" style="background:var(--plate)"></i>tunnel</span>
+        <span><i class="chip" style="background:var(--grate);border-color:var(--magenta)"></i>walkway</span>
+        <span><i class="chip" style="background:var(--f1)"></i>stand (a fleet's ship)</span>
+        <span><i class="chip" style="background:var(--scrInk)"></i>shortcut gate</span>
+      </div>
+      <ul>
+        <li><b>Pads</b> give the item's BOOST (×1.4 for 1.5 s) and keep the item in hand: one before each ramp of the main line, one out of the corners [18, 56], [44, 28] and [8, 40].</li>
+        <li><b>The gap jump</b> in the descent [56, 28] → [56, 8], <b>the bump jump</b> on the west leg.</li>
+        <li><b>The hidden ramp</b> at [54, 40] and <b>the walkway</b> at [36, 8] each skip two waypoints; their gate credits both, so the lap counts. Rivals never take them.</li>
+        <li><b>The tunnel</b>, 13 tiles, on the top leg, right after the gap jump.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 3. The jump -->
+<section class="row">
+  <h2>The gap jump, seen from the side</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today</div>
+      <div class="screen">
+        <svg viewBox="0 0 520 180" role="img" aria-label="The descent today: the road only goes down">
+          <rect width="520" height="180" fill="var(--scr)"/>
+          <path d="M0 70 C120 70 160 52 200 52 S300 90 520 140" fill="none" stroke="var(--road)" stroke-width="8"/>
+          <circle cx="60" cy="62" r="7" fill="var(--magenta)"/>
+          <text x="16" y="164" class="svgtext" fill="var(--scrDim)">[56, 28]  20</text><text x="430" y="164" class="svgtext" fill="var(--scrDim)">[56, 8]  4</text>
+        </svg>
+      </div>
+      <ul><li>The kart rides the ground down the hump; it never leaves it.</li></ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After</div>
+      <div class="screen">
+        <svg viewBox="0 0 520 180" role="img" aria-label="Pad, ramp on the crest, a gap of 3 tiles and three flights">
+          <defs>
+            <pattern id="stripes2" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--chevron)"/><rect width="3" height="6" fill="var(--black)"/></pattern>
+          </defs>
+          <rect width="520" height="180" fill="var(--scr)"/>
+          <path d="M0 70 C120 70 160 52 200 52" fill="none" stroke="var(--road)" stroke-width="8"/>
+          <path d="M262 64 C300 84 380 110 520 140" fill="none" stroke="var(--road)" stroke-width="8"/>
+          <rect x="110" y="60" width="44" height="7" fill="var(--cyan)"/>
+          <path d="M184 52 L204 52 L204 44 Z" fill="url(#stripes2)" stroke="var(--chevron)" stroke-width="1"/>
+          <g fill="var(--star)"><circle cx="225" cy="120" r="1"/><circle cx="240" cy="150" r="1.2"/><circle cx="250" cy="100" r="0.8"/></g>
+          <path d="M204 44 Q270 -10 340 92" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="5 3"/>
+          <path d="M204 44 Q240 18 272 70" fill="none" stroke="var(--scrInk)" stroke-width="2" stroke-dasharray="5 3"/>
+          <path d="M204 44 Q222 30 244 120" fill="none" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 3"/>
+          <text x="112" y="84" class="svgtext" fill="var(--cyan)">PAD</text>
+          <text x="174" y="38" class="svgtext" fill="var(--chevron)">RAMP</text>
+          <text x="214" y="172" class="svgtext" fill="var(--scrDim)">GAP · 3 TILES</text>
+          <text x="346" y="86" class="svgtext" fill="var(--cyan)">WITH THE PAD: CLEAR</text>
+          <text x="282" y="58" class="svgtext" fill="var(--scrInk)">TOP SPEED: JUST</text>
+          <text x="254" y="134" class="svgtext" fill="var(--danger)">UNDER 80 %: FALLS IN</text>
+        </svg>
+      </div>
+      <ul>
+        <li>Leaving a ramp, a kart takes off at <b>0.9 ×</b> its speed upwards, under a gravity of <b>400</b>. In the air its speed holds, it steers at <b>0.3</b>, takes no box or pad and cannot tip.</li>
+        <li>It lands with the ordinary rules: road, drive on; centre over the void, today's fall and way back. The camera rises with the player; a shadow stays on the ground.</li>
+        <li>The hidden ramp's gap is 5 tiles, landing 8 units higher: only an item's BOOST clears it.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 4. The tunnel -->
+<section class="row">
+  <h2>The top leg: open road, then a space station</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today</div>
+      <div class="screen">
+        <svg viewBox="0 0 320 200" role="img" aria-label="The top leg today: an open road under the stars">
+          <rect width="320" height="90" fill="var(--scrSky)"/>
+          <rect y="90" width="320" height="110" fill="var(--scr)"/>
+          <g fill="var(--star)"><circle cx="30" cy="20" r="1"/><circle cx="90" cy="45" r="1.2"/><circle cx="150" cy="15" r="0.8"/><circle cx="210" cy="35" r="1"/><circle cx="280" cy="22" r="1.2"/><circle cx="40" cy="140" r="1"/><circle cx="290" cy="160" r="1"/><circle cx="20" cy="185" r="0.8"/></g>
+          <circle cx="250" cy="55" r="14" fill="var(--strip)" opacity=".55"/>
+          <polygon points="148,90 172,90 290,200 30,200" fill="var(--road)"/>
+          <polyline points="148,90 30,200" stroke="var(--cyan)" stroke-width="3" fill="none"/>
+          <polyline points="172,90 290,200" stroke="var(--magenta)" stroke-width="3" fill="none"/>
+          <rect x="146" y="164" width="28" height="22" rx="4" fill="var(--magenta)"/>
+          <rect x="140" y="180" width="8" height="8" fill="var(--black)"/><rect x="172" y="180" width="8" height="8" fill="var(--black)"/>
+        </svg>
+      </div>
+      <ul><li>An open road over the void, with the sky above.</li></ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After</div>
+      <div class="screen">
+        <svg viewBox="0 0 320 200" role="img" aria-label="Inside the station: a lit ceiling, walls with portholes, station plating, a portal ahead">
+          <rect width="320" height="200" fill="var(--wallDark)"/>
+          <polygon points="0,0 320,0 190,80 130,80" fill="var(--ceiling)"/>
+          <g stroke="var(--strip)" stroke-linecap="round">
+            <line x1="40" y1="8" x2="280" y2="8" stroke-width="4"/>
+            <line x1="90" y1="38" x2="230" y2="38" stroke-width="3"/>
+            <line x1="114" y1="58" x2="206" y2="58" stroke-width="2"/>
+            <line x1="126" y1="72" x2="194" y2="72" stroke-width="1.5"/>
+          </g>
+          <polygon points="0,0 130,80 130,110 0,200" fill="var(--wall)"/>
+          <polygon points="320,0 190,80 190,110 320,200" fill="var(--wall)"/>
+          <g fill="var(--scr)" stroke="var(--plateSeam)" stroke-width="2">
+            <circle cx="40" cy="96" r="14"/><circle cx="96" cy="95" r="7"/>
+            <circle cx="280" cy="96" r="14"/><circle cx="224" cy="95" r="7"/>
+          </g>
+          <g fill="var(--star)"><circle cx="36" cy="92" r="1"/><circle cx="45" cy="101" r="0.8"/><circle cx="283" cy="93" r="1"/><circle cx="276" cy="100" r="0.8"/></g>
+          <rect x="130" y="80" width="60" height="30" fill="var(--scrSky)"/>
+          <g fill="var(--star)"><circle cx="142" cy="88" r="0.8"/><circle cx="170" cy="94" r="1"/><circle cx="182" cy="86" r="0.8"/></g>
+          <rect x="130" y="80" width="60" height="30" fill="none" stroke="var(--chevron)" stroke-width="2"/>
+          <polygon points="130,110 190,110 320,200 0,200" fill="var(--plate)"/>
+          <g stroke="var(--plateSeam)" stroke-width="1"><line x1="80" y1="140" x2="240" y2="140"/><line x1="40" y1="170" x2="280" y2="170"/><line x1="160" y1="110" x2="160" y2="200"/></g>
+          <rect x="146" y="164" width="28" height="22" rx="4" fill="var(--magenta)"/>
+          <rect x="140" y="180" width="8" height="8" fill="var(--black)"/><rect x="172" y="180" width="8" height="8" fill="var(--black)"/>
+        </svg>
+      </div>
+      <ul>
+        <li>A roof 44 units over the road (the eye is at 28): the top of the screen is the <b>ceiling</b>, with strips of light passing overhead.</li>
+        <li><b>Walls</b> of metal panels with portholes on the stars; the road is <b>station plating</b>; a lit <b>portal</b> at each end.</li>
+        <li>From outside: a station block, its roof seen from a hill. Anything behind a wall is hidden. The floor still takes at most <b>600 samples a column</b>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5. The decor -->
+<section class="row">
+  <h2>The start straight: the fleets watch</h2>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today</div>
+      <div class="screen">
+        <svg viewBox="0 0 320 200" role="img" aria-label="The start straight today: pylons and beacons over the void">
+          <rect width="320" height="90" fill="var(--scrSky)"/>
+          <rect y="90" width="320" height="110" fill="var(--scr)"/>
+          <g fill="var(--star)"><circle cx="30" cy="20" r="1"/><circle cx="90" cy="45" r="1.2"/><circle cx="150" cy="15" r="0.8"/><circle cx="210" cy="35" r="1"/><circle cx="280" cy="22" r="1.2"/><circle cx="40" cy="140" r="1"/><circle cx="290" cy="160" r="1"/></g>
+          <circle cx="70" cy="50" r="10" fill="var(--strip)" opacity=".5"/><circle cx="255" cy="40" r="7" fill="var(--chevron)" opacity=".5"/>
+          <polygon points="148,90 172,90 290,200 30,200" fill="var(--road)"/>
+          <polyline points="148,90 30,200" stroke="var(--cyan)" stroke-width="3" fill="none"/>
+          <polyline points="172,90 290,200" stroke="var(--magenta)" stroke-width="3" fill="none"/>
+          <g stroke="var(--scrDim)" stroke-width="2"><line x1="60" y1="120" x2="60" y2="150"/><line x1="262" y1="120" x2="262" y2="150"/><line x1="112" y1="96" x2="112" y2="108"/><line x1="208" y1="96" x2="208" y2="108"/></g>
+          <g fill="var(--danger)"><circle cx="60" cy="118" r="3"/><circle cx="262" cy="118" r="3"/></g>
+          <rect x="146" y="164" width="28" height="22" rx="4" fill="var(--magenta)"/>
+          <rect x="140" y="180" width="8" height="8" fill="var(--black)"/><rect x="172" y="180" width="8" height="8" fill="var(--black)"/>
+        </svg>
+      </div>
+      <ul><li>Pylons, beacons, a few asteroids, satellites and wrecks; two small planets and a station far off.</li></ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After</div>
+      <div class="screen">
+        <svg viewBox="0 0 320 200" role="img" aria-label="The start straight after: fleets' ships in the stands, lamps, a crane, containers, convoys, a belt and a big planet">
+          <rect width="320" height="90" fill="var(--scrSky)"/>
+          <rect y="90" width="320" height="110" fill="var(--scr)"/>
+          <g fill="var(--star)"><circle cx="30" cy="20" r="1"/><circle cx="150" cy="15" r="0.8"/><circle cx="280" cy="22" r="1.2"/><circle cx="40" cy="140" r="1"/><circle cx="290" cy="160" r="1"/></g>
+          <circle cx="230" cy="112" r="56" fill="var(--strip)" opacity=".35"/>
+          <rect y="90" width="320" height="4" fill="var(--scrSky)" opacity=".8"/>
+          <g fill="var(--scrDim)"><ellipse cx="20" cy="40" rx="3" ry="2"/><ellipse cx="60" cy="34" rx="2" ry="1.5"/><ellipse cx="100" cy="30" rx="3" ry="2"/><ellipse cx="140" cy="28" rx="2" ry="1.5"/><ellipse cx="180" cy="29" rx="3" ry="2"/><ellipse cx="220" cy="32" rx="2" ry="1.5"/><ellipse cx="260" cy="37" rx="3" ry="2"/><ellipse cx="300" cy="44" rx="2" ry="1.5"/></g>
+          <g fill="var(--scrInk)"><path d="M60 62 l8 3 l-8 3 z"/><path d="M74 62 l8 3 l-8 3 z"/><path d="M88 62 l8 3 l-8 3 z"/></g>
+          <polygon points="148,90 172,90 290,200 30,200" fill="var(--road)"/>
+          <polyline points="148,90 30,200" stroke="var(--cyan)" stroke-width="3" fill="none"/>
+          <polyline points="172,90 290,200" stroke="var(--magenta)" stroke-width="3" fill="none"/>
+          <g fill="var(--cyan)"><path d="M140 150 l20 -10 l20 10 l0 6 l-20 -10 l-20 10 z"/><path d="M144 136 l16 -8 l16 8 l0 5 l-16 -8 l-16 8 z"/></g>
+          <!-- stands: fleets' ships -->
+          <g><path d="M10 112 l18 -8 l18 8 l-18 6 z" fill="var(--f1)"/><path d="M50 100 l13 -6 l13 6 l-13 4 z" fill="var(--f2)"/><path d="M84 94 l9 -4 l9 4 l-9 3 z" fill="var(--f3)"/></g>
+          <g><path d="M274 112 l18 -8 l18 8 l-18 6 z" fill="var(--f4)"/><path d="M244 100 l13 -6 l13 6 l-13 4 z" fill="var(--f1)"/><path d="M218 94 l9 -4 l9 4 l-9 3 z" fill="var(--f2)"/></g>
+          <!-- lamps, a crane, containers -->
+          <g stroke="var(--scrDim)" stroke-width="2"><line x1="40" y1="150" x2="40" y2="128"/><line x1="282" y1="150" x2="282" y2="128"/></g>
+          <g fill="var(--magenta)"><circle cx="40" cy="126" r="4"/><circle cx="282" cy="126" r="4"/></g>
+          <g stroke="var(--chevron)" stroke-width="2" fill="none"><polyline points="300,180 300,140 270,140"/><line x1="272" y1="140" x2="272" y2="150"/></g>
+          <rect x="6" y="166" width="22" height="12" fill="var(--f3)"/><rect x="12" y="156" width="22" height="10" fill="var(--f2)"/>
+          <rect x="146" y="164" width="28" height="22" rx="4" fill="var(--magenta)"/>
+          <rect x="140" y="180" width="8" height="8" fill="var(--black)"/><rect x="172" y="180" width="8" height="8" fill="var(--black)"/>
+        </svg>
+      </div>
+      <ul>
+        <li><b>Twelve stands</b> (eight along the start straight, four by the gap jump) hold the active fleets' ships, each in its mascot and colour, cycling; the neutral ship when there is no fleet. They bob, and stand still with reduced motion.</li>
+        <li><b>The roadside:</b> neon lamps that pulse, antenna dishes that turn, docking cranes, cargo containers, on the void, more of them around the station.</li>
+        <li><b>The sky:</b> convoys crossing, an asteroid belt, a big planet rising at the horizon. <b>The road:</b> cyan chevron pads, yellow arrows before the ramps, striped ramps, the walkway's magenta-edged grating.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6. What stays -->
+<section class="row">
+  <h2>MULTI, and what stays</h2>
+  <div class="side">
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Part</th><th>Today</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td><b>MULTI's state message</b></td><td>Where a kart is, its heading, speed, steering, laps, waypoints, spin-out and fall.</td><td>The same, plus its height over the ground: every player sees the others fly. Optional, read as 0 when missing, so a player on the previous build still races.</td></tr>
+          <tr><td><b>Laps</b></td><td>Every waypoint in order, then the line.</td><td>The same, except that a shortcut's gate credits the two waypoints it skips.</td></tr>
+          <tr><td><b>Rivals</b></td><td>Drive the racing line; on seeds 1, 7 and 42 they finish three laps without falling.</td><td>Take the pads and both jumps of the main line, never a shortcut; still no fall on seeds 1, 7 and 42.</td></tr>
+          <tr><td><b>Best times</b></td><td>One per player, on COMET RING.</td><td>Kept. Nothing changes in the database.</td></tr>
+          <tr><td><b>Waypoints, relief, boxes</b></td><td>14 waypoints, hills along the racing line, ten lines of boxes.</td><td>Kept; a line of boxes moves along its straight where a pad, a ramp or the gap takes its place. Each shortcut adds a leg of its own to the relief; the main line's ground does not change.</td></tr>
+          <tr><td><b>The cabinet's still</b></td><td>COMET RING's still on the games screen.</td><td>No flight and no tunnel in it; drawn again only if the new circuit changes what it shows.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

@@ -84,6 +84,10 @@ jobs:
         # A member lists 1400 dossiers, with their versions and 25,200 answered rounds, through
         # dossier_list() as /prd does, inside production's 8 second statement timeout (bug #1308).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_list_volume.sql
+      - name: Membership is read once per statement
+        # No policy calls is_member() with a row's column, and a member's count over 10,000 ledger
+        # events stays within 2,000 buffers: membership read per row cost 20,928 on production (bug #1832).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/rls_membership_once.sql
       - name: Who may read and write the heartbeats
         # working_ping() upserts the caller's own row and resolves its dossier (a draft, a PRD, a visual
         # or bug fix, or null); another account cannot write it, nobody signed in writes the table, a
@@ -292,6 +296,13 @@ jobs:
         # outbox_item_adopt() settles a medium item adopted. A settlement is never updated or deleted,
         # and another workspace reads nothing (PRD 1548).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/outbox_items.sql
+      - name: Who may read and write the runners, and how a runner claims a job
+        # A member of the workspace reads its runners and jobs, anyone else nothing, and nobody signed in
+        # writes them or claims. As the service role, a runner claims the oldest queued job sent to it, to
+        # its fleet, or, with no fleet only, to any runner, for a repository it holds, while a slot is free;
+        # a runner silent past the cutoff leaves its jobs failed, runner lost. Two runners claiming one job
+        # at once, in two sessions through dblink: exactly one takes it (PRD 1830).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runners.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

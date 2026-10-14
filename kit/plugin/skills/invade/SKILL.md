@@ -1,6 +1,6 @@
 ---
 name: invade
-description: Set up a repository's knowledge base from what the repository can prove — explore it read-only in four facets (its domains, the truth it writes down, the truth its code enforces, its decisions and words), show one map and take every answer in one message, then write proposed register entries (an index entry pointing at each rule a page already states, a drafted entry for each truth only the code enforces), fill the playbook forms from evidence with every command run green, leave an honest TODO(human) question where proof is missing, with design craft on draft one screen of the screen library per screen it can prove (never locked, never a law, every undecided point an open question, the drafts listed for their owner), propose the config the exploration learned — and end with one docs-only pull request a person merges. Every entry it writes is proposed, never a law until a person confirms it. With --refresh it redoes only what went stale. Never rewrites what a person wrote, never merges. Triggers on "invade this repository", "set up the knowledge base", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:invade".
+description: Set up a repository's knowledge base from what the repository can prove — explore it read-only in four facets (its domains, the truth it writes down, the truth its code enforces, its decisions and words), show one map and take every answer in one message, then write proposed register entries (an index entry pointing at each rule a page already states, a drafted entry for each truth only the code enforces), fill the playbook forms from evidence with every command run green, leave an honest TODO(human) question where proof is missing, with design craft on draft one screen of the screen library per screen it can prove (never locked, never a law, every undecided point an open question, the drafts listed for their owner), draft the product's thesis in plain words and propose at most laws.max candidate laws (locking none, naming who locks them), propose the config the exploration learned — and end with one docs-only pull request a person merges. Every entry it writes is proposed, never a law until a person confirms it. With --refresh it redoes only what went stale. Never rewrites what a person wrote, never merges. Triggers on "invade this repository", "set up the knowledge base", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:invade".
 ---
 
 # Invade: explore a repository, set up its knowledge base
@@ -20,12 +20,12 @@ registers** (3); fill the playbook — point before writing (4), fill from evide
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Evidence or nothing.** A section or an entry says only what a file in the tree shows, every command
 it names ran green first, and whatever the evidence cannot show becomes a question for a person. A
@@ -33,8 +33,10 @@ wrong claim is worse than an honest hole.
 
 **Proposed, never a law.** Every register entry this skill writes carries `Proposed: invade <today>`.
 A proposed entry resolves (an outbox item may name it in `bearsOn`), but it floors nothing and never
-stops a slice. It becomes a law only when a person deletes its `Proposed:` line (and, on a principle,
-adds `Decided:`). Merging this skill's pull request confirms nothing.
+stops a slice. It becomes a confirmed rule only when a person deletes its `Proposed:` line (and, on a
+principle, adds `Decided:`), and a law only when a CODEOWNER also locks it with a `Locked:` line.
+This skill never writes `Locked:`: it proposes a law with a `Proposed law:` line (**The thesis and
+candidate laws**). Merging this skill's pull request confirms nothing and locks nothing.
 
 ## Input
 
@@ -160,8 +162,8 @@ The same holds for the registers: an entry is this skill's only while it carries
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the
    repository is not installed, and the kit's one-line install, `omni init`, comes first (it writes
    the config, the bin and the blank forms); then run `/omni:invade` again. Keep the JSON; later
-   steps read `repo.*`, `branches.invade`, `worktrees`, `paths.*`, `commands.*`, `ci.*` and
-   `laws.source` from it. `<remote>` below is `repo.remote`, `<invade branch>` is `branches.invade`, and `<today>`
+   steps read `repo.*`, `branches.invade`, `worktrees`, `paths.*`, `commands.*`, `ci.*`,
+   `laws.source`, `laws.max` and `laws.owners` from it. `<remote>` below is `repo.remote`, `<invade branch>` is `branches.invade`, and `<today>`
    is `date -u +%F`.
 2. **The branch.** `git fetch <remote>`, then look for a pull request an earlier run left open:
    `gh pr list --head <invade branch> --base <repo.defaultBranch> --state open --json number,url`.
@@ -295,6 +297,13 @@ and how many register entries each would produce. Then ask, as **one numbered li
 Say under each default what it produces ("index: 12 entries in `domains/quote/rules.md`"), so a
 person sees the size of the proposal before anything is written.
 
+Under the list, the map shows **what every session reads** (PRD 1679): run
+`node .omni-loop/bin/omni.mjs budget measure context` and print each target and its size. Every
+target above the kit's guideline, a form over 16 KiB or a `session` over 24 KiB, is listed as a
+`TODO(human)` to trim, naming the target, its size and the guideline
+(`TODO(human): the releasing form prints 130 KB, over the 16 KiB guideline for a form. Trim it?`).
+It asks nothing: no answer is needed, and step 7 writes the same lines into the ci form.
+
 The person answers in **one message**. **Nothing is written before that answer:** no register, no
 form, no config. A reply that changes a default is taken as said; an item the reply does not mention
 takes its default. A reply that is not an answer (a question back, "wait") is answered in one line and
@@ -329,6 +338,67 @@ From the map as answered (see **A register entry, read and written** for the sha
 
 Commit the registers as their own commit, so a person can drop them alone:
 `docs(knowledge): propose register entries from the repository`.
+
+### The thesis and candidate laws
+
+Only when the front door holds the registers (`laws.source` is `knowledge`, or step 7 proposes it).
+
+**The thesis.** Draft `<paths.knowledge>/product/thesis.md`, the one page a newcomer reads first,
+from what the repository proves: its README, its docs and the rules its code enforces. Every
+sentence is plain words a junior developer or a junior PM understands without opening code: one
+idea per sentence, no file path in a statement. Exactly four sections:
+
+```markdown
+# <the product's name>
+
+## Who it is for
+- <one kind of person, one line, from the README or the docs>
+
+## What it promises
+<three to five sentences>
+
+## The laws
+No law is locked yet.
+
+## What it refuses
+- <what the product will never do, one line each>
+```
+
+- **Evidence or a question.** A sentence no file shows is never written: in its place, a
+  `TODO(human): <the question, in plain words>` line, as a form's hole is. A section with no evidence
+  at all holds only its question.
+- **The laws section names no id.** `omni check knowledge` refuses a thesis whose laws section names
+  an entry nobody locked, and this skill locks nothing: it holds `No law is locked yet.`, or, when
+  a person locked laws already, their lines as they are.
+- **Whose it is.** A thesis this skill wrote, and whose text no person changed since, is redone on
+  `--refresh`; one a person wrote or edited is a person's, kept as written, and a contradiction is
+  named under **Reviewer focus**.
+
+**Candidate laws.** Of the entries the registers hold, pick the few truths that cost the most when
+broken, at most `laws.max` (`omni config laws.max`), counting the `Proposed law:` lines already
+there. Each is a rule or an invariant with an `Enforced by:` test, never a principle. On each entry
+this skill wrote (one carrying `Proposed: invade`), add two lines:
+
+```markdown
+Governs: ^<a path prefix the rule rules over>, ^<another>
+Proposed law: <one plain sentence: what breaks, and who gets hurt>.
+```
+
+- **A person's entry is never edited** (**A register entry, read and written**), not even to add
+  these two lines: a candidate among them is listed in the pull request's **Candidate laws** with
+  its sentence and its `Governs:` written there, for its owner to add.
+- `Governs:` lists regular expressions over repository paths, comma-separated, written as a flow
+  area's `paths` are (`^kit/lib/outbox/`): the files the rule rules over, starting from the folder
+  of its `Enforced by:` test and of the code that test reads.
+- The `Proposed law:` sentence is for a junior developer or a junior PM: what breaks for whom, with
+  no id, no path and no code (`If a quote's total leaves out the tax, customers are billed the wrong amount.`).
+- **Lock none.** Never write `Locked:`, never touch a `Locked:` line a person wrote, and never write
+  a law line in the thesis. Too few truths worth a law: propose fewer, or none; never pad to the cap.
+- `node .omni-loop/bin/omni.mjs check knowledge` exits `0` once they are written, and
+  `node .omni-loop/bin/omni.mjs kb laws --paths <a file one Governs: names>` prints its rule.
+
+Commit them as their own commit:
+`docs(knowledge): draft the thesis and propose candidate laws`.
 
 ## 4. Point before writing
 
@@ -394,8 +464,8 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   - A command that changes tracked files (a formatter, a code generator) leaves the tree as it found
     it: before you go on, `git status --porcelain` shows only the files this run wrote;
     `git restore <path>` the rest.
-  - A command that runs longer than a few minutes runs in the background (Bash
-    `run_in_background: true`); act when it wakes you.
+  - A command that runs longer than a few minutes runs in the background, and you act when it ends
+    (in Claude: Bash with `run_in_background: true`).
 - **Front matter.** A form whose sections hold any text, `See:` line or question is
   `state: filled`, with `invaded: <today>`. A form left wholly empty stays `state: blank`,
   `evidence: []`, `invaded: null`.
@@ -531,6 +601,7 @@ counts as unset. Then the keys the exploration and the map settle:
 | `design.paths` | the flag is `true` and the list is empty: one glob per tracked folder or file kind facet 4's `design` row found holding screens, styles, tokens or components, each named in the body with the file that shows it |
 | `commands.design` | the flag is `true`, the key is `null`, and a design linter is already among the dependencies (never one this run installs): its command over the screens' folders, run once from the worktree's root. It is proposed when it runs to its report, whatever it finds, since the design review only reports; one that cannot start is a question, never proposed |
 | `flow.areas.migrations` | the enforced-truth facet found a tracked folder of database migrations, and no area of `flow` nor pattern of `landings.alone` already matches it: an area named `migrations` whose `paths` is one anchored pattern per such folder, with `rules.plan` `[{ slice: { alone: true } }, { landing: alone }]` (see **A proposed flow**) |
+| `budgets.context.enabled` | the key is not `true`: `true`, once the ceilings are written (**Budgets**, below) |
 
 `proof.bypassEnv` is proposed by its name only, the environment variable a person fills, never its value.
 Nothing else in the config is proposed. A command for which nothing runs green keeps its value, and
@@ -538,6 +609,24 @@ the verification form asks. Edit the config file (`.omni-loop/config.yml`), then
 `node .omni-loop/bin/omni.mjs config`: it must still print. The config change is **its own commit**,
 so the pull request's diff is the proposal and a person can drop it alone. A key that turns
 `omni check all` red is left out, and named in the body.
+
+**Budgets** (PRD 1679). Once every form is written (steps 5 and 6, so the sizes are the ones this
+pull request merges), and before the config commit:
+
+1. Run `node .omni-loop/bin/omni.mjs budget measure context` again. A target it cannot measure (a
+   missing context file, a pointer that leads nowhere) is a question in the form that holds it, and
+   is fixed or asked before going on.
+2. Fill the ci form's **Budgets** section: the ceilings file, that what grows past a ceiling is
+   trimmed first and raised only through a high outbox item a person answers, and one
+   `TODO(human)` line per target above the guideline, as the map listed them with this run's sizes
+   (a form over 16 KiB, a `session` over 24 KiB). The guideline is a hint for a person, never a
+   check: nothing turns red on it. The section is written before the ceilings, so the ci form's
+   own ceiling counts it.
+3. Run `node .omni-loop/bin/omni.mjs budget set context`: it writes the ceilings file
+   `budgets.context.file` names, each target at today's size rounded up to the next KiB, so
+   installing never turns anything red. It never raises a ceiling that exists; on `--refresh` it
+   writes only the targets that have none yet. Commit the file with the config.
+4. Propose `budgets.context.enabled: true` (the table above).
 
 **A proposed flow.** The repository's flow (the `flow` section: rules, areas and hooks) is proposed
 from what the repository proves, never applied: it lands in the same config commit, a person merges or drops it.
@@ -567,19 +656,19 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
 
 1. **Docs-only.** `git diff --name-only <remote>/<repo.defaultBranch>...HEAD` names only files
    under the front door (the registers, the forms, repatriated records), the draft screens of the
-   screen library, and the config file. Anything else leaves the branch.
+   screen library, the config file, and the ceilings file `budgets.context.file` names. Anything
+   else leaves the branch.
 2. **Checks,** all green before the pull request is opened (warnings allowed):
    `node .omni-loop/bin/omni.mjs check knowledge` exits `0`, with one warning per proposed entry;
    `node .omni-loop/bin/omni.mjs check kb` exits `0`: no error, and one warning per question (a blank
    required slot of a core form would warn too, and should not remain). Fix every error either
    names. With the design flag on, `node .omni-loop/bin/omni.mjs check design` exits `0`. Then
    `node .omni-loop/bin/omni.mjs check all`, green.
-3. **Commits,** Conventional Commits, each ending with the co-author trailer your session requires,
-   then the `omni sign trailer` line:
-   the registers as step 3 names them, the forms as
-   `docs(knowledge): fill the playbook forms from evidence` (with `--refresh`:
-   `docs(knowledge): refresh the stale playbook forms`), the config as
-   `chore(config): <what the exploration learned>`.
+3. **Commits,** Conventional Commits, each ending with the co-author trailer your agent adds, if it
+   adds one (in Claude: the `Co-Authored-By` line its session gives), then the `omni sign trailer`
+   line: the registers as step 3 names them, the forms as `docs(knowledge): fill the playbook forms
+   from evidence` (with `--refresh`: `docs(knowledge): refresh the stale playbook forms`), the
+   config as `chore(config): <what the exploration learned>`.
 4. **Push:** `git push -u <remote> <invade branch>`. When step 0 started from the default branch
    over an older branch of that name, add `--force-with-lease`; never force a branch whose pull
    request is open.
@@ -609,6 +698,18 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
    `Decided:` line saying who decided it and when), in this pull request or any later one. Merging
    confirms nothing.
 
+   ## Candidate laws
+
+   | Entry | If it breaks | Governs | Written |
+   |---|---|---|---|
+   | `<id>` | <its `Proposed law:` sentence> | `<its Governs: patterns>` | on the entry \| for its owner to add |
+
+   None is locked. A law is locked by <each of `laws.owners`, as @<login>; or, when it is empty,
+   "a CODEOWNER, once `laws.owners` names one">: in a later pull request, they confirm the entry,
+   replace its `Proposed law:` line with `Locked: @<login>, <date>`, add its line to the thesis's
+   laws section, and approve that pull request on GitHub. A candidate they strike loses its
+   `Proposed law:` line and stays a rule.
+
    ## Forms
 
    ```text
@@ -634,6 +735,7 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
    ````
 
    The **Draft screens** section is there only when step 5 drafted a screen; otherwise leave it
+   out. The **Candidate laws** section is there only when step 3 proposed one; otherwise leave it
    out.
 
    **Every hole is a checkbox**, one per entry in `questions` of
@@ -666,6 +768,8 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
   entries this skill wrote whose `Source:` or `Enforced by:` changed or is gone, fixed or removed.
   **A confirmed entry is never touched** (one without a `Proposed:` line): when the evidence now
   contradicts it, keep it as written and say so under **Reviewer focus**.
+- **The thesis and candidate laws:** the thesis redone only while it is still this skill's; new
+  candidates only for new entries, the cap counting every `Proposed law:` line already there.
 - **Draft screens,** with the design flag on: only a screen the re-run facets found that the
   library does not hold, asked at the map, and the drafts whose **Source** names `/omni:invade` and
   that are still `status: draft`, whose evidence changed or is gone: redone from it, or removed. A
@@ -702,6 +806,8 @@ at, at Settings › Business › Draft from my repos, and every drafted claim wa
   a question belongs.
 - Never invents a visual direction: the `design` form describes the product's own look from its
   files, and what it does on purpose is a person's to confirm.
+- Never writes a `Locked:` line: at most `laws.max` candidate laws, each a `Proposed law:` line in
+  plain words with its `Governs:` line, and its pull request names who locks them.
 - Never locks a screen or a law, and never writes a law: every screen it drafts is a draft from
   evidence, every undecided point an open question, and the `language` slot a person's.
 - Asks once, at the map; writes nothing before the answer.

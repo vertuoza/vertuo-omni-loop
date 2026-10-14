@@ -70,12 +70,12 @@ describe('githubFetch: conditional requests', () => {
     expect(await store.etag(42, GRAPHQL)).toBeNull();
   });
 
-  it('marks a stored ETag read when it answers a 304', async () => {
+  it('marks a stored ETag read when it answers a 304 a day or more after its last read', async () => {
     const { client, store, at } = setup(ok({ n: 1 }, { etag: '"a"' }), new Response(null, { status: 304 }));
     await call(client);
-    at(T0 + 60_000);
+    at(T0 + 24 * 3_600_000);
     await call(client);
-    expect(await store.etag(42, ISSUE)).toMatchObject({ readAt: T0 + 60_000 });
+    expect(await store.etag(42, ISSUE)).toMatchObject({ readAt: T0 + 24 * 3_600_000 });
   });
 
   it('strips its own options before the request goes out', async () => {
@@ -208,5 +208,102 @@ describe('boundFetch', () => {
     expect(sent).toHaveLength(1);
     expect(await store.budget(42, 'core')).toMatchObject({ remaining: 10 });
     await expect(fetch(ISSUE, {})).rejects.toBeInstanceOf(GithubDeferred);
+  });
+});
+
+describe('githubFetch: what a read writes (#1851)', () => {
+  /** The store, every write it took counted by kind. */
+  function counted() {
+    const inner = memoryGithubStore();
+    const writes = { saveBudget: 0, saveEtag: 0, touchEtag: 0 };
+    const store: GithubStore = {
+      ...inner,
+      saveBudget: (...args) => { writes.saveBudget += 1; return inner.saveBudget(...args); },
+      saveEtag: (...args) => { writes.saveEtag += 1; return inner.saveEtag(...args); },
+      touchEtag: (...args) => { writes.touchEtag += 1; return inner.touchEtag(...args); },
+    };
+    return { store, writes };
+  }
+  function counting(...answers: Answer[]) {
+    const github = stubGithub(...answers);
+    const { store, writes } = counted();
+    let now = T0;
+    const client = githubClient({ store, fetch: github.fetch, clock: () => now, log: () => {} });
+    return { ...github, store, writes, client, at: (t: number) => { now = t; } };
+  }
+
+  it('writes the budget once for a run of reads in one window, not after every answer', async () => {
+    const { client, writes, at } = counting(...Array.from({ length: 10 }, (_, i) => ok({}, limits(4000 - i))));
+    for (let i = 0; i < 10; i += 1) {
+      at(T0 + i * 1000);
+      await call(client, ISSUE, 'background');
+    }
+    expect(writes.saveBudget).toBe(1);
+  });
+
+  it('does not write a stored ETag again for every 304 within a day of its last read', async () => {
+    const { client, writes, at } = counting(ok({ n: 1 }, { etag: '"a"' }), ...Array.from({ length: 5 }, () => new Response(null, { status: 304, headers: limits(4000) })));
+    await call(client);
+    for (let i = 1; i <= 5; i += 1) {
+      at(T0 + i * 60_000);
+      expect(await (await call(client)).json()).toEqual({ n: 1 });
+    }
+    expect(writes.touchEtag).toBe(0);
+  });
+
+  it('does not store a body over 512 kB: a list page that changes on every update is not kept', async () => {
+    const page = Array.from({ length: 3000 }, (_, i) => ({ number: i, title: 'a pull request title of a few words', body: 'x'.repeat(200) }));
+    const { client, writes, store } = counting(ok(page, { etag: '"big"' }));
+    expect(await (await call(client)).json()).toHaveLength(3000);
+    expect(writes.saveEtag).toBe(0);
+    expect(await store.etag(42, ISSUE)).toBeNull();
+  });
+
+  it('writes the budget again once remaining moved by 2% of the limit, or the stored one is a minute old', async () => {
+    const { client, writes, at } = counting(ok({}, limits(4000)), ok({}, limits(3901)), ok({}, limits(3900)), ok({}, limits(3899)), ok({}, limits(3898)));
+    await call(client);
+    await call(client);
+    expect(writes.saveBudget).toBe(1);
+    await call(client);
+    expect(writes.saveBudget).toBe(2);
+    at(T0 + 59_999);
+    await call(client);
+    expect(writes.saveBudget).toBe(2);
+    at(T0 + 60_000);
+    await call(client);
+    expect(writes.saveBudget).toBe(3);
+  });
+
+  it('writes every answer within 2% of the background floor, so the floor still refuses on time', async () => {
+    const { client, writes, sent } = counting(ok({}, limits(1150)), ok({}, limits(1100)), ok({}, limits(1099)), ok({}, limits(999)));
+    await call(client, ISSUE, 'background');
+    await call(client, ISSUE, 'background');
+    expect(writes.saveBudget).toBe(1);
+    await call(client, ISSUE, 'background');
+    await call(client, ISSUE, 'background');
+    expect(writes.saveBudget).toBe(3);
+    await expect(call(client, ISSUE, 'background')).rejects.toBeInstanceOf(GithubDeferred);
+    expect(sent).toHaveLength(4);
+  });
+
+  it('writes the budget of a new window, a new limit, or a resource the call did not guess', async () => {
+    const { client, writes, store } = counting(
+      ok({}, limits(4000)), ok({}, limits(4999, { reset: RESET + 3600 })), ok({}, limits(14_999, { limit: 15_000, reset: RESET + 3600 })),
+      ok({}, limits(29, { limit: 30, resource: 'search' })),
+    );
+    await call(client);
+    await call(client);
+    await call(client);
+    await call(client);
+    expect(writes.saveBudget).toBe(4);
+    expect(await store.budget(42, 'core')).toMatchObject({ limit: 15_000, remaining: 14_999, resetAt: (RESET + 3600) * 1000 });
+    expect(await store.budget(42, 'search')).toMatchObject({ remaining: 29 });
+  });
+
+  it('stores a body of 512 kB exactly', async () => {
+    const body = 'x'.repeat(512 * 1024 - 2);
+    const { client, store } = counting(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json', etag: '"edge"', ...limits(4000) } }));
+    await call(client);
+    expect((await store.etag(42, ISSUE))?.body).toHaveLength(512 * 1024);
   });
 });

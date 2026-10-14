@@ -1,10 +1,10 @@
 // A kart on the circuit (PRD 1359): its speed along the way it faces, steering that falls off with
-// speed, and the void that takes it once all of it has tipped over the edge. Pure: one
+// speed, and the wheels that lean it and slide it towards the void, and the void that takes it once both wheels of a side, or its centre, have tipped over the edge. Pure: one
 // step of a kart is one call, and the race plays `dt` as several short ones (race.ts).
 import type { Action } from '../keys';
 import type { KartItem as Item } from '../scenes/kart.ts';
 import { RULES } from './rules';
-import { TILE, tileAt } from './track';
+import { roadAt, TILE, tileAt, type Ground } from './track';
 
 /** A kart: where it stands, the way it faces (radians from east, y down) and its speed along that way (negative: reversing). */
 export interface Kart {
@@ -14,7 +14,13 @@ export interface Kart {
   readonly speed: number;
   /** The way it is steered, -1 left to 1 right: the kart leans into it. */
   readonly steer: -1 | 0 | 1;
+  /** Its height over the ground (PRD 1775) and its vertical speed: absent on the road. A kart is in the air while either is above 0. */
+  readonly height?: number;
+  readonly lift?: number;
 }
+
+/** Whether a kart is in the air: it takes no box, no pad and no push, and cannot tip over. */
+export const airborne = (k: { height?: number; lift?: number }): boolean => (k.height ?? 0) > 0 || (k.lift ?? 0) > 0;
 
 /** What the player's hands ask of a kart: the buttons that count. */
 export interface Pad { left: boolean; right: boolean; accel: boolean; brake: boolean }
@@ -46,66 +52,138 @@ function speedAfter(speed: number, pad: Pad, top: number, dt: number): number {
   return next > top ? Math.max(top, next - RULES.overspeedDrag * dt) : next;
 }
 
-/** One short step of the kart's motion: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. */
-function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean): Kart {
-  const top = boost ? RULES.topSpeed * RULES.boostFactor * pace : RULES.topSpeed * pace;
+/** What a slope does to the top speed: less uphill, more downhill, never under 0.67 nor over 1.33 of the flat one. */
+const climbOf = (slope: number): number => Math.min(1.33, Math.max(0.67, 1 - RULES.climb * slope));
+
+/** One short step of the kart's motion: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `slope` is how much the ground rises a unit ahead of it. */
+function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean, slope = 0): Kart {
+  const top = (boost ? RULES.topSpeed * RULES.boostFactor * pace : RULES.topSpeed * pace) * climbOf(slope);
   const speed = speedAfter(k.speed, boost ? { ...pad, accel: true, brake: false } : pad, top, dt);
-  const dir = (pad.right ? 1 : 0) - (pad.left ? 1 : 0);
+  const dir = dirOf(pad);
   const angle = k.angle + dir * Math.sign(speed) * turnRate(speed) * dt;
   const x = k.x + Math.cos(angle) * speed * dt, y = k.y + Math.sin(angle) * speed * dt;
-  return { x, y, angle, speed, steer: dir === 0 ? 0 : dir > 0 ? 1 : -1 };
+  return { x, y, angle, speed, steer: dir };
 }
 
-/** One short step of a kart: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `pace` scales its top speed (a rival's skill). */
-export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false): Kart {
-  return moveKart(k, pad, dt, pace, boost);
+/** One short step of a kart: the speed the pad asks for (a `boost` always asks for the gas), the turn and the move. `pace` scales its top speed (a rival's skill), `slope` the ground's rise a unit ahead. */
+export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false, slope = 0): Kart {
+  return moveKart(k, pad, dt, pace, boost, slope);
 }
 
 /** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left, the seconds of falling left (PRD 1447) and the seconds it still blinks after the way back. */
-export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number; readonly fall: number; readonly blink: number }
+export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number; readonly fall: number; readonly blink: number; /** How long, in seconds, both wheels of one side have been over the void in a row (PRD 1775): the kart tips over once it reaches `RULES.tipGrace`. */ readonly tip: number }
 
 /** A kart with nothing held and nothing on it. */
-export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0, blink: 0 });
+export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0, blink: 0, tip: 0 });
 
 const HANDS_OFF: Pad = { left: false, right: false, accel: false, brake: false };
 
 /**
- * Whether a kart has tipped over the edge: no tile but the void within `RULES.overhang` of its centre. Its centre may go
+ * Whether a kart has tipped over the edge: no road pixel but only void within `RULES.overhang` of its centre. Its centre may go
  * over the void, and most of its body with it, without falling while any of it is still over the road.
  */
-export function tippedOver(map: readonly string[], k: { x: number; y: number }): boolean {
+export function tippedOver(map: Ground, k: { x: number; y: number }): boolean {
   const reach = RULES.overhang;
-  for (let ty = Math.floor((k.y - reach) / TILE); ty <= Math.floor((k.y + reach) / TILE); ty++) {
-    for (let tx = Math.floor((k.x - reach) / TILE); tx <= Math.floor((k.x + reach) / TILE); tx++) {
-      if (tileAt(map, tx, ty) === '~') continue;
-      const dx = k.x - Math.max(tx * TILE, Math.min(k.x, (tx + 1) * TILE));
-      const dy = k.y - Math.max(ty * TILE, Math.min(k.y, (ty + 1) * TILE));
+  if (roadAt(map, k.x, k.y)) return false;
+  for (let py = Math.floor(k.y - reach); py <= Math.floor(k.y + reach); py++) {
+    for (let px = Math.floor(k.x - reach); px <= Math.floor(k.x + reach); px++) {
+      if (!roadAt(map, px, py)) continue;
+      const dx = k.x - Math.max(px, Math.min(k.x, px + 1));
+      const dy = k.y - Math.max(py, Math.min(k.y, py + 1));
       if (dx * dx + dy * dy < reach * reach) return false;
     }
   }
   return true;
 }
 
-/** A kart that has tipped over the edge and is not already falling starts to fall: at rest, its BOOST and any spin-out ended, the item it holds kept. Anything else is the same objects back. */
-export function fallIfOver<T extends { x: number; y: number; speed: number; steer: number }>(map: readonly string[], k: T, fx: Fx): { kart: T; fx: Fx } {
-  if (fx.fall > 0 || !tippedOver(map, k)) return { kart: k, fx };
-  return { kart: { ...k, speed: 0, steer: 0 }, fx: { ...fx, boost: 0, spin: 0, fall: RULES.fallTime } };
+/** How many of a kart's wheels are over the void, on its left and on its right: the wheels stand `RULES.wheelAlong` ahead and behind its centre, `RULES.wheelAcross` to each side. */
+export function wheelsOver(map: Ground, k: { x: number; y: number; angle: number }): { left: number; right: number } {
+  const cos = Math.cos(k.angle), sin = Math.sin(k.angle);
+  let left = 0, right = 0;
+  for (const along of [RULES.wheelAlong, -RULES.wheelAlong]) {
+    for (const side of [-1, 1] as const) {
+      // Its right is a quarter turn clockwise from the way it faces, y down.
+      const x = k.x + cos * along - sin * side * RULES.wheelAcross, y = k.y + sin * along + cos * side * RULES.wheelAcross;
+      if (roadAt(map, x, y)) continue;
+      if (side < 0) left++; else right++;
+    }
+  }
+  return { left, right };
+}
+
+/** The way a kart leans over the void, -1 (both wheels of its left over it) to 1 (both of its right): half a side for one more wheel out on that side. 0 when level. */
+export function leanOf(map: Ground, k: { x: number; y: number; angle: number }): number {
+  const { left, right } = wheelsOver(map, k);
+  return (right - left) / 2;
+}
+
+/** Whether a kart tips over on its side: both wheels of one side over the void. */
+export function tipsOver(map: Ground, k: { x: number; y: number; angle: number }): boolean {
+  const { left, right } = wheelsOver(map, k);
+  return left === 2 || right === 2;
+}
+
+/** A kart with more wheels over the void on one side slides towards that side at `RULES.tipPull` a second: the player can steer back onto the road. */
+function pulledOver(map: Ground, k: Kart, dt: number): Kart {
+  const { left, right } = wheelsOver(map, k);
+  if (left === right) return k;
+  const pull = Math.sign(right - left) * RULES.tipPull * dt;
+  return { ...k, x: k.x - Math.sin(k.angle) * pull, y: k.y + Math.cos(k.angle) * pull };
+}
+
+/**
+ * A kart whose centre is `RULES.overhang` past the edge and is not already falling starts to fall at once: at rest, its BOOST and any spin-out ended, the item it holds kept.
+ * One with both wheels of one side over the void counts `dt` more seconds, and falls the same way once it has stayed out `RULES.tipGrace` in a row; a wheel back over the road starts the count again from 0.
+ * With `dt` 0 (after a push) the count is only read, never moved. A kart in the air never falls. Anything else is the same objects back.
+ */
+export function fallIfOver<T extends { x: number; y: number; angle: number; speed: number; steer: number; height?: number; lift?: number }>(map: Ground, k: T, fx: Fx, dt = 0): { kart: T; fx: Fx } {
+  if (fx.fall > 0 || airborne(k)) return { kart: k, fx };
+  const tips = tipsOver(map, k);
+  const tip = tips ? fx.tip + dt : dt > 0 ? 0 : fx.tip;
+  if (tippedOver(map, k) || (tips && tip >= RULES.tipGrace - 1e-9)) {
+    return { kart: { ...k, speed: 0, steer: 0 }, fx: { ...fx, boost: 0, spin: 0, fall: RULES.fallTime, tip: 0 } };
+  }
+  return tip === fx.tip ? { kart: k, fx } : { kart: k, fx: { ...fx, tip } };
 }
 
 /**
  * One short step of a kart with what is on it: a fall takes the input and holds the kart where it is, a spin-out takes the input and turns the kart on itself
- * (the speed it dropped to wears off like any other), a BOOST drives faster, and the timers run down. A kart that tips over the edge starts to fall.
+ * (the speed it dropped to wears off like any other), a BOOST drives faster, a slope changes the top speed, a wheel over the void draws it towards the edge, and the timers run down. A kart that tips over the edge, or stays on its side over the void for the grace, starts to fall.
  * The kart's `fx` after the step is returned with it, and whether its fall ended in this step (`landed`):
  * the way back is the race's to place (rivals.ts), never this step's.
  */
-export function stepFx(map: readonly string[], k: Kart, pad: Pad, dt: number, pace: number, fx: Fx): { kart: Kart; fx: Fx; landed: boolean } {
+export function stepFx(map: Ground, k: Kart, pad: Pad, dt: number, pace: number, fx: Fx, slope = 0): { kart: Kart; fx: Fx; landed: boolean } {
   if (fx.fall > 0) {
     const fall = Math.max(0, fx.fall - dt);
     return { kart: k, landed: fall === 0, fx: { ...fx, fall, blink: Math.max(0, fx.blink - dt) } };
   }
   const spinning = fx.spin > 0;
-  const moved = moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0);
+  if (airborne(k)) return fly(map, k, spinning ? HANDS_OFF : pad, dt, fx, spinning);
+  const moved = pulledOver(map, moveKart(k, spinning ? HANDS_OFF : pad, dt, pace, !spinning && fx.boost > 0, slope), dt);
   const kart = spinning ? { ...moved, angle: moved.angle + RULES.spinRate * dt, steer: 0 as const } : moved;
+  const onPad = tileAt(map.map, Math.floor(kart.x / TILE), Math.floor(kart.y / TILE)) === '+';
+  const ran: Fx = { ...fx, boost: onPad ? RULES.boostTime : Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };
+  const flying = leavesRamp(map, k, kart) ? { ...kart, height: 0, lift: RULES.launch * kart.speed } : kart;
+  return { ...fallIfOver(map, flying, ran, dt), landed: false };
+}
+
+/** Whether a kart going forwards left a ramp tile in this step, onto a tile that is not a ramp: it takes off. */
+function leavesRamp(map: Ground, from: Kart, to: Kart): boolean {
+  if (to.speed <= 0) return false;
+  const was = tileAt(map.map, Math.floor(from.x / TILE), Math.floor(from.y / TILE));
+  return was === '^' && tileAt(map.map, Math.floor(to.x / TILE), Math.floor(to.y / TILE)) !== '^';
+}
+
+/** The way a pad steers, -1 left to 1 right. */
+const dirOf = (pad: Pad): -1 | 0 | 1 => (pad.right === pad.left ? 0 : pad.right ? 1 : -1);
+
+/** One short step of a kart in the air: its speed holds, it steers at `RULES.airSteer` of its turn rate, gravity pulls it down, no wheel pulls it and it cannot tip over. It lands when its height comes back to 0, and the ordinary rules apply there. */
+function fly(map: Ground, k: Kart, pad: Pad, dt: number, fx: Fx, spinning: boolean): { kart: Kart; fx: Fx; landed: boolean } {
+  const dir = dirOf(pad);
+  const angle = k.angle + dir * Math.sign(k.speed) * turnRate(k.speed) * RULES.airSteer * dt + (spinning ? RULES.spinRate * dt : 0);
+  const aloft = { x: k.x + Math.cos(angle) * k.speed * dt, y: k.y + Math.sin(angle) * k.speed * dt, angle, speed: k.speed, steer: spinning ? 0 as const : dir };
+  const lift = (k.lift ?? 0) - RULES.gravity * dt;
+  const height = (k.height ?? 0) + lift * dt;
   const ran: Fx = { ...fx, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };
-  return { ...fallIfOver(map, kart, ran), landed: false };
+  return height > 0 ? { kart: { ...aloft, height, lift }, fx: ran, landed: false } : { ...fallIfOver(map, aloft, ran, dt), landed: false };
 }

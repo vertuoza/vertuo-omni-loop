@@ -1,6 +1,6 @@
 ---
 name: wave
-description: Build ONE wave of a PRD in parallel — read the board, claim every takeable slice, dispatch one worktree subagent per slice following /omni:do-work --in-wave, then merge their sub-PRs into the feature branch one at a time, check the wave together, adopt its medium decisions and report. Followed by /omni:yolo for each wave; a person may run it on a PRD. Never merges into the default branch. Triggers on "run the next wave", "build wave 3", "/omni:wave".
+description: Build ONE wave of a PRD in parallel — read the board, claim every takeable slice, start one agent per slice, each in its own worktree, following /omni:do-work --in-wave, then merge their sub-PRs into the feature branch one at a time, check the wave together, adopt its medium decisions and report. A PRD whose plan has fewer slices than wave.inlineBelow is built inline instead, one slice after the other and committed on the feature branch itself, with no claim and no sub-PR. Followed by /omni:yolo for each wave; a person may run it on a PRD. Never merges into the default branch. Triggers on "run the next wave", "build wave 3", "/omni:wave".
 ---
 
 <!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-parallel-wave/SKILL.md (and the board and wave-loop parts of vertuo-deliver) — changes in kit/porting/plugin--wave.md -->
@@ -10,14 +10,14 @@ description: Build ONE wave of a PRD in parallel — read the board, claim every
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
-Each slice is built by its own subagent in its own worktree and ends in its own sub-PR into the
+Each slice is built by its own agent in its own worktree and ends in its own sub-PR into the
 feature branch. You, the orchestrator, only ever hold each slice's short result; that is what keeps
 this conversation small. You merge; subagents never do.
 
@@ -45,7 +45,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`. The feature branch is `branches.feature` with `{topic}` filled by
 the PRD folder's topic (`node .omni-loop/bin/omni.mjs board <prd> --json` prints it as `prd.topic`).
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -118,7 +118,64 @@ do not re-derive blockers, staleness or collisions.
 carries `labels.inProgress` is finished work a previous run never merged. Nobody is on it: it skips
 steps 2 and 3 and joins step 4 as `done`. Every other `in-flight` slice is someone else's; leave it.
 
+**Behind the default branch.** When the board's `base.behind` is `true`, the feature branch (or the
+current landing's branch, the one `base.branch` names) does not carry what the default branch
+merged since it was cut: most often the phase-0 PR, reviewed after the plan was written, whose spec
+and plan are the approved ones. Never claim or dispatch on it: first follow `/omni:yolo`'s **Meet
+the default branch** (its step 1) — merge `base.onto` into it in a detached worktree, the PRD's
+folder taking the default branch's side, any other conflict the **Stuck** path — then read the
+board again, from a checkout refreshed onto the pushed branch, and act on that board. `base` `null`
+(the current landing is stacked on the one before) or `behind` `false` or `null`: carry on.
+
 `takeable` empty and nothing awaiting merge: print the board and stop.
+
+**An inline wave.** The board's `inline` (`omni board <prd> --json`) is `true` when
+`node .omni-loop/bin/omni.mjs config wave.inlineBelow` is set (above `0`) and the plan has fewer
+slices than it, the current landing's for a PRD of several landings. Then this wave is **inline**:
+skip steps 2, 3 and 4, follow **Inline wave** below, then steps 5 and 6. `inline` `false` (or
+`wave.inlineBelow` at its default `0`): every step runs as written, and **Inline wave** does not
+apply.
+
+## Inline wave
+
+A plan this small has its feature PR for the record of every slice, so no slice is claimed, none
+opens a sub-PR, and nobody merges one. Each slice is built by `/omni:do-work --inline` on the feature
+branch itself and ends in commits there. `omni board` reads a slice as merged once a commit on the
+feature branch carries its `Omni-Slice: <id>` trailer line, so a later wave never builds it twice.
+The territory, the outbox items and their accounts, the wave's check (step 5) and the feature PR
+as the one pull request into the default branch all stay.
+
+Before the first slice, `git fetch <remote>` and keep `git rev-parse <remote>/<feature branch>`:
+**the feature branch before the wave**, which step 5 rebuilds from.
+
+Take `frontier.takeable` **one slice at a time**, in board order: slices share one branch, so they
+never run side by side. Each takes the next from the feature branch as the last one left it.
+
+1. **Dispatch** one agent, in its own worktree (in Claude: an Agent call with
+   `isolation: "worktree"`). Keep the prompt this small:
+
+   > Build slice `<id>` of PRD <prd>, inline on feature branch `<feature branch>`: follow
+   > `/omni:do-work --inline`. Do not spawn subagents. Return only do-work's result JSON: no diffs,
+   > no logs.
+
+   Nesting is at most three levels, as in step 3, so the subagent never dispatches its own. Its
+   result is the shape step 3 names, with `branch` the feature branch and `prUrl` `null`. A subagent
+   that returns nothing usable counts as `red`, with "no result" as its summary.
+2. **Territory.** `git fetch <remote>`, then
+   `git diff --name-only <the feature branch before the slice>..<remote>/<feature branch>` against
+   the slice's `territory`, as step 4 item 2 reads it (the outbox dir and a generated entry's `path`
+   are never a breach). A path outside is a **breach**: name it in the report and carry on, never
+   fatal.
+3. **The result.** `done`: the slice is built; go on to the next. `red`, `stopped` or `blocked`: it
+   is **not built**, and its commits carry no `Omni-Slice` line, so the board still holds it. Report
+   what it names (the red step, the law or principles, the human-action item); the feature PR's
+   status comment (step 5 item 4) says `stuck` and names it; the slices that wait on it stay
+   blocked, and its siblings still run.
+
+A slice does not wait for the board to catch up: after every `done`, `omni board <prd> --json`
+shows it `merged` and frees what depended on it. Run `omni plan check <prd>` once, after the last
+slice (as step 4 does before its merges); red means a slice broke the plan: say so in the report
+and carry on.
 
 ## 2. Claim every slice first
 
@@ -136,10 +193,11 @@ Claim mode leaves your checkout on the last slice branch it cut, and git refuses
 out in a second worktree. Once every claim is made, run `git switch --detach`, so each subagent's
 worktree can take its own slice branch.
 
-## 3. Dispatch, one subagent per slice, in a single message
+## 3. Dispatch, one agent per slice, all at once
 
-Launch every claimed slice concurrently (one message, several Agent calls), each with
-`isolation: "worktree"`. Keep the prompt this small:
+Start one agent per claimed slice, each in its own worktree, all at once (in Claude: one message
+with several Agent calls, each `isolation: "worktree"`, in the background). Keep the prompt this
+small:
 
 > Build slice `<id>` of PRD <prd>, on feature branch `<feature branch>`: follow `/omni:do-work
 > --in-wave`. Its slice branch is already claimed. Do not spawn subagents. Return only do-work's
@@ -239,9 +297,10 @@ A slice that is not merged holds only what depends on it; the rest of the wave g
 Slices that each passed alone can fail together. Work in a detached worktree of the feature branch:
 run `git fetch <remote>`, then `git worktree add --detach <path> <remote>/<feature branch>`.
 
-1. **Adopt.** Under `--in-wave`, do-work leaves medium items open so parallel slices do not race on
-   the ledger. For every item a merged slice returned with rank `medium`, run the command below. A slice that was
-   awaiting merge returned nothing this run, so use the open medium item files for that slice
+1. **Adopt.** Under `--in-wave` (and `--inline`), do-work leaves medium items open so the slices do
+   not race on the ledger. For every item a merged (or, inline, built) slice returned with rank
+   `medium`, run the command below. A slice that was awaiting merge returned nothing this run, so
+   use the open medium item files for that slice
    listed by `node .omni-loop/bin/omni.mjs prd <prd>`. The command is
    `node .omni-loop/bin/omni.mjs adopt <file>`. Exit 1 (the ledger refused it): leave that item
    open and name the refusal in the report. Commit the ledger and the removed files together:
@@ -259,11 +318,13 @@ run `git fetch <remote>`, then `git worktree add --detach <path> <remote>/<featu
    trailer, then the `omni sign trailer` line. Nothing stale, or a build that changed nothing: no
    commit.
 3. `git push <remote> HEAD:<feature branch>`, then `git worktree remove <path>`.
-4. **The feature PR.** Tick each merged slice in its **Slices** checklist (`#<sub-PR> <title>`), in
+4. **The feature PR.** Tick each merged slice in its **Slices** checklist (`#<sub-PR> <title>`; an
+   inline slice, `<title> — built inline`, its commit's short sha after it), in
    the body shape `/omni:pr` owns (`gh pr edit <feature PR> --body-file <file>`), which keeps its
    `omni sign footer` line. Rewrite its status
    comment through `/omni:pr`'s marker recipe: state `merging slices` (or `stuck`, naming the red
-   step), `slices: <merged> / <total> merged`. Never mark the feature PR ready.
+   step, or the inline slice that is not built), `slices: <merged> / <total> merged`. Never mark the
+   feature PR ready.
 
 ## 6. Report
 
@@ -283,6 +344,9 @@ verb) means it has no page to show: the line is
 | s7 | #14 | stopped: `<law>` | — | — | … | … |
 | s8 | #15 | stuck (`labels.needsFix`) | — | — | … | … |
 
+An inline wave has no sub-PR: its column reads `inline`, its outcome `built` (or, for a slice not
+built, `red`, `stopped` or `blocked`, with what it named).
+
 Below it: the wave's check (green, or the red step), the checks that ran and did not, the high items
 left open, and the slices the board still holds (`blocked` or `in-flight`). A breach or an item
 sits beside a merged slice, never instead of it.
@@ -296,6 +360,10 @@ sits beside a merged slice, never instead of it.
   `wave.merge` `replace` hook after that same `ok`. Never a merge command written by hand.
 - Subagents never merge. One slice per worktree, branch and sub-PR.
 - Claim before you dispatch; take the board's frontier as it is.
+- Inline only when the board says `inline`: never claim, open a sub-PR or build side by side then,
+  and never inline a PRD that already has a sub-PR (the board says `inline` `false` for it).
+- Never claim on a branch behind the default branch (the board's `base.behind` `true`): meet it
+  first, then read the board again.
 - A question never takes the wave down: only `stopped`, `blocked` and a review thread left asked hold
   a slice, and only that one.
 - Never merge a sub-PR before its review threads are read (step 4 item 5), and never one whose

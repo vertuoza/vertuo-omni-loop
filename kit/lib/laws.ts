@@ -1,10 +1,11 @@
 // What a repository treats as law. An outbox item bearing on a law is ranked high at least, and a
 // slice that would break one stops. Where laws come from is config (`laws.source`), because
-// repositories disagree: a knowledge folder, the ADRs CLAUDE.md lists as invariants, or nothing.
+// repositories disagree: a knowledge folder, the ADRs the context files list as invariants, or
+// nothing.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from './context.ts';
-import { ID_SHAPE, resolveId } from './knowledge/registers.ts';
+import { ID_SHAPE, isLaw, readKnowledge, resolveId, type KnowledgeEntry } from './knowledge/registers.ts';
 import { group } from './narrow.ts';
 
 /** Where a repository's laws come from: `laws.source` in its config. */
@@ -36,6 +37,19 @@ export function invariantAdrs(text: string, heading: string): Set<string> {
   return ids;
 }
 
+/**
+ * The first of the context files (`paths.context`, in order) that exists and holds the invariants
+ * heading on a line of its own, or `null` (PRD 1739). A file the list does not name is never read.
+ */
+export function invariantsFile(root: string, context: readonly string[], heading: string): string | null {
+  const wanted = heading.trim();
+  for (const name of context) {
+    const file = join(root, name);
+    if (existsSync(file) && readFileSync(file, 'utf8').split('\n').some((line) => line.trim() === wanted)) return name;
+  }
+  return null;
+}
+
 export function adrFiles(ctx: { root: string; layout: { adrDir: string } }, number: string): string[] {
   const dir = join(ctx.root, ctx.layout.adrDir);
   if (!existsSync(dir)) return [];
@@ -48,8 +62,8 @@ export function lawsFor(ctx: Context): Laws {
   let invariants: Set<string> | null = null;
   const invariantSet = (): Set<string> => {
     if (invariants === null) {
-      const file = join(ctx.root, 'CLAUDE.md');
-      invariants = existsSync(file) ? invariantAdrs(readFileSync(file, 'utf8'), claudeMdHeading) : new Set();
+      const name = invariantsFile(ctx.root, ctx.config.paths.context, claudeMdHeading);
+      invariants = name === null ? new Set() : invariantAdrs(readFileSync(join(ctx.root, name), 'utf8'), claudeMdHeading);
     }
     return invariants;
   };
@@ -76,11 +90,23 @@ export function lawsFor(ctx: Context): Laws {
   }
 
   function floorsHigh(bearsOn: string): boolean {
-    // A proposed entry (PRD #68) is no law until a person removes its `Proposed:` line.
+    // Floors high: any entry a person confirmed — a principle, a rule, or a law (a locked rule or
+    // invariant, PRD 1726, `lockedLaws`). "Floors high" is not "is a law": an unlocked rule still
+    // weighs high, as it always has. A proposed entry (PRD #68) floors nothing until a person removes
+    // its `Proposed:` line.
     if (source === 'knowledge') return ID_SHAPE.test(bearsOn) && !resolveId(bearsOn, { ctx })?.proposed;
     if (source === 'claudeMdInvariants') return invariantSet().has(bearsOn);
     return false;
   }
 
   return Object.freeze({ source, resolve, floorsHigh });
+}
+
+/**
+ * The repository's laws (PRD 1726): every rule or invariant of the knowledge folder a person locked
+ * ({@link isLaw}), in the folder's order. None unless `laws.source` is `knowledge`.
+ */
+export function lockedLaws(ctx: Pick<Context, 'root' | 'layout' | 'config'>): KnowledgeEntry[] {
+  if (ctx.config.laws.source !== 'knowledge') return [];
+  return readKnowledge({ ctx }).entries.filter(isLaw);
 }

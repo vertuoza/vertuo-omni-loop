@@ -17,7 +17,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 below is read with `node .omni-loop/bin/omni.mjs config <key>`; never write a label, branch, check
 name or command from memory. `<remote>` below is `repo.remote`.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -87,8 +87,9 @@ null, say so in the body's **Verified** line and in the status comment.
 The loop signs its own work with two lines the CLI prints, so no skill spells a name or an address.
 
 - **Every commit** this skill makes (the claim, a fix, a resolved conflict) ends with the co-author
-  trailer your session requires, then the line `omni sign trailer` prints as the message's last
-  line, with no blank line between them.
+  trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives),
+  then the line `omni sign trailer` prints as the message's last line, with no blank line between
+  them.
 - **Every pull request** this skill opens, of any kind, ends its body with the line
   `omni sign footer` prints, as a paragraph of its own just above your session's own attribution
   lines (last, when the session adds none). A body rewritten later keeps that line.
@@ -184,6 +185,12 @@ evidence, below the lines this skill adds. Otherwise use the shapes below as the
 are Conventional Commits for all three kinds. Every body, template or not, ends with the
 `omni sign footer` line (**Signing**).
 
+**Sent from the Omni app.** Before opening a pull request, run
+`node .omni-loop/bin/omni.mjs runner sender`. A job a runner runs prints one line
+(`Sent from the Omni app by @<login> on runner <name>`): every pull request this skill opens then
+carries it, as a paragraph of its own just above the `omni sign footer` line, and a body rewritten
+later keeps it. It prints nothing: add nothing.
+
 **Feature PR**, top of the body:
 
 ```markdown
@@ -192,6 +199,7 @@ are Conventional Commits for all three kinds. Every body, template or not, ends 
 ## Slices
 
 - [x] #<sub-PR> <slice title>
+- [x] <slice title> — built inline, <short sha>   <!-- a plan built inline (`wave.inlineBelow`) has no sub-PR -->
 - [ ] <slice title> — not started
 
 ## Acceptance            <!-- only when acceptance.enabled is true -->
@@ -244,6 +252,29 @@ Its title is the PRD's title followed by the landing's `titleSuffix`, ` (n/N)`.
 
 **Standalone PR**: the template, or Summary / Verified / Risk and rollback / Reviewer focus, then
 `Closes #<issue>` when there is one, then the `omni sign footer` line.
+
+**The law record,** on a feature, landing or standalone PR that changes a locked law. Such a PR's
+`ci.outboxContext` check stays red until a CODEOWNER of the law's files approves it on GitHub; once
+they have, its summary reads `Locked laws changed (<ids>): approved by their CODEOWNERS, @<login>, …`.
+Read it on the head commit:
+
+```bash
+gh api repos/<owner>/<repo>/commits/<head sha>/check-runs --jq '.check_runs[] | select(.name == "<ci.outboxContext>") | .output.summary'
+```
+
+For each login that line names, add one line to the body, in one paragraph of its own just above
+the `omni sign footer` line, so the merge commit keeps who approved:
+
+```markdown
+Law-Change-Approved-By: @<login>
+```
+
+The record is history, not what clears the gate: only the approving review does. Write a login only
+from that summary line, never from a review you guessed at or a name someone typed, and keep the
+paragraph current on every body rewrite (a new push that dismisses an approval drops its line until
+the check names it again). No such line in the summary: no record. Beside the record, the
+**Risk and rollback** section says in one plain sentence what breaks, and who gets hurt, if the law
+is broken.
 
 ## Opening: point `pr.open`
 
@@ -319,8 +350,9 @@ Claim mode takes one slice of a PRD, given its plan id and title. It does not lo
 1. Cut the slice branch (`branches.slice`, with `{topic}` and `{slice}` filled) from the feature
    branch (`branches.feature`): `git fetch <remote> && git switch -c <slice branch> <remote>/<feature branch>`.
 2. Make one empty claim commit, `git commit --allow-empty -m "chore(<slice>): claim"`, its message
-   ending with the co-author trailer your session requires, then the `omni sign trailer` line
-   (**Signing**). Then run `git push -u <remote> <slice branch>`.
+   ending with the co-author trailer your agent adds, if it adds one (in Claude: the
+   `Co-Authored-By` line its session gives), then the `omni sign trailer` line (**Signing**). Then
+   run `git push -u <remote> <slice branch>`.
 3. Open the draft sub-PR at point `pr.open` (its `before` and `after` hooks; never a `replace`):
    `gh pr create --draft --base <feature branch> --head <slice branch>
    --title "<slice>: <title>" --body-file <file>`. Its body starts with `prLinks.sub` filled (the
@@ -366,7 +398,7 @@ workflow; when the app is not installed, that check is simply absent.
 | every counted check green and `mergeable: MERGEABLE` | Done. A standalone PR gets `gh pr ready <n>` if it is still a draft. A feature PR stays in draft (see **Merging and ready**). `gh pr edit <n> --remove-label "<labels.inProgress>"`, final status comment. Stop. |
 
 **Watch in the background.** A foreground command is killed after at most 10 minutes. Run the watch
-with Bash `run_in_background: true` and act when it wakes you:
+in the background and act when it ends (in Claude: Bash with `run_in_background: true`):
 
 ```bash
 gh pr checks <n> --watch --fail-fast --interval 60     # add --required when ci.branchProtection is true

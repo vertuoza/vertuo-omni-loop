@@ -120,7 +120,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state " +
       '(merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints ' +
-      'it as one document, the one /omni:wave acts on. Needs gh logged in.',
+      'it as one document, the one /omni:wave acts on, with base: whether the branch the next wave ' +
+      'builds on is behind the default branch (a phase-0 merged after the plan), so the wave merges ' +
+      'it in first. Needs gh logged in.',
   },
   {
     name: 'care',
@@ -201,16 +203,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'check',
     kind: 'command',
     who: 'you',
-    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all]', '  [--base <ref>] [--prd <n>]'],
+    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|', '  coverage|context|all] [--base <ref>] [--prd <n>]'],
     label: 'omni check [all]',
     summary: "the repository's guards",
     detail:
       "The repository's guards, each printing its violations or one line saying it passed: config " +
       '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
       '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers), kb (the ' +
-      "playbook's forms), releases (the release notes) and coverage (every risky change of a branch " +
-      'accounted for, against --base). all, the default, runs every one, and skips coverage when ' +
-      '{remote}/{defaultBranch} has not been fetched. Exit 1 on any violation.',
+      "playbook's forms), releases (the release notes), coverage (every risky change of a branch " +
+      'accounted for, against --base) and context (what every agent session reads, held to the ' +
+      'ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling ' +
+      "raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit " +
+      '0, when a target cannot be measured). all, the default, runs every one, skips coverage when ' +
+      '{remote}/{defaultBranch} has not been fetched, and runs context only while ' +
+      'budgets.context.enabled is true. Exit 1 on any violation.',
   },
   {
     name: 'flow',
@@ -298,6 +304,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'is 30, 90 or 365, 90 by default. Revoke a token on your profile page.',
   },
   {
+    name: 'runner',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender'],
+    label: 'omni runner',
+    summary: 'run the lines the Omni app sends, on this machine',
+    detail:
+      'Makes this machine a runner: it registers with the Omni page under --name, shows on its Runners ' +
+      'page, and runs the /omni: lines people send it with Send to terminal, at most --slots at once (4 ' +
+      'by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), ' +
+      'holds the git checkouts right under --repos, by their origin, and refuses to start when claude ' +
+      'is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> ' +
+      'on branch agent/job-<id>, in the tmux session job-<id>, logged to ~/logs/job-<id>.log; its line ' +
+      'goes to claude from a file, never a shell. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
+      'visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
+      'waits for the running jobs. sender prints the line /omni:pr writes in a pull request a job ' +
+      'opens, naming who sent it and the runner.',
+  },
+  {
     name: 'dossier',
     kind: 'command',
     who: 'you',
@@ -309,7 +334,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     summary: "a PRD's dossier on the Omni page",
     detail:
       "A PRD's dossier on the Omni page, where the whole workspace reads every version of its " +
-      'spec, plan and before/after. open opens a draft for an idea and prints its link; push sends ' +
+      'spec, plan and before/after. open opens a draft for an idea, tagged with the session id ' +
+      "(OMNI_SESSION_ID, else Claude Code's, else one it generates and keeps for the checkout in " +
+      '.omni-loop/local/session.json), and prints its link; push sends ' +
       "PRD n's files and adds a version only where a file changed; link prints PRD n's page, on " +
       'any computer, or none when it has no dossier, and writes nothing; status says whether ' +
       'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
@@ -436,6 +463,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'prints the same for skills: state, product, statement, never and syncedAt.',
   },
   {
+    name: 'session',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni session start', 'omni session end'],
+    summary: "a session's start and end, for any coding agent, with no hook",
+    detail:
+      'start is what an agent runs first: it prints the constituents (as omni constituents does), then ' +
+      'the briefing (as omni kb show briefing does), then a last line session: <id>. The id is ' +
+      "OMNI_SESSION_ID, else CLAUDE_CODE_SESSION_ID, else the one stored for this checkout; with none, " +
+      'it makes one and stores it, so every later omni command of the checkout uses the same session. ' +
+      'end is what an agent runs last: it closes the session on your ask page and tells the Omni page ' +
+      'the session stopped. Both print what they can and always exit 0, the Omni page reachable or not.',
+  },
+  {
     name: 'decide',
     kind: 'command',
     who: 'skills',
@@ -497,7 +538,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'init',
     kind: 'command',
     who: 'you',
-    usage: ['omni init [--force] [--test <cmd>] [--preflight <cmd>]', '  [--preflight-full <cmd>]'],
+    usage: ['omni init [--force] [--setup <cmd>] [--test <cmd>]', '  [--preflight <cmd>] [--preflight-full <cmd>]'],
     summary: 'install the loop on this repository',
     detail:
       'Installs the Omni Loop on the repository it runs in: writes .omni-loop/config.yml, copies ' +
@@ -505,8 +546,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the loop labels the repository lacks, switches the status line on in .claude/settings.json, ' +
       'then prints the steps a person still has to take. It writes nothing outside .omni-loop/ but ' +
       "that statusLine key, and never replaces someone else's. --force writes the config, the copy " +
-      "and the kit's own status line again; the other flags give the commands that test the " +
-      'repository.',
+      "and the kit's own status line again; --setup gives the command that prepares a fresh " +
+      'checkout (its install), and the other flags give the commands that test the repository.',
   },
   {
     name: 'config',
@@ -885,11 +926,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'ask',
     kind: 'command',
     who: 'skills',
-    usage: ['omni ask on|off|status', 'omni ask hook <pre|post|prompt|end>'],
-    summary: 'ask mode, as /omni:ask switches it',
+    usage: [
+      'omni ask on|off|status',
+      'omni ask question --file <q.json> [--wait <seconds>]',
+      'omni ask wait <round> [--wait <seconds>]',
+      'omni ask answer <round> --file <a.json>',
+      'omni ask hook <pre|post|prompt|end>',
+    ],
+    summary: 'ask mode, and the questions any agent asks the person on the page',
     detail:
-      "Ask mode in this checkout: on prints the page where Claude's questions are answered, off " +
-      "closes every terminal's session there, status says which. hook is what the plugin's hooks " +
+      "Ask mode in this checkout: on prints the page where the agent's questions are answered, off " +
+      "closes every terminal's session there, status says which. OMNI_ASK=on turns the mode on with " +
+      'no omni ask on, as a cloud session needs; OMNI_ASK=off turns it off whatever on wrote. ' +
+      'question asks the person on the page from any agent, with no hook: q.json holds questions, ' +
+      'as AskUserQuestion takes them, and may add lead and context. It exits 0 with { round, answers, ' +
+      'shots } once answered; exits 3, printing nothing, when the agent should ask in its own chat ' +
+      '(the mode off, no sign-in, the page unreachable or the round abandoned), the reason on stderr; ' +
+      'exits 4 with round <id> when the wait ran out, 110 seconds by default, 10 to 540. wait resumes ' +
+      'that round, with the same exits. answer sends what the person said in the chat to the page, ' +
+      "marked as given via the terminal, and never fails the agent. hook is what the plugin's hooks " +
       'run around each question; with the mode off it prints nothing. /omni:ask runs on, off and ' +
       'status for you.',
   },
@@ -898,12 +953,30 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     kind: 'command',
     who: 'skills',
     usage: ['omni heartbeat [--end]'],
-    summary: 'tells the Omni page this Claude session is working',
+    summary: 'tells the Omni page this session is working',
     detail:
-      "What the plugin's hooks run after every tool call: at most once a minute per Claude session, " +
-      'it tells the Omni page that the session is working, and on which draft, PRD or fix. --end, ' +
-      "run when the session ends, says it stopped. It sends only when you are signed in and dossiers " +
-      'are on, sends no path, command or text, prints nothing and always exits 0.',
+      'At most once a minute per session, it tells the Omni page that the session is working, and ' +
+      "on which draft, PRD or fix. The plugin's hooks run it after every tool call, and any omni " +
+      'command run in a session sends it too, in the background; OMNI_HEARTBEAT=off stops that. ' +
+      'With nothing on stdin it takes the session id OMNI_SESSION_ID, CLAUDE_CODE_SESSION_ID or ' +
+      'the stored one gives. --end, run when the session ends, says it stopped. It sends only when ' +
+      'you are signed in and dossiers are on, sends no path, command or text, prints nothing and ' +
+      'always exits 0.',
+  },
+  {
+    name: 'budget',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni budget measure context [--json]', 'omni budget set context'],
+    summary: 'how many bytes every agent session reads here, and the ceilings they are held to',
+    detail:
+      'measure prints one size per target: the briefing, each playbook form as omni kb show prints it, ' +
+      'its pointers expanded, each file paths.context names, and session, the briefing and those files ' +
+      'together, which every session loads before its first step. Bytes, with about a quarter as many ' +
+      'tokens beside them. --json prints the same as one object. A target it cannot measure (a missing ' +
+      'file, a pointer that leads nowhere) says why, and it exits 1. set writes a first ceiling for each ' +
+      'target that has none into the file budgets.context.file names, at its size rounded up to the next ' +
+      'KiB, and never raises a ceiling that exists; on a target it cannot measure it writes nothing.',
   },
   {
     name: 'generated',
@@ -1023,20 +1096,22 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "context bar, the 5-hour usage and ask mode, then the PRD this session works on, its stage, " +
       'and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits ' +
       "0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a " +
-      'file the status line reads.',
+      "file the status line reads. The status line and the HUD are Claude Code's alone: Codex, Cursor " +
+      'and Gemini CLI show neither.',
   },
   {
     name: 'now',
     kind: 'command',
     who: 'skills',
     usage: ['omni now [--json] [--stdin] [--session <id>]'],
-    summary: 'what this Claude session is on now, and the slices being built',
+    summary: 'what this session is on now, and the slices being built',
     detail:
       'The PRD this session works on, from its branch or else from the last command that named ' +
       'one, its stage (building while a slice is not merged), and the slices in flight and stuck by ' +
       'id and name. --json prints the same as one document, for the status line, the omni-hud band ' +
       "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
-      'JSON, --session names the session. It reads only this computer: it never fetches, never calls ' +
+      'JSON, --session names the session; else it is OMNI_SESSION_ID, then CLAUDE_CODE_SESSION_ID, ' +
+      'then the id omni dossier open stored for the checkout. It reads only this computer: it never fetches, never calls ' +
       'GitHub, writes nothing and always exits 0.',
   },
 
@@ -1189,7 +1264,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'target, runs /omni:ultra-wave until every slice is merged there, marks each target PR ready ' +
       "once its CI is green, then runs one outbox gate in the plan repository. Green, it ships and " +
       'marks the plan PR ready last; red, /omni:ultra-yolo-fix takes the answers. In a target it ' +
-      'runs only its own committed preflight, and it never merges into any default branch.',
+      'runs only its own committed setup, then its own committed preflight, and it never merges into ' +
+      'any default branch.',
     group: 'multi-repo',
     when: "Use it when a multi-repository PRD's phase-0 PR is merged in its plan repository and you want it built in every target.",
     example: {
@@ -1209,7 +1285,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or ' +
       "closed or you stop it. Each target PR is read against the target's own default branch, " +
       "landings, wave claims and review form; a red that waits on another repository's PR spends " +
-      'no attempt. In a target it runs only its own committed preflight, and it never merges. ' +
+      'no attempt. In a target it runs only its own committed setup, then its own committed ' +
+      'preflight, and it never merges. ' +
       '--once runs one round and returns, for /omni:mega-drive.',
     group: 'multi-repo',
     when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
@@ -1231,7 +1308,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'first. Each target gets one fix PR into its default branch, red proven by its own preflight ' +
       'or its CI before the fix, saying which PR to merge first; a record PR closes the issue and is ' +
       'merged last. --prd <n> links it to a PRD, so /omni:mega-pr-care looks after its PRs. A change ' +
-      "that would break today's consumer stops it, with the /omni:mega-brainstorm line. It never merges.",
+      "that would break today's consumer stops it, with the /omni:mega-brainstorm line. In a target " +
+      'it runs only its own committed setup, then its own committed preflight. It never merges.',
     group: 'multi-repo',
     when: 'Use it when a bug shows in one target repository and its cause may sit in another.',
     example: {
@@ -1268,8 +1346,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'The /omni:yolo-fix of a PRD built by /omni:ultra-yolo: reads and settles the answers on ' +
       'the plan PR, in the plan repository, lands each rework in the repository its decision was ' +
-      'taken in, checks each target again, then runs the one gate. It asks no question of its own ' +
-      'and never merges into any default branch.',
+      'taken in, checks each target again, then runs the one gate. It asks no question of its own; ' +
+      'in a target it runs only its own committed setup, then its own committed preflight, and it ' +
+      'never merges into any default branch.',
     group: 'multi-repo',
     when: "Use it when you have answered the outbox questions on a multi-repository PRD's plan PR.",
     example: {
@@ -1371,8 +1450,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'The /omni:wave of a plan repository: claims each slice that can run in its own target, has ' +
       'one agent build each there through /omni:do-work --target, merges each sub-PR into its ' +
       "target's feature branch, relays every decision into the plan repository's outbox and " +
-      'adopts its medium ones. /omni:ultra-yolo runs it for each wave. It never merges into any ' +
-      'default branch.',
+      'adopts its medium ones. /omni:ultra-yolo runs it for each wave. In a target it runs only its ' +
+      'own committed setup, then its own committed preflight, and it never merges into any default ' +
+      'branch.',
     group: 'multi-repo',
     when: 'Use it when you want one wave of a multi-repository PRD built; /omni:ultra-yolo runs it for each wave.',
     example: {
@@ -1722,7 +1802,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     usage: ['/omni:dossier-open "<one line of the idea>"'],
     summary: 'open a draft dossier for an idea',
     detail:
-      'Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the ' +
+      'Opens a draft dossier for an idea on the Omni page, linked to this session, so the ' +
       'people the idea is for can follow it before the first question is asked. /omni:brainstorm ' +
       'and /omni:think-big run it first; it never stops the skill that runs it.',
     group: 'run-by-skills',

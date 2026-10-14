@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1808 · Before/after</title>
+<style>
+  :root {
+    --void: #07061c; --deep: #0e0d33; --navy: #2f3fc4; --navy-dark: #1a2170; --white: #f2f4ff;
+    --plasma: #a45cff; --yellow: #ffd84a; --red: #ff3b5c; --cyan: #6ff0ff; --green: #4ee08a;
+    --slate: #5b5f80; --dim: #8a90d6; --cab: #120f3a;
+    --page: #f6f6fb; --ink: #1a1a2e; --muted: #5a5a72; --edge: #d9d9e6; --card: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --page: #0f0f1a; --ink: #ececf6; --muted: #a3a3bd; --edge: #2c2c42; --card: #17172a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 40px 0 8px; padding-top: 16px; border-top: 1px solid var(--edge); }
+  h3 { font-size: 15px; margin: 24px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  p.lede { color: var(--muted); margin: 0 0 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+  .col > .label { font-weight: 600; font-size: 13px; margin-bottom: 6px; color: var(--muted); }
+  .cap { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+  .flow { background: var(--card); border: 1px solid var(--edge); border-radius: 8px; padding: 14px; font-size: 14px; }
+  .flow ol { margin: 0; padding-left: 20px; }
+  .flow li { margin: 4px 0; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .bad { color: #c0264a; } .good { color: #1d8f55; }
+  @media (prefers-color-scheme: dark) { .bad { color: #ff7a93; } .good { color: #4ee08a; } }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--card); }
+  th, td { border: 1px solid var(--edge); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { font-weight: 600; }
+  code { font-size: 13px; }
+
+  /* The arcade's screens, drawn with its own named colours and pixel feel. */
+  .cab { background: var(--void); border: 3px solid var(--navy); border-radius: 4px; padding: 12px; color: var(--white);
+         font: 11px/1.6 "Press Start 2P", ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: .02em; min-height: 250px; }
+  .cab header { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .cab .prd { color: var(--dim); }
+  .cab h4 { margin: 0; font: inherit; font-size: 12px; color: var(--yellow); }
+  .cab .chip { border: 2px solid var(--green); color: var(--green); padding: 0 4px; font-size: 9px; }
+  .cab .caption { color: var(--cyan); margin: 6px 0 10px; font-size: 9px; }
+  .cab .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .cab .tabs span { padding: 2px 6px; background: var(--deep); color: var(--dim); font-size: 9px; }
+  .cab .tabs span.on { background: var(--navy); color: var(--white); }
+  .cab dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 9px; }
+  .cab dt { color: var(--dim); } .cab dd { margin: 0; }
+  .cab .note { color: var(--dim); font-size: 9px; margin: 8px 0 0; }
+  .cab .loading { color: var(--yellow); font-size: 10px; margin: 18px 0; }
+  .cab .start { margin-top: 10px; color: var(--plasma); font-size: 9px; }
+  .cab .start.off { color: var(--slate); }
+  .cab footer { margin-top: 12px; color: var(--slate); font-size: 8px; }
+  .cab .menu div { display: flex; justify-content: space-between; padding: 4px 6px; font-size: 10px; }
+  .cab .menu .sel { background: var(--navy); }
+  .cab .menu small { color: var(--cyan); font-size: 8px; }
+  .cab svg { display: block; margin: 10px auto 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>The game loads the map first, and each planet's details and the star chart when opened</h1>
+  <p class="lede">PRD 1808 · Today beside after. Measured signed in on production, 2026-10-13.</p>
+
+  <h2>Functional</h2>
+  <p class="lede">What one visit to the game asks of the server.</p>
+  <div class="pair">
+    <div class="col">
+      <div class="label">Today</div>
+      <div class="flow">
+        <ol>
+          <li>Open <code>/play</code>: the server reads the workspace, the galaxy, fleets, you, crew, owner, XP, scores…</li>
+          <li>…and the dossier of <b>every</b> planet: <span class="num bad">215 × 2 = 430</span> database calls, fired at once.</li>
+          <li>…and parses the star chart.</li>
+          <li>Nothing reaches the browser for <span class="num bad">7.2 s</span>, then <span class="num bad">2.6 MB</span> of HTML: every planet's whole log (1.17 MB), every dossier, the chart.</li>
+          <li>Open a planet: everything is already there.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label">After</div>
+      <div class="flow">
+        <ol>
+          <li>Open <code>/play</code>: the server reads what the map needs: the workspace, the galaxy (cached), fleets, you, crew, owner, XP, scores. <span class="num good">~10 calls</span>.</li>
+          <li>Planets go without their logs; no dossier, no star chart.</li>
+          <li>The map is playable in <span class="num good">≤ 1.5 s</span>, from <span class="num good">≤ 1 MB</span> of HTML.</li>
+          <li>Open a planet: <code>GET /api/arcade/planets/&lt;key&gt;</code> gives its dossier and its last 8 log lines, <span class="num good">~3 calls</span>, kept for the session.</li>
+          <li>Open the star chart: <code>GET /api/arcade/chart</code>, once per session.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <h3>Who may read the two endpoints</h3>
+  <table>
+    <tr><th>Case</th><th>Answer</th><th>The game shows</th></tr>
+    <tr><td>Signed out</td><td>401</td><td>the sign-in, as today</td></tr>
+    <tr><td>A planet outside your workspace</td><td>404</td><td>no dossier, an empty log</td></tr>
+    <tr><td>The database cannot be read</td><td>500</td><td>the out-of-reach line; the next open asks again</td></tr>
+    <tr><td>Your workspace's planet</td><td>200 <code>{ dossier, log }</code></td><td>its DOSSIER tab and log</td></tr>
+  </table>
+  <p class="cap">The reads run as you: row-level security decides, as it does on <code>/play</code> today. Neither endpoint answers anything <code>/play</code> does not already send.</p>
+
+  <h2>Pixel perfect</h2>
+  <p class="lede">screens: planet-overlay · star-chart · arcade-menu</p>
+
+  <h3>The planet overlay, DOSSIER tab</h3>
+  <div class="pair">
+    <div class="col">
+      <div class="label">Today: everything was read before the game opened</div>
+      <div class="cab" data-screen="planet-overlay">
+        <header><span class="prd">#1762</span><h4>KART OPTIONS</h4><span class="chip">TERRAFORMED</span></header>
+        <p class="caption">ZONES 6/6 · ENTROPY 0</p>
+        <div class="tabs"><span>STATUS</span><span>ZONES</span><span>ENTROPY</span><span>LOG</span><span class="on">DOSSIER</span></div>
+        <dl><dt>BEFORE/AFTER</dt><dd>V2 · 12 OCT</dd><dt>SPEC</dt><dd>V3 · 12 OCT</dd><dt>PLAN</dt><dd>V1 · 12 OCT</dd><dt>ANSWERS</dt><dd>11/12</dd></dl>
+        <p class="start" data-primary>START OPEN</p>
+        <footer>◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP</footer>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label">After: the overlay opens at once, the tab fills in</div>
+      <div class="cab" data-screen="planet-overlay">
+        <header><span class="prd">#1762</span><h4>KART OPTIONS</h4><span class="chip">TERRAFORMED</span></header>
+        <p class="caption">ZONES 6/6 · ENTROPY 0</p>
+        <div class="tabs"><span>STATUS</span><span>ZONES</span><span>ENTROPY</span><span>LOG</span><span class="on">DOSSIER</span></div>
+        <p class="loading" role="status">LOADING…</p>
+        <p class="start off" data-primary>START OPEN</p>
+        <footer>◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP</footer>
+      </div>
+    </div>
+  </div>
+  <p class="cap">Within about half a second the after shows the same rows as today; reopening the planet shows them at once. START opens the dossier's page once the dossier has arrived. When it cannot be read: <code>DOSSIERS OUT OF REACH</code>, as today. The LOG tab works the same way, with its last 8 lines.</p>
+
+  <h3>The star chart, and the menu's STAR CHART row</h3>
+  <div class="pair">
+    <div class="col">
+      <div class="label">Today: the menu shows the chart's tally from the first load</div>
+      <div class="cab" data-screen="arcade-menu">
+        <div class="menu">
+          <div><span>GALAXY MAP</span><small>306 PLANETS</small></div>
+          <div class="sel" data-primary><span>STAR CHART</span><small>9 SYSTEMS · 214 WORLDS</small></div>
+          <div><span>FLEETS</span><small>7 FLEETS</small></div>
+          <div><span>GAME ROOM</span><small>4 GAMES</small></div>
+        </div>
+        <footer>▲ ▼ CHOOSE · A OPEN · B BACK</footer>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label">After: no tally until the chart is read in this session</div>
+      <div class="cab" data-screen="arcade-menu">
+        <div class="menu">
+          <div><span>GALAXY MAP</span><small>306 PLANETS</small></div>
+          <div class="sel" data-primary><span>STAR CHART</span><small></small></div>
+          <div><span>FLEETS</span><small>7 FLEETS</small></div>
+          <div><span>GAME ROOM</span><small>4 GAMES</small></div>
+        </div>
+        <footer>▲ ▼ CHOOSE · A OPEN · B BACK</footer>
+      </div>
+    </div>
+  </div>
+  <p class="cap">Once the chart has been opened, the row shows its tally again, as today.</p>
+
+  <div class="pair">
+    <div class="col">
+      <div class="label">Today: the chart opens at once</div>
+      <div class="cab" data-screen="star-chart">
+        <header><h4>STAR CHART · VERTUOZA/VERTUO-OMNI-LOOP</h4></header>
+        <svg width="220" height="130" viewBox="0 0 220 130" aria-hidden="true">
+          <circle cx="60" cy="60" r="10" fill="#ffd84a"/><circle cx="160" cy="45" r="8" fill="#6ff0ff"/><circle cx="120" cy="100" r="7" fill="#a45cff"/>
+          <circle cx="40" cy="30" r="2" fill="#f2f4ff"/><circle cx="85" cy="90" r="2" fill="#f2f4ff"/><circle cx="180" cy="80" r="2" fill="#f2f4ff"/><circle cx="140" cy="20" r="2" fill="#f2f4ff"/>
+        </svg>
+        <p class="note" data-primary>A OPEN SYSTEM</p>
+        <footer>◀ ▲ ▼ ▶ MOVE · A OPEN · B MENU</footer>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label">After: a short LOADING…, then the same chart</div>
+      <div class="cab" data-screen="star-chart">
+        <header><h4>STAR CHART</h4></header>
+        <p class="loading" role="status">LOADING…</p>
+        <p class="note" data-primary>B MENU</p>
+        <footer>◀ ▲ ▼ ▶ MOVE · A OPEN · B MENU</footer>
+      </div>
+    </div>
+  </div>
+  <p class="cap">When the chart cannot be read: <code>THE STAR CHART IS OUT OF REACH</code>, as today. In the demo, nothing changes: its chart, dossiers and logs stay in the page.</p>
+</main>
+</body>
+</html>

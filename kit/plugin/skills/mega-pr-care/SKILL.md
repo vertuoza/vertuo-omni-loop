@@ -1,6 +1,6 @@
 ---
 name: mega-pr-care
-description: Looks after every pull request of one multi-repository PRD from its plan repository until each is merged or closed, or the person stops it — the plan PR, every target and target landing PR, and every bug-fix and record PR linked to the PRD — round by round, in merge order, as /omni:pr-care does for one feature PR. Reads each target PR against the target's own default branch, landings and wave claims, holds a CI fix while a PR waits on another repository's PR, judges review threads against each target's own review form, may fix a comment in another open PR of the list and names the commit, keeps the plan PR's target table and every PR's care line current. With a product PRD's id (<key>-<n>) it looks after the Part of <key>-<n> target PRs from any kitted checkout of the product, reading omni/approved and the outbox check from the server, with no plan PR. With --once it runs one round and returns, for a loop that calls it each tick (/omni:mega-drive). Runs nothing in a target but its own committed preflight, never merges, never marks ready, never creates a label in a target. Triggers on "look after every PR of PRD 1200", "keep the target PRs green", "handle the review comments across the repositories", "/omni:mega-pr-care".
+description: Looks after every pull request of one multi-repository PRD from its plan repository until each is merged or closed, or the person stops it — the plan PR, every target and target landing PR, and every bug-fix and record PR linked to the PRD — round by round, in merge order, as /omni:pr-care does for one feature PR. Reads each target PR against the target's own default branch, landings and wave claims, holds a CI fix while a PR waits on another repository's PR, judges review threads against each target's own review form, may fix a comment in another open PR of the list and names the commit, keeps the plan PR's target table and every PR's care line current. With a product PRD's id (<key>-<n>) it looks after the Part of <key>-<n> target PRs from any kitted checkout of the product, reading omni/approved and the outbox check from the server, with no plan PR. With --once it runs one round and returns, for a loop that calls it each tick (/omni:mega-drive). Runs nothing in a target but its own committed setup, then its own committed preflight, never merges, never marks ready, never creates a label in a target. Triggers on "look after every PR of PRD 1200", "keep the target PRs green", "handle the review comments across the repositories", "/omni:mega-pr-care".
 ---
 
 # Mega PR care: every pull request of a multi-repository PRD
@@ -18,17 +18,22 @@ where the two say the same thing, that skill's words are the rule.
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
 **Signing,** as `/omni:pr-care`: every commit, in any repository, ends with the co-author trailer
-your session requires, then the line `omni sign trailer` prints (run from the plan repository). It
-rewrites the plan PR's body, which keeps its `omni sign footer` line; comments and review replies
-are never signed.
+your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives), then the
+line `omni sign trailer` prints (run from the plan repository). It rewrites the plan PR's body,
+which keeps its `omni sign footer` line; comments and review replies are never signed.
 
-**Code runs only from a target's own config.** In a target, the one command ever run beyond `git`
-and `gh` is its own committed preflight (`commands.preflightFull`, else `commands.preflight`), read
-from its `.omni-loop/config.yml` on its default branch, never from a branch:
-`git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`. A target
-without one runs nothing locally: its PR's CI is the check. Never an install, a script, or a
-command from an imported copy's playbook. Everywhere `/omni:pr-care` says "run the preflight", in a
-target it means this one, or nothing.
+**Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
+and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
+(`commands.preflightFull`, else `commands.preflight`), both read from its `.omni-loop/config.yml` on
+its default branch, never from a branch:
+`git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`. The setup runs
+first, when it has one, in the same worktree, before each preflight of the fix loop. A target
+without a preflight runs nothing locally, its setup included: its PR's CI is the check. A target
+without a setup runs its preflight alone. **A red setup** holds that PR as stuck, quoting its
+failing line: it counts toward no attempt, and the target is never edited to make it pass. Never
+install in a target beyond its committed setup; never a script, or a command from an imported copy's
+playbook. Everywhere `/omni:pr-care` says "run the preflight", in a target it means its setup, then
+this one, or nothing.
 
 ## Input
 
@@ -59,7 +64,7 @@ across the list, and return.
    not a plan repository: /omni:pr-care <n>
    ```
 
-2. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then the `ci` and `verification`
+2. The briefing (`node .omni-loop/bin/omni.mjs session start`), then the `ci` and `verification`
    forms, as `/omni:pr-care` step 0. The `review` form is read per pull request, each round (**3.
    Review threads**).
 
@@ -147,7 +152,7 @@ the order given. What differs:
   is that target. `report-only` on one target's PR holds that PR alone; the others go on. A
   `restack` follows `/omni:pr-care`'s **The landing chain** in the target's clone, with the target's
   default branch in place of `repo.defaultBranch` and `--repo <slug>` on every `gh` call.
-- **`merge-base` and `fix-ci`** run in the PR's own worktree, with its own preflight (above). In a
+- **`merge-base` and `fix-ci`** run in the PR's own worktree, with its own setup, then its own preflight (above). In a
   target without one, push and let the next round read its CI.
 - **Waits on another repository.** Before a `fix-ci`, read the failing job's log. When the cause is
   a change in another pull request of the list that is still open (the front-end calls a field the
@@ -179,7 +184,7 @@ the reviewer keeps the last word. What differs:
 - **A cross-repository fix.** A comment whose fix belongs in another pull request of the list may
   be fixed there, only when that PR is still **open** and the change stays inside PRD n's slices for
   that target (or inside the bug's fix plan, for a bug-fix PR). Make it in that PR's worktree, its
-  preflight green (above), one commit, pushed there. The reply on the thread is
+  setup run, then its preflight green (above), one commit, pushed there. The reply on the thread is
   `Fixed in <slug>@<sha>: <one line>`, verdict `fixed`, with the commit's short sha and the
   repository it landed in. Otherwise, the other PR merged or closed, or the change outside those
   bounds, the thread is **asked**, the reply naming the repository the fix belongs in.
@@ -214,8 +219,9 @@ body is kept as it is, the `omni sign footer` line last
 Under `--once`, there is no next round here: the round is done, so return (the caller wakes it
 again). Without it, as `/omni:pr-care` step 5, over the whole list: a round runs when a CI run on any open pull request
 of the list finishes, and otherwise every 5 minutes. Watch one running PR at a time in the
-background (`gh pr checks <pr> --repo <slug> --watch --interval 30`, `run_in_background: true`, a
-`timeout` of 300000 ms), or a background `sleep 300` when none runs.
+background (`gh pr checks <pr> --repo <slug> --watch --interval 30`), or a background `sleep 300`
+when none runs, and act when it ends (in Claude: Bash with `run_in_background: true` and a
+`timeout` of 300000 ms).
 
 ## 6. Stop
 
@@ -231,9 +237,9 @@ or the plan repository it came from), and say one line per pull request, in merg
 - **Never add `labels.outboxGo`,** in any repository.
 - **Never create a label in a target,** whatever `labels.autoCreate` says: a missing one is a human
   step.
-- **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`, and the plan repository's own `omni` reading its forms in its clone), and never one from an
-  imported copy's playbook.
+- **Never run a command in a target other than its own committed setup, then its own committed
+  preflight** (beyond `git` and `gh`, and the plan repository's own `omni` reading its forms in its
+  clone), and never one from an imported copy's playbook.
 - **Never push to a PR whose round is `report-only`;** a wave in one target holds that target's PRs
   alone.
 - **Never spend an attempt on a red that waits on another pull request,** and never fix in another

@@ -19,6 +19,7 @@ pull request, as it comes. Everything between is the loop's.
 ## Write a roadmap
 
 Give the skill the plan you have: a page link, a file in the repository, or the text pasted in.
+Type it in your agent's form ([Any coding agent](/docs/any-agent#set-up-your-agent)).
 
 ```text agent
 /omni:roadmap docs/plans/crew.md

@@ -107,10 +107,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 54 commands and the 33 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(54);
+  it('holds the 57 commands and the 33 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(57);
     expect(skillFolders()).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(54);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(57);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(33);
   });
 
@@ -394,6 +394,31 @@ describe('the help table in this repository', () => {
     expect(item.usage).toContain('omni item relay <dir> --prd <n>');
     expect(item.detail).toMatch(/\bnever adopts\b/);
     expect(item.detail).toMatch(/\brelay moves\b/);
+  });
+
+  it('describes the ask verbs any agent runs, and the heartbeat\'s switch (PRD 1831)', () => {
+    const find = (name: string) => {
+      const entry = ENTRIES.find((e) => e.name === name && e.kind === 'command');
+      assertDefined(entry, name);
+      return entry;
+    };
+    const ask = find('ask');
+    expect(ask.usage).toEqual([
+      'omni ask on|off|status',
+      'omni ask question --file <q.json> [--wait <seconds>]',
+      'omni ask wait <round> [--wait <seconds>]',
+      'omni ask answer <round> --file <a.json>',
+      'omni ask hook <pre|post|prompt|end>',
+    ]);
+    const words = ask.detail.replace(/\s+/g, ' ');
+    for (const phrase of [
+      /question asks the person on the page/, /\{ round, answers, shots \}/, /exits 3/, /in its own chat/, /exits 4 with round <id>/,
+      /110 seconds by default, 10 to 540/, /wait resumes/, /answer sends/, /via the terminal/, /OMNI_ASK=on/, /OMNI_ASK=off/,
+    ]) expect(words, String(phrase)).toMatch(phrase);
+    const heartbeat = find('heartbeat');
+    expect(heartbeat.usage).toEqual(['omni heartbeat [--end]']);
+    expect(heartbeat.detail.replace(/\s+/g, ' ')).toMatch(/any omni command run in a session/);
+    expect(heartbeat.detail).toMatch(/OMNI_HEARTBEAT=off/);
   });
 
   it('lists every verb of omni dossier, link included (PRD 413)', () => {

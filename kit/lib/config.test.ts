@@ -106,6 +106,25 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ncommands:\n  design: ""\n')).toThrow(/commands\.design/);
   });
 
+  it('has no setup command unless the config sets one, and refuses one that is not text (PRD 1804)', () => {
+    expect(parseConfig('kit: 1\n').commands.setup).toBeNull();
+    expect(parseConfig('kit: 1\ncommands:\n  setup: pnpm install --frozen-lockfile\n').commands.setup).toBe('pnpm install --frozen-lockfile');
+    expect(parseConfig('kit: 1\ncommands:\n  setup: null\n').commands.setup).toBeNull();
+    expect(() => parseConfig('kit: 1\ncommands:\n  setup: ""\n')).toThrow(/commands\.setup/);
+    expect(() => parseConfig('kit: 1\ncommands:\n  setup: 3\n')).toThrow(/commands\.setup/);
+    expect(() => parseConfig('kit: 1\ncommands:\n  setup: [npm ci]\n')).toThrow(/commands\.setup/);
+  });
+
+  it('lists the agents the repository uses, [claude] by default, refusing an unknown, empty or repeated list, naming it (PRD 1890)', () => {
+    expect(parseConfig('kit: 1\n').agents).toEqual(['claude']);
+    expect(parseConfig('kit: 1\nagents: [codex, claude]\n').agents).toEqual(['codex', 'claude']);
+    expect(parseConfig('kit: 1\nagents: [claude, codex, cursor, gemini]\n').agents).toEqual(['claude', 'codex', 'cursor', 'gemini']);
+    expect(() => parseConfig('kit: 1\nagents: [claude, copilot]\n', 'c.yml')).toThrow(/^c\.yml.*agents\.1: copilot/);
+    expect(() => parseConfig('kit: 1\nagents: []\n')).toThrow(/agents: .*at least one agent/);
+    expect(() => parseConfig('kit: 1\nagents: [codex, claude, codex]\n')).toThrow(/agents\.2: codex is listed twice/);
+    expect(() => parseConfig('kit: 1\nagents: claude\n')).toThrow(/agents/);
+  });
+
   it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
     expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
     expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
@@ -434,6 +453,32 @@ describe('omni config', () => {
     }
   });
 
+  it('prints commands.setup as committed, and null when the key is absent (PRD 1804)', async () => {
+    for (const [text, value] of [['kit: 1\n', 'null'], ['kit: 1\ncommands:\n  setup: composer install\n', 'composer install']] as const) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const s = io();
+      expect(await main(['config', 'commands.setup'], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
+  it('prints agents, ["claude"] in a repository that never set it, and as the file lists them (PRD 1890)', async () => {
+    for (const [text, value] of [[files['.omni-loop/config.yml'], ['claude']], ['kit: 1\nagents: [codex, cursor]\n', ['codex', 'cursor']]] as const) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const s = io();
+      expect(await main(['config', 'agents'], { cwd: root, ...s })).toBe(0);
+      expect(JSON.parse(s.out.join(''))).toEqual(value);
+    }
+  });
+
+  it('omni check config refuses an unknown agent, naming it (PRD 1890)', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nagents: [claude, copilot]\n' } });
+    const err: string[] = [];
+    const s = { ...io(), stderr: { write: (line: string) => err.push(line) } };
+    expect(await main(['check', 'config'], { cwd: root, ...s })).not.toBe(0);
+    expect(`${s.out.join('')}${err.join('')}`).toMatch(/copilot/);
+  });
+
   it('exits 2 for a key the schema does not hold', async () => {
     const { root } = makeRepo({ git: true, files });
     expect(await main(['config', 'paths.playbooks'], { cwd: root, ...io() })).toBe(2);
@@ -504,8 +549,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     const config = parseConfig('kit: 1\n');
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
-      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
+      'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
     ]);
   });
 
@@ -763,6 +808,28 @@ describe('limits.parallelSteps (PRD 1205)', () => {
   });
 });
 
+describe('wave.inlineBelow (issue 1722)', () => {
+  it('defaults to 0, which never builds a PRD inline, and reads back the value a repository sets', () => {
+    expect(parseConfig('kit: 1\n').wave).toEqual({ inlineBelow: 0 });
+    expect(parseConfig('kit: 1\nwave:\n  inlineBelow: 3\n').wave.inlineBelow).toBe(3);
+  });
+
+  it('refuses a negative number, a fraction, text and an unknown key, naming it', () => {
+    for (const value of ['-1', '2.5', 'three', '""']) {
+      expect(() => parseConfig(`kit: 1\nwave:\n  inlineBelow: ${value}\n`, 'c.yml')).toThrow(/c\.yml.*wave\.inlineBelow/);
+    }
+    expect(() => parseConfig('kit: 1\nwave:\n  inline: 3\n', 'c.yml')).toThrow(/c\.yml.*wave.*inline/s);
+  });
+
+  it('is printed by omni config', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nwave:\n  inlineBelow: 3\n' } });
+    const out: string[] = [];
+    const code = await main(['config', 'wave.inlineBelow'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(out.join('')).toBe('3\n');
+  });
+});
+
 describe('the generated section (PRD 1138)', () => {
   const firstLine = (source: string) => {
     try {
@@ -834,7 +901,7 @@ describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
 
   it('reads the values a repository sets', () => {
     const config = parseConfig('kit: 1\nlaws:\n  source: knowledge\n  requireProof: true\nlabels:\n  law: law\nbranches:\n  law: laws/{id}\n');
-    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true });
+    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true, max: 20, owners: [] });
     expect(config.labels.law).toBe('law');
     expect(config.branches.law).toBe('laws/{id}');
   });
@@ -845,6 +912,35 @@ describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
     ['an empty law label', "labels:\n  law: ''\n", /c\.yml.*labels\.law/],
     ['a law label that is no text', 'labels:\n  law: 3\n', /c\.yml.*labels\.law/],
     ['an empty law branch', "branches:\n  law: ''\n", /c\.yml.*branches\.law/],
+  ])('refuses %s, naming the key', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+});
+
+describe('laws.max and laws.owners (PRD 1726)', () => {
+  it('defaults to 20 laws and no owner', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.laws.max).toBe(20);
+    expect(config.laws.owners).toEqual([]);
+  });
+
+  it('reads a cap, logins and teams', () => {
+    const config = parseConfig('kit: 1\nlaws:\n  max: 5\n  owners: [pierrederval, vertuoza/core, a-b-1]\n');
+    expect(config.laws.max).toBe(5);
+    expect(config.laws.owners).toEqual(['pierrederval', 'vertuoza/core', 'a-b-1']);
+  });
+
+  it.each([
+    ['a max of zero', 'laws:\n  max: 0\n', /c\.yml.*laws\.max/],
+    ['a negative max', 'laws:\n  max: -3\n', /c\.yml.*laws\.max/],
+    ['a fractional max', 'laws:\n  max: 2.5\n', /c\.yml.*laws\.max/],
+    ['a max given as text', "laws:\n  max: '20'\n", /c\.yml.*laws\.max/],
+    ['owners given as one text', 'laws:\n  owners: pierrederval\n', /c\.yml.*laws\.owners/],
+    ['an owner written with @', "laws:\n  owners: ['@pierrederval']\n", /c\.yml.*laws\.owners\.0/],
+    ['an empty owner', "laws:\n  owners: ['']\n", /c\.yml.*laws\.owners\.0/],
+    ['an owner holding a space', "laws:\n  owners: ['pierre derval']\n", /c\.yml.*laws\.owners\.0/],
+    ['an owner ending in a hyphen', "laws:\n  owners: ['pierre-']\n", /c\.yml.*laws\.owners\.0/],
+    ['an owner that is no text', 'laws:\n  owners: [3]\n', /c\.yml.*laws\.owners\.0/],
   ])('refuses %s, naming the key', (_what, section, message) => {
     expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
   });

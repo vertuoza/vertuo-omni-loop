@@ -1,16 +1,16 @@
 ---
 name: ask
-description: Switches ask mode on or off in this checkout, or says whether it is on. While it is on, every question Claude asks through AskUserQuestion goes to a web page the person reads and answers, a tab per terminal, and the terminal takes over whenever the page cannot answer. Runs omni ask on, off or status and prints the page's link. Triggers on "ask mode on", "ask me on the page", "turn ask mode off", "is ask mode on", "/omni:ask on", "/omni:ask off", "/omni:ask status".
+description: Switches ask mode on or off in this checkout, or says whether it is on. While it is on, every question the agent asks the person goes to a web page the person reads and answers, a tab per terminal, and the terminal takes over whenever the page cannot answer. Runs omni ask on, off or status and prints the page's link. Triggers on "ask mode on", "ask me on the page", "turn ask mode off", "is ask mode on", "/omni:ask on", "/omni:ask off", "/omni:ask status".
 ---
 
 # Ask: questions on a web page
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. This skill only runs `omni ask` and reports what it
-printed. The plugin's hooks do the rest: while the mode is on they send each `AskUserQuestion` to
-the page, wait for the answer, and hand it back; when the page cannot answer, the question shows in
-the terminal as it always did.
+printed. The plugin's hooks do the rest: while the mode is on they send each question the agent asks
+(in Claude: each `AskUserQuestion`) to the page, wait for the answer, and hand it back; when the
+page cannot answer, the question shows in the terminal as it always did.
 
-The mode is switched on per checkout, and covers every Claude Code terminal open in it. Each
+The mode is switched on per checkout, and covers every terminal open in it. Each
 terminal gets its own session, opened by its first question, and shows as its own tab on the
 person's page; the tab goes away when that terminal exits.
 
@@ -49,5 +49,6 @@ checkout", or "ask mode is off".
 
 - Never write, edit or delete anything under `.omni-loop/local/`, nor read or print the sign-in
   kept in the person's home folder: `omni ask` and `omni signin` own them.
-- Never ask a question some other way because the mode is on or off: `AskUserQuestion` stays the
-  one way to ask, and the hooks decide where it is answered.
+- Never ask a question some other way because the mode is on or off: asking the person as the
+  briefing's **Any agent** says (in Claude: `AskUserQuestion`) stays the one way to ask, and the
+  hooks decide where it is answered.

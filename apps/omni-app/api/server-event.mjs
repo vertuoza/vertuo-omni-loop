@@ -208,8 +208,8 @@ var Thrown = z2.object({ name: z2.unknown().optional(), message: z2.unknown().op
 var DEFAULT_GALAXY_URL = "https://www.omni-loop.xyz";
 var VERCEL = envGroup({
   label: "the Vercel environment",
-  schema: z3.object({ name: z3.string().optional() }),
-  variables: { name: "VERCEL_ENV" }
+  schema: z3.object({ name: z3.string().optional(), commit: z3.string().optional() }),
+  variables: { name: "VERCEL_ENV", commit: "VERCEL_GIT_COMMIT_SHA" }
 });
 var secretGroup = (label, variable, required) => envGroup({ label, schema: z3.object({ secret: z3.string() }), variables: { secret: variable }, ...required ? { required } : {} });
 var WEBHOOK = secretGroup("the webhook secret", "GITHUB_WEBHOOK_SECRET", "production");
@@ -264,6 +264,110 @@ function processEnv() {
 import { createHmac as createHmac2, timingSafeEqual } from "node:crypto";
 import { z as z10 } from "zod";
 
+// kit/lib/log/log.ts
+var LOG_FIELDS = [
+  "level",
+  "event",
+  "outcome",
+  "ms",
+  "repo",
+  "prd",
+  "deliveryId",
+  "runId",
+  "fn",
+  "status",
+  "error",
+  "message",
+  "repos",
+  "dropped"
+];
+var MAX_TEXT = 500;
+var MASK = "***";
+var ALLOWED = new Set(LOG_FIELDS.filter((field) => field !== "level" && field !== "dropped"));
+var CUT = /* @__PURE__ */ new Set(["message"]);
+var CREDENTIALS = [
+  [/github_pat_[A-Za-z0-9_]+/g, MASK],
+  [/gh[pousr]_[A-Za-z0-9_]+/g, MASK],
+  [/omk_[A-Za-z0-9_-]+/g, MASK],
+  [/\bsk-[A-Za-z0-9_-]+/g, MASK],
+  [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK}`],
+  [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK}`]
+];
+function maskCredentials(text3) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text3);
+}
+var cut = (text3) => text3.length > MAX_TEXT ? text3.slice(0, MAX_TEXT) : text3;
+function errorOf(value) {
+  if (value instanceof Error) {
+    return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
+  }
+  return { name: "Error", message: cut(maskCredentials(typeof value === "string" ? value : String(value))) };
+}
+function scalarOf(field, value) {
+  if (typeof value === "string") {
+    const masked = maskCredentials(value);
+    return CUT.has(field) ? cut(masked) : masked;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : void 0;
+  if (typeof value === "boolean" || value === null) return value;
+  return void 0;
+}
+function lineOf(level, entry) {
+  const line = { level };
+  let dropped = 0;
+  for (const [field, value] of Object.entries(entry)) {
+    if (value === void 0) continue;
+    if (!ALLOWED.has(field)) {
+      dropped += 1;
+      continue;
+    }
+    if (field === "error") {
+      line.error = errorOf(value);
+      continue;
+    }
+    const scalar = scalarOf(field, value);
+    if (scalar === void 0) dropped += 1;
+    else line[field] = scalar;
+  }
+  if (dropped > 0) line.dropped = dropped;
+  return JSON.stringify(line);
+}
+var stdout = (line) => {
+  process.stdout.write(`${line}
+`);
+};
+function createLogger({ sink = stdout, clock = Date.now } = {}) {
+  const write2 = (level, entry) => {
+    try {
+      sink(lineOf(level, entry));
+    } catch {
+    }
+  };
+  const now = () => {
+    try {
+      return clock();
+    } catch {
+      return Number.NaN;
+    }
+  };
+  return {
+    info: (entry) => {
+      write2("info", entry);
+    },
+    warn: (entry) => {
+      write2("warn", entry);
+    },
+    error: (entry) => {
+      write2("error", entry);
+    },
+    timer: () => {
+      const start = now();
+      return () => Math.max(0, Math.round(now() - start)) || 0;
+    }
+  };
+}
+var log = createLogger();
+
 // apps/omni-app/src/inngest-client.ts
 import { Inngest } from "inngest";
 import { z as z5 } from "zod";
@@ -275,8 +379,8 @@ var PrdNumberSchema = IssueNumberSchema.brand();
 var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
 var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
-  const cut = id.lastIndexOf("-");
-  return cut <= 40 && Number(id.slice(cut + 1)) <= PRODUCT_SEQ_MAX;
+  const cut2 = id.lastIndexOf("-");
+  return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
@@ -318,6 +422,80 @@ var FailureEventDataSchema = z5.looseObject({
   event: z5.looseObject({ data: z5.unknown() }),
   error: z5.looseObject({ message: z5.unknown() }).nullish()
 });
+
+// apps/omni-app/src/run-log/run-log.ts
+function outcomeOfStatus(status) {
+  if (status < 400) return "ok";
+  return status < 500 ? "refused" : "failed";
+}
+function write(logger, line) {
+  const entry = { event: line.event };
+  for (const [field, value] of Object.entries(line)) {
+    if (value !== void 0) Object.assign(entry, { [field]: value });
+  }
+  try {
+    if (line.outcome === "ok") logger.info(entry);
+    else if (line.outcome === "refused") logger.warn(entry);
+    else logger.error(entry);
+  } catch {
+  }
+}
+function stopwatch(logger) {
+  try {
+    const elapsed = logger.timer();
+    return () => {
+      try {
+        return elapsed();
+      } catch {
+        return void 0;
+      }
+    };
+  } catch {
+    return () => void 0;
+  }
+}
+async function loggedRun(logger, event, run, outcomeOf) {
+  const elapsed = stopwatch(logger);
+  const fields = {};
+  const note = (more) => {
+    Object.assign(fields, more);
+  };
+  let value;
+  try {
+    value = await run(note);
+  } catch (error) {
+    write(logger, { event, outcome: "failed", ms: elapsed(), ...fields, error });
+    throw error;
+  }
+  let outcome;
+  try {
+    outcome = outcomeOf(value);
+  } catch {
+    outcome = "ok";
+  }
+  write(logger, { event, outcome, ms: elapsed(), ...fields });
+  return value;
+}
+function loggedHandler(logger, event, handler) {
+  return (request) => loggedRun(
+    logger,
+    event,
+    async (note) => {
+      const response = await handler(request, note);
+      note({ status: response.status });
+      return response;
+    },
+    (response) => outcomeOfStatus(response.status)
+  );
+}
+function noteTo(fn, logger = log) {
+  return (line) => {
+    try {
+      logger.warn({ event: "note", fn, message: line });
+    } catch {
+    }
+  };
+}
 
 // apps/omni-app/src/stage-forward/stage-forward.ts
 import { createHmac } from "node:crypto";
@@ -421,7 +599,7 @@ function hookRefProblem(ref) {
   if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
   if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
   if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
-    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+    return `${path} sits under .claude/, which only Claude Code reads \u2014 move it to .agents/hooks/, or mark it { path: ${path}, alias: claude }`;
   }
   return null;
 }
@@ -546,6 +724,7 @@ var proofUrl = z7.string().refine((value) => {
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
+var lawOwner = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
   repo: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -604,6 +783,13 @@ var generatedEntry = z7.object({
   from: z7.array(text2).min(1, "at least one source prefix"),
   build: z7.string().trim().min(1)
 }).strict();
+var AGENTS = Object.freeze(["claude", "codex", "cursor", "gemini"]);
+var agentList = z7.array(z7.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for \u2014 one of ${AGENTS.join(", ")}` })).min(1, "at least one agent").superRefine((agents, issues) => {
+  agents.forEach((agent, index) => {
+    if (agents.indexOf(agent) !== index) issues.addIssue({ code: "custom", path: [index], message: `${agent} is listed twice` });
+  });
+}).default(["claude"]);
+var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z7.object({
   kit: z7.literal(CONFIG_VERSION),
   repo: section({
@@ -635,13 +821,16 @@ var ConfigSchema = z7.object({
     law: branchTemplate.default("test/law-{id}")
   }),
   worktrees: text2.default(".claude/worktrees"),
+  // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
+  // without the key installs for Claude Code alone, as before.
+  agents: agentList,
   paths: section({
     delivery: text2.default(".omni-loop/delivery"),
     knowledge: text2.default(".omni-loop/knowledge"),
     adr: text2.default(".omni-loop/knowledge/adr"),
     playbook: text2.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z7.array(text2).default(["CLAUDE.md"])
+    context: z7.array(text2).default(["AGENTS.md", "CLAUDE.md"])
   }),
   labels: section({
     prd: labelName.default("omni:prd"),
@@ -693,6 +882,9 @@ var ConfigSchema = z7.object({
     runner: text2.default("ubuntu-latest")
   }),
   commands: section({
+    // PRD 1804: what prepares a fresh checkout to run the preflight (an install). Only the
+    // multi-repository skills read it, from a target's default branch; `null` means none.
+    setup: nullableText.default(null),
     preflight: nullableText.default(null),
     preflightFull: nullableText.default(null),
     checks: z7.array(text2).default([]),
@@ -713,11 +905,19 @@ var ConfigSchema = z7.object({
   }).prefault({}),
   laws: section({
     source: z7.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    // The heading under which the context files (`paths.context`, in order) list the ADRs that are
+    // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
+    // read (PRD 1739), so every config that sets them still reads.
     claudeMdHeading: text2.default("## Invariants"),
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
     // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
-    requireProof: z7.boolean().default(false)
+    requireProof: z7.boolean().default(false),
+    // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
+    max: z7.number().int().positive().default(20),
+    // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
+    // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
+    owners: z7.array(lawOwner).default([])
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),
@@ -742,6 +942,10 @@ var ConfigSchema = z7.object({
     // and a config that does not set it parses exactly as before.
     hookMaxBytes: z7.number().int().positive().optional()
   }),
+  // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
+  // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
+  // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
+  wave: section({ inlineBelow: z7.number().int().min(0).default(0) }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
@@ -820,7 +1024,12 @@ var ConfigSchema = z7.object({
   flow: FlowSchema.optional(),
   // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
   // it has none, and parses with no `generated` key.
-  generated: z7.array(generatedEntry).optional()
+  generated: z7.array(generatedEntry).optional(),
+  // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
+  // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
+  // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
+  // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
+  budgets: z7.object({ context: section({ enabled: z7.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional()
 }).strict().superRefine(({ pr, flow }, issues) => {
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
@@ -924,6 +1133,13 @@ var ComparePageSchema = z8.looseObject({
   files: z8.array(z8.looseObject({ filename: z8.string(), status: z8.string() })).nullish(),
   commits: z8.array(z8.looseObject({ sha: z8.string(), commit: z8.looseObject({ message: z8.string().nullish() }).nullish() })).nullish()
 });
+var ReviewsPageSchema = z8.array(
+  z8.looseObject({
+    user: z8.looseObject({ login: z8.string() }).nullish(),
+    state: z8.string(),
+    commit_id: z8.string().nullish()
+  })
+);
 var CheckRunsSchema = z8.looseObject({
   check_runs: z8.array(z8.looseObject({ id: z8.number(), status: z8.string().nullish() })).nullish()
 });
@@ -991,9 +1207,9 @@ function verifyServerEvent(secret, body, signature) {
   const given = /^sha256=([0-9a-f]{64})$/.exec(signature ?? "")?.[1];
   return given !== void 0 && timingSafeEqual(Buffer.from(given, "hex"), createHmac2("sha256", secret).update(body).digest());
 }
-async function receiveServerEvent(request, { secret, send, log = console.error }) {
+async function receiveServerEvent(request, { secret, send, log: log2 = noteTo("server-event") }) {
   if (!secret) {
-    log("server event: STAGE_EVENT_SECRET is not set on this deployment, every server event is refused");
+    log2("server event: STAGE_EVENT_SECRET is not set on this deployment, every server event is refused");
     return { status: 401, body: "server events are not accepted here" };
   }
   if (!verifyServerEvent(secret, request.body, request.headers.get(SERVER_SIGNATURE_HEADER))) return { status: 401, body: "bad signature" };
@@ -1008,18 +1224,18 @@ async function receiveServerEvent(request, { secret, send, log = console.error }
   try {
     await send([{ name: SERVER_EVENT, data: parsed.data }]);
   } catch (error) {
-    log(`server event: the ${parsed.data.event} of dossier ${parsed.data.dossier} was not sent on \u2014 ${error instanceof Error ? error.message : String(error)}`);
+    log2(`server event: the ${parsed.data.event} of dossier ${parsed.data.dossier} was not sent on \u2014 ${error instanceof Error ? error.message : String(error)}`);
     return { status: 500, body: "the server event could not be sent on" };
   }
   return { status: 202, body: "accepted" };
 }
-function serverEventRoute(env, { send = (events) => inngest.send(events) } = {}) {
+function serverEventRoute(env, { send = (events) => inngest.send(events), logger = log } = {}) {
   return {
-    POST: async (request) => {
+    POST: loggedHandler(logger, "server-event", async (request) => {
       const { status, body } = await receiveServerEvent({ body: await request.text(), headers: request.headers }, { secret: env.stageEvents?.secret, send });
       return new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8" } });
-    },
-    GET: () => new Response("method not allowed", { status: 405, headers: { allow: "POST" } })
+    }),
+    GET: loggedHandler(logger, "server-event", () => new Response("method not allowed", { status: 405, headers: { allow: "POST" } }))
   };
 }
 

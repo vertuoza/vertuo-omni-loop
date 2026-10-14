@@ -61,6 +61,9 @@ const FORGED: Record<string, string> = {
   'code-mark': 'ece31e0c07fdde23', 'arcade-cabinet': '7ccdd5e5b8ec8405',
   // OMNI KART's kart (PRD 1359), seen from behind: straight, leaning left, leaning right, pinned as first drawn.
   kart: '35afa0f7192d15fa', 'kart-left': '6be5ee4133dc3f94', 'kart-right': 'e8f72f74d8a0c11f',
+  // OMNI KART's other two designs (PRD 1762), straight and leaning, pinned as first drawn.
+  'kart-rocket': '983b7f07aeb1ebb3', 'kart-rocket-left': '234be03e3bcda862', 'kart-rocket-right': 'a4858d4c1d47ac92',
+  'kart-racer': '0fab972e7832cd7c', 'kart-racer-left': '462528ead5df9818', 'kart-racer-right': '1f00e783057b2b4b',
   // OMNI KART's ORB (PRD 1359, slice 5): the thrown item, pinned as first drawn.
   orb: 'fbe45272efb3d549',
   // OMNI KART's props and the start arch (PRD 1427, slice 3), pinned as first drawn.
@@ -69,6 +72,9 @@ const FORGED: Record<string, string> = {
   'sky-station': '2967f65def823c9b',
   // OMNI KART's glowing item box (PRD 1427, slice 7), pinned as first drawn.
   'item-box': 'a2e51adbe48f7ba2',
+  // OMNI KART's station props and the convoys' ship (PRD 1775, slice 3), pinned as first drawn.
+  'prop-lamp': '4c1c91fa944df708', 'prop-dish': '472acd4a9fbeb209', 'prop-crane': '8562301b2aaf134c',
+  'prop-container': 'c57be83ea8ce7498', 'sky-convoy': '50a0915d98867e40',
 };
 const FORGED_WOUNDED: Record<string, string> = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
@@ -430,6 +436,31 @@ describe('the platformer\'s tiles (PRD 817)', () => {
   });
 });
 
+describe('OMNI KART\'s kart designs (PRD 1762)', () => {
+  const NAMES = ['kart-rocket', 'kart-rocket-left', 'kart-rocket-right', 'kart-racer', 'kart-racer-left', 'kart-racer-right'];
+
+  it.each(NAMES)('%s is 28x18, drawn in the kart\'s materials, on both frames', (name) => {
+    expect([SPRITE_DEFS[name]?.w, SPRITE_DEFS[name]?.h]).toEqual([28, 18]);
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual([28, 18]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(100);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('draws each design apart from the others and from its own leaning frames', () => {
+    const hashes = ['kart', ...NAMES].map((n) => digest(n));
+    expect(new Set(hashes).size).toBe(hashes.length);
+  });
+
+  it('takes the body tint like the classic kart does', () => {
+    const tint = { W: ['#111111', '#222222', '#333333', '#444444'] };
+    for (const name of ['kart', 'kart-rocket', 'kart-racer']) expect(digest(name, { tint }), name).not.toBe(digest(name));
+  });
+});
+
 describe('the app selector\'s sprites (PRD 932)', () => {
   const SIZES: Record<string, [number, number]> = { 'code-mark': [30, 17], 'arcade-cabinet': [18, 26] };
   // The forge's own ramps, keyed by every material, for the colours these two sprites use.
@@ -472,5 +503,33 @@ describe('the app selector\'s sprites (PRD 932)', () => {
     expect([...tones].some((p) => tone('C').includes(p)), 'screen glow').toBe(true);
     expect([...tones].some((p) => tone('M').includes(p)), 'marquee').toBe(true);
     expect([...tones].some((p) => RAMPS.Y.includes(p)), 'lights').toBe(true);
+  });
+});
+
+describe('OMNI KART\'s station sprites (PRD 1775)', () => {
+  const SIZES: Record<string, [number, number]> = {
+    'prop-lamp': [10, 26], 'prop-dish': [20, 20], 'prop-crane': [32, 40], 'prop-container': [24, 16], 'sky-convoy': [14, 8],
+  };
+
+  it.each(Object.keys(SIZES))('%s has two frames of its declared size, in palette colours only', (name) => {
+    const def = SPRITE_DEFS[name];
+    expect(def, name).toBeDefined();
+    expect([def?.w, def?.h]).toEqual(SIZES[name]);
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual(SIZES[name]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(w * h * 0.1);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it.each(['prop-lamp', 'prop-dish'])('%s moves: its two frames differ', (name) => {
+    expect(spritePixels(name, { frame: 0 }).pixels.join()).not.toBe(spritePixels(name, { frame: 1 }).pixels.join());
+  });
+
+  it('draws the five apart from each other', () => {
+    const seen = new Set(Object.keys(SIZES).map((n) => spritePixels(n, { frame: 0 }).pixels.join()));
+    expect(seen.size).toBe(5);
   });
 });

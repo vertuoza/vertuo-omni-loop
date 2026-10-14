@@ -13,12 +13,12 @@ PR** into the default branch. This skill writes no code, files no issues, and me
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Flow points.** A repository may hook the loop at named points (the `flow` of its config). At each
 point this skill names, run `node .omni-loop/bin/omni.mjs flow show <point>` and follow what it
@@ -35,14 +35,14 @@ says. With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the st
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
 is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.landing`, `worktrees`,
-`paths.*`, `labels.*`, `prLinks.feature` and `acceptance.*` from it.
+`paths.*`, `labels.*`, `prLinks.feature`, `acceptance.*` and `laws.source` from it.
 
 Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and, when it
 prints `true`, `node .omni-loop/bin/omni.mjs config design.paths`. Keep both. Anything but `true`
 (or a failure) means design craft is off here: step 4 marks no slice `ui: yes`, and nothing else in
 this skill changes.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -193,6 +193,23 @@ A slice no glob meets is not marked. With the flag off, or `design.paths` empty,
 `/omni:do-work` then reads `omni design touched` on the built diff and judges for itself. The mark
 never changes a slice's territory, blockers or wave, and `omni plan check` does not read it.
 
+**Law slices.** Only when `laws.source` is `knowledge`. Once the table is written, run
+`node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>` for each slice. A slice that will change a
+locked law it prints (the law's text in its register, or the test its `Enforced by:` names, sits
+in the territory) is marked on its done-when heading, after its id, with the law's id and the
+person the law line names:
+
+```markdown
+**s2** (`law: BR-QUOTE-3 · owner @ana`)
+- <its observable conditions>
+```
+
+Under the heading, one plain sentence says what breaks, and who gets hurt, if the law is broken,
+so whoever builds the slice knows before starting that the feature PR waits for that person's
+approval on GitHub. A slice that changes two laws carries two marks. A slice that only reads the
+law's files, or that touches rules but no locked law, is not marked. Like `ui: yes`, the mark
+changes no territory, blocker or wave, and `omni plan check` does not read it.
+
 **Landings.** A PRD reaches the default branch in one pull request unless something in it must be
 deployed apart from the rest: a database migration the code needs in place first, or a contract
 step that drops what the old code still reads. Then the plan cuts it into **landings**, built and
@@ -289,10 +306,10 @@ change the check.
 ## 6. Commit, and open the draft feature PR
 
 1. Commit the plan in the worktree as `docs(plan): <topic>`, ending with the co-author trailer your
-   session requires, then the `omni sign trailer` line, and run
-   `git push -u <repo.remote> <feature branch>`. Then follow `/omni:dossier-push <n>` from the
-   worktree: `plan.md` goes up to the PRD's dossier, as a new version only when it changed.
-   Whatever it prints, carry on.
+   agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives), then the
+   `omni sign trailer` line, and run `git push -u <repo.remote> <feature branch>`. Then follow
+   `/omni:dossier-push <n>` from the worktree: `plan.md` goes up to the PRD's dossier, as a new
+   version only when it changed. Whatever it prints, carry on.
 2. Open the feature PR as a **draft**, because CI skips drafts, so the slices merging into it cost
    no CI run. Follow `/omni:pr`'s **feature** kind: base
    `repo.defaultBranch`, head the feature branch, a Conventional Commits title naming the PRD, and
@@ -371,7 +388,7 @@ never stops the hand-off. Then:
 **What is next?**
 
 1. Review the plan: https://github.com/<owner>/<repo>/pull/<feature PR>
-2. Type /clear (or open a new terminal), then run:
+2. Start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:yolo <n>
 ```

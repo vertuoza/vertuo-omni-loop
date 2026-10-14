@@ -13,12 +13,40 @@ import { envGroup, envReader, variablesOf, type EnvSource } from './group.ts';
 
 export { EnvError, requireGroup, type EnvSource } from './group.ts';
 
-/** The Claude Code session a command runs in: the status line and the dossier record it. */
+/**
+ * The session a person names for any agent (PRD 1739), set in a wrapper script: it wins over the
+ * agent's own. The status line, `omni now` and the dossier record it.
+ */
+const OMNI_SESSION = envGroup({
+  label: 'the agent session',
+  schema: z.object({ id: z.string() }),
+  variables: { id: 'OMNI_SESSION_ID' },
+});
+
+/** The Claude Code session a command runs in, read when `OMNI_SESSION_ID` gives none. */
 const CLAUDE_SESSION = envGroup({
   label: 'the Claude session',
   schema: z.object({ id: z.string() }),
   variables: { id: 'CLAUDE_CODE_SESSION_ID' },
 });
+
+/** The longest session id a command takes. */
+const SESSION_ID_MAX = 200;
+
+/** The agent session a command runs in. */
+export type AgentSession = { id: string };
+
+/**
+ * The first of `sessions` whose id could be a real one, trimmed: 1 to 200 characters once trimmed.
+ * `OMNI_SESSION_ID`, then `CLAUDE_CODE_SESSION_ID`; `null` when neither gives one.
+ */
+function agentSessionOf(...sessions: ({ id: string } | null)[]): AgentSession | null {
+  for (const session of sessions) {
+    const id = session?.id.trim() ?? '';
+    if (id.length >= 1 && id.length <= SESSION_ID_MAX) return { id };
+  }
+  return null;
+}
 
 /** OpenRouter, which `omni harvest` asks where each decision belongs; the model has a default. */
 const OPENROUTER = envGroup({
@@ -104,6 +132,69 @@ const SESSION = envGroup({
   },
 });
 
+/**
+ * Who sent the job a runner runs (PRD 1830): `omni runner` sets both on each job's session, and
+ * `omni runner sender` reads them for `/omni:pr`'s body. Each may be missing: a half-set pair writes
+ * no line, and stops no command.
+ */
+const RUNNER_SENDER = envGroup({
+  label: "the runner job's sender",
+  schema: z.object({ sentBy: z.string().optional(), runner: z.string().optional() }),
+  variables: { sentBy: 'OMNI_SENT_BY', runner: 'OMNI_RUNNER' },
+});
+
+/**
+ * The Claude token a headless server signs in with (PRD 1894): `claude setup-token` prints it, and
+ * `omni runner` hands it to each job's session, which takes no other variable from the runner. Never
+ * printed. `ANTHROPIC_API_KEY` is never read: a job must not bill an API key nobody chose for it.
+ */
+const CLAUDE_TOKEN = envGroup({
+  label: 'the Claude token',
+  schema: z.object({ token: z.string() }),
+  variables: { token: 'CLAUDE_CODE_OAUTH_TOKEN' },
+});
+
+/** The Claude token, trimmed, or `null` when it is unset or blank. */
+function claudeTokenOf(group: z.output<typeof CLAUDE_TOKEN.schema> | null): string | null {
+  const token = group?.token.trim() ?? '';
+  return token === '' ? null : token;
+}
+
+/**
+ * The heartbeat any `omni` command sends (PRD 1831): `off` turns it off. `omni heartbeat` itself, which
+ * Claude Code's hook runs, does not read it.
+ */
+const HEARTBEAT = envGroup({
+  label: 'the heartbeat',
+  schema: z.object({ switch: z.enum(['on', 'off'], 'on or off') }),
+  variables: { switch: 'OMNI_HEARTBEAT' },
+});
+
+/**
+ * Ask mode switched with no file (PRD 1831): `on` turns it on in a checkout with no `ask.json` (a cloud
+ * session's fresh clone), `off` turns it off whatever the file says. Unset, the file decides.
+ */
+const ASK = envGroup({
+  label: 'ask mode',
+  schema: z.object({ switch: z.enum(['on', 'off'], 'on or off') }),
+  variables: { switch: 'OMNI_ASK' },
+});
+
+/** How `OMNI_ASK` switches ask mode: `on`, `off`, or `null` when it is unset and `ask.json` decides. */
+export type AskSwitch = 'on' | 'off' | null;
+
+/** The test runner a command runs under: vitest sets `VITEST`, and no heartbeat leaves a test. */
+const TEST_RUNNER = envGroup({
+  label: 'the test runner',
+  schema: z.object({ vitest: z.string() }),
+  variables: { vitest: 'VITEST' },
+});
+
+/** Whether a command sends the heartbeat: unless `OMNI_HEARTBEAT` is `off`, or under vitest. */
+function heartbeatOf(group: z.output<typeof HEARTBEAT.schema> | null, runner: z.output<typeof TEST_RUNNER.schema> | null): boolean {
+  return group?.switch !== 'off' && runner === null;
+}
+
 /** The package manager that runs a script, which `pnpm check:changed` runs its steps with. */
 const PACKAGE_MANAGER = envGroup({
   label: 'the package manager',
@@ -115,17 +206,18 @@ const PACKAGE_MANAGER = envGroup({
  * The variables a person sets for the kit, the game and the scripts: the root README's list names
  * exactly these (`scripts/env-docs.test.ts`).
  */
-export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN]);
+export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 
 /** The game's own, a part of {@link VARIABLES}: `game/README.md`'s list names exactly these. */
 export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABASE]);
 
 /**
  * The variables the platform sets, read here but never set by a person, so no docs list names them:
- * Claude Code's session, the terminal, the GitHub Actions runner, the package manager and the session
- * a sign-in reads.
+ * Claude Code's session, the terminal, the GitHub Actions runner, the package manager, the session
+ * a sign-in reads, the test runner, the sender `omni runner` sets on each job, and the Claude token
+ * it hands them.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -150,11 +242,16 @@ function sessionOf(group: z.output<typeof SESSION.schema> | null): Session {
   return { remote, display };
 }
 
+/** Who sent a runner's job, when both its variables are set. */
+function senderOf(group: z.output<typeof RUNNER_SENDER.schema> | null): { sentBy: string; runner: string } | null {
+  return group?.sentBy && group.runner ? { sentBy: group.sentBy, runner: group.runner } : null;
+}
+
 /** Every group of the kit, the game and the scripts, read from `source`; throws one `EnvError` naming every problem. */
 export function readEnv(source: EnvSource) {
   const reader = envReader(source);
   const env = {
-    claudeSession: reader.group(CLAUDE_SESSION),
+    agentSession: agentSessionOf(reader.group(OMNI_SESSION), reader.group(CLAUDE_SESSION)),
     openrouter: reader.group(OPENROUTER),
     proof: reader.group(PROOF),
     terminal: terminalOf(reader.group(TERMINAL)),
@@ -164,6 +261,10 @@ export function readEnv(source: EnvSource) {
     packageManager: reader.group(PACKAGE_MANAGER),
     omniToken: reader.group(OMNI_TOKEN),
     session: sessionOf(reader.group(SESSION)),
+    runnerSender: senderOf(reader.group(RUNNER_SENDER)),
+    claudeToken: claudeTokenOf(reader.group(CLAUDE_TOKEN)),
+    heartbeat: heartbeatOf(reader.group(HEARTBEAT), reader.group(TEST_RUNNER)),
+    ask: (reader.group(ASK)?.switch ?? null) satisfies AskSwitch,
   };
   reader.done();
   return env;
@@ -183,6 +284,14 @@ export function omniTokenOf(source: EnvSource): string | null {
 /** The kit token this process was started with, or `null`: {@link omniTokenOf} the process's environment. */
 export function processOmniToken(): string | null {
   return omniTokenOf(processEnv());
+}
+
+/**
+ * Whether this process runs under vitest: the guard a default that starts a real process reads, so
+ * that a test handing a command its own environment never starts one.
+ */
+export function processUnderTest(): boolean {
+  return Boolean(processEnv().VITEST);
 }
 
 /** The kit's, the game's and the scripts' groups, as `readEnv` gives them. */

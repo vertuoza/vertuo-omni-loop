@@ -5,19 +5,22 @@
 //
 // The session's folder is the one Claude Code's status line JSON names when `--stdin` is given
 // (`workspace.current_dir`, else `cwd`), else the folder it runs in. Its id is `--session <id>`, else
-// the JSON's `session_id`, else `CLAUDE_CODE_SESSION_ID`. It reads git and files on this computer
+// the JSON's `session_id`, else `OMNI_SESSION_ID`, else `CLAUDE_CODE_SESSION_ID`, else the id
+// `omni dossier open` stored for the checkout (PRD 1739). It reads git and files on this computer
 // only: it never fetches, never calls GitHub or the Omni page, writes nothing, prints nothing on
 // stderr and always exits 0, outside an installed repository too (the session on nothing). It runs
 // before a context exists, like `statusline`; a test passes `stdin` (the text) and `now` (a clock in
 // milliseconds). Any other argument is not read.
 import { text } from 'node:stream/consumers';
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
+import { mainCheckout } from '../../lib/dossier/local.ts';
+import { sessionIdOf } from '../../lib/dossier/session.ts';
 import { nowLines } from '../../lib/now/now.ts';
 import type { Now } from '../../lib/now/now.ts';
 import { readNow } from '../../lib/now/read.ts';
 import { parseInput } from '../../lib/statusline/input.ts';
 import type { SessionInput } from '../../lib/statusline/input.ts';
-import type { FreeCommand, FreeIo, Vars } from '../io.ts';
+import type { Exec, FreeCommand, FreeIo, Vars } from '../io.ts';
 
 const JSON_FLAG = '--json';
 const STDIN_FLAG = '--stdin';
@@ -46,9 +49,19 @@ async function sessionInput(args: readonly string[], stdin: HookStdin): Promise<
   return parseInput(await stdinText(stdin).catch(() => ''));
 }
 
-/** The session's id: `--session <id>`, else the JSON's `session_id`, else `CLAUDE_CODE_SESSION_ID`, else `null`. */
-const sessionOf = (args: readonly string[], input: SessionInput | null, vars: Vars): string | null =>
-  valueOf(args, SESSION_FLAG) ?? input?.sessionId ?? vars.claudeSession?.id ?? null;
+/**
+ * The session's id: `--session <id>`, else the JSON's `session_id`, else the agent session the
+ * variables name, else the id stored in the main checkout of `folder`, else `null`. Never throws.
+ */
+function sessionOf(args: readonly string[], input: SessionInput | null, { vars, folder, exec }: { vars: Vars; folder: string; exec: Exec }): string | null {
+  const given = valueOf(args, SESSION_FLAG) ?? input?.sessionId ?? vars.agentSession?.id ?? null;
+  if (given !== null) return given;
+  try {
+    return sessionIdOf(null, mainCheckout(folder, exec));
+  } catch {
+    return null;
+  }
+}
 
 /** The answer, as one JSON document with `--json`, else as plain lines. */
 const rendered = (args: readonly string[], answer: Now): string =>
@@ -58,7 +71,7 @@ export const now = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, exec, vars, stdin = process.stdin, now: clock = Date.now }: FreeIo & NowOptions) {
     const input = await sessionInput(args, stdin);
-    const answer = readNow({ cwd, folder: input?.currentDir ?? null, sessionId: sessionOf(args, input, vars), exec, now: clock() });
+    const answer = readNow({ cwd, folder: input?.currentDir ?? null, sessionId: sessionOf(args, input, { vars, folder: input?.currentDir ?? cwd, exec }), exec, now: clock() });
     try {
       stdout.write(rendered(args, answer));
     } catch {

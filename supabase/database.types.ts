@@ -2826,6 +2826,152 @@ export type Database = {
           },
         ]
       }
+      runner_jobs: {
+        Row: {
+          cancel_requested: boolean
+          claimed_at: string | null
+          ended_at: string | null
+          exit_code: number | null
+          id: string
+          line: string
+          log_tail: string
+          pr_url: string | null
+          queued_at: string
+          reason: string | null
+          repo: string
+          runner_id: string | null
+          running_at: string | null
+          sent_by: string
+          status: string
+          to_fleet: string | null
+          to_runner: string | null
+          workspace_id: string
+        }
+        Insert: {
+          cancel_requested?: boolean
+          claimed_at?: string | null
+          ended_at?: string | null
+          exit_code?: number | null
+          id?: string
+          line: string
+          log_tail?: string
+          pr_url?: string | null
+          queued_at?: string
+          reason?: string | null
+          repo: string
+          runner_id?: string | null
+          running_at?: string | null
+          sent_by: string
+          status?: string
+          to_fleet?: string | null
+          to_runner?: string | null
+          workspace_id: string
+        }
+        Update: {
+          cancel_requested?: boolean
+          claimed_at?: string | null
+          ended_at?: string | null
+          exit_code?: number | null
+          id?: string
+          line?: string
+          log_tail?: string
+          pr_url?: string | null
+          queued_at?: string
+          reason?: string | null
+          repo?: string
+          runner_id?: string | null
+          running_at?: string | null
+          sent_by?: string
+          status?: string
+          to_fleet?: string | null
+          to_runner?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_jobs_runner_id_fkey"
+            columns: ["runner_id"]
+            isOneToOne: false
+            referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_jobs_to_runner_fkey"
+            columns: ["to_runner"]
+            isOneToOne: false
+            referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_jobs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_jobs_workspace_id_to_fleet_fkey"
+            columns: ["workspace_id", "to_fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
+      runners: {
+        Row: {
+          created_at: string
+          fleet: string | null
+          id: string
+          last_seen_at: string
+          name: string
+          owner: string
+          repos: string[]
+          slots: number
+          version: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          fleet?: string | null
+          id?: string
+          last_seen_at?: string
+          name: string
+          owner: string
+          repos?: string[]
+          slots?: number
+          version?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          fleet?: string | null
+          id?: string
+          last_seen_at?: string
+          name?: string
+          owner?: string
+          repos?: string[]
+          slots?: number
+          version?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runners_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runners_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
       sectors: {
         Row: {
           name: string
@@ -4023,6 +4169,7 @@ export type Database = {
           github_login: string
         }[]
       }
+      my_workspaces: { Args: never; Returns: string[] }
       outbox_item_adopt: {
         Args: {
           p_bears_on: string
@@ -4557,6 +4704,36 @@ export type Database = {
       }
       roadmap_prerequisites_push: { Args: { p_body: Json }; Returns: Json }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }
+      runner_claim: {
+        Args: { p_runner: string }
+        Returns: {
+          cancel_requested: boolean
+          claimed_at: string | null
+          ended_at: string | null
+          exit_code: number | null
+          id: string
+          line: string
+          log_tail: string
+          pr_url: string | null
+          queued_at: string
+          reason: string | null
+          repo: string
+          runner_id: string | null
+          running_at: string | null
+          sent_by: string
+          status: string
+          to_fleet: string | null
+          to_runner: string | null
+          workspace_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "runner_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      runners_mark_lost: { Args: { p_cutoff: string }; Returns: number }
       set_jev_decision: {
         Args: {
           p_decision: string

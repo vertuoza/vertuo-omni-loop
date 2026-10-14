@@ -17,12 +17,12 @@ PRD page (**Where its phase 0 is approved**).
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 ## Inputs
 
@@ -41,10 +41,10 @@ brainstorm runs as it always has.
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
 is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.phase0`,
-`worktrees`, `paths.*`, `labels.*`, `prLinks.*`, `acceptance.*` and `limits.beforeAfterMaxBytes`
-from it. `<remote>` below is `repo.remote`.
+`worktrees`, `paths.*`, `labels.*`, `prLinks.*`, `acceptance.*`, `laws.source` and
+`limits.beforeAfterMaxBytes` from it. `<remote>` below is `repo.remote`.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -85,7 +85,7 @@ With `--rework <n>`, go to **Rework** now: nothing below it runs, and no dossier
 
 Then, before your first question, follow `/omni:dossier-open` with one line of the idea (with
 `--concept`, the area's name and its brief): it opens a draft dossier for it on the Omni page,
-linked to this Claude session, and prints its link as "follow along at …", which the person can
+linked to this session, and prints its link as "follow along at …", which the person can
 send to whoever the idea is for. Whatever it prints, carry on to step 1: a draft that did not open
 stops nothing.
 
@@ -175,7 +175,7 @@ subsystems is flagged at once and split into PRDs; brainstorm the first one only
 idea in one line, to explore the whole idea as a concept first: when the person takes it, the
 brainstorm ends there, as a spike does.
 
-Design for isolation: small units with one purpose each, a well-defined interface, and internals
+Design for isolation, in small units with one purpose each, a well-defined interface, and internals
 that can change without breaking their users. In an existing codebase, follow its patterns and
 include only the improvements this work needs. Cut every feature the brief does not need.
 
@@ -220,8 +220,8 @@ fits every persona. It is settled one of four ways: `accepted` (the design chang
 answering it). The spec's **Decisions** record the objection and how it was settled.
 
 **Overrule.** When the person answers the objection with a fact about the business ("we're going
-after 50-person firms now"), ask through AskUserQuestion "Is that new about the business?", with two
-choices:
+after 50-person firms now"), ask the person (in Claude: `AskUserQuestion`) "Is that new about the
+business?", with two choices:
 
 - **Save as a claim:** store it as a proposed claim, which a member confirms later on Settings ›
   Business, `<kind>` being the one of region, offering, size, trade or rival the fact is about:
@@ -233,9 +233,10 @@ choices:
 - **Just this run:** nothing is stored; the personas accept the fact until the session ends.
 
 **One gap question.** At most once per run, when the design leans on a kind (region, offering, size,
-trade, rival) with no confirmed claim, ask one question through AskUserQuestion (ask mode carries it
-to the Omni page): its choices are the Business page's pick list for that kind, the values that fit
-the design first, then **Not sure**; Other is the person's own words. Store the answer confirmed:
+trade, rival) with no confirmed claim, ask the person one question (in Claude: `AskUserQuestion`;
+ask mode carries it to the Omni page): its choices are the Business page's pick list for that kind,
+the values that fit the design first, then **Not sure**; Other is the person's own words. Store the
+answer confirmed:
 
 ```bash
 node .omni-loop/bin/omni.mjs business claim add --kind <kind> --value <answer> --state confirmed --ref 'brainstorm · <run>'
@@ -353,6 +354,15 @@ spec: file
   tests, at which levels, and what a test must never do.
 - **Risks** names what merging this PRD would publish, and how that is rolled back: read
   `omni kb show releasing`.
+- **The locked laws it touches**, in **Risks**, when `laws.source` is `knowledge`. List the files
+  the design will change or add (best guess, from the design as approved), then run
+  `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on them. Each locked law it prints gets
+  one plain line in **Risks**: its id, then what breaks, and who gets hurt, if it is broken, and the
+  CODEOWNERS the law line names, as `<id>: <what breaks, for whom>. Changing it needs @<login> to
+  approve the pull request on GitHub.` That person learns of it now, before anything is built, not
+  as a red check at the end. No locked law printed: the one line `The locked laws: none touched.`
+  A rule it prints is read like the rest of the knowledge, and named in Risks only when the design
+  changes it.
 - Words come from `paths.glossary` when it is set, and from the files in `paths.context`.
 
 **Self-review,** before anyone reads it: no placeholder or "TBD", no two sections contradicting each
@@ -504,8 +514,8 @@ it, and the drafts go in the same commit as the folder.
 
 In the worktree: commit the folder (its `voice.json` included, when step 4 wrote one, and any
 glossary change and scenario file, and with `--concept` the concept's `concept.md`) as
-`docs(prd): <topic>`, ending with the co-author trailer your session
-requires, then the `omni sign trailer` line. Then:
+`docs(prd): <topic>`, ending with the co-author trailer your agent adds, if it adds one (in Claude:
+the `Co-Authored-By` line its session gives), then the `omni sign trailer` line. Then:
 
 ```bash
 node .omni-loop/bin/omni.mjs check inbox
@@ -658,7 +668,7 @@ It never stops the hand-off.
 1. Review the PRD: https://github.com/<owner>/<repo>/pull/<phase-0 PR>
    (spec, plan and before/after side by side: <dossier link>)
 2. Merge that PR. → PRD <n> moves into the inbox.
-3. Once it's merged, type /clear (or open a new terminal), then run:
+3. Once it's merged, start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 /omni:yolo <n>
 ```
@@ -685,8 +695,8 @@ fallback when it has none):
    (spec, plan and before/after side by side, every version kept)
 2. Its approvers approve it there. → PRD <n> moves into the inbox.
    `omni wait approval <n>` asks them by phone and email, and waits for the approval.
-3. Type /clear (or open a new terminal), then run the line below: it runs
-   `omni wait approval <n>` and starts wave 1 the moment the PRD is approved.
+3. Start a fresh session (in Claude: `/clear`), or open a new terminal, then run the line below: it
+   runs `omni wait approval <n>` and starts wave 1 the moment the PRD is approved.
 
 /omni:yolo <n>
 ```

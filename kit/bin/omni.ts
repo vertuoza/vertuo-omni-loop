@@ -2,21 +2,33 @@
 // omni — the kit's one entry point. Installed into a repository as .omni-loop/bin/omni.mjs (bundled),
 // called by the skills and by the outbox workflow. Exit 0 ok, 1 red, 2 usage or configuration.
 //
-// Before a command runs, the one PRD or fix it names is recorded for the Claude session it runs in
+// Before a command runs, the one PRD or fix it names is recorded for the session it runs in
 // (PRD 324's spec, "The record", widened by PRD 1208's), so that the status line and `omni now` can
-// show it on a branch that names none: when `CLAUDE_CODE_SESSION_ID` is set and safe,
+// show it on a branch that names none: when a session id is known and safe — `OMNI_SESSION_ID`, else
+// `CLAUDE_CODE_SESSION_ID`, else the id `omni dossier open` stored for the checkout (PRD 1739) —
 // `../lib/statusline/sessions.ts` writes its kind and number in the main checkout. `omni bug <n>`
 // and `omni dossier push <n> --kind bug` record bug `<n>`; `omni visual <n>` and
 // `omni dossier push <n> --kind visual` record visual fix `<n>`; every other command naming a PRD
 // records it as kind `prd`. `omni roadmap check <n>`, `omni roadmap push <n>` and
 // `omni next --roadmap <n>` record roadmap `<n>` (PRD 1208's s3). A record that cannot be written is ignored: the command runs, prints and exits exactly as
 // it does without one.
+//
+// After a command, the heartbeat (PRD 1831): when the session id resolves (the same order), the
+// checkout's dossiers are on and the computer is signed in (or `OMNI_TOKEN` is set), the entry claims
+// the session's once-a-minute window and starts `omni heartbeat --claimed` as a detached child, never
+// waiting for it. Never under `OMNI_HEARTBEAT=off` or vitest, and never after `omni heartbeat`,
+// `omni ask hook`, `omni session end` or `omni statusline` (`./commands/heartbeat.ts`). Anything it
+// cannot read or start is ignored: the command's output and exit code are the same with or without it.
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../lib/config.ts';
 import { loadContext } from '../lib/context.ts';
+import { mainCheckout } from '../lib/dossier/local.ts';
+import { sessionIdOf } from '../lib/dossier/session.ts';
 import { processEnv, readEnv } from '../lib/env/read.ts';
+import { sendHeartbeat } from './commands/heartbeat.ts';
+import type { HeartbeatSeams } from './commands/heartbeat.ts';
 import type { IssueNumber, PrdNumber } from '../lib/ids.ts';
 import { propertyOf } from '../lib/narrow.ts';
 import { handOver, planLaunch } from '../lib/launch/launch.ts';
@@ -167,11 +179,16 @@ export function prdNamedBy(argv: readonly string[]): PrdNumber | null {
   return numbers.size === 1 ? ([...numbers][0] ?? null) : null;
 }
 
-/** Records the PRD or fix `argv` names for the Claude session `env` names; never throws, never prints. */
+/**
+ * Records the PRD or fix `argv` names for the agent session `env` names, else for the id stored for
+ * the checkout (PRD 1739); never throws, never prints, writes no session id.
+ */
 function recordWork(argv: readonly string[], { cwd, vars, exec }: { cwd: string; vars: Vars; exec: Exec }): void {
   try {
     const work = workNamedBy(argv);
-    if (work !== null) recordSession({ cwd, exec, sessionId: vars.claudeSession?.id, kind: work.kind, number: work.number, now: Date.now() });
+    if (work === null) return;
+    const sessionId = vars.agentSession?.id ?? sessionIdOf(null, mainCheckout(cwd, exec));
+    recordSession({ cwd, exec, sessionId, kind: work.kind, number: work.number, now: Date.now() });
   } catch {
     // A record that cannot be written changes nothing: the command runs as it does without one.
   }
@@ -185,8 +202,9 @@ export async function main(
     stderr = process.stderr,
     exec = execFileSync,
     env = processEnv(),
+    heartbeat: seams = {},
     ...more
-  }: { cwd?: string; stdout?: Out; stderr?: Out; exec?: Exec; env?: Env; [option: string]: unknown } = {},
+  }: { cwd?: string; stdout?: Out; stderr?: Out; exec?: Exec; env?: Env; heartbeat?: HeartbeatSeams; [option: string]: unknown } = {},
 ): Promise<number> {
   const [first = '', ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? 'help' : first === VERSION_FLAG ? 'version' : first;
@@ -200,12 +218,16 @@ export async function main(
     // one `EnvError` line, naming each variable concerned and never a value, before any work.
     const vars = readEnv(env);
     recordWork(argv, { cwd, vars, exec });
-    // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
-    // bundle and prompt; an option left out keeps the command's own default. `script` is this
-    // `omni`'s own file, which the status line's background refresh runs.
-    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, script: self, ...more });
-    const ctx = loadContext(cwd, { exec });
-    return await command.run(rest, { ctx, stdout, stderr, exec, env, vars });
+    try {
+      // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
+      // bundle and prompt; an option left out keeps the command's own default. `script` is this
+      // `omni`'s own file, which the status line's background refresh runs.
+      if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, script: self, ...more });
+      const ctx = loadContext(cwd, { exec });
+      return await command.run(rest, { ctx, stdout, stderr, exec, env, vars });
+    } finally {
+      sendHeartbeat(argv, { cwd, exec, env, vars, script: self, seams });
+    }
   } catch (error) {
     if (error instanceof ConfigError || (error instanceof Error && STOPPING_ERRORS.includes(error.name))) {
       stderr.write(`${error.message.split('\n')[0]}\n`);

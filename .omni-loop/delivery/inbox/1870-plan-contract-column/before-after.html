@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1870 — the contract column, today and after</title>
+<style>
+  :root {
+    --bg: #f7f5f0; --fg: #1f2420; --muted: #656a63; --panel: #ffffff; --line: #d8d5cb;
+    --today: #8a6d3b; --after: #2c6e49; --red: #b23b3b; --ink: #2b4a7a;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --body: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #171917; --fg: #e9ebe6; --muted: #a2a69e; --panel: #20231f; --line: #3a3e38; --today: #d1b06f; --after: #7fd19a; --red: #f08383; --ink: #93b4e8; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 28px; max-width: 70ch; }
+  h2 { font-size: 18px; margin: 32px 0 12px; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .col { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+  .col h3 { margin: 0 0 12px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .today h3 { color: var(--today); } .after h3 { color: var(--after); }
+  pre { margin: 0; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; overflow-x: auto; }
+  .red { color: var(--red); font-weight: 700; } .green { color: var(--after); font-weight: 700; } .ink { color: var(--ink); font-weight: 700; }
+  p { margin: 10px 0 0; max-width: 70ch; }
+  .same { border-left: 4px solid var(--line); padding-left: 12px; color: var(--muted); }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+  table.t { border-collapse: collapse; width: 100%; font-size: 14px; }
+  table.t th, table.t td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.t th { color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  code { font-family: var(--mono); font-size: .92em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PRD 1870 — A plan declares the contract each slice changes</h1>
+  <p class="sub">Nothing on a screen changes. What changes is one column of a plan's slice table, one key of a repository's config, what <code>omni plan check</code> refuses, and which targets a plan repository copies the planning config of. Today beside after, on the case that found the gap: PRD 229's plan in <code>vertuo-automation-plan</code>.</p>
+
+  <h2>1. The slice table</h2>
+  <div class="cols">
+    <div class="col today"><h3>Today</h3>
+<pre>| id | repo               | slice                                | territory                                  | blocked by | wave |
+| --- | ------------------ | ------------------------------------ | ------------------------------------------ | ---------- | ---- |
+| s1 | vertuo-backend-php | the kernel renders the mail types… | `packages/services/kernel/src/graphql/…`   | —          | 1    |
+| s2 | vertuo-apps        | the V3 page lists the templates…   | `apps/vertuo-front/src/views/…`            | s1         | 2    |
+| s4 | vertuo-backend-php | the kernel creates and edits…      | `packages/services/kernel/src/usecases/…`  | s1         | 2    |</pre>
+      <p>What s1 and s4 change for their callers is in the "done when" prose, three screens down. A machine cannot read it; a reviewer may miss it.</p>
+    </div>
+    <div class="col after"><h3>After</h3>
+<pre>| id | repo               | slice                                | territory                                  | <span class="green">contract</span> | blocked by | wave |
+| --- | ------------------ | ------------------------------------ | ------------------------------------------ | <span class="green">--------</span> | ---------- | ---- |
+| s1 | vertuo-backend-php | the kernel renders the mail types… | `packages/services/kernel/src/graphql/…`   | <span class="green">api</span>      | —          | 1    |
+| s2 | vertuo-apps        | the V3 page lists the templates…   | `apps/vertuo-front/src/views/…`            | —        | s1         | 2    |
+| s4 | vertuo-backend-php | the kernel creates and edits…      | `packages/services/kernel/src/usecases/…`  | <span class="green">none</span>     | s1         | 2    |</pre>
+      <p>A column read by its name: one or more of the receiving repository's kinds (<code>api</code>, <code>db</code>, <code>api, db</code> by default) or <code>none</code> on every slice of a repository that asks; <code>—</code> on the others. s4 changes nothing for its callers and now says so.</p>
+    </div>
+  </div>
+
+  <h2>2. The repository that receives the slice asks</h2>
+  <div class="cols">
+    <div class="col today"><h3>Today</h3>
+<pre># vertuo-backend-php/.omni-loop/config.yml
+flow:
+  areas:
+    migrations:
+      paths: ['^packages/services/kernel-migrations/', …]
+      rules: { plan: [ { slice: { alone: true } }, { landing: alone } ] }</pre>
+      <p>The back-end already writes the rules of its own paths. No key says "my slices declare their contract".</p>
+    </div>
+    <div class="col after"><h3>After</h3>
+<pre># vertuo-backend-php/.omni-loop/config.yml
+flow:
+  areas:
+    migrations: …
+<span class="green">contracts:
+  declare: true
+  kinds: [api, db]   # optional, the default</span></pre>
+      <p>One boolean, <code>false</code> by default, and the repository's own kinds, <code>[api, db]</code> by default: a worker could name <code>[api, event]</code>, with no kit release. Any plan that lands a slice here, from any plan repository, then declares. The plan repository lists nothing.</p>
+    </div>
+  </div>
+
+  <h2>3. What <code>omni plan check</code> says</h2>
+  <div class="cols">
+    <div class="col today"><h3>Today</h3>
+<pre>$ omni plan check 229
+waves: 1 → s1, s3 · 2 → s2, s4, s5 · 3 → s6, s7
+collisions: none
+<span class="ink">ok</span></pre>
+      <p>Green, with two backend slices that add mutations and one that adds a query, none of it visible here.</p>
+    </div>
+    <div class="col after"><h3>After</h3>
+<pre>$ omni plan check 229
+waves: 1 → s1, s3 · 2 → s2, s4, s5 · 3 → s6, s7
+collisions: none
+<span class="green">contracts: s1 api · s6 api</span>
+<span class="red">s4: contract: declares nothing — api, db or none</span>
+<span class="red">not ok</span></pre>
+      <p>The planner's "check until green" step fixes s4 before the plan is pushed. A word outside the repository's kinds is refused the same way: <code>s3: contract: "graphql" is no kind of this repository — api, db or none</code>.</p>
+    </div>
+  </div>
+
+  <h2>4. How a plan repository knows what a target asks</h2>
+  <div class="cols">
+    <div class="col today"><h3>Today</h3>
+<pre>.omni-loop/knowledge/repos/
+└── vertuo-apps/            knowledge: imported
+    ├── playbook/ …
+    └── flow/config.yml     ← its planning config, copied
+
+(vertuo-backend-php is knowledge: own → no folder, nothing copied)</pre>
+      <p>Only an <code>imported</code> target's planning config reaches the plan repository. An <code>own</code> target's flow areas and <code>landings.alone</code> are never read by <code>plan check</code> here.</p>
+    </div>
+    <div class="col after"><h3>After</h3>
+<pre>.omni-loop/knowledge/repos/
+├── vertuo-apps/            knowledge: imported
+│   ├── playbook/ …
+│   └── flow/config.yml
+<span class="green">└── vertuo-backend-php/     knowledge: own
+    └── flow/config.yml     ← flow, landings, pr, contracts — and nothing else</span>
+
+$ omni targets
+vertuo-backend-php  back-end  own  v0.0.395  <span class="red">stale (flow not copied)</span>   ← until mega-invade --sync</pre>
+      <p>Every target's planning config is copied, <code>own</code> and <code>none</code> included; a knowledge base is still never copied unless imported. <code>omni targets</code> says when a copy is missing or behind; <code>--sync</code> redraws it.</p>
+    </div>
+  </div>
+
+  <h2>What stays the same</h2>
+  <div class="same">
+    <ul>
+      <li>A plan with no <code>contract</code> column is graded as it always was wherever no repository asks; existing plans are not backfilled.</li>
+      <li>Waves, collisions, blockers, landings, flow areas: unchanged. The column is invisible to every rule but its own.</li>
+      <li>Nothing in the kit acts on the declaration: no merge-time check, no label, no comment. Downstream gates read <code>Slice.contract</code>.</li>
+      <li>A target's knowledge base is copied only when <code>imported</code>; <code>own</code> stays read where it lives.</li>
+    </ul>
+  </div>
+
+  <h2>Where it lands</h2>
+  <table class="t">
+    <tr><th>Piece</th><th>Today</th><th>After</th></tr>
+    <tr><td><code>Slice</code> (<code>kit/lib/types.ts</code>)</td><td>id, repo, title, territory, blockedBy, wave, landing</td><td>+ <code>contract</code>: the cell's kinds, <code>none</code>, or <code>null</code></td></tr>
+    <tr><td><code>parseConfig</code></td><td>no <code>contracts</code> section</td><td><code>contracts.declare</code>, boolean, <code>false</code>; <code>contracts.kinds</code>, <code>[api, db]</code></td></tr>
+    <tr><td><code>FlowConfig</code> / the copy</td><td>flow, landings, pr; imported targets only</td><td>+ contracts; every target with a planning config</td></tr>
+    <tr><td><code>omni flow show</code></td><td>areas and hooks</td><td>+ <code>contracts: declare &lt;kinds&gt; | none</code></td></tr>
+    <tr><td><code>/omni:plan</code></td><td>header row fixed</td><td>+ <code>contract</code> after <code>territory</code> when a repository asks</td></tr>
+  </table>
+</div>
+</body>
+</html>

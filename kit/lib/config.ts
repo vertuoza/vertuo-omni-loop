@@ -61,6 +61,11 @@ const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'the name of an env
 // PRD 1407: a selector the word pass reads — tags, ids, classes and attributes, no combinator.
 const wordSelector = text.refine((value) => parseSelector(value) !== null, 'a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator');
 
+// PRD 1726: a law's owner — a GitHub login or an `<org>/<team>`, without the `@` CODEOWNERS adds.
+const lawOwner = z
+  .string()
+  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, 'a GitHub login or <org>/<team>, without @');
+
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
 
@@ -148,6 +153,23 @@ const generatedEntry = z
   })
   .strict();
 
+// PRD 1890: the coding agents the kit installs its skills for. `claude` gets the plugin; the others
+// read the generated `.agents/skills/omni-<name>/` copies (`kit/lib/agents/`).
+export const AGENTS = Object.freeze(['claude', 'codex', 'cursor', 'gemini'] as const);
+
+const agentList = z
+  .array(z.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for — one of ${AGENTS.join(', ')}` }))
+  .min(1, 'at least one agent')
+  .superRefine((agents, issues) => {
+    agents.forEach((agent, index) => {
+      if (agents.indexOf(agent) !== index) issues.addIssue({ code: 'custom', path: [index], message: `${agent} is listed twice` });
+    });
+  })
+  .default(['claude']);
+
+/** Where the context budget's ceilings live when `budgets.context.file` does not say (PRD 1679). */
+const CONTEXT_BUDGET_FILE = '.omni-loop/budgets/context.json';
+
 export const ConfigSchema = z
   .object({
     kit: z.literal(CONFIG_VERSION),
@@ -180,13 +202,16 @@ export const ConfigSchema = z
       law: branchTemplate.default('test/law-{id}'),
     }),
     worktrees: text.default('.claude/worktrees'),
+    // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
+    // without the key installs for Claude Code alone, as before.
+    agents: agentList,
     paths: section({
       delivery: text.default('.omni-loop/delivery'),
       knowledge: text.default('.omni-loop/knowledge'),
       adr: text.default('.omni-loop/knowledge/adr'),
       playbook: text.default('.omni-loop/knowledge/playbook'),
       glossary: nullableText.default(null),
-      context: z.array(text).default(['CLAUDE.md']),
+      context: z.array(text).default(['AGENTS.md', 'CLAUDE.md']),
     }),
     labels: section({
       prd: labelName.default('omni:prd'),
@@ -238,6 +263,9 @@ export const ConfigSchema = z
       runner: text.default('ubuntu-latest'),
     }),
     commands: section({
+      // PRD 1804: what prepares a fresh checkout to run the preflight (an install). Only the
+      // multi-repository skills read it, from a target's default branch; `null` means none.
+      setup: nullableText.default(null),
       preflight: nullableText.default(null),
       preflightFull: nullableText.default(null),
       checks: z.array(text).default([]),
@@ -262,11 +290,19 @@ export const ConfigSchema = z
       .prefault({}),
     laws: section({
       source: z.enum(['knowledge', 'claudeMdInvariants', 'none']).default('none'),
+      // The heading under which the context files (`paths.context`, in order) list the ADRs that are
+      // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
+      // read (PRD 1739), so every config that sets them still reads.
       claudeMdHeading: text.default('## Invariants'),
       // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
       // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
       // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
       requireProof: z.boolean().default(false),
+      // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
+      max: z.number().int().positive().default(20),
+      // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
+      // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
+      owners: z.array(lawOwner).default([]),
     }),
     risk: section({
       storedShape: z.array(regexSource).default([]),
@@ -295,6 +331,10 @@ export const ConfigSchema = z
       // and a config that does not set it parses exactly as before.
       hookMaxBytes: z.number().int().positive().optional(),
     }),
+    // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
+    // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
+    // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
+    wave: section({ inlineBelow: z.number().int().min(0).default(0) }),
     ask: section({ url: askUrl.nullable().default(null) }),
     // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
     // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
@@ -378,6 +418,11 @@ export const ConfigSchema = z
     // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
     // it has none, and parses with no `generated` key.
     generated: z.array(generatedEntry).optional(),
+    // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
+    // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
+    // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
+    // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
+    budgets: z.object({ context: section({ enabled: z.boolean().default(false), file: text.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
   })
   .strict()
   .superRefine(({ pr, flow }, issues) => {
@@ -409,6 +454,11 @@ type Config = z.infer<typeof ConfigSchema>;
 /** The screen library's folder (PRD 1407): `design.screens`, else `design/screens/` under `paths.knowledge`. */
 export function designScreensDir({ paths, design }: { paths: Pick<Config['paths'], 'knowledge'>; design: Pick<Config['design'], 'screens'> }): string {
   return design.screens ?? `${paths.knowledge.replace(/\/+$/, '')}/design/screens/`;
+}
+
+/** The context budget (PRD 1679): `budgets.context`, or off with its ceilings in the default file. */
+export function contextBudget({ budgets }: Pick<Config, 'budgets'>): { enabled: boolean; file: string } {
+  return budgets?.context ?? { enabled: false, file: CONTEXT_BUDGET_FILE };
 }
 
 /** One step from a `kit:` format to the next: a raw file in, the same file one `kit:` higher out. */

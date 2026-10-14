@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { SESSION_FILE } from '../lib/dossier/session.ts';
 import { parsePrd } from '../lib/ids.ts';
 import { LOOP_FILE } from '../lib/loop/local.ts';
 import { BOARD_DIR, boardFile } from '../lib/statusline/board-cache.ts';
@@ -184,6 +185,25 @@ describe('omni now', () => {
     expect(await nowJson(repo.root, repo.root, ['--session', 'nobody'])).toEqual(NOTHING);
     expect(await nowJson(repo.root, repo.root, ['--session'], { env: { CLAUDE_CODE_SESSION_ID: 'rec-2' } })).toMatchObject({ work: { number: 9 } });
     expect(await nowJson(repo.root, repo.root, ['--session', '--json'], { env: { CLAUDE_CODE_SESSION_ID: 'rec-2' } })).toMatchObject({ work: { number: 9 } });
+  });
+
+  // PRD 1739: a session id any agent has.
+  it('reads OMNI_SESSION_ID over Claude\'s, then the id stored for the checkout, and writes nothing', async () => {
+    repo.record('rec-4', { prd: 9, at: new Date(NOW).toISOString() });
+    repo.record('rec-5', { prd: 3, at: new Date(NOW).toISOString() });
+    expect(await nowJson(repo.root, repo.root, [], { env: { OMNI_SESSION_ID: 'rec-4', CLAUDE_CODE_SESSION_ID: 'rec-5' } })).toMatchObject({ work: { number: 9 } });
+    const stored = join(repo.root, SESSION_FILE);
+    writeFileSync(stored, `${JSON.stringify({ id: 'rec-5' })}\n`);
+    try {
+      const slice = repo.on('feat/yankee');
+      expect(await nowJson(repo.root, repo.root)).toMatchObject({ work: { number: 3 } });
+      expect(await nowJson(slice, repo.root)).toMatchObject({ work: { number: 3 } });
+      expect(await nowJson(repo.root, repo.root, [], { env: { OMNI_SESSION_ID: 'rec-4' } })).toMatchObject({ work: { number: 9 } });
+      expect(await nowJson(repo.root, repo.root, ['--session', 'nobody'])).toEqual(NOTHING);
+    } finally {
+      rmSync(stored);
+    }
+    expect(await nowJson(repo.root, repo.root)).toEqual(NOTHING);
   });
 
   it("reads the session's folder and id from Claude Code's JSON with --stdin", async () => {

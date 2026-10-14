@@ -27,7 +27,12 @@
  * its `Decided:` line: who merged the feature pull request the decision came from, and when.
  *
  * Any entry may carry `Proposed: <who> <YYYY-MM-DD>` (PRD #68): no person has confirmed it yet. Its
- * id resolves, but it is no law — `laws.floorsHigh` is false for it — until a person removes the line.
+ * id resolves, but it weighs nothing — `laws.floorsHigh` is false for it — until a person removes the line.
+ *
+ * A **law** (PRD 1726, {@link isLaw}) is a rule or an invariant a person locked:
+ * `Locked: @<login>, <YYYY-MM-DD>`. Any entry may carry `Governs: <paths and globs, comma-separated>`,
+ * the files it rules over, and every law must. An agent never writes `Locked:`; it writes
+ * `Proposed law: <one plain sentence: what breaks, and who gets hurt>` for a person to lock.
  *
  * A rule or an invariant decided worth a law before it has a test (PRD 1342) carries
  * `Enforced by: pending #<n>`: `<n>` is its law issue, which `/omni:enforce` turns into the test. It is
@@ -58,6 +63,9 @@ export type Place = { scope: EntryScope; domain: string; codes: string[]; kind: 
 /** An entry's `Proposed:` line read: who and when, both `null` when the line is malformed. */
 export type Proposal = { by: string | null; on: string | null };
 
+/** An entry's `Locked:` line read (PRD 1726): the login or team that locked it and the day, both `null` when malformed. */
+export type Lock = { by: string | null; on: string | null };
+
 /** One entry of the knowledge folder, as {@link parseEntryFile} reads it. */
 export type KnowledgeEntry = {
   id: string;
@@ -78,6 +86,12 @@ export type KnowledgeEntry = {
   pending: IssueNumber | null;
   stated: string | null;
   proposed: Proposal | null;
+  /** The `Locked: @<login>, <YYYY-MM-DD>` line (PRD 1726): a locked rule or invariant is a law. `null`: no line. */
+  locked: Lock | null;
+  /** The paths and globs a `Governs:` line lists (PRD 1726), backticks stripped. `null`: no line. */
+  governs: string[] | null;
+  /** The plain sentence of a `Proposed law:` line (PRD 1726), what an agent writes instead of a lock. `null`: no line. */
+  proposedLaw: string | null;
   kindLine: string | null;
   keptId: string | null;
   fieldCounts: Partial<Record<FieldKey, number>>;
@@ -126,7 +140,7 @@ export const ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, 'g');
 const ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 const ANY_H2 = /^##\s/;
 const FIELD_LINE =
-  /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
+  /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Kind|Kept id|Glossary term):\s*(.*)$/;
 
 /** The field names as they appear on a parsed entry. */
 const FIELD_KEY = {
@@ -138,6 +152,9 @@ const FIELD_KEY = {
   'Enforced by': 'enforcedBy',
   Stated: 'stated',
   Proposed: 'proposedLine',
+  'Proposed law': 'proposedLaw',
+  Locked: 'lockedLine',
+  Governs: 'governsLine',
   Kind: 'kindLine',
   'Kept id': 'keptId',
   'Glossary term': 'glossaryTerm',
@@ -230,6 +247,67 @@ function readProposed(file: string, id: string, value: string | undefined): { pr
   };
 }
 
+/** A `Locked:` value (PRD 1726): `@<login>` or `@<org>/<team>`, a comma, then the day, `YYYY-MM-DD`. */
+const LOCKED_VALUE = /^@([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?),\s*(\d{4}-\d{2}-\d{2})$/;
+
+/**
+ * An entry's `Locked:` line read: `{ locked, problems }`. `locked` is `{ by, on }`, `null` when the
+ * entry carries no such line. A malformed line still reads as locked (`by` and `on` `null`): a
+ * person meant to lock it, so it is held as a law whatever its shape — failing closed — and the
+ * problem names the file so the checker refuses it.
+ */
+function readLocked(file: string, id: string, value: string | undefined): { locked: Lock | null; problems: string[] } {
+  if (value === undefined) return { locked: null, problems: [] };
+  const match = value.match(LOCKED_VALUE);
+  if (match) return { locked: { by: group(match, 1), on: group(match, 2) }, problems: [] };
+  const line = value === '' ? 'Locked:' : `Locked: ${value}`;
+  return {
+    locked: { by: null, on: null },
+    problems: [`${file}: ${id} — "${line}" is not "Locked: @<login>, <YYYY-MM-DD>".`],
+  };
+}
+
+/** An entry's `Governs:` line read: its comma-separated paths and globs, backticks stripped; none listed is a problem. */
+function readGoverns(file: string, id: string, value: string | undefined): { governs: string[] | null; problems: string[] } {
+  if (value === undefined) return { governs: null, problems: [] };
+  const governs = value
+    .split(',')
+    .map((part) => part.replace(/`/g, '').trim())
+    .filter(Boolean);
+  if (governs.length > 0) return { governs, problems: [] };
+  return {
+    governs,
+    problems: [`${file}: ${id} — "Governs:" names no path — list the paths it rules over, comma-separated.`],
+  };
+}
+
+/** An entry's `Proposed law:` line read: the sentence, an empty one a problem. */
+function readProposedLaw(file: string, id: string, value: string | undefined): { proposedLaw: string | null; problems: string[] } {
+  if (value === undefined) return { proposedLaw: null, problems: [] };
+  if (value !== '') return { proposedLaw: value, problems: [] };
+  return {
+    proposedLaw: value,
+    problems: [`${file}: ${id} — "Proposed law:" says nothing — write one plain sentence: what breaks, and who gets hurt.`],
+  };
+}
+
+/**
+ * Whether an entry is a **law** (PRD 1726): a rule or an invariant a person locked with a `Locked:`
+ * line. The one definition of the word: a principle is never a law, and an unlocked rule is a rule.
+ */
+export function isLaw(entry: Pick<KnowledgeEntry, 'kind' | 'locked'>): boolean {
+  return (entry.kind === 'rule' || entry.kind === 'invariant') && entry.locked !== null;
+}
+
+/**
+ * Whether an entry is a rule or an invariant a person confirmed: no `Proposed:` line holds it back
+ * (PRD #68), or a person locked it. What the rule-level gate (`law-proof`, `law-text`, `law-demoted`)
+ * guards: every {@link isLaw} entry is one, and so is every confirmed rule that is not locked.
+ */
+export function isConfirmedRule(entry: Pick<KnowledgeEntry, 'kind' | 'locked' | 'proposed'>): boolean {
+  return (entry.kind === 'rule' || entry.kind === 'invariant') && (entry.proposed === null || entry.locked !== null);
+}
+
 /** `Enforced by: pending #<n>`, `<n>` a law issue's number (PRD 1342). */
 const PENDING_VALUE = /^pending #([1-9]\d*)$/;
 /** A value that means to be pending: `pending` in any case, not followed by more of a path or a word. */
@@ -293,6 +371,9 @@ export function parseEntryFile(file: string, text: string, place: Place): Knowle
     const enforcedBy = fields.enforcedBy ?? null;
     const { proposed, problems: proposedProblems } = readProposed(file, id, fields.proposedLine);
     const { pending, problems: pendingProblems } = readPending(file, id, enforcedBy);
+    const { locked, problems: lockedProblems } = readLocked(file, id, fields.lockedLine);
+    const { governs, problems: governsProblems } = readGoverns(file, id, fields.governsLine);
+    const { proposedLaw, problems: proposedLawProblems } = readProposedLaw(file, id, fields.proposedLaw);
     return {
       id,
       kind,
@@ -311,10 +392,13 @@ export function parseEntryFile(file: string, text: string, place: Place): Knowle
       pending,
       stated: fields.stated ?? null,
       proposed,
+      locked,
+      governs,
+      proposedLaw,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
-      problems: [...proposedProblems, ...pendingProblems],
+      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...proposedLawProblems],
     };
   });
 }
