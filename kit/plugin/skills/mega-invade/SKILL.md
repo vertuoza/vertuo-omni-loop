@@ -30,12 +30,12 @@ every target's planning config (3); **config** (4); **one pull request** (5). `-
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Only here, never there.** This skill writes only in the plan repository: under `paths.knowledge`
 and the config file. It never writes in a target repository: no branch, no commit, no pull request,
@@ -211,7 +211,8 @@ Then run `node .omni-loop/bin/omni.mjs targets`, and keep its table for the pull
    checks this repository's own, one warning per question and per proposed entry. Fix every error it
    names in what this run wrote. Then `node .omni-loop/bin/omni.mjs check all`, green.
 3. **Commits,** Conventional Commits as steps 3 and 4 name them, each ending with the co-author
-   trailer your session requires, then the `omni sign trailer` line.
+   trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives),
+   then the `omni sign trailer` line.
 4. **Push:** `git push -u <remote> <mega branch>`. When step 0 started from the default branch over
    an older branch of that name, add `--force-with-lease`; never force a branch whose pull request is
    open.

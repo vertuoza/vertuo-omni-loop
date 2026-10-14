@@ -20,18 +20,18 @@ check the **boundary** (4, and at every step after); cut the **branch** (5); **w
 **prove red** (7); **fix** (8); **guard** (9); **mutation** (10); **record** (11), with **a change to
 a law** when the range makes one; **ship** (12);
 **hand off** (13). Announce each step in one line as you start it. Every step leaves something on
-disk or on GitHub, so a `/clear` or a crash loses nothing. **Nothing is reported as proven that was
-not run.**
+disk or on GitHub, so a fresh session (in Claude: `/clear`) or a crash loses nothing. **Nothing is
+reported as proven that was not run.**
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 ## Input
 
@@ -55,7 +55,7 @@ Omni Loop kit is not installed in this repository. Keep the JSON; later steps re
 `risk.sharedContract`, `acceptance.*`, `commands.preflight`, `commands.mutation` and
 `limits.attempts` from it. `<remote>` below is `repo.remote`.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`.
 Its rules bind every step below. Then read `node .omni-loop/bin/omni.mjs kb show bug-fixing` (the
 risk levels, the regression evidence and the guard question steps 3 and 9 use) and
 `node .omni-loop/bin/omni.mjs kb show testing` (the level a reproduction is written at, step 7).

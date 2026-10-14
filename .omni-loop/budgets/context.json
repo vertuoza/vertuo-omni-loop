@@ -1,5 +1,5 @@
 {
-  "briefing": 3072,
+  "briefing": 4096,
   "context:AGENTS.md": 7168,
   "form:architecture": 6144,
   "form:bug-fixing": 2048,
@@ -15,5 +15,5 @@
   "form:setup": 2048,
   "form:testing": 5120,
   "form:verification": 4096,
-  "session": 9216
+  "session": 10240
 }

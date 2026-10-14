@@ -1,12 +1,12 @@
 ---
 name: ultra-wave
-description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch), dispatch one worktree subagent per slice following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. With a product PRD's id (<key>-<n>) it reads the approval first and claims nothing while it is drifted or the server is held, takes the plan through omni dossier get and relays every item to the PRD's outbox on the server, with no plan PR. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
+description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch), start one agent per slice, each in its own worktree, following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. With a product PRD's id (<key>-<n>) it reads the approval first and claims nothing while it is drifted or the server is held, takes the plan through omni dossier get and relays every item to the PRD's outbox on the server, with no plan PR. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
 ---
 
 # Ultra-wave: one wave, across repositories
 
 One wave of a PRD whose plan names a repository for every slice (see `/omni:ultra-yolo`). Each
-slice is built in its own target, by its own subagent, and ends in its own sub-PR into that
+slice is built in its own target, by its own agent, and ends in its own sub-PR into that
 target's feature branch; its decisions come home to the plan repository's outbox.
 
 It follows `/omni:wave` **step for step**, and never copies it: each step below either says "as
@@ -16,12 +16,12 @@ the two say the same thing, that skill's words are the rule.
 `omni` below is `node .omni-loop/bin/omni.mjs`, always run in the plan repository. Never import the
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Code runs only from a target's own config,** as `/omni:ultra-yolo` says: in a target, beyond `git`
 and `gh`, only its own committed setup, then its own committed preflight ever run, in the same
@@ -146,7 +146,7 @@ the `claimed` status comment there); `claimed-stale` is taken over with `--repo 
 `gh` call. Once every claim is made, run `git -C <clone> switch --detach` in each clone, and
 `git switch --detach` in the plan repository.
 
-## 3. Dispatch, one subagent per slice, in a single message
+## 3. Dispatch, one agent per slice, all at once
 
 As `/omni:wave` step 3, with this prompt for a target's slice:
 

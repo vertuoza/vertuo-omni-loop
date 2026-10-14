@@ -19,12 +19,12 @@ either says "as `/omni:brainstorm` step N" and adds only what differs, or is new
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Only here, never there.** Everything this skill writes lands in the plan repository: the issue,
 the branches, the files, the pull requests. It writes nothing in any target repository: no branch,
@@ -47,7 +47,7 @@ test, no script, no hook, no command from its README or its package manifest. On
    not a plan repository: run /omni:mega-invade first, or /omni:brainstorm for this repository alone
    ```
 
-3. Then the briefing (`node .omni-loop/bin/omni.mjs kb show briefing`) and `/omni:dossier-open`,
+3. Then the briefing (`node .omni-loop/bin/omni.mjs session start`) and `/omni:dossier-open`,
    as `/omni:brainstorm` step 0 runs them.
 4. **The scratch folder:** `mktemp -d`, outside the plan repository and outside its worktrees. Every
    clone of step 3 goes there, and the folder is deleted when the skill ends, whatever the outcome.
@@ -120,7 +120,8 @@ next?** block reads:
 **What is next?**
 
 1. Review and approve PRD <key>-<n> on its page: <page link>
-2. Once it is approved, type /clear (or open a new terminal), then run:
+2. Once it is approved, start a fresh session (in Claude: `/clear`), or open a new terminal, then
+   run:
 
 /omni:ultra-yolo <key>-<n>
 ```
@@ -278,7 +279,7 @@ Two differences, in the third block only:
 1. Review the PRD: https://github.com/<owner>/<repo>/pull/<phase-0 PR>
    (spec, plan and before/after side by side: <dossier link>)
 2. Merge that PR. → PRD <n> moves into the inbox.
-3. Once it's merged, type /clear (or open a new terminal), then run:
+3. Once it's merged, start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 ultra-yolo is not in this kit yet: the plan waits in the inbox
 /omni:ultra-yolo <n>

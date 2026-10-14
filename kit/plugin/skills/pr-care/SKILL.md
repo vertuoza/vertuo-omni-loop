@@ -15,10 +15,11 @@ a terminal and leaves it running: it watches on this machine, needs no new secre
 stops when the terminal does, which the PRD page's watcher line makes visible.
 
 **Signing.** Every commit this skill makes (a resolved conflict, a CI fix, a review fix) ends with
-the co-author trailer your session requires, then the line `omni sign trailer` prints as the
-message's last line, with no blank line between them. It opens no pull request or issue, and a body
-it never rewrites; comments and review replies are never signed. A command that prints nothing means
-signing is off here: add nothing.
+the co-author trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its
+session gives), then the line `omni sign trailer` prints as the message's last line, with no blank
+line between them. It opens no pull request or issue, and a body it never rewrites; comments and
+review replies are never signed. A command that prints nothing means signing is off here: add
+nothing.
 
 ## Input
 
@@ -42,7 +43,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 later steps read `repo.*`, `branches.feature`, `worktrees`, `commands.*`, `labels.*`,
 `limits.attempts` and `markers.prefix` from it.
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`.
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`.
 Its rules bind every step below. Then read the rubric every review thread is judged against:
 `node .omni-loop/bin/omni.mjs kb show review`, the `fix`, `push-back` and `ask` sections, the
 repository's own lines or the kit default. Read it again at the start of every round, so a line a
@@ -261,8 +262,8 @@ Under `--once`, there is no next round here: the round is done, so return (the c
 again). Without it:
 
 A round runs when a CI run on the feature PR finishes, and otherwise every 5 minutes. A foreground
-command is killed after at most 10 minutes, so wait in the background, with Bash
-`run_in_background: true` and a `timeout` of 300000 ms, and run the next round when it wakes you:
+command is killed after at most 10 minutes, so run the wait in the background and run the next
+round when it ends (in Claude: Bash with `run_in_background: true` and a `timeout` of 300000 ms):
 
 ```bash
 gh pr checks <pr.number> --watch --interval 30   # while checks run: wakes when the run finishes
