@@ -151,6 +151,41 @@ It closes the session's questions on your ask page and tells the Omni page the s
 always exits 0. An agent that never gets to run it does no harm: the page treats a session whose
 heartbeat stopped as gone.
 
+## Model tiers
+
+The plan advises a tier for each slice, in its `tier` column, from what the slice needs:
+
+| Tier | For |
+|---|---|
+| `deep` | a slice whose design is subtle: an algorithm, a concurrency or migration hazard, a law path |
+| `build` | a bounded slice with a territory and a test-first spec, the ordinary case |
+| `light` | a mechanical slice: a rename, wording, docs, a config line |
+
+You review the tiers with the rest of the plan, before anything is built: change a cell to change
+one. Saying nothing approves the plan's advice.
+
+The `tiers` key of `.omni-loop/config.yml` maps each tier to a model, and an effort if you want one,
+with a row per agent, so a Codex terminal and a Claude terminal each read their own:
+
+```yaml
+agents: [claude, codex]
+tiers:
+  claude:
+    deep:  { model: opus,   effort: high }
+    build: { model: sonnet, effort: medium }
+    light: { model: haiku,  effort: low }
+  codex:
+    build: { model: <id> }
+```
+
+`/omni:wave` starts each slice's agent on the model and effort its tier maps to
+(`omni tier <tier> --agent <agent>` prints them). No mapping inherits: without `tiers`, without a
+row for your agent or an entry for the slice's tier, the slice runs on your terminal's model, as it
+always did. So does every slice of an agent that cannot choose a model per subagent, and a slice
+whose model the agent refuses, started again once on the terminal's model. Every sub-PR says what
+built it on a `Tier:` line, such as `Tier: light · claude haiku · low` or
+`Tier: build · inherited (no mapping)`.
+
 ## The heartbeat
 
 While the session runs, every `omni` command the agent runs tells the Omni page the session is
