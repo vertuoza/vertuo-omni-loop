@@ -998,6 +998,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
+    name: 'tier',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni tier <deep|build|light> --agent <agent>'],
+    summary: 'the model and effort a slice of a tier runs on',
+    detail:
+      'The model and effort the config maps a tier to for one agent: a line model: and a line ' +
+      'effort:, each only when set. When nothing maps the tier (no tiers in the config, no row ' +
+      "for the agent, no entry for the tier) it prints inherit: the slice runs on the terminal's " +
+      'model. Both exit 0. A wave runs it for each slice, on the tier its plan advises, and starts ' +
+      'the slice on what it prints. An unknown tier or agent exits 2, naming it.',
+  },
+  {
     name: 'design',
     kind: 'command',
     who: 'skills',
