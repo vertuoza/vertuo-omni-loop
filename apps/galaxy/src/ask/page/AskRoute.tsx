@@ -6,7 +6,7 @@ import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import { AskPage } from './AskPage';
 import { AskSession } from './AskSession';
 import { DEMO_MEMBERS, DEMO_OWNER, demoPane, demoSessions, readScenario } from './demo';
-import { Notice } from './Notice';
+import { AskNotOpen, Notice } from './Notice';
 import { QuestionsTabs } from './QuestionsTabs';
 import { SignInCard } from './SignInCard';
 import { callbackPath, isSessionId } from './sign-in';
@@ -65,11 +65,7 @@ export async function AskRoute({ id, query }: { id: string | null; query: AskQue
   }
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
-    return tabbed(
-      <Notice title="Ask mode is not open here">
-        <p className="ask-muted">This deployment has no database, so it cannot show Claude&apos;s questions.</p>
-      </Notice>,
-    );
+    return tabbed(<AskNotOpen />);
   }
   const db = await supabaseServer();
   const { data: { user } } = await db.auth.getUser();

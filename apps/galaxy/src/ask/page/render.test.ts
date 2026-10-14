@@ -89,9 +89,9 @@ describe('the round, rendered', () => {
   });
 
   it('keeps Send off until every question has an answer', () => {
-    expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send to Claude<\/button>/);
+    expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send to the agent<\/button>/);
     const draft = [pickOption(storage, item(emptyDraft([storage]), 0), 'Memory'), pickOption(checks, item(emptyDraft([checks]), 0), 'RLS')];
-    expect(round(draft, true)).toMatch(/<button type="button" class="ask-button">Send to Claude<\/button>/);
+    expect(round(draft, true)).toMatch(/<button type="button" class="ask-button">Send to the agent<\/button>/);
   });
 
   it('says how long before the question moves to the terminal', () => {
@@ -213,13 +213,13 @@ describe('the session page, for its owner and for another member (PRD 144)', () 
 
   it('gives the owner the answer form and the delete button', () => {
     const html = page('owner');
-    expect(html).toContain('Send to Claude');
+    expect(html).toContain('Send to the agent');
     expect(html).toMatch(/<button type="button" class="ask-button quiet">Delete this session<\/button>/);
   });
 
   it('shows another member the open question read-only: no form, no delete', () => {
     const html = page('member');
-    expect(html).not.toContain('Send to Claude');
+    expect(html).not.toContain('Send to the agent');
     expect(html).not.toContain('<textarea');
     expect(html).not.toContain('type="radio"');
     expect(html).not.toContain('Delete this session');
@@ -413,7 +413,7 @@ describe('what Claude wrote before asking, rendered (PRD 752)', () => {
       source: { kind: 'demo' }, initial: { ...initial, round: { ...initial.round, lead } }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS, from,
     }));
   };
-  const TITLE = 'Claude wrote before asking';
+  const TITLE = 'The agent wrote before asking';
 
   it('shows the lead once, above the first question, as markdown', () => {
     const html = session(DESIGN);
@@ -460,7 +460,7 @@ describe('what Claude wrote before asking, rendered (PRD 752)', () => {
   it('shows it inside an answered round of the history', () => {
     const past: HistoryEntry = { id: 'a', outcome: 'answered', via: 'page', at: '', lines: [{ header: 'H', question: 'Q?', answer: 'A' }], lead: DESIGN };
     const html = renderToStaticMarkup(createElement(History, { history: [past] }));
-    expect(html).toMatch(/<details class="ask-past">[^]*Claude wrote before asking[^]*<dl>/);
+    expect(html).toMatch(/<details class="ask-past">[^]*The agent wrote before asking[^]*<dl>/);
     expect(renderToStaticMarkup(createElement(History, { history: [{ ...past, lead: undefined }] }))).not.toContain(TITLE);
   });
 });

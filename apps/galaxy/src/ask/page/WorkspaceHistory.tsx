@@ -94,7 +94,7 @@ export function WorkspaceHistory({ items, choices, filters }: { items: HistoryIt
       {nothingYet ? (
         <section className="ask-card">
           <h1>No question yet</h1>
-          <p className="ask-muted">Every question Claude asks your workspace while ask mode is on is kept here.</p>
+          <p className="ask-muted">Every question an agent asks your workspace while ask mode is on is kept here.</p>
         </section>
       ) : (
         <>

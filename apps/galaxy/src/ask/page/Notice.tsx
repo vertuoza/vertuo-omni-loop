@@ -27,7 +27,7 @@ export function AskUnreachable() {
 export function AskNotOpen() {
   return (
     <Notice title="Ask mode is not open here">
-      <p className="ask-muted">This deployment has no database, so it cannot show Claude&apos;s questions.</p>
+      <p className="ask-muted">This deployment has no database, so it cannot show the agent&apos;s questions.</p>
     </Notice>
   );
 }

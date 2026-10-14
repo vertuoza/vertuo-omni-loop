@@ -17,8 +17,8 @@ export const RELEASES = {
   initial: {
     name: 'Initial release',
     headline: 'From idea to merged PR, on a loop.',
-    intro: 'The first public release of Omni Loop gathers everything shipped from 24 to 27 September 2026: the kit and its '
-      + 'Claude Code plugin, the omni-loop GitHub App, ask mode and its question history, a knowledge base that fills itself, '
+    intro: 'The first public release of Omni Loop gathers everything shipped from 24 to 27 September 2026: the kit, its '
+      + 'plugin for Claude Code, skills for any coding agent, the omni-loop GitHub App, ask mode and its question history, a knowledge base that fills itself, '
       + 'PRD dossiers, a design system, and the arcade that turns delivery into a game.',
   },
   /** Closed, or a failed read with no good page behind it: no error detail, ever. */

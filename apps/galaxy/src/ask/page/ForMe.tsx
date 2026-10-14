@@ -12,7 +12,7 @@ export function ForMe({ entries }: { entries: ForMeEntry[] }) {
       {entries.length === 0 ? (
         <section className="ask-card">
           <h1>Nothing waits for you</h1>
-          <p className="ask-muted">When a teammate shares a question with you while Claude waits for it, it shows here.</p>
+          <p className="ask-muted">When a teammate shares a question with you while the agent waits for it, it shows here.</p>
         </section>
       ) : (
         <ol className="ask-for-me">

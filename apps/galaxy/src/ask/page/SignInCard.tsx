@@ -14,8 +14,8 @@ export function SignInCard(props: SignInProps) {
     <GithubSignInCard
       {...props}
       titleId="ask-signin-title"
-      title="Sign in to answer Claude"
-      text="This page shows Claude's questions to the person who switched ask mode on. Sign in with the same GitHub account, and you come straight back here."
+      title="Sign in to answer your agent"
+      text="This page shows your agent's questions to the person who switched ask mode on. Sign in with the same GitHub account, and you come straight back here."
     />
   );
 }

@@ -65,13 +65,13 @@ describe('the browser title', () => {
     expect(needsYou(tabs)).toBe(2);
   });
 
-  it('is the plain Claude asks base: the waiting list prefixes the count on every page (PRD 499)', () => {
-    expect(tabsTitle()).toBe('Claude asks · OMNI LOOP');
+  it('is the plain Your agent asks base: the waiting list prefixes the count on every page (PRD 499)', () => {
+    expect(tabsTitle()).toBe('Your agent asks · OMNI LOOP');
     expect(tabsTitle()).not.toContain('●');
   });
 
-  it('on a question\'s page, says Claude asks while the person may answer it, with no ●', () => {
-    expect(askTitle(true)).toBe('Claude asks · OMNI LOOP');
+  it('on a question\'s page, says Your agent asks while the person may answer it, with no ●', () => {
+    expect(askTitle(true)).toBe('Your agent asks · OMNI LOOP');
     expect(askTitle(false)).toBe('Ask · OMNI LOOP');
   });
 });

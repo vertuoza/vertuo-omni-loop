@@ -24,19 +24,19 @@ import {
 import { PlayDock } from '../../play-dock/PlayDock';
 import type { AskDock } from './dock-player';
 
-// One ask session: the open round at the top (or Claude is working, moved to the terminal, session
+// One ask session: the open round at the top (or the agent is working, moved to the terminal, session
 // closed), the history below, read again every 2 s while the tab is visible. The server rendered the
 // first state; this keeps it current. Its owner answers and may delete the session; any other member
 // of its workspace (PRD 144) reads it all, with no answer form and no delete. Every round carries its
 // category chip, which the owner and any other member may change. While a round is open, its owner may
 // share it with another member of the workspace (PRD 144), who answers it at /ask/q/<round>.
-// A tab of the person's own (`dock` given) also offers the play dock beside "Claude is working" (PRD
+// A tab of the person's own (`dock` given) also offers the play dock beside "The agent is working" (PRD
 // 757) while its terminal's heartbeat says it works, pausing on the open question and leading to it.
 // It reads through GET /api/ask/sessions/:id (src/ask/ask.client.ts, PRD 1318): signed out, the poll
 // stops and the page shows the sign-in card (or tells the tab list, which shows it); a failed read
 // keeps what it last showed.
 
-/** Where the dock's ⏸ CLAUDE ASKED · ANSWER leads: the top of the open question, on this page. */
+/** Where the dock's ⏸ AGENT ASKED · ANSWER leads: the top of the open question, on this page. */
 const QUESTION_ANCHOR = 'ask-question';
 
 export type SourceConfig = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
@@ -258,11 +258,11 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
 
       {view.kind === 'working' && (
         <section className="ask-card" aria-live="polite">
-          <h1 className="ask-working">Claude is working</h1>
+          <h1 className="ask-working">The agent is working</h1>
           <p className="ask-muted">
             {state.rounds.length === 0
-              ? 'No questions yet. The first one shows here as soon as Claude asks.'
-              : 'The next question shows here as soon as Claude asks. Keep this tab open.'}
+              ? <>No questions yet.<br />The first one shows here.</>
+              : <>The next question shows here.<br />Keep this tab open.</>}
           </p>
         </section>
       )}
@@ -272,8 +272,8 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
           <h1>Moved to the terminal</h1>
           <p className="ask-muted">
             {owner
-              ? 'The page did not answer in time, so Claude asks this in the terminal instead. Answer it there, and the answer shows below.'
-              : 'The page did not get an answer in time, so Claude asks this in the terminal instead. The answer shows below once given.'}
+              ? 'The page did not answer in time, so the agent asks this in the terminal instead. Answer it there, and the answer shows below.'
+              : 'The page did not get an answer in time, so the agent asks this in the terminal instead. The answer shows below once given.'}
           </p>
           {view.questions.length > 0 && (
             <QuestionList questions={view.questions} />
