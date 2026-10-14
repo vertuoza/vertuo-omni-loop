@@ -3,6 +3,7 @@ import { sure } from '../test/sure';
 import { airborne, NO_FX, stepFx, type Kart } from './kart';
 import { buildLine, inGapAt, pointAt } from './line';
 import { comeBack } from './rivals';
+import { EIGHT, eightWith } from './track.fake';
 import { RULES } from './rules';
 import { COMET_RING, PROP_KINDS, cornersOf, LAPS, legHeight, LEVEL, locatePx, parseTrack, pointAtPx, RELIEF_SPAN, roadAt, roofAt, TILE, trackProblems, type TrackSource } from './track';
 
@@ -572,5 +573,39 @@ describe('the jumps, flown over COMET RING (PRD 1775)', () => {
       const run = fly({ x: 8.5 * TILE, y: 28 * TILE + 15 }, Math.PI / 2, share * RULES.topSpeed);
       expect(run.fell, `${share}`).toBe(false);
     }
+  });
+});
+
+describe('a line that crosses itself (PRD 1923)', () => {
+  it('is drivable on level ground, a crossing at about 62 degrees, with the start line and the gates far from it', () => {
+    expect(trackProblems(EIGHT)).toEqual([]);
+    expect(parseTrack(EIGHT).length).toBeGreaterThan(0);
+  });
+
+  it('is refused when its two branches are not at one height at the crossing', () => {
+    const heights = [0, 0, 0, 0, 0, 0, 0, 0];
+    const problems = trackProblems(eightWith({ relief: { heights: [0, 10, 0, 0, 0, 0, 0, 0], bumps: heights } }));
+    expect(problems.join()).toContain('the ground is not level');
+    expect(trackProblems(eightWith({ relief: { heights, bumps: [0, 0, 0, 0, 0, 0, 0, 0] } }))).toEqual([]);
+    expect(trackProblems(eightWith({ relief: { heights: [0, 8, 8, 0, 0, 0, 0, 0], bumps: heights } })).join()).toContain('the ground is not level');
+  });
+
+  it('is refused when a gate stands within 8 tiles of the crossing', () => {
+    const near = eightWith({ waypoints: [[56, 64, 5], [56, 48, 4], [42, 40, 3], [16, 24, 4], [16, 8, 5], [56, 8, 5], [56, 24, 4], [16, 48, 4], [16, 64, 5]] });
+    expect(trackProblems(near).join()).toContain('the gate of waypoint 2 is within 8 tiles');
+  });
+
+  it('is refused when the start line stands within 8 tiles of the crossing', () => {
+    const rows = EIGHT.rows.map((r, y) => (y === 36 ? `${r.slice(0, 40)}=${r.slice(41)}` : r));
+    expect(trackProblems(eightWith({ rows })).join()).toContain('the start line is within 8 tiles');
+  });
+
+  it('is refused when the branches cross at under 60 degrees', () => {
+    const narrow = eightWith({ waypoints: [[56, 64, 5], [56, 44, 4], [16, 28, 4], [16, 8, 5], [56, 8, 5], [56, 28, 4], [16, 44, 4], [16, 64, 5]] });
+    expect(trackProblems(narrow).join()).toContain('degrees, at least 60 are needed');
+  });
+
+  it('is never refused on COMET RING, whose line does not cross itself', () => {
+    expect(trackProblems(COMET_RING)).toEqual([]);
   });
 });

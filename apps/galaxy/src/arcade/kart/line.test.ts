@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLine, gatesOf, inSpan, isRoad, lengthOf, locate, pointAt, racingLine, roadInSpan } from './line';
+import { buildLine, crossings, gatesOf, inSpan, isRoad, lengthOf, locate, pointAt, racingLine, roadInSpan } from './line';
 import type { LineSpec } from './line';
 
 // The centre line's geometry (PRD 1829, slice 1): a pure module, in tiles, nothing in the race reads it yet.
@@ -200,5 +200,71 @@ describe('a span', () => {
     expect(inSpan(line, wrap, L - 1)).toBe(true);
     expect(inSpan(line, wrap, 1)).toBe(true);
     expect(inSpan(line, wrap, 4)).toBe(false);
+  });
+});
+
+// The branch a kart is on (PRD 1923, slice 1): a figure eight, its two diagonals crossing at its middle.
+const eight = () =>
+  buildLine({
+    points: [[56, 64, 5], [56, 48, 4], [16, 24, 4], [16, 8, 5], [56, 8, 5], [56, 24, 4], [16, 48, 4], [16, 64, 5]].map(([x, y, radius]) => ({ x: (x ?? 0) + 0.5, y: (y ?? 0) + 0.5, radius: radius ?? 0 })),
+    width: W,
+  });
+
+describe('where a line crosses itself', () => {
+  it('finds the crossing of the two diagonals of a figure eight, at about 62 degrees, and none on a square', () => {
+    const found = crossings(eight());
+    expect(found).toHaveLength(1);
+    const c = nth(found, 0);
+    expect(c.x).toBeCloseTo(36.5, 6);
+    expect(c.y).toBeCloseTo(36.5, 6);
+    expect(c.angle).toBeCloseTo(62, 0);
+    expect(crossings(square())).toEqual([]);
+  });
+});
+
+describe('the branch of a line that crosses itself', () => {
+  const line = eight();
+  const c = nth(crossings(line), 0);
+  const alongOf = (leg: number, at: number) => (line.segments.find((s2) => s2.kind === 'straight' && s2.leg === leg)?.start ?? NaN) + at;
+  const onA = alongOf(c.a.leg, c.a.at);
+  const onB = alongOf(c.b.leg, c.b.at);
+
+  it('answers the branch the hint is on, whichever it is, at the crossing and a little off it', () => {
+    expect(Math.abs(onA - onB)).toBeGreaterThan(20); // two branches far apart along the line
+    for (const [dx, dy] of [[0, 0], [0.4, 0.2], [-0.3, 0.5]] as const) {
+      expect(Math.abs(locate(line, c.x + dx, c.y + dy, onA - 1).along - onA)).toBeLessThan(1);
+      expect(Math.abs(locate(line, c.x + dx, c.y + dy, onB + 1).along - onB)).toBeLessThan(1);
+    }
+  });
+
+  it('follows a point along one branch through the crossing, a step at a time, and never jumps to the other', () => {
+    for (const on of [onA, onB]) {
+      let hint = on - 5;
+      for (let k = 0; k <= 100; k++) {
+        const p = pointAt(line, on - 5 + k * 0.1);
+        const here = locate(line, p.x, p.y, hint);
+        expect(here.along).toBeCloseTo(on - 5 + k * 0.1, 6);
+        hint = here.along;
+      }
+    }
+  });
+
+  it('reaches across the end of the closed line, and answers over the whole line when nothing is within reach', () => {
+    const p = pointAt(line, line.length - 1);
+    expect(locate(line, p.x, p.y, 1).along).toBeCloseTo(line.length - 1, 6);
+    const far = locate(line, c.x, c.y, onA + line.length / 2 - 3);
+    expect(far.dist).toBeGreaterThanOrEqual(0);
+  });
+
+  it('answers with no hint the nearest point of the whole line, as it always did', () => {
+    const sq = square();
+    for (let x = -3; x <= 23; x += 2.5) {
+      for (let y = -3; y <= 23; y += 2.5) {
+        const near = Math.min(...racingLine(sq).map((p) => Math.hypot(p.x - x, p.y - y)));
+        expect(locate(sq, x, y).dist).toBeLessThanOrEqual(near + 1e-9);
+        expect(locate(sq, x, y).dist).toBeGreaterThan(near - 0.26);
+        expect(locate(sq, x, y, locate(sq, x, y).along)).toEqual(locate(sq, x, y));
+      }
+    }
   });
 });

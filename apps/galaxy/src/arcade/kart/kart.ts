@@ -17,6 +17,8 @@ export interface Kart {
   /** Its height over the ground (PRD 1775) and its vertical speed: absent on the road. A kart is in the air while either is above 0. */
   readonly height?: number;
   readonly lift?: number;
+  /** The distance along the centre line it had a step before, in game pixels (PRD 1923): carried only on a circuit whose line crosses itself, so that a kart stays on its branch of the crossing. */
+  readonly along?: number;
 }
 
 /** Whether a kart is in the air: it takes no box, no pad and no push, and cannot tip over. */

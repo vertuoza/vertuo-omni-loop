@@ -166,10 +166,16 @@ function localOf(seg: Segment, x: number, y: number): number {
 }
 
 /** Where (x, y) sits against the centre line: its nearest point, the distance along, across (positive on the clockwise side: to the right of travel on a y-down map) and the tangent. */
-export function locate(line: Line, x: number, y: number): Located {
+export function locate(line: Line, x: number, y: number, hint?: number): Located {
   let best: Located | null = null;
   for (const seg of line.segments) {
-    const p = sampleOf(seg, localOf(seg, x, y));
+    let local = localOf(seg, x, y);
+    if (hint !== undefined) {
+      const reach = reachedBy(line, seg, hint);
+      if (reach === null) continue;
+      local = Math.min(Math.max(local, reach.lo), reach.hi);
+    }
+    const p = sampleOf(seg, local);
     const dist = Math.hypot(x - p.x, y - p.y);
     if (best === null || dist < best.dist) {
       const dx = x - p.x;
@@ -177,8 +183,59 @@ export function locate(line: Line, x: number, y: number): Located {
       best = { along: p.along, across: p.tx * dy - p.ty * dx, dist, x: p.x, y: p.y, tx: p.tx, ty: p.ty };
     }
   }
-  if (best === null) throw new Error('a line has segments');
+  if (best === null) {
+    if (hint !== undefined) return locate(line, x, y);
+    throw new Error('a line has segments');
+  }
   return best;
+}
+
+/** How far either way along the line, in tiles, a hint reaches: `locate` with one looks only at the stretches this near it (PRD 1923). */
+const BRANCH_REACH = 6;
+
+/** The part of a segment within `BRANCH_REACH` of the hint, either way along the closed line, as a range of distances along the segment; none when it is not near. */
+function reachedBy(line: Line, seg: Segment, hint: number): { lo: number; hi: number } | null {
+  const h = wrap(line, hint);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const shift of [0, line.length, -line.length]) {
+    const from = Math.max(seg.start, h - BRANCH_REACH + shift) - seg.start;
+    const to = Math.min(seg.start + seg.len, h + BRANCH_REACH + shift) - seg.start;
+    if (from <= to) {
+      lo = Math.min(lo, from);
+      hi = Math.max(hi, to);
+    }
+  }
+  return lo <= hi ? { lo, hi } : null;
+}
+
+/** One of the two straights through a crossing: its waypoint's leg, how far along the straight the crossing is (tiles), and its direction. */
+export type Branch = { leg: number; at: number; tx: number; ty: number };
+
+/** Where a line crosses itself: the point, the acute angle between the two branches in degrees, and the two. */
+export type Crossing = { x: number; y: number; angle: number; a: Branch; b: Branch };
+
+/** Every crossing of two straights of the line, in tiles (one on an arc is not looked for). Straights that follow each other meet only at an end, so only interiors count. */
+export function crossings(line: Line): Crossing[] {
+  const straights = line.segments.filter((s): s is Straight => s.kind === 'straight');
+  const out: Crossing[] = [];
+  straights.forEach((p, i) => {
+    for (const q of straights.slice(i + 1)) {
+      const det = p.tx * q.ty - p.ty * q.tx;
+      if (Math.abs(det) < EPS) continue;
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const t = (dx * q.ty - dy * q.tx) / det; // along p
+      const u = (dx * p.ty - dy * p.tx) / det; // along q
+      if (t <= EPS || t >= p.len - EPS || u <= EPS || u >= q.len - EPS) continue;
+      const turn = Math.acos(Math.min(1, Math.abs(p.tx * q.tx + p.ty * q.ty)));
+      out.push({
+        x: p.x + p.tx * t, y: p.y + p.ty * t, angle: (turn * 180) / Math.PI,
+        a: { leg: p.leg, at: t, tx: p.tx, ty: p.ty }, b: { leg: q.leg, at: u, tx: q.tx, ty: q.ty },
+      });
+    }
+  });
+  return out;
 }
 
 const inGap = (gaps: readonly Gap[], along: number): boolean => gaps.some((g) => along >= g.from && along < g.from + g.length);
