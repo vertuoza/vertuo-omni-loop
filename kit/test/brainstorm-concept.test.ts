@@ -68,7 +68,7 @@ describe('/omni:brainstorm --concept <n> <area> (PRD 686)', () => {
   it('reads the concept from the default branch, after the briefing and before the dossier opens', () => {
     expect(headings(TEXT).slice(0, 4)).toEqual(['Inputs', 'Step 0', 'From a concept', '1. Brainstorm the design']);
     const step0 = flat(section(TEXT, 'Step 0'));
-    const briefing = step0.indexOf('kb show briefing');
+    const briefing = step0.indexOf('session start');
     const read = step0.indexOf('**From a concept**');
     expect(briefing).toBeGreaterThan(-1);
     expect(read).toBeGreaterThan(briefing);

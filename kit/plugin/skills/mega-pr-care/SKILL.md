@@ -18,9 +18,9 @@ where the two say the same thing, that skill's words are the rule.
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
 **Signing,** as `/omni:pr-care`: every commit, in any repository, ends with the co-author trailer
-your session requires, then the line `omni sign trailer` prints (run from the plan repository). It
-rewrites the plan PR's body, which keeps its `omni sign footer` line; comments and review replies
-are never signed.
+your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives), then the
+line `omni sign trailer` prints (run from the plan repository). It rewrites the plan PR's body,
+which keeps its `omni sign footer` line; comments and review replies are never signed.
 
 **Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
 and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
@@ -64,7 +64,7 @@ across the list, and return.
    not a plan repository: /omni:pr-care <n>
    ```
 
-2. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then the `ci` and `verification`
+2. The briefing (`node .omni-loop/bin/omni.mjs session start`), then the `ci` and `verification`
    forms, as `/omni:pr-care` step 0. The `review` form is read per pull request, each round (**3.
    Review threads**).
 
@@ -219,8 +219,9 @@ body is kept as it is, the `omni sign footer` line last
 Under `--once`, there is no next round here: the round is done, so return (the caller wakes it
 again). Without it, as `/omni:pr-care` step 5, over the whole list: a round runs when a CI run on any open pull request
 of the list finishes, and otherwise every 5 minutes. Watch one running PR at a time in the
-background (`gh pr checks <pr> --repo <slug> --watch --interval 30`, `run_in_background: true`, a
-`timeout` of 300000 ms), or a background `sleep 300` when none runs.
+background (`gh pr checks <pr> --repo <slug> --watch --interval 30`), or a background `sleep 300`
+when none runs, and act when it ends (in Claude: Bash with `run_in_background: true` and a
+`timeout` of 300000 ms).
 
 ## 6. Stop
 

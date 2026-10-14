@@ -73,11 +73,11 @@ which, as one question through the session's question tool. Followed by a skill,
    checked again; a refusal of another file is not this command's: name it, and leave it.
 8. **Commit,** typed by a person: the screen's file and its mockup, and nothing else, on the branch
    checked out, never on the default branch (`omni config repo.defaultBranch`), where it asks the
-   person which branch to commit them on. The message is `design: mock <screen>`, then the
-   co-author trailer the session requires, then the line
-   `node .omni-loop/bin/omni.mjs sign trailer` prints as its last line, no blank line between them
-   (it prints nothing when signing is off: add nothing). It pushes nothing. Followed by a skill,
-   the skill commits them with its own work.
+   person which branch to commit them on. The message is `design: mock <screen>`, then the co-author
+   trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its session gives),
+   then the line `node .omni-loop/bin/omni.mjs sign trailer` prints as its last line, no blank line
+   between them (it prints nothing when signing is off: add nothing). It pushes nothing. Followed by
+   a skill, the skill commits them with its own work.
 
 ## Standing in
 

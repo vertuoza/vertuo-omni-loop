@@ -1,0 +1,587 @@
+{
+  "ask": {
+    "commands": [
+      "ask",
+      "signin"
+    ],
+    "guards": []
+  },
+  "brainstorm": {
+    "commands": [
+      "approval",
+      "business",
+      "check",
+      "config",
+      "design",
+      "dossier",
+      "kb",
+      "phase0",
+      "plan",
+      "prd",
+      "product",
+      "sign",
+      "signin",
+      "wait"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni plan check",
+      "omni phase0",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "bug-fix": {
+    "commands": [
+      "bug",
+      "config",
+      "decide",
+      "dossier",
+      "item",
+      "kb",
+      "knowledge",
+      "sign"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "never merge",
+      "draft"
+    ]
+  },
+  "do-work": {
+    "commands": [
+      "board",
+      "check",
+      "config",
+      "decide",
+      "design",
+      "dossier",
+      "flow",
+      "generated",
+      "item",
+      "kb",
+      "knowledge",
+      "plan",
+      "prd",
+      "sign"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni plan check",
+      "never merge",
+      "draft"
+    ]
+  },
+  "dossier-open": {
+    "commands": [
+      "dossier",
+      "signin"
+    ],
+    "guards": [
+      "draft"
+    ]
+  },
+  "dossier-push": {
+    "commands": [
+      "dossier",
+      "signin"
+    ],
+    "guards": [
+      "draft"
+    ]
+  },
+  "drive": {
+    "commands": [
+      "board",
+      "care",
+      "config",
+      "dossier",
+      "flow",
+      "kb",
+      "loop",
+      "next",
+      "roadmap",
+      "sign",
+      "signin",
+      "status",
+      "wait"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni flow check merge",
+      "omni status",
+      "never merge",
+      "labels.outboxGo"
+    ]
+  },
+  "enforce": {
+    "commands": [
+      "check",
+      "config",
+      "kb",
+      "knowledge",
+      "sign"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "never merge"
+    ]
+  },
+  "help": {
+    "commands": [
+      "board",
+      "help"
+    ],
+    "guards": []
+  },
+  "invade": {
+    "commands": [
+      "budget",
+      "check",
+      "config",
+      "design",
+      "flow",
+      "init",
+      "kb",
+      "knowledge",
+      "proof",
+      "sign"
+    ],
+    "guards": [
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "mega-brainstorm": {
+    "commands": [
+      "check",
+      "config",
+      "dossier",
+      "flow",
+      "help",
+      "kb",
+      "phase0",
+      "plan",
+      "prd",
+      "product",
+      "sign",
+      "targets"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni plan check",
+      "omni phase0",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "mega-bug-fix": {
+    "commands": [
+      "bug",
+      "care",
+      "config",
+      "kb",
+      "sign"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "never merge",
+      "draft"
+    ]
+  },
+  "mega-drive": {
+    "commands": [
+      "care",
+      "config",
+      "dossier",
+      "kb",
+      "loop",
+      "next",
+      "prd",
+      "roadmap",
+      "sign",
+      "status"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni status",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "mega-invade": {
+    "commands": [
+      "check",
+      "config",
+      "flow",
+      "init",
+      "sign",
+      "targets"
+    ],
+    "guards": [
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "mega-pr-care": {
+    "commands": [
+      "care",
+      "config",
+      "dossier",
+      "kb",
+      "plan",
+      "prd",
+      "sign"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "mega-roadmap": {
+    "commands": [
+      "check",
+      "config",
+      "help",
+      "kb",
+      "phase0",
+      "roadmap",
+      "sign",
+      "targets"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni phase0",
+      "never merge",
+      "labels.outboxGo"
+    ]
+  },
+  "pitch": {
+    "commands": [
+      "business",
+      "config",
+      "pitch",
+      "prd",
+      "proof",
+      "signin"
+    ],
+    "guards": []
+  },
+  "pixel-perfect": {
+    "commands": [
+      "check",
+      "config",
+      "design",
+      "kb",
+      "sign"
+    ],
+    "guards": [
+      "draft"
+    ]
+  },
+  "plan": {
+    "commands": [
+      "config",
+      "design",
+      "dossier",
+      "flow",
+      "kb",
+      "plan",
+      "prd",
+      "roadmap",
+      "sign",
+      "signin",
+      "targets"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni plan check",
+      "never merge",
+      "draft"
+    ]
+  },
+  "pr": {
+    "commands": [
+      "board",
+      "config",
+      "flow",
+      "kb",
+      "plan",
+      "ship",
+      "sign",
+      "status"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni plan check",
+      "omni flow check merge",
+      "omni ship",
+      "omni status",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "pr-care": {
+    "commands": [
+      "care",
+      "check",
+      "config",
+      "item",
+      "kb",
+      "prd",
+      "sign",
+      "signin"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "prove": {
+    "commands": [
+      "config",
+      "prd",
+      "proof",
+      "signin"
+    ],
+    "guards": [
+      "never merge",
+      "draft"
+    ]
+  },
+  "roadmap": {
+    "commands": [
+      "check",
+      "config",
+      "help",
+      "kb",
+      "phase0",
+      "roadmap",
+      "sign",
+      "signin"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni phase0",
+      "never merge",
+      "labels.outboxGo"
+    ]
+  },
+  "status": {
+    "commands": [
+      "dossier",
+      "signin",
+      "status"
+    ],
+    "guards": [
+      "omni status",
+      "draft"
+    ]
+  },
+  "think-big": {
+    "commands": [
+      "business",
+      "check",
+      "concept",
+      "config",
+      "design",
+      "dossier",
+      "kb",
+      "sign"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "never merge",
+      "draft"
+    ]
+  },
+  "ultra-wave": {
+    "commands": [
+      "adopt",
+      "board",
+      "check",
+      "config",
+      "dossier",
+      "flow",
+      "item",
+      "prd",
+      "sign"
+    ],
+    "guards": [
+      "omni flow check merge",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "ultra-yolo": {
+    "commands": [
+      "adopt",
+      "answers",
+      "board",
+      "comment",
+      "config",
+      "dossier",
+      "item",
+      "kb",
+      "plan",
+      "prd",
+      "product",
+      "ship",
+      "sign",
+      "status",
+      "targets"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni plan check",
+      "omni ship",
+      "omni status",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "ultra-yolo-fix": {
+    "commands": [
+      "adopt",
+      "answers",
+      "config",
+      "dossier",
+      "item",
+      "prd",
+      "replies",
+      "rework",
+      "ship",
+      "sign",
+      "status",
+      "verb"
+    ],
+    "guards": [
+      "omni ship",
+      "omni status",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "validate-e2e": {
+    "commands": [
+      "config",
+      "e2e",
+      "item",
+      "prd",
+      "sign"
+    ],
+    "guards": [
+      "never merge",
+      "draft"
+    ]
+  },
+  "visual-fix": {
+    "commands": [
+      "check",
+      "config",
+      "design",
+      "dossier",
+      "item",
+      "kb",
+      "knowledge",
+      "sign",
+      "visual"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "never merge",
+      "draft"
+    ]
+  },
+  "wave": {
+    "commands": [
+      "adopt",
+      "board",
+      "care",
+      "check",
+      "config",
+      "dossier",
+      "flow",
+      "generated",
+      "kb",
+      "plan",
+      "prd",
+      "sign",
+      "signin"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni plan check",
+      "omni flow check merge",
+      "never merge",
+      "draft"
+    ]
+  },
+  "yolo": {
+    "commands": [
+      "answers",
+      "board",
+      "business",
+      "care",
+      "check",
+      "comment",
+      "config",
+      "dossier",
+      "flow",
+      "generated",
+      "kb",
+      "plan",
+      "prd",
+      "ship",
+      "sign",
+      "signin",
+      "status",
+      "wait"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni flow check merge",
+      "omni ship",
+      "omni status",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  },
+  "yolo-fix": {
+    "commands": [
+      "adopt",
+      "check",
+      "comment",
+      "config",
+      "dossier",
+      "flow",
+      "kb",
+      "knowledge",
+      "prd",
+      "replies",
+      "rework",
+      "sign"
+    ],
+    "guards": [
+      "omni kb show briefing",
+      "omni flow check merge",
+      "never merge",
+      "draft",
+      "labels.outboxGo"
+    ]
+  }
+}

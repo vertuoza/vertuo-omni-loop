@@ -2079,7 +2079,7 @@ var req = (id) => Object.freeze({ id, required: true });
 var opt = (id) => Object.freeze({ id, required: false });
 var form = (id, kind, slots, { pointerOnly = false } = {}) => Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
 var FORMS = Object.freeze([
-  form("briefing", "core", [req("never"), opt("hooks"), opt("links"), opt("next")]),
+  form("briefing", "core", [req("never"), opt("hooks"), opt("links"), opt("agents"), opt("next")]),
   form("setup", "core", [req("prerequisites"), req("install"), opt("run"), opt("env")]),
   form("architecture", "core", [req("layout"), req("boundaries"), opt("patterns")]),
   form("testing", "core", [req("commands"), req("layout"), opt("levels"), req("never"), opt("data")]),

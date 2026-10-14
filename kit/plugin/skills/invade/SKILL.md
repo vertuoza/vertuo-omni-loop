@@ -20,12 +20,12 @@ registers** (3); fill the playbook — point before writing (4), fill from evide
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 **Evidence or nothing.** A section or an entry says only what a file in the tree shows, every command
 it names ran green first, and whatever the evidence cannot show becomes a question for a person. A
@@ -464,8 +464,8 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   - A command that changes tracked files (a formatter, a code generator) leaves the tree as it found
     it: before you go on, `git status --porcelain` shows only the files this run wrote;
     `git restore <path>` the rest.
-  - A command that runs longer than a few minutes runs in the background (Bash
-    `run_in_background: true`); act when it wakes you.
+  - A command that runs longer than a few minutes runs in the background, and you act when it ends
+    (in Claude: Bash with `run_in_background: true`).
 - **Front matter.** A form whose sections hold any text, `See:` line or question is
   `state: filled`, with `invaded: <today>`. A form left wholly empty stays `state: blank`,
   `evidence: []`, `invaded: null`.
@@ -664,12 +664,11 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
    required slot of a core form would warn too, and should not remain). Fix every error either
    names. With the design flag on, `node .omni-loop/bin/omni.mjs check design` exits `0`. Then
    `node .omni-loop/bin/omni.mjs check all`, green.
-3. **Commits,** Conventional Commits, each ending with the co-author trailer your session requires,
-   then the `omni sign trailer` line:
-   the registers as step 3 names them, the forms as
-   `docs(knowledge): fill the playbook forms from evidence` (with `--refresh`:
-   `docs(knowledge): refresh the stale playbook forms`), the config as
-   `chore(config): <what the exploration learned>`.
+3. **Commits,** Conventional Commits, each ending with the co-author trailer your agent adds, if it
+   adds one (in Claude: the `Co-Authored-By` line its session gives), then the `omni sign trailer`
+   line: the registers as step 3 names them, the forms as `docs(knowledge): fill the playbook forms
+   from evidence` (with `--refresh`: `docs(knowledge): refresh the stale playbook forms`), the
+   config as `chore(config): <what the exploration learned>`.
 4. **Push:** `git push -u <remote> <invade branch>`. When step 0 started from the default branch
    over an older branch of that name, add `--force-with-lease`; never force a branch whose pull
    request is open.

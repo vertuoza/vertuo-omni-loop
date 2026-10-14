@@ -1,0 +1,118 @@
+<title>Neutral skill wording before and after</title>
+<style>
+/* Layout: one column; each change sets today beside after in two panes that stack on a phone.
+   Single dark look, on purpose: the Omni Loop's own tokens (packages/design/tokens.css). */
+:root {
+  --bg: #07061c;        /* void */
+  --pane: #0e0d33;      /* deep */
+  --fg: #f2f4ff;        /* white */
+  --muted: #8a90d6;     /* dim */
+  --line: #2a2766;
+  --accent: #a45cff;    /* plasma */
+  --good: #4ee08a;      /* green */
+  --bad: #ff3b5c;       /* red */
+  --code: #6ff0ff;      /* cyan */
+  --display: "Press Start 2P", ui-monospace, monospace;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 32px; }
+h1 { font: 18px/1.5 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 13px/1.5 var(--display); margin: 0; color: var(--accent); letter-spacing: .04em; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; color: var(--muted); }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pane { background: var(--pane); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pane.today { border-top: 3px solid var(--bad); }
+.pane.after { border-top: 3px solid var(--good); }
+pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--code); overflow-x: auto; white-space: pre; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: .92em; color: var(--code); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.no { color: var(--bad); } .yes { color: var(--good); }
+.note { color: var(--muted); font-size: 13.5px; }
+.flow { display: grid; gap: 8px; }
+.step { border-left: 2px solid var(--line); padding-left: 10px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Press+Start+2P&display=swap">
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Neutral skill wording</h1>
+    <p class="lede">PRD #1858 · Architectural · PRD 2 of the agent-agnostic series, after #1831. Every skill says each Claude-only action in words any coding agent follows, then the Claude way in brackets. Claude runs exactly what it ran before.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+
+    <h3>1 · The words of a skill</h3>
+    <div class="tbl"><table>
+      <tr><th>Today (Claude only)</th><th>After (any agent, Claude in brackets)</th></tr>
+      <tr><td class="no"><code>type /clear (or open a new terminal)</code></td><td class="yes">start a fresh session (in Claude: <code>/clear</code>), or open a new terminal</td></tr>
+      <tr><td class="no">ask through <code>AskUserQuestion</code></td><td class="yes">ask the person (in Claude: <code>AskUserQuestion</code>), as the briefing's <b>Any agent</b> says</td></tr>
+      <tr><td class="no">one subagent with <code>isolation: "worktree"</code>, several Agent calls</td><td class="yes">start one agent per slice, each in its own worktree, all at once (in Claude: several Agent calls, each <code>isolation: "worktree"</code>)</td></tr>
+      <tr><td class="no"><code>run_in_background: true</code>, act when it wakes you</td><td class="yes">run it in the background and act when it ends (in Claude: Bash with <code>run_in_background: true</code>)</td></tr>
+      <tr><td class="no">run as <code>/loop /omni:drive</code></td><td class="yes">run this tick again after the wait it names (in Claude: <code>/loop /omni:drive</code>)</td></tr>
+      <tr><td class="no">this Claude session</td><td class="yes">this session</td></tr>
+      <tr><td class="no">the co-author trailer your session requires</td><td class="yes">the co-author trailer your agent adds, if it adds one (in Claude: the <code>Co-Authored-By</code> line)</td></tr>
+      <tr><td class="no">step 0: <code>omni kb show briefing</code></td><td class="yes">step 0: <code>omni session start</code> (constituents, briefing, session id)</td></tr>
+    </table></div>
+
+    <h3>2 · Step 0, for a Codex session</h3>
+    <div class="pair">
+      <div class="pane today">
+        <h3>Today</h3>
+<pre>$ omni kb show briefing
+# Briefing
+## Never …
+## Hooks …
+## Links …
+## Where to read next …</pre>
+        <ul><li class="no">no word on how a non-Claude agent asks, starts agents or waits</li></ul>
+      </div>
+      <div class="pane after">
+        <h3>After</h3>
+<pre>$ omni session start
+Statement · Never list            # constituents
+# Briefing
+## Never …
+## Hooks …
+## Links …
+## Any agent  [kit default]
+- Skills: /omni:&lt;name&gt; — run it as your agent runs skills
+- Asking: your ask tool, else omni ask question
+  (exit 4: omni ask wait · exit 3: ask in chat)
+- Parallel agents: none? one after another
+- Waiting: foreground, repeated
+- A fresh session (in Claude: /clear)
+## Where to read next …
+session: 3c1e…</pre>
+      </div>
+    </div>
+
+    <h3>3 · The guards</h3>
+    <ul>
+      <li><code>agent-neutral.test.ts</code>: a Claude tool name outside an <code>(in Claude: …)</code> bracket fails, naming the file and the line</li>
+      <li><code>skill-steps.test.ts</code>: each skill's <code>omni</code> commands and guards match a snapshot taken from <code>main</code> before the rewording, so words change and steps do not</li>
+      <li><code>plugin.test.ts</code>: asserts the new wording in place of the Claude strings</li>
+    </ul>
+
+    <h3>4 · What stays the same</h3>
+    <ul>
+      <li><code>/omni:&lt;name&gt;</code>, the 658 references to skills, defined once in the briefing</li>
+      <li>every <code>omni</code> command a skill runs, and every guard it names</li>
+      <li><code>omni help</code>, install, <code>.agents/skills</code>: PRD 3 · the step runner: PRD 4</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</div>
