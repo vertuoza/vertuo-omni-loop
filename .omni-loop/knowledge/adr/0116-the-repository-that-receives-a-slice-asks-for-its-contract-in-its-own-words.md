@@ -1,4 +1,4 @@
-# ADR-0106 — The repository that receives a slice asks for its contract declaration, in its own words
+# ADR-0116 — The repository that receives a slice asks for its contract declaration, in its own words
 
 **Status:** accepted · **Date:** 2026-10-13 · **PRD:** #1870
 

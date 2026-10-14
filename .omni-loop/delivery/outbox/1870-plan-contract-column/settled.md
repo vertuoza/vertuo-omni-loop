@@ -411,7 +411,7 @@ Moving the new tests to a separate file: a few dozen lines, no code change.
 - Raised: 2026-10-13
 - Slice: s6
 - Wave: 1
-- Became: ADR-0106
+- Became: ADR-0116
 
 ### The answer, as it was given
 
