@@ -1092,7 +1092,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "context bar, the 5-hour usage and ask mode, then the PRD this session works on, its stage, " +
       'and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits ' +
       "0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a " +
-      'file the status line reads.',
+      "file the status line reads. The status line and the HUD are Claude Code's alone: Codex, Cursor " +
+      'and Gemini CLI show neither.',
   },
   {
     name: 'now',

@@ -115,6 +115,16 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ncommands:\n  setup: [npm ci]\n')).toThrow(/commands\.setup/);
   });
 
+  it('lists the agents the repository uses, [claude] by default, refusing an unknown, empty or repeated list, naming it (PRD 1890)', () => {
+    expect(parseConfig('kit: 1\n').agents).toEqual(['claude']);
+    expect(parseConfig('kit: 1\nagents: [codex, claude]\n').agents).toEqual(['codex', 'claude']);
+    expect(parseConfig('kit: 1\nagents: [claude, codex, cursor, gemini]\n').agents).toEqual(['claude', 'codex', 'cursor', 'gemini']);
+    expect(() => parseConfig('kit: 1\nagents: [claude, copilot]\n', 'c.yml')).toThrow(/^c\.yml.*agents\.1: copilot/);
+    expect(() => parseConfig('kit: 1\nagents: []\n')).toThrow(/agents: .*at least one agent/);
+    expect(() => parseConfig('kit: 1\nagents: [codex, claude, codex]\n')).toThrow(/agents\.2: codex is listed twice/);
+    expect(() => parseConfig('kit: 1\nagents: claude\n')).toThrow(/agents/);
+  });
+
   it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
     expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
     expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
@@ -452,6 +462,23 @@ describe('omni config', () => {
     }
   });
 
+  it('prints agents, ["claude"] in a repository that never set it, and as the file lists them (PRD 1890)', async () => {
+    for (const [text, value] of [[files['.omni-loop/config.yml'], ['claude']], ['kit: 1\nagents: [codex, cursor]\n', ['codex', 'cursor']]] as const) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const s = io();
+      expect(await main(['config', 'agents'], { cwd: root, ...s })).toBe(0);
+      expect(JSON.parse(s.out.join(''))).toEqual(value);
+    }
+  });
+
+  it('omni check config refuses an unknown agent, naming it (PRD 1890)', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nagents: [claude, copilot]\n' } });
+    const err: string[] = [];
+    const s = { ...io(), stderr: { write: (line: string) => err.push(line) } };
+    expect(await main(['check', 'config'], { cwd: root, ...s })).not.toBe(0);
+    expect(`${s.out.join('')}${err.join('')}`).toMatch(/copilot/);
+  });
+
   it('exits 2 for a key the schema does not hold', async () => {
     const { root } = makeRepo({ git: true, files });
     expect(await main(['config', 'paths.playbooks'], { cwd: root, ...io() })).toBe(2);
@@ -522,7 +549,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     const config = parseConfig('kit: 1\n');
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
-      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
+      'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
       'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
     ]);
   });
