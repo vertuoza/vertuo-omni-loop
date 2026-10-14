@@ -1,11 +1,22 @@
 // The list of lowest-wins games lives twice (PRD 1440): in submit_score()'s migration and as
 // `measure: 'time'` in the registry. This fails when the two differ, or when the migration does not
 // reset the kart's point scores.
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { GAMES, type Game } from './games/index.ts';
+import { GAMES, boardIds, type Game } from './games/index.ts';
 
-const MIGRATION = new URL('../../../../supabase/migrations/20261201090000_arcade_kart_times.sql', import.meta.url);
+const MIGRATIONS = new URL('../../../../supabase/migrations/', import.meta.url);
+
+/** The newest migration that defines submit_score(): it holds the function as it stands. */
+function newestSubmitScore(): URL {
+  const name = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql') && /create or replace function public\.submit_score\(/.test(readFileSync(new URL(f, MIGRATIONS), 'utf8')))
+    .sort()
+    .at(-1);
+  if (!name) throw new Error('no migration defines submit_score()');
+  return new URL(name, MIGRATIONS);
+}
+const KART_RESET = new URL('../../../../supabase/migrations/20261201090000_arcade_kart_times.sql', import.meta.url);
 
 /** The games the function's `lowest_wins` list names. */
 function sqlLowestWins(sql: string): string[] {
@@ -15,9 +26,9 @@ function sqlLowestWins(sql: string): string[] {
 }
 
 /** What differs between the registry's `time` games and the SQL list. */
-function drift(games: readonly Pick<Game, 'id' | 'measure'>[], sql: string): string[] {
+function drift(games: readonly Pick<Game, 'id' | 'measure' | 'boards'>[], sql: string): string[] {
   const inSql = new Set(sqlLowestWins(sql));
-  const time = new Set(games.filter((g) => g.measure === 'time').map((g) => g.id));
+  const time = new Set(games.filter((g) => g.measure === 'time').flatMap(boardIds));
   return [
     ...[...time].filter((id) => !inSql.has(id)).map((id) => `${id} is a time game missing from the SQL list`),
     ...[...inSql].filter((id) => !time.has(id)).map((id) => `${id} is in the SQL list but not a time game`),
@@ -25,20 +36,24 @@ function drift(games: readonly Pick<Game, 'id' | 'measure'>[], sql: string): str
 }
 
 describe('the two lists of lowest-wins games', () => {
-  const sql = readFileSync(MIGRATION, 'utf8');
+  const sql = readFileSync(newestSubmitScore(), 'utf8');
 
   it('are the same set', () => {
-    expect(sqlLowestWins(sql)).toEqual(['kart']);
+    expect(sqlLowestWins(sql)).toEqual(['kart', 'kart-frost-eight']);
     expect(drift(GAMES, sql)).toEqual([]);
   });
 
   it('fail when a time game is missing from the SQL list, or the SQL names one the registry does not', () => {
-    expect(drift(GAMES, sql.replace("array['kart']", 'array[]::text[]'))).toEqual(['kart is a time game missing from the SQL list']);
-    expect(drift(GAMES, sql.replace("array['kart']", "array['kart', 'invaders']"))).toEqual(['invaders is in the SQL list but not a time game']);
+    expect(drift(GAMES, sql.replace("array['kart', 'kart-frost-eight']", "array['kart']"))).toEqual(['kart-frost-eight is a time game missing from the SQL list']);
+    expect(drift(GAMES, sql.replace("array['kart', 'kart-frost-eight']", "array['kart', 'kart-frost-eight', 'invaders']"))).toEqual(['invaders is in the SQL list but not a time game']);
     expect(drift([...GAMES, { id: 'lap', measure: 'time' }], sql)).toEqual(['lap is a time game missing from the SQL list']);
   });
 
+  it('names the registry\'s two kart boards, COMET RING\'s and FROST EIGHT\'s', () => {
+    expect(GAMES.find((g) => g.id === 'kart')?.boards?.map((b) => [b.id, b.title])).toEqual([['kart', 'COMET RING'], ['kart-frost-eight', 'FROST EIGHT']]);
+  });
+
   it('deletes the kart rows, so no point score is read as a time', () => {
-    expect(sql).toMatch(/delete from public\.arcade_scores where game = 'kart';/);
+    expect(readFileSync(KART_RESET, 'utf8')).toMatch(/delete from public\.arcade_scores where game = 'kart';/);
   });
 });

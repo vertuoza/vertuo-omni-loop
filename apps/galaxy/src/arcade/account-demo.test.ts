@@ -41,6 +41,16 @@ describe('the demo\'s high scores', () => {
     expect(await a.submitScore('platformer', 50)).toBe(100);
   });
 
+  it('keeps the lowest time of each kart board, FROST EIGHT\'s apart from COMET RING\'s (PRD 1923)', async () => {
+    const a = await player();
+    expect(await a.submitScore('kart', 900)).toBe(900);
+    expect(await a.submitScore('kart-frost-eight', 2400)).toBe(2400);
+    expect(await a.submitScore('kart-frost-eight', 2600)).toBe(2400);
+    expect(await a.submitScore('kart-frost-eight', 2300)).toBe(2300);
+    expect((await a.scores('kart')).mine).toBe(900);
+    expect((await a.scores('kart-frost-eight')).mine).toBe(2300);
+  });
+
   it('start empty: no table, and no best of the guest\'s', async () => {
     expect(await demoAccount().scores('invaders')).toEqual({ top: [], mine: null });
   });

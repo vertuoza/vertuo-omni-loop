@@ -46,6 +46,19 @@ describe('a game\'s crew table', () => {
     expect((await loadScores(db, VERTUOZA, 'invaders', null)).top[0]?.best).toBe(1240);
   });
 
+  it('reads FROST EIGHT\'s board apart from COMET RING\'s, the lowest time first (PRD 1923)', async () => {
+    const { db } = world(PEOPLE.ada, (w) => {
+      w.tables.arcade_scores.push(score(VERTUOZA, PEOPLE.ada.id, 1200, '2026-09-26T09:00:00Z', 'kart'));
+      for (const [who, best] of [['ada', 2600], ['both', 2300]] as const) {
+        w.tables.arcade_scores.push(score(VERTUOZA, PEOPLE[who].id, best, '2026-09-26T09:00:00Z', 'kart-frost-eight'));
+      }
+    });
+    const board = await loadScores(db, VERTUOZA, 'kart-frost-eight', PEOPLE.ada.id);
+    expect(board.top.map((l) => l.best)).toEqual([2300, 2600]);
+    expect(board.mine).toBe(2600);
+    expect((await loadScores(db, VERTUOZA, 'kart', PEOPLE.ada.id)).top.map((l) => l.best)).toEqual([1200]);
+  });
+
   it('puts the earlier of two equal scores first', async () => {
     const { db } = world(PEOPLE.ada, (w) => {
       present(w.tables.arcade_scores.find((s) => s.user_id === PEOPLE.both.id && s.workspace_id === VERTUOZA), 'both\'s score').best = 1240;
@@ -79,14 +92,14 @@ describe('every game\'s crew table, as the page reads it', () => {
   it('reads each game of the registry', async () => {
     const { db } = world(PEOPLE.ada);
     const scores = await readScores(db, VERTUOZA, PEOPLE.ada.id);
-    expect(Object.keys(scores)).toEqual(['invaders', 'platformer', 'kart', 'duet']);
+    expect(Object.keys(scores)).toEqual(['invaders', 'platformer', 'kart', 'kart-frost-eight', 'duet']);
     expect(scores.invaders).toEqual({ top: [expect.objectContaining({ name: 'ADA', best: 1240 }), expect.objectContaining({ name: 'BOTH', best: 385 })], mine: 1240 });
   });
 
   it('marks a table out of reach as unreadable, and says why in the log', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { db } = world(PEOPLE.ada, (w) => { w.state.failOn = 'arcade_scores'; });
-    expect(await readScores(db, VERTUOZA, PEOPLE.ada.id)).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable', duet: 'unreadable' });
+    expect(await readScores(db, VERTUOZA, PEOPLE.ada.id)).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable', 'kart-frost-eight': 'unreadable', duet: 'unreadable' });
     expect(console.error).toHaveBeenCalled();
   });
 });
