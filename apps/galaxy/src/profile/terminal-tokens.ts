@@ -14,7 +14,7 @@ export const TERMINAL_LINE = {
   title: 'Terminal tokens',
   intro: 'Sign in where no browser opens.',
   name: 'Name',
-  namePlaceholder: 'claude-cloud',
+  namePlaceholder: 'cloud-agent',
   expiresIn: 'Expires in',
   make: 'Make a token',
   limit: 'You hold 20 tokens already: revoke one to make another.',

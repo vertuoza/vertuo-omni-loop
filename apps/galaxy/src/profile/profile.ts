@@ -128,7 +128,7 @@ const DAY = 24 * 3_600_000;
 function demoTerminal(now: Date): ProfileTerminal {
   const at = (days: number) => new Date(now.getTime() + days * DAY).toISOString();
   const tokens: KitToken[] = [
-    { id: 'demo-kit-cloud', name: 'claude-cloud', lastFour: '9fKa', createdAt: at(-2), lastUsedAt: new Date(now.getTime() - 120_000).toISOString(), expiresAt: at(88) },
+    { id: 'demo-kit-cloud', name: 'cloud-agent', lastFour: '9fKa', createdAt: at(-2), lastUsedAt: new Date(now.getTime() - 120_000).toISOString(), expiresAt: at(88) },
     { id: 'demo-kit-ci', name: 'ci-laptop', lastFour: 'Lm2Q', createdAt: at(-40), lastUsedAt: null, expiresAt: at(50) },
   ];
   return { source: { kind: 'demo' }, slug: 'demo', mine: { tokens, live: tokens.length, limit: 20 }, now: now.getTime() };
