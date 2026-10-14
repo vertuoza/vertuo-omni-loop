@@ -108,7 +108,16 @@ export function readRecordings(root: string, dir: string): Recording[] {
 
 /** A test file tagged `prd-<n>`: its id is its path under the e2e folder. */
 /** `agent` is true when the file holds an `agent.` call (`agent.act`, `agent.assert`): only such a test records. */
-export type TaggedTest = { readonly id: string; readonly file: string; readonly agent: boolean };
+/** PRD 1737: `level` is `critical` when the file carries the tag `critical`, else `standard`; `flow` is the id of its first `flow-<id>` tag, or null. */
+export type TaggedTest = { readonly id: string; readonly file: string; readonly agent: boolean; readonly level: 'critical' | 'standard'; readonly flow: string | null };
+
+const CRITICAL_TAG = /(?<![\w-])critical(?![\w-])/;
+const FLOW_TAG = /(?<![\w-])flow-([a-z0-9]+(?:-[a-z0-9]+)*)(?![\w-])/;
+
+/** The level and flow a test file's tags declare (PRD 1737). Pure. */
+function readLevel(text: string): { level: 'critical' | 'standard'; flow: string | null } {
+  return { level: CRITICAL_TAG.test(text) ? 'critical' : 'standard', flow: FLOW_TAG.exec(text)?.[1] ?? null };
+}
 
 /** A call on `agent` (a text scan: a call made through an alias is not seen). */
 const AGENT_CALL = /(?<![\w$.])agent\s*\.\s*\w+/;
@@ -121,5 +130,5 @@ export function readTaggedTests(root: string, dir: string, prd: PrdNumber): Tagg
     .filter((path) => !relative(base, path).split(sep).includes('.e2e'))
     .map((path) => ({ path, text: readFileSync(path, 'utf8') }))
     .filter(({ text }) => tag.test(text))
-    .map(({ path, text }) => ({ id: posix(relative(base, path)), file: posix(relative(root, path)), agent: AGENT_CALL.test(text) }));
+    .map(({ path, text }) => ({ id: posix(relative(base, path)), file: posix(relative(root, path)), agent: AGENT_CALL.test(text), ...readLevel(text) }));
 }
