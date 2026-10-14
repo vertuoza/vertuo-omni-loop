@@ -4,9 +4,8 @@
 // runs on the terminal's model, as it always did. The kit ships no mapping of its own.
 import { EFFORTS, TIERS } from './config.ts';
 import { isOneOf } from './narrow.ts';
-import type { Agent, Config } from './types.ts';
+import type { Agent, Config, Tier } from './types.ts';
 
-export type Tier = (typeof TIERS)[number];
 export type Effort = (typeof EFFORTS)[number];
 
 /** A mapped tier: the model the agent runs the slice on, and its effort when the config sets one. */
