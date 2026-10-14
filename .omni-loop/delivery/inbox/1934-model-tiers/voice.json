@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The model that built each slice is written on its pull request, and the same tests still gate it; I can check whether the cheap tier makes slop before I trust it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One command resolves the tier and a refused model falls back instead of failing the slice: it behaves like a tool, not a demo.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Add one block to the config and the mechanical slices of every PRD stop costing what a planning session costs.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Nothing changes until the team adds a mapping, and each sub-PR's stamp gives us the data to decide which tier holds up.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The tiers sit in the plan I already approve on the PRD page; I get no new question and my quick wins cost less.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓"
     }
   ]
 }
