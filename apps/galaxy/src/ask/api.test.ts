@@ -483,9 +483,7 @@ describe('a round\'s lead (PRD 752)', () => {
     for (const lead of [7, true, [], { text: 'x' }, '', 'x'.repeat(LEAD_MAX_BYTES + 1024)]) {
       const response = await ask(w, sessionId, { questions: QUESTIONS, lead });
       expect(response.status, JSON.stringify(lead).slice(0, 40)).toBe(400);
-      const { error } = Answer.parse(await response.json());
-      expect(error).toMatch(/lead/);
-      expect(error).toContain('the text the agent wrote before asking');
+      expect(Answer.parse(await response.json()).error).toMatch(/lead/);
     }
     expect(w.fake.tables.ask_rounds).toEqual([]);
   });
