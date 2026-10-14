@@ -181,6 +181,20 @@ const generatedEntry = z
   })
   .strict();
 
+// PRD 1890: the coding agents the kit installs its skills for. `claude` gets the plugin; the others
+// read the generated `.agents/skills/omni-<name>/` copies (`kit/lib/agents/`).
+export const AGENTS = Object.freeze(['claude', 'codex', 'cursor', 'gemini'] as const);
+
+const agentList = z
+  .array(z.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for — one of ${AGENTS.join(', ')}` }))
+  .min(1, 'at least one agent')
+  .superRefine((agents, issues) => {
+    agents.forEach((agent, index) => {
+      if (agents.indexOf(agent) !== index) issues.addIssue({ code: 'custom', path: [index], message: `${agent} is listed twice` });
+    });
+  })
+  .default(['claude']);
+
 /** Where the context budget's ceilings live when `budgets.context.file` does not say (PRD 1679). */
 const CONTEXT_BUDGET_FILE = '.omni-loop/budgets/context.json';
 
@@ -216,6 +230,9 @@ export const ConfigSchema = z
       law: branchTemplate.default('test/law-{id}'),
     }),
     worktrees: text.default('.claude/worktrees'),
+    // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
+    // without the key installs for Claude Code alone, as before.
+    agents: agentList,
     paths: section({
       delivery: text.default('.omni-loop/delivery'),
       knowledge: text.default('.omni-loop/knowledge'),

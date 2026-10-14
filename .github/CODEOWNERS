@@ -32,6 +32,7 @@
 # law N-PRODUCT-13: its test.
 /kit/lib/init/settings.test.ts @pierrederval
 /kit/bin/init.test.ts @pierrederval
+/kit/lib/agents/write.test.ts @pierrederval
 # law N-PRODUCT-14: its test.
 /kit/bin/law-demoted.test.ts @pierrederval
 # law N-PRODUCT-15: its test.

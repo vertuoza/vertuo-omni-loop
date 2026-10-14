@@ -14,7 +14,9 @@ lands in the PRD's outbox, under the same gate as when you run `/omni:yolo` your
 
 ## Start it
 
-In Claude Code, at the root of your repository, with your checkout up to date:
+In your coding agent, at the root of your repository, with your checkout up to date, run
+`/omni:drive` on a loop (in Claude Code: `/loop`, as below). Other agents type the skill in their
+own form ([Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
 /loop /omni:drive

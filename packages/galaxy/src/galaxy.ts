@@ -4,7 +4,7 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import { tranchesBetween } from 'vertuo-omni-plan/game/calendar.ts';
 import { score } from 'vertuo-omni-plan/game/economy.ts';
-import { EVENT_TYPES, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
+import { EVENT_TYPES, oneSpelling, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
 import type {
   Fleet, FleetConfig, FleetLook, GalaxyView, Hero, LedgerEvent, LogLine, Planet, PlanetState, Projects, Wound, WoundKind, Zone,
 } from './types.ts';
@@ -237,7 +237,7 @@ export function lookOf(name: string, fleet: Partial<FleetConfig> = {}): FleetLoo
  * @param o { projects: { sectors: {name: {repos}}, teams: {name: {home, label, color, motto, mascot, sort, retired}} }, now: Date, source: string }
  */
 export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = new Date(), source = 'ledger' }: { projects: Projects; now?: Date; source?: string }): GalaxyView {
-  const sorted = [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+  const sorted = events.map(oneSpelling).sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const repoSector = new Map<string, string>();
   for (const [name, { repos }] of Object.entries(projects.sectors)) for (const r of repos) repoSector.set(r, name);
   // A sector names a repository by its full name or its bare one.

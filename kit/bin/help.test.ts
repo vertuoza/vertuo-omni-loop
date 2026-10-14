@@ -22,13 +22,32 @@ async function run(argv: readonly string[], cwd: string) {
 const widest = (text: string) => Math.max(...text.split('\n').map((line: string) => Array.from(line).length));
 
 describe('omni help', () => {
+  it("shows each agent the config lists its own form of a skill under Run these, Claude's alone by default (PRD 1890)", async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const alone = (await run(['help'], root)).out;
+    expect(alone).toContain('\n  /omni:yolo <n>  ');
+    expect(alone).not.toMatch(/\$omni-yolo|\/omni-yolo|ask for omni-yolo/);
+    const all = makeRepo({ git: true, files: { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}agents: [claude, codex, cursor, gemini]\n` } });
+    const { code, out, err } = await run(['help'], all.root);
+    expect(code).toBe(0);
+    expect(err).toBe('');
+    for (const form of ['/omni:yolo <n>', '$omni-yolo <n>', '/omni-yolo <n>', 'ask for omni-yolo, <n>', '/loop /omni:drive [<n>…]', '$omni-drive [<n>…]']) {
+      expect(out, form).toContain(`\n  ${form}`);
+    }
+    expect(out).toContain('run it again after the wait it names');
+    const drive = await run(['help', '$omni-drive'], all.root);
+    expect(drive.code).toBe(0);
+    expect(drive.out).toMatch(/^\/loop \/omni:drive \[<n>…\] +for you\n/);
+    expect(drive.out).toContain('\n$omni-drive [<n>…]\n');
+  });
+
   it('prints the loop, its principles, Claude, the terminal and what the skills run, in order, and exits 0', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out, err } = await run(['help'], root);
     expect(code).toBe(0);
     expect(err).toBe('');
     const marks = ['THE LOOP', '  idea ', '  PRD ', '  inbox ', '  outbox ', '  shipped ', '  retro ', 'The folder is the status.',
-      'IN CLAUDE', 'IN THE TERMINAL', 'Run by the skills:', 'omni help <command> tells more about any of them.\n'];
+      'Run these', 'IN THE TERMINAL', 'Run by the skills:', 'omni help <command> tells more about any of them.\n'];
     const at = marks.map((mark) => out.indexOf(mark));
     expect(at.every((index) => index >= 0), marks.filter((_, i) => (at[i] ?? -1) < 0).join(' | ')).toBe(true);
     expect(at).toEqual([...at].sort((a, b) => a - b));

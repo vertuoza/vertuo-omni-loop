@@ -102,11 +102,15 @@ function readFlags(args: string[], cwd: string): { name: string; slots: number; 
   return { name, slots, timeoutMs, repos: resolve(cwd, repos) };
 }
 
-/** The variables every job's session gets: the runner's `PATH`, and its kit token when it has one. */
+/**
+ * The variables every job's session gets: the runner's `PATH`, and its kit token and its Claude token
+ * (PRD 1894) when it has them. A tmux session takes the rest from the tmux server, not the runner.
+ */
 function jobEnv({ env, vars }: FreeIo): Record<string, string> {
   return {
     ...(env.PATH ? { PATH: env.PATH } : {}),
     ...(vars.omniToken ? { OMNI_TOKEN: vars.omniToken.token } : {}),
+    ...(vars.claudeToken === null ? {} : { CLAUDE_CODE_OAUTH_TOKEN: vars.claudeToken }),
   };
 }
 

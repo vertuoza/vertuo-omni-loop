@@ -35,7 +35,7 @@ describe('renderOverview', () => {
       '  idea ──▶ PRD ──▶ inbox ──▶ building ──▶ outbox ──▶ shipped ──▶ retro',
       ...STAGES.map((stage) => `  ${stage.name.padEnd(10)}${stage.line.split('{')[0]}`),
       'The folder is the status.',
-      'IN CLAUDE (type these)',
+      'Run these',
       'IN THE TERMINAL',
       'Run by the skills:',
       'omni help <command> tells more about any of them.',
@@ -47,7 +47,7 @@ describe('renderOverview', () => {
   });
 
   it('shows every command and skill once, in the section of who runs it', () => {
-    const claude = section(text, 'IN CLAUDE (type these)', 'IN THE TERMINAL');
+    const claude = section(text, 'Run these', 'IN THE TERMINAL');
     const terminal = section(text, 'IN THE TERMINAL', 'omni help <command> tells more about any of them.');
     const skillsLine = terminal.slice(terminal.indexOf('Run by the skills:')).replace(/\s+/g, ' ');
     const rows = terminal.slice(0, terminal.indexOf('Run by the skills:'));
@@ -58,7 +58,8 @@ describe('renderOverview', () => {
       if (entry.who === 'skills') {
         expect(skillsLine, what).toMatch(entry.kind === 'skill' ? new RegExp(`/omni:${entry.name}(?![\\w-])`) : word(entry.name));
       } else if (entry.kind === 'skill') {
-        expect(`\n${claude}`, what).toContain(`\n  ${entry.label}  `);
+        const loop = entry.usage.some((usage) => usage.startsWith('/loop '));
+        expect(`\n${claude}`, what).toContain(`\n  ${loop ? '/loop ' : ''}${entry.label ?? ''}  `);
       } else if (entry.label) {
         expect(`\n${rows}`, what).toContain(`\n  ${entry.label}  `);
         expect(compact, what).not.toMatch(word(entry.name));
@@ -224,5 +225,79 @@ describe('renderEntry', () => {
     const entries: HelpEntry[] = [{ name: 'x', kind: 'command', who: 'you', usage: ['omni x'], summary: 'x', detail }];
     const [, , ...body] = entryText('x', DEFAULTS, { entries }).split('\n');
     expect(body).toEqual(['word '.repeat(15).trim(), 'word '.repeat(5).trim(), '', 'second paragraph']);
+  });
+});
+
+describe('each agent its own form (PRD 1890)', () => {
+  const ALL = configWith({ agents: ['claude', 'codex', 'cursor', 'gemini'] });
+  const run = (text: string) => section(text, 'Run these', 'IN THE TERMINAL');
+
+  it('shows the Claude form alone under Run these when agents is [claude], as before', () => {
+    const rows = run(renderOverview(DEFAULTS));
+    expect(rows).toContain('\n  /omni:yolo <n>  ');
+    expect(rows).not.toMatch(/\$omni-|\/omni-|ask for omni-/);
+    expect(rows).toContain('  /loop /omni:drive [<n>…]  ');
+    expect(rows).not.toContain('run it again after the wait it names');
+  });
+
+  it('shows each listed agent its form of every skill, one line each, under Run these', () => {
+    const rows = run(renderOverview(ALL)).split('\n');
+    const yolo = rows.findIndex((line) => line.startsWith('  /omni:yolo <n>  '));
+    expect(yolo).toBeGreaterThanOrEqual(0);
+    expect(rows.slice(yolo + 1, yolo + 4).map((line) => line.trimEnd())).toEqual(['  $omni-yolo <n>', '  /omni-yolo <n>', '  ask for omni-yolo, <n>']);
+    expect(rows).toContain('  ask for omni-brainstorm');
+    for (const entry of ENTRIES.filter((e) => e.kind === 'skill' && e.who === 'you')) {
+      expect(rows.some((line) => line.startsWith(`  $omni-${entry.name}`)), entry.name).toBe(true);
+    }
+  });
+
+  it('lists only the agents the config names, Claude left out when it is', () => {
+    const rows = run(renderOverview(configWith({ agents: ['cursor'] })));
+    expect(rows).toMatch(/\n {2}\/omni-yolo <n> +build a whole PRD/);
+    expect(rows).not.toMatch(/\/omni:|\$omni-|ask for omni-/);
+  });
+
+  it('gives drive /loop for Claude and its tick for the others, run again after the wait it names', () => {
+    const rows = run(renderOverview(ALL)).split('\n');
+    const drive = rows.findIndex((line) => line.startsWith('  /loop /omni:drive [<n>…]  '));
+    expect(drive).toBeGreaterThanOrEqual(0);
+    expect(rows[drive + 1]).toMatch(/^ {2}\$omni-drive \[<n>…\] +run it again after the wait it names$/);
+    expect(rows[drive + 2]?.trimEnd()).toBe('  /omni-drive [<n>…]');
+    const codexOnly = run(renderOverview(configWith({ agents: ['codex'] }))).split('\n');
+    const tick = codexOnly.findIndex((line) => line.startsWith('  $omni-drive [<n>…]  '));
+    expect(codexOnly[tick + 1]).toMatch(/^ +run it again after the wait it names$/);
+  });
+
+  it('keeps every line of the overview and of every entry within 80 columns, whatever the agents', () => {
+    for (const agents of [['claude', 'codex', 'cursor', 'gemini'], ['gemini'], ['codex', 'cursor']]) {
+      const config = configWith({ agents });
+      const text = renderOverview(config);
+      expect(widest(text), agents.join()).toBeLessThanOrEqual(80);
+      expect(text.split('\n').filter((line) => line !== line.trimEnd()), agents.join()).toEqual([]);
+      for (const entry of ENTRIES.filter((e) => e.kind === 'skill')) {
+        expect(widest(entryText(entry.name, config)), `${agents.join()} ${entry.name}`).toBeLessThanOrEqual(80);
+      }
+    }
+  });
+
+  it("prints a skill's usage in each listed agent's form, and drive's tick line", () => {
+    const yolo = entryText('yolo', ALL).split('\n');
+    expect(yolo[0]).toMatch(/^\/omni:yolo <n> +for you$/);
+    expect(yolo.slice(1, 4)).toEqual(['$omni-yolo <n>', '/omni-yolo <n>', 'ask for omni-yolo, <n>']);
+    const drive = entryText('drive', ALL);
+    expect(drive).toMatch(/^\/loop \/omni:drive \[<n>…\] +for you\n\/loop \/omni:drive --roadmap <n>\n\$omni-drive \[<n>…\]\n\$omni-drive --roadmap <n>\n/);
+    expect(drive).toContain('\nask for omni-drive, --roadmap <n>\n');
+    expect(drive).toContain('run it again after the wait it names');
+    expect(entryText('drive', DEFAULTS)).not.toContain('run it again after the wait it names');
+    expect(entryText('board', ALL)).toBe(entryText('board', DEFAULTS));
+  });
+
+  it("takes a skill by any agent's form of its name", () => {
+    for (const asked of ['$omni-yolo', '/omni-yolo']) expect(entryText(asked, ALL), asked).toBe(entryText('yolo', ALL));
+    expect(renderEntry('$omni-board', ALL)).toBeNull();
+  });
+
+  it("says the status line and the HUD are Claude Code's alone", () => {
+    expect(entryText('statusline', DEFAULTS).replace(/\s+/g, ' ')).toMatch(/The status line and the HUD are Claude Code's alone/);
   });
 });

@@ -1356,6 +1356,12 @@ var generatedEntry = z8.object({
   from: z8.array(text3).min(1, "at least one source prefix"),
   build: z8.string().trim().min(1)
 }).strict();
+var AGENTS = Object.freeze(["claude", "codex", "cursor", "gemini"]);
+var agentList = z8.array(z8.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for \u2014 one of ${AGENTS.join(", ")}` })).min(1, "at least one agent").superRefine((agents, issues) => {
+  agents.forEach((agent, index) => {
+    if (agents.indexOf(agent) !== index) issues.addIssue({ code: "custom", path: [index], message: `${agent} is listed twice` });
+  });
+}).default(["claude"]);
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z8.object({
   kit: z8.literal(CONFIG_VERSION),
@@ -1388,6 +1394,9 @@ var ConfigSchema = z8.object({
     law: branchTemplate.default("test/law-{id}")
   }),
   worktrees: text3.default(".claude/worktrees"),
+  // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
+  // without the key installs for Claude Code alone, as before.
+  agents: agentList,
   paths: section({
     delivery: text3.default(".omni-loop/delivery"),
     knowledge: text3.default(".omni-loop/knowledge"),
@@ -6614,6 +6623,11 @@ var RUNNER_SENDER = envGroup({
   schema: z25.object({ sentBy: z25.string().optional(), runner: z25.string().optional() }),
   variables: { sentBy: "OMNI_SENT_BY", runner: "OMNI_RUNNER" }
 });
+var CLAUDE_TOKEN = envGroup({
+  label: "the Claude token",
+  schema: z25.object({ token: z25.string() }),
+  variables: { token: "CLAUDE_CODE_OAUTH_TOKEN" }
+});
 var HEARTBEAT = envGroup({
   label: "the heartbeat",
   schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
@@ -6636,7 +6650,7 @@ var PACKAGE_MANAGER = envGroup({
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync15, rmSync as rmSync5, writeFileSync as writeFileSync5 } from "node:fs";

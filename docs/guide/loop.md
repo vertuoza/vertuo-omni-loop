@@ -14,7 +14,7 @@ shows the loop three ways: its stages, its pull requests, and its skills.
 
 | Stage | What it means | Where you see it | What moves it on |
 |---|---|---|---|
-| **idea** | talked through with Claude, nothing written yet | your Claude Code session | `/omni:brainstorm` writes the PRD; a vast idea goes through `/omni:think-big` first |
+| **idea** | talked through with your coding agent, nothing written yet | your coding agent's session | `/omni:brainstorm` writes the PRD; a vast idea goes through `/omni:think-big` first |
 | **PRD** | a spec, a plan and a before/after page, waiting for a person's approval | the PRD issue, the phase-0 pull request, or the PRD's page when phase 0 is approved on the server | you merge the phase-0 pull request, or approve on the PRD's page |
 | **inbox** | approved, ready to build | `.omni-loop/delivery/inbox/` | `/omni:yolo` builds it |
 | **outbox** | being built; what the agents decided alone waits for you | the feature pull request, a draft | you answer the questions, then merge the feature pull request |
@@ -473,17 +473,19 @@ omni board 7
 | `/omni:invade` | once, after the install; with `--refresh` when the repository has changed a lot | one docs pull request: the knowledge base |
 | `/omni:status` | you want to see where the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |
-| `/omni:ask on` | you would rather answer Claude's questions on a web page | the page's link |
+| `/omni:ask on` | you would rather answer your agent's questions on a web page | the page's link |
 | `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm`, `/omni:think-big` and `/omni:plan` run them | the PRD's page on the Omni page, or a concept's page under **Work › Concepts** |
 
-Every skill, what it does and when to use it: [Skills](/docs/skills).
+Every skill, what it does and when to use it: [Skills](/docs/skills). The table gives each skill in
+the kit's form, `/omni:<name>`; an agent other than Claude Code types it in its own form
+([Any coding agent](/docs/any-agent#set-up-your-agent)).
 
 Given a name, `/omni:help` explains one skill or command: `/omni:help yolo`.
 
 ## In a terminal
 
-A few `omni` commands are for you, in a terminal at the root of the repository or from Claude Code
-with `!` before them. None of them changes anything, except `omni signin`, `omni update`, `omni knowledge judge`, which
+A few `omni` commands are for you, in a terminal at the root of the repository or from your coding
+agent (in Claude Code: with `!` before them). None of them changes anything, except `omni signin`, `omni update`, `omni knowledge judge`, which
 writes the sweep's edits into your working tree and opens law issues, and the last two:
 `omni roadmap answer` comments on the roadmap's issue, and `omni roadmap push` updates the roadmap's
 page.
