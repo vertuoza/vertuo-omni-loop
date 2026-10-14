@@ -3,7 +3,7 @@
 // plain child process. Nothing here calls GitHub, the Omni app or Claude.
 import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess, ExecFileSyncOptions } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -51,6 +51,7 @@ function fixture() {
       'case "$line" in *lines-*) seq -f "line %g" 1 "${line##*lines-}" ;; esac',
       'echo "see https://github.com/acme/other/pull/9"',
       'echo "opened https://github.com/acme/widgets/pull/42"',
+      'case "$line" in *push*) git push -q -u origin HEAD 2>/dev/null ;; esac',
       'case "$line" in *fail*) exit 3 ;; esac',
       '',
     ].join('\n'),
@@ -172,9 +173,9 @@ afterEach(() => {
 function startRunner(
   f: ReturnType<typeof fixture>,
   app: ReturnType<typeof fakeApp>,
-  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50 }: {
+  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now }: {
     args?: string[]; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
-    env?: Record<string, string>; tickMs?: number;
+    env?: Record<string, string>; tickMs?: number; now?: () => number;
   } = {},
 ) {
   const stop = new AbortController();
@@ -194,6 +195,7 @@ function startRunner(
     stop: stop.signal,
     tickMs,
     ...(sleep ? { sleep } : {}),
+    ...(now ? { now } : {}),
   });
   return { done, stop, stdout, stderr, terminal };
 }
@@ -211,7 +213,7 @@ const lastStatus = (app: ReturnType<typeof fakeApp>) => app.updates().at(-1)?.st
 const ended = (app: ReturnType<typeof fakeApp>) => () => ['done', 'failed', 'cancelled'].includes(String(lastStatus(app)));
 
 describe('omni runner', () => {
-  it('registers, runs a claimed job in its worktree and tmux session, sends its log tail and its pull request, and keeps its branch', async () => {
+  it('registers, runs a claimed job in its worktree and tmux session, sends its log tail and its pull request, and cleans up after it', async () => {
     const f = fixture();
     const app = fakeApp({ jobs: [{ id: 7, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
     const run = startRunner(f, app);
@@ -234,10 +236,77 @@ describe('omni runner', () => {
     expect(updates[0]).toEqual({ status: 'running', logTail: '' });
     expect(updates.at(-1)).toMatchObject({ status: 'done', exitCode: 0, prUrl: 'https://github.com/acme/widgets/pull/42' });
     expect(updates.at(-1)?.logTail).toContain('claude read: /omni:yolo 1717');
+    // PRD 1911: the worktree, its record and its unpushed branch are gone; the logs stay.
     expect(existsSync(worktree)).toBe(false);
-    expect(git(f.checkout, 'branch', '--list', 'agent/job-7').trim()).toBe('agent/job-7');
+    expect(git(f.checkout, 'branch', '--list', 'agent/job-*').trim()).toBe('');
+    expect(git(f.checkout, 'worktree', 'list', '--porcelain').split('\n').filter((line) => line.startsWith('worktree '))).toHaveLength(1);
+    expect(existsSync(log)).toBe(true);
     expect(run.stdout.text()).toContain('runner box-1 registered · 1 slot · acme/widgets');
     expect(run.stdout.text()).toContain('job 7 done · https://github.com/acme/widgets/pull/42');
+    expect(run.stdout.text()).not.toContain('swept:');
+  });
+
+  it("keeps a job's branch once the job pushed it", async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 19, line: '/omni:yolo push', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-19'))).toBe(false);
+    expect(git(f.checkout, 'branch', '--list', 'agent/job-19').trim()).toBe('agent/job-19');
+  });
+
+  it('sweeps once registered, then after each hour, keeping logs --keep-logs days by its clock', async () => {
+    const f = fixture();
+    const now = Date.parse('2026-10-14T12:00:00Z');
+    mkdirSync(join(f.home, 'logs'));
+    const logAged = (name: string, days: number): string => {
+      const path = join(f.home, 'logs', name);
+      writeFileSync(path, 'x'.repeat(2048));
+      const at = (now - days * 24 * 60 * 60 * 1000) / 1000;
+      utimesSync(path, at, at);
+      return path;
+    };
+    const old = logAged('job-1.log', 40);
+    const kept = logAged('job-2.log', 20);
+    const runnerLog = logAged('runner.log', 400);
+    const hours: number[] = [];
+    const sleep = async (ms: number) => {
+      if (ms === 60 * 60 * 1000) {
+        hours.push(ms);
+        if (hours.length === 1) logAged('job-3.log', 31);
+        if (hours.length <= 2) return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+    const app = fakeApp();
+    const run = startRunner(f, app, { args: ['--keep-logs', '30'], sleep, now: () => now });
+    await until(() => hours.length >= 3, 'two hours to pass');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+
+    const swept = run.stdout.text().split('\n').filter((line) => line.startsWith('swept:'));
+    expect(swept).toEqual(['swept: 0 worktrees, 0 branches, 1 log file · 2 KB freed', 'swept: 0 worktrees, 0 branches, 1 log file · 2 KB freed']);
+    expect(run.stdout.text().indexOf('registered')).toBeLessThan(run.stdout.text().indexOf('swept:'));
+    expect(existsSync(old)).toBe(false);
+    expect(existsSync(join(f.home, 'logs', 'job-3.log'))).toBe(false);
+    expect(existsSync(kept)).toBe(true);
+    expect(existsSync(runnerLog)).toBe(true);
+  });
+
+  it('sweeps at start what a runner that died left: a stopped job\'s worktree and its branch', async () => {
+    const f = fixture();
+    const worktree = join(f.home, 'wt', 'widgets-job-5');
+    git(f.checkout, 'worktree', 'add', '-q', '--no-track', '-b', 'agent/job-5', worktree, 'origin/main');
+    const app = fakeApp();
+    const run = startRunner(f, app);
+    await until(() => run.stdout.text().includes('swept:'), 'the first sweep');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(run.stdout.text()).toMatch(/swept: 1 worktree, 1 branch, 0 log files · \d+ KB freed/);
+    expect(existsSync(worktree)).toBe(false);
+    expect(git(f.checkout, 'branch', '--list', 'agent/job-5').trim()).toBe('');
   });
 
   it('starts every job session so that claude waits for its background agents to end (bug 1912)', async () => {
@@ -531,8 +600,8 @@ describe('omni runner', () => {
     expect(run.stdout.text().trim().split('\n').at(-1)).toBe('runner box-1 stopped');
   });
 
-  it('refuses a bad --slots, --timeout or --name', async () => {
-    for (const args of [['--slots', '9'], ['--slots', '0'], ['--timeout', '3d'], ['--name', 'a b']]) {
+  it('refuses a bad --slots, --timeout, --name or --keep-logs', async () => {
+    for (const args of [['--slots', '9'], ['--slots', '0'], ['--timeout', '3d'], ['--name', 'a b'], ['--keep-logs', '0'], ['--keep-logs', 'x'], ['--keep-logs', '1.5']]) {
       const err = out();
       const code = await main(['runner', '--name', 'box-1', '--repos', '.', ...args], { stdout: out().stream, stderr: err.stream, env: {} });
       expect(code).toBe(2);
