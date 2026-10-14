@@ -62,11 +62,9 @@ form, or one section of it, at that page with a `See:` line.
   (`lingo.ts`). The arcade speaks in capitals, in short game lines (`LINK GITHUB TO EARN XP`,
   `REACH LV 2 TO PLAY`, `SCORE NOT SAVED`: `apps/galaxy/README.md` › The game room). The app pages
   speak in sentences, and say what is not there and why (`The dashboard is not open here`).
-- TODO(human): the list of words HOME never says is HOME's own (`lingo.ts`): the app pages say
-  `dossier` on purpose. Is there a list of words the whole product avoids, for the word pass to
-  read? None is written here until a person says which words, and where.
-- TODO(human): under what light and on which screens are the app pages read (a desk, a phone in a
-  meeting)? Nothing in the tree says.
+- **No product-wide list of avoided words.** HOME's list is HOME's own (`lingo.ts`); the app pages
+  say `dossier` on purpose.
+- **The app pages are read at a desk first,** on a computer screen, and on a phone second.
 
 ## System
 <!-- slot: system · required · by: invade -->
@@ -115,12 +113,10 @@ form, or one section of it, at that page with a `See:` line.
   START, so a click opens SELECT YOUR APP (`apps/galaxy/src/home/press-start-guard.test.ts`).
 - **On a phone the arcade is a Game Boy:** edge to edge, and never zoomed by a pinch or a double tap
   (`apps/galaxy/app/layout.tsx`).
-- TODO(human): the root layout's viewport (`maximumScale: 1`, `userScalable: false`) is set for the
-  Game Boy, and the app pages under `/app` inherit it: their layout overrides only the theme colour
-  (`apps/galaxy/app/app/layout.tsx`). Is turning off zoom on the reading pages on purpose?
-- TODO(human): HOME's poster carries a kicker above its headline, `★` glyphs before its promises,
-  and hard offset shadows (`box-shadow: 3px 3px 0 var(--magenta)`, `apps/galaxy/src/home/home.css`),
-  all on the craft floor's refuse list. They read as the print ad's; is each of them on purpose?
+- **The reading pages zoom:** every reading section's layout lets a person pinch or double-tap zoom
+  (`apps/galaxy/src/ask/reading-viewport.ts`, bug 1826); only the arcade is never zoomed.
+- **HOME's kicker, `★` glyphs and hard offset shadows are the print ad's, on purpose**
+  (`apps/galaxy/src/home/home.css`), though the craft floor refuses them elsewhere.
 
 ## Review
 <!-- slot: review · optional · by: invade -->

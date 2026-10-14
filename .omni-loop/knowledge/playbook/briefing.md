@@ -32,7 +32,9 @@ Use this page when a session starts: the rules that cost the most when broken.
 - Never bypass push protection. A blocked push names a secret: rotate it if it is real, build it at
   runtime if it is a fixture.
 
-TODO(human): README.md warns that the game's ledger projection writes permanent history (run it against production only once the sectors hold the real repositories), and apps/galaxy/.env.example keeps the Supabase secret key out of the browser. Should these be never lines here, and what else costs the most when broken?
+- Never run `game:project` on production before its sectors hold the real repositories: it writes
+  permanent history (README).
+- Never give the Supabase secret key a `NEXT_PUBLIC_` name: it stays server-side.
 
 ## Hooks
 <!-- slot: hooks · optional -->

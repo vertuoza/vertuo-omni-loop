@@ -1,6 +1,6 @@
 ---
 name: mega-drive
-description: Drives a plan repository's multi-repository PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /loop /omni:mega-drive [<n>…], or a roadmap's PRDs with --roadmap <n> — /omni:drive for a plan repository, step for step. Its first tick orders every slice of the PRDs driven into a loop plan whose steps collide only on a path in the same repository (omni next --plan) and opens the loop on the Loop page; every tick it reads the steps that share no ground with what runs (omni next --json) and launches one background agent per step, each in its own worktree with its PRD's own target clones, running that step's one skill, /omni:ultra-wave, /omni:ultra-yolo, /omni:ultra-yolo-fix or /omni:mega-pr-care --once, parks a PRD that waits on a person on its plan PR's status comment naming each open PR by repository, records a tick per step launched and per step finished with the repositories it touches and what runs and is held, under --roadmap checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts and pushes the roadmap, and sets the next wake; once nothing runs and every PRD is parked or done it stops itself, listing each open prerequisite with its command. A product PRD named by its id (<key>-<n>) is driven from any kitted checkout of its product, beside the loop plan — parked while it waits for approval or is drifted, held while the server is unreachable, built by /omni:ultra-yolo once approved, with no plan PR. Outside a plan repository it prints the /loop /omni:drive line. Never merges into any repository's default branch, never answers the outbox. Triggers on "drive the plan repository", "drive my PRDs across the repositories", "run the loop across repositories", "/loop /omni:mega-drive", "/omni:mega-drive".
+description: Drives a plan repository's multi-repository PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /omni:mega-drive [<n>…] on a loop, or a roadmap's PRDs with --roadmap <n> — /omni:drive for a plan repository, step for step. Its first tick orders every slice of the PRDs driven into a loop plan whose steps collide only on a path in the same repository (omni next --plan) and opens the loop on the Loop page; every tick it reads the steps that share no ground with what runs (omni next --json) and starts one agent per step, each in its own worktree with its PRD's own target clones, running that step's one skill, /omni:ultra-wave, /omni:ultra-yolo, /omni:ultra-yolo-fix or /omni:mega-pr-care --once, parks a PRD that waits on a person on its plan PR's status comment naming each open PR by repository, records a tick per step launched and per step finished with the repositories it touches and what runs and is held, under --roadmap checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts and pushes the roadmap, and sets the next wake; once nothing runs and every PRD is parked or done it stops itself, listing each open prerequisite with its command. A product PRD named by its id (<key>-<n>) is driven from any kitted checkout of its product, beside the loop plan — parked while it waits for approval or is drifted, held while the server is unreachable, built by /omni:ultra-yolo once approved, with no plan PR. Outside a plan repository it prints the /omni:drive line. Never merges into any repository's default branch, never answers the outbox. Triggers on "drive the plan repository", "drive my PRDs across the repositories", "run the loop across repositories", "/omni:mega-drive".
 ---
 
 # Mega drive: a pool of loop plan steps, across repositories
@@ -18,8 +18,9 @@ the two say the same thing, that skill's words are the rule.
 `omni` below is `node .omni-loop/bin/omni.mjs`, always run in the plan repository. Never import the
 kit, and never name a path, label, branch shape or command you can read with `omni config <key>`.
 
-This skill is one **tick**. Something runs it again and again: in Claude Code that is `/loop`
-(**Waking up**, at the end, is the only part that is Claude Code's). Everything else is the kit's,
+This skill is one **tick**. Something runs this tick again after the wait it names (in Claude:
+`/loop /omni:mega-drive`, with no interval; **Waking up**, at the end, is the only part that is
+Claude Code's). Everything else is the kit's,
 and any runner that calls `omni next` and `omni loop push` the same way drives the loop the same way.
 
 **Signing,** as `/omni:drive`: this skill commits nothing and opens no pull request or issue. The
@@ -35,12 +36,13 @@ committed preflight, nothing from an imported copy's playbook).
 
 | input | example | what it is |
 |---|---|---|
-| nothing | `/loop /omni:mega-drive` | drive your own multi-repository PRDs in inbox, building or outbox, as `omni status` marks them |
-| PRD numbers | `/loop /omni:mega-drive 1201 1213` | drive these PRDs, someone else's included: naming them is the ask |
-| `--roadmap <n>` | `/loop /omni:mega-drive --roadmap 1170` | drive exactly roadmap n's PRDs, someone else's included, each held until its blockers' plan PR and every target PR merged. Name no PRD beside it |
+| nothing | `/omni:mega-drive` | drive your own multi-repository PRDs in inbox, building or outbox, as `omni status` marks them |
+| PRD numbers | `/omni:mega-drive 1201 1213` | drive these PRDs, someone else's included: naming them is the ask |
+| `--roadmap <n>` | `/omni:mega-drive --roadmap 1170` | drive exactly roadmap n's PRDs, someone else's included, each held until its blockers' plan PR and every target PR merged. Name no PRD beside it |
 
-Below, `[--roadmap <n>]` means: pass `--roadmap <n>` when the loop was asked for one, and nothing
-otherwise.
+Each runs as a loop, this tick again after the wait it names (in Claude: `/loop` before it, as
+`/loop /omni:mega-drive --roadmap 1170`). Below, `[--roadmap <n>]` means: pass `--roadmap <n>` when
+the loop was asked for one, and nothing otherwise.
 
 ## Step 0
 
@@ -52,17 +54,18 @@ Without a `plan` section (its
 stop with exactly one line, the arguments it was given carried over, and no wake:
 
 ```text
-not a plan repository: /loop /omni:drive [<n>…] [--roadmap <n>]
+not a plan repository: /omni:drive [<n>…] [--roadmap <n>] (in Claude: /loop /omni:drive)
 ```
 
-Then print the briefing, `node .omni-loop/bin/omni.mjs kb show briefing`, as `/omni:drive` step 0.
+Then print the briefing, `node .omni-loop/bin/omni.mjs session start`, as `/omni:drive` step 0.
 
 ## From a product (`<key>-<n>`)
 
 A **product PRD** (◆, PRD 1548) has no plan repository and no plan PR: its plan and its outbox are
 on the Omni page, and its code lands as one `Part of <key>-<n>` target feature PR per target (see
 `/omni:ultra-yolo`'s **From a product**). It is driven only when named,
-`/loop /omni:mega-drive mobile-12`, from any kitted checkout of a repository the product holds.
+`/omni:mega-drive mobile-12` (in Claude: `/loop /omni:mega-drive mobile-12`), from any kitted
+checkout of a repository the product holds.
 `omni next`, `omni care state` and `omni loop push` read a repository's PRD numbers only: a product
 PRD is never passed to them, gets no step of the loop plan, and is driven beside it, at most one step
 agent per product PRD, inside `limits.parallelSteps` with the others. Numbers given beside it are
@@ -147,9 +150,10 @@ step 2 prints, each step's ending with ` · in <repos>`. Never pick another step
 ## 3. Act on it
 
 **Launch,** as `/omni:drive` step 3's **Launch**. While a step agent of this session runs a step
-`running` does not list yet, launch nothing. Otherwise launch
-one background agent per entry of `steps` whose PRD has no step agent of this session still running,
-all in one message, each with `isolation: "worktree"`, so its commits in the plan repository (the
+`running` does not list yet, launch nothing. Otherwise start
+one agent per entry of `steps` whose PRD has no step agent of this session still running, each in
+its own worktree, all at once (in Claude: one message with several Agent calls, each
+`isolation: "worktree"`, in the background), so its commits in the plan repository (the
 plan PR's branch, the outbox it relays into) happen in its own worktree, never in the loop's
 checkout. Each runs its entry's one
 skill, `verdict.skill`: `/omni:ultra-wave <prd>`, `/omni:ultra-yolo <prd>` (which also plans a PRD
@@ -227,11 +231,11 @@ command once they acted.
 
 ## Waking up
 
-**Claude Code.** Run as `/loop /omni:mega-drive [<n>…] [--roadmap <n>]` with no interval, so the
-loop paces itself: end each tick by scheduling the next `/loop` wake after the `--wake-in` seconds of
-step 4, as `/omni:drive` does; a step agent that returns wakes the session at once, as there. A
-tick that stops, or that ends without a wake, schedules none, which
-ends the `/loop`.
+Run this tick again after the wait it names: end each tick by scheduling the next one after the
+`--wake-in` seconds of step 4, as `/omni:drive` does (in Claude: run as
+`/loop /omni:mega-drive [<n>…] [--roadmap <n>]` with no interval, so the loop paces itself, and
+schedule the next `/loop` wake); a step agent that returns wakes the session at once, as there. A
+tick that stops, or that ends without a wake, schedules none, which ends the loop.
 
 Any other runner calls the skill again after the same delay.
 

@@ -10,12 +10,12 @@ description: Bring a PRD back in line with what a person answered — read the r
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints as the message's last line, with no blank line between
-them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
-a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
-that line. Comments are never signed. A command that prints nothing means signing is off here: add
-nothing.
+**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
+adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+signed. A command that prints nothing means signing is off here: add nothing.
 
 A settled item whose answer **contradicts the choice the agent recorded** is **drifted**: the build
 and the decision disagree, and no check can see it. This skill is what closes that gap.
@@ -36,7 +36,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`, and `<feature branch>` is `branches.feature` with `{topic}`
 filled by the PRD folder's topic (the folder `omni prd` names is `<n>-<topic>`).
 
-Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
@@ -156,8 +156,8 @@ steps over the rework rows instead:
 1. **Claim** each rework through `/omni:pr`'s **Claim** mode, with the rework `id` as the slice and
    `rework <itemId>` as the title: its claim commit and its sub-PR's body are signed there. Then
    `git switch --detach`.
-2. **Dispatch** one worktree subagent per rework, all in one message, each with
-   `isolation: "worktree"`:
+2. **Dispatch:** start one agent per rework, each in its own worktree, all at once (in Claude: one
+   message with several Agent calls, each `isolation: "worktree"`, in the background):
 
    > Rework `<id>` of PRD <prd>, on feature branch `<feature branch>`: follow `/omni:do-work
    > --in-wave`. Its slice branch is already claimed. Its territory is `<territory>`, not a plan
