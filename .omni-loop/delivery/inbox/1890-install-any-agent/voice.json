@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ with the update summary · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A repository left at the default writes nothing new, and a team's own skills stay byte-identical under test.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "One install PR and Codex runs $omni-yolo: the loop is finally usable from my agent.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The kit now installs for the agent each team already uses; only the step runner is left in the series.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The update PR reads as one line per changed skill, and check agents flags a hand-edited copy.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My Cursor teammates get every skill at the kit's version without asking how.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ with the update summary · persona:Irisa ✓"
     }
   ]
 }
