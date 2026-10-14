@@ -6,7 +6,7 @@
 // the Supabase account sends a finished game's score. The demo keeps its own in browser storage.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
-import { GAMES } from '../arcade/games';
+import { BOARDS } from '../arcade/games';
 import { measureOf } from '../arcade/measure';
 import type { ScoreBoard, ScoreLine, ScoresRead } from '../arcade/types';
 import { z } from 'zod';
@@ -57,7 +57,7 @@ export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, wor
 }
 
 /**
- * Every game's crew table, keyed by the game's id in the registry, as the page hands them to the
+ * Every board's crew table, keyed by the board's id in the registry (a game's id, or one of its boards), as the page hands them to the
  * arcade. Each is read on its own: a table out of reach is 'unreadable', and never takes the galaxy
  * or the other tables with it.
  */
@@ -70,7 +70,7 @@ export async function readScores(db: Pick<SupabaseClient<Database>, 'from'>, wor
       return 'unreadable';
     }
   };
-  return Object.fromEntries(await Promise.all(GAMES.map(async (g) => [g.id, await read(g.id)] as const)));
+  return Object.fromEntries(await Promise.all(BOARDS.map(async (b) => [b.id, await read(b.id)] as const)));
 }
 
 /** Sends a finished game's score through submit_score(); resolves with the player's best at the game as stored. */

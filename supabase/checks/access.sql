@@ -571,6 +571,20 @@ begin
   if (select array_agg(best order by game) from public.arcade_scores where workspace_id = v and user_id = ada) is distinct from array[900, 900] then
     raise exception 'FAIL: kart did not keep its own lowest time next to the invaders best';
   end if;
+  -- FROST EIGHT's board, `kart-frost-eight` (PRD 1923): open to a player with `kart` unlocked, the lowest
+  -- time kept, and never a change to `kart`'s own board.
+  if public.submit_score(v, 'kart-frost-eight', 2400) is distinct from 2400 then
+    raise exception 'FAIL: submit_score() did not store a first kart-frost-eight time as the best';
+  end if;
+  if public.submit_score(v, 'kart-frost-eight', 2600) is distinct from 2400 then
+    raise exception 'FAIL: submit_score() let a slower kart-frost-eight time replace the best';
+  end if;
+  if public.submit_score(v, 'kart-frost-eight', 2300) is distinct from 2300 then
+    raise exception 'FAIL: submit_score() did not keep the lower kart-frost-eight time';
+  end if;
+  if (select array_agg(best order by game) from public.arcade_scores where workspace_id = v and user_id = ada) is distinct from array[900, 900, 2300] then
+    raise exception 'FAIL: a kart-frost-eight time changed the kart board, or kart-frost-eight did not keep its own lowest time';
+  end if;
   begin
     perform public.submit_score(v, 'invaders', -1);
     raise exception 'FAIL: submit_score() stored a score below 0';
@@ -610,13 +624,17 @@ begin
     perform public.submit_score(v, 'invaders', 100);
     raise exception 'FAIL: submit_score() stored a score for a player whose XP unlocked nothing';
   exception when insufficient_privilege then null; end;
+  begin
+    perform public.submit_score(v, 'kart-frost-eight', 2400);
+    raise exception 'FAIL: submit_score() stored a kart-frost-eight time for a player without kart unlocked';
+  exception when insufficient_privilege then null; end;
 
   perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com');
   begin
     perform public.submit_score(v, 'invaders', 100);
     raise exception 'FAIL: submit_score() stored a visitor''s score';
   exception when insufficient_privilege then null; end;
-  if (select count(*) from public.arcade_scores where workspace_id = v) <> 2 then
+  if (select count(*) from public.arcade_scores where workspace_id = v) <> 3 then
     raise exception 'FAIL: a member (a visitor) cannot read their workspace''s scores';
   end if;
 
