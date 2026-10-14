@@ -35,6 +35,10 @@ export type PRD = {
   repos: string[];
 };
 
+/** The model tier a plan advises for a slice (PRD 1934): `deep` for a subtle design, `build` for the
+ * ordinary bounded slice, `light` for mechanical work. Named for the capability, never a model. */
+export type Tier = 'deep' | 'build' | 'light';
+
 /** One row of a plan's slice table (`parsePlanSlices`, `kit/lib/inbox/territory.ts`). */
 export type Slice = {
   /** A plan's slice (`s1`), or in a rework plan a rework (`fix-s1-01-…`). */
@@ -51,6 +55,9 @@ export type Slice = {
   /** The landing the slice reaches the default branch in: 1 for a plan with no `landing` column.
    * An unreadable cell reads as `NaN`, which the plan check refuses. */
   landing: number;
+  /** The tier its `tier` cell advises; `null` for a blank, an em dash, a cell naming no tier (which
+   * the plan check refuses) or a plan with no `tier` column. */
+  tier: Tier | null;
 };
 
 export type SpecSource = (typeof SPEC_VALUES)[number];

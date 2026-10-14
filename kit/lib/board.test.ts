@@ -750,3 +750,13 @@ describe('landings in a plan repository: one chain per target', () => {
     ]);
   });
 });
+
+describe('boardFor — the tier a slice carries (PRD 1934)', () => {
+  it('keeps each slice\'s tier on its row, null included', () => {
+    const result = board([slice({ tier: 'deep' }), slice({ id: parseWorkSliceId('s2'), territory: ['b/'], tier: null })], []);
+    expect(result.slices.map((row) => [row.id, row.tier])).toEqual([
+      ['s1', 'deep'],
+      ['s2', null],
+    ]);
+  });
+});

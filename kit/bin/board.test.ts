@@ -181,6 +181,26 @@ describe('omni board — table and --json output', () => {
     expect(payload.frontier).toEqual({ wave: 1, runnable: ['s1'], takeable: ['s1'], excluded: [], collisions: [] });
   });
 
+  it("gives each slice its tier in --json: the cell's value, or null (PRD 1934)", async () => {
+    const tiered = [
+      '# A plan',
+      '',
+      '| id | slice | territory | blocked by | wave | tier |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| s1 | Alpha | `a/` | — | 1 | light |',
+      '| s2 | Beta | `b/` | — | 1 | — |',
+      '',
+    ].join('\n');
+    const { code, out } = await boardOf(tiered, {}, { args: ['--json'] });
+    expect(code).toBe(0);
+    expect((JSON.parse(out) as { slices: { id: string; tier: string | null }[] }).slices.map(({ id, tier }) => [id, tier])).toEqual([
+      ['s1', 'light'],
+      ['s2', null],
+    ]);
+    const plain = await boardOf(planMd(['| s1 | Alpha | `a/` | — | 1 |']), {}, { args: ['--json'] });
+    expect(dig(JSON.parse(plain.out), 'slices', 0, 'tier')).toBeNull();
+  });
+
   it('gives a slice its change as a pull request in --json: number, head, base, draft and labels', async () => {
     const { out } = await boardOf(
       planMd(['| s1 | Alpha | `a/` | — | 1 |']),

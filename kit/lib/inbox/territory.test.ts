@@ -10,6 +10,7 @@ import {
   sameWaveCollisions,
   territoryPrefixes,
   territoryVerdict,
+  unknownTiers,
 } from './territory.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { parseWorkSliceId } from '../ids.ts';
@@ -486,5 +487,41 @@ describe('landings: a slice names the landing it reaches the default branch in',
     expect(sameWaveCollisions(parsePlanSlices(LANDED_PLAN.replace('| s2 | 2 | 2 |', '| — | 1 | 2 |')))).toEqual([
       { left: 's2', right: 's3', shared: ['src/'], wave: 1 },
     ]);
+  });
+});
+
+describe('tier: a slice may carry the model tier its plan advises (PRD 1934)', () => {
+  const TIERED = `# Plan
+
+| id | tier | slice | territory | blocked by | wave |
+| --- | --- | --- | --- | --- | --- |
+| s1 | deep | A | \`a/\` | — | 1 |
+| s2 | \`build\` | B | \`b/\` | — | 1 |
+| s3 | light | C | \`c/\` | — | 1 |
+| s4 |  | D | \`d/\` | — | 1 |
+| s5 | — | E | \`e/\` | — | 1 |
+`;
+
+  it('reads the tier column by name, in any position, backticks stripped', () => {
+    expect(parsePlanSlices(TIERED).map((slice) => slice.tier)).toEqual(['deep', 'build', 'light', null, null]);
+  });
+
+  it('reads null on every slice of a table without a tier column', () => {
+    expect(parsePlanSlices(LANDED_PLAN).map((slice) => slice.tier)).toEqual([null, null, null]);
+  });
+
+  it('reads a cell that names no tier as null, and unknownTiers names the slice and the value', () => {
+    const bad = TIERED.replace('| s1 | deep |', '| s1 | fast |').replace('| s3 | light |', '| s3 | Light |');
+    expect(parsePlanSlices(bad).map((slice) => slice.tier)).toEqual([null, 'build', null, null, null]);
+    expect(unknownTiers(bad)).toEqual([
+      { slice: 's1', value: 'fast' },
+      { slice: 's3', value: 'Light' },
+    ]);
+  });
+
+  it('finds no unknown tier in a clean column, in a plan without the column, or in a plan with no slice table', () => {
+    expect(unknownTiers(TIERED)).toEqual([]);
+    expect(unknownTiers(LANDED_PLAN)).toEqual([]);
+    expect(unknownTiers('# Plan\n\nNo table here.\n')).toEqual([]);
   });
 });

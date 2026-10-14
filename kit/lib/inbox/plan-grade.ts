@@ -17,6 +17,10 @@
 // order carries that), and landing numbers run from 1 with no gap. A plan with no `landing` column
 // has one landing and grades as it always did.
 //
+// A `tier` column (PRD 1934) advises the model tier each slice runs on: a cell names `deep`, `build`
+// or `light`, or is blank or an em dash; any other value is refused, naming the slice and the value.
+// A plan with no `tier` column grades as it always did.
+//
 // Then the `rules.plan` of the repository's flow (PRD 1089, `../flow/plan-rules.ts`): per area,
 // `slice.alone`, `slice.maxFiles`, `wave: first`, `blocks: all` and `landing: alone`, and a slice
 // meeting two `merge` methods or two `replace` hooks. `landings.alone` patterns read as an area that
@@ -35,7 +39,7 @@ import { NO_FLOW } from '../plan-repo/copy-flow.ts';
 import type { FlowConfig, TargetFlow } from '../plan-repo/copy-flow.ts';
 import { defined, messageOf } from '../narrow.ts';
 import type { Config, Slice } from '../types.ts';
-import { collisionRows, parsePlanLandings, parsePlanRepositories, parsePlanSlices, sameWaveCollisions } from './territory.ts';
+import { collisionRows, parsePlanLandings, parsePlanRepositories, parsePlanSlices, sameWaveCollisions, unknownTiers } from './territory.ts';
 import type { Collision, PlanLanding, PlanRepository } from './territory.ts';
 
 /** What the grading reads of a config: its `plan` section, when it is a plan repository, its slug,
@@ -377,6 +381,7 @@ export function gradePlan(
     ...(multi ? targetReachViolations(slices, planSection.targets) : []),
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
+    ...unknownTiers(markdown).map(({ slice, value }) => `tier: ${slice} reads "${value}", not deep, build, light, a blank or —.`),
     ...(multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config))),
     ...blockedByViolations(slices),
     ...collisions.map(
