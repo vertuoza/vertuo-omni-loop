@@ -29,6 +29,10 @@
 // (`targets`, read by `../plan-repo/copy-flow.ts`) for that target's rows, and the kit's defaults for a
 // target with no copied flow. So the same path meets different rules in two repositories, and a rule
 // across slices (`wave: first`, `blocks: all`, `landing: alone`) reads the slices of one repository.
+//
+// Last, each slice's `contract` cell (PRD 1870): wherever it sits, `none` beside a kind is refused.
+// Outside a plan repository, when the config's `contracts.declare` is on, a slice that declares
+// nothing is refused, and so is a word outside the config's `contracts.kinds`.
 import { planRuleViolations } from '../flow/plan-rules.ts';
 import { resolveFlow } from '../flow/resolve.ts';
 import { NO_FLOW } from '../plan-repo/copy-flow.ts';
@@ -39,9 +43,10 @@ import { collisionRows, parsePlanLandings, parsePlanRepositories, parsePlanSlice
 import type { Collision, PlanLanding, PlanRepository } from './territory.ts';
 
 /** What the grading reads of a config: its `plan` section, when it is a plan repository, its slug,
- * the paths that land alone, its flow (`pr` for the flow's aliases), and its generated outputs
- * (PRD 1138), whose ground keeps no two slices apart. */
-export type GradeConfig = Pick<Config, 'plan' | 'repo' | 'landings' | 'flow' | 'pr' | 'generated'>;
+ * the paths that land alone, its flow (`pr` for the flow's aliases), its generated outputs
+ * (PRD 1138), whose ground keeps no two slices apart, and whether its plans declare their contracts,
+ * with its own kinds (PRD 1870). */
+export type GradeConfig = Pick<Config, 'plan' | 'repo' | 'landings' | 'flow' | 'pr' | 'generated' | 'contracts'>;
 
 /** One repository's collision matrix: `repo` is `null` for an ordinary plan. */
 export type CollisionMatrix = { repo: string | null; rows: ReturnType<typeof collisionRows> };
@@ -314,6 +319,22 @@ function targetReachViolations(slices: readonly Slice[], targets: readonly Targe
   return violations;
 }
 
+/**
+ * What a slice's `contract` cell gets wrong (PRD 1870), each line naming the slice, then its field.
+ * `asks` is the receiving repository's `contracts` when it asks for the declaration, `null` when it
+ * asks nothing: then the cell is checked for its form alone, `none` beside a kind.
+ */
+function contractViolations(slice: Slice, asks: { kinds: readonly string[] } | null): string[] {
+  const { contract } = slice;
+  const words = contract === null || contract === 'none' ? [] : contract.kinds;
+  const beside = words.includes('none') ? [`${slice.id}: contract: "none" beside a kind — one or the other`] : [];
+  if (asks === null) return beside;
+  const choices = `${asks.kinds.join(', ')} or none`;
+  if (contract === null) return [`${slice.id}: contract: declares nothing — ${choices}`];
+  const strangers = words.filter((word) => word !== 'none' && !asks.kinds.includes(word));
+  return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository — ${choices}`), ...beside];
+}
+
 /** What an ordinary repository's plan may not carry: either table of a plan repository. */
 function notPlanRepositoryViolations(slices: readonly Slice[], repositories: readonly PlanRepository[]): string[] {
   const violations: string[] = [];
@@ -379,6 +400,7 @@ export function gradePlan(
     ...landingViolations(slices, landingRows),
     ...(multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config))),
     ...blockedByViolations(slices),
+    ...slices.flatMap((slice) => contractViolations(slice, planSection === null && config.contracts.declare ? config.contracts : null)),
     ...collisions.map(
       (collision) =>
         `${collision.left} and ${collision.right} share ${collision.shared.join(', ')} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ''} — two slices in one wave may never share territory.`,
