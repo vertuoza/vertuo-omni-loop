@@ -172,9 +172,17 @@ none) and whether its failure breaks that flow. A flow and a breaking failure wr
 `critical`; no flow writes `standard`. A flow the list does not hold is proposed as a new entry in
 the sub-PR, and a person confirms it there; it is never written silently.
 
-Under `/omni:yolo` nothing is asked on the way: the tests are written `standard`, and one medium
-outbox item carries the question with its recommended answer. A person promotes a test by answering
-it. The default is adopted, so the gate does not turn red on it.
+Under `/omni:yolo` nothing is asked on the way: the tests are written `standard`. With no list yet,
+the skill drafts `critical-flows.md` in the same sub-PR, for you to review. For each test that
+plausibly covers a flow of the list it records one medium outbox item, with option A (`standard`)
+and option B (`critical` and `flow-<id>`) and the test file named in it; a test that covers no flow
+is not asked about. The sub-PR body lists each candidate test, its proposed flow and the reply to
+give, `<number>: B`.
+
+Merge the e2e sub-PR before you give the answer. A rework branches from the feature branch and can
+edit only a file that is on it. Then answer `<number>: B` on the feature PR and run `/omni:yolo-fix`:
+the rework adds `critical` and `flow-<id>` to that test file. The default is adopted, so the gate
+does not turn red on it.
 
 ## Run it
 
