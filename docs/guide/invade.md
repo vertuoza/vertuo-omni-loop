@@ -13,7 +13,8 @@ Do this once, after the kit is merged into your default branch
 
 ## Run it
 
-Start Claude Code at the root of your repository, on your default branch and up to date, and type:
+Start your coding agent at the root of your repository, on your default branch and up to date, and
+type (in your agent's form: [Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
 /omni:invade

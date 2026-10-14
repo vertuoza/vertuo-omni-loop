@@ -153,6 +153,8 @@ label**, never the secret. The first real run is done by QA in the plan reposito
 
 ## Run it
 
+In your agent's form ([Any coding agent](/docs/any-agent#set-up-your-agent)):
+
 ```text agent
 /omni:validate-e2e 1233
 ```

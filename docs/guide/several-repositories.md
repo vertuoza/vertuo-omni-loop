@@ -35,7 +35,8 @@ lives in one of three places: **own**, a knowledge base in the target itself, re
 ### Set it up
 
 Install the loop in the plan repository like any other repository
-([Set up a repository](/docs/install#set-up-a-repository)), then, at its root, type:
+([Set up a repository](/docs/install#set-up-a-repository)), then, at its root, type (in your
+agent's form: [Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
 /omni:mega-invade

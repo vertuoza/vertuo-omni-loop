@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.405" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.408" };
   }
 });
 
@@ -28898,6 +28898,15 @@ var RUNNER_SENDER = envGroup({
   schema: external_exports.object({ sentBy: external_exports.string().optional(), runner: external_exports.string().optional() }),
   variables: { sentBy: "OMNI_SENT_BY", runner: "OMNI_RUNNER" }
 });
+var CLAUDE_TOKEN = envGroup({
+  label: "the Claude token",
+  schema: external_exports.object({ token: external_exports.string() }),
+  variables: { token: "CLAUDE_CODE_OAUTH_TOKEN" }
+});
+function claudeTokenOf(group2) {
+  const token = group2?.token.trim() ?? "";
+  return token === "" ? null : token;
+}
 var HEARTBEAT = envGroup({
   label: "the heartbeat",
   schema: external_exports.object({ switch: external_exports.enum(["on", "off"], "on or off") }),
@@ -28923,7 +28932,7 @@ var PACKAGE_MANAGER = envGroup({
 });
 var VARIABLES = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE]);
-var PLATFORM_VARIABLES = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER]);
+var PLATFORM_VARIABLES = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN]);
 var DEFAULT_COLUMNS = 80;
 function terminalOf(group2) {
   const columns3 = Number(group2?.columns);
@@ -28951,6 +28960,7 @@ function readEnv(source2) {
     omniToken: reader.group(OMNI_TOKEN),
     session: sessionOf(reader.group(SESSION)),
     runnerSender: senderOf(reader.group(RUNNER_SENDER)),
+    claudeToken: claudeTokenOf(reader.group(CLAUDE_TOKEN)),
     heartbeat: heartbeatOf(reader.group(HEARTBEAT), reader.group(TEST_RUNNER)),
     ask: reader.group(ASK)?.switch ?? null
   };
@@ -57361,7 +57371,8 @@ function readFlags(args, cwd) {
 function jobEnv({ env, vars }) {
   return {
     ...env.PATH ? { PATH: env.PATH } : {},
-    ...vars.omniToken ? { OMNI_TOKEN: vars.omniToken.token } : {}
+    ...vars.omniToken ? { OMNI_TOKEN: vars.omniToken.token } : {},
+    ...vars.claudeToken === null ? {} : { CLAUDE_CODE_OAUTH_TOKEN: vars.claudeToken }
   };
 }
 var timing = ({ sleep: sleep2, now: now2, tickMs, backoff }) => ({ sleep: sleep2, now: now2, tickMs, backoff });

@@ -144,6 +144,23 @@ const RUNNER_SENDER = envGroup({
 });
 
 /**
+ * The Claude token a headless server signs in with (PRD 1894): `claude setup-token` prints it, and
+ * `omni runner` hands it to each job's session, which takes no other variable from the runner. Never
+ * printed. `ANTHROPIC_API_KEY` is never read: a job must not bill an API key nobody chose for it.
+ */
+const CLAUDE_TOKEN = envGroup({
+  label: 'the Claude token',
+  schema: z.object({ token: z.string() }),
+  variables: { token: 'CLAUDE_CODE_OAUTH_TOKEN' },
+});
+
+/** The Claude token, trimmed, or `null` when it is unset or blank. */
+function claudeTokenOf(group: z.output<typeof CLAUDE_TOKEN.schema> | null): string | null {
+  const token = group?.token.trim() ?? '';
+  return token === '' ? null : token;
+}
+
+/**
  * The heartbeat any `omni` command sends (PRD 1831): `off` turns it off. `omni heartbeat` itself, which
  * Claude Code's hook runs, does not read it.
  */
@@ -197,9 +214,10 @@ export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABAS
 /**
  * The variables the platform sets, read here but never set by a person, so no docs list names them:
  * Claude Code's session, the terminal, the GitHub Actions runner, the package manager, the session
- * a sign-in reads, the test runner, and the sender `omni runner` sets on each job.
+ * a sign-in reads, the test runner, the sender `omni runner` sets on each job, and the Claude token
+ * it hands them.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -244,6 +262,7 @@ export function readEnv(source: EnvSource) {
     omniToken: reader.group(OMNI_TOKEN),
     session: sessionOf(reader.group(SESSION)),
     runnerSender: senderOf(reader.group(RUNNER_SENDER)),
+    claudeToken: claudeTokenOf(reader.group(CLAUDE_TOKEN)),
     heartbeat: heartbeatOf(reader.group(HEARTBEAT), reader.group(TEST_RUNNER)),
     ask: (reader.group(ASK)?.switch ?? null) satisfies AskSwitch,
   };
