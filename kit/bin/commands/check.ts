@@ -1,8 +1,9 @@
-// `omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|context|all]` — the repository's guards.
+// `omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|coverage|context|all]` — the repository's guards.
 // Each prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
 // every guard, and skips `coverage` — never fails on it — when the default branch's remote ref is
 // absent; `design` then grades the library without comparing its locks. `context` (PRD 1679) runs in
-// `all` only while `budgets.context.enabled` is true.
+// `all` only while `budgets.context.enabled` is true. `agents` (PRD 1890) grades the skill copies for
+// the non-Claude agents against their manifest.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-outbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
@@ -26,6 +27,7 @@ import { riskyChanges } from '../../lib/outbox/decision-coverage.ts';
 import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
+import { gradeAgents } from '../../lib/agents/check.ts';
 import { CONFIG_FILE, ConfigError, contextBudget, designScreensDir } from '../../lib/config.ts';
 import { prdOfBranch } from '../../lib/ask/context.ts';
 import { currentBranch } from '../../lib/ask/title.ts';
@@ -46,7 +48,7 @@ import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { loadContext, type Context } from '../../lib/context.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|context|all] [--base <ref>] [--prd <n>]';
+const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|coverage|context|all] [--base <ref>] [--prd <n>]';
 
 /** Prints a guard's result; `true` when it is green. */
 function report(stdout: Out, title: string, violations: readonly string[], passLine: string): boolean {
@@ -138,6 +140,16 @@ function checkReleases({ ctx, stdout }: CommandIo): boolean {
     findReleaseViolations({ ctx }),
     `check releases — ${releaseNoteFiles({ ctx }).length} release note(s), all well-formed.`,
   );
+}
+
+// PRD 1890: the copies `.agents/skills/omni-*` as the manifest says omni wrote them, and installed
+// whenever `agents` lists an agent other than Claude.
+function checkAgents({ ctx, stdout }: CommandIo): boolean {
+  const grade = gradeAgents({ root: ctx.root, agents: ctx.config.agents });
+  const pass = grade.installed
+    ? `check agents — ${grade.folders} folder(s), ${grade.files} file(s), every copy as omni wrote it.`
+    : 'check agents — agents lists claude alone; no copies to check.';
+  return report(stdout, 'check agents — a skill copy does not hold what omni wrote:', grade.violations, pass);
 }
 
 function defaultBase(ctx: Context): string {
@@ -326,7 +338,7 @@ function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Contex
   }
 }
 
-const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'design', 'coverage', 'context', 'all'];
+const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'agents', 'design', 'coverage', 'context', 'all'];
 
 /** The guards that run alone and take nothing but the command's io. */
 const SINGLE_GUARDS: Readonly<Record<string, (io: CommandIo) => boolean>> = {
@@ -336,6 +348,7 @@ const SINGLE_GUARDS: Readonly<Record<string, (io: CommandIo) => boolean>> = {
   knowledge: checkKnowledge,
   kb: checkKb,
   releases: checkReleases,
+  agents: checkAgents,
 };
 
 /** The one guard named (`all` when none); a usage error for more than one or an unknown one. */
@@ -375,7 +388,7 @@ function coverageOnly(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
 /** `omni check all`: every guard, coverage skipped when the base is absent, context while budgets are on. */
 async function allGuards(io: CommandIo, range: Range): Promise<boolean> {
   const { base, baseKnown, prd } = range;
-  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io), checkDesign(io, { base, baseKnown })];
+  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io), checkAgents(io), checkDesign(io, { base, baseKnown })];
   if (baseKnown) results.push(checkCoverage(io, { base, prd }));
   else println(io.stdout, `coverage: skipped — no ${base}`);
   if (contextBudget(io.ctx.config).enabled) results.push(await checkContext(io, range));
