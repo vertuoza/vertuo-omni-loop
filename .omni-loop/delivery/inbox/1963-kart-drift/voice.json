@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A drift, a way back for the direction of travel and a sixth key all touch the step every kart takes and the keys every player saved; that is where a regression hides, and the design at least says a kart that never hops drives as today.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A sixth PRD on the kart reads to me as more gimmick, not more tool; at least it brings no migration and leaves MULTI's messages alone.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One playtest line turned into a drift, a rocket start and a slipstream in a single PRD: the kind of fast follow-up I want from the loop.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The engine, the rivals, the keys and the sound in one PRD are four reviews; I can live with it if each lands on its own.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "It answers the player who said the ice does not slide, the day after the circuit shipped; it is bigger than a quick win, but every part of it is felt at the wheel.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Je vois déjà cet outil comme un gadget, et un sixième PRD sur le kart plutôt que sur l'outil me le confirme. Si le jeu reste, qu'au moins il ne me coûte rien à relire : un seul PRD qui touche le moteur, les rivaux, les touches et le son d'un coup, c'est trop.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ~ · persona:Lead Engineer ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The spec names the two traps I feared and tests both: a kart that never hops keeps every test of today, and five saved keys never fall back to the defaults.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Still a game feature to me; no migration, no protocol change, and a rollback that is one revert.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Every number is in one constants block, so the next playtest tunes the feel without a new PRD.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The objection was taken: the ice, the keys, the drift, the rivals, the start, the slipstream and the feel each get a slice of their own.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The players' own keys are kept and the boards are not reset: nobody loses what they had to get the new feel.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✗"
+    }
+  ]
+}
