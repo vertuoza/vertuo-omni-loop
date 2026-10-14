@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PrdNumberSchema } from '../ids.ts';
 import { parseRecording, readRecordings, readTaggedTests, RecordingError } from './recording.ts';
-import { missingRecording, testStatus } from './status.ts';
+import { missingRecording, testStatus, unknownFlows } from './status.ts';
 
 const trace = (testId: string, callIndex = 0, extra: object = {}) =>
   JSON.stringify({ schemaVersion: 'trace-1', payload: { summary: 'clicks Rank', recordedFor: { testId, callIndex }, actions: [{ name: 'click', target: 'Rank' }] }, ...extra });
@@ -39,7 +39,7 @@ describe('parseRecording', () => {
       file: 'real.json', testId: 'tests/rank.e2e.ts::PRD%201%20%C2%B7%20Rank::criterion%201', callIndex: 0, instruction: 'abc',
       summary: 'Clicked the "PRs" header a second time.', actions: [{ name: 'tap', target: 'tap link "PRs" in "Rank"' }],
     });
-    expect(testStatus([{ id: 'tests/rank.e2e.ts', file: 'e2e/tests/rank.e2e.ts', agent: true }], [parseRecording('real.json', real)])[0]?.recording).toBe(true);
+    expect(testStatus([{ id: 'tests/rank.e2e.ts', file: 'e2e/tests/rank.e2e.ts', agent: true, level: 'standard', flow: null }], [parseRecording('real.json', real)])[0]?.recording).toBe(true);
   });
 
   it('names the file when the JSON is bad, the schema is another, or a field is missing', () => {
@@ -64,8 +64,8 @@ describe('testStatus', () => {
     const tests = readTaggedTests(root, 'e2e', PrdNumberSchema.parse(1017));
     expect(tests.map((t) => t.id)).toEqual(['nested/sort.spec.ts', 'rank.spec.ts']);
     expect(testStatus(tests, readRecordings(root, 'e2e'))).toEqual([
-      { id: 'nested/sort.spec.ts', file: 'e2e/nested/sort.spec.ts', recording: false, expected: false, recordings: [] },
-      { id: 'rank.spec.ts', file: 'e2e/rank.spec.ts', recording: true, expected: true, recordings: ['e2e/.e2e/cache/a.json', 'e2e/.e2e/cache/b.json'] },
+      { id: 'nested/sort.spec.ts', file: 'e2e/nested/sort.spec.ts', recording: false, expected: false, recordings: [], level: 'standard', flow: null },
+      { id: 'rank.spec.ts', file: 'e2e/rank.spec.ts', recording: true, expected: true, recordings: ['e2e/.e2e/cache/a.json', 'e2e/.e2e/cache/b.json'], level: 'standard', flow: null },
     ]);
   });
 
@@ -87,5 +87,22 @@ describe('testStatus', () => {
   it('throws naming the recording that does not read', () => {
     const root = repo({ 'e2e/.e2e/cache/bad.json': 'nope' });
     expect(() => readRecordings(root, 'e2e')).toThrow('e2e/.e2e/cache/bad.json: not valid JSON');
+  });
+});
+
+describe('levels and flows (PRD 1737)', () => {
+  const one = (level: 'critical' | 'standard', flow: string | null) => testStatus([{ id: 'a.spec.ts', file: 'e2e/a.spec.ts', agent: false, level, flow }], []);
+
+  it('reads critical and flow-<id> from the tags, standard by default', () => {
+    const root = repo({ 'e2e/a.spec.ts': "test('a', { tag: ['prd-7', 'flow-sign-in', 'critical'] }, async () => {})", 'e2e/b.spec.ts': "test('b', { tag: ['prd-7'] }, async () => {})" });
+    expect(readTaggedTests(root, 'e2e', PrdNumberSchema.parse(7)).map(({ level, flow }) => ({ level, flow }))).toEqual([{ level: 'critical', flow: 'sign-in' }, { level: 'standard', flow: null }]);
+  });
+
+  it('refuses a critical test with no flow or an unknown flow, never a standard one', () => {
+    expect(unknownFlows(one('critical', null), ['x'])).toHaveLength(1);
+    expect(unknownFlows(one('critical', 'y'), ['x'])).toHaveLength(1);
+    expect(unknownFlows(one('critical', 'y'), null)).toHaveLength(1);
+    expect(unknownFlows(one('critical', 'x'), ['x'])).toEqual([]);
+    expect(unknownFlows(one('standard', 'y'), ['x'])).toEqual([]);
   });
 });
