@@ -36,5 +36,7 @@ One file per record, `NNNN-<slug>.md`:
 
 ## Numbering
 <!-- slot: numbering · optional -->
-The next free number, printed below with each record, read from the folder: no hand-kept list.
-One number, one record: a shared one is a mistake to fix, never a precedent.
+The next free number, printed below with the latest 20 records, read from the folder: no hand-kept
+list. `omni kb show decisions --all` prints every record: look a decision up there, or search the
+folder, before writing a new one. One number, one record: a shared one is a mistake to fix, never
+a precedent.

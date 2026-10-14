@@ -247,13 +247,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json]', 'omni kb status [--json]', 'omni kb graph [--json]', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
       'The playbook: one form per question an agent asks while delivering (testing, architecture, ' +
       'conventions and more). show prints one form section by section, each saying where it comes ' +
-      "from: this repository's own words, a page it points to, or the kit default. status prints " +
+      "from: this repository's own words, a page it points to, or the kit default; show decisions " +
+      'lists the latest 20 decision records, and --all every one. status prints ' +
       'the map of every form and register and every open question; graph the knowledge registers ' +
       'as one graph; init lays down every missing form, blank, and changes no file that exists.',
   },

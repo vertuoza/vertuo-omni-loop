@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decisions, latest 20</title>
+<style>
+  :root { --bg: #f6f4ee; --ink: #1d1b26; --muted: #5d5a6b; --card: #ffffff; --line: #d9d5c8; --term: #17151f; --term-ink: #e9e6f2; --dim: #8a85a0; --ok: #2f8f5b; --bad: #c0392b; --accent: #6b3fd4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #121019; --ink: #ece9f5; --muted: #a7a2ba; --card: #1c1a26; --line: #2f2c3d; --term: #0b0a10; --accent: #a98bff; } }
+  :root[data-theme="dark"] { --bg: #121019; --ink: #ece9f5; --muted: #a7a2ba; --card: #1c1a26; --line: #2f2c3d; --term: #0b0a10; --accent: #a98bff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 36px 0 12px; }
+  .prd { color: var(--muted); margin: 0 0 24px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .card h3 { margin: 0 0 8px; font-size: 1rem; }
+  .tag { display: inline-block; font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-left: 6px; color: #fff; }
+  .tag.bad { background: var(--bad); } .tag.ok { background: var(--ok); }
+  pre { background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 12px; margin: 0; font: 12.5px/1.45 ui-monospace, Menlo, monospace; overflow-x: auto; white-space: pre; }
+  .dim { color: var(--dim); } .hl { color: #ffd966; } .red { color: #ff7b72; } .grn { color: #7ee2a8; }
+  .cap { color: var(--muted); font-size: .9rem; margin: 10px 0 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  code { font: .9em ui-monospace, Menlo, monospace; }
+  .note { border-left: 3px solid var(--accent); padding: 4px 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>The decisions form prints the latest 20 records</h1>
+  <p class="prd">PRD #1951 · <code>omni kb show decisions</code> and <code>omni check context</code> · today beside after</p>
+
+  <h2>Functional</h2>
+
+  <div class="pair">
+    <section class="card">
+      <h3>Today <span class="tag bad">15,360 bytes · at the ceiling</span></h3>
+<pre><span class="dim"># Decision records
+.omni-loop/knowledge/adr/README.md · filled
+… Where they live · Format · Numbering …</span>
+
+## Records  [read live from .omni-loop/knowledge/adr]
+0001  ADR-0001 — The outbox gate runs as a GitHub App, …
+0002  ADR-0002 — The kit may depend on a URL the game's …
+0003  ADR-0003 — Ship refuses on an uncommitted delivery …
+<span class="dim">⋮   (111 more lines, one per record)</span>
+0115  ADR-0115 — A refused terminal token exchange …
+0116  ADR-0116 — The repository that receives a slice …
+Next free number: 0117</pre>
+      <p class="cap">Every record, one line each: about 110 bytes more with each ADR. The 117th turns <code>check context</code> red on whatever PR writes it.</p>
+    </section>
+    <section class="card">
+      <h3>After <span class="tag ok">≈ 4 KB · ceiling 6,144</span></h3>
+<pre><span class="dim"># Decision records
+.omni-loop/knowledge/adr/README.md · filled
+… Where they live · Format · Numbering (names --all) …</span>
+
+## Records  [read live from .omni-loop/knowledge/adr]
+0097  ADR-0097 — The harvest opens each law's tracking …
+0098  ADR-0098 — The law sweep asks the model first, …
+<span class="dim">⋮   (the 20 highest numbers, in order)</span>
+0115  ADR-0115 — A refused terminal token exchange …
+0116  ADR-0116 — The repository that receives a slice …
+<span class="hl">… 96 older records: omni kb show decisions --all</span>
+Next free number: 0117</pre>
+      <p class="cap">The latest 20, a live count of the rest with the command that prints them, then the next number. Same size at 117 records or 300.</p>
+    </section>
+  </div>
+
+  <div class="pair" style="margin-top:16px">
+    <section class="card">
+      <h3>Today · <code>check context</code></h3>
+<pre>| `form:decisions` | 15 KB | 15 KB | — |
+<span class="dim">with ADR-0117:</span>
+<span class="red">Over budget: the `decisions` playbook form is
+15.1 KB, its ceiling is 15 KB.</span></pre>
+      <p class="cap">A person answers a ceiling raise every few ADRs (14 → 15 KB in #1871; 16 KB asked next).</p>
+    </section>
+    <section class="card">
+      <h3>After · <code>check context</code></h3>
+<pre>| `form:decisions` | 3.9 KB | 6 KB | — |
+<span class="dim">with ADR-0117, 0150, 0300:</span>
+<span class="grn">every target under its ceiling</span></pre>
+      <p class="cap">The check measures the default view, the same text a session reads.</p>
+    </section>
+  </div>
+
+  <h2>What changes, what stays</h2>
+  <table>
+    <tr><th>Call</th><th>Today</th><th>After</th></tr>
+    <tr><td><code>omni kb show decisions</code></td><td>every record</td><td>latest 20, then <code>… &lt;k&gt; older records: omni kb show decisions --all</code> when there are more</td></tr>
+    <tr><td><code>omni kb show decisions --all</code></td><td>— (usage error)</td><td>every record: today's output</td></tr>
+    <tr><td><code>omni kb show &lt;other&gt; --all</code></td><td>— (usage error)</td><td>usage error naming <code>--all</code></td></tr>
+    <tr><td><code>omni kb show decisions --json</code></td><td>every record</td><td>unchanged: every record</td></tr>
+    <tr><td>shared-number warnings</td><td>all of them</td><td>unchanged: all of them, whatever the records' age</td></tr>
+    <tr><td><code>form:decisions</code> ceiling</td><td>15,360 bytes</td><td>6,144 bytes</td></tr>
+    <tr><td>harvest classifier, record writer</td><td>read every record</td><td>unchanged: they read the folder directly</td></tr>
+  </table>
+
+  <p class="note">The Numbering slot of the form (here and in the kit's template) says to look a decision up with <code>--all</code>, or search the folder, before writing a new record: older decisions stay one command away.</p>
+
+  <h2>Pixel perfect</h2>
+  <p>Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>

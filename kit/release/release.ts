@@ -4,7 +4,9 @@
 // and does nothing else. It:
 //
 // 1. does nothing, exit 0, when the head commit is itself a release commit;
-// 2. takes the next version from the tags (`next-version.mjs`);
+// 2. takes the next version from the tags (`next-version.mjs`). When `main` already holds that
+//    version's release commit without its tag (its tag push failed, #1957), tags that commit,
+//    pushes the tag, publishes its Release with the bundle it built, and takes the version after;
 // 3. writes it into `package.json` and both plugins' manifests, `omni`'s and `omni-hud`'s (PRD 1208);
 // 4. runs `pnpm kit:build`, so the bundle carries it too;
 // 5. commits those four files as `chore(release): v0.0.N`, signed with `omni sign trailer`;
@@ -62,6 +64,18 @@ function stamp(root: string, path: string, version: string): void {
   writeFileSync(file, `${JSON.stringify(withVersion(manifest, version), null, 2)}\n`);
 }
 
+/** The `git log` pattern of the release commit of `tag`: its subject, as an anchored regex. */
+const releasePattern = (tag: string): string => `^chore\\(release\\): ${tag.replaceAll('.', '\\.')}$`;
+
+/** Tags `sha`, pushes the tag and publishes its Release, attaching the bundle `sha` holds. */
+function publish(exec: Exec, tag: string, sha?: string): void {
+  exec('git', ['tag', '-a', tag, '-m', tag, ...(sha ? [sha] : [])]);
+  exec('git', ['push', REMOTE, tag]);
+  if (sha) exec('git', ['checkout', sha, '--', BUNDLE]);
+  exec('gh', ['release', 'create', tag, BUNDLE, '--title', tag, '--generate-notes', '--verify-tag']);
+  if (sha) exec('git', ['checkout', 'HEAD', '--', BUNDLE]);
+}
+
 /** Runs one command, and says whether it succeeded, instead of throwing. */
 function attempt(exec: Exec, cmd: string, args: string[], log: Log): boolean {
   try {
@@ -84,7 +98,16 @@ export function release({ root, exec, log = console.log }: { root: string; exec:
     return 0;
   }
 
-  const version = nextVersion(exec('git', ['tag', '--list']).split('\n'));
+  const tags = exec('git', ['tag', '--list']).split('\n');
+  let version = nextVersion(tags);
+  const stranded = `v${version}`;
+  const sha = exec('git', ['log', '--format=%H', '-1', '-E', `--grep=${releasePattern(stranded)}`]).trim();
+  if (sha) {
+    log(`${BRANCH} holds the release commit of ${stranded} (${sha}) without its tag: tagging it.`);
+    publish(exec, stranded, sha);
+    log(`Released ${stranded}.`);
+    version = nextVersion([...tags, stranded]);
+  }
   const tag = `v${version}`;
   log(`Releasing ${tag}.`);
   stamp(root, PACKAGE, version);
@@ -116,9 +139,7 @@ export function release({ root, exec, log = console.log }: { root: string; exec:
     }
   }
 
-  exec('git', ['tag', '-a', tag, '-m', tag]);
-  exec('git', ['push', REMOTE, tag]);
-  exec('gh', ['release', 'create', tag, BUNDLE, '--title', tag, '--generate-notes', '--verify-tag']);
+  publish(exec, tag);
   log(`Released ${tag}.`);
   return 0;
 }
