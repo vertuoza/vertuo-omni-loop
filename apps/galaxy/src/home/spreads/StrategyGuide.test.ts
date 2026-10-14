@@ -28,7 +28,7 @@ describe('the loop', () => {
 
   it('gives each stage its line, in the spec\'s words', () => {
     expect(LOOP.map((s) => s.line)).toEqual([
-      'You talk an idea through with Claude. Nothing is written yet.',
+      'You talk an idea through with your agent. Nothing is written yet.',
       'The idea becomes a brief and a before/after page. A person approves it before any code exists.',
       'Approved and ready to build.',
       'Agents build it in slices, test-first. Every decision they took without asking waits for your answer.',
@@ -92,6 +92,12 @@ describe('the strategy guide', () => {
     expect(legend).not.toBeNull();
     expect([...sure(sure(legend, 'the legend')[1], 'the legend\'s items').matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => sure(text(sure(li, 'a legend item')).split(':')[0], 'a mover').trim()))
       .toEqual(['YOU', 'AGENTS', 'OMNI APP']);
+  });
+
+  it('says what each mover does in the legend, the agent for the idea in agent words (PRD 1915)', () => {
+    const legend = sure(sure(markup.match(/<ul class="home-loop-legend"[^>]*>([\s\S]*?)<\/ul>/), 'the legend')[1], 'the legend\'s items');
+    expect([...legend.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(sure(li, 'a legend item')).replace(' :', ':')))
+      .toEqual(['YOU: a person decides, with the agent for the idea', 'AGENTS: coding agents build every slice', 'OMNI APP: opens the retro on GitHub']);
   });
 
   it('lists the stages and their lines for a screen reader, the KNOWLEDGE bonus last', () => {
