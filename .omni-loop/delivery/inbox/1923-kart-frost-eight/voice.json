@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The two deep changes landed behind tests that pass unchanged on COMET RING, and building FROST EIGHT caught a real bug at the start line, fixed on both circuits. The snowy look is proven by tests only; I would race it once in a browser before merging.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Two migrations now: one adds a board and rewrites nothing, the other empties COMET RING's times in every workspace, and a revert does not bring them back. Still a game feature to me, and now one with a delete in it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Everything the spec listed shipped in five waves, plus a reset asked for during the build without stopping the run. The release note says it in two plain sentences.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The engine, the migration and MULTI each merged alone before the circuit, as my objection asked. Two breaches, a registry test and the grid's hub, are named and adopted, and the reset that came outside the plan is in the spec and the ledger.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A player sees all of it: a new circuit, a step to pick it, and its own times on the cabinet. Emptying COMET RING's board gives every crew the same fresh start on both circuits.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
     }
   ]
 }
