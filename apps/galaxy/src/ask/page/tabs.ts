@@ -73,9 +73,9 @@ export const tabsOf = (rows: TabRow[], now: number): Tab[] => rows.map((r) => ta
 /** How many tabs need the person. */
 export const needsYou = (tabs: Tab[]) => tabs.filter((t) => t.state === 'needs-you').length;
 
-/** A question page's title: Claude asks while the person may answer it. The waiting list prefixes
+/** A question page's title: Your agent asks while the person may answer it. The waiting list prefixes
  * the count (PRD 499). */
-export const askTitle = (asking: boolean) => (asking ? 'Claude asks · OMNI LOOP' : 'Ask · OMNI LOOP');
+export const askTitle = (asking: boolean) => (asking ? 'Your agent asks · OMNI LOOP' : 'Ask · OMNI LOOP');
 
 /** /ask's title, whatever waits: the waiting list prefixes the count (PRD 499). */
 export const tabsTitle = () => askTitle(true);

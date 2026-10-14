@@ -254,7 +254,7 @@ function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDra
 
 /** What Send's button says: where the upload stands while sending. */
 function sendLabel(sending: boolean, progress: Progress, upload: string | null): string | null {
-  if (!sending) return 'Send to Claude';
+  if (!sending) return 'Send to the agent';
   return progress.kind === 'uploading' ? upload : 'Sending…';
 }
 
@@ -293,7 +293,7 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
   }, [questions, draft, onDraft, canSend, sending, onSend]);
 
   return (
-    <section className="ask-round" aria-label="Claude asks">
+    <section className="ask-round" aria-label="The agent asks">
       {questions.map((_, index) => (
         <QuestionBlock
           key={index}

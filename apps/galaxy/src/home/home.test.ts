@@ -129,6 +129,20 @@ describe('the poster', () => {
     expect(items).toEqual(['★ ONE FOLDER IN, ONE FOLDER OUT', '★ EVERY DECISION WRITTEN DOWN', '★ A PERSON ALWAYS MERGES']);
   });
 
+  it('says who it works with, once, under the promises and above the quote, its last item the one link to /docs/any-agent (PRD 1915)', async () => {
+    const html = await render();
+    const rows = [...html.matchAll(/<ul class="home-works"[^>]*>[\s\S]*?<\/ul>/g)].map(([ul]) => ul);
+    expect(rows).toHaveLength(1);
+    const row = sure(rows[0], 'the works-with row');
+    const items = [...row.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, li]) => li ?? '');
+    expect(items.map(text)).toEqual(['WORKS WITH', 'CLAUDE CODE', 'CODEX', 'CURSOR', 'GEMINI CLI', 'ANY CODING AGENT']);
+    expect(row.match(/<a\b/g)).toHaveLength(1);
+    expect(items.at(-1)).toMatch(/^<a [^>]*href="\/docs\/any-agent"[^>]*>ANY CODING AGENT<\/a>$/);
+    const at = html.indexOf('class="home-works"');
+    expect(at).toBeGreaterThan(html.indexOf('class="home-promises"'));
+    expect(at).toBeLessThan(html.indexOf('class="home-quote"'));
+  });
+
   it('shows OmniMan in his omni-point pose, and the crest in its full form', async () => {
     const html = await render();
     expect(element(html, 'data-pose="omni-point"')).toBeTruthy();
@@ -200,7 +214,7 @@ describe('the poster', () => {
     expect(order('home-crest')).toBeLessThan(order('home-head'));
     expect(order('home-head')).toBeLessThan(order('home-poster .home-start'));
     expect(order('home-planet')).toBeGreaterThan(order('home-poster .home-start'));
-    const rest = ['home-kicker', 'home-dots', 'home-pitch', 'home-promises', 'home-quote', 'home-spokes'].map(order);
+    const rest = ['home-kicker', 'home-dots', 'home-pitch', 'home-promises', 'home-works', 'home-quote', 'home-spokes'].map(order);
     for (const at of rest) expect(at).toBeGreaterThan(order('home-planet'));
     expect([...rest].sort((a, b) => a - b), 'the column keeps its order').toEqual(rest);
   });
@@ -275,12 +289,12 @@ describe('the spreads', () => {
     for (const gone of ['ForYou', 'SeeEverything', 'InOut', 'HighScores']) expect(source, gone).not.toMatch(new RegExp(`'\\./${gone}'|<${gone}\\b`));
   });
 
-  it('link nowhere but the game at /play and the docs at /docs (PRD 346; /releases left with You see everything, PRD 971), the pages open without signing in', async () => {
+  it('link nowhere but the game at /play and the docs at /docs, and the poster\'s ANY CODING AGENT to /docs/any-agent (PRD 346; /releases left with You see everything, PRD 971; PRD 1915), the pages open without signing in', async () => {
     const html = await render();
     const hrefs = [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(([, href]) => href);
     expect(hrefs).toContain('/play');
     expect(hrefs).toContain('/docs');
-    expect(new Set(hrefs)).toEqual(new Set(['/play', '/docs']));
+    expect(new Set(hrefs)).toEqual(new Set(['/play', '/docs', '/docs/any-agent']));
     expect(html.match(/<a\b/g)?.length, 'every link has an href').toBe(hrefs.length);
     expect(html).not.toMatch(/<(?:form|area|link)\b[^>]*\b(?:action|href)=/);
   });
