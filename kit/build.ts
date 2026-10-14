@@ -17,6 +17,11 @@
 // bundle then carries that page as `__OMNI_PITCH_ENGINE__` (PRD 1108 s6, see lib/pitch/render-page.ts):
 // a repository holds only its copy of the bundle, and `omni pitch render` and `studio` serve the page
 // from it.
+//
+// It also carries every file under `kit/plugin/skills/` as `__OMNI_SKILLS__` (PRD 1890 s2, see
+// lib/agents/skills.ts), so `omni init` and `omni update` write the skills of their own version for
+// the agents that read `.agents/skills/`; the bundle exports `kitSkills` beside `main`, so the
+// committed file can be asked for them.
 import { build } from 'esbuild';
 import { z } from 'zod';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -24,6 +29,7 @@ import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { slugFromRemote } from './lib/context.ts';
+import { readSkills } from './lib/agents/skills.ts';
 import { readTemplates } from './lib/playbook/templates.ts';
 import { readEnginePage } from './lib/pitch/render-page.ts';
 
@@ -33,6 +39,7 @@ const ENTRY = [
   '#!/usr/bin/env node',
   "export * from './bin/omni.ts';",
   "export { formTemplate, frontDoorTemplate } from './lib/playbook/templates.ts';",
+  "export { kitSkills } from './lib/agents/skills.ts';",
   '',
 ].join('\n');
 
@@ -93,6 +100,7 @@ await build({
   define: {
     __OMNI_BUNDLE__: JSON.stringify({ home, version }),
     __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())),
+    __OMNI_SKILLS__: JSON.stringify(JSON.stringify(readSkills())),
     __OMNI_PITCH_ENGINE__: JSON.stringify(JSON.stringify(readEnginePage(engineDir))),
   },
 });
