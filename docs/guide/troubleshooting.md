@@ -37,7 +37,7 @@ terminal: `omni --version` now runs the one npm installed.
 
 ## `omni config` fails: the kit is not installed
 
-Every skill starts by running `omni config`. When it fails, Claude stops at once and says in one
+Every skill starts by running `omni config`. When it fails, the agent stops at once and says in one
 line that the repository is not installed. Run it yourself to see why:
 
 ```bash terminal agent
@@ -48,8 +48,8 @@ It prints the repository's settings when all is well. Otherwise, one of three th
 
 - **`omni: no Omni Loop kit here — run omni init in your repository`**
   There is no kit where you ran it. Either you are not inside the repository (`cd` into it, and
-  open Claude Code at its root), or the kit is not on the branch you have checked out. The install
-  pull request must be merged, and your checkout up to date:
+  open your coding agent at its root), or the kit is not on the branch you have checked out. The
+  install pull request must be merged, and your checkout up to date:
 
   ```bash terminal agent
   git switch main
@@ -118,7 +118,7 @@ page, `https://github.com/<owner>/<repository>/labels`, with exactly the names a
 
 ## `no sign-in (omni signin)`
 
-You see this line when Claude opens or updates a PRD's dossier, while `/omni:brainstorm` runs. It
+You see this line when the agent opens or updates a PRD's dossier, while `/omni:brainstorm` runs. It
 never stops the brainstorm: the PRD is written all the same, only without its dossier page. It means
 this computer has not signed in to the Omni Loop app yet, or its sign-in has expired.
 
@@ -130,8 +130,8 @@ omni signin
 
 It opens your browser. Sign in there with your GitHub account, and the terminal prints
 `signed in as` followed by your GitHub login and the workspace this repository goes to. Inside
-Claude Code, you can run it from the prompt by typing `!` before it. The next dossier update goes
-through.
+your coding agent, you can run it from the prompt too (in Claude Code: type `!` before it). The
+next dossier update goes through.
 
 Two related lines:
 
@@ -245,7 +245,10 @@ git push
   uncommitted changes. Commit them, or move them elsewhere, then run it again.
 - **Claude Code does not know `/omni:brainstorm`.** The `omni` plugin is not installed in this
   Claude Code. The plugin is installed once per laptop, not per repository: see step 2 of
-  [Install](/docs/install#2-load-the-skills-in-claude-code), then restart Claude Code.
+  [Install](/docs/install#2-load-the-skills-in-your-coding-agent), then restart Claude Code. Another
+  agent that does not know the skill in its own form (`$omni-brainstorm` in Codex) has no copies of
+  the skills yet: the install pull request that lists it under `agents` must be merged
+  ([Any coding agent](/docs/any-agent#set-up-your-agent)).
 - **`gh` asks you to run `gh auth login`.** The GitHub CLI is not signed in on this computer. Run
   `gh auth login`, then the command that failed.
 - **The feature pull request has the `omni:needs-fix` label.** A slice or a check stayed red after
