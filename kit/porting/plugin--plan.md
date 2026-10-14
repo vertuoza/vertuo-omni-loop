@@ -185,7 +185,7 @@ kit's sources.
 Not a re-port: upstream's table has no such column. A departure from upstream, kit-local prose. A
 repository may ask every slice it receives to say what it changes for its callers
 (`contracts.declare: true` in its config, with its own `contracts.kinds`, `api, db` by default), and
-`omni plan check` refuses a slice that does not (ADR-0103).
+`omni plan check` refuses a slice that does not (ADR-0106).
 
 - **Step 1, item 4** keeps the `contracts:` line `omni flow show` prints, and, in a plan repository,
   the one `omni flow show --repo <name>` prints for each target.
