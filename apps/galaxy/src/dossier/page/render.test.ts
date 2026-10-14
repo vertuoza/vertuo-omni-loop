@@ -608,7 +608,8 @@ describe('the Questions tab', () => {
 
   it('says when no question was asked yet', () => {
     const html = questions({ questions: [] });
-    expect(html).toContain('No question yet.');
+    expect(html).toContain('No question yet. The questions the agent asks with ask mode on show here');
+    expect(html).not.toMatch(/claude/i);
     expect(html).not.toContain('dossier-rounds');
   });
 
@@ -833,7 +834,7 @@ describe('the Pitch panel (PRD 859)', () => {
     expect(shown).toContain('<code class="stage-command pitch-command">/omni:pitch 216 --for customers</code>');
     expect(shown).toContain('<button type="button" class="ask-button" title="/omni:pitch 216 --for customers">Copy</button>');
     expect(shown).toContain(PITCH_HINT);
-    expect(PITCH_HINT).toBe('Run it in Claude Code, in this repository. The pitch shows on the Pitch tab.');
+    expect(PITCH_HINT).toBe('Run it in your coding agent, in this repository. The pitch shows on the Pitch tab.');
   });
 
   it('gives Send to terminal beside Copy when the page gives the viewer a runner, never in the demo (PRD 1830 s4)', () => {

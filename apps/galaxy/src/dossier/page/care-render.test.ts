@@ -79,9 +79,9 @@ describe('the PR care tab (PRD 790, s4)', () => {
     expect(page(summary({ care: { ...CARE, threads: [] } }))).not.toContain('care-threads');
   });
 
-  it('says Claude is watching under 15 minutes, else nobody, with /omni:pr-care <n> to copy', () => {
+  it('says the agent is watching under 15 minutes, else nobody, with /omni:pr-care <n> to copy', () => {
     const watching = page(summary());
-    expect(watching).toContain('<p class="care-watcher care-watching"><span>Claude is watching · last round 3 min ago</span></p>');
+    expect(watching).toContain('<p class="care-watcher care-watching"><span>The agent is watching · last round 3 min ago</span></p>');
     expect(watching).not.toContain('/omni:pr-care');
     for (const lastRound of ['2026-09-30T11:45:00Z', null]) {
       const nobody = page(summary({ care: { ...CARE, lastRound } }));

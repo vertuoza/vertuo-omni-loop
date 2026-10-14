@@ -42,7 +42,7 @@
 // the failed run's link while red), whether it conflicts with its base, the review threads counted by
 // verdict, then one line per thread (the reviewer's face and login, the comment's first line, the
 // verdict with Claude's reason, a link to it on GitHub), asked threads first. Under them, the watcher
-// line: `Claude is watching · last round N min ago` while the status comment's last round is under 15
+// line: `The agent is watching · last round N min ago` while the status comment's last round is under 15
 // minutes old, else `Nobody is watching`, with `/omni:pr-care <n>` to copy. All of it read from the
 // feature PR's care state (../github/care.ts); a merged feature PR has nothing left to watch.
 //
@@ -802,13 +802,13 @@ const VERDICT_WORDS: Record<CareVerdict, string> = { open: 'not handled yet', fi
 /** The PR care tab's badge: the threads still waiting, when there are any. */
 const careBadge = (care: CareView | null) => (care?.state === 'care' && care.counts.open + care.counts.asked ? `${care.counts.open + care.counts.asked} open` : null);
 
-/** The watcher line (PRD 790): `Claude is watching · last round 3 min ago` under 15 minutes, else nobody. */
+/** The watcher line (PRD 790): `The agent is watching · last round 3 min ago` under 15 minutes, else nobody. */
 export function watcherOf(lastRound: string | null, prd: PrdNumber, now: number): CareView['watcher'] {
   const command = `/omni:pr-care ${prd}`;
   const ago = lastRound === null ? NaN : now - Date.parse(lastRound);
   if (!(ago < WATCH_FRESH_MS)) return { watching: false, words: 'Nobody is watching', command };
   const minutes = Math.max(0, Math.floor(ago / 60_000));
-  return { watching: true, words: `Claude is watching · last round ${minutes} min ago`, command };
+  return { watching: true, words: `The agent is watching · last round ${minutes} min ago`, command };
 }
 
 const NO_CARE = { ci: { state: 'none' as const, words: CI_WORDS.none, href: null }, conflict: { state: 'unknown' as const, words: 'unknown' },
