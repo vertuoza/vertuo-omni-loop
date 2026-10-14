@@ -148,8 +148,9 @@ afterEach(() => {
 function startRunner(
   f: ReturnType<typeof fixture>,
   app: ReturnType<typeof fakeApp>,
-  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal() }: {
+  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {} }: {
     args?: string[]; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
+    env?: Record<string, string>;
   } = {},
 ) {
   const stop = new AbortController();
@@ -161,7 +162,7 @@ function startRunner(
     stdout: stdout.stream,
     stderr: stderr.stream,
     exec,
-    env: { PATH: `${f.bin}:${String(process.env.PATH)}` },
+    env: { PATH: `${f.bin}:${String(process.env.PATH)}`, ...env },
     tokens,
     home: f.home,
     fetch: app.fetch,
@@ -236,6 +237,36 @@ describe('omni runner', () => {
     await run.done;
     expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exitCode: 3 });
     expect(run.terminal.sessions[0]?.env).not.toHaveProperty('OMNI_SENT_BY');
+  });
+
+  describe('the Claude token (PRD 1894)', () => {
+    const CLAUDE_TOKEN = 'fake-claude-oauth-token-runner-0123456789';
+
+    it("hands CLAUDE_CODE_OAUTH_TOKEN to each job's session when the runner has it, and never prints it", async () => {
+      const f = fixture();
+      const app = fakeApp({ jobs: [{ id: 21, line: '/omni:yolo 1894', repo: 'acme/widgets', sentBy: 'ada' }] });
+      const run = startRunner(f, app, { env: { CLAUDE_CODE_OAUTH_TOKEN: CLAUDE_TOKEN } });
+      await until(ended(app), 'the job to end');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(run.terminal.sessions[0]?.env).toMatchObject({ CLAUDE_CODE_OAUTH_TOKEN: CLAUDE_TOKEN });
+      expect(run.stdout.text()).toContain('job 21 done');
+      expect(run.stdout.text()).not.toContain(CLAUDE_TOKEN);
+      expect(run.stderr.text()).not.toContain(CLAUDE_TOKEN);
+      expect(JSON.stringify(app.calls)).not.toContain(CLAUDE_TOKEN);
+    });
+
+    for (const [what, env] of [['unset', {}], ['blank', { CLAUDE_CODE_OAUTH_TOKEN: ' ' }]] as const) {
+      it(`starts the session with no CLAUDE_CODE_OAUTH_TOKEN when it is ${what}`, async () => {
+        const f = fixture();
+        const app = fakeApp({ jobs: [{ id: 22, line: '/omni:yolo 1894', repo: 'acme/widgets', sentBy: null }] });
+        const run = startRunner(f, app, { env });
+        await until(ended(app), 'the job to end');
+        run.stop.abort();
+        expect(await run.done).toBe(0);
+        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH']);
+      });
+    }
   });
 
   it('refuses a line the app should never have sent, and starts nothing', async () => {
