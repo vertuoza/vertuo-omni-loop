@@ -24,6 +24,7 @@ import { RULES, type Difficulty } from './rules';
 import { COLORS, DEFAULT_LOOK, kartSprite, kartTint, type KartLook, type KartView } from './look';
 import type { Driver, Rival } from './rivals';
 import { deckOf, paintTrack } from './texture';
+import { isSnow, lakeTiles, snowfall, snowProp, snowScenery, snowSky, woodArchLeg, type SnowKind } from './art.snow';
 import { parseTrack, roadAt, roofAt, tileAt, type PropKind, type Track } from './track';
 
 /** A buffer the floor is rendered into, how far each of its pixels is (Infinity where it shows no road), and the canvas it is drawn from. */
@@ -367,7 +368,7 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
 /** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. `g` is the ground's height under it. */
 type Thing = { x: number; y: number; g: number } & (
   { kind: 'rival'; rival: Rival } | { kind: 'box' } | { kind: 'blob' } | { kind: 'orb' }
-  | { kind: 'prop'; prop: PropKind } | { kind: 'stand'; at: number } | { kind: 'arch'; leg: 0 | 1 }
+  | { kind: 'prop'; prop: PropKind } | { kind: 'snow'; snow: SnowKind } | { kind: 'stand'; at: number } | { kind: 'arch'; leg: 0 | 1 }
 );
 
 /** Where the minimap stands (PRD 1698): this far in from the right edge, and under the item panel of the race's line (its top at 8, about 24 high). */
@@ -390,6 +391,14 @@ interface MinimapTile { x: number; y: number; colour: string }
 
 /** The road's tiles seen from above, each with its colour: the higher the ground, the lighter, the start line white, the tunnel lighter than the road. Measured once per circuit. */
 export function minimapTiles(track: Track, range: { low: number; high: number }): MinimapTile[] {
+  // FROST EIGHT's lake (PRD 1923) is light blue, road or not, in place of the road's tiles it covers.
+  const lake = lakeTiles(track);
+  const covered = new Set(lake.map((t) => t.y * track.cols + t.x));
+  return [...lake, ...roadTiles(track, range).filter((t) => !covered.has(t.y * track.cols + t.x))];
+}
+
+/** The road's tiles on the minimap, each with its colour. */
+function roadTiles(track: Track, range: { low: number; high: number }): MinimapTile[] {
   const out: MinimapTile[] = [];
   const span = range.high - range.low;
   for (let y = 0; y < track.rows; y++) {
@@ -514,6 +523,7 @@ function propSprite(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected,
  * both are in front of the camera. The beam is the leg's sprite stretched across the road.
  */
 function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: Track, leg: 0 | 1, at: Projected) {
+  if (isSnow(track)) { woodArchLeg(ctx, v, track, leg, at); return; }
   const { w, h } = spriteSize(ARCH_LEG);
   const scale = (ARCH_WORLD * at.scale) / w;
   if (w * scale < 1) return;
@@ -537,6 +547,7 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
 /** What stands off the road, or is thrown over it: a prop, a stand, the arch's leg, a BLOB or an ORB. */
 function scenery(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: Track, looks: readonly FleetLook[], thing: Exclude<Thing, { kind: 'rival' } | { kind: 'box' }>, at: Projected) {
   if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
+  else if (thing.kind === 'snow') snowProp(ctx, at, thing.snow);
   else if (thing.kind === 'stand') standShip(ctx, s, at, looks, thing.at);
   else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
   else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
@@ -629,7 +640,10 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
     return ground;
   };
   // What stands still on the circuit stands on the ground under it, measured once.
+  const snow = isSnow(track) ? snowScenery(track) : { props: [], stands: [] };
   const standing = [
+    ...snow.props.map(({ kind, x, y }): Thing => ({ kind: 'snow', snow: kind, x, y, g: groundAt(track, x, y) })),
+    ...snow.stands.map(({ x, y }, at): Thing => ({ kind: 'stand', at: track.stands.length + at, x, y, g: groundAt(track, x, y) })),
     ...track.props.map(({ kind, x, y }): Thing => ({ kind: 'prop', prop: kind, x, y, g: groundAt(track, x, y) })),
     ...track.stands.map(({ x, y }, at): Thing => ({ kind: 'stand', at, x, y, g: groundAt(track, x, y) + STAND_LIFT })),
     ...track.arch.map(({ x, y }, leg): Thing => ({ kind: 'arch', leg: leg === 0 ? 0 : 1, x, y, g: groundAt(track, x, y) })),
@@ -768,7 +782,8 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
     draw(ctx, s) {
       const { texture, heights, range, deck, roofed } = groundOf();
       const v = viewFor(s.grid, track, race.player);
-      skyOf(ctx, s, v, seed);
+      if (isSnow(track)) snowSky(ctx, v, s.reduced ? 0 : skyShift(v.angle, v.w * PANORAMA), seed);
+      else skyOf(ctx, s, v, seed);
       const floor = floorFor(v);
       renderTerrain(v, texture, heights, range, deck, floor.pixels, floor.depth, roofed);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);
@@ -780,7 +795,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
         ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y, g: groundAt(track, rival.kart.x, rival.kart.y) + (rival.kart.height ?? 0) })),
         ...standing,
       ];
-      const looks = standLooks(track.stands.length);
+      const looks = standLooks(track.stands.length + snow.stands.length);
       // The farthest first, so a near kart covers a far item; a hill's crest nearer than a thing hides it.
       for (const { sprite: thing, at } of spritesInView(v, things, (t) => t.g)) {
         // The arch spans the flat start straight and stays on top; the rest is hidden where the road in front covers it.
@@ -793,6 +808,7 @@ export function createKart({ seed, cast = [], track = parseTrack(), live, held, 
       }
       particlesOn(ctx, s, v, particles, track);
       playerKart(ctx, s, race, shadeUnder(v, track, race.player));
+      if (isSnow(track)) snowfall(ctx, s, v, seed);
       minimap(ctx, s, track, tilesOf(range), race);
     },
   };
