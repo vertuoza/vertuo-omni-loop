@@ -561,3 +561,96 @@ describe('gradePlan — the contract column in an ordinary repository (PRD 1870)
     ]);
   });
 });
+
+describe('gradePlan — the contract column in a plan repository, per target (PRD 1870, s3)', () => {
+  const PLAN_ASKS = parseConfig(`kit: 1
+repo:
+  slug: acme/plan
+plan:
+  targets:
+    - repo: acme/back
+      role: back-end
+      knowledge: own
+    - repo: acme/worker
+      role: worker
+      knowledge: none
+    - repo: acme/web
+      role: front-end
+      knowledge: none
+    - repo: acme/legacy
+      role: legacy
+      knowledge: none
+contracts:
+  declare: true
+`);
+  const TARGETS = new Map<string, TargetFlow>([
+    ['back', { ok: true, config: parseFlowConfig('contracts:\n  declare: true\n', 'back') }],
+    ['worker', { ok: true, config: parseFlowConfig('contracts:\n  declare: true\n  kinds: [api, event]\n', 'worker') }],
+    ['web', { ok: true, config: parseFlowConfig("landings:\n  alone: ['^db/']\n", 'web') }],
+  ]);
+  const header = '| id | repo | slice | territory | contract | blocked by | wave |';
+  const plan = (rows: string[]) => {
+    const names = [...new Set(rows.map((row) => row.split('|')[2]?.trim() ?? ''))];
+    return [
+      '## Repositories',
+      '',
+      '| repo | role | read at | knowledge |',
+      '| --- | --- | --- | --- |',
+      ...names.map((name) => (name === 'plan' ? '| plan | plan | — | own |' : `| ${name} | target | ${'a'.repeat(40)} | none |`)),
+      '',
+      planMd(rows, header),
+    ].join('\n');
+  };
+
+  it("refuses an undeclared slice of a target whose copy asks, and a word outside that copy's kinds (acceptance 5)", () => {
+    const graded = gradePlan(
+      plan([
+        '| s1 | back | A | `a/` | — | — | 1 |',
+        '| s2 | back | B | `b/` | graphql | — | 1 |',
+        '| s3 | worker | C | `c/` | db | — | 1 |',
+        '| s4 | worker | D | `d/` | event | — | 1 |',
+        '| s5 | back | E | `e/` | api, db | — | 1 |',
+        '| s6 | worker | F | `f/` | none | — | 1 |',
+      ]),
+      { config: PLAN_ASKS, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([
+      's1: contract: declares nothing — api, db or none',
+      's2: contract: "graphql" is no kind of this repository — api, db or none',
+      's3: contract: "db" is no kind of this repository — api, event or none',
+    ]);
+  });
+
+  it('asks nothing of a target whose copy does not ask, or that has no copy, and nothing of the plan repository itself (acceptance 5)', () => {
+    const graded = gradePlan(
+      plan([
+        '| s1 | web | A | `a/` | — | — | 1 |',
+        '| s2 | web | B | `b/` | graphql | — | 1 |',
+        '| s3 | legacy | C | `c/` | — | — | 1 |',
+        '| s4 | legacy | D | `d/` | event | — | 1 |',
+        '| s5 | plan | E | `e/` | — | — | 1 |',
+      ]),
+      { config: PLAN_ASKS, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([]);
+  });
+
+  it('asks nothing of a target whose copy cannot be read, beyond refusing the copy', () => {
+    const broken = new Map<string, TargetFlow>([['back', { ok: false, file: '.omni-loop/knowledge/repos/back/flow/config.yml', reason: 'not valid YAML' }]]);
+    const graded = gradePlan(plan(['| s1 | back | A | `a/` | — | — | 1 |']), { config: PLAN_ASKS, targets: broken });
+    expect(graded.violations).toEqual(["flow: back's imported flow at .omni-loop/knowledge/repos/back/flow/config.yml cannot be read — not valid YAML"]);
+  });
+
+  it('refuses none beside a kind on every row, whether or not its target asks', () => {
+    const graded = gradePlan(
+      plan(['| s1 | back | A | `a/` | none, api | — | 1 |', '| s2 | legacy | B | `b/` | db, none | — | 1 |', '| s3 | worker | C | `c/` | graphql, none | — | 1 |']),
+      { config: PLAN_ASKS, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([
+      's1: contract: "none" beside a kind — one or the other',
+      's2: contract: "none" beside a kind — one or the other',
+      's3: contract: "graphql" is no kind of this repository — api, event or none',
+      's3: contract: "none" beside a kind — one or the other',
+    ]);
+  });
+});
