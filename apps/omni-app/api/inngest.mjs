@@ -9796,6 +9796,16 @@ function targetReachViolations(slices, targets) {
   }
   return violations;
 }
+function contractViolations(slice, asks) {
+  const { contract } = slice;
+  const words = contract === null || contract === "none" ? [] : contract.kinds;
+  const beside = words.includes("none") ? [`${slice.id}: contract: "none" beside a kind \u2014 one or the other`] : [];
+  if (asks === null) return beside;
+  const choices = `${asks.kinds.join(", ")} or none`;
+  if (contract === null) return [`${slice.id}: contract: declares nothing \u2014 ${choices}`];
+  const strangers = words.filter((word) => word !== "none" && !asks.kinds.includes(word));
+  return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository \u2014 ${choices}`), ...beside];
+}
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
   if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
@@ -9841,6 +9851,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
+    ...slices.flatMap((slice) => contractViolations(slice, planSection2 === null && config.contracts.declare ? config.contracts : null)),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf2.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )

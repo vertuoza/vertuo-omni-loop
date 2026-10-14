@@ -37654,6 +37654,16 @@ function targetReachViolations(slices, targets2) {
   }
   return violations;
 }
+function contractViolations(slice, asks) {
+  const { contract } = slice;
+  const words4 = contract === null || contract === "none" ? [] : contract.kinds;
+  const beside = words4.includes("none") ? [`${slice.id}: contract: "none" beside a kind \u2014 one or the other`] : [];
+  if (asks === null) return beside;
+  const choices = `${asks.kinds.join(", ")} or none`;
+  if (contract === null) return [`${slice.id}: contract: declares nothing \u2014 ${choices}`];
+  const strangers = words4.filter((word) => word !== "none" && !asks.kinds.includes(word));
+  return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository \u2014 ${choices}`), ...beside];
+}
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
   if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
@@ -37699,6 +37709,7 @@ function gradePlan(markdown, { config: config3, targets: targets2 = /* @__PURE__
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config: config3, targets: targets2 }) : planRuleViolations(slices, resolveFlow(config3)),
     ...blockedByViolations(slices),
+    ...slices.flatMap((slice) => contractViolations(slice, planSection2 === null && config3.contracts.declare ? config3.contracts : null)),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
@@ -53343,6 +53354,12 @@ function printMatrices(stdout, { matrices }) {
     for (const row of rows2) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
   }
 }
+function printContracts(stdout, { slices }) {
+  const declared = slices.flatMap(
+    ({ id, contract }) => contract !== null && contract !== "none" ? [`${id} ${contract.kinds.join(", ")}`] : []
+  );
+  if (declared.length > 0) println(stdout, `contracts: ${declared.join(" \xB7 ")}`);
+}
 function checkCommand(rest, { ctx, stdout }) {
   const { positional } = parseArgs("plan check", rest);
   if (positional.length !== 1) throw usageError(USAGE26);
@@ -53356,6 +53373,7 @@ function checkCommand(rest, { ctx, stdout }) {
   printLandings(stdout, checked4);
   printRepositories(stdout, checked4);
   printMatrices(stdout, checked4);
+  printContracts(stdout, checked4);
   if (violations.length > 0) {
     println(stdout, formatFailure(`omni plan check \u2014 PRD ${prd2}: violation(s):`, violations));
     return 1;
