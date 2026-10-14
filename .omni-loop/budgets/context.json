@@ -5,7 +5,7 @@
   "form:bug-fixing": 2048,
   "form:ci": 8192,
   "form:conventions": 4096,
-  "form:decisions": 16384,
+  "form:decisions": 15360,
   "form:definition-of-done": 2048,
   "form:design": 8192,
   "form:glossary": 1024,
