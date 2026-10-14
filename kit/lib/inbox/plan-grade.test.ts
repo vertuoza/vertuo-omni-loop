@@ -485,3 +485,172 @@ describe('gradePlan — readOnly and consumes targets (PRD 1162)', () => {
     expect(gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |']), { config: PLAN_REPO }).violations).toEqual([]);
   });
 });
+
+describe('gradePlan — the contract column in an ordinary repository (PRD 1870)', () => {
+  const ASKS = parseConfig('kit: 1\nrepo:\n  slug: acme/widgets\ncontracts:\n  declare: true\n');
+  const ASKS_OWN = parseConfig('kit: 1\nrepo:\n  slug: acme/widgets\ncontracts:\n  declare: true\n  kinds: [api, event]\n');
+  const CONTRACT = '| id | slice | territory | contract | blocked by | wave |';
+  const plan = (s2: string, s3 = 'none') =>
+    planMd(['| s1 | A | `a/` | api | — | 1 |', `| s2 | B | \`b/\` | ${s2} | — | 1 |`, `| s3 | C | \`c/\` | ${s3} | — | 1 |`], CONTRACT);
+
+  it('refuses an undeclared slice where the repository asks, and accepts it once it declares none (acceptance 3)', () => {
+    expect(gradePlan(plan('—'), { config: ASKS }).violations).toEqual(['s2: contract: declares nothing — api, db or none']);
+    expect(gradePlan(plan(''), { config: ASKS }).violations).toEqual(['s2: contract: declares nothing — api, db or none']);
+    expect(gradePlan(plan('none'), { config: ASKS }).violations).toEqual([]);
+  });
+
+  it('refuses every slice of a plan with no contract column where the repository asks', () => {
+    const graded = gradePlan(planMd(['| s1 | A | `a/` | — | 1 |', '| s2 | B | `b/` | — | 1 |']), { config: ASKS });
+    expect(graded.violations).toEqual(['s1: contract: declares nothing — api, db or none', 's2: contract: declares nothing — api, db or none']);
+  });
+
+  it('refuses a word outside the default kinds, naming the word and the kinds (acceptance 4)', () => {
+    expect(gradePlan(plan('db', 'graphql'), { config: ASKS }).violations).toEqual([
+      's3: contract: "graphql" is no kind of this repository — api, db or none',
+    ]);
+  });
+
+  it("accepts the repository's own kinds and refuses a default one it did not name (acceptance 4)", () => {
+    expect(gradePlan(plan('event'), { config: ASKS_OWN }).violations).toEqual([]);
+    expect(gradePlan(plan('api, db'), { config: ASKS_OWN }).violations).toEqual([
+      's2: contract: "db" is no kind of this repository — api, event or none',
+    ]);
+  });
+
+  it('refuses none beside a kind whether or not the repository asks, and lists both problems of one slice (acceptance 4)', () => {
+    expect(gradePlan(plan('none, db'), { config: ASKS }).violations).toEqual(['s2: contract: "none" beside a kind — one or the other']);
+    expect(gradePlan(plan('none, db'), { config: CONFIG }).violations).toEqual(['s2: contract: "none" beside a kind — one or the other']);
+    expect(gradePlan(plan('graphql, none'), { config: ASKS }).violations).toEqual([
+      's2: contract: "graphql" is no kind of this repository — api, db or none',
+      's2: contract: "none" beside a kind — one or the other',
+    ]);
+  });
+
+  it('asks nothing of a repository that does not ask: no column, an empty cell or any word passes (acceptance 4)', () => {
+    expect(gradePlan(planMd(['| s1 | A | `a/` | — | 1 |']), { config: CONFIG }).violations).toEqual([]);
+    expect(gradePlan(plan('—', 'graphql'), { config: CONFIG }).violations).toEqual([]);
+  });
+
+  it('refuses none beside a kind in a plan repository, and asks nothing of its rows from its own config', () => {
+    const asksPlanRepo = parseConfig(
+      'kit: 1\nrepo:\n  slug: acme/plan\nplan:\n  targets:\n    - repo: acme/api\n      role: back-end\n      knowledge: none\ncontracts:\n  declare: true\n',
+    );
+    const header = '| id | repo | slice | territory | contract | blocked by | wave |';
+    const markdown = (cell: string) =>
+      [
+        '## Repositories',
+        '',
+        '| repo | role | read at | knowledge |',
+        '| --- | --- | --- | --- |',
+        `| api | target | ${'a'.repeat(40)} | none |`,
+        '',
+        planMd([`| s1 | api | A | \`a/\` | ${cell} | — | 1 |`], header),
+      ].join('\n');
+    expect(gradePlan(markdown('—'), { config: asksPlanRepo }).violations).toEqual([]);
+    expect(gradePlan(markdown('graphql'), { config: asksPlanRepo }).violations).toEqual([]);
+    expect(gradePlan(markdown('db, none'), { config: asksPlanRepo }).violations).toEqual([
+      's1: contract: "none" beside a kind — one or the other',
+    ]);
+  });
+
+  it("exposes each slice's contract through slices", () => {
+    expect(gradePlan(plan('api, db'), { config: ASKS }).slices.map((slice) => slice.contract)).toEqual([
+      { kinds: ['api'] },
+      { kinds: ['api', 'db'] },
+      'none',
+    ]);
+  });
+});
+
+describe('gradePlan — the contract column in a plan repository, per target (PRD 1870, s3)', () => {
+  const PLAN_ASKS = parseConfig(`kit: 1
+repo:
+  slug: acme/plan
+plan:
+  targets:
+    - repo: acme/back
+      role: back-end
+      knowledge: own
+    - repo: acme/worker
+      role: worker
+      knowledge: none
+    - repo: acme/web
+      role: front-end
+      knowledge: none
+    - repo: acme/legacy
+      role: legacy
+      knowledge: none
+contracts:
+  declare: true
+`);
+  const TARGETS = new Map<string, TargetFlow>([
+    ['back', { ok: true, config: parseFlowConfig('contracts:\n  declare: true\n', 'back') }],
+    ['worker', { ok: true, config: parseFlowConfig('contracts:\n  declare: true\n  kinds: [api, event]\n', 'worker') }],
+    ['web', { ok: true, config: parseFlowConfig("landings:\n  alone: ['^db/']\n", 'web') }],
+  ]);
+  const header = '| id | repo | slice | territory | contract | blocked by | wave |';
+  const plan = (rows: string[]) => {
+    const names = [...new Set(rows.map((row) => row.split('|')[2]?.trim() ?? ''))];
+    return [
+      '## Repositories',
+      '',
+      '| repo | role | read at | knowledge |',
+      '| --- | --- | --- | --- |',
+      ...names.map((name) => (name === 'plan' ? '| plan | plan | — | own |' : `| ${name} | target | ${'a'.repeat(40)} | none |`)),
+      '',
+      planMd(rows, header),
+    ].join('\n');
+  };
+
+  it("refuses an undeclared slice of a target whose copy asks, and a word outside that copy's kinds (acceptance 5)", () => {
+    const graded = gradePlan(
+      plan([
+        '| s1 | back | A | `a/` | — | — | 1 |',
+        '| s2 | back | B | `b/` | graphql | — | 1 |',
+        '| s3 | worker | C | `c/` | db | — | 1 |',
+        '| s4 | worker | D | `d/` | event | — | 1 |',
+        '| s5 | back | E | `e/` | api, db | — | 1 |',
+        '| s6 | worker | F | `f/` | none | — | 1 |',
+      ]),
+      { config: PLAN_ASKS, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([
+      's1: contract: declares nothing — api, db or none',
+      's2: contract: "graphql" is no kind of this repository — api, db or none',
+      's3: contract: "db" is no kind of this repository — api, event or none',
+    ]);
+  });
+
+  it('asks nothing of a target whose copy does not ask, or that has no copy, and nothing of the plan repository itself (acceptance 5)', () => {
+    const graded = gradePlan(
+      plan([
+        '| s1 | web | A | `a/` | — | — | 1 |',
+        '| s2 | web | B | `b/` | graphql | — | 1 |',
+        '| s3 | legacy | C | `c/` | — | — | 1 |',
+        '| s4 | legacy | D | `d/` | event | — | 1 |',
+        '| s5 | plan | E | `e/` | — | — | 1 |',
+      ]),
+      { config: PLAN_ASKS, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([]);
+  });
+
+  it('asks nothing of a target whose copy cannot be read, beyond refusing the copy', () => {
+    const broken = new Map<string, TargetFlow>([['back', { ok: false, file: '.omni-loop/knowledge/repos/back/flow/config.yml', reason: 'not valid YAML' }]]);
+    const graded = gradePlan(plan(['| s1 | back | A | `a/` | — | — | 1 |']), { config: PLAN_ASKS, targets: broken });
+    expect(graded.violations).toEqual(["flow: back's imported flow at .omni-loop/knowledge/repos/back/flow/config.yml cannot be read — not valid YAML"]);
+  });
+
+  it('refuses none beside a kind on every row, whether or not its target asks', () => {
+    const graded = gradePlan(
+      plan(['| s1 | back | A | `a/` | none, api | — | 1 |', '| s2 | legacy | B | `b/` | db, none | — | 1 |', '| s3 | worker | C | `c/` | graphql, none | — | 1 |']),
+      { config: PLAN_ASKS, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([
+      's1: contract: "none" beside a kind — one or the other',
+      's2: contract: "none" beside a kind — one or the other',
+      's3: contract: "graphql" is no kind of this repository — api, event or none',
+      's3: contract: "none" beside a kind — one or the other',
+    ]);
+  });
+});

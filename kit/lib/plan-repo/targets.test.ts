@@ -262,6 +262,48 @@ describe("readTarget — an imported target's flow (PRD 1089, s6)", () => {
   });
 });
 
+describe("readTargets — every target's planning config, own included (PRD 1870, s4)", () => {
+  const ASKS = 'contracts:\n  declare: true\n';
+  const own = (config: string) => ({ 'acme/front': { files: { ...WITH_LOOP, '.omni-loop/config.yml': `kit: 1\n${config}` } } });
+  const copyAt = (config: string) => makeRepo({ files: { '.omni-loop/knowledge/repos/front/flow/config.yml': config } }).ctx;
+  const rowOf = (world: World, ctx: ReturnType<typeof copyAt>) => readTargets([OWN], { ctx, exec: fakeGh(world).exec })[0];
+
+  it('reads an own target that asks for contracts and has no copy as stale, its detail starting flow not copied', () => {
+    const row = rowOf(own(ASKS), makeRepo().ctx);
+    expect(row).toMatchObject({ knowledge: 'own', state: 'stale' });
+    expect(row?.detail).toMatch(/^flow not copied/);
+  });
+
+  it('reads the same own target with an identical copy as ok', () => {
+    expect(rowOf(own(ASKS), copyAt(ASKS))).toMatchObject({ state: 'ok', detail: null });
+  });
+
+  it("reads an own target whose committed kinds differ from its copy's as stale, its flow moved", () => {
+    const row = rowOf(own('contracts:\n  declare: true\n  kinds: [api, event]\n'), copyAt(ASKS));
+    expect(row).toMatchObject({ state: 'stale', detail: 'flow moved since read at its copy: its flow section differs from the copy' });
+  });
+
+  it('reads an own target that commits no planning config and has no copy exactly as today', () => {
+    expect(rowOf(own(''), makeRepo().ctx)).toEqual({
+      repo: 'acme/front', role: 'front-end', knowledge: 'own', loop: 'v0.0.40', state: 'ok', detail: null,
+    });
+  });
+
+  it('reads a none target that asks for contracts and has no copy as stale, and names drifted before it', () => {
+    const asks = { 'acme/legacy': { files: { '.omni-loop/config.yml': `kit: 1\n${ASKS}` } } };
+    expect(readTargets([NONE], { ctx: makeRepo().ctx, exec: fakeGh(asks).exec })[0]?.detail).toMatch(/^flow not copied/);
+    const unfilled = { ...own(ASKS)['acme/front'].files, '.omni-loop/knowledge/playbook/testing.md': BLANK };
+    expect(rowOf({ 'acme/front': { files: unfilled } }, makeRepo().ctx)).toMatchObject({ state: 'drifted' });
+  });
+
+  it('keeps an imported target that lacks a copy reading its flow as moved since its readAt', () => {
+    const world = { 'acme/back': { files: { '.omni-loop/config.yml': `kit: 1\n${ASKS}` }, compare: { ahead: 0, files: [] } } };
+    expect(readTargets([IMPORTED], { ctx: makeRepo().ctx, exec: fakeGh(world).exec })[0]).toMatchObject({
+      state: 'stale', detail: `flow moved since read at ${SHA.slice(0, 7)}: the target has a flow its copy lacks`,
+    });
+  });
+});
+
 describe('copyEvidence', () => {
   it("collects every evidence path of a copy's forms, and nothing for a target with no copy", () => {
     const one = formText({ frontMatter: { state: 'filled', evidence: ['composer.json@50fa1bd', 'Makefile@1a2b3c4'] } });

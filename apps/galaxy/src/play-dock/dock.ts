@@ -109,9 +109,9 @@ export function dockView({ state, door, open, game, width }: DockInput): DockVie
 
 /** The words the device shows over the game, by view. */
 export const DOCK_LINE = {
-  pill: '▶ Play while Claude works',
-  asking: '⏸ CLAUDE ASKED · ANSWER',
-  done: 'CLAUDE IS DONE',
+  pill: '▶ Play while the agent works',
+  asking: '⏸ AGENT ASKED · ANSWER',
+  done: 'AGENT IS DONE',
   arcade: 'OPEN THE ARCADE',
 } as const;
 

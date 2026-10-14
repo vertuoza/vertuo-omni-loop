@@ -48,6 +48,7 @@ function fixture() {
       'line=$(cat)',
       'echo "claude read: $line"',
       'case "$line" in *sleep-*) sleep "${line##*sleep-}" ;; esac',
+      'case "$line" in *lines-*) seq -f "line %g" 1 "${line##*lines-}" ;; esac',
       'echo "see https://github.com/acme/other/pull/9"',
       'echo "opened https://github.com/acme/widgets/pull/42"',
       'case "$line" in *fail*) exit 3 ;; esac',
@@ -61,10 +62,29 @@ function fixture() {
 type Call = { method: string; path: string; body: unknown };
 
 /** The fake Omni app: register answers `r1`, `next` hands each queued job once, then holds briefly. */
-function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = false }: { jobs?: unknown[]; cancel?: boolean; unreachable?: number; status?: number; ended?: boolean } = {}) {
+function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = false, lost = 0 }: {
+  jobs?: unknown[]; cancel?: boolean; unreachable?: number; status?: number; ended?: boolean;
+  /** How many job reports carrying lines answer 503 first, storing nothing. */
+  lost?: number;
+} = {}) {
   const calls: Call[] = [];
   const queue = [...jobs];
   let failures = unreachable;
+  let losses = lost;
+  /** The lines stored, by their number, each once: a report sent twice adds nothing, as the app's append. */
+  const stored = new Map<number, string>();
+  const store = (body: unknown): Response | null => {
+    const { from, lines } = (body ?? {}) as { from?: number; lines?: string[] };
+    if (from === undefined || lines === undefined) return null;
+    if (losses > 0) {
+      losses -= 1;
+      return reply(503, { error: 'down' });
+    }
+    lines.forEach((text, index) => {
+      if (!stored.has(from + index)) stored.set(from + index, text);
+    });
+    return null;
+  };
   const reply = (code: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status: code });
   const next = async (): Promise<Response> => {
     const job = queue.shift();
@@ -72,24 +92,28 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = f
     await new Promise((resolve) => setTimeout(resolve, 20));
     return reply(204);
   };
-  const route = (pathname: string): Promise<Response> | Response => {
+  const route = (pathname: string, body: unknown): Promise<Response> | Response => {
     if (status !== undefined) return reply(status, { error: 'no' });
     if (pathname === '/api/runners/register') return reply(200, { id: 'r1' });
     if (pathname === '/api/runners/next') return next();
-    if (pathname.startsWith('/api/runners/jobs/')) return ended ? reply(409, { error: 'This job has ended.' }) : reply(200, cancel ? { cancel: true } : {});
+    if (pathname.startsWith('/api/runners/jobs/')) {
+      if (ended) return reply(409, { error: 'This job has ended.' });
+      return store(body) ?? reply(200, cancel ? { cancel: true } : {});
+    }
     return reply(404);
   };
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
     const { pathname } = new URL(url);
-    calls.push({ method: init.method ?? 'GET', path: pathname, body: typeof init.body === 'string' ? JSON.parse(init.body) : null });
+    const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+    calls.push({ method: init.method ?? 'GET', path: pathname, body });
     if (failures > 0) {
       failures -= 1;
       throw new TypeError('fetch failed');
     }
-    return route(pathname);
+    return route(pathname, body);
   };
   const updates = () => calls.filter((call) => call.path.startsWith('/api/runners/jobs/')).map((call) => call.body as Record<string, unknown>);
-  return { calls, fetch, updates };
+  return { calls, fetch, updates, stored };
 }
 
 /** The fake tmux: runs the session's command as a child process, its variables added to this one's.
@@ -148,9 +172,9 @@ afterEach(() => {
 function startRunner(
   f: ReturnType<typeof fixture>,
   app: ReturnType<typeof fakeApp>,
-  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {} }: {
+  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50 }: {
     args?: string[]; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
-    env?: Record<string, string>;
+    env?: Record<string, string>; tickMs?: number;
   } = {},
 ) {
   const stop = new AbortController();
@@ -168,7 +192,7 @@ function startRunner(
     fetch: app.fetch,
     terminal: terminal.terminal,
     stop: stop.signal,
-    tickMs: 50,
+    tickMs,
     ...(sleep ? { sleep } : {}),
   });
   return { done, stop, stdout, stderr, terminal };
@@ -216,6 +240,17 @@ describe('omni runner', () => {
     expect(run.stdout.text()).toContain('job 7 done · https://github.com/acme/widgets/pull/42');
   });
 
+  it('starts every job session so that claude waits for its background agents to end (bug 1912)', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 12, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: null }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    // `claude -p` stops a wave's agents 10 minutes after its last turn unless this reads 0.
+    expect(run.terminal.sessions[0]?.env).toMatchObject({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' });
+  });
+
   it('sends the log tail every tick while the job runs', async () => {
     const f = fixture();
     const app = fakeApp({ jobs: [{ id: 8, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });
@@ -237,6 +272,85 @@ describe('omni runner', () => {
     await run.done;
     expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exitCode: 3 });
     expect(run.terminal.sessions[0]?.env).not.toHaveProperty('OMNI_SENT_BY');
+  });
+
+  describe('the live lines (PRD 1904)', () => {
+    type Report = { status?: string; logTail?: unknown; from?: number; lines?: string[] };
+    const reports = (app: ReturnType<typeof fakeApp>) => app.updates() as Report[];
+    const carrying = (app: ReturnType<typeof fakeApp>) => reports(app).filter((report) => report.lines !== undefined);
+    const logLines = (f: ReturnType<typeof fixture>, id: number) => readFileSync(join(f.home, 'logs', `job-${String(id)}.log`), 'utf8').split('\n').filter((line, index, all) => index < all.length - 1 || line !== '');
+
+    it("sends a running job's lines after its cursor with from, never one already accepted, each report with its log tail", async () => {
+      const f = fixture();
+      const app = fakeApp({ jobs: [{ id: 30, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });
+      const run = startRunner(f, app);
+      await until(ended(app), 'the job to end');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+
+      const sent = carrying(app);
+      expect(sent.some((report) => report.status === 'running')).toBe(true);
+      let next = 1;
+      for (const report of sent) {
+        expect(report.from).toBe(next);
+        expect(report.lines?.length).toBeGreaterThan(0);
+        next += report.lines?.length ?? 0;
+      }
+      expect(sent.flatMap((report) => report.lines)).toEqual(logLines(f, 30));
+      expect(sent.flatMap((report) => report.lines)).toContain('claude read: /omni:yolo sleep-1');
+      for (const report of reports(app).slice(1)) expect(typeof report.logTail).toBe('string');
+    });
+
+    it('follows a report that fails with one carrying the same lines, and no line is stored twice', async () => {
+      const f = fixture();
+      const app = fakeApp({ jobs: [{ id: 31, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }], lost: 1 });
+      const run = startRunner(f, app);
+      await until(ended(app), 'the job to end');
+      run.stop.abort();
+      await run.done;
+
+      const [failed, again] = carrying(app);
+      expect(failed?.from).toBe(1);
+      expect(again?.from).toBe(1);
+      expect(again?.lines?.slice(0, failed?.lines?.length)).toEqual(failed?.lines);
+      expect([...app.stored.keys()]).toEqual(logLines(f, 31).map((_, index) => index + 1));
+      expect([...app.stored.values()]).toEqual(logLines(f, 31));
+    });
+
+    it('sends 4,500 waiting lines in three reports of at most 2,000 lines and 256 KB, the last with the final status', async () => {
+      const f = fixture();
+      const app = fakeApp({ jobs: [{ id: 32, line: '/omni:yolo lines-4500', repo: 'acme/widgets', sentBy: 'ada' }] });
+      const run = startRunner(f, app, { tickMs: 1500 });
+      await until(ended(app), 'the job to end');
+      run.stop.abort();
+      await run.done;
+
+      const sent = carrying(app);
+      expect(sent).toHaveLength(3);
+      expect(sent.map((report) => report.from)).toEqual([1, 2001, 4001]);
+      for (const report of sent) {
+        expect(report.lines?.length).toBeLessThanOrEqual(2000);
+        expect(Buffer.byteLength(JSON.stringify(report.lines))).toBeLessThanOrEqual(256 * 1024);
+        expect(typeof report.logTail).toBe('string');
+      }
+      expect(sent.map((report) => report.status)).toEqual(['running', 'running', 'done']);
+      expect(reports(app).at(-1)).toBe(sent.at(-1));
+      expect(sent.flatMap((report) => report.lines)).toEqual(logLines(f, 32));
+      expect(logLines(f, 32)).toContain('line 4500');
+    });
+
+    it('flushes in finish() every line left, the last one unended included, before the final status', async () => {
+      const f = fixture();
+      writeFileSync(join(f.bin, 'claude'), '#!/bin/sh\ncat >/dev/null\nprintf "first\\nlast, no newline"\n');
+      const app = fakeApp({ jobs: [{ id: 33, line: '/omni:yolo 1904', repo: 'acme/widgets', sentBy: 'ada' }] });
+      const run = startRunner(f, app, { tickMs: 1500 });
+      await until(ended(app), 'the job to end');
+      run.stop.abort();
+      await run.done;
+
+      expect(carrying(app).flatMap((report) => report.lines)).toEqual(['first', 'last, no newline']);
+      expect(reports(app).at(-1)).toMatchObject({ status: 'done', from: 1 });
+    });
   });
 
   describe('the Claude token (PRD 1894)', () => {
@@ -264,7 +378,7 @@ describe('omni runner', () => {
         await until(ended(app), 'the job to end');
         run.stop.abort();
         expect(await run.done).toBe(0);
-        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH']);
+        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']);
       });
     }
   });

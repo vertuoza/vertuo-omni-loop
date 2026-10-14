@@ -1,5 +1,5 @@
 'use client';
-// The play dock (PRD 757): the corner pill "● ▶ Play while Claude works" while the page says Claude
+// The play dock (PRD 757): the corner pill "● ▶ Play while the agent works" while the page says Claude
 // works, and, once pressed, a mini Game Boy about 260 px wide playing Entropy Invaders, or, from LV 2,
 // a picker between it and SUPER OMNI WORLD (PRD 817) (DockGame, loaded on first open). Its open or
 // folded state, and the game picked last, are kept for the tab, so it stays open across the page's tabs. Who plays is the arcade's rule (dockDoor): anyone else sees the arcade's own line and
@@ -26,7 +26,7 @@ export interface PlayDockProps {
   /** The player's hero and fleet, drawn in the game. */
   hero?: Hero | null;
   team?: string | null;
-  /** Where ⏸ CLAUDE ASKED · ANSWER leads: the Questions tab, or the question on /ask. */
+  /** Where ⏸ AGENT ASKED · ANSWER leads: the Questions tab, or the question on /ask. */
   answerHref: string;
   /** Each alien's value (the galaxy's `rules.woundClose`); the rulebook's when none is given. */
   values?: Readonly<Record<WoundKind, number>>;
@@ -50,7 +50,7 @@ export function DockFrame({ view, answerHref, onOpen, onFold, children }: {
   if (view.kind === 'hidden') return null;
   if (view.kind === 'folded') {
     return (
-      <button type="button" className="pd-pill" onClick={onOpen} aria-label="Play a game while Claude works">
+      <button type="button" className="pd-pill" onClick={onOpen} aria-label="Play a game while the agent works">
         <span className="pd-dot" aria-hidden="true">●</span> {DOCK_LINE.pill}
       </button>
     );

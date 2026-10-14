@@ -42,7 +42,7 @@ export function skillToc(page: SkillPageModel): TOCItemType[] {
   return headingsOf(page).map(({ id, title, depth }) => ({ title, url: `#${id}`, depth }));
 }
 
-/** A block a person types in Claude Code, badged as the guide's are. */
+/** A block a person types in their coding agent, badged as the guide's are. */
 function AgentBlock({ lines }: { lines: readonly string[] }) {
   return (
     <div className="docs-code">
@@ -103,10 +103,10 @@ export function SkillBody({ page }: { page: SkillPageModel }) {
       <p>{`→ ${page.example.result}`}</p>
       <h2 id={who.id}>{who.title}</h2>
       {page.runBy === 'you'
-        ? <p>You type it in Claude Code.</p>
+        ? <p>You type it in your coding agent.</p>
         : <><p>Other skills run it:</p><Links skills={page.runBy} /></>}
       {page.related.length > 0 ? <><h2 id={related.id}>{related.title}</h2><Links skills={page.related} /></> : null}
-      <p className="docs-skill-source">Its full instructions, written for Claude: <a href={page.source}>{`kit/plugin/skills/${page.name}/SKILL.md`}</a></p>
+      <p className="docs-skill-source">Its full instructions, written for the agent: <a href={page.source}>{`kit/plugin/skills/${page.name}/SKILL.md`}</a></p>
     </>
   );
 }

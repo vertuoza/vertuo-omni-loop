@@ -2151,6 +2151,23 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     expect(skillSection(read(), '9.')).toMatch(/was not the preview/);
   });
 
+  it('asks which flow each new test covers and writes the level as tags, standard under yolo with one medium item (PRD 1737)', () => {
+    const text = read();
+    const step = skillSection(text, '5b.').replace(/\s+/g, ' ');
+    for (const phrase of [
+      'critical-flows.md', 'which flow of the list does this test cover (or none)', 'does its failure break that flow',
+      '`flow-<id>`', '`critical`', 'A test with no `critical` tag is `standard`', 'proposed as a new entry',
+      'Never write it silently', 'Under `/omni:yolo`', 'write `standard`, ask nothing', 'one medium outbox item', 'recommended answer', "PRD #1277's",
+    ]) expect(step, phrase).toContain(phrase);
+    expect(text.indexOf('## 5b.')).toBeGreaterThan(text.indexOf('## 5.'));
+    expect(text.indexOf('## 5b.')).toBeLessThan(text.indexOf('## 6.'));
+  });
+
+  it('the guide describes the list, the two tags, the two levels and that PRD 1277 runs them (PRD 1737)', () => {
+    const guide = readFileSync(join(repoRoot, 'docs', 'guide', 'validate-e2e.md'), 'utf8').replace(/\s+/g, ' ');
+    for (const phrase of ['critical-flows.md', '`flow-<id>`', '`critical`', '`standard`', 'PRD #1277']) expect(guide, phrase).toContain(phrase);
+  });
+
   it('opens a Part of sub-PR with the table, signed, and never merges or marks anything ready', () => {
     const text = read();
     expect(skillSection(text, '9.')).toMatch(/criterion \| test \| verdict/);

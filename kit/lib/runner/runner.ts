@@ -4,6 +4,11 @@
 // tail every few seconds until it ends, is cancelled or runs past the timeout. Then the worktree goes
 // and the branch stays.
 //
+// Each report also carries the log's lines after the job's cursor (PRD 1904, "Only the new lines are
+// sent"): the cursor is the last line the app accepted, and moves only when it answers, so a report
+// that fails sends the same lines again. One report carries at most 2,000 lines and 256 KB; the rest
+// waits for the next tick, and once the job ends `finish()` sends every line left before its status.
+//
 // The app unreachable: every call is tried again after 5 s, doubling up to 60 s, and the running jobs
 // keep going. The sign-in refused: the runner stops taking jobs and ends on one line. Stopped
 // (Ctrl-C): it stops taking jobs and waits for the running ones.
@@ -14,7 +19,7 @@ import type { ExecText } from '../context.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { checkLine } from './line.ts';
-import { lastPullRequest, logTail } from './log.ts';
+import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
 import type { Terminal } from './terminal.ts';
 
 /** Where the runner prints: `process.stdout`, or a test's buffer. */
@@ -79,6 +84,14 @@ type Loop = RunnerOptions & {
   running: number;
 };
 
+/** A job's live lines: its log, and how many of its lines the app has accepted. */
+type Live = { log: string; cursor: number };
+
+/** `update` with the next lines of `live` after its cursor, when there are any. */
+function withLines(update: JobUpdate, live: Live, lines: readonly string[]): JobUpdate {
+  return lines.length === 0 ? update : { ...update, from: live.cursor + 1, lines: [...lines] };
+}
+
 /** Where a job runs and what it writes. */
 type Place = { checkout: string; worktree: string; session: string; line: string; log: string; exit: string };
 
@@ -136,10 +149,16 @@ async function register(loop: Loop): Promise<string | null> {
   return null;
 }
 
-/** Sends a running job's status; a cancel waiting comes back true. The app not answering is no cancel. */
-async function tick(loop: Loop, job: string, update: JobUpdate): Promise<boolean> {
+/**
+ * Sends a running job's status, with the lines after the cursor: a cancel waiting comes back true.
+ * The cursor moves only once the app answers. The app not answering is no cancel.
+ */
+async function tick(loop: Loop, job: string, update: JobUpdate, live?: Live, log = ''): Promise<boolean> {
+  const lines = live ? reportBatch(linesAfter(log, live.cursor, { ended: false })) : [];
   try {
-    return (await loop.api.update(job, update)).cancel;
+    const { cancel } = await loop.api.update(job, live ? withLines(update, live, lines) : update);
+    if (live) live.cursor += lines.length;
+    return cancel;
   } catch (error) {
     if (error instanceof RunnerRefused) loop.refuse(error);
     else if (!(error instanceof RunnerUnreachable)) throw error;
@@ -147,21 +166,43 @@ async function tick(loop: Loop, job: string, update: JobUpdate): Promise<boolean
   }
 }
 
-/** Sends a job's last status, trying again while the app does not answer. */
-async function finish(loop: Loop, job: string, update: JobUpdate): Promise<void> {
+/** Sends one of a job's last reports, trying again while the app does not answer: whether it went. */
+async function sendLast(loop: Loop, job: string, update: JobUpdate): Promise<boolean> {
   let wait = loop.firstMs;
   for (let tries = 1; tries <= FINAL_TRIES; tries += 1) {
     try {
       await loop.api.update(job, update);
-      return;
+      return true;
     } catch (error) {
       if (error instanceof RunnerRefused) {
         loop.refuse(error);
-        return;
+        return false;
       }
-      if (!(error instanceof RunnerUnreachable) || tries === FINAL_TRIES) return;
+      if (!(error instanceof RunnerUnreachable) || tries === FINAL_TRIES) return false;
       wait = await backOff(loop, wait, error);
     }
+  }
+  return false;
+}
+
+/**
+ * Sends every line of the job's log left after the cursor, the last one too, in as many reports as
+ * it takes, then its last status, which carries the last of them.
+ */
+async function finish(loop: Loop, job: string, update: JobUpdate, live: Live | null): Promise<void> {
+  if (live === null) {
+    await sendLast(loop, job, update);
+    return;
+  }
+  const log = readText(live.log);
+  const left = linesAfter(log, live.cursor, { ended: true });
+  for (;;) {
+    const lines = reportBatch(left);
+    const last = lines.length === left.length;
+    const report = last ? update : { status: 'running' as const, logTail: logTail(log) };
+    if (!(await sendLast(loop, job, withLines(report, live, lines))) || last) return;
+    live.cursor += lines.length;
+    left.splice(0, lines.length);
   }
 }
 
@@ -220,6 +261,10 @@ function removeWorktree(loop: Loop, place: Place): void {
   }
 }
 
+/** `claude -p` stops the background agents a wave starts 10 minutes after its last turn, then exits 0;
+ * 0 makes it wait for them to end (bug 1912). */
+const WAIT_FOR_AGENTS: Readonly<Record<string, string>> = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' };
+
 /** Writes the job's line and empty log, then starts its session: whether it started. */
 function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
@@ -231,7 +276,7 @@ function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
     loop.terminal.start({
       name: place.session,
       cwd: place.worktree,
-      env: { ...loop.env, ...sender },
+      env: { ...loop.env, ...sender, ...WAIT_FOR_AGENTS },
       argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
     });
     return true;
@@ -255,7 +300,7 @@ function killed(loop: Loop, place: Place, update: JobUpdate): JobUpdate {
 }
 
 /** Looks at the running job every tick, until it ends, is cancelled or runs past the timeout. */
-async function watch(loop: Loop, job: RunnerJob, place: Place): Promise<JobUpdate> {
+async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Promise<JobUpdate> {
   const started = loop.now();
   if (await tick(loop, job.id, { status: 'running', logTail: '' })) return killed(loop, place, { status: 'cancelled' });
   for (;;) {
@@ -264,18 +309,19 @@ async function watch(loop: Loop, job: RunnerJob, place: Place): Promise<JobUpdat
     if (existsSync(place.exit)) return ended(log, readText(place.exit), job.repo);
     if (!loop.terminal.alive(place.session)) return { status: 'failed', logTail: logTail(log), reason: 'the job stopped before it wrote its exit code' };
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
-    if (await tick(loop, job.id, { status: 'running', logTail: logTail(log) })) return killed(loop, place, { status: 'cancelled' });
+    if (await tick(loop, job.id, { status: 'running', logTail: logTail(log) }, live, log)) return killed(loop, place, { status: 'cancelled' });
   }
 }
 
-/** Runs `job` to its end, and answers its last status. */
-async function runJob(loop: Loop, job: RunnerJob): Promise<JobUpdate> {
+/** Runs `job` to its end, and answers its last status and its live lines, once it has a log. */
+async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; live: Live | null }> {
   const place = placeOf(loop, job);
-  if ('status' in place) return place;
-  if (!makeWorktree(loop, job, place)) return { status: 'failed', reason: 'the worktree could not be made' };
+  if ('status' in place) return { last: place, live: null };
+  if (!makeWorktree(loop, job, place)) return { last: { status: 'failed', reason: 'the worktree could not be made' }, live: null };
   try {
-    if (!startSession(loop, job, place)) return { status: 'failed', reason: 'the tmux session could not be started' };
-    return await watch(loop, job, place);
+    if (!startSession(loop, job, place)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
+    const live: Live = { log: place.log, cursor: 0 };
+    return { last: await watch(loop, job, place, live), live };
   } finally {
     removeWorktree(loop, place);
   }
@@ -315,8 +361,8 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     loop.running += 1;
     loop.print(`job ${job.id} claimed: ${job.line} (${job.repo})`);
     try {
-      const last = await runJob(loop, job);
-      await finish(loop, job.id, last);
+      const { last, live } = await runJob(loop, job);
+      await finish(loop, job.id, last, live);
       loop.print(endLine(job, last));
     } finally {
       loop.running -= 1;

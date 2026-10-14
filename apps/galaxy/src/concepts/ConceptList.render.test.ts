@@ -51,7 +51,7 @@ describe('the Concepts list', () => {
 
   it('shows how to start one when the workspace has no concept', () => {
     const html = render([]);
-    expect(text(html)).toMatch(/^Concepts No concept yet A concept shows here once \/omni:think-big records it\. Start one in Claude Code: /);
+    expect(text(html)).toMatch(/^Concepts No concept yet A concept shows here once \/omni:think-big records it\. Start one in your coding agent: /);
     expect(html).toContain('<code>/omni:think-big &#x27;&lt;your idea&gt;&#x27;</code>');
   });
 

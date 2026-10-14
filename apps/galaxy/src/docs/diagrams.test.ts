@@ -52,6 +52,16 @@ describe('reading an SVG file', () => {
     expect(svgProblem(source)).toBe(problem);
   });
 
+  it('speaks of the agent, never of one product, in the loop and the roadmap (PRD 1915)', () => {
+    const loop = readFileSync(join(GUIDE, 'diagrams', 'loop.svg'), 'utf8');
+    const roadmap = readFileSync(join(GUIDE, 'diagrams', 'roadmap.svg'), 'utf8');
+    expect(loop).toContain('>with the agent</text>');
+    expect(loop).toContain('>YOU + AGENT</text>');
+    expect(loop).toContain('</tspan> the agent builds</text>');
+    expect(roadmap).toContain('>YOU + AGENT</text>');
+    for (const svg of [loop, roadmap]) expect(svg).not.toMatch(/claude/i);
+  });
+
   it('reads every diagram of the guide', () => {
     for (const file of readdirSync(join(GUIDE, 'diagrams'))) {
       expect(svgProblem(readFileSync(join(GUIDE, 'diagrams', file), 'utf8')), file).toBeNull();

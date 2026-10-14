@@ -13,8 +13,8 @@ export function LeadMessage({ lead }: { lead: string | null | undefined }) {
   if (!text) return null;
   const folded = !open && leadFolds(text);
   return (
-    <section className="ask-lead-msg" aria-label="Claude wrote before asking">
-      <h2 className="ask-lead-msg-title">Claude wrote before asking</h2>
+    <section className="ask-lead-msg" aria-label="The agent wrote before asking">
+      <h2 className="ask-lead-msg-title">The agent wrote before asking</h2>
       <div className={folded ? 'ask-prose ask-lead-msg-body is-folded' : 'ask-prose ask-lead-msg-body'} dangerouslySetInnerHTML={{ __html: renderMarkdownBody(text) }} />
       {folded && <button type="button" className="ask-lead-msg-more" onClick={() => {
         setOpen(true);

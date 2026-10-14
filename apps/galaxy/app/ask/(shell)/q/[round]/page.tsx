@@ -2,7 +2,7 @@ import 'server-only';
 import { notFound } from 'next/navigation';
 import { AskQuestion } from '../../../../../src/ask/page/AskQuestion';
 import { DEMO_MEMBERS, DEMO_TEAMMATE, demoQuestion } from '../../../../../src/ask/page/demo';
-import { Notice } from '../../../../../src/ask/page/Notice';
+import { AskNotOpen, Notice } from '../../../../../src/ask/page/Notice';
 import { SignInCard } from '../../../../../src/ask/page/SignInCard';
 import { isSessionId, questionCallbackPath } from '../../../../../src/ask/page/sign-in';
 import { readMembers, readQuestion } from '../../../../../src/ask/page/source';
@@ -34,11 +34,7 @@ export default async function AskQuestionPage({ params, searchParams }: Props) {
   }
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
-    return (
-      <Notice title="Ask mode is not open here">
-        <p className="ask-muted">This deployment has no database, so it cannot show Claude&apos;s questions.</p>
-      </Notice>
-    );
+    return <AskNotOpen />;
   }
   const db = await supabaseServer();
   const { data: { user } } = await db.auth.getUser();

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { JobReplySchema, RunnerReplySchema, type Job, type Runner, type Target } from './runners.contract';
+import { JobLinesSchema, JobReplySchema, RunnerReplySchema, type Job, type JobLines, type Runner, type Target } from './runners.contract';
 
 // The browser's calls to the runners' routes (PRD 1830 s1; ADR-0095), for the Runners page and Send to
 // terminal: each answer parsed by the contract, each refusal its `{error}` in plain words. Never
@@ -39,4 +39,9 @@ export function cancelRunnerJob(id: string, fetcher: typeof fetch = fetch): Prom
 /** Gives a runner to a fleet, or makes it shared (null). */
 export function setRunnerFleet(id: string, fleet: string | null, fetcher: typeof fetch = fetch): Promise<Called<Runner>> {
   return call(fetcher, `/api/runners/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ fleet }) }, (body) => RunnerReplySchema.parse(body).runner);
+}
+
+/** A job's live lines after the sequence number `after` (0: from the first), at most 5,000 (PRD 1904). */
+export function readJobLines(id: string, after: number, fetcher: typeof fetch = fetch): Promise<Called<JobLines>> {
+  return call(fetcher, `/api/runners/jobs/${encodeURIComponent(id)}/lines?after=${String(after)}`, { method: 'GET' }, (body) => JobLinesSchema.parse(body));
 }

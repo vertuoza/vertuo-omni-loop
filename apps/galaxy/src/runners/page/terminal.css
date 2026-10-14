@@ -1,0 +1,35 @@
+/* The Terminal panel (PRD 1904 s4), as the `runner-terminal` screen draws it: over the right of the Runners
+   page, the page behind dimmed, the whole width under 720 px; monospace lines on the sunk ground, `✗`
+   lines in the error colour, `Done:` bold, Jump to latest floating at the bottom while scrolled up.
+   Every colour is a token of src/ask/theme-tokens.ts. */
+
+.terminal-over { position: fixed; inset: 0; z-index: 40; }
+.terminal-scrim { position: absolute; inset: 0; background: var(--ask-ground); opacity: .6; }
+.terminal {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(640px, 100%);
+  display: flex; flex-direction: column; background: var(--ask-sunk); border-left: 2px solid var(--ask-line-strong);
+}
+.terminal-head {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--ask-surface);
+  border-bottom: 1px solid var(--ask-line); font-size: 14px; min-width: 0;
+}
+.terminal-title { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.terminal-live { width: 9px; height: 9px; border-radius: 50%; background: var(--ask-plasma); flex: none; }
+.terminal-reconnecting { color: var(--ask-muted); font-size: 13px; white-space: nowrap; }
+.terminal-close { border: 0; background: none; color: var(--ask-muted); font-size: 20px; line-height: 1; padding: 2px 6px; cursor: pointer; }
+.terminal-close:hover { color: var(--ask-ink); }
+
+.terminal-body { flex: 1; overflow: auto; padding: 10px 14px 56px; min-height: 0; }
+.terminal-lines { margin: 0; font: 12.5px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.terminal-time { color: var(--ask-muted); }
+.terminal-line.is-error, .terminal-line.is-error .terminal-time { color: var(--ask-red); }
+.terminal-line.is-done { font-weight: 700; color: var(--ask-green); }
+.terminal-line a { color: var(--ask-cyan); text-underline-offset: 3px; }
+.terminal-note { margin: 0 0 8px; color: var(--ask-muted); font: italic 14px/1.5 var(--ask-body); }
+.terminal-lines .terminal-note { font: italic 12.5px/1.6 var(--ask-mono); }
+.terminal-old { display: grid; gap: 6px; margin-bottom: 10px; }
+.terminal-jump { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); }
+
+@media (max-width: 720px) {
+  .terminal { width: 100%; border-left: 0; }
+}

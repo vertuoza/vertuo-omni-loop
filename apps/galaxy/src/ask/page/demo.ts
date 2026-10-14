@@ -60,7 +60,7 @@ const CHECKS = {
   options: [
     { label: 'Row-level security', description: 'Two accounts\' tokens against the migration.' },
     { label: 'Handler tests', description: 'The API as functions, with a stubbed client.' },
-    { label: 'A live session', description: 'A real Claude Code session answered from the page.' },
+    { label: 'A live session', description: 'A real coding-agent session answered from the page.' },
   ],
 };
 const LATER = [

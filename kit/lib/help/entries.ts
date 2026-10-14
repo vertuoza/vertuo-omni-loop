@@ -316,8 +316,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), ' +
       'holds the git checkouts right under --repos, by their origin, and refuses to start when claude ' +
       'is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> ' +
-      'on branch agent/job-<id>, in the tmux session job-<id>, logged to ~/logs/job-<id>.log; its line ' +
-      'goes to claude from a file, never a shell. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
+      'on branch agent/job-<id>, in the tmux session job-<id>; its line goes to claude from a file, ' +
+      'never a shell. claude runs with --output-format stream-json: each step becomes one readable ' +
+      'line (Bash: <command>, Edit: <path>, PR: <link>, a failed call\'s ✗ with up to 20 lines of its ' +
+      'output, Done: with its turns and cost), written to ~/logs/job-<id>.log and the session, while ' +
+      'the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the ' +
+      'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
+      'report, sending them again when a report fails and every line left once the job ends: the ' +
+      'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
       'visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
       'waits for the running jobs. sender prints the line /omni:pr writes in a pull request a job ' +
       'opens, naming who sent it and the runner.',
@@ -1060,7 +1066,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
       'with whether a recording of it exists in .e2e/cache (recording) and whether one is expected ' +
       '(expected: false when the file holds no agent. call, since only an agent step records), and ' +
-      'exits 1 when a test that expects a recording has none; a test with no agent step passes. A recording ' +
+      'exits 1 when a test that expects a recording has none; a test with no agent step passes. Each test ' +
+      'also carries level and flow: level is critical when the file carries the tag critical, else ' +
+      'standard, and flow is the id of its flow-<id> tag, or null. A critical test with no flow-<id> ' +
+      'tag, or whose flow is not in e2e.dir/critical-flows.md, exits 1 naming the test and the flow; a ' +
+      'list that does not parse exits 1 naming the file and the flow. A recording ' +
       'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
       'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
       'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +

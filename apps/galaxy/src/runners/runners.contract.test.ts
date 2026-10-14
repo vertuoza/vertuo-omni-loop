@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { checkLine, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema } from './runners.contract';
+import {
+  checkLine, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
+} from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines whose skill is on the
 // list and whose arguments are letters, digits, spaces and `._/:#-`, 200 characters at most.
@@ -71,5 +73,32 @@ describe('the requests', () => {
     expect(JobUpdateSchema.safeParse({ status: 'claimed' }).success).toBe(false);
     expect(JobUpdateSchema.safeParse({ status: 'queued' }).success).toBe(false);
     expect(JobUpdateSchema.safeParse({ status: 'done', prUrl: 'https://evil.test/acme/widgets/pull/12' }).success).toBe(false);
+  });
+});
+
+describe('a report\'s live lines (PRD 1904)', () => {
+  const lines = (count: number, chars = 20) => Array.from({ length: count }, () => 'x'.repeat(chars));
+
+  it('takes from and lines together, or neither', () => {
+    expect(JobUpdateSchema.parse({ status: 'running', from: 1201, lines: ['12:04:31 Bash: pnpm test'] })).toMatchObject({ from: 1201, lines: ['12:04:31 Bash: pnpm test'] });
+    expect(JobUpdateSchema.parse({ status: 'running', logTail: 'tail' })).toEqual({ status: 'running', logTail: 'tail' });
+    expect(JobUpdateSchema.safeParse({ status: 'running', from: 1 }).success).toBe(false);
+    expect(JobUpdateSchema.safeParse({ status: 'running', lines: ['a'] }).success).toBe(false);
+  });
+
+  it('numbers the first line from 1', () => {
+    for (const from of [0, -1, 1.5]) expect(JobUpdateSchema.safeParse({ status: 'running', from, lines: ['a'] }).success).toBe(false);
+  });
+
+  it('takes 2,000 lines of 600 characters, and refuses 2,001 lines or a line of 601', () => {
+    expect(JobUpdateSchema.safeParse({ status: 'running', from: 1, lines: lines(2000, 600) }).success).toBe(true);
+    expect(JobUpdateSchema.safeParse({ status: 'running', from: 1, lines: lines(2001) }).success).toBe(false);
+    expect(JobUpdateSchema.safeParse({ status: 'running', from: 1, lines: [...lines(1), 'x'.repeat(601)] }).success).toBe(false);
+  });
+
+  it('reads the lines after a sequence number, from the first by default', () => {
+    expect(JobLinesQuerySchema.parse({})).toEqual({ after: 0 });
+    expect(JobLinesQuerySchema.parse({ after: '1200' })).toEqual({ after: 1200 });
+    for (const after of ['-1', 'x', '1.5']) expect(JobLinesQuerySchema.safeParse({ after }).success).toBe(false);
   });
 });
