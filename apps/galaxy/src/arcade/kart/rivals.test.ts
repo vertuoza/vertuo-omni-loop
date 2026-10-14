@@ -5,7 +5,7 @@ import { advance, aimOf, crossedAnyGate, comeBack, driveRival, lapOf, progressOf
 import { RULES } from './rules';
 import { crossings } from './line';
 import { carryAlong, COMET_RING, crosses, LAPS, cornersOf, groundOf, locatePx, parseTrack, pointAtPx, roadAt, TILE } from './track';
-import { EIGHT } from './track.fake';
+import { EIGHT, withFloor } from './track.fake';
 
 /** The longest a rival's three laps are given in these tests, in seconds. */
 const LIMIT_SECONDS = 150;
@@ -693,5 +693,25 @@ describe('on a line that crosses itself', () => {
     }
     expect(laps.every((n, i) => n === (laps[i - 1] ?? n) || n === (laps[i - 1] ?? 0) + 1)).toBe(true);
     expect(pace.laps).toBe(2);
+  });
+});
+
+// The surfaces (PRD 1923, slice 3): the rivals drive the same model, so they slide on ice.
+describe('on ice and powder', () => {
+  const frozen = withFloor(parseTrack(EIGHT));
+
+  it('slides a rival on the lake: its direction of travel is carried there, and is its nose elsewhere', () => {
+    let r: Race = play(press(newRace({ seed: 7, track: frozen }), 'start').race, NONE, RULES.countdown + 0.05);
+    let slid = false, offLake = true;
+    for (let t = 0; t < 60; t += 0.05) {
+      r = step(r, NONE, 0.05).race;
+      for (const rival of r.rivals) {
+        const far = Math.hypot(rival.kart.x - 36 * TILE, rival.kart.y - 36 * TILE);
+        if (rival.kart.travel !== undefined) slid = true;
+        if (far > 7 * TILE && rival.kart.travel !== undefined) offLake = false;
+      }
+    }
+    expect(slid).toBe(true);
+    expect(offLake).toBe(true);
   });
 });
