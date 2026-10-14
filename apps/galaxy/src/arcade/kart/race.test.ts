@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { NO_FX, tippedOver } from './kart';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
-import { advance, crossedAnyGate, START_PACE } from './rivals';
+import { advance, crossedAnyGate, progressOf, START_PACE } from './rivals';
+import { EIGHT } from './track.fake';
 import { sure } from '../test/sure';
 import { RULES } from './rules';
 import { COMET_RING, LAPS, parseTrack, roadAt, TILE, tileAt } from './track';
@@ -717,5 +718,39 @@ describe('the look a race carries (PRD 1762)', () => {
   it('leaves the rivals as they were: a driver without a look has none', () => {
     const race = newRace({ seed: 1, look: { color: 'RED', design: 'RACER' } });
     expect(race.rivals.every((r) => r.driver.look === undefined)).toBe(true);
+  });
+});
+
+// The branch at a crossing (PRD 1923, slice 1): a race on a figure eight, the karts crossing its middle twice a lap.
+describe('a race on a line that crosses itself', () => {
+  const eight = parseTrack(EIGHT);
+  const middle = { x: 36.5 * TILE, y: 36.5 * TILE };
+
+  it('carries the distance along the line on every kart, and on none on COMET RING', () => {
+    const r = play(started(newRace({ seed: 7, track: eight })), NONE, RULES.countdown + 3);
+    expect([r.player, ...r.rivals.map((x) => x.kart)].every((k) => typeof k.along === 'number')).toBe(true);
+    const comet = play(started(), NONE, RULES.countdown + 3);
+    expect([comet.player, ...comet.rivals.map((x) => x.kart)].some((k) => k.along !== undefined)).toBe(false);
+  });
+
+  it('never takes a rival back along the line, nor counts a lap twice, while the rivals drive across the crossing', () => {
+    let r = started(newRace({ seed: 7, track: eight }));
+    const seen = r.rivals.map(() => ({ laps: 0, progress: -Infinity, crossed: 0 }));
+    for (let t = 0; t < 100; t += 0.05) {
+      r = step(r, NONE, 0.05).race;
+      r.rivals.forEach((rival, i) => {
+        const was = seen[i];
+        if (!was) return;
+        const progress = progressOf(eight, rival.pace, rival.kart);
+        expect(rival.pace.laps - was.laps).toBeLessThanOrEqual(1);
+        expect(rival.pace.laps).toBeGreaterThanOrEqual(was.laps);
+        // Only a fall brings a kart back along the line, to behind a gap or the last gate, never to the other branch.
+        expect(progress).toBeGreaterThan(was.progress - 6 * TILE);
+        const inTheMiddle = Math.hypot(rival.kart.x - middle.x, rival.kart.y - middle.y) < 3 * TILE;
+        seen[i] = { laps: rival.pace.laps, progress, crossed: was.crossed + (inTheMiddle ? 1 : 0) };
+      });
+    }
+    expect(seen.every((s) => s.laps >= 1)).toBe(true);
+    expect(seen.some((s) => s.crossed > 0)).toBe(true);
   });
 });

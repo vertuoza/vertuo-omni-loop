@@ -10,7 +10,7 @@
 // Stands (PRD 1775) and shortcuts are not in the map either: they are listed beside it.
 // Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a tile of void.
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { buildLine, gatesOf, inGapAt, isRoad as onTheRoad, locate, pointAt, roadInSpan, type Gate, type Line, type Located, type Piece, type Sample, type Span } from './line';
+import { buildLine, crossings, gatesOf, inGapAt, isRoad as onTheRoad, locate, pointAt, roadInSpan, type Gate, type Line, type Located, type Piece, type Sample, type Span } from './line';
 
 /** A tile's side in game pixels: the circuit's texture is one tile = 16×16 pixels. */
 export const TILE = 16;
@@ -449,8 +449,46 @@ export function trackProblems(src: TrackSource = COMET_RING): string[] {
   const g = groundFor(src, b);
   return [
     ...placeProblems(src.rows, g), ...lineProblems(src, g), ...featureProblems(src.rows, g), ...propProblems(src, g), ...reliefProblems(src, b.line),
-    ...standProblems(src, g), ...shortcutProblems(src, g),
+    ...standProblems(src, g), ...shortcutProblems(src, g), ...crossingProblems(src, b.line),
   ];
+}
+
+/** How far from the crossing, in tiles, the ground must be level: the half of the 12 tiles of the lake a line crosses on (PRD 1923). */
+const LAKE_RADIUS = 6;
+/** How near the crossing, in tiles, no gate and no start line may stand. */
+const CROSSING_CLEAR = 8;
+/** The least angle, in degrees, a line may cross itself at. */
+const CROSSING_ANGLE = 60;
+
+/** The distance from a point to a segment. */
+function nearSegment(x: number, y: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax, dy = by - ay;
+  const k = Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(x - (ax + dx * k), y - (ay + dy * k));
+}
+
+/** On a line that crosses itself (PRD 1923): ground that is not level within the lake, a gate or a start line within `CROSSING_CLEAR` tiles of the crossing, or a crossing under `CROSSING_ANGLE` degrees. A line that does not cross itself has none. */
+function crossingProblems(src: TrackSource, line: Line): string[] {
+  return crossings(line).flatMap((c) => {
+    const spot = `crossing at row ${Math.floor(c.y)}, col ${Math.floor(c.x)}`;
+    const problems: string[] = [];
+    if (c.angle < CROSSING_ANGLE) problems.push(`${spot}: the two branches cross at ${Math.round(c.angle)} degrees, at least ${CROSSING_ANGLE} are needed`);
+    if (src.relief) {
+      const relief = src.relief;
+      const height = (leg: number, len: number, d: number) => legHeight(relief, leg, d * TILE, len * TILE);
+      const lens = new Map(line.segments.flatMap((s) => (s.kind === 'straight' ? [[s.leg, s.len] as const] : [])));
+      const heights = [c.a, c.b].flatMap((b) => {
+        const len = lens.get(b.leg) ?? 0;
+        return Array.from({ length: 13 }, (_, k) => height(b.leg, len, Math.min(len, Math.max(0, b.at + ((k - 6) / 6) * LAKE_RADIUS))));
+      });
+      if (Math.max(...heights) - Math.min(...heights) > 0.05) problems.push(`${spot}: the ground is not level within ${LAKE_RADIUS} tiles of it, both branches must stand at one height`);
+    }
+    const gate = gatesOf(line).find((gt) => nearSegment(c.x, c.y, gt.ax, gt.ay, gt.bx, gt.by) < CROSSING_CLEAR);
+    if (gate) problems.push(`${spot}: the gate of waypoint ${gate.index} is within ${CROSSING_CLEAR} tiles of it`);
+    const start = tilesOf(src.rows, '=').find(([x, y]) => Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) < CROSSING_CLEAR);
+    if (start) problems.push(`${spot}: the start line is within ${CROSSING_CLEAR} tiles of it`);
+    return problems;
+  });
 }
 
 /** A relief with a height or a bump missing or one too many, a number that is not one, or a road spanning more than `RELIEF_SPAN`. */
@@ -621,10 +659,31 @@ function lineCentre(tiles: readonly (readonly [number, number])[], forward: read
   return { x, y, at: x * forward[0] + y * forward[1] };
 }
 
-/** Where a point of the circuit, in game pixels, sits against the centre line, in game pixels as well (`along` and `across` included). */
-export function locatePx(track: Pick<Track, 'centre'>, x: number, y: number): Located {
-  const l = locate(track.centre, x / TILE, y / TILE);
+/** Where a point of the circuit, in game pixels, sits against the centre line, in game pixels as well (`along` and `across` included). With a `hint`, the distance along it a step before (game pixels), the branch the point is on stays its branch (PRD 1923). */
+export function locatePx(track: Pick<Track, 'centre'>, x: number, y: number, hint?: number): Located {
+  const l = locate(track.centre, x / TILE, y / TILE, hint === undefined ? undefined : hint / TILE);
   return { along: l.along * TILE, across: l.across * TILE, dist: l.dist * TILE, x: l.x * TILE, y: l.y * TILE, tx: l.tx, ty: l.ty };
+}
+
+const crossed = new WeakMap<object, boolean>();
+
+/** Whether the centre line crosses itself: only then does a kart carry the distance along the line it had a step before. */
+export function crosses(track: Pick<Track, 'centre'>): boolean {
+  const known = crossed.get(track.centre);
+  if (known !== undefined) return known;
+  const made = crossings(track.centre).length > 0;
+  crossed.set(track.centre, made);
+  return made;
+}
+
+/**
+ * The kart `after` a step carries its distance along the line (PRD 1923): where it stands, read with the one `before` carried as its hint. On a circuit
+ * whose line does not cross itself nothing is carried and `after` is returned as it is, so such a circuit answers exactly as it did.
+ */
+export function carryAlong<K extends { x: number; y: number; along?: number }>(track: Pick<Track, 'centre'>, before: { along?: number }, after: K): K {
+  if (!crosses(track)) return after;
+  const along = locatePx(track, after.x, after.y, before.along).along;
+  return after.along === along ? after : { ...after, along };
 }
 
 /** The point of the centre line at a distance along it, in game pixels (it wraps around the closed line), with its tangent. */
