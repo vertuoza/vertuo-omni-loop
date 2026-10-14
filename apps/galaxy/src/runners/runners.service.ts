@@ -15,9 +15,13 @@
 //   workspace's (repo_workspace()).
 // - The sender or a workspace owner cancels a job: a queued one at once, a claimed or running one at
 //   its runner's next report. Only an owner sets a runner's fleet.
+// - A job's live lines (PRD 1904): a report's `lines`, numbered from `from`, are stored once each (a
+//   report sent twice adds nothing), and a job keeps its last 20,000. When a job ends, the lines of the
+//   workspace's ended jobs beyond the 50 most recent (the ones the Runners page lists) are deleted. A
+//   member reads them after a sequence number, 5,000 at a time; anyone else is told there is no job.
 import {
-  checkLine, ENDED_JOBS_SHOWN, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS,
-  type Board, type Job, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal,
+  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS,
+  type Board, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal,
   type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { JobPatch, JobRow, JobRowStatus, RunnerRow, RunnersRepository } from './runners.repository';
@@ -150,6 +154,18 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return workspaceId === null ? no('malformed', 'A runner holds at least one repository.') : ok(workspaceId);
   }
 
+  /** Stores the report's lines once each, then keeps the job's last 20,000. */
+  async function appendLines(job: JobRow, report: JobUpdate): Promise<void> {
+    const { from, lines } = report;
+    if (from === undefined || lines === undefined || lines.length === 0) return;
+    await store.appendLines(lines.map((text, i) => ({ job_id: job.id, workspace_id: job.workspace_id, seq: from + i, text })));
+    const last = from + lines.length - 1;
+    if (last > JOB_LINES_KEPT) await store.trimLines(job.id, last - JOB_LINES_KEPT);
+  }
+
+  /** After a job ends: the lines of the workspace's ended jobs beyond the 50 the Runners page lists go. */
+  const retainLines = (job: JobRow) => (ENDED.includes(job.status) ? store.retainLines(job.workspace_id, ENDED_JOBS_SHOWN) : Promise.resolve(0));
+
   /** The job's runner, when the caller owns it; why not otherwise. */
   async function reporting(caller: string, jobId: string): Promise<Served<string>> {
     const found = await store.job(jobId);
@@ -210,8 +226,11 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (!job) return no('missing', 'No such job.');
       const refusal = reportRefusal(job, report);
       if (refusal) return refusal;
+      // The lines first: a report that fails after them is sent again, and adds nothing the second time.
+      await appendLines(job, report);
       const updated = await store.updateJob(jobId, [job.status], reportPatch(job, report, iso()));
       if (!updated) return no('conflict', 'This job changed meanwhile. Report again.');
+      await retainLines(updated);
       return ok({ cancel: !ENDED.includes(updated.status) && updated.cancel_requested });
     },
 
@@ -242,6 +261,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const patch: JobPatch = job.status === 'queued' ? { status: 'cancelled', cancel_requested: true, ended_at: iso() } : { cancel_requested: true };
       const updated = await store.updateJob(jobId, [job.status], patch);
       if (!updated) return no('conflict', 'This job changed meanwhile. Try again.');
+      await retainLines(updated);
       return ok(jobOf(updated, await store.logins(updated.workspace_id, [updated.sent_by])));
     },
 
@@ -255,6 +275,17 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const updated = await store.updateRunner(runnerId, { fleet });
       const active = await store.activeJobs(runner.workspace_id);
       return ok(runnerOf(updated, usedBy(active, runnerId), clock.now()));
+    },
+
+    /** A job's live lines after `after`, for a member of its workspace: at most 5,000 in order, whether
+     * more follow, the first it holds, and its log tail only when it holds no line. */
+    async lines(caller: string, jobId: string, after: number): Promise<Served<JobLines>> {
+      const job = await store.job(jobId);
+      const member = job ? await store.member(job.workspace_id, caller) : null;
+      if (!job || !member) return no('missing', 'No such job.');
+      const [read, first] = await Promise.all([store.lines(jobId, after, JOB_LINES_PAGE + 1), store.firstLine(jobId)]);
+      const logTail = first === null && job.log_tail !== '' ? job.log_tail : null;
+      return ok({ status: job.status, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
     },
 
     /** The Runners page's read: the workspace's runners with their state, its jobs (queued and running

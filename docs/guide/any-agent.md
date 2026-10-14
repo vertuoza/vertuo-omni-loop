@@ -12,6 +12,32 @@ they work on a laptop and in a cloud session alike.
 This page lists them in the order an agent runs them. Paste it, or point your agent at it, at the
 start of a session.
 
+## Set up your agent
+
+Once per repository, by someone who administers it:
+
+1. **List your agents.** The `agents` key of `.omni-loop/config.yml` names the coding agents your
+   team uses: any of `claude`, `codex`, `cursor` and `gemini`. `omni init --agent <agent>` writes
+   it, one `--agent` per agent ([Install › Run omni init](/docs/install#run-omni-init)). On a
+   repository already set up, edit the key, then run `omni update`.
+2. **Merge the pull request.** `omni init` or `omni update` writes the skills' copies under
+   `.agents/skills/omni-<name>/`, one folder per skill, and lists them in `.omni-loop/agents.json`.
+   Merge its pull request, so the copies are committed on the default branch for everyone.
+
+Then each person runs a skill in their own agent's form:
+
+| Agent | How you run a skill |
+|---|---|
+| Claude Code | `/omni:yolo 7` |
+| Codex | `$omni-yolo 7` |
+| Cursor | `/omni-yolo 7` |
+| Gemini CLI | ask for `omni-yolo` |
+
+The guide names every skill in the kit's form, `/omni:<name>`: type it in your agent's form above.
+`omni help` shows each form for the agents the key lists. `omni check agents` says whether the
+copies match the kit's version: never edit one by hand, the next `omni update` writes it back. The
+status line and the HUD are Claude Code's alone.
+
 ## Before you start
 
 - **The repository runs the loop:** it has a `.omni-loop/` folder at its root. Where `omni` is not

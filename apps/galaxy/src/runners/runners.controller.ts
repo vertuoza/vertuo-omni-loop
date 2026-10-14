@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {
-  FleetRequestSchema, JobReplySchema, JobUpdateReplySchema, JobUpdateSchema, NextQuerySchema, RegisterReplySchema, RegisterRequestSchema,
+  FleetRequestSchema, JobLinesQuerySchema, JobLinesSchema, JobReplySchema, JobUpdateReplySchema, JobUpdateSchema, NextQuerySchema, RegisterReplySchema, RegisterRequestSchema,
   RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, SendRequestSchema,
 } from './runners.contract';
 import type { RunnersService, Served } from './runners.service';
@@ -12,7 +12,8 @@ import type { RunnersService, Served } from './runners.service';
 //
 //   POST  /api/runners/register            the kit's sign-in   registers the runner
 //   GET   /api/runners/next?runner=<id>    the kit's sign-in   holds up to 40 s: the job claimed, or 204
-//   POST  /api/runners/jobs/<id>           the kit's sign-in   a report: status, log tail, PR link, exit code
+//   POST  /api/runners/jobs/<id>           the kit's sign-in   a report: status, log tail, live lines, PR link, exit code
+//   GET   /api/runners/jobs/<id>/lines     the session         a job's live lines after `after` (PRD 1904)
 //   POST  /api/runners/jobs                the session         queues a job
 //   POST  /api/runners/jobs/<id>/cancel    the session         cancels a job
 //   PATCH /api/runners/<id>                the session         sets or clears a runner's fleet
@@ -34,13 +35,17 @@ export type RunnersDeps = {
 };
 
 const MAX_BODY_CHARS = 300 * 1024;
+/** A report may carry 2,000 lines of 600 characters beside its tail (PRD 1904): the runner sends at most
+ * 256 KB of lines, and this bounds what the contract itself allows. */
+const MAX_REPORT_CHARS = 2 * 1024 * 1024;
 const NO_DATABASE = 'Runners are not available here: this deployment has no database.';
 const NO_SERVICE = 'Runners are not available here: this deployment has no service role.';
 const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The runners could not answer. Try again.';
 const BAD_REGISTER = 'The body must be {"name": "<name>", "slots": <1 to 8>, "repos": ["owner/name", …], "version": "<kit version>"}.';
 const BAD_NEXT = 'Name the runner as `runner=<id>`.';
-const BAD_REPORT = 'The body must be {"status": "running" | "done" | "failed" | "cancelled", "logTail"?, "prUrl"?, "exitCode"?, "reason"?}.';
+const BAD_REPORT = 'The body must be {"status": "running" | "done" | "failed" | "cancelled", "logTail"?, "from"? with "lines"? (at most 2,000 of 600 characters), "prUrl"?, "exitCode"?, "reason"?}.';
+const BAD_LINES = 'Ask for the lines as `after=<sequence number>`, or with no query.';
 const BAD_SEND = 'The body must be {"line": "/omni:<skill> <arguments>", "repo": "owner/name", "target": {"kind": "any"} | {"kind": "fleet", "fleet": "<fleet>"} | {"kind": "runner", "runner": "<id>"}}.';
 const BAD_FLEET = 'The body must be {"fleet": "<fleet>"} or {"fleet": null}.';
 const BAD_ID = 'No such runner or job.';
@@ -57,9 +62,9 @@ function jsonOf(text: string): unknown {
 }
 
 /** The request's body read by `schema`: its value, or null when it is too large, no JSON, or out of shape. */
-async function bodyAs<T>(request: Request, schema: z.ZodType<T>): Promise<T | null> {
+async function bodyAs<T>(request: Request, schema: z.ZodType<T>, maxChars = MAX_BODY_CHARS): Promise<T | null> {
   const text = await request.text();
-  const read = text.length > MAX_BODY_CHARS ? null : schema.safeParse(jsonOf(text));
+  const read = text.length > maxChars ? null : schema.safeParse(jsonOf(text));
   return read?.success ? read.data : null;
 }
 
@@ -116,8 +121,17 @@ export async function nextJob(request: Request, deps: RunnersDeps): Promise<Resp
 export async function reportJob(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
   return answer(await kitCaller(request, deps), deps, JobUpdateReplySchema, async (service, caller) => {
     if (!IdSchema.safeParse(id).success) return refuse(RUNNER_REFUSALS.missing, BAD_ID);
-    const body = await bodyAs(request, JobUpdateSchema);
+    const body = await bodyAs(request, JobUpdateSchema, MAX_REPORT_CHARS);
     return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_REPORT) : service.update(caller, id, body);
+  });
+}
+
+/** GET /api/runners/jobs/<id>/lines?after=<seq>: a job's live lines, for a member of its workspace; 404 to anyone else. */
+export async function jobLines(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  return answer(await sessionCaller(deps), deps, JobLinesSchema, (service, caller) => {
+    if (!IdSchema.safeParse(id).success) return Promise.resolve(refuse(RUNNER_REFUSALS.missing, BAD_ID));
+    const query = JobLinesQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    return query.success ? service.lines(caller, id, query.data.after) : Promise.resolve(refuse(RUNNER_REFUSALS.malformed, BAD_LINES));
   });
 }
 

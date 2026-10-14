@@ -1,6 +1,7 @@
 // The runners' storage (PRD 1830 s1; ADR-0095), on the client it is given: the service role's, since
-// the routes alone write the two tables (supabase/migrations/20261207100000_runners.sql) and the
-// service holds the rules. Every answer is parsed where it comes in; it holds no rule. A refusal of the
+// the routes alone write the tables (supabase/migrations/20261207100000_runners.sql, and a job's live
+// lines, supabase/migrations/20261208090000_runner_job_lines.sql, PRD 1904) and the service holds the
+// rules. Every answer is parsed where it comes in; it holds no rule. A refusal of the
 // database, or an answer out of shape, throws, naming the call: the controller answers 500 and logs it.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -46,6 +47,11 @@ export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at';
 const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, queued_at, claimed_at, running_at, ended_at';
+
+/** One line of a job's live log, as runner_job_lines holds it (its `at` is the database's). */
+export type JobLineRow = { job_id: string; workspace_id: string; seq: number; text: string };
+
+const JobLineRead = z.object({ seq: z.number(), text: z.string() });
 
 /** A new runner's columns. */
 export type NewRunner = { workspaceId: string; owner: string; name: string; slots: number; repos: string[]; version: string; seenAt: string };
@@ -141,6 +147,29 @@ export function runnersRepository(db: RunnersDb) {
     /** Changes the job while its status is still one of `from`; null when it moved on meanwhile. */
     updateJob: async (id: string, from: readonly JobRowStatus[], patch: JobPatch): Promise<JobRow | null> =>
       parsed(db.from('runner_jobs').update(patch).eq('id', id).in('status', [...from]).select(JOB_COLUMNS).maybeSingle(), JobRow.nullable(), 'runner_jobs'),
+
+    /** Adds a job's lines; a line it already holds (by job and sequence number) stays as it is, so a
+     * report sent twice adds nothing (`insert … on conflict (job_id, seq) do nothing`). */
+    appendLines: async (rows: JobLineRow[]): Promise<void> => {
+      await parsed(db.from('runner_job_lines').upsert(rows, { onConflict: 'job_id,seq', ignoreDuplicates: true }), z.unknown(), 'runner_job_lines');
+    },
+
+    /** Deletes the job's lines numbered `upTo` and below. */
+    trimLines: async (jobId: string, upTo: number): Promise<void> => {
+      await parsed(db.from('runner_job_lines').delete().eq('job_id', jobId).lte('seq', upTo), z.unknown(), 'runner_job_lines');
+    },
+
+    /** Deletes the lines of the workspace's ended jobs beyond its `keep` most recent (runner_job_lines_retain()); answers how many. */
+    retainLines: async (workspaceId: string, keep: number): Promise<number> =>
+      parsed(db.rpc('runner_job_lines_retain', { p_workspace: workspaceId, p_keep: keep }), z.number(), 'runner_job_lines_retain()'),
+
+    /** The job's first `limit` lines numbered above `after`, in order. */
+    lines: async (jobId: string, after: number, limit: number): Promise<{ seq: number; text: string }[]> =>
+      parsed(db.from('runner_job_lines').select('seq, text').eq('job_id', jobId).gt('seq', after).order('seq').limit(limit), z.array(JobLineRead), 'runner_job_lines'),
+
+    /** The smallest sequence number the job still holds, or null when it holds none. */
+    firstLine: async (jobId: string): Promise<number | null> =>
+      (await parsed(db.from('runner_job_lines').select('seq').eq('job_id', jobId).order('seq').limit(1), z.array(z.object({ seq: z.number() })), 'runner_job_lines'))[0]?.seq ?? null,
 
     /** The workspace's queued, claimed and running jobs, oldest first. */
     activeJobs: async (workspaceId: string): Promise<JobRow[]> =>

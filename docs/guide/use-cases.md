@@ -4,8 +4,10 @@ description: What to type for each thing you want to do, from an idea to a pull 
 ---
 
 Each section below is one situation: what to type, what happens, and what comes next. Slash
-commands go in Claude Code, at the root of the repository; `omni` commands go in a terminal there,
-or in Claude Code with `!` before them. In the examples, `7` stands for your PRD's number.
+commands go in your coding agent, at the root of the repository, in its own form
+([Any coding agent](/docs/any-agent#set-up-your-agent)); `omni` commands go in a terminal there,
+or in your coding agent (in Claude Code: with `!` before them). In the examples, `7` stands for
+your PRD's number.
 
 | You want to… | Type |
 |---|---|
@@ -24,7 +26,7 @@ or in Claude Code with `!` before them. In the examples, `7` stands for your PRD
 | [fix a pull request that stays red](#fix-a-pull-request-that-stays-red) | `/omni:pr 42` |
 | [see where things are](#see-where-things-are) | `/omni:status`, `omni board 7` |
 | [look up a rule of the product](#look-up-a-rule-of-the-product) | `omni knowledge <id>` |
-| [answer Claude's questions on a web page](#answer-claudes-questions-on-a-web-page) | `/omni:ask on` |
+| [answer your agent's questions on a web page](#answer-your-agents-questions-on-a-web-page) | `/omni:ask on` |
 | [refresh what the loop knows](#refresh-what-the-loop-knows) | `/omni:invade --refresh` |
 | [move to a newer kit](#move-to-a-newer-kit) | `omni update` |
 
@@ -36,15 +38,15 @@ or in Claude Code with `!` before them. In the examples, `7` stands for your PRD
 /omni:brainstorm Let people export their invoices as a CSV file
 ```
 
-Claude says how big it thinks the idea is, then asks its questions one at a time, and shows you the
-design before it writes anything. A **spike**, a "can we…?" question, ends there, with an answer and
-no pull request. Anything bigger ends with the PRD issue, the **phase-0 pull request** (the PRD's
-documents, going into your default branch) and a draft **feature pull request**.
+The agent says how big it thinks the idea is, then asks its questions one at a time, and shows you
+the design before it writes anything. A **spike**, a "can we…?" question, ends there, with an answer
+and no pull request. Anything bigger ends with the PRD issue, the **phase-0 pull request** (the
+PRD's documents, going into your default branch) and a draft **feature pull request**.
 
 **Then:** read the phase-0 pull request, and merge it when it is what you want. It goes into your
 default branch on purpose: that merge puts the PRD in the inbox, approved, for everyone
 ([why](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)). Something wrong? Do
-not merge: tell Claude what to change, in the same session. The whole walk is
+not merge: tell the agent what to change, in the same session. The whole walk is
 [Your first PRD](/docs/first-prd).
 
 ### Explore a vast idea
@@ -56,8 +58,8 @@ experience for every user. Before anyone cuts it into PRDs, see what the whole c
 /omni:think-big Give every employee an agenda in our app
 ```
 
-Claude says how big it thinks the idea is, and what kind: a new experience, a new identity or a new
-way to build. A tweak gets the `/omni:visual-fix` line; an idea one PRD would carry is offered
+The agent says how big it thinks the idea is, and what kind: a new experience, a new identity or a
+new way to build. A tweak gets the `/omni:visual-fix` line; an idea one PRD would carry is offered
 `/omni:brainstorm` or a lite run. A vast one carries on. A studio of agents shows you six to eight
 rendered concepts on one page, each with the moment a user would tell a colleague about, while a
 panel (a Visionary, a Craft critic, a Skeptic, a Value critic and one or two real users) argues over
@@ -94,9 +96,9 @@ what each one does: a page, a file in the repository, or text you paste.
 /omni:roadmap docs/plans/crew.md
 ```
 
-Claude reads the plan and shows you **one map**: every PRD it will write, what blocks each and why,
-the wave each sits in, and the open questions. You answer it in one message. It then writes every
-PRD's issue, spec and before/after page, with no plan yet, opens the roadmap's issue, writes
+The agent reads the plan and shows you **one map**: every PRD it will write, what blocks each and
+why, the wave each sits in, and the open questions. You answer it in one message. It then writes
+every PRD's issue, spec and before/after page, with no plan yet, opens the roadmap's issue, writes
 `roadmap.md`, and opens **one phase-0 pull request** for the whole roadmap. In a plan repository,
 type `/omni:mega-roadmap` instead: it also says where each PRD lands.
 
@@ -253,7 +255,8 @@ and its feature pull request are theirs to answer and to merge. Tell them you ar
 
 ### Build one slice by hand
 
-To build one slice yourself, with Claude, name the PRD and the slice, as `plan.md` names it:
+To build one slice yourself, with your coding agent, name the PRD and the slice, as `plan.md` names
+it:
 
 ```text agent
 /omni:do-work 7 s3
@@ -339,11 +342,11 @@ With no name, `/omni:help` prints the whole loop and every command on one screen
 
 ## Work your way
 
-### Answer Claude's questions on a web page
+### Answer your agent's questions on a web page
 
-Ask mode sends every question Claude asks you to a web page, a tab per terminal, where you read and
-answer it, from any device. It needs your sign-in (`omni signin`, once per laptop). Then, in Claude
-Code:
+Ask mode sends every question your agent asks you to a web page, a tab per terminal, where you read
+and answer it, from any device. It needs your sign-in (`omni signin`, once per laptop). Then, in
+your coding agent:
 
 ```text agent
 /omni:ask on

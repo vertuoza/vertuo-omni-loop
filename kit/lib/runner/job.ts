@@ -1,12 +1,17 @@
-// What runs inside a job's tmux session (PRD 1830, "Each job"): `pnpm install --frozen-lockfile` when
-// the worktree has a lockfile, then `claude --dangerously-skip-permissions -p`, the job's line on its
-// standard input, read from a file: no shell ever sees the line. Everything both print goes to the
-// job's log, and to the session, for a person attached to it. The exit code goes to a file of its
-// own once the run ends, which is how the runner learns it ended.
+// What runs inside a job's tmux session (PRD 1830, "Each job"; PRD 1904, "One readable line per
+// step"): `pnpm install --frozen-lockfile` when the worktree has a lockfile, then
+// `claude --dangerously-skip-permissions -p --output-format stream-json --verbose`, the job's line on
+// its standard input, read from a file: no shell ever sees the line. claude prints one JSON event per
+// line; each becomes its readable lines (`steps.ts`), written to the job's log and to the session,
+// for a person attached to it, while the raw stream goes to `job-<id>.jsonl` beside the log and never
+// leaves the machine. The install's output and claude's standard error are written as they are. The
+// exit code goes to a file of its own once the run ends, which is how the runner learns it ended.
 import { spawn } from 'node:child_process';
-import { closeSync, existsSync, openSync, writeFileSync, appendFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, openSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import type { Out } from './runner.ts';
+import { stepLine } from './steps.ts';
 
 /** The files a job's run reads and writes. */
 export type JobFiles = { line: string; log: string; exit: string };
@@ -14,12 +19,23 @@ export type JobFiles = { line: string; log: string; exit: string };
 /** The lockfile whose presence makes the run install first. */
 const LOCKFILE = 'pnpm-lock.yaml';
 
-/** Runs `file args` in `cwd`, its output appended to `log` and written to `out`; answers its exit code. */
-function run(file: string, args: readonly string[], { cwd, stdin, log, out }: { cwd: string; stdin: number | 'ignore'; log: string; out: Out }): Promise<number> {
+/** The arguments claude runs a job with: unattended, printing one JSON event per line. */
+const CLAUDE_ARGS: readonly string[] = ['--dangerously-skip-permissions', '-p', '--output-format', 'stream-json', '--verbose'];
+
+/** Where a job's raw stream goes: its log's path with `.jsonl` for `.log`. */
+export function rawLogPath(log: string): string {
+  return `${log.replace(/\.log$/, '')}.jsonl`;
+}
+
+/** What one run writes: the log and the pane, each chunk of its standard output, and its variables. */
+type RunTo = { cwd: string; stdin: number | 'ignore'; log: string; out: Out; env?: Readonly<Record<string, string>> | undefined; stdout?: (chunk: Buffer) => void };
+
+/** Runs `file args` in `cwd`; its standard output goes to `stdout` when given, else as it is, its standard error as it is. Answers its exit code. */
+function run(file: string, args: readonly string[], { cwd, stdin, log, out, env, stdout }: RunTo): Promise<number> {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(file, args, { cwd, stdio: [stdin, 'pipe', 'pipe'] });
+      child = spawn(file, args, { cwd, stdio: [stdin, 'pipe', 'pipe'], ...(env ? { env } : {}) });
     } catch {
       resolve(127);
       return;
@@ -28,7 +44,7 @@ function run(file: string, args: readonly string[], { cwd, stdin, log, out }: { 
       appendFileSync(log, chunk);
       out.write(chunk.toString('utf8'));
     };
-    child.stdout?.on('data', write);
+    child.stdout?.on('data', stdout ?? write);
     child.stderr?.on('data', write);
     child.on('error', () => {
       appendFileSync(log, `${file}: could not be started\n`);
@@ -40,18 +56,52 @@ function run(file: string, args: readonly string[], { cwd, stdin, log, out }: { 
   });
 }
 
-/** The job's run in `cwd`: the install when there is a lockfile, then `claude`. Writes the exit code last. */
-export async function runJobProcess({ cwd, files, out }: { cwd: string; files: JobFiles; out: Out }): Promise<number> {
+/** Reads claude's standard output whole lines at a time: each raw to `raw`, its readable lines to the log and the pane. */
+function streamReader({ log, raw, out }: { log: string; raw: string; out: Out }): { chunk(data: Buffer): void; end(): void } {
+  const seen = new Set<string>();
+  const decoder = new StringDecoder('utf8');
+  let pending = '';
+  const emit = (line: string): void => {
+    const lines = stepLine(line, { seen });
+    if (lines.length === 0) return;
+    const text = `${lines.join('\n')}\n`;
+    appendFileSync(log, text);
+    out.write(text);
+  };
+  return {
+    chunk(data) {
+      appendFileSync(raw, data);
+      const parts = (pending + decoder.write(data)).split('\n');
+      pending = parts.pop() ?? '';
+      for (const line of parts) emit(line);
+    },
+    end() {
+      pending += decoder.end();
+      if (pending !== '') emit(pending);
+      pending = '';
+    },
+  };
+}
+
+/**
+ * The job's run in `cwd`: the install when there is a lockfile, then `claude`. Writes the exit code
+ * last. `env`, when given, is the variables both run with in place of the runner's own.
+ */
+export async function runJobProcess({ cwd, files, out, env }: { cwd: string; files: JobFiles; out: Out; env?: Readonly<Record<string, string>> }): Promise<number> {
   let code = 0;
   if (existsSync(join(cwd, LOCKFILE))) {
     appendFileSync(files.log, '$ pnpm install --frozen-lockfile\n');
-    code = await run('pnpm', ['install', '--frozen-lockfile'], { cwd, stdin: 'ignore', log: files.log, out });
+    code = await run('pnpm', ['install', '--frozen-lockfile'], { cwd, stdin: 'ignore', log: files.log, out, env });
   }
   if (code === 0) {
+    const raw = rawLogPath(files.log);
+    writeFileSync(raw, '');
+    const reader = streamReader({ log: files.log, raw, out });
     const stdin = openSync(files.line, 'r');
     try {
-      code = await run('claude', ['--dangerously-skip-permissions', '-p'], { cwd, stdin, log: files.log, out });
+      code = await run('claude', CLAUDE_ARGS, { cwd, stdin, log: files.log, out, env, stdout: (chunk) => { reader.chunk(chunk); } });
     } finally {
+      reader.end();
       closeSync(stdin);
     }
   }

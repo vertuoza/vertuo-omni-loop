@@ -3,9 +3,9 @@ title: Your first PRD
 description: From an idea to a merged feature and its release note.
 ---
 
-This page takes one idea of yours all the way through the loop: from a conversation in Claude Code
-to a feature merged into your default branch. You do four things along the way, and the loop does
-the rest:
+This page takes one idea of yours all the way through the loop: from a conversation with your coding
+agent to a feature merged into your default branch. You do four things along the way, and the loop
+does the rest:
 
 1. Describe the idea, with `/omni:brainstorm`.
 2. Review and merge the **phase-0 pull request**: the written plan, before any code exists.
@@ -19,7 +19,7 @@ Nothing reaches your default branch unless you merge it yourself.
 Your laptop is set up ([Install](/docs/install)), and your repository has the loop installed and
 invaded: you set it up and followed [Invade](/docs/invade), and merged both pull requests, or you
 joined a team whose repository runs it ([Join a team](/docs/join)). Bring your checkout up to date,
-then open Claude Code at the root of the repository:
+then open your coding agent at the root of the repository (in Claude Code: `claude`):
 
 ```bash terminal
 git switch main
@@ -36,7 +36,9 @@ every step in an afternoon.
 
 ## 1. Describe the idea: `/omni:brainstorm`
 
-In Claude Code, type `/omni:brainstorm`, followed by your idea in one sentence:
+In your coding agent, type `/omni:brainstorm`, followed by your idea in one sentence. That is the
+kit's form of a skill; other agents type it in their own
+([Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
 /omni:brainstorm Let people export their invoices as a CSV file
@@ -47,7 +49,7 @@ What you see:
 - **A link to follow along**, when your repository has dossiers switched on: a line starting with
   "follow along at", which opens a page where anyone in your workspace can read the PRD as it is
   written. With dossiers off, there is no link, and nothing else changes.
-- **How big Claude thinks the idea is.** It says so out loud before its first question: a
+- **How big the agent thinks the idea is.** It says so out loud before its first question: a
   **spike** (a "can we…?" question, answered without building anything), **bounded** (a
   well-scoped change to something that exists) or **architectural** (something new, or a change to
   how parts fit together). If you disagree, say so: it takes the heavier one.
@@ -57,7 +59,7 @@ What you see:
   idea it shows the design section by section, then asks you to review the written spec too.
 
 A spike ends here, with an answer and no pull request. Anything else carries on by itself, and
-Claude opens, in your repository:
+the agent opens, in your repository:
 
 - **The PRD issue**, titled `PRD: <your title>`, with the `omni:prd` label. Its number is the
   PRD's number: every later step uses it.
@@ -72,9 +74,9 @@ The reply ends with three blocks: the PRD's folder, **Where it is** (the loop's 
 "you are here" under PRD), and **What is next?**, whose last line is the command to run next,
 `/omni:yolo` followed by the PRD's number.
 
-If Claude stops with "needs clarification", the plan could not be written without a guess: it has
-asked its question on the PRD issue. Answer it there, then tell Claude, in the same session, that
-it is answered: it writes the plan and opens the phase-0 pull request.
+If the agent stops with "needs clarification", the plan could not be written without a guess: it
+has asked its question on the PRD issue. Answer it there, then tell the agent, in the same session,
+that it is answered: it writes the plan and opens the phase-0 pull request.
 
 ## 2. Review and merge the phase-0 pull request
 
@@ -87,7 +89,7 @@ code: this is the cheapest moment to change your mind.
   in your browser.
 - Skim `plan.md`: the slices, each with the files it may touch, and the waves they are built in.
 
-Something wrong? Do not merge. Tell Claude what to change, in the same session, and ask it to
+Something wrong? Do not merge. Tell the agent what to change, in the same session, and ask it to
 update the PRD on the feature branch and on the phase-0 pull request alike. When it is right,
 **merge the phase-0 pull request** on GitHub. The PRD is now in the
 **inbox**: approved, and ready to build.
