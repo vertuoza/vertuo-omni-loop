@@ -162,6 +162,21 @@ describe('the rules the view carries', () => {
 });
 
 describe('fleets', () => {
+  it('draws one person once, whatever case their login is spelt in', () => {
+    const g = buildGalaxy([
+      charted,
+      ev('zone:core-repo:7:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'AuBrille', team: 'octopod' }),
+      ev('zone:core-repo:7:s2:secured', '2026-09-22T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'aubrille', team: 'octopod' }),
+      ev('zone:core-repo:7:s3:secured', '2026-09-22T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'Serghok', team: 'beaver' }),
+    ], { projects, now: NOW });
+    expect(g.heroes).toMatchObject([
+      { name: 'aubrille', team: 'octopod', points: 2 * RULEBOOK.zoneSecured },
+      { name: 'serghok', team: 'beaver', points: RULEBOOK.zoneSecured },
+    ]);
+    expect(g.teams.find((t) => t.name === 'octopod')?.members).toEqual(['aubrille']);
+    expect(g.planets[0]?.expeditions).toEqual(['aubrille', 'serghok']);
+  });
+
   it('gives a fleet without a look a plain one, so a new row still plays', () => {
     const g = buildGalaxy([charted], { projects, now: NOW });
     expect(g.teams.find((t) => t.name === 'beaver')).toMatchObject({
