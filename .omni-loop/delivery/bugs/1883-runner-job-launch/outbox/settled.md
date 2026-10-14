@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 1883
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-runner-runs-its-own-omni -->
+
+## s1-01-runner-runs-its-own-omni — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-14T07:27:41Z
+- Channel: feature pull request #1884
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1884#issuecomment-6163208662
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-12
+- Raised: 2026-10-14
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built and states nothing new about the product; N-PRODUCT-12 reads as before.
+
+### The answer, as it was given
+
+```text
+1: A
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-runner-runs-its-own-omni
 prd: 1883
@@ -44,3 +77,6 @@ Moving one test into a file of its own, or removing one condition in the launche
 ## What I could not know
 
 - Whether a runner's job should rather run the job repository's pinned kit once it is installed; the fix picks the runner's copy because the wrapper only installs and starts the agent, and the job's own skills then use the repository's own omni (author).
+```
+
+<!-- /omni-outbox-settled: s1-01-runner-runs-its-own-omni -->
