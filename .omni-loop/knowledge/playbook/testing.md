@@ -66,4 +66,6 @@ A test outside them never runs.
 
 ## Test data
 <!-- slot: data · optional -->
-TODO(human): the kit's fixture repositories default to the slug `acme/widgets` (kit/test/fixture.ts), and the app's are folders named by situation (`base-active`, `head-drift`). Is there a naming rule for a new fixture repository?
+A kit fixture repository takes an `acme/<name>` slug (`acme/widgets` by default, `kit/test/fixture.ts`);
+an app fixture is a kebab-case folder named after the situation it sets up (`base-active`,
+`head-drift`).
