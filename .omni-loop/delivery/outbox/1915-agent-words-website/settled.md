@@ -159,3 +159,161 @@ Switching to B later is a text edit of four published notes and the sample, with
 ```
 
 <!-- /omni-outbox-settled: s3-01-release-demo-history -->
+
+<!-- omni-outbox-settled: s4-01-guard-found-strings -->
+
+## s4-01-guard-found-strings — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-guard-found-strings
+prd: 1915
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-14
+wave: 2
+---
+
+## The question, in plain words
+
+The new check found two more places the app named Claude that the spec's list did not cover: the message the question service sends back when an agent's lead text is too long, and the example name offered when a person makes a terminal key. Should they speak of the agent too?
+
+## The decision, in plain words
+
+Both now speak of the agent: the message says the text the agent wrote, and the example key name reads cloud-agent, in the form and in the demo profile.
+
+## The intro, for fun
+
+The new check went looking for one name and found two more hiding in plain sight.
+
+## The punchline, for fun
+
+They now answer to the agent, like everyone else.
+
+## The options, in plain words
+
+A. A. Both speak of the agent: the agent wrote, cloud-agent (built).
+B. B. Keep claude-cloud as the example key name, since many keys are made for Claude cloud sessions; change only the refusal.
+C. C. Keep both as they were and add them to the check's list of names that stay.
+
+## What I had to decide
+
+Whether the refusal message and the key-name example say the agent, as the spec's after column does for the rest of the app.
+
+## What I did meanwhile
+
+The refusal reads "the text the agent wrote before asking", and the key-name field suggests cloud-agent.
+
+## What it costs to change later
+
+Two short strings and one test line; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's table lists neither string; the slice applied its rule for a string found in the same sense (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-guard-found-strings -->
+
+<!-- omni-outbox-settled: s4-02-names-that-stay-beyond-the-list -->
+
+## s4-02-names-that-stay-beyond-the-list — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-names-that-stay-beyond-the-list
+prd: 1915
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-14
+wave: 2
+---
+
+## The question, in plain words
+
+Beyond the places the spec named, the check found four more that say Claude where rewording would rewrite a record or a stored message: the demo's first release, copied from the notes that shipped; the release notes' product line the spec itself wrote; two database refusal messages the test doubles repeat; and the model names the app calls. Should they stay?
+
+## The decision, in plain words
+
+They stay, each listed in the check with its reason. The first release keeps the words it shipped with, and the database messages wait for a change of their own.
+
+## The intro, for fun
+
+Some sentences are history, and history does not take edits kindly.
+
+## The punchline, for fun
+
+The check now knows which old words are on purpose.
+
+## The options, in plain words
+
+A. A. Keep them, each named in the check with its reason (built).
+B. B. Reword the demo's first release and the shipped notes together, so the demo stays word for word.
+C. C. Also add a migration that rewords the two database messages, and the test doubles with them.
+
+## What I had to decide
+
+Whether the shipped release notes and the database's refusal messages keep their words, or get rewritten to speak of the agent.
+
+## What I did meanwhile
+
+The check lets through exactly these words, in exactly these files; any new mention of Claude elsewhere fails it.
+
+## What it costs to change later
+
+Removing an entry from the check's list, then rewording: the release notes in their shipped folders and the demo together, or a small migration for the two database messages.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Rewording the shipped release notes rewrites a past record outside this slice's ground (author).
+- The database messages are raised by migrations; the spec rules out any migration (author).
+- The check reads the word Claude alone: names like claude_session_id stay code, as the spec says (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-names-that-stay-beyond-the-list -->
