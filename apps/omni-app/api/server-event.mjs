@@ -508,6 +508,9 @@ import { parse } from "yaml";
 import { z as z7 } from "zod";
 
 // kit/lib/narrow.ts
+function isOneOf(values, value) {
+  return values.some((member) => member === value);
+}
 function propertyOf(value, key) {
   return value === null || value === void 0 ? void 0 : Reflect.get(Object(value), key);
 }
@@ -789,6 +792,19 @@ var agentList = z7.array(z7.enum(AGENTS, { error: (issue) => `${String(issue.inp
     if (agents.indexOf(agent) !== index) issues.addIssue({ code: "custom", path: [index], message: `${agent} is listed twice` });
   });
 }).default(["claude"]);
+var TIERS = Object.freeze(["deep", "build", "light"]);
+var EFFORTS = Object.freeze(["low", "medium", "high", "xhigh", "max"]);
+var tierEntry = z7.object({
+  model: text2,
+  effort: z7.enum(EFFORTS, { error: (issue) => `${String(issue.input)} is no effort \u2014 one of ${EFFORTS.join(", ")}` }).optional()
+}).strict();
+var tierRow = z7.record(z7.string(), tierEntry).superRefine((row, issues) => {
+  for (const tier of Object.keys(row)) {
+    if (!isOneOf(TIERS, tier)) {
+      issues.addIssue({ code: "custom", path: [tier], message: `${tier} is no tier \u2014 one of ${TIERS.join(", ")}` });
+    }
+  }
+});
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z7.object({
   kit: z7.literal(CONFIG_VERSION),
@@ -824,6 +840,9 @@ var ConfigSchema = z7.object({
   // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
   // without the key installs for Claude Code alone, as before.
   agents: agentList,
+  // PRD 1934: the model and effort each tier runs on, one row per agent `agents` lists. Optional:
+  // a config without it parses with no `tiers` key, and every slice runs on the terminal's model.
+  tiers: z7.record(z7.string(), tierRow).optional(),
   paths: section({
     delivery: text2.default(".omni-loop/delivery"),
     knowledge: text2.default(".omni-loop/knowledge"),
@@ -1030,7 +1049,12 @@ var ConfigSchema = z7.object({
   // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
   // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
   budgets: z7.object({ context: section({ enabled: z7.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional()
-}).strict().superRefine(({ pr, flow }, issues) => {
+}).strict().superRefine(({ pr, flow, agents, tiers }, issues) => {
+  for (const agent of Object.keys(tiers ?? {})) {
+    if (!isOneOf(agents, agent)) {
+      issues.addIssue({ code: "custom", path: ["tiers", agent], message: `${agent} is not in agents (${agents.join(", ")})` });
+    }
+  }
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
     issues.addIssue({
