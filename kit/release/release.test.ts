@@ -179,6 +179,28 @@ describe('release', () => {
     expect(calls.some((line) => line.startsWith('git tag -a'))).toBe(false);
   });
 
+  it('tags a release commit main already holds without its tag, then releases the next version (#1957)', () => {
+    const stranded = 'd38a9852d38a9852d38a9852d38a9852d38a9852';
+    const { root, calls, code } = run({
+      'git tag --list': 'v0.0.8\nv0.0.9\n',
+      'git log --format=%H -1 -E --grep=^chore\\(release\\): v0\\.0\\.10$': `${stranded}\n`,
+    });
+
+    expect(code).toBe(0);
+    const tagStranded = calls.indexOf(`git tag -a v0.0.10 -m v0.0.10 ${stranded}`);
+    const pushStranded = calls.indexOf('git push origin v0.0.10');
+    const publishStranded = calls.indexOf(`gh release create v0.0.10 ${BUNDLE} --title v0.0.10 --generate-notes --verify-tag`);
+    expect(calls[publishStranded - 1]).toBe(`git checkout ${stranded} -- ${BUNDLE}`);
+    expect(calls[publishStranded + 1]).toBe(`git checkout HEAD -- ${BUNDLE}`);
+    expect(tagStranded >= 0 && tagStranded < pushStranded && pushStranded < publishStranded - 1).toBe(true);
+
+    expect(dig(readJson(join(root, 'package.json')), 'version')).toBe('0.0.11');
+    expect(calls.indexOf('git commit -q -m chore(release): v0.0.11\n\n' + TRAILER)).toBeGreaterThan(publishStranded);
+    expect(calls).toContain('git tag -a v0.0.11 -m v0.0.11');
+    expect(calls).toContain('git push origin v0.0.11');
+    expect(calls.filter((line) => line.startsWith('git commit -q -m chore(release): v0.0.10'))).toHaveLength(0);
+  });
+
   it('fails when the build fails, before anything is committed', () => {
     const { calls, code } = run({
       'pnpm kit:build': () => {
