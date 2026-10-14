@@ -4,14 +4,17 @@
 // read or is not `trace-1` (the message names the file); exit 2 for a usage error. It reads files only:
 // no network, no browser, no model.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
 import { filesUnder, guardFiles } from '../../lib/e2e/guard.ts';
 import { compareRecordings, readRecordingsAt } from '../../lib/e2e/heals.ts';
 import { confirmHeld, holdHealed, readLedgerAt, rejectHeld, withoutConfirmed } from '../../lib/e2e/hold.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { screenshotsFor } from '../../lib/e2e/screenshots.ts';
+import { FlowsError, parseFlows } from '../../lib/e2e/flows.ts';
 import { RecordingError, readRecordings, readTaggedTests } from '../../lib/e2e/recording.ts';
-import { missingRecording, testStatus } from '../../lib/e2e/status.ts';
+import { missingRecording, type TestStatus, testStatus, unknownFlows } from '../../lib/e2e/status.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 import { messageOf } from '../../lib/narrow.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
@@ -26,6 +29,19 @@ const USAGE = ['status <prd>', 'heals <prd> [--head <ref>]', 'hold <prd>', 'conf
   .map((sub, i) => `${i === 0 ? 'usage:' : '      '} omni e2e ${sub}`)
   .join('\n');
 
+/** PRD 1737: the refusals of the tests against `<dir>/critical-flows.md` (absent: no list); throws a `FlowsError` when it does not parse. */
+function flowRefusals(root: string, dir: string, tests: readonly TestStatus[]): string[] {
+  const file = `${dir}/critical-flows.md`;
+  let text: string | undefined;
+  try {
+    text = readFileSync(join(root, file), 'utf8');
+  } catch {
+    text = undefined;
+  }
+  const list = parseFlows(file, text);
+  return unknownFlows(tests, list.kind === 'list' ? list.flows.map((flow) => flow.id) : null);
+}
+
 function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   const { positional } = parseArgs('e2e status', args);
   if (positional.length !== 1) throw usageError(USAGE);
@@ -37,10 +53,12 @@ function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   }
   try {
     const tests = testStatus(readTaggedTests(ctx.root, dir, prd), readRecordings(ctx.root, dir));
+    const refused = flowRefusals(ctx.root, dir, tests);
     println(stdout, JSON.stringify({ prd, dir, tests }, null, 2));
-    return missingRecording(tests) ? 1 : 0;
+    for (const line of refused) println(stderr, `omni e2e: ${line}`);
+    return missingRecording(tests) || refused.length > 0 ? 1 : 0;
   } catch (error) {
-    if (!(error instanceof RecordingError)) throw error;
+    if (!(error instanceof RecordingError || error instanceof FlowsError)) throw error;
     println(stderr, `omni e2e: ${messageOf(error)}`);
     return 1;
   }

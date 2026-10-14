@@ -57,6 +57,10 @@ const UpdatedSchema = z.object({ cancel: z.boolean().optional() }).loose();
 export type JobUpdate = {
   status: 'running' | 'done' | 'failed' | 'cancelled';
   logTail?: string;
+  /** The number of the first of `lines`: its 1-based line number in the job's log (PRD 1904). */
+  from?: number;
+  /** The log's lines after the runner's cursor, sent with `from` or not at all. */
+  lines?: string[];
   prUrl?: string | null;
   exitCode?: number | null;
   reason?: string | null;

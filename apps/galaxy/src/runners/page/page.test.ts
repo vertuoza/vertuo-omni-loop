@@ -49,6 +49,12 @@ describe('/app/runners', () => {
     }
   });
 
+  it('passes the job ?terminal= names on, to open its Terminal panel (PRD 1904)', async () => {
+    given.session = { kind: 'demo' };
+    expect((await props({ terminal: 'job-1' })).terminal).toBe('job-1');
+    expect((await props()).terminal).toBeNull();
+  });
+
   it('loads the board as the signed-in person', async () => {
     given.session = { kind: 'signed-in', db: { db: true }, user: { id: 'u1' } };
     expect((await props()).view).toEqual({ kind: 'board', loaded: true });

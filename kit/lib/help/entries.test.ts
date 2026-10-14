@@ -551,6 +551,14 @@ describe('the e2e entry', () => {
   });
 });
 
+describe('the e2e status help (PRD 1737)', () => {
+  it('says status adds level and flow and refuses a critical test with no known flow', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
+    const detail = entry && 'detail' in entry ? entry.detail : '';
+    for (const word of ['level', 'flow', 'critical', 'critical-flows.md']) expect(detail).toContain(word);
+  });
+});
+
 describe('the e2e field', () => {
   const detail = (kind: string, name: string) => {
     const entry = ENTRIES.find((e) => e.kind === kind && e.name === name);
@@ -561,5 +569,15 @@ describe('the e2e field', () => {
     expect(detail('skill', 'yolo')).toContain('e2e: validate');
     expect(detail('skill', 'yolo')).not.toContain('/omni:validate-e2e');
     expect(detail('skill', 'validate-e2e')).toContain('e2e: validate');
+  });
+});
+
+describe('omni help runner (PRD 1904)', () => {
+  it('describes the stream-json run and the live log it sends', () => {
+    const runner = ENTRIES.find((entry) => entry.kind === 'command' && entry.name === 'runner');
+    assertDefined(runner, 'runner');
+    for (const words of ['stream-json', '~/logs/job-<id>.log', '~/logs/job-<id>.jsonl', '2,000 lines and 256 KB', 'Terminal panel']) {
+      expect(runner.detail).toContain(words);
+    }
   });
 });

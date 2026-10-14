@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenCheck } from '../ask/auth';
-import { cancelJob, nextJob, registerRunner, reportJob, sendJob, setRunnerFleet, type RunnersDeps } from './runners.controller';
-import type { JobRow } from './runners.repository';
+import { cancelJob, jobLines, nextJob, registerRunner, reportJob, sendJob, setRunnerFleet, type RunnersDeps } from './runners.controller';
+import type { JobLineRow, JobRow } from './runners.repository';
 import { runnersService } from './runners.service';
-import { CIA_BOX, fakeStore, jobRow, MO, OLGA, PIA, SHARED, T0 } from './fixtures/store.fake';
+import { CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, PIA, SHARED, T0 } from './fixtures/store.fake';
 
 // The runners' routes (PRD 1830 s1), with the real service on the fake store: the sign-in is checked
 // before anything else (the kit's for a runner's routes, the session for the browser's), each answer is
@@ -21,10 +21,12 @@ const connect = (): TokenCheck => ({
   },
 });
 
-function world({ jobs = [], viewer = MO, database = true, serviceRole = true }: { jobs?: JobRow[]; viewer?: string | null; database?: boolean; serviceRole?: boolean } = {}) {
+function world({ jobs = [], lines = [], viewer = MO, database = true, serviceRole = true }: {
+  jobs?: JobRow[]; lines?: JobLineRow[]; viewer?: string | null; database?: boolean; serviceRole?: boolean;
+} = {}) {
   const logged: string[] = [];
   let now = T0;
-  const { store, state } = fakeStore({ jobs, now: () => now });
+  const { store, state } = fakeStore({ jobs, lines, now: () => now });
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -183,6 +185,79 @@ describe('PATCH /api/runners/<id>', () => {
     expect(await read(await setRunnerFleet(browser(`/${SHARED}`, { fleet: 'cia' }, 'PATCH'), SHARED, world({ viewer: MO }).deps)))
       .toEqual({ status: 403, body: { error: 'Only a workspace owner gives a runner to a fleet.' } });
     expect((await setRunnerFleet(browser(`/${SHARED}`, { fleet: 7 }, 'PATCH'), SHARED, world({ viewer: OLGA }).deps)).status).toBe(400);
+  });
+});
+
+describe('a report\'s live lines (PRD 1904)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+
+  it('stores the lines a report carries, once each', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    const report = { status: 'running', logTail: 'tail', from: 1, lines: ['12:04:31 Bash: pnpm test', '12:04:40 Edit: src/a.ts'] };
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', report), job.id, w.deps)).status).toBe(200);
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', report), job.id, w.deps)).status).toBe(200);
+    expect(w.state.lines.map((row) => [row.seq, row.text])).toEqual([[1, '12:04:31 Bash: pnpm test'], [2, '12:04:40 Edit: src/a.ts']]);
+  });
+
+  it('takes a full report: 2,000 lines of 600 characters beside a 16 KB tail', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    const lines = Array.from({ length: 2000 }, (_, i) => `12:04:31 Bash: echo "${String(i)}" ${'x'.repeat(560)}`.slice(0, 600));
+    const response = await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', logTail: 'x'.repeat(16 * 1024), from: 1, lines }), job.id, w.deps);
+    expect(response.status).toBe(200);
+    expect(w.state.lines).toHaveLength(2000);
+  });
+
+  it('refuses lines without from, and too many lines', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', lines: ['a'] }), job.id, w.deps)).status).toBe(400);
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', from: 1, lines: Array.from({ length: 2001 }, () => 'a') }), job.id, w.deps)).status).toBe(400);
+    expect(w.state.lines).toEqual([]);
+  });
+});
+
+describe('GET /api/runners/jobs/<id>/lines', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), log_tail: 'tail' });
+  const get = (id: string, query = '') => new Request(`${URL_BASE}/jobs/${id}/lines${query}`);
+
+  it('answers a member the lines after `after`, in order, with more, first and no tail', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 1, 3), viewer: PIA });
+    const response = await jobLines(get(job.id, '?after=1'), job.id, w.deps);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(await read(response)).toEqual({
+      status: 200, body: { status: 'running', lines: [{ seq: 2, text: 'line 2' }, { seq: 3, text: 'line 3' }], more: false, first: 1, logTail: null },
+    });
+  });
+
+  it('reads from the first line when `after` is not given, at most 5,000 at a time', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 1, 5_001) });
+    const body = (await read(await jobLines(get(job.id), job.id, w.deps))).body as { lines: unknown[]; more: boolean; first: number };
+    expect([body.lines.length, body.more, body.first]).toEqual([5_000, true, 1]);
+  });
+
+  it('answers the log tail of a job that holds no line', async () => {
+    const job = running();
+    expect(await read(await jobLines(get(job.id), job.id, world({ jobs: [job] }).deps)))
+      .toEqual({ status: 200, body: { status: 'running', lines: [], more: false, first: null, logTail: 'tail' } });
+  });
+
+  it('answers 404 to a non-member, for an unknown job and for an id that is none', async () => {
+    const job = running();
+    const elsewhere = world({ jobs: [job], lines: lineRows(job, 1, 3), viewer: EVE });
+    expect(await read(await jobLines(get(job.id), job.id, elsewhere.deps))).toEqual({ status: 404, body: { error: 'No such job.' } });
+    expect((await jobLines(get('00000000-0000-4000-8000-000001830fff'), '00000000-0000-4000-8000-000001830fff', world({ viewer: MO }).deps)).status).toBe(404);
+    expect((await jobLines(get('nope'), 'nope', world({ viewer: MO }).deps)).status).toBe(404);
+  });
+
+  it('refuses a malformed `after`, and a browser with no session', async () => {
+    const job = running();
+    expect((await jobLines(get(job.id, '?after=-1'), job.id, world({ jobs: [job] }).deps)).status).toBe(400);
+    expect((await jobLines(get(job.id, '?after=1&x=2'), job.id, world({ jobs: [job] }).deps)).status).toBe(400);
+    expect(await read(await jobLines(get(job.id), job.id, world({ jobs: [job], viewer: null }).deps))).toEqual({ status: 401, body: { error: 'Sign in first.' } });
   });
 });
 

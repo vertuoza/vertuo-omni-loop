@@ -2826,6 +2826,45 @@ export type Database = {
           },
         ]
       }
+      runner_job_lines: {
+        Row: {
+          at: string
+          job_id: string
+          seq: number
+          text: string
+          workspace_id: string
+        }
+        Insert: {
+          at?: string
+          job_id: string
+          seq: number
+          text: string
+          workspace_id: string
+        }
+        Update: {
+          at?: string
+          job_id?: string
+          seq?: number
+          text?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_job_lines_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_job_lines_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runner_jobs: {
         Row: {
           cancel_requested: boolean
@@ -4732,6 +4771,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      runner_job_lines_retain: {
+        Args: { p_keep: number; p_workspace: string }
+        Returns: number
       }
       runners_mark_lost: { Args: { p_cutoff: string }; Returns: number }
       set_jev_decision: {

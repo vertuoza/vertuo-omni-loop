@@ -878,9 +878,9 @@ describe('the PR care tab (PRD 790, s4)', () => {
     expect(running).toMatchObject({ ci: { state: 'running', href: null }, conflict: { state: 'unknown', words: 'GitHub is still checking' } });
   });
 
-  it('says Claude is watching under 15 minutes after the last round, else nobody, with the command to start', () => {
-    expect(careOf(github()).care?.watcher).toEqual({ watching: true, words: 'Claude is watching · last round 3 min ago', command: '/omni:pr-care 216' });
-    expect(watcherOf('2026-09-30T11:45:01Z', parsePrd(216), NOW)).toMatchObject({ watching: true, words: 'Claude is watching · last round 14 min ago' });
+  it('says the agent is watching under 15 minutes after the last round, else nobody, with the command to start', () => {
+    expect(careOf(github()).care?.watcher).toEqual({ watching: true, words: 'The agent is watching · last round 3 min ago', command: '/omni:pr-care 216' });
+    expect(watcherOf('2026-09-30T11:45:01Z', parsePrd(216), NOW)).toMatchObject({ watching: true, words: 'The agent is watching · last round 14 min ago' });
     for (const last of ['2026-09-30T11:45:00Z', '2026-09-29T11:57:00Z', null]) {
       expect(watcherOf(last, parsePrd(216), NOW)).toEqual({ watching: false, words: 'Nobody is watching', command: '/omni:pr-care 216' });
     }

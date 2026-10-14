@@ -137,7 +137,7 @@ export type Alert = { title: string; body: string; tag: string; href: string };
 export function alertOf(item: WaitingItem): Alert {
   switch (item.kind) {
     case 'question':
-      return { title: `Claude is asking: ${item.question}`, body: item.sessionTitle, tag: item.id, href: `/ask/q/${encodeURIComponent(item.id)}` };
+      return { title: `Your agent is asking: ${item.question}`, body: item.sessionTitle, tag: item.id, href: `/ask/q/${encodeURIComponent(item.id)}` };
     case 'outbox':
       return { title: `PRD ${item.prd} outbox: ${item.question}`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}?tab=outbox` };
     case 'approval':

@@ -28,8 +28,10 @@
   .row { display: grid; gap: 14px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--ask-line); min-width: 0; }
   .row:first-child { border-top: 0; }
   .head { font: 700 12px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 10px; }
-  .runners .row { grid-template-columns: minmax(140px, 1.2fr) 130px 140px 70px minmax(0, 2fr) 70px; }
-  .jobs .row { grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px 120px 110px 120px; }
+  .runners .row { grid-template-columns: minmax(140px, 1.2fr) 130px 140px 70px minmax(0, 2fr) 70px 96px; }
+  .jobs .row { grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px 120px 110px 200px; }
+  .acts { display: flex; gap: 6px; justify-content: flex-end; }
+  .ghost[disabled] { opacity: .45; }
   .name { font-weight: 700; }
   .muted { color: var(--ask-muted); font-size: 14px; }
   .state { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
@@ -49,36 +51,33 @@
 </style>
 </head>
 <body>
-<div class="note"><p>Runners at /app/runners (PRD 1830), drawn inside the app shell, which is its own shared screen. The figures are examples.</p></div>
+<div class="note"><p>Runners at /app/runners (PRD 1830, Terminal buttons from PRD 1904), drawn inside the app shell, which is its own shared screen. The figures are examples.</p></div>
 <div class="frame"><div class="bar">Dashboard › <b>Runners</b></div>
   <div class="page" data-screen="runners">
     <header><h1>Runners</h1></header>
     <section>
       <h2>Runners</h2>
       <div class="table runners">
-        <div class="row head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span></div>
+        <div class="row head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span><span></span></div>
         <div class="row"><span class="name">vertuo-agents</span><span class="state busy"><i class="dot"></i>Busy</span>
           <select aria-label="Fleet of vertuo-agents"><option>Cyan</option><option>Shared</option></select>
-          <span data-content>4 of 4</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.388</span></div>
+          <span data-content>4 of 4</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.388</span><button class="ghost" type="button">Terminal</button></div>
         <div class="row"><span class="name">mac-mini-office</span><span class="state on"><i class="dot"></i>Online</span>
           <select aria-label="Fleet of mac-mini-office"><option>Shared</option><option>Cyan</option></select>
-          <span data-content>1 of 2</span><span class="chips hide-s" data-content>vertuo-omni-loop · vertuo-apps</span><span class="muted hide-s" data-content>0.0.388</span></div>
+          <span data-content>1 of 2</span><span class="chips hide-s" data-content>vertuo-omni-loop · vertuo-apps</span><span class="muted hide-s" data-content>0.0.388</span><button class="ghost" type="button">Terminal</button></div>
         <div class="row"><span class="name">pierre-laptop</span><span class="state off"><i class="dot"></i>Offline, 3 h ago</span>
           <select aria-label="Fleet of pierre-laptop"><option>Shared</option></select>
-          <span data-content>0 of 1</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.385</span></div>
+          <span data-content>0 of 1</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.385</span><button class="ghost" type="button" disabled title="No job yet">Terminal</button></div>
       </div>
     </section>
     <section>
       <h2>Jobs</h2>
       <div class="table jobs">
         <div class="row head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span></span></div>
-        <div class="row"><code data-content>/omni:yolo 1717</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>vertuo-agents</span><span class="status s-run">Running 12 min</span><button class="ghost" type="button">Cancel</button></div>
-        <pre class="log" data-content><b>log, last lines</b>
-wave 1 · slice s1-02 · tests green
-opened https://github.com/vertuoza/vertuo-omni-loop/pull/1841</pre>
-        <div class="row"><code data-content>/omni:pr-care 1801</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@irisa</span><span data-content>Cyan</span><span class="status s-queue">Queued</span><button class="ghost" type="button">Cancel</button></div>
-        <div class="row"><code data-content>/omni:bug-fix 1790</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@paul</span><span data-content>Any runner</span><span class="status s-done">Done</span><a href="#">PR #1838</a></div>
-        <div class="row"><code data-content>/omni:yolo 1702</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>pierre-laptop</span><span class="status s-fail">Runner lost</span><button class="ghost" type="button" data-primary>Send again</button></div>
+        <div class="row"><code data-content>/omni:yolo 1717</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>vertuo-agents</span><span class="status s-run">Running 12 min</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+        <div class="row"><code data-content>/omni:pr-care 1801</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@irisa</span><span data-content>Cyan</span><span class="status s-queue">Queued</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+        <div class="row"><code data-content>/omni:bug-fix 1790</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@paul</span><span data-content>Any runner</span><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button">Terminal</button><a href="#">PR #1838</a></span></div>
+        <div class="row"><code data-content>/omni:yolo 1702</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>pierre-laptop</span><span class="status s-fail">Runner lost</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button" data-primary>Send again</button></span></div>
       </div>
     </section>
   </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cancelRunnerJob, sendToRunner, setRunnerFleet } from './runners.client';
-import type { Job, Runner } from './runners.contract';
+import { cancelRunnerJob, readJobLines, sendToRunner, setRunnerFleet } from './runners.client';
+import type { Job, JobLines, Runner } from './runners.contract';
 
 // The browser's calls to the runners' routes (PRD 1830 s1): what each sends, and how an answer, a
 // refusal and an unreachable app come back.
@@ -50,5 +50,14 @@ describe('the runners\' client', () => {
   it('says so when the app cannot be reached', async () => {
     const down = (() => Promise.reject(new TypeError('fetch failed'))) as typeof fetch;
     expect(await cancelRunnerJob(JOB.id, down)).toEqual({ ok: false, error: 'The Omni app could not be reached. Try again.' });
+  });
+
+  it('reads a job\'s live lines after a sequence number (PRD 1904)', async () => {
+    const lines: JobLines = { status: 'running', lines: [{ seq: 1201, text: '12:04:31 Bash: pnpm test' }], more: false, first: 1, logTail: null };
+    const { fake, calls } = fetcher(200, lines);
+    expect(await readJobLines(JOB.id, 1200, fake)).toEqual({ ok: true, value: lines });
+    expect(calls).toEqual([{ url: `/api/runners/jobs/${JOB.id}/lines?after=1200`, method: 'GET', body: null }]);
+    const missing = fetcher(404, { error: 'No such job.' });
+    expect(await readJobLines(JOB.id, 0, missing.fake)).toEqual({ ok: false, error: 'No such job.' });
   });
 });

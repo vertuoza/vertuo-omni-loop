@@ -69,7 +69,7 @@ describe('the section', () => {
     const html = card();
     expect(html).toContain('<form class="terminal-make" action="/ask/signin" method="get">');
     for (const field of ['name="purpose" value="token"', 'name="workspace" value="vertuoza"', 'name="back" value="/app/people/ada"']) expect(html).toContain(field);
-    expect(html).toContain('<input type="text" required="" maxLength="40" placeholder="claude-cloud" name="name"/>');
+    expect(html).toContain('<input type="text" required="" maxLength="40" placeholder="cloud-agent" name="name"/>');
     expect(html).toContain('<option value="30">30 days</option><option value="90" selected="">90 days</option><option value="365">365 days</option>');
     expect(html).toMatch(/<button type="submit" class="ask-button" data-primary="true">Make a token<\/button>/);
   });

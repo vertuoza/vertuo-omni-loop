@@ -33,13 +33,13 @@ const iso = (at: number) => new Date(at).toISOString();
 
 const SPEC_V1 = `---
 prd: 71
-title: Ask mode — Claude's questions on a page made for reading
+title: Ask mode — the agent's questions on a page made for reading
 spec: file
 ---
 
 # Ask mode
 
-Claude asks its questions on a page the person reads and answers, a tab per terminal.
+The agent asks its questions on a page the person reads and answers, a tab per terminal.
 
 ## Solution
 
@@ -68,7 +68,7 @@ const PAGE_V1 = `<!doctype html>
 </style>
 <h1>Ask mode</h1>
 <div class="pair">
-  <div class="side"><b>Today</b><p>Claude's questions wait in the terminal.</p></div>
+  <div class="side"><b>Today</b><p>The agent's questions wait in the terminal.</p></div>
   <div class="side"><b>After</b><p>They open on a page, a tab per terminal.</p></div>
 </div>
 <p id="sandbox"></p>
@@ -150,7 +150,7 @@ const CHECKS = {
   options: [
     { label: 'Row-level security', description: 'Two accounts\' tokens against the migration.' },
     { label: 'Handler tests', description: 'The API as functions, with a stubbed client.' },
-    { label: 'A live session', description: 'A real Claude Code session answered from the page.' },
+    { label: 'A live session', description: 'A real coding-agent session answered from the page.' },
   ],
 };
 const UPDATES = {
@@ -305,7 +305,7 @@ export function demoDossier(now: number): DossierRead {
   return {
     dossier: {
       id: DEMO_DOSSIER_ID, workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: DEMO_PRD,
-      title: 'Ask mode — Claude\'s questions on a page made for reading', opened_by: DEMO_OWNER,
+      title: 'Ask mode — the agent\'s questions on a page made for reading', opened_by: DEMO_OWNER,
       created_at: iso(opened), numbered_at: iso(opened + 90 * MIN),
     },
     versions: [

@@ -89,7 +89,7 @@
   <!-- source → roadmap -->
   <path d="M176 64 L310 64" class="dg-line dg-edge-you"/>
   <polygon points="319,64 310,69.5 310,58.5" class="dg-head dg-you"/>
-  <text x="247.5" y="52" class="dg-tag dg-you" text-anchor="middle">YOU + CLAUDE</text>
+  <text x="247.5" y="52" class="dg-tag dg-you" text-anchor="middle">YOU + AGENT</text>
   <text x="247.5" y="86" class="dg-code" text-anchor="middle">/omni:roadmap</text>
   <text x="247.5" y="102" class="dg-code" text-anchor="middle">/omni:mega-roadmap</text>
   <text x="247.5" y="122" class="dg-small dg-muted" text-anchor="middle">one map, one answer</text>
