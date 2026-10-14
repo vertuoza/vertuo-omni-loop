@@ -646,7 +646,7 @@ Lowering the ceiling again means trimming the decision list's page (`.omni-loop/
 - Channel: feature pull request #1871
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1871#issuecomment-6166108068
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #1922, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: none
 - Raised: 2026-10-14
