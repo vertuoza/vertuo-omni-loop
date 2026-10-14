@@ -16,7 +16,7 @@ import { TOKENS } from '../../src/ask/theme-tokens';
 
 export const metadata: Metadata = {
   title: 'Ask · OMNI LOOP',
-  description: 'Claude’s questions, on a page made for reading.',
+  description: 'Your agent’s questions, on a page made for reading.',
   robots: { index: false, follow: false },
 };
 

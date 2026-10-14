@@ -17,7 +17,7 @@ import type { AskDock } from './dock-player';
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
 // selected one's pane beside the list. The list is read again every 2 s while the page is visible;
 // the selection moves only when the person picks a tab (a link to /ask/<id>), never by itself: a
-// question arriving elsewhere badges that tab. The browser title is Claude asks, prefixed with the
+// question arriving elsewhere badges that tab. The browser title is Your agent asks, prefixed with the
 // waiting list's count like every app page (PRD 499). Below 720 px the list
 // folds into one row at the top that says how many terminals there are and how many need the person;
 // pressing it opens the list, and picking a tab closes it. The list and the pane read through
@@ -100,8 +100,8 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
         <section className="ask-card" aria-live="polite">
           <h1>Ask mode is not on in any terminal</h1>
           <p className="ask-muted">
-            Run <code>/omni:ask on</code> in a Claude Code terminal. Each terminal that asks a question shows here as a
-            tab of its own.
+            Run <code>/omni:ask on</code> in your coding agent&apos;s terminal. Each terminal that asks a question shows
+            here as a tab of its own.
           </p>
         </section>
       </div>
@@ -161,7 +161,7 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
           <div className="ask-col">
             <section className="ask-card">
               <h1>Pick a terminal</h1>
-              <p className="ask-muted">Each tab is one Claude Code terminal. Pick one to read and answer its questions.</p>
+              <p className="ask-muted">Each tab is one agent&apos;s terminal. Pick one to read and answer its questions.</p>
             </section>
           </div>
         )}

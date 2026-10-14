@@ -7,7 +7,7 @@ import type { SessionState } from './view';
 
 // The /ask tab's play dock (PRD 757), as the server renders the tab: the dock itself draws nothing
 // before the browser measures the window (play-dock's own tests), so it is stubbed here to show what
-// the tab hands it. The "Claude is working" card stays exactly as it was, beside it.
+// the tab hands it. The "The agent is working" card stays exactly as it was, beside it.
 vi.mock('../../play-dock/PlayDock', () => ({
   PlayDock: (props: PlayDockProps) => createElement('i', { 'data-dock': props.state, 'data-href': props.answerHref }),
 }));
@@ -32,10 +32,10 @@ const render = (initial: SessionState, dock: AskDock | null = DOCK, viewer: 'own
 const dockOf = (html: string) => html.match(/data-dock="([a-z]+)"/)?.[1] ?? null;
 
 describe('the /ask tab offers the game while its terminal works (PRD 757)', () => {
-  it('while its terminal\'s heartbeat is fresh, the dock is working, beside the unchanged "Claude is working" card', () => {
+  it('while its terminal\'s heartbeat is fresh, the dock is working, beside the unchanged "The agent is working" card', () => {
     const html = render(tab());
     expect(dockOf(html)).toBe('working');
-    expect(html).toContain('<h1 class="ask-working">Claude is working</h1>');
+    expect(html).toContain('<h1 class="ask-working">The agent is working</h1>');
   });
 
   it('with no heartbeat, a stale one or an ended one, the dock is idle, so no pill', () => {
@@ -44,7 +44,7 @@ describe('the /ask tab offers the game while its terminal works (PRD 757)', () =
     expect(dockOf(render(tab({ ping: { seen_at: at(20_000), ended_at: at(5000) } })))).toBe('idle');
   });
 
-  it('the open question pauses it, and ⏸ CLAUDE ASKED · ANSWER leads to the question on this page', () => {
+  it('the open question pauses it, and ⏸ AGENT ASKED · ANSWER leads to the question on this page', () => {
     const open = { id: 'r1', questions: QUESTIONS, answers: null, answered_via: null, status: 'open' as const, created_at: at(30_000), answered_at: null };
     const html = render(tab({ rounds: [open] }));
     expect(dockOf(html)).toBe('asking');

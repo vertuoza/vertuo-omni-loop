@@ -34,18 +34,18 @@ describe('dockDoor: the arcade\'s own rule on who plays', () => {
 });
 
 describe('dockView', () => {
-  it('is hidden while Claude is idle and no game is on, open or folded', () => {
+  it('is hidden while the agent is idle and no game is on, open or folded', () => {
     expect(view({ state: 'idle' })).toEqual({ kind: 'hidden' });
     expect(view({ state: 'idle', open: true })).toEqual({ kind: 'hidden' });
   });
 
-  it('is the folded pill while Claude works, and only then', () => {
+  it('is the folded pill while the agent works, and only then', () => {
     expect(view()).toEqual({ kind: 'folded' });
     expect(view({ state: 'asking' })).toEqual({ kind: 'hidden' });
     expect(view({ state: 'idle', game: true })).toEqual({ kind: 'hidden' });
   });
 
-  it('plays once opened while Claude works', () => {
+  it('plays once opened while the agent works', () => {
     expect(view({ open: true })).toEqual({ kind: 'playing' });
     expect(view({ open: true, game: true })).toEqual({ kind: 'playing' });
   });
@@ -55,7 +55,7 @@ describe('dockView', () => {
     expect(view({ state: 'asking', open: true })).toEqual({ kind: 'asking' });
   });
 
-  it('says Claude is done when the page turns idle mid-game', () => {
+  it('says the agent is done when the page turns idle mid-game', () => {
     expect(view({ state: 'idle', open: true, game: true })).toEqual({ kind: 'done' });
   });
 
