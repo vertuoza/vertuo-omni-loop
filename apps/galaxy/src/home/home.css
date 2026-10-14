@@ -81,6 +81,22 @@ html:has(.home) body {
 }
 .home-promises .home-glyph { color: var(--yellow); }
 
+/* Who the loop works with (PRD 1915): one row of short items in the promises' type, split by
+   yellow dots, wrapping on a narrow screen; its last item links to the guide. */
+.home-works {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 15px/1.25 var(--font-display);
+  letter-spacing: 0.02em;
+  color: var(--white);
+}
+.home-works li + li::before { content: '·'; margin-right: 8px; color: var(--yellow); }
+.home-works a { color: var(--white); text-decoration: underline; text-decoration-color: var(--yellow); text-underline-offset: 3px; }
+
 .home-quote {
   font: 400 clamp(18px, 2.2vw, 26px)/1.05 var(--font-display);
   color: var(--yellow);
@@ -330,9 +346,10 @@ html:has(.home) body {
   .home-dots { order: 6; }
   .home-pitch { order: 7; }
   .home-promises { order: 8; }
-  .home-quote { order: 9; }
-  .home-spokes { order: 10; }
-  .home-kicker, .home-dots, .home-pitch, .home-promises, .home-quote, .home-spokes {
+  .home-works { order: 9; }
+  .home-quote { order: 10; }
+  .home-spokes { order: 11; }
+  .home-kicker, .home-dots, .home-pitch, .home-promises, .home-works, .home-quote, .home-spokes {
     position: relative;
     background: var(--ad-purple);
     margin: 0;

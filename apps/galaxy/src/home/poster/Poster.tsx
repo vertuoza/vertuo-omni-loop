@@ -14,6 +14,11 @@ import { PosterPlanet } from './PosterPlanet';
 /** The promise strip under the pitch, in its order. */
 export const PROMISES = ['ONE FOLDER IN, ONE FOLDER OUT', 'EVERY DECISION WRITTEN DOWN', 'A PERSON ALWAYS MERGES'] as const;
 
+/** The agents the loop works with, under the promises (PRD 1915): every agent the `agents` key
+ * accepts, then any coding agent, whose item links to the guide page that shows how each runs a skill. */
+const WORKS_WITH = ['CLAUDE CODE', 'CODEX', 'CURSOR', 'GEMINI CLI'] as const;
+const ANY_AGENT = { label: 'ANY CODING AGENT', href: '/docs/any-agent' } as const;
+
 /** The colour token the text column sits on (PRD 394). */
 export const POSTER_BACKGROUND = 'ad-purple';
 
@@ -25,6 +30,9 @@ export const POSTER_TEXT = [
   { selector: '.home-pitch', colour: 'highlight' },
   { selector: '.home-promises', colour: 'white' },
   { selector: '.home-promises .home-glyph', colour: 'yellow' },
+  { selector: '.home-works', colour: 'white' },
+  { selector: '.home-works a', colour: 'white' },
+  { selector: '.home-works li + li::before', colour: 'yellow' },
   { selector: '.home-quote', colour: 'yellow' },
   { selector: '.home-signup-hint', colour: 'white' },
   { selector: '.home-signup-change', colour: 'yellow' },
@@ -69,6 +77,11 @@ export function Poster() {
           {PROMISES.map((promise) => (
             <li key={promise}><span className="home-glyph" aria-hidden="true">★</span> {promise}</li>
           ))}
+        </ul>
+        <ul className="home-works" aria-label="Works with">
+          <li>WORKS WITH</li>
+          {WORKS_WITH.map((agent) => <li key={agent}>{agent}</li>)}
+          <li><a href={ANY_AGENT.href}>{ANY_AGENT.label}</a></li>
         </ul>
         <p className="home-quote">“TO JOIN INSTANTLY,<br />SIGN UP WITH GITHUB!”</p>
         <div className="home-spokes">
