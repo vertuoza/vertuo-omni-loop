@@ -563,3 +563,13 @@ describe('the e2e field', () => {
     expect(detail('skill', 'validate-e2e')).toContain('e2e: validate');
   });
 });
+
+describe('omni help runner (PRD 1904)', () => {
+  it('describes the stream-json run and the live log it sends', () => {
+    const runner = ENTRIES.find((entry) => entry.kind === 'command' && entry.name === 'runner');
+    assertDefined(runner, 'runner');
+    for (const words of ['stream-json', '~/logs/job-<id>.log', '~/logs/job-<id>.jsonl', '2,000 lines and 256 KB', 'Terminal panel']) {
+      expect(runner.detail).toContain(words);
+    }
+  });
+});
