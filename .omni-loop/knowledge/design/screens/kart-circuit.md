@@ -56,4 +56,4 @@ CIRCUIT · COMET RING · FROST EIGHT · BEST · NO TIME YET · ◀ ▶ CHOOSE ·
 
 ## Source
 
-/omni:brainstorm, PRD 1923: .omni-loop/delivery/inbox/1923-kart-frost-eight/before-after.html
+/omni:brainstorm, PRD 1923: .omni-loop/delivery/shipped/1923-kart-frost-eight/before-after.html

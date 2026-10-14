@@ -79,4 +79,4 @@ COMET RING · FROST EIGHT on OMNI KART's heading line.
 - apps/galaxy/src/arcade/deep-link.ts@736d552
 - apps/galaxy/README.md@3dc7bdb
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
-- /omni:brainstorm, PRD 1923: .omni-loop/delivery/inbox/1923-kart-frost-eight/before-after.html (OMNI KART's turns)
+- /omni:brainstorm, PRD 1923: .omni-loop/delivery/shipped/1923-kart-frost-eight/before-after.html (OMNI KART's turns)
