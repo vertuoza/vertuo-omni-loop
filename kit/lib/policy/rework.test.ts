@@ -554,7 +554,7 @@ function adoptedThenObjected({ because = 'we need all of them' } = {}) {
   roots.push(root);
   const ctx = flatCtx(root);
   const adopted = adoptItem({ ctx, itemText: OPTIONED_ITEM_TEXT });
-  expect(adopted.ok).toBe(true);
+  expect(adopted.ok ? "" : adopted.errors.join("\n")).toBe("");
   const ledger = join(root, `docs/outbox/${PRD}/settled.md`);
   const [adoptedEntry] = parseSettledEntries(readFileSync(ledger, 'utf8'), ctx.markers);
   assertDefined(adoptedEntry, 'the adopted entry');
@@ -622,6 +622,60 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
     expect(
       closed.split('\n').filter((line, index) => line !== settledText.split('\n')[index]),
     ).toHaveLength(1);
+  });
+});
+
+/** A medium item as `/omni:validate-e2e` records it under `/omni:yolo` (PRD #1941): options A
+ * (`standard`) and B (`critical`, `flow-<id>`), the test file the only path in backticks. */
+const E2E_TEST_FILE = 'e2e/tests/quote-checkout.spec.ts';
+const E2E_ITEM_TEXT = OPTIONED_ITEM_TEXT.replace('id: s3-01-components', 'id: e2e-s1-01-quote-checkout')
+  .replace('slice: s5', 'slice: e2e')
+  .replace('Which components does a quote show when none are granted?', 'Which flow does the quote checkout test cover, and does its failure break it?')
+  .replace('None, and the quote says so.', 'It stays standard, as written.')
+  .replace('A. None, and it says so', 'A. standard, as written')
+  .replace('B. All of them, costs hidden', 'B. critical, with the tag flow-quote-checkout')
+  .replace('`libs/vertuo-domain-quote/src/components.ts`', `\`${E2E_TEST_FILE}\``);
+
+describe('An answer to the e2e criticality question sets the test level (PRD #1941, s2)', () => {
+  it('answered B, the rework has the test file as its whole ground and option B as its choice', () => {
+    const root = mkdtempSync(join(tmpdir(), 'yolo-fix-e2e-'));
+    roots.push(root);
+    const ctx = flatCtx(root);
+    const adopted = adoptItem({ ctx, itemText: E2E_ITEM_TEXT });
+    expect(adopted.ok ? "" : adopted.errors.join("\n")).toBe("");
+    const ledger = join(root, `docs/outbox/${PRD}/settled.md`);
+    const [adoptedEntry] = parseSettledEntries(readFileSync(ledger, 'utf8'), ctx.markers);
+    assertDefined(adoptedEntry, 'the adopted entry');
+    const objected = appendObjection({
+      ctx: ctx as unknown as Parameters<typeof appendObjection>[0]['ctx'],
+      prd: PRD,
+      adoptedEntry,
+      item: parsedItem(E2E_ITEM_TEXT),
+      answer: {
+        text: 'B. critical, with the tag flow-quote-checkout',
+        approvedBy: 'pierrederval',
+        approvedAt: '2026-10-14T10:00:00Z',
+        channel: { kind: 'feature-pull-request', number: 1950 },
+        statedVerdict: 'drifted',
+      },
+      judgement: { verdict: 'drifted', basis: 'stated', reason: 'the reply chose option B' },
+    });
+    expect(objected.ok).toBe(true);
+
+    const [entry] = driftedEntries(readFileSync(ledger, 'utf8'), ctx.markers);
+    assertDefined(entry, 'the drifted entry');
+    const rework = deriveRework(entry);
+    expect(rework.territory).toEqual([E2E_TEST_FILE]);
+    expect(rework.chosenOption).toEqual({ letter: 'B', text: 'critical, with the tag flow-quote-checkout' });
+  });
+
+  it('answered A, nothing drifted and no rework is derived', () => {
+    const root = mkdtempSync(join(tmpdir(), 'yolo-fix-e2e-'));
+    roots.push(root);
+    const ctx = flatCtx(root);
+    expect(adoptItem({ ctx, itemText: E2E_ITEM_TEXT }).ok).toBe(true);
+    const ledger = readFileSync(join(root, `docs/outbox/${PRD}/settled.md`), 'utf8');
+    expect(driftedEntries(ledger, ctx.markers)).toEqual([]);
   });
 });
 
