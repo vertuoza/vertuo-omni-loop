@@ -74,7 +74,7 @@ function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; 
       <span data-content>{senderWords(job)}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span className={`runners-status is-${statusTone(job.status)}`}>{statusWords(job, now)}</span>
-      <span className="runners-actions"><Action job={job} primary={primary} /><TerminalButton job={job.id} /></span>
+      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} /></span>
     </div>
   );
 }

@@ -48,6 +48,7 @@
 .runners-ghost:disabled { color: var(--ask-muted); cursor: not-allowed; }
 .runners-problem { color: var(--ask-red); font-size: 13px; }
 
+.runners-row > .runners-ghost { justify-self: start; }
 .runners-actions { display: flex; flex-wrap: wrap; align-items: start; gap: 6px; }
 
 .runners-start { display: grid; gap: 8px; }
