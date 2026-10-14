@@ -5,9 +5,10 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { dig } from '../bin/dig.ts';
+import { readSkills } from '../lib/agents/skills.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = 'kit/dist/omni.mjs';
@@ -29,6 +30,19 @@ describe('the committed bundle (AC 10)', () => {
     execFileSync('node', [join(repoRoot, 'kit/build.ts'), fromElsewhere], { cwd: tmpdir(), stdio: 'ignore' });
     expect(readFileSync(fromElsewhere).equals(readFileSync(fromRoot))).toBe(true);
     expect(committed().equals(before)).toBe(true);
+  });
+
+  // PRD 1890 s2: the skills a repository's `omni` writes for other agents are the kit's, of its version.
+  it('carries every file under kit/plugin/skills/ byte-identical', async () => {
+    const fresh = join(mkdtempSync(join(tmpdir(), 'omni-dist-skills-')), 'omni.mjs');
+    execFileSync('node', [join(repoRoot, 'kit/build.ts'), fresh], { cwd: tmpdir(), stdio: 'ignore' });
+    const bundle = (await import(pathToFileURL(fresh).href)) as { kitSkills: () => Record<string, string> };
+    const carried = bundle.kitSkills();
+    const skillsDir = join(repoRoot, 'kit/plugin/skills');
+    const onDisk = Object.keys(readSkills(skillsDir));
+    expect(Object.keys(carried).sort()).toEqual([...onDisk].sort());
+    expect(onDisk).toContain('pixel-perfect/reference/review.md');
+    for (const path of onDisk) expect(Buffer.from(carried[path] ?? '', 'utf8').equals(readFileSync(join(skillsDir, path))), path).toBe(true);
   });
 
   it('starts with a node shebang', () => {
