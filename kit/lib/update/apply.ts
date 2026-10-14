@@ -18,7 +18,9 @@ import { readRepo } from '../init/repo.ts';
 import { writeForms } from '../playbook/write-forms.ts';
 import { footerLine, trailerLine } from '../signature.ts';
 import { UpdateError } from './release.ts';
-import { reportLines, updateBody, updateBranch, updateTitle } from './report.ts';
+import { agentsLine, reportLines, updateBody, updateBranch, updateTitle } from './report.ts';
+import { AgentsError, readManifest, syncAgentSkills } from '../agents/write.ts';
+import type { AgentCopyChange } from '../agents/write.ts';
 
 const LOOP_DIR = dirname(CONFIG_FILE);
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
@@ -63,14 +65,36 @@ export type ApplyOptions = {
   home: string | null;
   exec: ExecText;
   println: (line: string) => void;
+  /** The skills the copies for other agents are written from: the running kit's unless a test injects them. */
+  skills?: Record<string, string>;
 };
+
+/**
+ * The copies for other agents in the update's `worktree` (PRD 1890): rewritten, added and removed by
+ * the manifest, as `agents` and the kit's `skills` ask. Returns the copies that moved and every owned
+ * folder before and after, the paths the commit stages besides the loop's folder. Throws UpdateError,
+ * before writing anything, on an `omni-*` folder that is not omni's or a manifest it cannot trust.
+ */
+function syncAgents({ worktree, agents, version, skills }: { worktree: string; agents: readonly string[]; version: string; skills: Record<string, string> | undefined }): { changes: AgentCopyChange[]; folders: string[] } {
+  try {
+    const before = Object.keys(readManifest(worktree)?.folders ?? {});
+    const { changes } = syncAgentSkills({ root: worktree, agents, version, ...(skills ? { skills } : {}) });
+    const after = Object.keys(readManifest(worktree)?.folders ?? {});
+    // A folder of the old manifest is committed; a new one exists on disk: either way git knows the path.
+    const folders = [...new Set([...before, ...after])].filter((folder) => before.includes(folder) || existsSync(join(worktree, folder))).sort();
+    return { changes, folders };
+  } catch (error) {
+    if (!(error instanceof AgentsError)) throw error;
+    throw new UpdateError(`omni update: ${error.message}; nothing was committed.`);
+  }
+}
 
 /**
  * Brings the repository at `root` to `version`, the running bundle's, from `from` (or `null` for an
  * unversioned bin). Prints what changed and the pull request's link. Throws UpdateError on anything
  * that stops it; nothing is committed before every check has passed. Returns the exit code.
  */
-export function applyUpdate({ root, bundle, version, from, home, exec, println }: ApplyOptions): number {
+export function applyUpdate({ root, bundle, version, from, home, exec, println, skills }: ApplyOptions): number {
   const quiet = (cwd: string): ExecFileSyncOptionsWithStringEncoding => ({ cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   const git = (args: string[], cwd: string = root): string => {
     try {
@@ -116,10 +140,11 @@ export function applyUpdate({ root, bundle, version, from, home, exec, println }
     const ctx = createContext(worktree, branchConfig);
     const outside = !insideLoop(ctx.layout.frontDoor);
     const created = outside ? [] : writeForms({ ctx }).filter((file) => file.wrote).map((file) => file.path);
+    const agents = syncAgents({ worktree, agents: branchConfig.agents, version, skills });
     const labels = reconcileLabels(root, { exec, labels: branchConfig.labels });
-    const lines = reportLines({ from, to: version, forms: { created, outside, dir: ctx.layout.frontDoor }, labels });
+    const lines = [...reportLines({ from, to: version, forms: { created, outside, dir: ctx.layout.frontDoor }, labels }), ...agentsLine(agents.changes)];
 
-    git(['add', '-A', '--', LOOP_DIR], worktree);
+    git(['add', '-A', '--', LOOP_DIR, ...agents.folders], worktree);
     let changed = true;
     try {
       // Its output is ignored: only the exit code says whether anything is staged.
@@ -137,7 +162,7 @@ export function applyUpdate({ root, bundle, version, from, home, exec, println }
     const trailer = trailerLine(branchConfig.signature);
     git(['commit', '-q', '-m', trailer ? `${updateTitle(version)}\n\n${trailer}` : updateTitle(version)], worktree);
     git(['push', '-q', '-u', remote, branch], worktree);
-    const body = updateBody({ lines, home, from, to: version, footer: footerLine(branchConfig.signature) });
+    const body = updateBody({ lines, home, from, to: version, footer: footerLine(branchConfig.signature), agents: agents.changes });
     const url = gh(['pr', 'create', ...repoFlag, '--base', defaultBranch, '--head', branch, '--title', updateTitle(version), '--body', body]).trim();
     println(`PR: ${url}`);
     return 0;

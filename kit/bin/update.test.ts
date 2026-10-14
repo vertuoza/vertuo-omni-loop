@@ -16,6 +16,11 @@ import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
 import type { FakeExec } from '../test/fixture.ts';
 import type { RunningKit } from '../lib/init/bundle.ts';
+import { kitSkills } from '../lib/agents/skills.ts';
+import { AGENTS_MANIFEST, syncAgentSkills } from '../lib/agents/write.ts';
+import type { AgentsManifest } from '../lib/agents/write.ts';
+import type { ExecText } from '../lib/context.ts';
+import { applyUpdate } from '../lib/update/apply.ts';
 
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept', 'omni:approved', 'omni:law'];
 const CONFIG = 'kit: 1\n# kept by hand, comments and all\nrepo:\n  slug: acme/widgets\npaths:\n  context: []\n';
@@ -419,5 +424,139 @@ describe('omni update run by npx, in a repository installed before versions (s4)
     const { root } = installedRepo();
     const { calls } = await update(root, ['--to', 'v0.0.12']);
     expect(handOver(calls).args.slice(1)).toEqual(['update', '--apply', '--from', '0.0.13']);
+  });
+});
+
+describe('omni update --apply: the skills for other agents (PRD 1890, s4)', () => {
+  const SKILLS_V1: Record<string, string> = {
+    'yolo/SKILL.md': '---\nname: yolo\ndescription: Build a whole PRD.\n---\n\none\ntwo\nthree\n',
+    'old/SKILL.md': '---\nname: old\ndescription: Dropped next version.\n---\n\nOld.\n',
+  };
+  const SKILLS_V2: Record<string, string> = {
+    'yolo/SKILL.md': '---\nname: yolo\ndescription: Build a whole PRD.\n---\n\none\nTWO\nTHREE\nfour\n',
+    'think-big/SKILL.md': '---\nname: think-big\ndescription: New in this version.\n---\n\nBig.\n',
+  };
+  const withAgents = (agents: string) => `${CONFIG}agents: ${agents}\n`;
+
+  /** Commits and pushes everything in the person's checkout. */
+  function publish(root: string, message: string) {
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', message);
+    git(root, 'push', '-q', 'origin', 'main');
+  }
+
+  /** A repository installed with `agents` and the v1 copies committed, as `omni init` leaves it. */
+  function withCopies(agents: string) {
+    const repo = installedRepo({ config: withAgents(agents) });
+    syncAgentSkills({ root: repo.root, agents: ['codex'], version: '0.0.13', skills: SKILLS_V1 });
+    publish(repo.root, 'copies');
+    return repo;
+  }
+
+  function apply(root: string, skills: Record<string, string>, fake = fakeExec()) {
+    const out: string[] = [];
+    const code = applyUpdate({ root, bundle: newBundle(), version: '0.0.15', from: '0.0.13', home: 'acme/kit', exec: fake.exec as ExecText, println: (line) => out.push(line), skills });
+    const create = gh(fake.calls, 'pr', 'create')[0]?.args ?? [];
+    return { code, out: out.join('\n'), body: create[create.indexOf('--body') + 1] ?? '' };
+  }
+
+  /** The `.agents/` paths and the manifest on the update branch. */
+  const onBranch = (remote: string) =>
+    git(remote, 'ls-tree', '-r', '--name-only', BRANCH)
+      .split('\n')
+      .filter((path) => path.startsWith('.agents/') || path === AGENTS_MANIFEST);
+
+  it('rewrites a changed copy, adds a new skill, removes a dropped one, and the PR body lists each', () => {
+    const { root, remote, read } = withCopies('[claude, codex]');
+    const { code, out, body } = apply(root, SKILLS_V2);
+    expect(code).toBe(0);
+    expect(onBranch(remote)).toEqual(['.agents/skills/omni-think-big/SKILL.md', '.agents/skills/omni-yolo/SKILL.md', AGENTS_MANIFEST]);
+    expect(onRemote(remote, '.agents/skills/omni-yolo/SKILL.md')).toContain('omni 0.0.15 from kit/plugin/skills/yolo');
+    expect(onRemote(remote, '.agents/skills/omni-yolo/SKILL.md')).toMatch(/\none\nTWO\nTHREE\nfour\n$/);
+    expect(JSON.parse(onRemote(remote, AGENTS_MANIFEST))).toMatchObject({ version: '0.0.15' });
+    expect(out).toContain('  agents   3 copies changed');
+    const section = body.slice(body.indexOf('**Skills for other agents**'));
+    expect(section.split('\n').slice(0, 7)).toEqual([
+      '**Skills for other agents**',
+      '',
+      '- `omni-old`: removed',
+      '- `omni-think-big`: new',
+      '- `omni-yolo`: 3 lines changed',
+      '',
+      "These copies are generated from the kit; read the kit's release notes, not the copies.",
+    ]);
+    // The person's checkout is untouched.
+    expect(read('.agents/skills/omni-old/SKILL.md')).toContain('Old.');
+    expect(git(root, 'status', '--porcelain', '--untracked-files=all')).toBe('');
+  });
+
+  it('a new version alone rewrites every generated line and the manifest, with no section in the body', () => {
+    const { root, remote } = withCopies('[codex]');
+    const { code, out, body } = apply(root, SKILLS_V1);
+    expect(code).toBe(0);
+    expect(onRemote(remote, '.agents/skills/omni-old/SKILL.md')).toContain('omni 0.0.15 from');
+    const manifest = JSON.parse(onRemote(remote, AGENTS_MANIFEST)) as AgentsManifest;
+    expect(manifest.version).toBe('0.0.15');
+    expect(out).not.toMatch(/agents/);
+    expect(body).not.toMatch(/Skills for other agents/);
+  });
+
+  it('agents back to [claude]: every owned folder and the manifest are removed', () => {
+    const { root, remote } = withCopies('[claude]');
+    const { code, body } = apply(root, SKILLS_V2);
+    expect(code).toBe(0);
+    expect(onBranch(remote)).toEqual([]);
+    expect(body).toContain('- `omni-old`: removed');
+    expect(body).toContain('- `omni-yolo`: removed');
+  });
+
+  it('a foreign file in .agents/skills stays as it is', () => {
+    const repo = withCopies('[codex]');
+    repo.write('.agents/skills/my-skill/SKILL.md', '---\nname: my-skill\n---\nOurs.\n');
+    publish(repo.root, 'ours');
+    expect(apply(repo.root, SKILLS_V2).code).toBe(0);
+    expect(onRemote(repo.remote, '.agents/skills/my-skill/SKILL.md')).toBe('---\nname: my-skill\n---\nOurs.\n');
+    expect(git(repo.remote, 'diff', '--name-only', 'main', BRANCH)).not.toMatch(/my-skill/);
+  });
+
+  it('an unowned omni-* folder stops the update naming it, with nothing committed', () => {
+    const repo = installedRepo({ config: withAgents('[codex]') });
+    repo.write('.agents/skills/omni-x/SKILL.md', 'mine\n');
+    publish(repo.root, 'mine');
+    const fake = fakeExec();
+    expect(() => apply(repo.root, SKILLS_V2, fake)).toThrow(/^omni update: \.agents\/skills\/omni-x is not omni's/);
+    expect(gh(fake.calls, 'pr', 'create')).toEqual([]);
+    expect(remoteBranches(repo.remote)).toEqual(['main']);
+  });
+
+  it('a repository that never listed another agent gets no .agents path', () => {
+    const { root, remote } = installedRepo();
+    expect(apply(root, SKILLS_V2).code).toBe(0);
+    expect(onBranch(remote)).toEqual([]);
+  });
+
+  it('through omni update: the kit’s own skills, one omni-<name> folder each', async () => {
+    const { root, remote } = installedRepo({ config: withAgents('[claude, cursor]') });
+    const { code, calls } = await update(root, ['--apply', '--from', '0.0.13']);
+    expect(code).toBe(0);
+    const folders = new Set(onBranch(remote).filter((path) => path !== AGENTS_MANIFEST).map((path) => path.split('/')[2]));
+    expect(folders).toEqual(new Set(Object.keys(kitSkills()).map((path) => `omni-${path.split('/')[0] ?? ''}`)));
+    expect(ghArgs(calls, 'pr', 'create').join('\n')).toContain('- `omni-yolo`: new');
+  });
+});
+
+describe('omni update: the Claude plugin only when claude is listed (PRD 1890, s4)', () => {
+  it('agents without claude: the plugin is left alone', async () => {
+    const { root } = installedRepo({ config: `${CONFIG}agents: [codex]\n`, bin: NEW_BIN });
+    const { code, out, calls } = await update(root, []);
+    expect(code).toBe(0);
+    expect(claudeCalls(calls)).toEqual([]);
+    expect(out).toMatch(/^ {2}plugin {3}not updated: agents lists no claude$/m);
+  });
+
+  it('agents with claude: the plugin is updated as before', async () => {
+    const { root } = installedRepo({ config: `${CONFIG}agents: [codex, claude]\n`, bin: NEW_BIN });
+    const { calls } = await update(root, []);
+    expect(claudeCalls(calls)).toEqual(PLUGIN_CALLS);
   });
 });

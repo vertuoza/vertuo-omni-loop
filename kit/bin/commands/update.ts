@@ -10,9 +10,10 @@
 // `config.yml` itself, under the version it installs. The running kit is `runningKit()` and the
 // bundle `runningBundle()` unless a caller injects `kit` and `bundle`.
 // Exit 0 done, 1 stopped (with one line), 2 usage.
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { CONFIG_FILE, parseConfig } from '../../lib/config.ts';
 import { runningBundle, runningKit } from '../../lib/init/bundle.ts';
 import { findRoot } from '../../lib/init/repo.ts';
 import { applyUpdate } from '../../lib/update/apply.ts';
@@ -52,6 +53,21 @@ function rootOf(cwd: string, exec: Exec): string | null {
     return findRoot(cwd, exec);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Whether the repository at `root` lists `claude` among its `agents` (PRD 1890): only then is the
+ * Claude plugin updated. Outside a repository, or with a config this kit cannot read, it is, as
+ * before the key existed.
+ */
+function claudeListed(root: string | null): boolean {
+  const file = root ? join(root, CONFIG_FILE) : null;
+  if (!file || !existsSync(file)) return true;
+  try {
+    return parseConfig(readFileSync(file, 'utf8'), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes('claude');
+  } catch {
+    return true;
   }
 }
 
@@ -110,7 +126,9 @@ export const update = {
         return applyUpdate({ root, bundle: file, version: running.version, from: flags.from ? parseVersion(flags.from) : null, home: running.home, exec, println: out });
       }
       const { code, target } = updateRepository({ cwd, flags, running, file, exec, out });
-      if (code === 0) updatePlugin({ version: target, exec, println: out });
+      if (code !== 0) return code;
+      if (claudeListed(rootOf(cwd, exec))) updatePlugin({ version: target, exec, println: out });
+      else out('  plugin   not updated: agents lists no claude');
       return code;
     } catch (error) {
       if (!(error instanceof UpdateError)) throw error;
