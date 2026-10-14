@@ -91,7 +91,7 @@ Changing it later means editing the tags of the test file `e2e/tests/arcade-home
 - Channel: feature pull request #1955
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1955#issuecomment-6174868042
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #1962, the sub-pull request that brought the build back in line
 - Stays here: the answer sets one test's level (tags on one file), a choice about this test only, not a lasting rule about the product or how the repository builds.
 - Rank: medium
 - Bears on: none
