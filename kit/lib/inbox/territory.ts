@@ -221,7 +221,7 @@ function sliceTable(markdown: string): { column: (name: string) => number; rows:
 const TIERS: readonly Tier[] = ['deep', 'build', 'light'];
 
 function isTier(text: string): text is Tier {
-  return (TIERS as readonly string[]).includes(text);
+  return TIERS.some((tier) => tier === text);
 }
 
 /** A `tier` cell: the tier it names, `null` for an empty cell, an em dash or anything else (which
@@ -236,7 +236,7 @@ function tierCell(cell: string | undefined): Tier | null {
  * its slice id, in plan order (PRD 1934). `[]` for a plan with no `tier` column, and for one whose
  * slice table cannot be read: `parsePlanSlices` reports that.
  */
-export function unknownTiers(markdown: string): { slice: string; value: string }[] {
+export function unknownTiers(markdown: string): { slice: WorkSliceId; value: string }[] {
   let table: ReturnType<typeof sliceTable>;
   try {
     table = sliceTable(markdown);
@@ -245,11 +245,11 @@ export function unknownTiers(markdown: string): { slice: string; value: string }
   }
   const { column, rows } = table;
   if (column('tier') === -1) return [];
-  const unknown: { slice: string; value: string }[] = [];
+  const unknown: { slice: WorkSliceId; value: string }[] = [];
   for (const row of rows) {
-    const id = row[column('id')];
+    const id = WorkSliceIdSchema.safeParse(row[column('id')]);
     const value = plainCell(row[column('tier')]);
-    if (id && !NOTHING.test(value) && !isTier(value)) unknown.push({ slice: id, value });
+    if (id.success && !NOTHING.test(value) && !isTier(value)) unknown.push({ slice: id.data, value });
   }
   return unknown;
 }
