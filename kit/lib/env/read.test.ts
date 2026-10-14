@@ -19,6 +19,7 @@ describe('readEnv', () => {
       omniToken: null,
       session: { remote: false, display: false },
       runnerSender: null,
+      claudeToken: null,
       heartbeat: true,
       ask: null,
     });
@@ -181,6 +182,22 @@ describe('readEnv', () => {
       expect(omniTokenOf({ OMNI_TOKEN: KIT_TOKEN, PROOF_URL: 'not a url' })).toBe(KIT_TOKEN);
       expect(omniTokenOf({})).toBeNull();
       expect(() => omniTokenOf({ OMNI_TOKEN: 'omk_short' })).toThrow(EnvError);
+    });
+  });
+
+  describe('CLAUDE_CODE_OAUTH_TOKEN, the Claude token omni runner hands its jobs (PRD 1894)', () => {
+    const CLAUDE_TOKEN = 'fake-claude-oauth-token-0123456789';
+
+    it('reads the token when it is set, and none when it is unset or blank', () => {
+      expect(readEnv({ CLAUDE_CODE_OAUTH_TOKEN: CLAUDE_TOKEN }).claudeToken).toBe(CLAUDE_TOKEN);
+      expect(readEnv({}).claudeToken).toBeNull();
+      expect(readEnv({ CLAUDE_CODE_OAUTH_TOKEN: '' }).claudeToken).toBeNull();
+      expect(readEnv({ CLAUDE_CODE_OAUTH_TOKEN: '  \n' }).claudeToken).toBeNull();
+    });
+
+    it('lists it as a variable the platform sets, never one the README names', () => {
+      expect(PLATFORM_VARIABLES).toContain('CLAUDE_CODE_OAUTH_TOKEN');
+      expect(VARIABLES).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
     });
   });
 
