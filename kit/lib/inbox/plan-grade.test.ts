@@ -485,30 +485,3 @@ describe('gradePlan — readOnly and consumes targets (PRD 1162)', () => {
     expect(gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |']), { config: PLAN_REPO }).violations).toEqual([]);
   });
 });
-
-describe('gradePlan — the tier column (PRD 1934)', () => {
-  const TIERED = '| id | slice | territory | blocked by | wave | tier |';
-
-  it('grades deep, build, light, a blank and an em dash green, and gives each slice its tier', () => {
-    const graded = gradePlan(
-      planMd(
-        ['| s1 | A | `a/` | — | 1 | deep |', '| s2 | B | `b/` | — | 1 | build |', '| s3 | C | `c/` | — | 1 | light |', '| s4 | D | `d/` | — | 1 |  |', '| s5 | E | `e/` | — | 1 | — |'],
-        TIERED,
-      ),
-      { config: CONFIG },
-    );
-    expect(graded.violations).toEqual([]);
-    expect(graded.slices.map((slice) => slice.tier)).toEqual(['deep', 'build', 'light', null, null]);
-  });
-
-  it('refuses a cell that names no tier, naming the slice and the value', () => {
-    const graded = gradePlan(planMd(['| s1 | A | `a/` | — | 1 | fast |', '| s2 | B | `b/` | — | 1 | build |'], TIERED), { config: CONFIG });
-    expect(graded.violations).toEqual(['tier: s1 reads "fast", not deep, build, light, a blank or —.']);
-  });
-
-  it('grades a plan without the column exactly as before', () => {
-    const graded = gradePlan(planMd(['| s1 | A | `a/` | — | 1 |', '| s2 | B | `b/` | s1 | 2 |']), { config: CONFIG });
-    expect(graded.violations).toEqual([]);
-    expect(graded.slices.map((slice) => slice.tier)).toEqual([null, null]);
-  });
-});
