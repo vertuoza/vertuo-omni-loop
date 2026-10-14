@@ -147,15 +147,38 @@ describe('omni flow show', () => {
     expect(out).toMatchSnapshot();
   });
 
-  it('prints them as JSON', async () => {
+  it('prints them as JSON, beside what the plans declare', async () => {
     const { out } = await omni(['flow', 'show', '--json']);
-    expect(JSON.parse(out)).toMatchObject([{ area: 'default' }, { area: 'kernel' }, { area: 'migrations' }]);
+    expect(JSON.parse(out)).toMatchObject({
+      differences: [{ area: 'default' }, { area: 'kernel' }, { area: 'migrations' }],
+      contracts: { declare: false, kinds: ['api', 'db'] },
+    });
   });
 
   it('says the repository runs the defaults with no flow', async () => {
     const { code, out } = await omni(['flow', 'show'], { flow: '', files: {} });
     expect(code).toBe(0);
-    expect(out).toBe("flow — none: this repository runs the kit's defaults.\n");
+    expect(out).toBe("flow — none: this repository runs the kit's defaults.\ncontracts: none\n");
+  });
+});
+
+describe('omni flow show: the contracts line (PRD 1870, criterion 9)', () => {
+  it.each([
+    ['contracts:\n  declare: true\n', 'contracts: declare api, db'],
+    ['contracts:\n  declare: true\n  kinds: [api, event]\n', 'contracts: declare api, event'],
+    ['contracts:\n  declare: false\n  kinds: [api, event]\n', 'contracts: none'],
+    ['', 'contracts: none'],
+  ])('with %j, prints %j as the last line before the areas and their hooks', async (contracts, line) => {
+    const { code, out } = await omni(['flow', 'show'], { flow: contracts + SPEC_FLOW });
+    expect(code).toBe(0);
+    const lines = out.split('\n');
+    expect(lines[1]).toBe(line);
+    expect(lines.filter((text) => text.startsWith('contracts:'))).toEqual([line]);
+  });
+
+  it('carries the ask as JSON, kinds included', async () => {
+    const { out } = await omni(['flow', 'show', '--json'], { flow: 'contracts:\n  declare: true\n  kinds: [api, event]\n', files: {} });
+    expect(JSON.parse(out)).toEqual({ differences: [], contracts: { declare: true, kinds: ['api', 'event'] } });
   });
 });
 
@@ -202,6 +225,15 @@ plan:
     const { code, err } = await inPlan(args);
     expect(code).toBe(2);
     expect(err).toMatch(message);
+  });
+
+  it("prints the target's copy's contracts line, not the plan repository's (PRD 1870, criterion 9)", async () => {
+    const declared = { [`${COPY}/config.yml`]: `contracts:\n  declare: true\n  kinds: [api, event]\n${SPEC_FLOW}`, ...copied };
+    expect((await inPlan(['flow', 'show', '--repo', 'back'], declared)).out).toMatch(/^contracts: declare api, event$/m);
+    expect((await inPlan(['flow', 'show', '--repo', 'back'])).out).toMatch(/^contracts: none$/m);
+    expect(JSON.parse((await inPlan(['flow', 'show', '--repo', 'back', '--json'], declared)).out)).toMatchObject({
+      contracts: { declare: true, kinds: ['api', 'event'] },
+    });
   });
 
   it('refuses a copied flow the config would refuse, naming its file', async () => {

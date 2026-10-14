@@ -179,3 +179,28 @@ kit's sources.
 
 `kit/test/plugin.test.ts`, the block "the design review in the skills that drive screen work (PRD
 1369)": the flag in step 0 and the `ui: yes` mark in step 4.
+
+## PRD #1870, slice s6 — the `contract` column
+
+Not a re-port: upstream's table has no such column. A departure from upstream, kit-local prose. A
+repository may ask every slice it receives to say what it changes for its callers
+(`contracts.declare: true` in its config, with its own `contracts.kinds`, `api, db` by default), and
+`omni plan check` refuses a slice that does not (ADR-0116).
+
+- **Step 1, item 4** keeps the `contracts:` line `omni flow show` prints, and, in a plan repository,
+  the one `omni flow show --repo <name>` prints for each target.
+- **Step 3's field table** gains a `contract` row.
+- **Step 4:** the header row, in both variants (the ordinary one and the plan repository's `repo`
+  one), gains `contract` after `territory` when the receiving repository asks. The cell holds one
+  or more of that repository's kinds, comma-separated, or `none`; `—` on a slice of a repository
+  that asks nothing; no column when no repository a slice lands in asks. For the default kinds,
+  `api` is a GraphQL type, field or argument, or a REST route or payload, and `db` a migration or a
+  stored shape. The "exactly" of the header row now names its two shapes; the **Dropped** note on
+  the `tier` column still holds.
+- **Step 5** names the three refusals (`declares nothing`, a word that is no kind of the
+  repository, `none` beside a kind) and the `contracts:` line `plan check` prints after the waves.
+
+### Tests
+
+None: the skill is prose, reviewed in the pull request that changes it; the column's parsing and
+its refusals are proved by the slices that build them (`territory.test.ts`, `plan-grade.test.ts`).

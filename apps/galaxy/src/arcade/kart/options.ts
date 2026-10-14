@@ -3,6 +3,7 @@
 // (guard.test.ts), and the browser's storage is handed in.
 import type { Action } from '../keys';
 import { COLORS, DESIGNS } from './look';
+import { DEFAULT_CIRCUIT, isCircuitId } from './circuits';
 
 // The look's sprites and tints reach the arcade through this module: it is the one loaded on demand.
 export { kartSprite, kartTint } from './look';
@@ -29,6 +30,8 @@ export interface KartOptions {
   laps: Laps;
   difficulty: Difficulty;
   look: { color: string; design: string };
+  /** The id of the circuit chosen (PRD 1923); a store without one, or naming no circuit, reads as COMET RING. */
+  track: string;
 }
 
 /** The key under which the options are kept in the browser. */
@@ -37,7 +40,7 @@ export const OPTIONS_KEY = 'omni-loop:kart-options';
 export const DEFAULT_KEYS: Readonly<Record<DriveAction, string>> = { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: ' ' };
 
 /** Today's options: ▲ ▼ ◀ ▶ and SPACE, 3 laps, NORMAL, FLEET and CLASSIC. A new object each call. */
-export const defaultOptions = (): KartOptions => ({ keys: { ...DEFAULT_KEYS }, laps: 3, difficulty: 'normal', look: { color: 'FLEET', design: 'CLASSIC' } });
+export const defaultOptions = (): KartOptions => ({ keys: { ...DEFAULT_KEYS }, laps: 3, difficulty: 'normal', look: { color: 'FLEET', design: 'CLASSIC' }, track: DEFAULT_CIRCUIT.id });
 
 /** The six keys that stay the arcade's: ENTER, TAB and SHIFT (start, select), ESC, M (mute) and F (fullscreen). */
 export const RESERVED_KEYS: readonly string[] = ['Enter', 'Tab', 'Shift', 'Escape', 'm', 'f'];
@@ -78,6 +81,7 @@ export function parseOptions(text: string | null | undefined): KartOptions {
   out.keys = readKeys(raw.keys);
   if (isLaps(raw.laps)) out.laps = raw.laps;
   if (isDifficulty(raw.difficulty)) out.difficulty = raw.difficulty;
+  if (isCircuitId(raw.track)) out.track = raw.track;
   const look = isObject(raw.look) ? raw.look : {};
   out.look = { color: nameOf(look.color, COLOR_NAMES, 'FLEET'), design: nameOf(look.design, DESIGNS, 'CLASSIC') };
   return out;

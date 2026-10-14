@@ -70,6 +70,7 @@ exports[`omni flow show <point> > returns a kernel slice's replace hook as JSON 
 
 exports[`omni flow show > prints each difference from the kit's defaults, area by area (spec acceptance 5) 1`] = `
 "flow — what this repository changes from the kit's defaults
+contracts: none
 
 default  every path no area claims
   rule  slice maxFiles 15

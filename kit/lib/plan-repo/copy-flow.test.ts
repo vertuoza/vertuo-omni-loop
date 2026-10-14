@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from '../config.ts';
 import { makeRepo } from '../../test/fixture.ts';
+import { DEFAULT_CONTRACT_KINDS } from '../config.ts';
 import { flowKey, hasFlow, hookPaths, NO_FLOW, parseFlowConfig, readCopyFlow, targetFlows } from './copy-flow.ts';
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
@@ -45,6 +46,21 @@ describe('parseFlowConfig', () => {
     expect(() => parseFlowConfig('flow: [', 'repos/back/flow/config.yml')).toThrow(/not valid YAML/);
   });
 
+  it('keeps contracts, kinds included, and ignores every other key (PRD 1870, acceptance 6)', () => {
+    const asks = parseFlowConfig('kit: 1\nrepo:\n  slug: acme/back\ncontracts:\n  declare: true\n', 'x');
+    expect(asks).toEqual({ ...NO_FLOW, contracts: { declare: true, kinds: ['api', 'db'] } });
+    expect(hasFlow(asks)).toBe(true);
+    const own = parseFlowConfig('contracts:\n  declare: true\n  kinds: [schema, rest, db]\n', 'x');
+    expect(own.contracts).toEqual({ declare: true, kinds: ['schema', 'rest', 'db'] });
+    expect(hasFlow(parseFlowConfig('contracts:\n  declare: false\n  kinds: [event]\n', 'x'))).toBe(false);
+    expect(() => parseFlowConfig('contracts:\n  declare: yes\n', 'repos/back/flow/config.yml')).toThrow(/repos\/back\/flow\/config\.yml.*contracts\.declare/);
+  });
+
+  it('reads no contracts as declaring nothing, with the default kinds (PRD 1870)', () => {
+    expect(NO_FLOW.contracts).toEqual({ declare: false, kinds: [...DEFAULT_CONTRACT_KINDS] });
+    expect(parseFlowConfig(BACK_FLOW, 'x').contracts).toEqual(NO_FLOW.contracts);
+  });
+
   it('reads no key as the kit defaults', () => {
     expect(parseFlowConfig('', 'x')).toEqual(NO_FLOW);
     expect(hasFlow(NO_FLOW)).toBe(false);
@@ -58,6 +74,13 @@ describe('flowKey and hookPaths', () => {
     const b = parseFlowConfig("flow:\n  rules:\n    subPr: { approval: person, merge: rebase }\n", 'b');
     expect(flowKey(a)).toBe(flowKey(b));
     expect(flowKey(a)).not.toBe(flowKey(NO_FLOW));
+  });
+
+  it('tells two copies apart by their contracts alone (PRD 1870)', () => {
+    const asks = parseFlowConfig('contracts:\n  declare: true\n', 'a');
+    expect(flowKey(asks)).not.toBe(flowKey(NO_FLOW));
+    expect(flowKey(asks)).not.toBe(flowKey(parseFlowConfig('contracts:\n  declare: true\n  kinds: [api, event]\n', 'b')));
+    expect(flowKey(parseFlowConfig('contracts:\n  declare: false\n', 'c'))).toBe(flowKey(NO_FLOW));
   });
 
   it('lists each hook file once, never a Claude-only command', () => {
@@ -93,6 +116,24 @@ describe('readCopyFlow and targetFlows', () => {
     const back = targetFlows({ root, config: parseConfig(PLAN) }).get('back');
     expect(back).toMatchObject({ ok: false, file: `${COPY}/back/flow/config.yml` });
     expect(back && !back.ok ? back.reason : '').toMatch(/regular expression/);
+  });
+
+  it('reads the copy of every target whatever its knowledge, and leaves out one with no copy (PRD 1870, acceptance 7)', () => {
+    const { root } = makeRepo({
+      files: {
+        '.omni-loop/config.yml': PLAN,
+        [`${COPY}/web/flow/config.yml`]: 'contracts:\n  declare: true\n  kinds: [api, event]\n',
+      },
+    });
+    const flows = targetFlows({ root, config: parseConfig(PLAN) });
+    expect([...flows.keys()]).toEqual(['web']);
+    expect(flows.get('web')).toEqual({ ok: true, config: { ...NO_FLOW, contracts: { declare: true, kinds: ['api', 'event'] } } });
+  });
+
+  it('reads the copy of a target whose knowledge is none', () => {
+    const none = PLAN.replace('knowledge: own', 'knowledge: none');
+    const { root } = makeRepo({ files: { '.omni-loop/config.yml': none, [`${COPY}/web/flow/config.yml`]: 'contracts:\n  declare: true\n' } });
+    expect(targetFlows({ root, config: parseConfig(none) }).get('web')).toMatchObject({ ok: true, config: { contracts: { declare: true } } });
   });
 
   it('is empty outside a plan repository', () => {

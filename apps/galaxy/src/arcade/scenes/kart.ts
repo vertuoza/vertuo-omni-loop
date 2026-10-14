@@ -143,6 +143,8 @@ export interface KartGame extends KartDraw {
   away(): void;
   /** The scene is left (or the page closes): a MULTI race in play sends its `leave` and the game stops listening. Nothing for a SINGLE race. */
   close(): void;
+  /** The id of the crew board this race's time goes to (PRD 1923): its circuit's. */
+  board: string;
   hud(): KartHud;
   /** The cues since the last call, in order, then forgotten. */
   cues(): readonly KartCue[];
@@ -160,6 +162,8 @@ export interface ArcadeKart {
   choice: KartChoice;
   /** The player's options (PRD 1762), kept in the browser: none until the game's code has loaded with them. */
   options: KartOptions | null;
+  /** The circuits the CIRCUIT step shows (PRD 1923), once the game's code has loaded: none before. */
+  circuits: readonly CircuitCard[];
   /** Whether MULTI can be picked: the account gave a link to the grid. */
   multi: boolean;
   /** What the GRID shows, once MULTI is picked (PRD 1572); none before. */
@@ -167,7 +171,26 @@ export interface ArcadeKart {
 }
 
 /** Where the ready screen stands: choosing between SINGLE, MULTI and OPTIONS (the cursor on one), SINGLE picked, MULTI picked: on the workspace's grid, or on the OPTIONS panel (PRD 1762). */
-export type KartChoice = { step: 'choose'; cursor: KartCursor } | { step: 'single' } | { step: 'grid' } | { step: 'live' } | { step: 'options'; view: OptionsView };
+export type KartChoice = { step: 'choose'; cursor: KartCursor } | { step: 'circuit'; then: 'single' | 'grid' } | { step: 'single' } | { step: 'grid' } | { step: 'live' } | { step: 'options'; view: OptionsView };
+
+/** What the CIRCUIT step shows of a circuit (PRD 1923): its name, the board its times go to and its minimap, one run of tiles at a time, over `ground`. */
+export interface CircuitCard { id: string; name: string; board: string; cols: number; rows: number; ground: string; runs: readonly { x: number; y: number; w: number; colour: string }[] }
+
+/** The circuit named `id`: its card's name, or, before the cards have loaded, its id in capitals (`frost-eight` is FROST EIGHT). */
+export const circuitName = (cards: readonly CircuitCard[], id: string): string => cards.find((c) => c.id === id)?.name ?? id.replace(/-/g, ' ').toUpperCase();
+
+/** The circuits the CIRCUIT step shows and the player's best on each, in tenths, by circuit id (none before the game's code has loaded). */
+export interface KartCircuits { cards: readonly CircuitCard[]; bests: Readonly<Record<string, number | null>> }
+export const NO_CIRCUITS: KartCircuits = { cards: [], bests: {} };
+
+/** The id of the circuit the options keep: COMET RING before they have loaded. */
+export const trackOf = (options: { track: string } | null | undefined): string => options?.track ?? 'comet-ring';
+
+/** The player's best on a circuit's card, in tenths: none yet, or for no card. */
+export const bestOn = (bests: Readonly<Record<string, number | null>>, card: CircuitCard | null): number | null => (card ? bests[card.id] ?? null : null);
+
+/** The circuit the player's `track` kept; COMET RING's card is the first. */
+export const circuitOfCards = (cards: readonly CircuitCard[], id: string): CircuitCard | null => cards.find((c) => c.id === id) ?? cards[0] ?? null;
 
 /** The ready screen's three lines, in order. */
 export type KartCursor = 'single' | 'multi' | 'options';
@@ -180,7 +203,7 @@ export interface KartGridRow { id: string; name: string; hero: Hero; fleet: stri
  * or `out` of reach), the players in their starting order and the line under them: START RACE,
  * WAITING FOR <NAME>, WAITING FOR RACERS, GRID FULL · 4 RACERS, RECONNECTING… or GRID OUT OF REACH · A TO RETRY.
  */
-export interface KartGridView { state: 'joining' | 'joined' | 'reconnecting' | 'out'; rows: readonly KartGridRow[]; line: string; /** How many laps the grid will run (PRD 1762), when it says. */ laps?: number }
+export interface KartGridView { state: 'joining' | 'joined' | 'reconnecting' | 'out'; rows: readonly KartGridRow[]; line: string; /** How many laps the grid will run (PRD 1762), when it says. */ laps?: number; /** The id of the circuit the grid will race (PRD 1923): its first arrival's. */ track?: string }
 
 /** The GRID's two lines the game's code does not say: while joining, and when the grid cannot be reached (or its code did not load). */
 export const GRID_JOINING_LINE = 'JOINING THE GRID…';
@@ -209,8 +232,8 @@ export const KEY_RESERVED = 'KEY USED BY THE ARCADE';
 /** The OPTIONS panel as it opens: on KEYS. */
 export const OPTIONS_OPEN: KartChoice = { step: 'options', view: { screen: 'menu', cursor: 'keys' } };
 
-/** The line for the circuit before the choice, with the player's laps (PRD 1762): COMET RING · 5 LAPS. */
-export const choiceLine = (laps: number): string => `COMET RING · ${laps} LAPS`;
+/** The line for the circuit before the choice, with the player's laps (PRD 1762) and the circuit kept (PRD 1923): COMET RING · 5 LAPS. */
+export const choiceLine = (laps: number, circuit = 'COMET RING'): string => `${circuit} · ${laps} LAPS`;
 export const CHOICE_LINE = choiceLine(3);
 /** The two ways to race. */
 export const SINGLE_LINE = 'SINGLE';
@@ -239,9 +262,26 @@ function moveChoice(choice: Extract<KartChoice, { step: 'choose' }>, by: -1 | 1,
 
 /** A or START on the line under the cursor. */
 function pickChoice(choice: Extract<KartChoice, { step: 'choose' }>, multi: boolean): KartChoice {
-  if (choice.cursor === 'single') return { step: 'single' };
+  if (choice.cursor === 'single') return { step: 'circuit', then: 'single' };
   if (choice.cursor === 'options') return OPTIONS_OPEN;
-  return multi ? { step: 'grid' } : choice;
+  return multi ? { step: 'circuit', then: 'grid' } : choice;
+}
+
+/** What A does on the CIRCUIT step (PRD 1923): it races after SINGLE and goes to the grid after MULTI. */
+export const circuitHint = (then: 'single' | 'grid'): string => (then === 'grid' ? 'GRID' : 'RACE');
+
+/**
+ * What a press does on the CIRCUIT step (PRD 1923): ◀ ▶ go round the circuits (`ids`, in driving-menu order) from the one kept (`track`),
+ * A or START takes it (SINGLE: the ready line; MULTI: the grid), B goes back to the choice, the cursor where it was picked.
+ */
+export function circuitPress(choice: Extract<KartChoice, { step: 'circuit' }>, action: Action, track: string, ids: readonly string[]): { choice: KartChoice; track: string } {
+  if (action === 'b') return { choice: { step: 'choose', cursor: choice.then === 'grid' ? 'multi' : 'single' }, track };
+  if (action === 'a' || action === 'start') return { choice: { step: choice.then }, track };
+  if ((action === 'left' || action === 'right') && ids.length > 0) {
+    const at = Math.max(0, ids.indexOf(track));
+    return { choice, track: ids[(at + (action === 'right' ? 1 : -1) + ids.length) % ids.length] ?? track };
+  }
+  return { choice, track };
 }
 
 /** The line over the screen when the import failed. */
@@ -250,7 +290,7 @@ export const NOT_LOADED = 'GAME DID NOT LOAD · A TO RETRY';
 /** What the ready screen says: the circuit, its laps and what starts the race. Its laps are the player's (3 unless the options say otherwise). */
 /** The laps the player's options ask for: 3 before they have loaded. */
 export const lapsOf = (options: { laps: number } | null | undefined): number => options?.laps ?? 3;
-export const readyLine = (laps: number): string => `${choiceLine(laps)} · PRESS START`;
+export const readyLine = (laps: number, circuit = 'COMET RING'): string => `${choiceLine(laps, circuit)} · PRESS START`;
 export const READY_LINE = readyLine(3);
 
 /** The game, loaded: what `import('arcade/kart/index')` gives. */
@@ -260,9 +300,9 @@ export type KartModule = typeof import('../kart/index');
  * Imports the game and makes it. A failed import (offline, or a chunk gone after a deploy) is logged
  * with `console.error` and answers null, so the screen can say so and A can try again.
  */
-export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = [], rules: Pick<KartOptions, 'laps' | 'difficulty' | 'look'> | null = null): Promise<KartGame | null> {
+export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = [], rules: Pick<KartOptions, 'laps' | 'difficulty' | 'look' | 'track'> | null = null): Promise<KartGame | null> {
   try {
-    return (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty, look: rules.look } : {}) });
+    return (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty, look: rules.look, circuit: rules.track } : {}) });
   } catch (err) {
     console.error(err);
     return null;

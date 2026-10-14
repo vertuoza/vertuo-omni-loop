@@ -17,24 +17,24 @@ Use this page when recording a decision about how this repository is built, or l
 
 ## Where they live
 <!-- slot: where · required · by: terraform -->
-Here, in `.omni-loop/knowledge/adr/`, beside this page. The product registers beside it, in
-`.omni-loop/knowledge/product/`, hold no principle, rule or invariant yet.
+Here, in `.omni-loop/knowledge/adr/`; the product registers are in `.omni-loop/knowledge/product/`.
 
 ## Format
 <!-- slot: format · required · by: terraform -->
-One file per record, `NNNN-<slug>.md`, shaped like the first record here:
+One file per record, `NNNN-<slug>.md`:
 
-- The title is `# ADR-NNNN — <the decision>`.
-- Under it, one status line: `**Status:** accepted · **Date:** <YYYY-MM-DD> · **PRD:** #<n>`, and
+- Title: `# ADR-NNNN — <the decision>`.
+- Under it, a status line: `**Status:** accepted · **Date:** <YYYY-MM-DD> · **PRD:** #<n>`, plus
   `· **Supersedes:** <what>` when it replaces part of an earlier PRD's spec.
-- A record harvested from a settled outbox decision carries two more fields on that status line:
-  `· **Decided:** <who>` and `· **Merged:** @<merger>, <YYYY-MM-DD>, PR #<n>`. `Decided:` takes one
-  of three forms: `@<answerer> via <channel>, <date>` when a person answered,
-  `nobody — adopted when raised (medium), <date>`, or `@<merger> — merged over a red outbox, <date>`.
-  Its status is `accepted` when a person answered, and `adopted` otherwise.
-- Then `## Context`, `## Decision`, a `## What it supersedes in <that spec>` section when it
-  supersedes one, naming each section it changes, and `## Consequences`.
-- A harvested record ends with `## Source`, naming the ledger file and the entry it came from.
+- A record harvested from a settled outbox item adds `· **Decided:** <who> · **Merged:**
+  @<merger>, <YYYY-MM-DD>, PR #<n>`. `Decided:` is `@<answerer> via <channel>, <date>` (a person
+  answered: `accepted`), `nobody — adopted when raised (medium), <date>` or
+  `@<merger> — merged over a red outbox, <date>` (both `adopted`).
+- Then `## Context`, `## Decision`, `## What it supersedes in <that spec>` (if so, naming each
+  section it changes), `## Consequences`; a harvested record ends with `## Source` (ledger file,
+  entry).
 
 ## Numbering
 <!-- slot: numbering · optional -->
+The next free number, printed below with each record, read from the folder: no hand-kept list.
+One number, one record: a shared one is a mistake to fix, never a precedent.

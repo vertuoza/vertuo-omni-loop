@@ -9,7 +9,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, circuitName, circuitPress, type CircuitCard, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay, type KartArt } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { defaultOptions, optionsKey, optionsPress, type OptionsView } from '../kart/options';
@@ -23,7 +23,7 @@ const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' =
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A game that does nothing, as the loader hands it over. */
-const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0 });
+const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0, board: 'kart' });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
@@ -137,14 +137,20 @@ describe('loadKart', () => {
 
   it('hands the game the laps and difficulty of the options', async () => {
     const createKart = vi.fn(() => stubGame());
-    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' } });
-    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' } });
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' }, track: 'comet-ring' });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 5, difficulty: 'hard', look: { color: 'FLEET', design: 'CLASSIC' }, circuit: 'comet-ring' });
   });
 
   it('hands the game the look of the options', async () => {
     const createKart = vi.fn(() => stubGame());
-    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' } });
-    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' } });
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' }, track: 'comet-ring' });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [], laps: 3, difficulty: 'normal', look: { color: 'PINK', design: 'RACER' }, circuit: 'comet-ring' });
+  });
+
+  it('hands the game the circuit of the options (PRD 1923)', async () => {
+    const createKart = vi.fn(() => stubGame());
+    await loadKart(() => Promise.resolve({ createKart }), 42, [], { laps: 3, difficulty: 'normal', look: { color: 'FLEET', design: 'CLASSIC' }, track: 'frost-eight' });
+    expect(createKart).toHaveBeenCalledWith(expect.objectContaining({ circuit: 'frost-eight' }));
   });
 
   it('answers null and logs the error with console.error when the import fails', async () => {
@@ -402,8 +408,8 @@ describe('the choice on the ready screen (PRD 1572)', () => {
     const multi = choicePress(FIRST_CHOICE, 'down', true);
     expect(multi).toEqual({ step: 'choose', cursor: 'multi' });
     expect(choicePress(multi, 'up', true)).toEqual(FIRST_CHOICE);
-    expect(choicePress(FIRST_CHOICE, 'a', true)).toEqual({ step: 'single' });
-    expect(choicePress(FIRST_CHOICE, 'start', true)).toEqual({ step: 'single' });
+    expect(choicePress(FIRST_CHOICE, 'a', true)).toEqual({ step: 'circuit', then: 'single' });
+    expect(choicePress(FIRST_CHOICE, 'start', true)).toEqual({ step: 'circuit', then: 'single' });
   });
   it('moves the cursor over the three lines and stops at the ends', () => {
     const multi: KartChoice = { step: 'choose', cursor: 'multi' };
@@ -424,6 +430,69 @@ describe('the choice on the ready screen (PRD 1572)', () => {
   });
 });
 
+const CARDS: readonly CircuitCard[] = [
+  { id: 'comet-ring', name: 'COMET RING', board: 'kart', cols: 4, rows: 4, ground: '#07061c', runs: [{ x: 0, y: 0, w: 4, colour: '#8090d0' }] },
+  { id: 'frost-eight', name: 'FROST EIGHT', board: 'kart-frost-eight', cols: 4, rows: 4, ground: '#eef4fa', runs: [{ x: 1, y: 1, w: 2, colour: '#a6dcf2' }] },
+];
+
+describe('the CIRCUIT step (PRD 1923)', () => {
+  const step = (then: 'single' | 'grid', track: string, bests: Record<string, number | null> = {}, grid: Grid = WIDE) =>
+    renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'circuit', then }, multi: true, options: { ...defaultOptions(), track }, circuit: { cards: CARDS, bests } })))
+      .replace(/<svg.*?<\/svg>/g, ' [MAP] ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const ids = CARDS.map((c) => c.id);
+  const here: Extract<KartChoice, { step: 'circuit' }> = { step: 'circuit', then: 'single' };
+
+  it('comes after SINGLE and after MULTI', () => {
+    expect(choicePress(FIRST_CHOICE, 'a', true)).toEqual(here);
+    expect(choicePress({ step: 'choose', cursor: 'multi' }, 'a', true)).toEqual({ step: 'circuit', then: 'grid' });
+  });
+  it('names the circuit kept between ◀ and ▶, with its minimap and its best, and the hint', () => {
+    expect(step('single', 'frost-eight', { 'frost-eight': 983 })).toBe('CIRCUIT ◀ FROST EIGHT ▶ [MAP] BEST 1:38.3 ◀ ▶ CHOOSE · A RACE · B BACK');
+    expect(step('single', 'comet-ring')).toBe('CIRCUIT ◀ COMET RING ▶ [MAP] NO TIME YET ◀ ▶ CHOOSE · A RACE · B BACK');
+  });
+  it('says A GRID after MULTI, and draws the same on the tall grid', () => {
+    expect(step('grid', 'comet-ring')).toContain('A GRID');
+    expect(step('single', 'frost-eight', {}, TALL)).toContain('FROST EIGHT');
+  });
+  it('draws a 72 px minimap of the circuit', () => {
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: here, options: { ...defaultOptions(), track: 'frost-eight' }, circuit: { cards: CARDS, bests: {} } })));
+    expect(html).toContain('width="72"');
+    expect(html).toContain('data-circuit="frost-eight"');
+    expect(html).toContain('#a6dcf2');
+  });
+  it('moves between the two circuits with ◀ ▶, in both directions', () => {
+    expect(circuitPress(here, 'right', 'comet-ring', ids).track).toBe('frost-eight');
+    expect(circuitPress(here, 'left', 'comet-ring', ids).track).toBe('frost-eight');
+    expect(circuitPress(here, 'left', 'frost-eight', ids).track).toBe('comet-ring');
+    expect(circuitPress(here, 'up', 'comet-ring', ids)).toEqual({ choice: here, track: 'comet-ring' });
+  });
+  it('races on A or START after SINGLE, goes to the grid after MULTI, and goes back on B', () => {
+    expect(circuitPress(here, 'a', 'frost-eight', ids)).toEqual({ choice: { step: 'single' }, track: 'frost-eight' });
+    expect(circuitPress(here, 'start', 'frost-eight', ids).choice).toEqual({ step: 'single' });
+    expect(circuitPress({ step: 'circuit', then: 'grid' }, 'a', 'comet-ring', ids).choice).toEqual({ step: 'grid' });
+    expect(circuitPress(here, 'b', 'comet-ring', ids).choice).toEqual(FIRST_CHOICE);
+    expect(circuitPress({ step: 'circuit', then: 'grid' }, 'b', 'comet-ring', ids).choice).toEqual({ step: 'choose', cursor: 'multi' });
+  });
+  it('opens on the circuit kept: a track the cards do not hold reads as the first', () => {
+    expect(step('single', 'nowhere')).toContain('COMET RING');
+  });
+  it('names the circuit kept on the choice, the ready title and the ready line', () => {
+    expect(readyLine(3, 'FROST EIGHT')).toBe('FROST EIGHT · 3 LAPS · PRESS START');
+    const render = (choice: KartChoice) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', choice, options: { ...defaultOptions(), track: 'frost-eight' }, circuit: { cards: CARDS, bests: {} } }))).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    expect(render({ step: 'single' })).toBe('FROST EIGHT · 3 LAPS · PRESS START B GAME ROOM');
+    expect(render(FIRST_CHOICE)).toContain('FROST EIGHT · 3 LAPS ▶ SINGLE');
+  });
+  it('names it before the cards have loaded, from its id', () => {
+    expect(circuitName([], 'frost-eight')).toBe('FROST EIGHT');
+    expect(circuitName(CARDS, 'comet-ring')).toBe('COMET RING');
+  });
+  it('shows the grid its circuit\'s name', () => {
+    const view: KartGridView = { state: 'joined', rows: [], line: 'START RACE', laps: 3, track: 'frost-eight' };
+    const html = renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: null, choice: { step: 'grid' }, multi: true, lobby: view, circuit: { cards: CARDS, bests: {} } })));
+    expect(html).toContain('GRID · FROST EIGHT · 3 LAPS');
+  });
+});
+
 describe('the grid (PRD 1572)', () => {
   const hero = { v: 1, body: 'girl', skin: 0, hair: 0, suit: 0, cape: 0 } as const;
   const row = (id: string, name: string, best: number | null, you = false, seat = true) => ({ id, name, hero, fleet: null, best, you, seat });
@@ -433,8 +502,8 @@ describe('the grid (PRD 1572)', () => {
 
   it('picking MULTI with A or START goes to the grid, and only when it can be picked', () => {
     const onMulti: KartChoice = { step: 'choose', cursor: 'multi' };
-    expect(choicePress(onMulti, 'a', true)).toEqual({ step: 'grid' });
-    expect(choicePress(onMulti, 'start', true)).toEqual({ step: 'grid' });
+    expect(choicePress(onMulti, 'a', true)).toEqual({ step: 'circuit', then: 'grid' });
+    expect(choicePress(onMulti, 'start', true)).toEqual({ step: 'circuit', then: 'grid' });
     expect(choicePress(onMulti, 'a', false)).toBe(onMulti);
   });
 

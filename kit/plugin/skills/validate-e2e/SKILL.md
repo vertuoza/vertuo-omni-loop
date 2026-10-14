@@ -146,6 +146,29 @@ Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`, each declari
 - Remove the framework's `.gitignore` line for `.e2e/cache/` in `e2e.dir`, so the recordings can be
   committed.
 
+## 5b. The level of each test
+
+A test is `critical` or `standard`, decided by the critical flows of the product it covers. The
+list is `<e2e.dir>/critical-flows.md`: one entry per flow, with an id, a name and what its failure
+costs. Read it when it exists; a missing or empty list means no flow is listed yet. The level is
+written as tags on the test: `flow-<id>` when it covers a listed flow, and `critical` when its
+failure breaks that flow. A test with no `critical` tag is `standard`.
+
+- **Run by hand,** ask for each new test, with the list in view: which flow of the list does this
+  test cover (or none), and does its failure break that flow? A flow and a breaking failure write
+  `flow-<id>` and `critical`. A flow whose failure does not break it writes `flow-<id>` alone. No
+  flow writes neither tag: the test is `standard`.
+- **A flow the list does not hold** is proposed as a new entry of `<e2e.dir>/critical-flows.md`
+  (id, name, what its failure costs) in the sub-PR, and a person confirms it there. Never write it
+  silently, and never edit an existing entry.
+- **Under `/omni:yolo`** (it follows this skill, so nothing can be asked on the way) write
+  `standard`, ask nothing, add no `critical` tag, and record one medium outbox item per run with
+  `omni item new` (`--slice e2e`, as step 8): the question (which flow does each test cover, and
+  does its failure break it), the tests written and the recommended answer. A person promotes a
+  test by answering it. The medium default, `standard`, is adopted, so the gate does not turn red
+  on it.
+- Which CI job runs which level is PRD #1277's work. This skill only writes the level.
+
 ## 6. A first run that records, last
 
 Record last: run after every install is settled, so a recording is never made before the dependencies.

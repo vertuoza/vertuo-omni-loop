@@ -1292,6 +1292,12 @@ var proofUrl = z8.string().refine((value) => {
 var envName = z8.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text3.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = z8.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
+var contractKind = z8.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
+var contractKinds = z8.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+  const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
+  if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z8.object({
   repo: z8.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -1494,6 +1500,14 @@ var ConfigSchema = z8.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: z8.array(regexSource).default([]) }),
+  // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
+  // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
+  // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
+  // it names none; `omni plan check` refuses a word outside them.
+  contracts: section({
+    declare: z8.boolean().default(false),
+    kinds: contractKinds.default(() => [...DEFAULT_CONTRACT_KINDS])
+  }),
   notify: section({
     slack: z8.object({ channelVar: text3.default("OMNI_SLACK_CHANNEL"), tokenSecret: text3.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
@@ -9394,7 +9408,11 @@ import { join as join44 } from "node:path";
 import { parse as parse3, stringify } from "yaml";
 var COPY_FLOW_DIR = "flow";
 var COPY_FLOW_FILE = "config.yml";
-var NO_FLOW = Object.freeze({ landings: { alone: [] }, pr: { openWith: null } });
+var NO_FLOW = Object.freeze({
+  landings: { alone: [] },
+  pr: { openWith: null },
+  contracts: { declare: false, kinds: [...DEFAULT_CONTRACT_KINDS] }
+});
 var isRecord3 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 function parseFlowConfig(source, file) {
   let raw;
@@ -9408,8 +9426,9 @@ function parseFlowConfig(source, file) {
   if (all.flow !== void 0) picked.flow = all.flow;
   if (all.landings !== void 0) picked.landings = all.landings;
   if (isRecord3(all.pr) && all.pr.openWith !== void 0) picked.pr = { openWith: all.pr.openWith };
-  const { flow, landings, pr } = parseConfig(stringify(picked), file);
-  return flow === void 0 ? { landings, pr } : { flow, landings, pr };
+  if (all.contracts !== void 0) picked.contracts = all.contracts;
+  const { flow, landings, pr, contracts } = parseConfig(stringify(picked), file);
+  return flow === void 0 ? { landings, pr, contracts } : { flow, landings, pr, contracts };
 }
 function copyFolder(repo, { ctx }) {
   return join44(ctx.config.paths.knowledge, "repos", at(repo.split("/"), 1, `the name of ${repo}`));
@@ -9431,8 +9450,7 @@ function readCopyFlow(repo, { root, config }) {
 var shortName2 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetFlows({ root, config }) {
   const flows = /* @__PURE__ */ new Map();
-  for (const { repo, knowledge } of config.plan?.targets ?? []) {
-    if (knowledge !== "imported") continue;
+  for (const { repo } of config.plan?.targets ?? []) {
     try {
       const copy = readCopyFlow(repo, { root, config });
       if (copy) flows.set(shortName2(repo), { ok: true, config: copy.config });
@@ -9518,7 +9536,8 @@ function parsePlanSlices(markdown) {
       territory: territoryPrefixes(row[column("territory")]),
       blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
       wave: column("wave") === -1 ? null : Number(row[column("wave")]),
-      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")])
+      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")]),
+      contract: column("contract") === -1 ? null : contractCell(row[column("contract")])
     });
   }
   if (slices.length === 0) {
@@ -9529,6 +9548,13 @@ function parsePlanSlices(markdown) {
 function landingCell(cell3) {
   const text14 = plainCell(cell3);
   return NOTHING.test(text14) ? 1 : Number(text14);
+}
+function contractCell(cell3) {
+  const text14 = plainCell(cell3);
+  if (NOTHING.test(text14)) return null;
+  const kinds = text14.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  if (kinds.length === 0) return null;
+  return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
 function plainCell(cell3) {
   return (cell3 ?? "").replace(/`/g, "").trim();
@@ -9788,6 +9814,21 @@ function targetReachViolations(slices, targets) {
   }
   return violations;
 }
+function contractAsk(slice, { config, multi, targets }) {
+  if (config.plan === void 0) return config.contracts.declare ? config.contracts : null;
+  const found = multi && slice.repo !== null ? targets.get(slice.repo) : void 0;
+  return found?.ok === true && found.config.contracts.declare ? found.config.contracts : null;
+}
+function contractViolations(slice, asks) {
+  const { contract } = slice;
+  const words = contract === null || contract === "none" ? [] : contract.kinds;
+  const beside = words.includes("none") ? [`${slice.id}: contract: "none" beside a kind \u2014 one or the other`] : [];
+  if (asks === null) return beside;
+  const choices = `${asks.kinds.join(", ")} or none`;
+  if (contract === null) return [`${slice.id}: contract: declares nothing \u2014 ${choices}`];
+  const strangers = words.filter((word) => word !== "none" && !asks.kinds.includes(word));
+  return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository \u2014 ${choices}`), ...beside];
+}
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
   if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
@@ -9833,6 +9874,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
+    ...slices.flatMap((slice) => contractViolations(slice, contractAsk(slice, { config, multi, targets }))),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf2.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )

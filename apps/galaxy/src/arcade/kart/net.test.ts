@@ -186,3 +186,22 @@ describe('a state\'s height (PRD 1775)', () => {
     expect(readMessage({ ...state, height: -1 })).toBeNull();
   });
 });
+
+describe('a circuit on the wire (PRD 1923)', () => {
+  const order = [presenceOf(player({ id: 'a' })), presenceOf(player({ id: 'b' }))];
+
+  it('carries a Presence entry\'s track, and reads an entry without one or naming no circuit as none', () => {
+    const sent = presenceOf(player({ track: 'comet-ring' }));
+    expect(sent).toMatchObject({ track: 'comet-ring' });
+    expect(readPresence(sent)).toEqual(player({ track: 'comet-ring' }));
+    expect(presenceOf(player())).not.toHaveProperty('track');
+    expect(readPresence(presenceOf(player()))?.track).toBeUndefined();
+    expect(readPresence({ ...sent, track: 'moon-base' })).toEqual(player());
+  });
+
+  it('reads a start with a track, a start without one, and ignores one naming no circuit', () => {
+    expect(readMessage({ kind: 'start', race: 'r', seed: 1, order, track: 'comet-ring' })).toMatchObject({ track: 'comet-ring' });
+    expect(readMessage({ kind: 'start', race: 'r', seed: 1, order })?.kind).toBe('start');
+    expect(readMessage({ kind: 'start', race: 'r', seed: 1, order, track: 'moon-base' })).toBeNull();
+  });
+});
