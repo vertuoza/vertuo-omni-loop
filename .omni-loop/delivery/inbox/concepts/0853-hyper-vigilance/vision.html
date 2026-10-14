@@ -1,0 +1,1460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Never Twice</title>
+<style>
+:root{
+  /* Layout: brand bar · step rail grouped by the arc (before work, before merge, after merge, the memory) · one-line caption · the product surface of the moment · sticky previous/next */
+  --bg:#f3f2fa;--surface:#ffffff;--sunk:#eae8f6;--line:#dcd9ef;--line2:#bdb9dc;
+  --ink:#15133a;--muted:#545889;--accent:#6a2fd0;--accentSoft:#ece3ff;--onAccent:#ffffff;--accent2:#0b6f86;
+  --glass:rgba(243,242,250,.93);
+  /* GitHub chrome, where the engineer reads PRs and checks */
+  --gh-canvas:#ffffff;--gh-sub:#f6f8fa;--gh-fg:#1f2328;--gh-mut:#59636e;--gh-bd:#d1d9e0;--gh-bd2:#eff2f5;
+  --gh-blue:#0969da;--gh-blueSoft:#ddf4ff;--gh-grn:#1a7f37;--gh-grnBtn:#1f883d;--gh-grnbg:#dafbe1;--gh-grnln:#aceebb;
+  --gh-red:#cf222e;--gh-redbg:#ffebe9;--gh-redln:#ffcecb;--gh-amb:#9a6700;--gh-ambbg:#fff8c5;--gh-ambln:#eed888;
+  --gh-pur:#8250df;--gh-purbg:#fbefff;--gh-purbd:#e3c8ff;--gh-purfg:#6639ba;--gh-merged:#8250df;--gh-onBtn:#ffffff;
+  --gh-orangebg:#fff1e5;--gh-orange:#bc4c00;--gh-orangebd:#ffc2a0;--gh-hl:#fff5b1;--gh-code:#eff2f5;
+  --gh-kw:#cf222e;--gh-fn:#8250df;--gh-str:#0a3069;--gh-com:#6e7781;--gh-tabline:#fd8c73;--gh-ghost:#f6f8fa;
+  /* the terminal and the Omni page: always dark, the product's own deep-space look */
+  --t-bg:#07061c;--t-bar:#141238;--t-deep:#0e0d33;--t-card:#151347;--t-line:#2a2870;--t-ink:#f2f4ff;--t-mut:#8a90d6;--t-dim:#6a6f9e;
+  --t-g:#4ee08a;--t-y:#ffd84a;--t-r:#ff3b5c;--t-c:#6ff0ff;--t-p:#c9a2ff;--t-plasma:#a45cff;--t-navy:#2f3fc4;
+  --t-band:rgba(255,216,74,.08);--t-rsoft:rgba(255,59,92,.14);--t-gsoft:rgba(78,224,138,.13);--t-psoft:rgba(164,92,255,.18);
+  --f-display:"Anton","Oswald",Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+  --f-body:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --f-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#07061c;--surface:#0e0d33;--sunk:#151347;--line:#26246a;--line2:#3a3790;
+    --ink:#f2f4ff;--muted:#8a90d6;--accent:#a45cff;--accentSoft:#241a5c;--onAccent:#07061c;--accent2:#6ff0ff;
+    --glass:rgba(7,6,28,.9);
+    --gh-canvas:#0d1117;--gh-sub:#151b23;--gh-fg:#f0f6fc;--gh-mut:#9198a1;--gh-bd:#3d444d;--gh-bd2:#262c36;
+    --gh-blue:#4493f8;--gh-blueSoft:rgba(56,139,253,.15);--gh-grn:#3fb950;--gh-grnBtn:#238636;--gh-grnbg:rgba(46,160,67,.15);--gh-grnln:rgba(63,185,80,.35);
+    --gh-red:#f85149;--gh-redbg:rgba(248,81,73,.12);--gh-redln:rgba(248,81,73,.35);--gh-amb:#d29922;--gh-ambbg:rgba(187,128,9,.16);--gh-ambln:rgba(210,153,34,.4);
+    --gh-pur:#ab7df8;--gh-purbg:rgba(171,125,248,.14);--gh-purbd:rgba(171,125,248,.4);--gh-purfg:#d2a8ff;--gh-merged:#8957e5;--gh-onBtn:#ffffff;
+    --gh-orangebg:rgba(219,109,40,.15);--gh-orange:#f0883e;--gh-orangebd:rgba(219,109,40,.45);--gh-hl:rgba(187,128,9,.28);--gh-code:#262c36;
+    --gh-kw:#ff7b72;--gh-fn:#d2a8ff;--gh-str:#a5d6ff;--gh-com:#9198a1;--gh-tabline:#f78166;--gh-ghost:#151b23;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#07061c;--surface:#0e0d33;--sunk:#151347;--line:#26246a;--line2:#3a3790;
+  --ink:#f2f4ff;--muted:#8a90d6;--accent:#a45cff;--accentSoft:#241a5c;--onAccent:#07061c;--accent2:#6ff0ff;
+  --glass:rgba(7,6,28,.9);
+  --gh-canvas:#0d1117;--gh-sub:#151b23;--gh-fg:#f0f6fc;--gh-mut:#9198a1;--gh-bd:#3d444d;--gh-bd2:#262c36;
+  --gh-blue:#4493f8;--gh-blueSoft:rgba(56,139,253,.15);--gh-grn:#3fb950;--gh-grnBtn:#238636;--gh-grnbg:rgba(46,160,67,.15);--gh-grnln:rgba(63,185,80,.35);
+  --gh-red:#f85149;--gh-redbg:rgba(248,81,73,.12);--gh-redln:rgba(248,81,73,.35);--gh-amb:#d29922;--gh-ambbg:rgba(187,128,9,.16);--gh-ambln:rgba(210,153,34,.4);
+  --gh-pur:#ab7df8;--gh-purbg:rgba(171,125,248,.14);--gh-purbd:rgba(171,125,248,.4);--gh-purfg:#d2a8ff;--gh-merged:#8957e5;--gh-onBtn:#ffffff;
+  --gh-orangebg:rgba(219,109,40,.15);--gh-orange:#f0883e;--gh-orangebd:rgba(219,109,40,.45);--gh-hl:rgba(187,128,9,.28);--gh-code:#262c36;
+  --gh-kw:#ff7b72;--gh-fn:#d2a8ff;--gh-str:#a5d6ff;--gh-com:#9198a1;--gh-tabline:#f78166;--gh-ghost:#151b23;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono)}
+.tnum{font-variant-numeric:tabular-nums}
+.scroll-x{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+
+/* ---------- tour frame ---------- */
+.tour{max-width:1280px;margin:0 auto;padding-inline:24px;padding-block:18px 0}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mark{width:36px;height:36px;flex:none}
+.mk-bg{fill:var(--t-deep)}
+.mk-loop{fill:none;stroke:var(--t-c);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.mk-bar{stroke:var(--t-plasma);stroke-width:2.6;stroke-linecap:round}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand b{display:block;font:400 25px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.brand small{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+.top .sp{flex:1}
+.keys{font:12px var(--f-mono);color:var(--muted);display:flex;gap:6px;align-items:center}
+.keys kbd{font:12px var(--f-mono);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:0 6px;background:var(--surface);color:var(--ink)}
+.ib{width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--muted)}
+.ib:hover{color:var(--ink);border-color:var(--line2)}
+.ib svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+
+.rail{margin-top:18px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px 8px}
+.rail .grp{font:600 11px/1 var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-bottom:7px;border-bottom:1px solid var(--line2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail .g1{grid-column:span 2}.rail .g2{grid-column:span 2}.rail .g3{grid-column:span 2}
+.st{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);background:var(--surface);border-radius:10px;text-align:left;min-width:0;color:var(--muted);transition:border-color .2s,color .2s}
+.st:hover{color:var(--ink);border-color:var(--line2)}
+.st .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:700 12px/1 var(--f-mono);border:1.5px solid var(--line2);flex:none;transition:background .2s,color .2s,border-color .2s}
+.st .l{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st.seen .n{border-color:var(--accent);color:var(--accent)}
+.st[aria-current="step"]{border-color:var(--accent);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent)}
+.st[aria-current="step"] .n{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}
+
+.cap{margin-top:20px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 16px;align-items:center}
+.cap .big{font:400 54px/1 var(--f-display);color:var(--accent);min-width:34px;text-align:center}
+.cap .when{font:12.5px var(--f-mono);color:var(--accent2)}
+.cap h1{margin:3px 0 0;font:600 clamp(19px,2.2vw,25px)/1.28 var(--f-body);text-wrap:balance;max-width:62ch}
+.stage{margin-top:16px;padding-bottom:22px}
+.screen{animation:enter .3s ease-out}
+@keyframes enter{from{opacity:.35;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pager{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 0 calc(10px + env(safe-area-inset-bottom,0px));background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+.pager .mid{flex:1;text-align:center;font-size:13px;color:var(--muted);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pager .mid b{color:var(--ink);font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);background:var(--surface);border-radius:9px;padding:8px 14px;font-weight:600;font-size:14px}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}
+.btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.replay{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:7px;padding:4px 10px;font-size:12.5px}
+.replay:hover{color:var(--ink)}
+.replay svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.srow{display:flex;justify-content:flex-end;margin-bottom:8px;gap:8px}
+
+/* ---------- GitHub chrome ---------- */
+.gh{background:var(--gh-canvas);color:var(--gh-fg);border:1px solid var(--gh-bd);border-radius:10px;font:14px/1.5 var(--f-body);min-width:0;overflow:hidden}
+.gh .lnk{color:var(--gh-blue)}
+.gh .mut{color:var(--gh-mut)}
+.gh code{font:12px var(--f-mono);background:var(--gh-code);border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+.gh-hd{padding:16px 16px 0}
+.ttl{margin:0;font-size:22px;font-weight:400;line-height:1.3;text-wrap:balance}
+.ttl span{color:var(--gh-mut);font-weight:300}
+.gh-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:9px;color:var(--gh-mut);font-size:13.5px}
+.gh-meta b{color:var(--gh-fg);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:2em;padding:4px 12px 4px 9px;font-size:13px;font-weight:500;color:var(--gh-onBtn);background:var(--gh-grnBtn);transition:background .3s}
+.pill.merged{background:var(--gh-merged)}
+.pill svg{width:15px;height:15px;fill:currentColor}
+.pill .pm{display:none}.pill.merged .po{display:none}.pill.merged .pm{display:inline}
+.br{font:12px var(--f-mono);background:var(--gh-blueSoft);color:var(--gh-blue);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere}
+.lab{font-size:12px;font-weight:600;border-radius:2em;padding:0 8px;border:1px solid;line-height:19px;white-space:nowrap}
+.lab.rc{background:var(--gh-purbg);color:var(--gh-purfg);border-color:var(--gh-purbd)}
+.lab.hi{background:var(--gh-orangebg);color:var(--gh-orange);border-color:var(--gh-orangebd)}
+.lab.bug{background:var(--gh-redbg);color:var(--gh-red);border-color:var(--gh-redln)}
+.lab.nt{background:var(--gh-sub);color:var(--gh-mut);border-color:var(--gh-bd)}
+.gh-tabs{display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--gh-bd);overflow-x:auto;scrollbar-width:none;align-items:flex-end}
+.gh-tabs::-webkit-scrollbar{display:none}
+.gh-tab{padding:6px 12px 9px;color:var(--gh-mut);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:14px}
+.gh-tab i{font-style:normal;background:var(--gh-bd2);border-radius:2em;padding:0 7px;font-size:12px;color:var(--gh-fg);line-height:18px}
+.gh-tab.on{color:var(--gh-fg);font-weight:600;border-bottom-color:var(--gh-tabline)}
+.gh-tabs .num{margin-left:auto;padding:0 4px 9px 12px;font:600 13px var(--f-mono);white-space:nowrap}
+.num .a{color:var(--gh-grn)}.num .d{color:var(--gh-red);margin-left:5px}
+.gh-t{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--gh-bd);border-radius:8px;font-size:13px}
+.gh-t th{text-align:left;font-weight:600;color:var(--gh-mut);font-size:12px;background:var(--gh-sub);padding:6px 10px;border-bottom:1px solid var(--gh-bd);white-space:nowrap}
+.gh-t th:first-child{border-top-left-radius:8px}.gh-t th:last-child{border-top-right-radius:8px}
+.gh-t td{padding:7px 10px;border-bottom:1px solid var(--gh-bd2);vertical-align:top}
+.gh-t tr:last-child td{border-bottom:0}
+.gh-t td.f{font:12px var(--f-mono);white-space:nowrap}
+.gh-t .sm{display:block;color:var(--gh-mut);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;border-radius:2em;padding:0 8px;line-height:19px;border:1px solid var(--gh-bd);color:var(--gh-mut);background:var(--gh-sub);white-space:nowrap;vertical-align:1px}
+.chip.ok{color:var(--gh-grn);background:var(--gh-grnbg);border-color:var(--gh-grnln)}
+.chip.bad{color:var(--gh-red);background:var(--gh-redbg);border-color:var(--gh-redln)}
+.chip.warn{color:var(--gh-amb);background:var(--gh-ambbg);border-color:var(--gh-ambln)}
+.chip.prot{color:var(--gh-purfg);background:var(--gh-purbg);border-color:var(--gh-purbd)}
+.chip.hot{color:var(--gh-orange);background:var(--gh-orangebg);border-color:var(--gh-orangebd)}
+.chip svg{width:11px;height:11px;fill:currentColor}
+.av{width:22px;height:22px;border-radius:50%;background:var(--t-deep);display:inline-grid;place-items:center;flex:none;vertical-align:middle}
+.av svg{width:14px;height:14px}
+.av.p{background:var(--gh-bd);color:var(--gh-fg);font:700 10px/22px var(--f-body);text-align:center;display:inline-block}
+.bot{font-size:11px;border:1px solid var(--gh-bd);border-radius:2em;padding:0 6px;line-height:16px;color:var(--gh-mut)}
+.ico{width:16px;height:16px;flex:none;display:inline-block;vertical-align:-3px}
+.ico .bg{fill:var(--gh-mut)}
+.ico .pk,.ico .px,.ico .pd{fill:none;stroke:var(--gh-canvas);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:none}
+.ico.ok .bg{fill:var(--gh-grn)}.ico.ok .pk{display:inline}
+.ico.x .bg{fill:var(--gh-red)}.ico.x .px{display:inline}
+.ico.a .bg{fill:var(--gh-amb)}.ico.a .pd{display:inline}
+.ico.run .bg{fill:none;stroke:var(--gh-amb);stroke-width:2.2;stroke-dasharray:28 16;transform-origin:8px 8px;animation:spin .9s linear infinite}
+.ico.q .bg{fill:none;stroke:var(--gh-bd);stroke-width:2}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* code and diffs */
+.code{font:12.5px/1.65 var(--f-mono);overflow-x:auto;background:var(--gh-canvas)}
+.ci{display:inline-block;min-width:100%;padding-block:4px}
+.cl{display:grid;grid-template-columns:44px 16px max-content;white-space:pre;padding-right:14px}
+.cl.two{grid-template-columns:40px 40px 16px max-content}
+.cl i{font-style:normal;color:var(--gh-mut);text-align:right;padding-right:10px;user-select:none;opacity:.8}
+.cl u{text-decoration:none;color:var(--gh-mut);user-select:none}
+.cl.ad{background:var(--gh-grnbg)}.cl.dl{background:var(--gh-redbg)}
+.cl.hunk{background:var(--gh-blueSoft);color:var(--gh-mut)}
+.cl.hot{background:linear-gradient(var(--gh-hl),var(--gh-hl)) no-repeat 0 0/100% 100%;box-shadow:inset 3px 0 0 var(--gh-amb)}
+.cl.hot.sweep{animation:sweep .9s cubic-bezier(.2,.7,.2,1)}
+@keyframes sweep{from{background-size:0% 100%}to{background-size:100% 100%}}
+.cl.flash{animation:flash 1.6s ease-out}
+@keyframes flash{0%,30%{box-shadow:inset 3px 0 0 var(--gh-amb),inset 0 0 0 999px var(--gh-hl)}100%{box-shadow:inset 3px 0 0 transparent}}
+.k{color:var(--gh-kw)}.fn{color:var(--gh-fn)}.s{color:var(--gh-str)}.c{color:var(--gh-com)}
+.cnote{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:5px 12px 6px 60px;font:12px/1.45 var(--f-body);color:var(--gh-mut);background:var(--gh-sub);border-block:1px solid var(--gh-bd2);white-space:normal}
+.ghost{position:relative;background:var(--gh-ghost);color:var(--gh-mut)}
+.ghost .gt{position:relative}
+.ghost .gt::after{content:"";position:absolute;left:0;right:0;top:52%;height:1.5px;background:var(--gh-red);transform:scaleX(1);transform-origin:left;transition:transform .7s ease-out}
+.ghost.unstruck .gt::after{transform:scaleX(0)}
+
+/* ---------- terminal ---------- */
+.term{background:var(--t-bg);color:var(--t-ink);border-radius:10px;border:1px solid var(--t-line);font:12.5px/1.6 var(--f-mono);overflow:hidden;min-width:0}
+.term-bar{display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--t-bar);color:var(--t-mut);font-size:12px;min-width:0}
+.term-bar i{width:10px;height:10px;border-radius:50%;background:var(--t-dim);flex:none;opacity:.7}
+.term-bar span{margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.term-body{padding:12px 14px 14px}
+.tl{display:grid;grid-template-columns:42px 58px minmax(0,1fr);gap:0 8px}
+.tl .t{color:var(--t-dim)}
+.tl .g{color:var(--t-c)}
+.tl .x{white-space:pre-wrap;overflow-wrap:anywhere}
+.tl.pend{visibility:hidden}
+.tl.in{animation:tin .28s ease-out}
+@keyframes tin{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+.tl.flag .x{background:var(--t-rsoft);box-shadow:-4px 0 0 var(--t-rsoft),4px 0 0 var(--t-rsoft)}
+.tr{color:var(--t-r)}.tg{color:var(--t-g)}.ty{color:var(--t-y)}.tp{color:var(--t-p)}.tm{color:var(--t-mut)}.tc{color:var(--t-c)}
+
+/* ---------- screen layouts ---------- */
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:16px;align-items:start}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* S1 brief */
+.crumbs{padding:10px 16px;border-bottom:1px solid var(--gh-bd);background:var(--gh-sub);font:12.5px var(--f-mono);color:var(--gh-mut);overflow-wrap:anywhere}
+.crumbs b{color:var(--gh-fg)}
+.filebar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:9px 16px;border-bottom:1px solid var(--gh-bd);font-size:13px;color:var(--gh-mut)}
+.filebar b{color:var(--gh-fg)}
+.md{padding:16px 18px 20px}
+.md h2{margin:0;font-size:22px;font-weight:600;line-height:1.3;padding-bottom:8px;border-bottom:1px solid var(--gh-bd2)}
+.md h3{margin:22px 0 8px;font-size:16px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.md h3 em{font-style:normal;font-weight:400;font-size:13px;color:var(--gh-mut)}
+.md .lead{margin:10px 0 0;max-width:92ch;color:var(--gh-fg)}
+.counts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.states{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.state{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;font-size:13px;color:var(--gh-mut);padding:7px 12px;border:1px dashed var(--gh-bd);border-radius:8px}
+.state b{color:var(--gh-fg);font-weight:600}
+.state code{background:none;padding:0}
+tr.ping td{animation:ping 1.4s ease-out}
+@keyframes ping{0%,35%{background:var(--gh-hl)}100%{background:transparent}}
+.why{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:12px;align-items:start}
+.why-list{display:flex;flex-direction:column;gap:6px}
+.wb{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--gh-bd);background:var(--gh-canvas);color:var(--gh-fg);border-radius:8px;padding:8px 10px;transition:border-color .2s,background .2s}
+.wb:hover{border-color:var(--gh-mut)}
+.wb[aria-selected="true"]{border-color:var(--gh-blue);background:var(--gh-blueSoft)}
+.wb .p{font:12px var(--f-mono);overflow-wrap:anywhere}
+.wb .r{display:flex;flex-wrap:wrap;gap:4px}
+.peek{border:1px solid var(--gh-bd);border-radius:8px;overflow:hidden;min-width:0}
+.peek-h{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:space-between;padding:7px 12px;background:var(--gh-sub);border-bottom:1px solid var(--gh-bd);font:12px var(--f-mono)}
+.peek-h span{color:var(--gh-mut)}
+.peek-why{padding:10px 14px 12px;border-top:1px solid var(--gh-bd);font-size:13.5px;display:flex;flex-direction:column;gap:8px}
+.peek-why .by{margin:0;color:var(--gh-mut)}
+.peek-why .by b{color:var(--gh-fg);font-weight:600}
+blockquote{margin:0;padding:2px 0 2px 12px;border-left:3px solid var(--gh-bd);color:var(--gh-fg)}
+blockquote cite{display:block;font-style:normal;color:var(--gh-mut);font-size:12px;margin-top:2px}
+.peek-why .pr{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rules{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.rule{border:1px solid var(--gh-bd);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.rule-h{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.rule-h b{font:700 12.5px var(--f-mono);margin-right:2px}
+.rule .ans{margin:0;font-size:12.5px;color:var(--gh-mut);display:flex;flex-direction:column;gap:2px}
+.rule .ans code{font-size:11.5px}
+.rule.judged{background:var(--gh-sub);color:var(--gh-mut)}
+.rule.judged blockquote{color:var(--gh-mut)}
+.notkept{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--gh-mut)}
+.notkept li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.notkept q{color:var(--gh-fg)}
+.foot{margin:12px 0 0;font-size:12.5px;color:var(--gh-mut);max-width:100ch}
+
+/* S2 */
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.fact{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 12px;display:flex;flex-direction:column;min-width:0;flex:1 1 170px}
+.fact span{font-size:12px;color:var(--muted)}
+.fact b{font:600 15px/1.3 var(--f-body)}
+.fact b small{font-weight:400;color:var(--muted);font-size:12.5px}
+.rcpt td:last-child{white-space:nowrap}
+.rcpt tr.gr td{color:var(--gh-mut);background:var(--gh-sub)}
+.legend{font-size:12px;color:var(--gh-mut);padding:8px 12px 10px;border-top:1px solid var(--gh-bd2)}
+.box{border:1px solid var(--gh-bd);border-radius:8px;overflow:hidden;min-width:0}
+.bh{padding:7px 12px;background:var(--gh-sub);border-bottom:1px solid var(--gh-bd);font-weight:600;font-size:13px;display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:space-between;align-items:center}
+.bh span{font-weight:400;color:var(--gh-mut)}
+.fileh{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:space-between;align-items:center;padding:7px 12px;background:var(--gh-sub);border-bottom:1px solid var(--gh-bd);font:12.5px var(--f-mono)}
+.fileh .num{font-weight:600}
+.pad{padding:12px 16px 16px}
+.rcpt-wrap.pend{visibility:hidden}
+.rcpt-wrap.in{animation:tin .4s ease-out}
+
+/* S3 relapse */
+.checks{display:grid;grid-template-columns:240px minmax(0,1fr)}
+.cside{border-right:1px solid var(--gh-bd);padding:10px 0 12px;min-width:0}
+.sh{font-size:11px;font-weight:600;color:var(--gh-mut);padding:6px 14px 4px;text-transform:uppercase;letter-spacing:.04em}
+.ck{display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:13px;min-width:0}
+.ck .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ck em{margin-left:auto;font-style:normal;color:var(--gh-mut);font-size:12px;white-space:nowrap}
+.ck.on{background:var(--gh-sub);box-shadow:inset 2px 0 0 var(--gh-tabline);font-weight:600}
+.cm{display:grid;grid-template-columns:10px minmax(0,1fr);gap:0 8px;padding:3px 14px;font-size:12.5px;line-height:1.35}
+.cm .dt{width:10px;height:10px;border-radius:50%;border:2px solid var(--gh-mut);margin-top:3px;background:var(--gh-canvas)}
+.cm .dt.f{border-color:var(--gh-grn);background:var(--gh-grn)}
+.cm .dt.r{border-color:var(--gh-red)}
+.cm .dt.p{border-color:var(--gh-pur);background:var(--gh-pur)}
+.cm code{background:none;padding:0;color:var(--gh-blue);font-size:11.5px}
+.cm small{display:block;color:var(--gh-mut);font-size:11.5px}
+.cm small b{color:var(--gh-fg);font-weight:600}
+.sidenote{margin:12px 14px 0;padding:8px 10px;border:1px solid var(--gh-bd);border-radius:6px;background:var(--gh-sub);font-size:12px;line-height:1.45;color:var(--gh-mut)}
+.sidenote b{color:var(--gh-fg);font-weight:600}
+.pane{padding:12px 16px 16px;min-width:0}
+.ph{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.ph h2{margin:0;font-size:16px;font-weight:600}
+.ph .st2{font-size:13px;color:var(--gh-grn)}
+.ph .st2.bad{color:var(--gh-red)}
+.ph em{margin-left:auto;font-style:normal;color:var(--gh-mut);font-size:12.5px;white-space:nowrap}
+.pane .lead{margin:8px 0 0;font-size:13.5px;max-width:100ch}
+.pane .src{margin:4px 0 0;font-size:12.5px;color:var(--gh-mut)}
+.runs{display:grid;grid-template-columns:minmax(0,1fr) 110px minmax(0,1fr);align-items:stretch;margin-top:12px;gap:0}
+.run{border:1px solid var(--gh-bd);border-radius:8px;padding:9px 12px 10px;min-width:0;transition:border-color .3s,background .3s}
+.run.x{border-color:var(--gh-redln);background:var(--gh-redbg)}
+.run.v{border-color:var(--gh-grnln);background:var(--gh-grnbg)}
+.run .t{display:flex;flex-wrap:wrap;align-items:center;gap:4px 7px;font-weight:600;font-size:13px}
+.run .t span{font-weight:400;color:var(--gh-mut);font-size:12px}
+.phase{display:grid;grid-template-columns:44px minmax(0,1fr);gap:6px;align-items:center;margin-top:8px}
+.phase > span{font-size:11px;color:var(--gh-mut);text-transform:uppercase;letter-spacing:.04em}
+.dots{display:flex;flex-wrap:wrap;gap:3px}
+.dot{width:11px;height:11px;border-radius:3px;background:var(--gh-bd2);border:1px solid var(--gh-bd);transition:background .15s,border-color .15s}
+.dot.c{background:var(--gh-grn);border-color:var(--gh-grn)}
+.dot.s{background:var(--gh-amb);border-color:var(--gh-amb)}
+.dot.i{background:var(--gh-red);border-color:var(--gh-red)}
+.dot.named{outline:1.5px solid var(--gh-fg);outline-offset:1px}
+.run p{margin:7px 0 0;font-size:12.5px}
+.run p b{font-variant-numeric:tabular-nums}
+.run p b.r{color:var(--gh-red)}.run p b.a{color:var(--gh-amb)}.run p b.g{color:var(--gh-grn)}
+.arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11.5px;color:var(--gh-mut);text-align:center;line-height:1.3;padding:0 6px;transition:color .3s}
+.arrow svg{width:78px;height:12px;fill:none;stroke:currentColor;stroke-width:1.5}
+.arrow.lit{color:var(--gh-fg)}
+.rtab{margin-top:12px}
+.rtab td{font-size:12.5px}
+.tag{display:inline-block;font-size:11px;font-weight:600;border-radius:2em;padding:0 7px;line-height:17px;margin:0 4px 2px 0;white-space:nowrap}
+.tag.r{background:var(--gh-redbg);color:var(--gh-red)}
+.tag.a{background:var(--gh-ambbg);color:var(--gh-amb)}
+.tag.g{background:var(--gh-grnbg);color:var(--gh-grn)}
+.tag.n{background:var(--gh-sub);color:var(--gh-mut);border:1px solid var(--gh-bd)}
+.tag.p{background:var(--gh-purbg);color:var(--gh-purfg)}
+td.r2{color:var(--gh-grn);font-weight:600;white-space:nowrap}
+td.r2 small{display:block;font-weight:400;color:var(--gh-mut);font-size:11.5px;white-space:normal;overflow-wrap:anywhere}
+.rtab .tag{white-space:normal}
+.rtab td{min-width:96px}
+.rtab td:nth-child(2){min-width:190px}
+.duo{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:12px;margin-top:12px}
+.port{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:10px 12px}
+.port div{border:1px solid var(--gh-bd);border-radius:6px;padding:5px 7px;font-size:12px;min-width:0}
+.port div b{display:block;font:600 11.5px var(--f-mono);overflow-wrap:anywhere}
+.port div.f{background:var(--gh-redbg);border-color:var(--gh-redln)}
+.port div.p{background:var(--gh-grnbg);border-color:var(--gh-grnln)}
+.port div small{display:block;color:var(--gh-mut);font-size:11px}
+.plist{list-style:none;margin:0;padding:6px 12px 10px;font-size:12.5px}
+.plist li{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--gh-bd2)}
+.plist li:last-child{border-bottom:0}
+.plist li span:first-child{font-family:var(--f-mono);font-size:12px;overflow-wrap:anywhere;min-width:0}
+.plist li span:last-child{white-space:nowrap;color:var(--gh-mut)}
+.plist li.zero span:last-child{color:var(--gh-fg);font-weight:600}
+.grade{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12.5px;color:var(--gh-mut)}
+.grade b{color:var(--gh-fg)}
+
+/* S4 self-check */
+.runhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px;padding-bottom:12px;border-bottom:1px solid var(--gh-bd)}
+.runhead h2{margin:0;font-size:20px;font-weight:600}
+.runhead .ico{width:20px;height:20px}
+.crumb2{font-size:13px;color:var(--gh-mut)}
+.sc{padding:16px 18px 18px}
+.sc-title{margin:0;font-size:18px;font-weight:600;line-height:1.35;text-wrap:balance}
+.sc-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.fdl{display:grid;grid-template-columns:minmax(150px,210px) minmax(0,1fr);border:1px solid var(--gh-bd);border-radius:8px;margin-top:14px;overflow:hidden}
+.fdl > div{display:contents}
+.fdl dt,.fdl dd{margin:0;padding:9px 12px;border-bottom:1px solid var(--gh-bd2);font-size:13.5px}
+.fdl dt{color:var(--gh-mut);font-weight:600;font-size:12.5px;background:var(--gh-sub)}
+.fdl > div:last-child dt,.fdl > div:last-child dd{border-bottom:0}
+.fdl dd .sub{display:block;color:var(--gh-mut);font-size:12.5px;margin-top:2px}
+.fdl .in{animation:tin .35s ease-out both;animation-delay:calc(var(--i,0) * 60ms)}
+.copy{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.copy code{font-size:12.5px;padding:3px 8px;user-select:all}
+.cbtn{border:1px solid var(--gh-bd);background:var(--gh-sub);color:var(--gh-fg);border-radius:6px;padding:2px 10px;font-size:12.5px}
+.cbtn.done{color:var(--gh-grn);border-color:var(--gh-grnln)}
+
+/* S5 escape */
+.issue-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:14px}
+.cmt{border:1px solid var(--gh-bd);border-radius:8px;overflow:hidden;min-width:0}
+.cmt-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:7px 12px;background:var(--gh-sub);border-bottom:1px solid var(--gh-bd);font-size:13px;color:var(--gh-mut)}
+.cmt-h b{color:var(--gh-fg)}
+.cmt-b{padding:12px 14px}
+.aplog{font:12.5px/1.6 var(--f-mono);background:var(--gh-sub);border:1px solid var(--gh-bd);border-radius:6px;padding:10px 12px;display:grid;grid-template-columns:86px minmax(0,1fr);gap:0 10px}
+.aplog span:nth-child(odd){color:var(--gh-mut)}
+.aplog span{overflow-wrap:anywhere}
+.aplog .bad{color:var(--gh-red);font-weight:600}
+.trace{position:relative;padding:4px 0 4px 34px;display:flex;flex-direction:column;gap:12px}
+.trace .rail2{position:absolute;left:12px;top:14px;bottom:18px;width:2px;background:var(--gh-bd2);border-radius:2px}
+.trace .ink{position:absolute;left:12px;top:14px;bottom:18px;width:2px;background:var(--gh-red);border-radius:2px;transform-origin:top;transform:scaleY(1);transition:transform 2.4s cubic-bezier(.4,.1,.3,1)}
+.trace.reset .ink{transform:scaleY(0);transition:none}
+.node{position:relative;border:1px solid var(--gh-bd);border-radius:8px;padding:8px 11px;background:var(--gh-canvas);transition:opacity .35s,transform .35s,border-color .35s;min-width:0}
+.node::before{content:"";position:absolute;left:-27px;top:12px;width:12px;height:12px;border-radius:50%;background:var(--gh-canvas);border:2px solid var(--gh-red)}
+.node.pend{opacity:.25;transform:translateX(-4px)}
+.node.pend::before{border-color:var(--gh-bd)}
+.node .k2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gh-mut)}
+.node .loc{font:12.5px var(--f-mono);overflow-wrap:anywhere;display:block;margin-top:2px}
+.node .cd2{display:block;font:12.5px var(--f-mono);background:var(--gh-sub);border-radius:5px;padding:3px 7px;margin-top:4px;overflow-wrap:anywhere}
+.node p{margin:4px 0 0;font-size:12.5px;color:var(--gh-mut)}
+.node.hit{border-color:var(--gh-red);background:var(--gh-redbg)}
+.node.loop{border-color:var(--gh-purbd);background:var(--gh-purbg)}
+.blame{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:6px}
+.blame div{border:1px solid var(--gh-bd);border-radius:6px;padding:6px 8px;font-size:12px;min-width:0}
+.blame div b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gh-mut)}
+.blame .no{color:var(--gh-mut)}
+.blame .no span{text-decoration:line-through;text-decoration-color:var(--gh-red)}
+.blame .yes{border-color:var(--gh-purbd)}
+.missed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.missed li{display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;font-size:13px;padding-bottom:8px;border-bottom:1px solid var(--gh-bd2)}
+.missed li:last-child{border-bottom:0;padding-bottom:0}
+.missed li b{font-weight:600}
+.verdict{margin-top:12px;padding:9px 12px;border-radius:8px;background:var(--gh-redbg);border:1px solid var(--gh-redln);font-size:13px}
+.linkbtn{border:0;background:none;padding:0;color:var(--gh-blue);font-size:12.5px;text-decoration:underline;text-underline-offset:2px}
+.pendfade.pend{opacity:.2}
+.pendfade{transition:opacity .4s}
+
+/* S6 recall */
+.rmain{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;padding:12px 16px 18px}
+.sec{margin-top:14px}
+.sec:first-child{margin-top:4px}
+.sec h3{margin:0 0 6px;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gh-mut);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.sec h3 em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;font-size:12.5px}
+.sec p{margin:0;font-size:13.5px}
+.sec p + p{margin-top:6px}
+.res .rd,.res .gr{white-space:nowrap}
+.res .rd{color:var(--gh-red);font-weight:600}
+.res .gr{color:var(--gh-grn);font-weight:600}
+.res .qd{display:none;color:var(--gh-mut)}
+.res.q .rd,.res.q .gr,.res.r .gr{display:none}
+.res.q .qd{display:inline}
+.res.r .rd::after{content:""}
+tr.first td{background:var(--gh-hl)}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.tlv{padding:8px 12px 10px}
+.tli{display:grid;grid-template-columns:42px minmax(0,1fr);font-size:12.5px;line-height:1.45;padding:2px 0;transition:opacity .3s}
+.tli b{font:600 11.5px/1.6 var(--f-mono);color:var(--gh-mut)}
+.tli.pend{opacity:.15}
+.tli.end{border-top:1px dashed var(--gh-bd);margin-top:4px;padding-top:6px}
+.tli.end b{color:var(--gh-fg)}
+.prop{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.prop div{border:1px solid var(--gh-bd);border-radius:6px;padding:6px 9px;font-size:12.5px;min-width:0}
+.prop div b{display:block;font:600 12px var(--f-mono)}
+.prop div.f{background:var(--gh-redbg);border-color:var(--gh-redln)}
+.prop div.p{background:var(--gh-grnbg);border-color:var(--gh-grnln)}
+.flight{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px;display:flex;flex-direction:column;gap:3px}
+.flight li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+
+/* S7 Omni page */
+.om{background:var(--t-deep);color:var(--t-ink);border-radius:12px;border:1px solid var(--t-line);overflow:hidden;font-size:14px}
+.om-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;background:var(--t-bg);border-bottom:1px solid var(--t-line)}
+.om-top .w{font:400 21px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.om-top .crumb{color:var(--t-mut);font-size:13px}
+.om-top .asof{margin-left:auto;font:12px var(--f-mono);color:var(--t-c)}
+.om-body{padding:16px;display:flex;flex-direction:column;gap:16px}
+.om-hero{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:18px;align-items:start}
+.om-k{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--t-mut)}
+.om-big{margin-top:6px;font:400 44px/1 var(--f-display);letter-spacing:.02em}
+.om-big small{font:500 15px var(--f-body);color:var(--t-mut);letter-spacing:0;margin-left:6px}
+.om-pct{margin-top:6px;font:600 15px var(--f-mono);color:var(--t-y)}
+.om-def{margin:10px 0 0;font-size:12.5px;color:var(--t-mut);line-height:1.5}
+.om-guard{margin:10px 0 0;font-size:12.5px;color:var(--t-ink);padding:7px 10px;border:1px solid var(--t-line);border-radius:8px;background:var(--t-card)}
+.chartbox{min-width:0;background:var(--t-bg);border:1px solid var(--t-line);border-radius:10px;padding:8px 8px 4px}
+.chartbox svg{display:block;width:100%;height:auto}
+.gl{stroke:var(--t-line);stroke-width:1}
+.axl{fill:var(--t-mut);font:11px var(--f-mono)}
+.axl.hi{fill:var(--t-ink)}
+.band{fill:var(--t-band)}
+.bandl{fill:var(--t-y);font:10.5px var(--f-body);letter-spacing:.06em}
+.mline{fill:none;stroke:var(--t-c);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.mpt{fill:var(--t-bg);stroke:var(--t-c);stroke-width:2}
+.mesc{fill:var(--t-r)}
+.mescl{fill:var(--t-r);font:600 11px var(--f-mono)}
+.om-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.om-t th{text-align:left;font-weight:600;color:var(--t-mut);font-size:11.5px;padding:7px 10px;border-bottom:1px solid var(--t-line);white-space:nowrap}
+.om-t td{padding:8px 10px;border-bottom:1px solid var(--t-line);vertical-align:top;font-variant-numeric:tabular-nums}
+.om-t td small{display:block;color:var(--t-mut);font-size:11.5px}
+.om-t tbody tr{cursor:pointer;transition:background .2s}
+.om-t tbody tr:hover{background:var(--t-card)}
+.om-t tbody tr.sel{background:var(--t-psoft)}
+.om-t tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--t-plasma)}
+.areabtn{border:0;background:none;padding:0;color:var(--t-ink);font-weight:600;font-size:13.5px;text-align:left}
+.om-t .mr{font-weight:600;color:var(--t-y);white-space:nowrap}
+.om-t tfoot td{color:var(--t-mut);font-size:12px;border-bottom:0}
+.om-2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
+.om-card{border:1px solid var(--t-line);border-radius:10px;background:var(--t-card);overflow:hidden;min-width:0}
+.om-card h3{margin:0;padding:9px 12px;font-size:13px;font-weight:600;border-bottom:1px solid var(--t-line);display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px}
+.om-card h3 span{font-weight:400;color:var(--t-mut);font-size:12px}
+.om-card .om-t td,.om-card .om-t th{padding:6px 10px}
+.om-card .om-t tbody tr{cursor:default}
+.om-card .om-t tbody tr:hover{background:transparent}
+.om-card .om-t td:nth-child(n+2),.om-card .om-t th{white-space:nowrap}
+#areas small{white-space:nowrap}
+.om-t tr.moved td{color:var(--t-mut)}
+.om-t tr.moved .rn{color:var(--t-y)}
+.ok2{color:var(--t-g)}.bad2{color:var(--t-r)}
+.loopc{padding:12px;display:flex;flex-direction:column;gap:10px}
+.lb{border:1px solid var(--t-line);border-radius:8px;background:var(--t-bg);padding:9px 11px;font:12.5px/1.6 var(--f-mono);min-width:0}
+.lb .h{font:600 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--t-mut);margin-bottom:4px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.lb .row{white-space:pre-wrap;overflow-wrap:anywhere}
+.flip{display:inline-grid;vertical-align:bottom}
+.flip > span{grid-area:1/1;transition:opacity .4s,transform .4s}
+.flip .was{color:var(--t-mut);text-decoration:line-through;opacity:0;transform:translateY(-6px)}
+.flip.reset .was{opacity:1;transform:none;text-decoration:none;color:var(--t-ink)}
+.flip.reset .now{opacity:0;transform:translateY(6px)}
+.chg{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12.5px}
+.chg .old{color:var(--t-mut)}
+.chg .arr{color:var(--t-p)}
+.chg .new{color:var(--t-g);font-weight:600}
+
+@media (max-width:1060px){
+  .rules{grid-template-columns:minmax(0,1fr)}
+  .rmain{grid-template-columns:minmax(0,1fr)}
+  .om-2{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:960px){
+  .split{grid-template-columns:minmax(0,1fr)}
+  .why{grid-template-columns:minmax(0,1fr)}
+  .checks{grid-template-columns:minmax(0,1fr)}
+  .cside{border-right:0;border-bottom:1px solid var(--gh-bd)}
+  .duo{grid-template-columns:minmax(0,1fr)}
+  .om-hero{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .rail .grp{display:none}
+  .st{justify-content:center;padding:8px 0}
+  .st .l{display:none}
+  .keys{display:none}
+}
+@media (max-width:640px){
+  .tour{padding-inline:16px}
+  .cap .big{font-size:40px}
+  .runs{grid-template-columns:minmax(0,1fr)}
+  .arrow{flex-direction:row;gap:8px;padding:6px 0}
+  .arrow svg{transform:rotate(90deg);width:28px}
+  .fdl{grid-template-columns:minmax(0,1fr)}
+  .fdl dt{border-bottom:0;padding-bottom:2px}
+  .missed li{grid-template-columns:minmax(0,1fr);gap:2px}
+  .port{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .blame{grid-template-columns:minmax(0,1fr)}
+  .tl{grid-template-columns:40px 50px minmax(0,1fr);gap:0 6px}
+  .md{padding:14px 14px 18px}
+  .cnote{padding-left:14px}
+  .ttl{font-size:19px}
+  .pager .mid .nm{display:none}
+  .om-big{font-size:36px}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .ico.run .bg{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="tour">
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 36 36" aria-hidden="true"><rect class="mk-bg" width="36" height="36" rx="9"/><path class="mk-loop" d="M25.5 12.5A9 9 0 1 0 27 18"/><path class="mk-loop" d="M27 8.5v5h-5"/><path class="mk-bar" d="M13.5 18h9"/></svg>
+      <div><b>Never Twice</b><small>The loop that remembers · vision tour · PRD 1519 progress invoices, slice s3</small></div>
+    </div>
+    <span class="sp"></span>
+    <span class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd> to move</span>
+    <button class="ib" id="theme" type="button" aria-label="Switch light or dark"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg></button>
+  </header>
+
+  <nav class="rail" aria-label="Tour steps">
+    <div class="grp g1">Before work</div><div class="grp g2">Before merge</div><div class="grp g3">After merge</div><div class="grp g4">The memory</div>
+    <button class="st" type="button" data-go="0"><span class="n">1</span><span class="l">History brief</span></button>
+    <button class="st" type="button" data-go="1"><span class="n">2</span><span class="l">Building with it</span></button>
+    <button class="st" type="button" data-go="2"><span class="n">3</span><span class="l">Relapse</span></button>
+    <button class="st" type="button" data-go="3"><span class="n">4</span><span class="l">Self-check</span></button>
+    <button class="st" type="button" data-go="4"><span class="n">5</span><span class="l">An escape</span></button>
+    <button class="st" type="button" data-go="5"><span class="n">6</span><span class="l">The recall</span></button>
+    <button class="st" type="button" data-go="6"><span class="n">7</span><span class="l">The record</span></button>
+  </nav>
+
+  <div class="cap" aria-live="polite">
+    <div class="big" id="capN">1</div>
+    <div><div class="when" id="capWhen">6 Oct 2026, 09:02 · before work · slice s3 starts</div><h1 id="capText">Before the agent writes a line, it reads why this code is the way it is.</h1></div>
+  </div>
+
+  <main class="stage">
+
+<!-- =============== 1 · HISTORY BRIEF =============== -->
+<section class="screen" id="s1" aria-label="History brief">
+  <div class="gh">
+    <div class="crumbs">vertuoza / .omni-loop / delivery / inbox / 1519-progress-invoices / brief / <b>s3.md</b></div>
+    <div class="filebar"><span class="av"><svg viewBox="0 0 36 36" aria-hidden="true"><path class="mk-loop" d="M25.5 12.5A9 9 0 1 0 27 18"/><path class="mk-bar" d="M13.5 18h9"/></svg></span><b>omni-loop[bot]</b><span class="bot">bot</span> History brief for s3 · written 6 Oct, 09:02, in 41 s · linked from <span class="lnk">#1527</span></div>
+    <div class="md">
+      <h2>History brief · PRD 1519 s3 · progress invoice lines from the quote's remaining amounts</h2>
+      <p class="lead">Read before the agent wrote a line, from the history index (updated on each merge to main, last at 08:51), not from the GitHub API: Omni bug <span class="lnk">638</span> showed that a full re-read drains the budget the outbox check needs. Lines are followed through squash merges by the line ledger. Capped at 40 review threads, hottest files first. Nothing was asked.</p>
+      <div class="counts">
+        <span class="chip">6 files</span><span class="chip">4 line ranges the plan names</span><span class="chip prot">2 protected fixes</span><span class="chip warn">1 unguarded fix</span><span class="chip">3 rules from reviews</span><span class="chip">38 of 61 review threads read</span>
+      </div>
+
+      <h3>Territory, hottest first <em>ranked by commits in the last 90 days plus review threads</em></h3>
+      <div class="scroll-x">
+        <table class="gh-t" id="terr" style="min-width:660px">
+          <thead><tr><th>File</th><th>Commits, 90 days</th><th>Review threads</th><th>Past fixes</th><th>Read</th></tr></thead>
+          <tbody>
+            <tr data-f="a"><td class="f">packages/invoicing/src/quote-to-invoice.ts</td><td class="tnum">14</td><td>11 on 4 PRs<span class="sm">23 more on #1398, not read</span></td><td class="tnum">11</td><td><span class="chip">deep</span> <span class="chip hot">hot</span> <span class="chip">reviewed</span> <span class="chip warn">partial</span></td></tr>
+            <tr data-f="b"><td class="f">packages/invoicing/src/vat/rounding.ts</td><td class="tnum">3</td><td>17 on 5 PRs</td><td class="tnum">7</td><td><span class="chip">deep</span> <span class="chip">reviewed</span> <span class="chip prot">recalled in #1509</span></td></tr>
+            <tr data-f="d"><td class="f">packages/invoicing/src/remaining.ts</td><td class="tnum">9</td><td>4 on 2 PRs</td><td class="tnum">6</td><td><span class="chip">deep</span> <span class="chip hot">hot</span></td></tr>
+            <tr data-f="c"><td class="f">packages/invoicing/src/retention.ts</td><td class="tnum">1</td><td>6 on 2 PRs</td><td class="tnum">5</td><td><span class="chip">deep</span> <span class="chip">reviewed</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="states">
+        <div class="state"><b>new file: nothing to read</b><code class="mono">progress/progress-lines.ts</code><span>created by s3</span></div>
+        <div class="state"><b>no history for these files</b><code class="mono">progress/labels.ts</code><span>1 commit (Mar 2022), no review thread, no fix</span></div>
+        <div class="state"><b>partial: #1398's threads not read</b><span>23 threads, over the 40-thread cap. Relapse replays every fix in those files anyway.</span></div>
+      </div>
+
+      <h3>Why the lines s3 will touch are the way they are <em>in their authors' words</em></h3>
+      <div class="why">
+        <div class="why-list" role="tablist" aria-label="Line ranges">
+          <button class="wb" type="button" role="tab" aria-selected="true" data-w="a"><span class="p">quote-to-invoice.ts:112–116</span><span class="r"><span class="chip prot">protected · #902</span><span class="chip">test pinned</span></span></button>
+          <button class="wb" type="button" role="tab" aria-selected="false" data-w="b"><span class="p">vat/rounding.ts:22–26</span><span class="r"><span class="chip prot">protected · #1509</span><span class="chip">test pinned</span><span class="chip">guard G-3</span></span></button>
+          <button class="wb" type="button" role="tab" aria-selected="false" data-w="c"><span class="p">retention.ts:12–15</span><span class="r"><span class="chip warn">unguarded · #1290</span></span></button>
+          <button class="wb" type="button" role="tab" aria-selected="false" data-w="d"><span class="p">remaining.ts:41–45</span><span class="r"><span class="chip">context · not a fix</span></span></button>
+        </div>
+        <div class="peek">
+          <div class="pv" data-p="a">
+            <div class="peek-h"><b>packages/invoicing/src/quote-to-invoice.ts</b><span>main · 108–118</span></div>
+            <div class="code"><div class="ci">
+<div class="cl"><i>108</i><u> </u><span><span class="k">export function</span> <span class="fn">invoiceFromQuote</span>(quote: Quote): InvoiceDraft {</span></div>
+<div class="cl"><i>109</i><u> </u><span>  <span class="k">const</span> customer = quote.customer</span></div>
+<div class="cl"><i>110</i><u> </u><span>  <span class="k">return</span> {</span></div>
+<div class="cl"><i>111</i><u> </u><span>    customerId: customer.id,</span></div>
+<div class="cl"><i>112</i><u> </u><span>    lines: quote.lines.<span class="fn">map</span>((ql) =&gt; ({</span></div>
+<div class="cl"><i>113</i><u> </u><span>      ...<span class="fn">copyLine</span>(ql),</span></div>
+<div class="cl hot"><i>114</i><u> </u><span>      vatRegime: quote.vatRegime,</span></div>
+<div class="cl"><i>115</i><u> </u><span>      vatRate: <span class="fn">rateFor</span>(quote.vatRegime, ql.vatRate),</span></div>
+<div class="cl"><i>116</i><u> </u><span>    })),</span></div>
+<div class="cl"><i>117</i><u> </u><span>  }</span></div>
+<div class="cl"><i>118</i><u> </u><span>}</span></div>
+            </div></div>
+            <div class="peek-why">
+              <p class="by">Line 114 last changed by <span class="lnk mono">a41c9d2</span> in <span class="lnk">#902</span> · <b>@ines-v</b> · Nov 2022 · issue <span class="lnk">#897</span> <q>Autoliquidation perdue quand on facture depuis le devis</q></p>
+              <blockquote>The regime lives on the quote, not the customer. A customer can change regime after we quote; the invoice follows what was agreed.<cite>#902, PR description</cite></blockquote>
+              <p class="pr"><span class="chip prot">protected: do not undo #902's fix</span><span>regression test <code>quote-to-invoice.test.ts:204</code> keeps reverse charge (art. 20) from a quote</span><span class="chip">pinned</span></p>
+            </div>
+          </div>
+          <div class="pv" data-p="b" hidden>
+            <div class="peek-h"><b>packages/invoicing/src/vat/rounding.ts</b><span>main · 21–27</span></div>
+            <div class="code"><div class="ci">
+<div class="cl"><i>21</i><u> </u><span><span class="c">/** VAT per rate, rounded once per rate. */</span></span></div>
+<div class="cl"><i>22</i><u> </u><span><span class="k">export function</span> <span class="fn">vatByRate</span>(lines: TaxedLine[]): Map&lt;VatRate, Money&gt; {</span></div>
+<div class="cl"><i>23</i><u> </u><span>  <span class="k">const</span> bases = <span class="fn">groupBy</span>(lines, (l) =&gt; l.vatRate)</span></div>
+<div class="cl"><i>24</i><u> </u><span>  <span class="k">return</span> <span class="fn">mapValues</span>(bases, (ls, rate) =&gt;</span></div>
+<div class="cl hot"><i>25</i><u> </u><span>    <span class="fn">sumMoney</span>(ls.<span class="fn">map</span>((l) =&gt; l.net)).<span class="fn">times</span>(rate).<span class="fn">roundHalfUp</span>(2))</span></div>
+<div class="cl"><i>26</i><u> </u><span>}</span></div>
+            </div></div>
+            <div class="peek-why">
+              <p class="by">Line 25 last changed in <span class="lnk">#1509</span>, <b>recall R-4</b> · 30 Sep 2026 · written by the loop, merged by <b>@jdewitte</b></p>
+              <blockquote>VAT summed per line, not per rate, in the 3 places the loop wrote it in invoicing.<cite>#1509, PR title · before it: #1184, @jdewitte, Jun 2023, “7 × €2.35 at 6% gave €0.98, not €0.99”</cite></blockquote>
+              <p class="pr"><span class="chip prot">protected: do not undo #1509's fix</span><span>regression test <code>rounding.test.ts:66</code></span><span class="chip">pinned</span><span class="chip">guard G-3 runs here</span></p>
+            </div>
+          </div>
+          <div class="pv" data-p="c" hidden>
+            <div class="peek-h"><b>packages/invoicing/src/retention.ts</b><span>main · 12–15</span></div>
+            <div class="code"><div class="ci">
+<div class="cl"><i>12</i><u> </u><span><span class="k">export function</span> <span class="fn">retentionOf</span>(amount: Money, pct: Percent): Money {</span></div>
+<div class="cl"><i>13</i><u> </u><span>  <span class="c">// a credit note's retention is negative</span></span></div>
+<div class="cl hot"><i>14</i><u> </u><span>  <span class="k">return</span> amount.<span class="fn">times</span>(pct).<span class="fn">round</span>(2, <span class="s">'half-away-from-zero'</span>)</span></div>
+<div class="cl"><i>15</i><u> </u><span>}</span></div>
+            </div></div>
+            <div class="peek-why">
+              <p class="by">Line 14 last changed by <span class="lnk mono">e0f3a55</span> in <span class="lnk">#1290</span> · <b>@spetit</b> · Feb 2024 · issue <span class="lnk">#1287</span> <q>Retenue de garantie : 1 cent d'écart sur la note de crédit</q></p>
+              <blockquote>5% of −246.90 is −12.345. Half-even gives −12.34; the customer's accounting says −12.35. Round half away from zero.<cite>#1290, commit message</cite></blockquote>
+              <p class="pr"><span class="chip warn">unguarded: #1290 landed without a regression test</span><span>nothing to pin. Relapse will plant #1290's bug back and see if a test catches it.</span></p>
+            </div>
+          </div>
+          <div class="pv" data-p="d" hidden>
+            <div class="peek-h"><b>packages/invoicing/src/remaining.ts</b><span>main · 41–45</span></div>
+            <div class="code"><div class="ci">
+<div class="cl"><i>41</i><u> </u><span><span class="k">export function</span> <span class="fn">remainingByLine</span>(quote: Quote, invoiced: InvoiceLine[]): Map&lt;LineId, Money&gt; {</span></div>
+<div class="cl"><i>42</i><u> </u><span>  <span class="k">const</span> done = <span class="fn">sumByQuoteLine</span>(invoiced)</span></div>
+<div class="cl"><i>43</i><u> </u><span>  <span class="k">return new</span> Map(quote.lines.<span class="fn">map</span>((ql) =&gt;</span></div>
+<div class="cl hot"><i>44</i><u> </u><span>    [ql.id, ql.net.<span class="fn">minus</span>(done.<span class="fn">get</span>(ql.id) ?? Money.zero)]))</span></div>
+<div class="cl"><i>45</i><u> </u><span>}</span></div>
+            </div></div>
+            <div class="peek-why">
+              <p class="by">Lines 41–45 last changed in <span class="lnk">#1498</span> · <b>@mclaes</b> · Sep 2026 · 9 commits to this file in 90 days</p>
+              <blockquote>Remaining amount per quote line, so progress invoices can bill what is left.<cite>#1498, PR description</cite></blockquote>
+              <p class="pr"><span class="chip">context only: a feature, not a fix · nothing to protect</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Rules from past reviews <em>only comments that got a change · the reviewer's words beside the commit that answered them · proposed, never laws</em></h3>
+      <ol class="rules">
+        <li class="rule">
+          <div class="rule-h"><b>D-1</b><span class="chip ok">holds on main ✓</span><span class="chip">checked · ast-grep <span class="mono">invoicing/vat-per-line</span></span></div>
+          <blockquote>Round VAT once per rate, never per line. BR-CO-17 checks the rate total, not our lines.</blockquote>
+          <p class="ans"><span><b>@jdewitte</b> on <span class="lnk">#1203</span> (Jul 2023) → answered by <code>8b1e4d2</code></span><span>same ask on <span class="lnk">#1340</span> (Apr 2026) → answered by <code>c09f7a1</code></span></p>
+        </li>
+        <li class="rule">
+          <div class="rule-h"><b>D-2</b><span class="chip ok">holds on main ✓</span><span class="chip">checked · lint <span class="mono">money/no-number-amount</span></span></div>
+          <blockquote>Amounts are Money, never number. Not even inside a helper.</blockquote>
+          <p class="ans"><span><b>@spetit</b> on <span class="lnk">#1356</span> (Apr 2026) → answered by <code>2f6d9c8</code></span><span>same ask on <span class="lnk">#1488</span> (Aug 2026) → answered by <code>e71a0b5</code></span></p>
+        </li>
+        <li class="rule judged">
+          <div class="rule-h"><b>D-3</b><span class="chip">judged, not checked</span><span class="chip">main: judged to hold</span></div>
+          <blockquote>When you have the quote, take the VAT regime from the quote. The customer can change after we quoted.</blockquote>
+          <p class="ans"><span><b>@ines-v</b> on <span class="lnk">#1402</span> (May 2026) → answered by <code>6ac3e19</code></span><span>no pattern tells when the quote is at hand, so no check runs</span></p>
+        </li>
+      </ol>
+      <ul class="notkept">
+        <li><span class="chip">superseded</span><span><b>@mclaes</b> on #1160 (2023): <q>Retention rounds half-even, like the bank.</q> A later comment contradicts it: <b>@ines-v</b> on #1290 (2024), <q>Half away from zero here, the credit note was a cent short.</q> The later comment wins.</span></li>
+        <li><span class="chip">dropped</span><span><b>@mclaes</b> on #1215: <q>Name the rounding: roundHalfUp, never round.</q> Main breaks it in 6 places, so it is not kept. Main judges, not the model.</span></li>
+      </ul>
+      <p class="foot">61 threads on these files in the index · 38 read · 5 candidate rules came from comments that got a change · 3 kept. Rules guide and check this slice only; after ship, today's knowledge PR proposes them to the knowledge base, where a person confirms them.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============== 2 · BUILDING WITH IT =============== -->
+<section class="screen" id="s2" aria-label="Building with it" hidden>
+  <div class="srow"><button class="replay" type="button" data-replay="1"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2 2.5v3h3"/></svg>Replay</button></div>
+  <div class="split">
+    <div class="col">
+      <div class="term" role="log" aria-label="Agent session for s3">
+        <div class="term-bar"><i></i><i></i><i></i><span>~/worktrees/1519-s3 · omni-loop agent · slice s3</span></div>
+        <div class="term-body" id="s2term">
+          <div class="tl"><span class="t">09:03</span><span class="g">read</span><span class="x">brief/s3.md · 6 files · 2 protected fixes · 1 unguarded · 3 rules</span></div>
+          <div class="tl"><span class="t">09:04</span><span class="g">plan</span><span class="x">draft</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">1 progress/progress-lines.ts · new · buildProgressLines()</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">2 remaining.ts:41–45 · remainingByLine() per series</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">3 vat/rounding.ts:22–26 · vatByRate() takes progress lines</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">4 retention.ts:12–15 · retentionOf() per progress invoice</span></div>
+          <div class="tl flag" id="s2step5"><span></span><span></span><span class="x">5 quote-to-invoice.ts:112–116 · share line building: buildLine(customer, ql)</span></div>
+          <div class="tl"><span class="t">09:05</span><span class="g">brief</span><span class="x"><span class="tr">✗ step 5 meets a protected line</span></span></div>
+          <div class="tl"><span></span><span></span><span class="x">  quote-to-invoice.ts:114 · <span class="tc">vatRegime: quote.vatRegime</span></span></div>
+          <div class="tl"><span></span><span></span><span class="x">  <span class="tp">protected: do not undo #902's fix</span> · test :204 pinned</span></div>
+          <div class="tl"><span></span><span></span><span class="x">  <span class="ty">"The regime lives on the quote, not the customer."</span> @ines-v, #902</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">  step 5 reads the regime from the customer: it would undo #902</span></div>
+          <div class="tl" id="s2rew"><span class="t">09:05</span><span class="g">plan</span><span class="x">step 5 rewritten: <span class="tg">buildLine(regime, ql)</span>, the regime passed from the quote</span></div>
+          <div class="tl"><span class="t">09:06</span><span class="g">commit</span><span class="x">read-back <span class="tc">5e0b7a3</span> · what this diff will touch</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">  protected #902 · quote-to-invoice.ts:114 · test :204</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">  protected #1509 · vat/rounding.ts:25 · test :66 · G-3</span></div>
+          <div class="tl"><span></span><span></span><span class="x tm">  rule D-1 checked · D-2 checked · D-3 judged, not checked</span></div>
+          <div class="tl"><span class="t">09:07</span><span class="g">red</span><span class="x"><span class="tr">14 tests fail</span> · b72d0e4</span></div>
+          <div class="tl"><span class="t">09:31</span><span class="g">green</span><span class="x"><span class="tg">14 pass</span> · 3e81c07</span></div>
+          <div class="tl"><span class="t">09:38</span><span class="g">tidy</span><span class="x">refactor: share maths · 0a9f3d1</span></div>
+          <div class="tl"><span class="t">09:40</span><span class="g">push</span><span class="x">sub-PR <span class="tc">#1527</span> · questions asked: <span class="tg">0</span></span></div>
+        </div>
+      </div>
+      <div class="gh rcpt-wrap" id="s2rcpt">
+        <div class="bh">Receipts for the read-back <span>computed on #1527 at its head, 91ab3f2</span></div>
+        <div class="scroll-x">
+          <table class="gh-t rcpt" style="border:0;border-radius:0;min-width:420px">
+            <thead><tr><th>Brief entry</th><th>Receipt</th></tr></thead>
+            <tbody>
+              <tr><td><b>#902</b> <span class="mut mono">quote-to-invoice.ts:114</span></td><td><span class="chip ok">kept</span> <span class="mut">test :204 green</span></td></tr>
+              <tr><td><b>#1509</b> <span class="mut mono">vat/rounding.ts:25</span></td><td><span class="chip ok">kept</span> <span class="mut">test :66 green · G-3 green</span></td></tr>
+              <tr><td><b>D-1</b> VAT once per rate</td><td><span class="chip ok">followed</span> <span class="mut">0 matches</span></td></tr>
+              <tr><td><b>D-2</b> amounts are Money</td><td><span class="chip ok">followed</span> <span class="mut">0 matches</span></td></tr>
+              <tr class="gr"><td><b>D-3</b> regime from the quote</td><td><span class="chip">judged, not checked</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="legend">A receipt is one of: <b>kept</b> (the protected test stayed green) · <b>followed</b> (the rule's check passed) · <b>changed by spec §N</b> (the spec asked for the change) · <b>judged, not checked</b>. None of s3's entries was changed by the spec.</div>
+      </div>
+    </div>
+
+    <div class="gh">
+      <div class="gh-hd" style="padding-bottom:10px">
+        <div class="gh-meta" style="margin-top:0"><b>#1527</b> · Files changed <span class="chip">7</span><span class="num mono" style="margin-left:auto"><span class="a">+214</span><span class="d">−9</span></span></div>
+      </div>
+      <div class="fileh"><span>packages/invoicing/src/quote-to-invoice.ts</span><span class="num"><span style="color:var(--gh-grn)">+5</span> <span style="color:var(--gh-red)">−5</span></span></div>
+      <div class="code"><div class="ci">
+<div class="cl two hunk"><i></i><i></i><u> </u><span>@@ -108,11 +108,15 @@</span></div>
+<div class="cl two"><i>110</i><i>110</i><u> </u><span>  <span class="k">return</span> {</span></div>
+<div class="cl two"><i>111</i><i>111</i><u> </u><span>    customerId: customer.id,</span></div>
+<div class="cl two dl"><i>112</i><i></i><u>-</u><span>    lines: quote.lines.<span class="fn">map</span>((ql) =&gt; ({</span></div>
+<div class="cl two dl"><i>113</i><i></i><u>-</u><span>      ...<span class="fn">copyLine</span>(ql),</span></div>
+<div class="cl two dl"><i>114</i><i></i><u>-</u><span>      vatRegime: quote.vatRegime,</span></div>
+<div class="cl two dl"><i>115</i><i></i><u>-</u><span>      vatRate: <span class="fn">rateFor</span>(quote.vatRegime, ql.vatRate),</span></div>
+<div class="cl two dl"><i>116</i><i></i><u>-</u><span>    })),</span></div>
+<div class="cl two ghost" id="s2ghost"><i></i><i></i><u>×</u><span class="gt">    lines: quote.lines.<span class="fn">map</span>((ql) =&gt; <span class="fn">buildLine</span>(customer, ql)),</span></div>
+<div class="cnote"><span class="chip bad">plan draft, 09:04 · never written</span>stopped by the brief: it would read the regime from the customer and undo #902. The draft is kept in the slice folder.</div>
+<div class="cl two ad" id="s2keep"><i></i><i>112</i><u>+</u><span>    lines: quote.lines.<span class="fn">map</span>((ql) =&gt; <span class="fn">buildLine</span>(quote.vatRegime, ql)),</span></div>
+<div class="cnote"><span class="chip ok">kept #902</span>the regime still comes from the quote · <code>quote-to-invoice.test.ts:204</code> green</div>
+<div class="cl two"><i>117</i><i>113</i><u> </u><span>  }</span></div>
+<div class="cl two"><i>118</i><i>114</i><u> </u><span>}</span></div>
+<div class="cl two ad"><i></i><i>115</i><u>+</u><span></span></div>
+<div class="cl two ad"><i></i><i>116</i><u>+</u><span><span class="k">export function</span> <span class="fn">buildLine</span>(regime: VatRegime, ql: QuoteLine): InvoiceLine {</span></div>
+<div class="cl two ad"><i></i><i>117</i><u>+</u><span>  <span class="k">return</span> { ...<span class="fn">copyLine</span>(ql), vatRegime: regime, vatRate: <span class="fn">rateFor</span>(regime, ql.vatRate) }</span></div>
+<div class="cl two ad"><i></i><i>118</i><u>+</u><span>}</span></div>
+      </div></div>
+      <div class="fileh" style="border-top:1px solid var(--gh-bd)"><span>packages/invoicing/src/progress/progress-lines.ts <span class="mut">(new)</span></span><span class="num" style="color:var(--gh-grn)">+71</span></div>
+      <div class="code"><div class="ci">
+<div class="cl two hunk"><i></i><i></i><u> </u><span>@@ -0,0 +50,16 @@</span></div>
+<div class="cl two ad"><i></i><i>50</i><u>+</u><span><span class="k">export function</span> <span class="fn">buildProgressLines</span>(series: ProgressSeries, quote: Quote): InvoiceLine[] {</span></div>
+<div class="cl two ad"><i></i><i>51</i><u>+</u><span>  <span class="k">const</span> invoiced = series.<span class="fn">invoicedLines</span>()</span></div>
+<div class="cl two ad"><i></i><i>52</i><u>+</u><span>  <span class="k">return</span> quote.lines.<span class="fn">map</span>((ql) =&gt; {</span></div>
+<div class="cl two ad"><i></i><i>53</i><u>+</u><span>    <span class="k">const</span> now: Money = series.isLast</span></div>
+<div class="cnote"><span class="chip ok">D-2 followed</span>amounts are Money · lint <code>money/no-number-amount</code>: 0 matches</div>
+<div class="cl two ad"><i></i><i>54</i><u>+</u><span>      ? <span class="fn">lastInvoiceAmount</span>(ql, invoiced)</span></div>
+<div class="cl two ad"><i></i><i>55</i><u>+</u><span>      : <span class="fn">share</span>(ql.net, series.pct)</span></div>
+<div class="cl two ad"><i></i><i>56</i><u>+</u><span>    <span class="k">return</span> <span class="fn">buildLine</span>(quote.vatRegime, {</span></div>
+<div class="cl two ad"><i></i><i>57</i><u>+</u><span>      ...ql,</span></div>
+<div class="cl two ad"><i></i><i>58</i><u>+</u><span>      quantity: 1,</span></div>
+<div class="cl two ad" id="l59"><i></i><i>59</i><u>+</u><span>      unitPrice: now,</span></div>
+<div class="cl two ad"><i></i><i>60</i><u>+</u><span>      description: <span class="fn">progressLabel</span>(ql, series),</span></div>
+<div class="cl two ad"><i></i><i>61</i><u>+</u><span>    })</span></div>
+<div class="cl two ad"><i></i><i>62</i><u>+</u><span>  })</span></div>
+<div class="cl two ad"><i></i><i>63</i><u>+</u><span>}</span></div>
+<div class="cl two ad"><i></i><i>64</i><u>+</u><span></span></div>
+<div class="cl two ad"><i></i><i>65</i><u>+</u><span><span class="k">export const</span> <span class="fn">progressVat</span> = (lines: InvoiceLine[]) =&gt; <span class="fn">vatByRate</span>(lines)</span></div>
+<div class="cnote"><span class="chip ok">D-1 followed</span>VAT once per rate · ast-grep <code>invoicing/vat-per-line</code>: 0 matches</div>
+      </div></div>
+    </div>
+  </div>
+  <div class="facts">
+    <div class="fact"><span>Questions asked</span><b>0 <small>nobody was asked</small></b></div>
+    <div class="fact"><span>Plan steps rewritten from the brief</span><b>1 <small>step 5, #902</small></b></div>
+    <div class="fact"><span>Read-back</span><b>5 named <small>2 protected fixes, 3 rules</small></b></div>
+    <div class="fact"><span>Receipts</span><b>5 held <small>4 checked, 1 judged</small></b></div>
+  </div>
+</section>
+
+<!-- =============== 3 · RELAPSE =============== -->
+<section class="screen" id="s3" aria-label="Relapse" hidden>
+  <div class="srow"><button class="replay" type="button" data-replay="2"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2 2.5v3h3"/></svg>Replay the runs</button></div>
+  <div class="gh">
+    <div class="gh-hd">
+      <h2 class="ttl">feat(invoicing): progress invoice lines from the quote's remaining amounts <span>#1527</span></h2>
+      <div class="gh-meta">
+        <span class="pill merged" id="s3pill"><svg class="po" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"/></svg><svg class="pm" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005V3.25Z"/></svg><span class="po">Open</span><span class="pm">Merged</span></span>
+        <span><b>omni-loop[bot]</b> <span id="s3verb">merged</span> 6 commits into <span class="br">feat/progress-invoices</span> from <span class="br">feat/progress-invoices--s3</span></span><span>· PRD 1519, slice s3</span>
+      </div>
+      <div class="gh-tabs">
+        <div class="gh-tab">Conversation <i>1</i></div><div class="gh-tab">Commits <i>6</i></div><div class="gh-tab on">Checks <i>6</i></div><div class="gh-tab">Files changed <i>7</i></div>
+      </div>
+    </div>
+    <div class="checks">
+      <div class="cside">
+        <div class="sh">today's checks</div>
+        <div class="ck"><svg class="ico ok" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg><span class="nm">test <span class="mut mono" style="font-size:11.5px">pnpm test</span></span><em>3m 12s</em></div>
+        <div class="ck"><svg class="ico ok" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg><span class="nm">fallow audit</span><em>58s</em></div>
+        <div class="ck"><svg class="ico ok" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg><span class="nm">omni / territory</span><em>4s</em></div>
+        <div class="sh" style="margin-top:6px">never twice</div>
+        <div class="ck"><svg class="ico ok" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg><span class="nm">omni / brief rules</span><em>6s</em></div>
+        <div class="ck on"><svg class="ico ok" id="s3ico" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg><span class="nm">omni / relapse</span><em>2 runs</em></div>
+        <div class="ck"><svg class="ico ok" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg><span class="nm">omni / self-check</span><em>summary</em></div>
+        <div class="sh" style="margin-top:10px">commits, kept as built</div>
+        <div class="cm"><span class="dt p"></span><div><code class="mono">5e0b7a3</code> docs: read-back<small>2 protected fixes, 3 rules</small></div></div>
+        <div class="cm"><span class="dt"></span><div><code class="mono">b72d0e4</code> test: 14 tests, red</div></div>
+        <div class="cm"><span class="dt"></span><div><code class="mono">3e81c07</code> feat: progress lines</div></div>
+        <div class="cm"><span class="dt r"></span><div><code class="mono">0a9f3d1</code> refactor: share maths<small>relapse <b>run 1 failed here</b></small></div></div>
+        <div class="cm"><span class="dt f"></span><div><code class="mono">7c20d4e</code> fix: last invoice bills the remainder<small>it had re-made <b>#1116</b></small></div></div>
+        <div class="cm"><span class="dt f"></span><div><code class="mono">91ab3f2</code> test: 2 missing tests<small>shown by <b>#1184</b> and <b>#1290</b></small></div></div>
+        <div class="sidenote">Reviews on this sub-PR: none, as for every sub-PR. A person merges the feature PR <b>#1520</b> into <span class="mono">main</span>, as today. These checks are there to audit.</div>
+      </div>
+      <div class="pane">
+        <div class="ph">
+          <svg class="ico ok" id="s3ico2" viewBox="0 0 16 16" aria-hidden="true" style="width:18px;height:18px"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg>
+          <h2>omni / relapse</h2><span class="st2" id="s3status">passed on run 2 · 27 of 27 plants caught · 24 of 24 ports pass</span>
+          <em>2m 20s + 2m 31s</em>
+        </div>
+        <p class="lead">Every bug this team already fixed in s3's files, replayed on s3's code before merge. <b>Plants first:</b> each old bug planted back into the new code, where a test must catch it. <b>Then ports:</b> each fix's regression test re-aimed at the new functions, counted only if it passes the port rule. The bugs come from this repository's history; the model chose none.</p>
+        <p class="src"><span class="mono">git log</span> of s3's 6 files since Feb 2021: 29 fixes and closed bug issues · 2 not replayable (code deleted in #1263) · 27 planted · 24 with a regression test to port · 3 unguarded (#1290, #977, #1033)</p>
+
+        <div class="runs">
+          <div class="run x" id="run1">
+            <div class="t"><svg class="ico x" id="r1ico" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg>Run 1 <span class="mono">0a9f3d1</span><span>· 2m 20s</span></div>
+            <div class="phase"><span>plants</span><div class="dots" id="r1p"></div></div>
+            <div class="phase"><span>ports</span><div class="dots" id="r1q"></div></div>
+            <p>plants <b id="r1c">24</b> caught · <b class="a" id="r1s">2</b> slipped · <b class="r" id="r1i">1</b> already in the code<br>ports <b id="r1pp">23</b> pass · <b class="r" id="r1pf">1</b> fails</p>
+          </div>
+          <div class="arrow lit" id="s3arrow"><svg viewBox="0 0 78 12" aria-hidden="true"><path d="M2 6h70"/><path d="M68 2l6 4-6 4"/></svg>2 agent commits<br>11 min later</div>
+          <div class="run v" id="run2">
+            <div class="t"><svg class="ico ok" id="r2ico" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg>Run 2 <span class="mono">91ab3f2</span><span>· 2m 31s · merged by the loop</span></div>
+            <div class="phase"><span>plants</span><div class="dots" id="r2p"></div></div>
+            <div class="phase"><span>ports</span><div class="dots" id="r2q"></div></div>
+            <p>plants <b class="g" id="r2c">27</b> of 27 caught · 0 slipped<br>ports <b class="g" id="r2pp">24</b> of 24 pass</p>
+          </div>
+        </div>
+
+        <div class="scroll-x rtab">
+          <table class="gh-t" style="min-width:820px">
+            <thead><tr><th>Past fix</th><th>The bug, as the team fixed it</th><th>Run 1</th><th>Graded against the brief</th><th>What the agent did</th><th>Run 2</th></tr></thead>
+            <tbody>
+              <tr><td class="f"><span class="lnk">c3e5a18</span> #1116<span class="sm">@mclaes, Mar 2023</span></td><td>Two 50% progress invoices of a €1,000.01 quote billed €1,000.02: the last one must bill what is left</td><td><span class="tag r">already in the code</span> port <code>remaining.test.ts:57</code> fails on <code>lastInvoiceAmount</code></td><td><span class="tag n">not in the brief</span> a brief miss: 0a9f3d1 changed <code>remaining.ts:88</code>, a line the plan did not name</td><td><span class="lnk mono">7c20d4e</span> bills the remainder again, as #1116 did</td><td class="r2">caught<small>plant and port</small></td></tr>
+              <tr><td class="f"><span class="lnk">5d02e7b</span> #1184<span class="sm">@jdewitte, Jun 2023</span></td><td>VAT rounded per line, not per rate (BR-CO-17): 7 × €2.35 at 6% gave €0.98, not €0.99</td><td><span class="tag a">slipped</span> planted in <code>progressVat</code>, 14 of 14 tests pass</td><td><span class="tag n">not in the brief</span> a brief miss: a new path, #1184's test targets <code>vatByRate</code></td><td><span class="lnk mono">91ab3f2</span> adds the test: red on the plant, green on s3</td><td class="r2">caught<small>progress-vat.test.ts:88</small></td></tr>
+              <tr><td class="f"><span class="lnk">e0f3a55</span> #1290<span class="sm">@spetit, Feb 2024</span></td><td>Retention rounded half-even: 5% of −€246.90 gave −€12.34, not −€12.35</td><td><span class="tag a">slipped</span> planted in <code>retentionOf</code>, 14 of 14 tests pass</td><td><span class="tag p">flagged in the brief, broken anyway</span> an agent miss: marked unguarded, no test written</td><td><span class="lnk mono">91ab3f2</span> adds the test: red on the plant, green on s3</td><td class="r2">caught<small>retention.test.ts:41</small></td></tr>
+              <tr><td class="f"><span class="lnk">a41c9d2</span> #902<span class="sm">@ines-v, Nov 2022</span></td><td>Reverse charge (art. 20) lost on an invoice built from a quote: 21% VAT charged</td><td><span class="tag g">caught</span> plant caught by <code>:204</code>, port passes</td><td><span class="tag g">flagged in the brief, kept</span> step 5 rewritten at 09:05</td><td>nothing to fix</td><td class="r2">caught<small>plant and port</small></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grade"><span>The brief, graded by this run: <b>2 not in the brief</b> (brief misses) · <b>1 flagged in the brief, broken anyway</b> (agent miss) · <b>1 flagged and kept</b></span></div>
+
+        <div class="duo">
+          <div class="box">
+            <div class="bh">Port rule <span>a port counts only if it fails just before the old fix and passes on it</span></div>
+            <div class="port">
+              <div class="f"><b>c3e5a18^</b>✗ fails<small>before #1116, as it must</small></div>
+              <div class="p"><b>c3e5a18</b>✓ passes<small>#1116's fix, as it must</small></div>
+              <div class="f"><b>0a9f3d1</b>✗ fails<small>s3 run 1: re-made</small></div>
+              <div class="p"><b>7c20d4e</b>✓ passes<small>s3 fixed</small></div>
+            </div>
+            <p class="src" style="padding:0 12px 10px;margin:0">24 of 24 ports hold the rule · 1 first port redone: #1184's passed on 5d02e7b^ too, so it proved nothing · each port opens beside the original test</p>
+          </div>
+          <div class="box">
+            <div class="bh">Replayed per file <span>plants · ports</span></div>
+            <ul class="plist">
+              <li><span>quote-to-invoice.ts</span><span>9 · 8 · 2 not replayable</span></li>
+              <li><span>vat/rounding.ts</span><span>7 · 7</span></li>
+              <li><span>remaining.ts</span><span>6 · 6</span></li>
+              <li><span>retention.ts</span><span>5 · 3</span></li>
+              <li class="zero"><span>progress/progress-lines.ts</span><span>0 replayed · new file</span></li>
+              <li class="zero"><span>progress/labels.ts</span><span>0 replayed · no fix in history</span></li>
+            </ul>
+            <p class="src" style="padding:0 12px 10px;margin:0">0 replayed is not a pass: those two files had s3's own tests only.</p>
+          </div>
+        </div>
+        <p class="src" style="margin-top:12px">Nobody was asked: a relapse in the code gets fixed, a bug that slips gets the test that catches it, and the check runs again. Ledger: <span class="mono">.omni-loop/delivery/inbox/1519-progress-invoices/relapse/s3.json</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== 4 · SELF-CHECK =============== -->
+<section class="screen" id="s4" aria-label="The sub-PR's self-check" hidden>
+  <div class="gh">
+    <div class="gh-hd">
+      <div class="crumb2">feat(invoicing): progress invoice lines from the quote's remaining amounts <span class="lnk">#1527</span> · Checks</div>
+      <div class="runhead">
+        <svg class="ico ok" viewBox="0 0 16 16" aria-hidden="true"><circle class="bg" cx="8" cy="8" r="7"/><path class="pk" d="M4.8 8.2l2.1 2.1 4.3-4.4"/><path class="px" d="M5.5 5.5l5 5m0-5l-5 5"/><path class="pd" d="M8 4.5v4.2M8 11.2v.3"/></svg>
+        <h2>omni / self-check</h2><span class="mut" style="font-size:13px">succeeded 6 Oct, 10:06 · the same summary on every sub-PR</span>
+      </div>
+    </div>
+    <div class="sc">
+      <p class="sc-title">s3 caught 4 mistakes in itself and fixed them before anyone looked. Nobody was asked.</p>
+      <div class="sc-strip"><span class="chip">read back 5</span><span class="chip ok">held 5</span><span class="chip">checked 4, judged 1</span><span class="chip">caught 4 · fixed 4</span><span class="chip">asked 0</span></div>
+      <dl class="fdl" id="s4dl">
+        <div><dt>Checked</dt><dd>History brief: 6 files, 2 protected fixes, 1 unguarded, 3 rules<span class="sub">Relapse: 27 of 29 past fixes planted, 24 ports, port rule held on 24 · s3's own tests: 16</span></dd></div>
+        <div><dt>Caught in itself</dt><dd>
+          <div class="scroll-x" style="margin-top:2px">
+            <table class="gh-t" style="min-width:560px">
+              <thead><tr><th>What</th><th>Caught by</th><th>Where</th><th>Fixed in</th></tr></thead>
+              <tbody>
+                <tr><td>Plan step 5 would have undone #902's fix</td><td>History brief</td><td>plan, 09:05, before code</td><td>plan rewritten</td></tr>
+                <tr><td>Re-made #1116: last invoice billed pct × total</td><td>Relapse run 1 · port</td><td class="mono">0a9f3d1</td><td class="mono">7c20d4e</td></tr>
+                <tr><td>Hollow tests: #1184's bug planted, 14 of 14 passed</td><td>Relapse run 1 · plant</td><td class="mono">0a9f3d1</td><td class="mono">91ab3f2</td></tr>
+                <tr><td>Hollow tests: #1290's bug planted, 14 of 14 passed</td><td>Relapse run 1 · plant</td><td class="mono">0a9f3d1</td><td class="mono">91ab3f2</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <span class="sub">Graded: 2 brief misses (not in the brief), 1 agent miss (flagged in the brief, broken anyway).</span></dd></div>
+        <div><dt>Not checked</dt><dd><span class="mono">progress/progress-lines.ts</span> and <span class="mono">progress/labels.ts</span>: no history, 0 replayed, no rule. Only s3's own 16 tests cover them.</dd></div>
+        <div><dt>Failed first run</dt><dd>Kept: relapse run 1 at <span class="lnk mono">0a9f3d1</span>, red, 1 relapse and 2 hollow tests.</dd></div>
+        <div><dt>Wall time, next to catches</dt><dd>4 catches, for a brief of 41 s before the build · relapse 2m 20s + 2m 31s, each in parallel with <span class="mono">test</span> (3m 12s) · 11 min of agent fixes<span class="sub">The sub-PR waited on its longest check, test, twice: one extra CI run for 3 of the 4 catches. The fourth cost nothing, it was caught in the plan.</span></dd></div>
+        <div><dt>Nobody was asked</dt><dd>questions 0 · reviews requested 0 · the build never waited on a person</dd></div>
+        <div><dt>Today's gates</dt><dd>Unchanged: phase-0 PR <span class="lnk">#1521</span> merged by a person before any code · s3's 1 medium decision on <span class="lnk">#1520</span>'s outbox · a person merges #1520 into main<span class="sub">test ✓ 3m 12s · fallow audit ✓ 58s · omni / territory ✓ 4s</span></dd></div>
+        <div><dt>Replay it</dt><dd><div class="copy"><code id="cmd">omni self-check 1527 --replay</code><button class="cbtn" type="button" id="copyBtn">Copy</button></div><span class="sub">Re-runs the brief check, every plant and port, on your machine.</span></dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- =============== 5 · AN ESCAPE =============== -->
+<section class="screen" id="s5" aria-label="An escape" hidden>
+  <div class="srow"><button class="replay" type="button" data-replay="4"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2 2.5v3h3"/></svg>Replay the trace</button></div>
+  <div class="gh">
+    <div class="gh-hd">
+      <h2 class="ttl">Peppol rejected PI-2026-0412: BR-27, negative item price <span>#1558</span></h2>
+      <div class="gh-meta">
+        <span class="pill"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>Open</span>
+        <span><b>support-desk</b> opened this issue 3 Nov, 08:40 · 1 comment</span>
+        <span class="lab bug">bug</span><span class="lab nt">peppol</span><span class="lab rc">omni:escape</span>
+      </div>
+      <div style="height:12px;border-bottom:1px solid var(--gh-bd)"></div>
+    </div>
+    <div class="issue-body">
+      <div class="cmt">
+        <div class="cmt-h"><span class="av p">sd</span><b>support-desk</b> · 08:40</div>
+        <div class="cmt-b">
+          <div class="aplog">
+            <span>source</span><span>Peppol access point · rejection · 3 Nov 2026, 08:39</span>
+            <span>document</span><span>PI-2026-0412 · progress invoice 2 of 3 · quote Q-2026-0877</span>
+            <span>rule</span><span class="bad">[BR-27] The Item net price (BT-146) shall NOT be negative.</span>
+            <span>where</span><span>/Invoice/cac:InvoiceLine[4]/cac:Price/cbc:PriceAmount</span>
+            <span>value</span><span>-500.00 · line 4, “Remise chantier”</span>
+          </div>
+        </div>
+      </div>
+      <div class="cmt">
+        <div class="cmt-h"><span class="av"><svg viewBox="0 0 36 36" aria-hidden="true"><path class="mk-loop" d="M25.5 12.5A9 9 0 1 0 27 18"/><path class="mk-bar" d="M13.5 18h9"/></svg></span><b>omni-loop[bot]</b><span class="bot">bot</span> · 08:41 · traced by the line ledger to a line the loop wrote. Recall R-5 opened.</div>
+        <div class="cmt-b split" style="gap:18px">
+          <div class="trace" id="trace">
+            <div class="rail2"></div><div class="ink"></div>
+            <div class="node hit"><span class="k2">Rejected</span><span class="loc">PI-2026-0412 · InvoiceLine[4] · PriceAmount</span><span class="cd2">-500.00</span></div>
+            <div class="node"><span class="k2">Passes it on</span><span class="loc">packages/peppol/src/ubl/lines.ts:31</span><span class="cd2">priceAmount: line.unitPrice,</span><p>Written by a person: @jdewitte, #1188, Jul 2023. It copies what it is given.</p></div>
+            <div class="node"><span class="k2">Writes it</span><span class="loc">packages/invoicing/src/progress/progress-lines.ts:58–59</span><span class="cd2">quantity: 1,<br>unitPrice: now,</span><p>Quote line 7 “Remise chantier” is −€1,250.00. Invoice 2 bills 40% of it: −€500.00, written as a price with quantity 1. <button class="linkbtn" type="button" id="toStep2">See the line on step 2</button></p></div>
+            <div class="node loop"><span class="k2">Line ledger</span><span class="loc">written by the loop · PRD 1519 s3 · sub-PR #1527 · 3e81c07 · 6 Oct</span><p>Reached main in <span class="mono">e4b1c09</span>, the squash of #1520 on 14 Oct. The git note was carried onto the squash commit; line unchanged since (2 later commits to the file).</p>
+              <div class="blame"><div class="no"><b>git blame says</b><span>e4b1c09 · @jdewitte · feat(invoicing): progress invoices (#1520)</span></div><div class="yes"><b>the ledger says</b>the loop · s3 · 3e81c07. Blame names who merged the squash.</div></div>
+            </div>
+          </div>
+          <div class="pendfade" id="missedBox">
+            <h3 style="margin:0 0 10px;font-size:15px">Why its checks missed it</h3>
+            <ul class="missed">
+              <li><b>History brief</b><span>6 Oct: <q>new file: nothing to read</q> for progress-lines.ts. No review ever discussed the sign of a price, so no rule.</span></li>
+              <li><b>Relapse</b><span>0 replayed on progress-lines.ts. None of the 27 planted bugs had a negative quote line.</span></li>
+              <li><b>s3's own tests</b><span>16 tests, every quote line ≥ 0. No fixture had a discount line.</span></li>
+              <li><b>Re-run today</b><span>#1527's 6 checks at its head <span class="mono">91ab3f2</span>: all green.</span></li>
+            </ul>
+            <div class="verdict">It counts as a miss. The gauntlet had no check for this, and #1527's self-check said so under Not checked: <q>no history, 0 replayed, no rule</q>. Invoicing's miss rate goes from 1 in 44 slices to 2 in 52.</div>
+            <p class="src" style="margin-top:10px">Reach: progress invoices sent through Peppol since 14 Oct: 38. With a negative quote line: 1, this one.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== 6 · THE RECALL =============== -->
+<section class="screen" id="s6" aria-label="The recall" hidden>
+  <div class="srow"><button class="replay" type="button" data-replay="5"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2 2.5v3h3"/></svg>Replay the recall</button></div>
+  <div class="gh">
+    <div class="gh-hd">
+      <h2 class="ttl">recall R-5: negative amounts written as an item price, in the 3 places the loop wrote them in invoicing <span>#1561</span></h2>
+      <div class="gh-meta">
+        <span class="pill merged" id="s6pill"><svg class="po" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"/></svg><svg class="pm" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005V3.25Z"/></svg><span class="po">Open</span><span class="pm">Merged</span></span>
+        <span id="s6open" hidden><b>omni-loop[bot]</b> wants to merge 5 commits into <span class="br">main</span> from <span class="br">recall/r5-negative-price</span></span>
+        <span id="s6merged"><b>jdewitte</b> merged 5 commits into <span class="br">main</span> from <span class="br">recall/r5-negative-price</span></span>
+        <span>· Fixes <span class="lnk">#1558</span></span><span class="lab rc">omni:recall</span><span class="lab hi">omni:risk-high</span>
+      </div>
+      <div class="gh-tabs">
+        <div class="gh-tab on">Conversation <i>2</i></div><div class="gh-tab">Commits <i>5</i></div><div class="gh-tab">Checks <i>15</i></div><div class="gh-tab">Files changed <i>7</i></div>
+        <div class="num"><span class="a">+142</span><span class="d">−18</span></div>
+      </div>
+    </div>
+    <div class="rmain">
+      <div style="min-width:0">
+        <div class="sec"><h3>Escape <em>how the mistake got out</em></h3>
+          <p><span class="lnk">#1558</span>: Peppol rejected PI-2026-0412, BR-27, item price −500.00. The line ledger gives <code>progress-lines.ts:58–59</code> to the loop: PRD 1519 s3, <span class="lnk">#1527</span>, on main since 14 Oct. Red on main at <span class="mono">6f2a9d0</span> with <code>progress-lines.test.ts:131</code>: a 3-invoice series on a quote with a −€1,250.00 discount line.</p>
+          <div class="box code" style="margin-top:8px"><div class="ci">
+<div class="cl dl"><i>58</i><u>-</u><span>      quantity: 1,</span></div>
+<div class="cl dl"><i>59</i><u>-</u><span>      unitPrice: now,</span></div>
+<div class="cl ad"><i>58</i><u>+</u><span>      quantity: now.<span class="fn">isNegative</span>() ? -1 : 1,</span></div>
+<div class="cl ad"><i>59</i><u>+</u><span>      unitPrice: now.<span class="fn">abs</span>(),</span></div>
+          </div></div>
+          <p style="margin-top:6px" class="mut">The sign goes on the quantity; the price stays at zero or above, as Peppol BIS 3 requires.</p>
+        </div>
+        <div class="sec"><h3>Why its checks missed it</h3>
+          <p>#1527's 6 checks, re-run at its head: all green. The brief said <q>new file: nothing to read</q>, Relapse replayed 0 on it, and its 16 tests held no discount line.</p>
+        </div>
+        <div class="sec"><h3>Sweep <em>the same mistake in the 17,960 lines the ledger gives the loop</em></h3>
+          <div class="scroll-x">
+            <table class="gh-t" style="min-width:600px">
+              <thead><tr><th>Where</th><th>The loop wrote it in</th><th>Red on main, then green</th><th>Fix</th></tr></thead>
+              <tbody id="sweep">
+                <tr class="first"><td class="f">progress/progress-lines.ts:59</td><td>PRD 1519 s3 · <span class="lnk">#1527</span></td><td class="res"><span class="qd">queued</span><span class="rd">✗ BR-27 −500.00</span> <span class="gr">→ ✓</span></td><td class="f">2c8e41a</td></tr>
+                <tr><td class="f">progress/final-invoice.ts:92</td><td>PRD 1519 s5 · <span class="lnk">#1533</span></td><td class="res"><span class="qd">queued</span><span class="rd">✗ BR-27 −12,400.00</span> <span class="gr">→ ✓</span></td><td class="f">9f03b7d</td></tr>
+                <tr><td class="f">credit-note.ts:64</td><td>PRD 1419 s5 · <span class="lnk">#1437</span></td><td class="res"><span class="qd">queued</span><span class="rd">✗ BR-27 −150.00</span> <span class="gr">→ ✓</span></td><td class="f">5a7c1e0</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin-top:8px" class="mut">Each proven red on main first. 0 hits in peppol, quotes and projects: no other recall PR. One area, one small PR.</p>
+          <p class="mut">Not touched: <code>legacy/Invoice/UblLineBuilder.php:141</code> writes a signed price too, but a person wrote it. Listed on #1558.</p>
+        </div>
+        <div class="sec"><h3>Guard G-4 <em>a property over generated documents, not one pinned example</em></h3>
+          <p>For any generated invoice, progress invoice or credit note with discount and deduction lines, every item price is at zero or above and the Peppol BIS 3 rules accept the document. 5,000 generated documents per run.</p>
+          <div class="prop" id="g4">
+            <div class="f pendfade"><b>on e4b1c09, the escaped commit</b>✗ 1,318 of 5,000 rejected, BR-27<br><span class="mut">red, as it must be before it is trusted</span></div>
+            <div class="p pendfade"><b>on this PR's head</b>✓ 0 of 5,000 rejected</div>
+          </div>
+          <p style="margin-top:8px">Now pre-merge in invoicing. On the 3 slices being built:</p>
+          <ul class="flight" id="flight">
+            <li class="pendfade"><span class="tag r">failed, fixed</span>PRD 1544 s2 fixed it before sub-PR <span class="lnk">#1563</span> opened</li>
+            <li class="pendfade"><span class="tag g">passed</span>PRD 1544 s4</li>
+            <li class="pendfade"><span class="tag g">passed</span>PRD 1551 s1</li>
+          </ul>
+        </div>
+      </div>
+      <div class="side">
+        <div class="box">
+          <div class="bh">Recall R-5 <span>3 Nov · no one assigned</span></div>
+          <div class="tlv" id="tlv">
+            <div class="tli"><b>08:40</b><span>#1558 opened by support-desk</span></div>
+            <div class="tli"><b>08:41</b><span>ledger: progress-lines.ts:59 → PRD 1519 s3</span></div>
+            <div class="tli"><b>08:58</b><span>red on main: Q-2026-0877's series, invoice 2 of 3</span></div>
+            <div class="tli"><b>09:16</b><span>sweep: 3 hits in 17,960 loop lines, all invoicing</span></div>
+            <div class="tli"><b>09:52</b><span>3 red → green</span></div>
+            <div class="tli"><b>10:03</b><span>G-4 red on e4b1c09, green here</span></div>
+            <div class="tli"><b>10:09</b><span>G-4 on 3 slices in flight: 1 caught, fixed</span></div>
+            <div class="tli"><b>10:15</b><span>this PR · 15 checks green</span></div>
+            <div class="tli end"><b>14:02</b><span>@jdewitte approved and merged it into main, as every PR</span></div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="bh">Nobody was asked <span>until the merge</span></div>
+          <div class="tlv" style="font-size:12.5px;line-height:1.5">No question during the recall. The only person in it is the one who merges into main, as for any PR. The recall is also posted on #1527 and on PRD 1519's dossier.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== 7 · THE RECORD =============== -->
+<section class="screen" id="s7" aria-label="The record" hidden>
+  <div class="srow"><button class="replay" type="button" data-replay="6"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2 2.5v3h3"/></svg>Replay</button></div>
+  <div class="om">
+    <div class="om-top">
+      <svg class="mark" viewBox="0 0 36 36" aria-hidden="true" style="width:28px;height:28px"><rect class="mk-bg" width="36" height="36" rx="9"/><path class="mk-loop" d="M25.5 12.5A9 9 0 1 0 27 18"/><path class="mk-loop" d="M27 8.5v5h-5"/><path class="mk-bar" d="M13.5 18h9"/></svg>
+      <span class="w">Omni</span><span class="crumb">Record · the loop's own lines, per area</span>
+      <span class="asof">since the ledger started, 3 Mar 2026 · as of 3 Nov 2026</span>
+    </div>
+    <div class="om-body">
+      <div class="om-hero">
+        <div>
+          <div class="om-k" id="mrK">invoicing · miss rate</div>
+          <div class="om-big"><span id="mrBig">2 in 52</span><small>slices</small></div>
+          <div class="om-pct" id="mrPct">3.8% · was 1 in 44 before #1558</div>
+          <p class="om-def">Escapes traced by the line ledger to the loop's own lines, divided by the slices the loop merged in this area, cumulative by the month a slice reached main. Every escape counts as a miss: each is a bug the gauntlet should have caught.</p>
+          <p class="om-guard" id="mrGuard">Escapes of a mistake already guarded: 0 in 37 slices since G-2 (20 May).</p>
+        </div>
+        <div class="chartbox"><svg id="chart" viewBox="0 0 640 250" role="img" aria-label="Cumulative miss rate by month"></svg></div>
+      </div>
+
+      <div class="scroll-x">
+        <table class="om-t" style="min-width:880px">
+          <thead><tr><th>Area</th><th>Slices merged</th><th>Lines shipped</th><th>Escapes</th><th>Miss rate</th><th>Check wait per sub-PR</th><th>Recalls</th><th>Guards</th><th>Rules derived</th><th>Look-alikes listed</th></tr></thead>
+          <tbody id="areas">
+            <tr data-a="invoicing" class="sel"><td><button class="areabtn" type="button">invoicing</button></td><td>52</td><td>9,418</td><td>2<small>#1377 #1558</small></td><td class="mr">2 in 52</td><td>3m 40s<small>median</small></td><td>3<small>R-2 R-4 R-5</small></td><td>2<small>G-2 G-4 · G-3 runs here</small></td><td>7<small>5 checked, 2 judged</small></td><td>2</td></tr>
+            <tr data-a="peppol"><td><button class="areabtn" type="button">peppol</button></td><td>23</td><td>3,106</td><td>1<small>#1502</small></td><td class="mr">1 in 23</td><td>2m 55s<small>median</small></td><td>1<small>R-3</small></td><td>1<small>G-3</small></td><td>3<small>2 checked, 1 judged</small></td><td>0</td></tr>
+            <tr data-a="quotes"><td><button class="areabtn" type="button">quotes</button></td><td>31</td><td>4,012</td><td>0</td><td class="mr">0 in 31</td><td>2m 20s<small>median</small></td><td>0</td><td>0</td><td>4<small>3 checked, 1 judged</small></td><td>0</td></tr>
+            <tr data-a="projects"><td><button class="areabtn" type="button">projects</button></td><td>18</td><td>1,424</td><td>1<small>#1344</small></td><td class="mr">1 in 18</td><td>1m 55s<small>median</small></td><td>1<small>R-1</small></td><td>1<small>G-1</small></td><td>2<small>1 checked, 1 judged</small></td><td>0</td></tr>
+          </tbody>
+          <tfoot><tr><td>all</td><td>124</td><td>17,960</td><td>4</td><td>4 in 124</td><td></td><td>5</td><td>4</td><td>16 · 6 confirmed in knowledge PRs</td><td>2</td></tr></tfoot>
+        </table>
+      </div>
+
+      <div class="om-2">
+        <div class="om-card">
+          <h3>What each check catches <span>on this repository's 212 replayable past fixes · live catches in the last 90 days</span></h3>
+          <div class="scroll-x">
+            <table class="om-t" style="min-width:520px">
+              <thead><tr><th>Check</th><th>Catches past fixes</th><th>Live, 90 days</th><th>Time</th><th>Runs</th></tr></thead>
+              <tbody>
+                <tr><td>omni / relapse ports</td><td>188 of 212</td><td>14</td><td>2m 31s</td><td class="ok2">pre-merge</td></tr>
+                <tr><td>D-2 · money/no-number-amount</td><td>11 of 212</td><td>5</td><td>3s</td><td class="ok2">pre-merge</td></tr>
+                <tr><td>G-3 · TaxTotal = Σ per-rate</td><td>9 of 212</td><td>2</td><td>48s</td><td class="ok2">pre-merge</td></tr>
+                <tr><td>D-1 · vat-per-line</td><td>6 of 212</td><td>3</td><td>2s</td><td class="ok2">pre-merge</td></tr>
+                <tr><td>G-2 · deposit deducted once</td><td>5 of 212</td><td>1</td><td>22s</td><td class="ok2">pre-merge</td></tr>
+                <tr><td>G-4 · no negative item price</td><td>4 of 212</td><td>1 <small>since 3 Nov</small></td><td>1m 05s</td><td class="ok2">pre-merge</td></tr>
+                <tr class="moved"><td>G-1 · site-time-zone dates</td><td>3 of 212</td><td>0</td><td>1m 40s</td><td class="rn">nightly since 27 Oct</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="om-def" style="padding:0 12px 12px">A check that caught nothing in 90 days moves out of the pre-merge run to nightly, by rule, with nobody asked. Today's gates (test, fallow audit, territory) are not scored here and stay as they are.</p>
+        </div>
+        <div class="om-card">
+          <h3>The loop closes <span>#1558 is now history</span></h3>
+          <div class="loopc">
+            <div class="lb">
+              <div class="h"><span>Next History brief · PRD 1551 s2</span><span>4 Nov, 09:10</span></div>
+              <div class="row"><span class="tc">progress/progress-lines.ts</span>  <span class="flip" id="flipA"><span class="was">new file: nothing to read</span><span class="now tp">recalled · 1 fix</span></span></div>
+              <div class="row tm">  :58–59 last changed in #1561, recall R-5, 3 Nov,
+  merged by @jdewitte</div>
+              <div class="row ty">  "The sign goes on the quantity. Peppol rejects
+  a negative price (BR-27)."</div>
+              <div class="row"><span class="tp">  protected: do not undo #1561's fix</span></div>
+              <div class="row tm">  test progress-lines.test.ts:131 pinned · guard G-4</div>
+            </div>
+            <div class="lb">
+              <div class="h"><span>Relapse · PRD 1551 s2</span><span>progress-lines.ts</span></div>
+              <div class="chg"><span class="old">6 Oct: 0 replayed</span><span class="arr">→</span><span class="flip" id="flipB"><span class="was">0 replayed</span><span class="now new">1 plant, 1 port · #1558</span></span></div>
+              <div class="row tm" style="margin-top:4px">port rule: fails at 2c8e41a^, passes at 2c8e41a</div>
+            </div>
+            <p class="om-def" style="margin:0">The next slice that touches this line reads why it changed, and replays the bug that got out. Same mistake, never twice.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+  </main>
+
+  <nav class="pager" aria-label="Previous and next">
+    <button class="btn" type="button" id="prev"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>Previous</button>
+    <div class="mid"><b id="pos">1 / 7</b> <span class="nm">· <span id="posName">History brief</span></span></div>
+    <button class="btn pri" type="button" id="next">Next<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
+  </nav>
+</div>
+
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var RMQ=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):{matches:false};
+  function rm(){return RMQ.matches}
+  var screens=$$('.screen'), N=screens.length, cur=0, timers=[];
+  var NAMES=['History brief','Building with it','Relapse','Self-check','An escape','The recall','The record'];
+  var CAPS=[
+    ['6 Oct 2026, 09:02 · before work · slice s3 starts','Before the agent writes a line, it reads why this code is the way it is.'],
+    ['6 Oct 2026, 09:03–09:40 · before work · the agent builds s3','The brief stops a plan that would have undone a fix, and the agent says what it will keep. Nobody is asked.'],
+    ['6 Oct 2026, 09:41–10:06 · before merge · sub-PR #1527','Every bug this team already fixed in these files is replayed on the new code, before merge.'],
+    ['any time after · #1527 merged into the feature branch at 10:14','After the fact, one summary: what it checked, what it caught in itself, and what that cost.'],
+    ['3 Nov 2026, 08:40 · after merge · four weeks later','A line the loop wrote gets out. The ledger finds it, even through the squash.'],
+    ['3 Nov 2026, 08:41–14:02 · after merge · recall R-5','The loop recalls its own mistake: every sibling proven red, a guard proven on the escape.'],
+    ['3 Nov 2026 · the memory · since the ledger started, 3 Mar 2026','The record per area, misses with their denominator, and the escape now in the next brief.']
+  ];
+  function T(fn,ms){timers.push(setTimeout(fn,ms))}
+  function stop(){timers.forEach(clearTimeout);timers=[]}
+  var A={};
+
+  function go(i,opt){
+    opt=opt||{};
+    i=Math.max(0,Math.min(N-1,i));
+    stop();
+    screens.forEach(function(s,k){s.hidden=k!==i});
+    $$('.rail .st').forEach(function(b,k){
+      if(k===i)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');
+      if(k<i)b.classList.add('seen');
+    });
+    $('#capN').textContent=i+1;
+    $('#capWhen').textContent=CAPS[i][0];
+    $('#capText').textContent=CAPS[i][1];
+    $('#prev').disabled=i===0;$('#next').disabled=i===N-1;
+    $('#pos').textContent=(i+1)+' / '+N;$('#posName').textContent=NAMES[i];
+    cur=i;
+    try{history.replaceState(null,'','#step-'+(i+1))}catch(e){}
+    var a=A[i];
+    if(a){ if(rm()||opt.still){a.end()} else {a.reset();a.play()} }
+    if(opt.scroll!==false){
+      var r=$('.rail').getBoundingClientRect();
+      if(r.top<0)window.scrollTo({top:window.scrollY+r.top-10,behavior:rm()?'auto':'smooth'});
+    }
+    if(opt.after)opt.after();
+  }
+
+  /* ---------- 1 · brief: pick a line range, highlight it ---------- */
+  function pickWhy(key,sweep){
+    $$('#s1 .wb').forEach(function(b){b.setAttribute('aria-selected',b.dataset.w===key?'true':'false')});
+    $$('#s1 .pv').forEach(function(p){p.hidden=p.dataset.p!==key});
+    var hot=$('#s1 .pv[data-p="'+key+'"] .cl.hot');
+    if(hot&&sweep&&!rm()){hot.classList.remove('sweep');void hot.offsetWidth;hot.classList.add('sweep')}
+    $$('#terr tr').forEach(function(tr){tr.classList.remove('ping')});
+    var row=$('#terr tr[data-f="'+key+'"]');
+    if(row&&sweep&&!rm()){void row.offsetWidth;row.classList.add('ping')}
+  }
+  $$('#s1 .wb').forEach(function(b){b.addEventListener('click',function(){pickWhy(b.dataset.w,true)})});
+  $('#s1 .why-list').addEventListener('keydown',function(e){
+    if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;
+    var bs=$$('#s1 .wb'),k=bs.indexOf(document.activeElement);if(k<0)return;
+    e.preventDefault();e.stopPropagation();
+    var n=bs[(k+(e.key==='ArrowDown'?1:bs.length-1))%bs.length];n.focus();pickWhy(n.dataset.w,true);
+  });
+  A[0]={reset:function(){},play:function(){pickWhy('a',true)},end:function(){pickWhy('a',false)}};
+
+  /* ---------- 2 · building: the session plays, the draft is struck ---------- */
+  var s2lines=$$('#s2term .tl');
+  var ghost=$('#s2ghost'),keep=$('#s2keep'),step5=$('#s2step5'),rcpt=$('#s2rcpt');
+  A[1]={
+    reset:function(){
+      s2lines.forEach(function(l){l.classList.add('pend');l.classList.remove('in')});
+      step5.classList.remove('flag');ghost.classList.add('unstruck');
+      keep.style.visibility='hidden';rcpt.classList.add('pend');rcpt.classList.remove('in');
+    },
+    play:function(){
+      var t=150;
+      s2lines.forEach(function(l,k){
+        var d=(k===7||k===12||k===13||k===17)?520:170;t+=d;
+        T(function(){
+          l.classList.remove('pend');l.classList.add('in');
+          if(k===7){step5.classList.add('flag');ghost.classList.remove('unstruck')}
+          if(k===12){keep.style.visibility='';keep.classList.remove('flash');void keep.offsetWidth;keep.classList.add('flash')}
+        },t);
+      });
+      T(function(){rcpt.classList.remove('pend');rcpt.classList.add('in')},t+400);
+    },
+    end:function(){
+      s2lines.forEach(function(l){l.classList.remove('pend')});
+      step5.classList.add('flag');ghost.classList.remove('unstruck');keep.style.visibility='';rcpt.classList.remove('pend');
+    }
+  };
+
+  /* ---------- 3 · relapse: plants, then ports, run 1 red, run 2 green ---------- */
+  var P1=[],Q1=[],P2=[],Q2=[],NAMED_P={2:'#902 · caught',10:'#1184 · slipped: 14 of 14 tests pass',14:'#1116 · already in the code',20:'#1290 · slipped: 14 of 14 tests pass'},NAMED_Q={2:'#902 · port passes',12:'#1116 · port fails: in the code',8:'#1184 · port passes'};
+  function mk(host,n,named,arr){
+    for(var k=0;k<n;k++){var d=document.createElement('span');d.className='dot';if(named[k]){d.classList.add('named');d.title=named[k]}else d.title='past fix '+(k+1)+' of '+n;host.appendChild(d);arr.push(d)}
+  }
+  mk($('#r1p'),27,NAMED_P,P1);mk($('#r1q'),24,NAMED_Q,Q1);mk($('#r2p'),27,{},P2);mk($('#r2q'),24,{},Q2);
+  function r1p(k){return k===14?'i':(k===10||k===20)?'s':'c'}
+  function r1q(k){return k===12?'i':'c'}
+  function setIco(el,cls){el.setAttribute('class','ico '+cls)}
+  var s3={run1:$('#run1'),run2:$('#run2'),arrow:$('#s3arrow'),pill:$('#s3pill'),verb:$('#s3verb'),ico:$('#s3ico'),ico2:$('#s3ico2'),st:$('#s3status'),r1i:$('#r1ico'),r2i:$('#r2ico')};
+  function cnt(id,v){$(id).textContent=v}
+  A[2]={
+    reset:function(){
+      P1.concat(Q1,P2,Q2).forEach(function(d){d.classList.remove('c','s','i')});
+      s3.run1.className='run';s3.run2.className='run';s3.arrow.classList.remove('lit');
+      s3.pill.classList.remove('merged');s3.verb.textContent='wants to merge';
+      setIco(s3.ico,'run');setIco(s3.ico2,'run');setIco(s3.r1i,'run');setIco(s3.r2i,'q');
+      s3.st.textContent='run 1 in progress';s3.st.className='st2';
+      ['#r1c','#r1s','#r1i','#r1pp','#r1pf','#r2c','#r2pp'].forEach(function(id){cnt(id,0)});
+    },
+    play:function(){
+      var t=300,c=0,s=0,i=0,pp=0,pf=0;
+      P1.forEach(function(d,k){t+=45;T(function(){var v=r1p(k);d.classList.add(v);if(v==='c')cnt('#r1c',++c);if(v==='s')cnt('#r1s',++s);if(v==='i')cnt('#r1i',++i)},t)});
+      t+=250;
+      Q1.forEach(function(d,k){t+=45;T(function(){var v=r1q(k);d.classList.add(v);if(v==='c')cnt('#r1pp',++pp);else cnt('#r1pf',++pf)},t)});
+      t+=300;
+      T(function(){s3.run1.className='run x';setIco(s3.r1i,'x');setIco(s3.ico,'x');setIco(s3.ico2,'x');s3.st.textContent='run 1 failed · 1 already in the code · 2 slipped';s3.st.className='st2 bad'},t);
+      t+=700;T(function(){s3.arrow.classList.add('lit');setIco(s3.r2i,'run');setIco(s3.ico,'run');setIco(s3.ico2,'run');s3.st.textContent='run 2 in progress';s3.st.className='st2'},t);
+      t+=500;var c2=0,p2=0;
+      P2.forEach(function(d){t+=28;T(function(){d.classList.add('c');cnt('#r2c',++c2)},t)});
+      t+=200;
+      Q2.forEach(function(d){t+=28;T(function(){d.classList.add('c');cnt('#r2pp',++p2)},t)});
+      t+=300;
+      T(function(){s3.run2.className='run v';setIco(s3.r2i,'ok');setIco(s3.ico,'ok');setIco(s3.ico2,'ok');s3.st.textContent='passed on run 2 · 27 of 27 plants caught · 24 of 24 ports pass';s3.st.className='st2'},t);
+      t+=500;T(function(){s3.pill.classList.add('merged');s3.verb.textContent='merged'},t);
+    },
+    end:function(){
+      P1.forEach(function(d,k){d.classList.add(r1p(k))});Q1.forEach(function(d,k){d.classList.add(r1q(k))});
+      P2.concat(Q2).forEach(function(d){d.classList.add('c')});
+      s3.run1.className='run x';s3.run2.className='run v';s3.arrow.classList.add('lit');
+      s3.pill.classList.add('merged');s3.verb.textContent='merged';
+      setIco(s3.ico,'ok');setIco(s3.ico2,'ok');setIco(s3.r1i,'x');setIco(s3.r2i,'ok');
+      s3.st.textContent='passed on run 2 · 27 of 27 plants caught · 24 of 24 ports pass';s3.st.className='st2';
+      cnt('#r1c',24);cnt('#r1s',2);cnt('#r1i',1);cnt('#r1pp',23);cnt('#r1pf',1);cnt('#r2c',27);cnt('#r2pp',24);
+    }
+  };
+  A[2].end();
+
+  /* ---------- 4 · self-check: fields settle in; copy the replay command ---------- */
+  var dls=$$('#s4dl > div');
+  A[3]={
+    reset:function(){dls.forEach(function(d,k){d.querySelectorAll('dt,dd').forEach(function(x){x.classList.remove('in');x.style.setProperty('--i',k)})})},
+    play:function(){dls.forEach(function(d){d.querySelectorAll('dt,dd').forEach(function(x){void x.offsetWidth;x.classList.add('in')})})},
+    end:function(){}
+  };
+  $('#copyBtn').addEventListener('click',function(){
+    var b=this,txt=$('#cmd').textContent;
+    function done(){b.textContent='Copied';b.classList.add('done');setTimeout(function(){b.textContent='Copy';b.classList.remove('done')},1600)}
+    function sel(){try{var r=document.createRange();r.selectNodeContents($('#cmd'));var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected';setTimeout(function(){b.textContent='Copy'},1600)}catch(e){}}
+    try{navigator.clipboard.writeText(txt).then(done,sel)}catch(e){sel()}
+  });
+
+  /* ---------- 5 · escape: the ledger trace draws from the rejection to the line ---------- */
+  var trace=$('#trace'),nodes=$$('#trace .node'),missed=$('#missedBox');
+  A[4]={
+    reset:function(){trace.classList.add('reset');nodes.forEach(function(n){n.classList.add('pend')});missed.classList.add('pend')},
+    play:function(){
+      nodes[0].classList.remove('pend');
+      T(function(){trace.classList.remove('reset')},120);
+      T(function(){nodes[1].classList.remove('pend')},800);
+      T(function(){nodes[2].classList.remove('pend')},1500);
+      T(function(){nodes[3].classList.remove('pend')},2300);
+      T(function(){missed.classList.remove('pend')},2900);
+    },
+    end:function(){trace.classList.remove('reset');nodes.forEach(function(n){n.classList.remove('pend')});missed.classList.remove('pend')}
+  };
+  $('#toStep2').addEventListener('click',function(){
+    go(1,{still:true,after:function(){var l=$('#l59');l.scrollIntoView({block:'center',behavior:rm()?'auto':'smooth'});l.classList.remove('flash');void l.offsetWidth;l.classList.add('flash')}});
+  });
+
+  /* ---------- 6 · recall: siblings red then green, guard proven, merged by a person ---------- */
+  var res=$$('#sweep .res'),g4=$$('#g4 > div'),fl=$$('#flight li'),tli=$$('#tlv .tli');
+  var s6={pill:$('#s6pill'),open:$('#s6open'),merged:$('#s6merged')};
+  A[5]={
+    reset:function(){
+      res.forEach(function(r){r.classList.remove('r');r.classList.add('q')});
+      g4.concat(fl).forEach(function(x){x.classList.add('pend')});
+      tli.forEach(function(x){x.classList.add('pend')});
+      s6.pill.classList.remove('merged');s6.open.hidden=false;s6.merged.hidden=true;
+    },
+    play:function(){
+      var t=200;
+      [0,1,2].forEach(function(k){T(function(){tli[k].classList.remove('pend')},t);t+=260});
+      tli[3]&&T(function(){tli[3].classList.remove('pend')},t);
+      res.forEach(function(r){t+=380;T(function(){r.classList.remove('q');r.classList.add('r')},t);T(function(){r.classList.remove('r')},t+520)});
+      t+=700;T(function(){tli[4].classList.remove('pend')},t);
+      t+=350;T(function(){g4[0].classList.remove('pend');tli[5].classList.remove('pend')},t);
+      t+=650;T(function(){g4[1].classList.remove('pend')},t);
+      fl.forEach(function(x){t+=300;T(function(){x.classList.remove('pend')},t)});
+      t+=200;T(function(){tli[6].classList.remove('pend')},t);
+      t+=400;T(function(){tli[7].classList.remove('pend')},t);
+      t+=900;T(function(){tli[8].classList.remove('pend');s6.pill.classList.add('merged');s6.open.hidden=true;s6.merged.hidden=false},t);
+    },
+    end:function(){
+      res.forEach(function(r){r.classList.remove('q','r')});
+      g4.concat(fl,tli).forEach(function(x){x.classList.remove('pend')});
+      s6.pill.classList.add('merged');s6.open.hidden=true;s6.merged.hidden=false;
+    }
+  };
+
+  /* ---------- 7 · record: miss rate per area, drawn to scale ---------- */
+  var MONTHS=['Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'];
+  var AREAS={
+    invoicing:{s:[5,7,6,8,6,7,5,8],e:[0,1,0,0,0,0,0,1],id:{1:'#1377',7:'#1558'},big:'2 in 52',pct:'3.8% · was 1 in 44 before #1558',guard:'Escapes of a mistake already guarded: 0 in 37 slices since G-2 (20 May).'},
+    peppol:{s:[2,3,3,4,3,3,2,3],e:[0,0,0,1,0,0,0,0],id:{3:'#1502'},big:'1 in 23',pct:'4.3%',guard:'Escapes of a mistake already guarded: 0 in 3 slices since G-3 (30 Sep). Too young to say more.'},
+    quotes:{s:[3,4,5,4,4,4,3,4],e:[0,0,0,0,0,0,0,0],id:{},big:'0 in 31',pct:'0% · no escape yet, a small sample',guard:'No escape, so no guard yet. 31 slices is not proof.'},
+    projects:{s:[2,3,2,3,2,2,2,2],e:[0,1,0,0,0,0,0,0],id:{1:'#1344'},big:'1 in 18',pct:'5.6%',guard:'Escapes of a mistake already guarded: 0 in 13 slices since G-1 (28 Apr).'}
+  };
+  var area='invoicing',chart=$('#chart'),SVGNS='http'+'://www.w3.org/2000/svg';
+  function el(tag,attrs,text){var e=document.createElementNS(SVGNS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+  function draw(key,animate){
+    var d=AREAS[key],W=640,H=250,L=46,R=14,TP=24,B=56,n=d.s.length,MAX=20;
+    while(chart.firstChild)chart.removeChild(chart.firstChild);
+    var cw=(W-L-R)/n,x=function(i){return L+cw*(i+.5)},y=function(v){return TP+(H-TP-B)*(1-v/MAX)};
+    chart.appendChild(el('rect',{'class':'band',x:L+cw*6,y:TP-8,width:cw*2,height:H-TP-B+8}));
+    chart.appendChild(el('text',{'class':'bandl',x:L+cw*7,y:TP+14,'text-anchor':'middle'},'YOUNG'));
+    chart.appendChild(el('text',{'class':'bandl',x:L+cw*7,y:TP+28,'text-anchor':'middle'},'under 60 days'));
+    [0,5,10,15,20].forEach(function(v){
+      chart.appendChild(el('line',{'class':'gl',x1:L,x2:W-R,y1:y(v),y2:y(v)}));
+      chart.appendChild(el('text',{'class':'axl',x:L-8,y:y(v)+4,'text-anchor':'end'},v+'%'));
+    });
+    var cs=0,ce=0,pts=[];
+    d.s.forEach(function(s,i){cs+=s;ce+=d.e[i];pts.push({i:i,s:cs,e:ce,r:ce/cs*100})});
+    pts.forEach(function(p){
+      chart.appendChild(el('text',{'class':'axl hi',x:x(p.i),y:H-B+20,'text-anchor':'middle'},MONTHS[p.i]));
+      chart.appendChild(el('text',{'class':'axl',x:x(p.i),y:H-B+37,'text-anchor':'middle'},p.e+'/'+p.s));
+    });
+    chart.appendChild(el('text',{'class':'axl',x:L-8,y:H-B+37,'text-anchor':'end'},'esc/sl'));
+    var dstr=pts.map(function(p,k){return (k?'L':'M')+x(p.i).toFixed(1)+' '+y(p.r).toFixed(1)}).join(' ');
+    var path=el('path',{'class':'mline',d:dstr});chart.appendChild(path);
+    pts.forEach(function(p){
+      var g=el('g',{});
+      g.appendChild(el('title',{},MONTHS[p.i]+' 2026: '+p.e+' escape'+(p.e===1?'':'s')+' in '+p.s+' slices, '+p.r.toFixed(1)+'%'));
+      if(d.e[p.i]){
+        g.appendChild(el('circle',{'class':'mesc',cx:x(p.i),cy:y(p.r),r:6}));
+        g.appendChild(el('text',{'class':'mescl',x:x(p.i),y:y(p.r)-12,'text-anchor':'middle'},d.id[p.i]));
+      } else g.appendChild(el('circle',{'class':'mpt',cx:x(p.i),cy:y(p.r),r:3.6}));
+      chart.appendChild(g);
+    });
+    var last=pts[pts.length-1];
+    chart.appendChild(el('text',{'class':'axl hi',x:Math.min(x(last.i)+2,W-R),y:Math.max(y(last.r)+(d.e[last.i]?22:-10),TP+14),'text-anchor':'end'},last.r.toFixed(1)+'%'));
+    if(animate&&!rm()&&path.getTotalLength){
+      var len=path.getTotalLength();path.style.strokeDasharray=len;path.style.strokeDashoffset=len;
+      path.getBoundingClientRect();path.style.transition='stroke-dashoffset 1.3s cubic-bezier(.4,.1,.3,1)';path.style.strokeDashoffset='0';
+    }
+    $('#mrK').textContent=key+' · miss rate';$('#mrBig').textContent=d.big;$('#mrPct').textContent=d.pct;$('#mrGuard').textContent=d.guard;
+    $$('#areas tr').forEach(function(tr){tr.classList.toggle('sel',tr.dataset.a===key)});
+  }
+  $$('#areas tr').forEach(function(tr){tr.addEventListener('click',function(){area=tr.dataset.a;draw(area,true)})});
+  var flips=[$('#flipA'),$('#flipB')];
+  A[6]={
+    reset:function(){flips.forEach(function(f){f.classList.add('reset')})},
+    play:function(){draw(area,true);T(function(){flips[0].classList.remove('reset')},1500);T(function(){flips[1].classList.remove('reset')},2000)},
+    end:function(){draw(area,false);flips.forEach(function(f){f.classList.remove('reset')})}
+  };
+  draw(area,false);
+
+  /* ---------- navigation ---------- */
+  $$('.rail .st').forEach(function(b){b.addEventListener('click',function(){go(+b.dataset.go)})});
+  $('#prev').addEventListener('click',function(){go(cur-1)});
+  $('#next').addEventListener('click',function(){go(cur+1)});
+  $$('.replay').forEach(function(b){b.addEventListener('click',function(){go(+b.dataset.replay,{scroll:false})})});
+  document.addEventListener('keydown',function(e){
+    if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
+    var t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;
+    if(e.key==='ArrowRight'){e.preventDefault();go(cur+1)}
+    else if(e.key==='ArrowLeft'){e.preventDefault();go(cur-1)}
+  });
+  $('#theme').addEventListener('click',function(){
+    var root=document.documentElement,now=root.getAttribute('data-theme');
+    var dark=now?now==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
+    root.setAttribute('data-theme',dark?'light':'dark');
+  });
+  var m=/^#step-([1-7])$/.exec(location.hash||'');
+  go(m?+m[1]-1:0,{scroll:false});
+})();
+</script>
+</body>
+</html>
