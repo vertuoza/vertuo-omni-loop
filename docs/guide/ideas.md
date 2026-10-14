@@ -50,8 +50,9 @@ Signed in, a member sees the board with its controls:
   number shows an "In PRD #n" badge linking to that PRD's issue, so voters see it is being built.
 - **Archive** on a card: the idea leaves the board. Nothing deletes an idea.
 
-Every card also shows its **Brainstorm this** line with a copy button. Paste it into Claude to turn
-the idea into a PRD:
+Every card also shows its **Brainstorm this** line with a copy button. Paste it into your coding
+agent, in its own form ([Any coding agent](/docs/any-agent#set-up-your-agent)), to turn the idea
+into a PRD:
 
 ```text agent
 /omni:brainstorm 'Call GitHub less: A better sync with GitHub, to call the GitHub API less.'

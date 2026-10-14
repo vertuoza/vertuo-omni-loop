@@ -236,7 +236,8 @@ repository has, with every undecided point under **Open questions**. Each one wr
 `status: draft`, splits the screen's code between `implements` and `reads` by the rule above, and
 says where it came from. None of them locks anything.
 
-**Only a person locks**, in their own words:
+**Only a person locks**, in their own words (in your agent's form:
+[Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
 /omni:pixel-perfect lock quote-editor
