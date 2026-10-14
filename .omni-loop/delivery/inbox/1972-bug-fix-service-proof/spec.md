@@ -231,8 +231,15 @@ Every test runs on fixtures: never GitHub, Supabase or a real ffmpeg (`omni kb s
   bundle, rebuilt because `kit/lib` changes. No migration. Rolled back by reverting the feature PR: a
   bug's proof runs already stored stay on their dossiers, served by their stable links, read by
   nothing else.
-- **The locked laws: none touched.** `omni kb laws` prints all twenty for every file here, none
-  scoped by path. The nearest hold: BR-PRODUCT-29 and BR-PRODUCT-63, because a job queued with a kit
+- **The locked laws.** `kit/test/plugin.test.ts` proves three of them, and the skill's new text is
+  tested there, beside their proofs, which stay as they are: BR-PRODUCT-3: an agent could wave its
+  own work through the gate with no person answering the open questions. Changing it needs
+  @pierrederval to approve the pull request on GitHub. BR-PRODUCT-5: a person could merge work whose
+  open decisions nobody answered. Changing it needs @pierrederval to approve the pull request on
+  GitHub. N-PRODUCT-15: unreviewed work reaches every user, and nobody chose to ship it. Changing it
+  needs @pierrederval to approve the pull request on GitHub. The file is @pierrederval's in
+  CODEOWNERS, so the feature PR waits for that approval. Otherwise `omni kb laws` prints all twenty
+  for every file here, none scoped by path, and the nearest hold: BR-PRODUCT-29 and BR-PRODUCT-63, because a job queued with a kit
   token still needs its repository in the caller's workspace and the caller a member of it;
   BR-PRODUCT-94, because queuing a job answers no question; N-PRODUCT-15, because the job opens a
   pull request and never merges it; N-PRODUCT-17, because the token stays in the cleaner's secrets
