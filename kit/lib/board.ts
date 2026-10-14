@@ -75,7 +75,7 @@
  * commit as `merged`.
  */
 import type { PrNumber, WorkSliceId } from './ids.ts';
-import type { Config } from './types.ts';
+import type { Config, Tier } from './types.ts';
 import { sameWaveCollisions } from './inbox/territory.ts';
 
 /** A label as `gh pr list --json labels` returns it: a name, or an object carrying one. */
@@ -115,6 +115,8 @@ export type BoardSlice = {
   repo?: string | null;
   /** The landing the slice reaches the default branch in; 1 when absent. */
   landing?: number;
+  /** The model tier the plan advises for the slice (PRD 1934); `null` or absent when it advises none. */
+  tier?: Tier | null;
 };
 
 /** One landing of a PRD, as the board is handed it: its number in the plan, its name and its

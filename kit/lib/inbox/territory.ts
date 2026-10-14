@@ -38,7 +38,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-territory.mjs — changes in kit/porting/inbox--territory.md.
 import { WorkSliceIdSchema } from '../ids.ts';
 import type { WorkSliceId } from '../ids.ts';
-import type { Slice } from '../types.ts';
+import type { Slice, Tier } from '../types.ts';
 
 export type { Slice };
 
@@ -147,8 +147,8 @@ function bodyRows(lines: readonly string[], headerIndex: number): string[][] {
 }
 
 /**
- * Every slice a plan declares: its id, title, the ground it owns, the ids it is blocked by, and the
- * wave it runs in.
+ * Every slice a plan declares: its id, title, the ground it owns, the ids it is blocked by, the
+ * wave it runs in, and the model tier it advises (a `tier` column, read by name, PRD 1934).
  *
  * Throws when the plan holds no slice table, and when that table has no `territory` column. A plan
  * written in the old shape must be loud: a guard that reads an absent column as an empty
@@ -159,6 +159,31 @@ function bodyRows(lines: readonly string[], headerIndex: number): string[][] {
  * column declares no blocks, rather than throwing the way a missing `territory` column does.
  */
 export function parsePlanSlices(markdown: string): Slice[] {
+  const { column, rows } = sliceTable(markdown);
+  const slices: Slice[] = [];
+  for (const row of rows) {
+    const id = row[column('id')];
+    if (!id) continue;
+    slices.push({
+      id: sliceIdOf(id),
+      repo: column('repo') === -1 ? null : plainCell(row[column('repo')]),
+      title: column('slice') === -1 ? '' : (row[column('slice')] ?? ''),
+      territory: territoryPrefixes(row[column('territory')]),
+      blockedBy: column('blocked by') === -1 ? [] : blockedByCell(row[column('blocked by')]),
+      wave: column('wave') === -1 ? null : Number(row[column('wave')]),
+      landing: column('landing') === -1 ? 1 : landingCell(row[column('landing')]),
+      tier: column('tier') === -1 ? null : tierCell(row[column('tier')]),
+    });
+  }
+  if (slices.length === 0) {
+    throw new Error('The slice table holds no slice; there is nothing to grade.');
+  }
+  return slices;
+}
+
+/** The slice table of a plan: a reader of its header by column name (-1 for a column it lacks) and
+ * its body rows. Throws as `parsePlanSlices` documents. */
+function sliceTable(markdown: string): { column: (name: string) => number; rows: string[][] } {
   const lines = markdown.split('\n');
 
   // Find the first table whose header starts with `id` AND contains a `territory` column
@@ -189,26 +214,44 @@ export function parsePlanSlices(markdown: string): Slice[] {
   }
 
   const header = cells(lines[headerIndex] ?? '').map((name) => name.toLowerCase());
-  const column = (name: string): number => header.indexOf(name);
+  return { column: (name: string) => header.indexOf(name), rows: bodyRows(lines, headerIndex) };
+}
 
-  const slices: Slice[] = [];
-  for (const row of bodyRows(lines, headerIndex)) {
-    const id = row[column('id')];
-    if (!id) continue;
-    slices.push({
-      id: sliceIdOf(id),
-      repo: column('repo') === -1 ? null : plainCell(row[column('repo')]),
-      title: column('slice') === -1 ? '' : (row[column('slice')] ?? ''),
-      territory: territoryPrefixes(row[column('territory')]),
-      blockedBy: column('blocked by') === -1 ? [] : blockedByCell(row[column('blocked by')]),
-      wave: column('wave') === -1 ? null : Number(row[column('wave')]),
-      landing: column('landing') === -1 ? 1 : landingCell(row[column('landing')]),
-    });
+/** The tiers a `tier` cell may name (PRD 1934). */
+const TIERS: readonly Tier[] = ['deep', 'build', 'light'];
+
+function isTier(text: string): text is Tier {
+  return TIERS.some((tier) => tier === text);
+}
+
+/** A `tier` cell: the tier it names, `null` for an empty cell, an em dash or anything else (which
+ * `unknownTiers` reports for the plan check to refuse). */
+function tierCell(cell: string | undefined): Tier | null {
+  const text = plainCell(cell);
+  return isTier(text) ? text : null;
+}
+
+/**
+ * Every `tier` cell of a plan's slice table that names no tier and is not blank or an em dash, with
+ * its slice id, in plan order (PRD 1934). `[]` for a plan with no `tier` column, and for one whose
+ * slice table cannot be read: `parsePlanSlices` reports that.
+ */
+export function unknownTiers(markdown: string): { slice: WorkSliceId; value: string }[] {
+  let table: ReturnType<typeof sliceTable>;
+  try {
+    table = sliceTable(markdown);
+  } catch {
+    return [];
   }
-  if (slices.length === 0) {
-    throw new Error('The slice table holds no slice; there is nothing to grade.');
+  const { column, rows } = table;
+  if (column('tier') === -1) return [];
+  const unknown: { slice: WorkSliceId; value: string }[] = [];
+  for (const row of rows) {
+    const id = WorkSliceIdSchema.safeParse(row[column('id')]);
+    const value = plainCell(row[column('tier')]);
+    if (id.success && !NOTHING.test(value) && !isTier(value)) unknown.push({ slice: id.data, value });
   }
-  return slices;
+  return unknown;
 }
 
 /** A `landing` cell: a number, 1 for an empty cell (the plan's one landing), `NaN` for anything else. */

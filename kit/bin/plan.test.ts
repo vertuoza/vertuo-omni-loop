@@ -124,6 +124,29 @@ describe('omni plan check', () => {
     expect(s.out.join('')).toMatch(/id "s1" is used by more than one slice row/);
   });
 
+  it('passes a tier column of deep, build, light, a blank and an em dash, and refuses any other cell by slice and value (PRD 1934)', async () => {
+    const tiered = (cell: string) =>
+      [
+        '# A plan',
+        '',
+        '| id | slice | territory | blocked by | wave | tier |',
+        '| --- | --- | --- | --- | --- | --- |',
+        '| s1 | Alpha | `a/` | — | 1 | deep |',
+        '| s2 | Beta | `b/` | — | 1 | build |',
+        '| s3 | Gamma | `c/` | — | 1 | light |',
+        '| s4 | Delta | `d/` | — | 1 |  |',
+        `| s5 | Eps | \`e/\` | — | 1 | ${cell} |`,
+        '',
+      ].join('\n');
+    const good = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': tiered('—') } });
+    expect(await main(['plan', 'check', '7'], { cwd: good.root, ...io() })).toBe(0);
+
+    const bad = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': tiered('fast') } });
+    const s = io();
+    expect(await main(['plan', 'check', '7'], { cwd: bad.root, ...s })).toBe(1);
+    expect(s.out.join('')).toMatch(/tier: s5 reads "fast", not deep, build, light, a blank or —\./);
+  });
+
   it('prints one line per landing for a plan of more than one landing, and refuses a cross-landing blocker', async () => {
     const plan = [
       '# A plan',
