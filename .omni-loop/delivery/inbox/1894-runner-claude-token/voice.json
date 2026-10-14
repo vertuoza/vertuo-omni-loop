@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A small fix with its own tests, so one less way for an unattended job to fail halfway.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Reading the token in the env module and passing it explicitly beats a tmux workaround in a shell script.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Jobs I send stop failing on an expired sign-in.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Fine, but the token goes on the tmux command line, visible in ps for a moment.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Less harness to fix before a quick win runs.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "The token goes into the tmux command line, so anyone on the box can see it in ps for a moment. That is fine on a box only the agent user uses, but write it down.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ once the risk is written"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Tests prove the token reaches the session only when set and is never printed.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One env group, one line in jobEnv, no API key passed by accident.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The runner works on a server signed in once with setup-token.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The ps exposure is named in Risks, beside OMNI_TOKEN's.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A job I send just runs.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits every persona ✓"
+    }
+  ]
+}
