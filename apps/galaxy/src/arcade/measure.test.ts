@@ -31,6 +31,7 @@ describe('measure', () => {
 
   it('reads a game\'s measure from its id, points for an unknown one', () => {
     expect(measureOf('kart')).toBe('time');
+    expect(measureOf('kart-frost-eight')).toBe('time');
     expect(measureOf('invaders')).toBe('points');
     expect(measureOf('platformer')).toBe('points');
     expect(measureOf('maze')).toBe('points');

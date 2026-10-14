@@ -1,7 +1,7 @@
 // `omni runner` (PRD 1830): makes this machine a runner of the Omni app, which runs the `/omni:` lines
 // people send it from the app with Send to terminal.
 //
-//   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]
+//   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
 //   omni runner sender
 //   omni runner job --line <file> --log <file> --exit <file>
 //
@@ -9,6 +9,8 @@
 // reads (`OMNI_TOKEN`, else `omni signin`'s), lists the git checkouts under `--repos` by their
 // `origin`, refuses to register when `claude` is missing or signed out or tmux is missing, then
 // registers and keeps one `next` open per free slot until Ctrl-C, which waits for the running jobs.
+// It sweeps what stopped jobs left once registered and every hour after (PRD 1911): a job's logs are
+// kept `--keep-logs` days, a whole number of 1 or more, 14 unless given.
 // The Omni page is the `ask.url` of the config where it runs, else of the first checkout held that
 // sets one.
 //
@@ -27,14 +29,14 @@ import { runnerApi } from '../../lib/runner/api.ts';
 import { listCheckouts } from '../../lib/runner/checkouts.ts';
 import { runJobProcess } from '../../lib/runner/job.ts';
 import { parseDuration } from '../../lib/runner/log.ts';
-import { runRunner } from '../../lib/runner/runner.ts';
+import { KEEP_LOGS_DAYS, runRunner } from '../../lib/runner/runner.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { Terminal } from '../../lib/runner/terminal.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 
-const USAGE = 'usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] | omni runner sender';
+const USAGE = 'usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] | omni runner sender';
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
 const DEFAULT_TIMEOUT = '3h';
@@ -88,9 +90,14 @@ function interrupts(): { signal: AbortSignal; release(): void } {
   };
 }
 
+/** `--keep-logs`: a whole number of days, 1 or more, `KEEP_LOGS_DAYS` unless given. */
+function keepLogsOf(value: string | true | undefined): number {
+  return value === undefined ? KEEP_LOGS_DAYS : positiveInt('runner', '--keep-logs', value);
+}
+
 /** The runner's flags, checked. */
-function readFlags(args: string[], cwd: string): { name: string; slots: number; timeoutMs: number; repos: string } {
-  const { positional, flags } = parseArgs('runner', args, { values: ['name', 'repos', 'slots', 'timeout'] });
+function readFlags(args: string[], cwd: string): { name: string; slots: number; timeoutMs: number; repos: string; keepLogsDays: number } {
+  const { positional, flags } = parseArgs('runner', args, { values: ['name', 'repos', 'slots', 'timeout', 'keep-logs'] });
   const { name, repos } = flags;
   if (positional.length || name === undefined || repos === undefined) throw usageError(USAGE);
   if (!NAME.test(name)) throw usageError('omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.');
@@ -99,7 +106,7 @@ function readFlags(args: string[], cwd: string): { name: string; slots: number; 
   const timeout = flags.timeout ?? DEFAULT_TIMEOUT;
   const timeoutMs = parseDuration(timeout);
   if (timeoutMs === null) throw usageError(`omni runner: --timeout must read like 90s, 45m or 3h, got "${timeout}".`);
-  return { name, slots, timeoutMs, repos: resolve(cwd, repos) };
+  return { name, slots, timeoutMs, repos: resolve(cwd, repos), keepLogsDays: keepLogsOf(flags['keep-logs']) };
 }
 
 /**
@@ -134,7 +141,7 @@ function wiring(io: FreeIo & RunnerCommandOptions) {
 
 async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
   const { cwd, stdout, stderr, exec, script } = io;
-  const { name, slots, timeoutMs, repos } = readFlags(args, cwd);
+  const { name, slots, timeoutMs, repos, keepLogsDays } = readFlags(args, cwd);
   const checkouts = listCheckouts(repos, exec);
   const page = pageOrRefusal(cwd, repos, checkouts, exec);
   if ('refusal' in page) {
@@ -160,6 +167,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
         println(stdout, line);
       },
       stop: stop.signal,
+      keepLogsDays,
       ...timing(io),
     });
   } finally {

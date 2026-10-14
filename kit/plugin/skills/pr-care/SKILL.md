@@ -252,7 +252,7 @@ times in ISO 8601 UTC:
 
 `watching since` is the time this watch started (step 1); `last round` is this round's time
 (`date -u +%Y-%m-%dT%H:%M:%SZ`). The PRD page reads this line: a last round under 15 minutes old
-reads `Claude is watching`, an older one `Nobody is watching`. Under it, one line says what the
+reads `The agent is watching`, an older one `Nobody is watching`. Under it, one line says what the
 round did: `report only: a wave holds s3, s4`, `merged main`, `fixing <check> (attempt k)`, `3
 threads: 1 fixed, 1 pushed back, 1 asked`, or `nothing to do`.
 

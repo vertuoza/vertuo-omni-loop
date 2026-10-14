@@ -99,3 +99,10 @@
   .kt-confetti span:nth-child(odd) { top: 40px; }
   .kt-confetti span:nth-child(3n) { top: 90px; }
 }
+
+/* The CIRCUIT step (PRD 1923): the circuit's name between ◀ and ▶, its minimap 72 px square, the player's best on it. */
+.kt-circuit { margin: 0; font-size: 8px; letter-spacing: 1px; color: var(--white); }
+.kt-circuit .j-key { padding: 0 6px; }
+.kt-mini { display: block; width: 72px; height: 72px; border: 2px solid #2a2766; }
+.kt-best { margin: 0; font-size: 8px; letter-spacing: 1px; color: var(--white); }
+.kt-best b { font-weight: 400; color: var(--cyan); }

@@ -3,7 +3,9 @@ import type { Action } from '../keys';
 import type { GridPlayer, ItemMessage, StateMessage } from './net';
 import { away, dropOut, finishOf, hear, hudOf, lift, newRace, plant, pause, press, step, type Race } from './race';
 import { RULES } from './rules';
+import { crossings } from './line';
 import { parseTrack, TILE } from './track';
+import { EIGHT } from './track.fake';
 
 // A MULTI race, played by the pure engine (PRD 1572, slice 4): the players on the first places in the
 // starting order, no CPU kart, remote karts read from their states and never driven, only the player's
@@ -362,5 +364,26 @@ describe('a MULTI race with looks and laps (PRD 1762)', () => {
     for (let i = 0; i < 12000 && r.phase !== 'finish'; i += 1) r = ['b', 'c'].reduce((x, id) => hear(x, id, state()), step(r, GAS, 0.05).race);
     expect(r.phase).toBe('finish');
     expect(r.finish?.threeLap).toBeLessThan(r.finish?.tenths ?? 0);
+  });
+});
+
+// The branch at a crossing (PRD 1923, slice 1): a player heard on a figure eight stays on the branch it was heard on.
+describe('a MULTI race on a line that crosses itself', () => {
+  const eight = parseTrack(EIGHT);
+  const c = crossings(eight.centre)[0];
+  const second = eight.centre.segments.find((s) => s.kind === 'straight' && s.leg === c?.b.leg);
+  const onEight = (): Race => newRace({ seed: 5, track: eight, field: { me: 'a', order: ['a', 'b'].map(who) } });
+
+  it('keeps a remote kart on the branch it was heard on, state after state, across the crossing', () => {
+    if (!c || !second) throw new Error('a figure eight crosses itself');
+    let r = press(onEight(), 'start').race;
+    for (const tiles of [-5, -2.5, 0, 2.5, 5]) {
+      const x = (c.x + c.b.tx * tiles) * TILE;
+      const y = (c.y + c.b.ty * tiles) * TILE;
+      r = hear(r, 'b', state({ x, y, angle: Math.atan2(c.b.ty, c.b.tx), speed: 60, passed: 6 }));
+      r = play(r, NONE, RULES.countdown + 0.05);
+      const heard = rival(r, 'b').kart.along ?? NaN;
+      expect(Math.abs(heard - (second.start + c.b.at + tiles) * TILE)).toBeLessThan(TILE / 2 + 60 * RULES.carry);
+    }
   });
 });
