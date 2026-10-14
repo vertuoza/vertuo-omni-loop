@@ -1,8 +1,9 @@
-// `omni kb init | show <form> [--json] | status [--json] | graph [--json] | laws […]` — the playbook: one form
+// `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
 // section (a pointer, then the repository's section, then the kit default), each section labelled
-// with where it came from; `show decisions` then lists the decision records, read live. `status`
+// with where it came from; `show decisions` then lists the latest 20 decision records, read live, and
+// `--all` every one (PRD 1951). `status`
 // prints the map: each form's state and source, each register folder's laws and proposals, every
 // open question, every stale evidence entry, and — in a plan repository — each imported copy
 // (PRD 522). `graph` prints the knowledge registers as one graph
@@ -41,13 +42,14 @@ import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 import { synchronous } from '../synchronous.ts';
 
 /** The one flag every `omni kb` verb reads. */
-type KbFlags = { json?: true };
+type KbFlags = { json?: true; all?: true };
 
 /** The map `omni kb status` prints. */
 export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus>; ungoverned: number };
 
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json]`;
+const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -63,11 +65,12 @@ const BRIEFING = 'briefing';
 function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
   const [id = ''] = positional;
   if (positional.length !== 1 || !FORM_IDS.includes(id)) {
-    throw usageError(`usage: omni kb show <form> [--json] — the forms: ${FORM_IDS.join(', ')}`);
+    throw usageError(`${SHOW_USAGE} — the forms: ${FORM_IDS.join(', ')}`);
   }
+  if (flags.all && id !== DECISIONS_FORM) throw usageError(`omni kb show: --all lists every decision record, so it goes with the ${DECISIONS_FORM} form only. ${SHOW_USAGE}`);
   const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
   for (const problem of resolved.problems) println(stderr, `warning: ${problem}`);
-  println(stdout, flags.json ? JSON.stringify(showJson(ctx, id, resolved), null, 2) : showText(ctx, id, resolved));
+  println(stdout, flags.json ? JSON.stringify(showJson(ctx, id, resolved), null, 2) : showText(ctx, id, resolved, flags.all === true));
   return 0;
 }
 
@@ -80,11 +83,11 @@ function showJson(ctx: Context, id: string, resolved: ResolvedForm): object {
   return { ...resolved, ...extra };
 }
 
-/** What `kb show <form>` prints, as the context measure counts it (PRD 1679). */
-function showText(ctx: Context, id: string, resolved: ResolvedForm): string {
+/** What `kb show <form>` prints, as the context measure counts it (PRD 1679); `all` lists every record (PRD 1951). */
+function showText(ctx: Context, id: string, resolved: ResolvedForm, all: boolean): string {
   const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
   const laws = id === BRIEFING ? briefingLaws(ctx).lines : null;
-  return formShowText(resolved, records, laws);
+  return formShowText(resolved, records, laws, { all });
 }
 
 const SOURCE_LABEL: Record<string, string> = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };
@@ -299,8 +302,9 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
 export const kb: Command = {
   run: synchronous((args: string[], io: CommandIo): number => {
     if (args[0] === 'laws') return laws(args.slice(1), io);
-    const { positional, flags } = parseArgs('kb', args, { booleans: ['json'] });
+    const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
     const [sub, ...rest] = positional;
+    if (flags.all && sub !== 'show') throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE}`);
     if (sub === 'init') return init(rest, flags, io);
     if (sub === 'show') return show(rest, flags, io);
     if (sub === 'status') return status(rest, flags, io);

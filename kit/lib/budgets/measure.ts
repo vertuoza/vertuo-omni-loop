@@ -34,11 +34,20 @@ type Ctx = Pick<Context, 'root' | 'layout' | 'config'>;
 /** One target's size in bytes, or why it could not be measured. */
 export type Measure = { target: string; bytes: number } | { target: string; error: string };
 
-/** The decision records as `omni kb show decisions` prints them. */
-function recordLines({ dir, records, shared, next }: Decisions): string[] {
+/** How many records `omni kb show decisions` prints without `--all`: the highest numbers (PRD 1951). */
+const LATEST_RECORDS = 20;
+
+/**
+ * The decision records as `omni kb show decisions` prints them: the latest `LATEST_RECORDS`, then a
+ * live count of the older ones naming `--all`, or with `all` every one; every shared number whatever
+ * its age; then the next free number.
+ */
+function recordLines({ dir, records, shared, next }: Decisions, all: boolean): string[] {
   const lines = [`## Records  [read live from ${dir}]`];
   if (records.length === 0) lines.push('No decision records yet.');
-  lines.push(...records.map(({ number, file, title }) => `${number}  ${title ?? file}`));
+  const older = all ? 0 : Math.max(0, records.length - LATEST_RECORDS);
+  lines.push(...records.slice(older).map(({ number, file, title }) => `${number}  ${title ?? file}`));
+  if (older > 0) lines.push(`… ${older} older records: omni kb show decisions --all`);
   lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(', ')}`));
   lines.push(`Next free number: ${next}`);
   return lines;
@@ -48,9 +57,14 @@ function recordLines({ dir, records, shared, next }: Decisions): string[] {
  * One resolved form as `omni kb show <form>` prints it, without its last newline: its title, its file
  * and state, then each section under its label, then — for the decisions form — the records, and —
  * for the briefing — its laws section (PRD 1726). The command prints this text, so the measure and
- * what a session reads are one.
+ * what a session reads are one. The records are the latest `LATEST_RECORDS` unless `all` (PRD 1951).
  */
-export function formShowText(resolved: ResolvedForm, records: Decisions | null, laws: readonly string[] | null = null): string {
+export function formShowText(
+  resolved: ResolvedForm,
+  records: Decisions | null,
+  laws: readonly string[] | null = null,
+  { all = false }: { all?: boolean } = {},
+): string {
   const lines = [`# ${resolved.title}`, `${resolved.file} · ${resolved.state}`];
   for (const section of resolved.sections) {
     lines.push('', section.slot === null ? section.label : `## ${section.heading}  ${section.label}`);
@@ -58,7 +72,7 @@ export function formShowText(resolved: ResolvedForm, records: Decisions | null, 
     // A hole shows the kit default, then its questions; repository text already holds its own.
     if (section.source === 'hole') lines.push(...section.questions.map((question) => `TODO(human): ${question}`));
   }
-  if (records) lines.push('', ...recordLines(records));
+  if (records) lines.push('', ...recordLines(records, all));
   if (laws) lines.push('', ...laws);
   return lines.join('\n');
 }

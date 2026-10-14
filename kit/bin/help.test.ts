@@ -173,6 +173,14 @@ describe('omni help', () => {
     expect(mega.out.replace(/\s+/g, ' ')).toMatch(/plan repository.*\/loop \/omni:mega-drive --roadmap <n>/);
   });
 
+  it('prints omni kb: show takes --all, which lists every decision record past the latest 20 (PRD 1951)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'kb'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni kb show <form> \[--json\] \[--all\] +for you\n/);
+    expect(out.replace(/\s+/g, ' ')).toContain('show decisions lists the latest 20 decision records, and --all every one');
+  });
+
   it('takes a skill by its name or its slash command alike', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const byName = await run(['help', 'yolo'], root);
