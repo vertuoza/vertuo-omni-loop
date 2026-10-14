@@ -32,7 +32,7 @@ export const POSTER_TEXT = [
   { selector: '.home-promises .home-glyph', colour: 'yellow' },
   { selector: '.home-works', colour: 'white' },
   { selector: '.home-works a', colour: 'white' },
-  { selector: '.home-works li + li::before', colour: 'yellow' },
+  { selector: '.home-works li:not(:last-child)::after', colour: 'yellow' },
   { selector: '.home-quote', colour: 'yellow' },
   { selector: '.home-signup-hint', colour: 'white' },
   { selector: '.home-signup-change', colour: 'yellow' },

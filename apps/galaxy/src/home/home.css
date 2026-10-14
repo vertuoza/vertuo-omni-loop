@@ -94,7 +94,7 @@ html:has(.home) body {
   letter-spacing: 0.02em;
   color: var(--white);
 }
-.home-works li + li::before { content: '·'; margin-right: 8px; color: var(--yellow); }
+.home-works li:not(:last-child)::after { content: '·'; margin-left: 8px; color: var(--yellow); }
 .home-works a { color: var(--white); text-decoration: underline; text-decoration-color: var(--yellow); text-underline-offset: 3px; }
 
 .home-quote {

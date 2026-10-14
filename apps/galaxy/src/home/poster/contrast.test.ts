@@ -18,7 +18,7 @@ describe('the poster text on the ad purple', () => {
 
   it('names the kicker, the headline, the pitch, the promises, the works-with row and the quote', () => {
     expect(POSTER_TEXT.map(({ selector }) => selector)).toEqual(
-      expect.arrayContaining(['.home-kicker', '.home-head', '.home-pitch', '.home-promises', '.home-works', '.home-works a', '.home-works li + li::before', '.home-quote']),
+      expect.arrayContaining(['.home-kicker', '.home-head', '.home-pitch', '.home-promises', '.home-works', '.home-works a', '.home-works li:not(:last-child)::after', '.home-quote']),
     );
   });
 
