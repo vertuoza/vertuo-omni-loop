@@ -1,6 +1,7 @@
 // The grid's rules (PRD 1572), pure: who holds a place, who waits, the starting order and who starts.
 import { RULES } from './rules';
 import { LAPS } from './track';
+import { DEFAULT_CIRCUIT } from './circuits';
 import type { GridPlayer } from './net';
 
 /** Players in the order they arrived on the grid; two at the same instant go by id, so every browser agrees. */
@@ -44,3 +45,6 @@ export function gridLapsOf(players: readonly GridPlayer[]): number {
   const first = seated[0]?.laps;
   return first !== undefined && seated.every((p) => p.laps !== undefined) ? first : LAPS;
 }
+
+/** The circuit the grid will race (PRD 1923): its first arrival's `track`, and COMET RING when that entry carries none. */
+export const gridTrackOf = (players: readonly GridPlayer[]): string => placesOf(players).seated[0]?.track ?? DEFAULT_CIRCUIT.id;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byArrival, gridLapsOf, placesOf, rowsOf, starterOf, startingOrder } from './grid';
+import { byArrival, gridLapsOf, gridTrackOf, placesOf, rowsOf, starterOf, startingOrder } from './grid';
 import type { GridPlayer } from './net';
 
 // The grid's rules (PRD 1572, slice 3): the starting order, the four places and who starts.
@@ -96,5 +96,18 @@ describe('the grid\'s laps (PRD 1762)', () => {
   it('is 3 for an empty grid, and ignores a player who waits without a place', () => {
     expect(gridLapsOf([])).toBe(3);
     expect(gridLapsOf([withLaps('a', 1, 5), withLaps('b', 2, 5), withLaps('c', 3, 5), withLaps('d', 4, 5), withLaps('e', 5)])).toBe(5);
+  });
+});
+
+describe('the grid\'s circuit (PRD 1923)', () => {
+  const on = (id: string, arrival: number, track?: string): GridPlayer => ({ ...p(id, arrival), ...(track !== undefined ? { track } : {}) });
+
+  it('is the first arrival\'s track, whoever else asks for another', () => {
+    expect(gridTrackOf([on('b', 2, 'comet-ring'), on('a', 1, 'comet-ring')])).toBe('comet-ring');
+  });
+
+  it('is COMET RING when the first arrival carries none, or the grid is empty', () => {
+    expect(gridTrackOf([on('a', 1), on('b', 2, 'comet-ring')])).toBe('comet-ring');
+    expect(gridTrackOf([])).toBe('comet-ring');
   });
 });
