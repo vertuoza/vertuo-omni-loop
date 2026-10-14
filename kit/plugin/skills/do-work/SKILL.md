@@ -39,6 +39,7 @@ prints `hooks none` and `kitStep: run`: the step runs as written.
 | feature branch | shaped like `branches.feature` | the branch the slice is cut from and its sub-PR targets |
 | `--in-wave` | — | set by `/omni:wave` only. Changes three things, below: the claimed slice branch is checked out rather than cut, medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
 | `--inline` | — | set by `/omni:wave` only, when the board says `inline` (`wave.inlineBelow`): the plan is small enough for the feature PR to be the record of every slice. The slice is built on the feature branch itself, with no claim, no slice branch and no sub-PR: see **Under `--inline`** |
+| tier | `Tier: light · claude haiku · low` | set by `/omni:wave` in the prompt: the tier the slice's agent was started on, and its model. Absent, the slice runs on the terminal's model: see **The tier** |
 | `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository, or for a product PRD (`mobile-12`) in any kitted checkout of its product: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which setup and preflight run and what the result carries: see **Under `--target <name>`** |
 
 Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) instead.
@@ -377,14 +378,32 @@ carries here, and what done means. What they ask of a push or a hand-off is part
    (**Flow points**) around item 6, the kit's step. A `not ok` leaves the sub-PR draft: name the
    hook and its reason in the hand-off, as a red preflight would be.
 6. **Hand off to `/omni:pr`** for the sub-PR into the feature branch: it turns the claim into the
-   sub-PR (title; a body that carries step 4's **Design review** section when the design flag is
-   on, and ends with the `omni sign footer` line; the co-author trailer and the
+   sub-PR (title; a body that carries the `Tier:` line (**The tier**) under its summary, step 4's
+   **Design review** section when the design flag is on, and ends with the `omni sign footer` line; the co-author trailer and the
    `omni sign trailer` line on every commit), keeps its status comment, marks it ready once the
    preflight is green, and runs its lifecycle. A sub-PR has no CI: its lifecycle
    ends at a green preflight and no conflict with the feature branch. Never merge it, never touch
    another branch.
 
 Every hand-off line, green or stuck, names the checks that ran and the ones that did not.
+
+## The tier
+
+The plan advises a tier per slice (its `tier` column; `omni board <n> --json` gives each slice its
+`tier`, `null` when none), and `/omni:wave` starts the slice's agent on the model and effort that
+tier maps to. You do not choose or change your model: you report what you were started on, so a
+later PRD can tell whether the cheaper tiers hold up.
+
+- **Given by the wave.** The prompt carries one `Tier:` line: keep it as given.
+- **No line:** you run on the terminal's model. The line is
+  `Tier: <the board's tier> · inherited (inline)` run alone or under `--inline`, and
+  `· inherited (not passed)` when a skill started you without one.
+- **The line's shape:** `Tier: <tier> · <agent> <model> · <effort>` (the effort part only when
+  set), or `Tier: <tier> · inherited (<why>)`, `<tier>` being `—` when the plan advises none.
+
+It goes in the sub-PR's body, under its summary, and in the result as `tier`:
+`{ "tier": "build", "agent": "claude", "model": "sonnet", "effort": "medium" }` (no `effort` key when
+none is set), or `{ "tier": "build", "inherited": "<why>" }` (`"tier": null` when none is advised).
 
 ## Under `--in-wave`
 
@@ -394,8 +413,11 @@ Stop once the sub-PR is open and the preflight is green (or has stayed red throu
 ```json
 { "slice": "s5", "status": "done | red | stopped | blocked", "branch": "…", "prUrl": "…",
   "preflight": "green | red | none", "summary": "…", "risks": ["…"],
-  "items": [{ "id": "…", "rank": "…", "file": "…" }] }
+  "items": [{ "id": "…", "rank": "…", "file": "…" }],
+  "tier": { "tier": "build", "agent": "claude", "model": "sonnet", "effort": "medium" } }
 ```
+
+`tier` is **The tier**'s, whatever the status.
 
 `red` means the preflight or checks never went green: the sub-PR is left draft and `summary` names
 what fails. `stopped` carries the law or principles it would break; `blocked` carries the
@@ -518,5 +540,6 @@ with these differences.
   ```json
   { "slice": "s5", "repo": "…", "status": "done | red | stopped | blocked", "branch": "…",
     "prUrl": "…", "preflight": "green | red | none — CI is the check", "summary": "…",
-    "risks": ["…"], "out": "…", "items": [{ "id": "…", "rank": "…", "file": "…" }] }
+    "risks": ["…"], "out": "…", "items": [{ "id": "…", "rank": "…", "file": "…" }],
+    "tier": { "tier": "build", "inherited": "not passed" } }
   ```

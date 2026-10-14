@@ -242,6 +242,17 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out).toMatch(/no generated\s+files/);
   });
 
+  it('lists tier among the commands the skills run, and explains it (PRD 1934)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const overview = await run(['help'], root);
+    expect(overview.out.slice(overview.out.indexOf('Run by the skills:'))).toMatch(/\btier\b/);
+    const { code, out } = await run(['help', 'tier'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni tier <deep\|build\|light> --agent <agent> +run by the skills\n/);
+    const words = out.replace(/\s+/g, ' ');
+    for (const phrase of [/model:/, /effort:/, /prints inherit/, /terminal's model/, /exits 2/]) expect(words, String(phrase)).toMatch(phrase);
+  });
+
   it('lists budget among the commands the skills run, and describes both its verbs (PRD 1679)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const overview = await run(['help'], root);

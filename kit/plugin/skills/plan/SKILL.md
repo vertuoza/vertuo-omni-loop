@@ -174,24 +174,41 @@ require. These four parts are the whole shape:
 2. `## Slices`, the table the kit parses. The header row is exactly:
 
    ```markdown
-   | id | slice | territory | blocked by | wave |
-   | --- | --- | --- | --- | --- |
-   | s1 | <what it makes true> | `<dir>/` `<file prefix>*` | — | 1 |
+   | id | slice | territory | blocked by | wave | tier |
+   | --- | --- | --- | --- | --- | --- |
+   | s1 | <what it makes true> | `<dir>/` `<file prefix>*` | — | 1 | build |
    ```
 
    or, when the repository asks for contracts (**Contracts**, below), with `contract` after
    `territory`:
 
    ```markdown
-   | id | slice | territory | contract | blocked by | wave |
-   | --- | --- | --- | --- | --- | --- |
-   | s1 | <what it makes true> | `<dir>/` | api, db | — | 1 |
+   | id | slice | territory | contract | blocked by | wave | tier |
+   | --- | --- | --- | --- | --- | --- | --- |
+   | s1 | <what it makes true> | `<dir>/` | api, db | — | 1 | build |
    ```
 
 3. Under the table, the **shared-ground note**: each prefix more than one slice declares, which
    slices, and how the waves keep them apart. A generated path is never in it.
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
    as a bullet list.
+
+**Tiers.** Every slice of a new plan carries a `tier` cell, whether or not the config maps tiers to
+models: it is the model tier the plan advises, there for the person reviewing the plan to see and
+change before anything is built (saying nothing approves it). Pick it from the spec by this table:
+
+| tier | for |
+| --- | --- |
+| `deep` | a slice whose design is subtle: an algorithm, a concurrency or migration hazard, a law path |
+| `build` | a bounded slice with a territory and a test-first spec, the ordinary case |
+| `light` | a mechanical slice: a rename, wording, docs, a config line |
+
+The column is read by name, so it may sit anywhere in the row; write it after `wave` (after
+`landing`, when there is one). A slice advised anything but `build` says why in one clause on its
+done-when heading, after its id: `### s3 (light: wording only)`. `omni plan check` refuses a cell
+that is none of `deep`, `build`, `light`, a blank or an em dash; a blank or an em dash advises
+nothing, and the slice runs on the terminal's model. A plan kept from before (step 4's opening)
+keeps its table as it is: add the column only when you rewrite the table.
 
 **UI slices.** Only when step 0 read the design flag as `true` and `design.paths` lists globs: a
 slice whose territory meets `design.paths` (a territory prefix holds a path one glob matches, or a
@@ -250,10 +267,10 @@ merged in order, each one its own pull request into the default branch. Give the
 landing and what must be true before it is merged:
 
 ```markdown
-| id | slice | territory | blocked by | wave | landing |
-| --- | --- | --- | --- | --- | --- |
-| s1 | <the column exists> | `<migrations dir>/` | — | 1 | 1 |
-| s2 | <the code reads it> | `<dir>/` | — | 1 | 2 |
+| id | slice | territory | blocked by | wave | landing | tier |
+| --- | --- | --- | --- | --- | --- | --- |
+| s1 | <the column exists> | `<migrations dir>/` | — | 1 | 1 | deep |
+| s2 | <the code reads it> | `<dir>/` | — | 1 | 2 | build |
 
 ## Landings
 
@@ -293,9 +310,9 @@ check` refuses a `repo` column outside a plan repository.
 - The header row is exactly:
 
   ```markdown
-  | id | repo | slice | territory | blocked by | wave |
-  | --- | --- | --- | --- | --- | --- |
-  | s1 | <name> | <what it makes true> | `<dir>/` | — | 1 |
+  | id | repo | slice | territory | blocked by | wave | tier |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | s1 | <name> | <what it makes true> | `<dir>/` | — | 1 | build |
   ```
 
   `repo` is a repository's **short name**, the part after the `/`: a target's from `plan.targets`,
@@ -304,9 +321,9 @@ check` refuses a `repo` column outside a plan repository.
   contracts (**Contracts**, above), the row gains `contract` after `territory`:
 
   ```markdown
-  | id | repo | slice | territory | contract | blocked by | wave |
-  | --- | --- | --- | --- | --- | --- | --- |
-  | s1 | <name> | <what it makes true> | `<dir>/` | none | — | 1 |
+  | id | repo | slice | territory | contract | blocked by | wave | tier |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | s1 | <name> | <what it makes true> | `<dir>/` | none | — | 1 | build |
   ```
 - `## Repositories` has one row per repository a slice names, and no other:
 
@@ -335,7 +352,8 @@ node .omni-loop/bin/omni.mjs plan check <n>
 It prints the waves and the collision matrix (and, for more than one landing, a line per landing),
 then every violation: a duplicate id, a blocker that names no slice, sits in another landing, or sits
 in the same or a later wave, two slices sharing ground in one wave of one landing, landing numbers
-with a gap, a `## Landings` table that does not match the slice table, and, with `landings.alone`
+with a gap, a `## Landings` table that does not match the slice table, a `tier` cell that names no
+tier, and, with `landings.alone`
 set, a land-alone path sharing a slice or a landing with anything else. Where the receiving
 repository asks for contracts, it refuses three more, each naming the slice: a cell that declares
 nothing (`<id>: contract: declares nothing — <kinds> or none`), a word that is not one of that
