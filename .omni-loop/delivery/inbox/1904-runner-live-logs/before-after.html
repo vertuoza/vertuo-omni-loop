@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runner live logs</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the runners mockup uses them. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 16px/1.6 var(--ask-body); }
+  .doc { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+  .doc > h1 { font-size: 28px; margin: 0 0 4px; }
+  .doc > p, .cap { color: var(--ask-muted); font-size: 14px; margin: 4px 0 0; }
+  h2.part { font-size: 21px; margin: 40px 0 6px; padding-top: 18px; border-top: 2px solid var(--ask-line-strong); }
+  h3 { font-size: 15px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--ask-muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px; }
+  .pair > div { min-width: 0; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  .card { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 16px; }
+  .flow { font: 12.5px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: pre; overflow-x: auto; margin: 0; }
+  .flow .k { color: var(--ask-plasma); } .flow .m { color: var(--ask-muted); } .flow .r { color: var(--ask-red); } .flow .g { color: var(--ask-green); }
+  code { font: 500 13px/1.5 var(--ask-mono); }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+
+  /* Mockups: the runners screen, drawn as its library mockup draws it. */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; position: relative; }
+  .bar { padding: 8px 14px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 13px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .page { padding: 16px; display: grid; gap: 14px; }
+  .page h1 { margin: 0; font-size: 21px; }
+  .page h2 { margin: 0 0 6px; font-size: 15px; }
+  .table { border: 1px solid var(--ask-line-strong); border-radius: 10px; overflow: hidden; background: var(--ask-surface); }
+  .row { display: grid; gap: 10px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--ask-line); font-size: 13.5px; min-width: 0; }
+  .row:first-child { border-top: 0; }
+  .runners .row { grid-template-columns: minmax(0, 1.3fr) 92px 58px auto; }
+  .jobs .row { grid-template-columns: minmax(0, 1.6fr) 104px auto; }
+  .name { font-weight: 700; }
+  .muted { color: var(--ask-muted); font-size: 12.5px; }
+  .state { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ask-muted); display: inline-block; }
+  .on .dot { background: var(--ask-green); } .busy .dot { background: var(--ask-plasma); }
+  .status { font: 700 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; justify-self: start; border: 1px solid var(--ask-line-strong); white-space: nowrap; }
+  .s-run { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .s-done { border-color: var(--ask-green); color: var(--ask-green); }
+  .s-fail { border-color: var(--ask-red); color: var(--ask-red); }
+  .acts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  .ghost { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; }
+  .ghost[disabled] { opacity: .45; }
+  .ghost.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
+  .ghost svg { width: 12px; height: 12px; }
+  details summary { cursor: pointer; list-style: none; }
+  .tail { margin: 0; padding: 10px 12px; background: var(--ask-sunk); border-top: 1px solid var(--ask-line); font: 12px/1.55 var(--ask-mono); color: var(--ask-muted); }
+
+  /* The Terminal panel. */
+  .scrim { position: absolute; inset: 0; background: rgba(3, 2, 15, .55); }
+  .term { position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--ask-sunk); border-left: 2px solid var(--ask-line-strong); display: flex; flex-direction: column; }
+  .term-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--ask-surface); border-bottom: 1px solid var(--ask-line); font-size: 13px; }
+  .term-head .t { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: var(--ask-plasma); box-shadow: 0 0 0 3px rgba(255, 216, 74, .2); }
+  .x { border: 0; background: none; color: var(--ask-muted); font-size: 18px; line-height: 1; padding: 2px 6px; }
+  .lines { flex: 1; overflow: auto; margin: 0; padding: 10px 12px 52px; font: 12px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: pre-wrap; word-break: break-word; }
+  .lines .ts { color: var(--ask-muted); }
+  .lines .err { color: var(--ask-red); }
+  .lines .done { font-weight: 700; color: var(--ask-green); }
+  .lines .note { color: var(--ask-muted); font-style: italic; }
+  .jump { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); }
+  .tall { height: 560px; }
+  .shot { height: 500px; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>Runners show live job logs</h1>
+  <p>PRD 1904, after PRD 1830 (runners). Today beside after. Figures are examples.</p>
+
+  <h2 class="part">Functional</h2>
+  <p class="cap">How a job's log travels from claude to the page.</p>
+  <div class="pair">
+    <div>
+      <h3>Today</h3>
+      <div class="card"><pre class="flow"><span class="k">claude -p</span>            <span class="m">silent until the run ends</span>
+   │
+   ▼
+~/logs/job-&lt;id&gt;.log   <span class="m">empty for 40 min, then all at once</span>
+   │  every 5 s: last 200 lines, 16 KB
+   ▼
+POST /api/runners/jobs/&lt;id&gt; {logTail}
+   │
+   ▼
+runner_jobs.log_tail   <span class="r">overwritten each time</span>
+   │  page re-renders every 5 s
+   ▼
+&lt;details&gt;&lt;pre&gt;         <span class="m">"No log yet." during the run,</span>
+                       <span class="r">last 200 lines</span> <span class="m">after it</span></pre></div>
+    </div>
+    <div>
+      <h3>After</h3>
+      <div class="card"><pre class="flow"><span class="k">claude -p --output-format stream-json --verbose</span>
+   │  one JSON event per line, as it works
+   ▼
+stepLine(event)        <span class="g">12:04:31 Bash: pnpm test</span>
+   ├▶ ~/logs/job-&lt;id&gt;.log    readable, + tmux pane
+   └▶ ~/logs/job-&lt;id&gt;.jsonl  raw, stays on the machine
+   │  every 5 s: only lines after the cursor
+   ▼
+POST /api/runners/jobs/&lt;id&gt; {from, lines, logTail}
+   │  insert … on conflict (job_id, seq) do nothing
+   ▼
+runner_job_lines       <span class="g">last 20,000 per job,</span>
+   │                   <span class="g">while the page lists the job</span>
+   ▼
+GET …/jobs/&lt;id&gt;/lines?after=&lt;seq&gt;   every 5 s while open
+   ▼
+Terminal panel         <span class="g">follows new lines; whole log kept</span></pre></div>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div>
+      <h3>Today: what a report carries</h3>
+      <div class="card"><pre class="flow">{ "status": "running",
+  "logTail": "" }          <span class="m">← for the whole run</span></pre></div>
+    </div>
+    <div>
+      <h3>After: what a report carries</h3>
+      <div class="card"><pre class="flow">{ "status": "running",
+  "logTail": "&lt;last 200 lines&gt;",
+  "from": 1201,
+  "lines": [ "12:04:31 Bash: pnpm test",
+             "12:05:02 ✗ FAIL kit/lib/runner/log.test.ts",
+             "  expected 200, got 201", "…" ] }
+<span class="m">≤ 2,000 lines, ≤ 256 KB; cursor moves on 2xx only</span></pre></div>
+    </div>
+  </div>
+
+  <h2 class="part">Pixel perfect</h2>
+  <p class="cap">screens: runners · runner-terminal (new) · app-shell (unchanged)</p>
+  <div class="pair">
+    <div>
+      <h3>Today: runners</h3>
+      <div class="frame tall"><div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="page" data-screen="runners">
+          <h1>Runners</h1>
+          <section><h2>Runners</h2>
+            <div class="table runners">
+              <div class="row"><span class="name">vertuo-agents</span><span class="state busy"><i class="dot"></i>Busy</span><span>4 of 4</span><span class="muted">0.0.404</span></div>
+              <div class="row"><span class="name">mac-mini-office</span><span class="state on"><i class="dot"></i>Online</span><span>1 of 2</span><span class="muted">0.0.404</span></div>
+            </div>
+          </section>
+          <section><h2>Jobs</h2>
+            <div class="table jobs">
+              <details open><summary class="row"><code>/omni:yolo 1717</code><span class="status s-run">Running 12 min</span><span class="acts"><button class="ghost" type="button">Cancel</button></span></summary>
+                <pre class="tail">No log yet.</pre></details>
+              <details><summary class="row"><code>/omni:bug-fix 1790</code><span class="status s-done">Done</span><span class="acts"><a href="#">PR #1838</a></span></summary></details>
+              <details><summary class="row"><code>/omni:yolo 1702</code><span class="status s-fail">Exit code 1</span><span class="acts"><button class="ghost" type="button" data-primary>Send again</button></span></summary></details>
+            </div>
+          </section>
+        </div>
+      </div>
+      <p class="cap">Opening a row shows the last 200 lines, which stay empty while claude runs.</p>
+    </div>
+    <div>
+      <h3>After: runners</h3>
+      <div class="frame tall"><div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="page" data-screen="runners">
+          <h1>Runners</h1>
+          <section><h2>Runners</h2>
+            <div class="table runners">
+              <div class="row"><span class="name">vertuo-agents</span><span class="state busy"><i class="dot"></i>Busy</span><span>4 of 4</span><span class="acts"><button class="ghost" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3l3 3-3 3M6 9h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Terminal</button></span></div>
+              <div class="row"><span class="name">mac-mini-office</span><span class="state on"><i class="dot"></i>Online</span><span>1 of 2</span><span class="acts"><button class="ghost" type="button" disabled title="No job yet"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3l3 3-3 3M6 9h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Terminal</button></span></div>
+            </div>
+          </section>
+          <section><h2>Jobs</h2>
+            <div class="table jobs">
+              <div class="row"><code>/omni:yolo 1717</code><span class="status s-run">Running 12 min</span><span class="acts"><button class="ghost" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3l3 3-3 3M6 9h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+              <div class="row"><code>/omni:bug-fix 1790</code><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3l3 3-3 3M6 9h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Terminal</button><a href="#">PR #1838</a></span></div>
+              <div class="row"><code>/omni:yolo 1702</code><span class="status s-fail">Exit code 1</span><span class="acts"><button class="ghost" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3l3 3-3 3M6 9h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Terminal</button><button class="ghost primary" type="button" data-primary>Send again</button></span></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <p class="cap">The tail under each row is gone. Each job and each runner gets a Terminal button. A runner that has run no job shows it disabled ("No job yet"). Send again stays the page's one primary action.</p>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div>
+      <h3>Today: watching a job</h3>
+      <div class="card"><pre class="flow">$ ssh agent@vertuo-agents
+$ tmux attach -t job-7f3a…
+<span class="m">(blank until claude ends)</span></pre></div>
+      <p class="cap">The only way to watch is to SSH in, and claude prints nothing until it ends.</p>
+    </div>
+    <div>
+      <h3>After: runner-terminal, over the page</h3>
+      <div class="frame shot"><div class="bar">Dashboard › <b>Runners</b> · <code>?terminal=7f3a…</code></div>
+        <div class="scrim"></div>
+        <div class="term" data-screen="runner-terminal">
+          <div class="term-head"><span class="live" aria-label="Live"></span><span class="t">job 7f3a · vertuo-omni-loop · vertuo-agents</span><span class="status s-run">Running</span><button class="x" type="button" aria-label="Close">×</button></div>
+<pre class="lines" data-content><span class="ts">12:01:08</span> $ pnpm install --frozen-lockfile
+<span class="ts">12:01:40</span> › Reading PRD 1717 and its board.
+<span class="ts">12:01:44</span> Read: .omni-loop/delivery/inbox/1717-…/plan.md
+<span class="ts">12:02:10</span> Agent: build slice s1-02
+<span class="ts">12:03:52</span> Edit: kit/lib/runner/log.ts
+<span class="ts">12:04:31</span> Bash: pnpm vitest run kit/lib/runner
+<span class="ts err">12:05:02</span><span class="err"> ✗ FAIL kit/lib/runner/log.test.ts
+  › logTail keeps the last 200 lines
+  expected 200, received 201</span>
+<span class="ts">12:05:40</span> Edit: kit/lib/runner/log.ts
+<span class="ts">12:06:12</span> Bash: pnpm vitest run kit/lib/runner
+<span class="ts">12:07:30</span> Bash: gh pr create --base feat/…
+<span class="ts">12:07:33</span> PR: <a href="#">https://github.com/vertuoza/vertuo-omni-loop/pull/1841</a>
+<span class="ts">12:09:05</span> <span class="done">Done: ok · 48 turns · $3.12 · 8m</span>
+Slice s1-02 merged into the feature branch.</pre>
+          <button class="ghost primary jump" type="button" data-primary>Jump to latest</button>
+        </div>
+      </div>
+      <p class="cap">Lines arrive every 5 seconds. Scrolled up, so it stopped following and offers Jump to latest. At the bottom, it follows on its own. Escape or × closes the panel and drops <code>?terminal=</code>. There is no input: typing into a job is a later PRD.</p>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div>
+      <h3>After: runner-terminal, its states</h3>
+      <div class="card"><pre class="flow"><span class="m">running, no line yet</span>   Waiting for the first line…
+<span class="m">runner before 1904</span>     Update this runner for live logs.
+                       <span class="m">+ its last 200 lines below</span>
+<span class="m">job left the page</span>      This job's log was cleared.
+<span class="m">over 20,000 lines</span>      Earlier lines were dropped.
+<span class="m">a read failed</span>          Reconnecting…  <span class="m">(header; lines stay)</span></pre></div>
+      <p class="cap">Words are as the spec lists them, shortened by the word pass where it found them long. Each one is listed in the runner-terminal draft.</p>
+    </div>
+    <div></div>
+  </div>
+</div>
+</body>
+</html>
