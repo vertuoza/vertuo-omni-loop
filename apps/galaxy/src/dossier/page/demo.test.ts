@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UNREAD } from '../github/summary';
-import { DEMO_VIEWER, demoDossier } from './demo';
+import { DEMO_VIEWER, demoContent, demoDossier, demoHistory } from './demo';
 import { signature, pulseOf } from './live';
 import { stageOf } from './stage';
 import { dossierView } from './view';
@@ -59,6 +59,13 @@ describe('the demo dossier\'s GitHub summary', () => {
     const logins = [...view.outbox.open.flatMap((c) => (c.pending ? [c.pending.face] : [])), ...view.outbox.settled.flatMap((e) => (e.by ? [e.face] : []))];
     expect(logins.length).toBeGreaterThan(0);
     expect(JSON.stringify(logins)).not.toContain('github.com');
+  });
+
+  it('speaks of the agent, never of one product, in its words, its versions and its history (PRD 1915)', () => {
+    const read = demoDossier(NOW);
+    const words = [JSON.stringify(read), JSON.stringify(demoHistory(NOW)), ...read.versions.map((v) => demoContent(v.id) ?? '')];
+    for (const text of words) expect(text).not.toMatch(/Claude/);
+    expect(read.dossier.title).toBe('Ask mode — the agent\'s questions on a page made for reading');
   });
 
   it('gives a signature that carries its stage and open outbox count', () => {

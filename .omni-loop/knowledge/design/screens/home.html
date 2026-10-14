@@ -33,6 +33,9 @@
   .home-pitch { color: var(--highlight); max-width: 36ch; }
   .home-promises { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; font: 400 18px/1.1 var(--font-display); letter-spacing: .02em; }
   .home-glyph { color: var(--yellow); }
+  .home-works { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0; padding: 0; list-style: none; font: 400 15px/1.25 var(--font-display); letter-spacing: .02em; color: var(--white); }
+  .home-works li + li::before { content: '·'; color: var(--yellow); margin-right: 8px; }
+  .home-works a { color: var(--white); text-decoration-color: var(--yellow); }
   .home-quote { font: italic 400 24px/1.05 var(--font-display); color: var(--yellow); margin-top: 8px; }
   .home-spokes { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: end; }
   .home-omni { width: 96px; height: 112px; }
@@ -80,6 +83,7 @@
         <li><span class="home-glyph" aria-hidden="true">★</span> EVERY DECISION WRITTEN DOWN</li>
         <li><span class="home-glyph" aria-hidden="true">★</span> A PERSON ALWAYS MERGES</li>
       </ul>
+      <ul class="home-works" aria-label="Works with"><li>WORKS WITH</li><li>CLAUDE CODE</li><li>CODEX</li><li>CURSOR</li><li>GEMINI CLI</li><li><a href="/docs/any-agent">ANY CODING AGENT</a></li></ul>
       <p class="home-quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
       <div class="home-spokes">
         <svg class="home-omni" viewBox="0 0 24 28" aria-hidden="true" shape-rendering="crispEdges">
@@ -138,7 +142,8 @@
         <a class="home-start" href="/play">PRESS START</a>
         <a class="home-start" href="/docs">GETTING STARTED</a>
       </div>
-      <p class="home-fine">Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.</p>
+      <p class="home-fine">Runs on your coding agent.</p>
+      <p class="home-fine">Free while in beta.</p>
       <p class="home-fine">Leave any time: delete one folder and commit. Nothing to migrate.</p>
     </section>
   </div>

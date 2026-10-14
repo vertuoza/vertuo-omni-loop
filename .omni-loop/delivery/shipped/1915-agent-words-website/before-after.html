@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coding agents on every screen</title>
+<style>
+  :root {
+    --void: #07061c; --cab: #120f3a; --deep: #0e0d33; --navy-dark: #1a2170; --line-strong: #5a60c4;
+    --white: #f2f4ff; --dim: #8a90d6; --yellow: #ffd84a; --cyan: #6ff0ff; --highlight: #fff3a8;
+    --plasma: #a45cff; --plasma-soft: #2a2350; --magenta: #ff3ea5; --red: #ff3b5c; --green: #5dff9b;
+    --ad-purple: #5b1a86; --starfield: #05040f;
+    --font-display: 'Anton', Impact, 'Haettenschweiler', 'Arial Narrow Bold', 'Arial Narrow', sans-serif;
+    --font-body: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+    --px: 'Press Start 2P', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 16px/1.55 var(--font-body); }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font: 400 34px/1.1 var(--font-display); margin: 0 0 6px; letter-spacing: .01em; }
+  h2 { font: 400 24px/1.2 var(--font-display); margin: 44px 0 10px; color: var(--yellow); letter-spacing: .02em; }
+  h3 { font-size: 16px; margin: 28px 0 10px; color: var(--cyan); }
+  .lede { color: var(--dim); max-width: 75ch; margin: 0 0 8px; }
+  code { font: 13px ui-monospace, 'JetBrains Mono', monospace; background: var(--deep); padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--navy-dark); }
+  th { color: var(--dim); font-weight: 600; }
+  td.today { color: var(--dim); }
+  td.after { color: var(--white); }
+  .tablewrap { overflow-x: auto; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .label { font: 400 12px/1 var(--px); color: var(--dim); margin: 0 0 8px; letter-spacing: 1px; }
+  .label.after { color: var(--yellow); }
+  .cap { color: var(--dim); font-size: 14px; margin: 8px 0 0; }
+  .kept { border-left: 3px solid var(--line-strong); padding: 4px 12px; color: var(--dim); }
+
+  /* HOME's poster column, from home.css */
+  .home-col { background: var(--ad-purple); padding: 28px 24px; display: grid; gap: 14px; border: 1px solid #000; }
+  .home-kicker { font: italic 400 17px/1.05 var(--font-display); color: var(--cyan); margin: 0; }
+  .home-head { font: italic 400 46px/0.95 var(--font-display); color: var(--white); margin: 0; }
+  .home-dots { border-top: 5px dotted var(--yellow); }
+  .home-pitch { color: var(--highlight); max-width: 36ch; margin: 0; }
+  .home-promises { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; font: 400 17px/1.1 var(--font-display); letter-spacing: .02em; color: var(--white); }
+  .home-glyph { color: var(--yellow); }
+  .home-works { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0; padding: 0; list-style: none; font: 400 15px/1.25 var(--font-display); letter-spacing: .02em; color: var(--white); }
+  .home-works li + li::before { content: '·'; color: var(--yellow); margin-right: 8px; }
+  .home-works a { color: var(--white); text-decoration: underline; text-decoration-color: var(--yellow); text-underline-offset: 3px; }
+  .home-crop { color: var(--dim); font-size: 13px; margin: 0; font-style: italic; }
+  .home-quote { font: italic 400 22px/1.05 var(--font-display); color: var(--yellow); margin: 4px 0 0; }
+  .home-fine { font-size: 13px; color: var(--white); margin: 0; }
+  .home-start { display: inline-block; font: 400 11px/1 var(--px); background: var(--yellow); color: var(--void); padding: 10px 12px; text-decoration: none; box-shadow: 3px 3px 0 #000; }
+  .ins { outline: 2px dashed var(--yellow); outline-offset: 4px; }
+
+  /* /ask working card, from ask.css with the Omni theme */
+  .ask { background: var(--void); border: 1px solid var(--navy-dark); padding: 20px; }
+  .ask-bar { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--dim); margin-bottom: 18px; }
+  .ask-bar b { font: 400 10px/1 var(--px); color: var(--yellow); }
+  .ask-tab { background: var(--cab); border: 1px solid var(--line-strong); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+  .ask-card { background: var(--cab); border: 1px solid var(--line-strong); border-radius: 10px; padding: 18px; }
+  .ask-working { font-size: 21px; margin: 0 0 6px; }
+  .ask-muted { color: var(--dim); margin: 0; font-size: 15px; }
+  .ask-send { margin-top: 14px; display: inline-block; background: var(--yellow); color: var(--void); border-radius: 6px; padding: 8px 14px; font-weight: 700; font-size: 14px; }
+
+  /* the play dock pill, from play-dock.css */
+  .dock-stage { background: var(--deep); border: 1px solid var(--navy-dark); min-height: 120px; padding: 16px; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 10px; }
+  .pd-pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px 8px; font: 400 9px/1 var(--px); letter-spacing: 1px; color: #0b0a26; background: var(--yellow); border: 0; box-shadow: 3px 3px 0 var(--plasma); }
+  .pd-dot { color: var(--red); }
+  .pd-ask { font: 400 9px/1 var(--px); letter-spacing: 1px; color: var(--yellow); background: #2a2a58; padding: 9px 12px; }
+  .pd-done { font: 400 9px/1 var(--px); letter-spacing: 1px; color: var(--green); background: #2a2a58; padding: 9px 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="label">PRD 1915 · BEFORE / AFTER</p>
+  <h1>Coding agents on every screen</h1>
+  <p class="lede">The website's screens stop naming Claude where they mean whoever runs the loop, and HOME says which agents it works with. Follow-up to #1831, #1858 and #1890; the <code>/docs</code> guide's prose is PR #1907's.</p>
+
+  <h2>Functional</h2>
+  <p class="lede">What changes is words, two diagrams and a guard test. No code identifier, API field, database column or migration moves.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Where</th><th>Today</th><th>After</th></tr></thead>
+    <tbody>
+      <tr><td>HOME poster</td><td class="today">(nothing under the promises)</td><td class="after">WORKS WITH · CLAUDE CODE · CODEX · CURSOR · GEMINI CLI · ANY CODING AGENT, the last a link to <code>/docs/any-agent</code></td></tr>
+      <tr><td>HOME order form</td><td class="today">Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.</td><td class="after">Runs on your coding agent. · Free while in beta.</td></tr>
+      <tr><td>HOME strategy guide</td><td class="today">You talk an idea through with Claude. · a person decides, with Claude for the idea</td><td class="after">You talk an idea through with your agent. · a person decides, with the agent for the idea</td></tr>
+      <tr><td><code>/ask</code> working card</td><td class="today">Claude is working · The next question shows here as soon as Claude asks. Keep this tab open.</td><td class="after">The agent is working · The next question shows here. · Keep this tab open.</td></tr>
+      <tr><td><code>/ask</code> round</td><td class="today">Send to Claude · Claude asks · Claude wrote before asking</td><td class="after">Send to the agent · The agent asks · The agent wrote before asking</td></tr>
+      <tr><td><code>/ask</code> sign-in, title, empty states</td><td class="today">Sign in to answer Claude · Claude asks · OMNI LOOP · … in a Claude Code terminal · Each tab is one Claude Code terminal</td><td class="after">Sign in to answer your agent · Your agent asks · OMNI LOOP · … in your coding agent's terminal · Each tab is one agent's terminal</td></tr>
+      <tr><td>Play dock</td><td class="today">▶ Play while Claude works · ⏸ CLAUDE ASKED · ANSWER · CLAUDE IS DONE</td><td class="after">▶ Play while the agent works · ⏸ AGENT ASKED · ANSWER · AGENT IS DONE</td></tr>
+      <tr><td>PRD page</td><td class="today">Claude is watching · last round 3 min ago · Run it in Claude Code, in this repository.</td><td class="after">The agent is watching · last round 3 min ago · Run it in your coding agent, in this repository.</td></tr>
+      <tr><td>Concepts, alerts</td><td class="today">Start one in Claude Code: · Claude is asking: &lt;question&gt;</td><td class="after">Start one in your coding agent: · Your agent is asking: &lt;question&gt;</td></tr>
+      <tr><td>Docs skill pages</td><td class="today">You type it in Claude Code. · written for Claude</td><td class="after">You type it in your coding agent. · written for the agent</td></tr>
+      <tr><td>Guide diagrams</td><td class="today">with Claude · YOU + CLAUDE · Claude builds</td><td class="after">with the agent · YOU + AGENT · the agent builds</td></tr>
+      <tr><td>A new string saying Claude</td><td class="today">ships unseen</td><td class="after"><code>agent-words.test.ts</code> fails, naming the file and line</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="kept"><b>Kept on purpose, as facts:</b> the Connect agent card's Claude Code row (<code>claude mcp add …</code>), model ids in a round's cost line, HOME's new line itself, and every identifier such as <code>claude_session_id</code>. The guard's allowlist names each with its reason.</p>
+
+  <h2>Pixel perfect</h2>
+  <p class="lede">screens: home · app-shell (the <code>/ask</code> page) · prd-dossier (the play dock in its corner)</p>
+
+  <h3>HOME, the poster column</h3>
+  <div class="pair">
+    <div>
+      <p class="label">TODAY</p>
+      <section class="home-col" data-screen="home">
+        <ul class="home-promises">
+          <li><span class="home-glyph">★</span> ONE FOLDER IN, ONE FOLDER OUT</li>
+          <li><span class="home-glyph">★</span> EVERY DECISION WRITTEN DOWN</li>
+          <li><span class="home-glyph">★</span> A PERSON ALWAYS MERGES</li>
+        </ul>
+        <p class="home-quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
+        <div><a class="home-start" data-primary href="#">SIGN UP WITH GITHUB</a></div>
+      </section>
+      <p class="cap">Cropped to the region that changes: the kicker, headline and pitch above the promises stay as they are (the pitch's word-pass finding, 31 words at rest, is today's and outside this PRD). Nothing says which agents the loop works with.</p>
+    </div>
+    <div>
+      <p class="label after">AFTER</p>
+      <section class="home-col" data-screen="home">
+        <ul class="home-promises">
+          <li><span class="home-glyph">★</span> ONE FOLDER IN, ONE FOLDER OUT</li>
+          <li><span class="home-glyph">★</span> EVERY DECISION WRITTEN DOWN</li>
+          <li><span class="home-glyph">★</span> A PERSON ALWAYS MERGES</li>
+        </ul>
+        <ul class="home-works ins" aria-label="Works with">
+          <li>WORKS WITH</li><li>CLAUDE CODE</li><li>CODEX</li><li>CURSOR</li><li>GEMINI CLI</li><li><a href="/docs/any-agent">ANY CODING AGENT</a></li>
+        </ul>
+        <p class="home-quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
+        <div><a class="home-start" data-primary href="#">SIGN UP WITH GITHUB</a></div>
+      </section>
+      <p class="cap">The new line (dashed outline here only) sits under the promises in their type and white, one row of short items split by yellow dots; ANY CODING AGENT links to <code>/docs/any-agent</code>, the page that shows how each agent runs a skill. White on ad-purple reads well above 4.5:1.</p>
+    </div>
+  </div>
+
+  <h3>HOME, the order form's fine print</h3>
+  <div class="pair">
+    <div>
+      <p class="label">TODAY</p>
+      <section class="home-col" data-screen="home">
+        <div><a class="home-start" data-primary href="#">SIGN UP WITH GITHUB</a></div>
+        <p class="home-fine">Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.</p>
+      </section>
+      <p class="cap">Word pass on today: 14 words at rest.</p>
+    </div>
+    <div>
+      <p class="label after">AFTER</p>
+      <section class="home-col" data-screen="home">
+        <div><a class="home-start" data-primary href="#">SIGN UP WITH GITHUB</a></div>
+        <p class="home-fine">Runs on your coding agent.</p>
+        <p class="home-fine">Free while in beta.</p>
+      </section>
+      <p class="cap">Two short lines; the sign-up call already sits above the buttons ("To join instantly: sign up with GitHub").</p>
+    </div>
+  </div>
+
+  <h3>/ask, while the agent works</h3>
+  <div class="pair">
+    <div>
+      <p class="label">TODAY</p>
+      <section class="ask" data-screen="app-shell">
+        <div class="ask-bar"><b>OMNI LOOP</b><span class="ask-tab">feat/runner-token · terminal 1</span></div>
+        <div class="ask-card">
+          <p class="ask-working">Claude is working</p>
+          <p class="ask-muted">The next question shows here as soon as Claude asks. Keep this tab open.</p>
+          <span class="ask-send" data-primary>Send to Claude</span>
+        </div>
+      </section>
+      <p class="cap">Word pass on today: the hint is 14 words at rest. Tab title: Claude asks · OMNI LOOP. The Send button is shown here only for the comparison: it belongs to an open round.</p>
+    </div>
+    <div>
+      <p class="label after">AFTER</p>
+      <section class="ask" data-screen="app-shell">
+        <div class="ask-bar"><b>OMNI LOOP</b><span class="ask-tab">feat/runner-token · terminal 1</span></div>
+        <div class="ask-card">
+          <p class="ask-working">The agent is working</p>
+          <p class="ask-muted">The next question shows here.</p>
+          <p class="ask-muted">Keep this tab open.</p>
+          <span class="ask-send" data-primary>Send to the agent</span>
+        </div>
+      </section>
+      <p class="cap">Tab title: Your agent asks · OMNI LOOP. Same layout, same tokens (Omni theme); the hint is two short sentences.</p>
+    </div>
+  </div>
+
+  <h3>The play dock</h3>
+  <div class="pair">
+    <div>
+      <p class="label">TODAY</p>
+      <section class="dock-stage" data-screen="prd-dossier">
+        <span class="pd-ask">⏸ CLAUDE ASKED · ANSWER</span>
+        <span class="pd-done">CLAUDE IS DONE</span>
+        <span class="pd-pill" data-primary><span class="pd-dot">●</span> ▶ Play while Claude works</span>
+      </section>
+    </div>
+    <div>
+      <p class="label after">AFTER</p>
+      <section class="dock-stage" data-screen="prd-dossier">
+        <span class="pd-ask">⏸ AGENT ASKED · ANSWER</span>
+        <span class="pd-done">AGENT IS DONE</span>
+        <span class="pd-pill" data-primary><span class="pd-dot">●</span> ▶ Play while the agent works</span>
+      </section>
+      <p class="cap">The pill grows by four characters and still fits on one line at the dock's narrowest width (600 px).</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

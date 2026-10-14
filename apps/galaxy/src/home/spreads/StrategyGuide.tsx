@@ -29,7 +29,7 @@ export interface LoopStage {
 
 /** The loop's six stages, in order. */
 export const LOOP: readonly LoopStage[] = [
-  { level: '1-1', name: 'IDEA', line: 'You talk an idea through with Claude. Nothing is written yet.', mover: 'YOU' },
+  { level: '1-1', name: 'IDEA', line: 'You talk an idea through with your agent. Nothing is written yet.', mover: 'YOU' },
   { level: '1-2', name: 'PRD', line: 'The idea becomes a brief and a before/after page. A person approves it before any code exists.', mover: 'YOU' },
   { level: '1-3', name: 'INBOX', line: 'Approved and ready to build.', mover: 'AGENTS' },
   { level: '1-4', name: 'OUTBOX', line: 'Agents build it in slices, test-first. Every decision they took without asking waits for your answer.', mover: 'YOU' },
@@ -47,7 +47,7 @@ export const KNOWLEDGE = {
 } as const;
 
 const LEGEND: Record<Mover, string> = {
-  YOU: 'a person decides, with Claude for the idea',
+  YOU: 'a person decides, with the agent for the idea',
   AGENTS: 'coding agents build every slice',
   'OMNI APP': 'opens the retro on GitHub',
 };

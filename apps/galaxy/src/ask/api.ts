@@ -341,7 +341,7 @@ function readLead(sent: Record<string, unknown>): { lead: string | null } | { pr
   const lead = sent.lead;
   if (lead === undefined || lead === null) return { lead: null };
   const fine = typeof lead === 'string' && lead.trim() !== '' && new TextEncoder().encode(lead).length <= LEAD_MAX_BYTES + LEAD_NOTE_BYTES;
-  return fine ? { lead } : { problem: `\`lead\`, when sent, must be the text Claude wrote before asking, up to ${LEAD_MAX_BYTES / 1024} KB, or null.` };
+  return fine ? { lead } : { problem: `\`lead\`, when sent, must be the text the agent wrote before asking, up to ${LEAD_MAX_BYTES / 1024} KB, or null.` };
 }
 
 /** The terminal's answer a round body carries (PRD 1180) — null when it carries none — or why it is refused. */

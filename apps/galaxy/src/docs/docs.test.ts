@@ -261,7 +261,8 @@ describe('the skills pages (PRD 580)', () => {
     expect(html).toContain('<code>/omni:wave &lt;n&gt;</code>');
     expect(html).toContain('<code>/omni:wave 580</code>');
     expect(html).toContain('<p>→ the wave&#x27;s sub-PRs merged into the feature branch, and a report</p>');
-    expect(html).toContain('<p>You type it in Claude Code.</p>');
+    expect(html).toContain('<p>You type it in your coding agent.</p>');
+    expect(html).toContain('<p class="docs-skill-source">Its full instructions, written for the agent: ');
     expect(html).toContain('<a href="/docs/skills/do-work">/omni:do-work</a>');
     expect(html).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/blob/main/kit/plugin/skills/wave/SKILL.md"');
     expect(html).not.toMatch(/\{\w+\}/);

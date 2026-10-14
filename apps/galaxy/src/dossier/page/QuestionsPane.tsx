@@ -175,7 +175,7 @@ export function QuestionsPane({ questions, supabase = null }: { questions: Quest
   if (questions.rounds.length === 0) {
     return (
       <p className="dossier-empty">
-        No question yet. The questions Claude asks with ask mode on show here: those of the brainstorm that opened this
+        No question yet. The questions the agent asks with ask mode on show here: those of the brainstorm that opened this
         dossier, and those asked while the PRD is delivered.
       </p>
     );

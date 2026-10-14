@@ -18,7 +18,7 @@ const AUDIENCES: readonly { id: PitchAudience; label: string }[] = [
   { id: 'inside', label: 'Inside' },
 ];
 
-export const PITCH_HINT = 'Run it in Claude Code, in this repository. The pitch shows on the Pitch tab.';
+export const PITCH_HINT = 'Run it in your coding agent, in this repository. The pitch shows on the Pitch tab.';
 
 /** `/omni:pitch 859 --for customers`. */
 export const pitchCommand = (prd: PrdNumber, audience: PitchAudience) => `/omni:pitch ${prd} --for ${audience}`;

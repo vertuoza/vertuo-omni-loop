@@ -276,6 +276,10 @@ function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
   dropJobBranch(loop.exec, place.checkout, `agent/job-${job.id}`);
 }
 
+/** `claude -p` stops the background agents a wave starts 10 minutes after its last turn, then exits 0;
+ * 0 makes it wait for them to end (bug 1912). */
+const WAIT_FOR_AGENTS: Readonly<Record<string, string>> = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' };
+
 /** Writes the job's line and empty log, then starts its session: whether it started. */
 function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
@@ -287,7 +291,7 @@ function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
     loop.terminal.start({
       name: place.session,
       cwd: place.worktree,
-      env: { ...loop.env, ...sender },
+      env: { ...loop.env, ...sender, ...WAIT_FOR_AGENTS },
       argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
     });
     return true;
