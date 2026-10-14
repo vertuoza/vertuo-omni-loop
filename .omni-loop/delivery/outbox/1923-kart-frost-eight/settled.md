@@ -389,3 +389,88 @@ Undoing it means removing one field from the grid's view and showing every playe
 ```
 
 <!-- /omni-outbox-settled: s7-01-grid-view-carries-its-circuit -->
+
+<!-- omni-outbox-settled: s2-02-comet-ring-times-start-over -->
+
+## s2-02-comet-ring-times-start-over — agreed
+
+- Verdict: agreed
+- Approved by: nicojustdev
+- Approved at: 2026-10-14T14:16:48Z
+- Channel: feature pull request #1928
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-14
+- Slice: s2
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Given in the Claude Code session that built PRD 1923, on 2026-10-14, by nicojustdev:
+
+"reset les scores de la premiere map"
+
+Then, asked where the reset goes (a pull request of its own into main, or this PRD), the pick:
+
+"Dans le PRD 1923 (#1928)" — A.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-comet-ring-times-start-over
+prd: 1923
+slice: s2
+rank: high
+bears-on: none
+raised: 2026-10-14
+wave: 1
+---
+
+## The question, in plain words
+
+Should COMET RING's best times start over, and should that happen with FROST EIGHT or on its own?
+
+## The decision, in plain words
+
+COMET RING's times start over when FROST EIGHT ships: a second migration empties COMET RING's board in every workspace, as the person asked during the build.
+
+## The intro, for fun
+
+COMET RING got curves and a tunnel, so its old lap times belong to another track.
+
+## The punchline, for fun
+
+Both boards open on a blank page the same day.
+
+## The options, in plain words
+
+A. Reset COMET RING's board in this PRD, so it applies when FROST EIGHT merges (built).
+B. Reset it in a pull request of its own into main, independent of FROST EIGHT.
+C. Keep COMET RING's times as they are.
+
+## What I had to decide
+
+Pick A to start both boards empty the day FROST EIGHT ships. Pick B to reset COMET RING now, apart from FROST EIGHT. Pick C to keep today's times.
+
+## What I did meanwhile
+
+Built: supabase/migrations/20261208110000_arcade_kart_comet_ring_times.sql deletes the arcade_scores rows whose game is kart, and nothing else; the spec and the before/after page say COMET RING's times start over.
+
+## What it costs to change later
+
+Every crew loses its COMET RING best times when the feature PR merges; a revert does not bring them back, and only the weekly export keeps them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a crew wants its old COMET RING times shown anywhere after the reset; the spec does not ask for it. (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-02-comet-ring-times-start-over -->

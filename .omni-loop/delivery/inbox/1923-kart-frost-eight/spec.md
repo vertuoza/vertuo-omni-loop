@@ -143,12 +143,17 @@ The grid's channel, `kart:<workspace>`, stays as it is. On the grid, each player
 
 ### The boards
 
-The registry's OMNI KART names two boards: `kart`, COMET RING's, with every time it holds today, and `kart-frost-eight`,
-FROST EIGHT's. A race finished on a circuit sends its time to that circuit's board. `readScores` reads both.
+The registry's OMNI KART names two boards: `kart`, COMET RING's, and `kart-frost-eight`, FROST EIGHT's. A race finished
+on a circuit sends its time to that circuit's board. `readScores` reads both.
 
 One migration replaces `submit_score`: `kart-frost-eight` is accepted when the player has `kart` unlocked, and keeps the
 lowest time, as `kart` does. It deletes and rewrites no row. `measure.guard.test.ts` holds the SQL list of lowest-wins
 boards equal to the registry's time boards.
+
+A second migration, the newest, starts COMET RING's times over: it deletes the rows of `arcade_scores` on the board
+`kart`, in every workspace, and nothing else, as PRD 1698's did when the circuit got its hills. COMET RING changed since
+(its curves and its vaulted tunnel, #1840), so the times set before stay out of reach. The weekly export keeps them; a
+revert does not bring them back.
 
 ### The cabinet
 
@@ -162,7 +167,7 @@ is unchanged.
 
 ### What stays as it is
 
-COMET RING (its line, its road, its scenery, its times), the five rivals and their levels, the items, the laps option and
+COMET RING (its line, its road, its scenery; its times start over, as **The boards** says), the five rivals and their levels, the items, the laps option and
 the difficulty, the controls, the songs, OMNI KART's unlock at LV 3, and every other game and cabinet.
 
 ## Decisions
@@ -187,6 +192,8 @@ the difficulty, the controls, the songs, OMNI KART's unlock at LV 3, and every o
   slip of 0.6; the tree line stops a kart; today's songs; the grid races its first arrival's circuit; a start naming no
   circuit is ignored.
 - **No proof video,** chosen by the person.
+- **COMET RING's times start over,** asked by the person during the build (2026-10-14), over a pull request of its own:
+  the reset migration ships with FROST EIGHT, so both boards start empty together.
 
 ## User stories
 
@@ -201,11 +208,11 @@ the difficulty, the controls, the songs, OMNI KART's unlock at LV 3, and every o
 
 **In:** the register of circuits; `locate`'s hint and the branch every kart carries; the surface at the pixel; powder, ice,
 the slide and the tree line; FROST EIGHT's line, lake, relief, features, scenery, sky, minimap and still; the CIRCUIT step
-and the `track` option; MULTI's `track`; the board `kart-frost-eight`, its migration and check; the cabinet's turns; the
-README; the guards and the tests below.
+and the `track` option; MULTI's `track`; the board `kart-frost-eight`, its migration and check; the reset of COMET RING's times;
+the cabinet's turns; the README; the guards and the tests below.
 
 **Out:** a bridge, or any ground with two levels; a new song; a third circuit; a circuit unlocked later; a ghost or a time
-trial; any change to COMET RING's driving, scenery or times; the touch controls.
+trial; any change to COMET RING's driving or scenery; the touch controls.
 
 ## Test seams
 
@@ -248,11 +255,11 @@ from a seed.
   and it must not.
 - **What merging publishes:** the galaxy app's arcade at the next release, and the migration, applied to the production
   Supabase project by the `supabase` workflow (`omni kb show releasing`). Rolled back by reverting the feature PR and
-  shipping a migration that restores today's `submit_score`; the rows on `kart-frost-eight` stay, read by nothing, and the
-  rows on `kart` are never touched.
+  shipping a migration that restores today's `submit_score`; the rows on `kart-frost-eight` stay, read by nothing. The
+  rows the reset deleted from `kart` do not come back with a revert: the weekly export (`pnpm game:export`) keeps them.
 - **The locked laws: none touched.** `omni kb laws` prints all twenty for every file here, none scoped by path. The two
-  nearest hold: N-PRODUCT-16, the game's ledger only added to, because `arcade_scores` is not the ledger and the migration
-  rewrites no row; N-PRODUCT-17, no secret in the browser, because the browser gains only a board's name.
+  nearest hold: N-PRODUCT-16, the game's ledger only added to, because `arcade_scores` is not the ledger: the first
+  migration rewrites no row, and the reset deletes only the `kart` rows of `arcade_scores`, as PRD 1698's did; N-PRODUCT-17, no secret in the browser, because the browser gains only a board's name.
 
 ## Acceptance criteria
 
@@ -264,8 +271,8 @@ from a seed.
    while it crosses the lake.
 4. On FROST EIGHT's powder a kart slows to 0.55 × the top speed and never falls; at the tree line it stops.
 5. On the lake a steering kart slides: its path lags its nose by up to 0.6 radians; off the lake it does not.
-6. COMET RING drives, looks and keeps its times exactly as before: every test of today passes unchanged and its still is
-   unchanged.
+6. COMET RING drives and looks exactly as before: every test of today passes unchanged and its still is unchanged. Its
+   times start over: once the migrations run, the board `kart` is empty in every workspace.
 7. A race on FROST EIGHT sends its time to `kart-frost-eight`, which keeps the lowest; `kart` is unchanged by it.
 8. In MULTI, the grid races its first arrival's circuit and shows its name; a start without a circuit races COMET RING.
 9. The OMNI KART cabinet shows COMET RING's top five, then FROST EIGHT's, in turn every five seconds, each with its still
