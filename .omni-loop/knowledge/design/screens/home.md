@@ -80,4 +80,4 @@ with GitHub or to the game. Static: the same for every visitor, no cookie read, 
 - apps/galaxy/src/home/lingo.ts@451d655
 - apps/galaxy/src/home/press-start-guard.test.ts@0ec2faa
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
-- /omni:brainstorm, PRD 1915: .omni-loop/delivery/inbox/1915-agent-words-website/before-after.html
+- /omni:brainstorm, PRD 1915: .omni-loop/delivery/shipped/1915-agent-words-website/before-after.html
