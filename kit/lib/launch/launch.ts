@@ -4,7 +4,9 @@
 //   running one, it hands over to that file — every argument, stdin, stdout and stderr pass through,
 //   and its exit code is the launcher's — so a repository always runs its own pinned copy, except for
 //   `update --apply`: that is a release bundle `omni update` downloaded to install its own version,
-//   and handing it back to the older pinned bin would install the old version again (#643);
+//   and handing it back to the older pinned bin would install the old version again (#643), and
+//   `runner`: a runner works for other checkouts, and its job starts inside a fresh worktree whose own
+//   bin may not run before that worktree's install, which the job itself does (PRD 1830);
 // - otherwise it runs itself. Outside a repository that has the kit (neither its bin nor its config),
 //   only the commands that need no kit run (`init`, `help`, `version` and their flags, `now`, which
 //   answers that the session is on nothing (PRD 1208), and the ask
@@ -46,6 +48,11 @@ function appliesUpdate(argv: readonly string[]): boolean {
   return argv[0] === 'update' && argv.includes('--apply');
 }
 
+/** Whether `argv` is `omni runner`, or a job it started, which run as the runner's own copy. */
+function runsTheRunner(argv: readonly string[]): boolean {
+  return argv[0] === 'runner';
+}
+
 /**
  * What the launcher does, decided from facts alone:
  * `{ kind: 'handover', bin }`, `{ kind: 'self' }` or `{ kind: 'refuse', message }`.
@@ -53,7 +60,7 @@ function appliesUpdate(argv: readonly string[]): boolean {
  * a git checkout or when the checkout has none. `hasConfig`: the checkout has the kit's config.
  */
 export function launchDecision({ argv, self, bin, hasConfig }: { argv: readonly string[]; self: string; bin: string | null; hasConfig: boolean }): LaunchDecision {
-  if (bin !== null && bin !== self && !appliesUpdate(argv)) return { kind: 'handover', bin };
+  if (bin !== null && bin !== self && !appliesUpdate(argv) && !runsTheRunner(argv)) return { kind: 'handover', bin };
   if (bin !== null || hasConfig || runsWithoutKit(argv)) return { kind: 'self' };
   return { kind: 'refuse', message: NO_KIT };
 }

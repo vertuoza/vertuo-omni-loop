@@ -29,6 +29,13 @@ describe('launchDecision', () => {
     }
   });
 
+  it('runs itself for runner and its jobs, which start in a worktree whose bin cannot run before its install (PRD 1830)', () => {
+    const bin = '/wt/widgets-job-1/.omni-loop/bin/omni.mjs';
+    expect(launchDecision({ argv: ['runner', 'job', '--line', 'l', '--log', 'g', '--exit', 'e'], self: SELF, bin, hasConfig: true })).toEqual({ kind: 'self' });
+    expect(launchDecision({ argv: ['runner', '--name', 'box', '--repos', '/r'], self: SELF, bin, hasConfig: true })).toEqual({ kind: 'self' });
+    expect(launchDecision({ argv: ['run', 'runner'], self: SELF, bin, hasConfig: true })).toEqual({ kind: 'handover', bin });
+  });
+
   it('runs itself when the checkout’s bin is the running file', () => {
     expect(launchDecision({ argv: ['status'], self: SELF, bin: SELF, hasConfig: true })).toEqual({ kind: 'self' });
   });
