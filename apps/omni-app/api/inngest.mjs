@@ -7750,22 +7750,25 @@ function formTemplate(id) {
 // kit/lib/budgets/measure.ts
 var BRIEFING = "briefing";
 var SESSION2 = "session";
-function recordLines({ dir, records, shared, next }) {
+var LATEST_RECORDS = 20;
+function recordLines({ dir, records, shared, next }, all) {
   const lines = [`## Records  [read live from ${dir}]`];
   if (records.length === 0) lines.push("No decision records yet.");
-  lines.push(...records.map(({ number, file, title }) => `${number}  ${title ?? file}`));
+  const older = all ? 0 : Math.max(0, records.length - LATEST_RECORDS);
+  lines.push(...records.slice(older).map(({ number, file, title }) => `${number}  ${title ?? file}`));
+  if (older > 0) lines.push(`\u2026 ${older} older records: omni kb show decisions --all`);
   lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(", ")}`));
   lines.push(`Next free number: ${next}`);
   return lines;
 }
-function formShowText(resolved, records, laws = null) {
+function formShowText(resolved, records, laws = null, { all = false } = {}) {
   const lines = [`# ${resolved.title}`, `${resolved.file} \xB7 ${resolved.state}`];
   for (const section4 of resolved.sections) {
     lines.push("", section4.slot === null ? section4.label : `## ${section4.heading}  ${section4.label}`);
     if (section4.text) lines.push(section4.text);
     if (section4.source === "hole") lines.push(...section4.questions.map((question) => `TODO(human): ${question}`));
   }
-  if (records) lines.push("", ...recordLines(records));
+  if (records) lines.push("", ...recordLines(records, all));
   if (laws) lines.push("", ...laws);
   return lines.join("\n");
 }
