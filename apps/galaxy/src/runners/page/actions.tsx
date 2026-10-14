@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { poll } from '../../ask/page/poll';
 import { cancelRunnerJob, sendToRunner, setRunnerFleet, type Called } from '../runners.client';
@@ -10,7 +10,6 @@ import { REFRESH_MS } from './model';
 // fleet picker, Cancel, Send again, and the refresh that reads the rows again every 5 s while the tab is
 // visible (router.refresh(): the server draws the page again, in place). Each control calls its route
 // through ../runners.client.ts, then reads the rows again; a refusal shows its words beside the control.
-// A control inside a job's summary keeps its click from opening or closing the job.
 
 function useAct() {
   const router = useRouter();
@@ -28,8 +27,6 @@ function useAct() {
 }
 
 const Problem = ({ problem }: { problem: string | null }) => (problem ? <span className="runners-problem" role="alert">{problem}</span> : null);
-
-const inSummary = (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); };
 
 /** A workspace owner's fleet picker: Shared, then each fleet. */
 export function FleetPicker({ runner, name, value, options }: { runner: string; name: string; value: string; options: readonly { value: string; label: string }[] }) {
@@ -50,7 +47,7 @@ export function CancelButton({ job }: { job: string }) {
   const { busy, problem, act } = useAct();
   return (
     <span className="runners-action">
-      <button type="button" className="runners-ghost" disabled={busy} onClick={(event) => { inSummary(event); void act(() => cancelRunnerJob(job)); }}>Cancel</button>
+      <button type="button" className="runners-ghost" disabled={busy} onClick={() => { void act(() => cancelRunnerJob(job)); }}>Cancel</button>
       <Problem problem={problem} />
     </span>
   );
@@ -62,7 +59,7 @@ export function SendAgainButton({ line, repo, target, primary }: { line: string;
   return (
     <span className="runners-action">
       <button type="button" className={primary ? 'runners-ghost is-primary' : 'runners-ghost'} data-primary={primary ? '' : undefined} disabled={busy}
-        onClick={(event) => { inSummary(event); void act(() => sendToRunner(line, repo, target)); }}>Send again</button>
+        onClick={() => { void act(() => sendToRunner(line, repo, target)); }}>Send again</button>
       <Problem problem={problem} />
     </span>
   );

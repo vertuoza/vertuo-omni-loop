@@ -14,7 +14,8 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined
 
 const NOW = new Date('2026-10-13T14:00:00Z');
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
-const render = (view: RunnersPageView) => renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null }));
+const render = (view: RunnersPageView, terminal: string | null = null) =>
+  renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, terminal }));
 
 function demo(): Extract<RunnersPageView, { kind: 'board' }> {
   const view = demoRunnersPage(NOW);
@@ -27,7 +28,7 @@ const withBoard = (change: (board: Board) => Board): RunnersPageView => { const 
 function jobRow(html: string, line: string): string {
   const start = html.indexOf(`>${line}<`);
   expect(start, line).toBeGreaterThan(-1);
-  const next = html.indexOf('class="runners-job"', start);
+  const next = html.indexOf('runners-job"', start + 1);
   return html.slice(start, next < 0 ? undefined : next);
 }
 
@@ -73,13 +74,35 @@ describe('the board', () => {
     expect(text(jobRow(html, '/omni:bug-fix 1790'))).toContain('Any runner · mac-mini-office Done');
   });
 
-  it('opens a job onto its log tail, and links a done job\'s pull request', () => {
-    expect(jobRow(html, '/omni:yolo 1717')).toMatch(/<pre class="runners-log"[^>]*>[^<]*wave 1 · slice s1 · tests green/);
+  it('links a done job\'s pull request, and shows no log tail in the row any more', () => {
     expect(jobRow(html, '/omni:bug-fix 1790')).toContain('<a href="https://github.com/acme/widgets/pull/1838">PR #1838</a>');
+    expect(html).not.toContain('<details');
+    expect(html).not.toContain('wave 1 · slice s1 · tests green');
+  });
+
+  it('gives each job row a Terminal button on that job (PRD 1904)', () => {
+    for (const job of demo().board.jobs) {
+      expect(jobRow(html, job.line)).toContain(`data-terminal="${job.id}">Terminal</button>`);
+    }
+  });
+
+  it('gives each runner row a Terminal button: its running job, else its last, else disabled "No job yet"', () => {
+    const jobs = demo().board.jobs;
+    const runnerRow = (page: string, name: string) => { const start = page.indexOf(`>${name}<`); return page.slice(start, page.indexOf('</div>', start)); };
+    const running = jobs.find((job) => job.line === '/omni:yolo 1717');
+    const last = jobs.find((job) => job.line === '/omni:yolo 1702');
+    expect(runnerRow(html, 'acme-agents')).toContain(`data-terminal="${running?.id ?? ''}"`);
+    expect(runnerRow(html, 'ada-laptop')).toContain(`data-terminal="${last?.id ?? ''}"`);
+    const none = render(withBoard((board) => ({ ...board, jobs: [] })));
+    expect(runnerRow(none, 'acme-agents')).toContain('<button type="button" class="runners-ghost" disabled="" title="No job yet">Terminal</button>');
+  });
+
+  it('opens no panel without ?terminal=', () => {
+    expect(html).not.toContain('data-screen="runner-terminal"');
   });
 
   it('offers Cancel on queued and running jobs only, Send again on failed and cancelled ones only', () => {
-    const actions = (line: string) => [...jobRow(html, line).matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]);
+    const actions = (line: string) => [...jobRow(html, line).matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]).filter((a) => a !== 'Terminal');
     expect(actions('/omni:yolo 1717')).toEqual(['Cancel']);
     expect(actions('/omni:pr-care 1801')).toEqual(['Cancel']);
     expect(actions('/omni:bug-fix 1790')).toEqual([]);
@@ -124,6 +147,20 @@ describe('the board', () => {
 
   it('says so when no job was sent yet', () => {
     expect(text(render(withBoard((board) => ({ ...board, jobs: [] }))))).toContain('No job yet.');
+  });
+});
+
+describe('the page opened with ?terminal=<job id>', () => {
+  it('opens the panel on that job, over the board', () => {
+    const job = demo().board.jobs[0] as Job;
+    const html = render(demo(), job.id);
+    expect(html).toContain('data-screen="runners"');
+    expect(html).toContain('data-screen="runner-terminal"');
+    expect(text(html)).toContain(`job ${job.id.slice(0, 8)} · widgets · acme-agents`);
+  });
+
+  it('ignores a parameter that names no job id', () => {
+    expect(render(demo(), 'nope')).not.toContain('data-screen="runner-terminal"');
   });
 });
 
