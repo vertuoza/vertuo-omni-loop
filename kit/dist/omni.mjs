@@ -57347,6 +57347,7 @@ function removeWorktree(loop2, place) {
     rmSync17(place.worktree, { recursive: true, force: true });
   }
 }
+var WAIT_FOR_AGENTS = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "0" };
 function startSession(loop2, job2, place) {
   mkdirSync32(join120(loop2.home, "logs"), { recursive: true });
   writeFileSync46(place.line, `${job2.line}
@@ -57358,7 +57359,7 @@ function startSession(loop2, job2, place) {
     loop2.terminal.start({
       name: place.session,
       cwd: place.worktree,
-      env: { ...loop2.env, ...sender },
+      env: { ...loop2.env, ...sender, ...WAIT_FOR_AGENTS },
       argv: [...loop2.wrapper, "--line", place.line, "--log", place.log, "--exit", place.exit]
     });
     return true;
