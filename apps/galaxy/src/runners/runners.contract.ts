@@ -3,7 +3,8 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, prUrl?, exitCode?, reason?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?} → {cancel}
+//   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser                               → JobLines
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
 //   POST  /api/runners/jobs/<id>/cancel    browser                                           → {job}
 //   PATCH /api/runners/<id>                browser {fleet}                                   → {runner}
@@ -34,8 +35,15 @@ export const NEXT_HOLD_MS = 40_000;
 export const LOG_TAIL_LINES = 200;
 export const LOG_TAIL_BYTES = 16 * 1024;
 
-/** How many ended jobs the Runners page shows. */
+/** How many ended jobs the Runners page shows; the lines of an ended job beyond them are deleted (PRD 1904). */
 export const ENDED_JOBS_SHOWN = 50;
+
+/** A job's live log (PRD 1904): the most lines one report carries, the longest line, the lines a job
+ * keeps (its last ones), and the most lines one read answers. */
+const REPORT_LINES_MAX = 2_000;
+const JOB_LINE_CHARS = 600;
+export const JOB_LINES_KEPT = 20_000;
+export const JOB_LINES_PAGE = 5_000;
 
 const ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
 const LINE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
@@ -99,14 +107,18 @@ const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancell
 /** A pull request's link. */
 const PrUrlSchema = z.string().max(300).regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/);
 
-/** A runner's report on a job it claimed. The log tail is cut to its last 200 lines and 16 KB here. */
+/** A runner's report on a job it claimed. The log tail is cut to its last 200 lines and 16 KB here.
+ * `from` and `lines` come together or not at all (PRD 1904): the readable log's lines after the
+ * runner's cursor, the first of them numbered `from` (its 1-based line number in the log). */
 export const JobUpdateSchema = z.object({
   status: z.enum(['running', 'done', 'failed', 'cancelled']),
   logTail: z.string().max(256 * 1024).optional(),
+  from: z.number().int().positive().optional(),
+  lines: z.array(z.string().max(JOB_LINE_CHARS)).max(REPORT_LINES_MAX).optional(),
   prUrl: PrUrlSchema.nullable().optional(),
   exitCode: z.number().int().nullable().optional(),
   reason: z.string().max(200).nullable().optional(),
-}).strict();
+}).strict().refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' });
 export type JobUpdate = z.infer<typeof JobUpdateSchema>;
 
 /** What a report answers: whether a cancel waits, and the runner kills the job. */
@@ -152,6 +164,25 @@ const JobSchema = z.object({
 export type Job = z.infer<typeof JobSchema>;
 
 export const JobReplySchema = z.object({ job: JobSchema });
+
+/** `lines`' query: the lines after this sequence number (none: from the first). */
+export const JobLinesQuerySchema = z.object({ after: z.coerce.number().int().min(0).default(0) }).strict();
+
+/** One line of a job's live log, by its sequence number. */
+const JobLineSchema = z.object({ seq: z.number().int().positive(), text: z.string() });
+
+/** A read of a job's live log (PRD 1904): its status, at most 5,000 lines after `after` in order, `more`
+ * when more follow, `first` the smallest sequence number the job still holds (null: none), and
+ * `logTail` the job's tail only when it holds no line and has a tail (a runner from before PRD 1904),
+ * null otherwise. */
+export const JobLinesSchema = z.object({
+  status: z.enum(JOB_STATUSES),
+  lines: z.array(JobLineSchema).max(JOB_LINES_PAGE),
+  more: z.boolean(),
+  first: z.number().int().positive().nullable(),
+  logTail: z.string().nullable(),
+});
+export type JobLines = z.infer<typeof JobLinesSchema>;
 
 /** A runner's state: online, busy when every slot holds a job, offline after 90 s of silence. */
 const RunnerStateSchema = z.enum(['online', 'busy', 'offline']);

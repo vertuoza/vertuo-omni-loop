@@ -105,3 +105,40 @@ describe('the rows', () => {
     expect(await repository.logins('w1', [])).toEqual(new Map());
   });
 });
+
+describe('a job\'s live lines (PRD 1904)', () => {
+  it('are added with on conflict do nothing, so a report sent twice adds nothing', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await runnersRepository(db).appendLines([{ job_id: 'j1', workspace_id: 'w1', seq: 1, text: '12:04:31 Bash: pnpm test' }]);
+    expect(lines).toEqual(['from("runner_job_lines").upsert([{"job_id":"j1","workspace_id":"w1","seq":1,"text":"12:04:31 Bash: pnpm test"}],{"onConflict":"job_id,seq","ignoreDuplicates":true})']);
+  });
+
+  it('are trimmed up to a sequence number, for the one job', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await runnersRepository(db).trimLines('j1', 2);
+    expect(lines).toEqual(['from("runner_job_lines").delete().eq("job_id","j1").lte("seq",2)']);
+  });
+
+  it('are kept for the workspace\'s most recent ended jobs by runner_job_lines_retain()', async () => {
+    const { db, lines } = fakeDb([{ data: 120, error: null }]);
+    expect(await runnersRepository(db).retainLines('w1', 50)).toBe(120);
+    expect(lines).toEqual(['rpc("runner_job_lines_retain",{"p_workspace":"w1","p_keep":50})']);
+  });
+
+  it('are read after a sequence number, in order, and the first one held', async () => {
+    const { db, lines } = fakeDb([{ data: [{ seq: 5, text: 'a' }], error: null }, { data: [{ seq: 3 }], error: null }, { data: [], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.lines('j1', 4, 5001)).toEqual([{ seq: 5, text: 'a' }]);
+    expect(await repository.firstLine('j1')).toBe(3);
+    expect(await repository.firstLine('j2')).toBeNull();
+    expect(lines.slice(0, 2)).toEqual([
+      'from("runner_job_lines").select("seq, text").eq("job_id","j1").gt("seq",4).order("seq").limit(5001)',
+      'from("runner_job_lines").select("seq").eq("job_id","j1").order("seq").limit(1)',
+    ]);
+  });
+
+  it('throw on the database\'s refusal, naming the table', async () => {
+    const { db } = fakeDb([{ data: null, error: { message: 'new row violates check constraint' } }]);
+    await expect(runnersRepository(db).appendLines([])).rejects.toThrow('runner_job_lines: new row violates check constraint');
+  });
+});
