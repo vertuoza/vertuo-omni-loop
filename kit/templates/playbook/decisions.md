@@ -33,6 +33,8 @@ trimmed to its mechanism, and links the principle instead.
 
 ## Numbering
 <!-- slot: numbering · optional -->
-A new record takes the next free number. `omni kb show decisions` prints it, with every record's
-number and title, read from the folder each time: nobody keeps that list by hand. A number belongs
-to one record; two records sharing one is a mistake to fix, never a precedent.
+A new record takes the next free number. `omni kb show decisions` prints it, with the latest 20
+records' numbers and titles, read from the folder each time: nobody keeps that list by hand;
+`omni kb show decisions --all` prints every record. Before writing a new record, look the decision
+up there, or search the folder: it may be settled already. A number belongs to one record; two
+records sharing one is a mistake to fix, never a precedent.

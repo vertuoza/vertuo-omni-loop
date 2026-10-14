@@ -129,6 +129,22 @@ describe('measureContextBudget (PRD 1679)', () => {
     expect(measures.get(SESSION)).toEqual({ target: SESSION, error: 'cannot sum briefing' });
   });
 
+  it('measures form:decisions as its default view prints it, the 20 latest records only (PRD 1951)', () => {
+    const records = Object.fromEntries(
+      Array.from({ length: 25 }, (_, i) => {
+        const n = String(i + 1).padStart(4, '0');
+        return [`.omni-loop/knowledge/adr/${n}-r.md`, `# ADR-${n} — Record ${i + 1}\n`];
+      }),
+    );
+    const { ctx } = fixture({ files: records });
+    const resolved = resolveForm(DECISIONS_FORM, { ctx, template: formTemplate(DECISIONS_FORM) });
+    const shown = formShowText(resolved, readDecisions({ ctx }));
+    expect(bytesOf(measureContextBudget({ ctx }), `form:${DECISIONS_FORM}`)).toBe(Buffer.byteLength(`${shown}\n`));
+    expect(shown).toContain('… 5 older records: omni kb show decisions --all');
+    expect(shown).not.toContain('Record 5\n');
+    expect(formShowText(resolved, readDecisions({ ctx }), null, { all: true })).toContain('ADR-0001 — Record 1\n');
+  });
+
   it('measures a form with no file at its kit default', () => {
     const { ctx } = fixture();
     expect(bytesOf(measureContextBudget({ ctx }), 'form:review')).toBe(printed(ctx, 'review'));

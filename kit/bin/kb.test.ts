@@ -292,6 +292,60 @@ describe('omni kb show — acceptance criterion 3: a pointer shows its target; t
   });
 });
 
+describe('omni kb show decisions — the latest 20 records, --all for every one (PRD 1951)', () => {
+  const ADR = '.omni-loop/knowledge/adr';
+  const number = (n: number) => String(n).padStart(4, '0');
+  /** `count` records, `0001` to `<count>`, in the default folder, plus `extra` files. */
+  const records = (count: number, extra: Record<string, string> = {}) => ({
+    ...Object.fromEntries(Array.from({ length: count }, (_, i) => [`${ADR}/${number(i + 1)}-r.md`, `# ADR-${number(i + 1)} — Record ${i + 1}\n`])),
+    ...extra,
+  });
+  const line = (n: number) => `${number(n)}  ADR-${number(n)} — Record ${n}`;
+  const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => line(from + i));
+  const listOf = (out: string) => out.slice(out.indexOf('## Records'));
+
+  it('prints the 20 highest records in order, a live count of the older ones naming --all, then the next free number', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, ...records(25) } });
+    const { code, out } = await omni(root, ['kb', 'show', 'decisions']);
+    expect(code).toBe(0);
+    expect(listOf(out)).toBe(
+      [`## Records  [read live from ${ADR}]`, ...range(6, 25), '… 5 older records: omni kb show decisions --all', 'Next free number: 0026', ''].join('\n'),
+    );
+  });
+
+  it('prints every record and no older line under --all, and --json carries every one', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, ...records(25) } });
+    const all = await omni(root, ['kb', 'show', 'decisions', '--all']);
+    expect(all.code).toBe(0);
+    expect(listOf(all.out)).toBe([`## Records  [read live from ${ADR}]`, ...range(1, 25), 'Next free number: 0026', ''].join('\n'));
+    const json: unknown = JSON.parse((await omni(root, ['kb', 'show', 'decisions', '--json'])).out);
+    expect(dig(json, 'records', 'records')).toHaveLength(25);
+    const both: unknown = JSON.parse((await omni(root, ['kb', 'show', 'decisions', '--json', '--all'])).out);
+    expect(dig(both, 'records', 'records')).toHaveLength(25);
+  });
+
+  it('prints all of 20 records and no older line', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, ...records(20) } });
+    const { out } = await omni(root, ['kb', 'show', 'decisions']);
+    expect(listOf(out)).toBe([`## Records  [read live from ${ADR}]`, ...range(1, 20), 'Next free number: 0021', ''].join('\n'));
+  });
+
+  it('still warns of a number two older records share', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, ...records(25, { [`${ADR}/0002-clash.md`]: '# ADR-0002 — A clash\n' }) } });
+    const { out } = await omni(root, ['kb', 'show', 'decisions']);
+    expect(out).toContain(`… 6 older records: omni kb show decisions --all\n! 0002 is used by 2 records: ${ADR}/0002-clash.md, ${ADR}/0002-r.md\nNext free number: 0026\n`);
+    expect(out).not.toContain(line(5));
+  });
+
+  it('refuses --all with any other form, naming it', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out, err } = await omni(root, ['kb', 'show', 'testing', '--all']);
+    expect(code).toBe(2);
+    expect(out).toBe('');
+    expect(err).toContain('--all');
+  });
+});
+
 /** The testing form, every slot filled, `slots` overriding one by id, `extra` slots after. */
 function testingForm({
   frontMatter = {},
