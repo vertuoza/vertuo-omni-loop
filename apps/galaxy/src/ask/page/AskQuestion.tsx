@@ -189,7 +189,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
       {view.kind === 'moved' && (
         <section className="ask-card" aria-live="polite">
           <h1>Moved to the terminal</h1>
-          <p className="ask-muted">Nobody answered it on the page in time, so Claude asks it in the terminal instead.</p>
+          <p className="ask-muted">Nobody answered it on the page in time, so the agent asks it in the terminal instead.</p>
           <QuestionList questions={view.questions} />
         </section>
       )}

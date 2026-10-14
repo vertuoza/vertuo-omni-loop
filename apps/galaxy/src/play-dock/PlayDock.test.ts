@@ -37,10 +37,11 @@ describe('DockFrame: what the corner draws', () => {
     expect(frame({ kind: 'hidden' })).toBe('');
   });
 
-  it('draws the pill, folded: "● ▶ Play while Claude works", and no device', () => {
+  it('draws the pill, folded: "● ▶ Play while the agent works", and no device', () => {
     const html = frame({ kind: 'folded' });
-    expect(text(html)).toBe('● ▶ Play while Claude works');
+    expect(text(html)).toBe('● ▶ Play while the agent works');
     expect(html).toMatch(/^<button type="button" class="pd-pill"/);
+    expect(html).toContain('aria-label="Play a game while the agent works"');
     expect(html).not.toContain('<canvas');
   });
 
@@ -48,18 +49,18 @@ describe('DockFrame: what the corner draws', () => {
     const html = frame({ kind: 'playing' });
     expect(html).toContain('<canvas');
     expect(html).toContain('aria-label="Fold (Esc)"');
-    expect(text(html)).not.toContain('CLAUDE');
+    expect(text(html)).not.toContain('AGENT');
   });
 
   it('points at the question when one is asked, over the paused game', () => {
     const html = frame({ kind: 'asking' });
-    expect(html).toContain('<a class="pd-banner pd-ask" href="/prd/abc?tab=questions">⏸ CLAUDE ASKED · ANSWER</a>');
+    expect(html).toContain('<a class="pd-banner pd-ask" href="/prd/abc?tab=questions">⏸ AGENT ASKED · ANSWER</a>');
     expect(html).toContain('<canvas');
   });
 
-  it('says Claude is done over a game still on', () => {
+  it('says the agent is done over a game still on', () => {
     const html = frame({ kind: 'done' });
-    expect(text(html)).toContain('CLAUDE IS DONE');
+    expect(text(html)).toContain('AGENT IS DONE');
     expect(html).toContain('<canvas');
   });
 
@@ -106,7 +107,7 @@ describe('SUPER OMNI WORLD in the dock', () => {
     expect(pfPaused(resumed, false)).toBe(false);
   });
 
-  it('goes on to its end when Claude is done: the device stays, and the game is not paused', async () => {
+  it('goes on to its end when the agent is done: the device stays, and the game is not paused', async () => {
     const { dockView } = await import('./dock');
     const { newDockPf, pfPaused, pressPf } = await import('./platformer');
     const view = dockView({ state: 'idle', door: { play: true, games: ['invaders', 'platformer'] }, open: true, game: true, width: 1280 });

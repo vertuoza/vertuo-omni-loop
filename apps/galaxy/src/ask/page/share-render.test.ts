@@ -77,7 +77,7 @@ describe('the shared question, at /ask/q/<round>', () => {
 
   it('gives the member it is shared with the form, the time left and the session\'s earlier rounds', () => {
     const html = page(DEMO_TEAMMATE);
-    expect(html).toContain('Send to Claude');
+    expect(html).toContain('Send to the agent');
     expect(html).toContain('moves to the terminal in 8 min');
     expect(html).toContain('Earlier in this session');
     expect(count(html, /<details class="ask-past">/)).toBe(2);
@@ -85,7 +85,7 @@ describe('the shared question, at /ask/q/<round>', () => {
 
   it('shows it read-only to any other member, with the time left', () => {
     const html = page('demo-ux');
-    expect(html).not.toContain('Send to Claude');
+    expect(html).not.toContain('Send to the agent');
     expect(html).not.toContain('type="radio"');
     expect(html).toContain('Waiting for an answer');
     expect(html).toContain('How should the page and the agent be authenticated?');
@@ -97,7 +97,7 @@ describe('the shared question, at /ask/q/<round>', () => {
     expect(html).toMatch(/<h1>Already answered by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="A"><\/span>ADA<\/span><\/h1>/);
     expect(html).toContain('Answered in the terminal.');
     expect(html).toMatch(/<dt>How should the page and the agent be authenticated\?<\/dt><dd>Google sign-in through the galaxy \(Recommended\)<\/dd>/);
-    expect(html).not.toContain('Send to Claude');
+    expect(html).not.toContain('Send to the agent');
     expect(page(DEMO_OWNER, true)).toContain('<h1>Answered by you</h1>');
   });
 });
