@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits every persona ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The tests show the session gets the token only when it is set, and nothing printed holds it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One optional variable in the env module, passed only when set; no API key slips through.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Export the token once and every job I send signs in to Claude.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The ps exposure stays as written in Risks, the same as OMNI_TOKEN.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A job sent from the app runs without a sign-in failure.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits every persona ✓"
     }
   ]
 }
