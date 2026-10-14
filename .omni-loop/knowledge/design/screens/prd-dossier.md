@@ -34,7 +34,7 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   sandboxed route; the spec and the plan rendered from Markdown with raw HTML off; Questions with the
   rounds that shaped it and an `N to answer` badge; Outbox (`OutboxPane.tsx`), PR care
   (`CarePane.tsx`), Proof, Pitch, Retro; each artifact tab with a version picker.
-- **The play dock** in the page's corner when Claude works on the dossier (`LiveRefresh`).
+- **The play dock** in the page's corner when the agent works on the dossier, saying "▶ Play while the agent works" (`LiveRefresh`).
 
 ## States
 
@@ -88,3 +88,4 @@ Repo, Repos, On GitHub, Opened.
 - apps/galaxy/src/page-width.test.ts@7302b0d
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (Send to terminal)
+- /omni:brainstorm, PRD 1915: .omni-loop/delivery/inbox/1915-agent-words-website/before-after.html

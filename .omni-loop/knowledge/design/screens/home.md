@@ -47,8 +47,10 @@ with GitHub or to the game. Static: the same for every visitor, no cookie read, 
 
 - Kicker: THE DELIVERY FRAMEWORK FOR CODING AGENTS. Headline: AGENTS SHIP. YOU STEER.
 - Promises: ONE FOLDER IN, ONE FOLDER OUT · EVERY DECISION WRITTEN DOWN · A PERSON ALWAYS MERGES.
+- Works-with line, under the promises, one row of short items split by yellow dots: WORKS WITH ·
+  CLAUDE CODE · CODEX · CURSOR · GEMINI CLI · ANY CODING AGENT, the last a link to `/docs/any-agent`.
 - Actions: SIGN UP WITH GITHUB, PRESS START, GETTING STARTED.
-- Fine print: "Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub." "Leave any
+- Fine print: "Runs on your coding agent." "Free while in beta." "Leave any
   time: delete one folder and commit. Nothing to migrate."
 - The page's prose never says phase-0, worktree, sub-PR, dossier, territory or yolo, and glosses
   PRD, SLICE and OUTBOX once (`home/lingo.ts`, held by `home/lingo.test.ts`).
@@ -78,3 +80,4 @@ with GitHub or to the game. Static: the same for every visitor, no cookie read, 
 - apps/galaxy/src/home/lingo.ts@451d655
 - apps/galaxy/src/home/press-start-guard.test.ts@0ec2faa
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
+- /omni:brainstorm, PRD 1915: .omni-loop/delivery/inbox/1915-agent-words-website/before-after.html
