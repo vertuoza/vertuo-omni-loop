@@ -10,7 +10,7 @@ const rows = (): string[] => {
   const grid = Array.from({ length: SIZE }, () => Array.from({ length: SIZE }, () => '.'));
   const put = (x: number, y: number, c: string) => { const row = grid[y]; if (row) row[x] = c; };
   for (let y = 62; y <= 66; y++) put(START_X, y, '=');
-  Array.from({ length: PLACES }, (_, i) => put(START_X - 2 - 2 * Math.floor(i / 2), 63 + 2 * (i % 2), 'S'));
+  for (let i = 0; i < PLACES; i++) put(START_X - 2 - 2 * Math.floor(i / 2), 63 + 2 * (i % 2), 'S');
   return grid.map((r) => r.join(''));
 };
 
