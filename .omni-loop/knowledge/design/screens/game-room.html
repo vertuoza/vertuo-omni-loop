@@ -46,6 +46,9 @@
   .cab-top li { display: flex; justify-content: space-between; gap: 6px; line-height: 1; white-space: nowrap; }
   .cab-top li.mine { color: var(--yellow); }
   .cab-none { font-family: var(--txt); font-size: 15px; color: var(--dim); }
+  /* OMNI KART's heading line, new with PRD 1923: CREW TOP 5 at its left, the circuit at its right. */
+  .cab-head { display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; }
+  .cab-head i { font-style: normal; color: var(--white); }
   .cab-play { align-self: center; margin: auto 0 6px; padding: 5px 12px 4px; font-size: 7px; color: #fff; background: var(--red); }
   .games-foot { position: absolute; left: 34px; bottom: 10px; margin: 0; font-size: 7px; color: var(--dim); }
   .j-key { color: var(--yellow); }
@@ -89,7 +92,7 @@
           <span class="marquee">OMNI KART</span>
           <span class="cab-screen" aria-hidden="true"><svg viewBox="0 0 84 30" shape-rendering="crispEdges">
             <rect width="84" height="30" fill="#0e0d33"/><polygon points="30,8 54,8 80,30 4,30" fill="#5b5f80"/><rect x="38" y="22" width="8" height="5" fill="#ff9b30"/></svg></span>
-          <span class="cab-scores"><b>CREW TOP 5</b>
+          <span class="cab-scores"><span class="cab-head"><b>CREW TOP 5</b><i>COMET RING</i></span>
             <ol class="cab-top"><li class="mine"><span>1 INKY</span><span>1:42.3</span></li><li><span>2 KAI</span><span>1:45.0</span></li><li><span>3 MIA</span><span>1:51.8</span></li></ol>
           </span>
           <span class="cab-play">A · PLAY</span>
@@ -100,6 +103,6 @@
   </div>
 </div>
 
-<p class="mock-note">Not drawn: the tall grid (320×288, one cabinet a page with PAGE n/N), a locked cabinet (dark, REACH LV n TO PLAY on A) and the SOON cabinet, which the room stands only while it has fewer than three games. The primary mark sits on the cabinet under the cursor's A · PLAY.</p>
+<p class="mock-note">Not drawn: the tall grid (320×288, one cabinet a page with PAGE n/N), a locked cabinet (dark, REACH LV n TO PLAY on A) and the SOON cabinet, which the room stands only while it has fewer than three games. The primary mark sits on the cabinet under the cursor's A · PLAY. OMNI KART's cabinet is drawn on COMET RING's turn; five seconds later it cuts to FROST EIGHT's: its still (its start in the snow), then CREW TOP 5 with FROST EIGHT at its right, over the kart-frost-eight board (PRD 1923).</p>
 </body>
 </html>
