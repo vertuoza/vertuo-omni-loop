@@ -46983,7 +46983,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["omni statusline", "omni statusline --refresh <prd>"],
     summary: "Claude Code's status line: the session, then the PRD",
-    detail: "What Claude Code runs as its status line, from the statusLine key omni init writes in .claude/settings.json: it reads the session on stdin and prints two lines, the model, the context bar, the 5-hour usage and ask mode, then the PRD this session works on, its stage, and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits 0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a file the status line reads."
+    detail: "What Claude Code runs as its status line, from the statusLine key omni init writes in .claude/settings.json: it reads the session on stdin and prints two lines, the model, the context bar, the 5-hour usage and ask mode, then the PRD this session works on, its stage, and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits 0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a file the status line reads. The status line and the HUD are Claude Code's alone: Codex, Cursor and Gemini CLI show neither."
   },
   {
     name: "now",
@@ -47509,6 +47509,24 @@ var STAGE_COLUMN = 10;
 var WHO_RUNS = Object.freeze({ you: "for you", skills: "run by the skills" });
 var HELP_CLOSING = "omni help <command> tells more about any of them.";
 var DOCS_LABEL_COLUMN = 9;
+var AGENT_FORMS = Object.freeze({
+  claude: (name3, args) => `/omni:${name3}${args && ` ${args}`}`,
+  codex: (name3, args) => `$omni-${name3}${args && ` ${args}`}`,
+  cursor: (name3, args) => `/omni-${name3}${args && ` ${args}`}`,
+  gemini: (name3, args) => `ask for omni-${name3}${args && `, ${args}`}`
+});
+var LOOP = "/loop ";
+var TICK_LINE = "run it again after the wait it names";
+var SKILL_FORM = /^(\/loop )?\/omni:([\w-]+)(?: (.*))?$/;
+var agentsOf = (config3) => AGENTS.filter((agent) => (config3.agents ?? ["claude"]).includes(agent));
+function agentForms(claudeForm, agents) {
+  const match = SKILL_FORM.exec(claudeForm);
+  if (!match) return [claudeForm];
+  const [, loop2 = "", name3 = "", args = ""] = match;
+  return [...new Set(agents.map((agent) => `${agent === "claude" ? loop2 : ""}${AGENT_FORMS[agent](name3, args)}`))];
+}
+var looped = (entry3) => entry3.usage.some((usage2) => usage2.startsWith(LOOP));
+var ticks = (entry3, agents) => looped(entry3) && agents.some((agent) => agent !== "claude");
 function repositoryWords(config3) {
   const delivery = config3.paths.delivery;
   return {
@@ -47536,6 +47554,23 @@ function wrapWords(text14, { width = HELP_WIDTH, indent: indent2 = "" } = {}) {
   return lines2;
 }
 var overviewRow = (label2, text14) => `${HELP_INDENT}${label2.padEnd(Math.max(LABEL_COLUMN, label2.length + 2))}${text14}`;
+function skillRows(entry3, agents, fill3) {
+  const claudeLabel = `${looped(entry3) ? LOOP : ""}${fill3(entry3.label ?? "")}`;
+  const rows2 = agentForms(claudeLabel, agents).map((label2, index) => [label2, index ? "" : fill3(entry3.summary)]);
+  if (ticks(entry3, agents)) {
+    const tick3 = rows2.findIndex(([label2]) => !label2.startsWith(LOOP));
+    const free = rows2.findIndex(([, text14], index) => index >= tick3 && !text14);
+    if (free < 0) rows2.splice(tick3 + 1, 0, ["", TICK_LINE]);
+    else rows2[free] = [rows2[free]?.[0] ?? "", TICK_LINE];
+  }
+  return rows2.flatMap(([label2, text14]) => {
+    if (!text14) return [`${HELP_INDENT}${label2}`];
+    if (label2.length + 2 > LABEL_COLUMN && HELP_INDENT.length + label2.length + 2 + text14.length > HELP_WIDTH + 2) {
+      return [`${HELP_INDENT}${label2}`, overviewRow("", text14)];
+    }
+    return [overviewRow(label2, text14)];
+  });
+}
 function renderOverview(config3, { entries: entries4 = ENTRIES } = {}) {
   const fill3 = fillerFor(repositoryWords(config3));
   const under = " ".repeat(HELP_INDENT.length + STAGE_COLUMN);
@@ -47552,10 +47587,9 @@ function renderOverview(config3, { entries: entries4 = ENTRIES } = {}) {
     if (stage2.folder) lines2.push(under + fill3(stage2.folder));
   }
   lines2.push("", ...wrapWords(PRINCIPLES.map(fill3).join(" "), { indent: HELP_INDENT }), "");
-  lines2.push("IN CLAUDE (type these)");
-  for (const entry3 of entries4.filter((e) => e.kind === "skill" && e.who === "you")) {
-    lines2.push(overviewRow(fill3(entry3.label ?? ""), fill3(entry3.summary)));
-  }
+  lines2.push("Run these");
+  const agents = agentsOf(config3);
+  for (const entry3 of entries4.filter((e) => e.kind === "skill" && e.who === "you")) lines2.push(...skillRows(entry3, agents, fill3));
   lines2.push("", "IN THE TERMINAL");
   const yours2 = entries4.filter((e) => e.kind === "command" && e.who === "you");
   for (const entry3 of yours2.filter(hasLabel2)) {
@@ -47589,19 +47623,26 @@ function docsLines(entry3, fill3) {
     ...result.map((line, index) => `${under}${index ? "  " : "\u2192 "}${line}`)
   ];
 }
-function entryLines(entry3, fill3) {
-  const [first = "", ...more] = entry3.usage.map(fill3);
+function usageLines(entry3, agents, fill3) {
+  const usage2 = entry3.usage.map(fill3);
+  if (entry3.kind !== "skill") return usage2;
+  const forms = [...new Set(agents.flatMap((agent) => usage2.flatMap((line) => agentForms(line, [agent]))))];
+  return ticks(entry3, agents) ? [...forms, `Outside Claude, each runs one tick: ${TICK_LINE}.`] : forms;
+}
+function entryLines(entry3, agents, fill3) {
+  const [first = "", ...more] = usageLines(entry3, agents, fill3);
   const who2 = WHO_RUNS[entry3.who];
   const head = first.length + 2 + who2.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who2.length)}${who2}`, ...more] : [first, ...more, who2.padStart(HELP_WIDTH)];
   const paragraphs = entry3.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill3(paragraph)));
   return [...head, "", ...paragraphs.flatMap((lines2, index) => index ? ["", ...lines2] : lines2), ...docsLines(entry3, fill3)];
 }
 function renderEntry(name3, config3, { entries: entries4 = ENTRIES } = {}) {
-  const slash = /^\/omni:(.+)$/.exec(name3);
+  const slash = /^(?:\/omni:|\/omni-|\$omni-)(.+)$/.exec(name3);
   const found2 = slash ? entries4.filter((e) => e.kind === "skill" && e.name === slash[1]) : ["command", "skill"].flatMap((kind) => entries4.filter((e) => e.kind === kind && e.name === name3));
   if (found2.length === 0) return null;
   const fill3 = fillerFor(repositoryWords(config3));
-  return found2.map((entry3) => entryLines(entry3, fill3).join("\n")).join("\n\n");
+  const agents = agentsOf(config3);
+  return found2.map((entry3) => entryLines(entry3, agents, fill3).join("\n")).join("\n\n");
 }
 
 // kit/bin/commands/help.ts
@@ -50533,12 +50574,12 @@ function tickOf(body) {
   return MARKER4.exec(body)?.[1] ?? null;
 }
 function readTicks(comments) {
-  const ticks = /* @__PURE__ */ new Set();
+  const ticks2 = /* @__PURE__ */ new Set();
   for (const comment2 of comments) {
     const id = tickOf(comment2.body ?? "");
-    if (id !== null) ticks.add(id);
+    if (id !== null) ticks2.add(id);
   }
-  return ticks;
+  return ticks2;
 }
 
 // kit/lib/roadmap/push.ts
@@ -52203,7 +52244,7 @@ async function gatesOf(roadmap2, reads, reader) {
     const words4 = liveWords(prdState2(standing2), read2.facts, read2.slices);
     if (words4 !== null) live.set(row.id, words4);
   }
-  const { answers: answers2, ticks } = await issueReadOf(roadmap2, reader);
+  const { answers: answers2, ticks: ticks2 } = await issueReadOf(roadmap2, reader);
   return roadmapGates({
     roadmap: roadmap2,
     answers: answers2,
@@ -52211,7 +52252,7 @@ async function gatesOf(roadmap2, reads, reader) {
     live,
     issueLink: issueUrl(reader.slug, roadmap2.roadmap),
     prerequisites: prerequisitesOf3(roadmap2, reader),
-    ticks,
+    ticks: ticks2,
     prerequisitesLink: null
   });
 }
