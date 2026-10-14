@@ -46585,7 +46585,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]", "omni runner sender"],
     label: "omni runner",
     summary: "run the lines the Omni app sends, on this machine",
-    detail: "Makes this machine a runner: it registers with the Omni page under --name, shows on its Runners page, and runs the /omni: lines people send it with Send to terminal, at most --slots at once (4 by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), holds the git checkouts right under --repos, by their origin, and refuses to start when claude is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> on branch agent/job-<id>, in the tmux session job-<id>, logged to ~/logs/job-<id>.log; its line goes to claude from a file, never a shell. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C waits for the running jobs. sender prints the line /omni:pr writes in a pull request a job opens, naming who sent it and the runner."
+    detail: "Makes this machine a runner: it registers with the Omni page under --name, shows on its Runners page, and runs the /omni: lines people send it with Send to terminal, at most --slots at once (4 by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), holds the git checkouts right under --repos, by their origin, and refuses to start when claude is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> on branch agent/job-<id>, in the tmux session job-<id>; its line goes to claude from a file, never a shell. claude runs with --output-format stream-json: each step becomes one readable line (Bash: <command>, Edit: <path>, PR: <link>, a failed call's \u2717 with up to 20 lines of its output, Done: with its turns and cost), written to ~/logs/job-<id>.log and the session, while the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the log's new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per report, sending them again when a report fails and every line left once the job ends: the Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C waits for the running jobs. sender prints the line /omni:pr writes in a pull request a job opens, naming who sent it and the runner."
   },
   {
     name: "dossier",
@@ -57131,6 +57131,30 @@ function logTail(log) {
   }
   return tail;
 }
+var REPORT_LINES = 2e3;
+var REPORT_BYTES = 256 * 1024;
+var LINE_CHARS = 600;
+function cutLine(line) {
+  if (line.length <= LINE_CHARS) return line;
+  const cut6 = line.slice(0, LINE_CHARS);
+  return /[\uD800-\uDBFF]$/.test(cut6) ? cut6.slice(0, -1) : cut6;
+}
+function linesAfter(log, cursor, { ended: ended2 }) {
+  const lines2 = log.split("\n");
+  const last = lines2.pop() ?? "";
+  if (ended2 && last !== "") lines2.push(last);
+  return lines2.slice(cursor).map(cutLine);
+}
+function reportBatch(lines2) {
+  let bytes = 2;
+  let count4 = 0;
+  for (const line of lines2.slice(0, REPORT_LINES)) {
+    bytes += Buffer.byteLength(JSON.stringify(line)) + (count4 > 0 ? 1 : 0);
+    if (bytes > REPORT_BYTES) break;
+    count4 += 1;
+  }
+  return lines2.slice(0, count4);
+}
 var escape4 = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function lastPullRequest(log, repo) {
   const pattern = new RegExp(`https://github\\.com/${escape4(repo)}/pull/\\d+(?!\\d)`, "gi");
@@ -57182,6 +57206,9 @@ var sleepFor = (ms, signal) => new Promise((resolve11) => {
   signal?.addEventListener("abort", done, { once: true });
   if (signal?.aborted) done();
 });
+function withLines(update2, live, lines2) {
+  return lines2.length === 0 ? update2 : { ...update2, from: live.cursor + 1, lines: [...lines2] };
+}
 var QUIET13 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var readText3 = (path) => {
   try {
@@ -57229,29 +57256,49 @@ async function register(loop2) {
   }
   return null;
 }
-async function tick2(loop2, job2, update2) {
+async function tick2(loop2, job2, update2, live, log = "") {
+  const lines2 = live ? reportBatch(linesAfter(log, live.cursor, { ended: false })) : [];
   try {
-    return (await loop2.api.update(job2, update2)).cancel;
+    const { cancel } = await loop2.api.update(job2, live ? withLines(update2, live, lines2) : update2);
+    if (live) live.cursor += lines2.length;
+    return cancel;
   } catch (error62) {
     if (error62 instanceof RunnerRefused) loop2.refuse(error62);
     else if (!(error62 instanceof RunnerUnreachable)) throw error62;
     return false;
   }
 }
-async function finish(loop2, job2, update2) {
+async function sendLast(loop2, job2, update2) {
   let wait5 = loop2.firstMs;
   for (let tries = 1; tries <= FINAL_TRIES; tries += 1) {
     try {
       await loop2.api.update(job2, update2);
-      return;
+      return true;
     } catch (error62) {
       if (error62 instanceof RunnerRefused) {
         loop2.refuse(error62);
-        return;
+        return false;
       }
-      if (!(error62 instanceof RunnerUnreachable) || tries === FINAL_TRIES) return;
+      if (!(error62 instanceof RunnerUnreachable) || tries === FINAL_TRIES) return false;
       wait5 = await backOff(loop2, wait5, error62);
     }
+  }
+  return false;
+}
+async function finish(loop2, job2, update2, live) {
+  if (live === null) {
+    await sendLast(loop2, job2, update2);
+    return;
+  }
+  const log = readText3(live.log);
+  const left = linesAfter(log, live.cursor, { ended: true });
+  for (; ; ) {
+    const lines2 = reportBatch(left);
+    const last = lines2.length === left.length;
+    const report7 = last ? update2 : { status: "running", logTail: logTail(log) };
+    if (!await sendLast(loop2, job2, withLines(report7, live, lines2)) || last) return;
+    live.cursor += lines2.length;
+    left.splice(0, lines2.length);
   }
 }
 function defaultBranch(exec, checkout) {
@@ -57329,7 +57376,7 @@ function killed(loop2, place, update2) {
   loop2.terminal.stop(place.session);
   return { ...update2, logTail: logTail(readText3(place.log)) };
 }
-async function watch2(loop2, job2, place) {
+async function watch2(loop2, job2, place, live) {
   const started = loop2.now();
   if (await tick2(loop2, job2.id, { status: "running", logTail: "" })) return killed(loop2, place, { status: "cancelled" });
   for (; ; ) {
@@ -57338,16 +57385,17 @@ async function watch2(loop2, job2, place) {
     if (existsSync81(place.exit)) return ended(log, readText3(place.exit), job2.repo);
     if (!loop2.terminal.alive(place.session)) return { status: "failed", logTail: logTail(log), reason: "the job stopped before it wrote its exit code" };
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, place, { status: "failed", reason: "timeout" });
-    if (await tick2(loop2, job2.id, { status: "running", logTail: logTail(log) })) return killed(loop2, place, { status: "cancelled" });
+    if (await tick2(loop2, job2.id, { status: "running", logTail: logTail(log) }, live, log)) return killed(loop2, place, { status: "cancelled" });
   }
 }
 async function runJob(loop2, job2) {
   const place = placeOf2(loop2, job2);
-  if ("status" in place) return place;
-  if (!makeWorktree(loop2, job2, place)) return { status: "failed", reason: "the worktree could not be made" };
+  if ("status" in place) return { last: place, live: null };
+  if (!makeWorktree(loop2, job2, place)) return { last: { status: "failed", reason: "the worktree could not be made" }, live: null };
   try {
-    if (!startSession(loop2, job2, place)) return { status: "failed", reason: "the tmux session could not be started" };
-    return await watch2(loop2, job2, place);
+    if (!startSession(loop2, job2, place)) return { last: { status: "failed", reason: "the tmux session could not be started" }, live: null };
+    const live = { log: place.log, cursor: 0 };
+    return { last: await watch2(loop2, job2, place, live), live };
   } finally {
     removeWorktree(loop2, place);
   }
@@ -57381,8 +57429,8 @@ async function slot(loop2, runner2) {
     loop2.running += 1;
     loop2.print(`job ${job2.id} claimed: ${job2.line} (${job2.repo})`);
     try {
-      const last = await runJob(loop2, job2);
-      await finish(loop2, job2.id, last);
+      const { last, live } = await runJob(loop2, job2);
+      await finish(loop2, job2.id, last, live);
       loop2.print(endLine(job2, last));
     } finally {
       loop2.running -= 1;
