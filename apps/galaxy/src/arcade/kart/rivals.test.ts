@@ -715,3 +715,52 @@ describe('on ice and powder', () => {
     expect(offLake).toBe(true);
   });
 });
+
+describe('the HARD rivals drift (PRD 1963)', () => {
+  const rivalAt = (kart: Kart, passed: number, fx: Fx = NO_FX): Rival => ({ driver: driver('beaver'), kart, pace: { laps: 0, passed }, skill: 1, offset: 0, fx });
+  const onLine = (along: number, speed: number): Kart => {
+    const p = pointAtPx(track, along);
+    return { ...kartAt(p.x, p.y, Math.atan2(p.ty, p.tx)), speed };
+  };
+  const arcs = track.centre.segments.flatMap((s) => (s.kind === 'arc' ? [{ start: s.start * TILE, end: (s.start + s.len) * TILE, radius: s.r * TILE }] : []));
+  const tight = arcs.find((a) => a.radius < RULES.rivalDriftRadius * TILE);
+  const wide = arcs.find((a) => a.radius >= RULES.rivalDriftRadius * TILE);
+  const fast = RULES.topSpeed * 0.9;
+  /** A rival `d` px before an arc, on the centre line. */
+  const before = (a: { start: number }, d: number, speed = fast): Rival => rivalAt(onLine(a.start - d, speed), 0);
+
+  it('holds HOP at a bend tighter than 8 tiles at HARD', () => {
+    if (!tight) throw new Error('no tight arc');
+    expect(driveRival(track, before(tight, 10, RULES.topSpeed * 0.7), 0.01, 0, 'hard').fx?.hop).toBeDefined();
+  });
+
+  it('never hops at EASY or NORMAL', () => {
+    if (!tight) throw new Error('no tight arc');
+    for (const level of ['easy', 'normal'] as const) {
+      let r = before(tight, 10);
+      for (let t = 0; t < 4; t += 0.02) {
+        r = driveRival(track, r, 0.02, 0, level);
+        expect(r.fx?.hop).toBeUndefined();
+        expect(r.fx?.drift).toBeUndefined();
+      }
+    }
+  });
+
+  it('does not hop slower than half the top speed, nor ahead of a wider bend', () => {
+    if (!tight) throw new Error('no tight arc');
+    expect(driveRival(track, before(tight, 10, RULES.topSpeed * 0.3), 0.01, 0, 'hard').fx?.hop).toBeUndefined();
+    if (wide) expect(driveRival(track, before(wide, 5), 0.01, 0, 'hard').fx?.hop).toBeUndefined();
+  });
+
+  it('drifts through the tight bend and lets go once it opens', () => {
+    if (!tight) throw new Error('no tight arc');
+    let r = before(tight, 10);
+    let drifted = false;
+    for (let t = 0; t < 6; t += 0.02) {
+      r = driveRival(track, r, 0.02, 0, 'hard');
+      if (r.fx?.drift !== undefined) drifted = true;
+    }
+    expect(drifted).toBe(true);
+    expect(r.fx?.drift).toBeUndefined();
+  });
+});
