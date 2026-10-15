@@ -206,6 +206,6 @@ describe('omni sync', () => {
     const { root } = fixture();
     expect((await sync(root, ['--json', '--quiet'])).code).toBe(2);
     expect((await sync(root, ['now'])).code).toBe(2);
-    expect((await sync(root, ['--fix'])).code).toBe(2);
+    expect((await sync(root, ['--fix', '--json'])).code).toBe(2);
   });
 });
