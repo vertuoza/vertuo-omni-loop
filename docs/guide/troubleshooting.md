@@ -239,6 +239,24 @@ git commit --allow-empty -m "chore: redeploy with the right author"
 git push
 ```
 
+## `omni sync` shows a finding
+
+Each line of the `omni sync` block is one finding, and its fix follows the arrow. Run the fix, then
+`omni sync` again.
+
+- `repo kit vX, latest vY` (red) or `kit vX, latest vY` (orange): the repository's kit is behind. Run `omni sync --fix`.
+- `<plugin> vX, latest vY` (red): a plugin is behind. Run `omni sync --fix`.
+- `<plugin> not installed` (orange): run the `/plugin install` line the block prints.
+- `<repo> kit vX, latest vY` (orange): a target repository's kit is behind. Run `omni update` in that repository.
+- `<repo> has no kit` (orange): the target repository has no kit yet. Run `omni init` in it.
+- `on <branch>: plans are made on main` (orange): you are on a branch other than main. Run `omni sync --fix` to switch.
+- `main ... behind` (red after `mainRedAfter` hours): main is behind its remote. Run `omni sync --fix`.
+- `not signed in` (orange): run `omni signin`.
+- `the page never synced` or `the page last synced …` (orange): run `omni sync --fix`.
+- `knowledge stale` (red) or `knowledge drifted` (orange): run `/omni:invade --refresh`, or `/omni:mega-invade --refresh` for a plan repository's targets.
+- `playbook entry cites changed files` (orange): run `/omni:invade --refresh`.
+- `not checked: …` (orange): the check could not run. Its reason follows the colon; fix that, then run `omni sync`.
+
 ## Other lines you may meet
 
 - **`/omni:yolo` stops at once, naming uncommitted changes.** It needs a checkout with no
