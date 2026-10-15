@@ -395,3 +395,315 @@ A follow-up that moves the check onto its own read is one route and one client m
 ```
 
 <!-- /omni-outbox-settled: s2-02-product-check-by-dry-run-push -->
+
+<!-- omni-outbox-settled: s3-01-roadmap-status-words -->
+
+## s3-01-roadmap-status-words — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-roadmap-status-words
+prd: 2011
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 3
+---
+
+## The question, in plain words
+
+The spec says a product roadmap reads building, held or drifted as a PRD does, but a PRD's page has no such three words. Which words does the roadmap's page show?
+
+## The decision, in plain words
+
+The roadmap page shows its approval as a PRD does (waiting for approval, approved, drifted, voided) and, beside it, one status word: held until it is approved, building once approved with a PRD under way, drifted once its approval no longer holds, approved otherwise.
+
+## The intro, for fun
+
+Three words were promised, and the dictionary had only the idea of them.
+
+## The punchline, for fun
+
+Held, building, drifted: now they mean something.
+
+## The options, in plain words
+
+A. A. Status word derived from the approval and the PRDs' states, shown beside the approval's words (as built)
+B. B. Approval's own words only, with no status word
+C. C. A status word kept on the roadmap by the loop's ticks
+
+## What I had to decide
+
+Read held as not approved, building as approved with a PRD of it under way, and drifted as a drifted or voided approval.
+
+## What I did meanwhile
+
+The status word is one small function with its own tests, shown beside the approval's own words, so changing it touches nothing else.
+
+## What it costs to change later
+
+One function and its tests, and a line of the page.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the three words but not their meaning.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-roadmap-status-words -->
+
+<!-- omni-outbox-settled: s3-02-roadmap-page-ground-beyond-territory -->
+
+## s3-02-roadmap-page-ground-beyond-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-roadmap-page-ground-beyond-territory
+prd: 2011
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 3
+---
+
+## The question, in plain words
+
+To show a roadmap born on the server, a few shared files outside the slice's listed ground had to change. Is that acceptable, or should they be a slice of their own?
+
+## The decision, in plain words
+
+The roadmap reads, the Gantt, the approval check, the seal drawing and the dossier page's redirect were adjusted so that a roadmap with no repository and no issue, and a product's PRD id, read and draw correctly. Each change is small and keeps every existing test.
+
+## The intro, for fun
+
+The page needed a new door, and the walls had a few extra hinges.
+
+## The punchline, for fun
+
+Same house, a handful of hinges moved.
+
+## The options, in plain words
+
+A. A. Make the small changes in place and test them (as built)
+B. B. Move them into a separate preparatory slice
+C. C. Copy the shared code into the slice's own folders
+
+## What I had to decide
+
+Change the roadmap reads and the approval check outside the listed folders, keeping each change minimal and covered by tests, rather than stop the slice.
+
+## What I did meanwhile
+
+Every existing test passes unchanged except where a signature gained a nullable field; the seal drawing and the approval judgement are now shared with the PRD page instead of copied.
+
+## What it costs to change later
+
+Moving the changes into a slice of their own is a rebase of a few files.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists three folders for this slice and the roadmap reads sit in a fourth.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-roadmap-page-ground-beyond-territory -->
+
+<!-- omni-outbox-settled: s4-01-product-roadmap-read-command -->
+
+## s4-01-product-roadmap-read-command — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-product-roadmap-read-command
+prd: 2011
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 3
+---
+
+## The question, in plain words
+
+The drive skills now tell the agent to read a product roadmap's rows from the server, but the command that reads one does not exist yet. Who adds it, and in which slice?
+
+## The decision, in plain words
+
+The drive and mega-drive skills name a read of a product roadmap's file from the server, the same way a product PRD's plan is read. The command that does it is not built, because the commands are outside this slice, so the skills describe it ahead of the code.
+
+## The intro, for fun
+
+The skill learned to ask for the roadmap before anyone taught the shop to hand it over.
+
+## The punchline, for fun
+
+A recipe is ready, the pantry is still being stocked.
+
+## The options, in plain words
+
+A. A. Name the read in the skills now and add the command later (as built)
+B. B. Add the read to the command in a follow-up slice of this landing
+C. C. Have drive read the roadmap through its own new command instead
+
+## What I had to decide
+
+Add a roadmap read to omni dossier get (and the app route behind it) in a slice that owns the kit commands, or change the skills to name another read.
+
+## What I did meanwhile
+
+The skills are written and tested as text. A drive of a product roadmap cannot run end to end until the read exists; a roadmap born in git is unchanged.
+
+## What it costs to change later
+
+Small: one more kind accepted by the existing get command and one route that returns the latest roadmap file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which slice or landing owns the read command (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-product-roadmap-read-command -->
+
+<!-- omni-outbox-settled: s4-02-product-roadmap-drive-unread -->
+
+## s4-02-product-roadmap-drive-unread — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-product-roadmap-drive-unread
+prd: 2011
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 3
+---
+
+## The question, in plain words
+
+Driving a product roadmap needs one command that reads its rows from the server, and no slice of this plan builds it. Should it be built now, before landing 1 goes ready, or later?
+
+## The decision, in plain words
+
+Landing 1 ships the product roadmap's page, its push and the skills that name the read, but a drive of a product roadmap cannot run end to end until the read exists; nothing else is held.
+
+## The intro, for fun
+
+The map is drawn and the driver is ready, but nobody built the glovebox it lives in.
+
+## The punchline, for fun
+
+One small read stands between the roadmap and the road.
+
+## The options, in plain words
+
+A. A. Leave it to a follow-up PRD or bug fix; landing 1 ships without a working product roadmap drive (as built)
+B. B. Add a slice to landing 1 for the read, and approve the changed plan again on the PRD page
+C. C. Build it in landing 3's finish, as part of this PRD, without changing the plan
+
+## What I had to decide
+
+Whether to build the missing read (the kit's dossier get and the server's get route taking a roadmap id) inside this PRD, which needs a slice the approved plan does not have, or leave it to a follow-up.
+
+## What I did meanwhile
+
+Nothing was built for it. The drive skills say a product roadmap's rows are read with omni dossier get <key>-R<n> roadmap, which today refuses that kind.
+
+## What it costs to change later
+
+A small kit and server change: the product-PRD id parser, the dossier get command and the get route learning the roadmap kind and the R ids.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether acceptance criterion 1's drive line counts as met without the read (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-product-roadmap-drive-unread -->
