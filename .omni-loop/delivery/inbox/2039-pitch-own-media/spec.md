@@ -1,13 +1,13 @@
 ---
 prd: 2039
 title: Pitch with your own media — beside or instead of the walk-through, any format, read with a probe, from wider sources
-blocked-by: [2030]
+blocked-by: none
 spec: file
 ---
 
 # Pitch with your own media
 
-**Date:** 2026-10-15 · **PRD:** #2039 · **Follows:** PRD 1108 (Pitch studio) and PRD 2030 (Pitch scenes),
+**Date:** 2026-10-15 · **PRD:** #2039 · **Build after:** PRD 2030 has shipped (see Decisions) · **Follows:** PRD 1108 (Pitch studio) and PRD 2030 (Pitch scenes),
 whose settings, providers, filmed moments, scenes, check, studio, render and push stay. **Compared with:**
 `vertuoza/release-videos`, the engine PRD 1108 names as its inspiration: it builds its videos from
 recordings the team already has, decodes every clip into images before the render, and reads a
@@ -158,8 +158,10 @@ Two new errors in `omni pitch check`:
   see where every line comes from before it ships"): settled `accepted` — the scene plan, with each
   line's source, is approved by the person before the storyboard is written. The sources stay out of
   the video (asked).
-- **Blocked by PRD 2030** (asked): both change the storyboard, the check and the skill, and a step's own
-  media (PRD 2030) is where a brought-in recording is most often used.
+- **Built after PRD 2030** (asked): both change the storyboard, the check and the skill, and a step's own
+  media (PRD 2030) is where a brought-in recording is most often used. The order is written, not
+  declared (asked): `blocked-by` can only name a PRD already in the inbox, and PRD 2030's phase-0 PR
+  had not merged when this spec was written. Run `/omni:yolo 2039` only once PRD 2030 has shipped.
 - **Proof video** (asked): no.
 
 ## User stories
