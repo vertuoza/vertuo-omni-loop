@@ -21,7 +21,7 @@ export type HeldNow = { readonly settings: EscalationSettings; readonly held: re
 const WAITING_RANKS: ReadonlySet<string> = new Set(['high', 'human-action']);
 
 /** What escalation reads from the base branch's config. */
-function settingsOf(config: Config): EscalationSettings {
+export function settingsOf(config: Config): EscalationSettings {
   return { owners: config.laws.owners, leadership: config.laws.leadership, workingDays: config.limits.escalationWorkingDays };
 }
 
