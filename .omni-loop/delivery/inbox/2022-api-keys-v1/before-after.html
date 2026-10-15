@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API keys v1 — before and after</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  h2.part { font-size: 22px; margin: 40px 0 6px; border-bottom: 2px solid var(--ask-line-strong); padding-bottom: 6px; }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  p.lead, .cap { color: var(--ask-muted); font-size: 15px; margin: 4px 0 10px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  .label { font: 700 12px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); margin: 0 0 6px; }
+  .label.after { color: var(--ask-plasma); }
+  pre { margin: 0; padding: 12px 14px; background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 10px; font: 12.5px/1.55 var(--ask-mono); color: var(--ask-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre .c { color: var(--ask-muted); } pre .ok { color: var(--ask-green); } pre .no { color: var(--ask-red); } pre .k { color: var(--ask-cyan); }
+  table.routes { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; overflow: hidden; }
+  table.routes th, table.routes td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--ask-line); vertical-align: top; }
+  table.routes th { background: var(--ask-sunk); color: var(--ask-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; border-top: 0; }
+  table.routes code, p code, li code { font: 500 13px/1.5 var(--ask-mono); }
+  svg text { font-family: var(--ask-body); }
+
+  /* The app mockups */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; }
+  .bar { padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 14px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--ask-line); background: var(--ask-ground); flex-wrap: wrap; }
+  .tab { padding: 10px 10px 8px; font: 600 14px/1 var(--ask-body); color: var(--ask-muted); border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
+  .page { padding: 18px; display: grid; gap: 14px; }
+  .page h4 { margin: 0; font-size: 22px; line-height: 1.2; }
+  .muted { color: var(--ask-muted); font-size: 14px; }
+  .table { border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
+  .row { display: grid; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--ask-line); font-size: 14px; min-width: 0; }
+  .row:first-child { border-top: 0; }
+  .head { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); }
+  .keys .row { grid-template-columns: minmax(0, 1.3fr) 96px minmax(0, 1.3fr) 82px 70px; }
+  .jobs .row { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.3fr) 76px; }
+  .name { font-weight: 700; }
+  code.k { font: 500 12.5px/1.4 var(--ask-mono); color: var(--ask-muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; font: 500 12px/1.6 var(--ask-mono); }
+  .chip { border: 1px solid var(--ask-line-strong); border-radius: 999px; padding: 0 7px; }
+  .btn { display: inline-flex; align-items: center; padding: 7px 12px; border-radius: 8px; font: 700 13px/1 var(--ask-body); border: 1px solid var(--ask-line-strong); color: var(--ask-ink); background: none; white-space: nowrap; justify-self: end; }
+  .btn.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
+  .head-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .status { font: 700 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--ask-green); color: var(--ask-green); justify-self: start; }
+  .secret { border: 1px solid var(--ask-plasma); background: var(--ask-plasma-soft); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
+  .secret .val { display: flex; gap: 8px; align-items: center; }
+  .secret .val code { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; background: var(--ask-sunk); border-radius: 8px; font: 500 13px/1.4 var(--ask-mono); }
+  .empty { padding: 26px 16px; text-align: center; color: var(--ask-muted); font-size: 14px; }
+  @media (max-width: 700px) { .keys .row, .jobs .row { grid-template-columns: 1fr auto; } .head { display: none; } .hide-s { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>API keys v1 — before and after</h1>
+  <p class="lead">PRD 2022: a workspace owner makes an API key; a program then lists the workspace's PRDs and bug fixes page by page, starts a bug fix on a runner, and reads every route in a reference generated from the code. The names, numbers and keys below are examples.</p>
+
+  <h2 class="part">Functional</h2>
+
+  <h3>A program asks for the workspace's bug fixes</h3>
+  <div class="pair">
+    <div>
+      <p class="label">Today</p>
+<pre><span class="c"># No key exists, and no route answers a program.</span>
+curl https://www.omni-loop.xyz/api/dossiers \
+  -H "Authorization: Bearer ???"
+
+<span class="no">401</span>  only a signed-in person (omni signin)
+     or the kit's own token gets in; there is
+     no list, no paging, no description of any
+     route.</pre>
+    </div>
+    <div>
+      <p class="label after">After</p>
+<pre>curl "https://www.omni-loop.xyz/api/v1/bug-fixes?limit=2" \
+  -H "Authorization: Bearer oma_Xk3…9fQe"
+
+<span class="ok">200</span>
+{
+  <span class="k">"data"</span>: [
+    { "id": "6f1c…", "number": 1790, "title": "Quote total rounds wrong",
+      "repo": "vertuoza/backend-php", "created_at": "2026-10-14T09:12:00Z",
+      "links": { "page": "https://www.omni-loop.xyz/bugs/…",
+                 "issue": "https://github.com/vertuoza/backend-php/issues/1790" } },
+    { "id": "a20e…", "number": 1781, … }
+  ],
+  <span class="k">"next_cursor"</span>: "MjAyNi0xMC0xMlQxMDow…"
+}</pre>
+    </div>
+  </div>
+
+  <h3>A program starts a bug fix</h3>
+  <div class="pair">
+    <div>
+      <p class="label">Today</p>
+<pre><span class="c"># Only a person on the app presses Send to terminal,
+# or types /omni:bug-fix in their own terminal.</span>
+
+Person ──▶ PRD page ──▶ Send to terminal ──▶ runner</pre>
+    </div>
+    <div>
+      <p class="label after">After</p>
+<pre>curl -X POST https://www.omni-loop.xyz/api/v1/bug-fixes \
+  -H "Authorization: Bearer oma_Xk3…9fQe" \
+  -d '{"repo":"vertuoza/backend-php",
+       "description":"quote total rounds wrong with 21% VAT"}'
+
+<span class="ok">202</span>  { "job": { "id": "j_81d…", "status": "queued",
+          "line": "/omni:bug-fix 'quote total rounds wrong with 21% VAT'" } }
+
+curl https://www.omni-loop.xyz/api/v1/jobs/j_81d… -H "Authorization: Bearer oma_…"
+<span class="ok">200</span>  { "status": "done", "runner": "vertuo-agents",
+        "pr_url": "https://github.com/vertuoza/backend-php/pull/1842" }</pre>
+    </div>
+  </div>
+
+  <h3>How a call is answered, after</h3>
+  <svg viewBox="0 0 1200 190" width="100%" role="img" aria-label="A call flows from the program through the key check, the contract, the service and the database, and back">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5a60c4"/></marker></defs>
+    <g fill="#120f3a" stroke="#5a60c4" stroke-width="1.5">
+      <rect x="10" y="40" width="160" height="70" rx="10"/><rect x="220" y="40" width="200" height="70" rx="10"/>
+      <rect x="470" y="40" width="190" height="70" rx="10"/><rect x="710" y="40" width="220" height="70" rx="10"/>
+      <rect x="980" y="40" width="210" height="70" rx="10"/>
+    </g>
+    <g fill="#f2f4ff" font-size="15" font-weight="700" text-anchor="middle">
+      <text x="90" y="70">A program</text><text x="320" y="70">The key check</text><text x="565" y="70">The contract</text>
+      <text x="820" y="70">The service</text><text x="1085" y="70">The database</text>
+    </g>
+    <g fill="#8a90d6" font-size="12.5" text-anchor="middle">
+      <text x="90" y="92">Bearer oma_…</text><text x="320" y="92">hash → api_key_of → workspace,</text><text x="320" y="106">repositories · else 401</text>
+      <text x="565" y="92">zod: query, body, cursor</text><text x="565" y="106">else 422</text>
+      <text x="820" y="92">workspace + allow-list filter</text><text x="820" y="106">bug fix → runners' queue · 403</text>
+      <text x="1085" y="92">dossiers, prd_stages,</text><text x="1085" y="106">runner_jobs</text>
+    </g>
+    <g stroke="#5a60c4" stroke-width="1.5" marker-end="url(#a)"><line x1="170" y1="75" x2="218" y2="75"/><line x1="420" y1="75" x2="468" y2="75"/><line x1="660" y1="75" x2="708" y2="75"/><line x1="930" y1="75" x2="978" y2="75"/></g>
+    <text x="600" y="150" fill="#ffd84a" font-size="14" text-anchor="middle">The same zod schemas build GET /api/v1/openapi.json, which /docs/api renders with Scalar.</text>
+    <text x="600" y="172" fill="#8a90d6" font-size="12.5" text-anchor="middle">Every error answers { "error": { "code", "message" } }.</text>
+  </svg>
+
+  <h3>The routes, after</h3>
+  <table class="routes">
+    <tr><th>Route</th><th>Answers</th><th>Today</th></tr>
+    <tr><td><code>GET /api/v1/prds?limit=&amp;cursor=</code></td><td>the workspace's PRDs, newest first: ref, title, repository, product, stage, links</td><td>no route for a program</td></tr>
+    <tr><td><code>GET /api/v1/bug-fixes?limit=&amp;cursor=</code></td><td>the workspace's bug fixes, newest first: number, title, repository, links</td><td>no route for a program</td></tr>
+    <tr><td><code>POST /api/v1/bug-fixes</code></td><td>202 and the queued runner job <code>/omni:bug-fix '…'</code></td><td>only Send to terminal, by a person</td></tr>
+    <tr><td><code>GET /api/v1/jobs/{id}</code></td><td>the job's status, runner and pull request</td><td>only the Runners page</td></tr>
+    <tr><td><code>GET /api/v1/openapi.json</code></td><td>the OpenAPI 3.1 reference, with no key; <code>/docs/api</code> renders it, and <code>docs/guide/api.md</code> explains it</td><td>no reference</td></tr>
+  </table>
+
+  <h2 class="part">Pixel perfect</h2>
+  <p class="lead">screens: api-keys (new) · runners · app-shell. The Settings tab row gains <b>API keys</b>; the Runners page names a key as a job's sender. <code>/docs/api</code> is Scalar's own reference viewer inside the docs layout, not drawn here.</p>
+
+  <h3>Settings › API keys</h3>
+  <div class="pair">
+    <div>
+      <p class="label">Today</p>
+      <div class="frame">
+        <div class="bar">Settings › <b>Business</b></div>
+        <div class="tabs"><span class="tab">Fleets</span><span class="tab">Repositories</span><span class="tab on">Business</span><span class="tab">Products</span><span class="tab">Jev</span></div>
+        <div class="page" data-screen="app-shell">
+          <h4>Business</h4>
+        </div>
+      </div>
+      <p class="cap">The Settings tabs today, from <code>SETTINGS_TABS</code>: no API keys tab, so a program has no way in.</p>
+    </div>
+    <div>
+      <p class="label after">After · an owner</p>
+      <div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="tabs"><span class="tab">Fleets</span><span class="tab">Repositories</span><span class="tab">Business</span><span class="tab">Products</span><span class="tab">Jev</span><span class="tab on">API keys</span></div>
+        <div class="page" data-screen="api-keys">
+          <div class="head-row"><h4>API keys</h4><button class="btn primary" type="button" data-primary>New key</button></div>
+          <p class="muted"><a href="#" style="color:var(--ask-cyan)">API reference</a></p>
+          <div class="table keys">
+            <div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span>Last used</span><span></span></div>
+            <div class="row"><span><span class="name">QA dashboard</span><br><span class="muted">@pierrederval · Oct 15</span></span><code class="k">oma_…9fQe</code><span class="chips"><span class="chip">backend-php</span></span><span class="muted">2 min ago</span><button class="btn" type="button">Revoke</button></div>
+            <div class="row"><span><span class="name">Weekly digest</span><br><span class="muted">@irisa · Oct 12</span></span><code class="k">oma_…A1c0</code><span class="muted">All repositories</span><span class="muted">Never</span><button class="btn" type="button">Revoke</button></div>
+          </div>
+        </div>
+      </div>
+      <p class="cap">A member sees the same table with no New key and no Revoke, and the line "Only owners make or revoke keys."</p>
+    </div>
+  </div>
+
+  <div class="pair" style="margin-top:16px">
+    <div>
+      <p class="label after">After · no key yet</p>
+      <div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <div class="head-row"><h4>API keys</h4><button class="btn primary" type="button" data-primary>New key</button></div>
+          <div class="table"><p class="empty">No key yet.</p></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="label after">After · the key just made</p>
+      <div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <h4>API keys</h4>
+          <div class="secret">
+            <b>QA dashboard</b>
+            <div class="val"><code>oma_Xk3vQ2nB7tY0pLm4sWc8dR1hJ6uZ9fQe</code><button class="btn primary" type="button" data-primary>Copy</button></div>
+            <span class="muted">You will not see this key again.</span>
+            <pre>curl https://www.omni-loop.xyz/api/v1/prds \
+  -H "Authorization: Bearer oma_Xk3…9fQe"</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Runners › Jobs: who sent it</h3>
+  <div class="pair">
+    <div>
+      <p class="label">Today</p>
+      <div class="frame">
+        <div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="page" data-screen="runners">
+          <div class="table jobs">
+            <div class="row head"><span>Line</span><span>Sent by</span><span>Where</span><span>Status</span></div>
+            <div class="row"><code class="k">/omni:bug-fix 1790</code><span>@paul</span><span class="hide-s">Any runner</span><span class="status">Done</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="label after">After</p>
+      <div class="frame">
+        <div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="page" data-screen="runners">
+          <div class="table jobs">
+            <div class="row head"><span>Line</span><span>Sent by</span><span>Where</span><span>Status</span></div>
+            <div class="row"><code class="k">/omni:bug-fix 'quote total…'</code><span>API key QA dashboard<br><span class="muted">made by @pierrederval</span></span><span class="hide-s">Any runner</span><span class="status">Done</span></div>
+            <div class="row"><code class="k">/omni:bug-fix 1790</code><span>@paul</span><span class="hide-s">Any runner</span><span class="status">Done</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="cap">The pull request the job opens says: Sent from the Omni app by API key QA dashboard (@pierrederval) on runner vertuo-agents.</p>
+    </div>
+  </div>
+</main>
+</body>
+</html>

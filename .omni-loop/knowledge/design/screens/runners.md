@@ -30,6 +30,8 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   - Each row has a Terminal button, which opens the `runner-terminal` panel on that job and sets
     `?terminal=<job id>` on the URL.
   - A done job links its pull request.
+  - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
+    (PRD 2022).
 
 ## States
 
@@ -45,7 +47,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 Runners · Runner · State · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
 Any runner · Status · Queued · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
-Cancel · Send again · Terminal · No job yet.
+Cancel · Send again · Terminal · No job yet · API key · made by.
 
 ## Refusals
 
@@ -62,3 +64,4 @@ Cancel · Send again · Terminal · No job yet.
 
 /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html
 /omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
+/omni:brainstorm, PRD 2022: .omni-loop/delivery/inbox/2022-api-keys-v1/before-after.html
