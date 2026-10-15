@@ -301,12 +301,30 @@ describe('How to play', () => {
     const shown = new Set(tall.flat());
     for (const line of wide) expect(shown, line).toContain(line);
     const r = view.rules;
-    for (const n of [r.zoneSecured, r.rescue, r.terraformOwner, r.terraformExpedition]) {
+    for (const n of [r.prMerged.feat, r.prReviewed.feat, r.rescue, r.terraformOwner, r.terraformExpedition]) {
       expect(tall.flat().some((s) => s.includes(`+${n}`)), `+${n}`).toBe(true);
     }
     for (const k of Object.keys(r.woundClose) as (keyof typeof r.woundClose)[]) {
       expect(shown, k).toContain(`+${r.woundClose[k]} / −${r.decayPerTranche[k]}`);
     }
+  });
+
+  it('says first what a merged pull request pays, and names no secured zone (PRD 1975)', () => {
+    const r = view.rules;
+    const earn = textOf(briefing, TALL, BRIEFING_PAGES.indexOf('earn'), tallPages);
+    const lines = earn.slice(earn.indexOf('EARN') + 1);
+    expect(lines.slice(0, 4)).toEqual(['SHIP A FEAT OR FIX', `+${String(r.prMerged.feat)}`, 'REVIEW OR MERGE ONE', `+${String(r.prReviewed.feat)}`]);
+    expect(lines[lines.indexOf('EXPEDITION ON IT') + 1]).toBe(`+${String(r.terraformExpedition)}`);
+    expect(lines).toContain(`RETRO OR KNOWLEDGE +${String(r.prMerged.docs)} · ITS REVIEW +${String(r.prReviewed.docs)} · ENTROPY CLEARED FOR ANOTHER FLEET ×${String(r.crossTeamMultiplier)}`);
+    expect(lines.join(' ')).not.toMatch(/ZONE/);
+  });
+
+  it('reads the pay of a merged pull request from the rules it is given', () => {
+    const shown: GalaxyView = { ...view, rules: { ...view.rules, prMerged: { feat: 7, docs: 3 }, prReviewed: { feat: 2, docs: 1 } } };
+    const text = textOf(createElement(BriefingOverlay, { view: shown }), WIDE);
+    expect(text[text.indexOf('SHIP A FEAT OR FIX') + 1]).toBe('+7');
+    expect(text[text.indexOf('REVIEW OR MERGE ONE') + 1]).toBe('+2');
+    expect(text.some((s) => s.startsWith('RETRO OR KNOWLEDGE +3 · ITS REVIEW +1'))).toBe(true);
   });
 
   it('shows one section a page, says which page it is, and keeps the heading and the way back on each', () => {
@@ -359,7 +377,7 @@ describe('How to play\'s LEVELS', () => {
   it('shows the weight of each personal credit, the curve\'s first levels and each game\'s unlock level, from the rulebook', () => {
     const text = levelsOf();
     expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4 } });
-    for (const label of ['ZONE SECURED', 'ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS', 'QUESTION ANSWERED']) expect(beside(text, label)).toBe('×1');
+    for (const label of ['ZONE SECURED', 'ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS', 'QUESTION ANSWERED', 'PR MERGED', 'PR REVIEWED']) expect(beside(text, label)).toBe('×1');
     expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['1', '50', '150', '300', '500']);
     expect(text).not.toContain('LV 6');
     expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 1');

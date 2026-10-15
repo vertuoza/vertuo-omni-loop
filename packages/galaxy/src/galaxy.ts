@@ -319,6 +319,8 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
       distressAfterHours: RULEBOOK.distressAfterWorkingMinutes / 60,
       lostAfterDays: RULEBOOK.lostAfterWorkingMinutes / 60 / 9,
       classMultipliers: [1, 2, 3, 4].map((n) => RULEBOOK.classMultiplier(n)),
+      prMerged: RULEBOOK.prMerged,
+      prReviewed: RULEBOOK.prReviewed,
       // The XP block as the ledger job applies it (game/experience.ts): How to play's LEVELS reads it.
       xp: RULEBOOK.xp,
     },

@@ -146,6 +146,8 @@ const XP_CREDITS: Record<keyof XpRules['weights'], string> = {
   questionAnswered: 'QUESTION ANSWERED',
   featureMerged: 'FEATURE MERGED',
   featureReviewed: 'FEATURE APPROVED',
+  prMerged: 'PR MERGED',
+  prReviewed: 'PR REVIEWED',
 };
 
 /** How many of the curve's first levels LEVELS shows (fewer when the cap comes sooner). */
@@ -186,11 +188,12 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
       <section key="earn">
         <h3 className="gold">EARN</h3>
         <ul>
-          <li><Sprite name="flag" scale={1} /> SECURE A ZONE <b>+{r.zoneSecured}</b></li>
+          <li><Sprite name="flag" scale={1} /> SHIP A FEAT OR FIX <b>+{r.prMerged.feat}</b></li>
+          <li><Sprite name="check" scale={1} /> REVIEW OR MERGE ONE <b>+{r.prReviewed.feat}</b></li>
           <li><Sprite name="beacon" scale={1} /> RESCUE ANOTHER FLEET <b>+{r.rescue}</b></li>
           <li><Sprite name="star" scale={1} /> FLEET TERRAFORMS <b>+{r.terraformOwner} × CLASS</b></li>
           <li><Sprite name="ship" scale={1} /> EXPEDITION ON IT <b>+{r.terraformExpedition}</b></li>
-          <li className="note">ZONE SECURED AT NIGHT ×{r.nightShiftMultiplier} · ENTROPY CLEARED FOR ANOTHER FLEET ×{r.crossTeamMultiplier}</li>
+          <li className="note">RETRO OR KNOWLEDGE +{r.prMerged.docs} · ITS REVIEW +{r.prReviewed.docs} · ENTROPY CLEARED FOR ANOTHER FLEET ×{r.crossTeamMultiplier}</li>
         </ul>
       </section>
     ),
