@@ -48,7 +48,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm game:project
         env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # contents, pull requests and issues: read on the engineering repos
-      # Who authored each pull request merged into a sector repository's default branch, and who
+      # Who authored each pull request merged into a sector's or a tracked repository's default branch, and who
       # opened each omni:prd issue, over the last 40 days, upserted into public.contributions for the
       # app's dashboard (PRD 328). Never writes the ledger. It skips and logs a repository it cannot
       # read, and never fails the job.
