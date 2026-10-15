@@ -1113,6 +1113,8 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       `/${K}/product/principles.md @pierrederval`,
       `/${K}/product/rules.md @pierrederval`,
       `/${K}/product/invariants.md @pierrederval`,
+      '# The briefing: the rules every agent follows.',
+      `/${PLAYBOOK}/briefing.md @pierrederval`,
       '# law BR-PRODUCT-1: its test.',
       `/${TEST_FILE} @pierrederval`,
       '# END omni kb owners',
@@ -1126,9 +1128,9 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       const { root, read } = makeRepo({ git: true, files: files() });
       const { code, out } = await omni(root, ['kb', 'owners']);
       expect(code).toBe(0);
-      expect(out).toBe('kb owners — wrote .github/CODEOWNERS: 5 path(s) owned by @pierrederval; no line outside its markers changed.\n');
+      expect(out).toBe('kb owners — wrote .github/CODEOWNERS: 6 path(s) owned by @pierrederval; no line outside its markers changed.\n');
       expect(read('.github/CODEOWNERS')).toBe(`${BLOCK}\n`);
-      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: 'kb owners — .github/CODEOWNERS is up to date: 5 path(s) owned by @pierrederval.\n' });
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: 'kb owners — .github/CODEOWNERS is up to date: 6 path(s) owned by @pierrederval.\n' });
     });
 
     it('leaves every line outside its markers byte-identical, and replaces only its own block', async () => {
@@ -1141,6 +1143,29 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       const { root: replaced, read: readReplaced } = makeRepo({ git: true, files: files({ '.github/CODEOWNERS': `${before}${stale}${after}` }) });
       await omni(replaced, ['kb', 'owners']);
       expect(readReplaced('.github/CODEOWNERS')).toBe(`${before}${BLOCK}${after}`);
+    });
+
+    it('names the briefing and each file it points to, after the thesis and the registers (PRD 1793, s2)', async () => {
+      const BRIEFING = `${PLAYBOOK}/briefing.md`;
+      const briefing = (frontMatter: Record<string, unknown>, body: string) =>
+        formText({ frontMatter: { form: 'briefing', state: 'filled', ...frontMatter }, title: 'Briefing', slots: [{ id: 'never', required: true, body }] });
+      const seeing = files({ [BRIEFING]: briefing({}, 'See: ./docs/agents/never.md#merging'), 'docs/agents/never.md': '- Never merge.\n' });
+      const { root, read } = makeRepo({ git: true, files: seeing });
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: expect.stringContaining(': 7 path(s)') as unknown });
+      const lines = read('.github/CODEOWNERS').split('\n');
+      const at = lines.indexOf('# The briefing: the rules every agent follows.');
+      expect(at).toBeGreaterThan(lines.indexOf(`/${K}/product/invariants.md @pierrederval`));
+      expect(lines.slice(at, at + 4)).toEqual([
+        '# The briefing: the rules every agent follows.',
+        `/${BRIEFING} @pierrederval`,
+        '/docs/agents/never.md @pierrederval',
+        '# law BR-PRODUCT-1: its test.',
+      ]);
+      expect(await check(root)).toMatchObject({ code: 0 });
+      const pointing = files({ [BRIEFING]: briefing({ state: 'pointer', 'points-to': 'AGENTS.md' }, ''), 'AGENTS.md': '# Agents\n' });
+      const { root: pointer, read: readPointer } = makeRepo({ git: true, files: pointing });
+      await omni(pointer, ['kb', 'owners']);
+      expect(readPointer('.github/CODEOWNERS').split('\n')).toContain('/AGENTS.md @pierrederval');
     });
 
     it('writes into the CODEOWNERS GitHub reads, never shadowing a root or docs/ file with a new .github/ one', async () => {
@@ -1165,7 +1190,7 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       expect(lines).toContain(`/${K}/domains/quote/rules.md @pierrederval @acme/law-keepers`);
       expect(lines).toContain(`/${TEST_FILE} @pierrederval @acme/law-keepers`);
       expect(lines).toContain('/game/ledger.ts @pierrederval @acme/law-keepers');
-      expect(lines.filter((line) => line.startsWith(`/${K}/`))).toHaveLength(7);
+      expect(lines.filter((line) => line.startsWith(`/${K}/`))).toHaveLength(8);
       expect(await check(root)).toMatchObject({ code: 0 });
     });
 
@@ -1202,7 +1227,7 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
     it('--json says which file it wrote, how many paths and for whom', async () => {
       const { root } = makeRepo({ git: true, files: files() });
       const parsed: unknown = JSON.parse((await omni(root, ['kb', 'owners', '--json'])).out);
-      expect(parsed).toEqual({ file: '.github/CODEOWNERS', wrote: true, paths: 5, owners: ['pierrederval'] });
+      expect(parsed).toEqual({ file: '.github/CODEOWNERS', wrote: true, paths: 6, owners: ['pierrederval'] });
     });
   });
 });
