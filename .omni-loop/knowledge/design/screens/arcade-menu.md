@@ -29,6 +29,11 @@ The arcade's menu: the galaxy map, the star chart, the fleets, the heroes, the g
 
 GALAXY MAP · STAR CHART · FLEETS · GAME ROOM · OUT OF REACH · NOT IN THIS BUILD · ▲ ▼ CHOOSE · A OPEN · B BACK
 
+The briefing's **EARN** (PRD 1975), every number read from the rulebook: SHIP A FEAT OR FIX +30 ·
+REVIEW OR MERGE ONE +10 first, then RESCUE ANOTHER FLEET · FLEET TERRAFORMS · EXPEDITION ON IT +10,
+and the note RETRO OR KNOWLEDGE +10 · ITS REVIEW +5 · ENTROPY CLEARED FOR ANOTHER FLEET ×1.5. It
+names no secured zone: a sub-PR earns nothing.
+
 ## Refusals
 
 - The menu never reads the star chart itself (PRD 1808): its tally waits for the chart's own read.
