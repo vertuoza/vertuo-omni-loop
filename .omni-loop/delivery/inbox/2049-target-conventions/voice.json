@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-15",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "If the brainstorm reads our docs readme before naming a GraphQL field, I stop renaming fields in review.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "A list of files proves nothing was read; I want the line that justifies each column name.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Fewer review rounds on a phase-0 PR means the PRD gets approved sooner.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One read-only command and no new config: nothing a target has to set up first.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Nothing changes on my screens; I care only that the names stay consistent.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Une liste de fichiers ne me prouve pas que l'agent les a lus ; en revue, je veux la ligne de doc qui justifie chaque nom de colonne.",
+        "citations": ["persona:B-E DEv"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:Irisa ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-15",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The GraphQL schema pages are read whenever the schema changes; that is the floor I needed.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "The Conventions table cites a path and a line per name; I can check it in review in seconds.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "The PRD 278 case is the acceptance test: exactly the review round we want to stop paying.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "No check in check inbox yet keeps it reversible; we can add one if names still slip.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Invisible to customers, which is fine for a tooling change.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ~"
+    }
+  ]
+}
