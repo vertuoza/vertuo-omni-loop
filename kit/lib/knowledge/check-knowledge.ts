@@ -65,11 +65,11 @@ import { ownersBlockProblems } from '../codeowners-laws.ts';
 
 /**
  * What grading needs of the context: the checkout, where the knowledge folder sits, the glossary's
- * path, and — in an imported copy's context — the target it copies.
+ * path, the playbook's (its briefing is in the CODEOWNERS block, PRD 1793), and — in an imported copy's context — the target it copies.
  */
 export type CheckCtx = KnowledgeCtx & {
   config: {
-    paths: { glossary: string | null };
+    paths: { glossary: string | null; playbook: string };
     laws?: { requireProof: boolean; max?: number; owners?: readonly string[] };
   };
   copyOf?: string;
