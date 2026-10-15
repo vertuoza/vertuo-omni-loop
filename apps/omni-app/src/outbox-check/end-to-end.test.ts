@@ -4,6 +4,7 @@
 // client (PRD 902, s5), so every call spends installation 7's budget, and a paused budget refuses it.
 import { parsePr, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac, generateKeyPairSync } from 'node:crypto';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
@@ -13,7 +14,8 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { type AppEvent, inngest } from '../inngest-client.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { installationOctokitFor } from '../octokit-for.ts';
-import { checkRunAt, fakeGitHub, outputOf, overHttp } from './fake-github.ts';
+import { RECORD_MARKER } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
+import { checkRunAt, commitOf, fakeGitHub, outputOf, overHttp } from './fake-github.ts';
 import { createOutboxCheck } from './outbox-check.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
@@ -319,6 +321,29 @@ describe('end to end — a signed webhook to a completed check', () => {
       expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: '1 unaccounted change to a law — N-PRODUCT-2' } });
       expect(github.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews');
     });
+  });
+
+  it('14. the escalation record leaves the check as it was: the same conclusion and summary with and without it (PRD 1794)', async () => {
+    const delegated = commitOf([fixture('base-locked')], (yaml) => yaml.replace('  owners: [ann]', '  owners:\n    - login: ann\n      delegate: jdoe\n  leadership: [cto]'));
+    const head = commitOf([fixture('head-locked-edited'), fixture('head-open')]);
+    try {
+      const files = [{ filename: '.omni-loop/knowledge/product/invariants.md', status: 'modified' }];
+      const checked = async (base: string) => {
+        const github = fakeGitHub({ commits: { base1: base, head1: head }, pull: featurePull(), files });
+        await deliver(github, pullRequestDelivery(featurePull()));
+        const run = latest(github);
+        return { github, check: { conclusion: run.conclusion, ...outputOf(run) } };
+      };
+      const withRecord = await checked(delegated);
+      const without = await checked(fixture('base-locked'));
+      expect(withRecord.github.state.comments.filter((comment) => comment.body.startsWith(RECORD_MARKER))).toHaveLength(1);
+      expect(without.github.state.comments.filter((comment) => comment.body.startsWith(RECORD_MARKER))).toEqual([]);
+      expect(withRecord.check).toEqual(without.check);
+      expect(withRecord.check.conclusion).toBe('failure');
+    } finally {
+      rmSync(delegated, { recursive: true, force: true });
+      rmSync(head, { recursive: true, force: true });
+    }
   });
 
   it('5. a repository with no .omni-loop/config.yml gets no outbox check at all (PRD 359)', async () => {

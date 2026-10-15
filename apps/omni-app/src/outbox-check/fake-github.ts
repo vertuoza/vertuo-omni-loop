@@ -4,7 +4,8 @@
 // routes the app's units use through `octokit.request(route, params)` and records every request.
 // Test support only; nothing in the app imports it.
 import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
@@ -197,6 +198,21 @@ export function fakeGitHub({
   }
 
   return { octokit, state };
+}
+
+/**
+ * A commit's folder made at runtime: the fixture folders `dirs` copied in order into a fresh temporary
+ * folder (a later one's file wins), then its `.omni-loop/config.yml` rewritten by `config` when given.
+ * The caller removes it.
+ */
+export function commitOf(dirs: readonly string[], config?: (yaml: string) => string): string {
+  const root = mkdtempSync(join(tmpdir(), 'omni-commit-'));
+  for (const dir of dirs) cpSync(dir, root, { recursive: true });
+  if (config) {
+    const file = join(root, '.omni-loop', 'config.yml');
+    writeFileSync(file, config(readFileSync(file, 'utf8')));
+  }
+  return root;
 }
 
 /** A check run's Details link, when the unit sent one. */
