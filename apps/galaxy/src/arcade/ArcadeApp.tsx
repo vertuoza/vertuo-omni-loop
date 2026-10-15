@@ -1120,7 +1120,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       // letters and arrows do not; ENTER and TAB keep the pause and the menu. On every other screen the arcade's keys hold.
       const kr = uiRef.current.scene === 'kart' ? kartRef.current : null;
       const own = api && kr?.game && kr.options ? kr.options.keys : null;
-      const shiftBound = !!own && !api.shiftSelects(own);
+      const shiftBound = !!api && !!own && !api.shiftSelects(own);
       if (api && own && kr) {
         const phase = kr.hud?.phase;
         if (phase === 'countdown' || (phase === 'race' && !kr.hud?.menu)) {
