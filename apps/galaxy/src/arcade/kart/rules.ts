@@ -21,8 +21,13 @@ export const RULES = Object.freeze({
   climb: 1.2,
   /** The surfaces (PRD 1923): powder caps the top speed at this share of it; on ice the direction of travel turns towards the heading at `iceGrip` radians a second and never lags it by more than `iceSlip` radians. */
   powder: 0.55,
-  iceGrip: 1.2,
-  iceSlip: 0.6,
+  iceGrip: 0.4,
+  iceSlip: 1.0,
+  /** PRD 1963: on ice the gas adds `iceAccel` of what it adds on road, the brake takes off `iceBrake` of it and letting go takes off `iceCoast` of it; off the ice a carried direction of travel turns back to the heading at `grip` radians a second. */
+  iceAccel: 0.6,
+  iceBrake: 0.4,
+  iceCoast: 0.3,
+  grip: 6,
   /** The turn rate at best grip, the speed it is reached at, and the part of it that is left at the top speed. */
   steer: 2.6,
   gripSpeed: 25,

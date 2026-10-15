@@ -499,7 +499,7 @@ describe('the surfaces', () => {
     expect(tippedOver(edge, { x: 2 * TILE, y: 2.5 * TILE })).toBe(false);
   });
 
-  it('keeps the top speed on ice, and lets the path lag the nose while steering, by 0.6 radians at most', () => {
+  it('keeps the top speed on ice, and lets the path lag the nose while steering, by 1.0 radian at most, reaching it within a second', () => {
     let k = at(30 * TILE, 30 * TILE, 0, 60);
     const gaps: number[] = [];
     for (let t = 0; t < 1.5; t += RULES.subStep) {
@@ -507,17 +507,40 @@ describe('the surfaces', () => {
       gaps.push(gap(k));
     }
     expect(gaps[40]).toBeGreaterThan(gaps[10] ?? 0);
+    expect(Math.max(...gaps.slice(0, Math.round(1 / RULES.subStep)))).toBeGreaterThan(RULES.iceSlip - 0.01);
     expect(Math.max(...gaps)).toBeLessThanOrEqual(RULES.iceSlip + 1e-9);
     expect(Math.max(...gaps)).toBeGreaterThan(RULES.iceSlip - 0.01);
     expect(driveKart(at(30 * TILE, 30 * TILE, 0, RULES.topSpeed), GAS, 0.1, 1, false, 0, ice).speed).toBe(RULES.topSpeed);
   });
 
-  it('closes the gap at 1.2 radians a second once the wheel is straight', () => {
+  it('closes the gap at 0.4 radians a second once the wheel is straight', () => {
     let k = at(30 * TILE, 30 * TILE, 0, 60);
     for (let t = 0; t < 1.5; t += RULES.subStep) k = driveKart(k, pad({ accel: true, right: true }), RULES.subStep, 1, false, 0, ice);
     const before = gap(k);
     for (let t = 0; t < 0.1 - 1e-9; t += RULES.subStep) k = driveKart(k, GAS, RULES.subStep, 1, false, 0, ice);
     expect(before - gap(k)).toBeCloseTo(RULES.iceGrip * 0.1, 3);
+  });
+
+  it('acts the gas, the brake and the coast at 0.6, 0.4 and 0.3 of the road, reversing included', () => {
+    const dv = (map: Ground | undefined, p: Pad, v: number) => Math.abs(driveKart(at(30 * TILE, 30 * TILE, 0, v), p, 0.1, 1, false, 0, map).speed - v);
+    const road = undefined;
+    expect(dv(ice, GAS, 20) / dv(road, GAS, 20)).toBeCloseTo(RULES.iceAccel, 6);
+    expect(dv(ice, pad({ brake: true }), 20) / dv(road, pad({ brake: true }), 20)).toBeCloseTo(RULES.iceBrake, 6);
+    expect(dv(ice, pad({}), 20) / dv(road, pad({}), 20)).toBeCloseTo(RULES.iceCoast, 6);
+    expect(dv(ice, pad({ brake: true }), -30) / dv(road, pad({ brake: true }), -30)).toBeCloseTo(RULES.iceAccel, 6);
+    expect(dv(ice, GAS, -30) / dv(road, GAS, -30)).toBeCloseTo(RULES.iceBrake, 6);
+    expect(dv(ice, pad({}), -30) / dv(road, pad({}), -30)).toBeCloseTo(RULES.iceCoast, 6);
+  });
+
+  it('turns the travel back at 6 radians a second off the ice and drops it within 0.01 radian', () => {
+    const road = undefined;
+    const slid: Kart = { ...at(30 * TILE, 30 * TILE, 0, 20), travel: -0.5 };
+    const one = driveKart(slid, pad({}), 0.01, 1, false, 0, road);
+    expect((one.travel ?? 0) - -0.5).toBeCloseTo(RULES.grip * 0.01, 6);
+    let k = slid;
+    for (let t = 0; t < 0.1; t += RULES.subStep) k = driveKart(k, pad({}), RULES.subStep, 1, false, 0, road);
+    expect(k.travel).toBeUndefined();
+    expect(driveKart(at(30 * TILE, 30 * TILE, 0, 20), GAS, 0.1, 1, false, 0, road).travel).toBeUndefined();
   });
 
   it('travels the way it faces on road, and again once it leaves the ice', () => {
