@@ -65,6 +65,31 @@ const wordSelector = text.refine((value) => parseSelector(value) !== null, 'a se
 const lawOwner = z
   .string()
   .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, 'a GitHub login or <org>/<team>, without @');
+// PRD 1794: one person's GitHub login, without `@`: never a team, since a team never clears a law.
+const personLogin = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, 'a GitHub login, without @, never a team');
+// PRD 1794: an owner and the one person asked in their place once they have not answered. A key the
+// entry leaves out reads as empty, so the refusal names that key: a union reports an option's issues
+// only when none of them aborts, and a missing key would abort.
+const ownerWithDelegate = z.preprocess(
+  (value) => (isRecord(value) ? { login: '', delegate: '', ...value } : value),
+  z
+    .object({ login: personLogin, delegate: personLogin })
+    .strict()
+    .refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+      message: 'a delegate other than its own owner',
+      path: ['delegate'],
+    }),
+);
+// An entry of `laws.owners`: a plain owner (PRD 1726), or an owner with a delegate (PRD 1794).
+const lawOwnerEntry = z.union([lawOwner, ownerWithDelegate]);
+
+/** An entry of `laws.owners`, as written: a login or `<org>/<team>`, or `{ login, delegate }`. */
+export type LawOwner = z.infer<typeof lawOwnerEntry>;
+
+/** An entry of `laws.owners` as its owner and its delegate; a plain entry has no delegate. */
+export function lawOwnerParts(entry: LawOwner): { owner: string; delegate: string | null } {
+  return typeof entry === 'string' ? { owner: entry, delegate: null } : { owner: entry.login, delegate: entry.delegate };
+}
 
 /**
  * The kinds of contract a slice may declare (PRD 1870) when a repository's `contracts.kinds` names
@@ -355,7 +380,11 @@ export const ConfigSchema = z
       max: z.number().int().positive().default(20),
       // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
       // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-      owners: z.array(lawOwner).default([]),
+      // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+      owners: z.array(lawOwnerEntry).default([]),
+      // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+      // Never written into CODEOWNERS, so its approval never clears a law.
+      leadership: z.array(personLogin).default([]),
     }),
     risk: section({
       storedShape: z.array(regexSource).default([]),
@@ -391,6 +420,9 @@ export const ConfigSchema = z
       // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
       // and a config that does not set it parses exactly as before.
       hookMaxBytes: z.number().int().positive().optional(),
+      // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+      // next people are asked. Its own setting: `stallDays` is unchanged.
+      escalationWorkingDays: z.number().int().min(1).max(10).default(2),
     }),
     // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
     // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
