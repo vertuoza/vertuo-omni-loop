@@ -1049,7 +1049,7 @@ describe('the sync section (PRD 1990)', () => {
   });
 
   it('refuses an order that does not list each check exactly once, naming sync.order', () => {
-    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge]\n')).toMatch(/^c\.yml .*: sync\.order: page is not listed/);
+    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge]\n')).toMatch(/^c\.yml .*: sync\.order: page is not listed — the order names main, kit, knowledge, page, each once/);
     expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge, page, main]\n')).toMatch(/: sync\.order: main is listed twice/);
     expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge, pages]\n')).toMatch(/: sync\.order\.3: pages is no check — one of main, kit, knowledge, page/);
     expect(firstLine('kit: 1\nsync:\n  order: main\n')).toMatch(/: sync\.order: /);
@@ -1063,7 +1063,7 @@ describe('the sync section (PRD 1990)', () => {
   });
 
   it('refuses a mainRedAfter that is not a whole number of hours from 1h to 720h, naming it', () => {
-    for (const value of ['0h', '721h', '24', '1.5h', '24 h', '1d', 'h', '-3h', '""', '024h']) {
+    for (const value of ['0h', '721h', '24', '1.5h', '24 h', '1d', 'h', '-3h', '""', '024h', '12h30', '24hh']) {
       expect(firstLine(`kit: 1\nsync:\n  mainRedAfter: ${value}\n`), value).toMatch(/: sync\.mainRedAfter: a whole number of hours, written <n>h from 1h to 720h/);
     }
   });
