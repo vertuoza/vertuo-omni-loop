@@ -10,7 +10,7 @@ import { sure } from '../arcade/test/sure';
 import { settled } from '../stages/settled';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
-export type FakeProofDossier = { id: string; workspace: string; repo: string; prd: PrdNumber };
+export type FakeProofDossier = { id: string; workspace: string; repo: string; prd: PrdNumber; kind?: 'prd' | 'bug' };
 
 export class FakeProofWorld {
   dossiers: FakeProofDossier[] = [];
@@ -44,7 +44,7 @@ export class FakeProofWorld {
     const who = this.accounts.get(token);
     const workspaces = who?.workspaces ?? [];
     const store: ProofStore = {
-      dossierOf: (repo, prd) => settled(() => this.dossiers.find((d) => d.repo === repo.toLowerCase() && d.prd === prd && workspaces.includes(d.workspace))?.id ?? null),
+      dossierOf: (repo, prd, kind) => settled(() => this.dossiers.find((d) => d.repo === repo.toLowerCase() && d.prd === prd && (d.kind ?? 'prd') === kind && workspaces.includes(d.workspace))?.id ?? null),
       signUploads: (dossierId, runId, names) => settled(() => {
         if (!this.reads(workspaces, dossierId) || this.runs.some((r) => r.id === runId)) throw new Error('new row violates row-level security policy');
         return names.map((name) => {
