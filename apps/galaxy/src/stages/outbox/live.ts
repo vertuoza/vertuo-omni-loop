@@ -3,7 +3,7 @@ import { serviceDb } from '../../data/sign-in-live';
 import { githubStore } from '../../dossier/github/server';
 import { liveRecountSummary } from '../../dossier/snapshot/live';
 import { appCredentials } from '../../signup/github-app';
-import { escalationReader, type EscalationRead } from './escalation-github';
+import { escalationReader, type EscalationRead } from '../sync/github';
 import { stageStore } from '../store';
 import { recountOutboxes, type RecountDeps, type RecountRef } from './recount';
 import { prdOutboxStore } from './store';

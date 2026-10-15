@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderRecord } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
 import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { settled } from '../settled';
-import { escalationReader } from './escalation-github';
+import { escalationReader } from './github';
 
 vi.mock('server-only', () => ({}));
 

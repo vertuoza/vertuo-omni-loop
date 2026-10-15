@@ -31,7 +31,7 @@ B. B. Read the record from the comments the dossier's GitHub summary already fet
 
 ## What I had to decide
 
-Whether the record keeps its own read in apps/galaxy/src/stages/outbox/escalation-github.ts, or moves into the dossier's GitHub summary (apps/galaxy/src/dossier/github/reader.ts, summary.ts, and the snapshot schema), which already lists the feature PR's comments.
+Whether the record keeps its own read in apps/galaxy/src/stages/sync/github.ts (escalationReader), or moves into the dossier's GitHub summary (apps/galaxy/src/dossier/github/reader.ts, summary.ts, and the snapshot schema), which already lists the feature PR's comments.
 
 ## What I did meanwhile
 
