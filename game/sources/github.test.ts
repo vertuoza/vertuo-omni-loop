@@ -82,7 +82,7 @@ describe('buildSnapshot', () => {
     const acme = configFrom({ sectors: [], teams: [], roster: [], repositories: [{ full_name: 'acme-gh/acme-rockets', tracked: true }, { full_name: 'acme-gh/old-rockets', tracked: false }] });
     const seen: string[] = [];
     await buildSnapshot({ config: acme, exec: (args) => { seen.push(args.join(' ')); return Promise.resolve(args[0] === 'issue' ? '[]' : ''); }, now: NOW });
-    expect(seen).toEqual([expect.stringMatching(/^issue list -R acme-gh\/acme-rockets --label omni:prd /)]);
+    expect(seen.filter((call) => !call.startsWith('api repos/acme-gh/acme-rockets --jq') && !call.startsWith('pr list -R acme-gh/acme-rockets --base main --state merged '))).toEqual([expect.stringMatching(/^issue list -R acme-gh\/acme-rockets --label omni:prd /)]);
     const none: string[][] = [];
     const empty = await buildSnapshot({ config: configFrom({}), exec: (args) => { none.push(args); return Promise.resolve('[]'); }, now: NOW });
     expect(empty.planets).toEqual([]);
@@ -451,16 +451,16 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
   ]);
   const now = new Date('2026-09-30T10:00:00Z');
 
-  it('pays 10 per zone to each sub-PR\'s author, the 50 expedition bonus at the merge, and the settler their wound and closer points', async () => {
+  it('pays a sub-PR\'s author nothing for its zone and the 10 expedition bonus at the merge, and the settler their wound and closer points (PRD 1975)', async () => {
     const s = await buildSnapshot({ config: cfg, exec, now });
     expect(s.planets.map((p) => [p.home, p.prd, p.captain, p.ownerTeam])).toEqual([[PLAN_REPO, 88, 'paul', 'beaver']]);
     const events = projectEvents(s, { config: cfg, now });
     expect(events.every((e) => e.home === PLAN_REPO)).toBe(true);
     expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')).toMatchObject({ id: `planet:${PLAN_REPO}#88:terraformed`, at: '2026-09-29T14:00:00Z', data: { ownerTeam: 'beaver' } });
     const season = score(events, { season: '2026-09', now });
-    // paul: s1 (10) + expedition (50); alice: s2 (10) + expedition (50); pierre: the high item (15) + closer (25).
-    expect(season.individuals).toEqual({ paul: 60, alice: 60, pierre: 40 });
-    expect(season.teams.beaver).toBe(10 + 50 + 15 + 25 + 100); // paul's and pierre's credits, and the owner's terraform
+    // paul: s1 (0) + expedition (10); alice: s2 (0) + expedition (10); pierre: the high item (15) + closer (25).
+    expect(season.individuals).toEqual({ paul: 10, alice: 10, pierre: 40 });
+    expect(season.teams.beaver).toBe(10 + 15 + 25 + 100); // paul's and pierre's credits, and the owner's terraform
   });
 
   it('keeps two repositories\' PRD 88 apart: no shared id, owner, clawback or terraform', async () => {
@@ -488,8 +488,8 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     const season = score(events, { season: '2026-09', now });
     expect(season.planets[`${PLAN_REPO}#88`]).toMatchObject({ ownerTeam: 'beaver', terraformed: true, lost: false });
     expect(season.planets[`${other}#88`]).toMatchObject({ ownerTeam: 'octopod', terraformed: false, lost: true });
-    // The lost twin claws back only its own zone: paul and alice keep what they earned on the terraformed 88.
-    expect(season.individuals).toEqual({ paul: 60, alice: 60, pierre: 40 });
+    // The lost twin claws back only its own: paul and alice keep what they earned on the terraformed 88.
+    expect(season.individuals).toEqual({ paul: 10, alice: 10, pierre: 40 });
   });
 });
 
@@ -551,8 +551,8 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
       [`zone:${APPS}:${PLAN_REPO}#88:s2:secured`, 'alice'],
     ]);
     expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')).toMatchObject({ id: `planet:${PLAN_REPO}#88:terraformed`, at: '2026-09-29T15:00:00Z' });
-    // Each author: 10 for the zone and the 50 expedition bonus at the last region's merge.
-    expect(score(events, { season: '2026-09', now }).individuals).toEqual({ alice: 60, bob: 60 });
+    // Each author: 0 for the zone (PRD 1975) and the 10 expedition bonus at the last region's merge.
+    expect(score(events, { season: '2026-09', now }).individuals).toEqual({ alice: 10, bob: 10 });
   });
 
   it('terraforms only when every region\'s feature PR has merged', async () => {
@@ -571,6 +571,85 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
     expect(s.planets.map((p) => `${p.home}#${p.prd}`)).toEqual([`${PLAN_REPO}#88`]);
     expect(nth(s.planets, 0, 'the planet').regions.map((r) => present(r.featurePr, 'the feature PR').number)).toEqual([89, 284, 40]);
     expect(projectEvents(s, { config: cfg, now }).filter((e) => JSON.stringify(e).includes('old-plan'))).toEqual([]);
+  });
+});
+
+describe('the pull requests merged into each tracked repository\'s default branch (PRD 1975)', () => {
+  const merged = (number: number, over: Record<string, unknown> = {}) => ({
+    number, title: 'feat: a thing', labels: [], author: { login: 'Alice' }, mergedBy: { login: 'PM', is_bot: false },
+    latestReviews: [], mergedAt: '2026-09-22T12:00:00Z', ...over,
+  });
+  const read = async (prs: unknown[], seen: string[] | null = null) =>
+    (await buildSnapshot({ config, exec: fakeExec([[`pr list -R ${R} --base main --state merged`, prs], ...world()], seen), now: NOW })).merged ?? [];
+  const kinds = async (prs: unknown[]) => Object.fromEntries((await read(prs)).map((pr) => [pr.number, pr.kind]));
+
+  it('reads them with one gh pr list into the default branch, merged only, and reads no sub-PR', async () => {
+    const seen: string[] = [];
+    expect((await read([merged(1)], seen)).map((pr) => pr.number)).toEqual([1]);
+    expect(seen.filter((call) => call.includes('--state merged'))).toEqual([
+      `pr list -R ${R} --base main --state merged --limit 1000 --json number,title,labels,author,mergedBy,latestReviews,mergedAt`,
+    ]);
+  });
+
+  it('sorts each by its kind: a feat or fix title, or an omni:feature or omni:bug label, is feat', async () => {
+    expect(await kinds([
+      merged(1, { title: 'feat: export' }), merged(2, { title: 'fix(game): a crash' }), merged(3, { title: 'feat!: break it' }),
+      merged(4, { title: 'FIX(Scope)!: shout' }), merged(5, { title: 'Ship it', labels: [{ name: 'omni:feature' }] }),
+      merged(6, { title: 'chore: x', labels: [{ name: 'omni:bug' }] }),
+    ])).toEqual({ 1: 'feat', 2: 'feat', 3: 'feat', 4: 'feat', 5: 'feat', 6: 'feat' });
+  });
+
+  it('reads a retro or knowledge pull request as docs, whatever its title', async () => {
+    expect(await kinds([
+      merged(1, { title: 'docs: retro', labels: [{ name: 'omni:retro' }] }),
+      merged(2, { title: 'feat: knowledge', labels: [{ name: 'omni:knowledge' }] }),
+    ])).toEqual({ 1: 'docs', 2: 'docs' });
+  });
+
+  it('reads a phase-0, a release, a plain docs, an untyped, a featured-looking or a bot\'s pull request as none', async () => {
+    expect(await kinds([
+      merged(1, { title: 'feat: the spec', labels: [{ name: 'omni:phase-0' }, { name: 'omni:feature' }] }),
+      merged(2, { title: 'chore(release): v0.0.417' }), merged(3, { title: 'docs: a guide' }), merged(4, { title: 'Update the guide' }),
+      merged(5, { title: 'feature: almost' }), merged(6, { title: 'refactor: tidy' }),
+      merged(7, { author: { login: 'renovate[bot]' } }), merged(8, { author: { login: 'app/omni', is_bot: true } }), merged(9, { author: null }),
+    ])).toEqual({ 1: 'none', 2: 'none', 3: 'none', 4: 'none', 5: 'none', 6: 'none', 7: 'none', 8: 'none', 9: 'none' });
+  });
+
+  it('names its reviewers: its approvers and its merger, each once, never its author, never a bot', async () => {
+    const [pr] = await read([merged(1, {
+      mergedBy: { login: 'Eve' },
+      latestReviews: [
+        { author: { login: 'eve' }, state: 'APPROVED' }, { author: { login: 'Bob' }, state: 'APPROVED' },
+        { author: { login: 'alice' }, state: 'APPROVED' }, { author: { login: 'carol' }, state: 'CHANGES_REQUESTED' },
+        { author: { login: 'copilot', is_bot: true }, state: 'APPROVED' }, { author: { login: 'renovate[bot]' }, state: 'APPROVED' },
+      ],
+    })]);
+    expect(pr).toEqual({ repo: R, number: 1, title: 'feat: a thing', kind: 'feat', author: 'alice', mergedAt: '2026-09-22T12:00:00Z', reviewers: ['bob', 'eve'] });
+    const [self] = await read([merged(2, { mergedBy: { login: 'alice' } })]);
+    expect(self?.reviewers).toEqual([]);
+    const [bot] = await read([merged(3, { mergedBy: { login: 'omni-bot', is_bot: true } })]);
+    expect(bot?.reviewers).toEqual([]);
+  });
+
+  it('skips one with no readable merge time, and reads a repository that cannot be read as none', async () => {
+    expect(await read([merged(1, { mergedAt: 'garbage' }), merged(2)])).toHaveLength(1);
+    const s = await buildSnapshot({ config, exec: fakeExec([[`pr list -R ${R} --base main --state merged`, new Error('gh: HTTP 404')], ...world()]), now: NOW });
+    expect(s.merged).toEqual([]);
+    expect(s.planets.map((p) => p.prd)).toEqual([2332]);
+  });
+
+  it('pays its author and its reviewers through the projector and the economy, once however many polls see it', async () => {
+    const s = await buildSnapshot({ config, exec: fakeExec([[`pr list -R ${R} --base main --state merged`, [merged(7, { latestReviews: [{ author: { login: 'bob' }, state: 'APPROVED' }] })]], ...world()]), now: NOW });
+    const events = projectEvents(s, { config, now: NOW }).filter((e) => e.type.startsWith('PR_'));
+    expect(events.map((e) => e.id)).toEqual(['pr:vertuoza/core-repo#7:merged', 'pr:vertuoza/core-repo#7:reviewed:bob', 'pr:vertuoza/core-repo#7:reviewed:pm']);
+    expect(score(events, { season: '2026-09', now: NOW }).individuals).toEqual({ alice: 30, bob: 10, pm: 10 });
+    expect(projectEvents(s, { config, now: NOW }).filter((e) => e.type.startsWith('PR_'))).toEqual(events);
+  });
+
+  it('is not read for a single planet', async () => {
+    const seen: string[] = [];
+    await buildSnapshot({ config, exec: fakeExec(world(), seen), now: NOW, prds: [parsePrd(2332)] });
+    expect(seen.some((call) => call.includes('--state merged'))).toBe(false);
   });
 });
 

@@ -5,7 +5,8 @@
 -- each with its PRD by the brainstorm rule (first) or the delivery rule over numbered PRD dossiers (null
 -- when none claims it), its home in lower case (the PRD's, else the round's repository) and the
 -- answerer's lower-case login; no round without a login. Only the service role runs it. The ledger takes
--- a QUESTION_ANSWERED row, on planet 0 when it belongs to no PRD, and no other row on planet 0.
+-- a QUESTION_ANSWERED row, on planet 0 when it belongs to no PRD, a PR_MERGED and a PR_REVIEWED on
+-- planet 0 (PRD 1975), and no other row on planet 0.
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -142,10 +143,14 @@ insert into public.ledger_events (workspace_id, id, at, type, planet, home, cont
 values ('00000000-0000-4000-8000-0000000a0000', 'ask:00000000-0000-4000-8000-0000000aa001:answered', '2026-09-12 10:05+00', 'QUESTION_ANSWERED', 7, 'game/plan', 'ada-gh');
 insert into public.ledger_events (workspace_id, id, at, type, planet, home, contributor)
 values ('00000000-0000-4000-8000-0000000a0000', 'ask:00000000-0000-4000-8000-0000000aa009:answered', '2026-09-12 10:05+00', 'QUESTION_ANSWERED', 0, 'game/plan', 'ada-gh');
+-- A merged pull request's author and reviewers (PRD 1975) belong to no planet either.
+insert into public.ledger_events (workspace_id, id, at, type, planet, home, region, contributor, data)
+values ('00000000-0000-4000-8000-0000000a0000', 'pr:game/plan#12:merged', '2026-09-12 10:05+00', 'PR_MERGED', 0, 'game/plan', 'game/plan', 'ada-gh', '{"pr": 12, "kind": "feat"}'),
+       ('00000000-0000-4000-8000-0000000a0000', 'pr:game/plan#12:reviewed:paul-gh', '2026-09-12 10:05+00', 'PR_REVIEWED', 0, 'game/plan', 'game/plan', 'paul-gh', '{"pr": 12, "kind": "feat"}');
 do $$
 begin
   insert into public.ledger_events (workspace_id, id, at, type, planet) values ('00000000-0000-4000-8000-0000000a0000', 'planet:0:charted', now(), 'PLANET_CHARTED', 0);
-  raise exception 'FAIL: the ledger took planet 0 for an event that is no answer';
+  raise exception 'FAIL: the ledger took planet 0 for an event that is no answer and no merged pull request';
 exception when check_violation then null;
 end $$;
 do $$

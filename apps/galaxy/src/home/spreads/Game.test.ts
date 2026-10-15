@@ -50,7 +50,7 @@ describe('the game', () => {
   it('says how points come, every number read from the rulebook', () => {
     const closes = Object.values(RULEBOOK.woundClose);
     expect(text(sure(beats[1], 'the second beat'))).toBe(
-      `SHIP VALUE A secured zone scores ${RULEBOOK.zoneSecured}. A rescue scores ${RULEBOOK.rescue}. `
+      `SHIP VALUE A merged feat/fix PR scores ${RULEBOOK.prMerged.feat}. A rescue scores ${RULEBOOK.rescue}. `
       + `Closing Entropy (an unanswered question, stuck work, a shipped bug) scores ${Math.min(...closes)} to ${Math.max(...closes)}, by its kind.`,
     );
   });
