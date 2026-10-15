@@ -1026,6 +1026,12 @@ describe('delegates, leadership and the escalation delay (PRD 1794)', () => {
     expect(config.laws.leadership).toEqual(['cto-login']);
   });
 
+  it('reads a one-letter login as an owner, a delegate and a leader', () => {
+    const config = parseConfig('kit: 1\nlaws:\n  owners:\n    - a\n    - login: b\n      delegate: c\n  leadership: [d]\n');
+    expect(config.laws.owners).toEqual(['a', { login: 'b', delegate: 'c' }]);
+    expect(config.laws.leadership).toEqual(['d']);
+  });
+
   it('names no leader by default, and waits 2 working days before it escalates', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.laws.leadership).toEqual([]);
