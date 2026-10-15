@@ -953,6 +953,19 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
     expect(lines((await omni(ownerless, ['kb', 'laws'])).out)).toEqual([LAW_LINE.replace('@pierrederval', 'its owner')]);
   });
 
+  it('names each owner\u2019s delegate beside its owner, and never product leadership (PRD 1794)', async () => {
+    const delegated = `${CONFIG_TEXT}laws:\n  owners:\n    - login: pierrederval\n      delegate: jdoe\n  leadership: [cto-login]\n`;
+    const { root } = makeRepo({ git: true, files: files({ '.omni-loop/config.yml': delegated }) });
+    expect(lines((await omni(root, ['kb', 'laws'])).out)).toEqual([
+      LAW_LINE.replace('needs @pierrederval to approve', 'needs @pierrederval (or the delegate @jdoe) to approve'),
+    ]);
+    const mixed = `${CONFIG_TEXT}laws:\n  owners:\n    - login: pierrederval\n      delegate: jdoe\n    - acme/platform\n`;
+    const { root: both } = makeRepo({ git: true, files: files({ '.omni-loop/config.yml': mixed }) });
+    expect(lines((await omni(both, ['kb', 'laws'])).out)).toEqual([
+      LAW_LINE.replace('needs @pierrederval to approve', 'needs @pierrederval (or the delegate @jdoe) or @acme/platform to approve'),
+    ]);
+  });
+
   it('--paths adds exactly the rules whose Governs: matches, never one without Governs:', async () => {
     const { root } = makeRepo({ git: true, files: files() });
     const { code, out } = await omni(root, ['kb', 'laws', '--paths', 'kit/lib/quote/total.ts', 'game/ledger.ts']);
@@ -1196,6 +1209,24 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       expect(stale.code).toBe(1);
       expect(stale.out).toContain('.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.');
       await omni(root, ['kb', 'owners']);
+      expect(await check(root)).toMatchObject({ code: 0 });
+    });
+
+    it('writes each owner and each delegate on every line, never a leader, and check knowledge counts a new delegate (PRD 1794)', async () => {
+      const { root, read, write } = makeRepo({ git: true, files: files() });
+      await omni(root, ['kb', 'owners']);
+      expect(await check(root)).toMatchObject({ code: 0 });
+      write('.omni-loop/config.yml', `${CONFIG_TEXT}laws:\n  owners:\n    - login: pierrederval\n      delegate: jdoe\n  leadership: [cto-login]\n`);
+      const stale = await check(root);
+      expect(stale.code).toBe(1);
+      expect(stale.out).toContain('.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.');
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({
+        code: 0,
+        out: 'kb owners — wrote .github/CODEOWNERS: 5 path(s) owned by @pierrederval, @jdoe; no line outside its markers changed.\n',
+      });
+      const written = read('.github/CODEOWNERS');
+      expect(written).toBe(`${BLOCK.replaceAll(' @pierrederval', ' @pierrederval @jdoe')}\n`);
+      expect(written).not.toContain('cto-login');
       expect(await check(root)).toMatchObject({ code: 0 });
     });
 

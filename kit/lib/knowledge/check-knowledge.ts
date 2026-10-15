@@ -62,6 +62,7 @@ import {
 import { invalidGoverns } from './disclose.ts';
 import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
 import { ownersBlockProblems } from '../codeowners-laws.ts';
+import type { LawOwner } from '../config.ts';
 
 /**
  * What grading needs of the context: the checkout, where the knowledge folder sits, the glossary's
@@ -70,7 +71,7 @@ import { ownersBlockProblems } from '../codeowners-laws.ts';
 export type CheckCtx = KnowledgeCtx & {
   config: {
     paths: { glossary: string | null };
-    laws?: { requireProof: boolean; max?: number; owners?: readonly string[] };
+    laws?: { requireProof: boolean; max?: number; owners?: readonly LawOwner[] };
   };
   copyOf?: string;
 };

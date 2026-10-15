@@ -5,6 +5,7 @@
 // one dialect, each pattern a regular expression over repository paths. A rule with no `Governs:`
 // line is never disclosed for files, so nothing falls back to loading everything; `omni kb status`
 // counts those as a backlog.
+import type { LawOwner } from '../config.ts';
 import { areaOf, resolveFlow } from '../flow/resolve.ts';
 import { regexSource } from '../flow/schema.ts';
 import { isLaw, type KnowledgeEntry } from './registers.ts';
@@ -90,12 +91,17 @@ export function disclose(entries: readonly KnowledgeEntry[], thesis: Thesis | nu
 /** `@login` for a login, as written for a team (`@org/team`) or a login given with its `@`. */
 const handle = (owner: string): string => (owner.startsWith('@') ? owner : `@${owner}`);
 
+/** An entry of `laws.owners` as the reader is told it: `@owner`, then `(or the delegate @login)` when it has one (PRD 1794). */
+const ownerWords = (entry: LawOwner): string =>
+  typeof entry === 'string' ? handle(entry) : `${handle(entry.login)} (or the delegate ${handle(entry.delegate)})`;
+
 /**
  * One law as a line a junior developer or PM reads: what it promises, what breaks, and who must agree
- * to change it — `owners` is `laws.owners`, the people CODEOWNERS names for a law's files.
+ * to change it — `owners` is `laws.owners`, the people CODEOWNERS names for a law's files, each
+ * owner's delegate named beside it.
  */
-export function lawLine({ id, sentence }: DisclosedLaw, owners: readonly string[]): string {
-  const who = owners.length === 0 ? 'its owner' : owners.map(handle).join(' or ');
+export function lawLine({ id, sentence }: DisclosedLaw, owners: readonly LawOwner[]): string {
+  const who = owners.length === 0 ? 'its owner' : owners.map(ownerWords).join(' or ');
   return `law ${id} — ${sentence} Changing it needs ${who} to approve the pull request.`;
 }
 
