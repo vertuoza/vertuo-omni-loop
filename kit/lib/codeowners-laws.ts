@@ -10,20 +10,22 @@
  *   cross-domain file;
  * - each locked law's test, every path its `Enforced by:` line names;
  *
- * each owned by every one of `laws.owners`. It writes the file GitHub reads first (`.github/`, the
+ * each owned by every one of `laws.owners` and each owner's delegate (PRD 1794), never by
+ * `laws.leadership`. It writes the file GitHub reads first (`.github/`, the
  * root, then the docs folder), and `.github/CODEOWNERS` when there is none, so a block never shadows a file
  * a repository already has. `omni check knowledge` goes red when the block differs from what the
  * command would write ({@link ownersBlockProblems}).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { LawOwner } from './config.ts';
 import { CODEOWNERS_FILES, OWNERS_BEGIN, ownersBlock, ownersBlockIn, withOwnersBlock, type OwnedPath } from './codeowners.ts';
 import { domainsDir, isLaw, LAYER_FILES, productDir, readKnowledge, type Knowledge, type KnowledgeCtx } from './knowledge/registers.ts';
 import { thesisPath } from './knowledge/thesis.ts';
 import { messageOf } from './narrow.ts';
 
-/** What the block needs of the context: the knowledge folder, and `laws.owners`. */
-export type OwnersCtx = KnowledgeCtx & { config: { laws?: { owners?: readonly string[] } } };
+/** What the block needs of the context: the knowledge folder, and `laws.owners` (their delegates included, PRD 1794). */
+export type OwnersCtx = KnowledgeCtx & { config: { laws?: { owners?: readonly LawOwner[] } } };
 
 /** The file the block goes in when the repository has no CODEOWNERS yet. */
 const DEFAULT_CODEOWNERS = '.github/CODEOWNERS';

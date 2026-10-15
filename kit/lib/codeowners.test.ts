@@ -4,6 +4,7 @@ import {
   exactPattern,
   isOwnedBy,
   isPersonOwner,
+  lawCodeowners,
   ownerHandle,
   ownersBlock,
   ownersBlockIn,
@@ -182,5 +183,26 @@ describe('the block omni kb owners writes (PRD 1726, s4)', () => {
       expect(() => ownersBlockIn(text), text).toThrow(unpaired);
       expect(() => withOwnersBlock(text, BLOCK), text).toThrow(unpaired);
     }
+  });
+});
+
+describe('delegates in the block, never leadership (PRD 1794, s1)', () => {
+  const PATHS = [{ path: 'k/product/rules.md', why: 'The registers.' }];
+
+  it('writes each owner, then its delegate, on every line', () => {
+    const block = ownersBlock(PATHS, [{ login: 'pierrederval', delegate: 'jdoe' }, 'acme/platform']);
+    expect(block.split('\n')).toContain('/k/product/rules.md @pierrederval @jdoe @acme/platform');
+    expect(ownersOf({ rules: parseCodeowners(block) }, 'k/product/rules.md')).toEqual(['@pierrederval', '@jdoe', '@acme/platform']);
+  });
+
+  it('writes a block with no delegate exactly as before', () => {
+    expect(ownersBlock(PATHS, ['pierrederval', 'acme/keepers'])).toBe(
+      ['# BEGIN omni kb owners', '# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines.', '# The registers.', '/k/product/rules.md @pierrederval @acme/keepers', '# END omni kb owners'].join('\n'),
+    );
+  });
+
+  it('names a person once, whatever its case, when a delegate is also an owner', () => {
+    expect(lawCodeowners([{ login: 'ann', delegate: 'Bob' }, { login: 'bob', delegate: 'ann' }, 'carl'])).toEqual(['ann', 'Bob', 'carl']);
+    expect(lawCodeowners([])).toEqual([]);
   });
 });
