@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1797 — before and after</title>
+<style>
+/* Layout: one reading column; Functional part as paired today/after panels that stack on phones. */
+:root{--bg:#fbfbf8;--fg:#1d2321;--muted:#5d6764;--line:#d9ded9;--card:#f1f4f0;--term:#1f2624;--term-fg:#e3ece7;--term-dim:#8fa39a;--up:#2f6fb0;--down:#2c8a5a;--side:#9a6a1d;--warn:#a2462e;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121615;--fg:#e4eae7;--muted:#9aa8a3;--line:#2a3331;--card:#192120;--term:#0b0f0e;--term-fg:#dbe6e0;--term-dim:#7d9188;--up:#7fb3e8;--down:#6fcf9b;--side:#e0b465;--warn:#e98c73;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121615;--fg:#e4eae7;--muted:#9aa8a3;--line:#2a3331;--card:#192120;--term:#0b0f0e;--term-fg:#dbe6e0;--term-dim:#7d9188;--up:#7fb3e8;--down:#6fcf9b;--side:#e0b465;--warn:#e98c73;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 var(--sans)}
+main{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:28px 48px;display:grid;gap:28px}
+h1{font-size:1.45rem;margin:0;text-wrap:balance}
+h2{font-size:1.1rem;margin:0;text-wrap:balance}
+h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0}
+p{margin:0;max-width:68ch}
+.lead{color:var(--muted)}
+header{display:grid;gap:6px}
+section{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.panel{display:grid;gap:10px;align-content:start;min-width:0;border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--card)}
+pre{margin:0;background:var(--term);color:var(--term-fg);font:12.5px/1.6 var(--mono);padding:12px 14px;border-radius:6px;overflow-x:auto;white-space:pre}
+.dim{color:var(--term-dim)}.u{color:var(--up)}.d{color:var(--down)}.s{color:var(--side)}.w{color:var(--warn)}
+pre .u,pre .d,pre .s{filter:brightness(1.25)}
+.note{font-size:.9rem;color:var(--muted)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--card)}
+tr:last-child td{border-bottom:0}
+code{font-family:var(--mono);font-size:.88em}
+.chip{display:inline-block;font:600 .72rem/1 var(--mono);padding:4px 7px;border-radius:999px;border:1px solid currentColor}
+.pp{border-top:1px solid var(--line);padding-top:18px;font-weight:600}
+</style></head><body>
+<main>
+<header>
+<h1>PRD 1797 — before and after</h1>
+<p class="lead">PRD 1797 · P5 of the roadmap "Governed knowledge"</p>
+<p>The knowledge graph from the CLI: <code>omni kb graph &lt;id&gt;</code> prints one entry's neighbourhood, one line per node, never a whole register.</p>
+</header>
+
+<section aria-labelledby="functional">
+<h2 id="functional">Functional</h2>
+
+<h3>1 · Asking about one rule</h3>
+<div class="pair">
+<div class="panel"><h3>Today</h3>
+<pre><span class="dim">$</span> omni kb graph BR-PRODUCT-3
+usage: omni kb graph [--json]
+<span class="dim">exit 2</span>
+
+<span class="dim">$</span> omni kb graph
+kb graph — 1 domain, 189 entries, 96 links
+  product    81 principles · 96 rules · 12 invariants …
+  loose entries (12): N-PRODUCT-2, N-PRODUCT-3, …</pre>
+<p class="note">An id is refused. The only answer is the whole folder: a summary, or 124 KB of JSON with two link kinds, <code>serves</code> and <code>cites</code>.</p>
+</div>
+<div class="panel"><h3>After</h3>
+<pre><span class="dim">$</span> omni kb graph BR-PRODUCT-3
+BR-PRODUCT-3 · rule · law, locked by @pierrederval — When the
+  only red check is the outbox context …, /omni:pr reports this
+  in the status comment and stops.
+  <span class="u">up  </span>  serves       P-PRODUCT-3                    principle  The outbox gate stays red …
+  <span class="d">down</span>  enforced-by  test:kit/test/plugin.test.ts   test
+  <span class="d">down</span>  governs      path:^kit/plugin/skills/(pr)/  path
+  <span class="d">down</span>  governs      path:^kit/test/plugin\.test\.ts$  path
+  <span class="s">side</span>  same-prd     ADR-0006                       adr        Without a named summary check …
+  <span class="s">side</span>  same-prd     ADR-0007 … ADR-0011            adr        (five lines)
+  <span class="s">side</span>  same-prd     … and 3 more (--json lists them all)
+<span class="w">product knowledge: offline</span> — no cached copy of the product's
+  Legal and Glossary; only this repository's links are shown.</pre>
+<p class="note">Up, down and sideways from one entry, at most 6 lines per edge kind. The last line always says where the Legal and Glossary nodes stand.</p>
+</div>
+</div>
+
+<h3>2 · Asking about a file</h3>
+<div class="pair">
+<div class="panel"><h3>Today</h3>
+<pre><span class="dim">$</span> omni kb laws --paths kit/lib/board.ts
+law BR-PRODUCT-3 — An agent never applies the override label …
+law …                         <span class="dim">(every locked law)</span>
+rule BR-PRODUCT-2 — When a pull request's head commit date
+  cannot be read, the claimed-stale check …</pre>
+<p class="note">The rules that govern the file, as headlines. Nothing says what proves them, what they serve, or which decision records and screens sit beside them.</p>
+</div>
+<div class="panel"><h3>After</h3>
+<pre><span class="dim">$</span> omni kb graph --paths kit/lib/board.ts
+BR-PRODUCT-2 · rule — When a pull request's head commit date
+  cannot be read, …
+  <span class="u">up  </span>  serves       P-PRODUCT-2              principle  …
+  <span class="d">down</span>  enforced-by  test:kit/lib/board.test.ts  test
+  <span class="d">down</span>  governs      path:^kit/lib/board\.    path
+  <span class="s">side</span>  same-prd     ADR-0006                 adr        …
+  …
+product knowledge: cached 2026-10-12 (omni).
+
+<span class="dim">$</span> omni kb graph BR-PRODUCT-2 --depth 2 --json</pre>
+<p class="note">One block per entry whose <code>Governs:</code> matches, laws first. <code>--depth</code> walks up to 3 hops between entries; <code>--json</code> gives agents every node.</p>
+</div>
+</div>
+
+<h3>3 · The edges it walks</h3>
+<div class="tbl"><table>
+<thead><tr><th>Edge</th><th>Read from</th><th>Today</th><th>After</th></tr></thead>
+<tbody>
+<tr><td><span class="chip u">up</span> <code>serves</code></td><td><code>Serves:</code> → principle, or Legal <code>L-…</code> (P3, #1795)</td><td>principle only, whole graph</td><td>both, from one entry, both ways</td></tr>
+<tr><td><span class="chip d">down</span> <code>enforced-by</code></td><td><code>Enforced by:</code> → test file</td><td>a field in the JSON</td><td>a node</td></tr>
+<tr><td><span class="chip d">down</span> <code>governs</code></td><td>1726's <code>Governs:</code> → path patterns</td><td>only in <code>kb laws</code></td><td>a node per pattern</td></tr>
+<tr><td><span class="chip d">down</span> <code>points-to</code></td><td><code>Points to:</code> → schema files (P4, #1796)</td><td>does not exist</td><td>a node per file</td></tr>
+<tr><td><span class="chip s">side</span> <code>cites</code></td><td>an id named in the statement or <code>Why:</code></td><td>whole graph</td><td>from one entry</td></tr>
+<tr><td><span class="chip s">side</span> <code>sibling</code></td><td>same principle or Legal entry served</td><td>none</td><td>a node</td></tr>
+<tr><td><span class="chip s">side</span> <code>screen</code></td><td>screen <code>implements</code>/<code>reads</code> meeting <code>Governs:</code></td><td>none</td><td>a node</td></tr>
+<tr><td><span class="chip s">side</span> <code>same-prd</code></td><td>ADR <code>**PRD:** #n</code> = the entry's <code>Source:</code> PRD</td><td>none</td><td>a node</td></tr>
+<tr><td><span class="chip s">side</span> <code>uses-term</code></td><td>a cached Glossary term in the statement (P3)</td><td>does not exist</td><td>a node</td></tr>
+</tbody></table></div>
+
+<h3>4 · What stays the same</h3>
+<div class="pair">
+<div class="panel"><h3>Today</h3>
+<p><code>omni kb graph</code> and <code>omni kb graph --json</code> print the whole folder; the arcade's knowledge map reads that JSON (<code>version: 1</code>).</p>
+</div>
+<div class="panel"><h3>After</h3>
+<p>Unchanged. The neighbourhood is a second shape, <code>{"version":1,"shape":"neighbourhood","start","depth","product","nodes","edges"}</code>, the contract the server API (P6, #1798) publishes as is. The command reads the product cache and never calls the network.</p>
+</div>
+</div>
+</section>
+
+<p class="pp">Pixel perfect: no screen changes</p>
+</main>
+</body></html>
