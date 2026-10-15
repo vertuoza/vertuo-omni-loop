@@ -183,8 +183,8 @@ const REFUSAL_STATUS: Readonly<Record<string, number>> = { '42501': 403, '22023'
 
 // ── A roadmap born on the server ─────────────────────────────────────────────────────────────────
 
-/** A PRD of a row, as text: a repository's number (`912`) or a product's id (`mobile-12`). */
-const PrdIdText = z.string().refine((id) => /^[1-9]\d{0,8}$/.test(id) || ProductPrdIdSchema.safeParse(id).success, 'a PRD number such as 912 or a product PRD id such as mobile-12');
+/** A PRD of a row: a repository's number (`912`) or a product's id (`mobile-12`). */
+const PrdIdText = z.union([PrdNumberSchema, ProductPrdIdSchema]);
 
 const ProductPrd = prdRow(PrdIdText);
 

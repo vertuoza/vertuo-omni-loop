@@ -23,7 +23,7 @@ import { parseOutboxItem } from '../outbox/outbox.ts';
 import type { OutboxItem } from '../types.ts';
 import { clarificationWork, outboxWork, parkWork, questionWork } from './human-work.ts';
 import type { DatedComment, HumanWorkEntry } from './human-work.ts';
-import type { ProductRoadmap, Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
+import type { ProductRoadmap, ProductRoadmapRow, Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
 import type { LastResult } from './prereqs/last.ts';
 
 /** Where a roadmap's PRD stands, as the app stores it: its bar's colour on the Gantt. */
@@ -187,6 +187,18 @@ function prerequisitesOf(roadmap: Pick<Roadmap, 'prerequisites'>, result: Pushed
   };
 }
 
+/** The roadmap's open questions as the push carries them, each with the latest answer given, or null. */
+function pushedQuestions(roadmap: Pick<Roadmap, 'questions'>, answers: ReadonlyMap<string, string>): PushedQuestion[] {
+  return roadmap.questions.map((q) => ({
+    id: q.id,
+    question: q.question,
+    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
+    blocks: [...q.blocks],
+    kind: q.kind,
+    answer: answers.get(q.id) ?? null,
+  }));
+}
+
 /** The body `omni roadmap push` sends: the roadmap, its document, its answers, each PRD's standing
  * (a row with none read stands as waiting), its human work: the roadmap's unanswered person
  * questions, then `prdWork`; no `humanWork` at all when `prdWork` is null (it could not be read),
@@ -212,14 +224,7 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers, p
     ...(state === 'waiting' ? waitsOn(row, rows) : { waitsOn: null, waitsOnUrl: null }),
     ...prdTimes(standing, state),
   }));
-  const questions = roadmap.questions.map((q) => ({
-    id: q.id,
-    question: q.question,
-    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
-    blocks: [...q.blocks],
-    kind: q.kind,
-    answer: answers.get(q.id) ?? null,
-  }));
+  const questions = pushedQuestions(roadmap, answers);
   const { title, milestone, product, target, source } = roadmap;
   const body: RoadmapPushBody = { repo, roadmap: roadmap.roadmap, title, milestone, product, target, source, questions, document, prds, ...prerequisitesOf(roadmap, result) };
   if (prdWork === null) return body;
@@ -229,8 +234,8 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers, p
 
 // ── A roadmap born on the server (PRD 2011) ──────────────────────────────────────────────────────
 
-/** One row of a product roadmap's push: its PRD as text, `912` or `mobile-12`. */
-export type ProductPushedPrd = Omit<PushedPrd, 'prd'> & { prd: string };
+/** One row of a product roadmap's push: its PRD is a repository's number (`912`) or a product's id (`mobile-12`). */
+export type ProductPushedPrd = Omit<PushedPrd, 'prd'> & Pick<ProductRoadmapRow, 'prd'>;
 
 /**
  * The body of a product roadmap's `POST /api/roadmaps`: the key of the product, `new: true` to create
@@ -270,17 +275,10 @@ export function productRoadmapPushBody({ key, seq, repo, roadmap, document, chec
   result?: PushedPrerequisiteResult | null;
 }): ProductRoadmapPushBody {
   const prds = roadmap.prds.map((row) => ({
-    id: row.id, prd: String(row.prd), title: row.title, repos: row.repos ?? [], blockers: [...row.blockedBy], wave: row.wave,
+    id: row.id, prd: row.prd, title: row.title, repos: row.repos ?? [], blockers: [...row.blockedBy], wave: row.wave,
     state: 'waiting' as const, waitsOn: null, waitsOnUrl: null, startedAt: null, endedAt: null,
   }));
-  const questions = roadmap.questions.map((q) => ({
-    id: q.id,
-    question: q.question,
-    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
-    blocks: [...q.blocks],
-    kind: q.kind,
-    answer: null,
-  }));
+  const questions = pushedQuestions(roadmap, new Map());
   return {
     productKey: key,
     ...(seq === null ? { new: true as const } : { roadmap: seq }),

@@ -155,14 +155,11 @@ const FrontMatterSchema = z
   .strict();
 
 /** The front matter, typed (`null` when it fails), and its faults. */
-function frontMatter<S extends typeof FrontMatterSchema | typeof ProductFrontMatterSchema>(
-  raw: string,
-  schema: S,
-): { data: z.infer<S> | null; errors: string[] } {
+function frontMatter<T>(raw: string, schema: z.ZodType<T>): { data: T | null; errors: string[] } {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
   const parsed = schema.safeParse(data, { error: KIT_MESSAGES });
-  if (parsed.success) return { data: parsed.data as z.infer<S>, errors };
+  if (parsed.success) return { data: parsed.data, errors };
   for (const issue of parsed.error.issues) {
     if (issue.code === 'unrecognized_keys') {
       for (const key of issue.keys) {

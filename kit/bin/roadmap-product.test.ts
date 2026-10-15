@@ -135,7 +135,7 @@ describe('omni roadmap push --product', () => {
       questions: [], document: GREEN,
       prds: [
         { id: 'P1', prd: 'mobile-12', title: 'Sign-in', repos: ['app', 'api'], blockers: [], wave: 1, state: 'waiting', waitsOn: null, waitsOnUrl: null, startedAt: null, endedAt: null },
-        { id: 'P2', prd: '912', title: 'Receipts', repos: ['app'], blockers: ['P1'], wave: 2, state: 'waiting', waitsOn: null, waitsOnUrl: null, startedAt: null, endedAt: null },
+        { id: 'P2', prd: 912, title: 'Receipts', repos: ['app'], blockers: ['P1'], wave: 2, state: 'waiting', waitsOn: null, waitsOnUrl: null, startedAt: null, endedAt: null },
       ],
     });
   });

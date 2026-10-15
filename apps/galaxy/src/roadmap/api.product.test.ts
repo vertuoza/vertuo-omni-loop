@@ -43,7 +43,7 @@ const ROW = {
 };
 const PUSH = {
   productKey: 'mobile', new: true, title: 'Mobile launch', milestone: 'The app ships.', target: null, source: null, questions: [],
-  document: '---\ntitle: Mobile launch\n---\n', prds: [ROW, { ...ROW, id: 'P2', prd: '912', repos: ['api'], blockers: ['P1'], wave: 2 }],
+  document: '---\ntitle: Mobile launch\n---\n', prds: [ROW, { ...ROW, id: 'P2', prd: 912, repos: ['api'], blockers: ['P1'], wave: 2 }],
 };
 
 describe('POST /api/roadmaps for a roadmap born on the server', () => {

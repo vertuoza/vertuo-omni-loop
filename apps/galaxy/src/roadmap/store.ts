@@ -7,7 +7,7 @@
 // workspace reads as missing. Every answer is parsed where it comes in (data/parse-rows.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orEmpty, orNull, parseRow, parseRows } from '../data/parse-rows';
 import { StoreError } from '../data/store-error';
 
@@ -103,8 +103,8 @@ export type RoadmapPush = {
   prerequisites?: RoadmapPrerequisitePush[] | undefined; prerequisiteResult?: RoadmapPrerequisiteResultPush | null | undefined;
 };
 
-/** One PRD of a pushed product roadmap (PRD 2011): its PRD as text, `912` or `mobile-12`. */
-export type ProductRoadmapPrdPush = Omit<RoadmapPrdPush, 'prd'> & { prd: string };
+/** One PRD of a pushed product roadmap (PRD 2011): a repository's number (`912`) or a product's id (`mobile-12`). */
+export type ProductRoadmapPrdPush = Omit<RoadmapPrdPush, 'prd'> & { prd: PrdNumber | ProductPrdId };
 
 /**
  * One push of a roadmap born on the server, validated: what roadmap_product_push() takes. `key` is its
