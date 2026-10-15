@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits every persona ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A component bug comes with its story filmed before and after, and a story that will not film falls back to the two outputs and says so.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The failing and passing lines still sit as text under the GIF, so a PHP fix reviews without watching anything.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The cleaner queues the fix with a member's sign-in, and the pull request arrives with its before and after.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The header wins over the session and a bad token is refused even beside one; a GIF that is not made leaves a draft that says why.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The before and after also land on the bug's page, so I can show the fix without opening the code.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits every persona ✓"
     }
   ]
 }
