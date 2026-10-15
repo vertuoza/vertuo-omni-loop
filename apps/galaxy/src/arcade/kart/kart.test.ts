@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { airborne, driveKart, endDrift, hopLift, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
+import { airborne, draftAfter, drafts, driveKart, endDrift, hopLift, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
 import { sure } from '../test/sure';
 import { cornersOf, groundOf, parseTrack, pointAtPx, roadAt, TILE, tileAt, type Ground } from './track';
@@ -700,5 +700,46 @@ describe('the hop and the drift (PRD 1963)', () => {
   it('reads HOP from the up button', () => {
     expect(padOf(new Set<Action>(['up'])).hop).toBe(true);
     expect(padOf(new Set<Action>()).hop).toBeUndefined();
+  });
+});
+
+describe('the slipstream (PRD 1963)', () => {
+  const fast = RULES.topSpeed * RULES.draftMin;
+  const lead = { kart: { ...kartAt(100, 100, 0), speed: fast }, fx: NO_FX };
+  const behind = (dx: number, dy: number, speed = fast) => ({ kart: { ...kartAt(100 - dx, 100 + dy, 0), speed }, fx: NO_FX });
+
+  it('builds within 48 px straight behind a kart, both at 0.6 of the top speed or more', () => {
+    expect(drafts(behind(48, 0), lead)).toBe(true);
+    expect(drafts(behind(49, 0), lead)).toBe(false);
+    expect(drafts(behind(20, 0, fast - 1), lead)).toBe(false);
+    expect(drafts(behind(20, 0), { ...lead, kart: { ...lead.kart, speed: fast - 1 } })).toBe(false);
+  });
+
+  it('builds only within 0.3 rad of the line straight back, never ahead of the kart', () => {
+    expect(drafts(behind(30, 30 * Math.tan(0.29)), lead)).toBe(true);
+    expect(drafts(behind(30, 30 * Math.tan(0.31)), lead)).toBe(false);
+    expect(drafts(behind(-30, 0), lead)).toBe(false);
+  });
+
+  it('is neither given nor taken by a kart in the air or falling', () => {
+    expect(drafts({ ...behind(20, 0), kart: { ...behind(20, 0).kart, height: 2 } }, lead)).toBe(false);
+    expect(drafts(behind(20, 0), { ...lead, kart: { ...lead.kart, lift: 1 } })).toBe(false);
+    expect(drafts({ ...behind(20, 0), fx: { ...NO_FX, fall: 0.5 } }, lead)).toBe(false);
+    expect(drafts(behind(20, 0), { ...lead, fx: { ...NO_FX, fall: 0.5 } })).toBe(false);
+  });
+
+  it('gives a BOOST of 0.6 s after 1.2 s in a row and starts the count again', () => {
+    let fx: Fx = NO_FX;
+    for (let i = 0; i < 11; i++) fx = draftAfter(fx, true, 0.1);
+    expect(fx.boost).toBe(0);
+    expect(fx.draft).toBeGreaterThan(1);
+    fx = draftAfter(fx, true, 0.2);
+    expect(fx.boost).toBe(RULES.draftBoost);
+    expect(fx.draft).toBeUndefined();
+  });
+
+  it('resets the count on leaving the cone, and never cuts a longer BOOST', () => {
+    expect(draftAfter({ ...NO_FX, draft: 1 }, false, 0.1).draft).toBeUndefined();
+    expect(draftAfter({ ...NO_FX, boost: 1.5, draft: 1.15 }, true, 0.1).boost).toBe(1.5);
   });
 });

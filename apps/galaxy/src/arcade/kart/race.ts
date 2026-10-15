@@ -13,7 +13,7 @@ import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
 import { podiumOf } from './podium';
 import { carried, type GridPlayer, type ItemMessage, type StateMessage } from './net';
 import type { KartLook } from './look';
-import { endDrift, fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { draftAfter, drafts, endDrift, fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES, type Difficulty } from './rules';
@@ -289,8 +289,13 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     player = dropped.kart;
     fx = dropped.fx;
     rivals = rivals.map((r) => { const d = fallIfOver(track, r.kart, r.fx ?? NO_FX); return d.kart === r.kart && d.fx === (r.fx ?? NO_FX) ? r : { ...r, kart: d.kart, fx: d.fx }; });
+    // The slipstream (PRD 1963): every kart gives one and takes one.
+    const field = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
+    const drafted = field.map((me, k) => draftAfter(me.fx, field.some((o, j) => j !== k && drafts(me, o)), dt / steps));
+    fx = drafted[0] ?? fx;
+    rivals = rivals.map((r, j) => { const f = drafted[j + 1]; return f ? { ...r, fx: f } : r; });
     // The items: the rivals use what they hold by their rules, then the boxes, BLOBs and ORBs act.
-    let racers = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
+    let racers =[{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
     rivals.forEach((r, j) => {
       const holder = racers[j + 1];
       const calm = holder?.fx.item !== 'boost' && racers.some((x) => approachesRamp(track, x.kart));
@@ -335,6 +340,8 @@ function driveMulti(race: Race, held: ReadonlySet<Action>, dt: number, clock: nu
     const dropped = fallIfOver(track, player, fx);
     player = dropped.kart;
     fx = dropped.fx;
+    // The slipstream (PRD 1963): the player takes one from every other player's kart at its carried position.
+    fx = draftAfter(fx, rivals.some((r) => drafts({ kart: player, fx }, { kart: r.kart, fx: r.fx ?? NO_FX })), dt / steps);
     // Only the player's own kart takes a box; the item it draws is by its place among the players.
     const mine = progressOf(track, pace, player);
     const place = 1 + rivals.filter((r) => progressOf(track, r.pace, r.kart) > mine).length;
