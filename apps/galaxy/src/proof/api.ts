@@ -1,9 +1,12 @@
 // The proof half of the contract (PRD 798's spec, "The Omni page"), as plain functions of a Request, so
 // they are tested on the fake store (./store.fake.ts) and the routes under app/api/proofs/ stay one line:
 //
-//   POST /api/proofs/uploads {repo, prd, files: [{name, bytes, type}]}        → 200 {run, files: [{name, path, url}]}
-//   POST /api/proofs         {repo, prd, run, commit, url, criteria: [{text, verdict, note?, video?, script?}]}
+//   POST /api/proofs/uploads {repo, prd, kind?, files: [{name, bytes, type}]}  → 200 {run, files: [{name, path, url}]}
+//   POST /api/proofs         {repo, prd, kind?, run, commit, url, criteria: [{text, verdict, note?, video?, script?}]}
 //                                                                               → 200 {url}
+//
+// `kind` is `prd` (when absent) or `bug` (PRD 1972): the dossier is the one numbered `(repo, prd, kind)`, a bug's
+// number being its issue's, and the register call answers the bug's page for a bug, the PRD's Proof tab for a PRD.
 //   GET  /api/proofs/<run>/preview.gif                                         → 302 to a 5-minute signed link
 //
 // The first two take the kit's sign-in, as `omni dossier push` does. An upload call mints the run's id
@@ -25,7 +28,7 @@ import { authenticate, callerOrigin as origin, type TokenCheck } from '../ask/au
 import { refuse, reply } from '../business-api/reply';
 import {
   GIF_LINK_SECONDS, isProofType, isVerdict, PROOF_CRITERIA_MAX, PROOF_FILE_MAX_BYTES, PROOF_FILE_NAME, PROOF_FILES_MAX, PROOF_GIF_NAME,
-  PROOF_TYPES, ProofStoreError, VERDICTS, type ProofCriterion, type ProofPublic, type ProofStore,
+  PROOF_KINDS, PROOF_TYPES, ProofStoreError, VERDICTS, type ProofCriterion, type ProofKind, type ProofPublic, type ProofStore,
 } from './store';
 import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -59,6 +62,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /** Where a run is read: the Proof tab of its PRD's page. */
 const proofTab = (request: Request, dossierId: string) => `${origin(request)}/prd/${dossierId}?tab=proof`;
+
+/** Where a bug's run is read: its bug page. */
+const bugPage = (request: Request, dossierId: string) => `${origin(request)}/bugs/${dossierId}`;
 
 /** The database's refusal as the contract's answer; a failure is a 500, never a guess. */
 function refusal(error: ProofStoreError): Response {
@@ -97,14 +103,19 @@ async function body(request: Request, max: number): Promise<Record<string, unkno
   }
 }
 
-/** The repository and PRD a call names, or the problem. */
-function prdOf(sent: Record<string, unknown>): { repo: string; prd: PrdNumber } | { problem: string } {
+/** The repository, number and kind a call names, or the problem. */
+function prdOf(sent: Record<string, unknown>): { repo: string; prd: PrdNumber; kind: ProofKind } | { problem: string } {
   const repo = sent.repo;
   if (typeof repo !== 'string' || repo.length > 200 || !REPO.test(repo)) return { problem: 'A proof names its repository as owner/name.' };
   const prd = sent.prd;
   if (!isWhole(prd) || prd <= 0 || prd > PRD_MAX) return { problem: '`prd` is the PRD\'s number.' };
-  return { repo, prd: parsePrd(prd) };
+  const kind = sent.kind ?? 'prd';
+  if (!isOneOf(PROOF_KINDS, kind)) return { problem: '`kind` is prd or bug.' };
+  return { repo, prd: parsePrd(prd), kind };
 }
+
+/** What a missing dossier is called in a refusal. */
+const subject = (kind: ProofKind, prd: PrdNumber) => (kind === 'bug' ? `bug #${prd}` : `PRD #${prd}`);
 
 /** `Number.isInteger`, as the type guard it is: true only for a number. */
 const isWhole = (value: unknown): value is number => Number.isInteger(value);
@@ -158,8 +169,11 @@ export function requestUploads(request: Request, deps: ProofDeps): Promise<Respo
     if ('problem' in which) return refuse(400, which.problem);
     const read = filesOf(sent.files);
     if ('problem' in read) return refuse(read.status, read.problem);
-    const dossierId = await proofs.dossierOf(which.repo, which.prd);
-    if (!dossierId) return refuse(404, `No dossier for PRD #${which.prd} of ${which.repo.toLowerCase()}: push it first (omni dossier push ${which.prd}).`);
+    const dossierId = await proofs.dossierOf(which.repo, which.prd, which.kind);
+    if (!dossierId) {
+      const push = which.kind === 'bug' ? `omni dossier push --kind bug ${which.prd}` : `omni dossier push ${which.prd}`;
+      return refuse(404, `No dossier for ${subject(which.kind, which.prd)} of ${which.repo.toLowerCase()}: push it first (${push}).`);
+    }
     const run = randomUUID();
     const files = await proofs.signUploads(dossierId, run, read.names);
     return reply(200, { run, files });
@@ -218,7 +232,7 @@ function urlOf(value: unknown): string | null {
   }
 }
 
-type RunHeader = { repo: string; prd: PrdNumber; run: string; commit: string; url: string; criteria: ProofCriterion[] };
+type RunHeader = { repo: string; prd: PrdNumber; kind: ProofKind; run: string; commit: string; url: string; criteria: ProofCriterion[] };
 
 /** What a register call names before the store is asked, or the problem. */
 function runHeaderOf(sent: Record<string, unknown>): RunHeader | { problem: string } {
@@ -245,16 +259,16 @@ export function registerRun(request: Request, deps: ProofDeps): Promise<Response
     if (sent instanceof Response) return sent;
     const header = runHeaderOf(sent);
     if ('problem' in header) return refuse(400, header.problem);
-    const { repo, prd, run, commit, url, criteria } = header;
-    const dossierId = await proofs.dossierOf(repo, prd);
-    if (!dossierId) return refuse(404, `No dossier for PRD #${prd} of ${repo.toLowerCase()}.`);
+    const { repo, prd, kind, run, commit, url, criteria } = header;
+    const dossierId = await proofs.dossierOf(repo, prd, kind);
+    if (!dossierId) return refuse(404, `No dossier for ${subject(kind, prd)} of ${repo.toLowerCase()}.`);
     const held = await proofs.uploaded(dossierId, run);
     const missing = notUploaded(criteria, held);
     if (missing) return refuse(400, `${missing} was not uploaded to this run.`);
     await proofs.register({
       id: run, dossierId, commit, url, criteria, gif: held.includes(PROOF_GIF_NAME) ? PROOF_GIF_NAME : null,
     });
-    return reply(200, { url: proofTab(request, dossierId) });
+    return reply(200, { url: kind === 'bug' ? bugPage(request, dossierId) : proofTab(request, dossierId) });
   });
 }
 

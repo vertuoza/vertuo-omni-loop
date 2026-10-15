@@ -5,9 +5,11 @@
 // prints `signed in as <email> until <HH:MM>`. No sign-in, or one the server refuses, is
 // `no sign-in (omni signin)`, and a server that does not answer `unreachable`: exit 1, no file.
 //
-// `omni proof push <n> <dir>` — sends a proof run `/omni:prove` recorded to PRD n's dossier on the Omni page
-// (PRD 798's spec, "The Omni page"), and prints the Proof tab's link, then the GIF's stable link on a
-// second line when the run sent a `preview.gif`.
+// `omni proof push [--kind bug] <n> <dir>` — sends a proof run `/omni:prove` recorded to PRD n's dossier on the
+// Omni page (PRD 798's spec, "The Omni page"), and prints the Proof tab's link, then the GIF's stable link on a
+// second line when the run sent a `preview.gif`. With `--kind bug` (PRD 1972) the run goes to the bug dossier
+// of issue n and the first line is the bug page's link; `--kind prd`, or no `--kind`, sends and prints exactly
+// what it did before. Any other kind is a usage error, exit 2.
 //
 // It reads `<dir>/run.json` and the files it names (`../../lib/proof/run.ts`), refusing before anything
 // is sent what the app would refuse: a type other than .webm, .gif, .ts or .txt is `refused (400)`, a
@@ -45,7 +47,7 @@ type ProofOptions = { tokens?: TokenStore | undefined; home?: string | undefined
 /** What a call is handed: the streams and the options. */
 type CallIo = { stdout: Out; stderr: Out; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
 
-const USAGE = 'usage: omni proof push <n> <dir> | omni proof session [<file>]';
+const USAGE = 'usage: omni proof push [--kind bug] <n> <dir> | omni proof session [<file>]';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The one line a failed call is reported with, as `omni dossier link` words it. */
@@ -57,17 +59,30 @@ function skipLine(error: unknown): string {
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
 
-/** What `omni proof push <n> <dir>` or `omni proof session [<file>]` names, or a usage error. */
-function argsOf(args: string[], proof: Vars['proof']): { verb: 'session'; file: string } | { verb: 'push'; prd: PrdNumber; dir: string } {
-  const { positional } = parseArgs('proof', args);
+/** The `--kind` a push names: `bug`, or undefined for a PRD's (`prd` or none); another is a usage error. */
+function kindOf(kind: string | undefined): 'bug' | undefined {
+  if (kind === undefined || kind === 'prd') return undefined;
+  if (kind === 'bug') return 'bug';
+  throw usageError(`${USAGE} (--kind is prd or bug, not ${kind})`);
+}
+
+/** What `omni proof push [--kind bug] <n> <dir>` or `omni proof session [<file>]` names, or a usage error. */
+function argsOf(
+  args: string[],
+  proof: Vars['proof'],
+): { verb: 'session'; file: string } | { verb: 'push'; prd: PrdNumber; dir: string; kind: 'bug' | undefined } {
+  const { positional, flags } = parseArgs('proof', args, { values: ['kind'] });
   const [verb, first, second, ...rest] = positional;
-  if (verb === 'session') {
-    const file = first ?? proof?.storageState;
-    if (!file || second !== undefined) throw usageError(`${USAGE} (session needs <file> or PROOF_STORAGE_STATE)`);
-    return { verb, file };
-  }
+  const kind = kindOf(flags.kind);
+  if (verb === 'session') return { verb, file: sessionFile(first ?? proof?.storageState, second, kind) };
   if (verb !== 'push' || second === undefined || rest.length) throw usageError(USAGE);
-  return { verb, prd: prdArg('proof push', '<n>', first), dir: second };
+  return { verb, prd: prdArg('proof push', '<n>', first), dir: second, kind };
+}
+
+/** The file `omni proof session` writes to, or a usage error: it takes one file and no kind. */
+function sessionFile(file: string | undefined, extra: string | undefined, kind: 'bug' | undefined): string {
+  if (!file || extra !== undefined || kind !== undefined) throw usageError(`${USAGE} (session needs <file> or PROOF_STORAGE_STATE)`);
+  return file;
 }
 
 /** The run in `dir`, or the one line a local refusal is reported with. */
@@ -86,7 +101,7 @@ function localRun(cwd: string, dir: string): { line: string; run?: undefined } |
 
 /** Sends the run and prints its links, or the one line that stopped it; the exit code. */
 async function send(
-  { toggle, repo, prd, run }: { toggle: { askUrl: string }; repo: string; prd: PrdNumber; run: ProofRun },
+  { toggle, repo, prd, kind, run }: { toggle: { askUrl: string }; repo: string; prd: PrdNumber; kind: 'bug' | undefined; run: ProofRun },
   { stdout, stderr, tokens, home, fetch, callMs }: CallIo,
 ): Promise<number> {
   const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
@@ -96,7 +111,7 @@ async function send(
   }
   let pushed;
   try {
-    pushed = await pushProof({ client, repo, prd, run });
+    pushed = await pushProof({ client, repo, prd, ...(kind ? { kind } : {}), run });
   } catch (error) {
     println(stderr, skipLine(error));
     return 1;
@@ -167,7 +182,7 @@ export const proof = {
       const file = isAbsolute(parsed.file) ? parsed.file : resolve(cwd, parsed.file);
       return writeSession({ askUrl, file, target: targetHost(vars.proof?.url) }, { stdout, stderr, tokens, home, fetch, callMs });
     }
-    const { prd, dir } = parsed;
+    const { prd, dir, kind } = parsed;
     const toggle = dossierSwitch(ctx.config);
     if (!toggle.on) {
       println(stderr, 'off');
@@ -180,6 +195,6 @@ export const proof = {
       println(stderr, local.line);
       return 1;
     }
-    return send({ toggle, repo, prd, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
+    return send({ toggle, repo, prd, kind, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
   },
 } satisfies FreeCommand;
