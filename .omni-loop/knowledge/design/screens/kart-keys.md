@@ -54,4 +54,4 @@ KEYS · GAS · BRAKE · LEFT · RIGHT · ITEM · HOP · SPACE · SHIFT · A CHAN
 
 ## Source
 
-/omni:brainstorm, PRD 1963: .omni-loop/delivery/inbox/1963-kart-drift/before-after.html
+/omni:brainstorm, PRD 1963: .omni-loop/delivery/shipped/1963-kart-drift/before-after.html
