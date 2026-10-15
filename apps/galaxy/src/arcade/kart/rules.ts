@@ -68,6 +68,8 @@ export const RULES = Object.freeze({
   rivalHorizon: 40,
   rivalHorizonTime: 0.3,
   rivalBrake: 1.1,
+  /** PRD 1963: a HARD rival hops into a bend tighter than this many tiles and drifts through it. */
+  rivalDriftRadius: 8,
   /** How far before a ramp (game pixels) no rival throws a BLOB or an ORB, at or at a kart on the way to it: a spin there is a fall into the gap beyond. */
   rampCalm: 160,
   /** How far past a gate's line (game pixels) a kart still counts as through it, when it was pushed over the line between two steps. */
