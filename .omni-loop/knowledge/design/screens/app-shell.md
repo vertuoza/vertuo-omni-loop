@@ -4,8 +4,8 @@ status: draft
 kind: shared
 mock: app-shell.html
 implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css]
-reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/(shell)/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
-routes: [/app, /app/runners, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
+reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/(shell)/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/app/ideas/layout.tsx, apps/galaxy/src/ideas/IdeasFrame.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
+routes: [/app, /app/runners, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual, /ideas/<owner>/<repo>]
 supersedes: null
 ---
 
@@ -41,6 +41,9 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
   drawer over a scrim (`nav/drawer.ts`, `nav/drawer.css`). The theme switch, Game mode and the bell
   wrap to a second row.
 - **Signed out:** no bell; Sign in with GitHub in the avatar's place (`nav/UserMenu.tsx`).
+- **An ideas board** (`/ideas/<owner>/<repo>`, public): a signed-in person sees it in the shell, Ideas
+  marked current; a visitor on a shared link sees the public page with the top bar only, no shell
+  (`src/ideas/IdeasFrame.tsx`, issue 1996).
 - **No workspace name:** the line under the logo is not drawn.
 - **A path under no entry:** the tile shows the OMNI LOOP mark and the bar has no trail.
 
@@ -81,3 +84,4 @@ Dark · Game mode · My profile · Sign out · Sign in with GitHub.
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
 - /omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html (the `/ask` pages it no longer frames)
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (the Runners entry)
+- /omni:visual-fix #1996, pick B by @pierrederval on 2026-10-15: .omni-loop/delivery/visual/1996-ideas-keeps-menu/before-after.html
