@@ -8,7 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { orEmpty, orNull, parseRow, parseRows } from '../data/parse-rows';
+import { orEmpty, orNull, orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { StoreError } from '../data/store-error';
 
 /** Where a roadmap's PRD stands: its bar's colour on the Gantt. `ready` waits for a person's merge;
@@ -153,8 +153,9 @@ export type RoadmapPushAnswer = z.infer<typeof PushAnswer>;
 export const RoadmapRow = z.strictObject({
   id: z.string(),
   workspace_id: z.string(),
-  repo: z.string(),
-  number: IssueNumberSchema,
+  // Null for a roadmap born on the server (PRD 2011), keyed by its dossier instead.
+  repo: z.string().nullable(),
+  number: IssueNumberSchema.nullable(),
   title: z.string(),
   milestone: z.string(),
   product_id: z.string().nullable(),
@@ -169,6 +170,8 @@ export const RoadmapRow = z.strictObject({
   // (ROADMAP_READ_COLUMNS); optional so a roadmap built before it (the page's demo) still parses.
   prerequisites_machine: z.string().nullable().optional(),
   prerequisites_checked_at: z.string().nullable().optional(),
+  // The dossier of a roadmap born on the server (PRD 2011), whose versions keep every push; null for one born in git.
+  dossier_id: z.string().nullable().optional(),
 });
 export type RoadmapRow = z.infer<typeof RoadmapRow>;
 
@@ -176,7 +179,9 @@ export const RoadmapPrdRow = z.strictObject({
   roadmap_id: z.string(),
   position: z.number().int(),
   row_id: z.string(),
-  prd: PrdNumberSchema,
+  // The repository PRD's number; null for a product PRD (PRD 2011), whose id is `prd_id` (`mobile-12`).
+  prd: PrdNumberSchema.nullable(),
+  prd_id: z.string().optional(),
   title: z.string(),
   repos: z.array(z.string()),
   blockers: z.array(z.string()),
@@ -227,11 +232,18 @@ export const RoadmapPrerequisiteRow = z.strictObject({
 });
 export type RoadmapPrerequisiteRow = z.infer<typeof RoadmapPrerequisiteRow>;
 
-export const ROADMAP_COLUMNS = 'id, workspace_id, repo, number, title, milestone, product_id, target_date, source, questions, document, pushed_by, created_at, pushed_at';
+/** A version of a roadmap's dossier without its text (PRD 2011); any kind the dossier holds. */
+export const DossierVersionLine = z.strictObject({
+  id: z.string(), kind: z.string(), bytes: z.number(), source: z.enum(['kit', 'github']), created_at: z.string(),
+});
+type DossierVersionLine = z.infer<typeof DossierVersionLine>;
+export const DOSSIER_VERSION_COLUMNS = 'id, kind, bytes, source, created_at';
+
+export const ROADMAP_COLUMNS = 'id, workspace_id, repo, number, title, milestone, product_id, target_date, source, questions, document, pushed_by, created_at, pushed_at, dossier_id';
 /** The columns 20261114090000_roadmap_prerequisites.sql adds to a roadmap. */
 export const ROADMAP_ADDED_COLUMNS = 'prerequisites_machine, prerequisites_checked_at';
 export const ROADMAP_READ_COLUMNS = `${ROADMAP_COLUMNS}, ${ROADMAP_ADDED_COLUMNS}`;
-export const ROADMAP_PRD_COLUMNS = 'roadmap_id, position, row_id, prd, title, repos, blockers, wave, state, waits_on, waits_on_url, started_at, ended_at';
+export const ROADMAP_PRD_COLUMNS = 'roadmap_id, position, row_id, prd, prd_id, title, repos, blockers, wave, state, waits_on, waits_on_url, started_at, ended_at';
 export const ROADMAP_PREREQUISITE_COLUMNS = 'roadmap_id, position, row_id, category, need, check_with, fix_with, blocks_all, blocks, who, repos, card, state, detail';
 export const ROADMAP_HUMAN_WORK_COLUMNS = 'roadmap_id, key, prd, repo, source, text, act, url, kind, kind_by, state, first_seen_at, done_at';
 
@@ -323,6 +335,29 @@ export function roadmapReader(db: Pick<SupabaseClient, 'from'>) {
     async roadmap(id: string): Promise<RoadmapRow | null> {
       const { data, error } = await db.from('roadmaps').select(ROADMAP_READ_COLUMNS).eq('id', id).maybeSingle();
       return error ? null : orNull(parseRow(RoadmapRow.nullable(), data, 'roadmap/store: roadmaps'));
+    },
+
+    /** The roadmap born on the server whose dossier is `dossier` (PRD 2011), or null. */
+    async ofDossier(dossier: string): Promise<RoadmapRow | null> {
+      const { data, error } = await db.from('roadmaps').select(ROADMAP_READ_COLUMNS).eq('dossier_id', dossier).maybeSingle();
+      return error ? null : orNull(parseRow(RoadmapRow.nullable(), data, 'roadmap/store: roadmaps'));
+    },
+
+    /** The versions of a roadmap born on the server (PRD 2011), without their text, oldest first: what a push of
+     * each of its parts added. A failed read is thrown, not read as none. */
+    async dossierVersions(dossier: string): Promise<DossierVersionLine[]> {
+      const { data, error } = await db.from('dossier_versions').select(DOSSIER_VERSION_COLUMNS).eq('dossier_id', dossier)
+        .order('created_at', { ascending: true }).order('id', { ascending: true });
+      if (error) throw new RoadmapStoreError('read the roadmap\'s versions', error);
+      return orThrow(parseRows(DossierVersionLine, data, 'roadmap/store: dossier_versions'));
+    },
+
+    /** One version's text, or null when the caller may not read it; a failed read is thrown. */
+    async versionText(id: string): Promise<string | null> {
+      const { data, error } = await db.from('dossier_versions').select('content').eq('id', id).maybeSingle();
+      if (error) throw new RoadmapStoreError('read the roadmap\'s version', error);
+      const parsed = parseRow(z.strictObject({ content: z.string() }).nullable(), data, 'roadmap/store: dossier_versions content');
+      return orNull(parsed)?.content ?? null;
     },
 
     /** A roadmap's PRDs, in its table's order. */
