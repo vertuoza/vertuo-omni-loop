@@ -14,6 +14,7 @@ import {
   memorySource,
   parseEntryFile,
   readKnowledge,
+  readRegisters,
   type KnowledgeEntry,
   type Place,
 } from './registers.ts';
@@ -509,5 +510,78 @@ describe('a law is a locked entry (PRD 1726)', () => {
     expect(all.map(isConfirmedRule)).toEqual([true, true, false, false, true]);
     expect(isLaw(lockedProposed)).toBe(true);
     expect(all.filter(isLaw).every(isConfirmedRule)).toBe(true);
+  });
+});
+
+describe('a domain contract (PRD 1796)', () => {
+  const INVOICING: Place = { scope: 'domain', domain: 'invoicing', codes: ['INVOICING'], kind: 'contract' };
+  const CONTRACT = [
+    '# Invoicing — contracts',
+    '',
+    '## DC-INVOICING-1',
+    '',
+    'An invoice moves Draft → Sent → Partially paid → Paid, or is offset by a credit note.',
+    'A project has many invoices.',
+    '',
+    'Points to: src/invoicing/invoice-status.ts, `src/invoicing/invoice.schema.ts`',
+    'Source: PRD 412',
+    'Stated: 2026-10-13',
+    '',
+  ].join('\n');
+
+  it('splits a DC- id and finds it cited in a text', () => {
+    expect(idParts('DC-INVOICING-1')).toEqual({ type: 'DC', codes: ['INVOICING'], n: '1' });
+    expect(idsCitedIn('see DC-PRODUCT-1 and BR-QUOTE-1')).toEqual(['DC-PRODUCT-1', 'BR-QUOTE-1']);
+  });
+
+  it('reads a ## DC- heading as an entry, its statement, and Points to: as its comma-separated paths', () => {
+    const [entry] = entriesOf('contracts.md', CONTRACT, INVOICING);
+    expect(entry).toMatchObject({
+      id: 'DC-INVOICING-1',
+      kind: 'contract',
+      statement: 'An invoice moves Draft → Sent → Partially paid → Paid, or is offset by a credit note. A project has many invoices.',
+      pointsTo: ['src/invoicing/invoice-status.ts', 'src/invoicing/invoice.schema.ts'],
+      source: 'PRD 412',
+      stated: '2026-10-13',
+      problems: [],
+    });
+  });
+
+  it('reads an entry without the line as pointing nowhere', () => {
+    const [rule] = entriesOf('r.md', '## BR-ADVISOR-1\n\nx\n\nSource: PRD #1\n', DOMAIN_RULES);
+    expect(rule.pointsTo).toBeNull();
+  });
+
+  it('reads contracts.md in product/ and in a domain folder, and readRegisters returns them as contracts', () => {
+    const files = {
+      'docs/knowledge/product/rules.md': '## BR-PRODUCT-1\n\nx\n',
+      'docs/knowledge/product/contracts.md': '## DC-PRODUCT-1\n\nAn item has one rank.\n\nPoints to: kit/lib/schema/front-matter.ts\n',
+      'docs/knowledge/domains/invoicing/contracts.md': CONTRACT,
+    };
+    const { entries, contracts, rules } = readRegisters({ ctx: flatCtx(tree(files)) });
+    expect(contracts.map((entry) => [entry.id, entry.kind, entry.scope, entry.codes])).toEqual([
+      ['DC-PRODUCT-1', 'contract', 'product', ['PRODUCT']],
+      ['DC-INVOICING-1', 'contract', 'domain', ['INVOICING']],
+    ]);
+    expect(rules.map((entry) => entry.id)).toEqual(['BR-PRODUCT-1']);
+    expect(entries).toHaveLength(3);
+  });
+
+  it('reads a folder without contracts.md exactly as before', () => {
+    const files = {
+      'docs/knowledge/product/rules.md': '## BR-PRODUCT-1\n\nx\n',
+      'docs/knowledge/domains/erp/invariants.md': '## N-ERP-1\n\nx\n',
+    };
+    const ctx = flatCtx(tree(files));
+    expect(readKnowledge({ ctx }).entries.map((entry) => [entry.id, entry.kind])).toEqual([
+      ['BR-PRODUCT-1', 'rule'],
+      ['N-ERP-1', 'invariant'],
+    ]);
+    expect(readRegisters({ ctx }).contracts).toEqual([]);
+  });
+
+  it('a contract is never a law nor a confirmed rule, even with a Locked: line', () => {
+    const [contract] = entriesOf('c.md', `${CONTRACT}Locked: @pierrederval, 2026-10-14\n`, INVOICING);
+    expect([isLaw(contract), isConfirmedRule(contract)]).toEqual([false, false]);
   });
 });

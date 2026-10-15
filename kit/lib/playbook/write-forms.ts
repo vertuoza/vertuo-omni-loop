@@ -18,7 +18,7 @@ import { dirname, join, posix } from 'node:path';
 import { stringify } from 'yaml';
 import type { Context } from '../context.ts';
 import { defined } from '../narrow.ts';
-import { LAYER_FILES, productDir } from '../knowledge/registers.ts';
+import { REQUIRED_LAYER_FILES, productDir } from '../knowledge/registers.ts';
 import { DECISIONS_FORM, FORMS, parseForm } from './forms.ts';
 import { fillConfig } from './resolve.ts';
 import { formTemplate, frontDoorTemplate } from './templates.ts';
@@ -79,7 +79,7 @@ export function writeForms({ ctx }: { ctx: Ctx }): { path: string; wrote: boolea
     ...byFolder.map(({ id }) => ({ path: defined(ctx.layout.formPath(id), `the path of the ${id} form`), text: () => blankForm(id, { ctx }) })), // every id of FORMS is a form the kit has, so formPath is never null
   ];
   if (samePath(frontDoor, knowledgeRoot)) {
-    for (const name of Object.keys(LAYER_FILES)) {
+    for (const name of REQUIRED_LAYER_FILES) {
       planned.push({ path: `${productDir(ctx)}/${name}`, text: () => `# ${REGISTER_TITLES[name]}\n\nNone yet.\n` });
     }
   }

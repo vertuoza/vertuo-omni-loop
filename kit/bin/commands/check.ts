@@ -103,7 +103,7 @@ function checkKnowledge({ ctx, stdout, stderr }: CommandIo): boolean {
     stdout,
     title,
     violations,
-    `check knowledge — ${count('principle')} principle(s), ${count('rule')} rule(s), ${count('invariant')} invariant(s) ` +
+    `check knowledge — ${count('principle')} principle(s), ${count('rule')} rule(s), ${count('invariant')} invariant(s), ${count('contract')} contract(s) ` +
       `across ${knowledge.domains.length} domain(s) and ${knowledge.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`,
   );
 }

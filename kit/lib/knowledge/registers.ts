@@ -5,12 +5,12 @@
  * ```text
  * <knowledgeRoot>/
  *   README.md                  the front page, for a person — never parsed for entries
- *   product/                   principles.md · rules.md · invariants.md
- *   domains/<domain>/          README.md · principles.md · rules.md · invariants.md
+ *   product/                   principles.md · rules.md · invariants.md · contracts.md (optional)
+ *   domains/<domain>/          README.md · principles.md · rules.md · invariants.md · contracts.md (optional)
  *   cross-domain/<a>--<b>.md   rules and invariants only, a before b alphabetically
  * ```
  *
- * Three kinds of entry, one per file for product and domain folders:
+ * Four kinds of entry, one per file for product and domain folders:
  *
  * - **principle** (`P-<CODE>-n`) — a person's product decision. Lines `Why:`, `Decided:`,
  *   `Source:`; never `Enforced by:`, because a principle is judged, not proven.
@@ -18,6 +18,10 @@
  *   `Source:`, `Enforced by:`, `Stated:`.
  * - **invariant** (`N-<CODE>-n`, and the eight Core Invariants `N1`…`N8` in `product/`) — what
  *   must hold in the code. Lines `Source:`, `Enforced by:`, `Stated:`, optional `Serves:`.
+ * - **contract** (`DC-<CODE>-n`, PRD 1796) — the shape of the domain: an entity's structure or
+ *   lifecycle in one or two plain sentences, and a `Points to:` line naming the schema or type
+ *   file(s) that enforce it. Lines `Points to:`, `Source:`, `Stated:`, optional `Serves:`; never a
+ *   law. Its file, `contracts.md`, is optional.
  *
  * A cross-domain entry (`X-<A>-<B>-n`) says which of the last two it is with `Kind:`. `Kept id:`
  * marks an entry whose id predates the layout and whose prefix is therefore not its domain's code.
@@ -54,7 +58,7 @@ import { parseIssue, type IssueNumber } from '../ids.ts';
 import { group, isOneOf, keysOf } from '../narrow.ts';
 
 /** An entry's kind: a person's decision, a provable statement, or what must hold in the code. */
-export type EntryKind = 'principle' | 'rule' | 'invariant';
+export type EntryKind = 'principle' | 'rule' | 'invariant' | 'contract';
 
 /** Where an entry file sits: its scope, its domain, the code(s) its ids carry, and its layer. */
 export type EntryScope = 'product' | 'domain' | 'cross-domain';
@@ -92,6 +96,8 @@ export type KnowledgeEntry = {
   governs: string[] | null;
   /** The plain sentence of a `Proposed law:` line (PRD 1726), what an agent writes instead of a lock. `null`: no line. */
   proposedLaw: string | null;
+  /** The paths a contract's `Points to:` line names (PRD 1796), backticks stripped. `null`: no line. */
+  pointsTo: string[] | null;
   kindLine: string | null;
   keptId: string | null;
   fieldCounts: Partial<Record<FieldKey, number>>;
@@ -120,16 +126,23 @@ export type Knowledge = {
 /** The product-wide code, the one "domain" that is not a folder under `domains/`. */
 export const PRODUCT_CODE = 'PRODUCT';
 
-/** The three layer files every product and domain folder carries, and the kind each one holds. */
-export const LAYER_FILES: Record<string, EntryKind> = {
+/** The layer files a product or domain folder may carry, and the kind each one holds. */
+const LAYER_FILES: Record<string, EntryKind> = {
   'principles.md': 'principle',
   'rules.md': 'rule',
   'invariants.md': 'invariant',
+  'contracts.md': 'contract',
 };
+
+/** The layer files a folder may leave out (PRD 1796): its absence is never a layout violation. */
+const OPTIONAL_LAYER_FILES: readonly string[] = ['contracts.md'];
+
+/** The three layer files every product and domain folder carries, the ones that may hold a law. */
+export const REQUIRED_LAYER_FILES: readonly string[] = Object.keys(LAYER_FILES).filter((name) => !OPTIONAL_LAYER_FILES.includes(name));
 
 /** Every id shape, as one alternation. Order matters: the longer shapes first. */
 const ID_SOURCE =
-  'X-[A-Z0-9]+-[A-Z0-9]+-\\d+|BR-[A-Z0-9]+-\\d+|P-[A-Z0-9]+-\\d+|N-[A-Z0-9]+-\\d+|N\\d+';
+  'X-[A-Z0-9]+-[A-Z0-9]+-\\d+|DC-[A-Z0-9]+-\\d+|BR-[A-Z0-9]+-\\d+|P-[A-Z0-9]+-\\d+|N-[A-Z0-9]+-\\d+|N\\d+';
 
 /** A whole string that is an id of any kind. */
 export const ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
@@ -140,7 +153,7 @@ export const ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, 'g');
 const ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 const ANY_H2 = /^##\s/;
 const FIELD_LINE =
-  /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Kind|Kept id|Glossary term):\s*(.*)$/;
+  /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
 
 /** The field names as they appear on a parsed entry. */
 const FIELD_KEY = {
@@ -155,6 +168,7 @@ const FIELD_KEY = {
   'Proposed law': 'proposedLaw',
   Locked: 'lockedLine',
   Governs: 'governsLine',
+  'Points to': 'pointsToLine',
   Kind: 'kindLine',
   'Kept id': 'keptId',
   'Glossary term': 'glossaryTerm',
@@ -174,7 +188,7 @@ export function codeOf(name: string): string {
 }
 
 /**
- * The shape of an id, split: `{ type: 'P' | 'BR' | 'N' | 'CORE' | 'X', codes: string[], n }`.
+ * The shape of an id, split: `{ type: 'P' | 'BR' | 'N' | 'DC' | 'CORE' | 'X', codes: string[], n }`.
  * `CORE` is one of the eight Core Invariants, `N1`…`N8`, which carry no code. `null` when the
  * string is no id at all.
  */
@@ -279,6 +293,15 @@ function readGoverns(file: string, id: string, value: string | undefined): { gov
     governs,
     problems: [`${file}: ${id} — "Governs:" names no path — list the paths it rules over, comma-separated.`],
   };
+}
+
+/** An entry's `Points to:` line read (PRD 1796): its comma-separated paths, backticks stripped; an empty line names none. */
+function readPointsTo(value: string | undefined): string[] | null {
+  if (value === undefined) return null;
+  return value
+    .split(',')
+    .map((part) => part.replace(/`/g, '').trim())
+    .filter(Boolean);
 }
 
 /** An entry's `Proposed law:` line read: the sentence, an empty one a problem. */
@@ -395,6 +418,7 @@ export function parseEntryFile(file: string, text: string, place: Place): Knowle
       locked,
       governs,
       proposedLaw,
+      pointsTo: readPointsTo(fields.pointsToLine),
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
@@ -539,7 +563,7 @@ export function readKnowledge({ ctx, source = diskSource(ctx.root) }: { ctx: Kno
 }
 
 /**
- * The knowledge folder as the older callers read it: `{ principles, rules, invariants, entries }`.
+ * The knowledge folder as the older callers read it: `{ principles, rules, invariants, contracts, entries }`.
  * `rules` and `invariants` include cross-domain entries of that kind.
  */
 export function readRegisters({ ctx }: { ctx: KnowledgeCtx }): {
@@ -547,6 +571,7 @@ export function readRegisters({ ctx }: { ctx: KnowledgeCtx }): {
   principles: KnowledgeEntry[];
   rules: KnowledgeEntry[];
   invariants: KnowledgeEntry[];
+  contracts: KnowledgeEntry[];
 } {
   const { entries } = readKnowledge({ ctx });
   return {
@@ -554,6 +579,7 @@ export function readRegisters({ ctx }: { ctx: KnowledgeCtx }): {
     principles: entries.filter((entry) => entry.kind === 'principle'),
     rules: entries.filter((entry) => entry.kind === 'rule'),
     invariants: entries.filter((entry) => entry.kind === 'invariant'),
+    contracts: entries.filter((entry) => entry.kind === 'contract'),
   };
 }
 
