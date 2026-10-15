@@ -156,20 +156,38 @@ those points, and the events stay, paying nothing.
 
 ## Merged feature PRs
 
-A feature PR merged into its default branch pays the people who landed it, once per region's feature
-PR, in the season of the merge, with no multiplier:
+A feature PR merged into its default branch writes, once per region's feature PR, at the merge:
 
-- **who merged it**: `RULEBOOK.featureMerged` (30) points, one `FEATURE_MERGED`, id
-  `merge:<repo>#<pr>:<planet key>:merged`;
-- **each person who approved it**: `RULEBOOK.featureReviewed` (10) points, one `FEATURE_REVIEWED`
-  per approver, id `merge:<repo>#<pr>:<planet key>:approved:<login>`. An approver is a reviewer whose
-  latest review approves it (`latestReviews`), the PR's author aside.
+- **who merged it**: one `FEATURE_MERGED`, id `merge:<repo>#<pr>:<planet key>:merged`;
+- **each person who approved it**: one `FEATURE_REVIEWED` per approver, id
+  `merge:<repo>#<pr>:<planet key>:approved:<login>`. An approver is a reviewer whose latest review
+  approves it (`latestReviews`), the PR's author aside.
 
-A bot is never paid. Both earn XP (`xp.weights.featureMerged`, `featureReviewed`). Neither joins the
-crew, so the terraform bonus pays as before. `game:project` reads `mergedBy` and `latestReviews` with
-the feature PR lists it already makes, so past merges since `game_since` are paid on the first poll.
+Both pay nothing since PRD 1975: `RULEBOOK.featureMerged` and `featureReviewed` are 0, past seasons
+and XP included. The feature PR is a pull request merged into its default branch, so
+**Merged pull requests** below pays its author, its merger and its approvers.
+Neither joins the crew, so the terraform bonus pays as before.
 
-Rollback: set both numbers and their XP weights to 0; the events stay, paying nothing.
+Rollback: set `featureMerged` back to 30 and `featureReviewed` to 10; the events stay, paying what
+the rulebook says.
+
+## A sub-PR never earns points
+
+A sub-PR merges into a feature branch, never into the default branch (PRD 1975):
+
+- **A secured zone pays 0** (`RULEBOOK.zoneSecured`), and a `ZONE_REVERTED` therefore debits 0. The
+  `ZONE_SECURED` is still written: the zones' state, the planet's readiness and its crew read it.
+- **The expedition bonus** (`RULEBOOK.terraformExpedition`, 10) is the one credit a sub-PR's author
+  still earns: paid to each crew member when the planet terraforms. The owner fleet's terraform credit
+  (100, by class, sector and streak) and the closer bonus (25) are unchanged.
+- **Retroactive.** `score()` and `game:xp` recompute from the whole ledger, so at the first poll after
+  the merge every sub-PR point and every old merge point is gone, this season's and XP alike. No
+  ledger row is rewritten.
+
+The rule is `A sub-PR never earns points` in `.omni-loop/knowledge/product/rules.md`, proven by
+`game/economy.test.ts` › a sub-PR never earns points (PRD 1975). Rollback: set `zoneSecured` back to
+10, `terraformExpedition` to 50, `featureMerged` to 30, `featureReviewed` to 10, and `prMerged` and
+`prReviewed` to 0; the next `game:score` and `game:xp` restore every number.
 
 ## Merged pull requests
 
@@ -246,7 +264,8 @@ call:
 - **XP** is the sum, over every season in the ledger, of a login's positive personal credits as
   `score()` pays them, each multiplied by its kind's weight in `xp.weights` (`zoneSecured`,
   `woundClosed`, `rescue`, `expedition`, `closer`, `questionAnswered`, `featureMerged`, `featureReviewed`,
-  `prMerged`, `prReviewed`), rounded once after summing. Night-shift and
+  `prMerged`, `prReviewed`), rounded once after summing. A kind whose credit pays 0 (a secured zone,
+  a merged feature PR's old pay, since PRD 1975) adds nothing whatever its weight. Night-shift and
   cross-fleet multipliers count, as they do for points. A zone reverted and a clawback never lower
   it, and fleet credits (a terraform, a decay) are not personal. A weight of 0 leaves a kind out. A
   personal credit whose kind has no weight fails `game/experience.test.ts`, so a new kind of

@@ -1273,3 +1273,14 @@ Stated: 2026-10-12
 Decided: nobody — adopted when raised (medium), 2026-10-11
 Merged: @pierrederval, 2026-10-12, PR #1629
 Proposed: harvest 2026-10-12
+
+## BR-PRODUCT-112
+
+A sub-PR never earns points. Securing a zone pays its author nothing, and a reverted zone takes nothing back; the one credit a sub-PR's author still earns is the expedition bonus, paid when the planet terraforms. Past seasons are recomputed the same way.
+
+Serves: P-PRODUCT-68
+Source: .omni-loop/delivery/inbox/1975-merged-pr-points/spec.md, Solution 7 and 11, PRD #1975
+Enforced by: game/economy.test.ts
+Governs: ^game/(rulebook|economy)\.
+Stated: 2026-10-15
+Decided: @pierrederval, 2026-10-15
